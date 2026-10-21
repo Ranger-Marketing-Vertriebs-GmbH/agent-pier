@@ -1,4 +1,5 @@
 import { installUserFeedFake } from "./agent-feed-fake.js";
+import { defaultPreferences } from "../../server/features/notifications/push-preferences.js";
 
 // A routed stand-in for a restricted user's server: /auth/status says she is signed in
 // and every /api/me route answers from `state`. Requests outside /auth and /api/me are
@@ -79,7 +80,12 @@ export async function userAppFixture(page, options = {}) {
     reminders: options.reminders || {},
     routines: options.routines || {},
     approvals: options.approvals || [],
-    notifications: options.notifications || { configured: true, subscriptions: [] },
+    notifications: options.notifications || {
+      enabled: true,
+      publicKey: "AQAB",
+      subscriptions: [],
+    },
+    notificationCalls: [],
     browser: options.browser || {},
     password: options.password || "current-password-1",
     posted: [],
@@ -282,20 +288,65 @@ function chatRoute(route, state, chat, rest, method, body) {
 }
 
 function notifications(route, state, path) {
-  const method = route.request().method();
+  const request = route.request();
+  const method = request.method();
   if (path === "/api/me/notifications" && method === "GET")
     return json(route, state.notifications);
   if (path === "/api/me/notifications/presence")
     return route.fulfill({ status: 204, body: "" });
+  const body = ["POST", "PUT"].includes(method) ? request.postDataJSON() : null;
+  state.notificationCalls.push({ path, method, body });
   if (path === "/api/me/notifications/subscriptions" && method === "POST") {
     const subscription = {
-      id: `device-${state.notifications.subscriptions.length + 1}`,
-      label: "This browser",
-      current: true,
-      preferences: {},
+      id: "device-1",
+      deviceId: body.deviceId,
+      label: body.label,
+      createdAt: "2026-10-20T09:00:00Z",
+      preferences: defaultPreferences(body.timeZone),
     };
-    state.notifications.subscriptions.push(subscription);
+    state.notifications.subscriptions = [subscription];
     return json(route, { subscription }, 201);
   }
   return json(route, { ok: true });
 }
+
+/** A browser push stack (permission, worker, push manager) that always subscribes. */
+export const installPushStack = (page) =>
+  page.addInitScript(() => {
+    const subscription = {
+      toJSON: () => ({
+        endpoint: "https://push.example.invalid/device",
+        keys: { p256dh: "fixture", auth: "fixture" },
+      }),
+      unsubscribe: async () => true,
+    };
+    let current = null;
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: {
+        permission: "default",
+        requestPermission: async () => {
+          window.Notification.permission = "granted";
+          return "granted";
+        },
+      },
+    });
+    Object.defineProperty(window, "PushManager", {
+      configurable: true,
+      value: function () {},
+    });
+    const registration = {
+      pushManager: {
+        getSubscription: async () => current,
+        subscribe: async () => (current = subscription),
+      },
+    };
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: Object.assign(new EventTarget(), {
+        ready: Promise.resolve(registration),
+        getRegistration: async () => registration,
+        register: async () => registration,
+      }),
+    });
+  });
