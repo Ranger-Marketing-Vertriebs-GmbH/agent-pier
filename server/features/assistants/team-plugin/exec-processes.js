@@ -7,7 +7,8 @@
 // started it. Only the Gateway's own hooks see them all, without reading the
 // transcript:
 // - after_tool_call of `exec`: a result with `status: "running"` is a backgrounded
-//   process (`details.sessionId`, `details.pid`), started by `ctx.runId`. OpenClaw
+//   process (`details.sessionId`), started by `ctx.runId`, with the call's
+//   `timeoutSeconds`. OpenClaw
 //   keeps its own "not started" mark (markToolExecutionNotStarted) private, so an
 //   errored call counts as having started nothing only when its error is one that
 //   OpenClaw raises before the command can start (`notStarted`, verbatim from
@@ -18,15 +19,21 @@
 //   run starts with OpenClaw's completion text and lists its processes;
 // - gateway_start: the record is complete only when it existed before the Gateway
 //   started serving, so no earlier process can be missing.
+// A process leaves the record only when its end is positively observed, never by
+// its pid: OpenClaw's exec session (and its completion) lasts until the command's
+// output closes, so a shell that exits while `cmd &` runs on is still live.
+// - a completion run lists it, and it is the session's only recorded process with
+//   that prefix (several sharing one stay: which one ended is unknown);
+// - the process tool reports it finished (`status` completed or failed with its
+//   `sessionId`);
+// - its own hard bound passed: the call's `timeoutSeconds` above zero, plus
+//   `marginMs`; its prefix then stays refused for another `dropAfterMs`
+//   (`dropped`), in case its completion is still on its way.
+// An ended process leaves the record `dropAfterMs` after its end, past any window
+// its completion run can still prove in. A process without a known end or bound
+// stays (with timeout 0 or none, a silent success that is never polled): its
+// prefix keeps refusing other runs' completions in that session.
 // Every bound keeps memory small and fails closed for one session only:
-// - a process whose pid is gone is dropped two hours after AgentPier first saw it
-//   gone (`dropAfterMs`, past the continuation window); its prefix stays on the
-//   session for another two hours (`dropped`), and a completion naming it is
-//   refused: past that no completion of it can still fall in a live window;
-// - a process without a usable pid, or whose pid stays taken (it may have been
-//   reused), is dropped after `staleAfterMs`; nothing proves it ended, so its prefix
-//   stays refused on the session for the Gateway's life (`unknown`, at most
-//   OpenClaw's 1,841 eight-character slug prefixes);
 // - a session with more live processes than `maxProcesses` is uncertain;
 // - past `maxSessions` the least recently used session is forgotten, and its key is
 //   remembered in a bit filter: that session, and the rare one sharing its bits,
@@ -44,7 +51,7 @@ export const execBounds = {
   maxCalls: 1024,
   maxPending: 1024,
   dropAfterMs: 2 * 3600000,
-  staleAfterMs: 24 * 3600000,
+  marginMs: 10 * 60000,
 };
 const filterBits = 1 << 20;
 // Exec results that never leave a process running for a later completion.
@@ -59,6 +66,8 @@ const ended = new Set([
   "missing-run-id",
   "operand-drift",
   "skipped",
+  // A before_tool_call block (buildBlockedToolResult) before anything ran.
+  "blocked",
 ]);
 // Errors OpenClaw 2026.10.3 raises before an exec command can start: argument
 // validation (validation.js validateToolArguments) and resolveExecTarget, whose
@@ -115,12 +124,7 @@ function session(record, key, create = true) {
   if (entry) record.sessions.delete(key);
   else if (create) {
     // A session forgotten before may have had processes this entry never saw.
-    entry = {
-      processes: [],
-      dropped: new Map(),
-      unknown: new Set(),
-      uncertain: forgotten(record, key),
-    };
+    entry = { processes: [], dropped: new Map(), uncertain: forgotten(record, key) };
     if (record.sessions.size >= execBounds.maxSessions) {
       const [oldest] = record.sessions.keys();
       record.sessions.delete(oldest);
@@ -134,29 +138,14 @@ const bounded = (map, max, key, value) => {
   map.set(key, value);
   if (map.size > max) map.delete(map.keys().next().value);
 };
-const alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code === "EPERM";
-  }
-};
-// Drops processes gone long enough (their prefixes stay for a while) and those too
-// old to follow (their prefixes stay refused).
+// Removes processes whose end, or bound, lies long enough behind.
 function prune(entry, now = Date.now()) {
   for (const [prefix, at] of entry.dropped)
     if (now - at >= execBounds.dropAfterMs) entry.dropped.delete(prefix);
   entry.processes = entry.processes.filter((p) => {
-    const prefix = p.id.slice(0, 8);
-    if (Number.isSafeInteger(p.pid) && p.pid > 0 && !p.goneAt && !alive(p.pid))
-      p.goneAt = now;
-    if (p.goneAt && now - p.goneAt >= execBounds.dropAfterMs) {
-      entry.dropped.set(prefix, now);
-      return false;
-    }
-    if (!p.goneAt && now - p.at >= execBounds.staleAfterMs) {
-      entry.unknown.add(prefix);
+    if (p.endedAt) return now - p.endedAt < execBounds.dropAfterMs;
+    if (p.timeoutSec > 0 && now - p.at > p.timeoutSec * 1000 + execBounds.marginMs) {
+      entry.dropped.set(p.id.slice(0, 8), now);
       return false;
     }
     return true;
@@ -166,6 +155,11 @@ function prune(entry, now = Date.now()) {
     entry.uncertain = true;
     entry.processes.splice(0, excess);
   }
+}
+// A process whose end OpenClaw reported.
+function ending(entry, match, now = Date.now()) {
+  const found = entry.processes.filter((p) => !p.endedAt && match(p));
+  if (found.length === 1) found[0].endedAt = now;
 }
 
 // OpenClaw's completion prompt (heartbeat-events-filter buildExecEventPrompt): one
@@ -228,7 +222,7 @@ export function execEvidence(sessionKey, runId) {
     !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
     !pending &&
     processes.length <= 256 &&
-    ![...ids].some((id) => entry?.dropped.has(id) || entry?.unknown.has(id));
+    ![...ids].some((id) => entry?.dropped.has(id));
   return {
     complete,
     processes: complete ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
@@ -249,6 +243,7 @@ const callKey = (ctx) =>
 /** Records an exec result (after_tool_call); exported for the tests' fixture. */
 export function recordExec(record, event, ctx) {
   const key = ctx.sessionKey;
+  const call = record.pending.get(callKey(ctx));
   record.pending.delete(callKey(ctx));
   const details = event.result?.details;
   const runId = ctx.runId ?? event.runId;
@@ -258,11 +253,12 @@ export function recordExec(record, event, ctx) {
     typeof runId === "string"
   ) {
     const entry = session(record, key);
+    const timeout = call?.timeoutSec ?? event.params?.timeoutSeconds;
     entry.processes.push({
       id: details.sessionId,
       runId,
-      pid: details.pid,
       at: Date.now(),
+      timeoutSec: Number.isFinite(timeout) && timeout > 0 ? timeout : 0,
     });
     prune(entry);
     return;
@@ -296,10 +292,20 @@ export function registerExecProcesses(api) {
           `${ctx.sessionKey}\u0000${ctx.toolCallId}`,
           ctx.runId,
         );
+      return undefined;
+    },
+    { priority: 1100 },
+  );
+  // An exec call that goes ahead: registered last, after every hook that may block
+  // it (OpenClaw stops at the first block). A later block still reports its result.
+  api.on(
+    "before_tool_call",
+    (event, ctx) => {
       if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string") {
         record.pending.set(callKey(ctx), {
           sessionKey: ctx.sessionKey,
           runId: ctx.runId,
+          timeoutSec: event.params?.timeoutSeconds,
         });
         // A call forgotten past the bound is as unknown as one that never reported.
         if (record.pending.size > execBounds.maxPending) {
@@ -310,11 +316,21 @@ export function registerExecProcesses(api) {
       }
       return undefined;
     },
-    { priority: 1100 },
+    { priority: -1_000_000 },
   );
   api.on("after_tool_call", (event, ctx) => {
-    if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string")
-      recordExec(record, event, ctx);
+    if (typeof ctx?.sessionKey !== "string") return;
+    if (event?.toolName === "exec") recordExec(record, event, ctx);
+    // The process tool reports a finished process with its session id.
+    const details = event?.result?.details;
+    if (
+      event?.toolName === "process" &&
+      ["completed", "failed"].includes(details?.status) &&
+      typeof details.sessionId === "string"
+    ) {
+      const entry = session(record, ctx.sessionKey, false);
+      if (entry) ending(entry, (p) => p.id === details.sessionId);
+    }
   });
   api.on("agent_end", (_event, ctx) => {
     // An exec call of this run that never reported its result.
@@ -333,6 +349,9 @@ export function registerExecProcesses(api) {
     if (record.completions.has(runId)) return;
     const ids = completedProcesses(event?.prompt);
     if (!ids) return;
+    // The completion's processes have ended: each that one prefix names alone.
+    const entry = session(record, ctx.sessionKey, false);
+    if (entry) for (const id of ids) ending(entry, (p) => p.id.slice(0, 8) === id);
     bounded(record.completions, execBounds.maxCompletions, runId, {
       sessionKey: ctx.sessionKey,
       ids,
