@@ -173,7 +173,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     throw assistantProblem("invalid");
   let messages = service.store.messages(id),
     nextBefore = null,
-    stale = true;
+    stale = true,
+    longChat = false;
   const client = service.runtime.client;
   const maintenanceEpoch = service.maintenanceEpoch || 0;
   const generation = service.runtime.generation;
@@ -223,6 +224,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.store.cacheMessages(id, cached);
       messages = page;
       stale = false;
+      longChat = offset === 0 && longContext(history.sessionInfo);
       // The turn's own message proves a send whose acknowledgement was lost.
       confirmFromTranscript(service, id, page);
       if (history.hasMore)
@@ -287,7 +289,25 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     stale,
     // While the active attempt's run summarises the conversation (compactions.js).
     compacting: summarising(service, conversation, requests),
+    ...(longChat ? { longChat } : {}),
   };
+}
+
+/** A chat whose context is this many tokens is long: every turn reads all of it. */
+export const longChatTokens = 100000;
+/**
+ * Whether the session's last model call read a very long context (OpenClaw
+ * 2026.10.3 `sessionInfo`: `totalTokens` is the last prompt's size, current only
+ * while `totalTokensFresh`; `contextTokens` is the model's window). Long means
+ * `longChatTokens`, or 80 % of a smaller window.
+ */
+export function longContext(info) {
+  if (info?.totalTokensFresh !== true || !Number.isFinite(info.totalTokens)) return false;
+  const window =
+    Number.isFinite(info.contextTokens) && info.contextTokens > 0
+      ? info.contextTokens
+      : Infinity;
+  return info.totalTokens >= Math.min(longChatTokens, 0.8 * window);
 }
 /**
  * The background turn that delivers generated images answers the request that asked
