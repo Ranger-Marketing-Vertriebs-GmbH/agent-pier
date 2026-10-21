@@ -1179,7 +1179,7 @@ was compacted and the plan was gone. Four rules close that gap:
   proves all of this:
   - The session is a chat of the calling agent, which is not archived and no
     temporary task member.
-  - The chat's latest ledger request is a completed direct turn (`directTurn`: the
+  - The chat's latest ledger request (`latestRequest`, one row) is a completed direct turn (`directTurn`: the
     owner, his paired Telegram chat or a restricted user still on the agent, read
     live, never forwarded). It started at most two hours ago
     (`continuationWindowMs`, four times OpenClaw's default exec timeout of 30
@@ -1208,11 +1208,14 @@ was compacted and the plan was gone. Four rules close that gap:
     reported id must belong to that turn's run, and at least one must; a shorter id
     must equal a whole id.
   - The record is complete. It must exist before `gateway_start`; one that appears
-    later may have missed processes. An errored `exec` call (OpenClaw passes
-    `createErrorToolResult`: its text and `details: {}`, or a status `error`)
-    started nothing. The exec tool reports a backgrounded command as a result, and a
-    call aborted before that kills its command, which then never notifies. Each
-    bound fails closed for one session only:
+    later may have missed processes. OpenClaw keeps its own "not started" mark
+    private, so an errored `exec` call counts as having started nothing only when
+    its whole message is one OpenClaw raises before a command can start: argument
+    validation (`Validation failed for tool "exec":`) or the exec host checks it
+    marks not started (`exec host not allowed …`, the sandbox requirements). Any
+    other error leaves the session uncertain, because OpenClaw can report an error
+    after the command already went to the background (an abort after the yield).
+    Each bound fails closed for one session only:
     - A process whose pid is gone is dropped two hours after the plugin first saw
       it gone. Its eight-character prefix stays on the session, and a completion
       naming it is refused.
@@ -1232,7 +1235,8 @@ was compacted and the plan was gone. Four rules close that gap:
   (`runtime-config.js`). A foreground exec, the command of an earlier forwarded,
   routine or delegated turn, an approval's command (`Exec finished (gateway id=…)`),
   a completion without a readable process list (delivery off, only empty
-  successes, a truncated list), a heartbeat poll, a reminder and a completion after
+  successes, a truncated list; OpenClaw's fixed timeout guidance after a process
+  line is read verbatim), a heartbeat poll, a reminder and a completion after
   a newer request stay read-only. So does every completion of a lead-request,
   team-member, forwarded, routine, team-result, coding-result or memory-result
   turn. The proof never reads the transcript. A refusal of a run the Gateway
@@ -1249,8 +1253,10 @@ was compacted and the plan was gone. Four rules close that gap:
   (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime:
   - the hooks report each background process with its run, the completion's
     prefixes and `gateway_start`;
-  - the completion's write continues the owner turn, after two exec calls of that
-    turn failed before anything started (no command, a host that is not allowed);
+  - the completion's write continues the owner turn, after an exec call of that
+    turn failed argument validation;
+  - an exec error OpenClaw does not mark as before the start (a node host check)
+    leaves the session uncertain, so its completion is refused;
   - the same completion stays refused after a newer forwarded request or past the
     window;
   - a forwarded turn's background command that completes after an owner turn's

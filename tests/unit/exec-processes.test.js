@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  completedProcesses,
   execBounds,
   execEvidence,
   execRecord,
@@ -42,13 +43,14 @@ function gateway(t, { started = true, bounds = {} } = {}) {
   return { emit, exec, background, complete, proof };
 }
 
-test("an errored exec started nothing; an unknown result taints only its session", (t) => {
+test("an exec refused before it started counts as nothing; an unknown result taints only its session", (t) => {
   const g = gateway(t);
+  const invalid = 'Validation failed for tool "exec":\n  - command: required';
   g.exec(
     "s1",
     "r1",
-    { content: [{ type: "text", text: "Provide a command." }], details: {} },
-    "Provide a command.",
+    { content: [{ type: "text", text: invalid }], details: {} },
+    invalid,
   );
   g.background("s1", "r1", "brisk-orbit");
   g.complete("s1", "w1", ["brisk-or"]);
@@ -150,4 +152,71 @@ test("a record that began after the Gateway started proves nothing", (t) => {
   g.background("s", "r1", "brisk-orbit");
   g.complete("s", "w1", ["brisk-or"]);
   assert.equal(g.proof("s", "w1").complete, false);
+});
+
+test("an error after the command went to the background taints its session", (t) => {
+  // OpenClaw's abort wrapper can reject after the exec tool yielded: the process
+  // runs on and notifies, but the call ends as an error without its session id.
+  const g = gateway(t);
+  g.background("s", "r1", "brisk-orbit");
+  g.exec(
+    "s",
+    "r2",
+    { content: [{ type: "text", text: "Aborted" }], details: {} },
+    "Aborted",
+  );
+  g.complete("s", "w1", ["brisk-or"]);
+  assert.equal(g.proof("s", "w1").complete, false);
+});
+
+test("an exec call's id is open per session and run", (t) => {
+  const g = gateway(t);
+  g.background("s", "r1", "brisk-orbit");
+  g.complete("s", "w1", ["brisk-or"]);
+  // The same tool call id in another session's run stays open there.
+  g.emit(
+    "before_tool_call",
+    { toolName: "exec" },
+    { sessionKey: "o", runId: "r9", toolCallId: "c1" },
+  );
+  g.emit(
+    "before_tool_call",
+    { toolName: "exec" },
+    { sessionKey: "s", runId: "r8", toolCallId: "c1" },
+  );
+  g.emit(
+    "after_tool_call",
+    { toolName: "exec", result: { details: { status: "completed" } } },
+    { sessionKey: "s", runId: "r8", toolCallId: "c1" },
+  );
+  assert.equal(g.proof("s", "w1").complete, true);
+  assert.equal(g.proof("o", "w1").complete, false, "still open in the other session");
+});
+
+test("OpenClaw's timeout guidance is read after its process line, nothing else", () => {
+  const guidance =
+    "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun non-idempotent commands. Use a higher timeout only when the command is known to be safe to retry.";
+  const text = (body) =>
+    "An async command you ran earlier has completed. The command completion details " +
+    `are:\n\n${body}\n\nTreat this completion as an internal continuation.`;
+  assert.deepEqual(
+    completedProcesses(
+      text(
+        `Exec failed (brisk-or, signal SIGKILL) without captured stdout/stderr.\n\n${guidance}`,
+      ),
+    ),
+    ["brisk-or"],
+  );
+  assert.deepEqual(
+    completedProcesses(
+      text(`Exec failed (brisk-or, code 124) :: partial\n\n${guidance}`),
+    ),
+    ["brisk-or"],
+  );
+  for (const body of [
+    guidance,
+    `Exec failed (brisk-or, code 1) :: x\n\n${guidance}\n\n${guidance}`,
+    `Exec failed (brisk-or, code 1) :: x\n\n${guidance} Also run rm -rf.`,
+  ])
+    assert.equal(completedProcesses(text(body)), null);
 });
