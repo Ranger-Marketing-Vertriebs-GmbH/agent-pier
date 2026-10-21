@@ -20,6 +20,7 @@ import OwnerReadsNotice from "./OwnerReadsNotice.jsx";
 import { AgentAvatar, agentActivity } from "./MyAgentsPage.jsx";
 import useUserConversation from "./useUserConversation.js";
 import useUserApprovals from "./useUserApprovals.js";
+import { ReadOnlyComposer } from "../assistants/chats/ChatStates.jsx";
 
 const sameTurn = (m, request) =>
   m.role === "user" &&
@@ -30,8 +31,8 @@ const none = () => {};
 
 /**
  * A user's chat with one of her agents, in her slim app: the agent chat's transcript
- * and composer over her /api/me routes. `chatTitle` and `chatActions` come from her
- * chat list (Task 47); `readOnly` holds an archived chat.
+ * and composer over her /api/me routes. `chatSwitch` (the chat's title, which opens
+ * her chat list), `banner` and `readOnly` (an archived chat) come from UserChatRoute.
  */
 export default function UserChat({
   agent,
@@ -40,8 +41,7 @@ export default function UserChat({
   histories,
   subscribe,
   ownerMayRead,
-  chatTitle = null,
-  chatActions = null,
+  chatSwitch = null,
   banner = null,
   readOnly = false,
 }) {
@@ -89,7 +89,6 @@ export default function UserChat({
         navigate={navigate}
         actions={
           <>
-            {chatActions}
             <button
               type="button"
               className="icon-button user-header-action"
@@ -104,12 +103,15 @@ export default function UserChat({
         <div className="user-chat-agent">
           <AgentAvatar agent={agent} />
           <div className="user-chat-agent-text">
-            <h1>{agent.name}</h1>
-            <p className="user-header-sub">
-              <StatusDot tone={active ? "working" : "ok"} pulse={active} />
-              {chatTitle ? `${chatTitle} · ` : ""}
-              {active ? assistantCopy.status.running : agentActivity(agent)}
-            </p>
+            <div className="user-chat-agent-name">
+              <h1>{agent.name}</h1>
+              <StatusDot
+                tone={active ? "working" : "ok"}
+                pulse={active}
+                label={active ? assistantCopy.status.running : agentActivity(agent)}
+              />
+            </div>
+            {chatSwitch}
           </div>
         </div>
       </UserHeader>
@@ -214,7 +216,9 @@ export default function UserChat({
           {agent.shared && <SharedAgentNotice />}
           <OwnerReadsNotice ownerMayRead={ownerMayRead} shared={agent.shared} />
         </div>
-        {readOnly ? null : (
+        {readOnly ? (
+          <ReadOnlyComposer />
+        ) : (
           <AssistantComposer
             assistant={agent}
             conversationId={conversationId}

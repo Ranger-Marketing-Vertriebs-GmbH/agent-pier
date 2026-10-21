@@ -11,6 +11,7 @@ import Icon from "../../components/Icon.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
 import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
+import SidebarChats from "./chats/SidebarChats.jsx";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
 // browser, like the sidebar groups). Storage may be unavailable; folding still works.
@@ -129,14 +130,27 @@ export default function AssistantSidebar({ navigate, route }) {
   ]);
   const quiet = (phase) =>
     ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
+  // The owner's own open chats with an agent, his main chat first, then the most
+  // recently active; a user's chat (readable under her opt-in) is not his to open here.
+  const chatsOf = (assistant) =>
+    conversations
+      .filter(
+        (c) =>
+          c.assistantId === assistant.id &&
+          !c.archivedAt &&
+          (!c.channel || c.channel === "agentpier") &&
+          (assistant.userAccess?.mode === "own" || typeof c.userId !== "string"),
+      )
+      .sort(
+        (a, b) =>
+          (b.main === true) - (a.main === true) ||
+          String(b.lastActivityAt || b.createdAt).localeCompare(
+            String(a.lastActivityAt || a.createdAt),
+          ),
+      );
   function item(assistant, nested = false) {
     const member = members.find((m) => m.assistantId === assistant.id);
-    const chat = conversations.find(
-      (c) =>
-        c.assistantId === assistant.id &&
-        !c.archivedAt &&
-        (!c.channel || c.channel === "agentpier"),
-    );
+    const chat = chatsOf(assistant)[0];
     const entry = activityFor(activity, assistant.id);
     const dot = activityDot(entry);
     const subline = sidebarSubline({
@@ -269,6 +283,13 @@ export default function AssistantSidebar({ navigate, route }) {
                   </button>
                 )}
               </div>
+              {current && (
+                <SidebarChats
+                  chats={chatsOf(parent).slice(0, 4)}
+                  currentId={route.conversationId}
+                  onOpen={(chat) => open(parent, chat)}
+                />
+              )}
               {!hidden && permanent.length > 0 && (
                 <>
                   <div className="assistant-sidebar-section" aria-hidden="true">

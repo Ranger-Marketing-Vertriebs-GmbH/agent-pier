@@ -1,0 +1,33 @@
+// Several chats per agent (AGENTPIER-181): the chat list, its actions and the states
+// of an archived or deleted chat, for the owner and for users.
+export const agentChatsCopy = {
+  chats: "Chats",
+  showChats: (name) => `Chats mit ${name}`,
+  newChat: "Neuer Chat",
+  main: "Hauptchat",
+  untitled: "Neuer Chat",
+  busy: "Arbeitet",
+  lastActive: (time) => `Zuletzt ${time}`,
+  archived: "Archiviert",
+  showArchived: "Archivierte Chats",
+  backToChats: "Zurück zu den Chats",
+  noArchived: "Keine archivierten Chats.",
+  loading: "Chats werden geladen …",
+  actionsFor: (title) => `Aktionen für ${title}`,
+  rename: "Umbenennen",
+  renameTitle: "Chat umbenennen",
+  titleLabel: "Titel",
+  save: "Speichern",
+  archive: "Archivieren",
+  restore: "Wiederherstellen",
+  delete: "Löschen",
+  close: "Schließen",
+  deleteTitle: (title) => `Chat „${title}“ löschen?`,
+  deleteBody: "Der Chat und sein Verlauf werden entfernt.",
+  deleteConfirm: "Jetzt löschen",
+  archivedBanner: "Dieser Chat ist archiviert und nur lesbar.",
+  archivedComposer:
+    "Archivierte Chats sind nur lesbar. Stelle ihn wieder her, um weiterzuschreiben.",
+  deleted: "Dieser Chat wurde gelöscht.",
+  toMain: "Hauptchat öffnen",
+};

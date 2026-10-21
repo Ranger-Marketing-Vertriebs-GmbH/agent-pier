@@ -113,10 +113,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.user-chat-agent-text .user-header-sub {
+.user-chat-agent-name {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+.user-chat-agent-text .agent-chat-title-button {
+  margin: -8px 0 -8px calc(-1 * var(--space-2));
+  color: var(--muted);
+  font-size: var(--font-size-sm);
 }
 .user-agent-avatar {
   font-size: var(--font-size-lg);
@@ -159,4 +165,17 @@
 }
 .user-agents .list-row-text {
   flex: 1;
+}
+.user-level-note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  line-height: 1.45;
+}
+.user-account-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: var(--space-2);
 }

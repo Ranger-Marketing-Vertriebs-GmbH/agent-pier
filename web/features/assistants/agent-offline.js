@@ -55,6 +55,10 @@ export class AgentHistoryCache {
       this.remove(old);
     }
   }
+  /** Forgets an archived or deleted chat's window (chat lists, AGENTPIER-181). */
+  drop(id) {
+    this.remove(id);
+  }
   remove(id) {
     const entry = this.entries.get(id);
     if (!entry) return;

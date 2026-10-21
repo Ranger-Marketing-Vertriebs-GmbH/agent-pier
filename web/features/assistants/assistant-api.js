@@ -168,6 +168,20 @@ export const assistantApi = {
     ),
   update: (id, input) => api(`/assistants/${encodeURIComponent(id)}`, "PATCH", input),
   open: (id) => api(`/assistants/${encodeURIComponent(id)}/conversations`, "POST", {}),
+  // Several chats per agent (assistant-chats.js).
+  chats: (id, archived = false) =>
+    api(`/assistants/${encodeURIComponent(id)}/chats${archived ? "?archived=1" : ""}`),
+  newChat: (id) => api(`/assistants/${encodeURIComponent(id)}/chats`, "POST", {}),
+  renameChat: (id, title) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}`, "PATCH", { title }),
+  archiveChat: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/archive`, "POST", {}),
+  restoreChat: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/restore`, "POST", {}),
+  deleteChat: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}`, "DELETE", {
+      confirm: true,
+    }),
   history: (id, before) =>
     api(
       `/assistant-conversations/${encodeURIComponent(id)}/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`,
