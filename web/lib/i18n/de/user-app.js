@@ -21,7 +21,10 @@ export const userAppCopy = Object.freeze({
   sharedTitle: "Geteilter Agent:",
   sharedBody:
     "Dein Chat ist privat. Was er sich merkt, sein Profil (USER.md) und sein Browser gelten aber für alle, die ihn nutzen.",
-  ownerReads: (date) => `Der Besitzer kann deine Chats seit ${date} lesen.`,
+  sharedBodyRead:
+    "Andere, die ihn nutzen, sehen deinen Chat nicht. Was er sich merkt, sein Profil (USER.md) und sein Browser gelten aber für alle, die ihn nutzen.",
+  ownerReads: (date) =>
+    `Der Besitzer kann deine Chats seit ${date} lesen. Gedächtnis, Dateien und Browser deines eigenen Agenten sieht er vollständig, auch ältere Einträge.`,
   private: "Privat: Nur du siehst diesen Chat.",
   levelNote: (level) => `Deine Stufe: ${level}. Vergeben vom Besitzer.`,
   levels: { chat: "Nur chatten", personalize: "Personalisieren", extended: "Erweitert" },
@@ -51,7 +54,6 @@ export const userAppCopy = Object.freeze({
   deleteNoteBody: "Dein Agent vergisst, was darin steht.",
   deleteNoteConfirm: "Jetzt löschen",
   telegramConnected: (name) => `Verbunden mit @${name}`,
-  telegramNone: "Nicht verbunden",
   browser: "Browser",
   browserSub: "Live-Ansicht des Browsers deines Agenten",
   save: "Speichern",
@@ -66,8 +68,10 @@ export const userAppCopy = Object.freeze({
   ownerMayReadOff: "Aus",
   ownerMayReadOn: (date) => `An seit ${date}`,
   ownerMayReadHint:
-    "Nur der Besitzer schaltet das um. Er sieht deine Chats dann ab diesem Zeitpunkt, nie ältere.",
+    "Nur der Besitzer schaltet das um. Er sieht deine Chats dann ab diesem Zeitpunkt, nie ältere, dazu Gedächtnis, Dateien und Browser deines eigenen Agenten vollständig, auch ältere Einträge.",
   browserUnavailable:
     "Der Browser dieses Agenten arbeitet gerade für jemand anderen. Er erscheint hier, sobald einer deiner Chats ihn nutzt.",
   browserRefresh: "Erneut prüfen",
+  browserOwnerWatches:
+    "Der Besitzer kann diese Ansicht ebenfalls sehen. AgentPier speichert keine Bilder.",
 });

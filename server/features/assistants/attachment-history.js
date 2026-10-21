@@ -9,18 +9,26 @@
 const normalized = (text) => text.replace(/\r\n?/g, "\n").trimEnd();
 const sentText = (request, note) =>
   normalized(request.text.trim() ? `${request.text}\n\n${note}` : note);
+// The notes a request may have been sent with: a user's chat also strips the owner's
+// header its turns carried before they named her.
+const notesOf = (entry) => entry.notes ?? [entry.note];
 
 /**
  * Replaces the note in user messages with `attachments` (public file records).
  * `attempts` maps delivery keys to request ids; `byRequest` maps request ids to
- * `{ files, note }`. The internal `turnKey` stays for later steps.
+ * `{ files, note, notes? }`. The internal `turnKey` stays for later steps.
  */
 export function withAttachments(messages, requests, { attempts, byRequest }) {
   if (!byRequest.size) return messages;
   const byId = new Map(requests.map((request) => [request.id, request]));
   const sent = requests
     .filter((request) => byRequest.has(request.id) && typeof request.text === "string")
-    .map((request) => [sentText(request, byRequest.get(request.id).note), request.id]);
+    .flatMap((request) =>
+      notesOf(byRequest.get(request.id)).map((note) => [
+        sentText(request, note),
+        request.id,
+      ]),
+    );
   return messages.map((message) => {
     if (message.role !== "user" || typeof message.text !== "string") return message;
     const text = normalized(message.text);
@@ -29,10 +37,11 @@ export function withAttachments(messages, requests, { attempts, byRequest }) {
       : sent.find(([candidate]) => candidate === text)?.[1];
     const entry = requestId && byRequest.get(requestId);
     if (!entry) return message;
-    if (text.endsWith(entry.note))
+    const note = notesOf(entry).find((candidate) => text.endsWith(candidate));
+    if (note)
       return {
         ...message,
-        text: text.slice(0, text.length - entry.note.length).trimEnd(),
+        text: text.slice(0, text.length - note.length).trimEnd(),
         attachments: entry.files,
       };
     // A turn cut before its note's end (over AgentPier's history limit, or not yet

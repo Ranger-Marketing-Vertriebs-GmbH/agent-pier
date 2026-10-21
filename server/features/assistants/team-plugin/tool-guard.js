@@ -172,6 +172,11 @@ export const browserRefusals = {
   slotsBusy: "All browser profiles for team members are in use. Try again later.",
   ownerControl:
     "The owner is using this browser right now (for example to sign in or solve a check). Wait until the owner hands it back; you will get a message then. Do not retry the browser meanwhile.",
+  // A user agent's browser held by its user (the owner neither drives nor reads it).
+  userControl:
+    "Your user is using this browser right now (for example to sign in or solve a check). Wait until your user hands it back; you will get a message then. Do not retry the browser meanwhile.",
+  sharedUserControl:
+    "A user of this agent is using this browser right now (for example to sign in or solve a check). Wait until it is handed back; you will get a message then. Do not retry the browser meanwhile.",
   visibleLimit:
     "Three visible agent browsers are already in use. Try again in a minute or ask the owner.",
 };
@@ -202,7 +207,9 @@ export async function browserCall(event, ctx, bridge) {
 }
 // Why an image_generate call was refused (image-policy.js), for the model.
 export const imageRefusals = {
-  unavailable: "Image creation is not available right now. Tell the owner.",
+  // Neutral: on an agent of users the person in the chat is not the owner.
+  unavailable:
+    "Image creation is not available right now. Say so plainly in this chat; do not retry.",
   notGranted: "This agent may not create images.",
   model:
     "Only OpenAI image models (openai/gpt-image-...) are available. Leave model unset.",

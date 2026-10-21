@@ -50,6 +50,9 @@ export const userApi = {
   removeReminder: (agentId, bindingId, kind = "reminders") =>
     api(`${agent(agentId)}/${kind}/${id(bindingId)}`, "DELETE"),
   telegram: (agentId) => api(`${agent(agentId)}/telegram`),
+  connectTelegram: (agentId, body) => api(`${agent(agentId)}/telegram`, "PUT", body),
+  pairTelegram: (agentId) => api(`${agent(agentId)}/telegram/pair`, "POST", {}),
+  disconnectTelegram: (agentId) => api(`${agent(agentId)}/telegram`, "DELETE"),
   browser: (agentId, signal) =>
     api(`${agent(agentId)}/browser`, "GET", undefined, signal),
   approvals: () => api("/me/approvals"),

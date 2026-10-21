@@ -107,5 +107,21 @@ export const notificationCopy = {
   labelOfferSub:
     "Session, agent and pipeline names appear on this device's lock screen. Content stays private.",
   labelOfferAccept: "Show names",
+  // A restricted user's devices: only her agents' approvals, check-ins and routines.
+  user: {
+    approval: "Agent approval",
+    levels: {
+      type: "“Approval required: An agent is waiting for your decision.” For shared devices.",
+      label: "The agent's name. No content.",
+      preview:
+        "Also up to 140 characters of a check-in. Never commands, paths or secrets; approvals never show a preview.",
+    },
+    blockingThrough: "Let approvals through",
+    blockingThroughSub: "Approvals that wait for you arrive during quiet hours too.",
+    visibleNote:
+      "Nothing is sent while the same agent chat is open on one of your devices.",
+    labelOfferSub:
+      "Agent names appear on this device's lock screen. Content stays private.",
+  },
   labelOfferDismiss: "Not now",
 };

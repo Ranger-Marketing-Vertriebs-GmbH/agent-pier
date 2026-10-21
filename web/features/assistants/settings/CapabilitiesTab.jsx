@@ -27,7 +27,7 @@ import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
 import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
-import LockedNotice from "./LockedNotice.jsx";
+import LockedNotice, { OwnContentNotice, ownContent } from "./LockedNotice.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -54,6 +54,8 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
     (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
   );
   const personal = isPersonal(assistant);
+  // A user's own agent: its notes and browser are hers (hidden, or read only).
+  const own = ownContent(assistant);
   const draft = useTabDraft({
     server: capabilityServer(assistant),
     revisions: { assistant: assistant.revision },
@@ -114,13 +116,18 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       note={copy.pendingConfigShort}
     />
   );
-  const Subpage = subpages[page];
+  const Subpage = page === "memory" && own === "private" ? null : subpages[page];
   if (Subpage)
     return (
       <>
         {/* The skills subpage edits this tab's draft and saves with its bar. */}
         {page === "skills" && <ConflictNotice draft={draft} labels={conflictLabels} />}
-        <Subpage assistant={assistant} draft={draft} onBack={() => go("capabilities")} />
+        <Subpage
+          assistant={assistant}
+          draft={draft}
+          readOnly={own === "read"}
+          onBack={() => go("capabilities")}
+        />
         {page === "skills" && saveBar}
         {sheets}
       </>
@@ -138,7 +145,15 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       )}
       {/* A task-bound member has no Work tab: its lead's grants with Revoke. */}
       {!personal && assistant.inherited && <LeadSharesGroup assistant={assistant} />}
-      {personal && <MemoryGroup assistant={assistant} draft={draft} go={go} />}
+      <OwnContentNotice own={own} />
+      {personal && (
+        <MemoryGroup
+          assistant={assistant}
+          draft={draft}
+          go={go}
+          notes={own !== "private"}
+        />
+      )}
       {personal && (
         <WebGroup
           draft={draft}
@@ -150,6 +165,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       {personal && (
         <BrowserGroup
           assistant={assistant}
+          own={own}
           draft={draft}
           browser={runtime?.browser}
           refresh={refresh}
@@ -157,7 +173,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         />
       )}
       {assistant.userAccess ? (
-        <LockedNotice items={["shell", "sessions"]} />
+        <LockedNotice items={["shell", "sessions", "visibleBrowser"]} />
       ) : (
         <ShellGroup assistant={assistant} draft={draft} go={go} />
       )}

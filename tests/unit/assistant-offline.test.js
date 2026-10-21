@@ -79,3 +79,20 @@ test("the chat cache keeps a window's feed cursor, but not for a trimmed window"
   });
   assert.equal(cache.get("b").sync, undefined);
 });
+
+test("the chat cache forgets chats the list stopped showing, not ones it never showed", () => {
+  const cache = new AgentHistoryCache();
+  for (const id of ["mine", "hers", "fresh"]) cache.set(id, history(id, [id]));
+  // Her chat leaves the owner's list when "Owner may read chats" ends.
+  cache.forgetVanished([{ id: "mine" }, { id: "hers" }], [{ id: "mine" }]);
+  assert.equal(cache.get("hers"), undefined);
+  assert.deepEqual(
+    cache.get("mine").messages.map((m) => m.text),
+    ["mine"],
+  );
+  // A chat just opened, which the list has not caught up with, keeps its window.
+  assert.deepEqual(
+    cache.get("fresh").messages.map((m) => m.text),
+    ["fresh"],
+  );
+});

@@ -28,6 +28,9 @@ export const agentChatsCopy = {
   archivedBanner: "Dieser Chat ist archiviert und nur lesbar.",
   archivedComposer:
     "Archivierte Chats sind nur lesbar. Stelle ihn wieder her, um weiterzuschreiben.",
+  userChatComposer:
+    "Dieser Chat gehört einem Benutzer: Du kannst ihn lesen, aber nicht darin schreiben.",
   deleted: "Dieser Chat wurde gelöscht.",
+  unavailable: "Dieser Chat gehört einem Benutzer, und du darfst ihn nicht mehr lesen.",
   toMain: "Hauptchat öffnen",
 };

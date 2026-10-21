@@ -21,6 +21,12 @@ export const eventGroups = [
   ],
   ["agents", ["agent-checkin", "agent-routine", "telegram"]],
 ];
+// A restricted user's devices get only her agents' notices (no sessions, pipelines
+// or system notices: push-content.js sends those to the owner alone).
+export const userEventGroups = [
+  ["waiting", ["agent-approval"]],
+  ["agents", ["agent-checkin", "agent-routine", "telegram"]],
+];
 const levels = ["type", "label", "preview"];
 
 function TimeField({ label, value, onChange, disabled }) {
@@ -38,8 +44,21 @@ function TimeField({ label, value, onChange, disabled }) {
   );
 }
 
-/** One device's notification settings, saved together with Save. */
-export default function NotificationPreferences({ entry, name, zone, onSave, onClose }) {
+/**
+ * One device's notification settings, saved together with Save. `personal` (a
+ * restricted user's device) offers only the events she can receive.
+ */
+export default function NotificationPreferences({
+  entry,
+  name,
+  zone,
+  onSave,
+  onClose,
+  personal = false,
+}) {
+  const groups = personal ? userEventGroups : eventGroups;
+  const text = personal ? copy.user : {};
+  const levelSub = (level) => (personal ? text.levels[level] : copy.levels[level].sub);
   const [draft, setDraft] = useState(entry.preferences);
   const { busy, error, run } = useAsyncAction();
   const setEvent = (key, value) =>
@@ -93,22 +112,24 @@ export default function NotificationPreferences({ entry, name, zone, onSave, onC
             checked={draft.level === level}
             onChange={(value) => setDraft((previous) => ({ ...previous, level: value }))}
             label={copy.levels[level].label}
-            sub={copy.levels[level].sub}
+            sub={levelSub(level)}
             disabled={busy}
           />
         ))}
       </ListCard>
-      <GroupLabel id="notification-events" hint={copy.systemNote}>
+      <GroupLabel id="notification-events" hint={personal ? undefined : copy.systemNote}>
         {copy.eventsGroup}
       </GroupLabel>
-      {eventGroups.map(([group, keys]) => (
+      {groups.map(([group, keys]) => (
         <section className="notification-event-group" key={group}>
           <h3 id={`notification-events-${group}`}>{copy.eventGroups[group]}</h3>
           <ListCard labelledBy={`notification-events-${group}`}>
             {keys.map((key) => (
               <CheckboxRow
                 key={key}
-                label={copy.events[key]}
+                label={
+                  personal && key === "agent-approval" ? text.approval : copy.events[key]
+                }
                 sub={key === "telegram" ? copy.telegramSub : undefined}
                 checked={Boolean(draft.events[key])}
                 onChange={(value) => setEvent(key, value)}
@@ -118,7 +139,10 @@ export default function NotificationPreferences({ entry, name, zone, onSave, onC
           </ListCard>
         </section>
       ))}
-      <GroupLabel id="notification-behaviour" hint={copy.visibleNote}>
+      <GroupLabel
+        id="notification-behaviour"
+        hint={personal ? text.visibleNote : copy.visibleNote}
+      >
         {copy.behaviourGroup}
       </GroupLabel>
       <ListCard labelledBy="notification-behaviour">
@@ -153,8 +177,8 @@ export default function NotificationPreferences({ entry, name, zone, onSave, onC
               />
             </div>
             <ToggleRow
-              label={copy.blockingThrough}
-              sub={copy.blockingThroughSub}
+              label={personal ? text.blockingThrough : copy.blockingThrough}
+              sub={personal ? text.blockingThroughSub : copy.blockingThroughSub}
               checked={draft.quiet.blockingThrough}
               onChange={(value) => setQuiet({ blockingThrough: value })}
               disabled={busy}

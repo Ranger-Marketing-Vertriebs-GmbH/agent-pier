@@ -3,7 +3,7 @@ import { sessionToken } from "../login.js";
 import { notFoundBody } from "../responses.js";
 
 /** A restricted user's own account. */
-export function meAccountRoutes({ users, dictation }) {
+export function meAccountRoutes({ users, dictation, notifications }) {
   const router = Router();
   router.use("/me", (req, res, next) =>
     req.principal?.role === "user" ? next() : res.status(404).json(notFoundBody()),
@@ -18,14 +18,17 @@ export function meAccountRoutes({ users, dictation }) {
     res.set("Cache-Control", "no-store");
     res.json({ available, autoSend });
   });
-  // The current session stays; every other session of the user ends.
+  // The current session stays; every other session of the user ends, and with it the
+  // push devices of every browser but this one (`deviceId`).
   router.put("/me/password", async (req, res) => {
-    const { current, next } = req.body && typeof req.body === "object" ? req.body : {};
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const { current, next, deviceId } = body;
     await users.changePassword(
       req.principal.userId,
       { current, next },
       sessionToken(req),
     );
+    notifications?.forgetUser(req.principal.userId, { except: deviceId });
     res.sendStatus(204);
   });
   return router;

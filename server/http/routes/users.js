@@ -27,8 +27,12 @@ export function usersRoutes(services) {
   router.patch("/users/:id", async (req, res) => {
     const { displayName, disabled } = body(req);
     const user = users.update(req.params.id, { displayName, disabled });
-    // Disabling ends her sessions (UserStore) and everything that runs as her.
-    if (disabled === true) await new UserAgents(services).disableUser(user.id);
+    // Disabling ends her sessions (UserStore), her push devices and everything that
+    // runs as her.
+    if (disabled === true) {
+      services.notifications?.forgetUser(user.id);
+      await new UserAgents(services).disableUser(user.id);
+    }
     res.json(user);
   });
   // "Owner may read chats": from now on, never earlier; the user sees it in her app.
@@ -39,6 +43,8 @@ export function usersRoutes(services) {
   });
   router.post("/users/:id/password", async (req, res) => {
     await users.resetPassword(req.params.id, body(req).password);
+    // Every device is signed out, so none keeps showing her notices.
+    services.notifications?.forgetUser(req.params.id);
     res.sendStatus(204);
   });
   // Her own agents are archived or kept as the owner's ("agents"); the choice is

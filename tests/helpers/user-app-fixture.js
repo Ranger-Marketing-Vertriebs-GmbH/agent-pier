@@ -87,6 +87,10 @@ export async function userAppFixture(page, options = {}) {
     },
     notificationCalls: [],
     browser: options.browser || {},
+    telegramChannels: options.telegram || {},
+    telegram: [],
+    // Events her stream sends on its next reconnect (with `eventRetry` set).
+    events: [],
     password: options.password || "current-password-1",
     posted: [],
     saved: [],
@@ -114,6 +118,7 @@ export async function userAppFixture(page, options = {}) {
   await page.route(/\/auth\/(?:status|logout)$/, (route) => {
     if (route.request().url().endsWith("/logout")) {
       state.signedOut = true;
+      state.logoutBody = route.request().postDataJSON();
       return json(route, {});
     }
     return json(
@@ -143,7 +148,12 @@ export async function userAppFixture(page, options = {}) {
     if (path === "/api/me/events")
       return route.fulfill({
         contentType: "text/event-stream",
-        body: 'retry: 600000\ndata: {"type":"connected"}\n\n',
+        body:
+          [
+            `retry: ${options.eventRetry ?? 600000}`,
+            'data: {"type":"connected"}',
+            ...state.events.splice(0).map((event) => `data: ${JSON.stringify(event)}`),
+          ].join("\n\n") + "\n\n",
       });
     if (path === "/api/me/agents") return json(route, state.agents);
     if (path === "/api/me/approvals") return json(route, { actions: state.approvals });
@@ -236,7 +246,43 @@ function agentRoute(route, state, agent, rest, method, body) {
     list[index] = { ...list[index], ...body() };
     return json(route, list[index]);
   }
-  if (rest === "/telegram") return json(route, { channel: null });
+  // Her own bot at Extended (me-telegram.js); `state.telegram` records the calls.
+  if (rest === "/telegram" && method === "GET")
+    return json(route, { channel: state.telegramChannels[id] ?? null });
+  // The same bot connected again after Disconnect is paired with her chat again.
+  if (rest === "/telegram" && method === "PUT") {
+    state.telegram.push({ method, ...body() });
+    const kept = Boolean(state.telegramChannels[id]?.keptChat);
+    state.telegramChannels[id] = {
+      id: `channel-${id}`,
+      username: `${id}_bot`,
+      enabled: true,
+      connected: true,
+      paired: kept,
+      revision: 1,
+    };
+    return json(route, { channel: state.telegramChannels[id] });
+  }
+  if (rest === "/telegram/pair") {
+    state.telegram.push({ method });
+    return json(route, {
+      code: "123456",
+      url: `https://t.me/${id}_bot?start=123456`,
+      expiresAt: "2026-10-21T10:00:00.000Z",
+    });
+  }
+  if (rest === "/telegram" && method === "DELETE") {
+    state.telegram.push({ method });
+    const previous = state.telegramChannels[id];
+    state.telegramChannels[id] = {
+      ...previous,
+      enabled: false,
+      connected: false,
+      paired: false,
+      keptChat: Boolean(previous?.paired || previous?.keptChat),
+    };
+    return json(route, { channel: state.telegramChannels[id] });
+  }
   if (rest === "/browser")
     return json(route, {
       running: false,
@@ -318,7 +364,11 @@ export const installPushStack = (page) =>
         endpoint: "https://push.example.invalid/device",
         keys: { p256dh: "fixture", auth: "fixture" },
       }),
-      unsubscribe: async () => true,
+      unsubscribe: async () => {
+        current = null;
+        window.pushUnsubscribed = true;
+        return true;
+      },
     };
     let current = null;
     Object.defineProperty(window, "Notification", {

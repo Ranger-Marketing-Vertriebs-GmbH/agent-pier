@@ -101,6 +101,30 @@ test("locked capabilities cannot be enabled for user agents via the API", async 
   );
 });
 
+test("a project's Agents section gives a user agent folders only", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const { agent } = await ownUserAgent(f);
+  fs.mkdirSync(path.join(f.project, ".git"));
+  const project = await f.application.memory.register(f.project);
+  const base = `/api/assistant-project-access/${project.id}`;
+  const listed = (await json(await f.request(base))).agents.find(
+    (a) => a.id === agent.id,
+  );
+  assert.equal(listed.foldersOnly, true);
+  const saved = await f.request(`${base}/${agent.id}`, {
+    method: "PUT",
+    body: { expected: { coding: false, folder: "none" }, coding: false, folder: "read" },
+  });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(
+    [
+      (await json(saved)).coding,
+      (await json(await f.request(base))).agents.find((a) => a.id === agent.id).folder,
+    ],
+    [false, "read"],
+  );
+});
+
 test("owner may bind registered MCP servers to user agents", async (t) => {
   const f = await applicationFixture(t, enabledAssistants);
   const { agent } = await ownUserAgent(f);

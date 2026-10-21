@@ -57,6 +57,15 @@ export const usersCopy = {
   agentKind: "Kind",
   locked: "Locked for agents of users: they cannot run programs on this computer.",
   lockedList: (list) => `Locked: ${list}.`,
+  ownPrivate:
+    "Private to its user: its notes and browser show here only while Owner may read chats is on for this person (Settings › Access › Users).",
+  ownReadOnly:
+    "Its user's: you can read its notes and watch its browser, but not change them.",
+  ownRoutines: "Its user manages its reminders and routines in their app.",
+  ownTelegram:
+    "Its user connects its Telegram bot in their app. You cannot connect a bot to this agent.",
+  lockedTelegramSenders:
+    "Locked for agents of users: its own Telegram bot for other people.",
   lockedNames: {
     shell: "Shell",
     ssh: "SSH",
@@ -64,7 +73,8 @@ export const usersCopy = {
     pipelines: "Pipelines",
     coding: "Coding",
     teams: "Teams",
-    sessions: "Sessions of other agents",
+    sessions: "Access to its other chats (session tools)",
+    visibleBrowser: "Visible browser window",
   },
   access: "Users of this agent",
   accessHint:

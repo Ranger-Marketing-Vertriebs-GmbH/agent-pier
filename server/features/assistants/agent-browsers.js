@@ -131,9 +131,14 @@ export class AgentBrowsers {
     if (!assistant || !personalCapabilities(assistant).browser) return deny("notGranted");
     // Copying cookies from a system browser profile is never an agent's call.
     if (action === "importprofile") return deny("importBlocked");
-    // The owner holds the browser (browser-takeover.js): the agent waits for it.
+    // Someone holds the browser (browser-takeover.js): the agent waits for it. On a
+    // user's own agent that is always her; on a shared one a driving user's views are
+    // the only ones left; otherwise it is the owner.
     if (this.controlled?.(assistant.id)) {
       this.ownerControlRefused?.(assistant.id);
+      if (assistant.userAccess?.mode === "own") return deny("userControl");
+      if (assistant.userAccess && this.driver?.(assistant.id))
+        return deny("sharedUserControl");
       return deny("ownerControl");
     }
     const name = this.profileOf(assistant);

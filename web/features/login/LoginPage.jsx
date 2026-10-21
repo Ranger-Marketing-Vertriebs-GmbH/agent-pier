@@ -2,6 +2,7 @@ import LanguageSelect from "../../components/LanguageSelect.jsx";
 import React, { useState } from "react";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
+import { knownDevice } from "../notifications/device-identity.js";
 export default function LoginPage({ status, onLogin, refresh }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +36,11 @@ export default function LoginPage({ status, onLogin, refresh }) {
     setBusy(true);
     setError("");
     try {
-      await loginRequest(setup ? "setup" : "login", { username, password });
+      await loginRequest(
+        setup ? "setup" : "login",
+        // A browser signed in as someone else stops getting the previous person's notices.
+        setup ? { username, password } : { username, password, deviceId: knownDevice() },
+      );
       setPassword("");
       setRepeat("");
       announceLoginChange();

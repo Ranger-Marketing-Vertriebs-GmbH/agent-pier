@@ -26,7 +26,7 @@ function LabelOffer({ state }) {
         <span id="notification-offer" className="notification-offer-title">
           {copy.labelOffer}
         </span>
-        <span>{copy.labelOfferSub}</span>
+        <span>{state.personal ? copy.user.labelOfferSub : copy.labelOfferSub}</span>
         <ErrorMessage as="span" error={state.errorFor("offer")} />
       </span>
       <span className="notification-offer-actions">

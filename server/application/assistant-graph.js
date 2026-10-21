@@ -170,6 +170,7 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.privacy = {
     visible: (c) => host.ownerPrivacy?.visible(c) ?? true,
     view: (c) => (host.ownerPrivacy ? host.ownerPrivacy.view(c) : c),
+    agentContent: (a) => host.ownerPrivacy?.agentContent(a) ?? true,
   };
   // Whether a user may still use her agents: a disabled or deleted one may not.
   assistants.userActive = (userId) => {
@@ -210,6 +211,7 @@ export function constructAssistantGraph(host, created = {}) {
     onHandBack: (id, reason) => noteBrowserHandBack(assistants, id, reason),
   });
   assistants.browsers.controlled = (id) => assistants.liveView.controlled(id);
+  assistants.browsers.driver = (id) => assistants.liveView.driver(id);
   assistants.browsers.ownerControlRefused = (id) => assistants.liveView.refused(id);
   assistants.browsers.start();
   // A background model list read publishes its result like any other change.

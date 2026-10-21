@@ -22,6 +22,8 @@ export const projectAgentsCopy = {
   pickCoding: "Coding only",
   pickRead: "Coding and read folder",
   pickWrite: "Coding, read and write folder",
+  pickReadFolder: "Read folder",
+  pickWriteFolder: "Read and write folder",
   pickFailed: (count) =>
     count === 1
       ? "The project was added, but access for 1 agent could not be set. Set it in the project's Agents tab."

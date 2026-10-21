@@ -17,3 +17,25 @@ export default function LockedNotice({ items }) {
     </p>
   );
 }
+
+/**
+ * What the owner sees of a user's own agent (owner-privacy.js): `private` until her
+ * opt-in, then `read` (read only), or null for any other agent.
+ */
+export const ownContent = (assistant) =>
+  assistant?.userAccess?.mode === "own"
+    ? assistant.ownerReads
+      ? "read"
+      : "private"
+    : null;
+
+/** Why a user's own agent's notes and browser are hidden or read-only for the owner. */
+export function OwnContentNotice({ own }) {
+  if (!own) return null;
+  return (
+    <p className="agent-locked-notice" role="note">
+      <Icon name="shield" size={16} />
+      <span>{own === "read" ? copy.ownReadOnly : copy.ownPrivate}</span>
+    </p>
+  );
+}

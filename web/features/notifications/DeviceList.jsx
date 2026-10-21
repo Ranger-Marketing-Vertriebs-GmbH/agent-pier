@@ -78,6 +78,7 @@ function DevicePreferences({ entry, state, name, onClose }) {
       // Quiet hours count in the device's own time zone; this device saves its current one.
       zone={current ? state.timeZone : entry.preferences?.timeZone}
       onSave={state.savePreferences}
+      personal={state.personal}
       onClose={onClose}
     />
   );

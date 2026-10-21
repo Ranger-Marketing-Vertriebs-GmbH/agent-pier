@@ -39,7 +39,10 @@ const tabs = [
   { targetId: "t2", title: "Cart", url: "https://shop.example/cart" },
 ];
 
-async function setup(page, { status = "live", refuse = false, control } = {}) {
+async function setup(
+  page,
+  { status = "live", refuse = false, control, viewOnly = false } = {},
+) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.route(/\/api\/assistant/, async (route) => {
@@ -96,6 +99,8 @@ async function setup(page, { status = "live", refuse = false, control } = {}) {
             targetId: "t1",
             tabs,
             control,
+            // A view-only viewer sees a pinned tab but cannot follow the agent.
+            ...(viewOnly ? { viewOnly, pinned: true } : {}),
           },
         }),
       );
@@ -142,6 +147,26 @@ for (const [label, use] of [
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
+    });
+
+    test("a view-only live view offers nothing to drive", async ({ page }) => {
+      const commands = await setup(page, { viewOnly: true });
+      await page.goto(baseURL + "/agents/home/browser");
+      await expect(
+        page.getByText(/^Watching only: this is the user's own agent/),
+      ).toBeVisible();
+      await decoded(page.getByRole("img", { name: "Live view of Home's browser" }));
+      await expect(page.getByRole("button", { name: /Take over/ })).toHaveCount(0);
+      await expect(page.getByLabel("Tab")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Follow the agent" })).toHaveCount(0);
+      expect([...commands]).toEqual([]);
+    });
+
+    test("a view-only view of a stopped browser offers no start", async ({ page }) => {
+      await setup(page, { status: "stopped", viewOnly: true });
+      await page.goto(baseURL + "/agents/home/browser");
+      await expect(page.getByText("The browser is not running.").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Start browser" })).toHaveCount(0);
     });
 
     test("a stopped browser can be started from the live view", async ({ page }) => {

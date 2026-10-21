@@ -120,6 +120,19 @@ export class ChannelService {
       })),
     };
   }
+  /** The bot a token belongs to, as Telegram names it. */
+  identify(token) {
+    return this.clientFactory(token).identity();
+  }
+  /**
+   * Refuses a bot that another channel or an agent's bot for other people already
+   * uses (409), so a replacement is checked before the old bot is forgotten.
+   */
+  requireFreeBot(botId, exceptId) {
+    if (this.nativeBots.usesBot(botId)) throw assistantProblem("telegramBotInUse", 409);
+    if (this.store.list().some((c) => c.botId === String(botId) && c.id !== exceptId))
+      throw assistantProblem("conflict", 409);
+  }
   /** A bot for the agent's main chat: the owner's, or with `userId` that user's own. */
   create(input, { userId = null } = {}) {
     return this.serialize(async () => {

@@ -50,16 +50,21 @@ export function ArchivedChatBanner({ onRestore }) {
   );
 }
 
-/** In place of the composer of an archived chat. */
-export function ReadOnlyComposer() {
-  return <p className="agent-chat-readonly">{copy.archivedComposer}</p>;
+/** In place of the composer of an archived chat, or of a user's chat for the owner. */
+export function ReadOnlyComposer({ userChat = false }) {
+  return (
+    <p className="agent-chat-readonly">
+      {userChat ? copy.userChatComposer : copy.archivedComposer}
+    </p>
+  );
 }
 
 /** A link to a chat that was deleted, such as a push notice's. */
-export function DeletedChat({ onMain }) {
+/** A chat that is gone, or (`unavailable`) a user's chat the owner may no longer read. */
+export function DeletedChat({ onMain, unavailable = false }) {
   return (
     <div className="agent-chat-deleted">
-      <p>{copy.deleted}</p>
+      <p>{unavailable ? copy.unavailable : copy.deleted}</p>
       {onMain && (
         <button type="button" className="button secondary" onClick={onMain}>
           {copy.toMain}

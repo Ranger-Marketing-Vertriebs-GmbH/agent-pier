@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createECDH, randomBytes } from "node:crypto";
 import { applicationFixture } from "../helpers/application.js";
 import { as } from "../helpers/user-chats.js";
-import { signedInUser } from "../helpers/users.js";
+import { signedInUser, signIn, userPassword } from "../helpers/users.js";
 
 function device(deviceId) {
   const key = createECDH("prime256v1");
@@ -136,4 +136,95 @@ test("quiet hours apply per user device", async (t) => {
   );
   // The owner's device keeps its own settings.
   assert.deepEqual(await deliveries(routine("r4")), ["owner-phone"]);
+});
+
+test("signing out forgets her browser's device, never the owner's", async (t) => {
+  const { f, anna, owner, deliveries } = await devices(t);
+  const out = (deviceId) =>
+    f.request("/auth/logout", {
+      method: "POST",
+      headers: { cookie: anna.cookie },
+      body: { deviceId },
+    });
+  // A device id she does not hold stays: her sign-out names only her own.
+  assert.equal((await out("owner-phone")).status, 204);
+  const listed = await (await f.request("/api/notifications")).json();
+  assert.deepEqual(
+    listed.subscriptions.map((d) => d.id),
+    [owner.id],
+  );
+  anna.cookie = await signIn(f, "Anna");
+  assert.equal((await out("anna-phone")).status, 204);
+  assert.deepEqual(
+    await deliveries(routine("r9", { audience: { kind: "user", userId: anna.user.id } })),
+    [],
+  );
+  assert.deepEqual(await deliveries(routine("r10")), ["owner-phone"]);
+});
+
+test("signing in on a browser another person registered stops their notices", async (t) => {
+  const { f, anna, deliveries } = await devices(t);
+  const response = await f.request("/auth/login", {
+    method: "POST",
+    headers: { cookie: "" },
+    body: { username: "Anna", password: userPassword, deviceId: "owner-phone" },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await deliveries(routine("r11")), []);
+  // Her own device stays when she signs in again on it.
+  await f.request("/auth/login", {
+    method: "POST",
+    headers: { cookie: "" },
+    body: { username: "Anna", password: userPassword, deviceId: "anna-phone" },
+  });
+  assert.deepEqual(
+    await deliveries(
+      routine("r12", { audience: { kind: "user", userId: anna.user.id } }),
+    ),
+    ["anna-phone"],
+  );
+});
+
+test("signing her out remotely forgets her other devices, never the owner's", async (t) => {
+  const { f, anna, deliveries } = await devices(t);
+  const hers = routine("r20", { audience: { kind: "user", userId: anna.user.id } });
+  const register = async (deviceId) => {
+    const response = await as(f, anna.cookie)("/api/me/notifications/subscriptions", {
+      method: "POST",
+      body: device(deviceId),
+    });
+    assert.equal(response.status, 201, await response.clone().text());
+  };
+  await register("family-ipad");
+  assert.deepEqual(await deliveries({ ...hers, eventId: "r21" }), [
+    "anna-phone",
+    "family-ipad",
+  ]);
+  // Her own password change keeps only the browser she changed it on.
+  let response = await f.request("/api/me/password", {
+    method: "PUT",
+    headers: { cookie: anna.cookie },
+    body: { current: userPassword, next: "a-new-user-password", deviceId: "anna-phone" },
+  });
+  assert.equal(response.status, 204);
+  assert.deepEqual(await deliveries({ ...hers, eventId: "r22" }), ["anna-phone"]);
+  // The owner's reset signs out every device of hers.
+  await register("family-ipad");
+  response = await f.request(`/api/users/${anna.user.id}/password`, {
+    method: "POST",
+    body: { password: "reset-by-the-owner" },
+  });
+  assert.equal(response.status, 204);
+  assert.deepEqual(await deliveries({ ...hers, eventId: "r23" }), []);
+  assert.deepEqual(await deliveries(routine("r24")), ["owner-phone"]);
+  // So does turning off "Sign-in allowed".
+  anna.cookie = await signIn(f, "Anna", "reset-by-the-owner");
+  await register("family-ipad");
+  response = await f.request(`/api/users/${anna.user.id}`, {
+    method: "PATCH",
+    body: { disabled: true },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await deliveries({ ...hers, eventId: "r25" }), []);
+  assert.deepEqual(await deliveries(routine("r26")), ["owner-phone"]);
 });

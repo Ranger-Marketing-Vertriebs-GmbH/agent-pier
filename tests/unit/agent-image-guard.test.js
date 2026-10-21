@@ -139,3 +139,7 @@ test("the capability, web reading for remote references and a known agent are re
   });
   assert.deepEqual(local.ask({ extra: 1 }), { allow: false, reason: "unavailable" });
 });
+
+test("an unavailable image tool never sends the agent's user to the owner", () => {
+  assert.doesNotMatch(imageRefusals.unavailable, /owner/i);
+});

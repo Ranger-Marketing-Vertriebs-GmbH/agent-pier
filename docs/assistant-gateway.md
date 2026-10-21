@@ -1357,7 +1357,10 @@ proven, and every call passes its `before_tool_call` hook (`imageCall` in
 - there is no daily limit: each generation (status and list reads aside) writes an
   `assistant.executed` audit event with `kind: "image-generation"`, never the prompt.
   Databases from earlier versions keep their unused `assistant_image_usage` table.
-  Refusals reach the model with a reason it can act on.
+  Refusals reach the model with a reason it can act on. An unavailable tool is to be
+  reported plainly in the chat, never with "tell the owner": on an agent of users the
+  person in the chat is a user. Its bootstrap likewise says the image goes to the
+  person who asked for it, not to the owner.
 
 `image_generate` runs in the background: its completion turn writes an assistant
 message whose content carries `{ type: "image", artifactId:
@@ -1610,8 +1613,11 @@ sign in, solve a check or search, and **Hand back** returns it.
   live view takes over once the picture is live and then drops the parameter.
 - While the owner holds it, the tool guard refuses the agent's browser calls with
   "The owner is using this browser right now … Wait until the owner hands it back"
-  (`ownerControl`). A call that was already running finishes; it may overlap the
-  owner's first input.
+  (`ownerControl`). While a user holds her own agent's browser the refusal says "Your
+  user is using this browser right now" (`userControl`), and while a user who drives a
+  shared agent holds it, "A user of this agent is using this browser right now"
+  (`sharedUserControl`). A call that was already running finishes; it may overlap the
+  first input.
 - The lease ends on **Hand back**, after ten minutes without owner input (a warning
   a minute before), 30 seconds after the session's last full view closed, or when
   the browser stops. If the agent was refused during the lease, the end (except at a
@@ -2520,13 +2526,22 @@ answers the unknown-route 404.
   owner's. Presence, its report rate limit and quiet hours count per person.
 - `GET /me/events` streams `agents` (her list or one of her main chats changed; an
   agent works while any of her chats with it does), `chats` (`agentId`: her chat list
-  with that agent changed, never another person's) and `approvals` (`count`) frames, with a heartbeat every 15 seconds. The count holds the
+  with that agent changed, never another person's), `telegram` (`agentId`: her own
+  agent's bot changed, for example its pairing finished in Telegram) and `approvals`
+  (`count`) frames, with a heartbeat every 15 seconds. The count holds the
   approvals `GET /me/approvals` lists, so one in a chat she left no longer counts. A
   stream opened while agents are off ends once they start (and when they stop), so
   her app reconnects to one that follows them.
 - At **Extended** she connects her own agent's Telegram bot to her main chat
-  (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`). The token is never
-  returned. Shared agents and lower levels answer 403 `USER_LEVEL`; Telegram for other
+  (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`) in her agent's
+  settings, under **Telegram**. The token is never returned; `connected` says whether
+  one is stored, and `paired` that the bot is paired and delivering (a paused bot shows
+  unpaired, so her app offers pairing again). After `DELETE`, a `PUT` with the same
+  bot's token connects it again with its pairing and turns it back on; another bot's
+  token replaces the disconnected one, unpaired, but only once the new bot is known to
+  be free: a bot another channel or a bot for other people uses answers 409 and leaves
+  her old bot and its pairing in place. Shared agents
+  and lower levels answer 403 `USER_LEVEL`; Telegram for other
   people stays unavailable on user agents. When the owner lowers her below **Extended**,
   her bot is removed with its token and texts. Her bot's approval buttons decide her
   approvals. The owner's `GET /api/assistant-channels` shows her bot's Telegram chat and
@@ -2539,8 +2554,9 @@ The owner's privacy guard (`server/http/owner-content-guard.js`,
 `owner-content-routes.js` to its conversation or agent. Without the user's opt-in
 **Owner may read chats** (`PUT /api/users/:id/owner-may-read {enabled}`, audited) her
 chats, and the memory, attachments and browser of her own agent, answer 404, and his
-agent list and event stream leave her conversations out. With the opt-in he reads them
-from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
+agent list and event stream leave her conversations out. With the opt-in her own
+agent's memory, files and browser become readable in full, older entries included,
+and he reads her chats from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
 queued message and chat file downloads; older history pages stay reachable until a
 page reaches back past `since`. A message she queued, or one her Telegram bot held in
 its inbox, counts from when she wrote it (the request's `writtenAt`), even once it goes
@@ -2548,9 +2564,13 @@ out after the opt-in; the reply its run writes stays hers too, in the history an
 streamed reply text. He never writes into her chat, decides her
 approvals or re-pairs her bot, and her pending approvals never count in his agent
 activity. The guard matches paths like Express does (trailing slashes, any letter case).
+His agent list marks a user's own agent with `ownerReads`: without it his settings show
+a notice instead of its notes and browser, with it they show read-only (notes, live
+view); its reminders and routines stay hers to manage in her app.
 Turning it off closes his open chat streams (1008); turning it on again after it was off
 starts a new `since`, while switching it on while on keeps the first. The user
-sees the state in `GET /api/me`.
+sees the state in `GET /api/me`; her event stream sends `account` when it changes, so
+her open chats, her account page and her agent's browser view say so at once.
 
 Deleting a user (`DELETE /api/users/:id {agents: "archive" | "keep"}`, 400
 `USER_AGENTS_CHOICE` without a choice while she owns agents; 503 `USER_AGENTS_OFF` while
@@ -3320,7 +3340,9 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
 `tools.allow`, team members included, and into a routine's `toolsAllow`. The bridge
 serves it in a turn with an active attempt and in a bound routine's run session (as
 for SSH), never in a sender bot's session, and routes it to `AgentShares`
-(`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses.
+(`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses. Its
+result tells the agent who sees the file now: the owner, or in a user's chat the
+person who asked, never the owner.
 
 - **Source.** `path` is relative to the agent's workspace or absolute inside it. The
   roots come from `shareRoots()` (`agent-share-source.js`): the agent's own

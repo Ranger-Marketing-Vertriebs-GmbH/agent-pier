@@ -5,6 +5,8 @@ export const assistantWorkflowCopy = {
   pipelines: "Allowed pipelines",
   projectsIntro:
     "Allowed projects can be used for project memory and coding tasks. Direct folder access additionally lets the agent read files in the project folder, or read and change them.",
+  projectsFoldersIntro:
+    "Agents of users get no project memory and no coding tasks. A checked project gives the agent direct access to its folder only: to read files, or to read and change them.",
   folderLegend: "Direct folder access",
   folderLevels: {
     none: "None",

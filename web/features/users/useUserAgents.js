@@ -4,7 +4,7 @@ import { connectionLost } from "../assistants/agent-offline.js";
 
 /**
  * The user's agents and her account view, kept current by her event stream
- * (/api/me/events): `agents` re-reads the list, every event goes to `subscribe`
+ * (/api/me/events): `agents` and `account` re-read the list and her account, every event goes to `subscribe`
  * listeners (chat lists, approvals). While AgentPier cannot be reached the last list
  * stays and `offline` is true.
  */
@@ -36,7 +36,7 @@ export default function useUserAgents() {
       } catch {
         return;
       }
-      if (["agents", "connected"].includes(event.type)) refresh();
+      if (["agents", "account", "connected"].includes(event.type)) refresh();
       for (const listener of [...listeners.current]) listener(event);
     };
     stream.onerror = () => refresh();

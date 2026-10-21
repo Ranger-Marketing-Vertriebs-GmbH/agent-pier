@@ -390,3 +390,18 @@ test("a file left of her deleted chat never serves to the owner", async (t) => {
   assert.equal(read.status, 404);
   assert.deepEqual(await read.json(), notFoundBody());
 });
+
+test("the owner's list says whether he may read a user's own agent", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, agent } = await annaChat(f);
+  const listed = async () =>
+    (await (await f.request("/api/assistants")).json()).assistants.find(
+      (a) => a.id === agent.id,
+    );
+  assert.equal((await listed()).ownerReads, false);
+  await f.request(`/api/users/${user.id}/owner-may-read`, {
+    method: "PUT",
+    body: { enabled: true },
+  });
+  assert.equal((await listed()).ownerReads, true);
+});

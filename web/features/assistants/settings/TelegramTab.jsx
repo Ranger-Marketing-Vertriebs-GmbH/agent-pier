@@ -4,6 +4,7 @@ import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { usersCopy } from "../../../lib/i18n/messages/users.js";
 import useAssistants from "../useAssistants.js";
 import { agentRoute, isPersonal, telegramServer } from "./agent-settings-fields.js";
 import { channelStep } from "./agent-settings-steps.js";
@@ -15,6 +16,7 @@ import { ConnectionGroup } from "./TelegramConnection.jsx";
 import TelegramConnectionPage from "./TelegramConnectionPage.jsx";
 import TelegramActivityPage from "./TelegramActivityPage.jsx";
 import TelegramSendersSettings from "../TelegramSendersSettings.jsx";
+import Icon from "../../../components/Icon.jsx";
 
 const channelCopy = assistantCopy.channel;
 const conflictLabels = {
@@ -22,13 +24,28 @@ const conflictLabels = {
   appUrl: () => channelCopy.appUrl,
 };
 
+/** Why a tab section is absent for an agent of users. */
+function UserAgentNote({ text }) {
+  return (
+    <p className="agent-locked-notice" role="note">
+      <Icon name="shield" size={16} />
+      <span>{text}</span>
+    </p>
+  );
+}
+
 /**
  * Telegram: the connection, its notice settings and the agent's own bot. Reminders,
  * routines and check-ins live on their own tab and only use Telegram as an extra.
+ * A user's own agent has her bot only (managed in her app), and no agent of users
+ * gets a bot for other people (user-agent-lock.js).
  */
 export default function TelegramTab({ assistant, page, go, navigate }) {
   const { refresh } = useAssistants();
-  const telegram = useTelegramChannel(assistant.id);
+  const own = assistant.userAccess?.mode === "own";
+  const loaded = useTelegramChannel(assistant.id);
+  // Her own agent's only bot is hers: the owner never sees or acts on it here.
+  const telegram = own ? { ...loaded, channel: null } : loaded;
   const { channel } = telegram;
   const draft = useTabDraft({
     server: telegramServer(channel),
@@ -73,16 +90,24 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
       {subpage ?? (
         <>
           <ConflictNotice draft={draft} labels={conflictLabels} />
-          <ConnectionGroup
-            assistant={assistant}
-            telegram={telegram}
-            draft={draft}
-            go={go}
-            navigate={navigate}
-          />
+          {own ? (
+            <UserAgentNote text={usersCopy.ownTelegram} />
+          ) : (
+            <ConnectionGroup
+              assistant={assistant}
+              telegram={telegram}
+              draft={draft}
+              go={go}
+              navigate={navigate}
+            />
+          )}
           {/* Its own bot for other people: immediate actions, outside the draft. */}
-          {isPersonal(assistant) && (
-            <TelegramSendersSettings assistantId={assistant.id} />
+          {assistant.userAccess ? (
+            <UserAgentNote text={usersCopy.lockedTelegramSenders} />
+          ) : (
+            isPersonal(assistant) && (
+              <TelegramSendersSettings assistantId={assistant.id} />
+            )
           )}
         </>
       )}

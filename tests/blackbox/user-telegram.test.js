@@ -40,6 +40,7 @@ test("an Extended user pairs her own chat", async (t) => {
   const { channel } = await connected.json();
   assert.equal(channel.username, "anna_helper_bot");
   assert.equal(channel.paired, false);
+  assert.equal(channel.connected, true);
   const paired = await request(`/api/me/agents/${agent.id}/telegram/pair`, {
     method: "POST",
     body: {},
@@ -63,6 +64,133 @@ test("an Extended user pairs her own chat", async (t) => {
   // The token never appears in a response or the audit log.
   assert.doesNotMatch(JSON.stringify(view), /user-bot-secret/);
   assert.doesNotMatch(JSON.stringify(f.application.audit.list({})), /user-bot-secret/);
+  // She disconnects her bot again; connecting needs a token once more.
+  const removed = await request(`/api/me/agents/${agent.id}/telegram`, {
+    method: "DELETE",
+  });
+  assert.equal(removed.status, 200, await removed.clone().text());
+  assert.equal((await removed.json()).channel.connected, false);
+});
+
+test("she connects a different bot after disconnecting hers", async (t) => {
+  const { f } = await chatFixture(t);
+  const bot = { id: 777, username: "anna_helper_bot" };
+  f.application.assistantChannels.clientFactory = () => ({ identity: async () => bot });
+  const { agent, request } = await extended(f);
+  const address = `/api/me/agents/${agent.id}/telegram`;
+  const put = (value) => request(address, { method: "PUT", body: { token: value } });
+  const first = (await (await put(token)).json()).channel;
+  assert.equal((await request(address, { method: "DELETE" })).status, 200);
+  bot.id = 888;
+  bot.username = "anna_new_bot";
+  const replaced = await put("654321:another-bot-secret-token");
+  assert.equal(replaced.status, 200, await replaced.clone().text());
+  const { channel } = await replaced.json();
+  assert.equal(channel.username, "anna_new_bot");
+  assert.equal(channel.connected, true);
+  assert.equal(channel.paired, false);
+  assert.notEqual(channel.id, first.id);
+  const channels = f.application.assistantChannels.store.list();
+  assert.deepEqual(
+    channels.filter((c) => c.assistantId === agent.id).map((c) => c.username),
+    ["anna_new_bot"],
+  );
+  // A connected bot is never replaced by another one's token.
+  bot.id = 999;
+  assert.equal((await put("111111:third-bot-secret-token")).status, 409);
+});
+
+test("a bot already in use never costs her the disconnected one", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, agent, request } = await extended(f);
+  const address = `/api/me/agents/${agent.id}/telegram`;
+  const put = (value) => request(address, { method: "PUT", body: { token: value } });
+  const channel = await pairedTelegram(f, request, agent.id);
+  assert.equal((await request(address, { method: "DELETE" })).status, 200);
+  const bots = {
+    [token]: { id: 777, username: "anna_helper_bot" },
+    "222222:owner-bot-secret-token": { id: 888, username: "owner_helper_bot" },
+    "333333:senders-bot-secret-token": { id: 999, username: "senders_helper_bot" },
+  };
+  const channels = f.application.assistantChannels;
+  channels.clientFactory = (value) => ({ identity: async () => bots[value] });
+  // The owner's bot on another agent, and a bot for other people.
+  const family = await userAgent(f, {
+    mode: "shared",
+    members: [{ userId: user.id, level: "chat" }],
+  });
+  await channels.create({
+    assistantId: family.id,
+    token: "222222:owner-bot-secret-token",
+  });
+  const usesBot = channels.nativeBots.usesBot.bind(channels.nativeBots);
+  channels.nativeBots.usesBot = (id) => String(id) === "999" || usesBot(id);
+  for (const value of [
+    "222222:owner-bot-secret-token",
+    "333333:senders-bot-secret-token",
+  ])
+    assert.equal((await put(value)).status, 409, value);
+  // Her old bot keeps its pairing: reconnecting it delivers to her chat again.
+  assert.equal(channels.store.get(channel.id).chatId, channel.chatId);
+  const again = (await (await put(token)).json()).channel;
+  assert.equal(again.id, channel.id);
+  assert.equal(again.paired, true);
+});
+
+test("two reconnects of the same bot at once keep it paired", async (t) => {
+  const { f } = await chatFixture(t);
+  fakeTelegram(f);
+  const { agent, request } = await extended(f);
+  const address = `/api/me/agents/${agent.id}/telegram`;
+  const put = () => request(address, { method: "PUT", body: { token } });
+  const channel = await pairedTelegram(f, request, agent.id);
+  assert.equal((await request(address, { method: "DELETE" })).status, 200);
+  // Telegram answers the first reconnect only once the second one has arrived.
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  f.application.assistantChannels.clientFactory = () => ({
+    identity: async () => {
+      await gate;
+      return { id: 777, username: "anna_helper_bot" };
+    },
+  });
+  const pending = Promise.all([put(), put()]);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  release();
+  const results = await pending;
+  assert.ok(results.some((r) => r.status === 200));
+  const view = (await (await request(address)).json()).channel;
+  assert.equal(view.id, channel.id);
+  assert.deepEqual([view.connected, view.paired], [true, true]);
+});
+
+test("she reconnects the same bot after Disconnect and it delivers to her chat again", async (t) => {
+  const { f } = await chatFixture(t);
+  fakeTelegram(f);
+  const { agent, request } = await extended(f);
+  const address = `/api/me/agents/${agent.id}/telegram`;
+  const put = () => request(address, { method: "PUT", body: { token } });
+  const { channel } = await (await put()).json();
+  const { code } = await (
+    await request(`${address}/pair`, { method: "POST", body: {} })
+  ).json();
+  const channels = f.application.assistantChannels;
+  await channels.ingress.receive(channel.id, [telegramMessage(1, `/start ${code}`)]);
+  assert.equal((await request(address, { method: "DELETE" })).status, 200);
+  // Disconnected, the bot no longer counts as paired, though it keeps her chat.
+  let view = (await (await request(address)).json()).channel;
+  assert.deepEqual([view.connected, view.paired], [false, false]);
+  const again = await put();
+  assert.equal(again.status, 200, await again.clone().text());
+  view = (await again.json()).channel;
+  assert.equal(view.id, channel.id);
+  assert.deepEqual([view.connected, view.paired, view.enabled], [true, true, true]);
+  assert.equal(channels.store.get(channel.id).enabled, true);
+  // A paused bot with its chat kept shows as unpaired, so her app offers pairing.
+  const stored = channels.store.get(channel.id);
+  await channels.update(channel.id, { enabled: false, revision: stored.revision });
+  view = (await (await request(address)).json()).channel;
+  assert.deepEqual([view.connected, view.paired], [true, false]);
 });
 
 test("shared agents and lower levels are refused", async (t) => {

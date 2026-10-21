@@ -27,6 +27,8 @@ export const agentChatsCopy = {
   deleteConfirm: "Delete now",
   archivedBanner: "This chat is archived and read-only.",
   archivedComposer: "Archived chats are read-only. Restore it to write again.",
+  userChatComposer: "This chat belongs to a user: you can read it, but not write in it.",
   deleted: "This chat was deleted.",
+  unavailable: "This chat belongs to a user and you may no longer read it.",
   toMain: "Open main chat",
 };

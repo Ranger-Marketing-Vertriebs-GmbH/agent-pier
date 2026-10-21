@@ -75,14 +75,16 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
   useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
   // A link to a chat that is gone (a push notice's, another tab deleted it). The
   // agent's other chats are known by then (its main chat is never deleted); a list
-  // without any yet may still be catching up with a chat just opened.
+  // without any yet may still be catching up with a chat just opened. A user's own
+  // agent has no chat of the owner's: one he cannot list is one he may not read.
   const known = (id) => conversations.some((c) => c.id === id);
+  const usersOwn = assistant?.userAccess?.mode === "own";
   if (
     route.conversationId &&
     assistant &&
     !team &&
     !known(route.conversationId) &&
-    conversations.some((c) => c.assistantId === assistant.id)
+    (usersOwn || conversations.some((c) => c.assistantId === assistant.id))
   )
     return (
       <section className="assistant-detail assistant-chat">
@@ -93,7 +95,10 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
           openNavigation={openNavigation}
           navigationOpen={navigationOpen}
         />
-        <DeletedChat onMain={() => open(assistant)} />
+        <DeletedChat
+          unavailable={usersOwn}
+          onMain={usersOwn ? undefined : () => open(assistant)}
+        />
       </section>
     );
   if (conversationId && assistant)

@@ -86,10 +86,23 @@ export default function UserApp({ status }) {
     );
   else if (route.view === "settings")
     page = (
-      <UserAgentSettings key={agent.id} agent={agent} route={route} navigate={navigate} />
+      <UserAgentSettings
+        key={agent.id}
+        agent={agent}
+        route={route}
+        navigate={navigate}
+        subscribe={data.subscribe}
+      />
     );
   else if (route.view === "browser")
-    page = <UserBrowserPage key={agent.id} agent={agent} navigate={navigate} />;
+    page = (
+      <UserBrowserPage
+        key={agent.id}
+        agent={agent}
+        navigate={navigate}
+        ownerMayRead={data.me?.ownerMayRead}
+      />
+    );
   else if (route.view === "account")
     page = (
       <UserPage

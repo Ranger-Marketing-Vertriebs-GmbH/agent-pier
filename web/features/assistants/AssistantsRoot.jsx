@@ -38,6 +38,11 @@ export default function AssistantsHost({ publishState, publishEvents }) {
   const [reachable, setReachable] = useState(true);
   // Lives with this host, so a logout (which unmounts the app) also forgets it.
   const [histories] = useState(() => new AgentHistoryCache());
+  const listed = useRef(none);
+  useEffect(() => {
+    histories.forgetVanished(listed.current, data.conversations);
+    listed.current = data.conversations;
+  }, [histories, data.conversations]);
   const listeners = useRef(new Set());
   const alive = useRef(true);
   // Counts applied list syncs: a read that a sync overtook is not shown.

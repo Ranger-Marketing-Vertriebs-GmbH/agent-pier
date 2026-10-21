@@ -59,6 +59,15 @@ export class AgentHistoryCache {
   drop(id) {
     this.remove(id);
   }
+  /**
+   * Forgets the windows of chats the list knew before and no longer shows: deleted
+   * elsewhere, or a user's chats once "Owner may read chats" ended. A chat the list
+   * has not shown yet (just opened) keeps its window.
+   */
+  forgetVanished(before = [], after = []) {
+    const now = new Set(after.map((chat) => chat.id));
+    for (const chat of before) if (!now.has(chat.id)) this.remove(chat.id);
+  }
   remove(id) {
     const entry = this.entries.get(id);
     if (!entry) return;

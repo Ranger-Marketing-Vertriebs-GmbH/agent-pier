@@ -4,6 +4,8 @@ import {
   handBackNote,
   handBackNotes,
 } from "../../server/features/assistants/browser-hand-back.js";
+import { shareNote, shareNotes } from "../../server/features/assistants/agent-shares.js";
+import { shareDefinition } from "../../server/features/assistants/team-plugin/share-tool.js";
 import { checkInPrompt } from "../../server/features/assistants/native-heartbeats.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
 
@@ -38,4 +40,13 @@ test("a user's routine reports to her, the owner's to him", () => {
   const own = payload({ kind: "routine", userId: "user-1" });
   assert.doesNotMatch(own, /owner/i);
   assert.match(own, /for your user/);
+});
+
+test("a file shared in a user's chat is for the person who asked, not the owner", () => {
+  assert.equal(shareNote({ userId: null }), shareNotes.owner);
+  const note = shareNote({ userId: "u-1" });
+  assert.match(note, /person who asked sees the file in this chat/);
+  assert.doesNotMatch(note, /owner/i);
+  // The tool itself, the same for every agent, names no owner as the recipient.
+  assert.doesNotMatch(shareDefinition.share_file.description, /owner/i);
 });

@@ -273,7 +273,10 @@ export async function createApplication(config) {
         .json({ error: error.message, ...messageIdentity(error.message) });
     }
   });
-  app.use("/auth", loginRoutes(services.identity, effective));
+  app.use(
+    "/auth",
+    loginRoutes(services.identity, effective, { notifications: services.notifications }),
+  );
   // Every /api router goes through the registry, so the access tests see every route.
   // What a restricted user reaches of the agents; her routes and sockets ask it.
   services.userScope = new UserScope(services);

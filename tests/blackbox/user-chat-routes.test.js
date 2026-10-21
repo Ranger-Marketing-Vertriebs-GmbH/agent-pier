@@ -4,6 +4,10 @@ import { WebSocket } from "ws";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import {
+  NOTE_HEADER,
+  USER_NOTE_HEADER,
+} from "../../server/features/assistants/agent-attachment-types.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -112,6 +116,9 @@ test("a user chats with her agent", async (t) => {
   assert.equal(sent.status, 202, await sent.clone().text());
   const { attempt } = await sent.json();
   assert.equal(gateway.sent.length, 1);
+  // Her files are announced as hers, not as the owner's.
+  assert.ok(gateway.sent[0].message.includes(USER_NOTE_HEADER));
+  assert.ok(!gateway.sent[0].message.includes(NOTE_HEADER));
   // The turn runs as hers, never as the owner's.
   const assistants = f.application.assistants;
   const turn = assistants.teams.store.context(

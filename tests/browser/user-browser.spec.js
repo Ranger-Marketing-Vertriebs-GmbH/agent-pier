@@ -20,9 +20,9 @@ function frame() {
   return Buffer.concat([length, header, jpeg]);
 }
 
-async function stream(page) {
+async function stream(page, id = "family") {
   const commands = [];
-  await page.routeWebSocket("**/api/assistants/family/browser-stream*", (ws) => {
+  await page.routeWebSocket(`**/api/assistants/${id}/browser-stream*`, (ws) => {
     const state = (control) =>
       ws.send(
         JSON.stringify({
@@ -47,11 +47,16 @@ const languages = {
     takeOver: "Übernehmen",
     mine: /Du steuerst den Browser/,
     unavailable: /arbeitet gerade für jemand anderen/,
+    onlyYou: "Nur du siehst diese Ansicht. AgentPier speichert keine Bilder.",
+    ownerWatches:
+      "Der Besitzer kann diese Ansicht ebenfalls sehen. AgentPier speichert keine Bilder.",
   },
   en: {
     takeOver: "Take over",
     mine: /You control the browser/,
     unavailable: /working for someone else right now/,
+    onlyYou: "Only you see this view. AgentPier stores no pictures.",
+    ownerWatches: "The owner can also watch this view. AgentPier stores no pictures.",
   },
 };
 
@@ -88,5 +93,32 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.getByText(copy.unavailable)).toBeVisible();
       await expect(page.getByRole("button", { name: copy.takeOver })).toHaveCount(0);
       expect(commands).toEqual([]);
+    });
+
+    test("her own agent's view says when the owner may watch it", async ({ page }) => {
+      const lotta = userAgent();
+      const state = await userAppFixture(page, {
+        language,
+        agents: [lotta],
+        browser: { lotta: { running: true, watchable: true } },
+      });
+      await stream(page, "lotta");
+      await page.goto(baseURL + "/agents/lotta/browser");
+      await expect(page.getByText(copy.onlyYou, { exact: true })).toBeVisible();
+      state.ownerMayRead = { enabled: true, since: "2026-10-20T08:00:00.000Z" };
+      await page.reload();
+      await expect(page.getByText(copy.ownerWatches, { exact: true })).toBeVisible();
+      await expect(page.getByText(copy.onlyYou, { exact: true })).toHaveCount(0);
+    });
+
+    test("a shared agent's view says the owner may watch it", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        agents: [family],
+        browser: { family: { running: true, watchable: true } },
+      });
+      await stream(page);
+      await page.goto(baseURL + "/agents/family/browser");
+      await expect(page.getByText(copy.ownerWatches, { exact: true })).toBeVisible();
     });
   });

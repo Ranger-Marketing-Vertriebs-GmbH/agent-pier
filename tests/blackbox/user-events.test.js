@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { as, chatFixture, sharedAgentOfTwo } from "../helpers/user-chats.js";
+import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
+import { signedInUser } from "../helpers/users.js";
+import { telegramMessage } from "../helpers/assistant-channel-fixture.js";
 
 // Reads a user's event stream; `frames()` are the data frames so far.
 async function stream(f, cookie) {
@@ -144,4 +146,58 @@ test("a stream opened while agents are off ends once they start, so she reconnec
   await settle();
   assert.deepEqual(again.frames(), [{ type: "connected" }]);
   assert.equal(again.ended(), false);
+});
+
+test("she learns at once when the owner turns reading her chats on or off", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, ben } = await sharedAgentOfTwo(f);
+  const events = await stream(f, anna.cookie);
+  t.after(events.close);
+  await settle();
+  const optIn = (user, enabled) =>
+    f.request(`/api/users/${user.id}/owner-may-read`, {
+      method: "PUT",
+      body: { enabled },
+    });
+  // Ben's opt-in is not hers.
+  assert.equal((await optIn(ben.user, true)).status, 200);
+  await settle();
+  assert.equal(events.frames().filter((e) => e.type === "account").length, 0);
+  assert.equal((await optIn(anna.user, true)).status, 200);
+  await settle();
+  assert.equal((await optIn(anna.user, false)).status, 200);
+  await settle();
+  assert.equal(events.frames().filter((e) => e.type === "account").length, 2);
+});
+
+test("her Telegram pairing finishing in Telegram reaches her app", async (t) => {
+  const { f } = await chatFixture(t);
+  f.application.assistantChannels.clientFactory = () => ({
+    identity: async () => ({ id: 777, username: "anna_helper_bot" }),
+  });
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: user.id, level: "extended" }],
+  });
+  const request = as(f, cookie);
+  const address = `/api/me/agents/${agent.id}/telegram`;
+  const { channel } = await (
+    await request(address, { method: "PUT", body: { token: "123456:anna-bot-token" } })
+  ).json();
+  const { code } = await (
+    await request(`${address}/pair`, { method: "POST", body: {} })
+  ).json();
+  const events = await stream(f, cookie);
+  t.after(events.close);
+  await settle();
+  await f.application.assistantChannels.ingress.receive(channel.id, [
+    telegramMessage(1, `/start ${code}`),
+  ]);
+  await settle();
+  assert.ok(
+    events.frames().some((e) => e.type === "telegram" && e.agentId === agent.id),
+    JSON.stringify(events.frames()),
+  );
+  assert.equal((await (await request(address)).json()).channel.paired, true);
 });

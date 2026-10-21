@@ -18,6 +18,7 @@ const languages = {
     shared: "Geteilter Agent:",
     sharedBody: /Was er sich merkt, sein Profil \(USER\.md\) und sein Browser/,
     sharedBadge: "Geteilt",
+    sharedBodyRead: /Andere, die ihn nutzen, sehen deinen Chat nicht\./,
     reads: /Der Besitzer kann deine Chats seit .+ lesen\./,
     private: "Privat: Nur du siehst diesen Chat.",
   },
@@ -28,6 +29,7 @@ const languages = {
     shared: "Shared agent:",
     sharedBody: /what it remembers, its profile \(USER\.md\) and its browser/,
     sharedBadge: "Shared",
+    sharedBodyRead: /Others who use it do not see your chat,/,
     reads: /The owner can read your chats since .+\./,
     private: "Private: only you see this chat.",
   },
@@ -70,6 +72,24 @@ for (const [language, copy] of Object.entries(languages)) {
       // Her chat is private there too, said once in the shared notice.
       await expect(page.getByText(copy.private)).toHaveCount(0);
       expect(state.foreign).toEqual([]);
+    });
+
+    test("a shared agent never calls her chat private while the owner may read it", async ({
+      page,
+    }) => {
+      await userAppFixture(page, {
+        language,
+        agents: [userAgent(), family],
+        chats: { lotta: [userChat()], family: [userChat({ id: "family-main" })] },
+        ownerMayRead: { enabled: true, since: "2026-10-20T08:00:00.000Z" },
+      });
+      await page.goto(baseURL + "/agents/family/chats/family-main");
+      await expect(page.getByText(copy.reads)).toBeVisible();
+      await expect(page.getByText(copy.sharedBodyRead)).toBeVisible();
+      await expect(page.getByText(copy.sharedBody)).toHaveCount(1);
+      await expect(
+        page.getByText(/Dein Chat ist privat|Your chat is private/),
+      ).toHaveCount(0);
     });
 
     test("the opt-in notice is visible", async ({ page }) => {

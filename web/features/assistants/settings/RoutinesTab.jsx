@@ -5,6 +5,7 @@ import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantProactivityCopy as proactivity } from "../../../lib/i18n/messages/assistant-proactivity.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { usersCopy } from "../../../lib/i18n/messages/users.js";
 import useAssistants from "../useAssistants.js";
 import RemindersGroup from "./RemindersGroup.jsx";
 import RoutinesGroup from "./RoutinesGroup.jsx";
@@ -62,7 +63,10 @@ export default function RoutinesTab({ assistant }) {
         set={draft.set}
         paired={paired}
       />
-      {assistant.capabilities?.reminders ? (
+      {assistant.userAccess?.mode === "own" ? (
+        // Her reminders and routines carry what she asked for: hers to manage.
+        <p className="assistant-note">{usersCopy.ownRoutines}</p>
+      ) : assistant.capabilities?.reminders ? (
         <>
           <RemindersGroup assistantId={assistant.id} paired={paired} />
           <RoutinesGroup assistantId={assistant.id} paired={paired} />

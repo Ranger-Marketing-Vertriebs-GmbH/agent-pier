@@ -22,6 +22,18 @@ import { routineOrigin } from "./routine-targets.js";
  * own, a task member's team turns): read access is enough, and the path is resolved
  * like every folder read (project-paths.js: never .git, never AgentPier's data).
  */
+/**
+ * What the tool result tells the agent about who sees the file now: the owner in his
+ * chats, the person who asked in a user's chat (which the owner does not read).
+ */
+export const shareNotes = {
+  owner:
+    "The owner sees the file in the chat now; do not repeat its contents unless asked.",
+  user: "The person who asked sees the file in this chat now; do not repeat its contents unless asked.",
+};
+export const shareNote = (conversation) =>
+  conversation?.userId ? shareNotes.user : shareNotes.owner;
+
 export class AgentShares {
   constructor({ assistants, channels = null }) {
     Object.assign(this, { assistants, channels });
@@ -66,7 +78,7 @@ export class AgentShares {
       status: "shared",
       file: { name: file.name, type: file.type, size: file.size },
       ...(telegram ? { telegram } : {}),
-      note: "The owner sees the file in the chat now; do not repeat its contents unless asked.",
+      note: shareNote(conversation),
     };
   }
   // A file in a granted project folder, resolved inside it, then read like any share.

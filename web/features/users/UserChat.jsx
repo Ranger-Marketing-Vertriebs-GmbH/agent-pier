@@ -213,7 +213,9 @@ export default function UserChat({
           <AssistantActionApprovals {...approvals} assistantId={agent.id} />
         </div>
         <div className="user-chat-notices">
-          {agent.shared && <SharedAgentNotice />}
+          {agent.shared && (
+            <SharedAgentNotice ownerReads={Boolean(ownerMayRead?.enabled)} />
+          )}
           <OwnerReadsNotice ownerMayRead={ownerMayRead} shared={agent.shared} />
         </div>
         {readOnly ? (

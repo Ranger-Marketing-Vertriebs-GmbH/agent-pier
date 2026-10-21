@@ -153,4 +153,79 @@ test.describe("English project agents", () => {
       },
     ]);
   });
+
+  test("an agent of users gets folders only, here and when adding a folder", async ({
+    page,
+  }) => {
+    const puts = [];
+    const lotta = { coding: false, folder: "none" };
+    const intercept = async (route, url, method) => {
+      if (url.pathname === "/api/assistants") {
+        await route.fulfill({
+          json: {
+            assistants: [
+              {
+                id: "lotta",
+                name: "Lotta",
+                userAccess: { mode: "own", members: [{ userId: "u-1", level: "chat" }] },
+              },
+            ],
+            conversations: [],
+          },
+        });
+        return true;
+      }
+      const match = /^\/api\/assistant-project-access\/([^/]+)(?:\/([^/]+))?$/.exec(
+        url.pathname,
+      );
+      if (!match) return false;
+      if (method === "PUT") {
+        const body = route.request().postDataJSON();
+        puts.push({ projectId: match[1], ...body });
+        Object.assign(lotta, { coding: body.coding, folder: body.folder });
+        await route.fulfill({ json: { id: match[2], revision: 2, ...lotta } });
+        return true;
+      }
+      await route.fulfill({
+        json: {
+          agents: [
+            { id: "lotta", name: "Lotta", revision: 1, foldersOnly: true, ...lotta },
+          ],
+        },
+      });
+      return true;
+    };
+    await page.setViewportSize(phone);
+    await hubFixture(page, { intercept });
+    await page.goto(base + "/projects/m1?tab=agents");
+    const agent = page.locator('[data-project-agent="lotta"]');
+    await expect(agent.getByText(/Locked for agents of users/)).toBeVisible();
+    await expect(
+      agent.getByLabel("May start coding sessions in this project"),
+    ).toHaveCount(0);
+    await agent.getByLabel("Read", { exact: true }).check();
+    await expect.poll(() => puts.length).toBe(1);
+    expect(puts[0]).toMatchObject({ coding: false, folder: "read" });
+
+    await page.goto(base + "/projects");
+    await page.getByRole("button", { name: "Add project" }).first().click();
+    await page.getByRole("menuitem", { name: "Add folder" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add project" });
+    const pick = dialog.getByLabel("Lotta");
+    await expect(pick.locator("option")).toHaveText([
+      "No access",
+      "Read folder",
+      "Read and write folder",
+    ]);
+    await pick.selectOption({ label: "Read and write folder" });
+    await dialog.getByLabel("Project directory", { exact: true }).fill("/work/new");
+    await dialog.getByRole("button", { name: "Add project" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(puts.at(-1)).toEqual({
+      projectId: "m3",
+      expected: { coding: false, folder: "none" },
+      coding: false,
+      folder: "write",
+    });
+  });
 });

@@ -208,6 +208,34 @@ test("under the opt-in the owner watches a user's own agent's browser, never dri
   assert.deepEqual(errors, ["VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY"]);
 });
 
+// The first state message a new view of `endpoint` gets.
+const firstState = (f, endpoint, cookie) =>
+  new Promise((resolve, reject) => {
+    const socket = new WebSocket(f.url.replace("http", "ws") + endpoint, {
+      headers: { cookie, origin: f.url },
+    });
+    socket.on("message", (data, binary) => {
+      if (binary) return;
+      const message = JSON.parse(String(data));
+      if (message.type !== "state") return;
+      socket.terminate();
+      resolve(message.state);
+    });
+    socket.on("unexpected-response", (_req, res) =>
+      reject(new Error(`refused ${res.statusCode}`)),
+    );
+    socket.on("error", () => {});
+  });
+
+test("the owner's view of a user's own agent's browser says it only watches", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent, socket } = await ownersView(f);
+  socket.terminate();
+  assert.equal((await firstState(f, stream(agent.id), f.cookie)).viewOnly, true);
+  // She drives her own agent's browser: her view is not view-only.
+  assert.equal((await firstState(f, stream(agent.id), anna.cookie)).viewOnly, undefined);
+});
+
 test("under the opt-in the owner's view never moves a user's own agent's browser tab", async (t) => {
   const { f } = await chatFixture(t);
   const { agent, socket } = await ownersView(f);
