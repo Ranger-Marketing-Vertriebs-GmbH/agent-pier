@@ -27,6 +27,8 @@ const evidenceOf = (r) => {
     return {};
   }
 };
+// Why a failed turn ended, when AgentPier knows it.
+const failures = new Set(["timeout", "stalled"]);
 // A send whose acknowledgement was lost (conversation-turns.js) leaves the attempt
 // uncertain but confirmable: the Gateway may still prove it runs the turn.
 const unconfirmedSend = (r) =>
@@ -40,6 +42,11 @@ const attemptRecord = (r) =>
     state: r.state,
     createdAt: r.created_at,
     ...(unconfirmedSend(r) ? { unconfirmed: true } : {}),
+    // Why a failed turn ended, when AgentPier knows (run-reconciler.js,
+    // run-stall-guard.js): "timeout" or "stalled".
+    ...(r.state === "failed" && failures.has(evidenceOf(r).failure)
+      ? { failure: evidenceOf(r).failure }
+      : {}),
   };
 export class RequestLedger {
   constructor(db) {

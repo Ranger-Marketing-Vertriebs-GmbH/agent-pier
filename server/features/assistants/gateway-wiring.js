@@ -62,6 +62,8 @@ export function bindChatEvents(service) {
     if (!conversation) return service.generatedImages.observeRun(event);
     // Any frame of the turn's run proves a send whose acknowledgement was lost.
     confirmFromEvent(service, conversation, payload);
+    // Its live steps, and any frame at all as a sign of life (run-steps.js).
+    publishSteps(service, conversation, event);
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The chat's live feed always holds the reply so far.
     const text =
@@ -71,6 +73,13 @@ export function bindChatEvents(service) {
     if (text !== undefined) service.feeds?.stream(conversation.id, payload.runId, text);
     if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state)) {
       service.chatStreams.end(payload.runId);
+      service.runSteps.end(payload.runId);
+      // Why it failed, for its turn (run-reconciler.js); kept for a few runs only.
+      if (payload.state === "error" && payload.errorKind === "timeout") {
+        const failures = (service.runFailures ??= new Map());
+        failures.set(payload.runId, "timeout");
+        if (failures.size > 64) failures.delete(failures.keys().next().value);
+      }
       service.feeds?.endRun(conversation.id, payload.runId);
       // A run ending is activity, also one AgentPier did not send: a reminder, routine
       // or check-in delivered into the main chat (owner-privacy.js, agent-chats.js).
@@ -87,4 +96,25 @@ export function bindChatEvents(service) {
         service.generatedImages.observe(conversation).catch(() => {});
     }
   });
+}
+
+// A run's steps go to its chat when they change, and at most every `aliveMs` while
+// only signs of life arrive (thinking, a long reply), so the chat's quiet time stays
+// true without a frame per token.
+const aliveMs = 15000;
+function publishSteps(service, conversation, event) {
+  const observed = service.runSteps.observe(event);
+  if (!observed) return;
+  const now = service.now?.() ?? Date.now();
+  const sent = (service.stepsSent ??= new Map());
+  const last = sent.get(observed.runId);
+  if (!observed.changed && last !== undefined && now - last < aliveMs) return;
+  sent.delete(observed.runId);
+  sent.set(observed.runId, now);
+  if (sent.size > 64) sent.delete(sent.keys().next().value);
+  service.feeds?.steps(
+    conversation.id,
+    observed.runId,
+    service.runSteps.view(observed.runId),
+  );
 }

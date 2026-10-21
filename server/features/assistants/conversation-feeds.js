@@ -30,12 +30,14 @@ export class ConversationFeeds {
    * key ([conversationId, runtimeSessionKey, runtime generation]) and `runs(id)` the
    * replies streaming right now as [runId, text] pairs. `owner(id)` names the agent
    * whose chat the conversation is (invalidateOwners), `request(id, runId)` the request
-   * a run answers (with `writtenAt`), or null.
+   * a run answers (with `writtenAt`), or null. `steps(id)` returns the live steps of
+   * its running turns as [runId, view] pairs (run-steps.js).
    */
   constructor({
     read,
     scope,
     runs = () => [],
+    steps = () => [],
     owner = () => null,
     request = () => null,
     sync = new ChatSync({}),
@@ -46,6 +48,7 @@ export class ConversationFeeds {
       read,
       scope,
       runs,
+      stepsOf: steps,
       owner,
       request,
       sync,
@@ -58,7 +61,9 @@ export class ConversationFeeds {
   }
   /**
    * Watches conversation `id`; `send` receives `{type: "sync", data}`, `{type:
-   * "stream", runId, from, text}`, `{type: "error", error}` and `{type: "end"}`.
+   * "stream", runId, from, text}`, `{type: "steps", runId, steps, omitted, phase,
+   * retry, quietMs}` and `{type: "steps-end", runId}` (the running turn's live steps),
+   * `{type: "error", error}` and `{type: "end"}`.
    * `cursor` is the subscriber's resume baseline; `since` (the owner reading a user's
    * chat under her opt-in) leaves out everything before it. Returns the unsubscribe
    * function.
@@ -72,12 +77,15 @@ export class ConversationFeeds {
         subscribers: new Set(),
         waiting: new Set(),
         runs: new Map(),
+        steps: new Map(),
         dirty: false,
         disposed: false,
       };
       for (const [runId, text] of this.runs(id) || [])
         if (typeof text === "string")
           entry.runs.set(runId, { text, epoch: ++this.epochs });
+      for (const [runId, view] of this.stepsOf(id) || [])
+        if (view) entry.steps.set(runId, { view, at: Date.now() });
       this.entries.set(id, entry);
       // A lost hint never leaves a running turn's chat behind for long.
       entry.recovery = setInterval(() => {
@@ -91,11 +99,14 @@ export class ConversationFeeds {
       cursor: CURSOR.test(cursor || "") ? cursor : undefined,
       issued: false,
       runs: new Map(),
+      stepRuns: new Set(),
     };
     entry.subscribers.add(subscriber);
     entry.waiting.add(subscriber);
     // The reply streaming now, whole: this subscriber has seen none of it.
     for (const [runId, run] of entry.runs) this.streamTo(entry, subscriber, runId, run);
+    for (const [runId, record] of entry.steps)
+      this.stepsTo(entry, subscriber, runId, record);
     // Another tab keeps this feed alive: its settled value answers at once, and
     // the read below still observes the current history for the newcomer.
     const cached = !entry.dirty && !entry.pending ? entry.value : null;
@@ -222,6 +233,29 @@ export class ConversationFeeds {
     subscriber.runs.set(runId, { epoch: run.epoch, length: run.text.length });
     subscriber.send({ type: "stream", runId, from, text: run.text.slice(from) });
   }
+  /**
+   * The live steps of `runId` changed (run-steps.js): every subscriber gets them
+   * whole. They follow the reply's privacy: the owner reading under her opt-in sees
+   * only the steps of what she wrote since.
+   */
+  steps(id, runId, view) {
+    const entry = this.entries.get(id);
+    if (!entry || !view) return;
+    const record = entry.steps.get(runId) || {};
+    entry.steps.delete(runId);
+    Object.assign(record, { view, at: Date.now() });
+    entry.steps.set(runId, record);
+    if (entry.steps.size > maxRuns) entry.steps.delete(entry.steps.keys().next().value);
+    for (const subscriber of [...entry.subscribers])
+      this.stepsTo(entry, subscriber, runId, record);
+  }
+  stepsTo(entry, subscriber, runId, record) {
+    if (subscriber.since && !this.runFrom(entry, runId, record, subscriber.since)) return;
+    subscriber.stepRuns.add(runId);
+    // The quiet time as of now: a late subscriber counts on from here.
+    const quietMs = record.view.quietMs + Math.max(0, Date.now() - record.at);
+    subscriber.send({ type: "steps", runId, ...record.view, quietMs });
+  }
   // Whether a run answers a request written at or after `since`; an unknown run
   // shows in the history once it ends.
   runFrom(entry, runId, run, since) {
@@ -239,6 +273,10 @@ export class ConversationFeeds {
     const entry = this.entries.get(id);
     if (!entry) return;
     this.forget(entry, runId);
+    if (entry.steps.delete(runId))
+      for (const subscriber of [...entry.subscribers])
+        if (subscriber.stepRuns.delete(runId))
+          subscriber.send({ type: "steps-end", runId });
     this.schedule(entry);
   }
   forget(entry, runId) {
@@ -313,6 +351,11 @@ export function conversationFeeds(service, options = {}) {
       return [...(service.chatStreams?.runs || [])]
         .filter(([, run]) => run.sessionKey === key)
         .map(([runId, run]) => [runId, run.text]);
+    },
+    steps: (id) => {
+      const key = service.store.getConversation(id).runtimeSessionKey;
+      const steps = service.runSteps;
+      return steps ? steps.ofSession(key).map((runId) => [runId, steps.view(runId)]) : [];
     },
     ...options,
   });

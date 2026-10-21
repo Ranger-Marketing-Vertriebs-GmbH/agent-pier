@@ -31,6 +31,8 @@ import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
 import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds } from "./conversation-feeds.js";
+import { RunSteps } from "./run-steps.js";
+import { guardStalledRuns } from "./run-stall-guard.js";
 import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
@@ -78,6 +80,8 @@ export class AssistantService {
     this.ledger.forgetUnconfirmed();
     this.events = new AssistantEvents();
     this.chatStreams = new ChatStreams();
+    // What each running turn is doing, for its chat (run-steps.js).
+    this.runSteps = new RunSteps({ now: () => this.now() });
     // The open chats' live feeds (conversation-feeds.js).
     this.feeds = conversationFeeds(this);
     // The agent list as diffs on the event stream (assistant-list-feed.js).
@@ -111,6 +115,8 @@ export class AssistantService {
     if (!this.maintenance && !this.recovering)
       this.attachments.shared.sweep().catch(() => {});
     queuedDispatch.pollQueued(this);
+    // A turn silent for long while it waits for the model ends (run-stall-guard.js).
+    void guardStalledRuns(this);
     const now = this.now();
     if (
       this.ledger.unresolved().length ||
