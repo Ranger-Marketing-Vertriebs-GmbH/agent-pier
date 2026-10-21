@@ -11,11 +11,12 @@ import {
   stallAbortMs,
 } from "../../server/features/assistants/run-stall-guard.js";
 import { reconcileRuns } from "../../server/features/assistants/run-reconciler.js";
+import { bindChatEvents } from "../../server/features/assistants/gateway-wiring.js";
 
 const key = "agent:news:main";
 
 // An AssistantService on a fake Gateway with one chat and a running turn "run-1".
-function service(t, { wait = { status: "error", error: "x" } } = {}) {
+function service(t, { wait = { status: "error", error: "x" }, abort } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-run-stall-"));
   const store = new AssistantStore({ dataDir });
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -36,6 +37,7 @@ function service(t, { wait = { status: "error", error: "x" } } = {}) {
   };
   client.call = async (method, params) => {
     calls.push([method, params]);
+    if (method === "sessions.abort" && abort) return abort(params);
     return method === "agent.wait" ? wait : {};
   };
   const runtime = new EventEmitter();
@@ -61,6 +63,7 @@ function service(t, { wait = { status: "error", error: "x" } } = {}) {
     });
   return {
     service: value,
+    chat,
     calls,
     attempt,
     emit,
@@ -141,4 +144,134 @@ test("another failure keeps no reason", async (t) => {
   await reconcileRuns(s);
   const ended = s.ledger.getAttempt(attempt.id);
   assert.deepEqual([ended.state, ended.failure], ["failed", undefined]);
+});
+
+// Logs of the guard, kept out of the test output.
+function quiet(t) {
+  const logged = [];
+  for (const level of ["warn", "error"])
+    t.mock.method(console, level, (...args) => logged.push([level, args.join(" ")]));
+  return logged;
+}
+
+test("a reply that ends the run during its abort keeps the turn", async (t) => {
+  quiet(t);
+  let fixture;
+  fixture = service(t, {
+    abort: async () => {
+      fixture.client.emit("event", {
+        event: "chat",
+        payload: { runId: "run-1", sessionKey: key, state: "final" },
+      });
+      return {};
+    },
+  });
+  const { service: s, attempt, emit, advance } = fixture;
+  emit("lifecycle", { phase: "start" });
+  advance(stallAbortMs);
+  await guardStalledRuns(s);
+  assert.equal(s.ledger.getAttempt(attempt.id).state, "accepted");
+});
+
+test("a run the reconciler settles during its abort still fails as stalled", async (t) => {
+  quiet(t);
+  let fixture;
+  fixture = service(t, {
+    wait: { status: "aborted" },
+    abort: async () => {
+      await reconcileRuns(fixture.service);
+      return {};
+    },
+  });
+  const { service: s, attempt, emit, advance } = fixture;
+  emit("lifecycle", { phase: "start" });
+  advance(stallAbortMs);
+  await guardStalledRuns(s);
+  const ended = s.ledger.getAttempt(attempt.id);
+  assert.deepEqual([ended.state, ended.failure], ["failed", "stalled"]);
+});
+
+test("an aborted run of no stall is still cancelled", async (t) => {
+  const { service: s, attempt } = service(t, { wait: { status: "aborted" } });
+  await reconcileRuns(s);
+  assert.equal(s.ledger.getAttempt(attempt.id).state, "cancelled");
+});
+
+test("a run not heard from since a reconnect is not judged", async (t) => {
+  quiet(t);
+  const { service: s, calls, emit, advance } = service(t);
+  emit("lifecycle", { phase: "start" });
+  advance(stallAbortMs);
+  bindChatEvents(s);
+  await guardStalledRuns(s);
+  assert.deepEqual(calls, []);
+  assert.ok(s.runSteps.view("run-1"), "its steps stay for the chat");
+  emit("lifecycle", { phase: "model" });
+  advance(stallAbortMs);
+  await guardStalledRuns(s);
+  assert.deepEqual(calls, [["sessions.abort", { key, runId: "run-1" }]]);
+});
+
+test("a run that speaks while an earlier one is aborted is spared", async (t) => {
+  quiet(t);
+  let fixture;
+  fixture = service(t, {
+    abort: async (params) => {
+      if (params.runId === "run-1")
+        fixture.client.emit("event", {
+          event: "agent",
+          payload: { runId: "run-2", sessionKey: "agent:news:other", stream: "thinking" },
+        });
+      return {};
+    },
+  });
+  const { service: s, calls, emit, advance, client } = fixture;
+  const other = s.store.saveConversation({
+    assistantId: fixture.chat.assistantId,
+    runtimeSessionKey: "agent:news:other",
+  });
+  const request = s.ledger.accept(other.id, { clientRequestId: "c2", text: "Hi" });
+  const second = s.ledger.recordAttempt(request.id);
+  s.ledger.transition(second.id, "accepted", { runtimeRunId: "run-2" });
+  emit("lifecycle", { phase: "start" });
+  client.emit("event", {
+    event: "agent",
+    payload: { runId: "run-2", sessionKey: "agent:news:other", stream: "lifecycle" },
+  });
+  advance(stallAbortMs);
+  await guardStalledRuns(s);
+  assert.deepEqual(
+    calls.map(([, params]) => params.runId),
+    ["run-1"],
+  );
+  assert.equal(s.ledger.getAttempt(second.id).state, "accepted");
+});
+
+test("the guard logs an abort and a failed one, without content", async (t) => {
+  const logged = quiet(t);
+  const {
+    service: s,
+    attempt,
+    emit,
+    advance,
+  } = service(t, {
+    abort: async () => {
+      throw new Error("gateway timeout");
+    },
+  });
+  emit("lifecycle", { phase: "start" });
+  advance(stallAbortMs);
+  await guardStalledRuns(s);
+  assert.equal(s.ledger.getAttempt(attempt.id).state, "accepted");
+  assert.equal(s.runFailures?.get("run-1"), undefined);
+  assert.deepEqual(logged, [
+    ["error", "Stalled agent turn of run run-1 not ended: gateway timeout"],
+  ]);
+
+  const ok = service(t);
+  ok.emit("lifecycle", { phase: "start" });
+  ok.advance(stallAbortMs);
+  await guardStalledRuns(ok.service);
+  assert.match(logged.at(-1)[1], new RegExp(`Agent turn ${ok.attempt.id} aborted`));
+  assert.doesNotMatch(logged.at(-1)[1], /Hi/);
 });

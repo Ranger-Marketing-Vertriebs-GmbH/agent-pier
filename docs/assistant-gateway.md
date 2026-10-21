@@ -3261,7 +3261,13 @@ AgentPier's side:
   `failure: "stalled"` (`run-stall-guard.js`, checked by the 2 s reconciliation poll).
   A running tool, an exec approval and a compaction are never stalled: they report
   nothing until they end and have their own limits. Only runs this AgentPier process
-  observed are guarded; after a restart the run budget still applies.
+  observed are guarded; after a restart the run budget still applies, and after a
+  Gateway reconnect a run counts again only once it sent a new frame (frames, its end
+  among them, may have been lost). The guard re-reads the run's phase and quiet time
+  right before the abort and the attempt's state after it: a reply that ended the run
+  meanwhile keeps the turn, and a reconciliation that sees the aborted run first still
+  records `failed`/`stalled` (the run is marked in `runFailures` before the abort).
+  Each abort, and each abort that fails, is logged with the attempt or run id only.
 - OpenClaw's own limits apply unchanged, so AgentPier compiles no timeout: the model
   idle watchdog aborts a model stream that sends nothing for 120 seconds (cloud
   providers, the ChatGPT accounts' `openclaw-native-codex-responses` transport
