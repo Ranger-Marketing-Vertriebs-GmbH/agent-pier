@@ -38,6 +38,10 @@ and agents that work as a team.
   agents and members, with @-mentions, Telegram, skills, routines, check-ins, files in both
   directions, images created through ChatGPT, PDFs read with one model you choose, read or read-and-write access to project folders and GitHub through your
   token profiles ([agents](docs/agents.md)).
+- **Users:** add family members who sign in with their own password and chat
+  privately with their own or shared agents, locked away from shell, coding and the
+  rest of your workspace; you read their chats only when you switch it on
+  ([users](docs/users.md)).
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier and per-agent folders for local servers
   ([MCP](docs/mcp.md)).
@@ -143,7 +147,7 @@ The [docs index](docs/README.md) lists every guide.
 | Area    | Guides                                                                                                                                                                                                                                               |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
-| Agents  | [Agents](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                |
+| Agents  | [Agents](docs/agents.md) · [Users](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                       |
 | Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                |
 | Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                        |
 
@@ -155,6 +159,8 @@ Its data lives in `.data/` for a source checkout and in
 credentials, profiles, session metadata and conversations with private file
 permissions, but is not encrypted at rest. The login protects the web workspace;
 [remote access](docs/remote-access.md) explains Tailscale Serve and the network mode.
+[Users](docs/users.md) you add reach only their own app and their agents' chats, never
+your workspace, files or settings; the operating-system user and its data stay yours.
 
 Coding CLIs and agents run as your operating-system user. The optional
 [nono sandbox](docs/sandbox.md) confines CLI sessions only, not agents. An agent with

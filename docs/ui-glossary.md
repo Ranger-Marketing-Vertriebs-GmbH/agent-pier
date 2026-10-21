@@ -21,6 +21,24 @@ diagnostic evidence, code identifiers, URLs and anchors keep their original word
 | An Agency agent an agent starts from   | die Vorlage                              | template           | "Mit Vorlage beginnen" / "Start from a template"; the catalog stays "Agency-Agenten" / "Agency agents". |
 | `{agent.workspace}` in an MCP setting  | der Agenten-Platzhalter                  | agent placeholder  | Resolves to each bound agent's own folder; the overview card is "Agentenordner" / "Agent folders".      |
 
+## Users and their agents
+
+Restricted users ([Users](users.md)) bring their own terms. "Benutzer" in German copy
+always means such a person, never the operating-system user or the owner.
+
+| Concept                                            | German                     | English              | Notes                                                               |
+| -------------------------------------------------- | -------------------------- | -------------------- | ------------------------------------------------------------------- |
+| The person who set up AgentPier                    | der Besitzer               | owner                | Copy addressed to him says "du" / "you".                            |
+| A person the owner adds to chat with agents        | der Benutzer, die Benutzer | user                 | Not "Nutzer", "Mitglied" or "Konto".                                |
+| An agent that serves one user                      | Eigener Agent              | Own agent            | Its memory, files and browser are hers.                             |
+| An agent that serves several users                 | Geteilter Agent            | Shared agent         | Shares memory, profile and browser; each user's chats stay private. |
+| Both kinds together, in the owner's lists          | Agenten von Benutzern      | Agents of users      | Section title on the agents page and in the sidebar.                |
+| Level: chat, attach, dictate                       | Nur chatten                | Chat only            |                                                                     |
+| Level: also name, picture, instructions, reminders | Personalisieren            | Personalize          |                                                                     |
+| Level: also released capabilities and Telegram     | Erweitert                  | Extended             |                                                                     |
+| The opt-in that lets the owner read a user's chats | Besitzer darf Chats lesen  | Owner may read chats | Counts from its start; always visible to the user.                  |
+| The chat reminders and Telegram deliver into       | Hauptchat                  | Main chat            | Renamed only, never archived or deleted.                            |
+
 ## Actions
 
 Use one verb per concept, in both languages:

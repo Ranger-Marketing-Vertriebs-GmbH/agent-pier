@@ -259,6 +259,22 @@ one look (`web/components/choice.css`); no `accent-color` or bespoke switch styl
 - Routes, cross-links and the back arrow follow the
   [settings pattern › routes](settings-pattern.md#routes).
 
+#### User app
+
+A restricted [user](users.md) gets her own shell (`web/features/users/UserApp.jsx`),
+not the owner's sidebar:
+
+- `UserPage` frames every page with `UserHeader`: title, back arrow to **My agents**
+  and the menu button. The menu is a `Sheet` with **My agents**, **Account** and **Sign
+  out**; there are no other destinations.
+- Pages reuse the shared components (`ListCard`, `ListRow`, `ToggleRow`, `Sheet`,
+  `AsyncForm`) and the owner's chat; a user's agent settings show only what her level
+  allows and say "Your owner manages this." for the rest.
+- Notices that concern her privacy (shared agent, **Owner may read chats**) sit above
+  the chat, never in a dismissible toast.
+- Her app requests only `/auth` and `/api/me`; an owner path shows "This page does
+  not exist here." under its own address.
+
 ### Status colours
 
 One colour per state, from the tokens: working `--status-working` (orange),

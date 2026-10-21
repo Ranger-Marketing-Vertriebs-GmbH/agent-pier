@@ -15,6 +15,12 @@ Always, as public (unencrypted) members:
 - Project memory as a consistent SQLite snapshot (without capabilities), the audit
   log, pinned artifacts (with a tombstone for every other record, and no publish
   receipt of an unpinned one), the sanitized MCP server store.
+- Restricted users (`users/users.json`): username, display name, whether sign-in is
+  allowed, **Owner may read chats** with its start, and creation and password-change
+  times. Their password salt and hash are never public, and their sessions are never
+  archived. Their chats, uploads and memory notes are agent data and follow the
+  agents' rules below; their agents' settings, levels and reminders are agent
+  configuration. See [Users](users.md#backups).
 - Agent configuration under `assistants/`: `settings.json`, the agents' home
   folder and, of OpenClaw's state folder, only an allowlist: `openclaw.json` and its
   copies (secrets sealed or left out, see below), `plugin-skills/`, `credentials/`
@@ -116,6 +122,7 @@ scrypt-derived key):
 - Each managed profile's `secret.json` (API key) and the allowlisted login and
   configuration files of its CLI (table below).
 - Provider connection keys, repository credentials and MCP server values.
+- The restricted users' password salts and hashes (`users/credentials.json`).
 
 The agents' own browser profiles (`assistants/state/browser/agent-<id>/user-data`)
 hold their logins and cookies. They are archived only with **Include encrypted
@@ -369,3 +376,10 @@ stages. A restore stage left by a crash is removed at the next server start. The
 profile counts as logged in when its API key or its CLI's login file
 (`codex/auth.json`, `claude/.credentials.json`, `data/opencode/auth.json`) was
 restored.
+
+A restore rebuilds `users/users.json` without sessions, so every user signs in again.
+With the capsule, users keep their passwords. Without it, they keep their agents and
+chats but cannot sign in: the restore report lists each as "User <name> (set a new
+password)", **Settings › Access › Users** marks them **Needs a new password**, and
+**Reset password** on their page lets them sign in again. A user list the server
+would refuse fails the restore.

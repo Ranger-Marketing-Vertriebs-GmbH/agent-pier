@@ -689,6 +689,9 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   watch and take over their own agent's browser, a shared agent's only while one of
   their chats drives it.
 
+The [Users](users.md) guide covers users as a whole: levels, privacy, sign-in from the
+home network or tailnet, deletion and backups.
+
 Server details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users)
 and [Private chats of restricted users](assistant-gateway.md#private-chats-of-restricted-users).
 

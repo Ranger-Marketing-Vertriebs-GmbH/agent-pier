@@ -144,6 +144,41 @@ under Extensions. An _agent skill_ is a skill bundled with OpenClaw that the own
 switches on per agent under Capabilities.
 _Avoid_: Skill (unqualified), plugin, tool.
 
+### Users
+
+**Owner**:
+The one person who set up AgentPier and holds its workspace: sessions, projects,
+accounts, settings and agents.
+_Avoid_: Admin, root.
+
+**User**:
+A person the owner adds who signs in with her own password and reaches only her own
+app (`/api/me`): her agents and her chats. German copy says "Benutzer".
+_Avoid_: Member (that is a team member), guest, account.
+
+**Own agent**:
+An agent that serves exactly one user; its memory, files and browser are hers.
+_Avoid_: Private agent, personal agent.
+
+**Shared agent**:
+An agent that serves several users, each with her own private chats, sharing one
+memory, profile and browser.
+_Avoid_: Public agent, group agent.
+
+**Level**:
+How much a user may change on an agent: **Chat only**, **Personalize** or **Extended**.
+_Avoid_: Role (the principal's role is owner or user), permission.
+
+**Owner may read chats**:
+The per-user opt-in that lets the owner read her chats from its start on, and her own
+agent's memory and files in full.
+_Avoid_: Monitoring, supervision.
+
+**Principal**:
+Who a request acts for, derived from its session cookie: `{ role: "owner" }` or
+`{ role: "user", userId }`.
+_Avoid_: Identity (that is the service that resolves it), actor.
+
 ### Profiles
 
 _Profile_ is also ambiguous. Four unrelated things carry the name, so qualify every

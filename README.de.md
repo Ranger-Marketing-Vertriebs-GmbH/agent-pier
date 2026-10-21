@@ -41,6 +41,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   als Vorlagen für Agenten und Mitglieder, mit @-Erwähnungen, Telegram, Skills, Routinen, Check-ins,
   Dateien in beide Richtungen, über ChatGPT erstellte Bilder, PDFs gelesen mit einem Modell deiner Wahl, Lese- oder Schreibzugriff auf Projektordner und GitHub
   über deine Tokenprofile ([Agenten](docs/agents.md)).
+- **Benutzer:** Familienmitglieder melden sich mit eigenem Passwort an und chatten
+  privat mit eigenen oder geteilten Agenten, gesperrt für Shell, Coding und den Rest
+  deines Arbeitsbereichs; ihre Chats liest du nur, wenn du es einschaltest
+  ([Benutzer](docs/users.md), auf Englisch).
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
   für lokale Server ([MCP](docs/mcp.md)).
@@ -160,7 +164,7 @@ Die [Dokumentationsübersicht](docs/README.md) listet alle Anleitungen.
 | Bereich    | Anleitungen                                                                                                                                                                                                                                                  |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Benachrichtigungen](docs/notifications.md) |
-| Agenten    | [Agenten](docs/agents.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                          |
+| Agenten    | [Agenten](docs/agents.md) · [Benutzer](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                              |
 | Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                          |
 | Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                |
 
@@ -173,6 +177,9 @@ in `.data/` und bei einer macOS-Installation in
 Session-Metadaten und Unterhaltungen mit privaten Dateirechten, sind aber nicht
 verschlüsselt gespeichert. Die Anmeldung schützt den Web-Arbeitsbereich;
 [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve und den Netzwerkmodus.
+[Benutzer](docs/users.md), die du anlegst, erreichen nur ihre eigene Oberfläche und
+die Chats ihrer Agenten, nie deinen Arbeitsbereich, deine Dateien oder Einstellungen;
+Betriebssystembenutzer und Daten bleiben deine.
 
 Coding-CLIs und Agenten laufen als dein Betriebssystembenutzer. Die optionale
 [nono-Sandbox](docs/sandbox.md) begrenzt nur CLI-Sessions, keine Agenten. Ein Agent
