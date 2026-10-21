@@ -41,7 +41,9 @@ import { leadMembers } from "./useMemberMention.js";
 import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
-import StatusDot from "../../components/StatusDot.jsx";
+import AgentRunState from "./AgentRunState.jsx";
+import { stepsOf } from "./run-steps.js";
+import { agentRunStepsCopy as runStepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
@@ -378,9 +380,28 @@ export default function AssistantChat({
     try {
       await assistantApi.cancel(latest.attempt.id);
       await refresh();
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     }
+  }
+  async function recover() {
+    setBusy(true);
+    try {
+      await assistantApi.recover(latest.attempt.id);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  // A stalled or timed-out turn: it stops, and the agent goes on where it stopped.
+  async function retry() {
+    if (active && !(await stop())) return;
+    const text = runStepsCopy.continueMessage;
+    await deliver({ clientRequestId: crypto.randomUUID(), text }, []);
   }
   return (
     <section className="assistant-detail assistant-chat">
@@ -497,47 +518,21 @@ export default function AssistantChat({
                 streaming={Boolean(active)}
               />
             )}
-            {latest?.attempt && (
-              <p
-                role="status"
-                className={`assistant-note assistant-run-state${active && !uncertain ? " working" : ""}`}
-                data-compacting={compacting || undefined}
-              >
-                {active && !uncertain && (
-                  <StatusDot tone="working" pulse className="assistant-run-dot" />
-                )}
-                {compacting ? copy.compaction.running : copy.status[shownAttempt.state]}
-              </p>
-            )}
-            {awaiting && <p className="assistant-notice">{copy.unconfirmed}</p>}
-            {uncertain && (
-              <p className="assistant-notice">
-                {latest.attempt.reviewedAt ? copy.reviewed : copy.uncertain}
-              </p>
-            )}
-            {uncertain && !latest.attempt.reviewedAt && (
-              <div className="assistant-notice">
-                <p>{copy.recoverNotice}</p>
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await assistantApi.recover(latest.attempt.id);
-                      await refresh();
-                    } catch (e) {
-                      setError(e.message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  {copy.recover}
-                </button>
-              </div>
-            )}
+            <AgentRunState
+              attempt={latest?.attempt}
+              shownAttempt={shownAttempt}
+              active={Boolean(active)}
+              uncertain={uncertain}
+              compacting={compacting}
+              steps={stepsOf(feed.steps, latest?.attempt)}
+              longChat={history.longChat}
+              busy={busy}
+              onStop={readOnly ? null : stop}
+              onRetry={available && !queued ? retry : null}
+              awaiting={awaiting}
+              explainUncertain
+              onRecover={recover}
+            />
           </div>
           <GoAheadButton
             latest={latest}

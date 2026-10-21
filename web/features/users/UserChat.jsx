@@ -21,6 +21,8 @@ import { AgentAvatar, agentActivity } from "./MyAgentsPage.jsx";
 import useUserConversation from "./useUserConversation.js";
 import useUserApprovals from "./useUserApprovals.js";
 import { ReadOnlyComposer } from "../assistants/chats/ChatStates.jsx";
+import AgentRunState from "../assistants/AgentRunState.jsx";
+import { stepsOf } from "../assistants/run-steps.js";
 
 const sameTurn = (m, request) =>
   m.role === "user" &&
@@ -183,33 +185,19 @@ export default function UserChat({
                 streaming={active}
               />
             )}
-            {latest?.attempt && (
-              <p
-                role="status"
-                className={`assistant-note assistant-run-state${active && !chat.uncertain ? " working" : ""}`}
-              >
-                {active && !chat.uncertain && (
-                  <StatusDot tone="working" pulse className="assistant-run-dot" />
-                )}
-                {assistantCopy.status[chat.shownAttempt.state]}
-              </p>
-            )}
-            {chat.awaiting && (
-              <p className="assistant-notice">{assistantCopy.unconfirmed}</p>
-            )}
-            {chat.uncertain && !latest.attempt.reviewedAt && (
-              <div className="assistant-notice">
-                <p>{assistantCopy.recoverNotice}</p>
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={chat.busy}
-                  onClick={chat.recover}
-                >
-                  {assistantCopy.recover}
-                </button>
-              </div>
-            )}
+            <AgentRunState
+              attempt={latest?.attempt}
+              shownAttempt={chat.shownAttempt}
+              active={active}
+              uncertain={chat.uncertain}
+              steps={stepsOf(chat.feed.steps, latest?.attempt)}
+              longChat={history.longChat}
+              busy={chat.busy}
+              onStop={readOnly ? null : chat.stop}
+              onRetry={chat.available && !chat.queued ? chat.retry : null}
+              awaiting={chat.awaiting}
+              onRecover={chat.recover}
+            />
           </div>
           <AssistantActionApprovals {...approvals} assistantId={agent.id} />
         </div>

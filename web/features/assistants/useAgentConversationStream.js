@@ -3,6 +3,7 @@ import { createChatStream } from "../chat/chat-stream-transport.js";
 import { assistantApi } from "./assistant-api.js";
 import { connectionLost } from "./agent-offline.js";
 import { nextStream } from "./stream-reply.js";
+import { nextSteps } from "./run-steps.js";
 
 const settled = new Set(["completed", "failed", "cancelled"]);
 
@@ -11,7 +12,8 @@ const settled = new Set(["completed", "failed", "cancelled"]);
  * synced window goes to `onLive`, the reply streaming now is `stream`. The socket
  * resumes from the cursor of `initial` (the last known window), reconnects when the
  * page becomes visible or the device comes back online, and falls back to a few HTTP
- * reads (`?cursor=`) while it cannot connect. `refresh()` reads once over HTTP when
+ * reads (`?cursor=`) while it cannot connect. `steps` holds the running turns' live
+ * steps by run (run-steps.js). `refresh()` reads once over HTTP when
  * no socket delivers, so a sent message shows even then. `onReachable(false)` reports
  * a read that failed for want of a connection. `feed(id, cursor, signal)` replaces the
  * owner's HTTP read: a user's app reads her chat through /api/me (user-api.js).
@@ -21,6 +23,7 @@ export default function useAgentConversationStream(
   { initial, onLive, onReachable, feed = assistantApi.feed },
 ) {
   const [stream, setStream] = useState(null);
+  const [steps, setSteps] = useState(() => new Map());
   const [connection, setConnection] = useState("disconnected");
   const [error, setError] = useState("");
   const control = useRef(null);
@@ -29,7 +32,9 @@ export default function useAgentConversationStream(
   const seed = useRef(initial);
   useEffect(() => {
     const runs = new Map();
+    let held = new Map();
     setStream(null);
+    setSteps(held);
     const dispose = createChatStream({
       initial: seed.current,
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/assistant-conversations/${encodeURIComponent(conversationId)}/stream`,
@@ -51,11 +56,17 @@ export default function useAgentConversationStream(
         if (live.requests?.every((r) => settled.has(r.state))) {
           runs.clear();
           setStream(null);
+          if (held.size) setSteps((held = new Map()));
         }
         callbacks.current.onReachable?.(true);
         callbacks.current.onLive(live);
       },
       onFrame: (frame) => {
+        const stepped = nextSteps(held, frame);
+        if (stepped) {
+          if (stepped !== held) setSteps((held = stepped));
+          return;
+        }
         if (frame.type !== "stream") return;
         const next = nextStream(runs.get(frame.runId), frame);
         if (!next) return false;
@@ -80,5 +91,5 @@ export default function useAgentConversationStream(
     };
   }, [conversationId]);
   const refresh = useCallback(() => control.current?.refresh() ?? Promise.resolve(), []);
-  return { stream, connection, error, refresh };
+  return { stream, steps, connection, error, refresh };
 }
