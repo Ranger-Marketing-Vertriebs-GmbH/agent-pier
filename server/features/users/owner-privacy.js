@@ -123,7 +123,9 @@ export class OwnerPrivacy extends EventEmitter {
     const unknown = conversation.lastActivityAt === undefined;
     if (!unknown && !keep(conversation.lastActivityAt || conversation.createdAt))
       return null;
-    return keep(conversation.createdAt) ? conversation : { ...conversation, title: null };
+    return keep(conversation.createdAt)
+      ? conversation
+      : { ...conversation, title: null, generatedTitle: null };
   }
   /**
    * Whether the owner may read an agent's content (memory, files, attachments,

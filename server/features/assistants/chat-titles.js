@@ -20,16 +20,66 @@ const plain = (text) => text.replace(hiddenRuns, " ").replace(/\s+/g, " ").trim(
  */
 export function autoTitle(text) {
   if (typeof text !== "string") return null;
-  const characters = [...plain(text)];
+  return cut(plain(text), autoLimit);
+}
+
+// Cut before a word that does not fit whole, with "…"; a single long word is cut as
+// it is.
+function cut(text, limit) {
+  const characters = [...text];
   if (!characters.length) return null;
-  if (characters.length <= autoLimit) return characters.join("");
-  let kept = characters.slice(0, autoLimit - 1);
-  // Cut before a word that does not fit whole; a single long word is cut as it is.
-  if (characters[autoLimit - 1] !== " ") {
+  if (characters.length <= limit) return characters.join("");
+  let kept = characters.slice(0, limit - 1);
+  if (characters[limit - 1] !== " ") {
     const space = kept.lastIndexOf(" ");
     if (space > 0) kept = kept.slice(0, space);
   }
   return `${kept.join("").trimEnd()}…`;
+}
+
+const generatedWords = 12;
+// Quotes a model wraps a title in, and what it ends one with.
+const quotes = `"'\`«»‹›“”„‟‘’‚‛「」『』`;
+const edges = new RegExp(`^[${quotes}\\s]+|[${quotes}\\s.,;:!?…。！？、]+$`, "gu");
+
+/**
+ * A title the agent's model suggested (generated-titles.js), read as untrusted text
+ * like a set title: its first line without reasoning, markdown, a "Title:" label,
+ * quotes, trailing punctuation and the characters a set title refuses; null when
+ * nothing readable is left or it is longer than a title (80 characters, 12 words).
+ */
+export function generatedTitle(raw) {
+  if (typeof raw !== "string") return null;
+  const line = raw
+    .replace(/<think>[\s\S]*?(<\/think>|$)/giu, "\n")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith("```"));
+  if (!line) return null;
+  let title = plain(
+    line
+      // Links keep their text; emphasis, code and heading, quote and list marks go.
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/gu, "$1")
+      .replace(/^(?:#{1,6}|>|[-*+]|\d+[.)])\s+/u, "")
+      .replace(/(\*{1,3}|_{1,3}|~~|`+)(?=\S)(.*?\S)\1/gu, "$2")
+      .replace(/[*`]/gu, ""),
+  );
+  let previous;
+  do {
+    previous = title;
+    title = title
+      .replace(/^(?:title|titel|chat title)\s*[:：]\s*/iu, "")
+      .replace(edges, "");
+  } while (title !== previous);
+  // Asked for 3 to 6 words: a long line is the model talking, not a title.
+  if (
+    !/[\p{L}\p{N}]/u.test(title) ||
+    [...title].length > setLimit ||
+    title.split(" ").length > generatedWords
+  )
+    return null;
+  return title;
 }
 
 /**
@@ -72,11 +122,20 @@ function writtenText(text) {
 
 /** The automatic title from the chat's first written turn, or null. */
 export function firstTurnTitle(service, conversationId) {
+  const first = firstWrittenTurn(service, conversationId);
+  return first ? autoTitle(first.text) : null;
+}
+
+/**
+ * The chat's first written turn that names it: its request and the text she wrote
+ * (without a note AgentPier queued), or null.
+ */
+export function firstWrittenTurn(service, conversationId) {
   for (const request of service.ledger.requests(conversationId)) {
     const kind = service.teams?.store.context(request.id)?.kind ?? "owner";
     if (!written.has(kind)) continue;
-    const title = autoTitle(writtenText(request.text));
-    if (title) return title;
+    const text = writtenText(request.text);
+    if (autoTitle(text)) return { request, text };
   }
   return null;
 }
