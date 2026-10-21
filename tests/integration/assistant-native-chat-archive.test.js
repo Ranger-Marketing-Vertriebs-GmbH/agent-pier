@@ -5,6 +5,14 @@ import { teamFixture } from "../helpers/assistant-team-fixture.js";
 // OpenClaw's maintenance (pruneAfter, maxEntries) can archive a chat's native session;
 // the pinned runtime's answers are pinned in assistant-multi-chat-contract.test.js.
 // Here the fake Gateway keeps each session's archived and pinned state like it.
+// What gateway-client.js makes of OpenClaw 2026.10.3's refusal (dist/lifecycle-*.mjs).
+const archivedRefusal = (key) =>
+  Object.assign(Error("INVALID_REQUEST"), {
+    code: "INVALID_REQUEST",
+    answered: true,
+    remoteMessage: `Session "${key}" is archived. Restore it before starting new work.`,
+  });
+
 function nativeChats(t) {
   const f = teamFixture(t);
   const agent = f.store.createAssistant({
@@ -39,11 +47,7 @@ function nativeChats(t) {
       if ("pinned" in input) session.pinned = input.pinned;
       return { ok: true };
     }
-    if (method === "sessions.send" && session?.archived)
-      throw Object.assign(Error(`Session "${input.key}" is archived.`), {
-        code: "INVALID_REQUEST",
-        answered: true,
-      });
+    if (method === "sessions.send" && session?.archived) throw archivedRefusal(input.key);
     return call(method, input);
   };
   return { ...f, agent, native, chat, client, log };
@@ -54,9 +58,11 @@ test("a reconcile pass pins open chats and reopens natively archived ones once p
   f.chat("open");
   f.chat("pinned", { pinned: true });
   f.chat("pruned", { archived: true });
-  // AgentPier's own archive stays read-only and a released user's chat is never
-  // touched; their native sessions stay as they are.
+  // A chat in AgentPier's own archive is pinned too, so OpenClaw's entry cap and
+  // disk budget cannot archive or delete it, but it takes no subscription. A
+  // released user's chat is never touched.
   f.chat("kept-archived", { archived: true }, { archivedAt: new Date().toISOString() });
+  f.chat("kept-open", {}, { archivedAt: new Date().toISOString() });
   f.chat("released", { archived: true }, { userReleased: true });
   await f.assistants.reconcile();
   assert.deepEqual(
@@ -65,15 +71,20 @@ test("a reconcile pass pins open chats and reopens natively archived ones once p
       open: [false, true],
       pinned: [false, true],
       pruned: [false, true],
-      "kept-archived": [true, false],
+      "kept-archived": [false, true],
+      "kept-open": [false, true],
       released: [true, false],
     },
   );
   assert.deepEqual(
     f.log.filter(([method]) => method === "sessions.patch").map(([, key]) => key),
-    ["open", "pruned"],
+    ["open", "pruned", "kept-archived", "kept-open"],
   );
-  assert.ok(!f.log.some(([, key]) => ["kept-archived", "released"].includes(key)));
+  assert.ok(!f.log.some(([, key]) => key === "released"));
+  const subscribed = f.calls
+    .filter((c) => c.method === "sessions.messages.subscribe")
+    .map((c) => c.input.key);
+  assert.ok(!subscribed.includes("kept-archived") && !subscribed.includes("kept-open"));
   // Further passes on the same connection ask no more.
   f.log.length = 0;
   await f.assistants.reconcile();
@@ -89,19 +100,50 @@ test("a reconcile pass pins open chats and reopens natively archived ones once p
   );
 });
 
-test("a restored chat is kept open by the next pass", async (t) => {
+test("a chat kept in AgentPier's archive is not reopened or pinned once deleted", async (t) => {
   const f = nativeChats(t);
   const chat = f.chat(
-    "restored",
+    "deleted",
     { archived: true },
     { archivedAt: new Date().toISOString() },
   );
+  f.store.forgetConversation(chat.id, { deletedAt: new Date().toISOString() });
   await f.assistants.reconcile();
-  assert.equal(f.native.get("restored").archived, true);
-  f.store.updateConversation(chat.id, { archivedAt: null });
+  assert.deepEqual(f.log, []);
+  assert.equal(f.native.get("deleted").archived, true);
+});
+
+test("a failed keep is logged once and retried by the next pass", async (t) => {
+  const f = nativeChats(t);
+  f.chat("reset");
+  const warn = t.mock.method(console, "warn", () => {});
+  // A concurrent reset gives the session a new id between describe and patch.
+  const call = f.client.call;
+  let resets = 2;
+  f.client.call = async (method, input) => {
+    if (method === "sessions.patch" && resets-- > 0)
+      throw Object.assign(Error("INVALID_REQUEST"), {
+        code: "INVALID_REQUEST",
+        answered: true,
+        remoteMessage: `Session "${input.key}" changed while starting work. Retry.`,
+      });
+    return call(method, input);
+  };
+  await f.assistants.reconcile();
+  assert.equal(f.native.get("reset").pinned, false);
   await f.assistants.reconcile({ full: false });
-  assert.equal(f.native.get("restored").archived, false);
-  assert.equal(f.native.get("restored").pinned, true);
+  assert.equal(f.native.get("reset").pinned, false);
+  assert.equal(warn.mock.callCount(), 1);
+  const [line] = warn.mock.calls[0].arguments;
+  assert.match(line, /INVALID_REQUEST/);
+  assert.doesNotMatch(line, /changed while starting work|reset/);
+  await f.assistants.reconcile({ full: false });
+  assert.equal(f.native.get("reset").pinned, true);
+  assert.equal(
+    f.log.filter(([method]) => method === "sessions.describe").length,
+    3,
+    "each pass tried again until the keep held",
+  );
 });
 
 test("a turn refused for a natively archived session reopens it and goes through once", async (t) => {
