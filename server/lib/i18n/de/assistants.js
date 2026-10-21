@@ -341,6 +341,10 @@ export const assistants = {
   chatCommandQueued:
     "/new und /name warten nicht auf den Agenten. Sende sie, wenn er fertig ist.",
   chatConfirm: "Bestätige, dass dieser Chat mit seinem Verlauf gelöscht wird.",
+  chatCompactNothing:
+    "Der Verlauf lässt sich gerade nicht weiter zusammenfassen. Starte für ein neues Thema einen neuen Chat.",
+  chatCompactFailed:
+    "Der Verlauf konnte nicht zusammengefasst werden. Versuche es später noch einmal.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen › Agenten.",

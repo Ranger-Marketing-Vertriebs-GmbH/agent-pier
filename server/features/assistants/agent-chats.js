@@ -22,6 +22,8 @@ const chatErrors = Object.freeze({
   CHAT_COMMAND: ["chatCommand", 400],
   CHAT_COMMAND_QUEUED: ["chatCommandQueued", 400],
   CHAT_CONFIRM: ["chatConfirm", 400],
+  CHAT_COMPACT_NOTHING: ["chatCompactNothing", 409],
+  CHAT_COMPACT_FAILED: ["chatCompactFailed", 502],
 });
 
 /** A refusal of a chat action with its stable code. */
@@ -85,6 +87,8 @@ export function busyChats(service) {
     ...(actions?.awaiting?.() || []).map((a) => a.conversationId),
     ...(actions?.owingConversations?.() || []),
   ]);
+  // A history summarised on request (long-chats.js).
+  for (const id of service.longChats?.running.keys() || []) ids.add(id);
   for (const attempt of service.ledger.pending()) {
     try {
       ids.add(service.ledger.getRequest(attempt.requestId).conversationId);

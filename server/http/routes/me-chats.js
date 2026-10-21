@@ -41,6 +41,15 @@ export function meChatRoutes({ assistants, userScope, audit }) {
     const { id } = userScope.conversationOf(req.principal, req.params.id);
     res.json(await restoreChat(assistants, id));
   });
+  // Her long chat's hint (long-chats.js): summarise it now, or hide the hint.
+  router.post("/me/conversations/:id/compact", async (req, res) => {
+    const { id } = userScope.conversationOf(req.principal, req.params.id);
+    res.json(await assistants.longChats.summarise(id));
+  });
+  router.post("/me/conversations/:id/long-chat-dismissal", async (req, res) => {
+    const { id } = userScope.conversationOf(req.principal, req.params.id);
+    res.json(await assistants.longChats.dismiss(id));
+  });
   router.delete("/me/conversations/:id", async (req, res) => {
     const { id } = userScope.conversationOf(req.principal, req.params.id);
     confirmDelete(req.body);

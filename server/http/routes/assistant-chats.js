@@ -74,6 +74,13 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
     await restoreChat(assistants, req.params.id);
     res.json(assistants.chats.summary(req.params.id, { owner: true }));
   });
+  // The long-chat hint (long-chats.js): his own chats only, the guard refuses hers.
+  router.post("/assistant-conversations/:id/compact", async (req, res) =>
+    res.json(await assistants.longChats.summarise(req.params.id)),
+  );
+  router.post("/assistant-conversations/:id/long-chat-dismissal", async (req, res) =>
+    res.json(await assistants.longChats.dismiss(req.params.id)),
+  );
   router.delete("/assistant-conversations/:id", async (req, res) => {
     confirmDelete(req.body);
     audit.append(chatDeleted(await deleteChat(assistants, req.params.id)));
