@@ -115,9 +115,11 @@ export async function dispatchQueued(service, conversationId) {
   const backoff = retriesOf(service);
   const pending = service.ledger.pending();
   const running = new Set(pending.map((a) => a.id));
-  const busy = new Set(
-    pending.map((a) => service.ledger.getRequest(a.requestId).conversationId),
-  );
+  const busy = new Set([
+    ...pending.map((a) => service.ledger.getRequest(a.requestId).conversationId),
+    // A history summarised on request: its end dispatches again (long-chats.js).
+    ...(service.longChats?.running.keys() || []),
+  ]);
   // A backoff behind other turns ends with them: a busy member that refused the
   // owner's turn takes it as soon as its own turn is over.
   const waits = (id) => {
