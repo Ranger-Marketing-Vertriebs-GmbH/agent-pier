@@ -24,6 +24,7 @@ const chatErrors = Object.freeze({
   CHAT_CONFIRM: ["chatConfirm", 400],
   CHAT_COMPACT_NOTHING: ["chatCompactNothing", 409],
   CHAT_COMPACT_FAILED: ["chatCompactFailed", 502],
+  CHAT_HINT_FAILED: ["chatHintFailed", 502],
 });
 
 /** A refusal of a chat action with its stable code. */

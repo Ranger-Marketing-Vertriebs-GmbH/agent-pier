@@ -345,6 +345,8 @@ export const assistants = {
     "Der Verlauf lässt sich gerade nicht weiter zusammenfassen. Starte für ein neues Thema einen neuen Chat.",
   chatCompactFailed:
     "Der Verlauf konnte nicht zusammengefasst werden. Versuche es später noch einmal.",
+  chatHintFailed:
+    "Der Hinweis konnte gerade nicht ausgeblendet werden. Versuche es später noch einmal.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen › Agenten.",
