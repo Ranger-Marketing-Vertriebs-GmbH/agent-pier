@@ -39,7 +39,7 @@ test("a lead routine audit keeps ids, change, actor, reason and edited fields on
   });
 });
 
-test("writes name how they were authorized: a lead share or a member result", () => {
+test("writes name how they were authorized: a lead share, a member result or a completion", () => {
   assert.deepEqual(
     event({
       kind: "native-write",
@@ -65,6 +65,24 @@ test("writes name how they were authorized: a lead share or a member result", ()
   });
   assert.equal(file.via, "lead-share");
   assert.equal(file.leadRequestId, "request-2");
+  // A command's completion run names the owner turn that started the command.
+  for (const kind of ["native-write", "project-file"])
+    assert.deepEqual(
+      event({
+        kind,
+        tool: "write",
+        filePath: "notes/render.md",
+        via: "exec-completion",
+        sourceAttemptId: "attempt-1",
+      }),
+      {
+        kind,
+        ...(kind === "native-write" ? { tool: "write" } : {}),
+        filePath: "notes/render.md",
+        via: "exec-completion",
+        sourceAttemptId: "attempt-1",
+      },
+    );
   assert.equal(
     event({ kind: "native-write", via: "owner", filePath: "a\nb" }).via,
     undefined,
