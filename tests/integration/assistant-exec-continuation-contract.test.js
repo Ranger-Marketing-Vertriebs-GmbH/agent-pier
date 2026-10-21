@@ -9,7 +9,10 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/proces
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import {
+  HeartbeatRuns,
+  completedProcesses,
+} from "../../server/features/assistants/exec-continuation.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
@@ -23,12 +26,17 @@ import {
 // writes with that turn's rights (exec-continuation.js). The same completion after a
 // newer forwarded request, or outside the window, stays refused. This pins what the
 // implementation assumes of OpenClaw: the completion's raw transcript entry
-// (`sessions.get`: provenance and the owner turn's idempotency key), the
+// (`sessions.get`: provenance, the owner turn's idempotency key, the background
+// exec's `sessionId` and the completion's process list), the
 // `isHeartbeat` agent events of its run, the hook's run id and the session it runs in.
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
 const long = { timeoutMs: 60000 };
+// The turn's own message: OpenClaw adds a runtime context message (the active exec
+// sessions) to the model's prompt while a background command runs.
+const turnMessage = (m) =>
+  m.role === "user" && !JSON.stringify(m.content).includes("OpenClaw runtime context");
 const lastUser = (request) =>
-  request.messages.slice(request.messages.findLastIndex((m) => m.role === "user"));
+  request.messages.slice(request.messages.findLastIndex(turnMessage));
 // The completion run's prompt to the model ("An async command you ran earlier has
 // completed ..."); its transcript entry is "[OpenClaw exec completion]".
 const isCompletion = (request) =>
@@ -56,6 +64,9 @@ test(
     // The owner turn starts a background command; each completion writes one note.
     let note = "after";
     model.reply = (request) => {
+      // A summary request (OpenClaw's compaction) gets a summary.
+      if (JSON.stringify(lastUser(request)[0]).includes("<conversation>"))
+        return { text: "Summary." };
       const done = lastUser(request).some((m) => m.role === "tool");
       if (isCompletion(request))
         return done
@@ -66,14 +77,14 @@ test(
                 arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
               },
             };
-      return done
-        ? { text: "Started." }
-        : {
-            tool: {
-              name: "exec",
-              arguments: { command: "sleep 4; echo RENDERED", background: true },
-            },
-          };
+      const asked = JSON.stringify(lastUser(request)[0]);
+      // "List" runs a foreground command; "foreign" starts another background one.
+      const command = asked.includes("List")
+        ? { command: "echo LISTED" }
+        : asked.includes("foreign")
+          ? { command: "sleep 6; echo FOREIGN", background: true }
+          : { command: "sleep 4; echo RENDERED", background: true };
+      return done ? { text: "Started." } : { tool: { name: "exec", arguments: command } };
     };
     runtime = new RuntimeSupervisor({
       dataDir: f.dataDir,
@@ -154,12 +165,12 @@ test(
       );
 
     // An owner turn as AgentPier sends it: the attempt id is the idempotency key.
-    const ownerTurn = async (text) => {
+    const ownerTurn = async (text, context = { kind: "owner" }) => {
       const request = f.assistants.ledger.accept(conversation.id, {
         clientRequestId: randomUUID(),
         text,
       });
-      contexts.set(request.id, { kind: "owner" });
+      contexts.set(request.id, context);
       const attempt = f.assistants.ledger.recordAttempt(request.id);
       const sent = await runtime.client.call(
         "sessions.send",
@@ -242,6 +253,13 @@ test(
         sourceSessionKey: users.at(-1).provenance.sourceSessionKey,
       }),
     });
+    // The completion names the owner turn's background process (its first eight
+    // characters), which the exec result reports as still running.
+    const started = page.messages.find((m) => m.toolName === "exec").details;
+    const reported = completedProcesses(page.messages.findLast((m) => m.role === "user"));
+    t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
+    assert.equal(started.status, "running");
+    assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
     // The write itself.
     assert.equal(write.allow, true, "the completion continues the owner turn");
     assert.equal(
@@ -272,5 +290,26 @@ test(
     const late = await completion(from);
     assert.equal(late.allow, false, "a completion past the window stays refused");
     assert.equal(fs.existsSync(path.join(workspace, "notes/after-window.md")), false);
+
+    // 4. A forwarded turn starts a background command, the owner's later turn runs a
+    // foreground one, then the forwarded turn's command completes: refused.
+    clock = undefined;
+    await ownerTurn("Forwarded: start the foreign job.", {
+      kind: "telegram",
+      forwarded: true,
+    });
+    await ownerTurn("List the folder.");
+    note = "after-foreign";
+    from = decisions.length;
+    const foreign = await completion(from);
+    const tail = await runtime.client.call("sessions.get", { key: session.key }, long);
+    const results = tail.messages
+      .filter((m) => m.role === "toolResult" && m.toolName === "exec")
+      .slice(-2)
+      .map((m) => m.details?.status);
+    t.diagnostic(`foreign/owner exec results=${JSON.stringify(results)}`);
+    assert.deepEqual(results, ["running", "completed"], "background, then foreground");
+    assert.equal(foreign.allow, false, "another turn's command never writes");
+    assert.equal(fs.existsSync(path.join(workspace, "notes/after-foreign.md")), false);
   },
 );

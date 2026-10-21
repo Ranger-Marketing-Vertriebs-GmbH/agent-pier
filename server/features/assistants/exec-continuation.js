@@ -16,10 +16,14 @@
 //   (`isHeartbeat`) in this session (HeartbeatRuns), and it is not that turn's run.
 //   The run is hidden from the Control UI, so its events reach AgentPier only through
 //   the chat's `sessions.messages.subscribe` (conversation-open.js);
-// - the session's raw transcript (`sessions.get`) shows that turn's own message
-//   (`<attempt id>:user`), an `exec` call after it, and after that only exec
-//   completions: an image_generate result, a reminder, a heartbeat poll or anything
-//   else in between refuses.
+// - the hook names the calling run (native writes; a workspace call has no run id
+//   and needs exactly one such run in the session);
+// - the session's raw transcript (`sessions.get`, a bounded tail) shows that turn's
+//   own message (`<attempt id>:user`) and after it only exec completions, each of
+//   which reports only processes that turn itself started in the background (its
+//   exec results with `status: "running"` and their `sessionId`) and no process of
+//   any other turn: a foreground exec, a command of a forwarded, routine or other
+//   turn, an image_generate result, a reminder or a heartbeat poll refuses.
 // The command's output stays data: it never proves an owner request, unlocks SSH,
 // grants, routines or other owner-only switches, and project folders take only file
 // actions (workspace-calls.js). Each write is audited with `via: "exec-completion"`.
@@ -67,12 +71,29 @@ export class HeartbeatRuns {
   }
 }
 
+// Refusals are logged once per session, run and reason, with a code only: never a
+// path, the transcript or the command's output.
+const logged = new Set();
+function refuse(bridge, input, code) {
+  const key = `${input.sessionKey}\u0000${input.runId ?? ""}\u0000${code}`;
+  if (!logged.has(key)) {
+    if (logged.size > 1000) logged.clear();
+    logged.add(key);
+    (bridge.warn || console.warn)(
+      `Exec completion continuation refused for ${String(input.agentId).slice(0, 80)} (${code}).`,
+    );
+  }
+  return null;
+}
+
 /**
  * The owner turn a run of a session without an attempt may continue, from
  * AgentPier's own records only: `{ agent, conversation, attempt, runId }` or null.
- * Without `runId` (a workspace call), the session must have exactly one such run.
+ * Without `runId` (a workspace call: its context names no run), the session must
+ * have exactly one such run; a native write always names its run (continuationWrite).
  */
-export function continuationSource(bridge, { agentId, sessionKey, runId }) {
+export function continuationSource(bridge, input) {
+  const { agentId, sessionKey, runId } = input;
   try {
     const { store, ledger, heartbeatRuns } = bridge.assistants;
     const agent = bridge.agentOf(agentId);
@@ -81,29 +102,33 @@ export function continuationSource(bridge, { agentId, sessionKey, runId }) {
       agent.archivedAt ||
       (agent.teamMemberId && agent.lifetime !== "permanent")
     )
-      return null;
+      return refuse(bridge, input, "AGENT");
     const conversation = store.conversationOfSession(sessionKey);
     if (
       conversation?.assistantId !== agent.id ||
       conversation.userReleased ||
       bridge.bound(sessionKey).length
     )
-      return null;
+      return refuse(bridge, input, "CHAT");
     const request = ledger.requests(conversation.id).at(-1);
     const attempt = request && ledger.attemptFor(request.id);
-    if (attempt?.state !== "completed" || attempt.reviewedAt) return null;
-    if (!directTurn(bridge.teams?.store?.context?.(request.id), agent)) return null;
+    if (attempt?.state !== "completed" || attempt.reviewedAt)
+      return refuse(bridge, input, "REQUEST");
+    if (!directTurn(bridge.teams?.store?.context?.(request.id), agent))
+      return refuse(bridge, input, "ORIGIN");
     const age = bridge.now() - Date.parse(attempt.createdAt);
-    if (!(age >= 0 && age <= continuationWindowMs)) return null;
+    if (!(age >= 0 && age <= continuationWindowMs))
+      return refuse(bridge, input, "WINDOW");
     const runs = heartbeatRuns?.live(sessionKey) || [];
     const run =
       runId === undefined
         ? runs.length === 1 && runs[0]
         : runs.find((r) => r.runId === runId);
-    if (!run || [attempt.id, attempt.runtimeRunId].includes(run.runId)) return null;
+    if (!run || [attempt.id, attempt.runtimeRunId].includes(run.runId))
+      return refuse(bridge, input, "RUN");
     return { agent, conversation, attempt, runId: run.runId, run };
-  } catch {
-    return null;
+  } catch (error) {
+    return refuse(bridge, input, `ERROR ${error?.code || error?.name || "unknown"}`);
   }
 }
 
@@ -114,49 +139,124 @@ const toolResultOnly = (content) =>
 const isUser = (m) => m?.role === "user" && !toolResultOnly(m.content);
 const isCompletion = (m) =>
   m.provenance?.kind === "internal_system" && m.provenance.sourceTool === "exec";
-const callsExec = (m) =>
-  m?.role === "assistant" &&
-  [
-    ...(Array.isArray(m.content) ? m.content : []),
-    ...(Array.isArray(m.tool_calls) ? m.tool_calls.map((c) => c?.function) : []),
-  ].some((b) => b?.name === "exec");
 const timeOf = (m) =>
   Number.isFinite(m.timestamp) ? m.timestamp : m.__openclaw?.recordTimestampMs;
+// A backgrounded exec: OpenClaw's result of an `exec` call that returned while the
+// command keeps running names its process session (`details.sessionId`); a
+// foreground command returns `completed` and never wakes the session.
+const background = (m) =>
+  m?.role === "toolResult" &&
+  m.toolName === "exec" &&
+  m.details?.status === "running" &&
+  typeof m.details.sessionId === "string" &&
+  m.details.sessionId
+    ? m.details.sessionId
+    : null;
+
+// OpenClaw 2026.10.3 shows the model the completed processes in the completion's
+// prompt projection (heartbeat-events-filter buildExecEventPrompt): one line per
+// process, `Exec <status> (<first 8 characters of its session>, <exit>)`, then
+// ` :: <output>` folded to one line, or ` without captured stdout/stderr.`.
+const detailsStart = "The command completion details are:\n\n";
+const detailsEnd = "\n\nTreat this completion";
+const processLine =
+  /^Exec [a-z]+ \(([A-Za-z0-9_-]{1,8}), [^)\n]*\)(?: :: .*| without captured stdout\/stderr\.)?$/;
+/**
+ * The process ids a completion message reports, or null when they cannot all be
+ * read: another prompt (no output, delivery off), a truncated list or any line
+ * that is not a process line.
+ */
+export function completedProcesses(message) {
+  const text = message?.__openclaw?.modelPromptProjection?.text;
+  if (typeof text !== "string") return null;
+  const start = text.indexOf(detailsStart);
+  const end = start < 0 ? -1 : text.indexOf(detailsEnd, start + detailsStart.length);
+  if (end < 0) return null;
+  const lines = text
+    .slice(start + detailsStart.length, end)
+    .split("\n")
+    .filter((line) => line.trim());
+  const ids = lines.map((line) => processLine.exec(line)?.[1]);
+  return ids.length && ids.every(Boolean) ? ids : null;
+}
 
 /**
- * True when raw transcript messages (oldest first) end in exec completions of a
- * command the attempt's own turn started, inside the window.
+ * Why raw transcript messages (oldest first) do not prove that their trailing exec
+ * completions report only commands the attempt's own turn started in the
+ * background, inside the window; null when they do.
  */
-export function completionEvidence(messages, attempt) {
-  if (!Array.isArray(messages)) return false;
+export function completionRefusal(messages, attempt) {
+  if (!Array.isArray(messages)) return "TRANSCRIPT";
   const keys = [attempt.id, attempt.runtimeRunId].filter(Boolean);
   const own = messages.findLastIndex((m) => isUser(m) && keys.includes(turnKey(m)));
-  if (own < 0) return false;
-  const after = messages.slice(own + 1);
-  const users = after.filter(isUser);
-  if (!users.length || !users.every(isCompletion)) return false;
-  if (!after.slice(0, after.indexOf(users[0])).some(callsExec)) return false;
+  if (own < 0) return "OWNER_TURN";
+  const next = messages.findIndex((m, i) => i > own && isUser(m));
+  if (next < 0) return "NO_COMPLETION";
+  const users = messages.slice(next).filter(isUser);
+  if (!users.every(isCompletion)) return "NOT_COMPLETION";
+  // The turn's own background commands, and every other one the page shows.
+  const owned = [],
+    foreign = [];
+  messages.forEach((m, i) => {
+    const id = background(m);
+    const run = m?.__openclaw?.runId;
+    if (!id) return;
+    if (i > own && i < next && (typeof run !== "string" || keys.includes(run)))
+      owned.push(id);
+    else foreign.push(id);
+  });
+  for (const message of users) {
+    const ids = completedProcesses(message);
+    if (!ids) return "PROCESSES";
+    for (const id of ids)
+      if (!owned.some((s) => s.startsWith(id)) || foreign.some((s) => s.startsWith(id)))
+        return "PROCESS";
+  }
   const start = Date.parse(attempt.createdAt);
   const at = timeOf(users.at(-1));
-  return Number.isFinite(at) && at >= start && at - start <= continuationWindowMs;
+  return Number.isFinite(at) && at >= start && at - start <= continuationWindowMs
+    ? null
+    : "WINDOW";
 }
+/** True when the messages prove the completion (completionRefusal). */
+export const completionEvidence = (messages, attempt) =>
+  completionRefusal(messages, attempt) === null;
+
+// `sessions.get` returns only the newest `limit` messages and does not page: a long
+// owner turn reads a larger tail, bounded; an owner turn further back stays refused.
+const transcriptLimits = [200, 1000];
 
 /** True when the session's transcript proves the source's run an exec completion. */
 export async function continuationProven(bridge, source, input) {
-  if (source.run.proof === source.attempt.id) return true;
+  const { run, attempt } = source;
+  if (run.proof === attempt.id) return true;
+  if (run.unreachable === attempt.id) return false;
   const client = bridge.assistants.runtime?.client;
-  if (!client?.ready) return false;
-  let page;
-  try {
-    page = await client.call("sessions.get", { key: input.sessionKey, limit: 100 });
-  } catch {
-    return false;
+  if (!client?.ready) return refuse(bridge, input, "GATEWAY") ?? false;
+  const keys = [attempt.id, attempt.runtimeRunId].filter(Boolean);
+  let messages;
+  for (const limit of transcriptLimits) {
+    try {
+      messages = (await client.call("sessions.get", { key: input.sessionKey, limit }))
+        ?.messages;
+    } catch (error) {
+      return refuse(bridge, input, `READ ${error?.code || "failed"}`) ?? false;
+    }
+    if (
+      !Array.isArray(messages) ||
+      messages.length < limit ||
+      messages.some((m) => isUser(m) && keys.includes(turnKey(m)))
+    )
+      break;
   }
-  if (!completionEvidence(page?.messages, source.attempt)) return false;
+  const code = completionRefusal(messages, attempt);
+  // The transcript only grows: an owner turn beyond the bound is never reached.
+  if (code === "OWNER_TURN") run.unreachable = attempt.id;
+  if (code) return refuse(bridge, input, code) ?? false;
   // Nothing changed while the transcript was read.
   const again = continuationSource(bridge, { ...input, runId: source.runId });
-  if (again?.attempt.id !== source.attempt.id) return false;
-  source.run.proof = source.attempt.id;
+  if (again?.attempt.id !== attempt.id) return false;
+  run.proof = attempt.id;
   return true;
 }
 
@@ -184,10 +284,13 @@ function audit(assistants, source, input) {
 
 /**
  * A native write in a session without an attempt (TeamBridge.writeAllowed): false
- * at once, or a promise of the proof. A shared agent's memory notes it like the
- * owner turn's own write would.
+ * at once, or a promise of the proof. The hook must name its run (OpenClaw
+ * 2026.10.3 always does): a write without one never continues anything. A shared
+ * agent's memory notes it like the owner turn's own write would.
  */
 export function continuationWrite(bridge, input) {
+  if (typeof input.runId !== "string" || !input.runId)
+    return !!refuse(bridge, input, "NO_RUN_ID");
   const source = continuationSource(bridge, input);
   if (!source) return false;
   return continuationProven(bridge, source, input).then((proven) => {
