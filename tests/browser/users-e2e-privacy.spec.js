@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { fakeGateway, userAgent } from "../helpers/user-chats.js";
@@ -191,8 +193,18 @@ for (const [language, copy] of Object.entries(languages))
       const own = await userAgent(
         f,
         { mode: "own", members: [{ userId: anna.id, level: "personalize" }] },
-        { name: "Lotta" },
+        { name: "Lotta", capabilities: { memory: true, reminders: false } },
       );
+      // A note of Lotta's that only Anna may read while the opt-in is off.
+      const diary = "Anna's diary: dentist on Friday";
+      const note = path.join(
+        f.application.assistants.config.workspaces,
+        own.id,
+        "memory",
+      );
+      fs.mkdirSync(note, { recursive: true });
+      fs.writeFileSync(path.join(note, "diary.md"), diary);
+      const diaryName = encodeURIComponent("memory/diary.md");
       const family = await userAgent(
         f,
         {
@@ -225,6 +237,8 @@ for (const [language, copy] of Object.entries(languages))
         pa.request.get(f.url + endpoint, { headers: { origin: f.url } });
       const annaAgents = await (await annaRequest("/api/me/agents")).json();
       const annaFamilyChat = annaAgents.find((a) => a.id === family.id).conversationId;
+      const annaNote = await annaRequest(`/api/me/agents/${own.id}/memory/${diaryName}`);
+      expect((await annaNote.json()).content).toBe(diary);
       await pa.goto(f.url + "/");
       await pa.getByRole("button", { name: /Lotta/ }).click();
       await expect(pa.getByText(copy.private)).toBeVisible();
@@ -239,8 +253,15 @@ for (const [language, copy] of Object.entries(languages))
       await po.goto(f.url + `/agents/${own.id}/settings?tab=capabilities`);
       await expect(po.getByText(copy.ownPrivate)).toBeVisible();
       await expect(po.getByText("Lotta, keep my diary")).toHaveCount(0);
+      await expect(po.getByText(diary)).toHaveCount(0);
       const ownerGet = (endpoint) =>
         po.request.get(f.url + endpoint, { headers: { origin: f.url } });
+      for (const endpoint of [
+        `/api/assistants/${own.id}/memory?name=${diaryName}`,
+        `/api/assistants/${own.id}/memory/files`,
+        `/api/assistants/${own.id}/memory/search?q=dentist`,
+      ])
+        expect((await ownerGet(endpoint)).status(), endpoint).toBe(404);
       expect(
         (
           await ownerGet(`/api/assistant-conversations/${annaFamilyChat}/messages`)
@@ -307,6 +328,9 @@ for (const [language, copy] of Object.entries(languages))
       await expect(po.getByText(copy.userChat)).toBeVisible();
       await expect(po.getByRole("log").getByText("Dinner at eight")).toBeVisible();
       await expect(po.getByText("Anna's surprise plan")).toHaveCount(0);
+      // Her own agent's memory is readable once the opt-in is on.
+      const opened = await ownerGet(`/api/assistants/${own.id}/memory?name=${diaryName}`);
+      expect((await opened.json()).content).toBe(diary);
       await fitsPhone(po);
 
       // 7. The owner deletes Ben and archives his agent: Ben is back at the sign-in.
@@ -320,7 +344,8 @@ for (const [language, copy] of Object.entries(languages))
         pb.getByRole("heading", { name: copy.signIn, exact: true }),
       ).toBeVisible();
 
-      // Her app asked for nothing but /auth and /api/me, and his neither.
+      // Her app made HTTP requests only to /auth and /api/me and opened only the chat,
+      // browser-view and dictation sockets docs/users.md names; his neither.
       expect(annaLog.http.length).toBeGreaterThan(0);
       expect(annaLog.violations()).toEqual([]);
       expect(benLog.violations()).toEqual([]);

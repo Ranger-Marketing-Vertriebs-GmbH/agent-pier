@@ -32,9 +32,18 @@ A user's page offers:
 After signing in, a user sees **My agents** (with a greeting and her agents), the chats
 with each agent, her agents' settings within her level, and **Account**: **Change
 password**, whether the owner may read her chats, the notifications of her devices and
-**Sign out**. The menu holds only **My agents** and **Account**. Her app talks only to
-`/auth` and `/api/me`; an owner address opened in it shows "This page does not exist
-here."
+**Sign out**. The menu holds only **My agents** and **Account**. Her app makes HTTP
+requests only to `/auth` and `/api/me`; an owner address opened in it shows "This page
+does not exist here." It also opens three WebSockets outside `/api/me`, each admitted
+after the session check by `server/http/socket-access.js`:
+
+- `/api/assistant-conversations/<id>/stream`: the live chat, only for a chat that is
+  hers.
+- `/api/assistants/<id>/browser-stream`: the agent's browser view, for her own agent,
+  and for a shared agent only while her own turn drives its browser.
+- `/api/dictation/stream`: dictation through the owner's Deepgram connection.
+
+Every other socket is refused like an unknown path (see [Login](login.md)).
 
 ## Levels
 
@@ -86,9 +95,13 @@ never gets:
 The lock applies where the agent's tools are compiled, again when a tool runs, and at
 every settings API. What the owner can still give an agent for users:
 
-- **Project folders**, **Read** or **Read and write**, without coding. Files that the
-  owner's coding tools run or load (such as `.claude/`, `AGENTS.md`, `.envrc`) stay
-  read-only.
+- **Project folders**, **Read** or **Read and write**, without coding. Tool
+  configuration and instruction files that the owner's coding CLIs load (such as
+  `.claude/`, `AGENTS.md`, `.envrc`) stay read-only. Every other file stays writable,
+  including scripts, `package.json` or Makefiles that the owner or his coding sessions
+  run later: a user agent with **Read and write** can plant a command there that then
+  runs as the owner's OS user. Give write access only to folders whose content you do
+  not run unchecked.
 - **MCP servers** he binds to the agent, local (stdio) servers after the usual
   confirmation.
 - Web search, web fetch and the browser, memory, reminders and routines.
@@ -143,8 +156,10 @@ credentials**. Her chats are private content and are archived only in backups wi
 passphrase and history, encrypted.
 
 A restore never brings back sessions: everyone signs in again. Restored without the
-credentials, a user keeps her agents and chats but cannot sign in. The restore report
-and **Settings › Access › Users** show her as **Needs a new password** until the owner
+credentials, a user keeps her agents and settings but cannot sign in, and her chats are
+not in such a backup: they come back only from a backup with a passphrase and history.
+The restore report lists her as "User <name> (set a new password)" and
+**Settings › Access › Users** shows her as **Needs a new password** until the owner
 uses **Reset password**.
 
 ## Updates and rollback

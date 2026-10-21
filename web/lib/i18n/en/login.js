@@ -1,6 +1,6 @@
 export const loginCopy = Object.freeze({
   title: "Sign in",
-  setup: "Create user",
+  setup: "Create owner account",
   welcome: "Welcome to AgentPier",
   description: "Sign in to open your workspace.",
   setupDescription:
@@ -17,9 +17,10 @@ export const loginCopy = Object.freeze({
   retry: "Try again",
   failed: "Could not check sign-in.",
   errors: {
-    LOGIN_ALREADY_CONFIGURED: "A user has already been created. Please sign in.",
+    LOGIN_ALREADY_CONFIGURED:
+      "The owner account has already been created. Please sign in.",
     LOGIN_USERNAME_INVALID: "Enter a username with 1 to 100 characters.",
-    LOGIN_USERNAME_TAKEN: "A user already has this username. Choose another one.",
+    LOGIN_USERNAME_TAKEN: "This username is already taken. Choose another one.",
     LOGIN_PASSWORD_INVALID: "The password must be 12 to 1024 characters long.",
     LOGIN_CREDENTIALS_INVALID: "Username or password is incorrect.",
     LOGIN_THROTTLED: "Too many sign-in attempts. Please wait a minute.",

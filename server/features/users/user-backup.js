@@ -39,8 +39,9 @@ export function captureUsers(dataDir, withCredentials) {
 
 /**
  * Rebuilds the user store in a restore `stage` from the public list and, when the
- * capsule came along, the password records. A user without one keeps her chats and
- * agents but cannot sign in until the owner sets a new password (`mustReset`).
+ * capsule came along, the password records. A user without one keeps her agents and
+ * settings (her chats are only in sealed backups, which always carry the capsule) but
+ * cannot sign in until the owner sets a new password (`mustReset`).
  * Returns the display names of those users.
  */
 export function restoreUsers(stage) {

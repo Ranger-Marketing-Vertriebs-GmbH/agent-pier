@@ -24,6 +24,21 @@ test("a restore report names MCP servers that need their values in both language
   );
 });
 
+test("a restore report names users who need a new password in both languages", (t) => {
+  t.after(() => setLanguage("de"));
+  setLanguage("en");
+  assert.equal(needsLoginLabel("user:Anna K"), "User Anna K (set a new password)");
+  assert.equal(
+    reportValue("credentialsNeedingLogin", ["user:Anna K", "mcp:docs"]),
+    "User Anna K (set a new password), MCP server docs (enter values again)",
+  );
+  setLanguage("de");
+  assert.equal(
+    needsLoginLabel("user:Anna K"),
+    "Benutzer Anna K (neues Passwort vergeben)",
+  );
+});
+
 test("a restore report shows yes or no instead of raw booleans", (t) => {
   t.after(() => setLanguage("de"));
   setLanguage("en");

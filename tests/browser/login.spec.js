@@ -18,7 +18,9 @@ test("first user setup, reload, logout and login protect the complete workspace"
     await context.clearCookies();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(url + "/settings");
-    await expect(page.getByRole("heading", { name: "Benutzer erstellen" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Besitzerkonto anlegen" }),
+    ).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Hauptnavigation" })).toHaveCount(
       0,
     );
@@ -31,10 +33,12 @@ test("first user setup, reload, logout and login protect the complete workspace"
       .getByLabel("Passwort", { exact: true })
       .fill("disposable-browser-password");
     await page.getByLabel("Passwort wiederholen").fill("disposable-browser-password");
-    await page.getByRole("button", { name: "Benutzer erstellen", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Benutzer erstellen" })).toHaveCount(
-      0,
-    );
+    await page
+      .getByRole("button", { name: "Besitzerkonto anlegen", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Besitzerkonto anlegen" }),
+    ).toHaveCount(0);
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openMenu(page);
     await expect(

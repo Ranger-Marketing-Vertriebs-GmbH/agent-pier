@@ -99,3 +99,35 @@ test("English labels use sentence case", async () => {
   }
   assert.deepEqual(titleCase, []);
 });
+
+// UI glossary: "Benutzer"/"user" names a restricted user, never the owner. Copy the
+// owner sees about his own account names him "Besitzer"/"owner", and the Activity
+// log subtitle lists the owner beside users instead of calling him a user.
+test("owner-facing copy names the owner, not a user", async () => {
+  const ownerKeys = [
+    "web login:loginCopy.setup",
+    "web login:loginCopy.errors.LOGIN_ALREADY_CONFIGURED",
+    "server login.exists",
+    "web settings:settingsHubCopy.auditSub",
+  ];
+  const takenKeys = [
+    "web login:loginCopy.errors.LOGIN_USERNAME_TAKEN",
+    "server login.usernameTaken",
+  ];
+  for (const [language, owner, user] of [
+    ["german", /Besitzer/, /\bBenutzer\b/],
+    ["english", /\b[Oo]wner\b/, /\b[Uu]ser\b/],
+  ]) {
+    const texts = new Map((await catalogTexts(language)).map((e) => [e.where, e.text]));
+    for (const key of ownerKeys) {
+      const text = texts.get(key);
+      assert.ok(text, `${language} ${key} missing`);
+      assert.match(text, owner, `${language} ${key}`);
+      if (!key.endsWith("auditSub"))
+        assert.doesNotMatch(text, user, `${language} ${key}`);
+    }
+    // The owner's own name can collide too, so the message names no person.
+    for (const key of takenKeys)
+      assert.doesNotMatch(texts.get(key), user, `${language} ${key}`);
+  }
+});

@@ -329,9 +329,12 @@ export class AssistantConfig {
                     }
                   : null,
               };
-            // A merge patch keeps an omitted list: null removes the last skill.
+            // A merge patch keeps an omitted list: null removes the last skill, and the
+            // hard lock's deny of an agent that is no user agent any more.
             if (managed && Array.isArray(current?.skills) && !next.skills)
               next.skills = null;
+            if (managed && Array.isArray(current?.tools?.deny) && !next.tools?.deny)
+              next.tools = { ...next.tools, deny: null };
             return next;
           };
           const patch = keyed
@@ -354,6 +357,11 @@ export class AssistantConfig {
           // A shorter or removed skill list drops array items as well.
           if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.skills))
             replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.skills`);
+          if (
+            keyed &&
+            Array.isArray(agents.entries[assistant.runtimeAgentId]?.tools?.deny)
+          )
+            replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.tools.deny`);
           const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
           if (globalAllow) replacePaths.push("tools.allow");
           return {

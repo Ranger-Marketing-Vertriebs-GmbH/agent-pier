@@ -67,6 +67,12 @@ for every existing and future route, WebSocket and event stream. User guide:
   chat. The shared notice says so, and the pre-compaction flush is refused on shared
   agents so a private chat's summary never lands in shared memory.
 - Agents for users still read the web, MCP output and project folders the owner
-  released, so prompt injection can reach what those grant. Nothing they hold runs a
-  program on the host.
+  released, so prompt injection can reach what those grant. Apart from local (stdio)
+  MCP servers the owner binds to them after confirmation, which run on the host as the
+  owner's OS user with the agent's input, nothing they hold runs a program on the host
+  directly. With **Read and write** on a project folder, though, they can change
+  scripts, `package.json` or Makefiles there (only tool configuration and instruction
+  files are locked), and whatever the owner or his coding sessions run from that folder
+  later runs as his OS user. Write access is therefore only safe on folders whose
+  content the owner does not run unchecked.
 - Rollback below the release with schema 2 needs a backup taken before the update.

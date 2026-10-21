@@ -1,6 +1,6 @@
 export const loginCopy = Object.freeze({
   title: "Anmelden",
-  setup: "Benutzer erstellen",
+  setup: "Besitzerkonto anlegen",
   welcome: "Willkommen bei AgentPier",
   description: "Melde dich an, um deinen Arbeitsbereich zu öffnen.",
   setupDescription:
@@ -18,10 +18,9 @@ export const loginCopy = Object.freeze({
   failed: "Anmeldung konnte nicht geprüft werden.",
   errors: {
     LOGIN_ALREADY_CONFIGURED:
-      "Der Benutzer wurde bereits eingerichtet. Bitte melde dich an.",
+      "Das Besitzerkonto wurde bereits angelegt. Bitte melde dich an.",
     LOGIN_USERNAME_INVALID: "Gib einen Benutzernamen mit 1 bis 100 Zeichen ein.",
-    LOGIN_USERNAME_TAKEN:
-      "Diesen Benutzernamen trägt schon ein Benutzer. Wähle einen anderen.",
+    LOGIN_USERNAME_TAKEN: "Dieser Benutzername ist schon vergeben. Wähle einen anderen.",
     LOGIN_PASSWORD_INVALID: "Das Passwort muss 12 bis 1024 Zeichen lang sein.",
     LOGIN_CREDENTIALS_INVALID: "Benutzername oder Passwort ist falsch.",
     LOGIN_THROTTLED: "Zu viele Anmeldeversuche. Bitte warte eine Minute.",

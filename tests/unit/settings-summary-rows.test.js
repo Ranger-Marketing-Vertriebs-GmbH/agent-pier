@@ -22,7 +22,7 @@ test("unknown summary parts stay unknown and a real zero stays zero", (t) => {
   assert.equal(operations.backups.value, null);
   assert.equal(operations.updates.value, null);
   assert.equal(operations.audit.value, undefined);
-  assert.equal(operations.audit.sub, "Benutzer, System, MCP");
+  assert.equal(operations.audit.sub, "Besitzer, Benutzer, System, MCP");
   assert.equal(byId(accessRows({ github: { count: 0 } })).github.value, 0);
   assert.equal(
     byId(operationsRows({ backups: { count: 0, lastAt: null } })).backups.value,

@@ -35,5 +35,5 @@ export const settingsHubCopy = {
   installedVersion: (version) => `Installierte Version ${version}`,
   updateAvailable: (version) => `${version} verfügbar`,
   upToDate: "Aktuell",
-  auditSub: "Benutzer, System, MCP",
+  auditSub: "Besitzer, Benutzer, System, MCP",
 };

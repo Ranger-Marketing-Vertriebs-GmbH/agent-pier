@@ -272,8 +272,9 @@ not the owner's sidebar:
   allows and say "Your owner manages this." for the rest.
 - Notices that concern her privacy (shared agent, **Owner may read chats**) sit above
   the chat, never in a dismissible toast.
-- Her app requests only `/auth` and `/api/me`; an owner path shows "This page does
-  not exist here." under its own address.
+- Her app makes HTTP requests only to `/auth` and `/api/me`, and opens only the chat,
+  browser-view and dictation WebSockets listed in [Users](users.md#the-users-app); an
+  owner path shows "This page does not exist here." under its own address.
 
 ### Status colours
 
