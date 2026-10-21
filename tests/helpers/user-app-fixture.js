@@ -343,6 +343,7 @@ function chatRoute(route, state, chat, rest, method, body) {
       messages: state.messages[id] || [],
       requests: state.requests[id] || [],
       stale: false,
+      ...(state.compacting?.[id] ? { compacting: true } : {}),
     });
   if (rest === "/queued") return json(route, { text: "" });
   return missing(route);

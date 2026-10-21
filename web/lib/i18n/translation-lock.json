@@ -113,6 +113,8 @@
   "agent-run-steps:agentRunStepsCopy.continueMessage": "de:c0ec0f24dd45 en:0d0f62a45150",
   "agent-run-steps:agentRunStepsCopy.earlier": "de:7d823c00b66b en:be80368b0803",
   "agent-run-steps:agentRunStepsCopy.longChat": "de:bb384841319a en:2436439525b0",
+  "agent-run-steps:agentRunStepsCopy.phase.approval": "de:ea8fd79a6a26 en:10c5739b95bd",
+  "agent-run-steps:agentRunStepsCopy.phase.compacting": "de:b0ec001bff27 en:b27d903a5f23",
   "agent-run-steps:agentRunStepsCopy.phase.model": "de:19c67c29ac59 en:0b9ce59f624c",
   "agent-run-steps:agentRunStepsCopy.phase.thinking": "de:055cba295795 en:a20d12c5e9c4",
   "agent-run-steps:agentRunStepsCopy.phase.tool": "de:49e0e35502e2 en:1906ab2ba599",

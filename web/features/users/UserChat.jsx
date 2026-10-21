@@ -190,6 +190,7 @@ export default function UserChat({
               shownAttempt={chat.shownAttempt}
               active={active}
               uncertain={chat.uncertain}
+              compacting={Boolean(active && !chat.uncertain && history.compacting)}
               steps={stepsOf(chat.feed.steps, latest?.attempt)}
               longChat={history.longChat}
               busy={chat.busy}

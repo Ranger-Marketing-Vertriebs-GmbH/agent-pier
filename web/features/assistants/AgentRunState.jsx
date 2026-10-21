@@ -10,11 +10,12 @@ const tones = { running: "working", done: "ok", failed: "error" };
 const toolName = (step) => copy.tools[step.tool] || copy.tool(step.tool || "?");
 const stepName = (step) => (step.kind === "thinking" ? copy.thinking : toolName(step));
 
-// What the turn does now: the running tool with its title, or the phase.
+// What the turn does now: the running tool with its title, or the phase. An exec
+// approval waits for a person and a compaction summarises the chat, not the model.
 function phaseText(view) {
   if (view.phase === "retrying")
     return copy.retrying(view.retry?.attempt, view.retry?.of);
-  if (view.phase === "tool" || view.phase === "approval") {
+  if (view.phase === "tool") {
     const step = view.steps.findLast((s) => s.kind === "tool" && s.state === "running");
     if (step) return step.label ? `${toolName(step)} · ${step.label}` : toolName(step);
     return copy.phase.tool;

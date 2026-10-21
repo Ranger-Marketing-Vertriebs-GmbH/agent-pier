@@ -9,6 +9,8 @@ export const agentRunStepsCopy = {
     thinking: "Thinking",
     writing: "Writing the answer",
     tool: "Running a tool",
+    approval: "Waiting for approval",
+    compacting: "Summarising the chat",
   },
   retrying: (attempt, of) =>
     of
