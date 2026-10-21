@@ -85,13 +85,15 @@ export class RunSteps {
       case "item": {
         if (data.kind !== "tool" || typeof data.itemId !== "string") break;
         const tool = typeof data.name === "string" ? data.name.slice(0, 64) : "";
-        const found = run.steps.find((s) => s.id === data.itemId);
+        // Stored and matched alike, so a long id still finds its step.
+        const id = data.itemId.slice(0, 128);
+        const found = run.steps.find((s) => s.id === id);
         if (found) {
           found.state = toolState(data);
           found.label ||= label(data);
         } else
           this.add(run, {
-            id: data.itemId.slice(0, 128),
+            id,
             kind: "tool",
             tool,
             label: label(data),

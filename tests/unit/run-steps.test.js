@@ -176,3 +176,16 @@ test("a chat delta and a chat status count as signs of life", () => {
   });
   assert.equal(steps.view("r1").quietMs, 0);
 });
+
+test("a tool with a very long item id still finishes its one step", () => {
+  const steps = new RunSteps();
+  const itemId = `tool:${"x".repeat(300)}`;
+  steps.observe(tool("start", { itemId }));
+  steps.observe(tool("update", { itemId }));
+  steps.observe(tool("end", { itemId }));
+  const view = steps.view("r1");
+  assert.equal(view.steps.length, 1);
+  assert.equal(view.steps[0].id.length, 128);
+  assert.equal(view.steps[0].state, "done");
+  assert.equal(view.phase, "model");
+});
