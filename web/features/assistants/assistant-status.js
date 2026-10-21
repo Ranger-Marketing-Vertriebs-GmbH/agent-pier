@@ -66,7 +66,8 @@ export function headerStatus({
       label: copyAt(copy, current.label) ?? copy.team.states.awaiting_approval,
     };
   // While the run summarises its long history first (compactions.js).
-  if (attempt && compacting && !attentionAttempts.has(attempt.state))
+  // A summary the person asked for runs without a turn (long-chats.js).
+  if (compacting && !attentionAttempts.has(attempt?.state))
     return { tone: "working", label: copy.status.compacting };
   if (attempt)
     return {

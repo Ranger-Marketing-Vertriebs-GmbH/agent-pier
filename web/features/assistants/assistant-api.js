@@ -178,6 +178,15 @@ export const assistantApi = {
     api(`/assistant-conversations/${encodeURIComponent(id)}/archive`, "POST", {}),
   restoreChat: (id) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/restore`, "POST", {}),
+  // The long-chat hint's actions (useLongChat.js).
+  compact: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/compact`, "POST", {}),
+  dismissLongChat: (id) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/long-chat-dismissal`,
+      "POST",
+      {},
+    ),
   deleteChat: (id) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}`, "DELETE", {
       confirm: true,

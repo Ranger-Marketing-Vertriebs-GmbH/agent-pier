@@ -28,8 +28,9 @@ function phaseText(view) {
  * chat: the attempt's status, while it runs its live steps (collapsed, the newest
  * last), a turn that hears nothing from the model with Stop and Try again, a turn
  * of unknown outcome (`explainUncertain` says why; `onRecover` reviews it), why a
- * failed turn ended, and a hint when the chat grew very long. `onStop`, `onRetry` and
- * `onRecover` are null where the chat cannot act.
+ * failed turn ended, and a hint when the chat grew very long. `compacting` also shows
+ * a summary the person asked for outside a turn. `onStop`, `onRetry`, `onRecover` and
+ * `longChatActions` (useLongChat) are null where the chat cannot act.
  */
 export default function AgentRunState({
   attempt,
@@ -39,6 +40,7 @@ export default function AgentRunState({
   compacting,
   steps,
   longChat,
+  longChatActions = null,
   busy,
   onStop,
   onRetry,
@@ -54,14 +56,16 @@ export default function AgentRunState({
   const failure = !active && attempt?.state === "failed" ? attempt.failure : null;
   return (
     <>
-      {attempt && (
+      {(attempt || compacting) && (
         <p
           role="status"
-          className={`assistant-note assistant-run-state${running ? " working" : ""}`}
+          className={`assistant-note assistant-run-state${running || compacting ? " working" : ""}`}
           data-compacting={compacting || undefined}
           data-phase={view?.phase}
         >
-          {running && <StatusDot tone="working" pulse className="assistant-run-dot" />}
+          {(running || compacting) && (
+            <StatusDot tone="working" pulse className="assistant-run-dot" />
+          )}
           {compacting
             ? assistantCopy.compaction.running
             : view
@@ -157,10 +161,30 @@ export default function AgentRunState({
           )}
         </div>
       )}
-      {longChat && !active && (
-        <p className="assistant-notice assistant-long-chat" role="status">
-          {copy.longChat}
-        </p>
+      {longChat && !active && !compacting && (
+        <div className="assistant-notice assistant-long-chat" role="status">
+          <p>{copy.longChat}</p>
+          {longChatActions && (
+            <div className="assistant-run-actions">
+              <button
+                type="button"
+                className="button primary"
+                disabled={busy || longChatActions.busy}
+                onClick={longChatActions.summarise}
+              >
+                {copy.summarise}
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy || longChatActions.busy}
+                onClick={longChatActions.dismiss}
+              >
+                {copy.dismiss}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </>
   );

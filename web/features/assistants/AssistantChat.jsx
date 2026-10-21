@@ -42,6 +42,7 @@ import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
+import useLongChat from "./useLongChat.js";
 import { stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
@@ -170,8 +171,9 @@ export default function AssistantChat({
   const shownAttempt = awaiting
     ? { ...latest.attempt, state: "unconfirmed" }
     : latest?.attempt;
-  // The run summarises its long history before it answers (compactions.js).
-  const compacting = Boolean(active && !uncertain && history.compacting);
+  // The run summarises its long history before it answers (compactions.js), or the
+  // owner had it summarised (useLongChat.js).
+  const compacting = Boolean(!uncertain && history.compacting);
   // Every agent's own requests wait in its chat: a permanent member may have a shell.
   // The feed carries them while its socket is connected; else the hook reads them.
   const liveActions = view.live?.actions;
@@ -337,7 +339,7 @@ export default function AssistantChat({
   }
   async function send(event, ids = []) {
     event.preventDefault();
-    if (active || queued) return queue(ids);
+    if (active || queued || compacting) return queue(ids);
     if (!canSend) return false;
     const submitted = drafts.delivery(conversationId);
     return deliver(submitted, ids, () => {
@@ -397,6 +399,10 @@ export default function AssistantChat({
     }
   }
   const retry = useRetry({ active, stop, deliver, setBusy });
+  const longChat = useLongChat(assistantApi, conversationId, {
+    refresh,
+    onError: setError,
+  });
   return (
     <section className="assistant-detail assistant-chat">
       <AssistantHeader
@@ -520,6 +526,7 @@ export default function AssistantChat({
               compacting={compacting}
               steps={stepsOf(feed.steps, latest?.attempt)}
               longChat={history.longChat}
+              longChatActions={available ? longChat : null}
               busy={busy}
               onStop={readOnly ? null : stop}
               onRetry={available && !queued ? retry : null}
