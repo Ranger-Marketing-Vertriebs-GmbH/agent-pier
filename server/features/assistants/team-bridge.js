@@ -13,6 +13,7 @@ import { flushSessionAgent } from "./memory-flushes.js";
 import { directTurn, flushWrite, noteRefusal } from "./memory-write-policy.js";
 import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
+import * as continuation from "./exec-continuation.js";
 import { isLeadRoutine } from "./lead-routines.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
@@ -149,6 +150,8 @@ export class TeamBridge {
         throw assistantProblem("invalid", 403);
       return record;
     }
+    // A command's completion run continues its owner turn (exec-continuation.js).
+    if (record.continuation) return continuation.assertContinuation(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     if (!active.has(a.state) || a.reviewedAt) throw assistantProblem("invalid", 403);
     const c = this.assistants.store.getConversation(
@@ -200,8 +203,9 @@ export class TeamBridge {
       // Only SSH (on hosts granted "incl. routines"), shared files, project folders
       // and the lead's ask, delegate and members serve a routine's run.
       const routine = this.routineRun(input);
-      if (!routine) throw assistantProblem("invalid", 403);
-      bound = { attemptId: null, routine };
+      const resumed = !routine && continuation.continuationBinding(this, input);
+      if (!routine && !resumed) throw assistantProblem("invalid", 403);
+      bound = { attemptId: null, ...(routine ? { routine } : { continuation: resumed }) };
     } else throw assistantProblem("invalid", 403);
     const record = this.valid({
       ...input,
@@ -258,8 +262,9 @@ export class TeamBridge {
     );
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
-  // own message, a lead's follow-up on its member's result (member-result-writes.js)
-  // or a routine's run (routineWrite); forwarded, other scheduled, internal and
+  // own message, a lead's follow-up on its member's result (member-result-writes.js),
+  // a routine's run (routineWrite) or the completion run of a command such a direct
+  // turn started (exec-continuation.js); forwarded, other scheduled, internal and
   // member turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
@@ -280,9 +285,12 @@ export class TeamBridge {
     // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
     if ("runId" in input) textValue(input.runId, 512);
     if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
+    const settle = (allow) => {
+      if (!allow && isMemory(input.path)) noteRefusal(this, input);
+      return { allow };
+    };
     const allow = this.writeAllowed(input);
-    if (!allow && isMemory(input.path)) noteRefusal(this, input);
-    return { allow };
+    return allow instanceof Promise ? allow.then(settle) : settle(allow);
   }
   // Every image_generate call is checked and audited (image-policy.js).
   imagePolicy(input) {
@@ -343,10 +351,12 @@ export class TeamBridge {
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
-    // A routine's own run session has no attempt: its writes are its own origin.
+    // A routine's own run session has no attempt: its writes are its own origin. A
+    // command's completion run may continue its owner turn (exec-continuation.js).
     if (!matches.length) {
       const allowed = this.routineWrite(input);
-      if (allowed && isShared(this.agentOf(input.agentId)) && isMemory(input.path)) {
+      if (!allowed) return continuation.continuationWrite(this, input);
+      if (isShared(this.agentOf(input.agentId)) && isMemory(input.path)) {
         const conversationId = this.routineRun(input)?.conversation?.id;
         if (conversationId)
           this.noteShared(`${input.sessionKey}:shared-write`, conversationId);
@@ -479,10 +489,12 @@ export class TeamBridge {
       startedAt: Date.now(),
       assertCurrent: () => this.valid(record),
       routine: record.routine || null,
+      continuation: record.continuation || null,
       sessionKey: record.sessionKey,
     };
     record.invocation = invocation;
-    record.promise = Promise.resolve().then(() => {
+    record.promise = Promise.resolve().then(async () => {
+      await continuation.proveContinuation(this, record);
       invocation.assertCurrent();
       if (action === "ssh")
         return this.assistants.workflows.ssh.invoke(invocation, input);

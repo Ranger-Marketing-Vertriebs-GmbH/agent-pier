@@ -210,6 +210,10 @@ export class AgentProjectFiles {
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
           // A routine run names its routine (the binding) as the origin.
           ...(ctx.routine ? { origin: "routine", routineId: ctx.routine.bindingId } : {}),
+          // A command's completion run names the owner turn that started it.
+          ...(ctx.execContinuation
+            ? { via: "exec-completion", sourceAttemptId: ctx.execContinuation.attemptId }
+            : {}),
           // A lead's follow-up on its member's result names that request.
           ...(ctx.memberResult
             ? { via: "member-result", leadRequestId: ctx.memberResult.requestId }

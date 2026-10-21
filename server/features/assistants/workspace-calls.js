@@ -29,12 +29,14 @@ const routineRefused = new Set(["coding_cancel"]);
  * Telegram chat, not forwarded), a restricted user's own turn on her agent, a temporary member's team turn (team-coding.js)
  * a task the member's lead delegated to it (leadRequestContext) or a lead's follow-up
  * on its member's result (`memberResult`: the lead's own folders and projects, never
- * shares, and coding requests always wait for the owner). Every other turn is
- * refused.
+ * shares, and coding requests always wait for the owner) or the completion run of a
+ * command such a direct turn started (`execContinuation`, exec-continuation.js: its
+ * project folders only). Every other turn is refused.
  */
 export function workspaceContext(w, inv) {
   inv.assertCurrent();
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
+  if (!inv.attemptId && inv.continuation) return continuationContext(w, inv);
   const attempt = w.a.ledger.getAttempt(inv.attemptId);
   if (!["pending", "accepted", "running"].includes(attempt.state) || attempt.reviewedAt)
     throw assistantProblem("invalid", 403);
@@ -59,6 +61,26 @@ export function workspaceContext(w, inv) {
     attemptId: attempt.id,
     origin,
     ...(memberResult ? { memberResult: { requestId: memberResult.id } } : {}),
+  };
+}
+
+/**
+ * A command's completion run (TeamBridge.prepare, re-proven on every step): the
+ * direct turn that started it, re-checked live like that turn's own calls.
+ */
+function continuationContext(w, inv) {
+  const attempt = w.a.ledger.getAttempt(inv.continuation.attemptId);
+  const req = w.a.ledger.getRequest(attempt.requestId),
+    chat = w.a.store.getConversation(req.conversationId);
+  const origin = w.a.teams.store.context(req.id);
+  if (!directTurn(origin, w.access.eligible(chat.assistantId)))
+    throw assistantProblem("invalid", 403);
+  return {
+    assistantId: chat.assistantId,
+    conversationId: chat.id,
+    attemptId: attempt.id,
+    origin,
+    execContinuation: { attemptId: attempt.id },
   };
 }
 
@@ -199,6 +221,14 @@ function catalog(w, ctx) {
 export async function workspaceCall(w, inv, input) {
   const ctx = workspaceContext(w, inv);
   exact(input, workspaceKeys);
+  // A command's completion reaches the project folders only, never coding requests
+  // or project memory (exec-continuation.js).
+  if (
+    ctx.execContinuation &&
+    !fileActions.has(input.action) &&
+    input.action !== "catalog"
+  )
+    throw assistantProblem("invalid", 403);
   // Project folders are the member's own grant (agent-project-files.js).
   if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
   // A user agent reaches only its folders: no coding, no project memory.

@@ -983,7 +983,8 @@ A lead reaches its own members without the owner relaying anything
   `resultWriteRefused`, the chat history marks that follow-up `goAhead`
   (`conversations.js goAheadMarks`), and the web chat offers **Go ahead** below the
   lead's reply while nothing newer was sent: it sends "Yes, go ahead" as a real owner
-  message.
+  message. A background command's completion run continues its owner turn in the
+  same way, under stricter proof (see **Command completions** below).
 - **Answers.** The member's answer or result is its run's last reply, kept whole
   up to 65,536 characters; the request record keeps its first 2,000 code points
   (`answerTruncated`) and the whole answer has its own `text` row, pruned with the
@@ -1165,13 +1166,47 @@ was compacted and the plan was gone. Four rules close that gap:
   per readiness, and the turns run read-only. Whether a turn ran read-only is
   decided after its apply: its `AGENTS.md` then says memory is read-only, and the
   chat shows a note.
+- **Command completions (AGENTPIER-185).** An owner turn may start a long
+  background `exec` (a render, a build) and end before it exits. With
+  `tools.exec.notifyOnExit` (OpenClaw's default) the Gateway then wakes the same
+  session through its heartbeat runner: a hidden user message
+  `[OpenClaw exec completion]` with the input provenance
+  `{ kind: "internal_system", sourceTool: "exec" }` and `senderIsOwner: false`
+  (`heartbeat-runner-run`, `internal-turn-source` in OpenClaw 2026.10.3). That run
+  has no AgentPier attempt, so every `write` and `edit` used to be refused and the
+  agent asked the owner to type "continue". `exec-continuation.js` lets such a run
+  write with the rights of the turn that started the command, only when AgentPier
+  proves all of this itself: the session is a chat of the calling agent, which is
+  not archived and no temporary task member; the chat's latest ledger request is a
+  completed direct turn (`directTurn`: the owner, his paired Telegram chat or a
+  restricted user still on the agent, read live, never forwarded) started at most
+  two hours ago (`continuationWindowMs`, four times OpenClaw's default exec timeout
+  of 30 minutes), and no newer request exists; the Gateway's `agent` events mark the
+  calling run (the hook's `runId`) as heartbeat-driven (`isHeartbeat`) in this
+  session (`HeartbeatRuns`, cleared on every reconnect and at the run's
+  `lifecycle` end), and it is not that turn's own run; and the session's raw
+  transcript (`sessions.get`, read once per run) holds that turn's message
+  (`<attempt id>:user`), an `exec` call after it and after that only exec
+  completions, the last one inside the window. A heartbeat poll, a reminder, an
+  `image_generate` result or any other message in between, a completion after a
+  newer request, and every completion of a lead-request, team-member, forwarded,
+  routine, team-result, coding-result or memory-result turn stay read-only. Each
+  write keeps the turn's limits (a shared agent's memory note, `USER.md` and
+  instruction files) and is audited as `kind: "native-write"` with
+  `via: "exec-completion"` and `sourceAttemptId`. `agentpier_workspace` follows the
+  same rule for project-folder file actions only (the session must have exactly one
+  such run; folder changes are audited the same way); coding requests, project
+  memory, SSH, shared files, team tools, grants and routines are refused, and the
+  command's output never proves an owner request.
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
   newest 100 per conversation): forwarded content, a scheduled or automatic turn,
   a lead's task, another non-owner turn, or a refused flush. A refused flush the
   Gateway did not report (for example after a runtime change renamed the event) is
   attributed to the agent's single active owner turn, so it never goes unnoticed.
-  The chat renders them as quiet lines ("Memory not saved: …").
+  The chat renders them as quiet lines ("Memory not saved: …"). A run without an
+  attempt (a command completion that does not continue its turn, see above) records
+  no note; the agent receives the guard's refusal.
   A declined, expired or failed project knowledge write (`memory_write`) hands one
   attributed follow-up turn (`memory-result`) to the requesting agent's
   conversation, so the agent can correct an earlier claim
