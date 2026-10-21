@@ -42,21 +42,30 @@ const generatedWords = 12;
 const quotes = `"'\`«»‹›“”„‟‘’‚‛「」『』`;
 const edges = new RegExp(`^[${quotes}\\s]+|[${quotes}\\s.,;:!?…。！？、]+$`, "gu");
 
+const preamble =
+  /^\W*(?:sure|okay|ok|certainly|of course|absolutely|here(?:'s|’s| is| are)|hier (?:ist|sind|wäre)|klar|gerne|natürlich|selbstverständlich)\b/iu;
+const leadIn = (line) => /[:：]\W*$/u.test(line) || preamble.test(line);
+
 /**
  * A title the agent's model suggested (generated-titles.js), read as untrusted text
- * like a set title: its first line without reasoning, markdown, a "Title:" label,
- * quotes, trailing punctuation and the characters a set title refuses; null when
- * nothing readable is left or it is longer than a title (80 characters, 12 words).
+ * like a set title: its first line after any lead-in, without reasoning, markdown, a
+ * "Title:" label, quotes, trailing punctuation and the characters a set title
+ * refuses; null when nothing readable is left or it is longer than a title (80
+ * characters, 12 words).
  */
 export function generatedTitle(raw) {
   if (typeof raw !== "string") return null;
-  const line = raw
+  const lines = raw
     .replace(/<think>[\s\S]*?(<\/think>|$)/giu, "\n")
     .replace(/\r/g, "")
     .split("\n")
     .map((l) => l.trim())
-    .find((l) => l && !l.startsWith("```"));
-  if (!line) return null;
+    .filter((l) => l && !l.startsWith("```"));
+  // A lead-in ("Here is a title:", "Sure!") before the title is skipped; a lone one
+  // ending in a colon announces a title that never came.
+  const index = lines.findIndex((l, i) => !leadIn(l) || i === lines.length - 1);
+  const line = lines[index];
+  if (!line || /[:：]\W*$/u.test(line)) return null;
   let title = plain(
     line
       // Links keep their text; emphasis, code and heading, quote and list marks go.
@@ -94,7 +103,7 @@ export function setTitle(value) {
 }
 
 // The kinds of turn whose text a person wrote in the chat.
-const written = new Set(["owner", "user", "telegram"]);
+export const written = new Set(["owner", "user", "telegram"]);
 
 /**
  * Names a chat after its first written turn, once a written turn was accepted: a set

@@ -77,6 +77,22 @@ test("a generated title is read like an untrusted set title", () => {
   assert.equal(generatedTitle("Code 👩‍💻"), "Code 👩‍💻");
 });
 
+test("a lead-in before a generated title is skipped", () => {
+  for (const [raw, title] of [
+    ["Here is a title for this chat:\nBackup script for NAS", "Backup script for NAS"],
+    ["Sure! Here's a title:\n\n**Backup script for NAS**", "Backup script for NAS"],
+    ["Hier ist ein Titel:\n„Umzug planen“", "Umzug planen"],
+    ["Title:\nTrip to Lisbon", "Trip to Lisbon"],
+    ["Sure!\nBudget for May", "Budget for May"],
+    // A title that merely starts like one stays.
+    ["Klar strukturierte Notizen", "Klar strukturierte Notizen"],
+  ])
+    assert.equal(generatedTitle(raw), title, raw);
+  // A lead-in announcing a title that never came is none.
+  assert.equal(generatedTitle("Here is a title:"), null);
+  assert.equal(generatedTitle("Hier ist ein Vorschlag:\n```\n```"), null);
+});
+
 test("a generated title that is no title is dropped", () => {
   for (const raw of [
     undefined,
