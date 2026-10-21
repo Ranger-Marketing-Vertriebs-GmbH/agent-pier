@@ -530,9 +530,10 @@ the others newest first, and **Archived chats** at the bottom. **New chat** next
 title starts an empty chat right away; the earlier one stays in the list. The ⋯ of a
 row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
 its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
-deliver into: it is renamed only. An archived chat opens read-only with **Restore**; a
-link to a deleted chat (an old push notice's) says "This chat was deleted." and leads
-to the main chat. The sidebar lists the open agent's recent chats under it, the main
+deliver into: it is renamed only. A chat stays usable however long it sits idle; only
+your own **Archive** makes it read-only. An archived chat opens read-only with
+**Restore**; a link to a deleted chat (an old push notice's) says "This chat was
+deleted." and leads to the main chat. The sidebar lists the open agent's recent chats under it, the main
 chat first. Server details:
 [Several chats per agent](assistant-gateway.md#several-chats-per-agent).
 

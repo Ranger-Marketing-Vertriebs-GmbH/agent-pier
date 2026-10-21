@@ -2689,11 +2689,29 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   renames with 409 `CHAT_ARCHIVED` until it is restored. Archive state lives in AgentPier
   only: every `sessions.create` session is an OpenClaw dashboard session, which
   OpenClaw's maintenance would archive after 7 idle days, and a natively archived
-  session takes no turn, so the compiled configuration sets
-  `session.maintenance.archiveDashboardAfter: false`. Reconciliation skips archived
-  chats unless work still reports into them, so they cost no Gateway calls. A full
-  pass (at readiness, after maintenance, on a cancel) subscribes and reads every other
-  chat; the 2-second poll and a run's end read only the chats that need it: with work
+  session takes no turn and no routine, reminder or check-in commit, so the compiled
+  configuration sets `session.maintenance.archiveDashboardAfter: false`.
+- Native archiving (AGENTPIER-183, `server/features/assistants/native-chat-archive.js`):
+  OpenClaw still archives a session idle for `pruneAfter` (30 days by default, reason
+  `age-retention`) or beyond `maxEntries` (`active-session-cap`), main chats included,
+  and SQLite recovery can archive one (`restart-recovery`). Neither switch can be
+  limited to dashboard sessions, and turning `pruneAfter` off would also keep stale
+  cron, hook and heartbeat rows. A pinned session is exempt from all automatic
+  maintenance, so reconciliation pins every chat it reads, once per Gateway connection
+  (`sessions.describe`, then `sessions.patch {pinned: true}`), and reopens one OpenClaw
+  archived anyway in the same call (`{archived: false, pinned: true,
+expectedSessionId}`): the session keeps its key, id and transcript. A turn the
+  Gateway refuses with `INVALID_REQUEST` because its session is archived (web,
+  Telegram, queued) reopens the session the same way and is sent once more with the
+  same idempotency key; the refusal comes before any run starts. A pinned session
+  deletes like any other. AgentPier's own archive never archives natively: an
+  AgentPier-archived chat stays read-only until it is restored, and only then does the
+  next pass or its first turn reopen its session. Deleted chats and released users'
+  chats are never reconciled, so they are not reopened
+  (`tests/integration/assistant-multi-chat-contract.test.js`).
+- Reconciliation skips archived chats unless work still reports into them, so they
+  cost no Gateway calls. A full pass (at readiness, after maintenance, on a cancel)
+  subscribes and reads every other chat; the 2-second poll and a run's end read only the chats that need it: with work
   underway, a live feed, a run that just ended there, a session failure due for its
   retry or no subscription yet on this connection (`chat-reconcile.js`), so a pass
   costs what is underway, not the number of chats.
