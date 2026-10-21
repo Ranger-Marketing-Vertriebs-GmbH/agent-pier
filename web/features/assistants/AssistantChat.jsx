@@ -42,8 +42,7 @@ import { streamInHistory } from "./stream-reply.js";
 import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
-import { stepsOf } from "./run-steps.js";
-import { agentRunStepsCopy as runStepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
+import { stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
 // OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
@@ -397,12 +396,7 @@ export default function AssistantChat({
       setBusy(false);
     }
   }
-  // A stalled or timed-out turn: it stops, and the agent goes on where it stopped.
-  async function retry() {
-    if (active && !(await stop())) return;
-    const text = runStepsCopy.continueMessage;
-    await deliver({ clientRequestId: crypto.randomUUID(), text }, []);
-  }
+  const retry = useRetry({ active, stop, deliver, setBusy });
   return (
     <section className="assistant-detail assistant-chat">
       <AssistantHeader

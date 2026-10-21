@@ -139,6 +139,30 @@ for (const [language, copy] of Object.entries(languages))
       expect(state.calls).toContain("/api/assistant-attempts/a-1/cancel");
     });
 
+    test("Try again clicked twice while the turn stops sends one stop and one message", async ({
+      page,
+    }) => {
+      const state = await chatFixture(page, { language, history: running() });
+      await page.route("**/api/assistant-attempts/*/cancel", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await route.fallback();
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      await send(page, "dinner", steps({ phase: "model", quietMs: 5 * 60000 }));
+      const notice = page.locator(".assistant-run-stalled");
+      state.history = running({ id: "a-1", runtimeRunId: "run-1", state: "cancelled" });
+      const retry = notice.getByRole("button", { name: copy.retry });
+      await retry.dblclick();
+      await expect(retry).toBeDisabled();
+      await expect.poll(() => state.posted.map((p) => p.text)).toEqual([copy.continue]);
+      await page.waitForTimeout(600);
+      expect(state.posted).toHaveLength(1);
+      expect(state.calls.filter((p) => p.endsWith("/cancel"))).toEqual([
+        "/api/assistant-attempts/a-1/cancel",
+      ]);
+    });
+
     test("a timed-out turn says why, and a long chat suggests a new one", async ({
       page,
     }) => {
@@ -194,5 +218,37 @@ for (const [language, copy] of Object.entries(languages))
       await page.reload();
       await expect(status).toHaveText(copy.summarising);
       await noSideScroll(page);
+    });
+
+    test("Try again in a user's chat runs once while the turn stops", async ({
+      page,
+    }) => {
+      const state = await userAppFixture(page, {
+        language,
+        messages: { main: running().messages },
+        requests: { main: running().requests },
+      });
+      const cancels = [];
+      await page.route("**/api/me/attempts/*/cancel", async (route) => {
+        cancels.push(new URL(route.request().url()).pathname);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await route.fallback();
+      });
+      await page.goto(baseURL + "/agents/lotta/chats/main");
+      await synced(page, "main");
+      await send(page, "main", steps({ phase: "model", quietMs: 5 * 60000 }));
+      state.requests.main = running({
+        id: "a-1",
+        runtimeRunId: "run-1",
+        state: "cancelled",
+      }).requests;
+      const retry = page
+        .locator(".assistant-run-stalled")
+        .getByRole("button", { name: copy.retry });
+      await retry.dblclick();
+      await expect.poll(() => state.posted.map((p) => p.text)).toEqual([copy.continue]);
+      await page.waitForTimeout(600);
+      expect(state.posted).toHaveLength(1);
+      expect(cancels).toEqual(["/api/me/attempts/a-1/cancel"]);
     });
   });

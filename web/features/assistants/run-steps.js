@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { agentRunStepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 
 // The live steps of an agent's running turn, from the chat feed's `steps` frames
 // (server/features/assistants/run-steps.js): only metadata, never output or text.
@@ -88,4 +89,27 @@ export function useNow(active, ms = 15000) {
     return () => clearInterval(timer);
   }, [active, ms]);
   return now;
+}
+
+/**
+ * Try again on a stalled or timed-out turn, for the owner's and a user's chat: the
+ * turn stops (`stop`, when `active`) and the agent is asked to go on where it stopped
+ * (`deliver`). One at a time: a second click while the stop runs does nothing, and
+ * `setBusy` disables the chat's buttons meanwhile.
+ */
+export function useRetry({ active, stop, deliver, setBusy }) {
+  const pending = useRef(false);
+  return async function retry() {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    try {
+      if (active && !(await stop())) return;
+      const text = agentRunStepsCopy.continueMessage;
+      await deliver({ clientRequestId: crypto.randomUUID(), text }, []);
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
 }
