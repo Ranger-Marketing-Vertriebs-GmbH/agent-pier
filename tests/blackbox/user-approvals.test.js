@@ -202,7 +202,7 @@ test("approvals raised in two users' concurrent turns go to whose turn raised th
 });
 
 test("a deleted chat's approvals stay hers and never reach the owner", async (t) => {
-  const { f } = await chatFixture(t);
+  const { f, gateway } = await chatFixture(t);
   const { anna, agent } = await sharedAgentOfTwo(f);
   const request = as(f, anna.cookie);
   await request(`/api/me/agents/${agent.id}/conversation`, { method: "POST" });
@@ -219,6 +219,12 @@ test("a deleted chat's approvals stay hers and never reach the owner", async (t)
     state: "awaiting_approval",
   });
   assert.equal((await decide(request, action)).status, 200);
+  // The agent hears once that its note was not saved; until then the chat is busy.
+  await workflows.tick();
+  assert.equal(gateway.sent.length, 1);
+  gateway.runs[gateway.sent[0].idempotencyKey] = { status: "ok" };
+  await f.application.assistants.reconcile();
+  await workflows.tick();
   const deleted = await request(`/api/me/conversations/${conversationId}`, {
     method: "DELETE",
     body: { confirm: true },
