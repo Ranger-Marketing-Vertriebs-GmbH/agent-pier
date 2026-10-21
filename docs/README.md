@@ -32,6 +32,7 @@ _(German)_ are not translated yet.
 | Guide                                               | What it covers                                              |
 | --------------------------------------------------- | ----------------------------------------------------------- |
 | [Agents](agents.md)                                 | User guide: setup, capabilities, skills, teams and Telegram |
+| [Users](users.md)                                   | Family members, their agents, levels, lock and privacy      |
 | [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                   |
 | [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                      |
 | [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime      |
@@ -63,6 +64,7 @@ _(German)_ are not translated yet.
 | [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md) | Optional per-session nono sandbox                       |
 | [ADR 0002](adr/0002-managed-openclaw-assistants.md)       | Managed OpenClaw agents and visible agent teams         |
 | [ADR 0003](adr/0003-agent-ssh-access.md)                  | SSH access for agents                                   |
+| [ADR 0004](adr/0004-restricted-users.md)                  | Restricted users                                        |
 | [Protocol adapter](protocol-adapter.md)                   | How custom endpoints are adapted to each CLI's protocol |
 | [Startup loading](startup-loading.md)                     | The startup screen shown before the app loads           |
 | [Chat observability](chat-observability.md)               | Chat context and subagent observations                  |
