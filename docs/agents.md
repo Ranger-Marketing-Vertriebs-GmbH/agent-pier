@@ -581,9 +581,18 @@ the chat then says that the model did not answer in time and offers **Try again*
 model stream that stops sending ends sooner: OpenClaw retries it after two minutes and
 gives up after a few tries.
 
-When a chat grows very long (from about 100,000 tokens of context), every answer gets
-slower and more expensive; the chat then suggests starting a new chat for a new topic.
-Server details:
+When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
+when the window is unknown), the chat says "This chat is long. After a pause the first
+reply takes longer, and older details are easier to miss." while no turn runs.
+**Summarise now** has the agent service summarise the chat's history right away: the
+chat shows **Summarising the conversation so far — this can take a few minutes for long
+chats.** and afterwards the quiet line **Earlier messages were summarised …**; the chat
+stays the same chat, also your main chat with its reminders, routines, check-ins and
+Telegram. A message you send meanwhile waits and goes out afterwards. If there is
+nothing left to summarise, or the agent service refuses, the chat says so. **Hide**
+puts the hint away for this chat; it comes back once the chat grew by half again or by
+50,000 tokens, whichever comes first. Summarising writes nothing to the agent's memory.
+An archived chat shows the hint without actions. Server details:
 [Live steps and stalled turns](assistant-gateway.md#live-steps-and-stalled-turns).
 
 ## When the connection is lost

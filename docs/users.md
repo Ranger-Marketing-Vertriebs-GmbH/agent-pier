@@ -137,7 +137,8 @@ every chat says so while it is on.
 - The live steps of a running turn ([What the agent is doing](agents.md#what-the-agent-is-doing))
   follow the same rule: she sees them in her app for all her chats, he only for a turn
   that answers what she wrote since the switch was turned on. The hint that a chat is
-  very long is hers alone.
+  long, with **Summarise now** and **Hide**, is hers alone: he never sees it and cannot
+  summarise her chat.
 
 Approvals go to the person in whose chat they arise. Reminders, routines and push
 notifications belong to the person who created them and her own devices

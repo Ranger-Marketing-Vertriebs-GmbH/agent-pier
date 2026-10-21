@@ -1125,7 +1125,10 @@ was compacted and the plan was gone. Four rules close that gap:
   internal run of the same agent that wrote first could replace that day's note.
   The exposure is limited by the first-session pin (one internal session per
   flush) and the date bound (today's or yesterday's note only). Nothing in
-  AgentPier starts other `internal-session-effects` runs today.
+  AgentPier starts other `internal-session-effects` runs today. A compaction the
+  person asks for with **Summarise now** (`sessions.compact`, see
+  [Live steps and stalled turns](#live-steps-and-stalled-turns)) runs no flush and
+  writes no memory.
 - **Summarising status.** A long conversation makes OpenClaw shorten its history
   before it answers, which can take minutes. The pinned runtime signals it on the
   source session with Gateway `agent` events: before a run (preflight,
@@ -3278,9 +3281,43 @@ AgentPier's side:
   bounds the whole turn. A turn that failed for want of an answer keeps
   `failure: "timeout"` on its attempt (`run-reconciler.js`).
 - The history window carries `longChat: true` when the last model call read at least
-  100,000 tokens, or 80 % of a smaller window (`longContext` in `conversations.js`).
-  The owner reading under a user's opt-in never receives it: it measures her earlier
-  messages too.
+  60 % of the model's context window (`sessionInfo.contextTokens`), or 100,000 tokens
+  when the session names no window (`longContext` in `conversations.js`), unless its
+  person hid the hint (below). Providers cache prompts, so a long chat mostly costs a
+  slow first reply after a pause (the cache expired) and older details the model
+  misses, which is what the hint says. The owner reading under a user's opt-in never
+  receives it: it measures her earlier messages too.
+- Summarise now and Hide (AGENTPIER-186, `server/features/assistants/long-chats.js`):
+  `POST /api/assistant-conversations/:id/compact` (the owner's own chats; the privacy
+  guard answers 404 for a user's chat, opt-in or not) and
+  `POST /api/me/conversations/:id/compact` (her own chats; another person's is the
+  unknown-route 404) call OpenClaw's `sessions.compact {key}` for the chat's own
+  session and answer `{compacted: true}` once it is done. The key, the chat, its main
+  role and every delivery bound to it stay. Refused for a chat that takes no turns
+  (404, as for a send), an archived chat (409 `CHAT_ARCHIVED`), and while a turn runs,
+  a message waits or team work reports into it (409 `CHAT_BUSY`, also when the Gateway
+  answers `has an active run` or `has queued work`). OpenClaw's `compacted: false`
+  (for example `reason: "Already compacted"`) is 409 `CHAT_COMPACT_NOTHING`; any other
+  Gateway refusal and a timeout after ten minutes are 502 `CHAT_COMPACT_FAILED`; a
+  Gateway that went away is 503. A request while one runs joins it, so a double click
+  compacts once. While it runs, the chat counts as busy (`busyChats`): a send answers
+  409 `active` and the composer queues instead, archive and delete answer `CHAT_BUSY`,
+  and the history carries `compacting: true`, so the chat shows the compaction status
+  without a turn. OpenClaw 2026.10.3 sends no event for it to an unsubscribed client
+  (`session.operation` and `sessions.changed` go to session subscribers only), so the
+  status comes from the pending call; its end publishes `change` and dispatches a
+  queued message. Afterwards `sessionInfo.totalTokensFresh` is false until the next
+  turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
+  usual compaction marker. A manual compaction runs no pre-compaction memory flush
+  (that runs only before a turn, `agent-runner-memory`), so it writes no memory and
+  the flush write guard is not involved. `POST …/long-chat-dismissal` (same routes and
+  refusals) reads the session's current `totalTokens` and stores it per person and
+  chat (`assistant_long_chat_dismissals`; a deleted chat forgets it); the hint stays
+  hidden until the context reaches that size plus half of it or plus 50,000 tokens,
+  whichever is smaller (`reappearsAt`). Verified live on the pinned runtime with a
+  real local model: refusal during a run, a 109 s compaction (21,277 → 15,512 tokens)
+  with one summary model call and no flush, the marker, `Already compacted` on a
+  second call and an intact follow-up turn.
 
 The chat (`web/features/assistants/AgentRunState.jsx`, owner's chat and user app
 alike) shows the phase or the running tool with its label below the turn, the steps
@@ -3289,8 +3326,8 @@ model "No answer from the model for N minutes." with **Stop** and **Try again**.
 again stops the turn and sends "Please continue where you stopped." as the person's
 own message; a turn that failed with `timeout` or `stalled` says the model did not
 answer in time and offers **Try again** too. A queued message replaces Try again: it
-goes out once the turn ends. A long chat suggests starting a new one while no turn
-runs.
+goes out once the turn ends. While no turn runs, a long chat says so with **Summarise
+now** and **Hide** where the person can act ([What the agent is doing](agents.md#what-the-agent-is-doing)).
 
 ## Live agent list
 
