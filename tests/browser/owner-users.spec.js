@@ -23,6 +23,7 @@ const languages = {
     since: /An seit/,
     empty: "Noch keine Benutzer. Lege den ersten an.",
     users: "Benutzer",
+    needsPassword: "Braucht ein neues Passwort",
   },
   en: {
     add: "Add user",
@@ -41,6 +42,7 @@ const languages = {
     since: /On since/,
     empty: "No users yet. Add the first one.",
     users: "Users",
+    needsPassword: "Needs a new password",
   },
 };
 
@@ -125,6 +127,23 @@ for (const [language, copy] of Object.entries(languages))
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(390);
+    });
+
+    test("a user restored without her password is marked", async ({ page }) => {
+      await setup(page, language, {
+        users: [
+          {
+            id: "u-1",
+            username: "anna",
+            displayName: "Anna",
+            disabled: false,
+            mustReset: true,
+            ownerMayRead: { enabled: false, since: null },
+          },
+        ],
+      });
+      await page.goto(baseURL + "/settings/users");
+      await expect(page.getByText(copy.needsPassword)).toBeVisible();
     });
 
     test("owner sets a level", async ({ page }) => {
