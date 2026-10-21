@@ -12,7 +12,12 @@ import {
   PushPresence,
   presenceWindowMs,
   routeView,
+  routeViews,
 } from "../../server/features/notifications/push-presence.js";
+import {
+  buildPayload,
+  pushSource,
+} from "../../server/features/notifications/push-content.js";
 
 test("new and older devices start at the event type only with the default events", () => {
   for (const stored of [undefined, null, {}, { level: "loud", events: { x: true } }]) {
@@ -166,4 +171,27 @@ test("each person has her own presence report budget", () => {
   assert.equal(presence.report("/inbox"), true);
   assert.equal(presence.seen("inbox", now), true);
   assert.equal(presence.report("/inbox", "ben"), true);
+});
+
+test("an event of one agent chat is held back only while that chat is visible", () => {
+  const presence = new PushPresence({ now: () => 1000 });
+  assert.deepEqual(routeViews("/agents/a1/chats/c2"), ["agent:a1", "chat:c2"]);
+  assert.deepEqual(routeViews("/agents/a1/teams/t1"), ["agent:a1"]);
+  const routine = { kind: "agent-routine", assistantId: "a1", conversationId: "c1" };
+  assert.equal(pushSource(routine), "chat:c1");
+  assert.equal(pushSource({ kind: "agent-approval", assistantId: "a1" }), "agent:a1");
+  presence.report("/agents/a1/chats/c2");
+  assert.equal(presence.watching(routine, pushSource(routine)), false);
+  assert.equal(presence.watching({}, "agent:a1"), true);
+  presence.report("/agents/a1/chats/c1");
+  assert.equal(presence.watching(routine, pushSource(routine)), true);
+  // Notices of different chats of one agent no longer replace each other.
+  const other = buildPayload(
+    { ...routine, conversationId: "c2", eventId: "e2" },
+    {
+      grouping: true,
+      level: "type",
+    },
+  );
+  assert.equal(other.tag, "chat:c2");
 });

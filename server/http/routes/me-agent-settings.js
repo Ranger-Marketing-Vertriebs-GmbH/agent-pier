@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { settingsPatch, settingsView } from "../../features/users/user-agent-settings.js";
 import { isShared } from "../../features/users/user-access.js";
 import { userProblem } from "../../features/users/user-errors.js";
@@ -27,13 +26,12 @@ export function meAgentSettingsRoutes({ assistants, assistantMemory, userScope, 
     try {
       await assistants.update(agent.id, patch, revision);
     } catch (error) {
-      // New web tools would restart the Gateway for everyone: only the owner decides.
+      // Released capabilities are compiled in advance (native-capabilities.js), so
+      // this is left only for a Gateway started before the release. A restart would
+      // interrupt everyone: only the owner decides, so hers is a plain refusal she
+      // cannot confirm.
       if (error?.code !== "ASSISTANT_RESTART_REQUIRED") throw error;
-      return res.status(409).json({
-        code: error.code,
-        error: error.message,
-        ...messageIdentity(error.message),
-      });
+      throw userProblem("USER_AGENT_RESTART_NEEDED");
     }
     // Who changed which fields; never the instructions or any other value.
     audit.append({

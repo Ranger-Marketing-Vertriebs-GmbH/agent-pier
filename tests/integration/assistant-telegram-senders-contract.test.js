@@ -72,7 +72,10 @@ test("agents' own bots on the compiled path", options, async (t) => {
   const account = running.channels.telegram.accounts[ids(helper)];
   assert.deepEqual(account.allowFrom, ["111", "222"]);
   assert.notEqual(account.botToken, token1, "config.get redacts the token");
-  assert.deepEqual(running.session, { dmScope: "per-account-channel-peer" });
+  assert.deepEqual(running.session, {
+    dmScope: "per-account-channel-peer",
+    maintenance: { archiveDashboardAfter: false },
+  });
   assert.deepEqual(running.tools.agentToAgent, { enabled: false });
   assert.ok(running.plugins.allow.includes("telegram"));
   assert.ok(running.plugins.allow.includes("deepgram"));

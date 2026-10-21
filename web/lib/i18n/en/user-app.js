@@ -35,13 +35,17 @@ export const userAppCopy = Object.freeze({
   instructions: "Personality and instructions",
   noAvatar: "First letter",
   noInstructions: "None",
-  ownerManages: "Your owner manages this.",
+  ownerManages: "The owner manages this.",
   sharedManages: "The owner manages a shared agent for everyone who uses it.",
   capabilities: "Capabilities",
   capabilitiesHint: "The owner released these capabilities for you to switch.",
-  noCapabilities: "Your owner decides which capabilities your agent has.",
+  noCapabilities: "The owner decides which capabilities your agent has.",
   routines: "Routines",
   routinesHint: "Ask your agent in the chat to set up a routine.",
+  routinesChatOnly:
+    "Your routines on this agent. You can pause or delete them; setting up or changing routines needs the Personalize level, which the owner can give you.",
+  remindersChatOnly:
+    "Your reminders on this agent. You can pause or delete them; setting up or changing reminders needs the Personalize level, which the owner can give you.",
   noRoutines: "No routines.",
   more: "More",
   memory: "Memory",
@@ -72,6 +76,9 @@ export const userAppCopy = Object.freeze({
     "Only the owner switches this. He then sees your chats from that moment on, never older ones, and your own agent's memory, files and browser in full, older entries included.",
   browserUnavailable:
     "This agent's browser is working for someone else right now. It shows here once one of your chats uses it.",
+  browserIdle:
+    "Nobody is using this agent's browser right now. It shows here once one of your chats uses it.",
+  browserOff: "This agent has no browser. The owner decides whether it gets one.",
   browserRefresh: "Check again",
   browserOwnerWatches:
     "The owner can also watch this view. AgentPier stores no pictures.",

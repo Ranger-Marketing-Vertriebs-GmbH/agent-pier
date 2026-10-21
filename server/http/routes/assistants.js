@@ -239,6 +239,7 @@ function activeAssistantRoutes(services) {
       const action = req.params.action;
       if (!["enable", "start", "stop", "restart"].includes(action))
         throw assistantProblem("invalid");
+      if (["stop", "restart"].includes(action)) await assistants.settleUserTurns?.();
       if (
         ["stop", "restart"].includes(action) &&
         (assistants.ledger.pending().length ||

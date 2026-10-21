@@ -69,6 +69,10 @@ export const usersCopy = {
   ownReadOnly:
     "Gehört seinem Benutzer: Du kannst Notizen lesen und den Browser ansehen, aber nichts ändern.",
   ownRoutines: "Erinnerungen und Routinen verwaltet sein Benutzer in seiner App.",
+  ownRoutinesChatOnly:
+    "Erinnerungen und Routinen verwaltet sein Benutzer in seiner App ab „Personalisieren“. Bei „Nur chatten“ kann er sie noch ansehen, pausieren und löschen.",
+  ownTelegramBelowExtended:
+    "Seinen Telegram-Bot kann sein Benutzer in seiner App verbinden, sobald du ihm „Erweitert“ gibst. Du kannst diesem Agenten keinen Bot verbinden.",
   ownTelegram:
     "Seinen Telegram-Bot verbindet sein Benutzer in seiner App. Du kannst diesem Agenten keinen Bot verbinden.",
   lockedTelegramSenders:

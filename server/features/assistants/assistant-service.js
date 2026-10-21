@@ -9,7 +9,11 @@ import * as queuedDispatch from "./queued-dispatch.js";
 import { AssistantEvents } from "./assistant-events.js";
 import { conversationHistory, conversationMessage } from "./conversations.js";
 import { reconcileChats } from "./chat-reconcile.js";
-import { acknowledgeAttempt, recoverAttempt } from "./attempt-recovery.js";
+import {
+  acknowledgeAttempt,
+  recoverAttempt,
+  settleUserTurns,
+} from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { MemoryNotes } from "./memory-notes.js";
@@ -407,6 +411,7 @@ export class AssistantService {
       });
     }
     return this.admit(async () => {
+      await this.settleUserTurns();
       if (
         this.ledger.pending().some((attempt) => {
           const request = this.ledger.getRequest(attempt.requestId);
@@ -518,6 +523,10 @@ export class AssistantService {
   /** Lets an uncertain or interrupted attempt be delivered again (attempt-recovery.js). */
   recover(id, input) {
     return recoverAttempt(this, id, input);
+  }
+  /** Settles users' unknown turns before the owner's maintenance (attempt-recovery.js). */
+  settleUserTurns() {
+    return settleUserTurns(this);
   }
   /** A user's review of her own unknown turn, without a Gateway restart. */
   acknowledge(id, input) {

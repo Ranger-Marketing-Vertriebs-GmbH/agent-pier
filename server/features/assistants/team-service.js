@@ -486,6 +486,7 @@ export class TeamService {
     if (input.acknowledgeUnknownOutcome !== true) throw assistantProblem("invalid");
     if (member.revision !== input.revision || member.phase !== "provisioning_uncertain")
       throw assistantProblem("conflict", 409);
+    await a.settleUserTurns?.();
     if (a.recovering || a.ledger.pending().length) throw assistantProblem("active", 409);
     a.recovering = true;
     try {

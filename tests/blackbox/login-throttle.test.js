@@ -77,3 +77,25 @@ test("rotating tailnet logins stays inside one shared window", async (t) => {
     200,
   );
 });
+
+test("a full shared tailnet window never locks the owner's tailnet login out", async (t) => {
+  const f = await applicationFixture(t, {
+    authenticateFixture: false,
+    remoteUrl: tailnetUrl,
+    ownerLogin: "owner@example.test",
+  });
+  assert.equal(
+    (await f.request("/auth/setup", { method: "POST", body: owner })).status,
+    201,
+  );
+  for (let attempt = 0; attempt < 31; attempt++)
+    await tailnetRequest(f, `x${attempt}@example.test`, "/auth/login", wrong);
+  assert.equal(
+    (await tailnetRequest(f, "y@example.test", "/auth/login", owner)).status,
+    429,
+  );
+  assert.equal(
+    (await tailnetRequest(f, "owner@example.test", "/auth/login", owner)).status,
+    200,
+  );
+});

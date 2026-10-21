@@ -170,6 +170,28 @@ export class AttachmentStorage {
       return { files: removed.files, bytes: removed.bytes };
     });
   }
+  /**
+   * Removes the uploads of every chat `keep(conversationId)` refuses from the folder,
+   * for a shared agent that became one user's own: on it no turn checks the chat a
+   * file came from any more (attachment-access.js). Unsent files lose their rows, sent
+   * ones stay in their messages marked unavailable; shared files live elsewhere.
+   */
+  async removeChats(assistantId, keep) {
+    const a = this.a;
+    return a.serial(assistantId, async () => {
+      const folder = await a.folder(assistantId, false).catch(() => null);
+      for (const file of a.rows(
+        `SELECT * FROM agent_attachments WHERE assistant_id=? AND (request_id IS NULL OR request_id NOT LIKE '${SHARED}%')`,
+        assistantId,
+      )) {
+        if (keep(file.row.conversation_id)) continue;
+        if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
+        if (file.row.request_id === null)
+          a.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
+        else if (!file.gone) a.markGone(file);
+      }
+    });
+  }
   // Ends the agent's open uploads and removes its checked folder, or what replaced
   // it; the caller holds the agent's serial queue. Resolves with what it held.
   async removeFolder(assistantId) {

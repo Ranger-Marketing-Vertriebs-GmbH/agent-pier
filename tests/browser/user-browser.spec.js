@@ -47,6 +47,7 @@ const languages = {
     takeOver: "Übernehmen",
     mine: /Du steuerst den Browser/,
     unavailable: /arbeitet gerade für jemand anderen/,
+    idle: /Gerade nutzt niemand den Browser/,
     onlyYou: "Nur du siehst diese Ansicht. AgentPier speichert keine Bilder.",
     ownerWatches:
       "Der Besitzer kann diese Ansicht ebenfalls sehen. AgentPier speichert keine Bilder.",
@@ -55,6 +56,7 @@ const languages = {
     takeOver: "Take over",
     mine: /You control the browser/,
     unavailable: /working for someone else right now/,
+    idle: /Nobody is using this agent's browser right now/,
     onlyYou: "Only you see this view. AgentPier stores no pictures.",
     ownerWatches: "The owner can also watch this view. AgentPier stores no pictures.",
   },
@@ -86,13 +88,24 @@ for (const [language, copy] of Object.entries(languages))
       await userAppFixture(page, {
         language,
         agents: [family],
-        browser: { family: { running: true, watchable: false } },
+        browser: { family: { running: true, watchable: false, reason: "busy" } },
       });
       const commands = await stream(page);
       await page.goto(baseURL + "/agents/family/browser");
       await expect(page.getByText(copy.unavailable)).toBeVisible();
       await expect(page.getByRole("button", { name: copy.takeOver })).toHaveCount(0);
       expect(commands).toEqual([]);
+    });
+
+    test("an idle shared browser says nobody uses it", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        agents: [family],
+        browser: { family: { running: false, watchable: false, reason: "idle" } },
+      });
+      await page.goto(baseURL + "/agents/family/browser");
+      await expect(page.getByText(copy.idle)).toBeVisible();
+      await expect(page.getByText(copy.unavailable)).toHaveCount(0);
     });
 
     test("her own agent's view says when the owner may watch it", async ({ page }) => {

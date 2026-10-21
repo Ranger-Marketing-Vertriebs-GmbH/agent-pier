@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { UserAgents } from "../../features/users/user-agents.js";
+import { replyRestartRequired } from "./restart-required.js";
 
 /**
  * The owner's agents for restricted users. Mounted with the agent routes, so they
@@ -23,7 +24,13 @@ export function userAgentRoutes(services) {
     res.status(201).json(result);
   });
   router.put("/user-agents/:id/access", async (req, res) => {
-    const result = await agents.assign(req.params.id, req.body);
+    let result;
+    try {
+      result = await agents.assign(req.params.id, req.body);
+    } catch (error) {
+      // A release that changes the Gateway's web sections waits for his confirmation.
+      return replyRestartRequired(res, error);
+    }
     audit("assistant.updated", result.id);
     res.json(result);
   });

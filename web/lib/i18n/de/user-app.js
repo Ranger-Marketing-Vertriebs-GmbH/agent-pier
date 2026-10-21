@@ -35,14 +35,18 @@ export const userAppCopy = Object.freeze({
   instructions: "Persönlichkeit und Anweisungen",
   noAvatar: "Erster Buchstabe",
   noInstructions: "Keine",
-  ownerManages: "Das verwaltet dein Besitzer.",
+  ownerManages: "Das verwaltet der Besitzer.",
   sharedManages:
     "Einen geteilten Agenten verwaltet der Besitzer für alle, die ihn nutzen.",
   capabilities: "Fähigkeiten",
   capabilitiesHint: "Diese Fähigkeiten hat dir der Besitzer zum Umschalten freigegeben.",
-  noCapabilities: "Welche Fähigkeiten dein Agent hat, legt dein Besitzer fest.",
+  noCapabilities: "Welche Fähigkeiten dein Agent hat, legt der Besitzer fest.",
   routines: "Routinen",
   routinesHint: "Routinen legst du im Chat mit deinem Agenten an.",
+  routinesChatOnly:
+    "Deine Routinen bei diesem Agenten. Du kannst sie pausieren oder löschen; Routinen anlegen oder ändern kannst du ab der Stufe „Personalisieren“, die dir der Besitzer geben kann.",
+  remindersChatOnly:
+    "Deine Erinnerungen bei diesem Agenten. Du kannst sie pausieren oder löschen; Erinnerungen anlegen oder ändern kannst du ab der Stufe „Personalisieren“, die dir der Besitzer geben kann.",
   noRoutines: "Keine Routinen.",
   more: "Mehr",
   memory: "Gedächtnis",
@@ -73,6 +77,10 @@ export const userAppCopy = Object.freeze({
     "Nur der Besitzer schaltet das um. Er sieht deine Chats dann ab diesem Zeitpunkt, nie ältere, dazu Gedächtnis, Dateien und Browser deines eigenen Agenten vollständig, auch ältere Einträge.",
   browserUnavailable:
     "Der Browser dieses Agenten arbeitet gerade für jemand anderen. Er erscheint hier, sobald einer deiner Chats ihn nutzt.",
+  browserIdle:
+    "Gerade nutzt niemand den Browser dieses Agenten. Er erscheint hier, sobald einer deiner Chats ihn nutzt.",
+  browserOff:
+    "Dieser Agent hat keinen Browser. Ob er einen bekommt, entscheidet der Besitzer.",
   browserRefresh: "Erneut prüfen",
   browserOwnerWatches:
     "Der Besitzer kann diese Ansicht ebenfalls sehen. AgentPier speichert keine Bilder.",

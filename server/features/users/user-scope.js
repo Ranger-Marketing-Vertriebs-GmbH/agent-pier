@@ -1,6 +1,7 @@
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { isShared, memberLevel } from "./user-access.js";
+import { personalCapabilities } from "../assistants/native-capabilities.js";
 
 // The body of an unknown /api route: a refusal never confirms that something exists.
 const refused = () => problem(serverMessages.http.notFound, 404);
@@ -92,6 +93,19 @@ export class UserScope {
     }
     if (!isShared(agent)) return true;
     return this.services.assistants?.liveView?.driver(agent.id) === principal.userId;
+  }
+  /**
+   * Whether she may watch the agent's browser now and, when not, why: `off` (a shared
+   * agent without the browser), `busy` (another person's turn drives it, the owner's
+   * included) or `idle` (nobody's turn used it lately). Who drives it is never named.
+   */
+  browserView(principal, agentId) {
+    const agent = this.agentOf(principal, agentId);
+    if (this.mayWatchBrowser(principal, agent.id)) return { watchable: true };
+    if (!personalCapabilities(agent).browser) return { watchable: false, reason: "off" };
+    const live = this.services.assistants?.liveView;
+    const busy = (live?.driver(agent.id) ?? null) !== null || !!live?.inUse?.(agent.id);
+    return { watchable: false, reason: busy ? "busy" : "idle" };
   }
   /** The owner watches a shared agent's browser only while no user's turn drives it. */
   ownerMayWatchBrowser(agent) {

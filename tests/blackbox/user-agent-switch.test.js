@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { as, chatFixture, userAgent } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
 
@@ -92,4 +94,51 @@ test("a shared agent that becomes a user's own ends the owner's jobs and bot", a
     archivedAt: new Date().toISOString(),
   });
   await assistants.admit(() => assistants.reminders.routines.sync(agent.id));
+});
+
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+test("a shared agent that becomes a user's own drops everyone else's uploads", async (t) => {
+  const { f } = await chatFixture(t);
+  const anna = await signedInUser(f, "Anna");
+  const ben = await signedInUser(f, "Ben");
+  const agent = await userAgent(f, {
+    mode: "shared",
+    members: [
+      { userId: anna.user.id, level: "chat" },
+      { userId: ben.user.id, level: "chat" },
+    ],
+  });
+  const assistants = f.application.assistants;
+  const chats = {};
+  for (const [who, userId] of [
+    ["owner", null],
+    ["anna", anna.user.id],
+    ["ben", ben.user.id],
+  ])
+    chats[who] = await assistants.admit(() =>
+      assistants.reminders.openMain(agent.id, userId),
+    );
+  const files = {};
+  for (const who of Object.keys(chats))
+    files[who] = await assistants.attachments.stage(chats[who].id, `${who}.png`, png);
+  const switched = await f.request(`/api/user-agents/${agent.id}/access`, {
+    method: "PUT",
+    body: {
+      userAccess: { mode: "own", members: [{ userId: anna.user.id, level: "chat" }] },
+      revision: assistants.store.getAssistant(agent.id).revision,
+    },
+  });
+  assert.equal(switched.status, 200, await switched.clone().text());
+  const left = await fs.readdir(
+    path.join(assistants.attachments.config.workspaces, agent.id, "attachments"),
+  );
+  assert.equal(left.length, 1);
+  assert.match(left[0], /anna\.png$/);
+  assert.equal(assistants.attachments.conversationOf(files.anna.id), chats.anna.id);
+  assert.equal(assistants.attachments.conversationOf(files.owner.id), null);
+  assert.equal(assistants.attachments.conversationOf(files.ben.id), null);
 });

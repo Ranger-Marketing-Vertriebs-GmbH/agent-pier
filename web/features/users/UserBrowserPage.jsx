@@ -15,6 +15,12 @@ import { userApi } from "./user-api.js";
  */
 export default function UserBrowserPage({ agent, navigate, ownerMayRead }) {
   const [status, setStatus] = useState(null);
+  // Why she cannot watch now: no browser, nobody's turn drives it, or someone else's.
+  const unavailable = {
+    off: copy.browserOff,
+    idle: copy.browserIdle,
+    busy: copy.browserUnavailable,
+  };
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     setError("");
@@ -50,10 +56,12 @@ export default function UserBrowserPage({ agent, navigate, ownerMayRead }) {
         />
       ) : (
         <section className="user-app-empty">
-          <p>{copy.browserUnavailable}</p>
-          <button type="button" className="button secondary" onClick={load}>
-            {copy.browserRefresh}
-          </button>
+          <p>{unavailable[status?.reason] || copy.browserUnavailable}</p>
+          {status?.reason !== "off" && (
+            <button type="button" className="button secondary" onClick={load}>
+              {copy.browserRefresh}
+            </button>
+          )}
         </section>
       )}
     </UserPage>

@@ -15,6 +15,8 @@ import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
 import { confirmFromTranscript } from "./run-confirmation.js";
+import { imageResultArtifact } from "./generated-images.js";
+import { fileRequest } from "./agent-share-store.js";
 // A compaction marker (OpenClaw 2026.10.3: a system message with
 // `__openclaw.kind: "compaction"` and its token counts) is a chat note only where the
 // chat asks for it (`compactions`); every other reader sees the turns alone.
@@ -62,6 +64,7 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
     if (seen.has(id)) return [];
     seen.add(id);
     const key = m.role === "user" && turnKey(m);
+    const image = imageResultArtifact(m);
     return [
       {
         id,
@@ -71,6 +74,8 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
         runId: m.__openclaw?.runId || null,
         // Internal: links the turn to its attempt (message-source.js), never served.
         ...(key && { turnKey: key }),
+        // Internal: the image a background image turn delivers (imageResults).
+        ...(image !== null && { imageArtifact: image }),
       },
     ];
   });
@@ -261,7 +266,11 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
           withRunNotes(
             service,
             conversation,
-            withMessageSources(visible.messages, requests, { attempts, contexts }),
+            imageResults(
+              service,
+              id,
+              withMessageSources(visible.messages, requests, { attempts, contexts }),
+            ),
             nextBefore,
           ),
           service.routines?.results.forConversation(id) || [],
@@ -279,6 +288,20 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     // While the active attempt's run summarises the conversation (compactions.js).
     compacting: summarising(service, conversation, requests),
   };
+}
+/**
+ * The background turn that delivers generated images answers the request that asked
+ * for them: the request its copied image is stored under (generated-images.js), or
+ * none yet. It carries `imageResult` and that `requestId`, so the owner's opt-in
+ * window hides it with the request (owner-privacy.js).
+ */
+function imageResults(service, id, messages) {
+  return messages.map(({ imageArtifact, ...message }) => {
+    if (imageArtifact === undefined) return message;
+    const row =
+      imageArtifact && service.attachments?.shared?.artifact(id, imageArtifact)?.row;
+    return { ...message, imageResult: true, requestId: fileRequest(row) };
+  });
 }
 /**
  * A lead's turn handling a member's result changes files like the lead's own work

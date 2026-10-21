@@ -9,6 +9,8 @@ export const users = Object.freeze({
   agentOwnFixed:
     "Ein eigener Agent bleibt bei seinem Benutzer. Lege für andere einen neuen Agenten an.",
   level: "Das erlaubt deine Stufe für diesen Agenten nicht.",
+  agentRestartNeeded:
+    "Dafür muss der Agentendienst neu starten, und das kann nur der Besitzer. Frag den Besitzer.",
   agentsChoice:
     "Wähle, ob die eigenen Agenten des Benutzers archiviert oder behalten werden.",
   agentsKeepPrivate:

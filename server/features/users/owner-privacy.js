@@ -38,8 +38,14 @@ export function fromSince(history, since) {
   const reachesSince = !dated.length || Math.min(...dated) < sinceMs;
   return {
     ...history,
+    // A file a turn shared or an image it asked for answers its request, whenever it
+    // arrived; an image turn whose request is still unknown stays hers too.
     messages: messages.filter(
-      (m) => keep(m.timestamp) && !hidden.has(m.requestId) && !runs.has(m.runId),
+      (m) =>
+        keep(m.timestamp) &&
+        !hidden.has(m.requestId) &&
+        !runs.has(m.runId) &&
+        !(m.imageResult && !m.requestId),
     ),
     requests: requests.filter((r) => !hidden.has(r.id)),
     ...(Array.isArray(history.actions) && {
@@ -84,9 +90,16 @@ export class OwnerPrivacy extends EventEmitter {
     const { enabled, since } = this.optIn(conversation.userId);
     return { readable: enabled, since: enabled ? since : null };
   }
-  /** Whether a chat file created at `createdAt` lies within the owner's window. */
-  fileVisible(createdAt, since) {
-    return !since || after(Date.parse(since))(createdAt);
+  /**
+   * Whether a chat file created at `createdAt` lies within the owner's window: added
+   * from `since` on, and not for a request (`request`, when it has one) written
+   * before it.
+   */
+  fileVisible(createdAt, since, request = null) {
+    if (!since) return true;
+    return (
+      after(Date.parse(since))(createdAt) && !(request && beforeSince(request, since))
+    );
   }
   /** Whether the conversation shows in the owner's list at all. */
   visible(conversation) {

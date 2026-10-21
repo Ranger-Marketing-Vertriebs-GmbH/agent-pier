@@ -318,3 +318,53 @@ test("the owner's driving view closes once a shared agent becomes a user's own u
   assert.equal(await error, "VIEW_ONLY");
   again.terminate();
 });
+
+test("her browser page tells an idle shared browser from one someone else drives", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent, benChat, drive } = await busyFamily(f);
+  const status = async () =>
+    (await as(f, anna.cookie)(`/api/me/agents/${agent.id}/browser`)).json();
+  // Without the browser capability there is nothing to wait for.
+  assert.deepEqual([(await status()).watchable, (await status()).reason], [false, "off"]);
+  const store = f.application.assistants.store;
+  const current = store.getAssistant(agent.id);
+  store.updateAssistant(
+    agent.id,
+    { capabilities: { memory: false, reminders: false, browser: true } },
+    current.revision,
+  );
+  // Nobody's turn drives it: idle, not someone else's.
+  assert.equal((await status()).reason, "idle");
+  drive(benChat);
+  assert.equal((await status()).reason, "busy");
+});
+
+test("her browser page says busy while the owner's own chat drives a shared browser", async (t) => {
+  const { f } = await chatFixture(t);
+  const { anna, agent } = await busyFamily(f);
+  const store = f.application.assistants.store;
+  store.updateAssistant(
+    agent.id,
+    { capabilities: { memory: false, reminders: false, browser: true } },
+    store.getAssistant(agent.id).revision,
+  );
+  const live = f.application.assistants.liveView;
+  let clock = 1000;
+  live.now = () => clock;
+  const status = async () =>
+    (await as(f, anna.cookie)(`/api/me/agents/${agent.id}/browser`)).json();
+  assert.equal((await status()).reason, "idle");
+  const ownerChat = store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: "owner-browser",
+  });
+  f.application.assistantTeams.bridge.noteDriver({
+    agentId: agent.runtimeAgentId,
+    sessionKey: ownerChat.runtimeSessionKey,
+  });
+  assert.equal(live.driver(agent.id), null);
+  assert.equal((await status()).reason, "busy");
+  // Once his turn has not used it for the hold, it is idle again.
+  clock += live.driverMs;
+  assert.equal((await status()).reason, "idle");
+});

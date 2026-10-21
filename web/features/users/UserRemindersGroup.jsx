@@ -16,7 +16,10 @@ const reminderApi = {
   remove: (id, bindingId) => userApi.removeReminder(id, bindingId),
 };
 
-/** Her routines on the agent: listed at every level, paused or removed from Personalize. */
+/**
+ * Her routines on the agent: listed, paused and removed at every level, resumed from
+ * Personalize on.
+ */
 function UserRoutines({ agentId, readOnly }) {
   const personal = assistantCopy.personal;
   const [items, setItems] = useState(null);
@@ -46,7 +49,10 @@ function UserRoutines({ agentId, readOnly }) {
   };
   return (
     <section aria-labelledby="user-routines">
-      <GroupLabel id="user-routines" hint={copy.routinesHint}>
+      <GroupLabel
+        id="user-routines"
+        hint={readOnly ? copy.routinesChatOnly : copy.routinesHint}
+      >
         {copy.routines}
       </GroupLabel>
       <ErrorMessage error={error} />
@@ -58,14 +64,12 @@ function UserRoutines({ agentId, readOnly }) {
             label={item.name || personal.unknownReminder}
             sub={item.enabled ? personal.states.active : personal.states.paused}
             disabled={busy}
-            onDelete={
-              readOnly
-                ? undefined
-                : () => act(() => userApi.removeReminder(agentId, item.id, "routines"))
+            onDelete={() =>
+              act(() => userApi.removeReminder(agentId, item.id, "routines"))
             }
             deleteLabel={personal.removeReminder}
           >
-            {!readOnly && item.status === "ready" && (
+            {item.status === "ready" && (!readOnly || item.enabled) && (
               <button
                 type="button"
                 className="button secondary compact"
@@ -92,14 +96,21 @@ function UserRoutines({ agentId, readOnly }) {
 }
 
 /**
- * A user's own reminders and routines on one agent. She sees them at every level and
- * creates, changes and deletes them from Personalize on (me-reminders.js).
+ * A user's own reminders and routines on one agent. She sees, pauses and deletes them
+ * at every level and creates and changes them from Personalize on (me-reminders.js).
  */
 export default function UserRemindersGroup({ agentId, level }) {
   const readOnly = level === "chat";
   return (
     <>
-      <RemindersGroup assistantId={agentId} api={reminderApi} readOnly={readOnly} />
+      {/* At Chat only her agent cannot set any up either (reminder-audience.js). */}
+      <RemindersGroup
+        assistantId={agentId}
+        api={reminderApi}
+        readOnly={readOnly}
+        canStop
+        hint={readOnly ? copy.remindersChatOnly : undefined}
+      />
       <UserRoutines agentId={agentId} readOnly={readOnly} />
     </>
   );

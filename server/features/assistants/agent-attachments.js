@@ -14,7 +14,7 @@ import {
   safeFileName,
 } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
-import { SHARED, SharedFiles, playable } from "./agent-share-store.js";
+import { SHARED, SharedFiles, fileRequest, playable } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
 import { chatProblem } from "./agent-chats.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
@@ -533,6 +533,11 @@ export class AgentAttachments {
   createdAt(id) {
     const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
     return file?.row.created_at ?? null;
+  }
+  /** The request a chat file came with or answers, or null (fileRequest). */
+  requestOf(id) {
+    const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));
+    return fileRequest(file?.row);
   }
   /** The conversation a chat file (attachment or shared file) belongs to, or null. */
   conversationOf(id) {

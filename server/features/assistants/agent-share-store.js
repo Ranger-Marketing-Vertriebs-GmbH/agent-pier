@@ -21,6 +21,18 @@ const SWEEP_INTERVAL = 3600 * 1000;
 export const SHARED = "share:";
 const agentId = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/;
 const publicFile = ({ id, name, type, kind, size }) => ({ id, name, type, kind, size });
+/**
+ * The request a chat file belongs to, from its index row: a share names the request
+ * whose turn shared it, an upload the request it came with. Null for none, and for a
+ * generated image whose asking turn was unknown (`share:image:<artifact>`).
+ */
+export function fileRequest(row) {
+  const value = row?.request_id;
+  if (typeof value !== "string" || !value) return null;
+  if (!value.startsWith(SHARED)) return value;
+  const requestId = value.slice(SHARED.length);
+  return requestId && !requestId.startsWith("image:") ? requestId : null;
+}
 const ignoreExisting = (error) => {
   if (error.code !== "EEXIST") throw error;
 };
@@ -242,6 +254,9 @@ export class SharedFiles {
         text: typeof file.caption === "string" ? file.caption : "",
         timestamp: file.row.created_at,
         runId: null,
+        // The request whose turn shared it: the owner's opt-in window hides what
+        // answers a message from before it (owner-privacy.js).
+        requestId: fileRequest(file.row),
         shared: true,
         attachments: gone ? [] : [publicFile(file)],
         ...(gone ? { unavailable: true } : {}),

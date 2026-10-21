@@ -1,12 +1,22 @@
 // "Quiet while visible": open AgentPier pages report which view they show while the
 // page is visible. A push is held back when, on any device, the inbox (for an inbox
 // item) or the event's own session, agent chat or run was visible in the last 30
-// seconds. Kept in memory only; nothing about it is stored on disk.
+// seconds. An agent holds several chats: an event of one chat is held back only
+// while that chat is visible, one of the agent alone while any of its views is.
+// Kept in memory only; nothing about it is stored on disk.
 
 export const presenceWindowMs = 30000;
 const maxViews = 200;
 const reportsPerMinute = 120;
 const id = "[A-Za-z0-9_-]{1,120}";
+
+/** The views a route shows, as presence keys: an agent chat is also its agent's. */
+export function routeViews(route) {
+  const view = routeView(route);
+  const chat =
+    view && new RegExp(`^/agents/${id}/chats/(${id})$`).exec(route.split(/[?#]/)[0]);
+  return [view, chat && `chat:${chat[1]}`].filter(Boolean);
+}
 
 /** The view a route shows, as a presence key, or null for any other page. */
 export function routeView(route) {
@@ -48,11 +58,11 @@ export class PushPresence {
     if (reports.length >= reportsPerMinute) return false;
     reports.push(now);
     this.reports.set(person, reports);
-    const shown = routeView(route);
-    if (!shown) return true;
-    const view = viewKey(shown, userId);
-    this.views.delete(view);
-    this.views.set(view, now);
+    for (const shown of routeViews(route)) {
+      const view = viewKey(shown, userId);
+      this.views.delete(view);
+      this.views.set(view, now);
+    }
     for (const [key, at] of this.views)
       if (this.views.size > maxViews || now - at >= presenceWindowMs)
         this.views.delete(key);

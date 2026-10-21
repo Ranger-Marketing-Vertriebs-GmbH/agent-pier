@@ -18,7 +18,9 @@ const languages = {
     instructions: "Persönlichkeit und Anweisungen",
     save: "Speichern",
     addReminder: "+ Erinnerung erstellen",
-    managed: "Das verwaltet dein Besitzer.",
+    managed: "Das verwaltet der Besitzer.",
+    remindersChatOnly: /Erinnerungen anlegen oder ändern kannst du ab der Stufe/,
+    askInChat: /im Chat beauftragen|im Chat mit deinem Agenten an/,
     sharedManaged: /verwaltet der Besitzer für alle/,
     webSearch: "Websuche",
     memory: "Gedächtnis",
@@ -37,7 +39,9 @@ const languages = {
     instructions: "Personality and instructions",
     save: "Save",
     addReminder: "+ Create reminder",
-    managed: "Your owner manages this.",
+    managed: "The owner manages this.",
+    remindersChatOnly: /setting up or changing reminders needs the Personalize level/,
+    askInChat: /ask for reminders in chat|Ask your agent in the chat/,
     sharedManaged: /manages a shared agent for everyone/,
     webSearch: "Web search",
     memory: "Memory",
@@ -71,6 +75,13 @@ for (const [language, copy] of Object.entries(languages))
         .click();
       await expect(page.getByText(copy.managed).first()).toBeVisible();
       await expect(page.getByRole("button", { name: copy.addReminder })).toHaveCount(0);
+      // Her agent cannot set reminders up at Chat only: no hint says to ask it.
+      for (const hint of await page
+        .getByRole("button", { name: /Hinweis anzeigen|Show hint/ })
+        .all())
+        if ((await hint.getAttribute("aria-expanded")) === "false") await hint.click();
+      await expect(page.getByText(copy.remindersChatOnly)).toBeVisible();
+      await expect(page.getByText(copy.askInChat)).toHaveCount(0);
       await page.getByRole("button", { name: new RegExp(copy.memory) }).click();
       await expect(page.getByText("2026-10-20.md")).toBeVisible();
       await expect(page.getByRole("button", { name: copy.deleteNote })).toHaveCount(0);

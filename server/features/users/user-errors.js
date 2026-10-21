@@ -12,6 +12,7 @@ const errors = Object.freeze({
   USER_AGENT_REQUIRED: ["agentRequired", 409],
   USER_AGENT_OWN_FIXED: ["agentOwnFixed", 409],
   USER_LEVEL: ["level", 403],
+  USER_AGENT_RESTART_NEEDED: ["agentRestartNeeded", 409],
   USER_AGENTS_CHOICE: ["agentsChoice", 400],
   USER_AGENTS_KEEP_PRIVATE: ["agentsKeepPrivate", 409],
   USER_AGENTS_OFF: ["agentsOff", 503],

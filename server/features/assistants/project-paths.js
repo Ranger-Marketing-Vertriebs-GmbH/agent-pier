@@ -3,6 +3,7 @@ import path from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
 import { fold } from "./team-plugin/tool-guard.js";
 import { runFence } from "../memory/project-folders.js";
+import { repoConfigLocked } from "./project-config-lock.js";
 
 // Git internals hold credentials (remote URLs, hooks that run on the owner's next
 // command): never read or written. Pipeline run worktrees belong to their runs.
@@ -13,7 +14,9 @@ const readOnly = new Set([runFence].map(fold));
 // environments), and the instruction files his coding CLIs load from the working
 // tree, often without approval. A restricted user's agent never writes there
 // (`lockToolConfig`), so its files-only folder access cannot plant a command or an
-// instruction for the owner's next session.
+// instruction for the owner's next session. The places the repository itself names
+// (core.hooksPath, lefthook's source_dir, files instruction files import) are read
+// per write (project-config-lock.js).
 function lefthookNames() {
   return ["lefthook", "lefthook-local"].flatMap((base) =>
     ["yml", "yaml", "toml", "json", "jsonc"].flatMap((ext) => [
@@ -149,6 +152,7 @@ export function projectTarget(
   const relative = path.relative(real, target).split(path.sep).filter(Boolean);
   if (protectedParts(relative, write)) throw refused();
   lockedConfig(relative, write, lockToolConfig);
+  if (write && lockToolConfig && repoConfigLocked(real, target)) throw toolConfigLocked();
   for (const root of protectedRoots) {
     const guarded = realpath(root) || root;
     if (inside(guarded, target) || (write && inside(target, guarded))) throw refused();

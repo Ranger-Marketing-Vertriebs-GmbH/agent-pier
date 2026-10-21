@@ -403,6 +403,11 @@ export class AgentBrowsers {
     const name = agentProfileName(id);
     return !!name && this.running.has(name);
   }
+  /** Stops the agent's own browser, if it runs: its open tabs close, its profile stays. */
+  async stopAgent(id) {
+    const name = agentProfileName(id);
+    if (name && this.running.has(name)) await this.stop(name);
+  }
   /**
    * Stops the agent's browser and deletes its profile: logins, cookies, history.
    * An archived agent keeps its profile (archiving can be undone) and may reset it.

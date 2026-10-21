@@ -60,6 +60,29 @@ export async function settleUnreviewable(service, attempt, conversation) {
   }
 }
 
+/**
+ * Users' turns of unknown outcome, before the owner's maintenance (runtime updates,
+ * provider changes, Gateway restarts, member recovery, account logout): only each
+ * user reviews hers, in her app, and the owner neither sees her chat nor may decide
+ * for her. Left pending, a turn she never comes back to would block his maintenance
+ * for good, so it is settled as at her removal: its run is aborted in her session and
+ * marked reviewed, and her chat shows its outcome as unknown. Never throws.
+ */
+export async function settleUserTurns(service) {
+  if (!service.runtime.client?.ready || service.recovering) return;
+  for (const attempt of service.ledger.unresolved()) {
+    if (attempt.reviewedAt || !unknownOutcome(attempt)) continue;
+    try {
+      const { conversationId } = service.ledger.getRequest(attempt.requestId);
+      if (typeof service.store.getConversation(conversationId).userId !== "string")
+        continue;
+      await abortAndReview(service, attempt);
+    } catch {
+      /* Still pending: the maintenance reports it as running work. */
+    }
+  }
+}
+
 const unknownOutcome = (attempt) => ["uncertain", "interrupted"].includes(attempt.state);
 
 // Only once the Gateway took the abort of the run in its own session is the attempt

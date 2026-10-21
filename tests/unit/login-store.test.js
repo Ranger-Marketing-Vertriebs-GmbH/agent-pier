@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { LoginStore, idleDuration } from "../../server/features/login/login-store.js";
+import { attemptSource } from "../../server/http/login.js";
 function fixture(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-login-store-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -108,4 +109,36 @@ test("rotating forged tailnet logins never evicts the shared or local window", (
   assert.equal(f.store.attempts.windows.has("tailnet"), true);
   assert.equal(f.store.attempts.windows.get("local").count, 1);
   assert.ok(f.store.attempts.windows.size <= 1000);
+});
+const refused = (store, source) =>
+  assert.throws(() => store.throttle(source), { status: 429 });
+test("forged tailnet logins never evict the owner's tailnet window or reset his limit", (t) => {
+  const f = fixture(t);
+  const owner = attemptSource(
+    { trustBranch: "tailscale", headers: { "tailscale-user-login": "o@example.test" } },
+    { ownerLogin: "o@example.test" },
+  );
+  for (let index = 0; index < 10; index++) f.store.throttle(owner);
+  refused(f.store, owner);
+  // Refused attempts are cheap, so they must not create a fresh window per forged login.
+  for (let index = 0; index < 5000; index++) {
+    try {
+      f.store.throttle([`tailscale:x${index}@example.test`, "tailnet"]);
+    } catch (error) {
+      assert.equal(error.status, 429);
+    }
+  }
+  assert.equal(f.store.attempts.windows.size, 32);
+  // Even a full map of fresh sources keeps the owner's window and every used-up one.
+  for (let index = 0; index < 2000; index++) f.store.throttle(`network:${index}`);
+  refused(f.store, owner);
+  assert.ok(f.store.attempts.windows.size <= 1000);
+});
+test("a used-up source window is never evicted, so a flood cannot reset it", (t) => {
+  const f = fixture(t);
+  for (let index = 0; index < 10; index++) f.store.throttle("network:10.0.0.9");
+  for (let index = 0; index < 2000; index++) f.store.throttle(`network:${index}`);
+  refused(f.store, "network:10.0.0.9");
+  f.advance(60000);
+  f.store.throttle("network:10.0.0.9");
 });

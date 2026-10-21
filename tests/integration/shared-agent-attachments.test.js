@@ -6,7 +6,9 @@ import { run, shareFixture } from "../helpers/agent-share-fixture.js";
 import {
   attachmentCall,
   attachmentRefusal,
+  attachmentTools,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 
 // The fixture's agent shared by Anna (its chat) and Ben (a second chat), each with
 // one upload in the agent's common attachments/ folder.
@@ -80,6 +82,8 @@ test("a turn on a shared agent reads only its own chat's uploads", async (t) => 
     ["read", { path: "attachments" }],
     ["pdf", { pdfs: [own, hers] }],
     ["image", { image: hers }],
+    ["view_image", { path: hers }],
+    ["view_image", { image: hers }],
     ["write", { path: hers, content: "x" }],
   ])
     assert.deepEqual(await f.call(f.chat, tool, params), blocked, JSON.stringify(params));
@@ -90,6 +94,12 @@ test("a turn on a shared agent reads only its own chat's uploads", async (t) => 
   );
   const shared = await run(f.tool(f.agent, f.chat), { path: own });
   assert.equal(shared.status, "shared");
+});
+
+test("every granted tool that reads or writes files is checked against attachments", () => {
+  for (const key of ["documents", "readPdfs", "createImages"])
+    for (const tool of capabilityTools[key])
+      assert.ok(attachmentTools.includes(tool), `${tool} reaches attachments unchecked`);
 });
 
 test("an agent that is not shared keeps reading its whole attachments folder", async (t) => {
