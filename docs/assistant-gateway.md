@@ -2583,6 +2583,11 @@ restores her sign-in only.
 
 ### Several chats per agent
 
+The web UI (`web/features/assistants/chats/`) shows them in a **Chats** sheet from the
+chat's title, for the owner and in a user's app alike: New chat, the main chat first,
+archived chats apart, Rename, Archive, Restore and Delete; an archived chat opens
+read-only, a deleted chat's link leads to the main chat ([Chats](agents.md#chats)).
+
 Every agent, the owner's and users' alike, holds several chats per person
 (AGENTPIER-181; `server/features/assistants/agent-chats.js`). A chat is one AgentPier
 conversation with its own native session from `sessions.create`, labelled

@@ -522,6 +522,20 @@ agents → Speech recognition**. Dictation uses that Deepgram key and needs HTTP
 localhost for microphone access; the coding session chat offers the same microphone.
 Details and limits: [live dictation](assistant-gateway.md#live-dictation-in-the-chats).
 
+## Chats
+
+Each agent holds several chats. The bar under the chat header shows the open chat's
+title; tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
+the others newest first, and **Archived chats** at the bottom. **New chat** next to the
+title starts an empty chat right away; the earlier one stays in the list. The ⋯ of a
+row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
+its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
+deliver into: it is renamed only. An archived chat opens read-only with **Restore**; a
+link to a deleted chat (an old push notice's) says "This chat was deleted." and leads
+to the main chat. The sidebar lists the open agent's recent chats under it, the main
+chat first. Server details:
+[Several chats per agent](assistant-gateway.md#several-chats-per-agent).
+
 ## Messages while the agent works
 
 While the agent works on a message, **Stop** replaces the send button and is the only
@@ -633,6 +647,42 @@ signed-in one may be used for images.
   under a shared file removes AgentPier's copy from every chat that shows it; the
   agent's own file stays in its workspace. A copy that is gone leaves its message with
   a note that the file is no longer available.
+
+## Users
+
+**Settings › Access › Users** adds other people who chat with agents. They sign in to
+the same AgentPier with their own username and password and see a slim app: **My
+agents**, their chats, their agents' settings within their level, and **Account**
+(Change password, whether you may read their chats, their devices' notifications,
+Sign out). They never see sessions, pipelines, projects or system settings.
+
+- **Add user** asks for a display name, a username and a first password (12 characters
+  or more). A user's page offers **Reset password** (signs out all of their devices),
+  **Sign-in allowed** (off signs them out and ends their reminders and routines),
+  **Owner may read chats** (they see it in their app; it applies from now on, never to
+  older chats), their agents with a level each (**Chat only**, **Personalize**,
+  **Extended**), **Add agent for this person**, **Add to a shared agent** and **Delete
+  user** (choose whether their own agents are archived or kept under your account;
+  their private chats go unless you may read them).
+- An agent of users is **own** (one user) or **shared** (several users, each with their
+  own chats; memory, profile (USER.md) and browser are shared, and their chat says so).
+  Create one from **New agent** with **For** set to the person. On the agents page and
+  in the sidebar they appear under **Agents of users**. You open your own chat with a
+  shared agent (**Open my chat**), never a user's; a user's own agent opens its
+  settings.
+- Their **Capabilities** and **Work** tabs show "Locked for agents of users: they
+  cannot run programs on this computer." instead of shell, SSH, GitHub, pipelines,
+  coding and teams. **Work › Projects** offers project folders only, **Read** or **Read
+  and write**. **Profile › Users of this agent** sets each user's level and the
+  **Released capabilities** an Extended user may switch.
+- In the user's app, **Personalize** edits name, picture (an emoji) and personality and
+  instructions of their own agent, and their reminders and notes; **Extended** adds the
+  released capabilities and Telegram. A shared agent stays yours at every level. Users
+  watch and take over their own agent's browser, a shared agent's only while one of
+  their chats drives it.
+
+Server details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users)
+and [Private chats of restricted users](assistant-gateway.md#private-chats-of-restricted-users).
 
 ## Security notes
 
