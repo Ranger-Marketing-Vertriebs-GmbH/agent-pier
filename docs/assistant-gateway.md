@@ -1184,7 +1184,9 @@ was compacted and the plan was gone. Four rules close that gap:
   of 30 minutes), and no newer request exists; the Gateway's `agent` events mark the
   calling run (the hook's `runId`) as heartbeat-driven (`isHeartbeat`) in this
   session (`HeartbeatRuns`, cleared on every reconnect and at the run's
-  `lifecycle` end), and it is not that turn's own run; and the session's raw
+  `lifecycle` end; the run is hidden from the Control UI, so these events arrive
+  only through the chat's `sessions.messages.subscribe`), and it is not that turn's
+  own run; and the session's raw
   transcript (`sessions.get`, read once per run) holds that turn's message
   (`<attempt id>:user`), an `exec` call after it and after that only exec
   completions, the last one inside the window. A heartbeat poll, a reminder, an
@@ -1198,6 +1200,10 @@ was compacted and the plan was gone. Four rules close that gap:
   such run; folder changes are audited the same way); coding requests, project
   memory, SSH, shared files, team tools, grants and routines are refused, and the
   command's output never proves an owner request.
+  `tests/integration/assistant-exec-continuation-contract.test.js`
+  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins these Gateway facts against the pinned
+  runtime: the completion's write continues the owner turn, and the same completion
+  after a newer forwarded request or past the window stays refused.
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
   newest 100 per conversation): forwarded content, a scheduled or automatic turn,
