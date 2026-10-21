@@ -53,8 +53,9 @@ jobs:
           --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
           --env-file "$GITHUB_ENV"
       # Core contracts only: runtime, provider, chat stream, native interfaces and
-      # writes, shell and MCP (plain and compiled). The MCP OAuth, logout, memory,
-      # web tools and scheduling contracts stay in the full workflow.
+      # writes, shell and MCP (plain and compiled) and the user agent lock. The MCP
+      # OAuth, logout, memory, web tools and scheduling contracts stay in the full
+      # workflow.
       - name: Run the core native contracts
         if: steps.paths.outputs.relevant == 'true'
         timeout-minutes: 30
@@ -70,5 +71,6 @@ jobs:
           tests/integration/assistant-native-write-contract.test.js
           tests/integration/assistant-shell-contract.test.js
           tests/integration/assistant-shell-compiled-contract.test.js
+          tests/integration/assistant-user-agent-lock-contract.test.js
           tests/integration/assistant-mcp-contract.test.js
           tests/integration/assistant-mcp-compiled-contract.test.js
