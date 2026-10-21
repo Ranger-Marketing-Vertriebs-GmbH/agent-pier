@@ -298,3 +298,26 @@ test("user app forms: agent settings, chat rename and password", async ({ page }
   await expect(page.getByLabel("Neues Passwort")).toBeVisible();
   await expectTouchSized(page, "user password");
 });
+
+test("owner users forms: add user and reset password", async ({ page }) => {
+  await operationsFixture(page);
+  const anna = {
+    id: "u-1",
+    username: "anna",
+    displayName: "Anna",
+    disabled: false,
+    ownerMayRead: { enabled: false, since: null },
+  };
+  await page.route(/\/api\/users$/, (route) => route.fulfill({ json: [anna] }));
+  await page.route(/\/api\/assistants$/, (route) =>
+    route.fulfill({ json: { assistants: [], conversations: [], models: [] } }),
+  );
+  await page.goto(baseURL + "/settings/users");
+  await page.getByRole("button", { name: "Benutzer anlegen" }).click();
+  await expect(page.getByLabel("Anzeigename")).toBeVisible();
+  await expectTouchSized(page, "add user");
+  await page.goto(baseURL + "/settings/users?user=u-1");
+  await page.getByRole("button", { name: "Passwort zurücksetzen" }).click();
+  await expect(page.getByLabel("Neues Passwort")).toBeVisible();
+  await expectTouchSized(page, "reset user password");
+});

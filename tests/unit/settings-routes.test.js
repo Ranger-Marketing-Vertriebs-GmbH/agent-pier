@@ -127,3 +127,14 @@ test("a settings section change carries the tab of its section", () => {
     "/settings/mcp",
   );
 });
+
+test("the users page and one user's detail have their own addresses", () => {
+  const list = read("/settings/users");
+  assert.equal(list.settingsSection, "users");
+  assert.equal(list.settingsTab, "access");
+  assert.equal(list.userId, undefined);
+  const detail = read("/settings/users?user=u-1");
+  assert.equal(detail.userId, "u-1");
+  assert.equal(routePath(detail), "/settings/users?user=u-1");
+  assert.equal(read("/settings/users?user=..%2Fx").userId, undefined);
+});

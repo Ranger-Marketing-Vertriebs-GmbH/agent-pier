@@ -13,7 +13,7 @@ test("unknown summary parts stay unknown and a real zero stays zero", (t) => {
   reset(t);
   setLanguage("de", { persist: false });
   const access = byId(accessRows(undefined));
-  for (const id of ["mcp", "remote", "ssh", "github"])
+  for (const id of ["mcp", "remote", "ssh", "github", "users"])
     assert.equal(access[id].value, null, id);
   const operations = byId(
     operationsRows({ diagnostics: null, backups: null, updates: null }),
@@ -46,6 +46,8 @@ test("access rows describe MCP clients and how AgentPier is reachable", (t) => {
   assert.deepEqual(rows.remote.status, { tone: "ok", text: "Tailscale · Netzwerk" });
   assert.equal(rows.ssh.value, 3);
   assert.equal(rows.github.value, 2);
+  assert.equal(byId(accessRows({ users: { count: 2 } })).users.value, 2);
+  assert.equal(byId(accessRows({})).users.label, "Benutzer");
   assert.deepEqual(
     byId(accessRows({ mcp: { available: false, activeGrants: 0 } })).mcp.status,
     { tone: "warn", text: "Nicht verfügbar" },

@@ -15,6 +15,7 @@ const pages = {
   diagnostics: lazy(() => import("../operations/DiagnosticsPage.jsx")),
   backups: lazy(() => import("../operations/BackupsPage.jsx")),
   audit: lazy(() => import("../operations/AuditPage.jsx")),
+  users: lazy(() => import("../users/UsersPage.jsx")),
 };
 // A list next to its details and a wide table need more than the 720px column.
 const wideSections = new Set(["ssh", "audit"]);
@@ -45,7 +46,9 @@ export default function SettingsSubpage({ section, route, state, frame }) {
       </Suspense>
     );
   const Page = pages[section];
-  const content = <Page route={route} navigate={frame.navigate} state={state} />;
+  const content = (
+    <Page route={route} navigate={frame.navigate} state={state} frame={frame} />
+  );
   return (
     <SubpageFrame frame={frame} wide={wideSections.has(section)}>
       <Suspense fallback={<p role="status">{operationsCopy.loading}</p>}>

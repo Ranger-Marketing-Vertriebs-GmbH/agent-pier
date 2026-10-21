@@ -1,0 +1,46 @@
+/* The owner's Settings › Access › Users (UsersPage.jsx, UserDetail.jsx). */
+.users-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.users-intro,
+.users-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.users-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.users-detail-name {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+.users-agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  background: var(--panel);
+}
+.users-agent .segmented {
+  margin: 0 var(--space-4);
+}
+.users-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.users-agent .list-row-text,
+.users-page .list-row-text {
+  flex: 1;
+}
+.user-delete-choice {
+  margin: var(--space-3) 0 var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
