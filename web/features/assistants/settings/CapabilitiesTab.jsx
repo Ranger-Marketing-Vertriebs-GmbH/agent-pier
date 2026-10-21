@@ -27,6 +27,7 @@ import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
 import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
+import LockedNotice from "./LockedNotice.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -155,7 +156,11 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           navigate={navigate}
         />
       )}
-      <ShellGroup assistant={assistant} draft={draft} go={go} />
+      {assistant.userAccess ? (
+        <LockedNotice items={["shell", "sessions"]} />
+      ) : (
+        <ShellGroup assistant={assistant} draft={draft} go={go} />
+      )}
       {shellEligible(assistant) && (
         <SkillsGroup assistant={assistant} draft={draft} go={go} />
       )}

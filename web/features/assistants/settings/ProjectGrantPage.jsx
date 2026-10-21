@@ -11,7 +11,8 @@ import "./ssh-grant-page.css";
 /**
  * The projects this agent may use and, per granted project, its direct access to
  * the project folder (none, read, or read and write); part of the Work draft.
- * Removing a project also removes its folder access.
+ * Removing a project also removes its folder access. An agent of users
+ * (`foldersOnly`) gets folders only, read or read and write, never the project.
  */
 export default function ProjectGrantPage({
   items,
@@ -20,12 +21,21 @@ export default function ProjectGrantPage({
   disabled,
   onChange,
   onBack,
+  foldersOnly = false,
 }) {
   const toggle = (id, on) =>
-    onChange({
-      projectIds: toggleId(selected, id, on),
-      projectFiles: on ? levels : setFolderLevel(levels, id, null),
-    });
+    onChange(
+      foldersOnly
+        ? {
+            projectIds: selected,
+            projectFiles: setFolderLevel(levels, id, on ? "read" : null),
+          }
+        : {
+            projectIds: toggleId(selected, id, on),
+            projectFiles: on ? levels : setFolderLevel(levels, id, null),
+          },
+    );
+  const choices = foldersOnly ? folderLevels.filter((v) => v !== "none") : folderLevels;
   return (
     <section className="agent-subpage ssh-grant-page" aria-label={copy.projects}>
       <SubpageHeader title={copy.projects} tab="work" onBack={onBack} />
@@ -35,7 +45,9 @@ export default function ProjectGrantPage({
       {items?.length > 0 && (
         <ListCard label={copy.projects}>
           {items.map((item) => {
-            const granted = selected.includes(item.id);
+            const granted = foldersOnly
+              ? Boolean(levels[item.id])
+              : selected.includes(item.id);
             const level = levels[item.id] || "none";
             const legend = `project-folder-${item.id}-label`;
             return (
@@ -53,7 +65,7 @@ export default function ProjectGrantPage({
                       {copy.folderLegend}
                     </GroupLabel>
                     <ListCard labelledBy={legend} disabled={disabled}>
-                      {folderLevels.map((value) => (
+                      {choices.map((value) => (
                         <RadioRow
                           key={value}
                           name={`project-folder-${item.id}`}

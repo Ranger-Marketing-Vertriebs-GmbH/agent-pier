@@ -405,6 +405,8 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
     const status = systemStatusAnswer(path);
     if (status) return route.fulfill({ json: status });
+    // Creating an agent offers it to a restricted user; fixtures have none.
+    if (path === "/api/users" && method === "GET") return route.fulfill({ json: [] });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

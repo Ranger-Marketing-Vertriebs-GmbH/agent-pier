@@ -14,6 +14,11 @@ export async function fulfillDormantAssistantRequest(route) {
     await route.fulfill({ json: status });
     return true;
   }
+  // Creating an agent offers it to a restricted user; fixtures have none.
+  if (path === "/api/users") {
+    await route.fulfill({ json: [] });
+    return true;
+  }
   if (path === "/api/mcp-servers") {
     await route.fulfill({ json: [] });
     return true;
