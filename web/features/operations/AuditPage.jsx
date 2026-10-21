@@ -5,6 +5,13 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+/** Who acted: a user by name, the owner, MCP or the system. */
+function auditActor(event) {
+  if (event.actorUserId)
+    return event.actorName ? copy.byUser(event.actorName) : copy.byDeletedUser;
+  if (event.source === "user") return copy.byOwner;
+  return event.source === "mcp" ? copy.sourceMcp : copy.sourceSystem;
+}
 export default function AuditPage({ route, navigate }) {
   const query = new URLSearchParams({ page: String(route.auditPage || 1) });
   for (const [field, name] of [
@@ -123,11 +130,7 @@ export default function AuditPage({ route, navigate }) {
           </header>
           <p>
             <time dateTime={event.createdAt}>{formatTimestamp(event.createdAt)}</time> ·{" "}
-            {event.source === "mcp"
-              ? copy.sourceMcp
-              : event.source === "user"
-                ? copy.sourceUser
-                : copy.sourceSystem}
+            {auditActor(event)}
           </p>
           <p>
             {event.resourceType}
