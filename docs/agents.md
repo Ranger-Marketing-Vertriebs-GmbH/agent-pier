@@ -562,6 +562,30 @@ a host that was stopped or restored) is not sent anymore and says so; a long tur
 expires it. Its files stay with it until it is sent or taken back, also while it is
 failed or expired: **Edit** returns them to the composer.
 
+## What the agent is doing
+
+While the agent works on a message, the line under it says what it does now:
+"Waiting for the model", "Thinking", "Writing the answer", a running tool such as
+"Command · Find the reference images" (the short title the model gave the command), or
+"The model did not answer, trying again (2 of 8)". **N steps** below it opens the
+turn's steps: each tool call with its state (Running, Done, Failed) and when it
+thought. Steps show tool names and short titles only, never commands, web addresses,
+image prompts, output or what the agent thought.
+
+When the model stays silent for three minutes while the agent waits for it, the chat
+says "No answer from the model for N minutes." with **Stop** and **Try again**. Try
+again stops the turn and sends "Please continue where you stopped.", so the agent goes
+on from its last finished step. A running command or an approval that waits for you
+is not counted as silence. A turn that hears nothing for 15 minutes ends by itself;
+the chat then says that the model did not answer in time and offers **Try again**. A
+model stream that stops sending ends sooner: OpenClaw retries it after two minutes and
+gives up after a few tries.
+
+When a chat grows very long (from about 100,000 tokens of context), every answer gets
+slower and more expensive; the chat then suggests starting a new chat for a new topic.
+Server details:
+[Live steps and stalled turns](assistant-gateway.md#live-steps-and-stalled-turns).
+
 ## When the connection is lost
 
 While AgentPier cannot be reached, the sidebar keeps the last known agents, their team

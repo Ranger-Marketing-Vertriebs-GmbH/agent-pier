@@ -3172,6 +3172,9 @@ The agent chat in the browser reads its messages only from this feed; the
   the reply streaming now. A socket first receives a run's whole text (`from: 0`),
   then only the appended part; a rewritten reply or a new Gateway connection starts
   at `from: 0` again. The text is capped at 64 KiB; the history has the rest.
+- `steps` frames (`{type: "steps", runId, steps, omitted, phase, retry, quietMs}`)
+  carry what the running turn does now, and `steps-end` (`{type: "steps-end", runId}`)
+  drops them when the run ends. See [Live steps and stalled turns](#live-steps-and-stalled-turns).
 - A socket that falls more than 2 MiB behind is closed with 1013; the client
   reconnects with its cursor. Stopping the agent feature closes every feed socket
   (1001).
@@ -3207,6 +3210,81 @@ shared `chat-stream-transport.js`):
   (`agent-history-view.js`), each row once. The last window of recently opened chats,
   with its cursor, stays in the page's memory (`AgentHistoryCache`): a chat opened
   again shows it at once, also offline, and resumes the feed with a diff.
+
+### Live steps and stalled turns
+
+AGENTPIER-184. A turn showed only "Working" for 15 minutes while its model call hung
+after a tool result. The chat now shows what a turn does, says when the model stays
+silent, and a silent turn ends.
+
+What the pinned Gateway (OpenClaw 2026.10.3) sends, pinned by
+`tests/integration/assistant-run-steps-contract.test.js`:
+
+- Every operator connection receives the `agent` events of every run, also of runs
+  it did not start (Telegram, reminders), without a capability: `item` frames of kind
+  `tool` (`phase` start, update and end, `name`, `status` running, completed or
+  failed, `meta`), `thinking` and `assistant` deltas, `run_status` (`starting_model`,
+  and `retrying` with `retryAttempt`, `maxRetries` and `reason`), `compaction` and
+  `lifecycle` (`start`, `model`, `waiting-approval`, `end`, `error`). The raw `tool`
+  stream with arguments and results needs the `tool-events` capability, which
+  AgentPier does not declare. `command_output` frames carry a command's output.
+- An exec item's `meta` is the model's `title` argument for the call ("short
+  purpose … No secrets", redacted by OpenClaw), or OpenClaw's summary of the command
+  ("print text"). Other tools fill `meta` from raw arguments: a URL, a search query,
+  an image prompt.
+- There is no event for "waiting for the model" between tool calls: a finished tool
+  hands back to the model.
+- `chat.history` returns `sessionInfo`: `totalTokens` is the size of the last
+  model call's prompt and current only while `totalTokensFresh` is true (a failed turn
+  or a compaction clears it); `contextTokens` is the model's window.
+
+AgentPier's side:
+
+- `RunSteps` (`server/features/assistants/run-steps.js`) turns those frames into a
+  run's steps: tools with their state, and thinking. It never keeps command output,
+  thinking or reply text, arguments or results. A step's label is the exec or process
+  `meta`, at most 80 characters, and only when it reads like a title: text with a
+  secret-like word (token, password, key …), an assignment, a URL, shell characters or
+  a long mixed token is dropped. Other tools show their localized name only. The phase
+  is `model` (waiting for the model), `thinking`, `writing`, `tool`, `approval`,
+  `compacting` or `retrying`. A run keeps its newest 24 steps and counts the rest.
+- `bindChatEvents` (`gateway-wiring.js`) hands every frame of a chat's run to
+  `RunSteps`; any frame counts as a sign of life. The feed (`ConversationFeeds.steps`)
+  sends the run's view when it changed and at most every 15 seconds while only signs
+  of life arrive, with `quietMs`, the time since the last one. A new socket receives
+  the views the service holds. Steps follow the reply's privacy: the owner reading a
+  user's chat under her opt-in only receives the steps of a run that answers what she
+  wrote since then, and without the opt-in he has no socket at all. A user's own app
+  receives all steps of her chats.
+- A turn that sends no event for 15 minutes while it waits for the model (`model`,
+  `thinking`, `writing` or `retrying`) is aborted with `sessions.abort` and fails with
+  `failure: "stalled"` (`run-stall-guard.js`, checked by the 2 s reconciliation poll).
+  A running tool, an exec approval and a compaction are never stalled: they report
+  nothing until they end and have their own limits. Only runs this AgentPier process
+  observed are guarded; after a restart the run budget still applies.
+- OpenClaw's own limits apply unchanged, so AgentPier compiles no timeout: the model
+  idle watchdog aborts a model stream that sends nothing for 120 seconds (cloud
+  providers, the ChatGPT accounts' `openclaw-native-codex-responses` transport
+  included; `models.providers.<id>.timeoutSeconds` replaces it), retries it a few
+  times with growing delays (each retry a `run_status` event) and then ends the turn
+  with a `chat` error of `errorKind: "timeout"`. The run budget
+  `agents.defaults.timeoutSeconds` (48 hours, **Agent service › Advanced settings › Time limit per task**)
+  bounds the whole turn. A turn that failed for want of an answer keeps
+  `failure: "timeout"` on its attempt (`run-reconciler.js`).
+- The history window carries `longChat: true` when the last model call read at least
+  100,000 tokens, or 80 % of a smaller window (`longContext` in `conversations.js`).
+  The owner reading under a user's opt-in never receives it: it measures her earlier
+  messages too.
+
+The chat (`web/features/assistants/AgentRunState.jsx`, owner's chat and user app
+alike) shows the phase or the running tool with its label below the turn, the steps
+collapsed under "N steps", and from three quiet minutes while the turn waits for the
+model "No answer from the model for N minutes." with **Stop** and **Try again**. Try
+again stops the turn and sends "Please continue where you stopped." as the person's
+own message; a turn that failed with `timeout` or `stalled` says the model did not
+answer in time and offers **Try again** too. A queued message replaces Try again: it
+goes out once the turn ends. A long chat suggests starting a new one while no turn
+runs.
 
 ## Live agent list
 
