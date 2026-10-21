@@ -121,6 +121,8 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
       token: "bridge",
       workspaces: paths.workspaces,
     },
+    // The chat title method runs on the asking agent's model (team-plugin/chat-title.js).
+    llm: { allowAgentIdOverride: true },
   });
   assert.equal(config.plugins.slots.memory, "memory-core");
   assert.deepEqual(config.plugins.entries["memory-core"], {

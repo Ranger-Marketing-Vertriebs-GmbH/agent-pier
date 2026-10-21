@@ -2,6 +2,7 @@ import { workflowDefinitions } from "./workflow-tools.js";
 import { registerToolGuard } from "./tool-guard.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { shareDefinition } from "./share-tool.js";
+import { registerChatTitle } from "./chat-title.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
 const schema = (properties, required = Object.keys(properties)) => ({
   type: "object",
@@ -255,6 +256,8 @@ export default {
     try {
       registerToolGuard(api);
     } catch {}
+    // A chat's generated title, on the agent's own model (chat-title.js).
+    registerChatTitle(api);
     for (const [action, definition] of Object.entries(definitions))
       api.registerTool(
         {

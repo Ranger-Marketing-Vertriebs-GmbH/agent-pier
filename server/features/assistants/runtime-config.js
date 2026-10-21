@@ -199,6 +199,9 @@ export function compileOpenClawConfig({
               enabled: true,
               // The plugin classifies absolute write targets below this root.
               config: { ...teams.connection, workspaces: paths.workspaces },
+              // Its chat title method runs on the asking agent's own model
+              // (team-plugin/chat-title.js); no other model or login can be chosen.
+              llm: { allowAgentIdOverride: true },
             },
           },
         }
