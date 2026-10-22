@@ -138,3 +138,36 @@ test("the long-chat hint stays hers: it counts what she wrote before since", () 
   assert.equal("longChat" in fromSince(page, since), false);
   assert.equal(fromSince(page, null).longChat, true);
 });
+
+test("what she did in the very millisecond of since stays hers", () => {
+  // Times have millisecond resolution: a chat she opened or wrote in the millisecond
+  // the owner's switch landed may well come before it (owner-privacy.test.js).
+  const privacy = new OwnerPrivacy({
+    users: { get: () => ({ ownerMayRead: { enabled: true, since } }) },
+  });
+  const chat = (createdAt, lastActivityAt = null) => ({
+    id: "c",
+    userId: "anna",
+    title: "Hers",
+    createdAt,
+    lastActivityAt,
+  });
+  const after = new Date(at(0) + 1).toISOString();
+  assert.equal(privacy.view(chat(since)), null);
+  assert.equal(privacy.view(chat(after)).title, "Hers");
+  assert.equal(privacy.view(chat(since, after)).title, null);
+  assert.equal(privacy.fileVisible(since, since), false);
+  assert.equal(privacy.fileVisible(after, since), true);
+  const page = {
+    messages: [said("tie", 0), { ...said("next", 0), timestamp: at(0) + 1 }],
+    requests: [{ id: "tie", createdAt: since }],
+    nextBefore: "100",
+  };
+  const shown = fromSince(page, since);
+  assert.deepEqual(
+    shown.messages.map((m) => m.id),
+    ["next"],
+  );
+  assert.deepEqual(shown.requests, []);
+  assert.equal(shown.nextBefore, null);
+});

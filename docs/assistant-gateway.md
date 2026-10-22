@@ -2717,7 +2717,9 @@ agent list and event stream leave her conversations out. With the opt-in her own
 agent's memory, files and browser become readable in full, older entries included,
 and he reads her chats from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
 queued message and chat file downloads; older history pages stay reachable until a
-page reaches back past `since`. A message she queued, or one her Telegram bot held in
+page reaches back past `since`. Only what lies after `since` counts: a chat, turn,
+message or file stamped in the same millisecond may predate the switch and stays hers.
+A message she queued, or one her Telegram bot held in
 its inbox, counts from when she wrote it (the request's `writtenAt`), even once it goes
 out after the opt-in; the reply its run writes stays hers too, in the history and as
 streamed reply text. He never writes into her chat, decides her

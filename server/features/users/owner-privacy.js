@@ -3,10 +3,12 @@ import { isUserAgent } from "./user-access.js";
 
 const time = (value) =>
   typeof value === "number" ? value : typeof value === "string" ? Date.parse(value) : NaN;
-// An entry the owner may see: one at or after `since`; undated ones are left out.
+// An entry the owner may see: one after `since`; undated ones are left out. Times
+// have millisecond resolution, so a chat she started or wrote in the very millisecond
+// the owner's switch landed may well come before it: such a tie stays hers.
 const after = (sinceMs) => (value) => {
   const at = time(value);
-  return Number.isFinite(at) && at >= sinceMs;
+  return Number.isFinite(at) && at > sinceMs;
 };
 
 /** The time a request counts from: when she wrote it, not when it went out. */
@@ -35,7 +37,7 @@ export function fromSince(history, since) {
   const messages = history.messages || [];
   // An older page holds what the owner may read until it reaches back past `since`.
   const dated = messages.map((m) => time(m.timestamp)).filter((at) => at > 0);
-  const reachesSince = !dated.length || Math.min(...dated) < sinceMs;
+  const reachesSince = !dated.length || Math.min(...dated) <= sinceMs;
   // How long her chat is counts what she wrote before, too: not his to know.
   const { longChat: _longChat, ...rest } = history;
   return {
