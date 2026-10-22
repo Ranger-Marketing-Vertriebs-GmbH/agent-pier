@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chatFixture } from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
-import { compactOutcome } from "../../server/features/assistants/compaction-watch.js";
+import {
+  compactOutcome,
+  reasonOf,
+} from "../../server/features/assistants/compaction-watch.js";
 
 // AGENTPIER-190: a summary on request that outlives its request's timeout keeps the
 // chat compacting until the Gateway ends it (server long-chats.js,
@@ -50,7 +53,7 @@ async function fixture(t, timing = {}) {
       gateway.calls.push({ method, params });
       if (gateway.historyFails > 0) {
         gateway.historyFails--;
-        throw Object.assign(Error("slow"), { code: "TIMEOUT" });
+        throw gateway.historyError || Object.assign(Error("slow"), { code: "TIMEOUT" });
       }
       return {
         messages: [
@@ -168,6 +171,17 @@ test("one Gateway result gives one outcome", () => {
     }),
     "failed",
   );
+  // As the call answers an active run (no `failure`), and should one be forwarded.
+  assert.equal(
+    compactOutcome({
+      result: {
+        ok: false,
+        compacted: false,
+        reason: "manual compaction unavailable while another embedded run is active",
+      },
+    }),
+    "busy",
+  );
   assert.equal(
     compactOutcome({
       result: {
@@ -238,23 +252,32 @@ test("a failed summary answered as a successful call is a failure, also late", a
   const { history, summarise, compact, free } = await fixture(t);
   t.mock.method(console, "warn", () => {});
   await summarise();
+  const warn = t.mock.method(console, "warn", () => {});
   compact.resolve({ ok: false, compacted: false, reason: "Error: 401 /Users/x" });
   await free();
   assert.equal((await history()).compactOutcome, "failed");
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  assert.ok(
+    lines.some((l) => /ended after its request: failed ok_false$/.test(l)),
+    lines.join("\n"),
+  );
+  assert.ok(!lines.some((l) => l.includes("/Users/x")));
 });
 
 test("an active run answered after the request is a refusal, also late", async (t) => {
   const { history, summarise, compact, free } = await fixture(t);
   t.mock.method(console, "warn", () => {});
   await summarise();
+  const warn = t.mock.method(console, "warn", () => {});
   compact.resolve({
     ok: false,
     compacted: false,
-    reason: "x",
-    failure: { reason: "active_run" },
+    reason: "manual compaction unavailable while another embedded run is active",
   });
   await free();
   assert.equal((await history()).compactOutcome, "busy");
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  assert.ok(lines.some((l) => /ended after its request: busy active_run$/.test(l)));
 });
 
 test("a dropped call is logged with its code, whether the Gateway runs on or not", async (t) => {
@@ -419,6 +442,63 @@ test("a failing history poll is logged once per summary", async (t) => {
     lines.join("\n"),
   );
   assert.equal((await history()).compacting, true);
+});
+
+test("a local error logs its class, message and place; other kinds of a failure still show", async (t) => {
+  const local = new TypeError("history is not iterable");
+  assert.match(reasonOf(local), /^TypeError: history is not iterable \(at .+\)$/);
+  assert.equal(reasonOf({ code: "TIMEOUT" }), "TIMEOUT");
+  assert.equal(reasonOf(undefined), "unknown");
+  const { gateway, summarise, compact } = await fixture(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  await summarise();
+  gateway.historyFails = 1000;
+  compact.reject(closed());
+  await tick(150);
+  gateway.historyError = new TypeError("not iterable");
+  await tick(200);
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  const count = (pattern) => lines.filter((l) => pattern.test(l)).length;
+  assert.equal(count(/reading the history failed: TIMEOUT/), 1, lines.join("\n"));
+  assert.equal(
+    count(/reading the history failed: TypeError: not iterable \(at /),
+    1,
+    lines.join("\n"),
+  );
+});
+
+test("a chat deleted while its summary runs ends the run: no notice, no more polls", async (t) => {
+  const { gateway, assistants, chat, summarise, compact } = await fixture(t);
+  t.mock.method(console, "warn", () => {});
+  const id = chat.split("/").at(-1);
+  await summarise();
+  compact.reject(closed());
+  await tick(100);
+  assistants.longChats.forget(id);
+  assert.equal(assistants.longChats.compacting(id), false);
+  const polls = () => gateway.calls.filter((c) => c.method === "chat.history").length;
+  const before = polls();
+  await tick(200);
+  assert.equal(polls(), before, "the marker watch stopped");
+  assert.equal(assistants.longChats.outcome(id), null);
+  // A second summary whose call answers late after the chat was forgotten.
+  await summarise();
+  assistants.longChats.forget(id);
+  compact.resolve({ ok: false, compacted: false, reason: "boom" });
+  await tick(100);
+  assert.equal(assistants.longChats.outcome(id), null);
+});
+
+test("a chat deleted before the request answered answers 404", async (t) => {
+  const { gateway, assistants, chat, f } = await fixture(t, { answerMs: 5000 });
+  const id = chat.split("/").at(-1);
+  const answer = f.request(`${chat}/compact`, { method: "POST" });
+  await until(
+    () => gateway.calls.some((c) => c.method === "sessions.compact"),
+    "the compaction",
+  );
+  assistants.longChats.forget(id);
+  assert.equal((await answer).status, 404);
 });
 
 test("a throw while recording the end is logged and still frees the chat", async (t) => {

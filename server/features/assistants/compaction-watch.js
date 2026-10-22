@@ -11,10 +11,22 @@
 // (`__openclaw.kind: "compaction"`, conversations.js): it shows a success. A summary
 // that ends otherwise leaves none, so that watch is bounded (lostMs, long-chats.js).
 
-// What a failed step logs: its code and the Gateway's error class, never its text
-// (it may name host paths).
-export const reasonOf = (error) =>
-  `${error?.code || "unknown"}${error?.remoteError ? ` (${error.remoteError})` : ""}`;
+// What a failed step logs. A Gateway failure: its code and error class, never its
+// text (it may name host paths). A local error without a code (a bug in AgentPier):
+// its class, message and first stack line.
+export function reasonOf(error) {
+  if (error?.code)
+    return `${error.code}${error.remoteError ? ` (${error.remoteError})` : ""}`;
+  if (!(error instanceof Error)) return "unknown";
+  const at = error.stack
+    ?.split("\n")
+    .find((line) => /^\s+at /.test(line))
+    ?.trim();
+  return `${error.name}: ${error.message}${at ? ` (${at})` : ""}`;
+}
+/** The key under which a failure is logged once: its code, else its class. */
+export const kindOf = (error) =>
+  String(error?.code || (error instanceof Error ? error.name : "unknown"));
 
 // The Gateway's refusal of a session that is working; its other answers are failures.
 const working = (error) =>
@@ -24,12 +36,32 @@ const working = (error) =>
 // OpenClaw's own "nothing to do" reasons (resource-loader
 // preflightManualSessionCompaction), which sessions-compact answers as `ok: false`.
 const noop = /^(already compacted|nothing to compact)/i;
+// An active run, as the call answers it: sessions-compact forwards only ok, key,
+// compacted, reason and result, so embedded-agent's `failure: {reason: "active_run"}`
+// arrives as its MANUAL_COMPACTION_ACTIVE_RUN_REASON text alone.
+const activeRun = /^manual compaction unavailable while another embedded run is active/i;
+
+/**
+ * A short code for an answered `ok: false`, safe to log: "nothing", "active_run",
+ * the embedded `failure.reason` should a later Gateway forward it, or "ok_false".
+ */
+export function answerCodeOf(result) {
+  const reason = String(result?.reason ?? "");
+  if (noop.test(reason)) return "nothing";
+  if (result?.failure?.reason === "active_run" || activeRun.test(reason))
+    return "active_run";
+  return /^[a-z_]{1,60}$/.test(result?.failure?.reason ?? "")
+    ? result.failure.reason
+    : "ok_false";
+}
 
 /**
  * The one outcome of a `sessions.compact` answer or failure. OpenClaw 2026.10.3
  * answers a summary that failed as a successful call: `{ok: false, compacted: false,
  * reason}` (provider or auth errors, aborts, context-engine failures, embedded-agent),
- * an active run as `failure: {reason: "active_run"}`, and nothing to do as
+ * an active run with its "manual compaction unavailable while another embedded run
+ * is active" reason (the `failure` it carries inside does not reach the call), and
+ * nothing to do as
  * `ok: true, compacted: false` or, from its preflight, `ok: false` with an
  * "Already compacted" or "Nothing to compact" reason. Outcomes: "compacted",
  * "nothing", "busy" (refused: the session has work), "failed" (any other Gateway
@@ -39,8 +71,9 @@ const noop = /^(already compacted|nothing to compact)/i;
 export function compactOutcome({ result, error } = {}) {
   if (!error) {
     if (result?.compacted === true) return "compacted";
-    if (result?.ok !== false || noop.test(String(result.reason ?? ""))) return "nothing";
-    return result.failure?.reason === "active_run" ? "busy" : "failed";
+    if (result?.ok !== false) return "nothing";
+    const code = answerCodeOf(result);
+    return code === "nothing" ? "nothing" : code === "active_run" ? "busy" : "failed";
   }
   if (working(error)) return "busy";
   if (error.answered) return "failed";
