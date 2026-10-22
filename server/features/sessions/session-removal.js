@@ -7,7 +7,7 @@ export function removeSession(manager, id) {
     const session = await manager.current(id);
     if (session.status === "running")
       throw failure(serverMessages.sessions.stopBeforeDelete, 409);
-    await manager.tmux(["kill-session", "-t", manager.target(id)]).catch(() => {});
+    await manager.killSession(id);
     await manager.onRemoving(session);
     for (const extension of [
       "json",

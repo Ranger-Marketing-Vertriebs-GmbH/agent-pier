@@ -44,10 +44,8 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     );
   for (const client of [...manager.clients])
     if (client.sessionId === id) client.dispose();
-  if (session.status === "running") {
-    await manager.remember(id);
-    await manager.tmux(["kill-session", "-t", manager.target(id)]);
-  } else await manager.tmux(["kill-session", "-t", manager.target(id)]).catch(() => {});
+  if (session.status === "running") await manager.remember(id);
+  await manager.killSession(id, { strict: session.status === "running" });
   manager.pendingTerminalInput?.delete(id);
   session.reload.replacementStarted = true;
   session.status = "stopped";
@@ -94,7 +92,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "new-session",
       "-d",
       "-s",
-      `tuiui-${id}`,
+      manager.newSessionName(id),
       "-c",
       session.cwd,
       "-x",

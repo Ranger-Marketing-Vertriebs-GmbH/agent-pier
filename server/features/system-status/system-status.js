@@ -1,4 +1,5 @@
 import os from "node:os";
+import { parseSessionLines, pickSessionNames } from "../sessions/tmux-naming.js";
 import { cpuBusy, cpuTimes, diskStats, memoryStats } from "./host-stats.js";
 import { processTrees, readProcessTable, treeUsage } from "./process-stats.js";
 import { measureDataAreas } from "./data-areas.js";
@@ -6,8 +7,6 @@ import { DiskWarning, freePercent, WARN_BELOW_PERCENT } from "./disk-warning.js"
 
 const HOUR = 60 * 60 * 1000;
 const MAX_SESSIONS = 200;
-const sessionName = /^tuiui-([a-zA-Z0-9][a-zA-Z0-9_-]{0,79})\|(\d+)$/;
-
 /** Running sessions and their tmux pane pid, from one tmux call. */
 export async function sessionPanes(sessions) {
   let output;
@@ -16,19 +15,20 @@ export async function sessionPanes(sessions) {
       "list-panes",
       "-a",
       "-F",
-      "#{session_name}|#{pane_pid}",
+      "#{session_name}|#{pane_dead}|#{pane_pid}",
     ]);
   } catch {
     return []; // No tmux server means no running session.
   }
+  // Either name form counts; a live pane wins over a dead one under the other name.
   const panes = new Map();
-  for (const line of String(output).split("\n")) {
-    const match = sessionName.exec(line.trim());
-    if (match && !panes.has(match[1]) && panes.size < MAX_SESSIONS)
-      panes.set(match[1], Number(match[2]));
+  for (const [id, entry] of pickSessionNames(parseSessionLines(output))) {
+    const pid = entry.rest[0];
+    if (panes.size >= MAX_SESSIONS) break;
+    if (/^\d+$/.test(pid ?? "")) panes.set(id, { pid: Number(pid) });
   }
   const result = [];
-  for (const [id, pid] of panes) {
+  for (const [id, { pid }] of panes) {
     let session = {};
     try {
       session = await sessions.metadata(id);

@@ -78,7 +78,7 @@ test("session panes come from one tmux listing and carry only name and tool", as
   const panes = await sessionPanes({
     tmux: async (args) => {
       calls.push(args);
-      return "tuiui-one|101\ntuiui-one|102\nother|5\ntuiui-two|201\n";
+      return "tuiui-one|0|101\ntuiui-one|0|102\nother|0|5\ntuiui-two|0|201\n";
     },
     metadata: async (id) => {
       if (id === "two") throw Error("removed");
