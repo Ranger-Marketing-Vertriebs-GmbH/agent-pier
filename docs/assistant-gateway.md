@@ -3470,31 +3470,28 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   time out and turn uncertain. A large history can take longer than the ten minutes
   the request waits (AGENTPIER-190, `compactTiming` in long-chats.js): the request
   then answers `{compacted: false, running: true}`, never a failure, and the chat
-  stays compacting until the Gateway ended the summary
-  (`server/features/assistants/compaction-watch.js`). The end shows as the
-  `sessions.compact` answer itself (the call stays open up to the bound), as the
-  Gateway event `session.operation` `{operationId, operation: "compact", phase:
-"end", sessionKey, agentId, completed, reason, ts}`, or read-only as a new
-  compaction marker in `chat.history` (polled every 30 seconds; the newest marker is
-  read before `sessions.compact` is called, and if that read fails, a marker written
-  since the summary began counts). OpenClaw sends
-  `session.operation` (and `sessions.changed`) only to connections that called
-  `sessions.subscribe`, which streams every session's changes; the watch subscribes
-  on a separate connection (`GatewayClient.sibling`, no caps) so the main
-  connection's event handling stays unchanged, and closes it at the end
-  (`tests/integration/assistant-manual-compact-contract.test.js` records the event,
-  its order before the answer and the marker). A dropped connection loses only the
-  call (`CLOSED`): the supervisor reconnects to the same Gateway, which still
-  summarises, so the chat stays compacting, the poll goes on and the event
-  connection is opened again; before the ten minutes the request then answers that
-  it runs. A Gateway that is gone (the runtime's client or launch changed, or it is
-  down) ends the summary with it, and after 60 minutes the chat is free in any case.
-  A failing event connection or history read is logged once per watch with its code
-  only. Such an end after the request's answer is logged with the Gateway's code and
-  error class and is the history's `compactOutcome` (`failed`, `nothing`, `busy`,
-  `interrupted` or `unknown`), which the chat shows as a notice until the next
-  summary or a later turn (the message queued during the summary goes out without
-  clearing it); a successful one shows its compaction marker. The watch lives in memory: an AgentPier restart frees
+  stays compacting until the Gateway ended the summary. The end, whatever it was, is
+  the `sessions.compact` answer: the call stays open up to 60 minutes, and every
+  answer maps to one outcome (`compactOutcome` in
+  `server/features/assistants/compaction-watch.js`). 2026.10.3 exposes no
+  per-session lifecycle state to a read-only call, and its `session.operation`
+  events reach only connections subscribed to every session's changes, so neither is
+  used. A dropped connection loses only the call (`CLOSED`): if the runtime still
+  runs the same Gateway (state `ready` or `reconnecting`, same client and launch), a
+  new compaction marker in `chat.history` shows the summary's success (polled every
+  30 seconds; the newest marker is read before `sessions.compact`, and if that read
+  fails, a marker written since the summary began counts). Any other end leaves no
+  marker, so this wait lasts ten minutes at most and then ends as `unknown`; before
+  the request answered, it answers that the summary runs. A Gateway that is gone,
+  stopping or failed ends the summary at once (before the answer: 503). Failing
+  reads are logged once per summary with their code only. An end after the
+  request's answer is logged with the Gateway's code and error class and is the
+  history's `compactOutcome` (`failed`, `nothing`, `busy`, `interrupted` or
+  `unknown`), which the chat shows as a notice until the next summary or a turn the
+  person wrote after it showed (a message queued during the summary, even if edited,
+  goes out without clearing it); a successful one shows its compaction marker
+  (`tests/integration/assistant-manual-compact-contract.test.js` records the answers
+  and the marker). The state lives in memory: an AgentPier restart frees
   the chat. Every end publishes `change` and dispatches a queued message once. Afterwards `sessionInfo.totalTokensFresh` is false until the next
   turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
   usual compaction marker. A manual compaction runs no pre-compaction memory flush

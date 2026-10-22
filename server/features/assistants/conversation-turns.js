@@ -63,6 +63,13 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   }
   refuseClosedChat(service, conversation);
   service.requireReady();
+  // When the person wrote it: a message first queued before a summary's notice
+  // showed (and edited since) keeps that notice (long-chats.js settle).
+  const queued = service.queued?.get(conversationId);
+  const writtenAt =
+    queued?.state === "sending" && queued.clientRequestId === input.clientRequestId
+      ? Date.parse(queued.createdAt)
+      : (service.now?.() ?? Date.now());
   if (
     service.ledger
       .pending()
@@ -95,8 +102,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     lastActivityAt: new Date(service.now?.() ?? Date.now()).toISOString(),
   });
   titleFromTurn(service, conversation, context);
-  // A summary's notice is over once the chat moves on (long-chats.js).
-  service.longChats?.settle(conversationId, input.clientRequestId);
+  service.longChats?.settle(conversationId, writtenAt);
   // The reconciler leaves an attempt alone while its send is under way.
   const sending = (service.sending ??= new Set());
   sending.add(attempt.id);

@@ -56,8 +56,8 @@ export const agentRunStepsCopy = {
     nothing: "Es gab nichts mehr zusammenzufassen. Der Chat ist wieder bereit.",
     busy: "Die Zusammenfassung konnte nicht starten, weil der Agent beschäftigt war. Der Chat ist wieder bereit.",
     interrupted:
-      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit neu gestartet ist. Der Chat ist wieder bereit.",
+      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit beendet oder neu gestartet wurde. Der Chat ist wieder bereit.",
     unknown:
-      "Die Zusammenfassung hat sich nach einer Stunde nicht zurückgemeldet; ob sie fertig wurde, ist unklar. Der Chat ist wieder bereit.",
+      "Die Agent-Laufzeit hat sich nicht zurückgemeldet; ob die Zusammenfassung fertig wurde, ist unklar. Der Chat ist wieder bereit.",
   },
 };

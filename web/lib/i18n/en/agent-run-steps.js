@@ -56,8 +56,8 @@ export const agentRunStepsCopy = {
     nothing: "There was nothing left to summarise. The chat is ready again.",
     busy: "The summary could not start because the agent was busy. The chat is ready again.",
     interrupted:
-      "The summary stopped because the agent runtime restarted. The chat is ready again.",
+      "The summary stopped because the agent runtime stopped or restarted. The chat is ready again.",
     unknown:
-      "The summary did not report back within an hour, so it is unclear whether it finished. The chat is ready again.",
+      "The agent runtime did not report back, so it is unclear whether the summary finished. The chat is ready again.",
   },
 };
