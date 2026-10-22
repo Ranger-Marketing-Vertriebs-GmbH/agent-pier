@@ -32,8 +32,11 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
-    # Observed p90 19.1 min with four shards.
-    timeout-minutes: 35
+    # Observed 2026-10-20..22: the specs take 17-22 min per shard (balanced
+    # estimate 19.3 min, 96 min in all) and setup 1-2 min. The Azure Ubuntu mirror
+    # once took 8-20 min for the WebKit system packages, so the limit leaves room
+    # for that rather than cancelling a passing shard.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
