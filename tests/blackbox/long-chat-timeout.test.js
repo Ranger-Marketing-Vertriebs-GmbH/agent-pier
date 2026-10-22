@@ -150,6 +150,45 @@ test("one Gateway result gives one outcome", () => {
   ])
     assert.equal(compactOutcome({ result }), "nothing");
   assert.equal(compactOutcome({ result: { ok: true, compacted: true } }), "compacted");
+  // Answered failures (embedded-agent, resource-loader in OpenClaw 2026.10.3).
+  for (const reason of ["compaction aborted", "Error: 401 from provider", "boom"])
+    assert.equal(
+      compactOutcome({ result: { ok: false, compacted: false, reason } }),
+      "failed",
+      reason,
+    );
+  assert.equal(
+    compactOutcome({
+      result: {
+        ok: false,
+        compacted: false,
+        reason: "x",
+        failure: { reason: "model_selection_locked" },
+      },
+    }),
+    "failed",
+  );
+  assert.equal(
+    compactOutcome({
+      result: {
+        ok: false,
+        compacted: false,
+        reason: "x",
+        failure: { reason: "active_run" },
+      },
+    }),
+    "busy",
+  );
+  for (const reason of ["Already compacted", "Nothing to compact (session too small)"])
+    assert.equal(
+      compactOutcome({ result: { ok: false, compacted: false, reason } }),
+      "nothing",
+      reason,
+    );
+  assert.equal(
+    compactOutcome({ result: { ok: true, compacted: false, reason: "deferred" } }),
+    "nothing",
+  );
   const busy = answered("INVALID_REQUEST", "Session x has an active run; retry.");
   assert.equal(compactOutcome({ error: busy }), "busy");
   assert.equal(compactOutcome({ error: answered("UNAVAILABLE", "x") }), "failed");
@@ -193,6 +232,53 @@ test("an end after the answer is logged with the Gateway's code, never its text"
     lines.join("\n"),
   );
   assert.ok(!lines.some((l) => l.includes("/Users/someone")));
+});
+
+test("a failed summary answered as a successful call is a failure, also late", async (t) => {
+  const { history, summarise, compact, free } = await fixture(t);
+  t.mock.method(console, "warn", () => {});
+  await summarise();
+  compact.resolve({ ok: false, compacted: false, reason: "Error: 401 /Users/x" });
+  await free();
+  assert.equal((await history()).compactOutcome, "failed");
+});
+
+test("an active run answered after the request is a refusal, also late", async (t) => {
+  const { history, summarise, compact, free } = await fixture(t);
+  t.mock.method(console, "warn", () => {});
+  await summarise();
+  compact.resolve({
+    ok: false,
+    compacted: false,
+    reason: "x",
+    failure: { reason: "active_run" },
+  });
+  await free();
+  assert.equal((await history()).compactOutcome, "busy");
+});
+
+test("a dropped call is logged with its code, whether the Gateway runs on or not", async (t) => {
+  const { assistants, history, summarise, compact, free } = await fixture(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  await summarise();
+  compact.reject(closed());
+  await tick(100);
+  assert.equal((await history()).compacting, true);
+  const dropped = () =>
+    warn.mock.calls
+      .map((c) => c.arguments.join(" "))
+      .filter((l) => /the call failed: CLOSED/.test(l)).length;
+  assert.equal(dropped(), 1);
+  // Gone: a second summary whose call drops on a stopping runtime.
+  assistants.runtime.state.availability = "stopping";
+  await free();
+  assistants.runtime.state.availability = "ready";
+  await summarise();
+  assistants.runtime.state.availability = "stopping";
+  compact.reject(closed());
+  await free();
+  assert.equal(dropped(), 2);
+  assert.equal((await history()).compactOutcome, "interrupted");
 });
 
 test("a refusal after the answer stays a refusal", async (t) => {

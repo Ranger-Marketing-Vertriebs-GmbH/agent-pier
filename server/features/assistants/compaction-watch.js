@@ -21,14 +21,27 @@ const working = (error) =>
   error?.code === "INVALID_REQUEST" &&
   /active run|queued work/.test(error.remoteMessage || "");
 
+// OpenClaw's own "nothing to do" reasons (resource-loader
+// preflightManualSessionCompaction), which sessions-compact answers as `ok: false`.
+const noop = /^(already compacted|nothing to compact)/i;
+
 /**
- * The one outcome of a `sessions.compact` answer or failure: "compacted", "nothing"
- * (answered without summarising), "busy" (refused: the session has work), "failed"
- * (any other Gateway answer), "unknown" (no answer within the bound), "lost" (the
- * connection dropped while the call was out) or "interrupted" (no Gateway to ask).
+ * The one outcome of a `sessions.compact` answer or failure. OpenClaw 2026.10.3
+ * answers a summary that failed as a successful call: `{ok: false, compacted: false,
+ * reason}` (provider or auth errors, aborts, context-engine failures, embedded-agent),
+ * an active run as `failure: {reason: "active_run"}`, and nothing to do as
+ * `ok: true, compacted: false` or, from its preflight, `ok: false` with an
+ * "Already compacted" or "Nothing to compact" reason. Outcomes: "compacted",
+ * "nothing", "busy" (refused: the session has work), "failed" (any other Gateway
+ * answer), "unknown" (no answer within the bound), "lost" (the connection dropped
+ * while the call was out) or "interrupted" (no Gateway to ask).
  */
 export function compactOutcome({ result, error } = {}) {
-  if (!error) return result?.compacted === true ? "compacted" : "nothing";
+  if (!error) {
+    if (result?.compacted === true) return "compacted";
+    if (result?.ok !== false || noop.test(String(result.reason ?? ""))) return "nothing";
+    return result.failure?.reason === "active_run" ? "busy" : "failed";
+  }
   if (working(error)) return "busy";
   if (error.answered) return "failed";
   if (error.code === "TIMEOUT") return "unknown";

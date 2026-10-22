@@ -265,6 +265,22 @@ test("the Gateway's refusals show as the chat's problems", async (t) => {
       "CHAT_BUSY",
     ],
     [answered("UNAVAILABLE", "Error: model refused"), 502, "CHAT_COMPACT_FAILED"],
+    // OpenClaw answers a failed summary as a successful call.
+    [
+      { ok: false, compacted: false, reason: "401 Unauthorized from provider" },
+      502,
+      "CHAT_COMPACT_FAILED",
+    ],
+    [
+      { ok: false, compacted: false, reason: "busy", failure: { reason: "active_run" } },
+      409,
+      "CHAT_BUSY",
+    ],
+    [
+      { ok: false, compacted: false, reason: "Already compacted" },
+      409,
+      "CHAT_COMPACT_NOTHING",
+    ],
   ]) {
     gateway.compact = async () => {
       if (answer instanceof Error) throw answer;
