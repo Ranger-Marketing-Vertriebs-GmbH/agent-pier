@@ -53,6 +53,8 @@ export const agentRunStepsCopy = {
   dismiss: "Hide",
   compactOutcome: {
     failed: "The summary did not finish. The chat is ready again.",
+    nothing: "There was nothing left to summarise. The chat is ready again.",
+    busy: "The summary could not start because the agent was busy. The chat is ready again.",
     interrupted:
       "The summary stopped because the agent runtime restarted. The chat is ready again.",
     unknown:

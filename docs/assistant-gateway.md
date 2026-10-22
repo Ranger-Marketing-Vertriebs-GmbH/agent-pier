@@ -3475,18 +3475,26 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   `sessions.compact` answer itself (the call stays open up to the bound), as the
   Gateway event `session.operation` `{operationId, operation: "compact", phase:
 "end", sessionKey, agentId, completed, reason, ts}`, or read-only as a new
-  compaction marker in `chat.history` (polled every 30 seconds). OpenClaw sends
+  compaction marker in `chat.history` (polled every 30 seconds; the newest marker is
+  read before `sessions.compact` is called, and if that read fails, a marker written
+  since the summary began counts). OpenClaw sends
   `session.operation` (and `sessions.changed`) only to connections that called
   `sessions.subscribe`, which streams every session's changes; the watch subscribes
   on a separate connection (`GatewayClient.sibling`, no caps) so the main
   connection's event handling stays unchanged, and closes it at the end
   (`tests/integration/assistant-manual-compact-contract.test.js` records the event,
-  its order before the answer and the marker). A Gateway that goes away (its pending
-  call fails, or the runtime's client or launch changed) ends the summary with it,
-  and after 60 minutes the chat is free in any case. Such an end after the request's
-  answer is the history's `compactOutcome` (`failed`, `interrupted` or `unknown`),
-  which the chat shows as a notice until the next summary or turn; a successful one
-  shows its compaction marker. The watch lives in memory: an AgentPier restart frees
+  its order before the answer and the marker). A dropped connection loses only the
+  call (`CLOSED`): the supervisor reconnects to the same Gateway, which still
+  summarises, so the chat stays compacting, the poll goes on and the event
+  connection is opened again; before the ten minutes the request then answers that
+  it runs. A Gateway that is gone (the runtime's client or launch changed, or it is
+  down) ends the summary with it, and after 60 minutes the chat is free in any case.
+  A failing event connection or history read is logged once per watch with its code
+  only. Such an end after the request's answer is logged with the Gateway's code and
+  error class and is the history's `compactOutcome` (`failed`, `nothing`, `busy`,
+  `interrupted` or `unknown`), which the chat shows as a notice until the next
+  summary or a later turn (the message queued during the summary goes out without
+  clearing it); a successful one shows its compaction marker. The watch lives in memory: an AgentPier restart frees
   the chat. Every end publishes `change` and dispatches a queued message once. Afterwards `sessionInfo.totalTokensFresh` is false until the next
   turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
   usual compaction marker. A manual compaction runs no pre-compaction memory flush

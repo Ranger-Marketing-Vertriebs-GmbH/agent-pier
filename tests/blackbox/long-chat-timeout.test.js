@@ -47,11 +47,14 @@ async function fixture(t, timing = {}) {
   const { f, gateway } = await chatFixture(t);
   const assistants = f.application.assistants;
   assistants.longChats.timing = { answerMs: 80, maxMs: 60000, pollMs: 40, ...timing };
+  // The fixture never starts its runtime; the watch asks whether it is up.
+  assistants.runtime.state.availability = "ready";
   // The Gateway compacts and never answers until the test says so.
   const compact = {};
   const watch = { calls: [], closed: 0, siblings: [] };
   const base = gateway.client.call;
   gateway.markers = [];
+  gateway.historyFails = 0;
   gateway.client.call = async (method, params, options) => {
     if (method === "sessions.compact") {
       gateway.calls.push({ method, params });
@@ -59,17 +62,24 @@ async function fixture(t, timing = {}) {
         Object.assign(compact, { resolve, reject }),
       );
     }
-    if (method === "chat.history")
+    if (method === "chat.history") {
+      gateway.calls.push({ method, params });
+      if (gateway.historyFails > 0) {
+        gateway.historyFails--;
+        throw Object.assign(Error("slow"), { code: "TIMEOUT" });
+      }
       return {
         messages: [
           ...(gateway.history[params.sessionKey] || []),
-          ...gateway.markers.map((id) => ({
+          ...gateway.markers.map((marker) => ({
             role: "system",
-            __openclaw: { kind: "compaction", id },
+            ...(typeof marker === "string" ? {} : { timestamp: marker.timestamp }),
+            __openclaw: { kind: "compaction", id: marker.id ?? marker },
           })),
         ],
         hasMore: false,
       };
+    }
     return base(method, params, options);
   };
   gateway.client.sibling = () => fakeSibling(watch);
@@ -194,32 +204,160 @@ test("a compaction that ended without a summary says so, until the next turn", a
   assert.equal((await history()).compactOutcome, undefined);
 });
 
-test("a Gateway that goes away frees the chat, and the queued message goes out once", async (t) => {
-  const { f, chat, history, sends, summarise, compact } = await fixture(t);
+const closed = () => Object.assign(Error("closed"), { code: "CLOSED", status: 503 });
+
+test("a dropped connection to the same Gateway keeps the chat compacting until its end", async (t) => {
+  const { f, chat, history, sends, summarise, compact, end, watch } = await fixture(t);
   t.mock.method(console, "warn", () => {});
   await summarise();
   await json(
     await f.request(`${chat}/queued`, { method: "POST", body: { text: "Later" } }),
     200,
   );
-  // GatewayClient.rejectPending on its close.
-  compact.reject(Object.assign(Error("closed"), { code: "CLOSED", status: 503 }));
+  // GatewayClient.rejectPending on its close; it reconnects to the same Gateway
+  // (same client, same generation), which still summarises.
+  compact.reject(closed());
+  await tick(200);
+  assert.equal((await history()).compacting, true);
+  assert.equal(sends().length, 0);
+  // The event connection dropped with it and is opened again.
+  watch.siblings.at(-1).emit("disconnected");
+  await until(() => watch.siblings.length >= 2, "a new event connection");
+  end();
   await until(() => sends().length === 1, "the queued message");
   await tick(120);
   assert.equal(sends().length, 1);
-  // The queued turn moved the chat on: no notice is left over.
-  const after = await history();
-  assert.equal(after.compacting, false);
-  assert.equal(after.compactOutcome, undefined);
+  assert.equal((await history()).compacting, false);
 });
 
-test("a Gateway that goes away says the summary stopped", async (t) => {
-  const { history, summarise, compact } = await fixture(t);
+test("a dropped connection before the request answered still answers that it runs", async (t) => {
+  const { history, gateway, chat, f, compact, end } = await fixture(t, {
+    answerMs: 5000,
+  });
+  t.mock.method(console, "warn", () => {});
+  const answer = f.request(`${chat}/compact`, { method: "POST" });
+  await until(
+    () => gateway.calls.some((c) => c.method === "sessions.compact"),
+    "the compaction",
+  );
+  compact.reject(closed());
+  assert.deepEqual(await json(await answer, 200), { compacted: false, running: true });
+  assert.equal((await history()).compacting, true);
+  await tick(60);
+  end();
+  await until(async () => (await history()).compacting === false, "the end");
+});
+
+test("a Gateway that goes away frees the chat; the notice outlives the queued message", async (t) => {
+  const { f, assistants, chat, history, sends, summarise, compact } = await fixture(t);
   t.mock.method(console, "warn", () => {});
   await summarise();
-  compact.reject(Object.assign(Error("closed"), { code: "CLOSED", status: 503 }));
+  await json(
+    await f.request(`${chat}/queued`, { method: "POST", body: { text: "Later" } }),
+    200,
+  );
+  // The runtime replaced its Gateway: the summary is gone with the old one.
+  const generation = assistants.runtime.generationId;
+  assistants.runtime.generationId = "restarted";
+  t.after(() => (assistants.runtime.generationId = generation));
+  compact.reject(closed());
+  await until(() => sends().length === 1, "the queued message");
+  await tick(120);
+  assert.equal(sends().length, 1);
+  const after = await history();
+  assert.equal(after.compacting, false);
+  // The message written during the summary went out; the owner still learns why.
+  assert.equal(after.compactOutcome, "interrupted");
+  // Once its reply is in, the owner's next turn moves the chat on.
+  for (const attempt of assistants.ledger.pending())
+    assistants.ledger.transition(attempt.id, "completed");
+  await json(
+    await f.request(`${chat}/messages`, {
+      method: "POST",
+      body: { clientRequestId: "after", text: "Read it" },
+    }),
+    202,
+  );
+  assert.equal((await history()).compactOutcome, undefined);
+});
+
+test("a runtime that is down frees the chat when the connection drops", async (t) => {
+  const { assistants, history, summarise, compact } = await fixture(t);
+  t.mock.method(console, "warn", () => {});
+  await summarise();
+  assistants.runtime.state.availability = "failed";
+  compact.reject(closed());
   await until(async () => (await history()).compacting === false, "the end");
   assert.equal((await history()).compactOutcome, "interrupted");
+});
+
+test("the baseline marker is read before the compaction starts", async (t) => {
+  const { gateway, history, summarise } = await fixture(t);
+  gateway.client.sibling = undefined;
+  gateway.markers = ["c1"];
+  await summarise();
+  const order = gateway.calls
+    .map((c) => c.method)
+    .filter((m) => ["chat.history", "sessions.compact"].includes(m));
+  assert.deepEqual(order.slice(0, 2), ["chat.history", "sessions.compact"]);
+  // It committed before the watch's first read: still seen as new.
+  gateway.markers = ["c1", "c2"];
+  await until(async () => (await history()).compacting === false, "the marker");
+});
+
+test("without a baseline, only a marker written since the summary began ends it", async (t) => {
+  const { gateway, history, summarise } = await fixture(t);
+  t.mock.method(console, "warn", () => {});
+  gateway.client.sibling = undefined;
+  gateway.markers = [{ id: "old", timestamp: Date.now() - 60000 }];
+  gateway.historyFails = 1;
+  await summarise();
+  await tick(150);
+  assert.equal((await history()).compacting, true, "an older marker ends nothing");
+  gateway.markers.push({ id: "new", timestamp: Date.now() });
+  await until(async () => (await history()).compacting === false, "the new marker");
+});
+
+test("an end after the answer is logged with the Gateway's code, and a busy session stays busy", async (t) => {
+  const { history, summarise, compact } = await fixture(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  await summarise();
+  compact.reject(
+    Object.assign(Error("x"), {
+      code: "INVALID_REQUEST",
+      answered: true,
+      remoteMessage: "Session /Users/someone has an active run; retry after it finishes.",
+    }),
+  );
+  await until(async () => (await history()).compacting === false, "the end");
+  assert.equal((await history()).compactOutcome, "busy");
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  assert.ok(
+    lines.some((l) => /ended after its request: busy INVALID_REQUEST/.test(l)),
+    lines.join("\n"),
+  );
+  assert.ok(!lines.some((l) => l.includes("/Users/someone")));
+});
+
+test("a failing event connection and history read are logged once per watch", async (t) => {
+  const { gateway, history, summarise, watch } = await fixture(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  gateway.client.sibling = () => {
+    const sibling = fakeSibling(watch);
+    sibling.connect = async () => {
+      throw Object.assign(Error("pin"), { code: "ENDPOINT_UNTRUSTED" });
+    };
+    return sibling;
+  };
+  await summarise();
+  gateway.historyFails = 1000;
+  await tick(300);
+  assert.ok(watch.siblings.length >= 3, "it tries again");
+  const lines = warn.mock.calls.map((c) => c.arguments.join(" "));
+  const count = (pattern) => lines.filter((l) => pattern.test(l)).length;
+  assert.equal(count(/event connection failed: ENDPOINT_UNTRUSTED/), 1, lines.join("\n"));
+  assert.equal(count(/reading the history failed: TIMEOUT/), 1, lines.join("\n"));
+  assert.equal((await history()).compacting, true);
 });
 
 test("a restarted runtime frees the chat even without an answer", async (t) => {
