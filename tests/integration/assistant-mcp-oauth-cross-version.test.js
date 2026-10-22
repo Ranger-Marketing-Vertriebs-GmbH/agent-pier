@@ -25,6 +25,7 @@ import {
   exchanged,
   oauthMcpServer,
 } from "../helpers/mcp-oauth-test-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // An MCP OAuth login made on the previous runtime keeps working after a runtime
 // update: the activation carries the stored client and tokens over, the candidate
@@ -176,7 +177,7 @@ test(
     async function turn(call, label) {
       Object.assign(tool, call ?? { name: "none", arguments: {} });
       const from = model.requests.length;
-      const session = await runtime.client.call("sessions.create", {
+      const session = await createGatewaySession(runtime.client, {
         agentId: agent.runtimeAgentId,
         label,
       });

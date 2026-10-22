@@ -11,6 +11,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // Five Gateway starts (initial, crash, recovery, stop/start): a passing hosted
 // macOS run already took 89 s, and the same runner type is often 30 % slower.
@@ -119,7 +120,7 @@ test(
     await config.apply(a.id);
     assert.equal(store.getAssistant(a.id).effectiveRevision, 1);
     step("applied");
-    const chat = await runtime.client.call("sessions.create", {
+    const chat = await createGatewaySession(runtime.client, {
       agentId: a.runtimeAgentId,
       label: "Contract",
     });
@@ -151,7 +152,7 @@ test(
       release() {},
     });
     await config.apply(a.id);
-    const missingChat = await runtime.client.call("sessions.create", {
+    const missingChat = await createGatewaySession(runtime.client, {
       agentId: a.runtimeAgentId,
       label: "Missing explicit account",
     });

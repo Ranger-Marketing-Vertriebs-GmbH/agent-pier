@@ -6,6 +6,7 @@ import { shellGateway } from "../helpers/assistant-shell-gateway.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { RunSteps } from "../../server/features/assistants/run-steps.js";
 import { longContext } from "../../server/features/assistants/conversations.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // What the pinned Gateway tells a client about a running turn (AGENTPIER-184): the
 // `agent` events AgentPier turns into live steps (run-steps.js), how a model that
@@ -151,7 +152,7 @@ test(
       },
     }));
     const watcher = await gw.approver();
-    const session = await gw.client.call("sessions.create", { agentId: "main" });
+    const session = await createGatewaySession(gw.client, { agentId: "main" });
     const sent = await gw.client.call("sessions.send", {
       key: session.key,
       message: "Hello",

@@ -30,6 +30,7 @@ import {
 } from "../../server/http/routes/mcp-oauth.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Uses scripts/provision-assistant-contracts.mjs. Unlike the hand-run OpenClaw CLI of
 // assistant-mcp-oauth-contract.test.js, this drives AgentPier's own path: the server
@@ -263,11 +264,10 @@ async function harness(t, { tool }) {
     );
     assert.ok(["unauthenticated", "pending-authorization"].includes(state), state);
   };
-
   // One turn on a new session of `agent`: the tools offered and the last tool result.
   async function turn(agent, label) {
     const from = model.requests.length;
-    const session = await runtime.client.call("sessions.create", {
+    const session = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label,
     });

@@ -23,6 +23,7 @@ import {
   stdioMcpScript,
   stdioRecords,
 } from "../helpers/mcp-test-servers.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs. Unlike
 // assistant-mcp-contract.test.js, which patches `mcp` by hand to qualify OpenClaw,
@@ -161,7 +162,7 @@ async function harness(t, { tool }) {
   // One turn on a new session of `agent`: the tools offered and the last tool result.
   async function turn(agent, label) {
     const from = model.requests.length;
-    const session = await runtime.client.call("sessions.create", {
+    const session = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label,
     });

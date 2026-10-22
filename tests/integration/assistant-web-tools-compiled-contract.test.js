@@ -25,6 +25,7 @@ import { BrowserLiveView } from "../../server/features/assistants/browser-live-v
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { textPdf } from "../helpers/text-pdf.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
 // directory yields the runtime descriptor, including the bundled search plugins.
@@ -339,7 +340,7 @@ test(
     async function turn(agent, call, label) {
       Object.assign(tool, call);
       const from = model.requests.length;
-      const session = await runtime.client.call("sessions.create", {
+      const session = await createGatewaySession(runtime.client, {
         agentId: agent.runtimeAgentId,
         label,
       });

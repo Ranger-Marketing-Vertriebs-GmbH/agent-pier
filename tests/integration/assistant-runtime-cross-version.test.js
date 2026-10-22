@@ -13,6 +13,7 @@ import { NativeMemory } from "../../server/features/assistants/native-memory.js"
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { assistantRoutineModel } from "../helpers/assistant-routine-model.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const previousRoot = process.env.AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME;
 const candidateRoot = process.env.AGENTPIER_ASSISTANT_UPDATE_RUNTIME;
@@ -120,7 +121,7 @@ for (const [variant, title] of Object.entries(variants))
           content: "CROSS_VERSION_NOTE_4729",
           ...(note.missing ? { expectedMissing: true } : { expectedHash: note.hash }),
         });
-        const chat = await runtime.client.call("sessions.create", {
+        const chat = await createGatewaySession(runtime.client, {
           agentId: a.runtimeAgentId,
         });
         const conversation = store.saveConversation({

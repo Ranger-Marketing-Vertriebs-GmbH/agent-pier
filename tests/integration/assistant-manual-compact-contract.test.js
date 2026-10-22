@@ -16,6 +16,7 @@ import {
   latestMarker,
   readBaseline,
 } from "../../server/features/assistants/compaction-watch.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // AGENTPIER-190: what long-chats.js and compaction-watch.js rely on for a summary
 // on request. Its `sessions.compact` answer says how it ended, a repeated one that
@@ -144,7 +145,7 @@ test(
       await new Promise((r) => setTimeout(r, 50));
     assert.equal(bridge.guardLive(), true, "the started Gateway reports its guard");
     await config.apply(agent.id);
-    const created = await runtime.client.call("sessions.create", {
+    const created = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label: "Manual compaction contract",
     });

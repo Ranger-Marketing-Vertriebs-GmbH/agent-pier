@@ -11,6 +11,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { assistantProviderServer } from "../helpers/assistant-provider-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Reuse only immutable app/node binaries. Every state, account and config path is
 // freshly generated; this test never opens an installed runtime's user data.
@@ -146,7 +147,7 @@ test(
           await config.apply(a.id);
           const chat = scenario.reuse
             ? previous.chat
-            : await runtime.client.call("sessions.create", {
+            : await createGatewaySession(runtime.client, {
                 agentId: a.runtimeAgentId,
               });
           previous = { a, c, chat };

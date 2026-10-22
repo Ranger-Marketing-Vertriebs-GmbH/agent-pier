@@ -14,6 +14,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
 import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const chunks = ["Noch", " keine", " neuen Meldungen."];
 const reply = chunks.join("");
@@ -126,7 +127,7 @@ test(
       model: { connectionId: c.id, modelId: "stream-model" },
     });
     await config.apply(a.id);
-    const chat = await runtime.client.call("sessions.create", {
+    const chat = await createGatewaySession(runtime.client, {
       agentId: a.runtimeAgentId,
     });
     await runtime.client.call("sessions.messages.subscribe", { key: chat.key });

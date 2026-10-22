@@ -9,6 +9,7 @@ import {
   telegramSendersGateway,
   transcript,
 } from "../helpers/assistant-telegram-senders-gateway.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Qualifies OpenClaw 2026.9.8 for agents' own Telegram bots on AgentPier's compiled
 // path (openclaw-config/telegram-senders.js): per-account bindings, allowlists,
@@ -208,7 +209,7 @@ test("agents' own bots on the compiled path", options, async (t) => {
   });
   await new Promise((r) => hook.listen(0, "127.0.0.1", r));
   t.after(() => new Promise((r) => hook.close(r)));
-  const checkIn = await h.runtime.client.call("sessions.create", {
+  const checkIn = await createGatewaySession(h.runtime.client, {
     agentId: ids(helper),
     label: "AgentPier check-in fixture",
   });

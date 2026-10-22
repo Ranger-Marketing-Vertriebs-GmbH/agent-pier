@@ -16,6 +16,7 @@ import { GatewayEventHub } from "../../server/features/assistants/gateway-event-
 import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.js";
 import { Compactions } from "../../server/features/assistants/compactions.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Answers every turn near the context window, so the next one compacts first. It
 // notes for each request whether it was the memory flush, the compaction's summary
@@ -183,7 +184,7 @@ test(
         },
       },
     }));
-    const created = await runtime.client.call("sessions.create", {
+    const created = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label: "Compaction contract",
     });

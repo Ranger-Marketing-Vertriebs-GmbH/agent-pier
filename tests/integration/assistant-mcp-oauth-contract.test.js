@@ -25,6 +25,7 @@ import {
   leaseLocked,
   parseLoginOutput,
 } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Uses scripts/provision-assistant-contracts.mjs; see docs/mcp-oauth-qualification.md.
 const installed = process.env.AGENTPIER_MCP_CONTRACT_RUNTIME;
@@ -118,12 +119,11 @@ async function harness(t) {
   config.nativeReady = () => true;
   config.writeGuard = () => false;
   await config.apply(agent.id);
-
   // One turn on a new session; returns the tools offered and the last tool result.
   async function turn(call, label) {
     Object.assign(tool, call ?? { name: "none", arguments: {} });
     const from = model.requests.length;
-    const session = await runtime.client.call("sessions.create", {
+    const session = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label,
     });

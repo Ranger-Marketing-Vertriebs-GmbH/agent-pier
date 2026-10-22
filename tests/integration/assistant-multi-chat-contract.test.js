@@ -17,6 +17,7 @@ import {
   keepChatOpen,
   reopenRefusedChat,
 } from "../../server/features/assistants/native-chat-archive.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Several chats per agent (AGENTPIER-181) against the pinned runtime: AgentPier makes
 // one sessions.create session per chat and relies on what these tests pin.
@@ -162,7 +163,7 @@ test(
     await config.apply(a.id);
     const client = runtime.client;
     const create = (label) =>
-      client.call("sessions.create", { agentId: a.runtimeAgentId, label });
+      createGatewaySession(client, { agentId: a.runtimeAgentId, label });
     const turn = async (key, message, idempotencyKey = crypto.randomUUID()) => {
       const sent = await client.call("sessions.send", { key, message, idempotencyKey });
       const result = await client.call(
