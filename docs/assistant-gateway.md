@@ -3475,10 +3475,13 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   answer maps to one outcome (`compactOutcome` in
   `server/features/assistants/compaction-watch.js`). OpenClaw answers a summary that failed
   (provider or auth error, abort, context-engine failure) as a successful call with
-  `ok: false`: that is a failure (502 `CHAT_COMPACT_FAILED`), `failure.reason:
-"active_run"` a refusal (409 `CHAT_BUSY`), and only `ok: true, compacted: false` or
-  its preflight's "Already compacted" / "Nothing to compact" reasons mean nothing was
-  left (409 `CHAT_COMPACT_NOTHING`). A dropped call is logged with its code. 2026.10.3 exposes no
+  `ok: false`: that is a failure (502 `CHAT_COMPACT_FAILED`). An active run is a
+  refusal (409 `CHAT_BUSY`); the call carries only its reason text, "manual compaction
+  unavailable while another embedded run is active", since sessions-compact forwards
+  no `failure`. Only `ok: true, compacted: false` or its preflight's "Already
+  compacted" / "Nothing to compact" reasons mean nothing was left (409
+  `CHAT_COMPACT_NOTHING`). Logs name a short code for such answers (`ok_false`,
+  `active_run`), never the reason text. A dropped call is logged with its code. A chat deleted while its summary runs ends that run: no notice, no queued dispatch, no further polls. 2026.10.3 exposes no
   per-session lifecycle state to a read-only call, and its `session.operation`
   events reach only connections subscribed to every session's changes, so neither is
   used. A dropped connection loses only the call (`CLOSED`): if the runtime still

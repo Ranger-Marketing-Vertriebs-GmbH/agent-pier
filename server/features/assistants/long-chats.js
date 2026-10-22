@@ -3,7 +3,9 @@ import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
 import {
+  answerCodeOf,
   compactOutcome,
+  kindOf,
   readBaseline,
   reasonOf,
   watchMarker,
@@ -145,9 +147,11 @@ export class LongChats {
       (service.runtime.generationId ?? null) === generation &&
       runningStates.has(service.runtime.status?.().availability);
     const warned = new Set();
+    // Once per step and kind of failure: another failure of the step still shows.
     const warn = (what, error) => {
-      if (warned.has(what)) return;
-      warned.add(what);
+      const key = `${what}\u0000${kindOf(error)}`;
+      if (warned.has(key)) return;
+      warned.add(key);
       console.warn(`Summarising chat ${id}: ${what} failed: ${reasonOf(error)}`);
     };
     // Every callback of the run: a throw is logged, never left unhandled.
@@ -175,12 +179,15 @@ export class LongChats {
       timer.unref?.();
       timers.push(timer);
     };
-    const finish = (outcome, error) => {
-      if (settled) return;
+    const end = () => {
       settled = true;
       stop();
       this.stops.delete(id);
       this.running.delete(id);
+    };
+    const finish = (outcome, error) => {
+      if (settled) return;
+      end();
       if (!answered) {
         answered = true;
         Promise.resolve()
@@ -251,16 +258,14 @@ export class LongChats {
       .then(
         guard((result) => {
           const outcome = compactOutcome({ result });
-          // An answered failure: its code, if it names one, never its reason text.
+          // An answered `ok: false`: its code, never its reason text.
+          const failure =
+            result?.ok === false && outcome !== "nothing"
+              ? { code: answerCodeOf(result) }
+              : undefined;
           if (!answered && outcome === "failed")
-            console.warn(
-              `Summarising chat ${id} failed: answered ok: false${
-                /^[a-z_]{1,60}$/.test(result?.failure?.reason ?? "")
-                  ? ` (${result.failure.reason})`
-                  : ""
-              }`,
-            );
-          finish(outcome);
+            console.warn(`Summarising chat ${id} failed: ${reasonOf(failure)}`);
+          finish(outcome, failure);
         }),
         guard((error) => {
           const outcome = compactOutcome({ error });
@@ -273,7 +278,15 @@ export class LongChats {
       );
     // Its refusal reaches the request; a request that went away leaves it unheard.
     job.catch(() => {});
-    this.stops.set(id, stop);
+    // Shutdown or a deleted chat: the run ends without a notice or a dispatch.
+    this.stops.set(id, () => {
+      if (settled) return;
+      end();
+      if (!answered) {
+        answered = true;
+        answer.reject(assistantProblem("notFound", 404));
+      }
+    });
     this.running.set(id, job);
     service.changed({ conversationId: id });
     return job;
@@ -296,9 +309,9 @@ export class LongChats {
     const entry = this.outcomes.get(conversationId);
     if (entry && !(writtenAt < entry.at)) this.outcomes.delete(conversationId);
   }
-  /** Ends every summary's timers at shutdown; the Gateway's own work is not touched. */
+  /** Ends every summary's run at shutdown; the Gateway's own work is not touched. */
   close() {
-    for (const stop of this.stops.values()) stop();
+    for (const stop of [...this.stops.values()]) stop();
     this.stops.clear();
   }
   /**
@@ -355,8 +368,12 @@ export class LongChats {
       }
     });
   }
-  /** A deleted chat's hidden hints go with it (chat-removal.js). */
+  /**
+   * A deleted chat's hidden hints go with it (chat-removal.js), and so does a summary
+   * still running for it: its end records nothing and its watch stops.
+   */
   forget(conversationId) {
+    this.stops.get(conversationId)?.();
     this.outcomes.delete(conversationId);
     this.db
       .prepare("DELETE FROM assistant_long_chat_dismissals WHERE conversation_id=?")

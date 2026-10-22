@@ -272,7 +272,12 @@ test("the Gateway's refusals show as the chat's problems", async (t) => {
       "CHAT_COMPACT_FAILED",
     ],
     [
-      { ok: false, compacted: false, reason: "busy", failure: { reason: "active_run" } },
+      // The wire shape: sessions-compact forwards no `failure`.
+      {
+        ok: false,
+        compacted: false,
+        reason: "manual compaction unavailable while another embedded run is active",
+      },
       409,
       "CHAT_BUSY",
     ],
