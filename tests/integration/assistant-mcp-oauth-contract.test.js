@@ -304,8 +304,8 @@ test(
     });
 
     // (a) Login with the redirect port held prints the URL and exits at once.
+    // Not stderr: like createMcpCli; OpenClaw may log its WAL upkeep there.
     const { run: started, url: authorizationUrl } = await login("docs");
-    assert.equal(started.stderr, "");
     assert.ok(started.ms < 30000, `${started.ms} ms`);
     // The URL line itself is checked by its parameters (authorize, below).
     const printed = started.stdout.split("\n");
