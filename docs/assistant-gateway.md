@@ -1206,7 +1206,9 @@ was compacted and the plan was gone. Four rules close that gap:
     completion" must be a process line. The write hook and the workspace call send
     the record for the run. Every process whose first eight characters equal a
     reported id must belong to that turn's run, and at least one must; a shorter id
-    must equal a whole id.
+    must equal a whole id. A completion that batches an earlier turn's process
+    with this turn's (OpenClaw can deliver one again when an owner message arrives
+    during its run) is therefore refused.
   - The record is complete. It must exist before `gateway_start`; one that appears
     later may have missed processes. A result with a known end status (`completed`,
     also with a non-zero exit code, `failed`, `denied` and other refusals) left
