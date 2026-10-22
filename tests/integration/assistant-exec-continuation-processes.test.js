@@ -197,6 +197,17 @@ test("the evidence is validated and judged by the attempt's run", () => {
     [evidence({ completion: { runId: "w1", ids: null, at: 2000 } }), "PROCESSES"],
     [evidence({ processes: [] }), "PROCESS"],
     [evidence({ processes: [{ id: "brisk-orbit", runId: "x" }] }), "PROCESS"],
+    // One completion that batches an earlier turn's process with this turn's.
+    [
+      evidence({
+        processes: [
+          { id: "kind-cloud", runId: "earlier" },
+          { id: "brisk-orbit", runId: "a1" },
+        ],
+        completion: { runId: "w1", ids: ["kind-clo", "brisk-or"], at: 2000 },
+      }),
+      "PROCESS",
+    ],
     [
       evidence({
         completion: {

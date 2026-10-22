@@ -220,20 +220,23 @@ test(
       f.assistants.ledger.transition(attempt.id, "completed");
       return { attempt, runId: sent.runId };
     };
+    // Each step waits until its completion run has ended before the next owner turn:
+    // an owner message during a completion run may make OpenClaw deliver that
+    // completion again, batched with the next turn's process, which the proof refuses
+    // as another turn's (see the mixed batch in exec-continuation-processes).
+    const ended = (runId) =>
+      events.some(
+        (e) =>
+          e.runId === runId &&
+          e.stream === "lifecycle" &&
+          ["end", "error"].includes(e.data?.phase),
+      );
     // The completion run's write decision, once its run has ended.
     const completion = async (from) => {
       const deadline = Date.now() + contractTimeout(60000);
       while (Date.now() < deadline) {
         const write = decisions.slice(from).find((d) => d.toolName === "write");
-        const ended =
-          write &&
-          events.some(
-            (e) =>
-              e.runId === write.runId &&
-              e.stream === "lifecycle" &&
-              ["end", "error"].includes(e.data?.phase),
-          );
-        if (ended) return write;
+        if (write && ended(write.runId)) return write;
         await delay(200);
       }
       assert.fail("no completion run wrote within a minute");
@@ -375,7 +378,8 @@ test(
     const fifth = await ownerTurn("Render a fifth one.");
     note = "workspace";
     const deadline = Date.now() + contractTimeout(60000);
-    while (!prepared.length && Date.now() < deadline) await delay(200);
+    while (!(prepared.length && ended(prepared[0].runId)) && Date.now() < deadline)
+      await delay(200);
     t.diagnostic(`workspace prepare=${JSON.stringify(prepared[0])}`);
     assert.equal(prepared[0]?.action, "workspace");
     assert.equal(typeof prepared[0].runId, "string");
