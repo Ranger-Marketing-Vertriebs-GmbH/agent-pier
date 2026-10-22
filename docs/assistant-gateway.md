@@ -3473,7 +3473,12 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   stays compacting until the Gateway ended the summary. The end, whatever it was, is
   the `sessions.compact` answer: the call stays open up to 60 minutes, and every
   answer maps to one outcome (`compactOutcome` in
-  `server/features/assistants/compaction-watch.js`). 2026.10.3 exposes no
+  `server/features/assistants/compaction-watch.js`). OpenClaw answers a summary that failed
+  (provider or auth error, abort, context-engine failure) as a successful call with
+  `ok: false`: that is a failure (502 `CHAT_COMPACT_FAILED`), `failure.reason:
+"active_run"` a refusal (409 `CHAT_BUSY`), and only `ok: true, compacted: false` or
+  its preflight's "Already compacted" / "Nothing to compact" reasons mean nothing was
+  left (409 `CHAT_COMPACT_NOTHING`). A dropped call is logged with its code. 2026.10.3 exposes no
   per-session lifecycle state to a read-only call, and its `session.operation`
   events reach only connections subscribed to every session's changes, so neither is
   used. A dropped connection loses only the call (`CLOSED`): if the runtime still

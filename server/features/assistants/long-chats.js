@@ -217,6 +217,8 @@ export class LongChats {
     // Reads the newest marker first, so a later one shows the summary's success.
     const baseline = readBaseline(client, sessionKey, warn);
     const lost = guard((error) => {
+      // The code only, never the text.
+      console.warn(`Summarising chat ${id}: the call failed: ${reasonOf(error)}`);
       if (!alive()) return finish("interrupted", error);
       goOn();
       later(() => finish("unknown"), lostMs);
@@ -247,7 +249,19 @@ export class LongChats {
         client.call("sessions.compact", { key: sessionKey }, { timeoutMs: maxMs }),
       )
       .then(
-        guard((result) => finish(compactOutcome({ result }))),
+        guard((result) => {
+          const outcome = compactOutcome({ result });
+          // An answered failure: its code, if it names one, never its reason text.
+          if (!answered && outcome === "failed")
+            console.warn(
+              `Summarising chat ${id} failed: answered ok: false${
+                /^[a-z_]{1,60}$/.test(result?.failure?.reason ?? "")
+                  ? ` (${result.failure.reason})`
+                  : ""
+              }`,
+            );
+          finish(outcome);
+        }),
         guard((error) => {
           const outcome = compactOutcome({ error });
           if (outcome === "lost") return lost(error);
