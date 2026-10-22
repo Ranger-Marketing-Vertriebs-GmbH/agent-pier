@@ -4,7 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { AccountStore, detectTools } from "../server/features/accounts/account-store.js";
 import { SessionManager } from "../server/features/sessions/session-manager.js";
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tuiui-native-"));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-native-"));
 const accounts = new AccountStore({ dataDir: dir });
 let manager = new SessionManager({ dataDir: dir });
 const result = [];

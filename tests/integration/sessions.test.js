@@ -19,7 +19,7 @@ async function eventually(fn, message = "condition", timeout = 5000) {
   assert.fail(`Timed out waiting for ${message}`);
 }
 async function fixture(t) {
-  const dataDir = await mkdtemp(path.join(tmpdir(), "tuiui-sessions-"));
+  const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-sessions-"));
   const manager = new SessionManager({ dataDir, tmuxPath });
   const managers = [manager];
   t.after(async () => {
@@ -298,14 +298,14 @@ test("lost tmux server marks metadata stopped without automatically relaunching"
 
 test("launch environment is replaced and stopping terminates the owned process", async (t) => {
   const { manager, start } = await fixture(t);
-  process.env.TUIUI_INHERITED_CREDENTIAL_TEST = "must-not-reach-child";
+  process.env.AGENTPIER_INHERITED_CREDENTIAL_TEST = "must-not-reach-child";
   t.after(() => {
-    delete process.env.TUIUI_INHERITED_CREDENTIAL_TEST;
+    delete process.env.AGENTPIER_INHERITED_CREDENTIAL_TEST;
   });
   const session = await start({
     args: [
       "-c",
-      'printf "PID:%s\\nINHERITED:%s\\nOWN:%s\\n" "$$" "$TUIUI_INHERITED_CREDENTIAL_TEST" "$FIXTURE_SECRET"; read value',
+      'printf "PID:%s\\nINHERITED:%s\\nOWN:%s\\n" "$$" "$AGENTPIER_INHERITED_CREDENTIAL_TEST" "$FIXTURE_SECRET"; read value',
     ],
   });
   await eventually(async () =>

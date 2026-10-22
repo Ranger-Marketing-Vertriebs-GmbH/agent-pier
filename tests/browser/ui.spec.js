@@ -8,7 +8,12 @@ import {
   saveBar,
 } from "../helpers/accounts-browser.js";
 
-test.use({ channel: process.env.TUIUI_BROWSER_CHANNEL || undefined });
+test.use({
+  channel:
+    process.env.AGENTPIER_BROWSER_CHANNEL ||
+    process.env.TUIUI_BROWSER_CHANNEL ||
+    undefined,
+});
 
 import { baseURL as base } from "../helpers/browser.js";
 async function fixture(page) {

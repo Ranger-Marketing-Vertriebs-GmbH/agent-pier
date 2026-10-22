@@ -11,7 +11,7 @@ import {
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 function setup(t, { uid = 501 } = {}) {
-  const dir = mkdtempSync(path.join(tmpdir(), "tuiui-accounts-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "agentpier-accounts-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return { dir, store: new AccountStore({ dataDir: dir, home: dir, uid: () => uid }) };
 }
@@ -219,7 +219,7 @@ test("skip-permissions mode is refused with a stable message when AgentPier runs
   );
 });
 test("skip-permissions root guard reads the process uid when none is injected", async (t) => {
-  const dir = mkdtempSync(path.join(tmpdir(), "tuiui-accounts-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "agentpier-accounts-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const store = new AccountStore({ dataDir: dir, home: dir });
   const run = () =>

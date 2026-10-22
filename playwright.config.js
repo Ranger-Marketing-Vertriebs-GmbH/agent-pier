@@ -1,6 +1,11 @@
 import { defineConfig } from "@playwright/test";
 
-const externalUrl = process.env.TUIUI_TEST_URL;
+// The former TUIUI_* names stay accepted for existing local setups.
+const externalUrl = process.env.AGENTPIER_TEST_URL || process.env.TUIUI_TEST_URL;
+const storageState =
+  process.env.AGENTPIER_TEST_STORAGE_STATE || process.env.TUIUI_TEST_STORAGE_STATE;
+const browserChannel =
+  process.env.AGENTPIER_BROWSER_CHANNEL || process.env.TUIUI_BROWSER_CHANNEL;
 const baseURL =
   externalUrl || `http://127.0.0.1:${process.env.AGENTPIER_TEST_PORT || 4389}`;
 const browserName = process.env.AGENTPIER_TEST_BROWSER || "chromium";
@@ -19,13 +24,13 @@ export default defineConfig({
     locale: "de-DE",
     ...(!externalUrl
       ? { storageState: `.cache/browser-auth-${new URL(baseURL).port}.json` }
-      : process.env.TUIUI_TEST_STORAGE_STATE
-        ? { storageState: process.env.TUIUI_TEST_STORAGE_STATE }
+      : storageState
+        ? { storageState }
         : {}),
     browserName,
     channel:
       browserName === "chromium"
-        ? process.env.TUIUI_BROWSER_CHANNEL ||
+        ? browserChannel ||
           (!process.env.CI && process.platform === "darwin" ? "chrome" : undefined)
         : undefined,
     // API-fixture routing must not be bypassed by a controlling service worker.
