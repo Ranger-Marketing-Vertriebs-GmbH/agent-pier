@@ -382,6 +382,7 @@ test(
       await delay(200);
     t.diagnostic(`workspace prepare=${JSON.stringify(prepared[0])}`);
     assert.equal(prepared[0]?.action, "workspace");
+    assert.ok(ended(prepared[0].runId), "the workspace completion run ended");
     assert.equal(typeof prepared[0].runId, "string");
     assert.notEqual(prepared[0].runId, fifth.runId);
     assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
