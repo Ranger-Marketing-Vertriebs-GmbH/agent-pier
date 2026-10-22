@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { validateMembers } from "./archive.js";
 import { readFile, folder, digest, atomic } from "./files.js";
 import { problem } from "../../lib/storage.js";
+import { TMUX_NAMES } from "../sessions/tmux-naming.js";
 const execute = promisify(execFile);
 export const RELEASE_LIMIT = 768 * 1024 * 1024;
 // The data schema this release writes; it still opens and migrates schema 1 data.
@@ -225,6 +226,24 @@ export async function smokeRelease(directory) {
     throw Object.assign(problem(serverMessages.releases.smokeFailed), { cause });
   }
 }
+/**
+ * The manifest a release built from this tree carries. `tmuxNames` lists the tmux
+ * session name forms the release understands; a release that produces a new form can
+ * refuse rollbacks to releases that do not list it (see sessions/tmux-naming.js).
+ */
+export function newReleaseManifest(
+  version,
+  platform = `${process.platform}-${process.arch}`,
+) {
+  return releaseManifest({
+    version: releaseVersion(version),
+    platform,
+    schemaVersion: 1,
+    schemaMin: 1,
+    schemaMax: dataSchema,
+    tmuxNames: [...TMUX_NAMES],
+  });
+}
 export function packageRelease({
   source,
   node = process.execPath,
@@ -234,13 +253,7 @@ export function packageRelease({
   platform = `${process.platform}-${process.arch}`,
 }) {
   source = fs.realpathSync(source);
-  const manifest = releaseManifest({
-    version: releaseVersion(version),
-    platform,
-    schemaVersion: 1,
-    schemaMin: 1,
-    schemaMax: dataSchema,
-  });
+  const manifest = newReleaseManifest(version, platform);
   const files = [],
     seen = new Set();
   let total = 0;

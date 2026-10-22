@@ -26,6 +26,8 @@ function manager(t) {
     },
     // removeSession needs these five
     target: (id) => `tuiui-${id}`,
+    newSessionName: (id) => `tuiui-${id}`,
+    killSession: async () => {},
     serial: (fn) => fn(),
     current: async () => ({ status: "stopped" }),
     tmux: async () => {},

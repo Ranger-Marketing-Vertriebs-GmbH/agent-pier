@@ -31,6 +31,8 @@ async function fixture(t, initial = {}) {
     }
     if (["capture-pane", "kill-session", "run-shell"].includes(args[0])) return "";
     assert.equal(args[0], "list-panes");
+    // No session runs under the other name form.
+    if (args[2].startsWith("=agentpier-")) throw new Error("can't find session");
     if (tmux.paneError) throw new Error(tmux.paneError);
     return tmux.panes + "\n";
   });

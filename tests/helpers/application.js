@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createApplication } from "../../server/app.js";
+import { tmuxSocketPaths } from "../../server/features/sessions/tmux-naming.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 
 const execute = promisify(execFile);
@@ -58,8 +59,7 @@ export async function applicationFixture(t, overrides = {}) {
   let listOwnedSessions;
   let url;
   let disposed = false;
-  const hash = createHash("sha256").update(dataDir).digest("hex").slice(0, 24);
-  const expectedSocket = `/tmp/tuiui-${process.getuid?.() ?? "user"}-${hash}/tmux.sock`;
+  const expectedSocket = tmuxSocketPaths(dataDir).produced;
 
   async function start() {
     application = await createApplication({ ...configuration, dataDir, home, port: 0 });
