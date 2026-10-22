@@ -18,7 +18,7 @@ const languages = {
     note: "Earlier messages were summarised (about 150k → 9k tokens).",
     nothing: "The history cannot be summarised any further right now.",
     interrupted:
-      "The summary stopped because the agent runtime restarted. The chat is ready again.",
+      "The summary stopped because the agent runtime stopped or restarted. The chat is ready again.",
   },
   de: {
     hint: /Dieser Chat ist lang\./,
@@ -29,7 +29,7 @@ const languages = {
     note: "Ältere Nachrichten wurden zusammengefasst (etwa 150k → 9k Tokens).",
     nothing: "Der Verlauf lässt sich gerade nicht weiter zusammenfassen.",
     interrupted:
-      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit neu gestartet ist. Der Chat ist wieder bereit.",
+      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit beendet oder neu gestartet wurde. Der Chat ist wieder bereit.",
   },
 };
 

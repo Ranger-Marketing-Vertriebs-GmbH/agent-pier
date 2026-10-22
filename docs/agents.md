@@ -599,8 +599,9 @@ stays the same chat, also your main chat with its reminders, routines, check-ins
 Telegram. A message you send meanwhile waits and goes out afterwards, once. A very long
 history can take more than ten minutes: the chat then keeps showing the summary as
 running and unlocks as soon as the agent service is done. If the summary ends without
-a result after that, because it failed, the agent runtime restarted, or it gave no
-answer within an hour, the chat says so once it is ready again. If there is nothing
+a result after that, because it failed, found nothing left to summarise, could not
+start, the agent runtime stopped or restarted, or its end could not be confirmed, the
+chat says so once it is ready again, until you write your next message. If there is nothing
 left to summarise, or the agent service refuses, the chat says so. **Hide**
 puts the hint away for this chat; it comes back once the chat grew by half again or by
 50,000 tokens, whichever comes first, or once it is long again after its history was

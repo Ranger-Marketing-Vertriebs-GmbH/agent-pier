@@ -11,13 +11,17 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { compactEndOf } from "../../server/features/assistants/compaction-watch.js";
+import {
+  compactOutcome,
+  latestMarker,
+  readBaseline,
+} from "../../server/features/assistants/compaction-watch.js";
 
-// AGENTPIER-190: what compaction-watch.js relies on when a summary on request
-// outlives its request. A connection that called `sessions.subscribe` sees
-// `session.operation` compact start and end for the chat's key before the
-// `sessions.compact` answer; the main connection, which never subscribes, sees
-// neither; the finished summary is a compaction marker in chat.history.
+// AGENTPIER-190: what long-chats.js and compaction-watch.js rely on for a summary
+// on request. Its `sessions.compact` answer says how it ended, a repeated one that
+// finds nothing left answers `compacted: false` (the outcome "nothing"), and a
+// finished summary adds a compaction marker to chat.history with a new id and a
+// timestamp from the summary's run: the read-only evidence after a dropped call.
 
 // Answers every model call (turns and the summary) with a short text.
 async function model() {
@@ -55,7 +59,7 @@ async function model() {
 
 const packageRoot = process.env.AGENTPIER_ASSISTANT_MEMORY_RUNTIME;
 test(
-  "pinned runtime: a subscribed connection sees a manual compaction end before its answer",
+  "pinned runtime: a manual compaction answers how it ended and leaves a new marker",
   { skip: !packageRoot, timeout: contractTimeout(180000) },
   async (t) => {
     const runtimeVersion = JSON.parse(
@@ -92,9 +96,7 @@ test(
       generation: () => runtime.generation,
       teams: { store: { context: () => ({ kind: "owner" }) } },
     });
-    let watcher = null;
     t.after(async () => {
-      watcher?.close();
       await runtime.close();
       await bridge.close();
       await fixtureModel.close();
@@ -158,58 +160,30 @@ test(
         { timeoutMs: 65000 },
       );
     }
-    // The main connection's frames, and the watch's own subscribed connection.
-    const mainFrames = [];
-    const unsubscribe = runtime.client.subscribe((frame) => mainFrames.push(frame));
-    t.after(unsubscribe);
-    watcher = runtime.client.sibling();
-    await watcher.connect();
-    const frames = [];
-    watcher.subscribe((frame) => {
-      if (frame.event === "session.operation") frames.push({ ...frame, at: Date.now() });
-    });
-    assert.deepEqual(await watcher.call("sessions.subscribe", {}), { subscribed: true });
+    const warnings = [];
+    const before = await readBaseline(runtime.client, created.key, (what, error) =>
+      warnings.push([what, error?.code]),
+    );
+    assert.deepEqual(warnings, []);
+    const since = Date.now();
     const answer = await runtime.client.call(
       "sessions.compact",
       { key: created.key },
       { timeoutMs: 120000 },
     );
-    const answeredAt = Date.now();
-    assert.equal(answer.compacted, true, JSON.stringify(answer));
-    for (let n = 0; n < 40 && frames.length < 2; n++)
-      await new Promise((r) => setTimeout(r, 50));
-    const operations = frames.filter((f) => f.payload?.sessionKey === created.key);
-    assert.deepEqual(
-      operations.map((f) => [f.payload.operation, f.payload.phase]),
-      [
-        ["compact", "start"],
-        ["compact", "end"],
-      ],
-      JSON.stringify(frames),
+    assert.equal(compactOutcome({ result: answer }), "compacted", JSON.stringify(answer));
+    const marker = latestMarker(
+      await runtime.client.call("chat.history", { sessionKey: created.key, limit: 20 }),
     );
-    const [start, end] = operations.map((f) => f.payload);
-    assert.equal(typeof start.operationId, "string");
-    assert.equal(end.operationId, start.operationId);
-    assert.equal(end.completed, true);
-    assert.equal(typeof end.ts, "number");
-    assert.ok(operations[1].at <= answeredAt + 50, "the end comes before the answer");
-    assert.equal(compactEndOf(operations[1], created.key), "compacted");
-    // The main connection never subscribed and gets no session events.
-    assert.equal(
-      mainFrames.filter((f) => f.event === "session.operation").length,
-      0,
-      "the main connection stays unsubscribed",
+    assert.ok(marker, "the summary leaves a marker");
+    assert.notEqual(marker.id, before?.id);
+    assert.ok(marker.at >= since - 1000, JSON.stringify({ marker, since }));
+    // Nothing left to summarise: an answer, not an error.
+    const again = await runtime.client.call(
+      "sessions.compact",
+      { key: created.key },
+      { timeoutMs: 120000 },
     );
-    // The read-only fallback: a compaction marker in the history.
-    const history = await runtime.client.call("chat.history", {
-      sessionKey: created.key,
-      limit: 20,
-    });
-    assert.ok(
-      history.messages.some(
-        (m) => m.__openclaw?.kind === "compaction" && m.__openclaw.id,
-      ),
-      JSON.stringify(history.messages.map((m) => [m.role, m.__openclaw?.kind])),
-    );
+    assert.equal(compactOutcome({ result: again }), "nothing", JSON.stringify(again));
   },
 );
