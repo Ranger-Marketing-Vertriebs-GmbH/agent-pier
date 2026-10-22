@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -64,18 +65,34 @@ export function ownedSocket(
 }
 
 /**
- * All sessions of a data directory share one tmux server, so the socket is chosen once,
- * at startup. tmux unlinks its socket when its server exits, so an owned socket file
- * means a server that may still hold sessions. The produced socket wins; a later
- * release's socket is used only when it alone exists, i.e. after a rollback from that
- * release while its server still runs. Its sessions stay reachable until the server is
- * gone (reboot or kill-server). A stale file left by a crashed server is harmless, as
- * tmux replaces it with a fresh server on the same path.
+ * Whether a tmux server answers on the socket. tmux leaves its socket file behind when
+ * its server exits (kill-server, last session gone, or a crash), so only an answer
+ * proves a live server. A client hands its environment to the server: give it PATH only.
  */
-export function chooseTmuxSocket(dataDir, options) {
+export function tmuxServerAnswers(socket, { tmuxPath = "tmux", spawn = spawnSync } = {}) {
+  const result = spawn(tmuxPath, ["-S", socket, "list-sessions", "-F", "#{session_id}"], {
+    env: process.env.PATH ? { PATH: process.env.PATH } : {},
+    stdio: "ignore",
+    timeout: 2000,
+  });
+  return result.status === 0;
+}
+
+/**
+ * All sessions of a data directory share one tmux server, so the socket is chosen once,
+ * at startup, by which of our sockets a server answers on: the produced socket when its
+ * server answers; otherwise a later release's socket when its server answers, i.e.
+ * after a rollback from that release while its server still runs (its sessions stay
+ * reachable until that server is gone); otherwise the produced socket, where tmux
+ * starts a fresh server even over a stale socket file.
+ */
+export function chooseTmuxSocket(dataDir, options = {}) {
   const { produced, alternate } = tmuxSocketPaths(dataDir);
-  if (ownedSocket(produced, options)) return produced;
-  return ownedSocket(alternate, options) ? alternate : produced;
+  const live = (socket) =>
+    ownedSocket(socket, options) &&
+    (options.answers || tmuxServerAnswers)(socket, options);
+  if (live(produced)) return produced;
+  return live(alternate) ? alternate : produced;
 }
 
 /**

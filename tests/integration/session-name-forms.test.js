@@ -6,7 +6,11 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { SessionManager } from "../../server/features/sessions/session-manager.js";
-import { tmuxSocketPaths } from "../../server/features/sessions/tmux-naming.js";
+import {
+  chooseTmuxSocket,
+  ownedSocket,
+  tmuxSocketPaths,
+} from "../../server/features/sessions/tmux-naming.js";
 import { scanSessionNames } from "../../server/features/sessions/session-names.js";
 import { sessionPanes } from "../../server/features/system-status/system-status.js";
 
@@ -173,6 +177,40 @@ for (const socket of ["alternate", "produced"])
     assert.deepEqual(await names(server), [`tuiui-${created.id}`]);
     assert.equal((await manager.get(id)).status, "stopped");
   });
+
+test("startup picks the socket whose tmux server answers, not the one whose file exists", async (t) => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-socket-liveness-"));
+  const { produced, alternate } = tmuxSocketPaths(dataDir);
+  t.after(async () => {
+    for (const file of [produced, alternate]) {
+      await exec(tmuxPath, ["-S", file, "kill-server"]).catch(() => {});
+      await rm(path.dirname(file), { recursive: true, force: true });
+    }
+    await rm(dataDir, { recursive: true, force: true });
+  });
+  const serve = async (socket) => {
+    await mkdir(path.dirname(socket), { recursive: true, mode: 0o700 });
+    await exec(tmuxPath, [
+      "-S",
+      socket,
+      "-f",
+      "/dev/null",
+      "new-session",
+      "-d",
+      "sleep 60",
+    ]);
+  };
+  const stop = (socket) => exec(tmuxPath, ["-S", socket, "kill-server"]);
+  const choose = () => chooseTmuxSocket(dataDir, { tmuxPath });
+  await serve(produced);
+  await serve(alternate);
+  assert.equal(choose(), produced, "both live: the produced socket wins");
+  await stop(produced);
+  assert.ok(ownedSocket(produced), "tmux leaves its socket file behind");
+  assert.equal(choose(), alternate, "a stale produced file next to a live later server");
+  await stop(alternate);
+  assert.equal(choose(), produced, "none live");
+});
 
 test("a session missed by the startup scan is still found under its other name", async (t) => {
   const { id, start } = await laterRelease(t);
