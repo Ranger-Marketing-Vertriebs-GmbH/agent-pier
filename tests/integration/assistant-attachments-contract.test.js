@@ -15,6 +15,7 @@ import { withAttachments } from "../../server/features/assistants/attachment-his
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Opt-in: the pinned Gateway takes AgentPier's attachment shape, shows images to a
 // model that declares image input, and keeps the sent text for the chat history.
@@ -136,7 +137,7 @@ test(
           model: { connectionId: connection.id, modelId },
         });
         await config.apply(agent.id);
-        const chat = await runtime.client.call("sessions.create", {
+        const chat = await createGatewaySession(runtime.client, {
           agentId: agent.runtimeAgentId,
         });
         const conversation = store.saveConversation({

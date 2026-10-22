@@ -15,6 +15,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
 import { assistantMemoryModel } from "../helpers/assistant-memory-model.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_MEMORY_RUNTIME;
 const execute = promisify(execFile);
@@ -151,7 +152,7 @@ async function fixture(t) {
   }
   async function turn(agent, expectedModel, present, absent) {
     const offset = model.requests.length;
-    const session = await runtime.client.call("sessions.create", {
+    const session = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
     });
     const sent = await runtime.client.call("sessions.send", {

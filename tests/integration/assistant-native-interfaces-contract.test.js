@@ -10,6 +10,7 @@ import { GatewayClient } from "../../server/features/assistants/gateway-client.j
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const installed = process.env.AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME;
 const options = {
@@ -190,7 +191,7 @@ test(
       },
     }));
     async function run(label) {
-      const session = await client.call("sessions.create", { agentId: "main", label });
+      const session = await createGatewaySession(client, { agentId: "main", label });
       const sent = await client.call("sessions.send", {
         key: session.key,
         message: "Run the command.",

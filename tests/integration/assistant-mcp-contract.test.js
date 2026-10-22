@@ -21,6 +21,7 @@ import {
   stdioMcpScript,
   stdioRecords,
 } from "../helpers/mcp-test-servers.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs.
 // docs/assistant-mcp-qualification.md records what this contract establishes.
@@ -152,7 +153,7 @@ async function harness(t, { team }) {
   async function turn(agent, call, label) {
     Object.assign(tool, call ?? { name: "none", arguments: {} });
     const from = model.requests.length;
-    const session = await runtime.client.call("sessions.create", {
+    const session = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label,
     });

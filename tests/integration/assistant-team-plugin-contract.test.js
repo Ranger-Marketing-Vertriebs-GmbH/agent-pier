@@ -14,6 +14,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { teamTools } from "../../server/features/assistants/runtime-config.js";
 import plugin from "../../server/features/assistants/team-plugin/index.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 test("plugin guard rejects a prepare response after native invocation retirement", async (t) => {
   let live = true,
@@ -198,7 +199,7 @@ test(
       },
     });
     await config.apply(parent.id);
-    const created = await runtime.client.call("sessions.create", {
+    const created = await createGatewaySession(runtime.client, {
       agentId: parent.runtimeAgentId,
       label: "Contract parent",
     });
@@ -240,7 +241,7 @@ test(
         ["sessions_spawn", "sessions_send", "gateway", "exec"].includes(n),
       ),
     );
-    const bypassChat = await runtime.client.call("sessions.create", {
+    const bypassChat = await createGatewaySession(runtime.client, {
       agentId: parent.runtimeAgentId,
       label: "Denied native spawn",
     });
@@ -266,7 +267,7 @@ test(
     );
     // A lead's ask blocks its tool call beyond the ordinary 10-second bridge budget
     // and its answer reaches the model as the tool result.
-    const askChat = await runtime.client.call("sessions.create", {
+    const askChat = await createGatewaySession(runtime.client, {
       agentId: parent.runtimeAgentId,
       label: "Contract ask",
     });
@@ -308,7 +309,7 @@ test(
     );
     ledger.transition(askAttempt.id, "completed");
     await bridge.close();
-    const another = await runtime.client.call("sessions.create", {
+    const another = await createGatewaySession(runtime.client, {
       agentId: parent.runtimeAgentId,
       label: "Unavailable bridge",
     });

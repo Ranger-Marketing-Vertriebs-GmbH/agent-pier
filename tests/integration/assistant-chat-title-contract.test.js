@@ -12,6 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { chatTitleMethod } from "../../server/features/assistants/team-plugin/chat-title.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // AGENTPIER-187 on the pinned Gateway: the product plugin's title method runs one
 // tool-less prompt on the asking agent's own model and leaves nothing in its
@@ -113,7 +114,7 @@ test(
       },
     });
     for (const agent of agents) await config.apply(agent.id);
-    const created = await runtime.client.call("sessions.create", {
+    const created = await createGatewaySession(runtime.client, {
       agentId: agents[1].runtimeAgentId,
       label: "Contract chat",
     });

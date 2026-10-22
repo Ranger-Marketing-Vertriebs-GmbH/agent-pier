@@ -9,6 +9,7 @@ import { GatewayClient } from "../../server/features/assistants/gateway-client.j
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "./assistant-model-server.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // Shared fixture for the shell contract: an isolated Gateway on the deterministic
 // model, whose exec calls are set per turn through `gateway.tool`. `environment`
@@ -106,7 +107,7 @@ export async function shellGateway(t, installed, { prefix, environment, setup } 
     async send(label, args, agentId = "main") {
       tool.arguments = typeof args === "string" ? { command: args } : args;
       const from = model.requests.length;
-      const session = await runtime.client.call("sessions.create", { agentId, label });
+      const session = await createGatewaySession(runtime.client, { agentId, label });
       const sent = await runtime.client.call("sessions.send", {
         key: session.key,
         message: "Run the command.",
