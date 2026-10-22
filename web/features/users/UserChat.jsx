@@ -197,6 +197,7 @@ export default function UserChat({
               active={active}
               uncertain={chat.uncertain}
               compacting={Boolean(!chat.uncertain && history.compacting)}
+              compactOutcome={history.compactOutcome}
               steps={stepsOf(chat.feed.steps, latest?.attempt)}
               longChat={history.longChat}
               longChatActions={chat.available ? longChat : null}

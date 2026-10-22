@@ -29,7 +29,8 @@ function phaseText(view) {
  * last), a turn that hears nothing from the model with Stop and Try again, a turn
  * of unknown outcome (`explainUncertain` says why; `onRecover` reviews it), why a
  * failed turn ended, and a hint when the chat grew very long. `compacting` also shows
- * a summary the person asked for outside a turn. `onStop`, `onRetry`, `onRecover` and
+ * a summary the person asked for outside a turn, and `compactOutcome` how one ended
+ * that outlived its request (server long-chats.js). `onStop`, `onRetry`, `onRecover` and
  * `longChatActions` (useLongChat) are null where the chat cannot act.
  */
 export default function AgentRunState({
@@ -38,6 +39,7 @@ export default function AgentRunState({
   active,
   uncertain,
   compacting,
+  compactOutcome,
   steps,
   longChat,
   longChatActions = null,
@@ -160,6 +162,11 @@ export default function AgentRunState({
             </div>
           )}
         </div>
+      )}
+      {compactOutcome && !compacting && copy.compactOutcome[compactOutcome] && (
+        <p className="assistant-notice assistant-compact-outcome" role="status">
+          {copy.compactOutcome[compactOutcome]}
+        </p>
       )}
       {longChat && !active && !compacting && (
         <div className="assistant-notice assistant-long-chat" role="status">

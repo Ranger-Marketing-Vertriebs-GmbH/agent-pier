@@ -51,4 +51,11 @@ export const agentRunStepsCopy = {
     "This chat is long. After a pause the first reply takes longer, and older details are easier to miss.",
   summarise: "Summarise now",
   dismiss: "Hide",
+  compactOutcome: {
+    failed: "The summary did not finish. The chat is ready again.",
+    interrupted:
+      "The summary stopped because the agent runtime restarted. The chat is ready again.",
+    unknown:
+      "The summary did not report back within an hour, so it is unclear whether it finished. The chat is ready again.",
+  },
 };

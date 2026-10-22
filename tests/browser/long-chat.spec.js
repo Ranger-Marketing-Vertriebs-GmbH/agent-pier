@@ -17,6 +17,8 @@ const languages = {
       "Summarising the conversation so far — this can take a few minutes for long chats.",
     note: "Earlier messages were summarised (about 150k → 9k tokens).",
     nothing: "The history cannot be summarised any further right now.",
+    interrupted:
+      "The summary stopped because the agent runtime restarted. The chat is ready again.",
   },
   de: {
     hint: /Dieser Chat ist lang\./,
@@ -26,6 +28,8 @@ const languages = {
       "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
     note: "Ältere Nachrichten wurden zusammengefasst (etwa 150k → 9k Tokens).",
     nothing: "Der Verlauf lässt sich gerade nicht weiter zusammenfassen.",
+    interrupted:
+      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit neu gestartet ist. Der Chat ist wieder bereit.",
   },
 };
 
@@ -91,6 +95,31 @@ for (const [language, copy] of Object.entries(languages))
       await expect(status).not.toHaveText(copy.summarising);
       await expect(hint(page)).toHaveCount(0);
       expect(compacts).toEqual(["POST"]);
+    });
+
+    test("a summary that outlives its request keeps running, then says how it ended", async ({
+      page,
+    }) => {
+      const state = await chatFixture(page, { language, history: longHistory });
+      await page.route("**/api/assistant-conversations/dinner/compact", async (route) => {
+        state.history = { ...longHistory, compacting: true };
+        // The request's own timeout passed; the Gateway still summarises.
+        await route.fulfill({ json: { compacted: false, running: true } });
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      const status = page.locator(".assistant-run-state");
+      await expect(status).toHaveText(copy.summarising);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      // The runtime restarted meanwhile: the chat is free again and says why.
+      state.history = { ...longHistory, compactOutcome: "interrupted" };
+      await page.evaluate(() => window.agentFeed.push("dinner"));
+      await expect(page.locator(".assistant-compact-outcome")).toHaveText(
+        copy.interrupted,
+      );
+      await expect(status).not.toHaveText(copy.summarising);
+      await noSideScroll(page);
     });
 
     test("Hide puts the hint away, and a refusal shows why", async ({ page }) => {
