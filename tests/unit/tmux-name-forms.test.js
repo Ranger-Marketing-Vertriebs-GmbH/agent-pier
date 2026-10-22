@@ -74,7 +74,7 @@ test("current and legacy tmux session names resolve to the same id", () => {
     assert.equal(sessionIdFromName(name), null, name);
 });
 
-test("the produced socket wins; a later release's socket is used only when alone", async (t) => {
+test("the socket is chosen by which owned server answers, the produced one first", async (t) => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "agentpier-socket-choice-"));
   const { produced, alternate } = tmuxSocketPaths(dataDir);
   const servers = [];
@@ -90,25 +90,56 @@ test("the produced socket wins; a later release's socket is used only when alone
     servers.push(server);
     await new Promise((resolve) => server.listen(socket, resolve));
   };
+  const asked = [];
+  const answering =
+    (...sockets) =>
+    (socket) => {
+      asked.push(socket);
+      return sockets.includes(socket);
+    };
   assert.match(produced, /^\/tmp\/tuiui-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
   assert.match(alternate, /^\/tmp\/agentpier-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
-  assert.equal(chooseTmuxSocket(dataDir), produced, "nothing running: produced socket");
-  // A regular file in place of a socket is never ours.
+  assert.equal(
+    chooseTmuxSocket(dataDir, { answers: answering(produced, alternate) }),
+    produced,
+  );
+  assert.deepEqual(asked, [], "no socket file: nothing is asked");
+  // A regular file in place of a socket is never ours, so it is never asked.
   mkdirSync(path.dirname(alternate), { mode: 0o700 });
   writeFileSync(alternate, "");
-  assert.equal(chooseTmuxSocket(dataDir), produced);
+  assert.equal(chooseTmuxSocket(dataDir, { answers: answering(alternate) }), produced);
+  assert.deepEqual(asked, []);
   rmSync(alternate);
   await listen(alternate);
-  assert.equal(chooseTmuxSocket(dataDir), alternate, "rolled back from a later release");
+  await listen(produced);
+  assert.equal(
+    chooseTmuxSocket(dataDir, { answers: answering(produced, alternate) }),
+    produced,
+  );
+  assert.equal(
+    chooseTmuxSocket(dataDir, { answers: answering(alternate) }),
+    alternate,
+    "a stale produced socket file next to a live later server",
+  );
+  assert.equal(
+    chooseTmuxSocket(dataDir, { answers: answering() }),
+    produced,
+    "none live",
+  );
   // Someone else's socket is not ours either.
   const foreign = (file) => {
     const stat = lstatSync(file);
     return Object.assign(Object.create(Object.getPrototypeOf(stat)), stat, { uid: 0 });
   };
   assert.equal(ownedSocket(alternate, { lstat: foreign, uid: 501 }), false);
-  assert.equal(chooseTmuxSocket(dataDir, { lstat: foreign, uid: 501 }), produced);
-  await listen(produced);
-  assert.equal(chooseTmuxSocket(dataDir), produced, "both running: produced wins");
+  assert.equal(
+    chooseTmuxSocket(dataDir, {
+      lstat: foreign,
+      uid: 501,
+      answers: answering(alternate),
+    }),
+    produced,
+  );
 });
 
 test("system status counts both names and prefers a live pane, then the produced name", async () => {

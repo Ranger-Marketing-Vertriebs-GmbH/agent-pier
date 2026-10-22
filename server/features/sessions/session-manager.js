@@ -40,7 +40,7 @@ export class SessionManager {
     if (typeof dataDir !== "string" || !path.isAbsolute(dataDir))
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
-    this.socketPath = chooseTmuxSocket(dataDir);
+    this.socketPath = chooseTmuxSocket(dataDir, { tmuxPath });
     // Ids whose session runs as `agentpier-<id>`, started by a later release.
     this.alternateSessions = new Set();
     this.tmuxPath = tmuxPath;
