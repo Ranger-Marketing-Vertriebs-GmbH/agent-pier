@@ -13,6 +13,7 @@ import {
   chooseTmuxSocket,
   ownedSocket,
   sessionIdFromName,
+  tmuxServerAnswers,
   tmuxSocketPaths,
 } from "../../server/features/sessions/tmux-naming.js";
 import { sessionPanes } from "../../server/features/system-status/system-status.js";
@@ -139,6 +140,20 @@ test("the socket is chosen by which owned server answers, the produced one first
       answers: answering(alternate),
     }),
     produced,
+  );
+});
+
+test("a probe that times out counts as a live server; a refused or failed one does not", () => {
+  const probe = (result) => tmuxServerAnswers("/tmp/x.sock", { spawn: () => result });
+  assert.equal(probe({ status: 0 }), true);
+  assert.equal(
+    probe({ status: null, error: Object.assign(new Error(), { code: "ETIMEDOUT" }) }),
+    true,
+  );
+  assert.equal(probe({ status: 1 }), false);
+  assert.equal(
+    probe({ status: null, error: Object.assign(new Error(), { code: "ENOENT" }) }),
+    false,
   );
 });
 

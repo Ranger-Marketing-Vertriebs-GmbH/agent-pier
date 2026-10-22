@@ -68,6 +68,8 @@ export function ownedSocket(
  * Whether a tmux server answers on the socket. tmux leaves its socket file behind when
  * its server exits (kill-server, last session gone, or a crash), so only an answer
  * proves a live server. A client hands its environment to the server: give it PATH only.
+ * A probe that times out counts as an answer: a dead socket refuses at once, so only a
+ * live but slow server can stall, and its sessions must not be left behind.
  */
 export function tmuxServerAnswers(socket, { tmuxPath = "tmux", spawn = spawnSync } = {}) {
   const result = spawn(tmuxPath, ["-S", socket, "list-sessions", "-F", "#{session_id}"], {
@@ -75,7 +77,7 @@ export function tmuxServerAnswers(socket, { tmuxPath = "tmux", spawn = spawnSync
     stdio: "ignore",
     timeout: 2000,
   });
-  return result.status === 0;
+  return result.status === 0 || result.error?.code === "ETIMEDOUT";
 }
 
 /**
