@@ -33,16 +33,41 @@ runs:
       with:
         node-version: 24
         cache: npm
-    - name: Install browser test prerequisites
+    - shell: bash
+      run: npm ci
+    - name: Read the runner image
+      id: image
+      shell: bash
+      run: echo "id=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+    # The runner's Ubuntu mirror has trickled Playwright's system packages at a
+    # few kB/s (117 MB for WebKit, cancelled after 45 min). apt reuses every
+    # cached .deb whose version the index still offers and downloads only the
+    # rest; a new runner image starts from the previous image's files.
+    - name: Restore the browser system packages
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/browser-debs
+        key: browser-debs-${{ inputs.browser }}-${{ steps.image.outputs.id }}
+        restore-keys: browser-debs-${{ inputs.browser }}-
+    - name: Install the browser system packages
       shell: bash
       run: |
+        set -euo pipefail
         # Playwright downloads its own browsers; the runner's Chrome APT
         # repository is unnecessary and can fail while its index is updating.
         sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
-        sudo apt-get update
-        sudo apt-get install -y tmux
-    - shell: bash
-      run: npm ci
+        debs="$HOME/.cache/browser-debs"
+        mkdir -p "$debs"
+        find "$debs" -maxdepth 1 -name '*.deb' -exec sudo cp -t /var/cache/apt/archives {} +
+        npx playwright install-deps "$BROWSER"
+        # The runner image ships tmux.
+        command -v tmux > /dev/null || sudo apt-get install -y tmux
+        # Keep the versions the index still offers for the cache.
+        sudo apt-get autoclean
+        rm -f "$debs"/*.deb
+        find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -t "$debs" {} +
+      env:
+        BROWSER: ${{ inputs.browser }}
     - name: Restore the Playwright browser
       id: playwright-cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -51,12 +76,7 @@ runs:
         key: playwright-${{ inputs.browser }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
     - if: steps.playwright-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: npx playwright install --with-deps "$BROWSER"
-      env:
-        BROWSER: ${{ inputs.browser }}
-    - if: steps.playwright-cache.outputs.cache-hit == 'true'
-      shell: bash
-      run: npx playwright install-deps "$BROWSER"
+      run: npx playwright install "$BROWSER"
       env:
         BROWSER: ${{ inputs.browser }}
     - shell: bash

@@ -186,6 +186,8 @@ The assistant runtime workflow runs its Linux jobs on pull requests that touch i
 
 Each Chromium shard of `Verify` gets its own spec list from the `select tests` job, and every shard job runs its list in two parallel Playwright processes, each with its own test server port (4741, 4742), temporary data and `test-results/process-<n>` output directory; with two processes every log line starts with `[p1]` or `[p2]`, and the job fails when either process fails. WebKit shards and the nightly Chromium shards compute their lists the same way. `scripts/browser-shards.mjs` assigns specs longest-first to the lightest shard by the seconds recorded in `scripts/browser-shard-timings.json`; a spec without a measurement weighs the median, and without the file every process falls back to Playwright's `--shard`. A pull request plans one shard per about 600 recorded seconds, at most four.
 
+Every browser shard job (`.github/actions/browser-shard/action.yml`) keeps the browser's Ubuntu system packages in the Actions cache per runner image and hands them to apt before `playwright install-deps`, so apt downloads only the packages that changed since the cached runner image. The Ubuntu mirror has trickled the 117 MB of WebKit packages for longer than a shard's time limit.
+
 Refresh the timings when shards drift apart, for example after many new specs. The command reads the logs of the latest successful merge-queue and nightly runs through the GitHub CLI and keeps each spec's median:
 
 ```sh
