@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { createApplication } from "../../server/app.js";
 let application, dir, url, token;
 test.beforeAll(async () => {
-  dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "tuiui-browser-")));
+  dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-browser-")));
   application = await createApplication({ dataDir: dir, home: dir, port: 0 });
   await new Promise((r) => application.server.listen(0, "127.0.0.1", r));
   url = `http://127.0.0.1:${application.server.address().port}`;
@@ -149,13 +149,13 @@ test("browser reconnects after HTTP service restart while CLI memory remains ali
 test("a user can open the workspace from an external link without weakening API origin checks", async ({
   page,
 }) => {
-  await page.route("https://tuiui-link-test.invalid/", (route) =>
+  await page.route("https://agentpier-link-test.invalid/", (route) =>
     route.fulfill({
       contentType: "text/html; charset=utf-8",
       body: `<!doctype html><meta charset="utf-8"><a href="${url}/">Open workspace</a>`,
     }),
   );
-  await page.goto("https://tuiui-link-test.invalid/");
+  await page.goto("https://agentpier-link-test.invalid/");
   const [response] = await Promise.all([
     page.waitForResponse((response) => response.url() === url + "/"),
     page.getByRole("link", { name: "Open workspace" }).click(),

@@ -9,9 +9,9 @@ const config = loadConfig();
 const local = `http://127.0.0.1:${config.port}`;
 const remote = config.remoteUrl;
 if (!remote) throw Error(serverMessages.scripts.tailscaleUrlMissing);
-const artifacts = path.resolve(".superpowers/sdd/2026-09-06-tuiui/screenshots");
+const artifacts = path.resolve(".superpowers/sdd/2026-09-06-deployment/screenshots");
 fs.mkdirSync(artifacts, { recursive: true });
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "tuiui-deployment-"));
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-deployment-"));
 const sessions = [];
 const browser = await chromium.launch({
   channel: process.platform === "darwin" ? "chrome" : undefined,

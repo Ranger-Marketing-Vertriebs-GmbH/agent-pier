@@ -28,6 +28,6 @@ Den Besitzer richtet nur ein, wer direkt auf dem AgentPier-Rechner arbeitet (auc
 
 Nur `GET`/`HEAD /api/health` bleiben für direkte lokale Aufrufe ohne Proxy- oder Tailscale-Header ohne Anmeldung erreichbar, damit Dienststart und Release-Aktivierung weiterhin ihre Versionsprüfung durchführen können. Über Fernzugriff benötigt auch dieser Endpunkt eine Anmeldung. MCP-Maschinenzugänge behalten ihre eigene OAuth-/Token-Authentifizierung; ihre Tokens berechtigen weiterhin nicht zum Aufruf normaler Browser-APIs. Native CLI-Anfragen nutzen unverändert ihre eigenen sitzungsgebundenen Kanäle.
 
-`npm run dev` leitet sowohl `/api` als auch `/auth` an den Backend-Port weiter. Die bestehende explizite Freigabe der Entwicklungs-Origin bleibt erforderlich. Browser-Tests legen nur in ihrem isolierten Testserver einen temporären Benutzer an; Tests gegen einen externen Testserver können mit `TUIUI_TEST_STORAGE_STATE` eine vorhandene Playwright-Session verwenden.
+`npm run dev` leitet sowohl `/api` als auch `/auth` an den Backend-Port weiter. Die bestehende explizite Freigabe der Entwicklungs-Origin bleibt erforderlich. Browser-Tests legen nur in ihrem isolierten Testserver einen temporären Benutzer an; Tests gegen einen externen Testserver können mit `AGENTPIER_TEST_STORAGE_STATE` eine vorhandene Playwright-Session verwenden.
 
 ![Erste Benutzeranlage auf einem Mobilgerät](screenshots/agentpier-login-setup.png)

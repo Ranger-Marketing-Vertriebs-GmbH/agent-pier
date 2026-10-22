@@ -54,7 +54,7 @@ test("session validation never launches absent tool or invalid directory", async
     body(url, {
       accountId: "local-codex",
       name: "Test",
-      cwd: "/missing-path-tuiui-test",
+      cwd: "/missing-path-agentpier-test",
     }),
   );
   assert.equal(res.status, 400);

@@ -32,4 +32,4 @@ The language selector is available at login and in general settings. The initial
 
 ## Verification
 
-Run `npx eslint web`, `npx prettier --check web`, and `npm run build`. Browser regressions run against an owned Vite instance with `TUIUI_TEST_URL=http://127.0.0.1:5188 npx playwright test tests/browser`. The browser suite includes isolated synthetic PTY integration in `live.spec.js`; other scenarios intercept HTTP and WebSocket traffic.
+Run `npx eslint web`, `npx prettier --check web`, and `npm run build`. Browser regressions run against an owned Vite instance with `AGENTPIER_TEST_URL=http://127.0.0.1:5188 npx playwright test tests/browser`. The browser suite includes isolated synthetic PTY integration in `live.spec.js`; other scenarios intercept HTTP and WebSocket traffic.
