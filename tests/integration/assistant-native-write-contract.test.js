@@ -11,6 +11,7 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // The model writes whatever "WRITE <path> <content>" asks for, once per turn.
 async function writingModel() {
@@ -152,7 +153,10 @@ test(
     assert.equal(bridge.guardLive(), true, "the started Gateway reports its guard");
     await config.apply(agent.id);
     const workspace = path.join(runtime.paths.workspaces, agent.id);
-    const created = await runtime.client.call("sessions.create", {
+    // The Gateway's first sessions.create loads its session handlers cold: more
+    // than the default call timeout on the Intel macOS runner, so it gets the
+    // budget AgentPier's own conversations use.
+    const created = await createGatewaySession(runtime.client, {
       agentId: agent.runtimeAgentId,
       label: "Write contract",
     });
