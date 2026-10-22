@@ -2,7 +2,7 @@ import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
-import { watchCompactEnd } from "./compaction-watch.js";
+import { readBaseline, watchCompactEnd } from "./compaction-watch.js";
 
 // OpenClaw 2026.10.3 `sessions.compact` {key} summarises a session's history with the
 // session's own model (trigger "manual", sessions-compaction-runner) and answers once
@@ -28,6 +28,10 @@ export const dismissalTable =
 // Whose chat it is: a user's own, or the owner's.
 const personOf = (conversation) =>
   typeof conversation.userId === "string" ? conversation.userId : "owner";
+// What a failure logs: its code and the Gateway's error class, never its text (it may
+// name host paths).
+const reasonOf = (error) =>
+  `${error?.code || "unknown"}${error?.remoteError ? ` (${error.remoteError})` : ""}`;
 // The Gateway's refusal of a session that is working; its other answers are failures.
 const working = (error) =>
   error?.code === "INVALID_REQUEST" &&
@@ -106,8 +110,10 @@ export class LongChats {
    * meanwhile. The request answers after `answerMs` at the latest: then the summary
    * still runs on the Gateway (holding the session's lifecycle lock, so a send would
    * only wait for it), and the chat stays compacting until compaction-watch.js sees
-   * its end, the Gateway goes away, or `maxMs` passed. An end the request no longer
-   * reported is the chat's notice (outcome).
+   * its end, the Gateway that runs it is gone, or `maxMs` passed. A dropped
+   * connection to the same Gateway loses only the call: the summary goes on there,
+   * and so does the watch. An end the request no longer reported is the chat's
+   * notice (outcome).
    */
   compact(conversation) {
     const service = this.service;
@@ -116,14 +122,24 @@ export class LongChats {
     const client = service.runtime.client;
     const generation = service.runtime.generationId ?? null;
     const { answerMs, maxMs, pollMs } = this.timing;
+    const since = service.now?.() ?? Date.now();
+    // Whether the Gateway that runs the summary is still the runtime's.
+    const alive = () =>
+      !service.closed &&
+      service.runtime.client === client &&
+      (service.runtime.generationId ?? null) === generation &&
+      !["failed", "disabled", "stopped"].includes(
+        service.runtime.status?.().availability,
+      );
     this.outcomes.delete(id);
     let answered = false;
     let settled = false;
     let timer;
+    let answer;
     // The upper bound, also when the client's own timeout never fires.
     const bound = setTimeout(() => finish("unknown"), maxMs);
     bound.unref?.();
-    const finish = (outcome) => {
+    const finish = (outcome, error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -134,77 +150,92 @@ export class LongChats {
       // A hint hidden before measured the history that is summarised now.
       if (outcome === "compacted") this.unhide(id, personOf(conversation));
       else if (answered) {
-        console.warn(`Summarising chat ${id} ended after its request: ${outcome}`);
-        this.outcomes.set(id, outcome === "busy" ? "failed" : outcome);
+        console.warn(
+          `Summarising chat ${id} ended after its request: ${outcome}${error ? ` ${reasonOf(error)}` : ""}`,
+        );
+        // A message queued meanwhile goes out next; the notice stays for it.
+        this.outcomes.set(id, {
+          outcome,
+          spared: service.queued?.get(id)?.clientRequestId ?? null,
+        });
       }
       service.changed({ conversationId: id });
       // A message queued meanwhile goes out now, once (queued-dispatch.js).
       if (!service.closed) dispatchQueued(service, id).catch(() => {});
     };
-    const call = client.call(
-      "sessions.compact",
-      { key: sessionKey },
-      { timeoutMs: maxMs },
+    // Reads the newest marker first, so the watch knows which one is new.
+    const baseline = readBaseline(client, sessionKey);
+    const call = baseline.then(() =>
+      client.call("sessions.compact", { key: sessionKey }, { timeoutMs: maxMs }),
     );
-    call.then(
-      (result) => finish(result?.compacted === true ? "compacted" : "failed"),
-      (error) =>
-        finish(
-          working(error)
-            ? "busy"
-            : error?.answered
-              ? "failed"
-              : // No answer within maxMs: whether it summarised is unknown.
-                error?.code === "TIMEOUT"
-                ? "unknown"
-                : // The Gateway went away, and its compaction with it.
-                  "interrupted",
-        ),
-    );
-    const job = new Promise((resolve, reject) => {
-      timer = setTimeout(() => {
+    // The request answers that it runs; the watch looks for its end.
+    const goOn = () => {
+      if (settled || answered) return;
+      answered = true;
+      clearTimeout(timer);
+      console.warn(
+        `Summarising chat ${id} still runs; the chat stays locked until the Gateway ends it.`,
+      );
+      baseline.then((before) => {
         if (settled) return;
-        answered = true;
-        console.warn(
-          `Summarising chat ${id} still runs after ${Math.round(answerMs / 1000)} s; the chat stays locked until the Gateway ends it.`,
-        );
         this.stops.set(
           id,
           watchCompactEnd({
             client,
             sessionKey,
             pollMs,
-            alive: () =>
-              !service.closed &&
-              service.runtime.client === client &&
-              (service.runtime.generationId ?? null) === generation,
+            alive,
             onEnd: finish,
+            baseline: before,
+            since,
+            label: `chat ${id}`,
           }),
         );
-        resolve({ compacted: false, running: true });
-      }, answerMs);
+      });
+      answer.resolve({ compacted: false, running: true });
+    };
+    const job = new Promise((resolve, reject) => {
+      answer = { resolve, reject };
+      timer = setTimeout(goOn, answerMs);
       timer.unref?.();
-      call.then(
-        (result) => {
-          if (answered) return;
-          if (result?.compacted !== true) reject(chatProblem("CHAT_COMPACT_NOTHING"));
-          else resolve({ compacted: true });
-        },
-        (error) => {
-          if (answered) return;
-          if (working(error)) return reject(chatProblem("CHAT_BUSY"));
-          // The code and the Gateway's error class only: its text may name host paths.
-          console.warn(
-            `Summarising chat ${id} failed: ${error?.code || "unknown"}${
-              error?.remoteError ? ` (${error.remoteError})` : ""
-            }`,
-          );
-          // The Gateway went away before it answered.
-          if (!error?.answered) reject(assistantProblem("unavailable", 503));
-          else reject(chatProblem("CHAT_COMPACT_FAILED"));
-        },
-      );
     });
+    call.then(
+      (result) => {
+        if (!answered)
+          if (result?.compacted !== true)
+            answer.reject(chatProblem("CHAT_COMPACT_NOTHING"));
+          else answer.resolve({ compacted: true });
+        finish(result?.compacted === true ? "compacted" : "nothing");
+      },
+      (error) => {
+        // The connection dropped while the call was sent: the Gateway may well go on
+        // summarising, unless it is gone.
+        if (!error?.answered && error?.code === "CLOSED" && alive()) return goOn();
+        const outcome = working(error)
+          ? "busy"
+          : error?.answered
+            ? "failed"
+            : // No answer within maxMs: whether it summarised is unknown.
+              error?.code === "TIMEOUT"
+              ? "unknown"
+              : // The Gateway went away, and its compaction with it.
+                "interrupted";
+        if (!answered) {
+          if (outcome === "busy") answer.reject(chatProblem("CHAT_BUSY"));
+          else {
+            // The code and the Gateway's error class only: its text may name host paths.
+            console.warn(`Summarising chat ${id} failed: ${reasonOf(error)}`);
+            // The Gateway went away before it answered.
+            answer.reject(
+              error?.answered
+                ? chatProblem("CHAT_COMPACT_FAILED")
+                : assistantProblem("unavailable", 503),
+            );
+          }
+        }
+        finish(outcome, error);
+      },
+    );
     // Its refusal reaches the request; a request that went away leaves it unheard.
     job.catch(() => {});
     this.running.set(id, job);
@@ -213,14 +244,22 @@ export class LongChats {
   }
   /**
    * How a summary ended after its request had answered that it still runs: "failed",
-   * "interrupted" (the Gateway went away) or "unknown" (no end within maxMs); null
-   * otherwise. Kept until the next summary or turn of the chat.
+   * "nothing" (nothing was left to summarise), "busy" (the Gateway refused: the
+   * session had work), "interrupted" (the Gateway went away) or "unknown" (no end
+   * within maxMs); null otherwise. Kept until the next summary, or a turn other than
+   * the message queued during the summary.
    */
   outcome(conversationId) {
-    return this.outcomes.get(conversationId) ?? null;
+    return this.outcomes.get(conversationId)?.outcome ?? null;
   }
-  /** The person moved on: a turn was accepted (conversation-turns.js). */
-  settle(conversationId) {
+  /** A turn was accepted (conversation-turns.js): the person moved on. */
+  settle(conversationId, clientRequestId) {
+    const entry = this.outcomes.get(conversationId);
+    if (!entry) return;
+    if (entry.spared !== null && entry.spared === clientRequestId) {
+      entry.spared = null;
+      return;
+    }
     this.outcomes.delete(conversationId);
   }
   /** Ends every watch at shutdown; the Gateway's own compactions are not touched. */

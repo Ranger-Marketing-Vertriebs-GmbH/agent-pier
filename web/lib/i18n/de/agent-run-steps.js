@@ -53,6 +53,8 @@ export const agentRunStepsCopy = {
   dismiss: "Ausblenden",
   compactOutcome: {
     failed: "Die Zusammenfassung wurde nicht fertig. Der Chat ist wieder bereit.",
+    nothing: "Es gab nichts mehr zusammenzufassen. Der Chat ist wieder bereit.",
+    busy: "Die Zusammenfassung konnte nicht starten, weil der Agent beschäftigt war. Der Chat ist wieder bereit.",
     interrupted:
       "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit neu gestartet ist. Der Chat ist wieder bereit.",
     unknown:

@@ -13,13 +13,29 @@
 // - read-only: a new compaction marker in chat.history (`__openclaw.kind:
 //   "compaction"`, conversations.js), polled every `pollMs`.
 
-const markerOf = (history) =>
-  (Array.isArray(history?.messages) ? history.messages : [])
+// The newest compaction marker of a chat.history page: { id, at } or null.
+export function latestMarker(history) {
+  const m = (Array.isArray(history?.messages) ? history.messages : [])
     .filter((m) => m?.__openclaw?.kind === "compaction" && m.__openclaw.id)
-    .map((m) => String(m.__openclaw.id))
-    .at(-1) ?? null;
+    .at(-1);
+  return m ? { id: String(m.__openclaw.id), at: Number(m.timestamp) || 0 } : null;
+}
 const sameSession = (a, b) =>
   typeof a === "string" && typeof b === "string" && a.toLowerCase() === b.toLowerCase();
+// What a failed step logs: its code and the Gateway's error class, never its text.
+const reasonOf = (error) =>
+  `${error?.code || "unknown"}${error?.remoteError ? ` (${error.remoteError})` : ""}`;
+
+/**
+ * The newest compaction marker before the summary starts, read by long-chats.js
+ * before it calls `sessions.compact`: null for none, undefined when the read failed.
+ */
+export function readBaseline(client, sessionKey) {
+  return client.call("chat.history", { sessionKey, limit: 20 }).then(
+    (history) => latestMarker(history),
+    () => undefined,
+  );
+}
 
 /** Whether a Gateway event frame ends the compaction of `sessionKey`; its outcome. */
 export function compactEndOf(frame, sessionKey) {
@@ -37,17 +53,37 @@ export function compactEndOf(frame, sessionKey) {
 /**
  * Watches the session until its compaction ends, then calls `onEnd` once with
  * "compacted", "failed" or "interrupted" (`alive()` turned false: the Gateway that
- * ran it is gone). Returns `stop()`, which ends the watch without calling `onEnd`.
+ * ran it is gone). `baseline` is the newest marker before the summary started (null
+ * for none); when it could not be read (undefined), a marker written since `since`
+ * counts. The poll goes on across a reconnect of the same Gateway, and the event
+ * connection is opened again once it was lost. Each failing path is logged once per
+ * watch, naming `label`. Returns `stop()`, which ends the watch without `onEnd`.
  */
-export function watchCompactEnd({ client, sessionKey, pollMs, alive, onEnd }) {
+export function watchCompactEnd({
+  client,
+  sessionKey,
+  pollMs,
+  alive,
+  onEnd,
+  baseline,
+  since,
+  label,
+}) {
   let stopped = false;
   let watcher = null;
-  let baseline;
+  let connecting = false;
+  const warned = new Set();
+  const warnOnce = (what, error) => {
+    if (warned.has(what)) return;
+    warned.add(what);
+    console.warn(`Watching the summary of ${label}: ${what} failed: ${reasonOf(error)}`);
+  };
   const stop = () => {
     if (stopped) return;
     stopped = true;
     clearInterval(timer);
     watcher?.close();
+    watcher = null;
   };
   const end = (outcome) => {
     if (stopped) return;
@@ -57,7 +93,7 @@ export function watchCompactEnd({ client, sessionKey, pollMs, alive, onEnd }) {
   const listen = async () => {
     const sibling = client.sibling?.();
     if (!sibling) return;
-    watcher = sibling;
+    connecting = true;
     try {
       await sibling.connect();
       if (stopped) return sibling.close();
@@ -65,24 +101,36 @@ export function watchCompactEnd({ client, sessionKey, pollMs, alive, onEnd }) {
         const outcome = compactEndOf(frame, sessionKey);
         if (outcome) end(outcome);
       });
+      // A dropped connection is opened again on the next tick.
+      sibling.once?.("disconnected", () => {
+        if (watcher === sibling) watcher = null;
+      });
+      watcher = sibling;
       await sibling.call("sessions.subscribe", {});
-    } catch {
+    } catch (error) {
       // The marker poll and the request's own answer remain.
+      warnOnce("the event connection", error);
+      if (watcher === sibling) watcher = null;
       sibling.close();
+    } finally {
+      connecting = false;
     }
   };
   const read = async () => {
-    const marker = markerOf(await client.call("chat.history", { sessionKey, limit: 20 }));
-    if (stopped) return;
-    if (baseline === undefined) baseline = marker;
-    else if (marker && marker !== baseline) end("compacted");
+    const marker = latestMarker(
+      await client.call("chat.history", { sessionKey, limit: 20 }),
+    );
+    if (stopped || !marker) return;
+    if (baseline === undefined ? marker.at >= since : marker.id !== baseline?.id)
+      end("compacted");
   };
-  const timer = setInterval(() => {
+  const tick = () => {
     if (!alive()) return end("interrupted");
-    read().catch(() => {});
-  }, pollMs);
+    if (!watcher && !connecting) listen();
+    read().catch((error) => warnOnce("reading the history", error));
+  };
+  const timer = setInterval(tick, pollMs);
   timer.unref?.();
-  read().catch(() => {});
-  listen();
+  tick();
   return stop;
 }

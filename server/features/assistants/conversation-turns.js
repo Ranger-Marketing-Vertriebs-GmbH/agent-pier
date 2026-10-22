@@ -96,7 +96,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   });
   titleFromTurn(service, conversation, context);
   // A summary's notice is over once the chat moves on (long-chats.js).
-  service.longChats?.settle(conversationId);
+  service.longChats?.settle(conversationId, input.clientRequestId);
   // The reconciler leaves an attempt alone while its send is under way.
   const sending = (service.sending ??= new Set());
   sending.add(attempt.id);
