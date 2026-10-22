@@ -256,7 +256,7 @@ export class ConversationFeeds {
     const quietMs = record.view.quietMs + Math.max(0, Date.now() - record.at);
     subscriber.send({ type: "steps", runId, ...record.view, quietMs });
   }
-  // Whether a run answers a request written at or after `since`; an unknown run
+  // Whether a run answers a request written after `since`; an unknown run
   // shows in the history once it ends.
   runFrom(entry, runId, run, since) {
     if (!run.request) {
