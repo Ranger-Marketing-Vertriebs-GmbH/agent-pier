@@ -295,6 +295,10 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     // its person had it summarised (long-chats.js).
     compacting:
       summarising(service, conversation, requests) || !!service.longChats?.compacting(id),
+    // How a summary ended that outlived its request (long-chats.js).
+    ...(service.longChats?.outcome(id)
+      ? { compactOutcome: service.longChats.outcome(id) }
+      : {}),
     ...(longChat ? { longChat } : {}),
   };
 }

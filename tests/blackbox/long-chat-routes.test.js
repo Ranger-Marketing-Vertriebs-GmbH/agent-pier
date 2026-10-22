@@ -265,7 +265,6 @@ test("the Gateway's refusals show as the chat's problems", async (t) => {
       "CHAT_BUSY",
     ],
     [answered("UNAVAILABLE", "Error: model refused"), 502, "CHAT_COMPACT_FAILED"],
-    [Object.assign(Error("late"), { code: "TIMEOUT" }), 502, "CHAT_COMPACT_FAILED"],
   ]) {
     gateway.compact = async () => {
       if (answer instanceof Error) throw answer;

@@ -2,14 +2,17 @@ import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
+import { watchCompactEnd } from "./compaction-watch.js";
 
 // OpenClaw 2026.10.3 `sessions.compact` {key} summarises a session's history with the
 // session's own model (trigger "manual", sessions-compaction-runner) and answers once
 // it is done: { ok, compacted, reason, result }. It refuses a session with an active
 // run or queued work (INVALID_REQUEST) and answers `compacted: false` when there is
 // nothing to summarise. Unlike the compaction before a run, it never runs the
-// pre-compaction memory flush (agent-runner-memory), so it writes no memory.
-const compactTimeoutMs = 10 * 60000;
+// pre-compaction memory flush (agent-runner-memory), so it writes no memory. A large
+// history takes long: the request answers after `answerMs` that it still runs, the
+// chat stays compacting until the Gateway ended it, at most `maxMs` (compactions.js).
+export const compactTiming = { answerMs: 10 * 60000, maxMs: 60 * 60000, pollMs: 30000 };
 // A hidden hint shows again once the context grew by half, or by this many tokens,
 // over the size it had when it was hidden, whichever comes first.
 export const dismissedGrowthTokens = 50000;
@@ -40,6 +43,10 @@ export class LongChats {
   constructor(service) {
     this.service = service;
     this.running = new Map();
+    // Watches of summaries that outlived their request, and how such ones ended.
+    this.stops = new Map();
+    this.outcomes = new Map();
+    this.timing = { ...compactTiming };
     this.db = service.store.db;
     this.db.exec(dismissalTable);
   }
@@ -94,50 +101,132 @@ export class LongChats {
     });
     return job;
   }
-  // Holds the chat busy while the Gateway compacts; admission is not held meanwhile.
+  /**
+   * Holds the chat busy until the Gateway ended the compaction; admission is not held
+   * meanwhile. The request answers after `answerMs` at the latest: then the summary
+   * still runs on the Gateway (holding the session's lifecycle lock, so a send would
+   * only wait for it), and the chat stays compacting until compaction-watch.js sees
+   * its end, the Gateway goes away, or `maxMs` passed. An end the request no longer
+   * reported is the chat's notice (outcome).
+   */
   compact(conversation) {
     const service = this.service;
     const id = conversation.id;
+    const sessionKey = conversation.runtimeSessionKey;
     const client = service.runtime.client;
-    const job = client
-      .call(
-        "sessions.compact",
-        { key: conversation.runtimeSessionKey },
-        { timeoutMs: compactTimeoutMs },
-      )
-      .then(
+    const generation = service.runtime.generationId ?? null;
+    const { answerMs, maxMs, pollMs } = this.timing;
+    this.outcomes.delete(id);
+    let answered = false;
+    let settled = false;
+    let timer;
+    // The upper bound, also when the client's own timeout never fires.
+    const bound = setTimeout(() => finish("unknown"), maxMs);
+    bound.unref?.();
+    const finish = (outcome) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(bound);
+      this.stops.get(id)?.();
+      this.stops.delete(id);
+      this.running.delete(id);
+      // A hint hidden before measured the history that is summarised now.
+      if (outcome === "compacted") this.unhide(id, personOf(conversation));
+      else if (answered) {
+        console.warn(`Summarising chat ${id} ended after its request: ${outcome}`);
+        this.outcomes.set(id, outcome === "busy" ? "failed" : outcome);
+      }
+      service.changed({ conversationId: id });
+      // A message queued meanwhile goes out now, once (queued-dispatch.js).
+      if (!service.closed) dispatchQueued(service, id).catch(() => {});
+    };
+    const call = client.call(
+      "sessions.compact",
+      { key: sessionKey },
+      { timeoutMs: maxMs },
+    );
+    call.then(
+      (result) => finish(result?.compacted === true ? "compacted" : "failed"),
+      (error) =>
+        finish(
+          working(error)
+            ? "busy"
+            : error?.answered
+              ? "failed"
+              : // No answer within maxMs: whether it summarised is unknown.
+                error?.code === "TIMEOUT"
+                ? "unknown"
+                : // The Gateway went away, and its compaction with it.
+                  "interrupted",
+        ),
+    );
+    const job = new Promise((resolve, reject) => {
+      timer = setTimeout(() => {
+        if (settled) return;
+        answered = true;
+        console.warn(
+          `Summarising chat ${id} still runs after ${Math.round(answerMs / 1000)} s; the chat stays locked until the Gateway ends it.`,
+        );
+        this.stops.set(
+          id,
+          watchCompactEnd({
+            client,
+            sessionKey,
+            pollMs,
+            alive: () =>
+              !service.closed &&
+              service.runtime.client === client &&
+              (service.runtime.generationId ?? null) === generation,
+            onEnd: finish,
+          }),
+        );
+        resolve({ compacted: false, running: true });
+      }, answerMs);
+      timer.unref?.();
+      call.then(
         (result) => {
-          if (result?.compacted !== true) throw chatProblem("CHAT_COMPACT_NOTHING");
-          // A hint hidden before measured the history that is summarised now.
-          this.unhide(id, personOf(conversation));
-          return { compacted: true };
+          if (answered) return;
+          if (result?.compacted !== true) reject(chatProblem("CHAT_COMPACT_NOTHING"));
+          else resolve({ compacted: true });
         },
         (error) => {
-          if (working(error)) throw chatProblem("CHAT_BUSY");
+          if (answered) return;
+          if (working(error)) return reject(chatProblem("CHAT_BUSY"));
           // The code and the Gateway's error class only: its text may name host paths.
           console.warn(
             `Summarising chat ${id} failed: ${error?.code || "unknown"}${
               error?.remoteError ? ` (${error.remoteError})` : ""
             }`,
           );
-          // The Gateway went away before it answered. A timeout is shown as a failure
-          // (OpenClaw may still finish the summary; the chat shows it once it did).
-          if (!error?.answered && error?.code !== "TIMEOUT")
-            throw assistantProblem("unavailable", 503);
-          throw chatProblem("CHAT_COMPACT_FAILED");
+          // The Gateway went away before it answered.
+          if (!error?.answered) reject(assistantProblem("unavailable", 503));
+          else reject(chatProblem("CHAT_COMPACT_FAILED"));
         },
-      )
-      .finally(() => {
-        this.running.delete(id);
-        service.changed({ conversationId: id });
-        // A message queued meanwhile goes out now (queued-dispatch.js).
-        dispatchQueued(service, id).catch(() => {});
-      });
+      );
+    });
     // Its refusal reaches the request; a request that went away leaves it unheard.
     job.catch(() => {});
     this.running.set(id, job);
     service.changed({ conversationId: id });
     return job;
+  }
+  /**
+   * How a summary ended after its request had answered that it still runs: "failed",
+   * "interrupted" (the Gateway went away) or "unknown" (no end within maxMs); null
+   * otherwise. Kept until the next summary or turn of the chat.
+   */
+  outcome(conversationId) {
+    return this.outcomes.get(conversationId) ?? null;
+  }
+  /** The person moved on: a turn was accepted (conversation-turns.js). */
+  settle(conversationId) {
+    this.outcomes.delete(conversationId);
+  }
+  /** Ends every watch at shutdown; the Gateway's own compactions are not touched. */
+  close() {
+    for (const stop of this.stops.values()) stop();
+    this.stops.clear();
   }
   /**
    * Hides the hint of a chat at its current context size, read from the Gateway, until
@@ -195,6 +284,7 @@ export class LongChats {
   }
   /** A deleted chat's hidden hints go with it (chat-removal.js). */
   forget(conversationId) {
+    this.outcomes.delete(conversationId);
     this.db
       .prepare("DELETE FROM assistant_long_chat_dismissals WHERE conversation_id=?")
       .run(conversationId);

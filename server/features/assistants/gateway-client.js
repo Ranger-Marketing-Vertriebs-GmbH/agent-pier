@@ -277,6 +277,19 @@ export class GatewayClient extends EventEmitter {
       );
     });
   }
+  /**
+   * A further connection to this Gateway, pinned and authenticated like this one, for
+   * a subscription that must not reach the main connection's event handling
+   * (compaction-watch.js). It declares no caps, so it never answers exec approvals.
+   */
+  sibling() {
+    return new GatewayClient({
+      url: this.url,
+      token: this.token,
+      certPath: this.certPath,
+      timeoutMs: this.timeoutMs,
+    });
+  }
   supports(method) {
     return !!this.features?.methods.has(method);
   }

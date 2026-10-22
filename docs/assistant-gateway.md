@@ -3448,13 +3448,14 @@ AgentPier's side:
   guard answers 404 for a user's chat, opt-in or not) and
   `POST /api/me/conversations/:id/compact` (her own chats; another person's is the
   unknown-route 404) call OpenClaw's `sessions.compact {key}` for the chat's own
-  session and answer `{compacted: true}` once it is done. The key, the chat, its main
+  session and answer `{compacted: true}` once it is done, or `{compacted: false,
+running: true}` after ten minutes while it still runs (below). The key, the chat, its main
   role and every delivery bound to it stay. Refused for a chat that takes no turns
   (404, as for a send), an archived chat (409 `CHAT_ARCHIVED`), and while a turn runs,
   a message waits or team work reports into it (409 `CHAT_BUSY`, also when the Gateway
   answers `has an active run` or `has queued work`). OpenClaw's `compacted: false`
   (for example `reason: "Already compacted"`) is 409 `CHAT_COMPACT_NOTHING`; any other
-  Gateway refusal and a timeout after ten minutes are 502 `CHAT_COMPACT_FAILED` and
+  Gateway refusal is 502 `CHAT_COMPACT_FAILED` and
   are logged with the chat id, the Gateway code and its error class only (never its
   text, which may name host paths); a Gateway that went away is 503. A request while one runs joins it, so a double click
   compacts once. While it runs, the chat counts as busy (`busyChats`): a send answers
@@ -3463,10 +3464,30 @@ AgentPier's side:
   delete answer `CHAT_BUSY`, maintenance, backups and runtime updates see
   `ASSISTANT_WORK`, the logout of the agent's model account answers 409 `active`,
   and the history carries `compacting: true`, so the chat shows the compaction status
-  without a turn. OpenClaw 2026.10.3 sends no event for it to an unsubscribed client
-  (`session.operation` and `sessions.changed` go to session subscribers only), so the
-  status comes from the pending call; its end publishes `change` and dispatches a
-  queued message. Afterwards `sessionInfo.totalTokensFresh` is false until the next
+  without a turn. OpenClaw 2026.10.3 runs the summary inside
+  `runExclusiveSessionLifecycleMutation("compact")` and holds the session's lifecycle
+  lock until it committed; a `chat.send` meanwhile waits for it, so a send would only
+  time out and turn uncertain. A large history can take longer than the ten minutes
+  the request waits (AGENTPIER-190, `compactTiming` in long-chats.js): the request
+  then answers `{compacted: false, running: true}`, never a failure, and the chat
+  stays compacting until the Gateway ended the summary
+  (`server/features/assistants/compaction-watch.js`). The end shows as the
+  `sessions.compact` answer itself (the call stays open up to the bound), as the
+  Gateway event `session.operation` `{operationId, operation: "compact", phase:
+"end", sessionKey, agentId, completed, reason, ts}`, or read-only as a new
+  compaction marker in `chat.history` (polled every 30 seconds). OpenClaw sends
+  `session.operation` (and `sessions.changed`) only to connections that called
+  `sessions.subscribe`, which streams every session's changes; the watch subscribes
+  on a separate connection (`GatewayClient.sibling`, no caps) so the main
+  connection's event handling stays unchanged, and closes it at the end
+  (`tests/integration/assistant-manual-compact-contract.test.js` records the event,
+  its order before the answer and the marker). A Gateway that goes away (its pending
+  call fails, or the runtime's client or launch changed) ends the summary with it,
+  and after 60 minutes the chat is free in any case. Such an end after the request's
+  answer is the history's `compactOutcome` (`failed`, `interrupted` or `unknown`),
+  which the chat shows as a notice until the next summary or turn; a successful one
+  shows its compaction marker. The watch lives in memory: an AgentPier restart frees
+  the chat. Every end publishes `change` and dispatches a queued message once. Afterwards `sessionInfo.totalTokensFresh` is false until the next
   turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
   usual compaction marker. A manual compaction runs no pre-compaction memory flush
   (that runs only before a turn, `agent-runner-memory`), so it writes no memory and

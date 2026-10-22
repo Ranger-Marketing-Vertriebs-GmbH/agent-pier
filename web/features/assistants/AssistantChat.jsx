@@ -524,6 +524,7 @@ export default function AssistantChat({
               active={Boolean(active)}
               uncertain={uncertain}
               compacting={compacting}
+              compactOutcome={history.compactOutcome}
               steps={stepsOf(feed.steps, latest?.attempt)}
               longChat={history.longChat}
               longChatActions={available ? longChat : null}

@@ -51,4 +51,11 @@ export const agentRunStepsCopy = {
     "Dieser Chat ist lang. Nach Pausen dauert die erste Antwort länger, und ältere Details gehen leichter unter.",
   summarise: "Jetzt zusammenfassen",
   dismiss: "Ausblenden",
+  compactOutcome: {
+    failed: "Die Zusammenfassung wurde nicht fertig. Der Chat ist wieder bereit.",
+    interrupted:
+      "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit neu gestartet ist. Der Chat ist wieder bereit.",
+    unknown:
+      "Die Zusammenfassung hat sich nach einer Stunde nicht zurückgemeldet; ob sie fertig wurde, ist unklar. Der Chat ist wieder bereit.",
+  },
 };
