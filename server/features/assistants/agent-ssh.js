@@ -7,11 +7,15 @@ import { assistantProblem } from "./assistant-validation.js";
 import { exact, sshFromLead } from "./assistant-access.js";
 import { permits, sshOrigin } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview, noteCommand } from "./agent-ssh-text.js";
+import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
-// connection of SshAccessStore and audits it by digest, never by text.
+// connection of SshAccessStore. The audit records a command by its digest, never by
+// text; its action row (approval card, chat note, Work tab) keeps the text, with
+// recognisable secrets redacted once it no longer has to run (trusted runs: up to
+// 8 KiB, the newest `trustedSshRows` per agent).
 export const trustedSshRows = 500;
 const statuses = {
   sshNotGranted: 403,
@@ -320,6 +324,7 @@ export class AgentSsh {
   /** One settled row per trusted run: the chat note and the Work tab history. */
   recordTrusted(key, caller, cls, host, input, result) {
     const state = result.revoked ? "failed" : "completed";
+    const stored = redactSecrets(input.command);
     this.w.store.reserve({
       assistantId: caller.assistant.id,
       conversationId: caller.conversationId,
@@ -333,8 +338,9 @@ export class AgentSsh {
         trusted: true,
         accessId: host.id,
         hostName: host.name,
-        commandPreview: commandPreview(input.command),
-        ...noteCommand(input.command),
+        commandPreview: commandPreview(stored),
+        ...noteCommand(stored),
+        ...(stored !== input.command ? { commandRedacted: true } : {}),
         commandSha256: commandDigest(input.command),
         originClass: cls,
       },

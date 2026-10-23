@@ -215,3 +215,39 @@ test("an older note without the full command says only its start was kept", asyn
   await expect(row).toContainText("Only the start of this command was recorded.");
   await expect(row.locator(".activity-row-facts")).toContainText(/Exit code\s*0/);
 });
+
+test("a redacted command says its secrets are hidden, in the chat and the Work tab", async ({
+  page,
+}) => {
+  const command = 'curl -H "Authorization: Bearer •••" https://api.invalid';
+  await setup(page);
+  await withMessages(page, [note("t1", { command, commandRedacted: true })]);
+  await openChat(page);
+  const row = page.locator("[data-ssh-run=done]");
+  await expect(row.locator("[data-command-redacted]")).toHaveCount(0);
+  await row.getByRole("button", { name: /SSH on opnsense/ }).click();
+  await expect(row.locator("pre")).toHaveText(command);
+  await expect(row.locator("[data-command-redacted]")).toHaveText("Secrets hidden");
+  await setupAssistantSettings(page, {
+    actions: [
+      {
+        id: "t1",
+        revision: 1,
+        assistantId: "home",
+        state: "completed",
+        createdAt: "2026-10-16T10:00:00.000Z",
+        payload: {
+          action: "ssh",
+          trusted: true,
+          hostName: "opnsense",
+          command,
+          commandRedacted: true,
+        },
+        result: { exitCode: 0, durationMs: 1200 },
+      },
+    ],
+  });
+  await page.goto(baseURL + settingsPath("work", "actions"));
+  await expect(page.getByText("Secrets hidden")).toBeVisible();
+  await expect(page.locator(".ssh-history-command")).toHaveText(command);
+});

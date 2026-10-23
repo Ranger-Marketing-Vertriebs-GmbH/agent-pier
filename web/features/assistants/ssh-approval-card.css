@@ -4,6 +4,12 @@
   overflow-x: auto;
   white-space: pre;
 }
+/* The Work tab's history: a long command wraps and scrolls inside its block. */
+.ssh-history-command {
+  max-height: 20em;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
 .ssh-approval-command.clamped {
   max-height: 20em;
   overflow-y: hidden;

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { redactSecrets } from "../../lib/secret-redaction.js";
 
 /**
  * Characters an owner cannot see in a command: controls other than tab and line feed,
@@ -49,4 +50,15 @@ export function noteCommand(command) {
     end += point.length;
   }
   return { command: command.slice(0, end), commandCut: true };
+}
+
+/**
+ * A settled row's command with recognisable secrets replaced (server/lib/
+ * secret-redaction.js), as payload fields: `command` and `commandRedacted` when it
+ * changed, else nothing. The digest of the original stays with the audit.
+ */
+export function redactedCommand(payload) {
+  if (typeof payload?.command !== "string") return {};
+  const command = redactSecrets(payload.command);
+  return command === payload.command ? {} : { command, commandRedacted: true };
 }

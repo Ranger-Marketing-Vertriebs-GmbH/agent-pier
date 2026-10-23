@@ -108,8 +108,13 @@ Every finished run leaves a note in the chat it ran from, in **With approval** m
 well as in the trusted modes; a denied, expired or cancelled request leaves none. The
 note is an activity row with the host, the shortened command and its outcome; opened,
 it shows the whole command with a copy button, the exit code and the duration. Trusted
-runs therefore keep up to 8 KiB of their command with the action (runs from before this
-change kept only an 80-character preview); the output is never stored.
+runs therefore keep up to 8 KiB of their command with the action, the newest 500 per
+agent (runs from before this change kept only an 80-character preview); the output is
+never stored. Recognisable secrets (password, token and key flags, `Authorization`
+and API key headers, `user:password@` URLs, variables such as `DB_PASSWORD=`, JWTs and
+well-known key prefixes) are stored as `•••`, best effort: a trusted run's at once, an
+approval's once it has run or was declined, expired or cancelled, since the owner
+decides on the exact text. The row then says **Secrets hidden**.
 
 Downgrading to a release without agent SSH keeps the stored SSH rows but no longer
 understands them. Such a release shows a finished run's note as a generic coding-run

@@ -25,6 +25,7 @@ test("a finished run reads as host, command and a done chip with its facts", () 
     command: "uptime",
     copyText: "uptime",
     partial: null,
+    redacted: false,
     tone: "ok",
     status: "Done",
     exitCode: 0,
@@ -65,6 +66,14 @@ test("the row shows the preview while the body has the full command", () => {
   assert.equal(sshRunView(note({ command, commandCut: true })).partial, "cut");
   const old = sshRunView(note({ command: undefined, commandPreview: "tail -f …" }));
   assert.deepEqual([old.command, old.partial], ["tail -f …", "preview"]);
+});
+
+test("a redacted command says its secrets are hidden", () => {
+  setLanguage("en");
+  assert.equal(sshRunView(note({ commandRedacted: true })).redacted, true);
+  setLanguage("de");
+  assert.equal(sshRunView(note()).redacted, false);
+  setLanguage("en");
 });
 
 test("a copy holds hidden characters as the codes the owner sees", () => {

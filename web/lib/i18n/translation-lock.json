@@ -970,6 +970,7 @@
   "assistant-ssh:assistantSshCopy.note.outcomes.timedOut": "de:407e1a8d1790 en:3dcd80f1b15f",
   "assistant-ssh:assistantSshCopy.note.outcomes.truncated": "de:28f563cbdbc5 en:227b1c2e53cf",
   "assistant-ssh:assistantSshCopy.note.preview": "de:825d5b547bfd en:10bf3fa160de",
+  "assistant-ssh:assistantSshCopy.note.redacted": "de:362383895bd2 en:961fdff49ec8",
   "assistant-ssh:assistantSshCopy.note.result": "de:cd8e22cf7439 en:6e7d50e84f47",
   "assistant-ssh:assistantSshCopy.note.results.revoked": "de:742298046fcb en:bd1cc74b50ed",
   "assistant-ssh:assistantSshCopy.note.results.timedOut": "de:f29349369478 en:9ece0e430fd6",
