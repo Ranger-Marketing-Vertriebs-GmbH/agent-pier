@@ -641,8 +641,10 @@ reply takes longer, and older details are easier to miss." while no turn runs.
 **Summarise now** has the agent service summarise the chat's history right away. When
 the agent may write memory (**Remember information** is on, writing memory is proven
 safe, and the agent is not shared), AgentPier first runs a hidden memory step in that
-chat: the agent may only search and read its memory and write to its own `MEMORY.md`
-and `memory/` notes, and every other tool is refused. The chat shows **Saving memories
+chat: the agent may search its memory and read files; it may write only its own
+`MEMORY.md` and `memory/` notes, and every other tool is refused. A write outside
+them shows **Memory not saved: before a summary, the agent may change only its own
+memory.** If the step fails or stalls, the chat offers no **Try again**. The chat shows **Saving memories
 before the summary …** (header: **Saving memories**) while it runs; the step ends after
 at most five minutes, like **Stop**. Then the chat shows **Summarising the conversation
 so far — this can take a few minutes for long chats.** and afterwards the quiet line **Earlier messages were summarised …**; the chat
