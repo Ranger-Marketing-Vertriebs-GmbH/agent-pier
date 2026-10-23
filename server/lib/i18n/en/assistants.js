@@ -87,6 +87,8 @@ export const assistants = {
     "Telegram delivery is not available to you on this agent; results still reach your chat with a push notification.",
   reminderTimezoneRequired:
     "Give the reminder time with a time zone offset, for example 2026-10-09T09:00:00+02:00.",
+  routineWritesOwnerOnly:
+    "Only the owner can change May write for a routine, in the agent settings.",
   routineReviewRequired:
     "It is unclear whether this routine was created. Review it in the agent settings before trying again.",
   reminderReviewRequired:

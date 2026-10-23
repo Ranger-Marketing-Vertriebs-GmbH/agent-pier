@@ -80,6 +80,8 @@ const reasons = {
     "This project folder is not granted to you. Your instructions list the project folders you may use; ask the owner (or your lead) for access instead of retrying.",
   PROJECT_READ_ONLY:
     "You may only read this project folder. Do not retry the change; tell the owner (or your lead) what you wanted to change.",
+  ROUTINE_WRITES_OWNER_ONLY:
+    "Only the owner can let a routine change files ('May write'); it is not available to this person's routines. Do not retry; the routine still runs and only reads.",
   ROUTINE_READ_ONLY:
     "This routine may only read project folders: the owner has not allowed it to write. Do not retry; say in the routine's result which change you would make, so the owner can switch on 'May write' for this routine or make it.",
   PERMANENT_ACCESS_ONLY:
@@ -151,6 +153,7 @@ const byKey = {
   projectFolderNotGranted: "PROJECT_NOT_GRANTED",
   projectFolderReadOnly: "PROJECT_READ_ONLY",
   projectRoutineReadOnly: "ROUTINE_READ_ONLY",
+  routineWritesOwnerOnly: "ROUTINE_WRITES_OWNER_ONLY",
   teamShareAccessOnly: "PERMANENT_ACCESS_ONLY",
   projectWriteUnavailable: "PROJECT_WRITE_UNAVAILABLE",
   projectPathRefused: "PROJECT_PATH_REFUSED",

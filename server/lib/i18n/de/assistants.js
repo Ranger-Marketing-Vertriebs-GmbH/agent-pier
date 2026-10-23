@@ -89,6 +89,8 @@ export const assistants = {
     "Telegram-Zustellung steht dir bei diesem Agenten nicht zur Verfügung; Ergebnisse erreichen deinen Chat weiterhin mit einer Push-Benachrichtigung.",
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",
+  routineWritesOwnerOnly:
+    "„Darf schreiben“ einer Routine kann nur der Besitzer in den Agent-Einstellungen ändern.",
   routineReviewRequired:
     "Ob diese Routine angelegt wurde, ist unklar. Prüfe sie in den Agent-Einstellungen, bevor du es erneut versuchst.",
   reminderReviewRequired:

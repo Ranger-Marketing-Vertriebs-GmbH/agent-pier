@@ -5,7 +5,7 @@ import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
-import { audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
+import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
@@ -167,12 +167,16 @@ export class NativeRoutines extends NativeReminders {
   /**
    * The owner's switch "May write": the routine's run may change files in its
    * project folders (workspace-calls.js), and the tasks it delegates count as the
-   * owner's standing instruction and may change files.
-   * Never reachable from the agent's own routine tool; audited.
+   * owner's standing instruction and may change files. The agent's own routine tool
+   * reaches it only on the owner's direct request (mayWrite); audited.
    */
-  setWrites(binding, input) {
+  setWrites(binding, input, actor) {
     if ((binding.routineWrites === true) === input.writes) return;
     this.bindings.patch(binding.id, { routineWrites: input.writes });
+    this.auditWrites(binding, input.writes, actor);
+  }
+  /** `actor` "assistant": switched by the agent's tool on the owner's request. */
+  auditWrites(binding, writes, actor) {
     try {
       this.assistants.audit?.append({
         action: "assistant.updated",
@@ -183,7 +187,8 @@ export class NativeRoutines extends NativeReminders {
         details: {
           kind: "routine-writes",
           routineId: binding.id,
-          writes: input.writes,
+          writes,
+          ...(actor && { actor, channel: "tool" }),
         },
       });
     } catch (error) {
@@ -194,7 +199,19 @@ export class NativeRoutines extends NativeReminders {
     const { reminders } = await super.list(id, scope);
     return { routines: reminders };
   }
-  update(id, bindingId, input, assertCurrent = () => {}) {
+  /**
+   * Whether this turn's person may switch "May write" with the agent's tool: only
+   * where she may in the settings, which is the owner's own routines (the owner's
+   * routine routes; a user's own route drops it, me-reminders.js). The turn is
+   * already a direct one (turnAudience).
+   */
+  mayWrite(id, userId, writes) {
+    if (writes === undefined) return;
+    if (typeof writes !== "boolean") throw assistantProblem("invalid");
+    if (userId !== null || agentPerson(this.assistants.store.getAssistant(id)) !== null)
+      throw assistantProblem("routineWritesOwnerOnly", 403);
+  }
+  update(id, bindingId, input, assertCurrent = () => {}, actor) {
     // The owner's edit of a routine's name or task (and a lead's, lead-routines.js).
     if (input && ["name", "prompt", "trigger"].some((k) => k in input))
       return this.edit(id, bindingId, input, assertCurrent);
@@ -211,7 +228,7 @@ export class NativeRoutines extends NativeReminders {
       if (!job) throw assistantProblem("unavailable", 503);
       assertCurrent();
       if (input.telegram !== undefined) this.setTelegram(binding, input.telegram);
-      if (input.writes !== undefined) this.setWrites(binding, input);
+      if (input.writes !== undefined) this.setWrites(binding, input, actor);
       if (input.enabled === undefined) {
         this.bindings.patch(bindingId, { routineRevision: input.revision + 1 });
         this.assistants.changed();
@@ -320,6 +337,7 @@ export class NativeRoutines extends NativeReminders {
       "enabled",
       "revision",
       "telegram",
+      "writes",
     ]);
     const request = this.assistants.ledger.getRequest(
       this.assistants.ledger.getAttempt(invocation.attemptId).requestId,
@@ -338,31 +356,51 @@ export class NativeRoutines extends NativeReminders {
     if (input.action === "list") return this.list(id, { userId });
     if (["update", "remove"].includes(input.action))
       boundTo(this.bindings, id, input.id, userId);
+    if (["create", "update"].includes(input.action))
+      this.mayWrite(id, userId, input.writes);
     if (input.action === "create")
-      return this.create(
-        id,
-        {
-          clientRequestId: `${invocation.attemptId}:${invocation.toolCallId}`,
-          name: input.name,
-          prompt: input.prompt,
-          trigger: input.trigger,
-          // The person's own paired chat only (routine-targets.js), on her request.
-          ...(input.telegram !== undefined && { telegram: input.telegram }),
-        },
-        origin,
-        invocation.assertCurrent,
-        userId ? { userId } : {},
-      );
+      return this.createOwn(id, invocation, input, origin, userId);
     if (input.action === "update")
       return this.update(
         id,
         input.id,
-        { enabled: input.enabled, telegram: input.telegram, revision: input.revision },
+        {
+          enabled: input.enabled,
+          telegram: input.telegram,
+          writes: input.writes,
+          revision: input.revision,
+        },
         invocation.assertCurrent,
+        "assistant",
       );
     if (input.action === "remove")
       return this.remove(id, input.id, invocation.assertCurrent);
     throw assistantProblem("invalid");
+  }
+  /** The tool's create; "May write" comes with the binding, audited once (no replay). */
+  async createOwn(id, invocation, input, origin, userId) {
+    const clientRequestId = `${invocation.attemptId}:${invocation.toolCallId}`;
+    const replay = this.bindings.list(id).some((b) => b.key === clientRequestId);
+    const routine = await this.create(
+      id,
+      {
+        clientRequestId,
+        name: input.name,
+        prompt: input.prompt,
+        trigger: input.trigger,
+        // The person's own paired chat only (routine-targets.js), on her request.
+        ...(input.telegram !== undefined && { telegram: input.telegram }),
+      },
+      origin,
+      invocation.assertCurrent,
+      {
+        ...(userId && { userId }),
+        ...(input.writes !== undefined && { routineWrites: input.writes }),
+      },
+    );
+    if (!replay && input.writes === true)
+      this.auditWrites(this.bindings.get(routine.id), true, "assistant");
+    return routine;
   }
   /**
    * Brings the agent's routine jobs to the current run settings: jobs created

@@ -1035,9 +1035,10 @@ A lead reaches its own members without the owner relaying anything
   owner text: no quote, mention or yes is read, so its tasks do not write
   (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level,
   unless the owner switched on **May write** for that routine (`routineWrites` on
-  its binding, set only through the owner's
-  `PATCH /api/assistants/:id/routines/:routineId` with `writes`, never through
-  `agentpier_routine`, audited as `kind: "routine-writes"`). Its tasks then
+  its binding, set through the owner's
+  `PATCH /api/assistants/:id/routines/:routineId` with `writes`, or by the agent's own
+  `agentpier_routine` on the owner's direct request (below), audited as
+  `kind: "routine-writes"`). Its tasks then
   count as the owner's standing instruction: the context records `writes: true`
   and the request `routineWrites: true` and `writeAllowed: true`, which
   `LeadRequests.mayWrite` accepts like an owner proof (`taskWritable`
@@ -1370,6 +1371,19 @@ outbox is used only while it is on and that chat is still paired and enabled;
 switching it off also holds back queued Telegram output. Unpairing never pauses or
 removes a reminder or routine. Bindings stored before chat delivery kept their chat in
 `source` and keep delivering there (`telegramOf`).
+
+`agentpier_routine` also takes an optional `writes` boolean on `create` and `update`
+(AGENTPIER-199), the routine's **May write** (`routineWrites`). It follows the
+`telegram` rules for the turn (`turnAudience`: scheduled, forwarded and member turns
+are refused with 403) and, like the settings, is the owner's alone
+(`NativeRoutines.mayWrite`): a user's turn, or a turn on a user's own agent, fails
+with `ROUTINE_WRITES_OWNER_ONLY` (`routineWritesOwnerOnly`, 403), even for `false`.
+On `create` it is stored with the binding, so a replayed create returns the existing
+routine as it now is; on `update` it goes through `setWrites`. Both are audited as
+`kind: "routine-writes"` with `actor: "assistant"` and `channel: "tool"`. Without
+the parameter a new routine stays read-only and an update keeps the setting. A lead
+never sets it on its members' routines (`agentpier_team_member_routine` has no
+`writes`).
 
 The `agentpier_reminder` tool is a thin authorized adapter to native
 `cron.add/list/update/remove`; it does not implement scheduling. Chat mutations
@@ -2712,7 +2726,8 @@ answers the unknown-route 404.
   whose chat created them (`server/features/assistants/reminder-audience.js`): a
   binding carries `userId`, delivers into her main chat and to her devices, and only
   she sees and changes it, from **Personalize** on. A routine's **May write** stays
-  the owner's switch; her routes ignore `writes`. The agent's reminder and routine
+  the owner's switch; her routes ignore `writes`, and her agent's routine tool
+  refuses it (`ROUTINE_WRITES_OWNER_ONLY`). The agent's reminder and routine
   tools take the person from the chat of the calling turn, so concurrent turns of two
   users never mix them. The owner's settings of a shared agent list only his own;
   check-ins are off on shared agents and go to the user of her own agent.
