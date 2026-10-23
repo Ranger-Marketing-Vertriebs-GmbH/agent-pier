@@ -31,8 +31,8 @@ const settleWithin = (job, ms) => {
       (error) => error?.code ?? "FAILED",
     ),
     new Promise((resolve) => {
+      // Cleared once the job settles; it holds the tool call's answer only.
       timer = setTimeout(resolve, ms, null);
-      timer.unref?.();
     }),
   ]).finally(() => clearTimeout(timer));
 };
@@ -42,8 +42,9 @@ const settleWithin = (job, ms) => {
  * AGENTPIER-194): `now` runs Summarise now with its memory step (long-chats.js) at
  * once and is refused as busy while the member works; `after_task` keeps one pending
  * summary on the member's record (`summaryAfterTask`) that the team tick runs once
- * the member is idle, before the next queued lead request reaches its chat
- * (team-service.js reconcile). Any summary that starts in that chat, the owner's too,
+ * the member is idle, before the next queued lead request reaches its chat (the
+ * tick in team-service.js reconcile, and each dispatch: before). A member that is
+ * idle already summarises at once. Any summary that starts in that chat, the owner's too,
  * takes the pending one's place; an archived or removed member drops it. The member's
  * task chat (`member.conversationId`) is the only chat it acts on. Both chats note
  * who asked and when; the summary itself shows in the member's chat as usual.
@@ -70,7 +71,7 @@ export class MemberSummaries {
   async request(inv, input) {
     exact(input, ["memberId", "when"]);
     if (!choices.includes(input?.when)) throw assistantProblem("invalid");
-    const { conversation, lead, member } = leadsMember(
+    const { conversation, member } = leadsMember(
       this.assistants,
       this.teams,
       inv,
@@ -80,11 +81,16 @@ export class MemberSummaries {
     const long = this.assistants.longChats;
     if (!long) throw assistantProblem("unavailable", 503);
     if (long.compacting(member.conversationId)) return answer("already", member);
+    // An idle member's task is over: its summary runs now, unless its chat is busy.
+    if (input.when === "after_task" && !this.teams.activeMember(member)) {
+      const status = await this.start(member, { wait: true });
+      if (status === "summarising") this.note(member, conversation, inv, "now");
+      if (status !== "busy") return answer(status, member);
+    }
     if (input.when === "after_task") {
-      if (!member.summaryAfterTask) {
-        this.teams.write(member, {
-          summaryAfterTask: { at: new Date().toISOString(), leadAssistantId: lead.id },
-        });
+      const current = this.teams.find(member.id);
+      if (!current.summaryAfterTask) {
+        this.teams.write(current, { summaryAfterTask: { at: new Date().toISOString() } });
         this.note(member, conversation, inv, "after_task");
         this.assistants.changed?.();
       }
@@ -145,6 +151,22 @@ export class MemberSummaries {
         this.drop(member);
       }
     }
+  }
+  /**
+   * Before a lead request is sent to the member (lead-requests.js dispatch): its
+   * pending summary starts first, and the request waits while it runs (true); a busy
+   * chat or a failure lets the request go and the summary waits for the next idle pass.
+   */
+  async before(member) {
+    if (!member.summaryAfterTask || !this.pending(member.id)) return false;
+    try {
+      await this.run(member);
+    } catch (error) {
+      console.warn(
+        `Summarising the chat of member ${member.id} failed: ${error?.code || error?.message}`,
+      );
+    }
+    return !!this.assistants.longChats?.compacting(member.conversationId);
   }
   async run(member) {
     if (!this.reachable(member)) return this.drop(member);

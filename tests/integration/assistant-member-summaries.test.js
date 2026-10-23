@@ -156,6 +156,71 @@ test("after_task queues once and runs when idle, before the next lead request", 
   assert.equal(f.compactions.length, 1);
 });
 
+test("after_task on an idle member summarises at once", async (t) => {
+  const f = await setup(t, { memory: false });
+  const result = await f.summarise("after_task");
+  assert.equal(result.status, "summarising");
+  assert.equal(f.service.memberSummaries.pending(f.member.id), false);
+  await until(() => f.compactions.length, "the compaction");
+  assert.ok(f.reserved.every((r) => r.payload.when === "now"));
+  // A chat busy with other work keeps it for later.
+  f.compactions[0].release();
+  await until(() => !f.long.compacting(f.taskChat.id), "the summary's end");
+  f.assistants.queued = new Map([[f.taskChat.id, { state: "queued" }]]);
+  assert.equal((await f.summarise("after_task")).status, "queued");
+  assert.equal(f.service.memberSummaries.pending(f.member.id), true);
+});
+
+// The ways a lead request reaches the chat outside the team tick: at once from the
+// lead's call, and from advance() after a routine's report (lead-routines.js).
+const sentTasks = (f) =>
+  f.assistants.ledger
+    .requests(f.taskChat.id)
+    .filter((r) => r.clientRequestId.startsWith("lead-request:"));
+for (const [label, queue] of [
+  [
+    "the lead's own task",
+    (f) => f.service.delegate(f.turn(), { memberId: f.member.id, task: "Draft it" }),
+  ],
+  [
+    "a routine's task",
+    async (f) => {
+      const routine = {
+        attemptId: null,
+        toolCallId: crypto.randomUUID(),
+        sessionKey: "routine-session",
+        assertCurrent() {},
+        routine: {
+          binding: { id: "binding", definition: { name: "Daily" } },
+          conversation: f.chat,
+        },
+      };
+      await f.service.delegate(routine, { memberId: f.member.id, task: "Draft it" });
+      await f.service.requests.advance();
+    },
+  ],
+]) {
+  test(`a pending summary runs before ${label} reaches an idle member`, async (t) => {
+    const f = await setup(t, { memory: false });
+    const work = f.memberTurn();
+    assert.equal((await f.summarise("after_task")).status, "queued");
+    // The member's turn ends; no team tick ran since.
+    f.complete(work.id);
+    f.idle();
+    await queue(f);
+    await until(() => f.compactions.length, "the compaction");
+    assert.equal(sentTasks(f).length, 0, "the task waits for the summary");
+    assert.equal(f.requests().at(-1).phase, "queued");
+    f.compactions[0].release();
+    await until(() => !f.long.compacting(f.taskChat.id), "the summary's end");
+    await f.service.reconcile();
+    await f.service.reconcile();
+    assert.equal(f.requests().at(-1).phase, "running");
+    assert.equal(sentTasks(f).length, 1);
+    assert.equal(f.compactions.length, 1);
+  });
+}
+
 test("owner and lead summarise at once: one summary", async (t) => {
   const f = await setup(t);
   // The owner first: the lead's call finds the summary running.
@@ -206,6 +271,21 @@ test("a pending summary is dropped once its member is archived", async (t) => {
   assert.equal(f.steps.length, 0);
   assert.equal(f.long.compacting(f.taskChat.id), false);
   assert.equal(f.service.store.member(f.member.id).summaryAfterTask, undefined);
+});
+
+test("archiving a member forgets its pending summary, also once restored", async (t) => {
+  const f = await setup(t);
+  const work = f.memberTurn();
+  await f.summarise("after_task");
+  f.complete(work.id);
+  const member = f.service.store.member(f.member.id);
+  await f.service.lifecycle("archive", member.id, member.revision);
+  assert.equal(f.service.store.member(f.member.id).summaryAfterTask, undefined);
+  const archived = f.service.store.member(f.member.id);
+  await f.service.lifecycle("restore", archived.id, archived.revision);
+  assert.equal(f.service.memberSummaries.pending(f.member.id), false);
+  await f.service.reconcile();
+  assert.equal(f.steps.length, 0);
 });
 
 test("only a lead summarises its own members that are not archived", async (t) => {
@@ -277,5 +357,7 @@ test("the bridge serves the tool to a lead, also in its long-chat hint turn", as
     action: "member_summarise",
     input: { memberId: f.member.id, when: "after_task" },
   });
-  assert.equal(result.status, "queued");
+  // The member is idle: its task is over, so the summary runs now.
+  assert.equal(result.status, "summarising");
+  assert.equal(f.steps.length, 1);
 });

@@ -588,7 +588,9 @@ export class TeamStore {
     });
   }
   archive(id, revision, check) {
-    return this.lifecycle(id, revision, { archivedAt: new Date().toISOString() }, check);
+    // A summary its lead asked for after the task goes too (member-summaries.js).
+    const patch = { archivedAt: new Date().toISOString(), summaryAfterTask: undefined };
+    return this.lifecycle(id, revision, patch, check);
   }
   restore(id, revision) {
     return this.lifecycle(id, revision, { archivedAt: null });
