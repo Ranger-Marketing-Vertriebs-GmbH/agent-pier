@@ -442,10 +442,13 @@ export function auditEvent(input) {
     if (details.credentialId !== undefined)
       event.details.credentialId = auditId(details.credentialId);
   }
-  // An agent's change in a project folder: the relative path and size, never content.
+  // An agent's change or image view in a project folder: the relative path and size,
+  // never content.
   if (details.kind === "project-file") {
     if (["create", "replace", "edit", "append"].includes(details.fileChange))
       event.details.fileChange = details.fileChange;
+    // An image the agent viewed (image_view) is recorded like a change.
+    if (details.fileView === "image") event.details.fileView = "image";
     if (
       typeof details.filePath === "string" &&
       details.filePath.length <= 1024 &&

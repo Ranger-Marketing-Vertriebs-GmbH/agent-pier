@@ -4,6 +4,11 @@ import { randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
 import { fold } from "./team-plugin/tool-guard.js";
+import {
+  INLINE_IMAGE_TYPES,
+  MAX_INLINE_IMAGE_BYTES,
+  detectAttachment,
+} from "./agent-attachment-types.js";
 
 // What one tool call reads, lists, searches or writes at most. A write comes through
 // the bridge, whose request limit (128 KiB, JSON-escaped) bounds it further.
@@ -216,6 +221,34 @@ export async function readFile(
   } finally {
     await handle.close();
   }
+}
+
+/**
+ * One image of the folder for the model (image_view): a PNG, JPEG, GIF or WebP file,
+ * recognized by its bytes like an uploaded chat image, up to the inline image limit
+ * the runtime accepts. The path is resolved like every read.
+ */
+export async function viewImage(root, raw, options = {}) {
+  const target = projectTarget(root, raw, options);
+  if (!target.exists) throw missing();
+  const { handle, stat } = await openRegular(target.real);
+  let bytes;
+  try {
+    if (!stat.size || stat.size > MAX_INLINE_IMAGE_BYTES)
+      throw assistantProblem("projectImageUnsuitable", 400);
+    bytes = await readAt(handle, 0, stat.size);
+  } finally {
+    await handle.close();
+  }
+  const detected = detectAttachment(bytes, path.basename(target.real));
+  if (detected?.kind !== "image" || !INLINE_IMAGE_TYPES.has(detected.type))
+    throw assistantProblem("projectImageUnsuitable", 400);
+  return {
+    path: target.relative,
+    mimeType: detected.type,
+    bytes: bytes.length,
+    data: bytes.toString("base64"),
+  };
 }
 
 // Creates each missing folder below the real parent one by one, refusing a name

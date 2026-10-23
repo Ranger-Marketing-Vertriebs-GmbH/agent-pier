@@ -82,7 +82,10 @@ it took it over from the lead.
   **Accounts → Services for agents → PDF reading** from the model connections and
   ChatGPT accounts. A model without image input reads the text of PDFs but not
   scanned pages or pages without text; the PDF reading page says so. Until a usable
-  model is chosen the switch is disabled and says why.
+  model is chosen the switch is disabled and says why. **Read images** also lets the
+  agent look at PNG, JPEG, GIF and WebP files (up to 6 MiB) in the project folders
+  you gave it, when its model takes images; each such view is recorded in the
+  activity log with the file's path and size.
 - **Agent browser** (while **Use a browser** is on): **Visible browser** opens a
   regular, minimized window instead of a headless one, so shop and product pages that
   block headless browsers work; open the window from the Dock or the window list to

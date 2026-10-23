@@ -66,7 +66,8 @@ The agent's instructions list every granted folder with its project ID, path and
 level, and the workspace tool's `catalog` names them as well.
 
 The agent uses the folder through `agentpier_workspace`: `files_list`, `file_read`
-(by line `offset`/`limit`), `files_search` (a literal text) with **Read**, and
+(by line `offset`/`limit`), `files_search` (a literal text), `image_view` with
+**Read**, and
 `file_write` (a whole file, at most 64 KiB; with `append: true` added to the end, so a
 larger file is written in parts) and `file_edit` (an exact text that occurs once, or
 `replaceAll`) with **Read and write**. AgentPier performs every operation
@@ -75,6 +76,19 @@ agent's workspace (`tools.fs.workspaceOnly`), because widening them would also l
 outgoing media read any file on the host. With **Read**, `agentpier_share_file` and
 its `projectId` hand the owner a file from the folder in the chat (see
 [files from agents](agents.md#files-from-agents)).
+
+`image_view` shows the agent one PNG, JPEG, GIF or WebP file of the folder, up to
+6 MiB, as an image the model sees: `file_read` refuses binary files
+(`PROJECT_FILE_UNSUITABLE`, whose reason points images to `image_view`), and
+OpenClaw's own `view_image` stays in the agent's workspace. The path is resolved like
+every read (no `.git`, no links leading out, no hard links, never AgentPier's data);
+the type comes from the file's bytes, as for uploaded chat images, and other files are
+refused with `PROJECT_IMAGE_UNSUITABLE`. It needs the viewing agent's own **Read
+images** (for a task member the lead's grant, for a permanent member its own switch or
+its lead's share, see [agents](agents.md#sharing-a-leads-access-with-permanent-members))
+(`IMAGES_OFF` otherwise) and a model that takes images (`MODEL_TEXT_ONLY`; a
+connection AgentPier cannot judge is left to the runtime, as for chat uploads). Each
+view is audited with its path and size, like a change.
 
 - **Who:** the owner's own turns (in AgentPier or the paired Telegram chat), a
   task member's team turns, a lead's tasks for a permanent member (with what the

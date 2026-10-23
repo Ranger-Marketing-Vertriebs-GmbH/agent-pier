@@ -1,5 +1,9 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
+import {
+  inheritsFromLead,
+  personalCapabilities,
+  personalEligible,
+} from "./native-capabilities.js";
 import { isUserAgent } from "../users/user-access.js";
 import {
   appendFile,
@@ -7,6 +11,7 @@ import {
   listFolder,
   readFile,
   searchFolder,
+  viewImage,
   writeFile,
 } from "./project-files.js";
 
@@ -17,6 +22,7 @@ export const fileActions = new Set([
   "file_write",
   "file_edit",
   "files_search",
+  "image_view",
 ]);
 const changing = new Set(["file_write", "file_edit"]);
 const count = (value, fallback) =>
@@ -134,6 +140,12 @@ export class AgentProjectFiles {
       lockToolConfig: isUserAgent(this.w.a.store.getAssistant(ctx.assistantId)),
     };
     const at = input.path === undefined ? undefined : textValue(input.path, 4096);
+    if (input.action === "image_view") {
+      this.assertImages(ctx);
+      const result = await viewImage(root, at, options);
+      this.audit(ctx, projectId, input.action, result);
+      return { projectId, access: level, ...result };
+    }
     if (!changing.has(input.action)) {
       const result =
         input.action === "files_list"
@@ -178,6 +190,23 @@ export class AgentProjectFiles {
     this.audit(ctx, projectId, append ? "append" : input.action, result);
     return { projectId, access: level, ...result };
   }
+  /**
+   * Viewing an image needs the viewing agent's effective Read images (a task
+   * member's from its lead's grant, a permanent member's own or its lead's share)
+   * and a model that takes images; an unknown model is left to the runtime, as for
+   * uploaded chat images (agent-attachments.js).
+   */
+  assertImages(ctx) {
+    const agent = this.w.a.store.getAssistant(
+      ctx.requestedBy
+        ? this.w.a.teams.store.member(ctx.requestedBy).assistantId
+        : ctx.assistantId,
+    );
+    if (!personalCapabilities(agent).documents)
+      throw assistantProblem("projectImagesOff", 403);
+    if (this.w.a.models?.imageInput?.(agent.model) === false)
+      throw assistantProblem("projectImageModel", 409);
+  }
   // The lead whose standing share an owner's turn used, for the audit.
   sharedBy(ctx, projectId) {
     const row = this.w.shares
@@ -185,7 +214,8 @@ export class AgentProjectFiles {
       .find((r) => r.kind === "project" && r.projectId === projectId);
     return row ? { leadAssistantId: row.leadId, sharedBy: "lead" } : {};
   }
-  // One record per change: the agent, project, relative path and size, never content.
+  // One record per change or viewed image: the agent, project, relative path and
+  // size, never content.
   audit(ctx, projectId, action, result) {
     try {
       this.w.s.audit?.append({
@@ -197,14 +227,18 @@ export class AgentProjectFiles {
         outcome: "success",
         details: {
           kind: "project-file",
-          fileChange:
-            action === "file_write"
-              ? result.created
-                ? "create"
-                : "replace"
-              : action === "append"
-                ? "append"
-                : "edit",
+          ...(action === "image_view"
+            ? { fileView: "image" }
+            : {
+                fileChange:
+                  action === "file_write"
+                    ? result.created
+                      ? "create"
+                      : "replace"
+                    : action === "append"
+                      ? "append"
+                      : "edit",
+              }),
           filePath: result.path,
           bytes: result.bytes,
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),

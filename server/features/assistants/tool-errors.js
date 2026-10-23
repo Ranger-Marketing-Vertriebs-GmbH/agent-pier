@@ -95,7 +95,13 @@ const reasons = {
   USER_AGENT_LOCKED:
     "Agents of restricted users cannot use coding, project memory, run actions, shell, SSH, Git or teams; this never changes for this agent. Do not retry; tell the user what you wanted to do so the owner can do it.",
   PROJECT_FILE_UNSUITABLE:
-    "This file is binary, hard-linked, not a regular file, too large for this action (edits and search: 1 MiB; appends: 16 MiB in total) or the line range lies too deep (256 MiB). Use files_list, read a line range with file_read, or tell the owner.",
+    "This file is binary, hard-linked, not a regular file, too large for this action (edits and search: 1 MiB; appends: 16 MiB in total) or the line range lies too deep (256 MiB). For a PNG, JPEG, GIF or WebP image use image_view; otherwise use files_list, read a line range with file_read, or tell the owner.",
+  PROJECT_IMAGE_UNSUITABLE:
+    "image_view shows only PNG, JPEG, GIF and WebP images up to 6 MiB, recognized by their content. Read text files with file_read; tell the owner about other files.",
+  IMAGES_OFF:
+    "Read images is not switched on for you, so you cannot view images. Do not retry; ask the owner (or your lead) to switch on Read images, or describe what you need from the image.",
+  MODEL_TEXT_ONLY:
+    "Your model cannot take images, so image_view cannot show you this file. Do not retry; tell the owner, who can choose a model that reads images.",
   PROJECT_EDIT_NO_MATCH:
     "oldText must occur exactly once in the file (or set replaceAll). Read the file and copy the exact text, including whitespace.",
   PROJECT_FILE_ENCODING:
@@ -160,6 +166,9 @@ const byKey = {
   projectToolConfigLocked: "PROJECT_TOOL_CONFIG_LOCKED",
   userAgentLocked: "USER_AGENT_LOCKED",
   projectFileUnsuitable: "PROJECT_FILE_UNSUITABLE",
+  projectImageUnsuitable: "PROJECT_IMAGE_UNSUITABLE",
+  projectImagesOff: "IMAGES_OFF",
+  projectImageModel: "MODEL_TEXT_ONLY",
   projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
   projectFileEncoding: "PROJECT_FILE_ENCODING",
   projectWriteTooLarge: "PROJECT_WRITE_TOO_LARGE",

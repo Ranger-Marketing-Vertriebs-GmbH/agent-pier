@@ -1488,7 +1488,7 @@ the Gateway's startup configuration.
 | **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                            |
 | **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                    |
 | **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                     |
-| **Read images**    | `view_image`     | Looks at images; needs a model that accepts images                                                                                                 |
+| **Read images**    | `view_image`     | Looks at images in the workspace, and with `image_view` in granted project folders; needs a model that accepts images                              |
 | **Read PDFs**      | `pdf`            | Reads workspace PDFs with the PDF model chosen under **Accounts → Services for agents → PDF reading** (see [PDF reading](#pdf-reading-2026-10-19)) |
 | **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))      |
 
@@ -1917,7 +1917,11 @@ key that Perplexity uses, take effect at the next Gateway start.
 - **Documents:** OpenClaw offers `view_image` only for models that accept images.
   **Read images** grants `view_image` only; PDFs need **Read PDFs** and a chosen PDF
   model (see [PDF reading](#pdf-reading-2026-10-19) and the
-  [web tools qualification](assistant-web-tools-qualification.md)).
+  [web tools qualification](assistant-web-tools-qualification.md)). `view_image`
+  stays in the agent's workspace (`tools.fs.workspaceOnly`); images in a granted
+  project folder are shown through `agentpier_workspace` `image_view`, which needs
+  **Read images** too and returns the image as an image block (see
+  [direct folder access](assistant-workflows.md#direct-folder-access)).
 - **New agents:** the web, browser and image switches are disabled while creating an
   agent ("Available after saving the agent"); the server stores them as off on
   create. Switch them on in the agent's settings after saving.
