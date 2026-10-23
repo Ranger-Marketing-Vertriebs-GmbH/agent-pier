@@ -188,7 +188,7 @@ const definitions = {
   },
   member_update: {
     description:
-      "Change one of your own task members (working on its task, or finished but still reachable for your questions and tasks; not once archived): its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. Takes effect from the member's next turn. The owner sees every change, with the instructions it replaced.",
+      "Change one of your own members: a task member (working on its task, or finished but still reachable for your questions and tasks) or a permanent member; not once archived. You may change its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. Takes effect from the member's next turn, also in the owner's chats with a permanent member. The owner sees every change, with the instructions it replaced.",
     parameters: schema(
       {
         memberId: text(100),

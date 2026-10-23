@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
-import { reachableMember } from "./member-reach.js";
+import { editableMember } from "./member-reach.js";
 import { extraEnd, extraSection, extraStart } from "./team-presentation.js";
 import { dropText, readText, saveText } from "./team-texts.js";
 
@@ -149,7 +149,7 @@ export class MemberEdits {
     } catch {
       throw assistantProblem("teamGrantMemberEnded", 409);
     }
-    if (!reachableMember(member, lead.id))
+    if (!editableMember(member, lead.id))
       throw assistantProblem("teamGrantMemberEnded", 409);
     const agent = a.store.getAssistant(member.assistantId);
     const current = { ...member, name: agent.name, instructions: agent.instructions };

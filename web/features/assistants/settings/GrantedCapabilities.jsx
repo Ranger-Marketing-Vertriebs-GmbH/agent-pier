@@ -8,10 +8,10 @@ import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistan
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantSkillsCopy as skillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
-import { folderCounts, logText } from "../member-grants.js";
+import { folderCounts } from "../member-grants.js";
 import { routePath } from "../../../app/routes.js";
 import { agentRoute } from "./agent-settings-fields.js";
-import ReplacedInstructions from "./ReplacedInstructions.jsx";
+import MemberHistory from "./MemberHistory.jsx";
 
 const capabilityLabels = {
   webSearch: () => copy.personal.enableWebSearch,
@@ -32,7 +32,6 @@ const capabilityLabels = {
 export default function GrantedCapabilities({ inherited, member, assistantId, go }) {
   const id = useId();
   const state = (on) => (on ? grantCopy.on : grantCopy.off);
-  const log = member?.grantLog || [];
   return (
     <section id="agent-granted" aria-labelledby={id}>
       <GroupLabel id={id} hint={grantCopy.hint}>
@@ -72,21 +71,7 @@ export default function GrantedCapabilities({ inherited, member, assistantId, go
           />
         )}
       </ListCard>
-      {log.length > 0 && (
-        <>
-          <h3 className="agent-granted-history">{grantCopy.history}</h3>
-          <ul className="agent-granted-log" data-grant-log="">
-            {[...log].reverse().map((entry, n) => (
-              <li key={n}>
-                {logText(entry)}
-                {entry.replaced && (
-                  <ReplacedInstructions memberId={member.id} entryId={entry.replaced} />
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <MemberHistory member={member} />
     </section>
   );
 }

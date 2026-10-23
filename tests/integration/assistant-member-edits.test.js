@@ -183,9 +183,51 @@ test("edits are refused for a member that is not the lead's or no longer reachab
     { key: "teamGrantMemberEnded" },
   );
   assert.equal(f.teams.member(f.member.id).role, "Done");
-  // A member the owner kept as permanent is the owner's agent now.
+  // A permanent member of the lead stays editable; an archived one does not.
   f.teams.write(f.teams.member(f.member.id), { lifetime: "permanent" });
-  await assert.rejects(f.update({ role: "Again" }), { key: "teamGrantMemberEnded" });
+  assert.equal((await f.update({ role: "Again" })).status, "updated");
+  f.teams.write(f.teams.member(f.member.id), { archivedAt: "2026-10-18" });
+  await assert.rejects(f.update({ role: "Third" }), { key: "teamGrantMemberEnded" });
+});
+
+test("a lead re-briefs its permanent member; the owner's next chat runs with it", async (t) => {
+  const f = await setup(t);
+  f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+  const kept = f.teams.member(f.member.id);
+  f.teams.promote(kept.id, kept.revision);
+  const result = await f.update({ instructions: "New handbook" });
+  assert.equal(result.status, "updated");
+  assert.equal(f.agent().instructions, "New handbook");
+  const member = f.teams.member(f.member.id);
+  assert.equal(member.lifetime, "permanent");
+  const entry = member.grantLog.at(-1);
+  assert.equal(entry.by, "lead");
+  assert.deepEqual(entry.edited, ["instructions"]);
+  assert.ok(replacedInstructions(f.teams, member.id, entry.replaced).text);
+  const [note] = actionNotes(
+    f.workflows.store.list(f.channel.assistantId),
+    f.channel.conversationId,
+  );
+  assert.equal(note.event, "member-update");
+});
+
+test("a permanent member without a task chat still gets a history entry", async (t) => {
+  const f = await setup(t);
+  f.teams.write(f.teams.member(f.member.id), { phase: "completed" });
+  const kept = f.teams.member(f.member.id);
+  f.teams.promote(kept.id, kept.revision);
+  f.teams.write(f.teams.member(f.member.id), { conversationId: undefined });
+  await f.update({ role: "Archivist" });
+  assert.equal(f.teams.member(f.member.id).grantLog.at(-1).edited[0], "role");
+  assert.equal(
+    actionNotes(f.workflows.store.list(f.channel.assistantId), f.channel.conversationId)
+      .length,
+    1,
+  );
+  assert.equal(
+    actionNotes(f.workflows.store.list(f.member.assistantId), f.memberChat.id).length,
+    0,
+  );
 });
 
 test("a member cannot call the edit tool itself", async (t) => {

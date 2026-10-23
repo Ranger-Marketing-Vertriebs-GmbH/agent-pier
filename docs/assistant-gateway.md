@@ -857,7 +857,7 @@ A lead reaches its own members without the owner relaying anything
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
-  edits a temporary member, `agentpier_team_promote` keeps one as a permanent
+  edits a temporary or permanent member, `agentpier_team_promote` keeps one as a permanent
   agent and `agentpier_team_member_routine` sets up routines on permanent members
   that report back (see below). `agentpier_team_templates` searches the Agency catalog
   (ids, names, categories; `team-templates.js`), and a proposed member may name one
@@ -1896,9 +1896,11 @@ owner can archive the agent at any time.
 ## Lead edits of team members (2026-10-17)
 
 `agentpier_team_member_update` (lead-only, `member-edits.js`) changes one of the
-lead's own temporary members that works on its task or is finished but still
-reachable (not archived, not kept as permanent, with a chat; `reachableMember` in
-`member-reach.js`, the same rule as later grants):
+lead's own members: a temporary one that works on its task or is finished but still
+reachable (with a chat; `reachableMember` in `member-reach.js`, the same rule as
+later grants), or a permanent one that is not archived (`editableMember`). The
+change shows in the lead's chat and history; for a permanent member also in the
+history of its Profile tab:
 
 - `name` (as for any agent, at most 100 characters), `role` (200) and `assignment`
   (8192) update the member's record, which the sidebar, the team card and the

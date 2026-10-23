@@ -4,6 +4,7 @@ import GroupLabel from "../../../components/GroupLabel.jsx";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import useAssistants from "../useAssistants.js";
 import { assistantApi } from "../assistant-api.js";
+import MemberHistory from "./MemberHistory.jsx";
 
 /** Provenance, assignment, phase and lifecycle actions of a team member. */
 export default function MemberGroup({ assistant }) {
@@ -66,6 +67,8 @@ export default function MemberGroup({ assistant }) {
         )}
         <p>{member.assignment}</p>
         <p>{copy.team.states[member.phase]}</p>
+        {/* A task member shows its history under Capabilities; a permanent one has no such block. */}
+        {member.lifetime === "permanent" && <MemberHistory member={member} />}
         {member.phase === "provisioning_uncertain" && (
           <div className="assistant-notice">
             <p>{copy.team.setupUnknown}</p>
