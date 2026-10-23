@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isSftpProblem, sftpProblem } from "./sftp-errors.js";
 import { sftpLimits } from "./sftp-limits.js";
+import { insideRoot } from "./sftp-remote-paths.js";
 
 const STATES = new Set(["completed", "failed", "cancelled", "revoked"]);
 const PROGRESS_MS = 1000;
@@ -19,8 +20,12 @@ function view(job) {
 
 /**
  * Background SFTP jobs per owner: at most `limit` running at once, each ended after
- * `jobMs` as `failed` with `SFTP_TIMEOUT`, ended jobs kept for `keepMs`. Progress
- * listeners hear a job at most once per second while it runs, and once when it ends.
+ * `jobMs` as `failed` with `SFTP_TIMEOUT`, ended jobs kept for `keepMs`. A job holds
+ * its slot (and its lock) until its run has settled, even after a timeout or
+ * `closeAll` ended it. A job may name a `lock` `{ hostId, path, write }`: two writing
+ * jobs on one host whose remote folders overlap (one inside the other) never run at
+ * once (`SFTP_BUSY`); reading jobs run alongside anything. Progress listeners hear a
+ * job at most once per second while it runs, and once when it ends.
  */
 export class SftpJobs {
   #jobs = new Map();
@@ -45,7 +50,7 @@ export class SftpJobs {
   #prune() {
     const now = this.#now();
     for (const [id, job] of this.#jobs)
-      if (job.endedAt !== null && now - job.endedAt > this.#keepMs) this.#jobs.delete(id);
+      if (job.settled && now - job.endedAt > this.#keepMs) this.#jobs.delete(id);
   }
 
   #emit(job) {
@@ -81,13 +86,27 @@ export class SftpJobs {
     return job;
   }
 
-  /** Starts `run(progress, signal)` in the background; `SFTP_BUSY` at the limit. */
-  start(owner, { kind, summary = null, run }) {
+  #conflicts(lock) {
+    if (!lock?.write) return false;
+    return [...this.#jobs.values()].some(
+      ({ lock: other, settled }) =>
+        !settled &&
+        other?.write &&
+        other.hostId === lock.hostId &&
+        (insideRoot(other.path, lock.path) || insideRoot(lock.path, other.path)),
+    );
+  }
+
+  /**
+   * Starts `run(progress, signal)` in the background; `SFTP_BUSY` at the owner's
+   * limit or when `lock` overlaps a running writing job.
+   */
+  start(owner, { kind, summary = null, run, lock = null }) {
     this.#prune();
     const running = [...this.#jobs.values()].filter(
-      (job) => job.owner === owner && job.state === "running",
+      (job) => job.owner === owner && !job.settled,
     ).length;
-    if (running >= this.#limit) throw sftpProblem("SFTP_BUSY");
+    if (running >= this.#limit || this.#conflicts(lock)) throw sftpProblem("SFTP_BUSY");
     const controller = new AbortController();
     const job = {
       jobId: randomUUID(),
@@ -100,6 +119,8 @@ export class SftpJobs {
       endedAt: null,
       lastEmit: -Infinity,
       waiters: new Set(),
+      lock: lock && { hostId: lock.hostId, path: lock.path, write: Boolean(lock.write) },
+      settled: false,
       controller,
       timer: null,
     };
@@ -118,15 +139,18 @@ export class SftpJobs {
       job.lastEmit = now;
       this.#emit(job);
     };
+    // The slot frees before waiters hear the end, so a waiter may start the next job.
+    const settle = (outcome) => {
+      job.settled = true;
+      this.#finish(job, outcome);
+    };
     Promise.resolve()
       .then(() => run(progress, controller.signal))
-      .then(
-        (result) => this.#finish(job, result),
-        (error) =>
-          this.#finish(job, {
-            state: "failed",
-            code: isSftpProblem(error) ? error.code : "SFTP_FAILED",
-          }),
+      .then(settle, (error) =>
+        settle({
+          state: "failed",
+          code: isSftpProblem(error) ? error.code : "SFTP_FAILED",
+        }),
       );
     return view(job);
   }

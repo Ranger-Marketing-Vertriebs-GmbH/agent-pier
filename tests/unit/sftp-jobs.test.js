@@ -159,3 +159,55 @@ test("wait returns the running job after ms; closeAll cancels", async () => {
   assert.equal(jobs.get("alice", job.jobId).state, "cancelled");
   assert.equal(run.calls.signal.aborted, true);
 });
+
+test("a timed-out job keeps its slot until its run settles", async (t) => {
+  const jobs = new SftpJobs({ limit: 1, jobMs: 20 });
+  t.after(() => jobs.closeAll());
+  let release;
+  const stuck = jobs.start("alice", {
+    kind: "upload",
+    // Ignores its signal for a while, as a cleanup still running would.
+    run: () => new Promise((resolve) => (release = resolve)),
+  });
+  assert.equal((await jobs.wait("alice", stuck.jobId, 1000)).state, "failed");
+  assert.throws(() => jobs.start("alice", { kind: "upload", run: controllable().run }), {
+    code: "SFTP_BUSY",
+  });
+  release({ state: "completed" });
+  await tick();
+  jobs.start("alice", { kind: "upload", run: controllable().run });
+});
+
+test("two syncs into the same folder never run at once", async (t) => {
+  const jobs = new SftpJobs({ limit: 5 });
+  t.after(() => jobs.closeAll());
+  const write = (path, hostId = "h1") => ({ hostId, path, write: true });
+  const first = controllable();
+  const sync = jobs.start("alice", { kind: "sync", run: first.run, lock: write("/www") });
+  for (const [owner, lock] of [
+    ["alice", write("/www")],
+    ["bob", write("/www/sub")],
+    ["alice", write("/")],
+  ])
+    assert.throws(
+      () => jobs.start(owner, { kind: "sync", run: controllable().run, lock }),
+      {
+        code: "SFTP_BUSY",
+      },
+    );
+  jobs.start("alice", { kind: "sync", run: controllable().run, lock: write("/www2") });
+  jobs.start("alice", {
+    kind: "sync",
+    run: controllable().run,
+    lock: write("/www", "h2"),
+  });
+  jobs.start("alice", {
+    kind: "download",
+    run: controllable().run,
+    lock: { hostId: "h1", path: "/www", write: false },
+  });
+  first.finish({ state: "completed" });
+  await jobs.wait("alice", sync.jobId, 1000);
+  await tick();
+  jobs.start("bob", { kind: "sync", run: controllable().run, lock: write("/www/sub") });
+});
