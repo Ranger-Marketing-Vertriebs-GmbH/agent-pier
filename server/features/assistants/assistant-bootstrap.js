@@ -57,7 +57,7 @@ const memoryGuidance = (member, writable, task, lead) =>
 const folderGuidance = (folders) =>
   [
     "## Project folders",
-    "- You may work directly in these project folders through agentpier_workspace (files_list, file_read, files_search; file_write and file_edit only with read and write). Your read, write and edit tools only reach your own workspace, not these folders.",
+    "- You may work directly in these project folders through agentpier_workspace (files_list, file_read, files_search, image_view for images; file_write and file_edit only with read and write). Your read, write and edit tools only reach your own workspace, not these folders.",
     ...folders.map(
       (f) =>
         `- ${quoted(f.name)} (projectId ${JSON.stringify(f.projectId)}): ${JSON.stringify(f.path)}, ${

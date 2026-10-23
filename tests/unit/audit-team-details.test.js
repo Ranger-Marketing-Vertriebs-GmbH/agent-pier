@@ -89,3 +89,20 @@ test("writes name how they were authorized: a lead share, a member result or a c
   );
   assert.equal(event({ kind: "native-write", filePath: "a\nb" }).filePath, undefined);
 });
+
+test("an image view of a project file keeps the view, path and size, never content", () => {
+  assert.deepEqual(
+    event({
+      kind: "project-file",
+      fileView: "image",
+      filePath: "shots/home.png",
+      bytes: 68,
+      data: "never stored",
+      mimeType: "image/png",
+    }),
+    { kind: "project-file", fileView: "image", filePath: "shots/home.png", bytes: 68 },
+  );
+  assert.deepEqual(event({ kind: "project-file", fileView: "video" }), {
+    kind: "project-file",
+  });
+});

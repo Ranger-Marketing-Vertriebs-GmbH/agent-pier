@@ -226,6 +226,10 @@ export const assistants = {
     "Agenten von Benutzern dürfen keine Tool-Konfiguration und keine CLI-Anweisungen in Projektordnern ändern (etwa .claude, opencode.json, .mcp.json, .envrc oder AGENTS.md).",
   projectFileUnsuitable:
     "Diese Datei ist zu groß, binär oder keine normale Datei für diese Aktion.",
+  projectImageUnsuitable:
+    "Diese Datei ist kein PNG-, JPEG-, GIF- oder WebP-Bild bis 6 MiB.",
+  projectImagesOff: "Bilder lesen ist für diesen Agenten nicht eingeschaltet.",
+  projectImageModel: "Das Modell dieses Agenten kann keine Bilder lesen.",
   projectEditNoMatch: "Der zu ersetzende Text kommt in der Datei nicht genau einmal vor.",
   projectFileEncoding:
     "Diese Datei ist kein gültiges UTF-8; sie wird nicht geändert, damit keine Zeichen verloren gehen.",
