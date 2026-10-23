@@ -817,7 +817,9 @@ The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
 to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
-`session_status`; members receive only `session_status`. Direct native spawning
+`session_status`; members receive `session_status` and their own four
+[member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
+`_peer_ask`, `_peer_delegate`, `_report`). Direct native spawning
 and alternative session mutation tools are not offered; `exec` and `process` only
 under [agent shell access](#agent-shell-access-2026-10-12), which temporary members
 get only through their lead's [explicit setting](#team-member-grants-2026-10-17). The private loopback
@@ -908,7 +910,8 @@ A lead reaches its own members without the owner relaying anything
   `agentpier_team_member_summarise` (`member-summaries.js`, `{ memberId, when:
 "now" | "after_task" }`, not available to routines) summarises one of the lead's own
   non-archived members' task chat (below). Members never get these tools,
-  and the bridge refuses them to member turns, so there are no chains.
+  and the bridge refuses them to member turns; members have their own, one-level
+  [member tools](#member-questions-tasks-and-reports) instead.
 - **Long member chats.** After a member's task chat (`member.conversationId`, not the
   further chats the owner opened) reached a terminal attempt, `MemberLongChats`
   (`member-long-chats.js`, table `assistant_member_long_chats`, private in backups) reads
@@ -1058,8 +1061,9 @@ A lead reaches its own members without the owner relaying anything
   and only routine runs reach `write`/`edit`: they run in their own `cron:<job>`
   session, which has no attempt; check-ins run with `toolsAllow: ["memory_search", "memory_get"]`,
   reminders with no tools, and routines with `routineTools`, which leaves out the
-  plugin's tools apart from SSH, shared files and the lead's `members`, `ask` and
-  `delegate` (pinned by the native heartbeat, reminder and routine tests). A
+  plugin's tools apart from SSH, shared files, the lead's `members`, `ask` and
+  `delegate` and a member's own `peers`, `peer_ask`, `peer_delegate` and `report`
+  (pinned by the native heartbeat, reminder and routine tests). A
   routine run's `write`/`edit` pass the guard as their own origin
   (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)).
 - **Routine origin.** A lead's routine run reaches `members`, `ask` and
@@ -1092,6 +1096,73 @@ A lead reaches its own members without the owner relaying anything
   is adopted by its stable request id instead of sent again; an unknown member
   outcome ends `failed` once reviewed and is reported to the lead. Archiving a
   member fails its queued requests.
+
+### Member questions, tasks and reports
+
+Members of one lead reach each other and their lead without the lead relaying
+anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
+`member-reports.js`, tools in `team-plugin/member-tools.js`):
+
+- **Tools.** Every non-archived member's entry holds `agentpier_team_peers` (its
+  siblings of the same lead with `memberId`, role, lifetime, busy state and
+  `canDelegate`), `agentpier_team_peer_ask` (`{ memberId, question }`, waits like the
+  lead's ask), `agentpier_team_peer_delegate` (`{ memberId, task, resultTo?: "me" |
+"lead" }`, permanent siblings only) and `agentpier_team_report` (`{ kind: "result" |
+"problem", text, files? }`, up to 10 project file paths, which AgentPier names but
+  never reads). The bridge (`memberActions` in `team-bridge-actions.js`) refuses them
+  to leads and personal agents, and refuses the lead's tools to members. A member's
+  routine run reaches them too (permanent members only), bound to its run session.
+- **Records.** Questions and tasks are `lead-request` records under the lead
+  (`parentAssistantId`) with `fromMemberId`, `fromAssistantId`, `fromName`,
+  `fromConversationId`, `resultTo` and `origin: { kind: "peer", fromMemberId }`, run by
+  the lead's scheduler but never counted against its caps. `parentConversationId` is
+  the lead's main chat at creation, or `null` without one. Reports are records of type
+  `report` with `origin: { kind: "member-report", reportKind, routine? }`, stored
+  completed and delivered once.
+- **Turns.** A member may start one only in its own work (`peerTurn`): the owner's own
+  message (not forwarded), its team assignment, its lead's request, or its routine.
+  Every other turn is refused (`PEER_TURN`). While it handles a sibling's request or
+  that request's result (`peer-result`), it may only report (`PEER_LOOP`), so there
+  are no chains or ping-pong.
+- **Limits** (`peerCaps`, `reportCaps`):
+
+  | Bound                                        | Value | Refusal        |
+  | -------------------------------------------- | ----- | -------------- |
+  | Open requests per sender and receiver        | 1     | `PEER_OPEN`    |
+  | Open tasks per receiver (also from the lead) | 1     | `PEER_OPEN`    |
+  | Open requests per sending member             | 3     | `PEER_LIMIT`   |
+  | Requests per sending member and rolling hour | 6     | `PEER_LIMIT`   |
+  | Reports per member and rolling hour          | 6     | `REPORT_LIMIT` |
+
+  Each refusal's reason tells the member to report to its lead instead. A target
+  outside the sender's lead, archived, or without a chat is `notFound`; a task to a
+  temporary sibling is `memberRequestNotPermanent`.
+
+- **Writes.** Questions never write. A task is writable only when the sender's turn may
+  write itself (`peerWriteOrigin`, stored as `peerWrites`): the owner's message in the
+  sender's own task chat, the writable lead task this very attempt runs, or a routine
+  marked **May write**. The receiver works with its own tools and access, never the
+  sender's grants or task shares; a task started from a lead task reaches only the
+  lead's standing shares (`sharesOnly`), as the lead's own task would. Memory stays
+  read-only (`peer-request` memory note), and `coding_start` from a peer request always
+  waits for the owner.
+- **Delivery.** The receiver's chat shows the request with the sending member as
+  sender. An answer that misses the wait, or a task's result, goes as a hidden
+  `peer-result` turn to the sender's chat (`peer-request-result:<id>`), which cannot
+  write, change memory or ask further. With `resultTo: "lead"`, or when the sender can
+  no longer be reached (archived, chat gone, or a temporary member whose task ended),
+  it reaches the lead's current main chat as a `member-result` turn instead. Reports
+  go to the lead's current main chat as `member-result` turns, one at a time per
+  member (`MemberReports.held`), and wait while the lead has no main chat.
+- **Lead visibility.** `peer-notes.js` adds a quiet `peer-request` event line to the
+  lead's current main chat when a request starts and when it ends (who and how it
+  ended, never the text). A request created while the lead had no main chat shows its
+  notes in the main chat the lead has later. Notes are no lead turn and are pruned with
+  their request. **Work → Teams → Questions and tasks** lists exchanges as "<member> →
+  <member> · question/task" and reports as "Result from <member>" / "Problem from
+  <member>"; `agentpier_team_members` shows the lead each member's requests from
+  colleagues. The lead's "Your team" section and tool descriptions say that members can
+  agree among themselves and report back.
 
 ### Coding requests from team members
 

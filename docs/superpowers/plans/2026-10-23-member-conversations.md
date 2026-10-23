@@ -49,15 +49,15 @@ OpenClaw plugin (`team-plugin`).
 
 ### Numeric limits (chosen here, documented in Task 8)
 
-| Limit | Value | Where |
-|---|---|---|
-| Open peer requests per pair and direction | 1 | `peerCaps.openPerPair` |
-| Open peer requests a member has sent | 3 | `peerCaps.openPerMember` |
-| Peer requests a member sends per rolling hour | 6 | `peerCaps.perHour` |
-| Reports a member sends per rolling hour | 6 | `reportCaps.perHour` |
-| Report text / file refs | 8192 chars / ≤ 10 refs × ≤ 500 chars | `reportLimits` |
-| Peer question / task text | 4000 / 8192 (reuse `requestLimits`) | |
-| `peer_ask` wait | `askWaitMs` (110 s); plugin timeout 125 s | |
+| Limit                                         | Value                                     | Where                    |
+| --------------------------------------------- | ----------------------------------------- | ------------------------ |
+| Open peer requests per pair and direction     | 1                                         | `peerCaps.openPerPair`   |
+| Open peer requests a member has sent          | 3                                         | `peerCaps.openPerMember` |
+| Peer requests a member sends per rolling hour | 6                                         | `peerCaps.perHour`       |
+| Reports a member sends per rolling hour       | 6                                         | `reportCaps.perHour`     |
+| Report text / file refs                       | 8192 chars / ≤ 10 refs × ≤ 500 chars      | `reportLimits`           |
+| Peer question / task text                     | 4000 / 8192 (reuse `requestLimits`)       |                          |
+| `peer_ask` wait                               | `askWaitMs` (110 s); plugin timeout 125 s |                          |
 
 Peer requests and member reports never count against the lead's `requestCaps` or
 `autonomousCaps`.
@@ -86,12 +86,14 @@ Peer requests and member reports never count against the lead's `requestCaps` or
 Pure refactor that frees lines and adds the target hook the peer delivery needs.
 
 **Files:**
+
 - Create: `server/features/assistants/lead-request-delivery.js`
 - Modify: `server/features/assistants/lead-requests.js` (`deliver`, the `delivery` and
   `finalResult` constants move out)
 - Test: `tests/integration/assistant-lead-request-delivery.test.js` (new, small)
 
 **Interfaces:**
+
 - Produces:
   - `deliverRequest(requests: LeadRequests, id: string): Promise<void>` — the body of
     today's `LeadRequests.deliver`, with the send target taken from
@@ -104,12 +106,12 @@ Pure refactor that frees lines and adds the target hook the peer delivery needs.
   - The busy check uses `target.conversationId` instead of `r.parentConversationId`.
 
 - [ ] **Step 1:** Write `test("delivery waits for the target chat named by deliveryTarget")`: stub
-  `deliveryTarget` to return another conversation of the lead; keep that chat busy with a
-  pending attempt → no send; idle → exactly one send with that `clientRequestId`.
+      `deliveryTarget` to return another conversation of the lead; keep that chat busy with a
+      pending attempt → no send; idle → exactly one send with that `clientRequestId`.
 - [ ] **Step 2:** Run `node --test tests/integration/assistant-lead-request-delivery.test.js` — FAIL (`deliveryTarget` not a function).
 - [ ] **Step 3:** Move the code; behaviour of the default target is byte-identical.
 - [ ] **Step 4:** Run the new test and the existing suites:
-  `node --test tests/integration/assistant-lead-requests*.test.js tests/integration/assistant-lead-routine-reports.test.js tests/integration/assistant-routine-team-requests.test.js` — all PASS; `npm run check:structure` PASS.
+      `node --test tests/integration/assistant-lead-requests*.test.js tests/integration/assistant-lead-routine-reports.test.js tests/integration/assistant-routine-team-requests.test.js` — all PASS; `npm run check:structure` PASS.
 - [ ] **Step 5:** Commit `chore: move lead request delivery into its own module`.
 
 ---
@@ -120,6 +122,7 @@ The store side: who may ask whom, the limits, the loop rule and the write origin
 dispatch change yet.
 
 **Files:**
+
 - Create: `server/features/assistants/peer-request-rules.js`
 - Modify: `server/features/assistants/lead-request-store.js` (`taskWritable`, lead caps
   filter, `publicRequest`)
@@ -132,6 +135,7 @@ dispatch change yet.
 - Test: `tests/integration/assistant-peer-request-rules.test.js`
 
 **Interfaces:**
+
 - Consumes: `editableMember`, `reachableMember` (`member-reach.js`), `taskWritable`,
   `requestLimits`, `requestTerminal`, `requestKind` (`lead-request-store.js`),
   `mainConversation` (`routine-targets.js`), `directTurn` (`memory-write-policy.js`).
@@ -207,11 +211,11 @@ dispatch change yet.
   - `"the same tool call replays; a changed input conflicts"` — 409.
 - [ ] **Step 2:** Run `node --test tests/integration/assistant-peer-request-rules.test.js` — FAIL (module missing).
 - [ ] **Step 3:** Implement `peer-request-rules.js` and the store changes; add the
-  problem keys in both server catalogs and `tool-errors.js`.
+      problem keys in both server catalogs and `tool-errors.js`.
 - [ ] **Step 4:** Run the new test, `tests/unit/assistant-lead-request-store.test.js`,
-  `tests/integration/assistant-lead-requests-safety.test.js` — PASS. Run
-  `npm run i18n:confirm -- assistants` after reviewing each DE/EN pair; the translation
-  lock test passes.
+      `tests/integration/assistant-lead-requests-safety.test.js` — PASS. Run
+      `npm run i18n:confirm -- assistants` after reviewing each DE/EN pair; the translation
+      lock test passes.
 - [ ] **Step 5:** Commit `feat: store member-to-member requests with their limits`.
 
 ---
@@ -219,6 +223,7 @@ dispatch change yet.
 ### Task 3: Peer dispatch, answers and delivery
 
 **Files:**
+
 - Create: `server/features/assistants/peer-requests.js`
 - Modify: `server/features/assistants/lead-requests.js` (dispatch context, prompt,
   `deliveryTarget` delegation, `members()` shows `from`) — net ≤ +6 lines
@@ -234,6 +239,7 @@ dispatch change yet.
 - Test: `tests/integration/assistant-peer-requests.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 1 `deliveryTarget`, `deliverRequest`; Task 2 `createPeerRequest`,
   `peerCaller`, `peerTarget`; `LeadRequests.waitFor`, `toolResult`, `serialized`,
   `dispatch`.
@@ -245,7 +251,7 @@ dispatch change yet.
   - `peer_delegate(inv, input) -> toolResult` — create and return at once; `mayWrite`
     in the result reflects `writeAllowed`.
   - `target(r) -> deliveryTarget | null` — `null` for non-peer records. For `resultTo
-    "me"` and a reachable asker (sender member not archived, agent not archived,
+"me"` and a reachable asker (sender member not archived, agent not archived,
     `editableMember(sender, lead)`, `fromConversationId` readable and not archived):
     `{ conversationId: r.fromConversationId, clientRequestId: `peer-request-result:${r.id}`, text: peerFollowUp(r), context: { kind: "peer-result", requestId: r.id } }`.
     Otherwise (gone, or `resultTo "lead"`): the lead's
@@ -294,10 +300,10 @@ dispatch change yet.
   - `"open peer requests survive a restart without a second execution"`.
 - [ ] **Step 2:** Run `node --test tests/integration/assistant-peer-requests.test.js` — FAIL.
 - [ ] **Step 3:** Implement `PeerRequests`, the text functions, the dispatch context and
-  source change, the internal kind and the refusal reason; wire in `TeamService`.
+      source change, the internal kind and the refusal reason; wire in `TeamService`.
 - [ ] **Step 4:** Run the new test plus `assistant-lead-requests*.test.js`,
-  `assistant-lead-request-writes.test.js`, `assistant-lead-shares.test.js`,
-  `assistant-team-mcp.test.js` — PASS; `npm run check:structure` PASS.
+      `assistant-lead-request-writes.test.js`, `assistant-lead-shares.test.js`,
+      `assistant-team-mcp.test.js` — PASS; `npm run check:structure` PASS.
 - [ ] **Step 5:** Commit `feat: let members ask and hand tasks to each other`.
 
 ---
@@ -305,6 +311,7 @@ dispatch change yet.
 ### Task 4: Member reports to the lead
 
 **Files:**
+
 - Create: `server/features/assistants/member-reports.js`
 - Modify: `server/features/assistants/lead-request-text.js` (`followUp` → member
   report branch)
@@ -318,6 +325,7 @@ dispatch change yet.
 - Test: `tests/integration/assistant-member-reports.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 2 `peerCaller`, `peerTurn` (`"peer"` and `"report-only"` both admit a
   report), Task 1 delivery.
 - Produces — `class MemberReports` (`constructor({ teams, service })`):
@@ -352,7 +360,7 @@ dispatch change yet.
 - [ ] **Step 2:** Run `node --test tests/integration/assistant-member-reports.test.js` — FAIL.
 - [ ] **Step 3:** Implement; add the problem key and `npm run i18n:confirm -- assistants`.
 - [ ] **Step 4:** Run it plus `assistant-lead-routine-reports.test.js`,
-  `assistant-lead-request-answer-text.test.js` — PASS.
+      `assistant-lead-request-answer-text.test.js` — PASS.
 - [ ] **Step 5:** Commit `feat: let members report results and problems to their lead`.
 
 ---
@@ -360,6 +368,7 @@ dispatch change yet.
 ### Task 5: Expose the member tools to members only
 
 **Files:**
+
 - Modify: `server/features/assistants/team-bridge-actions.js` (`memberActions`, added to
   `actions` and `routineActions`)
 - Modify: `server/features/assistants/team-bridge.js` (`valid`, `invoke`)
@@ -377,6 +386,7 @@ dispatch change yet.
   test that lists the tools (`tests/unit/openclaw-config-characterization.test.js`)
 
 **Interfaces:**
+
 - Consumes: Task 3 `PeerRequests.peers/peer_ask/peer_delegate`, Task 4
   `MemberReports.report`.
 - Produces:
@@ -412,7 +422,7 @@ dispatch change yet.
 - [ ] **Step 2:** Run the named tests — FAIL.
 - [ ] **Step 3:** Implement the registrations in all places listed.
 - [ ] **Step 4:** Run them plus `tests/integration/assistant-lead-requests.test.js`
-  ("the bridge refuses the new lead tools to members" must still pass) — PASS.
+      ("the bridge refuses the new lead tools to members" must still pass) — PASS.
 - [ ] **Step 5:** Commit `feat: give team members their conversation and report tools`.
 
 ---
@@ -420,6 +430,7 @@ dispatch change yet.
 ### Task 6: Tell the lead
 
 **Files:**
+
 - Modify: `server/features/assistants/team-guidance.js`
 - Modify: `server/features/assistants/team-plugin/index.js` (`ask`, `delegate`,
   `members` descriptions)
@@ -428,6 +439,7 @@ dispatch change yet.
 - Test: `tests/unit/assistant-team-guidance.test.js`, `tests/integration/assistant-lead-requests.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 5 tool names.
 - Produces: one new line in the "Your team" section whenever the lead has members (all
   three usage levels): members can ask each other and hand each other tasks with
@@ -438,7 +450,7 @@ dispatch change yet.
   The `delegate` and `ask` descriptions gain one sentence to the same effect.
 
 - [ ] **Step 1:** Tests: `"the team section tells the lead members can agree among themselves and report"`
-  (at every level with members, absent without members); `"members() names the sender of a peer request"`.
+      (at every level with members, absent without members); `"members() names the sender of a peer request"`.
 - [ ] **Step 2:** Run — FAIL.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** Run `node --test tests/unit/assistant-team-guidance.test.js tests/integration/assistant-lead-requests.test.js` — PASS.
@@ -449,6 +461,7 @@ dispatch change yet.
 ### Task 7: Lead chat notes and Questions and tasks
 
 **Files:**
+
 - Create: `server/features/assistants/peer-notes.js`
 - Modify: `server/features/assistants/conversations.js` (merge notes with
   `withMemoryNotes`, same `from` page rule)
@@ -462,6 +475,7 @@ dispatch change yet.
   `tests/browser/assistant-lead-requests.spec.js`
 
 **Interfaces:**
+
 - Consumes: Task 2 record fields, Task 4 `reportKind`.
 - Produces:
   - `peerNotes(service, conversationId) -> note[]` — for every peer record whose
@@ -491,10 +505,10 @@ dispatch change yet.
     "Learning → Head Writer · task" and "Problem from Learning" with its report text;
     the member-result internal line appears for the report turn.
 - [ ] **Step 2:** Run `node --test tests/integration/assistant-peer-notes.test.js` and
-  `npx playwright test tests/browser/assistant-lead-requests.spec.js` — FAIL.
+      `npx playwright test tests/browser/assistant-lead-requests.spec.js` — FAIL.
 - [ ] **Step 3:** Implement; review each DE/EN pair; `npm run i18n:confirm -- lead-requests assistant-team`.
 - [ ] **Step 4:** Run both again plus the catalog parity and translation-lock unit tests
-  and `tests/unit/ui-guide-rules.test.js` — PASS. Exercise the screens in English.
+      and `tests/unit/ui-guide-rules.test.js` — PASS. Exercise the screens in English.
 - [ ] **Step 5:** Commit `feat: show member exchanges and reports to the lead`.
 
 ---
@@ -502,6 +516,7 @@ dispatch change yet.
 ### Task 8: Docs, cleanup and full check
 
 **Files:**
+
 - Modify: `docs/agents.md` (section "Teams, asks and tasks": members talking to each
   other, reports, limits, write rule; "Questions and tasks" bullet at line ~374;
   "When a lead uses its team")
@@ -514,8 +529,8 @@ dispatch change yet.
   `docs/superpowers/specs/2026-10-23-member-conversations-design.md`
 
 - [ ] **Step 1:** Update the docs; keep heading anchors stable; quote UI labels exactly
-  as in the EN catalog (**Work → Teams → Questions and tasks**).
+      as in the EN catalog (**Work → Teams → Questions and tasks**).
 - [ ] **Step 2:** Run `npm run check` — PASS; run `npm test` for the touched strategies.
 - [ ] **Step 3:** Delete the plan and spec; commit `chore: document member conversations and reports`.
 - [ ] **Step 4:** PR description lists the docs checked/updated, screenshots of the
-  lead-chat notes and the Questions and tasks list, and the limits.
+      lead-chat notes and the Questions and tasks list, and the limits.

@@ -438,7 +438,10 @@ the qualified runtime upgrade pair and project identity isolation after merging 
 
 A lead reaches its own members directly with the team tools `agentpier_team_ask`,
 `_delegate`, `_cancel`, `_archive` and `_members`; every lead gets them, members never
-do, so there are no chains. By the owner's decision (PR #271) a lead's
+do, so there are no chains. Since AGENTPIER-197 members have their own tools to ask
+each other, hand permanent colleagues tasks and report to their lead; a member
+handling a colleague's request cannot start another, so chains stay one level deep.
+By the owner's decision (PR #271) a lead's
 questions and tasks run without an approval request as soon as the member is free.
 This replaces ask-first for these requests; team creation itself keeps the proposal,
 one-assignment and standing-permission rules above.
