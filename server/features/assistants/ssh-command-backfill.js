@@ -1,5 +1,5 @@
 import { redactSecrets } from "../../lib/secret-redaction.js";
-import { commandDigest, redactedCommand } from "./agent-ssh-text.js";
+import { commandDigest, commandPreview, redactedCommand } from "./agent-ssh-text.js";
 
 /**
  * One-time redaction of SSH commands stored before redaction existed
@@ -29,16 +29,25 @@ export function backfillSshCommands({ store, s }) {
     db.prepare("SELECT 1 FROM assistant_migrations WHERE name=?").get(sshBackfillMarker)
   )
     return false;
+  // Without the channel outbox its Telegram texts wait: no marker, a later start
+  // revisits them.
+  const outbox = s.assistantChannels?.outbox;
   try {
     const ids = redactRows(store);
-    const outbox = s.assistantChannels?.outbox;
-    let clean = scrub(db);
+    const failures = [scrub(db)];
     if (outbox) {
       for (let i = 0; i < ids.length; i += chunk)
         outbox.rewriteActions(ids.slice(i, i + chunk), redactSecrets);
-      clean = scrub(outbox.db) && clean;
+      failures.push(scrub(outbox.db));
     }
-    if (!clean) return true;
+    const failure = failures.find(Boolean);
+    if (failure) {
+      console.error(
+        `AgentPier could not clear old SSH command text from the database files; it retries at the next start: ${failure}`,
+      );
+      return true;
+    }
+    if (!outbox) return true;
     db.prepare("INSERT OR IGNORE INTO assistant_migrations VALUES(?,?)").run(
       sshBackfillMarker,
       new Date().toISOString(),
@@ -61,7 +70,12 @@ export function redactedSshPayload(payload) {
     Object.assign(next, redactedCommand(payload));
   }
   if (typeof payload.commandPreview === "string") {
-    next.commandPreview = redactSecrets(payload.commandPreview);
+    // From the whole command where the row has one: a secret cut short at the
+    // preview's end is redacted there, not in the preview.
+    next.commandPreview =
+      typeof next.command === "string"
+        ? commandPreview(next.command)
+        : redactSecrets(payload.commandPreview);
     if (next.commandPreview !== payload.commandPreview) next.commandRedacted = true;
   }
   return JSON.stringify(next) === JSON.stringify(payload) ? null : next;
@@ -77,9 +91,7 @@ function redactRows(store) {
     .all()
     .map((r) => JSON.parse(r.body))
     .filter((a) => !running.has(a.state));
-  const previous = store.db.prepare("PRAGMA secure_delete").get().secure_delete;
-  store.db.exec("PRAGMA secure_delete=ON");
-  try {
+  store.secureDelete(() => {
     store.db.exec("BEGIN IMMEDIATE");
     try {
       for (const a of rows) {
@@ -91,19 +103,18 @@ function redactRows(store) {
       store.db.exec("ROLLBACK");
       throw error;
     }
-  } finally {
-    store.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
-  }
+  });
   return rows.filter((a) => !a.payload.trusted).map((a) => a.id);
 }
 
 // VACUUM leaves no freed page or cell with old text; the checkpoint empties the log.
+// Returns null when both succeeded, else why not (an error code, never a message).
 function scrub(db) {
   try {
     db.exec("VACUUM");
     const { busy, log } = db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
-    return busy === 0 && log === 0;
-  } catch {
-    return false;
+    return busy === 0 && log === 0 ? null : "CHECKPOINT_BUSY";
+  } catch (error) {
+    return error?.code || error?.name || "VACUUM_FAILED";
   }
 }

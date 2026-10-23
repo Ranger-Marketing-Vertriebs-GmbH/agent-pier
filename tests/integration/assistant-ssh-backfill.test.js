@@ -197,3 +197,73 @@ test("the workflows start runs the backfill before the first tick", async (t) =>
   assert.equal(store.get(ids.approved).payload.command, redacted);
   assert.ok(marker(store));
 });
+
+test("a row with its command gets the preview of the redacted command", async (t) => {
+  const { f, store } = await legacy(t);
+  // The preview cuts the token short of the length that marks it as one; only the
+  // whole command shows it.
+  const token = `ghp_${"Q7".repeat(15)}`;
+  const long = `${"echo ".repeat(14)}${token}`;
+  const id = store.reserve({
+    assistantId: f.id,
+    conversationId: f.channel.conversationId,
+    origin: { kind: "owner" },
+    key: "cut",
+    state: "completed",
+    payload: {
+      action: "ssh",
+      trusted: true,
+      command: long,
+      commandPreview: `${long.slice(0, 79)}…`,
+      commandSha256: commandDigest(long),
+    },
+  }).id;
+  backfillSshCommands(f.workflows);
+  const { payload } = store.get(id);
+  assert.equal(payload.command, `${"echo ".repeat(14)}•••`);
+  assert.equal(payload.commandPreview, payload.command);
+  assert.equal(payload.commandRedacted, true);
+});
+
+test("without the channel outbox no marker is set", async (t) => {
+  const { f, store, ids } = await legacy(t);
+  const channels = f.workflows.s.assistantChannels;
+  f.workflows.s.assistantChannels = undefined;
+  try {
+    assert.equal(backfillSshCommands(f.workflows), true);
+  } finally {
+    f.workflows.s.assistantChannels = channels;
+  }
+  assert.equal(store.get(ids.approved).payload.command, redacted);
+  assert.equal(marker(store), undefined);
+  backfillSshCommands(f.workflows);
+  assert.ok(marker(store));
+});
+
+test("a failed VACUUM is logged by its code and sets no marker", async (t) => {
+  const { f, store } = await legacy(t);
+  const logged = [];
+  t.mock.method(console, "error", (line) => logged.push(line));
+  const db = store.db;
+  store.db = new Proxy(db, {
+    get: (target, property) =>
+      property === "exec"
+        ? (sql) => {
+            if (sql === "VACUUM")
+              throw Object.assign(Error(secret), { code: "SQLITE_BUSY" });
+            return target.exec(sql);
+          }
+        : target[property],
+  });
+  let result;
+  try {
+    result = backfillSshCommands(f.workflows);
+  } finally {
+    store.db = db;
+  }
+  assert.equal(result, true);
+  assert.equal(marker(store), undefined);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /SQLITE_BUSY$/);
+  assert.equal(logged[0].includes(secret), false);
+});

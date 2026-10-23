@@ -2100,20 +2100,26 @@ once it settles (completed, failed, declined, expired, cancelled or unknown),
 (`commandSha256`), so a retry of the same tool call still finds its card. The
 approval's Telegram text in `channel_outbox` is rewritten the same way
 (`ChannelOutbox.rewriteActions`); text Telegram already delivered stays in that chat.
+Every update of an SSH row that holds a command runs with `secure_delete`
+(`AssistantActionStore.patch`), so the space a revision frees keeps no copy of the
+text, and the settling patch ends with a TRUNCATE checkpoint (best effort; a busy
+reader leaves the log to the next checkpoint).
 A trusted run is stored redacted at once, at most 8 KiB (`noteCommand`, `commandCut`
 when cut), and only the newest 500 trusted rows per agent are kept
 (`trustedSshRows`). Rows stored before redaction existed are redacted once, at the
 first start of a version with `ssh-command-backfill.js` (before the first workflow
 tick): every SSH row that is not awaiting approval, approved or executing gets the
-original's `commandSha256` when it has none, its `command` and `commandPreview` with
-secrets replaced and `commandRedacted` when that changed, and a new revision; the
+original's `commandSha256` when it has none, its `command` with secrets replaced, a
+`commandPreview` taken from that redacted command (only rows without a command
+redact the preview itself), `commandRedacted` when that changed, and a new revision; the
 Telegram texts about those rows are rewritten with `rewriteActions`. The rewrite runs
 with `secure_delete`, then `VACUUM` rewrites `assistants.sqlite` and
 `channels.sqlite` (earlier revisions of a row survive in freed space otherwise) and a
 TRUNCATE checkpoint empties the write-ahead logs. The marker
 `ssh-command-redaction` in `assistant_migrations` is set only when all of this
-succeeded, so a failure (logged with its code only) retries at the next start; a
-rerun leaves redacted rows unchanged. Until then, and for rows the backfill missed,
+succeeded and the channel outbox was there, so a failure (a failed VACUUM or busy
+checkpoint included, logged with its code only) retries at the next start; a rerun
+leaves redacted rows unchanged. Until then, and for rows the backfill missed,
 chat notes are redacted when read; a secret cut short at the end of an old trusted
 run's 80-character preview may be missed. Backups taken before the backfill (sealed
 history) and messages Telegram already delivered keep the old text; replace such

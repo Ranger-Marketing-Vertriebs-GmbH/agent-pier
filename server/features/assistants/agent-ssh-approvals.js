@@ -160,11 +160,17 @@ export class SshApprovals {
   // run, the row keeps it with recognisable secrets redacted.
   finish(id, values) {
     const done = values.state && values.state !== "executing";
-    const next = this.w.store.patch(id, {
-      ...values,
-      ...(done ? this.redacted(id) : {}),
-    });
+    const next = done ? this.settle(id, values) : this.w.store.patch(id, values);
     this.w.a.changed({ feeds: false });
+    return next;
+  }
+  // Patches a row that can no longer run with its command redacted. The store
+  // overwrites the freed copies of an SSH command (secure_delete); a TRUNCATE
+  // checkpoint then empties the log of the earlier page versions.
+  settle(id, values) {
+    const fields = this.redacted(id);
+    const next = this.w.store.patch(id, { ...values, ...fields });
+    if (fields.payload) this.w.store.checkpoint();
     return next;
   }
   // The settled row's command with secrets redacted, keeping the original's digest
@@ -266,7 +272,7 @@ export class SshApprovals {
       !(await this.followUp(a))
     )
       return;
-    this.w.store.patch(a.id, { settled: true, ...this.redacted(a.id) });
+    this.settle(a.id, { settled: true });
   }
   async followUp(a) {
     if (a.followUpRetryAt > this.ssh.now()) return false;
@@ -313,11 +319,7 @@ export class SshApprovals {
         a.payload.accessId === accessId &&
         a.state === "awaiting_approval"
       ) {
-        this.w.store.patch(a.id, {
-          state: "cancelled",
-          diagnostic: "HOST_REMOVED",
-          ...this.redacted(a.id),
-        });
+        this.settle(a.id, { state: "cancelled", diagnostic: "HOST_REMOVED" });
         count++;
       }
     return count;
