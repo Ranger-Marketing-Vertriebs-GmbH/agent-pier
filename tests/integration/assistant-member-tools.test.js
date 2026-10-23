@@ -149,11 +149,12 @@ test("no member tool in a memory step", async (t) => {
     sessionKey = f.chatOf(f.permanent).runtimeSessionKey;
   for (const action of memberActions)
     assert.throws(() => f.prepare(agent, sessionKey, action), { status: 403 }, action);
-  // The plugin's step hook refuses each of them before the call reaches the bridge.
+  // The plugin's step hook refuses each of them as the memory step's own refusal,
+  // before the call reaches the bridge.
   for (const toolName of memberTeamTools)
     assert.deepEqual(
       stepPolicy(f.bridge, { agentId: agent.runtimeAgentId, sessionKey, toolName }),
-      { allow: false },
+      { allow: false, reason: "memoryStep" },
       toolName,
     );
 });
