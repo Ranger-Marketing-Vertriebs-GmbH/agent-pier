@@ -46,6 +46,9 @@ async function resolveDeepest(session, p) {
     } catch (error) {
       if (error?.code !== "SFTP_NOT_FOUND" || current === "/") throw error;
     }
+    // An entry that exists but cannot be resolved is a dangling link: its target may
+    // lie anywhere, and a write through it would land there.
+    if (await session.lstat(current)) throw refused();
     const cut = current.lastIndexOf("/");
     missing.unshift(current.slice(cut + 1));
     current = current.slice(0, cut) || "/";

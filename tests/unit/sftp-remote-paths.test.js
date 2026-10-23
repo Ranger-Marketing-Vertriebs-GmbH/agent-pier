@@ -41,10 +41,14 @@ test("insideRoot compares whole segments", () => {
   assert.equal(insideRoot("/www/", "/www/a"), true);
 });
 
-function fakeSession(real) {
+function fakeSession(real, links = {}) {
   const calls = [];
   return {
     calls,
+    async lstat(p) {
+      if (Object.hasOwn(links, p)) return { type: "link", size: 0, mtimeMs: 0 };
+      return Object.hasOwn(real, p) ? { type: "dir", size: 0, mtimeMs: 0 } : null;
+    },
     async realpath(p) {
       calls.push(p);
       if (Object.hasOwn(real, p)) return real[p];
@@ -68,6 +72,13 @@ test("confineRemote refuses a symlink leaving the root", async () => {
     "/www/a/new/file",
   );
   assert.equal(await confineRemote(session, "/www", "/www"), "/www");
+});
+
+test("confineRemote refuses a dangling symlink inside the root", async () => {
+  const session = fakeSession({ "/www": "/www" }, { "/www/dangling": "/etc/new" });
+  await assert.rejects(confineRemote(session, "/www/dangling", "/www"), refused);
+  await assert.rejects(confineRemote(session, "/www/dangling/x", "/www"), refused);
+  assert.equal(await confineRemote(session, "/www/missing/x", "/www"), "/www/missing/x");
 });
 
 test("confineRemote resolves a root that is itself a link", async () => {
