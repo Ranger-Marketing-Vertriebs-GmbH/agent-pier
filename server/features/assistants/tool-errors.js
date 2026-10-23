@@ -4,6 +4,7 @@
 // "unavailable".
 import { autonomousCaps } from "./team-policy.js";
 import { peerCaps } from "./peer-request-rules.js";
+import { reportCaps } from "./member-reports.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -60,6 +61,7 @@ const reasons = {
   PEER_OPEN:
     "You already have an open request to this member, or it already works on an open task. Wait for its answer instead of retrying, or report it to your lead with agentpier_team_report.",
   PEER_LIMIT: `You already have ${peerCaps.openPerMember} open requests to other members, or sent ${peerCaps.perHour} in the last hour. Do not retry now; report what you need to your lead with agentpier_team_report.`,
+  REPORT_LIMIT: `You already sent your lead ${reportCaps.perHour} reports in the last hour. Do not retry now; put what is still open into your next report, or answer in this chat.`,
   TEMPLATE_NOT_FOUND:
     "No Agency agent has this id. Search with agentpier_team_templates and use an id it returned.",
   TEMPLATE_BLOCKED:
@@ -156,6 +158,7 @@ const byKey = {
   peerRequestLoop: "PEER_LOOP",
   peerRequestOpen: "PEER_OPEN",
   peerRequestLimit: "PEER_LIMIT",
+  memberReportLimit: "REPORT_LIMIT",
   templateNotFound: "TEMPLATE_NOT_FOUND",
   templateBlocked: "TEMPLATE_BLOCKED",
   templateTooLarge: "TEMPLATE_TOO_LARGE",

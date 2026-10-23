@@ -526,7 +526,10 @@ export class LeadRequests {
   deliveryTarget(r) {
     if (r.fromMemberId && this.peers) return this.peers.target(r);
     return {
-      conversationId: r.parentConversationId,
+      conversationId:
+        r.origin?.kind === "member-report" && this.reports
+          ? this.reports.conversationId(r)
+          : r.parentConversationId,
       clientRequestId: `lead-request-result:${r.id}`,
       text: followUp({ ...r, answer: this.store.answer(r) }),
       context: { kind: "member-result", requestId: r.id },

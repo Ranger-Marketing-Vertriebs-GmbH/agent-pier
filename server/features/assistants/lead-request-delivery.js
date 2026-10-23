@@ -31,6 +31,8 @@ export async function deliverRequest(requests, id) {
   // An ask still waiting takes the answer itself: a routine run has no attempt.
   if (Date.now() < (r.deliveryRetryAt || 0)) return;
   if ([...requests.waits.values()].includes(id)) return;
+  // A member's report waits for its earlier one (member-reports.js).
+  if (requests.reports?.held(r)) return;
   try {
     // Inside the try: a target that cannot be worked out ends as a failed delivery.
     const target = requests.deliveryTarget(r);
