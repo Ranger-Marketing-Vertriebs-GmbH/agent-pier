@@ -1,3 +1,7 @@
+// A member's own tools: its siblings of the same lead, questions and tasks for them
+// (peer-requests.js) and reports to its lead (member-reports.js). Leads never reach
+// them (TeamBridge.valid).
+export const memberActions = new Set(["peers", "peer_ask", "peer_delegate", "report"]);
 // The actions the team bridge serves (team-bridge.js), with the tool behind each.
 export const actions = new Set([
   "propose",
@@ -24,6 +28,7 @@ export const actions = new Set([
   "ssh",
   // Every agent, members too, hands the owner files (agent-shares.js).
   "share_file",
+  ...memberActions,
 ]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
 export const bridgeTool = (action) =>
@@ -41,4 +46,7 @@ export const routineActions = new Set([
   "delegate",
   // Project folders and coding requests (workspace-calls.js routineContext).
   "workspace",
+  // A member's routine asks, hands over and reports; a lead's routine is refused by
+  // the caller check (peer-request-rules.js peerCaller).
+  ...memberActions,
 ]);

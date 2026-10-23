@@ -6,6 +6,7 @@ import { lockedCoreTools } from "../../server/features/assistants/team-plugin/to
 import {
   delegationTools,
   lockedTools,
+  memberTeamTools,
 } from "../../server/features/assistants/native-capabilities.js";
 
 const userAccess = {
@@ -18,7 +19,7 @@ test("the plugin hook covers every locked core tool; the rest are plugin tools",
   for (const tool of lockedCoreTools) assert.ok(lockedTools.includes(tool), tool);
   assert.deepEqual(
     lockedTools.filter((tool) => !lockedCoreTools.includes(tool)).sort(),
-    ["agentpier_ssh", ...delegationTools].sort(),
+    ["agentpier_ssh", ...delegationTools, ...memberTeamTools].sort(),
   );
 });
 

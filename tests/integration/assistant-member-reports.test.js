@@ -183,6 +183,25 @@ test("a member's routine run may report; a reminder turn may not", async (t) => 
     );
 });
 
+test("a report from a routine without a name never quotes an empty name", async (t) => {
+  const f = await peers(t);
+  const run = {
+    attemptId: null,
+    toolCallId: "c1",
+    sessionKey: "agent:x:cron:job-1:run:r1",
+    routine: {
+      binding: { id: "binding-1", assistantId: f.permanent.assistantId, definition: {} },
+      conversation: f.store.getConversation(f.permanent.conversationId),
+    },
+    assertCurrent() {},
+  };
+  const result = report(f, run, { text: "Found two new mails" });
+  await deliver(f);
+  const [followUp] = followUps(f, result);
+  assert.match(followUp.text, /a finished result from one of its routines\./);
+  assert.ok(!followUp.text.includes('routine ""'));
+});
+
 test("a member handling a peer request may still report", async (t) => {
   const f = await peers(t);
   const peer = f.peerAsk(f.memberTurn(f.permanent), f.second);

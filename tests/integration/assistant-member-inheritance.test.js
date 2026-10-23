@@ -13,6 +13,7 @@ import {
   mirrorName,
 } from "../../server/features/assistants/member-memory.js";
 import { assistantBootstrap } from "../../server/features/assistants/assistant-bootstrap.js";
+import { memberTeamTools } from "../../server/features/assistants/native-capabilities.js";
 
 const model = { connectionId: "c", modelId: "m" };
 const everything = {
@@ -115,7 +116,11 @@ test("a task member's compiled entry carries what its lead granted: web, skills,
   assert.ok(entry.tools.allow.includes("agentpier_reminder"));
   for (const tool of ["write", "edit", "agentpier_routine", "exec", "agentpier_ssh"])
     assert.ok(!entry.tools.allow.includes(tool), tool);
-  assert.ok(!entry.tools.allow.some((tool) => tool.startsWith("agentpier_team_")));
+  // Only the member's own team tools, never the lead's.
+  assert.deepEqual(
+    entry.tools.allow.filter((tool) => tool.startsWith("agentpier_team_")),
+    memberTeamTools,
+  );
   assert.equal(entry.tools.exec, undefined);
   assert.deepEqual(entry.skills, ["weather"]);
   assert.equal(entry.memory.search.enabled, true);

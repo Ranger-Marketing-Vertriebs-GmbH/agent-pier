@@ -65,6 +65,14 @@ export const routineTeamTools = [
   "agentpier_team_ask",
   "agentpier_team_delegate",
 ];
+// A team member's own tools: its siblings of the same lead (questions and tasks) and
+// reports to its lead. Only members hold them; a lead keeps delegationTools.
+export const memberTeamTools = [
+  "agentpier_team_peers",
+  "agentpier_team_peer_ask",
+  "agentpier_team_peer_delegate",
+  "agentpier_team_report",
+];
 export const shellLevels = ["off", "approval", "full"];
 export const shellTools = ["exec", "process"];
 // OpenClaw's session tools: they read (and can steer) other sessions of the agent,
@@ -86,6 +94,7 @@ export const lockedTools = [
   ...shellTools,
   "agentpier_ssh",
   ...delegationTools,
+  ...memberTeamTools,
   ...sessionTools,
 ];
 /**
@@ -101,7 +110,8 @@ export const lockedTools = [
  * routine's run session for SSH only on hosts marked "Trusted incl. routines", for
  * `agentpier_share_file` into the routine's chat and Telegram, and for a lead's
  * routineTeamTools with the routine as origin: its tasks write only when the owner
- * marked the routine "May write". `*__*`
+ * marked the routine "May write". A member's routine also reaches memberTeamTools;
+ * OpenClaw's intersection with the agent's tools.allow keeps them from leads. `*__*`
  * stands for the agent's MCP tools (`<server>__<tool>`).
  */
 export const routineTools = [
@@ -114,6 +124,7 @@ export const routineTools = [
   // Project folders, read-only unless the owner marked the routine "May write".
   "agentpier_workspace",
   ...routineTeamTools,
+  ...memberTeamTools,
   "*__*",
 ];
 export const personalEligible = (assistant) =>
@@ -226,6 +237,9 @@ export function profileTools(
     "session_status",
     ...(teamsReady && !assistant.teamMemberId && !assistant.archivedAt
       ? delegationTools
+      : []),
+    ...(teamsReady && assistant.teamMemberId && !assistant.archivedAt
+      ? memberTeamTools
       : []),
     // A member writes only its own memory: the bridge refuses everything else.
     ...(nativeReady && (capabilities.memory || member)

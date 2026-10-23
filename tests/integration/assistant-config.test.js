@@ -299,8 +299,13 @@ test("managed profiles apply exact parent/member tools without copying native cr
     "agentpier_team_promote",
     "agentpier_team_templates",
   ]);
+  // A member gets only its own colleague and report tools, never the lead's.
   assert.deepEqual(effective.agents.entries[member.runtimeAgentId].tools.allow, [
     "session_status",
+    "agentpier_team_peers",
+    "agentpier_team_peer_ask",
+    "agentpier_team_peer_delegate",
+    "agentpier_team_report",
   ]);
   ready = false;
   await config.apply(parent.id);
