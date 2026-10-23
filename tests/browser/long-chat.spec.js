@@ -21,6 +21,7 @@ const languages = {
       "The summary stopped because the agent runtime stopped or restarted. The chat is ready again.",
     saving: "Saving memories before the summary …",
     notSaved: "No memories were saved before the summary.",
+    busy: "The summary could not start because the agent was busy. The chat is ready again.",
   },
   de: {
     hint: /Dieser Chat ist lang\./,
@@ -34,6 +35,7 @@ const languages = {
       "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit beendet oder neu gestartet wurde. Der Chat ist wieder bereit.",
     saving: "Speichert Erinnerungen vor der Zusammenfassung …",
     notSaved: "Vor der Zusammenfassung wurden keine Erinnerungen gespeichert.",
+    busy: "Die Zusammenfassung konnte nicht starten, weil der Agent beschäftigt war. Der Chat ist wieder bereit.",
   },
 };
 
@@ -105,23 +107,17 @@ for (const [language, copy] of Object.entries(languages))
       page,
     }) => {
       const state = await chatFixture(page, { language, history: longHistory });
-      const steps = {};
-      const next = (name) => new Promise((resolve) => (steps[name] = resolve));
+      const push = async (history) => {
+        state.history = history;
+        await page.evaluate(() => window.agentFeed.push("dinner"));
+      };
+      const compacts = [];
       await page.route("**/api/assistant-conversations/dinner/compact", async (route) => {
-        // The memory step runs first (server long-chats.js), then the summary.
+        compacts.push(route.request().method());
+        // The memory step runs first (server long-chats.js); the request answers at
+        // once that the summary runs.
         state.history = { ...longHistory, compacting: "memory" };
-        await page.evaluate(() => window.agentFeed.push("dinner"));
-        await next("saved");
-        state.history = { ...longHistory, compacting: true };
-        await page.evaluate(() => window.agentFeed.push("dinner"));
-        await next("summarised");
-        state.history = {
-          ...longHistory,
-          longChat: undefined,
-          messages: [...earlier, note],
-          memoryNotSaved: true,
-        };
-        await route.fulfill({ json: { compacted: true } });
+        await route.fulfill({ json: { compacted: false, running: true } });
       });
       await page.goto(baseURL + "/agents/home/chats/dinner");
       await synced(page, "dinner");
@@ -129,16 +125,27 @@ for (const [language, copy] of Object.entries(languages))
       const status = page.locator(".assistant-run-state");
       await expect(status).toHaveText(copy.saving);
       await expect(hint(page)).toHaveCount(0);
+      await expect(page.getByRole("alert")).toHaveCount(0);
       await noSideScroll(page);
       if (language === "en" && process.env.MEMORY_STEP_SCREENSHOT)
         await page.screenshot({ path: process.env.MEMORY_STEP_SCREENSHOT });
-      steps.saved();
+      await push({ ...longHistory, compacting: true });
       await expect(status).toHaveText(copy.summarising);
-      steps.summarised();
+      await push({
+        ...longHistory,
+        longChat: undefined,
+        messages: [...earlier, note],
+        memoryNotSaved: true,
+      });
       await expect(page.getByText(copy.note)).toBeVisible();
-      await expect(page.locator(".assistant-compact-outcome")).toHaveText(copy.notSaved);
+      const outcome = page.locator(".assistant-compact-outcome");
+      await expect(outcome).toHaveText(copy.notSaved);
       await expect(status).not.toHaveText(copy.summarising);
+      // A summary refused after the step says why, next to the note.
+      await push({ ...longHistory, compactOutcome: "busy", memoryNotSaved: true });
+      await expect(outcome).toHaveText(`${copy.busy} ${copy.notSaved}`);
       await noSideScroll(page);
+      expect(compacts).toEqual(["POST"]);
     });
 
     test("a summary that outlives its request keeps running, then says how it ended", async ({

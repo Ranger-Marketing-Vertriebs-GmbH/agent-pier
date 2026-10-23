@@ -31,8 +31,9 @@ function phaseText(view) {
  * failed turn ended, and a hint when the chat grew very long. `compacting` also shows
  * a summary the person asked for outside a turn ("memory" while its memory step runs
  * first), `compactOutcome` how one ended that outlived its request, and
- * `memoryNotSaved` that its memory step saved nothing (server long-chats.js). `onStop`, `onRetry`, `onRecover` and
- * `longChatActions` (useLongChat) are null where the chat cannot act.
+ * `memoryNotSaved` that its memory step saved nothing (server long-chats.js).
+ * `onStop`, `onRetry`, `onRecover` and `longChatActions` (useLongChat) are null where
+ * the chat cannot act.
  */
 export default function AgentRunState({
   attempt,
