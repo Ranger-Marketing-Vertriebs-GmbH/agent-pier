@@ -45,12 +45,14 @@ AgentPier reports `unsupportedAuthentication` instead of sending the key twice.
 
 The connection lease blocks editing or removal while its configuration is being
 resolved and applied. Subsequent resolution reads the current central credential.
-Editing or removing a connection referenced by an assistant restarts its Gateway, so
-the request needs `confirmRestart: true`; without it the route answers 409
-`ASSISTANT_RESTART_REQUIRED` and the Accounts page asks for that confirmation. The
-change then uses the shared runtime maintenance gate. Active or uncertain work prevents the change. The owned Gateway
-stops before central credentials change; its managed provider/profile configuration
-is refreshed before restart. A runtime that was disabled remains disabled.
+Editing or removing a connection referenced by an assistant needs a Gateway restart.
+The change is saved at once and the restart becomes
+[pending](assistant-gateway.md#pending-restart): it runs through the shared runtime
+maintenance gate as soon as nothing is busy, or at once with **Restart now**. Until
+then the running Gateway keeps the previous credential. The restart refreshes the
+managed provider/profile configuration before the Gateway starts again. A runtime
+that was disabled remains disabled. A native account logout restarts at once and is
+refused while active or uncertain work runs.
 Changed transport settings or credentials receive a new native provider identity,
 so the selected model cannot inherit obsolete keys or headers through native merging.
 If the connection is removed or unusable, the profile receives a blocked model with

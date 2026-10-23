@@ -184,6 +184,32 @@ test("a used connection changes only with a confirmed Gateway restart", async (t
   assert.equal(f.running(), true);
   assert.equal(f.connections.secret(f.c.id).apiKey, "original-fixture-key");
 });
+test("in the app a used connection is saved at once and its restart left pending", async (t) => {
+  const f = fixture(t);
+  const queued = [];
+  f.sync.pending = { request: (reason, affected) => queued.push({ reason, affected }) };
+  // Busy agents no longer refuse the save; nothing restarts or stops meanwhile.
+  f.setBlockers(["ASSISTANT_WORK"]);
+  await f.sync.change(f.c.id, () =>
+    f.connections.update(f.c.id, { apiKey: "rotated-fixture-key" }),
+  );
+  assert.equal(f.connections.secret(f.c.id).apiKey, "rotated-fixture-key");
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.running(), true);
+  assert.deepEqual(queued, [
+    {
+      reason: "connection",
+      affected: { agents: [{ id: f.a.id, name: "Scheduled" }], teamMembers: 0 },
+    },
+  ]);
+  // The pending restart compiles the new key into the startup configuration.
+  f.setBlockers([]);
+  await f.sync.restartGateway(() => null);
+  assert.equal(
+    JSON.stringify(readJSON(f.paths.config)).includes("rotated-fixture-key"),
+    true,
+  );
+});
 test("the restart confirmation names permanent agents and counts temporary members", async (t) => {
   const f = fixture(t);
   for (const [n, lifetime] of [

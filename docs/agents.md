@@ -132,8 +132,15 @@ it took it over from the lead.
   can use an [agent placeholder](mcp.md#agent-placeholders) such as
   `{agent.workspace}`, so each agent reads and writes only in its own folder.
 
-Saving can restart the agent service briefly; AgentPier asks first and refuses the
-save while an affected agent is busy.
+Switching a capability, the visible browser, skills or MCP servers applies while the
+agent service keeps running. A few changes still need a brief restart of the agent
+service: another web search provider or key, another PDF model, a browser installed
+after the service started, a changed or removed model connection that agents use,
+and an agent's own Telegram bot. AgentPier saves such a change at once and shows
+**Agent service restart pending**, with what it is for and what it waits for. The
+service restarts by itself as soon as no agent is busy; further changes join the same
+restart. **Restart now** restarts at once after you confirm and interrupts running
+agent work. See "Pending restart" in `docs/assistant-gateway.md`.
 
 ### Memory
 
@@ -246,7 +253,7 @@ told it was not saved.
   servers removed and SSH accesses removed before you connect such a bot. Adding,
   removing or renaming people applies at once while the agent service keeps running;
   connecting or disconnecting a bot, replacing its token or removing the last person
-  restarts the agent service after you confirm.
+  needs a restart of the agent service, which then is pending (see above).
 
 ## Teams, asks and tasks
 

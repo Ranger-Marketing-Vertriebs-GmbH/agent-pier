@@ -6,6 +6,9 @@ import { personalCapabilities } from "./native-capabilities.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
+// Work even the owner's "Restart now" waits for: a sign-in in progress and a workflow
+// executing approved actions.
+const unforceable = ["ACCOUNT_LOGIN", "WORKFLOW_WORK"];
 /** The owner must confirm a Gateway restart; `affected` names who it interrupts. */
 export const restartRequired = (key, affected) =>
   Object.assign(assistantProblem(key, 409), {
@@ -164,9 +167,11 @@ export class AssistantProviderSynchronization {
     };
   }
   /**
-   * `confirmed` records the owner's consent to restart the Gateway. It is checked
-   * here, together with the usage it depends on, so no agent can start using the
-   * connection between a separate check and the change.
+   * Changes a connection. One that agents use needs a Gateway restart: in the app the
+   * change is saved at once and the restart is left to `pending` (pending-restart.js),
+   * which runs it as soon as nothing is busy. Without one (tools, tests), `confirmed`
+   * records the owner's consent to an immediate restart, checked here together with
+   * the usage it depends on. A native logout (`online`) always restarts at once.
    */
   async change(connectionId, operation, { online = false, confirmed = false } = {}) {
     const a = this.assistants;
@@ -179,6 +184,14 @@ export class AssistantProviderSynchronization {
       revokeBackups();
       return operation();
     }
+    if (!online && this.pending) {
+      // The running Gateway keeps the previous credential until the restart.
+      const usage = this.usage(connectionId);
+      revokeBackups();
+      const result = await operation();
+      this.pending.request("connection", usage);
+      return result;
+    }
     if (!online && !confirmed)
       throw restartRequired("restartRequired", this.usage(connectionId));
     return this.restartGateway(operation, {
@@ -190,14 +203,21 @@ export class AssistantProviderSynchronization {
     });
   }
   /**
-   * Runs an owner-confirmed `operation` in maintenance and restarts the Gateway, so
-   * the next start compiles its result. Offline, the Gateway is stopped before the
-   * operation; `online` runs it against the live Gateway (after disabling the jobs of
-   * `dependent` profiles) and stops afterwards. Busy work refuses with 409 first.
+   * Runs `operation` in maintenance and restarts the Gateway, so the next start
+   * compiles its result. Offline, the Gateway is stopped before the operation;
+   * `online` runs it against the live Gateway (after disabling the jobs of
+   * `dependent` profiles) and stops afterwards. Busy work refuses with 409 first
+   * (its `blockers` name it); `force` (the owner's "Restart now") interrupts agent
+   * work, never an account sign-in or a workflow that is executing.
    */
   async restartGateway(
     operation,
-    { online = false, beforeChange = () => {}, dependent = () => false } = {},
+    {
+      online = false,
+      beforeChange = () => {},
+      dependent = () => false,
+      force = false,
+    } = {},
   ) {
     const a = this.assistants;
     if (this.changing || a.maintenance || this.isUpdating())
@@ -207,9 +227,12 @@ export class AssistantProviderSynchronization {
     let safeToLeave = false;
     try {
       await this.maintenance.enter();
-      if ((await this.maintenance.blockers()).length) {
+      const blockers = (await this.maintenance.blockers()).filter(
+        (code) => !force || unforceable.includes(code),
+      );
+      if (blockers.length) {
         safeToLeave = true;
-        throw assistantProblem("active", 409);
+        throw Object.assign(assistantProblem("active", 409), { blockers });
       }
       // Awaited while the Gateway still runs, after nothing can refuse the change.
       await beforeChange();

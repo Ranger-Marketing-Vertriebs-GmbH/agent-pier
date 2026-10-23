@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PendingRestartNotice from "./PendingRestartNotice.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import { telegramSendersCopy } from "../../lib/i18n/messages/telegram-senders.js";
@@ -134,6 +135,7 @@ export default function TelegramSendersSettings({ assistantId }) {
       <GroupLabel hint={copy.description}>{copy.title}</GroupLabel>
       <p className="assistant-note">{copy.boundary}</p>
       <ErrorMessage error={error || pollError} />
+      <PendingRestartNotice />
       {pending && (
         <div className="assistant-actions">
           {data.revocationFailed ? (

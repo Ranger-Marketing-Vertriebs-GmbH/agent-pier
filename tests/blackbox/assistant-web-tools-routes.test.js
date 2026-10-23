@@ -190,3 +190,26 @@ test("the agent browser routes report its state and reset its profile", async (t
     ["reset", "a1"],
   ]);
 });
+
+test("the owner's restart now runs the pending restart and answers the runtime view", async (t) => {
+  let pending = { since: 1, reasons: ["webSearch"], affected, waitingFor: [] };
+  const calls = [];
+  const request = await serve(t, {
+    assistantRuntime: { status: () => ({ availability: "ready", sync: "ready" }) },
+    assistants: {
+      store: { listAssistants: () => [] },
+      pendingRestart: {
+        status: () => pending,
+        restartNow: async () => {
+          calls.push("now");
+          pending = null;
+          return { restarted: true };
+        },
+      },
+    },
+  });
+  const response = await request("POST", "/assistant-runtime/pending-restart", {});
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ["now"]);
+  assert.equal((await response.json()).pendingRestart, null);
+});

@@ -76,7 +76,7 @@ test("releasing the browser and her switch apply live once the Gateway has a bro
   assert.equal(restarts.length, 0);
 });
 
-test("releasing a browser the Gateway started without restarts it once confirmed", async (t) => {
+test("releasing a browser the Gateway started without saves it and queues the restart", async (t) => {
   const { f } = await chatFixture(t);
   const { user } = await signedInUser(f, "Anna");
   const access = { mode: "own", members: [{ userId: user.id, level: "extended" }] };
@@ -84,15 +84,21 @@ test("releasing a browser the Gateway started without restarts it once confirmed
     capabilities: { memory: true, reminders: false },
   });
   const { restarts } = runningGateway(f, { available: false });
+  const queued = [];
+  f.application.assistants.pendingRestart.request = (reason, affected) =>
+    queued.push({ reason, affected });
   const released = { ...access, released: ["browser"] };
-  const asked = await assign(f, agent, released);
-  assert.equal(asked.status, 409, await asked.clone().text());
-  const body = await asked.json();
-  assert.equal(body.code, "ASSISTANT_RESTART_REQUIRED");
-  assert.ok(Array.isArray(body.affected.agents));
-  const confirmed = await assign(f, agent, released, { confirmRestart: true });
-  assert.equal(confirmed.status, 200, await confirmed.clone().text());
-  assert.equal(restarts.length, 1);
+  const saved = await assign(f, agent, released);
+  assert.equal(saved.status, 200, await saved.clone().text());
+  assert.deepEqual(
+    f.application.assistants.store.getAssistant(agent.id).userAccess.released,
+    ["browser"],
+  );
+  // No question and no restart now: it waits until nothing is busy.
+  assert.equal(restarts.length, 0);
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].reason, "webTools");
+  assert.ok(Array.isArray(queued[0].affected.agents));
 });
 
 test("a switch that would still restart the Gateway is a plain refusal she can read", async (t) => {

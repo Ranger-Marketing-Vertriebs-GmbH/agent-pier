@@ -228,6 +228,19 @@ function activeAssistantRoutes(services) {
       }),
     ),
   );
+  // The owner's "Restart now" for a pending restart (pending-restart.js): it runs at
+  // once and interrupts agent work; nothing pending changes nothing.
+  router.post("/assistant-runtime/pending-restart", async (_req, res) => {
+    await assistants.pendingRestart?.restartNow();
+    res.json(
+      runtimeView({
+        runtime: assistantRuntime,
+        assistants,
+        bridge: services.assistantTeams?.bridge,
+        webTools: services.assistantWebTools,
+      }),
+    );
+  });
   router.post("/assistant-runtime/:action", async (req, res) =>
     assistants.admit(async () => {
       if (

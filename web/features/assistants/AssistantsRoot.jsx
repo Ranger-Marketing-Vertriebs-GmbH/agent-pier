@@ -112,9 +112,14 @@ export default function AssistantsHost({ publishState, publishEvents }) {
           return;
         }
         for (const listener of [...listeners.current]) listener(event);
-        // The browser status comes only with the list; the event keeps the last one.
+        // The browser status and a pending restart come only with the list; the
+        // event keeps the last ones.
         if (event.type === "runtime")
-          setRuntime((old) => ({ browser: old.browser, ...event }));
+          setRuntime((old) => ({
+            browser: old.browser,
+            pendingRestart: old.pendingRestart,
+            ...event,
+          }));
         if (event.type === "connected") feed = !!event.list;
         if (event.type === "sync") applySync(event.data);
         // Without the feed, or when it could not read the list: read it whole.

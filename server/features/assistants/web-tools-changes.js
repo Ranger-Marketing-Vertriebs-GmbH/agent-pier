@@ -86,6 +86,18 @@ export class WebToolsChanges {
       teamMembers: profiles.filter(temporaryMember).length,
     };
   }
+  /**
+   * The app's pending restart (pending-restart.js): a change that needs a restart is
+   * saved at once and the restart runs as soon as nothing is busy. Without one
+   * (tools, tests) the owner confirms an immediate restart instead.
+   */
+  get pending() {
+    return this.synchronization?.pending || null;
+  }
+  /** Records the restart a change saved meanwhile needs, for `reason`. */
+  queue(reason = "webTools") {
+    return this.pending?.request(reason, this.usage());
+  }
   /** Refuses without the owner's confirmation; nothing is persisted then. */
   confirm(confirmed) {
     if (!confirmed) throw restartRequired("webToolsRestartRequired", this.usage());
@@ -97,17 +109,27 @@ export class WebToolsChanges {
   restart(operation, { beforeChange } = {}) {
     return this.synchronization.restartGateway(operation, { beforeChange });
   }
-  /** Saves the web search settings; a changed provider or key restarts the Gateway. */
+  /** Saves the web search settings; a changed provider or key needs a restart. */
   async saveSearch(input, { confirmed = false } = {}) {
     if (!this.differs({ search: this.webSearch.preview(input) }))
       return this.webSearch.save(input);
+    if (this.pending) {
+      const saved = this.webSearch.save(input);
+      this.queue("webSearch");
+      return saved;
+    }
     this.confirm(confirmed);
     return this.restart(() => this.webSearch.save(input));
   }
-  /** Saves the PDF model; a change for agents that read PDFs restarts the Gateway. */
+  /** Saves the PDF model; a change for agents that read PDFs needs a restart. */
   async savePdfModel(input, { confirmed = false } = {}) {
     if (!this.differs({ pdf: this.pdfModel.preview(input) }))
       return this.pdfModel.save(input);
+    if (this.pending) {
+      const saved = this.pdfModel.save(input);
+      this.queue("pdfModel");
+      return saved;
+    }
     this.confirm(confirmed);
     return this.restart(() => this.pdfModel.save(input));
   }

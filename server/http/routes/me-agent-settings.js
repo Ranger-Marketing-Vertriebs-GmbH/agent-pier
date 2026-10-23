@@ -24,7 +24,7 @@ export function meAgentSettingsRoutes({ assistants, assistantMemory, userScope, 
     const { values, revision } = record(req.body) ? req.body : {};
     const patch = settingsPatch(agent, level, values);
     try {
-      await assistants.update(agent.id, patch, revision);
+      await assistants.update(agent.id, patch, revision, { queue: false });
     } catch (error) {
       // Released capabilities are compiled in advance (native-capabilities.js), so
       // this is left only for a Gateway started before the release. A restart would
