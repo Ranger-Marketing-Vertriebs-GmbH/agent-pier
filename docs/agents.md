@@ -59,7 +59,8 @@ agent's **Profile** names the template with its source, revision and license.
 
 Name, instructions and model. A team member also shows where it came from and whether
 its instructions changed since it was created. A temporary member has **Follow the
-lead's model** switched on: its Profile then shows the lead's model. Switch it off to
+lead's model** switched on unless it has a model of its own: its Profile then shows
+the lead's model. Switch it off to
 pick a model of its own; switch it on again to follow the lead. A permanent member, and
 a temporary member with a model of its own, also shows whether its model changed since
 it took it over from the lead.
@@ -326,19 +327,20 @@ A lead also talks to its members directly:
   and assignment, additional instructions, or their whole instructions, even ones you
   edited yourself, and their model. It does this on its own initiative. Each change
   shows as a note in the member's and the lead's chats and in the member's
-  **Capabilities → Granted by the lead agent** history (for a permanent member also
-  in its Profile), which also keeps, for you only, the instructions the last five
+  **Capabilities → Granted by the lead agent** history (for a permanent member in
+  its Profile instead), which also keeps, for you only, the instructions the last five
   changes replaced. It takes effect from the member's next turn, also in your own
   chats with a permanent member.
 - It can **look up models** to give its members: it lists the models of your usable
   sources (ChatGPT accounts, OpenRouter connections with a key, endpoint connections)
+  (a ChatGPT account named just "ChatGPT", never by its e-mail address)
   with context window, output limit, reasoning, image input and, for OpenRouter, the
   price per million input and output tokens (unknown otherwise), and it sees what it
   and its members run on now. It cannot do this in routines. It can name a model per
   new member in a team proposal (shown on the approval card) or move an existing
   member to another model, and it tells you what a model costs when the price is
-  known. A temporary member with a model assigned this way keeps it when the lead's
-  model changes. Each model change shows as a note in the lead's chat (and in the
+  known. A temporary member with a model assigned this way, even the lead's own
+  current one, keeps it when the lead's model changes. Each model change shows as a note in the lead's chat (and in the
   member's task chat, if it has one), as a history entry with the old and new model
   and in the audit log. If an assigned model stops working, the member's turns fail
   visibly; it does not fall back to another model.
