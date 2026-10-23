@@ -151,3 +151,47 @@ test("the SSH helper refuses an SFTP host and the API never returns its password
       !error.stderr.includes("fixture-password-secret"),
   );
 });
+
+test("the SSH helper refuses an SFTP host a shell inherits from its project", async (t) => {
+  const f = await applicationFixture(t);
+  const key = path.join(f.root, "fixture-host-key");
+  await execute("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-f", key]);
+  const hostKey = (await fs.readFile(key + ".pub", "utf8")).trim();
+  const project = await (
+    await f.request("/api/memory/projects", { method: "POST", body: { cwd: f.project } })
+  ).json();
+  const created = await f.request("/api/ssh-accesses", {
+    method: "POST",
+    body: {
+      name: "Project webspace",
+      host: "192.0.2.1",
+      username: "fixture",
+      hostKey,
+      type: "sftp",
+      auth: "password",
+      password: "fixture-password-secret",
+      projectId: project.id,
+    },
+  });
+  assert.equal(created.status, 201, await created.clone().text());
+  const access = await created.json();
+  const start = await f.request("/api/sessions", {
+    method: "POST",
+    body: { accountId: "local-shell", cwd: f.project },
+  });
+  assert.equal(start.status, 201, await start.clone().text());
+  const session = await start.json();
+  // A shell neither lists nor gets a command for the inherited SFTP host.
+  const state = await (
+    await f.request(`/api/sessions/${session.id}/ssh-accesses`)
+  ).json();
+  assert.deepEqual(state.inheritedIds, []);
+  assert.deepEqual(state.commands, []);
+  const args = ["--data-dir", f.dataDir, "--session", session.id, "--access", access.id];
+  await assert.rejects(
+    execute(process.execPath, [helper, ...args, "--", "true"], { timeout: 5000 }),
+    (error) =>
+      error.stderr.trim() === englishServerMessages.ssh.sftpOnly &&
+      !error.stderr.includes("fixture-password-secret"),
+  );
+});
