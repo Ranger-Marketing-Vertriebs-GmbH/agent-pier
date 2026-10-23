@@ -114,7 +114,9 @@ never stored. Recognisable secrets (password, token and key flags, `Authorizatio
 and API key headers, `user:password@` URLs, variables such as `DB_PASSWORD=`, JWTs and
 well-known key prefixes) are stored as `•••`, best effort: a trusted run's at once, an
 approval's once it has run or was declined, expired or cancelled, since the owner
-decides on the exact text. The row then says **Secrets hidden**.
+decides on the exact text. The row then says **Secrets hidden**. The approval
+message for the paired Telegram chat is rewritten the same way in AgentPier; a message
+Telegram already delivered keeps the text it was sent with.
 
 Downgrading to a release without agent SSH keeps the stored SSH rows but no longer
 understands them. Such a release shows a finished run's note as a generic coding-run
