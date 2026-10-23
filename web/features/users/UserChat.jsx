@@ -22,7 +22,7 @@ import useUserConversation from "./useUserConversation.js";
 import useUserApprovals from "./useUserApprovals.js";
 import { ReadOnlyComposer } from "../assistants/chats/ChatStates.jsx";
 import AgentRunState from "../assistants/AgentRunState.jsx";
-import { stepsOf } from "../assistants/run-steps.js";
+import { memoryStepTurn, stepsOf } from "../assistants/run-steps.js";
 import useLongChat from "../assistants/useLongChat.js";
 import { userApi } from "./user-api.js";
 
@@ -196,7 +196,10 @@ export default function UserChat({
               shownAttempt={chat.shownAttempt}
               active={active}
               uncertain={chat.uncertain}
-              compacting={(!chat.uncertain && history.compacting) || false}
+              compacting={
+                ((!chat.uncertain || memoryStepTurn(latest)) && history.compacting) ||
+                false
+              }
               compactOutcome={history.compactOutcome}
               memoryNotSaved={history.memoryNotSaved}
               steps={stepsOf(chat.feed.steps, latest?.attempt)}
@@ -204,7 +207,11 @@ export default function UserChat({
               longChatActions={chat.available ? longChat : null}
               busy={chat.busy}
               onStop={readOnly ? null : chat.stop}
-              onRetry={chat.available && !chat.queued ? chat.retry : null}
+              onRetry={
+                chat.available && !chat.queued && !memoryStepTurn(latest)
+                  ? chat.retry
+                  : null
+              }
               awaiting={chat.awaiting}
               onRecover={chat.recover}
             />
