@@ -4,23 +4,32 @@ import {
   defaultExcludes,
   excluded,
   excludeList,
+  isPartFile,
 } from "../../server/features/sftp/sftp-excludes.js";
 
 test(".git excludes a/.git/config", () => {
   const list = excludeList();
-  assert.deepEqual(list, [".git", ".env"]);
-  assert.deepEqual(defaultExcludes, [".git", ".env"]);
+  assert.deepEqual(list, [".git", ".env", ".env.*"]);
+  assert.deepEqual(defaultExcludes, [".git", ".env", ".env.*"]);
   assert.equal(excluded("a/.git/config", list), true);
   assert.equal(excluded(".git", list), true);
+  assert.equal(excluded("a/.GIT/config", list), true);
   assert.equal(excluded("a/.github/workflows/ci.yml", list), false);
 });
 
-test(".env excludes .env but not .env.example", () => {
+test(".env and .env.* are excluded case-insensitively", () => {
   const list = excludeList();
-  assert.equal(excluded(".env", list), true);
-  assert.equal(excluded("app/.env", list), true);
-  assert.equal(excluded(".env.example", list), false);
-  assert.equal(excluded("app/.env.example", list), false);
+  for (const name of [".env", "app/.env", ".ENV", ".env.example", "app/.Env.Local"])
+    assert.equal(excluded(name, list), true, name);
+  for (const name of [".environment", "x.env", "env", ".envrc"])
+    assert.equal(excluded(name, list), false, name);
+  assert.equal(excluded("A.LOG", excludeList(["*.log"], { defaults: false })), false);
+});
+
+test("leftover transfer parts are recognised", () => {
+  assert.equal(isPartFile(".index.html.agentpier-part-0123456789abcdef"), true);
+  assert.equal(isPartFile("index.html"), false);
+  assert.equal(isPartFile(".agentpier-part-00"), false);
 });
 
 test("dist/*.map", () => {

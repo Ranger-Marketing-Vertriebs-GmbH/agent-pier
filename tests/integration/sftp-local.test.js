@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import {
+  caseInsensitiveTarget,
   localRoot,
   openLocalSource,
   walkLocal,
@@ -42,7 +43,7 @@ test("walkLocal lists regular files with relative POSIX paths", async (t) => {
     ],
   );
   assert.equal(typeof entries[0].mtimeMs, "number");
-  assert.deepEqual(skipped, { links: 0, special: 0 });
+  assert.deepEqual(skipped, { links: 0, special: 0, unsafe: 0 });
   const all = await walkLocal(target, { excludes: excludeList([], { defaults: false }) });
   assert.deepEqual(
     all.entries.map((e) => e.path),
@@ -62,7 +63,7 @@ test("link out of the root is skipped", async (t) => {
     entries.map((e) => e.path),
     ["a.txt", "deep/b.txt"],
   );
-  assert.deepEqual(skipped, { links: 3, special: 0 });
+  assert.deepEqual(skipped, { links: 3, special: 0, unsafe: 0 });
   await assert.rejects(openLocalSource(target, "out"), { status: 403 });
   await assert.rejects(openLocalSource(target, "hard"), { code: "SFTP_PATH_REFUSED" });
   await assert.rejects(openLocalSource(target, "outdir/secret"), { status: 403 });
@@ -75,6 +76,21 @@ test("link out of the root is skipped", async (t) => {
   } finally {
     await handle.close();
   }
+});
+
+test("walkLocal skips names the server refuses and leftover parts", async (t) => {
+  const { project } = fixture(t);
+  const src = path.join(project, "src");
+  fs.writeFileSync(path.join(src, `bad${String.fromCharCode(10)}name`), "x");
+  fs.writeFileSync(path.join(src, "back\\slash"), "x");
+  fs.writeFileSync(path.join(src, ".a.txt.agentpier-part-00ff00ff00ff00ff"), "x");
+  const target = localRoot({ root: project, raw: "src" });
+  const { entries, skipped } = await walkLocal(target, { excludes: [] });
+  assert.deepEqual(
+    entries.map((e) => e.path),
+    ["a.txt", "deep/b.txt"],
+  );
+  assert.deepEqual(skipped, { links: 0, special: 0, unsafe: 2 });
 });
 
 test("walkLocal stops at the scan limit", async (t) => {
@@ -197,4 +213,13 @@ test("writeLocal into a read-only target refused", async (t) => {
   await assert.rejects(writeLocal(readOnly, "n.txt", Readable.from(["x"]), {}), {
     code: "SFTP_PATH_REFUSED",
   });
+});
+
+test("caseInsensitiveTarget probes the target's file system", async (t) => {
+  const { base, project } = fixture(t);
+  fs.writeFileSync(path.join(base, "Probe"), "");
+  const expected = fs.existsSync(path.join(base, "PROBE"));
+  const missing = localRoot({ root: project, raw: "not/yet", write: true });
+  assert.equal(caseInsensitiveTarget(missing), expected);
+  assert.equal(caseInsensitiveTarget(localRoot({ root: project, raw: "src" })), expected);
 });
