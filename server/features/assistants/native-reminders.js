@@ -63,12 +63,13 @@ export class NativeReminders {
     this.assistants.requireReady();
     return a;
   }
+  // The cron jobs of `agent`, or of every agent for null.
   async jobs(agent) {
     const jobs = [];
     let offset = 0;
     do {
       const page = await this.assistants.runtime.client.call("cron.list", {
-        agentId: agent.runtimeAgentId,
+        ...(agent && { agentId: agent.runtimeAgentId }),
         includeDisabled: true,
         limit: 200,
         offset,
@@ -560,13 +561,12 @@ export class NativeReminders {
       limit,
     });
   }
+  /**
+   * Whether any cron run is in progress: reminders and routines, but also check-ins,
+   * a lead's routines and jobs an agent created itself, which AgentPier never bound.
+   */
   async hasRunning() {
-    for (const agent of this.assistants.store.listAssistants()) {
-      if (!this.bindings.list(agent.id).length) continue;
-      if ((await this.jobs(agent)).some((job) => Number.isFinite(job.state?.runningAtMs)))
-        return true;
-    }
-    return false;
+    return (await this.jobs(null)).some((job) => Number.isFinite(job.state?.runningAtMs));
   }
   async disable(id) {
     if (!this.bindings.list(id).some((b) => b.state !== "removed")) return;

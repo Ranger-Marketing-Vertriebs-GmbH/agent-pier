@@ -162,6 +162,20 @@ complete record.
 Executable evidence reuses the release-cleanup process checks: `/proc/<pid>/exe`
 on Linux, and on macOS `ps` or, for a titled process, its mapped image via `lsof`.
 
+A stop gives the Gateway a drain window of up to 60 s (`gatewayDrainMs` in
+`runtime-supervisor.js`) after SIGTERM before SIGKILL: OpenClaw stops admitting work
+and lets running turns and cron runs finish, and it exits by itself once drained.
+The readiness budget of the next start counts from its spawn, so a drain never
+shortens it. AgentPier's own shutdown keeps the 3 s grace, within the service
+manager's stop timeout (`TimeoutStopSec=10`); the next start reclaims anything left.
+
+A maintenance restart (provider changes, a [pending restart](#pending-restart), web
+tools) enters maintenance first: admission closes and cron is switched off
+(`cron.enabled: false`, confirmed through `cron.status`). Only then does it check for
+busy work, and once more right before the stop, so a run the scheduler started just
+as it was switched off is seen as well. A busy check refuses and leaving maintenance
+restores cron.
+
 If the connection is lost and five reconnects (1–16 s apart) fail, the still-running
 process is restarted. Process exits and failed automatic starts retry at most five
 times with exponential backoff. After that the service stays `failed` with
@@ -1427,7 +1441,10 @@ Unresolved items remain visible for inspection/removal. Pausing and removing rev
 before the native mutation, including lost acknowledgements, queued output and late
 completion reconciliation. Only confirmed explicit resume restores paused delivery. Disabling reminders or archiving a permanent member/team
 pauses its native jobs; restoring or re-enabling does not automatically resume them.
-Runtime stop/restart refuses known active native scheduled turns as well as chats.
+Runtime stop/restart refuses active native scheduled turns as well as chats. The
+check reads every cron job of every agent (`cron.list` without an agent), so
+check-ins, a lead's routines and jobs an agent created itself count too, not only the
+reminders and routines AgentPier bound.
 
 A private loopback receiver keeps its port and bearer token in
 `assistants/reminder-webhook.json` across full application restarts; runtime updates

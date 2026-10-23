@@ -515,3 +515,53 @@ test("a port taken before the Gateway binds is abandoned for a fresh one with a 
     .token;
   assert.equal(Buffer.concat(received).includes(token), false);
 });
+
+test("a stop lets the Gateway drain before SIGKILL; closing AgentPier stays short", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-drain-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const entryPath = path.join(dataDir, "draining.mjs");
+  // Like OpenClaw on SIGTERM: it finishes its work first, then exits by itself.
+  const marker = path.join(dataDir, "listening");
+  fs.writeFileSync(
+    entryPath,
+    "import fs from 'node:fs';" +
+      "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 400));" +
+      `fs.writeFileSync(${JSON.stringify(marker)}, '');` +
+      "setInterval(() => {}, 1000);",
+  );
+  const listening = async () => {
+    for (let n = 0; n < 400 && !fs.existsSync(marker); n++)
+      await new Promise((r) => setTimeout(r, 10));
+    fs.rmSync(marker, { force: true });
+  };
+  const supervisor = new RuntimeSupervisor({
+    dataDir,
+    install: async () => ({ nodePath: process.execPath, entryPath, version: "f" }),
+    clientFactory: () =>
+      Object.assign(new EventEmitter(), {
+        ready: false,
+        async connect() {
+          this.ready = true;
+        },
+        close() {
+          this.ready = false;
+        },
+      }),
+    timing: { drainMs: 5000, killGraceMs: 50 },
+  });
+  t.after(() => supervisor.close());
+  await supervisor.start();
+  await listening();
+  let child = supervisor.child;
+  const exited = once(child, "exit");
+  await supervisor.stop();
+  const [code, signal] = await exited;
+  assert.deepEqual([code, signal], [0, null]);
+  // AgentPier's own shutdown keeps the short grace its service manager allows.
+  await supervisor.start();
+  await listening();
+  child = supervisor.child;
+  const killed = once(child, "exit");
+  await supervisor.close();
+  assert.deepEqual(await killed, [null, "SIGKILL"]);
+});
