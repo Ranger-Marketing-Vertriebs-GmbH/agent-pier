@@ -154,7 +154,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.starting = this.launch(generation)
       .catch(async (error) => {
         if (this.generation === generation) {
-          if (this.child) await this.stop();
+          if (this.child) await this.stop({ urgent: true });
           this.setState({
             availability: "failed",
             diagnostic: error.code || "START_FAILED",
@@ -437,14 +437,33 @@ export class RuntimeSupervisor extends EventEmitter {
     const child = this.child;
     if (!child || child.exitCode !== null || child.signalCode) return;
     const exited = once(child, "exit").catch(() => {});
-    const kill = setTimeout(() => child.kill("SIGKILL"), graceMs);
+    const kill = () => child.kill("SIGKILL");
+    this.kill = { at: Date.now() + graceMs, timer: setTimeout(kill, graceMs), kill };
     child.kill("SIGTERM");
     await exited;
-    clearTimeout(kill);
+    clearTimeout(this.kill.timer);
+    this.kill = null;
   }
-  /** Stops the Gateway; it may drain for `graceMs` before SIGKILL. */
-  stop({ graceMs = this.timing.drainMs } = {}) {
-    if (this.stopping) return this.stopping;
+  /** A stop already draining ends within `graceMs` from now, if that is sooner. */
+  hasten(graceMs) {
+    const current = this.kill;
+    if (!current || current.at <= Date.now() + graceMs) return;
+    clearTimeout(current.timer);
+    current.at = Date.now() + graceMs;
+    current.timer = setTimeout(current.kill, graceMs);
+  }
+  /**
+   * Stops the Gateway; it may drain for `graceMs` before SIGKILL. `urgent` (a failed
+   * start, a recovery, a lost cron acknowledgement) uses the short grace instead.
+   */
+  stop({
+    urgent = false,
+    graceMs = urgent ? this.timing.killGraceMs : this.timing.drainMs,
+  } = {}) {
+    if (this.stopping) {
+      this.hasten(graceMs);
+      return this.stopping;
+    }
     this.wanted = false;
     ++this.generation;
     clearTimeout(this.retryTimer);
@@ -467,7 +486,8 @@ export class RuntimeSupervisor extends EventEmitter {
     this.attempts = 0;
     await this.start();
   }
+  // AgentPier's shutdown: also cuts a drain in progress short (TimeoutStopSec=10).
   close() {
-    return this.stop({ graceMs: this.timing.killGraceMs });
+    return this.stop({ urgent: true });
   }
 }
