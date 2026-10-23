@@ -23,7 +23,8 @@ if [ -n "${HTTPS_PROXY:-}${https_proxy:-}${HTTP_PROXY:-}${http_proxy:-}" ]; then
   export NODE_USE_ENV_PROXY NO_PROXY no_proxy
   NODE_ROUTE=proxy
 fi
-if command -v node >/dev/null 2>&1 && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit((process.argv[1]==="proxy"?a>=24||a===22&&b>=21:a>22||a===22&&b>=13)?0:1)' "$NODE_ROUTE" >/dev/null 2>&1; then
+# Host Node must be a patched release (Oct 2026 security releases): ^22.23.4 || ^24.22.1 || >=26.12.1
+if command -v node >/dev/null 2>&1 && node -e 'const v=process.versions.node.split(".").map(Number),[a,b,c]=v,ge=(x,y,z)=>b>y||b===y&&c>=z;process.exit((a===22&&ge(0,23,4)||a===24&&ge(0,22,1)||a>26||a===26&&ge(0,12,1))?0:1)' >/dev/null 2>&1; then
   exec node "$INSTALL_TARGET" "$@"
 fi
 case $(uname -s) in Darwin) PLATFORM=darwin;; Linux) PLATFORM=linux;; *) echo 'Unsupported operating system.' >&2; exit 1;; esac
@@ -31,7 +32,7 @@ case $(uname -m) in arm64|aarch64) ARCH=arm64;; x86_64) ARCH=x64;; *) echo 'Unsu
 ensure_bootstrap_tools "$@"
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEMP_ROOT"' EXIT HUP INT TERM
-VERSION=22.22.2
+VERSION=22.23.4
 NAME="node-v$VERSION-$PLATFORM-$ARCH"
 BASE="https://nodejs.org/dist/v$VERSION"
 curl --fail --location --proto '=https' --tlsv1.2 "$BASE/SHASUMS256.txt" -o "$TEMP_ROOT/checksums"

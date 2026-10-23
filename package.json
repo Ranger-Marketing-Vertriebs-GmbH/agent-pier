@@ -30,7 +30,7 @@
     "test:mutation": "stryker run"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

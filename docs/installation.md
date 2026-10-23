@@ -106,7 +106,7 @@ Then restart the AgentPier web service. If `tmux -V` works but the service still
 ## 1. Prerequisites on the target machine
 
 - macOS with a regular user account that will also run the CLI sessions.
-- Node.js 22.13 or later with npm, tmux and Git.
+- Node.js 22.23.4, 24.22.1, 26.12.1 or later (patched releases) with npm, tmux and Git.
 - Codex, Claude Code and OpenCode may already be installed or can be installed later under **Your tools → Install CLI**.
 - Optional: Tailscale, signed in to your own tailnet on both the Mac mini and mobile device.
 
@@ -297,7 +297,7 @@ The assistant service is optional and off initially: until the owner turns on
 **Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
 private OpenClaw 2026.10.3 installation and Node 26.7.0 under the data directory's
-`assistants/runtimes/` directory. AgentPier itself retains its Node 22.13+ support.
+`assistants/runtimes/` directory. AgentPier itself retains its Node 22.23.4+ support.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
 The release package includes the installer; no global OpenClaw or second daemon is

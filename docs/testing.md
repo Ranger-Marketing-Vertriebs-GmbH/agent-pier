@@ -241,7 +241,7 @@ selects tests at file granularity. Two workers bound concurrency, individual
 mutations have timeouts, and the CI mutation step has a 15-minute budget.
 
 The pilot pins Stryker 9.6.1: Stryker 10's Babel 8 dependencies require a newer Node
-minimum than this project's documented 22.13. The `typed-rest-client` dependency's
+minimum than this project's documented 22.23.4. The `typed-rest-client` dependency's
 `qs` override keeps Stryker's development-only dependency tree on the patched 6.16
 line. Stryker and its TAP runner are not needed by installed production instances.
 

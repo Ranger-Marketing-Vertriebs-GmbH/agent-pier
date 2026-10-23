@@ -13,6 +13,7 @@ import { problem } from "../../lib/storage.js";
 import { validateEndpoint } from "../providers/endpoint-config.js";
 import { toolRoutes } from "../providers/endpoint-routing.js";
 import { adapterSessionChecks } from "./adapter-doctor.js";
+import { isPatchedNode } from "../../lib/node-support.js";
 const execute = promisify(execFile);
 // English remedy text for CLI and API readers; the UI translates the stable remedy id.
 const REMEDIES = {
@@ -20,6 +21,7 @@ const REMEDIES = {
   pty: "Reinstall dependencies for this Node runtime and platform.",
   tool: "Install the tool or correct the service PATH.",
   project: "Restore or map the project checkout on this host.",
+  node: "Update Node.js to 22.23.4, 24.22.1, 26.12.1 or later (security fixes).",
 };
 // A remedy only belongs to a check that needs action.
 const needsRemedy = (status) => status === "warn" || status === "fail";
@@ -74,8 +76,13 @@ export class Doctor {
     const node = process.versions.node.split(".").map(Number);
     add(
       "node",
-      node[0] > 22 || (node[0] === 22 && node[1] >= 13) ? "ok" : "fail",
+      node[0] < 22 || (node[0] === 22 && node[1] < 13)
+        ? "fail"
+        : isPatchedNode(process.versions.node)
+          ? "ok"
+          : "warn",
       process.versions.node,
+      "node",
     );
     try {
       await this.ptyCheck();

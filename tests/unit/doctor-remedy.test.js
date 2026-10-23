@@ -89,6 +89,7 @@ test("every remedy id is translated in German and English", () => {
     "pty",
     "tool",
     "project",
+    "node",
     "adapterReload",
     "adapterRestartFailed",
   ];

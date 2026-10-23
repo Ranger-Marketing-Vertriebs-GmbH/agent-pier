@@ -67,7 +67,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 ## Voraussetzungen
 
 - macOS 14 oder neuer (Apple Silicon oder Intel) oder Linux auf x64 oder arm64.
-- Node.js 22.13 oder neuer (in Release-Paketen enthalten), Git und tmux.
+- Node.js 22.23.4, 24.22.1 oder 26.12.1 oder neuer (in Release-Paketen enthalten), Git und tmux.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
   Browser-Tool der Agenten (Brave oder Chromium für sichtbare Browserfenster der
   Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing
