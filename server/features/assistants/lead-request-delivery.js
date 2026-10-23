@@ -34,6 +34,8 @@ export async function deliverRequest(requests, id) {
   try {
     // Inside the try: a target that cannot be worked out ends as a failed delivery.
     const target = requests.deliveryTarget(r);
+    // No chat to deliver to yet (a lead without a main chat): wait for one.
+    if (!target.conversationId) return;
     if (
       a.ledger
         .pending()
