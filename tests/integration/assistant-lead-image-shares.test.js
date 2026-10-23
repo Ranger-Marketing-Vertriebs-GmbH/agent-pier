@@ -149,3 +149,33 @@ test("a shared Read images counts only for the lead's own permanent member", asy
   f.shares.prune();
   assert.equal(f.shares.rows().length, 0);
 });
+
+test("a share pruned elsewhere still re-applies the member", async (t) => {
+  const f = await setup(t);
+  await f.share({ grants: { documents: true } });
+  const applied = [];
+  f.assistants.config.apply = async (id) => applied.push(id);
+  switchImages(f, f.lead, false);
+  // The owner's list prunes before the lead's re-apply follows.
+  assert.equal(f.shares.list().filter((s) => s.kind === "capability").length, 0);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(applied.includes(f.member.assistantId));
+});
+
+test("a revoke note names only what was actually removed", async (t) => {
+  const f = await setup(t);
+  const notes = () => f.workflows.store.list(f.member.assistantId).length;
+  const before = notes();
+  // Nothing of Read images was shared: no note, and the lead is told so.
+  const nothing = await f.share({ grants: { documents: true }, revoke: true });
+  assert.equal(nothing.status, "nothing_to_revoke");
+  assert.equal(notes(), before);
+  // Revoking the folder and Read images when only the folder is shared names the folder.
+  const revoked = await f.share({
+    grants: { projects: { [f.folderProject.id]: "read" }, documents: true },
+    revoke: true,
+  });
+  assert.equal(revoked.status, "revoked");
+  const note = f.workflows.store.list(f.member.assistantId).at(-1);
+  assert.deepEqual(note.payload.revoked, ["projects"]);
+});

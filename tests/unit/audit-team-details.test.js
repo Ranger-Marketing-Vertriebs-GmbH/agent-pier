@@ -127,3 +127,39 @@ test("a lead share keeps its change, actor, reason and shared capabilities", () 
     },
   );
 });
+
+test("a lead share keeps the member, task, project levels and server ids", () => {
+  assert.deepEqual(
+    event({
+      kind: "lead-share",
+      change: "grant",
+      by: "lead",
+      leadAssistantId: "lead",
+      memberId: "member-1",
+      requestId: "request-1",
+      projects: [
+        { projectId: "p1", coding: true, folder: "write", name: "never stored" },
+        { projectId: "p2", coding: false, folder: "none", removed: true },
+        { projectId: "../bad", coding: true, folder: "write" },
+        { projectId: "p3", coding: "yes", folder: "admin" },
+      ],
+      mcpServerIds: ["s1", "bad id"],
+      capabilities: [],
+    }),
+    {
+      kind: "lead-share",
+      leadAssistantId: "lead",
+      change: "grant",
+      by: "lead",
+      memberId: "member-1",
+      requestId: "request-1",
+      projects: [
+        { projectId: "p1", coding: true, folder: "write" },
+        { projectId: "p2", coding: false, folder: "none", removed: true },
+        { projectId: "p3", coding: false, folder: "none" },
+      ],
+      mcpServerIds: ["s1"],
+      capabilities: [],
+    },
+  );
+});

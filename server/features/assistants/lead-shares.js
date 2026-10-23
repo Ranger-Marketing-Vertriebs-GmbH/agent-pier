@@ -295,9 +295,15 @@ export class LeadShares {
           coding: coding ? false : old.coding,
           folder: folder ? null : old.folder,
         };
+        // What this revocation took back, for the chat notes.
+        const revoked = [
+          ...(folder && old.folder ? ["projects"] : []),
+          ...(coding && old.coding ? ["coding"] : []),
+        ];
+        if (!revoked.length) continue;
         if (!next.coding && !next.folder) this.delete(old.id);
         else this.write(next);
-        changed.push({ ...next, removed: !next.coding && !next.folder });
+        changed.push({ ...next, removed: !next.coding && !next.folder, revoked });
         continue;
       }
       const row = this.write({
@@ -356,7 +362,7 @@ export class LeadShares {
       if (revoke) {
         if (old) {
           this.delete(old.id);
-          changed.push({ ...old, removed: true });
+          changed.push({ ...old, removed: true, revoked: [capability] });
         }
         continue;
       }
@@ -435,7 +441,11 @@ export class LeadShares {
           rows.filter((r) => r.reason === reason),
           { change: "revoke", by: "system", reason },
         );
-      this.changed(memberAssistantId, rows, { quiet: true });
+      // A capability share that went changes what the member compiles (Read images),
+      // whoever pruned it: the member is re-applied now (lead-capability-shares.js).
+      this.changed(memberAssistantId, rows, {
+        quiet: !rows.some((r) => r.kind === "capability"),
+      });
     }
     return mcp;
   }

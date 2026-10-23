@@ -198,31 +198,55 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
     { revoke: input.revoke === true },
   );
   const rows = shares.apply({ lead, member, change, revoke: input.revoke === true, inv });
+  if (input.revoke) return leadRevoked(w, { lead, member, conversation, inv, rows });
   shareNote(w, {
     lead,
     member,
     rows,
-    ...(input.revoke
-      ? {
-          keys: [
-            ...(Object.keys(change.projects).length ? ["projects"] : []),
-            ...(change.coding.length ? ["coding"] : []),
-            ...change.capabilities,
-          ],
-        }
-      : {}),
-    change: input.revoke ? "revoke" : "grant",
+    change: "grant",
     by: "lead",
     leadConversationId: conversation?.id,
     inv,
   });
   return {
-    status: input.revoke ? "revoked" : "shared",
+    status: "shared",
     memberId: member.id,
     projects: Object.keys(change.projects),
     coding: change.coding,
     mcpServers: change.serverIds.length,
     ...(change.capabilities.length ? { capabilities: change.capabilities } : {}),
+  };
+}
+
+/**
+ * A lead's revocation names only what it actually took back (`revoked` on each
+ * changed row, lead-shares.js apply): nothing removed leaves no note and tells the
+ * lead so.
+ */
+function leadRevoked(w, { lead, member, conversation, inv, rows }) {
+  const took = (key) => rows.filter((r) => r.revoked?.includes(key));
+  const servers = rows.filter((r) => r.kind === "mcp").length;
+  const keys = ["projects", "coding", "documents"].filter((key) => took(key).length);
+  if (!keys.length && !servers)
+    return { status: "nothing_to_revoke", memberId: member.id };
+  shareNote(w, {
+    lead,
+    member,
+    rows,
+    keys,
+    change: "revoke",
+    by: "lead",
+    leadConversationId: conversation?.id,
+    inv,
+  });
+  const capabilities = took("documents").map((r) => r.capability);
+  return {
+    status: "revoked",
+    memberId: member.id,
+    projects: took("projects").map((r) => r.projectId),
+    coding: took("coding").map((r) => r.projectId),
+    mcpServers: servers,
+    ...(capabilities.length ? { capabilities } : {}),
   };
 }
 

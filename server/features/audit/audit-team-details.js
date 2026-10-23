@@ -12,6 +12,8 @@ const reasons = [
   "member-left",
 ];
 const edited = ["name", "prompt", "trigger", "enabled"];
+const id = (value) =>
+  typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value);
 const safePath = (value) =>
   typeof value === "string" &&
   value.length <= 1024 &&
@@ -30,7 +32,8 @@ export function teamAuditDetails(details, event, auditId) {
       event.details.edited = details.edited.filter((key) => edited.includes(key));
   }
   // A lead's share with its permanent member (lead-shares.js): what changed, who
-  // changed it, why it ended and which capabilities it shares; never names.
+  // changed it, why it ended, the member, task, project levels, server ids and
+  // shared capabilities; never names.
   if (details.kind === "lead-share") {
     if (["grant", "revoke"].includes(details.change))
       event.details.change = details.change;
@@ -41,6 +44,21 @@ export function teamAuditDetails(details, event, auditId) {
       event.details.capabilities = details.capabilities.filter(
         (key) => key === "documents",
       );
+    for (const key of ["memberId", "requestId"])
+      if (id(details[key])) event.details[key] = details[key];
+    // Project ids with their coding and folder levels; never a project's name.
+    if (Array.isArray(details.projects))
+      event.details.projects = details.projects
+        .filter((p) => id(p?.projectId))
+        .slice(0, 100)
+        .map((p) => ({
+          projectId: p.projectId,
+          coding: p.coding === true,
+          folder: ["read", "write"].includes(p.folder) ? p.folder : "none",
+          ...(p.removed === true ? { removed: true } : {}),
+        }));
+    if (Array.isArray(details.mcpServerIds))
+      event.details.mcpServerIds = details.mcpServerIds.filter(id).slice(0, 100);
   }
   if (details.kind === "native-write") {
     if (["write", "edit", "apply_patch"].includes(details.tool))
