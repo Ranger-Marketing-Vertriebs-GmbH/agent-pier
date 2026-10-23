@@ -663,6 +663,8 @@
   "assistant-member-grants:memberGrantCopy.note.reminder": "de:d3674b28a62a en:2ca520aecfbd",
   "assistant-member-grants:memberGrantCopy.note.renamed": "de:079d01b4a8bf en:1be68ab9a77f",
   "assistant-member-grants:memberGrantCopy.note.revoked": "de:e81248485b8d en:6319dc5e6f32",
+  "assistant-member-grants:memberGrantCopy.note.summarised": "de:b65b9ce9dcbf en:1dab53776d82",
+  "assistant-member-grants:memberGrantCopy.note.summaryQueued": "de:14b3defb451f en:e76c6480120f",
   "assistant-member-grants:memberGrantCopy.note.updated": "de:51ebf79fd94f en:61d624f4066a",
   "assistant-member-grants:memberGrantCopy.off": "de:f0ce94502ed9 en:ca7981b46ecf",
   "assistant-member-grants:memberGrantCopy.on": "de:9f98b7c7f071 en:130011756125",

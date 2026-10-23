@@ -71,6 +71,9 @@ export const memberGrantCopy = {
     model: (member, from, to) => `The lead agent moved ${member} from ${from} to ${to}`,
     renamed: (previous, member, fields) =>
       `The lead agent changed ${previous}'s ${fields}; it is now called ${member}`,
+    summarised: (member) => `The lead agent had ${member}'s chat summarised`,
+    summaryQueued: (member) =>
+      `The lead agent asked for ${member}'s chat to be summarised once its current task ends`,
     reminder: (member) =>
       `${member} set a reminder on the lead agent; it is listed in its reminders`,
     granted: (member, labels) => `${member} was granted ${labels} by its lead agent`,

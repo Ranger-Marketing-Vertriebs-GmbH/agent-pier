@@ -183,6 +183,24 @@ async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
                   runId: null,
                 },
                 {
+                  id: "member-summarise:now",
+                  role: "event",
+                  event: "member-summarise",
+                  memberName: "Scout",
+                  when: "now",
+                  timestamp: Date.now() - 300,
+                  runId: null,
+                },
+                {
+                  id: "member-summarise:after",
+                  role: "event",
+                  event: "member-summarise",
+                  memberName: "Scout",
+                  when: "after_task",
+                  timestamp: Date.now() - 250,
+                  runId: null,
+                },
+                {
                   id: "member-update:note",
                   role: "event",
                   event: "member-update",
@@ -371,6 +389,17 @@ test("a lead's promotion of a member shows in its chat", async ({ page }) => {
   await page.goto(baseURL + "/agents/member-0/chats/chat-0");
   await expect(page.locator("[data-member-promote]")).toHaveText(
     "The lead agent kept Scout as a permanent agent",
+  );
+});
+
+test("a lead's summary of a member's chat shows in its chat", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + "/agents/member-0/chats/chat-0");
+  await expect(page.locator('[data-member-summarise="now"]')).toHaveText(
+    "The lead agent had Scout's chat summarised",
+  );
+  await expect(page.locator('[data-member-summarise="after_task"]')).toHaveText(
+    "The lead agent asked for Scout's chat to be summarised once its current task ends",
   );
 });
 

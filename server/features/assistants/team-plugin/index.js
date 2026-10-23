@@ -17,8 +17,10 @@ const unavailable = "AgentPier operation unavailable; inspect its state before r
 // at once.
 // A shared file (up to 25 MB) is read and copied before the call answers.
 // Agency templates may first read the GitHub catalog (two requests of up to 30
-// seconds each, agency-store.js); a proposal with templates reads each one.
+// seconds each, agency-store.js); a proposal with templates reads each one. A
+// member's summary waits for admission and briefly for its first answer.
 export const toolTimeouts = {
+  member_summarise: 30000,
   ask: 125000,
   ssh: sshTimeoutMs,
   share_file: 30000,
@@ -203,6 +205,14 @@ const definitions = {
       },
       ["memberId"],
     ),
+  },
+  member_summarise: {
+    description:
+      'Have the task chat of one of your own members summarised (a task member you can still reach or a permanent member; not once archived), for example after AgentPier told you it has grown long. Before the summary the member saves what it must keep to its own memory. when "now" summarises it at once and answers status busy while the member works; when "after_task" summarises it once the member finished its current task, before your next question or task reaches it (one pending summary per member). Status already: a summary runs; nothing: there was nothing to summarise. Only the member\'s task chat is summarised; the owner sees a note in both chats.',
+    parameters: schema({
+      memberId: text(100),
+      when: { type: "string", enum: ["now", "after_task"] },
+    }),
   },
   models: {
     description:

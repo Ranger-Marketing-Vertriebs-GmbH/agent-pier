@@ -95,6 +95,19 @@ export function grantNotes(a) {
         runId: null,
       },
     ];
+  // A lead's summary of its member's chat, now or after its task (member-summaries.js).
+  if (p.action === "member_summarise")
+    return [
+      {
+        id: `member-summarise:${a.id}`,
+        role: "event",
+        event: "member-summarise",
+        memberName: p.memberName,
+        when: p.when,
+        timestamp: a.chatNotes.result.at,
+        runId: null,
+      },
+    ];
   if (p.action === "member_reminder")
     return [
       {

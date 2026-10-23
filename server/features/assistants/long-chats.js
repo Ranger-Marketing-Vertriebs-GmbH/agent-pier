@@ -143,19 +143,34 @@ export class LongChats {
    * takes no turns.
    */
   async summarise(conversationId) {
+    return (await this.begin(conversationId)).job;
+  }
+  /**
+   * Starts the chat's summary as summarise does, once admitted: its `job` (what the
+   * request answers) and whether it `joined` one that ran already.
+   */
+  async begin(conversationId) {
     const service = this.service;
     let job = this.running.get(conversationId);
-    if (job) return job;
+    if (job) return { job, joined: true };
+    let joined = false;
     await service.admit(() => {
       job = this.running.get(conversationId);
-      if (job) return;
+      if (job) return (joined = true);
       const conversation = service.store.getConversation(conversationId);
       refuseClosedChat(service, conversation);
       service.requireReady();
       if (chatBusy(service, conversationId)) throw chatProblem("CHAT_BUSY");
       job = this.start(conversation);
+      // A lead's summary of its member waiting for this chat is this one now
+      // (member-summaries.js).
+      try {
+        this.onStart?.(conversationId);
+      } catch (error) {
+        console.warn(`Summarising chat ${conversationId}: ${reasonOf(error)}`);
+      }
     });
-    return job;
+    return { job, joined };
   }
   /**
    * Where the agent may write its memory, the memory step runs first (memory-step.js):

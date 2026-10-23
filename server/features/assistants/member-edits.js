@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
-import { editableMember } from "./member-reach.js";
+import { leadsMember } from "./member-reach.js";
 import { memberModelInput, validateMemberModel } from "./member-models.js";
 import {
   extraEnd,
@@ -141,23 +141,7 @@ export class MemberEdits {
   }
   // The caller's lead and the member it edits, or the refusal; synchronous.
   target(inv, memberId) {
-    if (typeof memberId !== "string") throw assistantProblem("invalid");
-    inv.assertCurrent();
-    const a = this.assistants,
-      attempt = a.ledger.getAttempt(inv.attemptId),
-      request = a.ledger.getRequest(attempt.requestId),
-      conversation = a.store.getConversation(request.conversationId),
-      lead = a.store.getAssistant(conversation.assistantId);
-    if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
-    let member;
-    try {
-      member = this.teams.member(memberId);
-    } catch {
-      throw assistantProblem("teamGrantMemberEnded", 409);
-    }
-    if (!editableMember(member, lead.id))
-      throw assistantProblem("teamGrantMemberEnded", 409);
-    return { conversation, lead, member };
+    return leadsMember(this.assistants, this.teams, inv, memberId);
   }
   // The member's model before the change, named as the owner reads it (ids for one
   // that no longer resolves); null when the member is not found (updateNow refuses).

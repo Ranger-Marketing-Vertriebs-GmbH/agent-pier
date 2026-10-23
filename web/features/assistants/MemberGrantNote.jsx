@@ -17,6 +17,14 @@ export default function MemberGrantNote({ note }) {
         {updateNoteText(note)}
       </p>
     );
+  if (note.event === "member-summarise")
+    return (
+      <p className="assistant-note assistant-event" data-member-summarise={note.when}>
+        {note.when === "after_task"
+          ? copy.note.summaryQueued(note.memberName)
+          : copy.note.summarised(note.memberName)}
+      </p>
+    );
   if (note.event === "member-reminder")
     return (
       <p className="assistant-note assistant-event" data-member-reminder="">
