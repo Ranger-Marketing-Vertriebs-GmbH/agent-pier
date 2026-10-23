@@ -231,3 +231,16 @@ test("a later summary without a memory step drops the earlier note", async (t) =
   assert.equal(x.stepSends().length, 1);
   assert.equal((await x.history()).memoryNotSaved, undefined);
 });
+
+test("a summary that fails after a failed memory step still says nothing was saved", async (t) => {
+  const x = await fixture(t);
+  x.assistants.longChats.compact = () => {
+    throw Error("boom");
+  };
+  assert.deepEqual(await json(await x.summarise(), 200), running);
+  await x.endStep("error");
+  await x.ended();
+  const after = await x.history();
+  assert.equal(after.compactOutcome, "failed");
+  assert.equal(after.memoryNotSaved, true);
+});
