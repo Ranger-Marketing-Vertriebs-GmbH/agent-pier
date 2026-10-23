@@ -1,5 +1,6 @@
 import React from "react";
 import ReferenceRow from "../../../components/ReferenceRow.jsx";
+import Switch from "../../../components/Switch.jsx";
 import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
@@ -16,17 +17,21 @@ export function profileValid(draft) {
 }
 
 /**
- * Name, instructions and model of an agent draft (Profile tab and create mode). With
- * `followsLead` (a temporary team member) the model is the lead's and only shown.
+ * Name, instructions and model of an agent draft (Profile tab and create mode). A
+ * temporary team member (`member`) may follow its lead's model (`leadModel`), which is
+ * then only shown, or pick its own.
  */
 export default function ProfileFields({
   draft,
   models,
   modelKey,
   navigate,
-  followsLead = false,
+  member = false,
+  leadModel,
 }) {
-  const { name, instructions, connectionId, modelId } = draft.values;
+  const { name, instructions, connectionId, modelId, followLead } = draft.values;
+  const followsLead = member && followLead;
+  const shown = leadModel || { connectionId, modelId };
   const accounts = useCrossLink()({ view: "accounts", section: "models" });
   return (
     <>
@@ -49,12 +54,24 @@ export default function ProfileFields({
             onChange={(event) => draft.set("instructions", event.target.value)}
           />
         </label>
+        {member && (
+          <div className="agent-field">
+            <Switch
+              label={copy.team.followLeadModelChoice}
+              checked={followLead}
+              onChange={(value) => draft.set("followLead", value)}
+            />
+          </div>
+        )}
         {followsLead ? (
           <div className="agent-field agent-model-follows">
             <span>{copy.modelChoice}</span>
             {/* Two connections can offer the same model ID: name the lead's one. */}
             <strong>
-              {[connectionLabel(models.find((m) => m.id === connectionId)), modelId]
+              {[
+                connectionLabel(models.find((m) => m.id === shown.connectionId)),
+                shown.modelId,
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </strong>

@@ -40,16 +40,19 @@ export function memberInstructions(snapshot, member) {
 export const leadInstructions = (member) =>
   member.leadInstructions ?? memberInstructions(member.snapshot, member);
 
-// A temporary member follows its lead's model, so only a permanent member's model can
-// differ from the one it took over (at creation, or when it was kept as permanent).
+const sameModel = (a, b) => a.connectionId === b.connectionId && a.modelId === b.modelId;
+
+/**
+ * What the owner changed since the lead last set it. The model counts against the one
+ * the lead last assigned (`leadModel`), else the one the member took over; a temporary
+ * member reports it only while it runs on a model of its own (`ownModel`).
+ */
 export function memberOverrides(member, assistant) {
   if (!member.snapshot) return undefined;
   const instructions = assistant.instructions !== leadInstructions(member);
-  if (temporaryMember(assistant)) return { instructions };
+  if (temporaryMember(assistant) && assistant.ownModel !== true) return { instructions };
   return {
-    model:
-      assistant.model.connectionId !== member.snapshot.model.connectionId ||
-      assistant.model.modelId !== member.snapshot.model.modelId,
+    model: !sameModel(assistant.model, member.leadModel ?? member.snapshot.model),
     instructions,
   };
 }
@@ -59,10 +62,13 @@ export const temporaryMember = (profile) =>
   !!profile.teamMemberId && profile.lifetime !== "permanent";
 
 /**
- * The model an agent runs on. A temporary member always uses its lead's current model;
- * a permanent member and any other agent use their own. Without a readable lead the
- * member keeps the model it was created with.
+ * The model an agent runs on. A temporary member uses its lead's current model unless
+ * it was given one of its own (`ownModel`, by the owner or its lead); a permanent
+ * member and any other agent use their own. Without a readable lead the member keeps
+ * the model it was created with.
  */
 export function effectiveModel(assistant, lead) {
-  return temporaryMember(assistant) && lead?.model ? { ...lead.model } : assistant.model;
+  return temporaryMember(assistant) && assistant.ownModel !== true && lead?.model
+    ? { ...lead.model }
+    : assistant.model;
 }

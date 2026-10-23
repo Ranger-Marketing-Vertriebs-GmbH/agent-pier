@@ -226,8 +226,6 @@ export const assistants = {
   projectFileEncoding:
     "Diese Datei ist kein gültiges UTF-8; sie wird nicht geändert, damit keine Zeichen verloren gehen.",
   projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
-  memberModelFollowsLead:
-    "Ein auftragsgebundenes Mitglied nutzt das Modell seines leitenden Agenten. Ändere das Modell dort oder behalte das Mitglied als dauerhaften Agenten.",
   memberRequestNotPermanent:
     "Aufgaben lassen sich nur an dauerhafte Mitglieder übergeben.",
   memberRequestOpenTask:

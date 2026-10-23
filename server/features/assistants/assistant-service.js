@@ -272,7 +272,8 @@ export class AssistantService {
    * (shell-changes.js).
    */
   async update(id, input, revision, { confirmed = false, outcome = {} } = {}) {
-    const { mcpServers, confirmStdio, confirmShell, confirmFull, ...body } = input || {};
+    const { mcpServers, confirmStdio, confirmShell, confirmFull, followLead, ...body } =
+      input || {};
     const binds = mcpServers !== undefined;
     let shell = null,
       patch = body;
@@ -285,9 +286,15 @@ export class AssistantService {
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);
-      // A temporary member runs on its lead's model; only a permanent one has its own.
-      if (patch.model && temporaryMember(current))
-        throw assistantProblem("memberModelFollowsLead", 409);
+      // A temporary member follows its lead's model until it is given one: picking
+      // one, even the lead's current one, makes it its own; `followLead` undoes that.
+      if (
+        followLead !== undefined &&
+        (followLead !== true || !temporaryMember(current) || "model" in body)
+      )
+        throw assistantProblem("invalid");
+      if (changes.model && temporaryMember(current) && !current.ownModel)
+        patch = { ...patch, model: changes.model };
       // Refuses an ineligible agent or a missing confirmation before any change.
       shell = shellChange(current, patch, { confirmShell, confirmFull });
       // People on the agent's own Telegram bot must never reach host commands.
@@ -345,7 +352,7 @@ export class AssistantService {
         return { restart, disableReminders };
       }
       if (disableReminders) await this.reminders?.disable(id);
-      const record = this.store.updateAssistant(id, patch, revision);
+      const record = this.store.updateAssistant(id, patch, revision, { followLead });
       auditProactivity(this.audit, id, proactivityChange(current, patch));
       let pending = false;
       if (binds) {
@@ -372,7 +379,7 @@ export class AssistantService {
     const before = this.store.getAssistant(id);
     const record = await this.webTools.restart(
       () => {
-        const saved = this.store.updateAssistant(id, patch, revision);
+        const saved = this.store.updateAssistant(id, patch, revision, { followLead });
         auditProactivity(this.audit, id, proactivityChange(before, patch));
         if (binds) this.mcp.setBindings(id, mcpServers);
         return saved;

@@ -19,12 +19,12 @@ import {
 
 // Save-chain steps of the agent tabs (docs/settings-pattern.md). Every step sends the
 // revision the draft started from, so a change made elsewhere comes back as a 409.
-export const profileStep = ({ assistantId, label, update, followsLead = false }) =>
+export const profileStep = ({ assistantId, label, update }) =>
   assistantPatchStep({
     assistantId,
     label,
     keys: profileKeys,
-    body: (values) => profilePatch(values, { followsLead }),
+    body: profilePatch,
     update,
   });
 

@@ -213,8 +213,6 @@ export const assistants = {
   projectFileEncoding:
     "This file is not valid UTF-8; it is not changed so that no characters are lost.",
   projectWriteTooLarge: "One write may hold at most 64 KiB.",
-  memberModelFollowsLead:
-    "A task-bound member uses its lead's model. Change the model there or keep the member as a permanent agent.",
   memberRequestNotPermanent: "Tasks can only be delegated to permanent members.",
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",

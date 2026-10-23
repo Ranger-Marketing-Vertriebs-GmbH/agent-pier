@@ -24,18 +24,22 @@ const conflictLabels = {
   instructions: () => copy.instructions,
   connectionId: () => copy.connection,
   modelId: () => copy.model,
+  followLead: () => copy.team.followLeadModelChoice,
 };
 
 /** Profile: name, instructions, model; team member card; one PATCH per save. */
 export default function ProfileTab({ assistant, navigate }) {
-  const { models, refresh, runtime } = useAssistants();
+  const { assistants, models, refresh, runtime } = useAssistants();
   const draft = useTabDraft({
     server: profileServer(assistant),
     revisions: { assistant: assistant.revision },
   });
   const label = settingsCopy.tabs.profile;
-  const followsLead = followsLeadModel(assistant);
-  const steps = [profileStep({ assistantId: assistant.id, label, followsLead })];
+  const member = followsLeadModel(assistant);
+  const leadModel = member
+    ? assistants.find((a) => a.id === assistant.parentAssistantId)?.model
+    : undefined;
+  const steps = [profileStep({ assistantId: assistant.id, label })];
   const after = async (result) => {
     if (result.status === "saved") await refresh();
     return result;
@@ -102,7 +106,8 @@ export default function ProfileTab({ assistant, navigate }) {
           models={models}
           modelKey={assistant.id}
           navigate={navigate}
-          followsLead={followsLead}
+          member={member}
+          leadModel={leadModel}
         />
         <p className="agent-revision">
           {copy.revisions(assistant.revision, assistant.effectiveRevision)}
