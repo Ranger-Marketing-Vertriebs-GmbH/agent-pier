@@ -311,7 +311,16 @@ export class NativeRoutines extends NativeReminders {
   }
   invoke(invocation, input) {
     invocation.assertCurrent();
-    exact(input, ["action", "name", "prompt", "trigger", "id", "enabled", "revision"]);
+    exact(input, [
+      "action",
+      "name",
+      "prompt",
+      "trigger",
+      "id",
+      "enabled",
+      "revision",
+      "telegram",
+    ]);
     const request = this.assistants.ledger.getRequest(
       this.assistants.ledger.getAttempt(invocation.attemptId).requestId,
     );
@@ -337,6 +346,8 @@ export class NativeRoutines extends NativeReminders {
           name: input.name,
           prompt: input.prompt,
           trigger: input.trigger,
+          // The person's own paired chat only (routine-targets.js), on her request.
+          ...(input.telegram !== undefined && { telegram: input.telegram }),
         },
         origin,
         invocation.assertCurrent,
@@ -346,7 +357,7 @@ export class NativeRoutines extends NativeReminders {
       return this.update(
         id,
         input.id,
-        { enabled: input.enabled, revision: input.revision },
+        { enabled: input.enabled, telegram: input.telegram, revision: input.revision },
         invocation.assertCurrent,
       );
     if (input.action === "remove")

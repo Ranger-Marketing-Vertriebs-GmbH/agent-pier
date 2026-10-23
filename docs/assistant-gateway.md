@@ -1353,7 +1353,16 @@ Telegram is an optional extra per binding (`telegram`: the paired chat's
 `channelId`, `chatId` and `userId`, or `null`). It is on by default only for one
 asked for from Telegram (and for a task member's reminder when its lead has a paired
 chat); the settings and `PATCH` with `{ telegram, revision }` switch it, and
-switching it on needs a paired chat (`reminderChannelRequired`, 409). The Telegram
+switching it on needs a paired chat (`reminderChannelRequired`, 409). The agent's own
+`agentpier_reminder` and `agentpier_routine` tools take an optional `telegram`
+boolean on `create` and `update` (AGENTPIER-195): only in a direct turn of the person
+whose binding it is (`turnAudience`: an owner, Telegram or user turn that was not
+forwarded), from any of her chats; scheduled, forwarded and member turns are refused.
+`true` binds that person's paired, enabled chat (`pairedChannel`, or the Telegram turn's
+own chat), never one the agent names; without one the tool fails with
+`TELEGRAM_NOT_CONNECTED` (`reminderChannelRequired`). `false` switches it off; without
+the parameter creation keeps the default above and an update keeps the setting. A task
+member's reminder never takes `telegram`; it follows its lead's paired chat. The Telegram
 outbox is used only while it is on and that chat is still paired and enabled;
 switching it off also holds back queued Telegram output. Unpairing never pauses or
 removes a reminder or routine. Bindings stored before chat delivery kept their chat in
