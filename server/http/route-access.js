@@ -45,6 +45,10 @@ export const userRoutes = [
   },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/attachments$/ },
   {
+    method: "GET",
+    pattern: /^\/api\/me\/conversations\/[^/]+\/attachments\/[^/]+$/,
+  },
+  {
     method: "DELETE",
     pattern: /^\/api\/me\/conversations\/[^/]+\/attachments\/[^/]+$/,
   },
