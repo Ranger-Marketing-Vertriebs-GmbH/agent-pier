@@ -11,6 +11,7 @@ import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
 import { MemberGrants } from "./member-grant-requests.js";
 import { MemberEdits } from "./member-edits.js";
+import { listMemberModels, memberModelsInput } from "./member-models.js";
 import { MemberPromotions } from "./member-promotion.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
@@ -447,6 +448,26 @@ export class TeamService {
   member_update(inv, input) {
     assertWired(this);
     return this.edits.update(inv, input);
+  }
+  // The models a lead can give its members and what they run on (member-models.js).
+  models(inv, input) {
+    assertWired(this);
+    const { query, limit } = memberModelsInput(input);
+    inv.assertCurrent();
+    const { lead } = this.requests.store.lead(inv.attemptId);
+    const a = this.assistants;
+    return listMemberModels({
+      models: a.models,
+      catalog: a.models.catalog,
+      lead,
+      members: this.requests.reachable(lead.id).map(({ m, a: agent }) => ({
+        memberId: m.id,
+        name: agent.name,
+        model: agent.model,
+      })),
+      query,
+      limit,
+    });
   }
   // A lead's routines on its own permanent members (lead-routines.js).
   member_routine(inv, input) {
