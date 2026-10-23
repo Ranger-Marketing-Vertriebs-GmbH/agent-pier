@@ -92,7 +92,7 @@ export class AgentProjectFiles {
   levels(ctx) {
     if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
     // A sibling's request (peer-requests.js): the member's own levels and standing
-    // shares, or only the standing shares when a lead task started it; read-only
+    // shares, or only the standing shares when the lead started it; read-only
     // unless the request may write.
     if (ctx.leadRequest?.peer) {
       const own = ctx.leadRequest.sharesOnly

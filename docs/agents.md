@@ -439,10 +439,14 @@ with Learning") and on their own:
 - **Writing:** questions never write. A colleague's task may change files only when
   the sender's own work may change files: your own message in the sender's chat, a
   lead task that may write, or a routine marked **May write**. Otherwise it runs
-  read-only. The receiving member always works with its own tools and access, never
-  the sender's grants or shares; a task that a lead task started reaches only the
-  lead's standing shares with the receiver, as the lead's own task would. Such a task
-  never changes memory, and a coding request from it always waits for your approval.
+  read-only. The receiving member always works with its own tools, never the
+  sender's grants or shares. Which folders and coding projects it reaches depends on
+  who started the exchange: when the lead did (the sender works on a question or task
+  of the lead, its team assignment, or a routine the lead set up), the receiver reaches
+  only the lead's standing shares with it, for reading and writing, as in the lead's
+  own requests. Only when you started it (your own message to the sender, or a routine
+  you set up) does the receiver also use the access you gave it. Such a task never
+  changes memory, and a coding request from it always waits for your approval.
 - **The lead sees everything:** a quiet line in its main chat when an exchange starts
   and when it ends ("Learning asked Head Writer a question", "Head Writer answered
   Learning"), naming only who and how it ended, and each exchange and report under

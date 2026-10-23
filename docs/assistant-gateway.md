@@ -1141,15 +1141,20 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
 - **Writes.** Questions never write. A task is writable only when the sender's turn may
   write itself (`peerWriteOrigin`, stored as `peerWrites`): the owner's message in the
   sender's own task chat, the writable lead task this very attempt runs, or a routine
-  marked **May write**. The receiver works with its own tools and access, never the
-  sender's grants or task shares; a task started from a lead task reaches only the
-  lead's standing shares (`sharesOnly`), as the lead's own task would. Memory stays
+  marked **May write**. The receiver works with its own tools, never the sender's
+  grants or task shares. A request whose sender's turn the lead started (a lead
+  question or task, a `team-member` assignment, or a routine with `createdBy: "lead"`,
+  also an autonomous one; `peerLeadScope`, stored as `leadScope`) reaches only the
+  lead's standing shares on the receiver (`sharesOnly`), for reads and writes, as the
+  lead's own request would. Only the owner's direct turn with the sender or an owner's
+  routine keeps the receiver's own grants plus standing shares, read-only unless the
+  task is writable. Memory stays
   read-only (`peer-request` memory note), and `coding_start` from a peer request always
   waits for the owner.
 - **Delivery.** The receiver's chat shows the request with the sending member as
   sender. An answer that misses the wait, or a task's result, goes as a hidden
   `peer-result` turn to the sender's chat (`peer-request-result:<id>`), which cannot
-  write, change memory or ask further. With `resultTo: "lead"`, or when the sender can
+  change files or ask other members; it may note things in its own memory. With `resultTo: "lead"`, or when the sender can
   no longer be reached (archived, chat gone, or a temporary member whose task ended),
   it reaches the lead's current main chat as a `member-result` turn instead. Reports
   go to the lead's current main chat as `member-result` turns, one at a time per

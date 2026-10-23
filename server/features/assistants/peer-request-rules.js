@@ -8,6 +8,7 @@ import {
   taskWritable,
 } from "./lead-request-store.js";
 import { editableMember } from "./member-reach.js";
+import { isLeadRoutine } from "./lead-routines.js";
 import { mainConversation } from "./routine-targets.js";
 
 // A team member's questions and tasks for a sibling of the same lead. They are
@@ -140,6 +141,17 @@ export function peerWriteOrigin(service, caller) {
 }
 
 /**
+ * Whether the lead started the sender's turn: its request (question or task), a
+ * temporary member's team assignment, or a routine the lead set up. The receiver then
+ * reaches only the lead's standing shares, as in the lead's own requests; only the
+ * owner's own turn or the owner's routine keeps the receiver's own access.
+ */
+export function peerLeadScope(caller) {
+  if (caller.routine) return isLeadRoutine(caller.routine.binding);
+  return ["lead-request", "team-member"].includes(caller.origin?.kind);
+}
+
+/**
  * A sibling of the sender the lead itself could still reach, with a chat. Only a
  * permanent sibling takes a task; an ended temporary one answers questions.
  */
@@ -246,6 +258,8 @@ export function createPeerRequest(service, { type, inv, input, now = Date.now() 
         origin: { kind: "peer", fromMemberId: sender.id },
         ownerProof: null,
         ...(peerWrites ? { peerWrites } : {}),
+        // Fixed at creation: the receiver's access follows who started the chain.
+        leadScope: peerLeadScope(caller),
         writeAllowed: type === "task" && !!peerWrites,
         runTimeoutMinutes: teams.policy(lead.id).runTimeoutMinutes,
         phase: "queued",
