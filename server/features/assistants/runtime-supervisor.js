@@ -42,6 +42,12 @@ const terminal = new Set([
   "RUNTIME_LOCK_MISSING",
 ]);
 
+// How long a stopped Gateway may drain after SIGTERM before SIGKILL. OpenClaw stops
+// admitting work and waits for running turns and cron runs to finish (up to 5 min of
+// its own); a maintenance restart runs only once nothing is busy, so this bounds the
+// rare run that still finishes. AgentPier's own shutdown keeps `killGraceMs`, within
+// its service manager's stop timeout (scripts/service.mjs).
+export const gatewayDrainMs = 60000;
 // The browsers' CDP ports sit at the Gateway port + 12 up to + 110 (web-tools.js,
 // browser-profiles.js).
 export const maxGatewayPort = 65535 - lastCdpOffset;
@@ -87,12 +93,14 @@ export class RuntimeSupervisor extends EventEmitter {
       reconnectMs: 1000,
       restartMs: 1000,
       killGraceMs: 3000,
+      drainMs: gatewayDrainMs,
       logCheckMs: 60000,
       // Authenticated readiness is a wall-clock budget, never an attempt count:
       // refused probes return instantly, so a count shrinks with fast failures.
       // The floor covers a cold start on slow hosts (a fresh install took ~22 s on
       // hosted Intel macOS); a host that took longer before gets proportionally more,
       // since a restart also loads the agents and sessions created meanwhile.
+      // It starts at the spawn, so a previous Gateway's drain never shortens it.
       readyMs: 90000,
       readyFactor: 3,
       readyPollMs: 250,
@@ -425,16 +433,17 @@ export class RuntimeSupervisor extends EventEmitter {
     );
     this.retryTimer.unref();
   }
-  async terminateOwnedChild() {
+  async terminateOwnedChild(graceMs = this.timing.killGraceMs) {
     const child = this.child;
     if (!child || child.exitCode !== null || child.signalCode) return;
     const exited = once(child, "exit").catch(() => {});
-    const kill = setTimeout(() => child.kill("SIGKILL"), this.timing.killGraceMs);
+    const kill = setTimeout(() => child.kill("SIGKILL"), graceMs);
     child.kill("SIGTERM");
     await exited;
     clearTimeout(kill);
   }
-  stop() {
+  /** Stops the Gateway; it may drain for `graceMs` before SIGKILL. */
+  stop({ graceMs = this.timing.drainMs } = {}) {
     if (this.stopping) return this.stopping;
     this.wanted = false;
     ++this.generation;
@@ -444,7 +453,7 @@ export class RuntimeSupervisor extends EventEmitter {
     this.client?.close();
     this.telegram = this.telegramStarting = null;
     if (this.child) this.setState({ availability: "stopping" });
-    this.stopping = this.terminateOwnedChild()
+    this.stopping = this.terminateOwnedChild(graceMs)
       .then(() => {
         this.setState({ availability: "disabled", sync: "stale" });
       })
@@ -459,6 +468,6 @@ export class RuntimeSupervisor extends EventEmitter {
     await this.start();
   }
   close() {
-    return this.stop();
+    return this.stop({ graceMs: this.timing.killGraceMs });
   }
 }

@@ -18,7 +18,9 @@ function setup(t, options) {
     calls.push({ method, input });
     if (method === "cron.list")
       return {
-        jobs: [...jobs.values()].filter((j) => j.agentId === input.agentId),
+        jobs: [...jobs.values()].filter(
+          (j) => input.agentId === undefined || j.agentId === input.agentId,
+        ),
         hasMore: false,
       };
     if (method === "cron.add") {
@@ -275,6 +277,15 @@ test("runtime maintenance detects native scheduled turns outside the chat ledger
   assert.equal(await f.reminders.hasRunning(), true);
   delete job.state.runningAtMs;
   assert.equal(await f.reminders.hasRunning(), false);
+  // Every cron run counts, also a job AgentPier never bound (a check-in, a lead's
+  // routine, one an agent created itself), with one list of all agents.
+  f.jobs.set("own", { id: "own", agentId: "ap-other", state: { runningAtMs: 1 } });
+  f.calls.length = 0;
+  assert.equal(await f.reminders.hasRunning(), true);
+  assert.deepEqual(
+    f.calls.map((c) => [c.method, c.input.agentId]),
+    [["cron.list", undefined]],
+  );
 });
 
 test("pausing a reminder blocks late completions and queued delivery after adapter recreation", async (t) => {

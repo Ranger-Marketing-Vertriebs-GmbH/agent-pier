@@ -226,18 +226,25 @@ export class AssistantProviderSynchronization {
     this.changing = true;
     let safeToLeave = false;
     try {
+      // Entering closes admission and switches cron off (assistant-maintenance.js), so
+      // nothing new starts once the check below found the Gateway idle.
       await this.maintenance.enter();
-      const blockers = (await this.maintenance.blockers()).filter(
-        (code) => !force || unforceable.includes(code),
-      );
-      if (blockers.length) {
+      const busy = async () => {
+        const blockers = (await this.maintenance.blockers()).filter(
+          (code) => !force || unforceable.includes(code),
+        );
+        if (!blockers.length) return;
         safeToLeave = true;
         throw Object.assign(assistantProblem("active", 409), { blockers });
-      }
+      };
+      await busy();
       // Awaited while the Gateway still runs, after nothing can refuse the change.
       await beforeChange();
       const wasRunning = a.runtime.status().availability !== "disabled";
       if (!online) {
+        // Once more right before the stop: a cron run the scheduler started just as
+        // it was switched off is visible by now. Leaving restores cron.
+        await busy();
         await a.runtime.stop();
         await this.maintenance.quiesce();
       } else {

@@ -174,6 +174,35 @@ test("active work or an existing update maintenance gate leaves credentials unto
   );
   assert.equal(f.connections.secret(f.c.id).apiKey, "original-fixture-key");
 });
+test("a cron run that starts just before the stop still refuses the restart", async (t) => {
+  const f = fixture(t);
+  // Idle at the first check; the run shows up by the check right before the stop.
+  let checks = 0;
+  f.sync.maintenance.blockers = async () => (checks++ ? ["SCHEDULED_WORK"] : []);
+  await assert.rejects(
+    f.sync.restartGateway(() => assert.fail("must not run")),
+    {
+      status: 409,
+      blockers: ["SCHEDULED_WORK"],
+    },
+  );
+  assert.equal(checks, 2);
+  assert.equal(f.running(), true);
+  // Leaving maintenance restores cron and admission.
+  assert.deepEqual(f.calls, ["enter", "leave"]);
+  // The owner's "Restart now" interrupts it, never a sign-in in progress.
+  checks = 0;
+  f.calls.length = 0;
+  await f.sync.restartGateway(() => null, { force: true });
+  assert.deepEqual(f.calls, ["enter", "stop", "quiesce", "start", "leave"]);
+  f.sync.maintenance.blockers = async () => ["ACCOUNT_LOGIN", "ASSISTANT_WORK"];
+  await assert.rejects(
+    f.sync.restartGateway(() => null, { force: true }),
+    {
+      blockers: ["ACCOUNT_LOGIN"],
+    },
+  );
+});
 test("a used connection changes only with a confirmed Gateway restart", async (t) => {
   const f = fixture(t);
   await assert.rejects(
