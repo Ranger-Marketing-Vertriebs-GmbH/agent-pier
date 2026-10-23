@@ -1,6 +1,7 @@
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import React, { useEffect, useState } from "react";
 import api from "../../lib/api.js";
+import { listedProjects } from "../../lib/project-list.js";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
 import useMcpResource from "./useMcpResource.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -28,6 +29,11 @@ function ConsentForm({ authorization, config }) {
     return () => clearInterval(timer);
   }, []);
   const expired = authorization.expiresAt <= now;
+  // Each project folder once; an older row stays while it is chosen.
+  const choices = (field, group) =>
+    group === "projects"
+      ? listedProjects(config.resources.projects, selection.projectIds)
+      : config.resources[group];
   const toggle = (field, id) =>
     setSelection((current) => ({
       ...current,
@@ -132,8 +138,8 @@ function ConsentForm({ authorization, config }) {
               className="mcp-options"
             >
               <legend>{copy[group]}</legend>
-              {!config.resources[group].length && <p>{copy.none}</p>}
-              {config.resources[group].map((resource) => (
+              {!choices(field, group).length && <p>{copy.none}</p>}
+              {choices(field, group).map((resource) => (
                 <label key={resource.id} className="mcp-check">
                   <input
                     type="checkbox"

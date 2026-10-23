@@ -6,10 +6,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
-import {
-  projectScope,
-  stableIdentity,
-} from "../../server/features/memory/project-scope.js";
+import { projectScope } from "../../server/features/memory/project-scope.js";
 import {
   directoryProjectId,
   folderIdentity,
@@ -30,19 +27,31 @@ function fixture(t) {
 const hash = (parts) => createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 
 /**
- * Stores the folder's project as an earlier boot registered it: the same path and
- * inode under another device number (macOS renumbers volumes at boot).
+ * The project ID as every release derives it, computed here independently: sha256
+ * of [kind, Git common directory or folder, device, inode]. `shift` renumbers the
+ * device the way macOS does at boot.
  */
-async function registeredBeforeRestart(memory, cwd) {
-  const scope = await projectScope(cwd, { known: false });
-  const [kind, place, dev, ino] = JSON.parse(scope.identity);
-  const parts = [kind, place, String(BigInt(dev) + 2n), ino];
-  const id = hash(parts);
+function oldIdentity(cwd, shift = 0n) {
+  const git = fs.existsSync(path.join(cwd, ".git"));
+  const place = fs.realpathSync(git ? path.join(cwd, ".git") : cwd);
+  const stat = fs.statSync(place, { bigint: true });
+  const parts = [
+    git ? "git" : "directory",
+    place,
+    String(stat.dev + shift),
+    String(stat.ino),
+  ];
+  return { id: hash(parts), parts };
+}
+function insert(memory, cwd, { id, parts }, createdAt) {
   memory.db
     .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
-    .run(id, scope.name, scope.cwd, kind, JSON.stringify(parts), "2026-09-08T10:00:00Z");
+    .run(id, path.basename(cwd), cwd, parts[0], JSON.stringify(parts), createdAt);
   return id;
 }
+/** The folder's project as an earlier boot registered it (another device number). */
+const registeredBeforeRestart = (memory, cwd) =>
+  insert(memory, cwd, oldIdentity(cwd, 2n), "2026-09-08T10:00:00Z");
 const rows = (memory) =>
   memory.db
     .prepare("SELECT id FROM projects")
@@ -78,11 +87,8 @@ test("an exact identity wins over an older row of the same folder", async (t) =>
   const cwd = path.join(root, "electronic-lab");
   execFileSync("git", ["init", "-q", cwd]);
   await registeredBeforeRestart(memory, cwd);
-  const own = await projectScope(cwd, { known: false });
-  memory.db
-    .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
-    .run(own.id, own.name, own.cwd, own.kind, own.identity, "2026-10-22T11:49:35Z");
-  assert.equal((await memory.register(cwd)).id, own.id);
+  const own = insert(memory, cwd, oldIdentity(cwd), "2026-10-22T11:49:35Z");
+  assert.equal((await memory.register(cwd)).id, own);
   assert.equal(rows(memory).length, 2);
 });
 
@@ -105,17 +111,7 @@ test("a closed store no longer answers for its folders", async (t) => {
   fs.mkdirSync(cwd);
   const earlier = await registeredBeforeRestart(memory, cwd);
   memory.close();
-  assert.notEqual((await projectScope(cwd)).id, earlier);
-});
-
-test("stableIdentity ignores only the device number", () => {
-  assert.equal(
-    stableIdentity(JSON.stringify(["git", "/p/.git", "1", "7"])),
-    stableIdentity(JSON.stringify(["git", "/p/.git", "2", "7"])),
-  );
-  assert.notEqual(
-    stableIdentity(JSON.stringify(["git", "/p/.git", "1", "7"])),
-    stableIdentity(JSON.stringify(["git", "/p/.git", "1", "8"])),
-  );
-  assert.equal(stableIdentity("not json"), null);
+  const scope = await projectScope(cwd);
+  assert.notEqual(scope.id, earlier);
+  assert.equal(scope.id, oldIdentity(cwd).id);
 });
