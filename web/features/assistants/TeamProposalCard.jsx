@@ -7,7 +7,7 @@ import { agentTemplateCopy as templateCopy } from "../../lib/i18n/messages/agent
 import { skillScanCopy as scanCopy } from "../../lib/i18n/messages/skill-scan.js";
 import { assistantApi } from "./assistant-api.js";
 import { avatarGlyph } from "./avatar-glyph.js";
-import { grantsLine, holdsShellSsh } from "./member-grants.js";
+import { grantsLine, holdsShellSsh, proposalModelText } from "./member-grants.js";
 import { memberGrantCopy as grantCopy } from "../../lib/i18n/messages/assistant-member-grants.js";
 
 // A team proposal waiting for the owner: its members, what the lead grants each
@@ -71,6 +71,11 @@ export default function TeamProposalCard({ team, busy, act }) {
                     ` · ⚠ ${templateCopy.memberWarned} ${(m.template.rules || [])
                       .map((rule) => scanCopy.rules[rule] || rule)
                       .join(", ")}`}
+                </small>
+              )}
+              {m.modelLabel && (
+                <small className="assistant-team-model" data-model={m.model?.modelId}>
+                  {proposalModelText(m.modelLabel)}
                 </small>
               )}
               <small

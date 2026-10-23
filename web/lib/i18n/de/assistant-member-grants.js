@@ -33,6 +33,7 @@ export const memberGrantCopy = {
   modelName: (model, connection) => `${model} (${connection})`,
   none: "Keine Tools",
   gets: (labels) => `Erhält: ${labels}`,
+  proposalModel: (name) => `Modell: ${name}, vom leitenden Agenten gewählt`,
   proposalWarning:
     "Mit einer Warnung markierte Mitglieder erhalten Shell oder SSH, höchstens mit der Stufe und auf den Hosts dieses Agenten. Sie arbeiten unbeaufsichtigt, und Inhalte, die sie lesen, können sie lenken.",
   title: "Vom leitenden Agenten gewährt",

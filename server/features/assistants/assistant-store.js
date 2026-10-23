@@ -75,7 +75,9 @@ export class AssistantStore {
       instructions: memberInstructions(snapshot, assignment),
       // Which Agency template it came from, kept with the profile (agency-templates.js).
       ...(assignment.template ? { template: assignment.template } : {}),
-      model: { ...snapshot.model },
+      // A model its lead chose is its own; otherwise a task member follows the lead.
+      model: { ...(assignment.model || snapshot.model) },
+      ...(assignment.model && lifetime !== "permanent" ? { ownModel: true } : {}),
       revision: 1,
       effectiveRevision: 0,
       runtimeAgentId: `ap-${id}`,

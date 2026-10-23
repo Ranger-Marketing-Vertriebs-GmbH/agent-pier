@@ -150,3 +150,40 @@ export async function validateMemberModel(models, { connectionId, modelId }) {
   lease.release?.();
   return { connectionId, modelId, display: { ...lease.display } };
 }
+
+/**
+ * The proposed members with each lead-chosen `model` checked like
+ * validateMemberModel, plus the owner's names for it (`modelLabel`) for the approval
+ * card. A label the lead sent itself is dropped; one unusable model refuses them all.
+ */
+export function proposedMemberModels(models, members) {
+  if (!Array.isArray(members)) return members;
+  return Promise.all(
+    members.map(async (member) => {
+      if (!member || typeof member !== "object") return member;
+      const { model, modelLabel: _forged, ...rest } = member;
+      if (!("model" in member)) return rest;
+      const chosen = await validateMemberModel(models, memberModelInput(model));
+      return {
+        ...rest,
+        model: { connectionId: chosen.connectionId, modelId: chosen.modelId },
+        modelLabel: {
+          connection: String(chosen.display.connection ?? chosen.connectionId),
+          model: String(chosen.display.model ?? chosen.modelId),
+        },
+      };
+    }),
+  );
+}
+
+/** A proposal draft's model as TeamStore keeps it: the ids and the owner's names. */
+export const draftModel = (member) =>
+  member.model === undefined
+    ? {}
+    : {
+        model: memberModelInput(member.model),
+        modelLabel: {
+          connection: textValue(member.modelLabel?.connection, 200),
+          model: textValue(member.modelLabel?.model, 256),
+        },
+      };

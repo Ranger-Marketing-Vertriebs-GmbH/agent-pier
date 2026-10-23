@@ -20,6 +20,7 @@ import {
   removeGrants,
 } from "./member-grants.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
+import { draftModel } from "./member-models.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
 // words containing "team" (also in compounds such as "Rechercheteam"), as whole
@@ -260,7 +261,8 @@ export class TeamStore {
       ownerRequestQuote = undefined;
     if (!Array.isArray(members) || !members.length || members.length > 8)
       throw assistantProblem("invalid");
-    // `template` and its instructions come from TeamService (team-templates.js).
+    // `template` and its instructions come from TeamService (team-templates.js), so
+    // does a checked `model` with the owner's names for it (member-models.js).
     const memberKeys = [
       "name",
       "role",
@@ -269,6 +271,8 @@ export class TeamStore {
       "grants",
       "template",
       "templateInstructions",
+      "model",
+      "modelLabel",
     ];
     const drafts = members.map((m) => {
       if (!m || Object.keys(m).some((k) => !memberKeys.includes(k)))
@@ -288,6 +292,7 @@ export class TeamStore {
             }
           : {}),
         ...(m.grants !== undefined ? { grants: grantInput(m.grants) } : {}),
+        ...draftModel(m),
       };
     });
     return this.transaction(() => {
@@ -299,10 +304,12 @@ export class TeamStore {
       // moved to a new revision is the same proposal.
       const hash = fingerprint({
           objective,
-          members: drafts.map(({ template, templateInstructions: _text, ...d }) => ({
-            ...d,
-            ...(template ? { template: template.id } : {}),
-          })),
+          members: drafts.map(
+            ({ template, templateInstructions: _t, modelLabel: _l, ...d }) => ({
+              ...d,
+              ...(template ? { template: template.id } : {}),
+            }),
+          ),
         }),
         key = `${parentAttemptId}:${operationId}`;
       const old = this.db
@@ -444,6 +451,8 @@ export class TeamStore {
           teamId: p.id,
           lifetime: p.lifetime,
         });
+        // A lead-chosen model is the member's baseline (team-presentation.js).
+        const { model, modelLabel: _label, ...rest } = draft;
         this.insert({
           id: memberId,
           kind: "member",
@@ -451,7 +460,8 @@ export class TeamStore {
           teamId: p.id,
           parentAssistantId: p.parentAssistantId,
           assistantId: a.id,
-          ...draft,
+          ...rest,
+          ...(model ? { leadModel: model } : {}),
           snapshot: p.snapshot,
           lifetime: p.lifetime,
           phase: "queued",

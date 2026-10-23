@@ -865,7 +865,13 @@ A lead reaches its own members without the owner relaying anything
   scans it (`skill-scan.js`), refuses a blocked one (`TEMPLATE_BLOCKED`) and stores
   the template record and its instructions with the draft; the member's instructions
   are the template's instead of the lead's, and a warned template forces the owner's
-  approval. Members never get these tools,
+  approval. A proposed member may also name a `model` (`{ connectionId, modelId }`,
+  from `agentpier_team_models`): `TeamService.propose` checks each with
+  `validateMemberModel` before anything is stored, so one model the owner cannot
+  run refuses the whole proposal. The draft keeps the ids (part of the proposal's
+  fingerprint) and the owner's names for it (`modelLabel`, shown on the approval
+  card); the member is created on it as its own (`ownModel`) with `leadModel` on
+  its team record. A member without one follows the lead's model. Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
