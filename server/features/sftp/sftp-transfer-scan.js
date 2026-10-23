@@ -73,11 +73,21 @@ export async function walkRemote(session, base, { excludes, limits, signal }) {
   return side;
 }
 
-async function hashStream(readable, signal) {
+// Hashes at most `size` bytes within the pre-scan's deadline. A longer stream (the
+// file grew, or a hostile server) stops early and hashes as null: a change.
+async function hashStream(readable, { size, deadline, signal }) {
   const hash = createHash("sha256");
-  for await (const chunk of readable) {
-    signal?.throwIfAborted();
-    hash.update(chunk);
+  let seen = 0;
+  try {
+    for await (const chunk of readable) {
+      signal?.throwIfAborted();
+      if (Date.now() > deadline) throw sftpProblem("SFTP_TIMEOUT");
+      seen += chunk.length;
+      if (seen > size) return null;
+      hash.update(chunk);
+    }
+  } finally {
+    readable.destroy();
   }
   return hash.digest("hex");
 }
@@ -104,8 +114,13 @@ function checkedRequest(request) {
   };
 }
 
-function localStat(local) {
-  return fs.lstatSync(local.real, { throwIfNoEntry: false }) || null;
+async function localStat(local) {
+  try {
+    return await fs.promises.lstat(local.real);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 const typeOfLocal = (stat) =>
@@ -141,7 +156,7 @@ async function sides(session, request, checked, limits, signal) {
   const { local, direction } = request;
   const up = direction === "up";
   const remote = await remoteBase(session, checked.remote, checked.remoteRoot);
-  const localType = typeOfLocal(localStat(local));
+  const localType = typeOfLocal(await localStat(local));
   if (localType === "other") throw sftpProblem("SFTP_TYPE_CONFLICT");
   const sourceType = up ? localType : remote.type;
   const targetType = up ? remote.type : localType;
@@ -181,7 +196,13 @@ async function sides(session, request, checked, limits, signal) {
 }
 
 // Hashes the same-size pairs only: a size difference already marks a change.
-async function pairHashes(session, layout, request, scanned, foldCase, signal) {
+async function pairHashes(
+  session,
+  layout,
+  request,
+  scanned,
+  { foldCase, deadline, signal },
+) {
   const hashes = { source: new Map(), target: new Map() };
   const targets = new Map();
   for (const entry of scanned.target.entries) {
@@ -190,31 +211,43 @@ async function pairHashes(session, layout, request, scanned, foldCase, signal) {
       targets.set(key, entry);
   }
   const up = request.direction === "up";
-  const readLocal = async (relative) => {
+  const readLocal = async (relative, size) => {
     const handle = await openLocalSource(request.local, relative);
     try {
-      return await hashStream(handle.createReadStream({ autoClose: false }), signal);
+      return await hashStream(handle.createReadStream({ autoClose: false }), {
+        size,
+        deadline,
+        signal,
+      });
     } finally {
       await handle.close();
     }
   };
-  const readRemote = async (relative) =>
+  const readRemote = async (relative, size) =>
     hashStream(
       session.readStream(
         await confineEntry(session, layout.remoteOf(relative), layout.root),
       ),
-      signal,
+      { size, deadline, signal },
     );
+  const set = (map, key, value) => value !== null && map.set(key, value);
   for (const entry of scanned.source.entries) {
     const other = targets.get(pathKey(entry.path, { foldCase }));
     if (!other || other.size !== entry.size) continue;
-    hashes.source.set(
+    const { size } = entry;
+    set(
+      hashes.source,
       entry.path,
-      up ? await readLocal(layout.localOf(entry.path)) : await readRemote(entry.path),
+      up
+        ? await readLocal(layout.localOf(entry.path), size)
+        : await readRemote(entry.path, size),
     );
-    hashes.target.set(
+    set(
+      hashes.target,
       other.path,
-      up ? await readRemote(other.path) : await readLocal(layout.localOf(other.path)),
+      up
+        ? await readRemote(other.path, size)
+        : await readLocal(layout.localOf(other.path), size),
     );
   }
   return hashes;
@@ -240,6 +273,7 @@ export async function prepareTransfer(
   request,
   { limits = sftpLimits, signal } = {},
 ) {
+  const started = Date.now();
   const checked = checkedRequest(request);
   const scanned = await sides(session, request, checked, limits, signal);
   const { kind, base } = scanned;
@@ -248,7 +282,11 @@ export async function prepareTransfer(
   const foldCase = request.direction === "down" ? caseInsensitiveTarget(local) : false;
   const deleteExtra = checked.sync && kind === "folder" && Boolean(request.deleteExtra);
   const hashes = request.checksum
-    ? await pairHashes(session, layout, request, scanned, foldCase, signal)
+    ? await pairHashes(session, layout, request, scanned, {
+        foldCase,
+        deadline: started + limits.scanMs,
+        signal,
+      })
     : null;
   const deleteDirs = deleteExtra ? extraFolders(scanned, foldCase) : [];
   const plan = planTransfer({

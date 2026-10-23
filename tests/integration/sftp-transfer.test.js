@@ -351,3 +351,45 @@ test("a server stream longer than planned never writes more", async (t) => {
   assert.ok(!fs.existsSync(path.join(fx.project, "copy", "a.txt")));
   assert.deepEqual(partFiles(fx.project), []);
 });
+
+test("a 250-byte name transfers through a shortened part file", async (t) => {
+  const fx = await transferFixture(t, { posixRename: false });
+  const name = `${"ä".repeat(100)}${"n".repeat(46)}.txt`;
+  assert.equal(Buffer.byteLength(name), 250);
+  fx.write(fx.local(`site/${name}`), "long");
+  const up = await transfer(fx, request(fx, "upload", "up", "/www", "site"));
+  assert.equal(up.result.state, "completed", JSON.stringify(up.result));
+  assert.equal(fs.readFileSync(fx.remote(`www/${name}`), "utf8"), "long");
+  const down = await transfer(fx, request(fx, "download", "down", "/www", "back"));
+  assert.equal(down.result.state, "completed", JSON.stringify(down.result));
+  assert.equal(fs.readFileSync(fx.local(`back/${name}`), "utf8"), "long");
+  assert.deepEqual(partFiles(fx.server.root), []);
+  assert.deepEqual(partFiles(fx.project), []);
+});
+
+test("checksum reads stop at the planned size", async (t) => {
+  const fx = await transferFixture(t);
+  fx.write(fx.local("site/a.txt"), "aaaa", T0);
+  fx.write(fx.remote("www/a.txt"), "aaaa", T0);
+  const req = request(fx, "sync", "up", "/www", "site", { checksum: true });
+  assert.equal((await prepareTransfer(fx.session, req)).plan.files, 0);
+  const { Readable } = await import("node:stream");
+  let pulled = 0;
+  const endless = new Proxy(fx.session, {
+    get(target, prop) {
+      if (prop === "readStream")
+        return () =>
+          new Readable({
+            read() {
+              pulled++;
+              this.push(Buffer.from("aaaa"));
+            },
+          });
+      const value = Reflect.get(target, prop);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const hostile = await prepareTransfer(endless, req);
+  assert.deepEqual(hostile.summary.update, ["a.txt"]);
+  assert.ok(pulled < 10);
+});

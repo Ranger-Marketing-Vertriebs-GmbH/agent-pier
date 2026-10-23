@@ -1,9 +1,10 @@
 import path from "node:path";
-import { randomBytes } from "node:crypto";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { pipeline as pipe } from "node:stream";
-import { isSftpProblem, sftpProblem } from "./sftp-errors.js";
+import { sftpProblem } from "./sftp-errors.js";
+import { partName } from "./sftp-excludes.js";
+import { AUTHORIZE_EVERY_MS, SftpGate } from "./sftp-gate.js";
 import { sftpLimits } from "./sftp-limits.js";
 import { localParent, openLocalSource, removeLocal, writeLocal } from "./sftp-local.js";
 import { confineEntry } from "./sftp-operations.js";
@@ -13,7 +14,6 @@ import { confineRemote, insideRoot } from "./sftp-remote-paths.js";
 export { prepareTransfer, walkRemote } from "./sftp-transfer-scan.js";
 
 const posix = path.posix;
-const AUTH_EVERY_MS = 2000;
 const CLOSE_WAIT_MS = 5000;
 const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 
@@ -45,14 +45,6 @@ function closed(stream) {
   });
 }
 
-function problemCode(error) {
-  if (isSftpProblem(error)) return error.code;
-  if (error?.status === 403) return "SFTP_PATH_REFUSED";
-  if (error?.code === "EISDIR" || error?.code === "ENOTDIR") return "SFTP_TYPE_CONFLICT";
-  if (error?.code === "EACCES" || error?.code === "EPERM") return "SFTP_PERMISSION";
-  return "SFTP_FAILED";
-}
-
 class Execution {
   constructor(session, prepared, options) {
     this.session = session;
@@ -60,9 +52,8 @@ class Execution {
     this.layout = prepared.layout;
     this.request = prepared.request;
     this.options = options;
-    this.controller = new AbortController();
-    this.signal = this.controller.signal;
-    this.ended = null;
+    this.gate = options.gate;
+    this.signal = this.gate.signal;
     this.folders = new Set();
     this.temporary = new Set();
     this.progress = {
@@ -74,38 +65,9 @@ class Execution {
     };
   }
 
-  stop(state) {
-    if (this.ended) return;
-    this.ended = state;
-    this.controller.abort(sftpProblem("SFTP_CANCELLED"));
-  }
-
   report(update = {}) {
     Object.assign(this.progress, update);
     this.options.onProgress?.({ ...this.progress });
-  }
-
-  async authorized() {
-    const { stillAuthorized } = this.options;
-    if (stillAuthorized && !(await stillAuthorized())) this.stop("revoked");
-    this.signal.throwIfAborted();
-  }
-
-  watchAuthorization() {
-    let checking = false;
-    const timer = setInterval(async () => {
-      if (checking || this.ended) return;
-      checking = true;
-      try {
-        if (!(await this.options.stillAuthorized())) this.stop("revoked");
-      } catch {
-        this.stop("revoked");
-      } finally {
-        checking = false;
-      }
-    }, this.options.authorizeEveryMs);
-    timer.unref?.();
-    return () => clearInterval(timer);
   }
 
   counted(size) {
@@ -150,10 +112,7 @@ class Execution {
       this.request.local,
       this.layout.localOf(entry.path),
     );
-    const temp = posix.join(
-      posix.dirname(target),
-      `.${posix.basename(target)}.agentpier-part-${randomBytes(8).toString("hex")}`,
-    );
+    const temp = posix.join(posix.dirname(target), partName(posix.basename(target)));
     try {
       if ((await handle.stat()).size !== entry.size)
         throw sftpProblem("SFTP_PLAN_CHANGED");
@@ -200,16 +159,21 @@ class Execution {
     }
   }
 
-  async remove(relative, directory) {
+  // Deletes only what was planned: a file must still have its planned size and mtime.
+  async remove(relative, directory, entry = null) {
+    const expect = entry && { size: entry.size, mtimeMs: entry.mtimeMs };
     if (this.request.direction === "down")
-      return removeLocal(this.request.local, relative, { directory });
+      return removeLocal(this.request.local, relative, { directory, expect });
     const abs = await confineEntry(
       this.session,
       this.layout.remoteOf(relative),
       this.layout.root,
     );
     const stat = await this.session.lstat(abs);
-    if (stat?.type !== (directory ? "dir" : "file"))
+    if (
+      stat?.type !== (directory ? "dir" : "file") ||
+      (expect && (stat.size !== expect.size || stat.mtimeMs !== expect.mtimeMs))
+    )
       throw sftpProblem("SFTP_PLAN_CHANGED");
     if (directory) await this.session.rmdir(abs);
     else await this.session.unlink(abs);
@@ -238,7 +202,7 @@ class Execution {
     const copies = [...plan.create, ...plan.update].sort(byPath);
     const up = this.request.direction === "up";
     for (const entry of copies) {
-      await this.authorized();
+      await this.gate.check();
       this.report({ current: entry.path });
       const { overwritten } = up ? await this.upload(entry) : await this.download(entry);
       result.files++;
@@ -250,13 +214,13 @@ class Execution {
       this.report({ filesDone: result.files });
     }
     const removals = [
-      ...plan.delete.map((entry) => [entry.path, false]),
-      ...plan.deleteDirs.map((dir) => [dir, true]),
+      ...plan.delete.map((entry) => [entry.path, false, entry]),
+      ...plan.deleteDirs.map((dir) => [dir, true, null]),
     ];
-    for (const [relative, directory] of removals) {
-      await this.authorized();
+    for (const [relative, directory, entry] of removals) {
+      await this.gate.check();
       this.report({ current: relative });
-      await this.remove(relative, directory);
+      await this.remove(relative, directory, entry);
       if (!directory) result.deleted++;
     }
     this.report({ current: null });
@@ -270,7 +234,8 @@ class Execution {
  * downloads through `writeLocal`), each capped to its planned size; deletes follow,
  * files before folders and deepest first. The first error stops the transfer and its
  * own temporary file is removed (`reopen` opens a session for that after a drop).
- * `stillAuthorized` is awaited before each file and every 2 s; `false` revokes.
+ * `stillAuthorized` is awaited before each file and every 2 s; `false` or an error
+ * revokes.
  */
 export async function runTransfer(
   session,
@@ -281,16 +246,16 @@ export async function runTransfer(
     stillAuthorized,
     reopen,
     limits = sftpLimits,
-    authorizeEveryMs = AUTH_EVERY_MS,
+    authorizeEveryMs = AUTHORIZE_EVERY_MS,
   } = {},
 ) {
   const started = Date.now();
+  const gate = new SftpGate({ signal, stillAuthorized, everyMs: authorizeEveryMs });
   const execution = new Execution(session, prepared, {
     onProgress,
-    stillAuthorized,
     reopen,
     limits,
-    authorizeEveryMs,
+    gate,
   });
   const result = {
     state: "completed",
@@ -302,15 +267,11 @@ export async function runTransfer(
     overwritten: [],
     skipped: { ...prepared.skipped },
   };
-  const cancel = () => execution.stop("cancelled");
-  if (signal?.aborted) cancel();
-  signal?.addEventListener("abort", cancel, { once: true });
-  const unwatch = stillAuthorized ? execution.watchAuthorization() : () => {};
   try {
-    execution.signal.throwIfAborted();
+    gate.signal.throwIfAborted();
     const fresh = await prepareTransfer(session, prepared.request, {
       limits,
-      signal: execution.signal,
+      signal: gate.signal,
     });
     if (fresh.plan.digest !== prepared.plan.digest)
       throw sftpProblem("SFTP_PLAN_CHANGED");
@@ -318,13 +279,10 @@ export async function runTransfer(
     result.skipped = { ...fresh.skipped };
     await execution.run(fresh.plan, result);
   } catch (error) {
-    result.state = execution.ended || "failed";
-    result.code = execution.ended === "cancelled" ? "SFTP_CANCELLED" : problemCode(error);
-    if (execution.ended === "revoked") delete result.code;
+    Object.assign(result, gate.outcome(error));
     if (execution.progress.current) result.failedPath = execution.progress.current;
   } finally {
-    unwatch();
-    signal?.removeEventListener("abort", cancel);
+    gate.close();
     await execution.cleanup().catch(() => {});
   }
   result.durationMs = Date.now() - started;
