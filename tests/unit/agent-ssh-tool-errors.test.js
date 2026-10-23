@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
+import { SFTP_STATUSES, sftpProblem } from "../../server/features/sftp/sftp-errors.js";
 
 const cases = [
   ["sshNotGranted", 403, "SSH_NOT_GRANTED"],
@@ -13,6 +14,8 @@ const cases = [
   ["sshBusy", 429, "SSH_BUSY"],
   ["sshApprovalLimit", 429, "SSH_APPROVAL_LIMIT"],
   ["sshRevoked", 403, "SSH_REVOKED"],
+  ["sshHostType", 409, "SSH_HOST_TYPE"],
+  ["sftpRoutineDelete", 403, "SFTP_ROUTINE_DELETE"],
 ];
 
 test("SSH refusals reach the model as stable codes with fixed English reasons", () => {
@@ -24,6 +27,21 @@ test("SSH refusals reach the model as stable codes with fixed English reasons", 
     assert.doesNotMatch(result.reason, /[äöüßÄÖÜ]/, key);
   }
   assert.match(toolError(assistantProblem("sshRoutineNotTrusted", 403)).reason, /result/);
+});
+
+test("every SFTP problem reaches the model with its code and a reason to act on", () => {
+  for (const [code, status] of Object.entries(SFTP_STATUSES)) {
+    const result = toolError(sftpProblem(code));
+    assert.equal(result.code, code);
+    assert.equal(result.status, status);
+    assert.match(result.reason, /\S/, code);
+    assert.doesNotMatch(result.reason, /[äöüßÄÖÜ]/, code);
+    assert.notEqual(result.reason, toolError({ status: 503 }).reason, code);
+  }
+  // Only stable SFTP codes are passed through; anything else stays generic.
+  assert.equal(toolError({ code: "SFTP_SOMETHING", status: 502 }).code, "UNAVAILABLE");
+  assert.equal(toolError({ code: "ECONNRESET" }).code, "UNAVAILABLE");
+  assert.match(toolError(assistantProblem("sshHostType", 409)).reason, /action hosts/);
 });
 
 test("owner-facing texts and Telegram copy exist in both languages", () => {

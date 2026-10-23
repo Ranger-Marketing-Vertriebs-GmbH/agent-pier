@@ -9,13 +9,15 @@ import { permits, sshOrigin } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
+import { AgentSftp, sftpActions } from "./agent-sftp.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
 // connection of SshAccessStore. The audit records a command by its digest, never by
 // text; its action row (approval card, chat note, Work tab) keeps the text, with
 // recognisable secrets redacted once it no longer has to run (trusted runs: up to
-// 8 KiB, the newest `trustedSshRows` per agent).
+// 8 KiB, the newest `trustedSshRows` per agent). SFTP hosts take only the file
+// actions of agent-sftp.js; commands refuse them.
 export const trustedSshRows = 500;
 const statuses = {
   sshNotGranted: 403,
@@ -25,6 +27,8 @@ const statuses = {
   sshBusy: 429,
   sshApprovalLimit: 429,
   sshRevoked: 403,
+  sshHostType: 409,
+  sftpRoutineDelete: 403,
 };
 const codes = {
   sshNotGranted: "SSH_NOT_GRANTED",
@@ -34,6 +38,8 @@ const codes = {
   sshBusy: "SSH_BUSY",
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
+  sshHostType: "SSH_HOST_TYPE",
+  sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
 };
 const auditableId = (value) =>
   typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value);
@@ -61,6 +67,7 @@ export class AgentSsh {
     Object.assign(this, { w, now, intervalMs });
     this.children = new Set();
     this.approvals = new SshApprovals(this);
+    this.sftp = new AgentSftp(this);
     this.hook = (accessId) => this.revokeAccess(accessId);
   }
   get catalog() {
@@ -135,6 +142,7 @@ export class AgentSsh {
   }
   invoke(inv, input) {
     return Promise.resolve().then(() => {
+      if (sftpActions.has(input?.action)) return this.sftp.invoke(inv, input);
       exact(input, ["action", "accessId", "command", "timeoutSeconds"]);
       if (input.action === "hosts") {
         if (Object.keys(input).length !== 1) throw assistantProblem("invalid");
@@ -165,6 +173,8 @@ export class AgentSsh {
             port: h.port,
             username: h.username,
             hostFingerprint: h.hostFingerprint,
+            type: h.type ?? "ssh",
+            remoteRoot: h.remoteRoot ?? null,
             mode,
             usable,
             ...(usable
@@ -191,6 +201,8 @@ export class AgentSsh {
     if (!grant) throw this.refuse(caller, cls, input, "sshNotGranted");
     const host = this.host(input.accessId);
     if (!host) throw this.refuse(caller, cls, input, "sshHostUnavailable");
+    // An SFTP host has no shell; the file actions use it.
+    if (host.type === "sftp") throw this.refuse(caller, cls, input, "sshHostType");
     const verdict = permits(grant.mode, cls);
     if (verdict === "refuse") {
       // The routine's result says so even if the model leaves it out.
@@ -356,17 +368,19 @@ export class AgentSsh {
       ...(cls === "delegated" ? { memberName: caller.assistant.name } : {}),
       settled: true,
     });
-    this.w.store.pruneTrustedSsh(caller.assistant.id, trustedSshRows);
+    this.w.store.pruneTrusted(caller.assistant.id, "ssh", trustedSshRows);
     this.w.a.changed({ feeds: false });
   }
-  refuse(caller, cls, input, key) {
-    this.audit("ssh.denied", "failure", input?.accessId, {
+  // `sftp`: a refusal of a file action (agent-sftp.js), audited as `sftp.denied`.
+  refuse(caller, cls, input, key, { sftp = false, details = {} } = {}) {
+    this.audit(sftp ? "sftp.denied" : "ssh.denied", "failure", input?.accessId, {
       assistantId: caller.assistant.id,
       code: codes[key],
       originClass: cls,
       ...(typeof input?.command === "string"
         ? { commandSha256: commandDigest(input.command) }
         : {}),
+      ...details,
     });
     return this.problem(key);
   }
@@ -418,5 +432,6 @@ export class AgentSsh {
       this.w.s.sshManagement.onAccessChanged = null;
     this.closed = true;
     for (const child of this.children) child.kill("SIGKILL");
+    this.sftp.close();
   }
 }

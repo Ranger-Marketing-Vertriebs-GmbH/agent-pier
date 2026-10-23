@@ -214,6 +214,9 @@ export const assistants = {
   sshApprovalLimit:
     "Für diesen Agenten warten bereits drei SSH-Befehle auf deine Freigabe.",
   sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
+  sshHostType:
+    "Dieser Zugang passt nicht zur Aktion: SFTP-Zugänge nehmen nur Dateiaktionen an, SSH-Zugänge nur Befehle.",
+  sftpRoutineDelete: "Routinen dürfen auf SFTP-Zugängen nie Dateien löschen.",
   projectFolderNotGranted: "Dieser Projektordner ist dem Agenten nicht freigegeben.",
   projectFolderReadOnly: "Der Agent darf diesen Projektordner nur lesen.",
   projectRoutineReadOnly:

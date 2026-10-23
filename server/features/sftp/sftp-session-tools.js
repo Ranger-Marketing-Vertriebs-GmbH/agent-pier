@@ -6,7 +6,6 @@ import { openSftp } from "./sftp-client.js";
 import { SFTP_STATUSES, isSftpProblem, sftpProblem } from "./sftp-errors.js";
 import { AUTHORIZE_EVERY_MS, problemCode } from "./sftp-gate.js";
 import { SftpJobs } from "./sftp-jobs.js";
-import { sftpLimits } from "./sftp-limits.js";
 import { localRoot } from "./sftp-local.js";
 import {
   confineEntry,
@@ -17,12 +16,13 @@ import {
   sftpRename,
   sftpStat,
 } from "./sftp-operations.js";
-import { planSummary } from "./sftp-plan.js";
-import { confineRemote, insideRoot, remotePath } from "./sftp-remote-paths.js";
+import { confineRemote, remotePath } from "./sftp-remote-paths.js";
+import { budgetedResult, commonFolder, transferSummary } from "./sftp-summary.js";
 import { prepareTransfer, runTransfer } from "./sftp-transfer.js";
 import { sftpArguments, sftpTools } from "./sftp-tool-schemas.js";
 
 export { sftpTools };
+export { transferSummary, withinBudget } from "./sftp-summary.js";
 
 const posix = path.posix;
 const CANCEL_WAIT_MS = 10000;
@@ -72,81 +72,6 @@ const publicError = (error) =>
 const capped = (value) =>
   typeof value === "string" ? value.slice(0, AUDIT_PATH_CHARS) : undefined;
 const transferOperations = { sftp_download: "download", sftp_upload: "upload" };
-
-function commonFolder(a, b) {
-  let folder = posix.dirname(a);
-  while (!insideRoot(folder, b)) folder = posix.dirname(folder);
-  return folder;
-}
-
-// Path lists share one UTF-8 budget so a result stays well inside the MCP server's
-// 512 KiB output budget: the summary lists get 256 KiB, a result's `overwritten` 64.
-const SUMMARY_BYTES = 256 * 1024;
-const RESULT_BYTES = 64 * 1024;
-
-/** Fills `lists` in order within `budget` bytes; `cut` counts what was left out. */
-export function withinBudget(lists, budget) {
-  let left = budget;
-  const kept = {};
-  const cut = {};
-  for (const [key, paths] of Object.entries(lists)) {
-    const keep = [];
-    for (const item of paths) {
-      const cost = Buffer.byteLength(JSON.stringify(item)) + 1;
-      if (cost > left) break;
-      left -= cost;
-      keep.push(item);
-    }
-    left = keep.length === paths.length ? left : 0;
-    kept[key] = keep;
-    cut[key] = paths.length - keep.length;
-  }
-  return { kept, cut };
-}
-
-/** The plan as a tool reports it: lists capped by count and by `SUMMARY_BYTES`. */
-export function transferSummary(prepared, local) {
-  const limit = sftpLimits.resultListLimit;
-  const { operation, direction, kind, remotePath: base } = prepared.summary;
-  const dirs = prepared.plan.deleteDirs;
-  const planned = planSummary(prepared.plan, limit);
-  const { kept, cut } = withinBudget(
-    {
-      create: planned.create,
-      update: planned.update,
-      delete: planned.delete,
-      deleteDirs: dirs.slice(0, limit),
-    },
-    SUMMARY_BYTES,
-  );
-  return {
-    ...planned,
-    create: kept.create,
-    update: kept.update,
-    delete: kept.delete,
-    more: {
-      create: planned.more.create + cut.create,
-      update: planned.more.update + cut.update,
-      delete: planned.more.delete + cut.delete,
-    },
-    operation,
-    direction,
-    kind,
-    remotePath: base,
-    localPath: local.relative || ".",
-    deleteDirs: kept.deleteDirs,
-    moreDeleteDirs: Math.max(0, dirs.length - limit) + cut.deleteDirs,
-  };
-}
-
-// A finished job's result with its `overwritten` list inside `RESULT_BYTES`.
-function budgetedResult(result) {
-  if (!Array.isArray(result.overwritten)) return result;
-  const { kept, cut } = withinBudget({ overwritten: result.overwritten }, RESULT_BYTES);
-  return cut.overwritten
-    ? { ...result, overwritten: kept.overwritten, moreOverwritten: cut.overwritten }
-    : result;
-}
 
 /**
  * The `sftp_*` tools of a coding session's SSH MCP server. A host granted to the

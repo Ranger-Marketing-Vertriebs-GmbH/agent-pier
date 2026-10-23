@@ -238,15 +238,16 @@ export class AssistantActionStore {
     });
     return ids;
   }
-  // Trusted SSH runs keep only their newest rows per agent; the audit keeps the rest.
-  pruneTrustedSsh(assistantId, keep) {
+  // Trusted SSH runs and SFTP jobs (`action`) keep only their newest rows per agent;
+  // the audit keeps the rest. A job still running keeps its row.
+  pruneTrusted(assistantId, action, keep) {
     const trusted =
-      "assistant_id=? AND json_extract(body,'$.payload.action')='ssh' AND json_extract(body,'$.payload.trusted')=1";
+      "assistant_id=? AND json_extract(body,'$.payload.action')=? AND json_extract(body,'$.payload.trusted')=1";
     const { changes } = this.db
       .prepare(
-        `DELETE FROM assistant_actions WHERE ${trusted} AND rowid NOT IN (SELECT rowid FROM assistant_actions WHERE ${trusted} ORDER BY rowid DESC LIMIT ?)`,
+        `DELETE FROM assistant_actions WHERE ${trusted} AND json_extract(body,'$.state')!='executing' AND rowid NOT IN (SELECT rowid FROM assistant_actions WHERE ${trusted} ORDER BY rowid DESC LIMIT ?)`,
       )
-      .run(assistantId, assistantId, keep);
+      .run(assistantId, action, assistantId, action, keep);
     if (changes) this.written({ assistantId });
   }
 }

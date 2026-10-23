@@ -86,6 +86,37 @@ const reasons = {
     "Three of your SSH commands already wait for the owner's approval. Wait for decisions before you request more.",
   SSH_REVOKED:
     "The SSH access changed or the turn ended while the command waited or ran; it was stopped. Do not retry without the owner.",
+  SSH_HOST_TYPE:
+    "This host does not take this action: an SFTP host takes only the file actions (list, stat, download, upload, sync, mkdir, rename, delete), an SSH host only execute. Check the type in action hosts.",
+  SFTP_ROUTINE_DELETE:
+    "Routines never delete files on SFTP hosts, also not with a sync that deletes extra files. Do not retry; say in the routine's result what you would delete, so the owner can do it.",
+  SFTP_AUTH_FAILED:
+    "The SFTP server refused AgentPier's sign-in for this host. Do not retry; tell the owner to check the host's password or key in the settings.",
+  SFTP_HOST_KEY_MISMATCH:
+    "The SFTP server presented a different host key than the one the owner confirmed. Do not retry; tell the owner, the server may have been replaced or intercepted.",
+  SFTP_UNREACHABLE:
+    "The SFTP server cannot be reached. Retry later once; tell the owner if it persists.",
+  SFTP_TIMEOUT:
+    "The SFTP operation timed out. Retry once with a smaller transfer; tell the owner if it persists.",
+  SFTP_NOT_FOUND:
+    "The remote or local path does not exist. Check it with action list or stat (remote) and give an existing path.",
+  SFTP_PERMISSION:
+    "The SFTP server denied permission for this path. Do not retry the same path; tell the owner which path needs access.",
+  SFTP_PATH_REFUSED:
+    "This remote path is not allowed: it leaves the host's allowed folder (remoteRoot in action hosts), goes above /, or contains control characters or a backslash. Use a path inside the allowed folder.",
+  SFTP_LIMIT:
+    "The transfer exceeds AgentPier's limits (2 GiB, 10,000 files, 50,000 scanned entries or a 60 s scan). Transfer a smaller folder, or exclude files.",
+  SFTP_TYPE_CONFLICT:
+    "A file is where a folder is expected (or the reverse), the folder is not empty, or the rename target exists. Check the paths with list or stat; nothing was changed at that path.",
+  SFTP_PLAN_CHANGED:
+    "The files changed between the plan and the run, so nothing more was written. Run the action again to plan with the current files.",
+  SFTP_JOB_NOT_FOUND:
+    "No SFTP job of yours has this jobId. Use the jobId an earlier SFTP call returned.",
+  SFTP_BUSY:
+    "Another SFTP write of yours runs on this remote folder, or two of your SFTP jobs already run. Check them with action job and retry after they end.",
+  SFTP_CANCELLED: "The SFTP job was cancelled. Do not retry unless the owner asks.",
+  SFTP_FAILED:
+    "The SFTP operation failed. Check the remote state with list or stat before you retry once; tell the owner if it fails again.",
   PROJECT_NOT_GRANTED:
     "This project folder is not granted to you. Your instructions list the project folders you may use; ask the owner (or your lead) for access instead of retrying.",
   PROJECT_READ_ONLY:
@@ -171,6 +202,8 @@ const byKey = {
   sshBusy: "SSH_BUSY",
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
+  sshHostType: "SSH_HOST_TYPE",
+  sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
   projectFolderNotGranted: "PROJECT_NOT_GRANTED",
   projectFolderReadOnly: "PROJECT_READ_ONLY",
   projectRoutineReadOnly: "ROUTINE_READ_ONLY",
@@ -205,10 +238,18 @@ const byStatus = {
   404: "NOT_FOUND",
   409: "CONFLICT",
 };
+/** The fixed English reason for a code, or the generic one. */
+export const toolReason = (code) => reasons[code] ?? reasons.UNAVAILABLE;
+// SFTP problems (sftp-errors.js) carry their stable code instead of a message key.
+const sftpCode = (error) =>
+  !error?.key && /^SFTP_[A-Z_]+$/.test(error?.code ?? "") && reasons[error.code]
+    ? error.code
+    : null;
 export function toolError(error) {
   const status = Number.isInteger(error?.status) ? error.status : 503;
   const code =
     (error?.key === "invalid" && status === 403 ? "FORBIDDEN" : byKey[error?.key]) ||
+    sftpCode(error) ||
     byStatus[status] ||
     (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {

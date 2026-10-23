@@ -3,6 +3,7 @@ import { workflowFixture } from "./assistant-workflow-fixture.js";
 
 export const hostId = "11111111-1111-4111-8111-111111111111";
 export const otherHostId = "22222222-2222-4222-8222-222222222222";
+export const sftpHostId = "33333333-3333-4333-8333-333333333333";
 const defaultHosts = [
   {
     id: hostId,
@@ -12,6 +13,8 @@ const defaultHosts = [
     username: "root",
     hostFingerprint: "SHA256:opnsense",
     projectId: null,
+    type: "ssh",
+    remoteRoot: null,
   },
   {
     id: otherHostId,
@@ -21,16 +24,43 @@ const defaultHosts = [
     username: "admin",
     hostFingerprint: "SHA256:nas",
     projectId: null,
+    type: "ssh",
+    remoteRoot: null,
   },
 ];
 
 /**
+ * An SFTP catalog row for an in-process SFTP server (tests/helpers/sftp-server.js):
+ * the password and host key stay in `secret`, which only `sftpConnection` returns.
+ */
+export function sftpRow(server, { remoteRoot = null, password = "pw-secret" } = {}) {
+  return {
+    id: sftpHostId,
+    name: "site",
+    host: server.host,
+    port: server.port,
+    username: "deploy",
+    hostFingerprint: "SHA256:site",
+    projectId: null,
+    type: "sftp",
+    auth: "password",
+    remoteRoot,
+    secret: { hostKey: server.hostKey, password },
+  };
+}
+const typeError = () =>
+  Object.assign(Error("SSH_HOST_TYPE"), { code: "SSH_HOST_TYPE", status: 409 });
+
+/**
  * A stand-in for SshAccessStore: catalog rows, a connection revision per host, and the
  * local Node binary as `ssh`, so a command is JavaScript and never reaches a network.
- * `failing` makes the catalog unreadable; `program` replaces the binary.
+ * `failing` makes the catalog unreadable; `program` replaces the binary. SFTP rows
+ * (sftpRow) answer `sftpConnection` with their in-process server's credentials and,
+ * like the real store, refuse `connection`.
  */
 export function fakeCatalog(cwd, hosts = defaultHosts) {
   const rows = new Map(hosts.map((h) => [h.id, { ...h, revision: "r1" }]));
+  const visible = ({ revision: _revision, secret: _secret, ...h }) => ({ ...h });
   const catalog = {
     rows,
     program: process.execPath,
@@ -38,13 +68,12 @@ export function fakeCatalog(cwd, hosts = defaultHosts) {
     connections: 0,
     list() {
       if (catalog.failing) throw Object.assign(Error("unreadable"), { status: 500 });
-      return [...rows.values()].map(({ revision: _revision, ...h }) => ({ ...h }));
+      return [...rows.values()].map(visible);
     },
     get(id) {
       const h = rows.get(id);
       if (!h) throw Object.assign(Error("missing"), { status: 404 });
-      const { revision: _revision, ...rest } = h;
-      return { ...rest };
+      return visible(h);
     },
     revision(id) {
       catalog.get(id);
@@ -52,8 +81,17 @@ export function fakeCatalog(cwd, hosts = defaultHosts) {
     },
     connection(id) {
       const revision = catalog.revision(id);
+      if (rows.get(id).type === "sftp") throw typeError();
       catalog.connections++;
       return { revision, command: catalog.program, args: ["-e"], cwd, cleanup() {} };
+    },
+    sftpConnection(id) {
+      const revision = catalog.revision(id);
+      const row = rows.get(id);
+      if (row.type !== "sftp") throw typeError();
+      catalog.connections++;
+      const { host, port, username, remoteRoot } = row;
+      return { revision, host, port, username, remoteRoot, ...row.secret };
     },
   };
   return catalog;
@@ -77,12 +115,13 @@ const emptyPolicy = {
   publish: false,
 };
 
-export async function agentSshFixture(t) {
+/** `hosts` adds catalog rows (sftpRow) to the two SSH hosts. */
+export async function agentSshFixture(t, { hosts = [] } = {}) {
   const f = await workflowFixture(t);
   // Every record passes the real audit schema, as AuditStore.append would require.
   const audit = [];
   f.services.audit = { append: (event) => audit.push(auditEvent(event)) };
-  const catalog = fakeCatalog(f.dataDir);
+  const catalog = fakeCatalog(f.dataDir, [...defaultHosts, ...hosts]);
   f.services.sshManagement = { store: catalog };
   // Follow-up turns record their trusted context next to the text.
   const followUps = [];
