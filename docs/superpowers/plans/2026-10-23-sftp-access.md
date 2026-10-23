@@ -6,8 +6,10 @@
 owner-registered SFTP hosts (password or key), managed, granted, approved and audited
 like the existing SSH hosts (AGENTPIER-204).
 
-**Architecture:** SFTP hosts are rows of the unified SSH catalog with `type: "sftp"`;
-passwords live beside the SSH identities as 0600 files. A pure-JS `ssh2` client with
+**Architecture:** SFTP hosts live in a new `sftpHosts` part of the unified SSH catalog
+(`ssh/catalog.json`), which releases without SFTP neither validate nor read but keep
+when they write; passwords live beside the SSH identities as 0600 files and travel
+only in passphrase-sealed credential backups. A pure-JS `ssh2` client with
 in-process host-key pinning sits under `server/features/sftp/` together with pure path,
 exclude and plan modules, a transfer engine and a job runner. Coding CLIs reach it
 through new `sftp_*` tools of the existing `agentpier_ssh` session MCP server (no
@@ -32,7 +34,8 @@ before Task 6.
 - SFTP only; no FTP/FTPS, no shell commands on SFTP hosts, no resumable partial transfers.
 - Auth: user + password **or** a managed/imported SSH key; host key pinned via scan + trusted fingerprint confirmation.
 - No password or key in argv, env, process list, logs, audit, browser responses, agent/CLI tool results or Telegram; no `sshpass`.
-- Passwords stored like SSH keys: 0600 file under `AGENTPIER_DATA_DIR/ssh/`, 0700 directories, omitted from backups like the rest of `ssh/`.
+- Passwords stored like SSH keys: 0600 file under `AGENTPIER_DATA_DIR/ssh/`, 0700 directories; never in ordinary backups; included in credential backups (`--with-credentials --passphrase-stdin`) inside the sealed capsule and restored from them (owner decision; SSH keys and SSH hosts stay omitted as today).
+- Rollback safety: a release without SFTP keeps reading and writing its SSH host list while SFTP hosts exist (SFTP rows only in the `sftpHosts` catalog part).
 - Reads (list, stat, download, server→local sync without deletes) never ask; every remote write asks agents unless "Always allow" was chosen for that host; any delete (file, folder, sync deletes) always asks.
 - "Always allow" is per host and per agent, revocable in the Work tab; it covers upload, overwrite, mkdir, rename and sync without deletes.
 - Coding CLIs: no AgentPier approval card; a host granted to the session/project may be used directly.
@@ -77,25 +80,28 @@ before Task 6.
 
 **Files:**
 - Create: `server/features/ssh/ssh-password-store.js`, `server/features/ssh/sftp-host-fields.js`
-- Modify: `server/features/ssh/ssh-access-store.js` (create/update/project/remove/connection/test, new `sftpConnection`), `server/features/ssh/ssh-key-store.js` (`project()`/`removeKey` tolerate hosts without key), `server/features/ssh/ssh-management-records.js` (`hostTuple`), `server/ssh.mjs` (refuse SFTP hosts), `server/lib/i18n/de/ssh.js`, `server/lib/i18n/en/ssh.js` (or the catalogs holding `serverMessages.ssh`), `server/lib/i18n/translation-lock.json`
-- Test: `tests/unit/sftp-host-store.test.js`, `tests/unit/ssh-password-store.test.js`, extend `tests/integration/assistant-host-backup.test.js`
+- Modify: `server/features/ssh/ssh-catalog.js` (optional part `sftpHosts`, default `[]`, included in `tombstone`, `deletionOnly` and `replacePart`), `server/features/ssh/ssh-access-store.js` (`raw()` merges `hosts` + `sftpHosts`, `save()` splits rows by `type`; create/update/project/remove/connection/test, new `sftpConnection`), `server/features/ssh/ssh-key-store.js` (`project()`/`removeKey` tolerate hosts without key), `server/features/ssh/ssh-management-records.js` (`hostTuple`; `moveProject`/`adoptProject` and collision checks cover `sftpHosts`), `server/ssh.mjs` (refuse SFTP hosts), `server/lib/i18n/de/ssh.js`, `server/lib/i18n/en/ssh.js` (or the catalogs holding `serverMessages.ssh`), `server/lib/i18n/translation-lock.json`
+- Create: `tests/fixtures/legacy-ssh-catalog-reader.js` — a verbatim copy of origin/main's (`16b59a1ab`) `SshCatalog.read()` validation, `SshAccessStore.list()/project()` and `SshKeyStore.project()/get()`, plus its write path (`structuredClone(before)` → `replacePart("hosts", rows)` → `writeCatalogSnapshot`), with a header naming the source commit and "do not update"
+- Test: `tests/unit/sftp-host-store.test.js`, `tests/unit/ssh-password-store.test.js`, `tests/unit/sftp-catalog-rollback.test.js`
 
 **Interfaces:**
 - Consumes: `openSftp` (Task 1).
 - Produces: `SshPasswordStore({ root })`: `write(hostId, revision, password)`, `read(hostId, revision) -> string`, `removeHost(hostId)`, `removeOthers(hostId, keepRevision)`; files `ssh/passwords/<hostId>/<revision>` (0600, directories 0700, `O_NOFOLLOW`, owner uid, one link, ≤ 1024 bytes). `passwordValue(raw) -> string` (1–1024 bytes UTF-8, no NUL/CR/LF).
 - Produces: `hostTypes = ["ssh", "sftp"]`, `sftpAuths = ["password", "key"]`, `remoteRootValue(raw) -> string | null` (absolute POSIX, normalised, no `..`, ≤ 1024 chars, no control characters).
-- Produces: catalog host row fields `type` (absent = `"ssh"`), for SFTP `auth`, `remoteRoot`, `credentialRevision` (random UUID, never a password hash), `keyId: null` for password auth.
+- Produces: catalog part `sftpHosts: Row[]` (catalog `version` stays 1; `hosts` holds only SSH rows, so older validators and `project()` never meet a row without a key). SFTP row fields: `id, name, host, port, username, hostKey, hostFingerprint, createdAt, projectId, trustSource?, type: "sftp", auth, keyId /* null for password */, remoteRoot, credentialRevision` (random UUID, never a password hash). `SshCatalog.read()` returns `sftpHosts: []` when the part is absent.
 - Produces: `SshAccessStore.project()` adds `type`, `auth`, `remoteRoot`, `hasPassword`; `keyName/publicKey/fingerprint` are `null` without a key. `createAccess` accepts `type, auth, password, remoteRoot`; `updateAccess` accepts `password, remoteRoot, auth` and refuses a `type` change (`serverMessages.ssh.hostTypeFixed`, 409).
 - Produces: `SshAccessStore.sftpConnection(id) -> { revision, host, port, username, hostKey, remoteRoot, password? , privateKey? }` (in-process only; key bytes read through `keyStore.openPrivate`, fd closed). `connection(id)` throws `sshProblem("SSH_HOST_TYPE", serverMessages.ssh.sftpOnly, 409)` for SFTP rows; `test(id)` on SFTP opens a session and `realpath(remoteRoot ?? ".")`.
 - Revision: SSH rows keep today's `connectionRevision` digest unchanged; SFTP rows append `[type, auth, remoteRoot, credentialRevision]`.
 - `hostTuple` appends `"sftp"` for SFTP rows (an SFTP host may share host/port/user with an SSH host; SSH tuples unchanged).
 - SFTP hosts are created and edited in the owner UI only; MCP `ssh_register_host` keeps registering SSH hosts (a password must never pass through a CLI).
 
-- [ ] **Step 1: Write the failing tests**: `ssh-password-store.test.js`: `writes 0600 inside 0700`, `refuses a symlinked file`, `refuses a file over 1024 bytes`, `removeOthers keeps only the current revision`. `sftp-host-store.test.js` (catalog in a temp data dir): `creates a password SFTP host` (`project()` has `type: "sftp"`, `auth: "password"`, `hasPassword: true`, and `JSON.stringify(list())` does not contain the password); `key SFTP host counts as a key user` (`keyStore.get(keyId).hosts` names it, key removal refused); `password change rotates credentialRevision and revision`; `rollback leaves no password file` (throw in `beforeCommit`); `remove deletes the password directory after commit`; `type cannot change` (409); `SSH and SFTP host may share endpoint`; `connection() refuses SFTP with SSH_HOST_TYPE`; `test() succeeds against the fixture and fails with a wrong password` (`serverMessages.ssh.connectionFailed`); `remoteRoot must be absolute without ..`; `SSH rows keep their revision` (revision of an SSH row created before the change equals today's digest). Backup: `host backup with credentials omits ssh/passwords`.
-- [ ] **Step 2: Run** `node --test tests/unit/sftp-host-store.test.js tests/unit/ssh-password-store.test.js` — FAIL.
+- [ ] **Step 1: Write the failing tests**: `ssh-password-store.test.js`: `writes 0600 inside 0700`, `refuses a symlinked file`, `refuses a file over 1024 bytes`, `removeOthers keeps only the current revision`. `sftp-host-store.test.js` (catalog in a temp data dir): `creates a password SFTP host` (`project()` has `type: "sftp"`, `auth: "password"`, `hasPassword: true`, and `JSON.stringify(list())` does not contain the password); `key SFTP host counts as a key user` (`keyStore.get(keyId).hosts` names it, key removal refused); `password change rotates credentialRevision and revision`; `rollback leaves no password file` (throw in `beforeCommit`); `remove deletes the password directory after commit`; `type cannot change` (409); `SSH and SFTP host may share endpoint`; `connection() refuses SFTP with SSH_HOST_TYPE`; `test() succeeds against the fixture and fails with a wrong password` (`serverMessages.ssh.connectionFailed`); `remoteRoot must be absolute without ..`; `SSH rows keep their revision` (revision of an SSH row created before the change equals today's digest); `SFTP rows are stored only in sftpHosts`; `removing a key tombstones receipts of SFTP hosts too`. Rollback (`sftp-catalog-rollback.test.js`, catalog written by the new store with an SSH host, a password SFTP host and a key SFTP host): `legacy reader loads the catalog` (`read()` passes, `list()` returns exactly the SSH host, no throw); `legacy write keeps sftpHosts` (legacy write path renames the SSH host; the new store still lists both SFTP hosts with their passwords readable); `legacy key list ignores SFTP users` (documents the residual: the legacy key's `hosts` omits the SFTP host).
+- [ ] **Step 2: Run** `node --test tests/unit/sftp-host-store.test.js tests/unit/ssh-password-store.test.js tests/unit/sftp-catalog-rollback.test.js` — FAIL.
 - [ ] **Step 3: Implement** the store and field rules. Password files are written before the catalog commit with `catalog.afterRollback(() => remove new revision)` and `catalog.afterCommit(() => removeOthers(...))`; removal uses `afterCommit(removeHost)`. Add `serverMessages.ssh` keys `passwordRequired`, `passwordNotAllowed`, `invalidRemoteRoot`, `hostTypeFixed`, `sftpOnly`, `invalidAuth` (DE and EN). `server/ssh.mjs` prints `sftpOnly` for an SFTP host.
 - [ ] **Step 4: Run** the tests above plus `node --test tests/unit/ssh-access.test.js tests/unit/ssh-catalog.test.js tests/unit/ssh-key-store.test.js tests/unit/ssh-management.test.js` — PASS; `npm run i18n:confirm -- ssh` and commit the lock.
 - [ ] **Step 5: Commit** `feat: store SFTP hosts and passwords in the SSH catalog`
+
+Task 11 (credential backups) depends only on this task and may run any time after it.
 
 ### Task 3: Remote paths, local paths, excludes and transfer plans
 
@@ -239,12 +245,31 @@ before Task 6.
 
 **Files:**
 - Create: `docs/sftp-access.md`
-- Modify: `docs/ssh-access.md` (link, SFTP hosts in **Scope and storage** and **Agents**), `docs/README.md` (index row), `docs/agents.md` (Work → SSH accesses: SFTP modes, approvals), `docs/assistant-gateway.md` (`agentpier_ssh` SFTP actions, limits, follow-up), `docs/architecture.md` (SSH paragraph), `README.md`, `README.de.md` (feature lists)
+- Modify: `docs/backups.md`, `docs/operations.md` (sealed SFTP component, omission line), `docs/ssh-access.md` (link, SFTP hosts in **Scope and storage** and **Agents**), `docs/README.md` (index row), `docs/agents.md` (Work → SSH accesses: SFTP modes, approvals), `docs/assistant-gateway.md` (`agentpier_ssh` SFTP actions, limits, follow-up), `docs/architecture.md` (SSH paragraph), `README.md`, `README.de.md` (feature lists)
 - Delete: `docs/superpowers/plans/2026-10-23-sftp-access.md`, `docs/superpowers/specs/2026-10-23-sftp-access-design.md` (before opening the PR)
 
 **Interfaces:**
-- `docs/sftp-access.md` covers: adding an SFTP host (Hetzner example: SFTP on port 22 with the main FTP user, not SSH port 222), password vs. key, fingerprint check, allowed remote folder, CLI tools and their schemas, agent actions, approvals and "Always allow" (revoke in the Work tab), deletes always ask, sync rules (size + mtime within 2 s, checksum, `deleteExtra`, default excludes), limits, jobs and cancel, storage (`ssh/passwords`, 0600, unencrypted at rest like keys, omitted from every backup), audit fields, and the downgrade note: a release without SFTP cannot read a catalog holding a password SFTP host — remove SFTP hosts before downgrading.
+- `docs/sftp-access.md` covers: adding an SFTP host (Hetzner example: SFTP on port 22 with the main FTP user, not SSH port 222), password vs. key, fingerprint check, allowed remote folder, CLI tools and their schemas, agent actions, approvals and "Always allow" (revoke in the Work tab), deletes always ask, sync rules (size + mtime within 2 s, checksum, `deleteExtra`, default excludes), limits, jobs and cancel, storage (`ssh/passwords`, 0600, unencrypted at rest like keys; not in ordinary backups; in credential backups sealed with the passphrase and restored from them, password-auth hosts only), audit fields, and the residual downgrade limits: a release without SFTP does not show or use SFTP hosts, its key list does not count SFTP hosts (deleting such a key there leaves the SFTP host without a key after upgrading, fix it by editing the host), its project reassignment does not move SFTP hosts, and saving an agent's Work tab there is refused (`sshHostUnavailable`, 409) while the agent holds an SFTP grant. `docs/backups.md` and `docs/operations.md` name the new sealed component and omission.
 
 - [ ] **Step 1: Write** the docs; quote UI labels exactly as in the EN catalogs.
 - [ ] **Step 2: Run** `npm run check` and `npm test` — PASS.
 - [ ] **Step 3: Commit** `chore: document SFTP access`; delete plan and spec in the last commit before the PR (`chore: remove SFTP plan and spec`).
+
+### Task 11: SFTP passwords in credential backups and restore
+
+**Files:**
+- Create: `server/features/ssh/sftp-backup.js`
+- Modify: `server/features/operations/snapshot.js` (capture into `credentials` when `withCredentials`; omission line otherwise), `server/features/operations/backup.js` (component `sealed-sftp-hosts` in the manifest when present; omission when not sealed), `server/features/operations/restore.js` (call `restoreSftpHosts` after `mapProjects`, report in the restore result), `server/features/ssh/ssh-catalog.js` (`migrate()` imports a pending restore file), `server/lib/i18n/{de,en}/backups.js` if the restore report needs new text
+- Test: `tests/integration/sftp-backup.test.js`
+
+**Interfaces:**
+- Consumes: Task 2 catalog part, `SshPasswordStore`; `encryptCredentials`/`decryptCredentials` capsule handling through the existing `credentials` member list; `mapProjects` result `projectMappings`.
+- Produces: `sftpHostsMember = "ssh/sftp-hosts.json"` (capsule only); `sftpHostsOmission = "SFTP hosts and passwords (only in backups with a passphrase, then encrypted)"`; `captureSftpHosts(dataDir) -> { hosts: Row[], passwords: { [hostId]: string } } | null` — password-auth `sftpHosts` rows read from the published catalog with their current password; key-auth SFTP hosts are left out like SSH keys and listed under the existing `Managed SSH accesses…` omission.
+- Produces: `restoreSftpHosts(stage, projectMappings) -> { restored: number, skipped: number }` — reads and removes the capsule member from the stage, maps each `projectId` through `projectMappings` (unmapped → `null`, counted), writes `ssh/sftp-restore.json` (0600) and the passwords via `SshPasswordStore` under the stage's `ssh/` (0700). `SshCatalog.migrate()` merges `sftp-restore.json` into `sftpHosts` on first start, skipping ids or `hostTuple`s already present, then deletes the file; an interrupted import is repeated idempotently.
+- Host ids are preserved, so agents' stored `sshAccesses` grants for restored hosts work again; session grants are not restored (sessions are not).
+
+- [ ] **Step 1: Write the failing tests** (`tests/integration/sftp-backup.test.js`, temp data dir with an SSH host, a password SFTP host and a key SFTP host, `startSftpServer`): `ordinary backup has no SFTP password anywhere` (scan every archive member and the manifest for the password and for `ssh/passwords`); `ordinary backup lists the SFTP omission`; `credential backup seals the SFTP host` (password absent from plaintext members, present after `decryptCredentials` with the passphrase); `wrong passphrase restores nothing`; `restore brings the password host back` (after restore and service start: `store.list()` has the SFTP host with the same id, `test()` against the fixture succeeds, mode 0600 on the password file); `restore maps the host's project`; `key SFTP host and SSH host stay omitted`; `restore does not duplicate an existing host`.
+- [ ] **Step 2: Run** `node --test tests/integration/sftp-backup.test.js` — FAIL.
+- [ ] **Step 3: Implement** `sftp-backup.js` and the four call sites, following `server/features/users/user-backup.js` (`captureUsers`/`restoreUsers`).
+- [ ] **Step 4: Run** the test plus `node --test tests/integration/assistant-host-backup.test.js tests/integration/backup-users.test.js tests/integration/operations-restore-policy.test.js` — PASS.
+- [ ] **Step 5: Commit** `feat: keep SFTP passwords in passphrase-sealed backups`
