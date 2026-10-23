@@ -17,13 +17,14 @@ export async function until(read, label = "condition", ms = 5000) {
   throw Error(`Timed out waiting for ${label}`);
 }
 // A lead whose team finished: its members can be asked; the second one is permanent.
-export async function lead(t) {
+// `count` adds further members, left temporary (`members` lists them all).
+export async function lead(t, { count = 2 } = {}) {
   const f = teamFixture(t);
   // Rate limits have their own tests; flows here run many requests in a moment.
   const saved = requestCaps.perMinute;
   requestCaps.perMinute = 1000;
   t.after(() => (requestCaps.perMinute = saved));
-  const { team, parent, chat, attempt } = await f.proposal({ count: 2 });
+  const { team, parent, chat, attempt } = await f.proposal({ count });
   f.assistants.ledger.transition(attempt.id, "completed");
   await f.service.reconcile();
   for (const m of f.service.store.members(team.id)) f.complete(m.attemptId);
@@ -31,7 +32,8 @@ export async function lead(t) {
   const synthesis = f.service.store.get(team.id).resultAttemptId;
   if (synthesis) f.complete(synthesis);
   await f.service.reconcile();
-  const [temporary, second] = f.service.store.members(team.id);
+  const members = f.service.store.members(team.id);
+  const [temporary, second] = members;
   const permanent = await f.service.lifecycle("promote", second.id, second.revision);
   const turn = (text = ownerText, context = { kind: "owner" }) => {
     const request = f.assistants.ledger.accept(chat.id, {
@@ -50,7 +52,19 @@ export async function lead(t) {
   };
   const requests = () => f.service.requests.store.list();
   const sends = () => f.calls.filter((c) => c.method === "sessions.send");
-  return { ...f, team, parent, chat, temporary, permanent, turn, idle, requests, sends };
+  return {
+    ...f,
+    team,
+    parent,
+    chat,
+    temporary,
+    permanent,
+    members,
+    turn,
+    idle,
+    requests,
+    sends,
+  };
 }
 export const ask = (f, member, inv, extra = {}) =>
   f.service.ask(inv, {

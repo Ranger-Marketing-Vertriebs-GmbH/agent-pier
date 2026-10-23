@@ -28,9 +28,10 @@ export const requestCaps = { open: 16, perMinute: 6, perTurn: 8, ownerPerTurn: 3
 export const retention = { perLead: 200, days: 30 };
 const memberTerminal = new Set(["completed", "failed", "cancelled"]);
 const terminalList = [...requestTerminal].map((p) => `'${p}'`).join(",");
-const fingerprint = (value) =>
+export const fingerprint = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-function exact(input, keys, required) {
+/** An input object with only these keys and all the required ones. */
+export function exact(input, keys, required) {
   if (
     !input ||
     typeof input !== "object" ||
@@ -44,14 +45,19 @@ function exact(input, keys, required) {
  * Whether a lead's task may change files: a task the owner asked for (ownerProof),
  * one an autonomous lead started in the owner's own turn, or one a routine the owner
  * marked "May write" started (routineWrites, the owner's standing
- * instruction); never once cancelled. Where and when it writes is checked apart.
+ * instruction), or a member's task for a sibling sent from a turn that may write
+ * itself (peerWrites, peer-request-rules.js); never once cancelled. Where and when
+ * it writes is checked apart.
  */
 export const taskWritable = (r) =>
   !!r &&
   r.kind === requestKind &&
   r.type === "task" &&
   r.writeAllowed === true &&
-  (!!r.ownerProof || r.autonomous === true || r.routineWrites === true) &&
+  (!!r.ownerProof ||
+    r.autonomous === true ||
+    r.routineWrites === true ||
+    (!!r.fromMemberId && !!r.peerWrites)) &&
   !r.cancelRequested;
 /**
  * Who calls a lead tool: an attempt of the lead's chat, or a routine's own run
@@ -235,9 +241,12 @@ export class LeadRequestStore {
         if (this.open((r) => r.memberId === member.id && r.type === "task").length)
           throw assistantProblem("memberRequestOpenTask", 409);
       }
-      // Reports of the lead's routines on members (lead-routine-reports.js) are not
-      // the lead's own requests and never count against its caps.
-      const mine = this.list(lead.id).filter((r) => r.type !== "report"),
+      // Reports of the lead's routines on members (lead-routine-reports.js) and
+      // its members' requests to each other (peer-request-rules.js) are not the
+      // lead's own requests and never count against its caps.
+      const mine = this.list(lead.id).filter(
+          (r) => r.type !== "report" && !r.fromMemberId,
+        ),
         turn = mine.filter((r) =>
           run ? r.routineRun === run : r.parentRequestId === request.id,
         ),
@@ -491,6 +500,14 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.delivery ? { delivery: r.delivery } : {}),
     ...(r.resultDiagnostic ? { resultDiagnostic: r.resultDiagnostic } : {}),
     ...(r.ownerProof ? { ownerRequestQuote: r.ownerProof.quote } : {}),
+    // A member's request to a sibling (peer-request-rules.js).
+    ...(r.fromMemberId
+      ? {
+          fromMemberId: r.fromMemberId,
+          fromName: textOr(r.fromName),
+          resultTo: r.resultTo,
+        }
+      : {}),
   };
 }
 const textOr = (value) => (typeof value === "string" ? value : "");

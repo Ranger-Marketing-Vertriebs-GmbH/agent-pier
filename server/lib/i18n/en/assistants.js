@@ -226,6 +226,13 @@ export const assistants = {
   memberRequestNotFinished: "Only finished temporary members can be archived.",
   memberRequestRate:
     "The agent sent too many questions or tasks in a short time. Wait a moment.",
+  peerRequestTurn: "A member can only ask or task other members in its own work.",
+  peerRequestLoop:
+    "A member cannot start another question or task while it handles another member's request.",
+  peerRequestOpen:
+    "A request between these members is already open, or the member already works on a task.",
+  peerRequestLimit:
+    "A member may have at most 3 open requests to other members and send 6 per hour.",
   memberRequestAutonomousLimit:
     "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",

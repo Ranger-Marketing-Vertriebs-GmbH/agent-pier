@@ -3,6 +3,7 @@
 // they never reach the model; only real transport or runtime failures read as
 // "unavailable".
 import { autonomousCaps } from "./team-policy.js";
+import { peerCaps } from "./peer-request-rules.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -52,6 +53,13 @@ const reasons = {
   RATE_LIMITED:
     "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
   AUTONOMOUS_LIMIT: `You already started ${autonomousCaps.perTurn} questions or tasks for your members on your own in this turn, or ${autonomousCaps.perHour} in the last hour. Do not retry; finish with what you have and tell the owner what is still open. The owner can ask you by name for more.`,
+  PEER_TURN:
+    "Questions and tasks for other members are only possible in your own work: the owner's own message, your team assignment, your lead's request or your routine. Reports are not possible in this turn either, except while you handle a member's request; then report it to your lead with agentpier_team_report. Do not retry.",
+  PEER_LOOP:
+    "You are handling another member's request (or its result), so you cannot ask or hand a task to a member now. Answer with what you have; if more is needed, report it to your lead with agentpier_team_report.",
+  PEER_OPEN:
+    "You already have an open request to this member, or it already works on an open task. Wait for its answer instead of retrying, or report it to your lead with agentpier_team_report.",
+  PEER_LIMIT: `You already have ${peerCaps.openPerMember} open requests to other members, or sent ${peerCaps.perHour} in the last hour. Do not retry now; report what you need to your lead with agentpier_team_report.`,
   TEMPLATE_NOT_FOUND:
     "No Agency agent has this id. Search with agentpier_team_templates and use an id it returned.",
   TEMPLATE_BLOCKED:
@@ -144,6 +152,10 @@ const byKey = {
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   memberRequestRate: "RATE_LIMITED",
+  peerRequestTurn: "PEER_TURN",
+  peerRequestLoop: "PEER_LOOP",
+  peerRequestOpen: "PEER_OPEN",
+  peerRequestLimit: "PEER_LIMIT",
   templateNotFound: "TEMPLATE_NOT_FOUND",
   templateBlocked: "TEMPLATE_BLOCKED",
   templateTooLarge: "TEMPLATE_TOO_LARGE",
