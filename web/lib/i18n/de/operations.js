@@ -280,6 +280,7 @@ export const diagnosticCopy = {
   project: "Projektverzeichnis",
   adapterSession: "Adapter-Session",
   remedies: {
+    node: "Aktualisiere Node.js auf 22.23.4, 24.22.1, 26.12.1 oder neuer (Sicherheitskorrekturen).",
     platform: "Nutze einen unterstützten macOS- oder Linux-Rechner.",
     pty: "Installiere die Abhängigkeiten für diese Node-Laufzeit und Plattform neu.",
     tool: "Installiere das Tool oder korrigiere den PATH des Dienstes.",

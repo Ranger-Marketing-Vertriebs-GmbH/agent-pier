@@ -18,7 +18,7 @@ Do not put credentials, private transcripts or production configuration in an is
 
 ## Development setup
 
-Use macOS or Linux, Node.js 22.13+, Git and tmux.
+Use macOS or Linux, Node.js 22.23.4+ (or 24.22.1+, 26.12.1+), Git and tmux.
 
 ```sh
 npm ci

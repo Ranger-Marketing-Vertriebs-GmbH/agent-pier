@@ -26,7 +26,7 @@ Danach den AgentPier-Webdienst neu starten. Falls `tmux -V` funktioniert, aber d
 
 ## Voraussetzungen und erster Start
 
-Benötigt werden Node.js ab 22.13 mit npm, tmux und Git. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
+Benötigt werden Node.js ab 22.23.4, 24.22.1 oder 26.12.1 (gepatchte Versionen) mit npm, tmux und Git. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
 
 ```sh
 node --version

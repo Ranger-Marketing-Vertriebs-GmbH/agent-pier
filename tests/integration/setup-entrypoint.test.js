@@ -206,7 +206,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 case "$output" in
-  *checksums) echo 'abc node-v22.22.2-darwin-arm64.tar.gz' > "$output";;
+  *checksums) echo 'abc node-v22.23.4-darwin-arm64.tar.gz' > "$output";;
   *) echo archive > "$output";;
 esac
 `,

@@ -4058,6 +4058,7 @@
   "operations:diagnosticCopy.project": "de:a9186966d14f en:5fefe87e9fcc",
   "operations:diagnosticCopy.remedies.adapterReload": "de:102b2362dbae en:f94f5bb0d238",
   "operations:diagnosticCopy.remedies.adapterRestartFailed": "de:4025839e131a en:11134c0dc515",
+  "operations:diagnosticCopy.remedies.node": "de:77d56ab73b1e en:43be544895a2",
   "operations:diagnosticCopy.remedies.platform": "de:a4b4a97e6ce7 en:7dec6adfb6ff",
   "operations:diagnosticCopy.remedies.project": "de:f989be9b2c90 en:0c7c2745ae89",
   "operations:diagnosticCopy.remedies.pty": "de:8712d3c9e410 en:b982fc4bffed",
