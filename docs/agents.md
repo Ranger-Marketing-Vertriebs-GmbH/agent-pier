@@ -314,7 +314,9 @@ activity log. Grants follow the lead: if it loses a capability, its members lose
 too. You see a member's project folders, MCP servers, shell and SSH from its lead
 next to the shares with permanent members, and can revoke them there
 ([Sharing a lead's access](#sharing-a-leads-access-with-permanent-members)). A reminder a member sets is created on the lead, listed in the lead's settings
-and sent to the lead's Telegram chat. Members never get the team tools or routines.
+and sent to the lead's Telegram chat. Members never get their lead's team tools or
+routines; they only ask each other and report to their lead
+([Members talking to each other](#members-talking-to-each-other)).
 
 Every temporary member has its own memory that it can write, always on. The lead's
 memory grant adds a read-only copy of the lead's memory beside it (in the member's
@@ -399,6 +401,9 @@ A lead also talks to its members directly:
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", "self-initiated" when an autonomous lead started it
   on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
+  It also lists the members' requests to each other as "<member> → <member> ·
+  question" or "· task" ("result to the lead" when the result goes to the lead) and
+  their own reports as "Result from <member>" or "Problem from <member>".
 - Member reports and answers reach the lead whole up to 65,536 characters. A longer
   one is marked shortened, and the team card or request shows "Shortened" with **Open
   chat**, where the whole text is. When a team's reports together are too long for the
@@ -406,6 +411,44 @@ A lead also talks to its members directly:
   the whole reports are in the members' chats.
 
 Check your members' shell levels and MCP servers before you let a lead use them.
+
+### Members talking to each other
+
+Members of the same lead, temporary and permanent, can agree among themselves without
+the lead relaying every message, both when the lead's task says so ("agree the story
+with Learning") and on their own:
+
+- A member can **ask** a colleague a question and **hand a task** to a permanent
+  colleague; temporary colleagues only answer questions. The colleague works in its own
+  task chat when it is free, where you can read it, and sees only the question or task,
+  "from" the asking member, never that member's chat. The answer comes back to the
+  asking member as a separate message ("A colleague's answer arrived. The agent
+  continues."), or to the lead when the asking member wants it so or can no longer be
+  reached.
+- A member can **report** to its lead on its own: a finished result or a problem, with
+  up to 10 project files that hold it. The report reaches the lead's main chat as a
+  separate message, and the lead acts on it as its **Use team** level allows. A
+  member's reports reach the lead one at a time; its routines can report too.
+- **Limits:** at most one open request per colleague and direction, one open task per
+  colleague, 3 open requests per member and 6 requests per member and hour; at most 6
+  reports per member and hour. A refused call tells the member to report to its lead
+  instead.
+- **One level only:** a member handling a colleague's question or task, or its answer,
+  cannot ask or task anyone else, so there are no chains and no ping-pong. Members of
+  other leads are never reached.
+- **Writing:** questions never write. A colleague's task may change files only when
+  the sender's own work may change files: your own message in the sender's chat, a
+  lead task that may write, or a routine marked **May write**. Otherwise it runs
+  read-only. The receiving member always works with its own tools and access, never
+  the sender's grants or shares; a task that a lead task started reaches only the
+  lead's standing shares with the receiver, as the lead's own task would. Such a task
+  never changes memory, and a coding request from it always waits for your approval.
+- **The lead sees everything:** a quiet line in its main chat when an exchange starts
+  and when it ends ("Learning asked Head Writer a question", "Head Writer answered
+  Learning"), naming only who and how it ended, and each exchange and report under
+  **Work → Teams → Questions and tasks**. The lead's "Your team" instructions and
+  tools tell it that its members can agree among themselves; name in a task whom to
+  involve and where the result goes.
 
 ### Sharing a lead's access with permanent members
 
@@ -529,7 +572,9 @@ archived). Both chats get a note, the memory step above applies, and routines ca
 the tool.
 
 At every level the lead is told not to involve members for trivial requests and to
-summarize their answers for you.
+summarize their answers for you. At every level it is also told that its members can ask each other,
+hand each other tasks and report back
+([Members talking to each other](#members-talking-to-each-other)).
 
 ## Routines, reminders and check-ins
 

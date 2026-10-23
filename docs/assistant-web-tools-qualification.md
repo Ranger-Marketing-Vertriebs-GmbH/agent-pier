@@ -113,7 +113,8 @@ address`; the page receives no request.
   [team member grants](assistant-gateway.md#team-member-grants-2026-10-17)): its
   entry holds `web_search`, `web_fetch` and `memory_search` within the lead's
   capabilities, but not `browser`, `view_image`, `pdf` or `agentpier_reminder` (not granted),
-  and never team tools, `agentpier_routine`, `write` or `exec`. Its `web_fetch` of
+  and never the lead's team tools (only its own member tools since AGENTPIER-197),
+  `agentpier_routine`, `write` or `exec`. Its `web_fetch` of
   the loopback page fails with the same private-network block.
 - **The member whose lead has no capabilities** gets no capability tool in its
   entry and none offered to the model, whatever its own record says, so its

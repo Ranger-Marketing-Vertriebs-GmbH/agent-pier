@@ -288,7 +288,10 @@ A lead's routine may list, ask and delegate to its own members
 (`agentpier_team_members`, `_ask`, `_delegate`, `routineTeamTools`): the bridge
 binds such a call to the routine's run session (`TeamBridge.routineRun`) and the
 request carries the routine as its origin (`{ kind: "routine", bindingId, name }`,
-`LeadRequestStore.caller`). `agentpier_workspace` serves a routine run as well
+`LeadRequestStore.caller`). A permanent member's routine may likewise ask and task
+its colleagues and report to its lead (`agentpier_team_peers`, `_peer_ask`,
+`_peer_delegate`, `_report`; [member tools](assistant-gateway.md#member-questions-tasks-and-reports)).
+`agentpier_workspace` serves a routine run as well
 (`workspace-calls.js` `routineContext`, the binding read live on every step): the
 agent's own project folders and its lead's standing shares, never a task's share;
 reads always, changes only with the routine's **May write** (`routineWrites`,
