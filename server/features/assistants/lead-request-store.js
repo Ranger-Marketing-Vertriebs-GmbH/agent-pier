@@ -25,7 +25,10 @@ export const requestLimits = { question: 4000, task: 8192 };
 // owner-proven tasks of a turn that may write.
 export const requestCaps = { open: 16, perMinute: 6, perTurn: 8, ownerPerTurn: 3 };
 // Finished requests kept per lead, and for how long.
-export const retention = { perLead: 200, days: 30 };
+// Members' requests to each other and their own reports have their own bound per
+// lead, so a busy team never pushes the lead's own request history out.
+export const retention = { perLead: 200, membersPerLead: 200, days: 30 };
+const fromMembers = (r) => !!r.fromMemberId || r.origin?.kind === "member-report";
 const memberTerminal = new Set(["completed", "failed", "cancelled"]);
 const terminalList = [...requestTerminal].map((p) => `'${p}'`).join(",");
 export const fingerprint = (value) =>
@@ -102,16 +105,18 @@ export class LeadRequestStore {
       .map((r) => JSON.parse(r.body));
   }
   /**
-   * Drops settled requests beyond the newest `retention.perLead` of a lead or older
-   * than `retention.days`; open or undelivered ones always stay.
+   * Drops settled requests beyond the newest `retention.perLead` of a lead (and
+   * `retention.membersPerLead` of its members' own) or older than `retention.days`;
+   * open or undelivered ones always stay.
    */
   prune(now = Date.now()) {
     const cutoff = now - retention.days * 86400000;
     const byLead = new Map();
     for (const r of this.teams.rows(requestKind)) {
       if (!r.settled || !requestTerminal.has(r.phase)) continue;
-      if (!byLead.has(r.parentAssistantId)) byLead.set(r.parentAssistantId, []);
-      byLead.get(r.parentAssistantId).push(r);
+      const key = `${fromMembers(r) ? "members" : "lead"}:${r.parentAssistantId}`;
+      if (!byLead.has(key)) byLead.set(key, []);
+      byLead.get(key).push(r);
     }
     const remove = this.teams.db.prepare(
       "DELETE FROM assistant_team_records WHERE id=? AND kind=?",
@@ -119,15 +124,19 @@ export class LeadRequestStore {
     let removed = 0;
     // A request and its whole answer go together.
     this.teams.transaction(() => {
-      for (const list of byLead.values())
+      for (const [key, list] of byLead) {
+        const keep = key.startsWith("members:")
+          ? retention.membersPerLead
+          : retention.perLead;
         list.forEach((r, n) => {
           const at = Date.parse(r.finishedAt || r.createdAt);
-          if (n < list.length - retention.perLead || !(at >= cutoff)) {
+          if (n < list.length - keep || !(at >= cutoff)) {
             const gone = remove.run(r.id, requestKind).changes;
             if (gone) dropTexts(this.teams.db, r.id);
             removed += gone;
           }
         });
+      }
     });
     return removed;
   }
