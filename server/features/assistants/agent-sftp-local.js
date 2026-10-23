@@ -14,9 +14,10 @@ import { workspaceContext } from "./workspace-calls.js";
  * needs read and write, in a routine the owner's "May write" for project folders,
  * and the proven tool guard of the running Gateway like every agent write. In the
  * workspace a transfer keeps away from what the native tool guard protects there
- * (guardedWorkspaceEntry: prompt files, skills/, .agents/, attachments/): its
- * existing entries are protected roots, so an upload of the workspace skips them,
- * and `assertWorkspaceTarget` refuses a local side inside one. AgentPier's data
+ * (guardedWorkspaceEntry: prompt files, skills/, .agents/, attachments/): the
+ * predicate travels as the local rules' `guarded` and is asked by name for every
+ * entry walked, read or written (an upload of the workspace skips them), and
+ * `assertWorkspaceTarget` refuses a local side inside one. AgentPier's data
  * directory holds the workspace, so it is no protected root there; links out of
  * the workspace are still refused.
  */
@@ -35,10 +36,8 @@ export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     return {
       root,
-      protectedRoots: fs
-        .readdirSync(root)
-        .filter(guardedWorkspaceEntry)
-        .map((name) => path.join(root, name)),
+      protectedRoots: [],
+      guarded: guardedWorkspaceEntry,
       lockToolConfig,
       projectId: null,
       projectName: null,
@@ -66,8 +65,8 @@ export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
 /**
  * In the workspace, the local side of a transfer (`local`, a localRoot result) never
  * lies in a guarded entry, and a download or sync down (`write`) never targets the
- * workspace itself: everything it writes or deletes stays in one named, unguarded
- * folder or file below it. Entries that do not exist yet are checked by name.
+ * workspace itself: a folder lands in a named, unguarded folder below it, a single
+ * file under an unguarded name (also at the top level).
  */
 export function assertWorkspaceTarget(spec, local, { write }) {
   if (!spec.workspace) return;

@@ -268,6 +268,7 @@ export class AgentSftp {
       write,
       protectedRoots: spec.protectedRoots,
       lockToolConfig: spec.lockToolConfig,
+      guarded: spec.guarded ?? null,
     });
     assertWorkspaceTarget(spec, local, { write });
     return { direction, spec, local };

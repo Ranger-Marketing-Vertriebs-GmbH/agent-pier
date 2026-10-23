@@ -31,8 +31,7 @@ test("downloads never write the workspace's prompt files, skills or attachments"
     { action: "download", remotePath: "/repo/site", localPath: "Ägents/site" },
   ])
     assert.equal(await refused(input), "SFTP_WORKSPACE_REFUSED", JSON.stringify(input));
-  // A link to a guarded folder is checked where it leads: an existing guarded
-  // entry is a protected root of the path rules.
+  // A link to a guarded folder is checked where it leads.
   fs.mkdirSync(path.join(f.workspace, "skills"));
   fs.symlinkSync("skills", path.join(f.workspace, "docs"));
   assert.equal(
@@ -41,7 +40,7 @@ test("downloads never write the workspace's prompt files, skills or attachments"
       remotePath: "/repo/site",
       localPath: "docs/site",
     }),
-    "PROJECT_PATH_REFUSED",
+    "SFTP_WORKSPACE_REFUSED",
   );
   fs.rmSync(path.join(f.workspace, "docs"));
   fs.rmSync(path.join(f.workspace, "skills"), { recursive: true });
@@ -125,4 +124,55 @@ test("the job's time limit fails it instead of cancelling it", async (t) => {
   );
   assert.equal(outcome.state, "failed");
   assert.equal(outcome.code, "SFTP_TIMEOUT");
+});
+
+test("a single file downloads to the workspace's top level under an unguarded name", async (t) => {
+  const f = await setup(t);
+  f.access([{ accessId: sftpHostId, mode: "trusted" }]);
+  f.file(f.workspace, "AGENTS.md", "own instructions");
+  f.file(f.server.root, "repo/notes.md", "notes");
+  f.file(f.server.root, "repo/AGENTS.md", "evil instructions");
+  const download = (input) =>
+    f.sftpCall(f.ownTurn(), {
+      action: "download",
+      remotePath: "/repo/notes.md",
+      ...input,
+    });
+  assert.equal((await download({})).status, "completed");
+  assert.equal((await download({ localPath: "copy.md" })).status, "completed");
+  assert.equal(fs.readFileSync(path.join(f.workspace, "notes.md"), "utf8"), "notes");
+  assert.equal(fs.readFileSync(path.join(f.workspace, "copy.md"), "utf8"), "notes");
+  for (const localPath of ["AGENTS.md", "agents.MD", "./Agents.md"])
+    assert.equal(
+      await code(download({ localPath })),
+      "SFTP_WORKSPACE_REFUSED",
+      localPath,
+    );
+  assert.equal(
+    await code(download({ remotePath: "/repo/AGENTS.md" })),
+    "SFTP_WORKSPACE_REFUSED",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(f.workspace, "AGENTS.md"), "utf8"),
+    "own instructions",
+  );
+});
+
+test("an attachments folder that appears after the local check is still left out", async (t) => {
+  const f = await setup(t);
+  f.access([{ accessId: sftpHostId, mode: "trusted" }]);
+  f.file(f.workspace, "site/index.html", "page");
+  // The first upload of a shared agent arrives while AgentPier signs in.
+  const open = f.sftp.open;
+  f.sftp.open = async (credentials) => {
+    f.file(f.workspace, "attachments/new-upload.pdf", "someone else's file");
+    return open(credentials);
+  };
+  const result = await f.sftpCall(f.ownTurn(), {
+    action: "sync",
+    direction: "up",
+    remotePath: "/backup",
+  });
+  assert.equal(result.status, "completed");
+  assert.deepEqual(tree(f.server.root), { "backup/site/index.html": "page" });
 });
