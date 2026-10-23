@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assistantBootstrap } from "../../server/features/assistants/assistant-bootstrap.js";
+import {
+  assistantBootstrap,
+  germanSettingLabels,
+} from "../../server/features/assistants/assistant-bootstrap.js";
+import { loadCatalogs } from "../../scripts/i18n-translation-lock.mjs";
 
 const assistant = {
   instructions: "Plan meals.",
@@ -128,5 +132,20 @@ test("an agent of users hands generated images to the person who asked, not the 
       /every generated image to the person who asked for it in this chat/,
     );
     assert.doesNotMatch(text, /to the owner in this chat/);
+  }
+});
+
+// Tool texts quote English setting labels; an agent answering in German once told the
+// owner to switch on "May write", a label the German UI does not show.
+test("the bootstrap gives the German UI label of every setting tools name", async () => {
+  const text = assistantBootstrap(assistant, {});
+  const { german, english } = await loadCatalogs("web");
+  for (const [en, de] of germanSettingLabels) {
+    const keys = [...english].filter(([, value]) => value === en).map(([key]) => key);
+    assert.ok(
+      keys.some((key) => german.get(key) === de),
+      `${JSON.stringify(en)} reads ${JSON.stringify(keys.map((key) => german.get(key)))}`,
+    );
+    assert.ok(text.includes(`"${en}" is "${de}"`), en);
   }
 });

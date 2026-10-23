@@ -35,6 +35,8 @@ test("settings switches the workspace language on save and keeps unsaved form va
   await expect(
     page.getByRole("heading", { name: "Einstellungen", exact: true }),
   ).toBeVisible();
+  // The sidebar's brand badge follows the language too.
+  await expect(page.locator(".local-badge")).toHaveText("LOKAL");
   // The directory stays an unsaved draft: its save fails on purpose, so the language
   // is saved alone and the bar reports a partial save in the new language.
   await page.route("**/api/preferences", (route) =>
@@ -48,6 +50,7 @@ test("settings switches the workspace language on save and keeps unsaved form va
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".local-badge")).toHaveText("LOCAL");
   await expect(settingsBar(page).getByRole("alert")).toContainText(
     "Partially saved: Language.",
   );
