@@ -45,6 +45,7 @@ const readyFile = path.join(
 const store = new SshAccessStore({ dataDir });
 const grants = new SshSessions({ dataDir, store });
 const tools = new SshTools({ dataDir, capability, grants, store });
+const inflight = new Map();
 let initialized = false,
   handshake = false,
   calls = 0,
@@ -136,6 +137,8 @@ async function handle(line) {
     if (method === "initialize") await authorizeStartup();
     else authorizeSsh(dataDir, capability);
     if (id === undefined) {
+      if (method === "notifications/cancelled")
+        inflight.get(request.params?.requestId)?.abort();
       if (method === "notifications/initialized" && handshake) {
         initialized = true;
         writePrivate(readyFile, {
@@ -167,13 +170,17 @@ async function handle(line) {
     } else if (method === "ping") result = {};
     else if (method === "tools/list" && initialized) result = { tools: sshTools };
     else if (method === "tools/call" && initialized) {
+      const controller = new AbortController();
+      inflight.set(id, controller);
       try {
         result = {
           content: [
             {
               type: "text",
               text: JSON.stringify(
-                await tools.call(request.params?.name, request.params?.arguments),
+                await tools.call(request.params?.name, request.params?.arguments, {
+                  signal: controller.signal,
+                }),
               ),
             },
           ],
@@ -188,6 +195,8 @@ async function handle(line) {
             },
           ],
         };
+      } finally {
+        if (inflight.get(id) === controller) inflight.delete(id);
       }
     } else throw Error("Unsupported method.");
     await send({ jsonrpc: "2.0", id, result });
@@ -205,6 +214,31 @@ async function handle(line) {
       });
   }
 }
+// Requests run one at a time, except SFTP job status/cancel and MCP cancellations:
+// those answer while another call waits for its transfer.
+function outOfBand(line) {
+  try {
+    const request = JSON.parse(line);
+    return (
+      request?.method === "notifications/cancelled" ||
+      (request?.method === "tools/call" && request.params?.name === "sftp_job")
+    );
+  } catch {
+    return false;
+  }
+}
+let queue = Promise.resolve();
+const aside = new Set();
+function dispatch(line) {
+  if (!outOfBand(line)) {
+    queue = queue.then(() => handle(line)).catch(() => {});
+    return;
+  }
+  const running = handle(line)
+    .catch(() => {})
+    .finally(() => aside.delete(running));
+  aside.add(running);
+}
 const decoder = new StringDecoder("utf8");
 try {
   for await (const chunk of process.stdin) {
@@ -215,7 +249,7 @@ try {
         throw Error();
       const line = buffer.slice(0, end);
       buffer = buffer.slice(end + 1);
-      if (line.trim()) await handle(line);
+      if (line.trim()) dispatch(line);
     }
     if (Buffer.byteLength(buffer) > 65536) throw Error();
   }
@@ -223,6 +257,8 @@ try {
   process.stderr.write("SSH transport closed: protocol limit exceeded.\n");
   process.exitCode = 1;
 } finally {
+  await queue;
+  await Promise.allSettled([...aside]);
   clearInterval(watch);
   await cleanup();
 }
