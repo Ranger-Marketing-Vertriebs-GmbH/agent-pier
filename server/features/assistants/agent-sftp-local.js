@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isUserAgent } from "../users/user-access.js";
+import { guardedWorkspaceEntry } from "./team-plugin/tool-guard.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { workspaceContext } from "./workspace-calls.js";
 
@@ -11,9 +12,13 @@ import { workspaceContext } from "./workspace-calls.js";
  * without one the agent's own workspace (`<workspaces>/<assistantId>`). An upload
  * only reads, so read access is enough; a download or a sync down writes, so it
  * needs read and write, in a routine the owner's "May write" for project folders,
- * and the proven tool guard of the running Gateway like every agent write. The
- * workspace is the agent's own, so AgentPier's data directory (which holds it) is
- * not a protected root there; links out of it are still refused.
+ * and the proven tool guard of the running Gateway like every agent write. In the
+ * workspace a transfer keeps away from what the native tool guard protects there
+ * (guardedWorkspaceEntry: prompt files, skills/, .agents/, attachments/): its
+ * existing entries are protected roots, so an upload of the workspace skips them,
+ * and `assertWorkspaceTarget` refuses a local side inside one. AgentPier's data
+ * directory holds the workspace, so it is no protected root there; links out of
+ * the workspace are still refused.
  */
 export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
   const ctx = workspaceContext(w, inv);
@@ -30,10 +35,14 @@ export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });
     return {
       root,
-      protectedRoots: [],
+      protectedRoots: fs
+        .readdirSync(root)
+        .filter(guardedWorkspaceEntry)
+        .map((name) => path.join(root, name)),
       lockToolConfig,
       projectId: null,
       projectName: null,
+      workspace: true,
     };
   }
   const level = w.folders.levels(ctx)[projectId];
@@ -52,4 +61,33 @@ export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
     projectId,
     projectName: project.name ?? null,
   };
+}
+
+/**
+ * In the workspace, the local side of a transfer (`local`, a localRoot result) never
+ * lies in a guarded entry, and a download or sync down (`write`) never targets the
+ * workspace itself: everything it writes or deletes stays in one named, unguarded
+ * folder or file below it. Entries that do not exist yet are checked by name.
+ */
+export function assertWorkspaceTarget(spec, local, { write }) {
+  if (!spec.workspace) return;
+  guardWorkspacePath(path.relative(local.root, local.real).split(path.sep).join("/"), {
+    write,
+  });
+}
+
+/** The same check on the requested path, before it is resolved (and refused as a
+ * protected root): a clear answer for a guarded name, existing or not. */
+export function assertWorkspacePath(spec, raw, { write }) {
+  if (!spec.workspace) return;
+  const relative = path.posix
+    .normalize(String(raw).replaceAll("\\", "/"))
+    .replace(/^\/+/, "");
+  if (relative === ".." || relative.startsWith("../")) return;
+  guardWorkspacePath(relative === "." ? "" : relative.replace(/\/+$/, ""), { write });
+}
+
+function guardWorkspacePath(relative, { write }) {
+  if ((relative && guardedWorkspaceEntry(relative.split("/")[0])) || (write && !relative))
+    throw assistantProblem("sftpWorkspaceRefused", 403);
 }

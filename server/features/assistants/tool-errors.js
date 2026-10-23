@@ -90,6 +90,8 @@ const reasons = {
     "This host does not take this action: an SFTP host takes only the file actions (list, stat, download, upload, sync, mkdir, rename, delete), an SSH host only execute. Check the type in action hosts.",
   SFTP_ROUTINE_DELETE:
     "Routines never delete files on SFTP hosts, also not with a sync that deletes extra files. Do not retry; say in the routine's result what you would delete, so the owner can do it.",
+  SFTP_WORKSPACE_REFUSED:
+    "In your workspace, SFTP never reads or writes your prompt files (AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md), skills/, .agents/, attachments/ or top-level names with other than plain ASCII letters, digits and . _ - ( ) + , or spaces, and never downloads a folder into the workspace itself. Give localPath as a plain subfolder, for example downloads/site.",
   SFTP_AUTH_FAILED:
     "The SFTP server refused AgentPier's sign-in for this host. Do not retry; tell the owner to check the host's password or key in the settings.",
   SFTP_HOST_KEY_MISMATCH:
@@ -204,6 +206,7 @@ const byKey = {
   sshRevoked: "SSH_REVOKED",
   sshHostType: "SSH_HOST_TYPE",
   sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
+  sftpWorkspaceRefused: "SFTP_WORKSPACE_REFUSED",
   projectFolderNotGranted: "PROJECT_NOT_GRANTED",
   projectFolderReadOnly: "PROJECT_READ_ONLY",
   projectRoutineReadOnly: "ROUTINE_READ_ONLY",

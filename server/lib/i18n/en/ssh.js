@@ -56,5 +56,12 @@ export const ssh = Object.freeze({
   hostTypeFixed: "A host's type cannot be changed.",
   sftpOnly: "This host is set up for SFTP only.",
   sshOnly: "This host is set up for SSH, not SFTP.",
+  sftpRecordInvalid: "Invalid SFTP record.",
+  sftpNotAssigned: "SFTP host is not assigned.",
+  sftpRevoked: "SFTP assignment or capability revoked.",
+  sftpClosing: "SSH transport is closing.",
+  sftpSyncLocalPath: "sftp_sync down with deleteExtra needs an explicit localPath.",
+  sftpInvalidArguments: "Invalid SFTP arguments.",
+  sftpUnknownTool: "Unknown SFTP tool.",
   invalidAuth: "Choose password or key sign-in for SFTP.",
 });

@@ -56,6 +56,7 @@ test("agentpier_ssh is registered with its schema and a 245 s call budget", () =
     assert.equal(p[key].type, "boolean", key);
   assert.match(tool.description, /deletes \(delete, deleteExtra\) always ask/);
   assert.match(tool.description, /jobId/);
+  assert.match(tool.description, /completed, failed, cancelled or revoked/);
   assert.equal(tool.parameters.properties.timeoutSeconds.maximum, 120);
   assert.match(tool.description, /untrusted external data/);
   assert.equal(toolTimeouts.ssh, 245000);

@@ -59,8 +59,9 @@ export class SftpRuns {
   }
   /**
    * Starts the job and reserves its row (or, with `actionId`, an approved card's
-   * row becomes it). Without `session`/`access` it opens its own at the host's pinned
-   * revision. Returns `{ id, owner, jobId }`; `SFTP_BUSY` leaves no row.
+   * row becomes it). It owns `session` from the call on and closes it in every case.
+   * Without `session`/`access` it opens its own at the host's pinned revision.
+   * Returns `{ id, owner, jobId }`; `SFTP_BUSY` leaves no row.
    */
   start({
     caller,
@@ -101,13 +102,20 @@ export class SftpRuns {
     };
     let id = actionId;
     this.sweep();
-    const view = this.sftp.jobs.start(owner, {
-      kind: request.operation,
-      summary: prepared.summary,
-      lock: { hostId: host.id, ...prepared.lock },
-      run: (progress, signal) =>
-        this.execute({ id, meta, session, access, work }, progress, signal),
-    });
+    let view;
+    try {
+      view = this.sftp.jobs.start(owner, {
+        kind: request.operation,
+        summary: prepared.summary,
+        lock: { hostId: host.id, ...prepared.lock },
+        run: (progress, signal) =>
+          this.execute({ id, meta, session, access, work }, progress, signal),
+      });
+    } catch (error) {
+      // No job took the session (SFTP_BUSY); once one has, the job closes it.
+      session?.close();
+      throw error;
+    }
     const now = Date.now();
     try {
       id = actionId
@@ -198,6 +206,9 @@ export class SftpRuns {
     } finally {
       open?.close();
     }
+    // The job's time limit (SftpJobs jobMs) fails it, as SftpJobs reports it.
+    if (signal.aborted && problemCode(signal.reason) === "SFTP_TIMEOUT")
+      outcome = { ...outcome, state: "failed", code: "SFTP_TIMEOUT" };
     if (outcome.state === "revoked") outcome.code = "SSH_REVOKED";
     outcome.durationMs ??= Date.now() - started;
     // A job whose row could not be reserved was cancelled before it began.

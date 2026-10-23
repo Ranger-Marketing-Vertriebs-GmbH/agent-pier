@@ -10,7 +10,11 @@ import { prepareTransfer } from "../sftp/sftp-transfer.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { sshHoldMs } from "./agent-ssh-approvals.js";
 import { sftpInput } from "./agent-sftp-input.js";
-import { agentLocalRoot } from "./agent-sftp-local.js";
+import {
+  agentLocalRoot,
+  assertWorkspacePath,
+  assertWorkspaceTarget,
+} from "./agent-sftp-local.js";
 import { sftpKind, sftpPermits } from "./agent-sftp-policy.js";
 import { SftpRuns } from "./agent-sftp-runs.js";
 
@@ -82,12 +86,16 @@ export class AgentSftp {
           : "sshRoutineNotTrusted",
       );
     }
+    const side =
+      Object.hasOwn(transfers, input.action) || input.action === "sync"
+        ? this.local(inv, input)
+        : null;
     const access = this.access(caller, cls, input, host);
     const session = await access.open();
     let handed = false;
     try {
       const home = access.root ?? (await session.realpath("."));
-      const context = { inv, input, host, access, session, home };
+      const context = { inv, input, host, access, session, home, side };
       if (input.action === "list" || input.action === "stat")
         return this.untrusted(host, await this[input.action](context));
       const { request, prepared } = await this.prepare(context);
@@ -103,6 +111,8 @@ export class AgentSftp {
         return await this.approvals.request(inv, caller, cls, host, request, prepared);
       const key = `sftp:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
       if (this.w.store.byKey(key)) throw assistantProblem("conflict", 409);
+      // From here the run owns the session, also when it cannot start.
+      handed = true;
       const started = this.runs.start({
         caller,
         cls,
@@ -115,7 +125,6 @@ export class AgentSftp {
         session,
         access,
       });
-      handed = true;
       return await this.runs.hold(inv, started);
     } finally {
       if (!handed) session.close();
@@ -175,7 +184,7 @@ export class AgentSftp {
    * runs or asks: `request` (what the row and card name) and `prepared` (the plan, a
    * compact `summary` and the job's lock on the confined remote base).
    */
-  async prepare({ inv, input, host, access, session, home }) {
+  async prepare({ input, host, access, session, home, side }) {
     const { action: operation } = input;
     const root = access.root ?? "/";
     const base = { operation, accessId: host.id, input };
@@ -236,22 +245,37 @@ export class AgentSftp {
         },
       };
     }
-    return this.prepareTransfer({ inv, input, host, access, session, home, base });
+    return this.prepareTransfer({ input, host, access, session, home, base, side });
   }
-  async prepareTransfer({ inv, input, host, access, session, home, base }) {
+  /**
+   * The local side of a transfer, checked before any remote sign-in: the folder's
+   * grant and level, the path rules and, in the workspace, its guarded entries. A
+   * download without `localPath` lands under the remote name.
+   */
+  local(inv, input) {
     const { action: operation } = input;
     const direction = transfers[operation] ?? input.direction;
-    const abs = remotePath(input.remotePath, home);
     const write = direction === "down";
     const spec = agentLocalRoot(this.w, inv, { projectId: input.projectId, write });
-    const fallback = operation === "download" && abs !== "/" ? posix.basename(abs) : ".";
+    const named = remotePath(input.remotePath, "/");
+    const fallback =
+      operation === "download" && named !== "/" ? posix.basename(named) : ".";
+    const raw = input.localPath ?? fallback;
+    assertWorkspacePath(spec, raw, { write });
     const local = localRoot({
       root: spec.root,
-      raw: input.localPath ?? fallback,
+      raw,
       write,
       protectedRoots: spec.protectedRoots,
       lockToolConfig: spec.lockToolConfig,
     });
+    assertWorkspaceTarget(spec, local, { write });
+    return { direction, spec, local };
+  }
+  async prepareTransfer({ input, host, access, session, home, base, side }) {
+    const { action: operation } = input;
+    const { direction, spec, local } = side;
+    const abs = remotePath(input.remotePath, home);
     // The shared transfer layer plans with the case rules of the local target
     // (foldCase) and binds the plan's digest to this context.
     const transfer = await prepareTransfer(session, {

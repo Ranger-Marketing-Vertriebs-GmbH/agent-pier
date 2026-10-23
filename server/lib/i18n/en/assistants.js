@@ -204,6 +204,8 @@ export const assistants = {
   sshHostType:
     "This access does not fit the action: SFTP accesses take only file actions, SSH accesses only commands.",
   sftpRoutineDelete: "Routines may never delete files on SFTP accesses.",
+  sftpWorkspaceRefused:
+    "SFTP never transfers the agent's prompt files, skills, .agents or attachments in its workspace, and never downloads a folder into the workspace itself.",
   projectFolderNotGranted: "This project folder is not granted to the agent.",
   projectFolderReadOnly: "The agent may only read this project folder.",
   projectRoutineReadOnly:

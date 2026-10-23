@@ -151,14 +151,26 @@ function relativeTarget(raw, roots, ownId) {
 // Workspace skill folders are loaded into the prompt like bootstrap files, and a
 // bootstrap name must never become a directory either.
 const protectedFolders = new Set(["skills", ".agents"]);
+const plainRootName = /^[A-Za-z0-9 ._()+,-]+$/;
 function protectedName(relative) {
   const [first, ...rest] = relative.split("/");
   return (
-    !/^[A-Za-z0-9 ._()+,-]+$/.test(first) ||
+    !plainRootName.test(first) ||
     protectedNames.has(fold(first)) ||
     (rest.length > 0 && protectedFolders.has(fold(first)))
   );
 }
+/**
+ * Whether a top-level workspace entry is one native file tools never write (a
+ * bootstrap file, a skill folder, a name a fold could turn into one) or reach only
+ * through the attachment policy (attachments/). AgentPier's own transfers into and
+ * out of a workspace (agent-sftp-local.js) keep away from all of them.
+ */
+export const guardedWorkspaceEntry = (name) =>
+  !plainRootName.test(name) ||
+  protectedNames.has(fold(name)) ||
+  protectedFolders.has(fold(name)) ||
+  fold(name) === "attachments";
 // Identity of every on-disk bootstrap file, so links and case variants are caught.
 function protectedTargets(workspace) {
   const ids = new Set();

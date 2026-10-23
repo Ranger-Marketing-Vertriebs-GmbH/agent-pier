@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { authorizeSsh } from "../ssh/ssh-capability.js";
 import { sshProblem } from "../ssh/ssh-errors.js";
@@ -58,11 +59,7 @@ function toolError(code, details) {
   return error;
 }
 function revoked(details) {
-  const error = sshProblem(
-    "SSH_ACCESS_REVOKED",
-    "SFTP assignment or capability revoked.",
-    403,
-  );
+  const error = sshProblem("SSH_ACCESS_REVOKED", serverMessages.ssh.sftpRevoked, 403);
   if (details) error.details = details;
   return error;
 }
@@ -118,7 +115,7 @@ export class SftpSessionTools {
   async call(name, input = {}, { signal } = {}) {
     try {
       if (this.closing)
-        throw sshProblem("SSH_UNAVAILABLE", "SSH transport is closing.", 409);
+        throw sshProblem("SSH_UNAVAILABLE", serverMessages.ssh.sftpClosing, 409);
       const args = sftpArguments(name, input);
       const session = authorizeSsh(this.dataDir, this.capability);
       if (name === "sftp_job") return await this.#jobTool(args);
@@ -285,10 +282,7 @@ export class SftpSessionTools {
     const fallback = operation === "download" && abs !== "/" ? posix.basename(abs) : ".";
     // A sync that deletes local files names its folder; never the whole launch folder.
     if (direction === "down" && args.deleteExtra && args.localPath === undefined)
-      throw sshProblem(
-        "SSH_INVALID_ARGUMENT",
-        "sftp_sync down with deleteExtra needs an explicit localPath.",
-      );
+      throw sshProblem("SSH_INVALID_ARGUMENT", serverMessages.ssh.sftpSyncLocalPath);
     const local = await this.#local(
       session,
       args.localPath ?? fallback,
