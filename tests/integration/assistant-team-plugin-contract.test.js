@@ -13,6 +13,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { teamTools } from "../../server/features/assistants/runtime-config.js";
+import { memberTeamTools } from "../../server/features/assistants/native-capabilities.js";
 import plugin from "../../server/features/assistants/team-plugin/index.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
@@ -39,6 +40,28 @@ test("plugin guard rejects a prepare response after native invocation retirement
   });
   await assert.rejects(tool.execute("call", {}), /retired/);
   assert.equal(calls, 1, "retired invocation never invokes the bridge");
+});
+
+test("the manifest's tool contracts equal the plugin's registered tools", () => {
+  const names = [];
+  plugin.register({
+    pluginConfig: { url: "http://unused", token: "test" },
+    registerTool: (factory, options) => names.push(options.name),
+    on() {},
+  });
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        "../../server/features/assistants/team-plugin/openclaw.plugin.json",
+        import.meta.url,
+      ),
+    ),
+  );
+  assert.deepEqual([...manifest.contracts.tools].sort(), [...names].sort());
+  assert.equal(new Set(names).size, names.length);
+  // Every team tool is registered once, the members' own included.
+  for (const tool of [...teamTools.slice(1), ...memberTeamTools])
+    assert.equal(names.filter((name) => name === tool).length, 1, tool);
 });
 
 const packageRoot = process.env.AGENTPIER_TEAM_CONTRACT_RUNTIME;
@@ -232,7 +255,8 @@ test(
     assert.equal(teams.list()[0].phase, "awaiting_approval");
     assert.deepEqual(
       requests[0].tools.map((t) => t.function.name).sort(),
-      [...teamTools].sort(),
+      // The lead holds every team tool except the members' own.
+      teamTools.filter((tool) => !memberTeamTools.includes(tool)).sort(),
     );
     // A model-emitted alternate delegation name must not gain capabilities.
     const tools = requests[0].tools.map((t) => t.function.name);

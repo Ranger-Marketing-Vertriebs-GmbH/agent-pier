@@ -2,7 +2,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { proxyEnvironment } from "../../lib/proxy-environment.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { guardGatedTools, memoryTools } from "./native-capabilities.js";
+import { guardGatedTools, memberTeamTools, memoryTools } from "./native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
@@ -37,6 +37,8 @@ export const teamTools = [
   "agentpier_team_member_routine",
   "agentpier_team_promote",
   "agentpier_team_templates",
+  // Members' own; each agent's entry decides who holds them (profileTools).
+  ...memberTeamTools,
 ];
 
 /**

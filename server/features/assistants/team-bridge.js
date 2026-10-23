@@ -20,7 +20,12 @@ import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
 import { attachmentsAllowed } from "./attachment-access.js";
-import { actions, bridgeTool, routineActions } from "./team-bridge-actions.js";
+import {
+  actions,
+  bridgeTool,
+  memberActions,
+  routineActions,
+} from "./team-bridge-actions.js";
 const active = new Set(["pending", "accepted", "running"]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.
@@ -124,6 +129,8 @@ export class TeamBridge {
       // A memory step calls no bridge tool (memory-step-tools.js).
       memoryStep(this.teams.store?.context(a.requestId)) ||
       parent.runtimeAgentId !== record.agentId ||
+      // A member's own tools: never a lead's or a personal agent's.
+      (!parent.teamMemberId && memberActions.has(record.action)) ||
       // Members reach the workspace bridge (temporary ones only for coding
       // requests, enforced there); personal tools stay with permanent members,
       // apart from what a temporary member inherits from its lead (inheritedAction).
@@ -131,6 +138,7 @@ export class TeamBridge {
         !(
           record.action === "workspace" ||
           record.action === "share_file" ||
+          memberActions.has(record.action) ||
           (["reminder", "routine", "ssh"].includes(record.action) &&
             parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
@@ -166,8 +174,9 @@ export class TeamBridge {
     let bound;
     if (matches.length === 1) bound = { attemptId: matches[0].id };
     else if (!matches.length && routineActions.has(input.action)) {
-      // Only SSH (on hosts granted "incl. routines"), shared files, project folders
-      // and the lead's ask, delegate and members serve a routine's run.
+      // Only SSH (on hosts granted "incl. routines"), shared files, project folders,
+      // the lead's ask, delegate and members, and a member's own tools serve a
+      // routine's run.
       const routine = this.routineRun(input);
       const resumed = !routine && continuation.continuationBinding(this, input);
       if (!routine && !resumed) throw assistantProblem("invalid", 403);
@@ -454,6 +463,8 @@ export class TeamBridge {
       if (action === "share_file")
         return this.assistants.shares.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
+      if (action === "report") return this.teams.reports.report(invocation, input);
+      if (memberActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"
         ? this.assistants.reminders.invoke(invocation, input)
         : this.teams[action](invocation, input);

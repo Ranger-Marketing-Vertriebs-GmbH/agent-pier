@@ -11,7 +11,10 @@ import {
   webToolsSignatures,
   webToolsSnapshot,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
-import { usedCapabilities } from "../../server/features/assistants/native-capabilities.js";
+import {
+  memberTeamTools,
+  usedCapabilities,
+} from "../../server/features/assistants/native-capabilities.js";
 
 const port = 20000;
 const paths = { workspaces: "/data/workspaces", logs: "/data/logs" };
@@ -111,6 +114,10 @@ const nativeAllow = [
   "agentpier_team_member_routine",
   "agentpier_team_promote",
   "agentpier_team_templates",
+  "agentpier_team_peers",
+  "agentpier_team_peer_ask",
+  "agentpier_team_peer_delegate",
+  "agentpier_team_report",
   "memory_search",
   "memory_get",
   "read",
@@ -317,6 +324,10 @@ test("a temporary team member's own capabilities give it no web tools", () => {
   const config = compile([member], webTools());
   assert.deepEqual(agentAllow(config, "ap-m1"), [
     "session_status",
+    "agentpier_team_peers",
+    "agentpier_team_peer_ask",
+    "agentpier_team_peer_delegate",
+    "agentpier_team_report",
     "agentpier_workspace",
     "agentpier_share_file",
   ]);
@@ -330,14 +341,13 @@ test("a temporary team member's own capabilities give it no web tools", () => {
 test("a temporary member uses its lead's web tools without widening the global sections", () => {
   const tools = webTools();
   const config = compile([personal, follower], tools);
-  assert.deepEqual(
-    agentAllow(config, "ap-m2"),
-    agentAllow(config, "ap-a1").filter(
-      (tool) =>
-        !tool.startsWith("agentpier_team_") &&
-        !["write", "edit", "agentpier_routine"].includes(tool),
-    ),
+  // The lead's tools minus its team tools, plus the member's own ones.
+  const [status, ...rest] = agentAllow(config, "ap-a1").filter(
+    (tool) =>
+      !tool.startsWith("agentpier_team_") &&
+      !["write", "edit", "agentpier_routine"].includes(tool),
   );
+  assert.deepEqual(agentAllow(config, "ap-m2"), [status, ...memberTeamTools, ...rest]);
   assert.deepEqual(
     webToolsSections({ profiles: [personal, follower], webTools: tools, port }),
     webToolsSections({ profiles: [personal], webTools: tools, port }),

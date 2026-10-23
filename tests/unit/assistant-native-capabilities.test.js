@@ -6,8 +6,12 @@ import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { validateDefinition } from "../../server/features/assistants/assistant-validation.js";
 import {
+  delegationTools,
+  lockedTools,
+  memberTeamTools,
   personalCapabilities,
   profileTools,
+  routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
@@ -217,4 +221,41 @@ test("an update with only the original capability keys keeps stored new keys", (
     webSearch: true,
   });
   assert.deepEqual(store.getAssistant(a.id).capabilities, next.capabilities);
+});
+
+test("members hold the member tools, leads and user agents never", () => {
+  assert.deepEqual(memberTeamTools, [
+    "agentpier_team_peers",
+    "agentpier_team_peer_ask",
+    "agentpier_team_peer_delegate",
+    "agentpier_team_report",
+  ]);
+  const has = (agent, teamsReady = true) => {
+    const tools = profileTools(agent, teamsReady, true, true);
+    const held = memberTeamTools.filter((tool) => tools.includes(tool));
+    assert.ok(held.length === 0 || held.length === memberTeamTools.length, held);
+    return held.length > 0;
+  };
+  const temporary = { id: "m", teamMemberId: "t", lifetime: "task" };
+  const permanent = { id: "p", teamMemberId: "t", lifetime: "permanent" };
+  assert.equal(has(temporary), true);
+  assert.equal(has(permanent), true);
+  // Each tool exactly once, and never a lead's own team tool beside them.
+  const tools = profileTools(permanent, true, true, true);
+  for (const tool of memberTeamTools)
+    assert.equal(tools.filter((t) => t === tool).length, 1, tool);
+  assert.ok(!tools.some((tool) => delegationTools.includes(tool)));
+  // Not without the team bridge, not once archived, never a lead or a personal agent.
+  assert.equal(has(permanent, false), false);
+  assert.equal(has({ ...permanent, archivedAt: "today" }), false);
+  const lead = { id: "l", capabilities: { memory: true, reminders: true } };
+  assert.equal(has(lead), false);
+  assert.ok(profileTools(lead, true, true, true).includes("agentpier_team_ask"));
+  // A user agent never holds them, whatever it is.
+  assert.equal(has({ ...permanent, userAccess: { mode: "own" } }), false);
+  for (const tool of memberTeamTools) {
+    assert.ok(lockedTools.includes(tool), tool);
+    // A member's routine run reaches them; a lead's allow list never holds them.
+    assert.ok(routineTools.includes(tool), tool);
+  }
 });

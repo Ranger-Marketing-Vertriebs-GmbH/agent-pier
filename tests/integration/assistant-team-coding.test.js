@@ -351,6 +351,11 @@ test("members keep no reminder or routine tools; their memory is their own", asy
   // Their own memory (writes reach only its files, team-bridge.js writeAllowed).
   assert.deepEqual(tools, [
     "session_status",
+    // Their own colleague and report tools, never the lead's team tools.
+    "agentpier_team_peers",
+    "agentpier_team_peer_ask",
+    "agentpier_team_peer_delegate",
+    "agentpier_team_report",
     "memory_search",
     "memory_get",
     "read",
