@@ -368,3 +368,14 @@ test("project moves and collisions cover sftpHosts", async (t) => {
   );
   assert.equal(stored().hosts.length, 0);
 });
+
+test("startup removes password directories without a host", async (t) => {
+  const { dataDir, store, passwords } = fixture(t);
+  const host = await store.create(sftp());
+  const orphan = path.join(passwords, randomUUID());
+  fs.mkdirSync(orphan, { mode: 0o700 });
+  fs.writeFileSync(path.join(orphan, randomUUID()), "left by a crash", { mode: 0o600 });
+  new SshCatalog({ dataDir }).migrate();
+  assert.deepEqual(fs.readdirSync(passwords), [host.id]);
+  assert.equal(store.sftpConnection(host.id).password, "pw-secret");
+});

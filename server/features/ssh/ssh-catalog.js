@@ -6,6 +6,7 @@ import { privateDirectory, readJSON, problem } from "../../lib/storage.js";
 import { writeCatalogSnapshot as writePrivate } from "./ssh-catalog-snapshot.js";
 import { sshPhysicalRoot } from "./ssh-root.js";
 import { SshKeyStore } from "./ssh-key-store.js";
+import { SshPasswordStore } from "./ssh-password-store.js";
 
 const parts = ["keys", "hosts", "receipts", "projects"];
 // Optional parts: releases without them validate only `parts` and keep the rest.
@@ -79,7 +80,12 @@ export class SshCatalog {
     this.recoverArtifacts();
   }
   recoverArtifacts() {
-    const owned = new Set(this.read().keys.map((k) => k.id));
+    const current = this.read();
+    // Passwords are written before a commit; a crash can leave a host's directory.
+    new SshPasswordStore({ root: this.root }).removeOrphans(
+      current.sftpHosts.map((row) => row.id),
+    );
+    const owned = new Set(current.keys.map((k) => k.id));
     for (const part of ["identities", "staging"]) {
       const directory = path.join(this.root, part);
       if (!fs.existsSync(directory)) continue;
