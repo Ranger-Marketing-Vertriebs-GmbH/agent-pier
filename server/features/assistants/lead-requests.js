@@ -99,6 +99,7 @@ export class LeadRequests {
             requestId: r.id,
             type: r.type,
             phase: r.phase,
+            ...(r.fromName ? { from: r.fromName } : {}),
             text: excerpt(r.text, 300),
             ...(r.answer ? { answer: excerpt(r.answer, 2000) } : {}),
           })),
@@ -167,8 +168,11 @@ export class LeadRequests {
       offer,
     });
     if (share && !requestTerminal.has(r.phase)) applyTaskShare(share, r, inv);
+    return this.started(r);
+  }
+  /** A new request: dispatched at once, briefly; the wait counts from the tool call. */
+  async started(r) {
     this.assistants.changed();
-    // Only the new request, and only briefly: the wait counts from the tool call.
     if (r.phase === "queued")
       await Promise.race([
         this.serialized(() => this.dispatch(r.id)).catch(() => {}),
@@ -431,6 +435,7 @@ export class LeadRequests {
           leadAssistantId: r.parentAssistantId,
           leadName: r.leadName,
           display: r.text,
+          ...(r.fromMemberId ? { peer: true, fromName: r.fromName } : {}),
           ...(ownerTelegram(r.origin) ? { telegram: ownerTelegram(r.origin) } : {}),
         },
       );
@@ -517,8 +522,9 @@ export class LeadRequests {
   deliver(id) {
     return deliverRequest(this, id);
   }
-  /** Where a finished request is delivered: the lead's conversation by default. */
+  /** Where a finished request is delivered: a sibling's asker, or the lead's chat. */
   deliveryTarget(r) {
+    if (r.fromMemberId && this.peers) return this.peers.target(r);
     return {
       conversationId: r.parentConversationId,
       clientRequestId: `lead-request-result:${r.id}`,

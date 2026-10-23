@@ -54,7 +54,7 @@ const reasons = {
     "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
   AUTONOMOUS_LIMIT: `You already started ${autonomousCaps.perTurn} questions or tasks for your members on your own in this turn, or ${autonomousCaps.perHour} in the last hour. Do not retry; finish with what you have and tell the owner what is still open. The owner can ask you by name for more.`,
   PEER_TURN:
-    "Questions and tasks for other members are only possible in your own work: the owner's own message, your team assignment, your lead's request or your routine. Reports are not possible in this turn either, except while you handle a member's request; then report it to your lead with agentpier_team_report. Do not retry.",
+    "Questions and tasks for other members are only possible in your own work: the owner's own message, your team assignment, your lead's request or your routine. Reports are not possible in this turn either. Do not retry.",
   PEER_LOOP:
     "You are handling another member's request (or its result), so you cannot ask or hand a task to a member now. Answer with what you have; if more is needed, report it to your lead with agentpier_team_report.",
   PEER_OPEN:

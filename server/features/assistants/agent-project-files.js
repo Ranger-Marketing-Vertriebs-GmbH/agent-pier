@@ -85,11 +85,19 @@ export class AgentProjectFiles {
   }
   /**
    * The levels that apply to a workspace call (AssistantWorkflows.context): a task
-   * member's grant, a lead's task with what the lead shares for it, or the owner's
-   * own turn with the agent's own levels and its lead's standing shares.
+   * member's grant, a lead's task with what the lead shares for it, a sibling's
+   * request or the owner's own turn with the agent's own levels and its lead's
+   * standing shares.
    */
   levels(ctx) {
     if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
+    // A sibling's request (peer-requests.js): the member's own levels and standing
+    // shares, read-only unless the request may write.
+    if (ctx.leadRequest?.peer) {
+      const own = this.ownAndShared(ctx.assistantId);
+      if (!ctx.leadRequest.writable) for (const id in own) own[id] = "read";
+      return own;
+    }
     if (ctx.leadRequest) return this.shared(ctx.assistantId, ctx.leadRequest.id);
     // A lead's follow-up on its member's result: what the owner granted the lead.
     if (ctx.memberResult) return this.held(ctx.assistantId);
@@ -257,7 +265,7 @@ export class AgentProjectFiles {
             ? {
                 leadAssistantId: ctx.leadRequest.leadId,
                 leadRequestId: ctx.leadRequest.id,
-                via: "lead-share",
+                via: ctx.leadRequest.peer ? "peer-request" : "lead-share",
               }
             : !this.held(ctx.assistantId)[projectId] && this.sharedBy(ctx, projectId)),
         },

@@ -41,14 +41,16 @@ export function requestSource(context) {
       sender: { kind: "owner" },
       ...(context.forwarded ? { forwarded: true } : {}),
     };
+  // A sibling's request (peer-requests.js) names its sending member instead.
+  const name = context.fromName ?? context.leadName;
   if (
     context.kind === "lead-request" &&
-    typeof context.leadName === "string" &&
+    typeof name === "string" &&
     typeof context.display === "string"
   )
     return {
       source: "lead",
-      sender: { kind: "agent", name: context.leadName },
+      sender: { kind: "agent", name },
       text: context.display,
     };
   return null;

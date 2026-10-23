@@ -8,7 +8,6 @@ import {
   taskWritable,
 } from "./lead-request-store.js";
 import { editableMember } from "./member-reach.js";
-import { directTurn } from "./memory-write-policy.js";
 import { mainConversation } from "./routine-targets.js";
 
 // A team member's questions and tasks for a sibling of the same lead. They are
@@ -57,8 +56,11 @@ export function peerCaller(service, inv) {
     };
   }
   if (!inv?.routine?.binding || !inv.routine.conversation) throw refused();
+  // The bridge resolves both from the calling agent's own run session
+  // (TeamBridge.routineRun): the routine's chat is its agent's own, never another's.
   const conversation = store.getConversation(inv.routine.conversation.id),
     assistant = store.getAssistant(conversation.assistantId);
+  if (inv.routine.binding.assistantId !== assistant.id) throw refused();
   const { member, lead } = memberOf(service, assistant);
   if (member.lifetime !== "permanent" || assistant.lifetime !== "permanent")
     throw refused();
@@ -100,7 +102,10 @@ export function peerTurn(service, caller) {
     return !r ? null : r.fromMemberId ? "report-only" : "peer";
   }
   if (origin?.kind === "team-member") return "peer";
-  return directTurn(origin, caller.assistant) ? "peer" : null;
+  // The owner's own message (also from his paired Telegram chat), never forwarded.
+  return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded
+    ? "peer"
+    : null;
 }
 
 /**

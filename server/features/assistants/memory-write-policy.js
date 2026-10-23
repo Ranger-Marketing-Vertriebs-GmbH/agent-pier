@@ -165,7 +165,9 @@ const refusalReason = (origin) =>
   memoryStep(origin)
     ? "memory-step"
     : origin?.kind === "lead-request"
-      ? "lead-request"
+      ? origin.peer
+        ? "peer-request"
+        : "lead-request"
       : origin?.forwarded
         ? "forwarded"
         : ["team-member", "user", "unknown"].includes(origin?.kind) || !origin?.kind

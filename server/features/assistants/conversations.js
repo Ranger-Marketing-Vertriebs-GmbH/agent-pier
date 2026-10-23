@@ -87,6 +87,8 @@ const internalKinds = new Set([
   "team-result",
   "coding-result",
   "member-result",
+  // A sibling's answer in the asking member's chat (peer-requests.js).
+  "peer-result",
   "memory-result",
   // The memory step before a summary (memory-write-policy.js memoryStep).
   "memory-step",

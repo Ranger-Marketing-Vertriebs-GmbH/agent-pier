@@ -12,6 +12,8 @@ export const memoryNoteCopy = {
       "Gedächtnis nicht gespeichert: Geplante und automatische Durchläufe können das Gedächtnis nicht ändern.",
     "lead-request":
       "Gedächtnis nicht gespeichert: Aufgaben des leitenden Agenten können das Gedächtnis nicht ändern.",
+    "peer-request":
+      "Gedächtnis nicht gespeichert: Anfragen anderer Teammitglieder können das Gedächtnis nicht ändern.",
     flush:
       "Gedächtnis nicht gespeichert: Die automatische Notiz vor dem Kürzen der Unterhaltung wurde abgelehnt.",
     "memory-step":

@@ -45,3 +45,20 @@ test("delivery waits for the target chat named by deliveryTarget", async (t) => 
     0,
   );
 });
+
+test("a target that cannot be worked out ends as a failed delivery", async (t) => {
+  const f = await lead(t);
+  f.service.requests.waitMs = 0;
+  await ask(f, f.temporary, f.turn());
+  const r = f.requests()[0];
+  f.service.requests.deliveryTarget = () => {
+    throw Error("unreadable");
+  };
+  f.complete(r.attemptId);
+  f.idle();
+  await f.service.reconcile();
+  const failed = f.service.requests.store.get(r.id);
+  assert.equal(failed.delivery, "failed");
+  assert.equal(failed.settled, true);
+  assert.equal(failed.resultDiagnostic, "FOLLOW_UP_FAILED");
+});
