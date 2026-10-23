@@ -74,7 +74,7 @@ async function peerTask(f, from, patch = {}) {
   return { id, inv };
 }
 
-test("a peer task runs with the receiver's standing shares only", async (t) => {
+test("a peer task uses the receiver's own grants and standing shares, never a task's share", async (t) => {
   const f = await leadShareFixture(t);
   const from = await sibling(f);
   const project = f.folderProject.id;
@@ -140,6 +140,51 @@ test("a peer task runs with the receiver's standing shares only", async (t) => {
   );
   const own = await peerTask(f, from);
   assert.equal((await f.call(own.inv, { action: "files_list" })).access, "read");
+});
+
+test("a peer task a writable lead task started reaches only the lead's standing shares", async (t) => {
+  const f = await leadShareFixture(t);
+  const from = await sibling(f);
+  const project = f.folderProject.id;
+  // The receiver holds the folder itself, as the owner granted it.
+  f.workflows.access.save(
+    f.member.assistantId,
+    { ...f.policy, projectIds: [project], projectFiles: { [project]: "write" } },
+    f.workflows.access.get(f.member.assistantId).revision,
+  );
+  const writes = (kind) => ({
+    writeAllowed: true,
+    peerWrites: {
+      kind,
+      ...(kind === "routine" ? { bindingId: "b" } : { requestId: "r" }),
+    },
+  });
+  const done = (task) => f.teams.write(f.teams.get(task.id), { phase: "completed" });
+  // From the lead's task: the receiver's own grant does not count, as in the lead's.
+  const laundered = await peerTask(f, from, writes("lead-task"));
+  await assert.rejects(
+    f.call(laundered.inv, { action: "files_list" }),
+    code("PROJECT_NOT_GRANTED"),
+  );
+  assert.deepEqual((await f.call(laundered.inv, { action: "catalog" })).projects, []);
+  // Only the lead's standing share, at its level.
+  await f.share({ grants: { projects: { [project]: "read" } } });
+  assert.equal((await f.call(laundered.inv, { action: "files_list" })).access, "read");
+  done(laundered);
+  // From the owner's own turn or a routine: the receiver's own grant writes.
+  for (const kind of ["owner", "routine"]) {
+    const task = await peerTask(f, from, writes(kind));
+    assert.equal(
+      (await f.call(task.inv, { action: "file_write", path: `${kind}.md`, content: "x" }))
+        .created,
+      true,
+      kind,
+    );
+    done(task);
+  }
+  // A question (never writing, whatever turn asked it) reads the receiver's own folder.
+  const question = await peerTask(f, from, { type: "question" });
+  assert.equal((await f.call(question.inv, { action: "files_list" })).access, "read");
 });
 
 test("a writable peer task writes the receiver's workspace, never its memory", async (t) => {

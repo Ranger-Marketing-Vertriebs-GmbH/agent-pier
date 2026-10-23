@@ -142,16 +142,23 @@ function leadRequestContext(w, chat, attempt, req, origin) {
       id: r.id,
       leadId: r.parentAssistantId,
       writable: taskWritable(r),
-      // A sibling's request: the member's own access, never a share for a task.
-      ...(r.fromMemberId ? { peer: true } : {}),
+      // A sibling's request: never a share for a task. One a writable lead task
+      // started reaches only the lead's standing shares, as the lead's own would.
+      ...(r.fromMemberId
+        ? { peer: true, sharesOnly: r.peerWrites?.kind === "lead-task" }
+        : {}),
     },
     ...(telegram ? { telegram } : {}),
   };
 }
 
-// A task of the lead only: what the lead shares with it, standing or for this task.
-const leadTask = (ctx) => !!ctx.leadRequest && !ctx.leadRequest.peer;
-const shareScope = (ctx) => ({ requestId: leadTask(ctx) ? ctx.leadRequest.id : null });
+// A task of the lead (and a sibling's request it started) uses only what the lead
+// shares; a lead task's own share counts in that task alone.
+const leadTask = (ctx) =>
+  !!ctx.leadRequest && (!ctx.leadRequest.peer || ctx.leadRequest.sharesOnly);
+const shareScope = (ctx) => ({
+  requestId: ctx.leadRequest && !ctx.leadRequest.peer ? ctx.leadRequest.id : null,
+});
 
 /**
  * The project a call works on, under the agent's own grant or, failing that, a

@@ -60,7 +60,12 @@ test("a slow answer arrives as a hidden peer-result turn in the asker's chat", a
   assert.ok(followUp, "delivered to the asker");
   assert.match(followUp.text, /^Answer from "Member 2" to your question/);
   assert.match(followUp.text, /"answer":"Result from member"/);
-  assert.match(followUp.text, /agentpier_team_report/);
+  assert.match(followUp.text, /cannot change files or memory/);
+  assert.match(
+    followUp.text,
+    /report the outcome to your lead with agentpier_team_report/,
+  );
+  assert.ok(!followUp.text.includes("file the outcome"));
   assert.equal(f.service.store.context(followUp.id).kind, "peer-result");
   assert.equal(f.service.store.context(followUp.id).requestId, r.id);
   const stored = f.service.requests.store.get(r.id);
@@ -135,11 +140,13 @@ test("the receiver sees only the question, attributed to the sender", async (t) 
   assert.match(taskPrompt, /It runs read-only\./);
 });
 
-test("a result for an archived asker or with resultTo lead goes to the lead's main chat once", async (t) => {
-  for (const gone of ["resultTo", "member", "agent", "chat"]) {
+test("a result for an archived or ended asker or with resultTo lead goes to the lead's main chat once", async (t) => {
+  for (const gone of ["resultTo", "member", "agent", "chat", "ended"]) {
     const f = await peers(t);
     f.service.requests.waitMs = 0;
-    const inv = f.memberTurn(f.permanent);
+    // An ended temporary member's results go to its lead as well.
+    const asker = gone === "ended" ? f.temporary : f.permanent;
+    const inv = f.memberTurn(asker);
     const result =
       gone === "resultTo"
         ? await peerDelegate(f, inv, f.second, { resultTo: "lead" })
@@ -162,21 +169,40 @@ test("a result for an archived asker or with resultTo lead goes to the lead's ma
     const toLead = sent(f, f.chat.id, `lead-request-result:${r.id}`);
     assert.equal(toLead.length, 1, gone);
     assert.equal(f.service.store.context(toLead[0].id).kind, "member-result", gone);
-    assert.match(toLead[0].text, /"Member 1" → "Member 2"/, gone);
+    const name = f.store.getAssistant(asker.assistantId).name;
+    assert.ok(toLead[0].text.includes(`"${name}" → "Member 2"`), gone);
     assert.match(
       toLead[0].text,
       gone === "resultTo" ? /asked for the result to go to you/ : /could not be reached/,
       gone,
     );
-    assert.equal(
-      sent(f, chatOf(f, f.permanent), `peer-request-result:${r.id}`).length,
-      0,
-    );
+    assert.equal(sent(f, chatOf(f, asker), `peer-request-result:${r.id}`).length, 0);
     assert.equal(f.service.requests.store.get(r.id).deliveredTo, "lead", gone);
     f.idle();
     await f.service.reconcile();
     assert.equal(sent(f, f.chat.id, `lead-request-result:${r.id}`).length, 1, gone);
   }
+});
+
+test("a lead without a main chat at creation gets the result once it has one", async (t) => {
+  const f = await peers(t);
+  f.store.updateConversation(f.chat.id, { archivedAt: new Date().toISOString() });
+  const result = await peerDelegate(f, f.memberTurn(f.permanent), f.second, {
+    resultTo: "lead",
+  });
+  const r = f.service.requests.store.get(result.requestId);
+  assert.equal(r.parentConversationId, null);
+  f.complete(r.attemptId);
+  f.settle();
+  await f.service.reconcile();
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(r.id).delivery, null, "waits for a chat");
+  f.store.updateConversation(f.chat.id, { archivedAt: null });
+  await f.service.reconcile();
+  f.idle();
+  await f.service.reconcile();
+  assert.equal(sent(f, f.chat.id, `lead-request-result:${r.id}`).length, 1);
+  assert.equal(f.service.requests.store.get(r.id).deliveredTo, "lead");
 });
 
 test("two members asking each other wait, time out to asked, and both get answers", async (t) => {

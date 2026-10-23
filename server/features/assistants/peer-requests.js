@@ -1,5 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { editableMember } from "./member-reach.js";
+import { editableMember, memberEnded } from "./member-reach.js";
+import { mainConversation } from "./routine-targets.js";
 import { peerFollowUp, peerLeadFollowUp } from "./lead-request-text.js";
 import { createPeerRequest, peerCaller, peerTarget } from "./peer-request-rules.js";
 
@@ -63,12 +64,14 @@ export class PeerRequests {
   }
   /**
    * Whether the asking member can still take its answer: member, agent and chat not
-   * archived, and still a member its lead could edit.
+   * archived, still a member its lead could edit, and not a temporary member whose
+   * task ended (its servers are gone; the lead takes the result instead).
    */
   reachable(r) {
     try {
       const sender = this.teams.find(r.fromMemberId);
       if (!sender || !editableMember(sender, r.parentAssistantId)) return false;
+      if (sender.lifetime !== "permanent" && memberEnded.has(sender.phase)) return false;
       const store = this.assistants.store;
       if (store.getAssistant(r.fromAssistantId).archivedAt) return false;
       const chat = store.getConversation(r.fromConversationId);
@@ -90,8 +93,10 @@ export class PeerRequests {
         record: { deliveredTo: "member" },
       };
     // The lead acts on it like on any member result (member-result-writes.js).
+    // The lead's main chat as it is now: one opened after the request still counts.
     return {
-      conversationId: r.parentConversationId,
+      conversationId:
+        mainConversation(this.assistants.store, r.parentAssistantId)?.id ?? null,
       clientRequestId: `lead-request-result:${r.id}`,
       text: peerLeadFollowUp(full),
       context: { kind: "member-result", requestId: r.id },
