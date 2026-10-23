@@ -6,6 +6,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 import { RunStore } from "../../server/features/pipelines/run-store.js";
 import { dismissalTable } from "../../server/features/assistants/long-chats.js";
+import { memberLongChatTable } from "../../server/features/assistants/member-long-chats.js";
 
 // Private content beside the histories (AGENTPIER-110): agent chats, channel
 // messages, workspaces and attachments, pipeline history and unpinned artifacts.
@@ -108,6 +109,11 @@ export function privateContentFixture(t) {
   store.db
     .prepare("INSERT INTO assistant_long_chat_dismissals VALUES (?,?,?,?)")
     .run("c1", "owner", 150000, "2026-10-21T10:00:00.000Z");
+  // So is the size a lead was told a member's task chat had.
+  store.db.exec(memberLongChatTable);
+  store.db
+    .prepare("INSERT INTO assistant_member_long_chats VALUES (?,?,?,?,?,?,?,?)")
+    .run("c1", "m1", 150000, 200000, "sent", 0, 0, "2026-10-21T10:00:00.000Z");
   store.close();
   writeAssistantFeature(dataDir, { enabled: true });
   const channels = new DatabaseSync(path.join(assistants, "channels.sqlite"));

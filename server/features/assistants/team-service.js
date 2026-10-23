@@ -6,6 +6,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { decideAudited } from "./approval-audit.js";
 import { assertWired } from "./service-wiring.js";
 import { TeamMcpBindings } from "./team-mcp.js";
+import { MemberLongChats } from "./member-long-chats.js";
 import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
@@ -122,6 +123,8 @@ export class TeamService {
     this.mcp = new TeamMcpBindings({ teams: store, assistants });
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     this.requests = new LeadRequests({ teams: store, service: this });
+    // Leads hear when a member's task chat grows long (member-long-chats.js).
+    this.memberLongChats = new MemberLongChats({ teams: store, assistants });
     this.grants = new MemberGrants({
       teams: store,
       assistants,
@@ -539,6 +542,7 @@ export class TeamService {
       : this.scheduler
           .tick()
           .finally(() => this.requests.advance())
+          .finally(() => this.memberLongChats.tick())
           // Lead routines whose lead or member left end for good (lead-routines.js).
           .finally(() => this.assistants.routines?.lead?.prune());
   }
