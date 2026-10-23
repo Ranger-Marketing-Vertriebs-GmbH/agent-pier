@@ -87,6 +87,7 @@ export async function startSftpServer({
   users = { deploy: { password: "pw-secret" } },
   keyboardInteractive = false,
   chroot = true,
+  posixRename = true,
 } = {}) {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-sftp-")),
@@ -174,8 +175,9 @@ export async function startSftpServer({
           failures.delete(op);
           return sftp.status(reqid, status);
         }
+        // Like many servers, the status text names the path that failed.
         Promise.resolve(handler(reqid, ...args)).catch((error) =>
-          sftp.status(reqid, fsStatus(error)),
+          sftp.status(reqid, fsStatus(error), String(error?.message || "")),
         );
       });
 
@@ -275,7 +277,7 @@ export async function startSftpServer({
       sftp.name(reqid, [{ filename: target, longname: "", attrs: {} }]);
     });
     on("EXTENDED", async (reqid, name, data) => {
-      if (name !== "posix-rename@openssh.com")
+      if (!posixRename || name !== "posix-rename@openssh.com")
         return sftp.status(reqid, STATUS_CODE.OP_UNSUPPORTED);
       const [from, to] = readStrings(data);
       await fs.rename(local(from), local(to));
@@ -295,7 +297,7 @@ export async function startSftpServer({
     client.on("session", (accept) => {
       accept().on("sftp", (acceptSftp) => {
         const sftp = acceptSftp();
-        advertisePosixRename(sftp);
+        if (posixRename) advertisePosixRename(sftp);
         serve(client, sftp, username);
       });
     });

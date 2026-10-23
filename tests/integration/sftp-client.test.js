@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { openSftp } from "../../server/features/sftp/sftp-client.js";
 import { sftpProblem } from "../../server/features/sftp/sftp-errors.js";
 import { sshKeyPair, startSftpServer } from "../helpers/sftp-server.js";
@@ -190,6 +193,73 @@ test("abort signal closes the session", async (t) => {
   await assert.rejects(session(t, fixture, {}, { signal: aborted.signal }), {
     code: "SFTP_CANCELLED",
   });
+});
+
+test("without posix-rename, overwrite replaces a file with a plain rename", async (t) => {
+  const fixture = await server(t, { posixRename: false });
+  await fs.writeFile(path.join(fixture.root, "upload.part"), "new");
+  await fs.writeFile(path.join(fixture.root, "index.html"), "old");
+  await fs.writeFile(path.join(fixture.root, "fresh.part"), "fresh");
+  const sftp = await session(t, fixture);
+  await sftp.rename("/upload.part", "/index.html", { overwrite: true });
+  assert.equal(await fs.readFile(path.join(fixture.root, "index.html"), "utf8"), "new");
+  assert.equal(await sftp.lstat("/upload.part"), null);
+  await sftp.rename("/fresh.part", "/fresh.txt", { overwrite: true });
+  assert.equal(await fs.readFile(path.join(fixture.root, "fresh.txt"), "utf8"), "fresh");
+  assert.ok(!fixture.ops().includes("posix-rename@openssh.com"));
+  assert.ok(fixture.ops().includes("RENAME"));
+});
+
+test("overwrite never replaces a directory or a link", async (t) => {
+  for (const posixRename of [false, true]) {
+    const fixture = await server(t, { posixRename });
+    await fs.writeFile(path.join(fixture.root, "file.part"), "new");
+    await fs.mkdir(path.join(fixture.root, "site"));
+    await fs.writeFile(path.join(fixture.root, "site/keep.txt"), "keep");
+    await fs.writeFile(path.join(fixture.root, "real.txt"), "real");
+    await fs.symlink("real.txt", path.join(fixture.root, "link.txt"));
+    const sftp = await session(t, fixture);
+    const refused = posixRename ? "SFTP_FAILED" : "SFTP_TYPE_CONFLICT";
+    await assert.rejects(sftp.rename("/file.part", "/site", { overwrite: true }), {
+      code: refused,
+    });
+    assert.equal(
+      await fs.readFile(path.join(fixture.root, "site/keep.txt"), "utf8"),
+      "keep",
+    );
+    if (!posixRename)
+      await assert.rejects(sftp.rename("/file.part", "/link.txt", { overwrite: true }), {
+        code: "SFTP_TYPE_CONFLICT",
+      });
+    assert.equal(await fs.readlink(path.join(fixture.root, "link.txt")), "real.txt");
+    assert.equal(await fs.readFile(path.join(fixture.root, "file.part"), "utf8"), "new");
+  }
+});
+
+test("stream errors carry only the bare code", async (t) => {
+  const fixture = await server(t);
+  const sftp = await session(t, fixture);
+  const error = await (async () => {
+    for await (const chunk of sftp.readStream("/missing dir/secret.txt"))
+      assert.ok(chunk);
+  })().catch((caught) => caught);
+  assert.equal(error.code, "SFTP_NOT_FOUND");
+  assert.equal(error.status, 404);
+  assert.equal(error.message, "SFTP_NOT_FOUND");
+  for (const text of [String(error), String(error.stack), JSON.stringify(error)]) {
+    assert.ok(!text.includes("secret.txt"));
+    assert.ok(!text.includes(fixture.root));
+  }
+});
+
+test("the client loads in an eval process like the release smoke check", async () => {
+  const client = pathToFileURL(path.resolve("server/features/sftp/sftp-client.js")).href;
+  const { stdout } = await promisify(execFile)(process.execPath, [
+    "--input-type=module",
+    "-e",
+    `const m = await import(${JSON.stringify(client)}); console.log(typeof m.openSftp);`,
+  ]);
+  assert.equal(stdout.trim(), "function");
 });
 
 test("rename overwrite uses posix-rename", async (t) => {
