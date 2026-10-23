@@ -36,42 +36,42 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.goto("/sessions/fixture-session/chat");
       const groups = page.locator(".chat-tool-group");
       await expect(groups).toHaveCount(2);
-      await expect(groups.first().locator(":scope > summary")).toContainText(
+      await expect(groups.first().locator(":scope > .activity-row-head")).toContainText(
         locale === "de-DE" ? "3 Aufrufe" : "3 calls",
       );
-      await expect(groups.first().locator(":scope > summary")).toContainText(
+      await expect(groups.first().locator(":scope > .activity-row-head")).toContainText(
         locale === "de-DE" ? "1 fehlgeschlagen" : "1 failed",
       );
-      await expect(groups.last().locator(":scope > summary")).toContainText(
-        locale === "de-DE" ? "Agent arbeitet" : "Agent is working",
+      await expect(groups.last().locator(":scope > .activity-row-head")).toContainText(
+        locale === "de-DE" ? "Läuft" : "Running",
       );
-      await expect(groups.last().locator(".tool-group-spinner")).toHaveCount(1);
+      await expect(groups.last()).toHaveAttribute("data-running", "true");
       await expect(groups.first().locator(".chat-tool").first()).not.toBeVisible();
-      await groups.first().locator(":scope > summary").focus();
+      await groups.first().locator(":scope > .activity-row-head").focus();
       await page.keyboard.press("Enter");
       await groups.first().locator(".chat-tool summary").first().click();
       await expect(groups.first().locator("pre").first()).toBeVisible();
       data.messages.push(command("fifth", "running"));
       await publish();
-      await expect(groups.last().locator(":scope > summary")).toContainText(
+      await expect(groups.last().locator(":scope > .activity-row-head")).toContainText(
         locale === "de-DE" ? "2 Aufrufe" : "2 calls",
       );
-      await expect(groups.first()).toHaveAttribute("open", "");
+      await expect(groups.first()).toHaveAttribute("data-open", "true");
       await expect(groups.first().locator(".chat-tool").first()).toHaveAttribute(
         "open",
         "",
       );
       data.observability = { stale: true };
       await publish();
-      await expect(page.locator(".tool-group-spinner")).toHaveCount(0);
+      await expect(page.locator(".chat-tool-group[data-running]")).toHaveCount(0);
       data.observability = { stale: false };
       data.messages[5].status = "completed";
       data.messages[6].status = "completed";
       data.messages.push({ id: "done", role: "assistant", text: "Checks complete." });
       await publish();
-      await expect(page.locator(".tool-group-spinner")).toHaveCount(0);
+      await expect(page.locator(".chat-tool-group[data-running]")).toHaveCount(0);
       await expect(groups).toHaveCount(2);
-      await groups.first().locator(":scope > summary").click();
+      await groups.first().locator(":scope > .activity-row-head").click();
       await page.screenshot({ path: test.info().outputPath("grouped-tools.png") });
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -83,7 +83,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       );
       await publish();
       await expect(groups).toHaveCount(3);
-      await expect(groups.nth(1).locator(":scope > summary")).toContainText(
+      await expect(groups.nth(1).locator(":scope > .activity-row-head")).toContainText(
         locale === "de-DE" ? "3 Aufrufe" : "3 calls",
       );
       // A new native history must not inherit disclosure state from the old one.
@@ -94,7 +94,7 @@ for (const locale of ["de-DE", "en-GB"]) {
       ];
       await publish();
       await expect(groups).toHaveCount(1);
-      await expect(groups.first()).not.toHaveAttribute("open");
+      await expect(groups.first()).not.toHaveAttribute("data-open");
     });
   });
 }
@@ -120,8 +120,8 @@ test.describe("en-GB", () => {
     await page.goto("/sessions/fixture-session/chat");
     const groups = page.locator(".chat-tool-group");
     await expect(groups).toHaveCount(1);
-    await groups.first().locator(":scope > summary").click();
-    await expect(groups.first()).toHaveAttribute("open", "");
+    await groups.first().locator(":scope > .activity-row-head").click();
+    await expect(groups.first()).toHaveAttribute("data-open", "true");
     await expect(groups.first().locator(".chat-tool summary").nth(1)).toContainText(
       "Details",
     );
@@ -133,11 +133,13 @@ test.describe("en-GB", () => {
     await publish();
     await expect(page.locator(".chat-messages")).toContainText("Older prompt");
     await expect(groups).toHaveCount(1);
-    await expect(groups.first().locator(":scope > summary")).toContainText("3 calls");
-    await expect(groups.first()).toHaveAttribute("open", "");
+    await expect(groups.first().locator(":scope > .activity-row-head")).toContainText(
+      "3 calls",
+    );
+    await expect(groups.first()).toHaveAttribute("data-open", "true");
     data.messages.push(command("appended", "running"));
     await publish();
     await expect(groups).toHaveCount(2);
-    await expect(groups.first()).toHaveAttribute("open", "");
+    await expect(groups.first()).toHaveAttribute("data-open", "true");
   });
 });

@@ -2,6 +2,8 @@ import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React, { useRef } from "react";
 import Message from "./ChatMessage.jsx";
 import { chatMessageCopy as copy } from "../../lib/i18n/messages/chat.js";
+import ActivityGroup from "../../components/ActivityGroup.jsx";
+import { toolSummary } from "../../components/activity-group.js";
 import "./tool-groups.css";
 
 /**
@@ -68,37 +70,29 @@ export default function ChatTranscript({
       live &&
       index === groups.length - 1 &&
       group.tools.some((message) => message.status === "running");
-    const failures = group.tools.filter((message) => message.status === "failed").length;
+    const failed = group.tools.filter((message) => message.status === "failed").length;
     return (
-      <details
+      <ActivityGroup
         className="chat-tool-group"
         key={group.key}
         data-message-id={group.tools[0].id}
+        count={group.tools.length}
+        summary={toolSummary(
+          group.tools.map((message) => message.toolName || copy.chatToolLabel),
+        )}
+        failed={failed}
+        running={running}
+        done={group.tools.every((message) => message.status === "completed")}
       >
-        <summary>
-          <span className="tool-group-chevron" aria-hidden="true">
-            ›
-          </span>
-          {running && <span className="tool-group-spinner" aria-hidden="true" />}
-          <span className="tool-group-title">
-            {running ? copy.agentWorking : copy.agentActivity}
-          </span>
-          <span className="tool-group-count">{copy.toolCount(group.tools.length)}</span>
-          {failures > 0 && (
-            <span className="tool-group-failures">{copy.toolFailures(failures)}</span>
-          )}
-        </summary>
-        <div className="tool-group-content">
-          {group.tools.map((message) => (
-            <Message
-              key={message.id}
-              message={message}
-              subagentsLive={subagentsLive}
-              {...props}
-            />
-          ))}
-        </div>
-      </details>
+        {group.tools.map((message) => (
+          <Message
+            key={message.id}
+            message={message}
+            subagentsLive={subagentsLive}
+            {...props}
+          />
+        ))}
+      </ActivityGroup>
     );
   });
 }

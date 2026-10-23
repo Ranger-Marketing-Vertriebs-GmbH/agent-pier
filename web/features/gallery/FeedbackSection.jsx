@@ -1,4 +1,5 @@
 import React from "react";
+import ActivityGroup from "../../components/ActivityGroup.jsx";
 import ActivityRow from "../../components/ActivityRow.jsx";
 import CodeBlock from "../../components/CodeBlock.jsx";
 import CopyButton from "../../components/CopyButton.jsx";
@@ -94,6 +95,21 @@ export default function FeedbackSection() {
         >
           <p className="activity-row-note">{s.activityBody}</p>
         </ActivityRow>
+      </Specimen>
+      <Specimen label="ActivityGroup" wide>
+        <ActivityGroup count={3} summary={s.activityHost} failed={1}>
+          {[s.chipOk, s.chipError, s.chipOk].map((status, index) => (
+            <ActivityRow
+              key={index}
+              label={s.activityLabel}
+              detail={s.activityCommand}
+              status={status}
+              tone={status === s.chipOk ? "ok" : "error"}
+            >
+              <p className="activity-row-note">{s.activityBody}</p>
+            </ActivityRow>
+          ))}
+        </ActivityGroup>
       </Specimen>
       <Specimen label="Pagination" wide>
         <Pagination paging={paging} label={s.pagination} />

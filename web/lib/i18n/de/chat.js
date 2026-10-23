@@ -56,11 +56,7 @@ export const chatMessageCopy = {
   moreOutput: "Mehr anzeigen",
   collapseOutput: "Auf acht Zeilen kürzen",
 
-  agentWorking: "Agent arbeitet",
   replyStreaming: "schreibt …",
-  agentActivity: "Agent-Aktivität",
-  toolCount: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
-  toolFailures: (count) => `${count} fehlgeschlagen`,
   chatToolLabel: "Tool-Aktivität",
   shellOutputLabel: "Shell-Ausgabe",
   shellOutputOmitted: (size) => `Ältere Ausgabe ausgelassen (${size})`,

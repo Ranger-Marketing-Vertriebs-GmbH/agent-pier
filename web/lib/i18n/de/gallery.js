@@ -82,6 +82,7 @@ export const galleryCopy = {
     activityLabel: "Shell",
     activityCommand: "systemctl restart web && journalctl -u web -n 50 --no-pager",
     activityBody: "Der aufgeklappte Inhalt zeigt die Details.",
+    activityHost: "web-01",
     pageItem: (number) => `Eintrag ${number}`,
     pagination: "Beispielliste",
     chipOk: "Fertig",

@@ -27,7 +27,7 @@ function transcript() {
 
 async function openTools(page) {
   await page.goto("/sessions/fixture-session/chat");
-  await page.locator(".chat-tool-group > summary").click();
+  await page.locator(".chat-tool-group > .activity-row-head").click();
   return page.locator(".chat-tool");
 }
 
