@@ -58,7 +58,7 @@ export class ProjectDuplicates {
       entries: entries.active,
       archivedEntries: entries.archived,
       capabilities: memory.capabilityCount(olderId),
-      sshAccess: [...catalog.keys, ...catalog.hosts].filter(
+      sshAccess: [...catalog.keys, ...catalog.hosts, ...catalog.sftpHosts].filter(
         (row) => row.projectId === olderId,
       ).length,
       artifacts: Object.values(artifacts.store.state.records).filter(

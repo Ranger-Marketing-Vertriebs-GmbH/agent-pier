@@ -52,4 +52,14 @@ export const ssh = Object.freeze({
   interactiveSessionsOnly:
     "SSH-Zugänge können nur laufenden interaktiven Sessions zugeordnet werden.",
   unknownManagementAction: "Unbekannte SSH-Verwaltungsaktion.",
+  passwordRequired: "Für die Anmeldung per Passwort ist ein Passwort erforderlich.",
+  passwordNotAllowed: "Dieser Zugang verwendet kein Passwort.",
+  invalidPassword:
+    "Das Passwort muss 1 bis 1024 Bytes lang sein und darf keine Zeilenumbrüche enthalten.",
+  passwordUnavailable: "Das gespeicherte SFTP-Passwort ist nicht verfügbar.",
+  invalidRemoteRoot:
+    "Der erlaubte Remote-Ordner muss ein absoluter Pfad ohne „..“ und ohne Steuerzeichen sein.",
+  hostTypeFixed: "Der Typ eines Hosts kann nicht geändert werden.",
+  sftpOnly: "Dieser Host ist nur für SFTP eingerichtet.",
+  invalidAuth: "Für SFTP bitte Passwort oder Schlüssel als Anmeldung wählen.",
 });

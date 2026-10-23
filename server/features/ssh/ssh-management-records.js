@@ -13,7 +13,9 @@ export function normalizedEndpoint(input) {
 }
 export const hostTuple = (host) => {
   const value = normalizedEndpoint(host);
-  return JSON.stringify([value.host, value.port, value.username]);
+  // An SFTP host may share host, port and user with an SSH host.
+  const tuple = [value.host, value.port, value.username];
+  return JSON.stringify(host.type === "sftp" ? [...tuple, "sftp"] : tuple);
 };
 export function projectKey(store, keyId, projectId) {
   let key;
@@ -89,7 +91,9 @@ export function trustedHostNow(store, grants, session, input, projectId) {
 
 export function ownsProjectAccess(catalog, projectId) {
   const current = catalog.read();
-  return [...current.keys, ...current.hosts].some((row) => row.projectId === projectId);
+  return [...current.keys, ...current.hosts, ...current.sftpHosts].some(
+    (row) => row.projectId === projectId,
+  );
 }
 /**
  * Moves a plain-directory project that became a Git work tree to its Git scope.
@@ -100,7 +104,7 @@ export function adoptProject(catalog, fromProjectId, target) {
   const current = catalog.read();
   const moved = (row) =>
     row.projectId === fromProjectId ? { ...row, projectId: target.id } : row;
-  for (const part of ["keys", "hosts", "receipts"])
+  for (const part of ["keys", "hosts", "sftpHosts", "receipts"])
     catalog.replacePart(part, current[part].map(moved));
   const previous = current.projects.filter(
     (row) => row.id === fromProjectId || row.id === target.id,
@@ -118,7 +122,8 @@ export function moveProject(catalog, fromProjectId, target) {
   const current = catalog.read();
   if (fromProjectId === target.id) return { ok: true };
   const keys = current.keys.filter((row) => row.projectId === fromProjectId);
-  const hosts = current.hosts.filter((row) => row.projectId === fromProjectId);
+  const allHosts = [...current.hosts, ...current.sftpHosts];
+  const hosts = allHosts.filter((row) => row.projectId === fromProjectId);
   if (
     !current.projects.some((row) => row.id === fromProjectId) &&
     !keys.length &&
@@ -130,7 +135,7 @@ export function moveProject(catalog, fromProjectId, target) {
       404,
     );
   const targetKeys = current.keys.filter((row) => row.projectId === target.id);
-  const targetHosts = current.hosts.filter((row) => row.projectId === target.id);
+  const targetHosts = allHosts.filter((row) => row.projectId === target.id);
   const collisions = new Set();
   for (const [sources, targets, identity] of [
     [keys, targetKeys, (row) => row.publicKey],
@@ -162,12 +167,13 @@ export function moveProject(catalog, fromProjectId, target) {
       row.projectId === fromProjectId ? { ...row, projectId: target.id } : row,
     ),
   );
-  catalog.replacePart(
-    "hosts",
-    current.hosts.map((row) =>
-      row.projectId === fromProjectId ? { ...row, projectId: target.id } : row,
-    ),
-  );
+  for (const part of ["hosts", "sftpHosts"])
+    catalog.replacePart(
+      part,
+      current[part].map((row) =>
+        row.projectId === fromProjectId ? { ...row, projectId: target.id } : row,
+      ),
+    );
   catalog.replacePart(
     "receipts",
     current.receipts.map((row) =>

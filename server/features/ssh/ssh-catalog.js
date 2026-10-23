@@ -8,18 +8,20 @@ import { sshPhysicalRoot } from "./ssh-root.js";
 import { SshKeyStore } from "./ssh-key-store.js";
 
 const parts = ["keys", "hosts", "receipts", "projects"];
+// Optional parts: releases without them validate only `parts` and keep the rest.
+const optionalParts = ["sftpHosts"];
+const hostParts = ["keys", "hosts", "sftpHosts"];
 export const SSH_CATALOG_LIMIT = 16 * 1024 * 1024;
 function deletionOnly(before, after) {
+  const rows = (catalog) => hostParts.flatMap((part) => catalog[part]);
   const removed = new Set(
-    [...before.keys, ...before.hosts]
-      .filter(
-        (row) => ![...after.keys, ...after.hosts].some((next) => next.id === row.id),
-      )
+    rows(before)
+      .filter((row) => !rows(after).some((next) => next.id === row.id))
       .map((row) => row.id),
   );
   if (!removed.size) return false;
   const expected = structuredClone(before);
-  for (const part of ["keys", "hosts"])
+  for (const part of hostParts)
     expected[part] = expected[part].filter((row) => !removed.has(row.id));
   expected.receipts = expected.receipts.map((r) =>
     [r.resourceId, r.keyId, r.accessId].some((id) => removed.has(id))
@@ -42,9 +44,11 @@ export class SshCatalog {
     if (
       !snapshot ||
       snapshot.version !== 1 ||
-      parts.some((p) => !Array.isArray(snapshot[p]))
+      parts.some((p) => !Array.isArray(snapshot[p])) ||
+      optionalParts.some((p) => snapshot[p] !== undefined && !Array.isArray(snapshot[p]))
     )
       throw problem(serverMessages.ssh.catalogUnavailable, 503);
+    for (const part of optionalParts) snapshot[part] ??= [];
     return snapshot;
   }
   migrate() {
@@ -91,7 +95,11 @@ export class SshCatalog {
 
   replacePart(name, rows) {
     const transaction = this.context.getStore();
-    if (!transaction || !parts.includes(name) || !Array.isArray(rows))
+    if (
+      !transaction ||
+      ![...parts, ...optionalParts].includes(name) ||
+      !Array.isArray(rows)
+    )
       throw problem("SSH catalog mutation requires a transaction.", 503);
     transaction.draft[name] = structuredClone(rows);
   }
