@@ -38,6 +38,7 @@ test("mobile consent requires explicit resources and excludes publication by def
     page.getByRole("heading", { name: "Zugriff freigeben", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Veröffentlichen", { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel("Testprojekt", { exact: true })).toHaveCount(1);
   await expect(page.getByLabel("Testprojekt", { exact: true })).not.toBeChecked();
   await page.getByLabel("Testprojekt", { exact: true }).check();
   await page.getByLabel("Testkonto", { exact: true }).check();

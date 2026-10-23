@@ -48,7 +48,16 @@ export async function mcpFixture(page) {
         mcpUrl: state.available ? state.mcpUrl : null,
         scopes,
         resources: {
-          projects: [{ id: "project-one", name: "Testprojekt" }],
+          // An older row of the same folder: the consent page lists the folder once.
+          projects: [
+            { id: "project-one", name: "Testprojekt" },
+            {
+              id: "project-older",
+              name: "Testprojekt",
+              duplicateOf: "project-one",
+              pipelineWork: false,
+            },
+          ],
           accounts: [{ id: "account-one", name: "Testkonto" }],
           connections: [{ id: "connection-one", name: "Testanbieter" }],
         },
