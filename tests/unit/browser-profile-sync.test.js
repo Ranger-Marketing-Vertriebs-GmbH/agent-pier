@@ -91,3 +91,30 @@ test("without a compiled browser or a ready Gateway nothing is written", async (
   assert.deepEqual(await stopped.sync.sync(), []);
   assert.deepEqual(stopped.patches(), []);
 });
+
+test("concurrent applies run one at a time and never share a CDP port", async () => {
+  const agents = { list: [agent("a")] };
+  const f = fixture(agents);
+  // Each config write takes a moment, as over the Gateway connection.
+  const call = f.runtime.client.call;
+  f.runtime.client.call = async (method, params) => {
+    await new Promise((r) => setTimeout(r, 5));
+    return call(method, params);
+  };
+  agents.list = [agent("a"), agent("b")];
+  const first = f.sync.sync();
+  agents.list = [agent("a"), agent("b"), agent("c")];
+  const second = f.sync.sync();
+  assert.ok((await first).includes("agent-b"));
+  await second;
+  assert.deepEqual(Object.keys(f.runtime.webTools.browserProfiles).slice(-3), [
+    "agent-a",
+    "agent-b",
+    "agent-c",
+  ]);
+  const ports = Object.values(f.runtime.webTools.browserProfiles).map((p) => p.cdpPort);
+  assert.equal(new Set(ports).size, ports.length);
+  const patched = f.patches().flatMap((patch) => Object.values(patch.browser.profiles));
+  const patchedPorts = patched.map((profile) => profile.cdpPort);
+  assert.equal(new Set(patchedPorts).size, patchedPorts.length);
+});
