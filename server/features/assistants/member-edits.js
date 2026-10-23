@@ -3,7 +3,12 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { editableMember } from "./member-reach.js";
 import { memberModelInput, validateMemberModel } from "./member-models.js";
-import { extraEnd, extraSection, extraStart } from "./team-presentation.js";
+import {
+  extraEnd,
+  extraSection,
+  extraStart,
+  temporaryMember,
+} from "./team-presentation.js";
 import { dropText, readText, saveText } from "./team-texts.js";
 
 // The fields a lead may change, in the order notes and the audit name them.
@@ -127,9 +132,32 @@ export class MemberEdits {
   async update(inv, input) {
     exact(input, ["memberId", ...editFields, "model"]);
     if (!("model" in input)) return this.updateNow(inv, input);
+    // Who may change it comes first: no model is resolved for a member the lead
+    // cannot edit (updateNow checks it all again after the awaits).
+    this.target(inv, input.memberId);
     const models = this.assistants.models;
     const chosen = await validateMemberModel(models, memberModelInput(input.model));
     return this.updateNow(inv, input, { ...chosen, previous: await this.label(input) });
+  }
+  // The caller's lead and the member it edits, or the refusal; synchronous.
+  target(inv, memberId) {
+    if (typeof memberId !== "string") throw assistantProblem("invalid");
+    inv.assertCurrent();
+    const a = this.assistants,
+      attempt = a.ledger.getAttempt(inv.attemptId),
+      request = a.ledger.getRequest(attempt.requestId),
+      conversation = a.store.getConversation(request.conversationId),
+      lead = a.store.getAssistant(conversation.assistantId);
+    if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
+    let member;
+    try {
+      member = this.teams.member(memberId);
+    } catch {
+      throw assistantProblem("teamGrantMemberEnded", 409);
+    }
+    if (!editableMember(member, lead.id))
+      throw assistantProblem("teamGrantMemberEnded", 409);
+    return { conversation, lead, member };
   }
   // The member's model before the change, named as the owner reads it (ids for one
   // that no longer resolves); null when the member is not found (updateNow refuses).
@@ -151,7 +179,6 @@ export class MemberEdits {
   // `chosen` is the checked model of the call (update), with the one it replaces.
   updateNow(inv, input, chosen = null) {
     exact(input, ["memberId", ...editFields, ...(chosen ? ["model"] : [])]);
-    if (typeof input.memberId !== "string") throw assistantProblem("invalid");
     const changes = {};
     for (const key of editFields)
       if (key in input)
@@ -165,21 +192,8 @@ export class MemberEdits {
     // A whole rewrite says everything itself; an extra section on top is ambiguous.
     if ("instructions" in changes && "extraInstructions" in changes)
       throw assistantProblem("invalid");
-    inv.assertCurrent();
     const a = this.assistants,
-      attempt = a.ledger.getAttempt(inv.attemptId),
-      request = a.ledger.getRequest(attempt.requestId),
-      conversation = a.store.getConversation(request.conversationId),
-      lead = a.store.getAssistant(conversation.assistantId);
-    if (lead.teamMemberId || lead.archivedAt) throw assistantProblem("invalid", 403);
-    let member;
-    try {
-      member = this.teams.member(input.memberId);
-    } catch {
-      throw assistantProblem("teamGrantMemberEnded", 409);
-    }
-    if (!editableMember(member, lead.id))
-      throw assistantProblem("teamGrantMemberEnded", 409);
+      { conversation, lead, member } = this.target(inv, input.memberId);
     const agent = a.store.getAssistant(member.assistantId);
     const current = { ...member, name: agent.name, instructions: agent.instructions };
     // A field the lead restates counts when its text is gone from the instructions
@@ -192,7 +206,10 @@ export class MemberEdits {
             editedInstructions(agent.instructions, member, { [key]: changes[key] }) !==
               agent.instructions)),
     );
-    const model = chosen && !sameModel(agent.model, chosen) && ids(chosen);
+    // A member following the lead runs on its model already; the lead's choice of
+    // that same model pins it, so the member keeps it when the lead's model changes.
+    const following = temporaryMember(agent) && !agent.ownModel;
+    const model = chosen && (following || !sameModel(agent.model, chosen)) && ids(chosen);
     const changed = model ? [...edited, "model"] : edited;
     // What the owner reads: the names of both models (ids for an old one gone since).
     const models = model && {
