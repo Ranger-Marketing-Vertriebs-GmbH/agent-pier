@@ -231,3 +231,34 @@ test("a memory step queued behind an owner turn takes none of its tools", async 
   assert.equal(await f.step("browser"), false);
   assert.equal(await f.tool("exec"), false);
 });
+
+test("the step hook passes a call of no agent and still refuses a step's call", async (t) => {
+  const f = await setup(t);
+  await f.invocation("step", step);
+  for (const ctx of [
+    { sessionKey: "session" },
+    { sessionKey: "session", agentId: "" },
+    {},
+  ])
+    assert.equal(await f.step("browser", ctx), true, JSON.stringify(ctx));
+  assert.equal(
+    await f.step("browser", { agentId: f.agentId, sessionKey: "session" }),
+    false,
+  );
+  assert.equal(await f.step("browser", { agentId: f.agentId }), false);
+});
+
+test("an orphaned pending attempt never breaks a call without a session", async (t) => {
+  const f = await setup(t);
+  const pending = f.assistants.ledger.pending.bind(f.assistants.ledger);
+  f.assistants.ledger.pending = () => [
+    { id: "ghost", requestId: "missing", state: "pending" },
+    ...pending(),
+  ];
+  const ctx = { agentId: f.agentId };
+  assert.equal(await f.step("browser", ctx), true);
+  assert.equal(await f.tool("exec", ctx), true);
+  await f.invocation("step", step);
+  assert.equal(await f.step("browser", ctx), false);
+  assert.equal(await f.tool("exec", ctx), false);
+});
