@@ -187,10 +187,17 @@ class SftpSession {
         };
       }
     }
+    // Server status texts may name remote paths: keep only the bare code visible.
     stream.prependListener("error", (error) => {
-      if (isSftpProblem(error)) return;
+      if (isSftpProblem(error) && error.message === error.code) return;
       const problem = this.#problem(error);
-      Object.assign(error, { code: problem.code, status: problem.status });
+      Object.defineProperty(error, "detail", { value: error.message, enumerable: false });
+      Object.assign(error, {
+        code: problem.code,
+        status: problem.status,
+        message: problem.code,
+        stack: problem.stack,
+      });
     });
     const release = () => {
       disarm();
@@ -236,11 +243,36 @@ class SftpSession {
   }
 
   async rename(from, to, { overwrite = false } = {}) {
-    await this.#call((done) =>
-      overwrite
-        ? this.#sftp.ext_openssh_rename(from, to, done)
-        : this.#sftp.rename(from, to, done),
-    );
+    if (overwrite && (await this.#posixRename(from, to))) return;
+    try {
+      await this.#call((done) => this.#sftp.rename(from, to, done));
+    } catch (error) {
+      if (!overwrite || error.code !== "SFTP_FAILED") throw error;
+      // Without posix-rename a plain RENAME refuses an existing target. Replace
+      // only a regular file: unlink it, then rename. Between the two calls the
+      // target briefly does not exist; a directory or link is never removed.
+      const target = await this.lstat(to);
+      if (!target) throw error;
+      if (target.type !== "file") throw sftpProblem("SFTP_TYPE_CONFLICT");
+      await this.unlink(to);
+      await this.#call((done) => this.#sftp.rename(from, to, done));
+    }
+  }
+
+  // Resolves false when the server does not advertise posix-rename@openssh.com
+  // (ssh2 then throws synchronously before sending anything).
+  async #posixRename(from, to) {
+    let supported = true;
+    await this.#call((done) => {
+      try {
+        this.#sftp.ext_openssh_rename(from, to, done);
+      } catch (error) {
+        if (!/does not support/.test(String(error?.message))) throw error;
+        supported = false;
+        done(null);
+      }
+    });
+    return supported;
   }
 
   async unlink(remote) {
