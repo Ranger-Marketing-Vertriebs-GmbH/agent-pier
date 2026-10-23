@@ -168,11 +168,35 @@ export class AssistantActionStore {
   patch(id, values) {
     const a = this.get(id),
       next = { ...a, ...values, revision: a.revision + 1 };
-    this.db
-      .prepare("UPDATE assistant_actions SET body=? WHERE id=?")
-      .run(JSON.stringify(next), id);
+    const update = () =>
+      this.db
+        .prepare("UPDATE assistant_actions SET body=? WHERE id=?")
+        .run(JSON.stringify(next), id);
+    // A revision of an SSH row may hold its exact command (agent-ssh-approvals.js):
+    // the copy this update frees is overwritten, so no free space keeps it.
+    if (a.payload?.action === "ssh" && typeof a.payload.command === "string")
+      this.secureDelete(update);
+    else update();
     this.written(a, next);
     return next;
+  }
+  /** Runs `operation` with secure_delete, restoring the previous setting. */
+  secureDelete(operation) {
+    const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
+    this.db.exec("PRAGMA secure_delete=ON");
+    try {
+      return operation();
+    } finally {
+      this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
+    }
+  }
+  /** Empties the write-ahead log, best effort: a busy reader leaves it for later. */
+  checkpoint() {
+    try {
+      this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    } catch {
+      // The next checkpoint (SQLite's own or a later redaction) writes it back.
+    }
   }
   written(...rows) {
     this.writes++;
@@ -202,9 +226,7 @@ export class AssistantActionStore {
     const rows = held.filter((a) => a.diagnostic !== "MEMORY_FORGOTTEN");
     const ids = held.map((a) => a.id);
     if (!rows.length) return ids;
-    const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
-    this.db.exec("PRAGMA secure_delete=ON");
-    try {
+    this.secureDelete(() => {
       for (const a of rows)
         this.patch(a.id, {
           ...memoryRedaction(a.payload),
@@ -213,9 +235,7 @@ export class AssistantActionStore {
             : {}),
         });
       this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
-    } finally {
-      this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
-    }
+    });
     return ids;
   }
   // Trusted SSH runs keep only their newest rows per agent; the audit keeps the rest.

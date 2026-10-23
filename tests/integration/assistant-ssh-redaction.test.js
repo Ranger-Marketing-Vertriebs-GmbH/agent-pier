@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { agentSshFixture, hostId, waitFor } from "../helpers/agent-ssh-fixture.js";
 import { commandDigest } from "../../server/features/assistants/agent-ssh-text.js";
 
@@ -92,4 +94,44 @@ test("the Telegram approval text is rewritten with the secret redacted", async (
   assert.equal(JSON.stringify(after).includes(secret), false);
   assert.match(after.text, /Bearer •••/);
   assert.ok(after.parts.length > 0);
+});
+
+test("a settled card leaves no copy of its command in the database files", async (t) => {
+  const { f, id } = await card(t);
+  const files = ["", "-wal"].map((suffix) =>
+    path.join(f.dataDir, "assistants", `assistants.sqlite${suffix}`),
+  );
+  const holds = () =>
+    files.some((file) => fs.existsSync(file) && fs.readFileSync(file).includes(secret));
+  assert.equal(holds(), true);
+  // Every update of the row frees a copy of its command: each runs with secure_delete.
+  const { store } = f.workflows,
+    db = store.db,
+    modes = [];
+  store.db = new Proxy(db, {
+    get: (target, property) =>
+      property === "prepare"
+        ? (sql) => {
+            const statement = target.prepare(sql);
+            if (!sql.startsWith("UPDATE assistant_actions")) return statement;
+            return {
+              run: (...args) => {
+                modes.push(target.prepare("PRAGMA secure_delete").get().secure_delete);
+                return statement.run(...args);
+              },
+            };
+          }
+        : target[property],
+  });
+  try {
+    store.patch(id, { note: "x".repeat(300) });
+    await decline(f, id);
+  } finally {
+    store.db = db;
+  }
+  assertRedacted(f, id, "declined");
+  assert.ok(modes.length >= 2);
+  assert.deepEqual(new Set(modes), new Set([1]));
+  assert.equal(db.prepare("PRAGMA secure_delete").get().secure_delete, 0);
+  assert.equal(holds(), false);
 });
