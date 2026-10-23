@@ -143,8 +143,9 @@ Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Check
 
 > **Upgrade von 1.x**
 >
-> - Mit 2.0 erstellte Sicherungen lassen sich unter 1.x nicht wiederherstellen.
->   Erstelle vor dem Update eine Sicherung, falls du zurückwechseln willst.
+> - Nach dem Update gibt es keinen Rollback auf 1.x, und mit 2.0 erstellte Sicherungen
+>   lassen sich unter 1.x nicht wiederherstellen. Erstelle vor dem Update eine
+>   Sicherung, falls du zurückwechseln willst.
 > - Melde dich einmal neu bei OAuth-MCP-Servern an, die du aus verwalteten
 >   Codex-Accounts nutzt.
 > - Lead-Agenten fragen ihre Mitglieder und geben ihnen Aufgaben jetzt ohne

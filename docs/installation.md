@@ -235,21 +235,11 @@ back to:
 
 After 2.0.0, the 1.x line receives no further fixes, including security fixes.
 
-Going back to 1.28.x under **Settings → Operations → Updates** remains possible and
-keeps your data, with these limits:
-
-- 2.0 backups cannot be restored there.
-- Agent shell access, web, browser and document tools, bound MCP servers, the
-  agents' own Telegram bots, check-ins, attachments and lead requests stop until you
-  update again. Their data stays.
-- Saving an agent's capabilities on 1.28.x drops its web, browser and document
-  settings.
-- If the agent service already runs OpenClaw 2026.9.9, agents' memory writes stay
-  read-only on 1.28.x until you activate 2026.9.8 again under
-  **Settings → Workspace → Agents → Agent service**.
-- Once the agent service has committed the update to OpenClaw 2026.10.3, 2026.9.8
-  can no longer be activated: its agent state database was migrated (see
-  [Managed assistant runtime](#managed-assistant-runtime)).
+Going back to 1.x under **Settings → Operations → Updates** is not possible: from
+2.5.x on, activation and rollback refuse every release before 2.5.0, because those
+releases cannot find the tmux sessions started since the update (see
+[Operations](operations.md)). To return to 1.28.x, install it again and restore a
+backup taken with 1.x before the update.
 
 ## Stop and remove
 
