@@ -2,7 +2,7 @@ import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
-import { commandPreview } from "./agent-ssh-text.js";
+import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
@@ -216,8 +216,15 @@ function sshNotes(a) {
       event: "ssh-run",
       hostName: a.payload.hostName,
       commandPreview: a.payload.commandPreview ?? commandPreview(a.payload.command || ""),
+      // Trusted rows recorded before notes carried commands keep only the preview.
+      ...noteCommand(a.payload.command),
+      ...(a.payload.commandCut ? { commandCut: true } : {}),
       outcome,
-      ...(outcome === "exit" ? { exitCode: r.exitCode ?? r.signal ?? null } : {}),
+      ...(outcome === "exit"
+        ? { exitCode: r.exitCode ?? r.signal ?? null }
+        : Number.isInteger(r.exitCode)
+          ? { exitCode: r.exitCode }
+          : {}),
       durationMs: r.durationMs ?? null,
       timestamp: a.chatNotes.result.at,
       runId: null,

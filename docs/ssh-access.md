@@ -105,7 +105,11 @@ commands on it, and its open approvals can no longer run: allowing one marks it
 SHA-256 digest and length of the command, never its text or output.
 
 Every finished run leaves a note in the chat it ran from, in **With approval** mode as
-well as in the trusted modes; a denied, expired or cancelled request leaves none.
+well as in the trusted modes; a denied, expired or cancelled request leaves none. The
+note is an activity row with the host, the shortened command and its outcome; opened,
+it shows the whole command with a copy button, the exit code and the duration. Trusted
+runs therefore keep up to 8 KiB of their command with the action (runs from before this
+change kept only an 80-character preview); the output is never stored.
 
 Downgrading to a release without agent SSH keeps the stored SSH rows but no longer
 understands them. Such a release shows a finished run's note as a generic coding-run

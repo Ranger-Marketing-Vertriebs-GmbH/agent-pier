@@ -1,0 +1,126 @@
+/* An agent's tool call as a compact disclosure row (ActivityRow.jsx), in the look of
+   the coding-session chat's tool rows (web/features/chat/chat.css › .chat-tool). */
+.activity-row {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--text-row);
+  text-align: start;
+}
+.activity-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.activity-row-head:hover {
+  background: var(--accent-faint);
+}
+.activity-row-head:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.activity-row-chevron,
+.activity-row-icon {
+  flex: none;
+  color: var(--muted);
+}
+.activity-row-chevron {
+  transition: transform 150ms;
+}
+.activity-row[data-open] .activity-row-chevron {
+  transform: rotate(90deg);
+}
+.activity-row-label {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+.activity-row-detail {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-meta);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-size-xs);
+}
+.activity-row-status {
+  flex: none;
+  margin-inline-start: auto;
+}
+.activity-row-body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--font-size-sm);
+}
+.activity-row-body[hidden] {
+  display: none;
+}
+/* A command or output in the body: wrapped, never wider than the row. */
+.activity-row-body .code-block {
+  margin: 0;
+}
+.activity-row-body .code-block-pre.activity-row-code {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: var(--space-3) 52px var(--space-3) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-input);
+  color: var(--text-message);
+  font:
+    var(--font-size-sm) / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.activity-row-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+.activity-row-facts dt {
+  color: var(--muted);
+}
+.activity-row-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.activity-row-note {
+  margin: 0;
+  color: var(--hint);
+}
+@media (max-width: 700px) {
+  .activity-row-label {
+    max-width: 50%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity-row-chevron {
+    transition: none;
+  }
+}

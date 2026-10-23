@@ -1,4 +1,5 @@
 import React from "react";
+import ActivityRow from "../../components/ActivityRow.jsx";
 import CodeBlock from "../../components/CodeBlock.jsx";
 import CopyButton from "../../components/CopyButton.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -72,6 +73,27 @@ export default function FeedbackSection() {
         <CodeBlock>
           <code>{s.code}</code>
         </CodeBlock>
+      </Specimen>
+      <Specimen label="ActivityRow" wide>
+        <ActivityRow
+          label={s.activityLabel}
+          detail={s.activityCommand}
+          status={s.chipOk}
+          tone="ok"
+          defaultOpen
+        >
+          <CodeBlock className="activity-row-code" copyText={s.activityCommand}>
+            <code>{s.activityCommand}</code>
+          </CodeBlock>
+        </ActivityRow>
+        <ActivityRow
+          label={s.activityLabel}
+          detail={s.activityCommand}
+          status={s.chipError}
+          tone="error"
+        >
+          <p className="activity-row-note">{s.activityBody}</p>
+        </ActivityRow>
       </Specimen>
       <Specimen label="Pagination" wide>
         <Pagination paging={paging} label={s.pagination} />

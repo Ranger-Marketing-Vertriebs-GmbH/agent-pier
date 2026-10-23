@@ -24,17 +24,38 @@ test("trusted runs leave one note each, in order, and never notify", async (t) =
   });
   const found = await notes(f);
   assert.deepEqual(
-    found.map((n) => [n.hostName, n.commandPreview, n.outcome, n.exitCode]),
+    found.map((n) => [n.hostName, n.commandPreview, n.command, n.outcome]),
     [
-      ["opnsense", "process.exit(0)", "done", undefined],
-      ["opnsense", "process.exit(1)", "exit", 1],
-      ["opnsense", "setTimeout(() => {}, 5000)", "timedOut", undefined],
+      ["opnsense", "process.exit(0)", "process.exit(0)", "done"],
+      ["opnsense", "process.exit(1)", "process.exit(1)", "exit"],
+      [
+        "opnsense",
+        "setTimeout(() => {}, 5000)",
+        "setTimeout(() => {}, 5000)",
+        "timedOut",
+      ],
     ],
+  );
+  assert.deepEqual(
+    found.slice(0, 2).map((n) => n.exitCode),
+    [0, 1],
   );
   assert.ok(found[0].timestamp <= found[1].timestamp);
   assert.ok(Number.isInteger(found[0].durationMs));
   assert.equal(f.service.outbox.all().length, 0);
   assert.deepEqual(f.workflows.store.awaitingCounts(), {});
+});
+
+test("a note carries the full command a run's preview cuts", async (t) => {
+  const f = await agentSshFixture(t);
+  f.grant([{ accessId: hostId, mode: "trusted" }]);
+  const command = `// ${"x".repeat(120)}\nprocess.exit(0)`;
+  await f.execute(f.ownTurn(), command);
+  const [note] = await notes(f);
+  assert.equal(note.command, command);
+  assert.equal(note.commandCut, undefined);
+  assert.ok(note.commandPreview.endsWith("…"));
+  assert.ok(Array.from(note.commandPreview).length <= 80);
 });
 
 test("an approved run leaves a note, a denied one does not", async (t) => {
@@ -54,8 +75,8 @@ test("an approved run leaves a note, a denied one does not", async (t) => {
   await decideNext("approve");
   await allowed;
   assert.deepEqual(
-    (await notes(f)).map((n) => n.outcome),
-    ["done"],
+    (await notes(f)).map((n) => [n.outcome, n.command]),
+    [["done", "process.exit(0)"]],
   );
 });
 

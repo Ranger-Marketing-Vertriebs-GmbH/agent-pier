@@ -30,3 +30,23 @@ export function commandPreview(command, limit = 80) {
   if (points.length <= limit && lines.length === 1) return lines[0];
   return `${points.slice(0, limit - 1).join("")}…`;
 }
+
+/** The most of a command a chat note carries (web/features/assistants/SshRunNote.jsx). */
+export const noteCommandBytes = 8192;
+
+/**
+ * A command for a chat note: whole up to 8 KiB of UTF-8, else its first 8 KiB cut at a
+ * character boundary with `commandCut`. Raw text, escaped by the web before display.
+ */
+export function noteCommand(command) {
+  if (typeof command !== "string") return {};
+  if (Buffer.byteLength(command) <= noteCommandBytes) return { command };
+  let bytes = 0,
+    end = 0;
+  for (const point of command) {
+    bytes += Buffer.byteLength(point);
+    if (bytes > noteCommandBytes) break;
+    end += point.length;
+  }
+  return { command: command.slice(0, end), commandCut: true };
+}

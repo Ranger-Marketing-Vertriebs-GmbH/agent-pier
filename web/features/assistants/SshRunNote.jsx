@@ -1,24 +1,56 @@
 import React from "react";
+import ActivityRow from "../../components/ActivityRow.jsx";
+import CodeBlock from "../../components/CodeBlock.jsx";
 import { assistantSshCopy as copy } from "../../lib/i18n/messages/assistant-ssh.js";
 import SshCommandText from "./SshCommandText.jsx";
-import { sshOutcomeText, sshSeconds } from "./ssh-run-note.js";
+import { sshRunView } from "./ssh-run-note.js";
 
-// A command an agent ran over SSH, as a quiet line in its chat (server actionNotes).
+// A command an agent ran over SSH (server actionNotes) as an activity row: host,
+// shortened command and outcome; opening it shows the full command to copy and the
+// facts the note records (the output stays with the agent).
 export default function SshRunNote({ note }) {
-  const duration =
-    note.durationMs != null ? copy.note.duration(sshSeconds(note.durationMs)) : "";
+  const view = sshRunView(note);
+  const t = copy.note;
   return (
-    <p
-      className="assistant-note assistant-event ssh-run-note"
+    <ActivityRow
+      className="ssh-run-note"
       data-ssh-run={note.outcome}
-      title={duration || undefined}
+      label={view.label}
+      detail={<SshCommandText command={view.preview} />}
+      status={view.status}
+      tone={view.tone}
     >
-      {copy.note.lead(note.hostName)}{" "}
-      <code>
-        <SshCommandText command={note.commandPreview} />
-      </code>{" "}
-      · {sshOutcomeText(note.outcome, note.exitCode)}
-      {duration && <span className="sr-only"> ({duration})</span>}
-    </p>
+      <CodeBlock
+        className="activity-row-code"
+        aria-label={t.command}
+        copyText={view.copyText}
+        copyLabel={t.copy}
+      >
+        <code>
+          <SshCommandText command={view.command} />
+        </code>
+      </CodeBlock>
+      {view.partial && <p className="activity-row-note">{t[view.partial]}</p>}
+      <dl className="activity-row-facts">
+        {view.exitCode != null && (
+          <>
+            <dt>{t.exitCode}</dt>
+            <dd>{view.exitCode}</dd>
+          </>
+        )}
+        {view.duration && (
+          <>
+            <dt>{t.duration}</dt>
+            <dd>{view.duration}</dd>
+          </>
+        )}
+        {view.result && (
+          <>
+            <dt>{t.result}</dt>
+            <dd>{view.result}</dd>
+          </>
+        )}
+      </dl>
+    </ActivityRow>
   );
 }

@@ -6,7 +6,7 @@ import { runSshCommand } from "../ssh/ssh-run.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { exact, sshFromLead } from "./assistant-access.js";
 import { permits, sshOrigin } from "./agent-ssh-origin.js";
-import { commandDigest, commandPreview } from "./agent-ssh-text.js";
+import { commandDigest, commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
@@ -334,6 +334,7 @@ export class AgentSsh {
         accessId: host.id,
         hostName: host.name,
         commandPreview: commandPreview(input.command),
+        ...noteCommand(input.command),
         commandSha256: commandDigest(input.command),
         originClass: cls,
       },

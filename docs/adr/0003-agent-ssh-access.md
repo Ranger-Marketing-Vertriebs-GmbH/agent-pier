@@ -28,8 +28,9 @@ how much supervision applies.
   routine runs. Forwarded content, member results, reminders, check-ins and unknown
   turns never reach SSH, and a routine may use only `routines` hosts.
 - **Digest-only audit.** `ssh.executed` and `ssh.denied` store the command's SHA-256
-  and length, never its text or output. The text stays in the approval and in the
-  agent's transcript.
+  and length, never its text or output. The text stays in the approval, in the
+  agent's transcript and (amended 2026-10-23, up to 8 KiB) in a trusted run's action
+  row, so its chat note can show the whole command.
 - **Only permanent agents.** Temporary members never hold grants; grants are never
   inherited from a lead; bots for other people refuse agents with grants. (Amended
   2026-10-17, see below.)

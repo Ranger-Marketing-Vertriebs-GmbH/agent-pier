@@ -123,7 +123,7 @@ async function withMessages(page, messages) {
   );
 }
 
-test("trusted runs show as quiet lines in the transcript", async ({ page }) => {
+test("trusted runs show as activity rows in the transcript", async ({ page }) => {
   await setup(page);
   await withMessages(page, [
     note("t1"),
@@ -137,11 +137,81 @@ test("trusted runs show as quiet lines in the transcript", async ({ page }) => {
   ]);
   await openChat(page);
   const first = page.locator("[data-ssh-run]").first();
-  await expect(first).toContainText("SSH on opnsense: uptime · done");
-  await expect(first).toHaveAttribute("title", "Took 1.2 s");
-  await expect(page.getByText("SSH on nas-01:")).toBeVisible();
+  await expect(first.getByRole("button")).toHaveText(/SSH on opnsense\s*uptime\s*Done/);
+  await expect(page.getByText("SSH on nas-01")).toBeVisible();
   await expect(page.locator("[data-ssh-run=exit]")).toContainText(
-    "systemctl restart smb · exit 1",
+    /systemctl restart smb\s*Exit 1/,
   );
   await expect(page.locator("[data-ssh-run=timedOut]")).toContainText("U+202E");
+  await expect(page.locator("[data-ssh-run=timedOut]")).toContainText("Timed out");
+});
+
+const longCommand =
+  "python3 -c 'import pathlib,shutil,subprocess,re,time; " +
+  'print(subprocess.run(["pfctl", "-s", "rules"], capture_output=True).stdout)\'' +
+  "\necho done && " +
+  "x".repeat(300);
+const longPreview = `${longCommand.split("\n")[0].slice(0, 79)}…`;
+
+for (const [name, viewport] of [
+  ["desktop", { width: 1280, height: 900 }],
+  ["phone", { width: 390, height: 844 }],
+])
+  test(`a long SSH command opens to its full text by keyboard (${name})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await setup(page);
+    await withMessages(page, [
+      note("t1", {
+        command: longCommand,
+        commandPreview: longPreview,
+        outcome: "exit",
+        exitCode: 1,
+      }),
+    ]);
+    await openChat(page);
+    const row = page.locator("[data-ssh-run=exit]");
+    const toggle = row.getByRole("button", { name: /SSH on opnsense/ });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const detail = row.locator(".activity-row-detail");
+    await expect(detail).toHaveText(longPreview);
+    // The shortened command ends in an ellipsis inside the row, never past it.
+    const [cut, box] = await Promise.all([detail.boundingBox(), toggle.boundingBox()]);
+    expect(cut.x + cut.width).toBeLessThanOrEqual(box.x + box.width);
+    expect(
+      await detail.evaluate((element) => getComputedStyle(element).textOverflow),
+    ).toBe("ellipsis");
+    await expect(row.locator("pre")).toBeHidden();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(row.locator("pre")).toHaveText(longCommand);
+    await expect(row.getByRole("button", { name: "Copy command" })).toBeVisible();
+    await expect(row.locator(".activity-row-facts")).toContainText(/Exit code\s*1/);
+    await expect(row.locator(".activity-row-facts")).toContainText(/Duration\s*1.2 s/);
+    const overflow = await page.evaluate(
+      () => document.scrollingElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+    const pre = row.locator("pre");
+    expect(
+      await pre.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    ).toBe(true);
+    await toggle.press("Space");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(row.locator("pre")).toBeHidden();
+  });
+
+test("an older note without the full command says only its start was kept", async ({
+  page,
+}) => {
+  await setup(page);
+  await withMessages(page, [note("t1", { commandPreview: "tail -f …" })]);
+  await openChat(page);
+  const row = page.locator("[data-ssh-run=done]");
+  await row.getByRole("button", { name: /SSH on opnsense/ }).click();
+  await expect(row.locator("pre")).toHaveText("tail -f …");
+  await expect(row).toContainText("Only the start of this command was recorded.");
+  await expect(row.locator(".activity-row-facts")).toContainText(/Exit code\s*0/);
 });

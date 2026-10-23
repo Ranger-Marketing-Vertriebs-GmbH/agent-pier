@@ -63,7 +63,7 @@ export const assistantSshCopy = {
     duration: (seconds) => `${seconds} s`,
   },
   note: {
-    lead: (host) => `SSH auf ${host}:`,
+    label: (host) => `SSH auf ${host}`,
     outcomes: {
       done: "fertig",
       exit: (code) => `Exit ${code}`,
@@ -71,7 +71,26 @@ export const assistantSshCopy = {
       truncated: "gekürzt",
       revoked: "gestoppt",
     },
-    duration: (seconds) => `Dauer: ${seconds} s`,
+    status: {
+      done: "Fertig",
+      exit: (code) => `Exit ${code}`,
+      timedOut: "Zeitlimit erreicht",
+      truncated: "Ausgabe gekürzt",
+      revoked: "Gestoppt",
+    },
+    results: {
+      timedOut: "Der Befehl hat sein Zeitlimit erreicht und wurde gestoppt.",
+      truncated: "Die Ausgabe war länger als das Limit und wurde abgeschnitten.",
+      revoked: "Der Befehl wurde gestoppt, weil sich sein Zugang geändert hat.",
+    },
+    command: "Befehl",
+    copy: "Befehl kopieren",
+    exitCode: "Exit-Code",
+    duration: "Dauer",
+    seconds: (seconds) => `${seconds} s`,
+    result: "Ergebnis",
+    preview: "Von diesem Befehl wurde nur der Anfang gespeichert.",
+    cut: "Von diesem Befehl werden nur die ersten 8 KB gezeigt.",
   },
   history: {
     title: (host) => `SSH auf ${host}`,
