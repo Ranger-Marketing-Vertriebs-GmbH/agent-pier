@@ -88,7 +88,7 @@ export const assistants = {
   reminderTimezoneRequired:
     "Give the reminder time with a time zone offset, for example 2026-10-09T09:00:00+02:00.",
   routineWritesOwnerOnly:
-    "Only the owner can change May write for a routine, in the agent settings.",
+    "Ask the owner to switch May write for this routine in the agent settings.",
   routineReviewRequired:
     "It is unclear whether this routine was created. Review it in the agent settings before trying again.",
   reminderReviewRequired:
