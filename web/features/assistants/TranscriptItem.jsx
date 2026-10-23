@@ -7,7 +7,17 @@ import MemberGrantNote from "./MemberGrantNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
+import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { compactionNoteText } from "./compaction-note.js";
+
+// Quiet notes join the history between turns (AssistantChat.jsx).
+export const noteEvents = new Set([
+  "compaction",
+  "memory-note",
+  "routine-failed",
+  "coding-run",
+  "peer-request",
+]);
 
 // One entry of the agent chat's transcript: a team note, a quiet event line or a
 // message (AssistantChat.jsx). `removeShared` is null while the chat is offline.
@@ -43,6 +53,10 @@ export default function TranscriptItem({
   ) : m.event === "memory-note" ? (
     <p className="assistant-note assistant-event" data-memory-note={m.reason}>
       {memoryNoteCopy.reasons[m.reason] || memoryNoteCopy.unknown}
+    </p>
+  ) : m.event === "peer-request" ? (
+    <p className="assistant-note assistant-event" data-peer-note={m.phase}>
+      {leadRequestCopy.peerNote[m.phase]?.(m.type, m.from, m.to)}
     </p>
   ) : m.event === "compaction" ? (
     <p className="assistant-note assistant-event" data-compaction-note>

@@ -29,7 +29,7 @@ import useAgentAttachments from "./useAgentAttachments.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
-import TranscriptItem from "./TranscriptItem.jsx";
+import TranscriptItem, { noteEvents } from "./TranscriptItem.jsx";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
@@ -53,9 +53,6 @@ const sameTurnText = (a, b) => turnText(a) === turnText(b);
 const sameTurn = (m, request) =>
   m.role === "user" &&
   (m.requestId ? m.requestId === request.id : sameTurnText(m.text, request.text));
-// Quiet notes join the history between turns; an internal turn's event line is the
-// newest message that is not one of them.
-const noteEvents = new Set(["compaction", "memory-note", "routine-failed", "coding-run"]);
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
@@ -490,6 +487,7 @@ export default function AssistantChat({
             ))}
             {active &&
               latest.internal &&
+              // An internal turn's event line is the newest message but quiet notes.
               history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
                 latest.internal && (
                 <p className="assistant-note assistant-event">

@@ -11,6 +11,7 @@ import {
 } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
 import { withMemoryNotes } from "./memory-notes.js";
+import { peerNotes } from "./peer-notes.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
@@ -288,7 +289,8 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
           service.routines?.results.forConversation(id) || [],
           { from: pageStart(nextBefore, messages) },
         ),
-        service.memoryNotes?.forConversation(id) || [],
+        // Members' requests to each other join the lead's chat alike (peer-notes.js).
+        [...(service.memoryNotes?.forConversation(id) || []), ...peerNotes(service, id)],
         { from: pageStart(nextBefore, messages) },
       ),
       service.attachments?.sharedFor?.(id) || [],

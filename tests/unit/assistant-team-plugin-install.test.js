@@ -138,5 +138,10 @@ test("the ask, delegate and members descriptions tell leads about member convers
   );
   assert.match(byName.agentpier_team_ask.description, /ask each other/);
   assert.match(byName.agentpier_team_delegate.description, /agree among themselves/);
+  // A member hands tasks only to permanent colleagues (peer-request-rules.js).
+  assert.match(
+    byName.agentpier_team_delegate.description,
+    /hand tasks only to permanent ones/,
+  );
   assert.match(byName.agentpier_team_members.description, /colleagues sent them/);
 });

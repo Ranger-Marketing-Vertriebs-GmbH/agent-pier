@@ -266,7 +266,7 @@ test("a member's image joins its lead's chat and the lead's Telegram chat", asyn
     runtimeSessionKey: "agent:member:task",
   });
   f.service.teams.requests = {
-    store: { get: () => ({ parentConversationId: f.chat.id }) },
+    store: { get: () => ({ parentConversationId: f.chat.id }), list: () => [] },
   };
   const attempt = await f.turn(memberChat, "lead-draw", {
     kind: "lead-request",

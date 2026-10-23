@@ -75,6 +75,7 @@ export const assistantTeamCopy = {
   internalTurns: {
     "team-result": "Team results received. The agent is summarizing them.",
     "member-result": "A member's answer arrived. The agent is passing it on.",
+    "peer-result": "A colleague's answer arrived. The agent continues.",
     "coding-result": "Coding run result received.",
     "memory-result": "A project knowledge note was not saved. The agent was told.",
     "ssh-result": "SSH command result received.",

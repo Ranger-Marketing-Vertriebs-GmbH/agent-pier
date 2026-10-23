@@ -409,3 +409,115 @@ test("a task one of the lead's routines delegated is marked with the routine", a
   );
   await expect(chips).toHaveText(["read-only", "Scheduled · Morning check"]);
 });
+
+// Learning handed Head Writer a task and reported a problem; the lead's chat holds
+// only quiet notes of the exchange and the report's internal turn.
+test("the lead sees its members' exchanges and reports", async ({ page }) => {
+  const peer = request("peer-1", {
+    type: "task",
+    phase: "running",
+    memberId: "writer",
+    memberAssistantId: "writer",
+    memberName: "Head Writer",
+    fromMemberId: "learning",
+    fromName: "Learning",
+    resultTo: "lead",
+    text: "Turn the vendor notes into a summary.",
+    writeAllowed: false,
+  });
+  const report = request("report-1", {
+    type: "report",
+    reportKind: "problem",
+    phase: "completed",
+    memberId: "learning",
+    memberAssistantId: "learning",
+    memberName: "Learning",
+    text: "The vendor API rejects our key.",
+    finishedAt: "2026-10-13T09:05:00.000Z",
+  });
+  const note = (id, phase, type) => ({
+    id,
+    role: "event",
+    event: "peer-request",
+    phase,
+    type,
+    from: "Learning",
+    to: "Head Writer",
+    timestamp: at.getTime(),
+    runId: null,
+  });
+  await chatFixture(page, {
+    assistants: [
+      chatAssistant(),
+      memberAgent("learning", "Learning", { lifetime: "permanent" }),
+      memberAgent("writer", "Head Writer", { lifetime: "permanent" }),
+    ],
+    conversations: [
+      { id: "dinner", assistantId: "home" },
+      { id: "learning-chat", assistantId: "learning" },
+      { id: "writer-chat", assistantId: "writer" },
+    ],
+    teams: [
+      {
+        id: "research",
+        kind: "team",
+        revision: 1,
+        parentAssistantId: "home",
+        parentConversationId: "dinner",
+        objective: "Research hosting vendors",
+        phase: "completed",
+        status: "completed",
+        members: [],
+        memberIds: ["learning", "writer"],
+        lifetime: "task",
+        createdAt: "2026-10-12T09:00:00.000Z",
+      },
+    ],
+    members: [
+      memberRecord("learning", "Learning", { lifetime: "permanent" }),
+      memberRecord("writer", "Head Writer", { lifetime: "permanent" }),
+    ],
+    requests: [peer, report],
+    history: {
+      messages: [
+        { id: "q", role: "user", text: "Ask the team about vendors." },
+        note("peer-start:ask", "started", "question"),
+        note("peer-end:ask", "completed", "question"),
+        { id: "r", role: "event", event: "member-result", timestamp: at.getTime() },
+        { id: "a", role: "assistant", text: "Learning hit a problem with the key." },
+      ],
+      requests: [],
+      stale: false,
+    },
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const notes = page.locator("[data-peer-note]");
+  await expect(notes).toHaveText([
+    "Learning asked Head Writer a question",
+    "Head Writer answered Learning",
+  ]);
+  await expect(
+    page
+      .locator(".assistant-event")
+      .filter({ hasText: "A member's answer arrived. The agent is passing it on." }),
+  ).toHaveCount(1);
+  await fits(page);
+  if (shots) await page.screenshot({ path: `${shots}/peer-notes.png` });
+  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  const list = page.locator(".agent-member-requests");
+  const task = list.locator(".lead-request-card");
+  await expect(task.locator("strong")).toHaveText("Learning → Head Writer · task");
+  await expect(task.locator(".lead-request-access")).toHaveText([
+    "read-only",
+    "result to the lead",
+  ]);
+  await list.evaluate((e) => e.scrollIntoView({ block: "start" }));
+  if (shots) await page.screenshot({ path: `${shots}/peer-task.png` });
+  await list.getByRole("radio", { name: "Finished (1)" }).check();
+  const problem = list.locator(".lead-request-card");
+  await expect(problem.locator("strong")).toHaveText("Problem from Learning");
+  await expect(problem).toContainText("The vendor API rejects our key.");
+  await list.evaluate((e) => e.scrollIntoView({ block: "start" }));
+  await fits(page);
+  if (shots) await page.screenshot({ path: `${shots}/peer-requests.png` });
+});

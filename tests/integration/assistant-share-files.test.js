@@ -202,7 +202,7 @@ test("a member's share joins its own chat and its lead's, attributed to the memb
     runtimeSessionKey: "agent:member:task",
   });
   f.service.teams.requests = {
-    store: { get: () => ({ parentConversationId: f.chat.id }) },
+    store: { get: () => ({ parentConversationId: f.chat.id }), list: () => [] },
   };
   f.file(member, "findings.md", "# Findings\n");
   await f.turn(memberChat, "lead-task", {
