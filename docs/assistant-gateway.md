@@ -871,12 +871,17 @@ A lead reaches its own members without the owner relaying anything
   `validateMemberModel` before anything is stored, so one model the owner cannot
   run refuses the whole proposal. The draft keeps the ids (part of the proposal's
   fingerprint) and the owner's names for it (`modelLabel`, shown on the approval
-  card); the member is created on it as its own (`ownModel`) with `leadModel` on
-  its team record. A member without one follows the lead's model.
+  card); the member is created on it with `leadModel` on its team record, a
+  temporary member as its own model (`ownModel`; a permanent member always keeps
+  its own model and gets no flag). A temporary member without one follows the
+  lead's model.
   `agentpier_team_models` (`member-models.js`, `{ query?, limit? }`, limit 50 by
   default, at most 200; not available to routines) lists the models of the owner's
   usable sources: ChatGPT accounts, OpenRouter connections with a key (rows from the
-  provider catalog) and endpoint connections with their model lists, each with
+  provider catalog) and endpoint connections with their model lists. A ChatGPT
+  account's name can be its e-mail address, so the lead reads it as `ChatGPT`, with
+  the first six characters of its hashed connection id when there are several. Each
+  model comes with
   `connectionId`, `modelId`, context and output tokens, `reasoning`, `imageInput`
   and `pricing` (`inputPerMTok`/`outputPerMTok`, USD per million tokens; known for
   OpenRouter only, otherwise `null`; `null` also marks any unknown value). It also
@@ -1939,8 +1944,11 @@ history of its Profile tab:
   signed-out ChatGPT account or an endpoint model outside its list is refused and
   nothing changes. The member's team record keeps it as the lead's (`leadModel`),
   so only later owner changes show as a model override; a temporary member keeps
-  it as its own (`ownModel`) and no longer follows the lead's model. The same model
-  again is `unchanged`. The note and the log name both models; the audit adds
+  it as its own (`ownModel`) and no longer follows the lead's model, also when the
+  lead names its own current model for a member that follows it. The same model
+  again is `unchanged`. The lead and the member are checked before the model is
+  resolved, so a member the lead cannot edit is refused (`teamGrantMemberEnded`)
+  without any model lookup. The note and the log name both models; the audit adds
   their ids only (`details.models`). A model that stops working later (key removed,
   account signed out, model gone) is not replaced: the member's turns fail visibly
   with the usual model error and there is no fallback to the lead's model.
