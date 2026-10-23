@@ -469,7 +469,7 @@ for (const copy of [
       );
       await expect(long.locator(".tool-output-label")).toHaveText(["stdout"]);
       await expect(page.locator("body")).not.toContainText('{"stdout"');
-      await page.locator(".chat-tool-group > summary").click();
+      await page.locator(".chat-tool-group > .activity-row-head").click();
       const agent = page.locator('details.chat-tool[data-message-id="call"]');
       await expect(agent).toBeVisible();
       await expect(agent).not.toHaveAttribute("open");

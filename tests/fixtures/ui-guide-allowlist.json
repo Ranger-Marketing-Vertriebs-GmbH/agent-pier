@@ -27,7 +27,7 @@
     "web/features/chat/observability.css": 2,
     "web/features/chat/slash-completion.css": 8,
     "web/features/chat/tool-changes.css": 13,
-    "web/features/chat/tool-groups.css": 11,
+    "web/features/chat/tool-groups.css": 1,
     "web/features/chat/tool-output.css": 15,
     "web/features/dashboard/dashboard.css": 31,
     "web/features/dashboard/snapshot.css": 9,

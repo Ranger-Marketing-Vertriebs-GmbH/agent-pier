@@ -96,11 +96,7 @@ export const assistantSshCopy = {
   },
   group: {
     label: "SSH-Aktivität",
-    calls: (count) => `${count} ${count === 1 ? "Aufruf" : "Aufrufe"}`,
     hosts: (count) => `${count} Hosts`,
-    failed: (count) => `${count} fehlgeschlagen`,
-    running: "Läuft",
-    done: "Fertig",
   },
   history: {
     title: (host) => `SSH auf ${host}`,

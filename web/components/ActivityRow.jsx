@@ -7,7 +7,8 @@ import "./activity-row.css";
  * One step an agent took (a tool call such as an SSH or shell command) as a compact
  * row that opens to its details: icon, `label`, a one-line `detail` cut with an
  * ellipsis, and a `status` chip in `tone` (StatusChip's tones). `children` is the
- * expanded body. The row is a disclosure button with `aria-expanded`.
+ * expanded body, rendered only while open unless `keepMounted`. The row is a
+ * disclosure button with `aria-expanded`.
  */
 export default function ActivityRow({
   icon = "terminal",
@@ -16,6 +17,7 @@ export default function ActivityRow({
   status,
   tone = "neutral",
   defaultOpen = false,
+  keepMounted = false,
   className,
   children,
   ...attributes
@@ -46,7 +48,7 @@ export default function ActivityRow({
         )}
       </button>
       <div id={id} className="activity-row-body" hidden={!open}>
-        {open && children}
+        {(open || keepMounted) && children}
       </div>
     </div>
   );

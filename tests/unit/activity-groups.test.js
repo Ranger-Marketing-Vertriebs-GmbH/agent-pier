@@ -5,6 +5,7 @@ import {
   activityGroupView,
   groupActivity,
 } from "../../web/features/assistants/activity-groups.js";
+import { activityGroupHead, toolSummary } from "../../web/components/activity-group.js";
 
 const ssh = (id, extra = {}) => ({
   message: {
@@ -67,43 +68,46 @@ test("a group of calls on one host names it and reads done", () => {
     ssh("b"),
     ssh("c", { outcome: "truncated" }),
   ])[0].activity;
-  assert.deepEqual(activityGroupView(messages), {
+  const view = activityGroupView(messages);
+  assert.deepEqual(view, {
     label: "SSH activity",
+    count: 3,
+    summary: "proxmox-2",
+    failed: 0,
+    running: false,
+    done: true,
+  });
+  assert.deepEqual(activityGroupHead(view), {
     detail: "3 calls · proxmox-2",
     status: "Done",
     tone: "ok",
-    failed: 0,
-    running: false,
   });
 });
 
 test("mixed hosts are counted and failures stay visible", () => {
   setLanguage("en");
-  const messages = [
+  const view = activityGroupView([
     ssh("a").message,
     ssh("b", { hostName: "nas-01", outcome: "exit", exitCode: 1 }).message,
     ssh("c", { hostName: "opnsense", outcome: "timedOut" }).message,
     ssh("d", { outcome: "revoked" }).message,
-  ];
-  const view = activityGroupView(messages);
-  assert.equal(view.detail, "4 calls · 3 hosts");
-  assert.equal(view.status, "3 failed");
-  assert.equal(view.tone, "error");
+  ]);
+  assert.deepEqual(activityGroupHead(view), {
+    detail: "4 calls · 3 hosts",
+    status: "3 failed",
+    tone: "error",
+  });
 });
 
 test("a running call marks the group running, next to its failures", () => {
   setLanguage("en");
   const running = ssh("b", { outcome: "running" }).message;
-  assert.deepEqual(
-    [activityGroupView([ssh("a").message, running])].map((v) => [v.status, v.tone]),
-    [["Running", "running"]],
+  const alone = activityGroupHead(activityGroupView([ssh("a").message, running]));
+  assert.deepEqual([alone.status, alone.tone], ["Running", "running"]);
+  const view = activityGroupHead(
+    activityGroupView([ssh("a", { outcome: "exit", exitCode: 2 }).message, running]),
   );
-  const view = activityGroupView([
-    ssh("a", { outcome: "exit", exitCode: 2 }).message,
-    running,
-  ]);
-  assert.equal(view.status, "Running · 1 failed");
-  assert.equal(view.tone, "error");
+  assert.deepEqual([view.status, view.tone], ["Running · 1 failed", "error"]);
 });
 
 test("the German group reads like the session chat's agent activity", () => {
@@ -112,9 +116,23 @@ test("the German group reads like the session chat's agent activity", () => {
     ssh("a").message,
     ssh("b", { outcome: "exit", exitCode: 1 }).message,
   ]);
+  const head = activityGroupHead(view);
   assert.deepEqual(
-    [view.label, view.detail, view.status],
+    [view.label, head.detail, head.status],
     ["SSH-Aktivität", "2 Aufrufe · proxmox-2", "1 fehlgeschlagen"],
   );
   setLanguage("en");
+});
+
+test("session chat groups name their main tools and show no chip while unknown", () => {
+  setLanguage("en");
+  const names = ["Read", "Bash", "Edit", "Bash", "Read", "Bash", "Grep", "Read", "Edit"];
+  assert.equal(toolSummary(names), "Read 3 · Bash 3 · Edit 2");
+  assert.equal(toolSummary(["Bash"]), "Bash 1");
+  assert.deepEqual(activityGroupHead({ count: 1, summary: "Bash 1" }), {
+    detail: "1 call · Bash 1",
+    status: null,
+    tone: "ok",
+  });
+  assert.equal(activityGroupHead({ count: 2, done: true }).detail, "2 calls");
 });

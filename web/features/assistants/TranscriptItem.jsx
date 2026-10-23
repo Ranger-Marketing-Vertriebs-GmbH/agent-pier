@@ -3,7 +3,7 @@ import TeamNote from "./TeamNote.jsx";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
 import SshRunNote from "./SshRunNote.jsx";
-import ActivityGroup from "./ActivityGroup.jsx";
+import SshActivityGroup from "./SshActivityGroup.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
@@ -32,7 +32,7 @@ export default function TranscriptItem({
   removeShared,
 }) {
   return activity ? (
-    <ActivityGroup messages={activity} />
+    <SshActivityGroup messages={activity} />
   ) : note ? (
     <TeamNote note={note} navigate={navigate} focused={note.id === focusedNote} />
   ) : m.event === "coding-run" ? (

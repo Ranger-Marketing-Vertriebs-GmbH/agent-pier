@@ -32,7 +32,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         };
         const publish = await mockChatStream(page, () => data);
         await page.goto("/sessions/fixture-session/chat");
-        await page.locator(".chat-tool-group > summary").click();
+        await page.locator(".chat-tool-group > .activity-row-head").click();
         const tool = page.locator(".chat-tool");
         await tool.locator("summary").click();
         await expect(tool.locator("pre").first()).toContainText('echo "Hello"\nprintf');

@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { setup } from "./assistant-shell-fixture.js";
 import { openChat } from "./assistant-ssh-fixture.js";
+import { operationsFixture } from "./operations-fixture.js";
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
 // SCREENSHOTS=dir saves the collapsed and opened group for a pull request.
 const shots = process.env.SCREENSHOTS;
@@ -54,7 +56,7 @@ for (const [name, viewport] of [
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(toggle).toHaveText(/SSH activity\s*13 calls · proxmox-2\s*1 failed/);
     await expect(group.locator(".status-chip").first()).toHaveClass(/status-chip-error/);
-    await expect(group.locator("[data-ssh-run]")).toHaveCount(0);
+    await expect(group.locator("[data-ssh-run]").first()).toBeHidden();
     // The single run after the reply stays its own row.
     await expect(
       page.locator(".assistant-transcript > [role=log] > [data-ssh-run]"),
@@ -85,5 +87,70 @@ for (const [name, viewport] of [
     }
     await toggle.press("Space");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(rows).toHaveCount(0);
+    await expect(rows.first()).toBeHidden();
   });
+
+const tool = (id, toolName, status = "completed") => ({
+  id,
+  role: "tool",
+  toolName,
+  status,
+  text: `${toolName} output for ${id}`,
+});
+
+test.describe("en-GB", () => {
+  test.use({ locale: "en-GB" });
+  for (const [name, viewport] of [
+    ["desktop", { width: 1280, height: 900 }],
+    ["phone", { width: 390, height: 844 }],
+  ])
+    test(`a session chat uses the same group head with its main tools (${name})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await operationsFixture(page);
+      await mockChatStream(page, () => ({
+        availability: "ready",
+        providerSessionId: "native",
+        history: { generation: "one" },
+        tasks: [],
+        messages: [
+          { id: "u", role: "user", text: "Fix the failing test" },
+          tool("t1", "Read"),
+          tool("t2", "Bash"),
+          tool("t3", "Edit"),
+          tool("t4", "Bash", "failed"),
+          tool("t5", "Bash"),
+          tool("t6", "Read"),
+          { id: "a", role: "assistant", text: "The test passes again." },
+        ],
+      }));
+      await page.goto("/sessions/fixture-session/chat");
+      const group = page.locator(".chat-tool-group");
+      await expect(group).toHaveCount(1);
+      const toggle = group.locator(":scope > .activity-row-head");
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(toggle).toHaveText(
+        /Agent activity\s*6 calls · Bash 3 · Read 2 · Edit 1\s*1 failed/,
+      );
+      await expect(group.locator(".chat-tool").first()).toBeHidden();
+      const overflow = () =>
+        page.evaluate(
+          () =>
+            document.scrollingElement.scrollWidth - document.documentElement.clientWidth,
+        );
+      expect(await overflow()).toBe(0);
+      if (shots)
+        await page.screenshot({ path: `${shots}/group-cli-collapsed-${name}.png` });
+      await toggle.press("Enter");
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(group.locator(".chat-tool")).toHaveCount(6);
+      await group.locator(".chat-tool summary").nth(3).click();
+      await expect(group.locator(".chat-tool pre").first()).toContainText(
+        "Bash output for t4",
+      );
+      expect(await overflow()).toBe(0);
+      if (shots)
+        await page.screenshot({ path: `${shots}/group-cli-expanded-${name}.png` });
+    });
+});

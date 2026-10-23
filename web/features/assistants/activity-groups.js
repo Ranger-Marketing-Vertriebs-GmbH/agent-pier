@@ -41,24 +41,20 @@ export function groupActivity(items) {
 }
 
 /**
- * A group's head: "SSH activity", the number of calls with the one host they share
- * (or the number of hosts), and a chip that keeps failures visible while it is shut.
+ * A group's ActivityGroup props: "SSH activity", the one host its calls share (or the
+ * number of hosts), and how many calls failed or still run.
  */
 export function activityGroupView(messages) {
-  const t = copy.group;
   const hosts = new Set(messages.map((m) => m.hostName));
   const states = messages.map(activityState);
   const failed = states.filter((s) => s === "failed").length;
   const running = states.includes("running");
-  const status = [running && t.running, failed && t.failed(failed)].filter(Boolean);
   return {
-    label: t.label,
-    detail: `${t.calls(messages.length)} · ${
-      hosts.size === 1 ? [...hosts][0] : t.hosts(hosts.size)
-    }`,
-    status: status.length ? status.join(" · ") : t.done,
-    tone: failed ? "error" : running ? "running" : "ok",
+    label: copy.group.label,
+    count: messages.length,
+    summary: hosts.size === 1 ? [...hosts][0] : copy.group.hosts(hosts.size),
     failed,
     running,
+    done: !failed && !running,
   };
 }

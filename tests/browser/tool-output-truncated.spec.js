@@ -35,7 +35,7 @@ const truncatedTool = {
 
 async function expand(page) {
   await page.goto("/sessions/fixture-session/chat");
-  await page.locator(".chat-tool-group > summary").click();
+  await page.locator(".chat-tool-group > .activity-row-head").click();
   const tool = page.locator(".chat-tool");
   await tool.locator("summary").click();
   return tool;
@@ -100,7 +100,7 @@ test("tool images load only after the row is opened", async ({ page }) => {
     return route.fulfill({ body: PNG, contentType: "image/png" });
   });
   await page.goto("/sessions/fixture-session/chat");
-  await page.locator(".chat-tool-group > summary").click();
+  await page.locator(".chat-tool-group > .activity-row-head").click();
   const tool = page.locator(".chat-tool");
   await page.waitForTimeout(300);
   expect(hits).toBe(0);
