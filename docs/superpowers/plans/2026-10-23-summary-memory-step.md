@@ -47,6 +47,7 @@ Paths are relative to the worktree `.worktrees/feat-summary-memory-step`.
 **Files:** Create `server/features/assistants/memory-step.js`. Test: create `tests/integration/assistant-memory-step.test.js`.
 
 **Interfaces:**
+
 - Consumes: Task 1 context kind.
 - Produces: `class MemoryStep { constructor({ service, limitMs }) ; eligible(conversation): boolean ; run(conversation): Promise<{ saved: boolean, reason?: "refused"|"failed"|"timeout"|"interrupted" }> }`. `run` sends the hidden turn via `service.send(conversation.id, { clientRequestId: "memory-step:<uuid>", text }, { kind: "memory-step" })`, awaits the ledger attempt's end (completed/failed/cancelled, as `reconcileRuns` settles it), aborts the run after `limitMs` (default 5 minutes; pick the existing abort path used by **Stop**) and waits until the session has no active run. Never delivers to Telegram. `eligible` implements the capability/shared/guard rule.
 

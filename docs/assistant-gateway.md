@@ -887,8 +887,27 @@ A lead reaches its own members without the owner relaying anything
   OpenRouter only, otherwise `null`; `null` also marks any unknown value). It also
   returns `total` and `current`, the model the lead and each of its members run on
   now. The tool prompt tells the lead to state known costs to the owner.
-  Members never get these tools,
+  `agentpier_team_member_summarise` (`member-summaries.js`, `{ memberId, when:
+"now" | "after_task" }`, not available to routines) summarises one of the lead's own
+  non-archived members' task chat (below). Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
+- **Long member chats.** After a member's task chat (`member.conversationId`, not the
+  further chats the owner opened) reached a terminal attempt, `MemberLongChats`
+  (`member-long-chats.js`, table `assistant_member_long_chats`, private in backups) reads
+  its `sessionInfo`. When the chat is long (`longContext`: 60 % of the window, else
+  100,000 tokens) it sends the lead one compact message `member-long-chat` in its main
+  chat (retried with backoff while the lead's chat is busy). It tells again only at
+  the growth rule of the owner's hint (half again or 50,000 tokens) or after the size
+  fell below the marker (a summary), and never while a pending after-task summary exists
+  or the chat is being summarised. The message names `agentpier_team_member_summarise`.
+  The tool refuses a member that is not the caller's own or archived (409 member
+  ended); `now` answers `busy` while the member's chat or task is active, `already`
+  while it is summarised, `nothing`, or `summarising` once the work starts (the memory
+  step answers at once); `after_task` on an idle member behaves like `now`, otherwise
+  it stores `summaryAfterTask` on the member's team record (survives restarts, cleared
+  on archive) and `TeamService.reconcile` starts it once the member is idle, before the
+  next lead request or delegated task reaches the chat (the send meets the summary and
+  waits). Both chats get a note.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
   temporary for archive (checked again inside the archiving transaction). By the
@@ -1151,8 +1170,13 @@ was compacted and the plan was gone. Four rules close that gap:
   flush) and the date bound (today's or yesterday's note only). Nothing in
   AgentPier starts other `internal-session-effects` runs today. A compaction the
   person asks for with **Summarise now** (`sessions.compact`, see
-  [Live steps and stalled turns](#live-steps-and-stalled-turns)) runs no flush and
-  writes no memory.
+  [Live steps and stalled turns](#live-steps-and-stalled-turns)) runs no OpenClaw
+  flush, so AgentPier runs its own memory step first (`memory-step.js`): a hidden turn
+  of context kind `memory-step` in the chat itself, for an agent that may write memory
+  and is not shared. `memoryStepWrite` admits only `write`/`edit` to the agent's own
+  `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy and every bridge
+  action refuse the session's other tools. The step is bound by the chat's own
+  attempt, never reaches Telegram and is aborted like **Stop** after five minutes.
 - **Summarising status.** A long conversation makes OpenClaw shorten its history
   before it answers, which can take minutes. The pinned runtime signals it on the
   source session with Gateway `agent` events: before a run (preflight,
@@ -2671,8 +2695,9 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   memory for all its users. A saved write to its `MEMORY.md` or `memory/` leaves a
   "shared-write" note in the chat of the turn that wrote it, and only there. `USER.md`
   stays the owner's. On a shared agent the pre-compaction flush is refused in every chat,
-  a user's or the owner's own (a "flush" note in that chat), so a summary of a
-  private chat never reaches the memory that all its users read.
+  a user's or the owner's own (a "flush" note in that chat), and **Summarise now** runs
+  no memory step, so a summary of a private chat never reaches the memory that all its
+  users read.
 
 ### Private chats of restricted users
 
@@ -3575,9 +3600,18 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   and the marker). The state lives in memory: an AgentPier restart frees
   the chat. Every end publishes `change` and dispatches a queued message once. Afterwards `sessionInfo.totalTokensFresh` is false until the next
   turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
-  usual compaction marker. A manual compaction runs no pre-compaction memory flush
-  (that runs only before a turn, `agent-runner-memory`), so it writes no memory and
-  the flush write guard is not involved. `POST …/long-chat-dismissal` (same routes and
+  usual compaction marker. `sessions.compact` itself runs no pre-compaction memory flush
+  (that runs only before a turn, `agent-runner-memory`), so for an agent that may write
+  memory (`MemoryStep.eligible`: not shared, **Remember information** on, write guard
+  live) the request first runs the memory step (see the write guard above). The outer
+  job is registered at once, the request answers `{compacted: false, running: true}`
+  as soon as the step starts, and the history carries `compacting: "memory"` during the
+  step (the chat shows "Saving memories before the summary …" and "Saving memories" in
+  the header) and `true` during the summary. Any step result but a saved one (failed,
+  refused, timed out, interrupted) still leads to the summary and sets `memoryNotSaved`
+  in `compactOutcome` ("No memories were saved before the summary."); if the chat is
+  still busy afterwards the summary ends with `busy` next to that note. Other sends
+  are refused (409) for the whole job. `POST …/long-chat-dismissal` (same routes and
   refusals) reads the session's current `totalTokens` and stores it per person and
   chat under admission, after checking again that the chat still takes turns
   (`assistant_long_chat_dismissals`, private in backups; a deleted chat forgets it). A
@@ -3588,7 +3622,7 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   the hidden hint, and so does a context read smaller than the hidden size (OpenClaw
   summarised it on its own): a chat that grows long again shows the hint. Verified live on the pinned runtime with a
   real local model: refusal during a run, a 109 s compaction (21,277 → 15,512 tokens)
-  with one summary model call and no flush, the marker, `Already compacted` on a
+  with one summary model call and no OpenClaw flush, the marker, `Already compacted` on a
   second call and an intact follow-up turn.
 
 The chat (`web/features/assistants/AgentRunState.jsx`, owner's chat and user app
