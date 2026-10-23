@@ -1,13 +1,49 @@
 import { createHash } from "node:crypto";
 import { sftpProblem } from "./sftp-errors.js";
 import { sftpLimits } from "./sftp-limits.js";
+import { relativeParts } from "./sftp-remote-paths.js";
 
 const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-const tuple = (entry) => [entry.path, entry.size, entry.mtimeMs];
+
+/**
+ * The key two names share when the target file system treats them as one file: NFC
+ * always (APFS ignores normalization), lower-cased too for a case-insensitive target.
+ */
+export function pathKey(relative, { foldCase = false } = {}) {
+  const nfc = relative.normalize("NFC");
+  return foldCase ? nfc.toLowerCase() : nfc;
+}
+
+function checkedEntry(entry) {
+  relativeParts(entry?.path);
+  if (
+    !Number.isSafeInteger(entry.size) ||
+    entry.size < 0 ||
+    !Number.isFinite(entry.mtimeMs)
+  )
+    throw new TypeError("Invalid SFTP plan entry.");
+  return entry;
+}
+
+// Entries by key; two source entries with one key would land in one file.
+function keyed(entries, foldCase, { unique }) {
+  const byKey = new Map();
+  for (const entry of entries.map(checkedEntry)) {
+    const key = pathKey(entry.path, { foldCase });
+    const same = byKey.get(key);
+    if (same && unique)
+      throw Object.assign(sftpProblem("SFTP_PATH_REFUSED"), {
+        details: { collision: [same[0].path, entry.path] },
+      });
+    if (same) same.push(entry);
+    else byKey.set(key, [entry]);
+  }
+  return byKey;
+}
 
 function changed(source, target, hashes) {
   if (hashes) {
-    const [a, b] = [hashes.source.get(source.path), hashes.target.get(source.path)];
+    const [a, b] = [hashes.source.get(source.path), hashes.target.get(target.path)];
     return a === undefined || b === undefined || a !== b;
   }
   return (
@@ -16,11 +52,25 @@ function changed(source, target, hashes) {
   );
 }
 
+// JSON with sorted object keys, so equal plans and contexts hash equally.
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
+      .join(",")}}`;
+  return JSON.stringify(value ?? null);
+}
+
 /**
  * Plans a transfer of `source` entries onto `target` entries. A copy writes every
  * source file; a sync writes only new and changed ones (size and mtime, or the given
  * hashes) and deletes target files missing from the source only with `deleteExtra`.
- * `digest` covers the sorted plan, so a changed tree is noticed before it runs.
+ * Names are matched by `pathKey` (`foldCase` for a case-insensitive target), and
+ * source names sharing a key are refused. `digest` covers the caller's `context`
+ * (direction, host and revision, roots), the options and the sorted plan, so an
+ * approval never runs a different transfer.
  */
 export function planTransfer({
   source,
@@ -28,24 +78,52 @@ export function planTransfer({
   sync = false,
   deleteExtra = false,
   hashes = null,
+  foldCase = false,
+  context = null,
 }) {
-  const targets = new Map(target.map((entry) => [entry.path, entry]));
+  const sources = keyed(source, foldCase, { unique: true });
+  const targets = keyed(target, foldCase, { unique: false });
   const create = [],
     update = [];
   let unchanged = 0;
-  for (const entry of [...source].sort(byPath)) {
-    const existing = targets.get(entry.path);
+  for (const [key, [entry]] of sources) {
+    const candidates = targets.get(key) || [];
+    const existing =
+      candidates.find((other) => other.path === entry.path) || candidates[0];
     if (!existing) create.push(entry);
     else if (!sync || changed(entry, existing, hashes)) update.push(entry);
     else unchanged++;
   }
-  const sources = new Set(source.map((entry) => entry.path));
+  create.sort(byPath);
+  update.sort(byPath);
   const remove =
     sync && deleteExtra
-      ? target.filter((entry) => !sources.has(entry.path)).sort(byPath)
+      ? [...targets]
+          .filter(([key]) => !sources.has(key))
+          .flatMap(([, entries]) => entries)
+          .sort(byPath)
       : [];
+  const tuple = (side) => (entry) => [
+    entry.path,
+    entry.size,
+    entry.mtimeMs,
+    hashes ? (hashes[side].get(entry.path) ?? null) : null,
+  ];
   const digest = createHash("sha256")
-    .update(JSON.stringify([create, update, remove].map((list) => list.map(tuple))))
+    .update(
+      canonical({
+        context,
+        sync,
+        deleteExtra,
+        hashed: Boolean(hashes),
+        foldCase,
+        entries: {
+          create: create.map(tuple("source")),
+          update: update.map(tuple("source")),
+          delete: remove.map(tuple("target")),
+        },
+      }),
+    )
     .digest("hex");
   return {
     create,

@@ -147,3 +147,104 @@ test("planSummary caps lists at 500 with more counts", () => {
   assert.equal(summary.deletes, 3);
   assert.equal(planSummary(plan).create.length, 500);
 });
+
+const paths = (list) => list.map((e) => e.path);
+
+test("a case-insensitive target matches names by their folded key", () => {
+  const options = {
+    source: [entry("A.txt", 3)],
+    target: [entry("a.txt", 2)],
+    sync: true,
+    deleteExtra: true,
+  };
+  const folded = planTransfer({ ...options, foldCase: true });
+  assert.deepEqual(paths(folded.create), []);
+  assert.deepEqual(paths(folded.update), ["A.txt"]);
+  assert.deepEqual(folded.delete, []);
+  assert.equal(folded.overwrites, 1);
+  const exact = planTransfer(options);
+  assert.deepEqual(paths(exact.create), ["A.txt"]);
+  assert.deepEqual(paths(exact.delete), ["a.txt"]);
+});
+
+test("NFD and NFC spellings are one name", () => {
+  const nfc = "Ü-datei.txt".normalize("NFC");
+  const nfd = nfc.normalize("NFD");
+  assert.notEqual(nfc, nfd);
+  const plan = planTransfer({
+    source: [entry(`dir/${nfd}`)],
+    target: [entry(`dir/${nfc}`)],
+    sync: true,
+    deleteExtra: true,
+  });
+  assert.deepEqual(plan.create, []);
+  assert.deepEqual(plan.delete, []);
+  assert.equal(plan.unchanged, 1);
+});
+
+test("fold collisions in the source are refused", () => {
+  const collides = (source, foldCase) =>
+    assert.throws(
+      () => planTransfer({ source, target: [], foldCase }),
+      (error) => {
+        assert.equal(error.code, "SFTP_PATH_REFUSED");
+        assert.equal(error.details.collision.length, 2);
+        return true;
+      },
+    );
+  collides([entry("A.txt"), entry("a.txt")], true);
+  collides([entry("x/ü".normalize("NFC")), entry("x/ü".normalize("NFD"))], false);
+  collides([entry("same"), entry("same")], false);
+  assert.doesNotThrow(() =>
+    planTransfer({ source: [entry("A.txt"), entry("a.txt")], target: [] }),
+  );
+});
+
+test("invalid entry paths are refused", () => {
+  const nul = `a${String.fromCharCode(0)}b`;
+  const newline = `a${String.fromCharCode(10)}b`;
+  for (const bad of ["", ".", "a/../b", "/abs", "a//b", "a/", nul, newline, "a\\b"]) {
+    assert.throws(() => planTransfer({ source: [entry(bad)], target: [] }), {
+      code: "SFTP_PATH_REFUSED",
+    });
+    assert.throws(() => planTransfer({ source: [], target: [entry(bad)] }), {
+      code: "SFTP_PATH_REFUSED",
+    });
+  }
+  assert.throws(() => planTransfer({ source: [entry("a", -1)], target: [] }), TypeError);
+  assert.throws(
+    () => planTransfer({ source: [entry("a", 1, NaN)], target: [] }),
+    TypeError,
+  );
+});
+
+test("the digest binds the plan context and options", () => {
+  const context = {
+    direction: "download",
+    hostId: "h1",
+    hostRevision: "r1",
+    remoteRoot: "/www",
+    localRoot: "/project/site",
+    projectId: "p1",
+  };
+  const options = { source: [entry("a")], target: [], sync: true, context };
+  const base = planTransfer(options).digest;
+  assert.equal(
+    planTransfer({
+      ...options,
+      context: Object.fromEntries(Object.entries(context).reverse()),
+    }).digest,
+    base,
+  );
+  assert.notEqual(planTransfer({ ...options, deleteExtra: true }).digest, base);
+  assert.notEqual(planTransfer({ ...options, sync: false }).digest, base);
+  const hashes = { source: new Map([["a", "h"]]), target: new Map() };
+  assert.notEqual(planTransfer({ ...options, hashes }).digest, base);
+  for (const key of Object.keys(context))
+    assert.notEqual(
+      planTransfer({ ...options, context: { ...context, [key]: `${context[key]}~` } })
+        .digest,
+      base,
+      key,
+    );
+});

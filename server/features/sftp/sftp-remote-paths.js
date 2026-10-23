@@ -4,13 +4,30 @@ import { sftpLimits } from "./sftp-limits.js";
 // NUL, C0/C1 controls, line and paragraph separators and backslashes never reach the
 // server: they hide names in listings and approval cards or mean different things to
 // different servers.
-const unsafe = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\\]/;
+export const unsafeName = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\\]/;
 const refused = () => sftpProblem("SFTP_PATH_REFUSED");
 
 function checked(raw) {
-  if (typeof raw !== "string" || raw.length > sftpLimits.pathChars || unsafe.test(raw))
+  if (
+    typeof raw !== "string" ||
+    raw.length > sftpLimits.pathChars ||
+    unsafeName.test(raw)
+  )
     throw refused();
   return raw;
+}
+
+/**
+ * The names of a relative POSIX path below a transfer root: never empty, `.`, `..`,
+ * absolute or with characters `unsafeName` refuses.
+ */
+export function relativeParts(relative) {
+  if (typeof relative !== "string" || relative.length > sftpLimits.pathChars)
+    throw refused();
+  const parts = relative.split("/");
+  if (unsafeName.test(relative) || parts.some((p) => !p || p === "." || p === ".."))
+    throw refused();
+  return parts;
 }
 
 /**
