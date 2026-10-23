@@ -93,8 +93,11 @@ function sources(bridge, input) {
         allow:
           current &&
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
-          // A task member's own memory takes its flush in any of its turns.
-          (directTurn(origin, parent) || inheritsFromLead(parent)) &&
+          // A task member's own memory takes its flush in any of its turns, and a
+          // memory step its own agent's (memoryStep).
+          (directTurn(origin, parent) ||
+            inheritsFromLead(parent) ||
+            memoryStep(origin)) &&
           // Every chat with a shared agent is private to its person (a user's or the
           // owner's own): its summary never lands in the memory all its users read.
           !isShared(parent),
@@ -107,7 +110,7 @@ function sources(bridge, input) {
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
- * chat or a restricted user on her own agent), or a routine's run, of the same agent,
+ * chat or a restricted user on her own agent), a memory step or a routine's run, of the same agent,
  * never a forwarded, lead-requested or other turn, and no direct turn or routine run
  * on a shared agent. The key must name the run the hook reports, the note must be today's or
  * yesterday's, and the first flush session that writes owns the flush; anything
@@ -157,14 +160,17 @@ function flushTurn(bridge, input) {
     : null;
 }
 
+// A memory step writes only its own agent's memory (memoryStepWrite).
 const refusalReason = (origin) =>
-  origin?.kind === "lead-request"
-    ? "lead-request"
-    : origin?.forwarded
-      ? "forwarded"
-      : ["team-member", "user", "unknown"].includes(origin?.kind) || !origin?.kind
-        ? "not-owner"
-        : "automatic";
+  memoryStep(origin)
+    ? "memory-step"
+    : origin?.kind === "lead-request"
+      ? "lead-request"
+      : origin?.forwarded
+        ? "forwarded"
+        : ["team-member", "user", "unknown"].includes(origin?.kind) || !origin?.kind
+          ? "not-owner"
+          : "automatic";
 
 /**
  * A refused write to MEMORY.md or memory/ shows in the turn's chat as a quiet note
