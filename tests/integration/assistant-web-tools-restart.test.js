@@ -28,10 +28,10 @@ function fixture(t) {
   const calls = [];
   let blockers = [];
   // What a Gateway start compiles: the current profiles, settings and browser.
-  const compiled = () =>
+  const compiled = (overrides = {}) =>
     webToolsSnapshot({
       profiles: store.listAssistants(),
-      webTools: { search: webSearch.resolve(), browser, searchPlugins },
+      webTools: { search: webSearch.resolve(), browser, searchPlugins, ...overrides },
     });
   const runtime = Object.assign(new EventEmitter(), {
     paths: runtimePaths(dataDir),
@@ -99,9 +99,10 @@ function fixture(t) {
     runtime,
     calls,
     agent,
-    // The Gateway runs with what the current state compiles.
-    started: () => {
-      runtime.webTools = compiled();
+    // The Gateway runs with what the current state compiles, or what `overrides`
+    // (for example no browser yet) made it compile.
+    started: (overrides) => {
+      runtime.webTools = compiled(overrides);
     },
     setBlockers: (value) => {
       blockers = value;
@@ -124,11 +125,25 @@ test("a capability another agent already uses applies live without a restart", a
   assert.deepEqual(f.calls, [`apply:${second.id}`]);
 });
 
-test("a capability that needs new global sections asks for the owner's confirmation", async (t) => {
+test("switching web tools on or off for one agent applies live", async (t) => {
   const f = fixture(t);
-  const a = f.agent("Home", { reminders: true });
-  f.agent("Other");
+  const a = f.agent("Home");
   f.started();
+  const all = { webSearch: true, webFetch: true, browser: true, readPdfs: true };
+  const on = await f.service.update(a.id, { capabilities: caps(all) }, a.revision);
+  assert.equal(on.capabilities.browser, true);
+  const visible = await f.service.update(a.id, { browserVisible: true }, on.revision);
+  const off = Object.fromEntries(Object.keys(all).map((key) => [key, false]));
+  await f.service.update(a.id, { capabilities: caps(off) }, visible.revision);
+  assert.deepEqual(f.calls, [`apply:${a.id}`, `apply:${a.id}`, `apply:${a.id}`]);
+});
+
+test("a used capability whose section changed since the start asks for confirmation", async (t) => {
+  const f = fixture(t);
+  const a = f.agent("Home", { reminders: true, browser: true });
+  f.agent("Other");
+  // The browser was installed after the Gateway started.
+  f.started({ browser: { available: false } });
   f.service.reminders = {
     disable: async (id) => f.calls.push(`disable:${id}`),
     close: async () => {},
@@ -165,42 +180,13 @@ test("a capability that needs new global sections asks for the owner's confirmat
     "leave",
     `apply:${a.id}`,
   ]);
-});
-
-test("a confirmed capability change persists in maintenance and restarts the Gateway", async (t) => {
-  const f = fixture(t);
-  const a = f.agent("Home");
-  f.started();
-  const before = f.runtime.webTools.signature;
-  const saved = await f.service.update(
-    a.id,
-    { capabilities: caps({ browser: true }) },
-    a.revision,
-    { confirmed: true },
-  );
-  assert.equal(saved.capabilities.browser, true);
-  assert.equal(f.store.getAssistant(a.id).capabilities.browser, true);
-  assert.deepEqual(f.calls, [
-    "enter",
-    "stop",
-    "quiesce",
-    "start",
-    "leave",
-    `apply:${a.id}`,
-  ]);
-  assert.notEqual(f.runtime.webTools.signature, before);
-  assert.equal(f.service.maintenance, false);
-  // Switching it off again changes the sections back, which also restarts.
-  await assert.rejects(
-    f.service.update(a.id, { capabilities: caps({ browser: false }) }, saved.revision),
-    restartRequired,
-  );
+  assert.equal(f.runtime.webTools.availability.browser, true);
 });
 
 test("busy work refuses the confirmed restart and persists nothing", async (t) => {
   const f = fixture(t);
   const a = f.agent("Home", { reminders: true });
-  f.started();
+  f.started({ browser: { available: false } });
   f.service.reminders = {
     disable: async (id) => f.calls.push(`disable:${id}`),
     close: async () => {},
@@ -208,14 +194,14 @@ test("busy work refuses the confirmed restart and persists nothing", async (t) =
   f.setBlockers(["ASSISTANT_WORK"]);
   // Also switching reminders off: a refused restart leaves them on.
   await assert.rejects(
-    f.service.update(a.id, { capabilities: caps({ webFetch: true }) }, a.revision, {
+    f.service.update(a.id, { capabilities: caps({ browser: true }) }, a.revision, {
       confirmed: true,
     }),
     { status: 409, key: "active" },
   );
   const stored = f.store.getAssistant(a.id);
   assert.equal(stored.revision, a.revision);
-  assert.equal(stored.capabilities.webFetch, undefined);
+  assert.equal(stored.capabilities.browser, undefined);
   assert.equal(stored.capabilities.reminders, true);
   assert.deepEqual(f.calls, ["enter", "leave"]);
   assert.equal(f.service.maintenance, false);

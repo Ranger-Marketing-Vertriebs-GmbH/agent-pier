@@ -25,7 +25,7 @@ export function browserStatus(webTools) {
     // restart before agents drive it.
     let restartNeeded = false;
     try {
-      restartNeeded = !!webTools?.differs?.();
+      restartNeeded = !!webTools?.differs?.({ keys: ["browser"] });
     } catch {
       /* No running Gateway to compare with. */
     }

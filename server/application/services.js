@@ -412,12 +412,17 @@ export async function createServices(config) {
   notifications.inboxCount = async () => (await inbox.summary()).counts.all;
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
-  // The managed agent browser stays while an agent browser runs or the running
-  // Gateway was started with it.
+  // The managed agent browser stays while an agent browser runs, or while the running
+  // Gateway was started with it and an agent has a browser profile there. Without
+  // one, a later switch-on finds the browser gone and restarts first (web-tools-changes.js).
   installer.chromiumInUse = () => {
     const assistants = services.assistants;
     const runtime = assistants?.runtime;
-    const compiled = runtime?.client?.ready && runtime.webTools?.browserExecutable;
+    const profiles = Object.values(runtime?.webTools?.browserProfiles || {});
+    const compiled =
+      runtime?.client?.ready &&
+      profiles.some((profile) => profile.agentId) &&
+      runtime.webTools?.browserExecutable;
     return (
       !!assistants?.browsers?.running.size ||
       (typeof compiled === "string" &&

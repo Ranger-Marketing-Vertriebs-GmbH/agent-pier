@@ -8,7 +8,7 @@ import { agentEntry } from "../../server/features/assistants/openclaw-config/age
 import {
   webToolsAvailability,
   webToolsSections,
-  webToolsSignature,
+  webToolsSignatures,
   webToolsSnapshot,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { usedCapabilities } from "../../server/features/assistants/native-capabilities.js";
@@ -124,20 +124,38 @@ const nativeAllow = [
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 
-test("no agent with web tools leaves tools and browser exactly as before", () => {
+test("available web tools compile before any agent uses them, granted to nobody", () => {
+  // Without web tools input only what needs no detection is compiled.
   const before = compile([plain, member]);
+  assert.deepEqual(before.browser, { enabled: false });
+  assert.equal(before.tools.web.search, undefined);
+  assert.deepEqual(before.tools.allow, [...nativeAllow, "web_fetch", "view_image"]);
+  // Available ones are compiled, so switching one on for an agent applies live.
   const after = compile([plain, member], webTools());
-  assert.equal(JSON.stringify(after), JSON.stringify(before));
-  assert.deepEqual(after.browser, { enabled: false });
-  assert.equal(after.tools.web, undefined);
-  assert.deepEqual(after.tools.allow, nativeAllow);
-  assert.deepEqual(after.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
-  assert.deepEqual(after.plugins.load, { paths: ["/private/plugin"] });
-  assert.deepEqual(Object.keys(after.plugins.entries), [
-    "agentpier-teams",
-    "memory-core",
+  assert.equal(after.browser.enabled, true);
+  assert.deepEqual(after.tools.web, {
+    search: { provider: "duckduckgo" },
+    fetch: { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } },
+  });
+  assert.deepEqual(after.tools.allow, [
+    ...nativeAllow,
+    "web_search",
+    "web_fetch",
+    "browser",
+    "view_image",
   ]);
-  assert.ok(!agentAllow(after, "ap-a2").some((t) => /web_|browser|pdf/.test(t)));
+  assert.deepEqual(after.plugins.allow, [
+    "agentpier-teams",
+    "openai",
+    "memory-core",
+    "duckduckgo",
+    "browser",
+  ]);
+  // The global list is only an upper bound: no agent is offered any of them.
+  for (const id of ["ap-a2", "ap-m1"])
+    assert.ok(!agentAllow(after, id).some((t) => /web_|browser|pdf|view_image/.test(t)));
+  // No agent profile in the browser block either.
+  assert.equal(after.browser.profiles["agent-a2"], undefined);
   assert.deepEqual(usedCapabilities([plain, member]), new Set(["memory", "reminders"]));
 });
 
@@ -146,12 +164,10 @@ test("an agent with web fetch adds the tool globally with a private-network bloc
     [{ ...personal, capabilities: { webFetch: true } }, plain],
     webTools(),
   );
-  assert.deepEqual(config.tools.allow, [...nativeAllow, "web_fetch"]);
-  assert.deepEqual(config.tools.web, {
-    fetch: { ssrfPolicy: { dangerouslyAllowPrivateNetwork: false } },
+  assert.ok(config.tools.allow.includes("web_fetch"));
+  assert.deepEqual(config.tools.web.fetch, {
+    ssrfPolicy: { dangerouslyAllowPrivateNetwork: false },
   });
-  assert.deepEqual(config.browser, { enabled: false });
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
   assert.ok(agentAllow(config, "ap-a1").includes("web_fetch"));
   assert.ok(!agentAllow(config, "ap-a2").includes("web_fetch"));
 });
@@ -159,13 +175,14 @@ test("an agent with web fetch adds the tool globally with a private-network bloc
 test("web search uses the configured provider and its key", () => {
   const profiles = [{ ...personal, capabilities: { webSearch: true } }];
   const duck = compile(profiles, webTools());
-  assert.deepEqual(duck.tools.web, { search: { provider: "duckduckgo" } });
-  assert.deepEqual(duck.tools.allow, [...nativeAllow, "web_search"]);
+  assert.deepEqual(duck.tools.web.search, { provider: "duckduckgo" });
+  assert.ok(duck.tools.allow.includes("web_search"));
   assert.deepEqual(duck.plugins.allow, [
     "agentpier-teams",
     "openai",
     "memory-core",
     "duckduckgo",
+    "browser",
   ]);
   assert.deepEqual(duck.plugins.load.paths, [
     "/private/plugin",
@@ -178,12 +195,13 @@ test("web search uses the configured provider and its key", () => {
     profiles,
     webTools({ search: { provider: "brave", key: "BSA-fixture", requiresPlugin: true } }),
   );
-  assert.deepEqual(brave.tools.web, { search: { provider: "brave" } });
+  assert.deepEqual(brave.tools.web.search, { provider: "brave" });
   assert.deepEqual(brave.plugins.allow, [
     "agentpier-teams",
     "openai",
     "memory-core",
     "brave",
+    "browser",
   ]);
   assert.deepEqual(brave.plugins.load.paths, [
     "/private/plugin",
@@ -202,7 +220,7 @@ test("web search uses the configured provider and its key", () => {
       search: { provider: "perplexity", key: "sk-or-fixture", requiresPlugin: true },
     }),
   );
-  assert.deepEqual(perplexity.tools.web, { search: { provider: "perplexity" } });
+  assert.deepEqual(perplexity.tools.web.search, { provider: "perplexity" });
   assert.deepEqual(perplexity.plugins.entries.perplexity, {
     config: { webSearch: { apiKey: "sk-or-fixture" } },
   });
@@ -267,14 +285,8 @@ test("the browser block uses only the isolated profile without JavaScript evalua
   assert.equal(config.browser.ssrfPolicy, undefined);
   for (const profile of Object.values(config.browser.profiles))
     assert.equal(profile.driver, "openclaw");
-  assert.deepEqual(config.tools.allow, [...nativeAllow, "browser"]);
-  assert.deepEqual(config.plugins.allow, [
-    "agentpier-teams",
-    "openai",
-    "memory-core",
-    "browser",
-  ]);
-  assert.equal(config.tools.web, undefined);
+  assert.ok(config.tools.allow.includes("browser"));
+  assert.ok(config.plugins.allow.includes("browser"));
   // The agent gets the browser once the tool guard reported (write-guard-reapply.js).
   assert.ok(!agentAllow(config, "ap-a1").includes("browser"));
 });
@@ -287,9 +299,14 @@ test("a missing browser withholds the tool even when an agent has the capability
   assert.ok(!config.tools.allow.includes("browser"));
   assert.ok(!agentAllow(config, "ap-a1").includes("browser"));
   assert.deepEqual(config.browser, { enabled: false });
-  assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
+  assert.ok(!config.plugins.allow.includes("browser"));
   // Documents need no detection.
-  assert.deepEqual(config.tools.allow, [...nativeAllow, "view_image"]);
+  assert.deepEqual(config.tools.allow, [
+    ...nativeAllow,
+    "web_search",
+    "web_fetch",
+    "view_image",
+  ]);
   // Without any web tools input nothing is detected either.
   const unknown = compile([{ ...personal, capabilities: { browser: true } }]);
   assert.deepEqual(unknown.browser, { enabled: false });
@@ -298,22 +315,16 @@ test("a missing browser withholds the tool even when an agent has the capability
 
 test("a temporary team member's own capabilities give it no web tools", () => {
   const config = compile([member], webTools());
-  assert.deepEqual(config.tools.allow, nativeAllow);
-  assert.deepEqual(config.browser, { enabled: false });
-  assert.equal(config.tools.web, undefined);
   assert.deepEqual(agentAllow(config, "ap-m1"), [
     "session_status",
     "agentpier_workspace",
     "agentpier_share_file",
   ]);
-  assert.deepEqual(webToolsSections({ profiles: [member], webTools: webTools(), port }), {
-    tools: [],
-    web: undefined,
-    browser: undefined,
-    media: undefined,
-    pdf: undefined,
-    plugins: { allow: [], paths: [], entries: {} },
-  });
+  // It adds nothing to the global sections, not even a browser profile.
+  assert.deepEqual(
+    webToolsSections({ profiles: [member], webTools: webTools(), port }),
+    webToolsSections({ profiles: [], webTools: webTools(), port }),
+  );
 });
 
 test("a temporary member uses its lead's web tools without widening the global sections", () => {
@@ -379,8 +390,16 @@ test("a stale browser block from an earlier start never survives", () => {
     cdpUrl: "http://127.0.0.1:9222",
     profiles: { user: { driver: "existing-session" } },
   };
-  // The capability was switched off: the hardened block replaces it outright.
-  assert.deepEqual(compile([plain], webTools(), stale).browser, { enabled: false });
+  // Without a browser the hardened block replaces it outright.
+  assert.deepEqual(
+    compile([plain], webTools({ browser: { available: false } }), stale).browser,
+    { enabled: false },
+  );
+  // Nobody uses it: the verified block without an agent profile.
+  assert.deepEqual(
+    compile([plain], webTools(), stale).browser,
+    webToolsSections({ profiles: [], webTools: webTools(), port }).browser,
+  );
   // Still on: only the verified block remains, without the stale keys.
   const active = compile([personal], webTools(), stale).browser;
   assert.deepEqual(
@@ -402,18 +421,27 @@ test("the running state signs the global sections without keeping the key", () =
     webSearch: true,
   });
   assert.deepEqual(snapshot.searchPlugins, plugins);
-  const sign = (profiles, tools) => webToolsSignature({ profiles, webTools: tools });
-  assert.equal(sign([personal], brave("k-one")), snapshot.signature);
-  // A new key, provider or browser, or an agent with new tools, changes it.
-  assert.notEqual(sign([personal], brave("k-two")), snapshot.signature);
-  assert.notEqual(sign([personal], webTools()), snapshot.signature);
-  assert.notEqual(
-    sign([personal], { ...brave("k-one"), browser: { available: false } }),
-    snapshot.signature,
-  );
-  assert.notEqual(sign([plain], brave("k-one")), snapshot.signature);
-  // Agents without web tools and temporary members leave it as it is.
-  assert.equal(sign([personal, plain, member], brave("k-one")), snapshot.signature);
-  // A lead's temporary member follows the lead and leaves it as well.
-  assert.equal(sign([personal, follower], brave("k-one")), snapshot.signature);
+  const sign = (tools) => webToolsSignatures({ webTools: tools });
+  assert.deepEqual(sign(brave("k-one")), snapshot.signatures);
+  // A new key or provider changes the search section only, a browser the browser's.
+  const { webSearch, browser, ...rest } = snapshot.signatures;
+  for (const [tools, changed] of [
+    [brave("k-two"), "webSearch"],
+    [webTools(), "webSearch"],
+    [{ ...brave("k-one"), browser: { available: false } }, "browser"],
+  ]) {
+    const next = sign(tools);
+    assert.notEqual(next[changed], snapshot.signatures[changed]);
+    assert.deepEqual(
+      { ...next, [changed]: null },
+      { ...snapshot.signatures, [changed]: null },
+    );
+  }
+  assert.ok(webSearch && browser && Object.keys(rest).length);
+  // Which agents use which tools never does: they apply live.
+  for (const profiles of [[plain], [personal, plain, member], [personal, follower]])
+    assert.deepEqual(
+      webToolsSnapshot({ profiles, webTools: brave("k-one") }).signatures,
+      snapshot.signatures,
+    );
 });

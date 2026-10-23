@@ -84,11 +84,15 @@ test("a forged visible browser in the database stays headless", () => {
   });
   assert.equal(map[agentProfileName("owner1")].headless, false);
   assert.equal(map[agentProfileName("user1")].headless, true);
-  // Alone, the user agent opens no visible member slots either.
+  // Alone, every profile but the slots kept for members of a visible lead is headless.
   const alone = browserProfileMap({
     profiles: [profiles[1]],
     browser: { visible: { available: true } },
     port: 1000,
   });
-  assert.ok(Object.values(alone).every((entry) => entry.headless));
+  assert.ok(
+    Object.entries(alone).every(
+      ([name, entry]) => entry.headless || name.startsWith("member-visible-"),
+    ),
+  );
 });

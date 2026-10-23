@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
-import { capabilityTools, usedCapabilities } from "../native-capabilities.js";
-import { browserProfileMap } from "./browser-profiles.js";
+import { capabilityTools } from "../native-capabilities.js";
+import { browserProfileMap, compiledProfile } from "./browser-profiles.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
 export const imageModel = "openai/gpt-image-2";
@@ -53,19 +53,23 @@ export function webToolsAvailability(webTools) {
 }
 
 /**
- * The Gateway sections the agents' web capabilities need, for the startup
- * configuration. Pure; empty (no tools, no sections) when no eligible profile uses a
- * web capability or none of the used ones is available.
+ * The Gateway sections the web capabilities need, for the startup configuration.
+ * Pure. Every capability the runtime can serve is compiled, whether an agent uses it
+ * yet or not: the global `tools.allow` is only an upper bound (each agent's entry
+ * names its own tools), so switching a capability for one agent changes only its
+ * entry and its browser profile, which the running Gateway applies live. Under the
+ * team plugin's restrictive plugins.allow, enabling the browser block or a plugin
+ * live needs a Gateway restart (docs/assistant-web-tools-qualification.md).
  * - `tools`: tool names to append to the global `tools.allow`.
  * - `web`: `tools.web`, or undefined.
  * - `browser`: the root `browser` block, or undefined (keep `{ enabled: false }`).
  * - `pdf`: `{ connectionId, modelId }` of the PDF model to compile, or undefined.
  * - `plugins`: `{ allow, paths, entries }` to add to the plugin configuration.
  */
-export function webToolsSections({ profiles, webTools, port }) {
-  const used = usedCapabilities(profiles);
+export function webToolsSections({ profiles, webTools, port, only }) {
   const available = webToolsAvailability(webTools);
-  const active = (key) => used.has(key) && available[key] !== false;
+  // `only` (capability keys) limits the result to those, for webToolsSignatures.
+  const active = (key) => (!only || only.includes(key)) && available[key] !== false;
   const sections = {
     tools: Object.entries(capabilityTools).flatMap(([key, tools]) =>
       active(key) ? tools : [],
@@ -114,10 +118,7 @@ export function webToolsSections({ profiles, webTools, port }) {
     const own = Object.fromEntries(
       Object.entries(
         browserProfileMap({ profiles, browser: webTools.browser, port }),
-      ).map(([name, { cdpPort, headless }]) => [
-        name,
-        { driver: "openclaw", cdpPort, headless },
-      ]),
+      ).map(([name, entry]) => [name, compiledProfile(entry)]),
     );
     sections.browser = {
       enabled: true,
@@ -173,13 +174,26 @@ export function applyWebTools(config, sections) {
 const signatureSecret = randomBytes(32);
 
 /**
- * A key-free fingerprint of the global sections these inputs compile. The CDP ports
- * follow the Gateway port and are left out: a restart picks a new port anyway.
+ * Key-free fingerprints of the global sections these inputs compile, per capability
+ * key. The CDP ports follow the Gateway port and are left out: a restart picks a new
+ * port anyway. The agents' own browser profiles are left out as well, since they
+ * apply live; what remains depends only on what the runtime can serve. A save
+ * compares only the capabilities some agent uses (WebToolsChanges.differs): a stale
+ * section nobody is offered needs no restart until an agent switches it on.
  */
-export function webToolsSignature({ profiles, webTools }) {
-  return createHmac("sha256", signatureSecret)
-    .update(JSON.stringify(webToolsSections({ profiles, webTools, port: 0 })))
-    .digest("hex");
+export function webToolsSignatures({ webTools }) {
+  return Object.fromEntries(
+    Object.keys(capabilityTools).map((key) => [
+      key,
+      createHmac("sha256", signatureSecret)
+        .update(
+          JSON.stringify(
+            webToolsSections({ profiles: [], webTools, port: 0, only: [key] }),
+          ),
+        )
+        .digest("hex"),
+    ]),
+  );
 }
 
 /**
@@ -192,11 +206,12 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
   const available = webToolsAvailability(webTools).browser;
   return {
     availability: webToolsAvailability(webTools),
-    // The agents' browser profiles this start compiled, with their CDP ports.
-    browserProfiles:
-      available && usedCapabilities(profiles).has("browser")
-        ? browserProfileMap({ profiles, browser: webTools.browser, port })
-        : {},
+    // The browser profiles the Gateway runs, with their CDP ports; live applies
+    // update them (browser-profile-sync.js).
+    browserProfiles: available
+      ? browserProfileMap({ profiles, browser: webTools.browser, port })
+      : {},
+    port,
     visibleBrowser: available && webTools.browser.visible?.available === true,
     // The executable this start compiled (the managed browser may not be removed).
     browserExecutable: available ? webTools.browser.executablePath : null,
@@ -204,6 +219,6 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
     // Whether the runtime bundles PDF extraction; a save compares with the same.
     documentExtract: webTools?.documentExtract === true,
     tools: webToolsSections({ profiles, webTools, port: 0 }).tools,
-    signature: webToolsSignature({ profiles, webTools }),
+    signatures: webToolsSignatures({ webTools }),
   };
 }

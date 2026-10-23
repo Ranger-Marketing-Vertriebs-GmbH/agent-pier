@@ -2,25 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { as, chatFixture, userAgent } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
-import { webToolsSignature } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSignatures } from "../../server/features/assistants/openclaw-config/web-tools.js";
 
-// A running Gateway started with the agents as they are now: a browser is installed,
-// so a change of who may use it changes the compiled web sections.
-function runningGateway(f) {
+const installed = { available: true, executablePath: "/fixture/browser" };
+// A running Gateway started with `browser` (none: installed after the start); a
+// browser is installed now.
+function runningGateway(f, browser = installed) {
   const assistants = f.application.assistants;
   const web = assistants.webTools;
-  web.detect = () => ({ available: true, executablePath: "/fixture/browser" });
+  web.detect = () => installed;
   const restarts = [];
   web.restart = async (operation) => {
     restarts.push(true);
     const result = await operation();
-    started();
+    started(installed);
     return result;
   };
-  const started = () => {
+  const started = (detected) => {
     const webTools = {
       search: web.webSearch.resolve(),
-      browser: web.detect(),
+      browser: detected,
       searchPlugins: {},
       documentExtract: false,
       images: web.images(),
@@ -29,13 +30,10 @@ function runningGateway(f) {
     assistants.runtime.webTools = {
       searchPlugins: {},
       documentExtract: false,
-      signature: webToolsSignature({
-        profiles: assistants.store.listAssistants(),
-        webTools,
-      }),
+      signatures: webToolsSignatures({ webTools }),
     };
   };
-  started();
+  started(browser);
   return { restarts };
 }
 const assign = (f, agent, userAccess, extra = {}) =>
@@ -48,7 +46,7 @@ const assign = (f, agent, userAccess, extra = {}) =>
     },
   });
 
-test("releasing the browser restarts the Gateway once the owner confirms, and her switch never does", async (t) => {
+test("releasing the browser and her switch apply live once the Gateway has a browser", async (t) => {
   const { f } = await chatFixture(t);
   const { user, cookie } = await signedInUser(f, "Anna");
   const access = { mode: "own", members: [{ userId: user.id, level: "extended" }] };
@@ -56,25 +54,14 @@ test("releasing the browser restarts the Gateway once the owner confirms, and he
     capabilities: { memory: true, reminders: false },
   });
   const { restarts } = runningGateway(f);
-  // Her own browser profile changes the Gateway's sections: only the owner restarts it.
+  // The start compiled the browser block: her profile is added live.
   const released = { ...access, released: ["browser"] };
-  const asked = await assign(f, agent, released);
-  assert.equal(asked.status, 409, await asked.clone().text());
-  const body = await asked.json();
-  assert.equal(body.code, "ASSISTANT_RESTART_REQUIRED");
-  assert.ok(Array.isArray(body.affected.agents));
-  assert.deepEqual(
-    f.application.assistants.store.getAssistant(agent.id).userAccess.released,
-    [],
-  );
-  const confirmed = await assign(f, agent, released, { confirmRestart: true });
-  assert.equal(confirmed.status, 200, await confirmed.clone().text());
-  assert.equal(restarts.length, 1);
+  const saved = await assign(f, agent, released);
+  assert.equal(saved.status, 200, await saved.clone().text());
   assert.deepEqual(
     f.application.assistants.store.getAssistant(agent.id).userAccess.released,
     ["browser"],
   );
-  // Her switch applies live: the Gateway already compiled her browser profile.
   const request = as(f, cookie);
   const view = await (await request(`/api/me/agents/${agent.id}/settings`)).json();
   const on = await request(`/api/me/agents/${agent.id}/settings`, {
@@ -86,6 +73,25 @@ test("releasing the browser restarts the Gateway once the owner confirms, and he
     f.application.assistants.store.getAssistant(agent.id).capabilities.browser,
     true,
   );
+  assert.equal(restarts.length, 0);
+});
+
+test("releasing a browser the Gateway started without restarts it once confirmed", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user } = await signedInUser(f, "Anna");
+  const access = { mode: "own", members: [{ userId: user.id, level: "extended" }] };
+  const agent = await userAgent(f, access, {
+    capabilities: { memory: true, reminders: false },
+  });
+  const { restarts } = runningGateway(f, { available: false });
+  const released = { ...access, released: ["browser"] };
+  const asked = await assign(f, agent, released);
+  assert.equal(asked.status, 409, await asked.clone().text());
+  const body = await asked.json();
+  assert.equal(body.code, "ASSISTANT_RESTART_REQUIRED");
+  assert.ok(Array.isArray(body.affected.agents));
+  const confirmed = await assign(f, agent, released, { confirmRestart: true });
+  assert.equal(confirmed.status, 200, await confirmed.clone().text());
   assert.equal(restarts.length, 1);
 });
 
@@ -101,12 +107,9 @@ test("a switch that would still restart the Gateway is a plain refusal she can r
     },
     { capabilities: { memory: true, reminders: false } },
   );
-  // A Gateway started before the release, without her browser profile.
+  // A Gateway started before the browser was installed.
   const assistants = f.application.assistants;
-  const access = assistants.store.getAssistant(agent.id).userAccess;
-  assistants.store.changeUserAgent(agent.id, { userAccess: { ...access, released: [] } });
-  runningGateway(f);
-  assistants.store.changeUserAgent(agent.id, { userAccess: access });
+  runningGateway(f, { available: false });
   const request = as(f, cookie);
   const view = await (await request(`/api/me/agents/${agent.id}/settings`)).json();
   const on = await request(`/api/me/agents/${agent.id}/settings`, {
@@ -122,7 +125,7 @@ test("a switch that would still restart the Gateway is a plain refusal she can r
 test("a new user agent starts without releases the running Gateway lacks", async (t) => {
   const { f } = await chatFixture(t);
   const { user } = await signedInUser(f, "Anna");
-  runningGateway(f);
+  runningGateway(f, { available: false });
   const agent = await userAgent(
     f,
     {

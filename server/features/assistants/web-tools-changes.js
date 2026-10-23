@@ -1,15 +1,17 @@
 import { detectBrowser } from "./browser-detection.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { temporaryMember } from "./team-presentation.js";
-import { webToolsSignature } from "./openclaw-config/web-tools.js";
+import { webToolsSignatures } from "./openclaw-config/web-tools.js";
+import { usedCapabilities } from "./native-capabilities.js";
 
 /**
  * The global web tool sections (the tools.allow additions, tools.web, the search
- * plugin and the browser block) exist only in the startup configuration: under the
- * team plugin's restrictive plugins.allow the Gateway refuses them live. A save that
- * would compile other sections than the running Gateway was started with therefore
- * restarts it in maintenance, after the owner confirmed, like a provider change.
- * Everything else, including the agent's own entry, keeps applying live.
+ * plugin, PDF extraction and the browser block) exist only in the startup
+ * configuration: under the team plugin's restrictive plugins.allow the Gateway does
+ * not take them live. A start compiles every one the runtime can serve, so an agent
+ * switching a capability changes only its own entry and browser profile, which apply
+ * live. Only a save that changes what a used capability compiles (another search
+ * provider or key, PDF model, a browser found or gone) needs a Gateway restart.
  */
 export class WebToolsChanges {
   // `images()` is `{ ready }`: whether a ChatGPT account can create images now.
@@ -37,13 +39,15 @@ export class WebToolsChanges {
   }
   /**
    * True when the running Gateway was started with other global sections than
-   * `profiles` and `search` compile now. A stopped Gateway compiles them at its next
-   * start, so nothing needs a restart then.
+   * `search` and `pdf` compile now, for a capability `profiles` use (or one of
+   * `keys`). A stopped Gateway compiles them at its next start, so nothing needs a
+   * restart then.
    */
   differs({
     profiles = this.assistants.store.listAssistants(),
     search = this.webSearch.resolve(),
     pdf = this.pdf(),
+    keys = [...usedCapabilities(profiles)],
   } = {}) {
     const runtime = this.assistants.runtime;
     const running = runtime.client?.ready && runtime.webTools;
@@ -57,7 +61,8 @@ export class WebToolsChanges {
       images: this.images(),
       pdf,
     };
-    return webToolsSignature({ profiles, webTools }) !== running.signature;
+    const now = webToolsSignatures({ webTools });
+    return keys.some((key) => key in now && now[key] !== running.signatures?.[key]);
   }
   /** The profiles once `patch` is saved for `id`, as the store merges capabilities. */
   profilesWith(id, patch) {

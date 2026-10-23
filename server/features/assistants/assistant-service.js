@@ -364,7 +364,10 @@ export class AssistantService {
       // Saved first, so a request arriving now is denied (exec-approvals.js). A
       // failed live apply stays pending and is retried; never reported as live.
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
-      else if ((patch.capabilities || patch.skills) && this.runtime.client?.ready)
+      else if (
+        (patch.capabilities || patch.skills || "browserVisible" in patch) &&
+        this.runtime.client?.ready
+      )
         await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       this.changed();

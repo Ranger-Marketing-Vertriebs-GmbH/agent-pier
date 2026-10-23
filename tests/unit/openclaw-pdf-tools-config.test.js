@@ -8,7 +8,7 @@ import {
   hasDocumentExtract,
   webToolsAvailability,
   webToolsSections,
-  webToolsSignature,
+  webToolsSignatures,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import {
   capabilityKeys,
@@ -129,10 +129,13 @@ test("an agent that reads PDFs compiles pdf and the model ids, never a model", (
     assert.equal(config.agents.entries[id].tools.allow.includes("pdf"), false);
 });
 
-test("no model, or no agent reading PDFs, compiles neither", () => {
+test("without a model neither is compiled; with one, before any agent reads PDFs", () => {
+  const unused = compile([plain], webTools(chosen));
+  assert.ok(unused.tools.allow.includes("pdf"));
+  assert.ok(unused.plugins.allow.includes("document-extract"));
+  assert.equal(unused.agents.entries["ap-a2"].tools.allow.includes("pdf"), false);
   for (const [profiles, pdf] of [
     [[reader], { ready: false }],
-    [[plain], chosen],
     [[reader], undefined],
   ]) {
     const config = compile(profiles, webTools(pdf));
@@ -144,7 +147,7 @@ test("no model, or no agent reading PDFs, compiles neither", () => {
     );
   }
   // A PDF model an earlier start or a restored file holds does not survive.
-  const stale = compile([plain], webTools(chosen), { pdfModel: "x/old" });
+  const stale = compile([plain], webTools({ ready: false }), { pdfModel: "x/old" });
   assert.equal(stale.agents.defaults.pdfModel, undefined);
 });
 
@@ -158,19 +161,14 @@ test("the owner cannot set the PDF model through advanced settings", () => {
   );
 });
 
-test("another PDF model changes what a start compiles only while used", () => {
+test("another PDF model changes only the PDF section's signature", () => {
   const other = { ...chosen, modelId: "vision-2" };
-  assert.notEqual(
-    webToolsSignature({ profiles: [reader], webTools: webTools(chosen) }),
-    webToolsSignature({ profiles: [reader], webTools: webTools(other) }),
-  );
-  assert.notEqual(
-    webToolsSignature({ profiles: [reader], webTools: webTools(chosen) }),
-    webToolsSignature({ profiles: [reader], webTools: webTools({ ready: false }) }),
-  );
-  assert.equal(
-    webToolsSignature({ profiles: [plain], webTools: webTools(chosen) }),
-    webToolsSignature({ profiles: [plain], webTools: webTools(other) }),
+  const sign = (pdf) => webToolsSignatures({ webTools: webTools(pdf) });
+  assert.notEqual(sign(chosen).readPdfs, sign(other).readPdfs);
+  assert.notEqual(sign(chosen).readPdfs, sign({ ready: false }).readPdfs);
+  assert.deepEqual(
+    { ...sign(chosen), readPdfs: null },
+    { ...sign(other), readPdfs: null },
   );
 });
 

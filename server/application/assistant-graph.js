@@ -21,6 +21,7 @@ import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
+import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import {
@@ -203,6 +204,12 @@ export function constructAssistantGraph(host, created = {}) {
       }),
   });
   assistants.browsers.onChange = () => assistants.changed();
+  // Each apply brings the Gateway's browser profiles in step with the agents.
+  configuration.browserProfiles = new BrowserProfileSync({
+    runtime: assistantRuntime,
+    store,
+    stop: (name) => assistants.browsers.stop(name),
+  });
   // The owner's live view of each agent's browser (browser-live-view.js).
   assistants.liveView = new BrowserLiveView({
     browsers: assistants.browsers,

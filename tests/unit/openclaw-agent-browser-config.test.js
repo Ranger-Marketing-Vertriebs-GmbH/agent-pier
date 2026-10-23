@@ -6,7 +6,7 @@ import {
 } from "../../server/features/assistants/runtime-config.js";
 import {
   webToolsSections,
-  webToolsSignature,
+  webToolsSignatures,
   webToolsSnapshot,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import {
@@ -17,6 +17,8 @@ import { WriteGuardReapply } from "../../server/features/assistants/write-guard-
 import {
   agentProfileName,
   browserProfileMap,
+  browserProfilesPatch,
+  nextBrowserProfiles,
 } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
 
 const port = 30000;
@@ -58,6 +60,9 @@ test("every agent with the browser gets its own persistent profile and CDP port"
     "member-1",
     "member-2",
     "member-3",
+    "member-visible-1",
+    "member-visible-2",
+    "member-visible-3",
     "agent-a",
     "agent-b",
   ]);
@@ -109,27 +114,61 @@ test("temporary members never get a profile of their own in the configuration", 
   assert.equal(map["agent-m1"], undefined);
   assert.equal(map["agent-b"].agentId, "b");
   assert.equal(map["member-1"].slot, true);
+  // The slots exist without any agent, so a lead switching on needs no restart.
   assert.deepEqual(
-    browserProfileMap({ profiles: [member], browser: visibleApp, port }),
-    {},
+    Object.keys(browserProfileMap({ profiles: [member], browser: visibleApp, port })),
+    [1, 2, 3]
+      .flatMap((n) => [`member-${n}`])
+      .concat([1, 2, 3].map((n) => `member-visible-${n}`)),
   );
   assert.equal(agentProfileName("A1B2"), "agent-a1b2");
   assert.equal(agentProfileName("x".repeat(80)), null);
 });
 
-test("switching a window on or off changes the compiled sections", () => {
-  const browser = { webTools: { browser: visibleApp } };
-  const off = webToolsSignature({ profiles: [agent("a")], ...browser });
-  const on = webToolsSignature({
-    profiles: [agent("a", { browserVisible: true })],
-    ...browser,
+test("switching a window or the browser on or off leaves the global sections", () => {
+  const snapshot = (profiles) =>
+    webToolsSnapshot({ profiles, webTools: { browser: visibleApp }, port }).signatures
+      .browser;
+  const off = snapshot([agent("a")]);
+  assert.equal(snapshot([agent("a", { browserVisible: true })]), off);
+  assert.equal(snapshot([agent("a"), agent("b")]), off);
+  assert.equal(snapshot([]), off);
+  // A browser app that can show windows, or none, does change them.
+  assert.notEqual(webToolsSignatures({ webTools: { browser: chromeOnly } }).browser, off);
+});
+
+test("a live change moves only the agent's own profile and keeps every port", () => {
+  const start = browserProfileMap({
+    profiles: [agent("a"), agent("c")],
+    browser: visibleApp,
+    port,
   });
-  assert.notEqual(on, off);
-  // Another agent switching the browser on needs its own profile, too.
-  assert.notEqual(
-    webToolsSignature({ profiles: [agent("a"), agent("b")], ...browser }),
-    off,
-  );
+  // "b" sorts between them but takes the next free port; nobody else moves.
+  const next = nextBrowserProfiles({
+    current: start,
+    profiles: [agent("a", { browserVisible: true }), agent("b"), agent("c")],
+    visibleApp: true,
+    port,
+  });
+  assert.equal(next["agent-a"].cdpPort, start["agent-a"].cdpPort);
+  assert.equal(next["agent-c"].cdpPort, start["agent-c"].cdpPort);
+  assert.equal(next["agent-b"].cdpPort, port + 22);
+  assert.deepEqual(browserProfilesPatch(start, next), {
+    "agent-a": { driver: "openclaw", cdpPort: port + 20, headless: false },
+    "agent-b": { driver: "openclaw", cdpPort: port + 22, headless: true },
+  });
+  // "a" switches off: its profile goes, and its port is free again.
+  const later = nextBrowserProfiles({
+    current: next,
+    profiles: [agent("b"), agent("c"), agent("d")],
+    visibleApp: true,
+    port,
+  });
+  assert.deepEqual(browserProfilesPatch(next, later), {
+    "agent-d": { driver: "openclaw", cdpPort: port + 20, headless: true },
+    "agent-a": null,
+  });
+  assert.equal(browserProfilesPatch(later, later), null);
 });
 
 test("the start snapshot keeps the profiles with the ports this start uses", () => {
@@ -143,9 +182,10 @@ test("the start snapshot keeps the profiles with the ports this start uses", () 
   assert.equal(snapshot.visibleBrowser, true);
   // What a removal of the managed browser checks against.
   assert.equal(snapshot.browserExecutable, brave);
+  assert.equal(snapshot.port, port);
   const none = webToolsSnapshot({
     profiles: [],
-    webTools: { browser: visibleApp },
+    webTools: { browser: { available: false } },
     port,
   });
   assert.deepEqual(none.browserProfiles, {});
