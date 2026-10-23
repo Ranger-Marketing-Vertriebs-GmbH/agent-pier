@@ -13,7 +13,7 @@ import { problem } from "../../lib/storage.js";
 import { validateEndpoint } from "../providers/endpoint-config.js";
 import { toolRoutes } from "../providers/endpoint-routing.js";
 import { adapterSessionChecks } from "./adapter-doctor.js";
-import { isPatchedNode } from "../../lib/node-support.js";
+import { nodeCheckStatus } from "../../lib/node-support.js";
 const execute = promisify(execFile);
 // English remedy text for CLI and API readers; the UI translates the stable remedy id.
 const REMEDIES = {
@@ -73,17 +73,7 @@ export class Doctor {
       `${this.platform}/${process.arch}`,
       "platform",
     );
-    const node = process.versions.node.split(".").map(Number);
-    add(
-      "node",
-      node[0] < 22 || (node[0] === 22 && node[1] < 13)
-        ? "fail"
-        : isPatchedNode(process.versions.node)
-          ? "ok"
-          : "warn",
-      process.versions.node,
-      "node",
-    );
+    add("node", nodeCheckStatus(process.versions.node), process.versions.node, "node");
     try {
       await this.ptyCheck();
       add("pty", "ok", "Native terminal module loads.");

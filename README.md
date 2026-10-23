@@ -61,7 +61,7 @@ and agents that work as a team.
 ## Requirements
 
 - macOS 14 or later (Apple Silicon or Intel), or Linux on x64 or arm64.
-- Node.js 22.23.4, 24.22.1, 26.12.1 or later (bundled in release packages), Git and tmux.
+- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported; bundled in release packages), Git and tmux.
 - Optional: Tailscale for remote access, and a Chromium-based browser for the agents'
   browser tool (Brave or Chromium for visible agent browser windows; AgentPier can
   install a managed Chrome for Testing for them with one click).

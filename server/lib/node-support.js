@@ -9,3 +9,9 @@ export function isPatchedNode(version = process.versions.node) {
     Boolean(floor) && (minor > floor[0] || (minor === floor[0] && patch >= floor[1]))
   );
 }
+// Doctor verdict: "fail" below the 22.13 baseline, "warn" for unpatched, else "ok".
+export function nodeCheckStatus(version = process.versions.node) {
+  const [major, minor = 0] = String(version).split(".").map(Number);
+  if (major < 22 || (major === 22 && minor < 13)) return "fail";
+  return isPatchedNode(version) ? "ok" : "warn";
+}
