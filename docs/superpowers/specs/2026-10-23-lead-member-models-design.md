@@ -37,7 +37,7 @@ practice:
 
 - `agentpier_team_member_update` also accepts the lead's own, non-archived permanent
   members (`kind === "member"`, `parentAssistantId === lead.id`, `lifetime ===
-  "permanent"`, no `archivedAt`), regardless of phase or open conversation.
+"permanent"`, no `archivedAt`), regardless of phase or open conversation.
 - Same fields and semantics as for task members (name, role, assignment,
   extraInstructions, whole instructions), same guardrails: member log entry with the
   replaced instructions readable for the owner (last 5), settled note in the member's

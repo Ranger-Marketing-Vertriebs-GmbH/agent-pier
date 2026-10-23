@@ -857,7 +857,8 @@ A lead reaches its own members without the owner relaying anything
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
-  edits a temporary or permanent member, `agentpier_team_promote` keeps one as a permanent
+  edits a temporary or permanent member, `agentpier_team_models` lists the models it
+  can give its members (see below), `agentpier_team_promote` keeps one as a permanent
   agent and `agentpier_team_member_routine` sets up routines on permanent members
   that report back (see below). `agentpier_team_templates` searches the Agency catalog
   (ids, names, categories; `team-templates.js`), and a proposed member may name one
@@ -871,7 +872,17 @@ A lead reaches its own members without the owner relaying anything
   run refuses the whole proposal. The draft keeps the ids (part of the proposal's
   fingerprint) and the owner's names for it (`modelLabel`, shown on the approval
   card); the member is created on it as its own (`ownModel`) with `leadModel` on
-  its team record. A member without one follows the lead's model. Members never get these tools,
+  its team record. A member without one follows the lead's model.
+  `agentpier_team_models` (`member-models.js`, `{ query?, limit? }`, limit 50 by
+  default, at most 200; not available to routines) lists the models of the owner's
+  usable sources: ChatGPT accounts, OpenRouter connections with a key (rows from the
+  provider catalog) and endpoint connections with their model lists, each with
+  `connectionId`, `modelId`, context and output tokens, `reasoning`, `imageInput`
+  and `pricing` (`inputPerMTok`/`outputPerMTok`, USD per million tokens; known for
+  OpenRouter only, otherwise `null`; `null` also marks any unknown value). It also
+  returns `total` and `current`, the model the lead and each of its members run on
+  now. The tool prompt tells the lead to state known costs to the owner.
+  Members never get these tools,
   and the bridge refuses them to member turns, so there are no chains.
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
@@ -1930,7 +1941,13 @@ history of its Profile tab:
   so only later owner changes show as a model override; a temporary member keeps
   it as its own (`ownModel`) and no longer follows the lead's model. The same model
   again is `unchanged`. The note and the log name both models; the audit adds
-  their ids only (`details.models`).
+  their ids only (`details.models`). A model that stops working later (key removed,
+  account signed out, model gone) is not replaced: the member's turns fail visibly
+  with the usual model error and there is no fallback to the lead's model.
+
+An edit of a permanent member applies from its next turn, also in the owner's chats
+with it, and appears in the history of its Profile tab together with the replaced
+instructions.
 
 Owner edits never block the lead. Every result is recorded as the lead's
 (`leadInstructions` on the member's team record), so the member's settings show an

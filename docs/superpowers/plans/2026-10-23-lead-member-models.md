@@ -38,6 +38,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 1: Leads edit their permanent members (192)
 
 **Files:**
+
 - Modify: `server/features/assistants/member-reach.js` (add `editableMember`)
 - Modify: `server/features/assistants/member-edits.js:152` (use `editableMember`)
 - Modify: `server/features/assistants/team-plugin/index.js:189-203` (`member_update` description)
@@ -46,6 +47,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 - Test: `tests/integration/assistant-member-edits.test.js`, `tests/browser/assistant-member-grants.spec.js`
 
 **Interfaces:**
+
 - Produces: `editableMember(member, leadId): boolean` in `member-reach.js` — true when `reachableMember(member, leadId)` or (`kind === "member"`, `parentAssistantId === leadId`, `lifetime === "permanent"`, no `archivedAt`). `grant` and lead requests keep using `reachableMember`.
 
 - [ ] **Step 1: Write the failing tests** in `tests/integration/assistant-member-edits.test.js`:
@@ -61,10 +63,12 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 2: OpenRouter prices in the provider catalog
 
 **Files:**
+
 - Modify: `server/features/providers/catalog-normalization.js:20-50`
 - Test: `tests/property/providers-catalog.test.js`
 
 **Interfaces:**
+
 - Produces: OpenRouter catalog rows gain `pricing: { inputPerMTok: number|null, outputPerMTok: number|null }` (USD per million tokens, from `model.pricing.prompt` / `model.pricing.completion` × 1 000 000, rounded to 6 decimals). Other providers' rows have no `pricing` key.
 
 - [ ] **Step 1: Write failing tests** in `tests/property/providers-catalog.test.js`: `pricing: { prompt: "0.000003", completion: "0.000015" }` → `{ inputPerMTok: 3, outputPerMTok: 15 }`; missing pricing, `"-1"`, `"abc"` and negative values → `null` for that side, row still present; property: `inputPerMTok` is `null` or a finite number ≥ 0.
@@ -76,6 +80,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 3: Own models for temporary members and owner control
 
 **Files:**
+
 - Modify: `server/features/assistants/team-presentation.js:45-68` (`memberOverrides`, `effectiveModel`)
 - Modify: `server/features/assistants/assistant-service.js:274-325` (owner update)
 - Modify: `server/features/assistants/assistant-schema.js` / `assistant-validation.js` if the assistant record schema lists fields (add `ownModel`)
@@ -84,6 +89,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 - Test: `tests/unit/assistant-member-model.test.js`, `tests/integration/assistant-member-model.test.js`, `tests/unit/agent-settings-fields.test.js`, `tests/browser/assistant-member-model.spec.js`
 
 **Interfaces:**
+
 - Produces: assistant record field `ownModel: true` (absent = follows lead). `effectiveModel(assistant, lead)` returns `assistant.model` when `assistant.ownModel === true`, else today's behaviour.
 - Produces: member record field `leadModel: { connectionId, modelId }` — the model the lead last assigned; `memberOverrides(member, assistant)` compares `assistant.model` against `member.leadModel ?? member.snapshot.model`, and reports `model` for temporary members too when `ownModel` is set.
 - Produces: owner update input `followLead: true` (temporary members only) clears `ownModel`; a `model` patch on a temporary member sets `ownModel: true` instead of throwing `memberModelFollowsLead`.
@@ -102,11 +108,13 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 4: `agentpier_team_models` — the lead reads the available models
 
 **Files:**
+
 - Create: `server/features/assistants/member-models.js` (list + assignment helpers, used by Tasks 4–6)
 - Modify: `team-plugin/index.js` (`definitions.models`), `team-plugin/openclaw.plugin.json` (`contracts.tools`), `team-bridge.js` (`actions`), `team-service.js` (method `models`), `native-capabilities.js` (`delegationTools`), `runtime-config.js` (`teamTools`)
 - Test: create `tests/unit/assistant-member-models.test.js`; update tool lists in `tests/unit/assistant-team-runtime-config.test.js`, `tests/unit/openclaw-config-characterization.test.js` (two tests), `tests/unit/openclaw-web-tools-config.test.js` (`nativeAllow`), `tests/integration/assistant-config.test.js` (L280–300)
 
 **Interfaces:**
+
 - Produces: `listMemberModels({ models, catalog, lead, members, query, limit }): { models: Entry[], total, current: { lead, members: [{ memberId, name, model }] } }` in `member-models.js`, where `Entry = { connectionId, connection, provider, modelId, label, contextTokens|null, outputTokens|null, reasoning|null, imageInput|null, pricing: { inputPerMTok, outputPerMTok } | null }`. Sources: `models.listCapabilities()` entries with `available === true` — ChatGPT accounts (`models` rows), endpoint connections (`models` rows), OpenRouter connections (rows from `catalog.list({ providerId: "openrouter" })`, with `pricing`). `query` filters case-insensitively on modelId/label/connection name; `limit` default 50, max 200; sorted by connection then label.
 - Produces: `TeamService.models(inv, input)` with input `{ query?: string(≤100), limit?: integer 1–200 }`, `exact`-checked; lead-only through `team-bridge` `valid()` as today.
 - Tool description must say: "Prices are USD per million input/output tokens where known; null means unknown — say so, never estimate. When you assign a model, tell the owner its known cost and how it compares to the member's previous model."
@@ -120,6 +128,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 5: Assign a model with `member_update`
 
 **Files:**
+
 - Modify: `server/features/assistants/member-edits.js` (accept `model`), `member-models.js` (`validateMemberModel`)
 - Modify: `team-plugin/index.js` (`member_update` schema + description)
 - Modify: `server/features/assistants/member-grant-notes.js:84-96` (pass `model: { from, to }`)
@@ -129,6 +138,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 - Test: `tests/integration/assistant-member-edits.test.js`, `tests/browser/assistant-member-grants.spec.js`
 
 **Interfaces:**
+
 - Consumes: `editableMember` (Task 1), `ownModel` / `leadModel` (Task 3).
 - Produces: `validateMemberModel(models, { connectionId, modelId }): Promise<{ connectionId, modelId, display: { connection, model } }>` in `member-models.js` — calls `models.resolve()` and releases the lease; refuses (`assistantProblem("provider")` or `invalid`) when unresolvable, including an endpoint model not in its list.
 - Produces: `member_update` input `model: { connectionId: string(≤200), modelId: string(≤256) }`. On change: `updateAssistant(..., { model, ownModel: true for temporary })`, member record `leadModel = model`, `grantLog` entry `edited` includes `"model"` and `model: { from: display, to: display }`, audit `details.models: { from, to }` (ids only), note payload `model: { from, to }` (labels). Same model again → `unchanged`.
@@ -143,10 +153,12 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 6: Model per member in `propose`
 
 **Files:**
+
 - Modify: `team-plugin/index.js` (`propose` member item schema + description), `team-service.js:266-297`, `team-store.js:264-292` (`memberKeys`, drafts) and `:431-471` (`reserve`), `assistant-store.js:70-93` (`reserveMember`)
 - Test: `tests/unit/assistant-team-plugin-install.test.js:66`, `tests/integration/` team propose tests (the file that covers `TeamService.propose`; find with `grep -l "teams.propose" tests/integration`)
 
 **Interfaces:**
+
 - Consumes: `validateMemberModel` (Task 5), `ownModel` / `leadModel` (Task 3).
 - Produces: optional `model: { connectionId, modelId }` per member in `propose`. `TeamService.propose` validates each before `store.propose`; the draft keeps `{ connectionId, modelId }` (part of the fingerprint); `reserve` creates the member with that model, `ownModel: true`, and `leadModel` on the member record. Proposal approval cards show the model when set (check the proposal note rendering; add the label in DE/EN if it lists member fields).
 
@@ -159,6 +171,7 @@ All paths are relative to the worktree `.worktrees/feat-lead-member-models` (bra
 ### Task 7: Docs and full check
 
 **Files:**
+
 - Modify: `docs/agents.md` (L58–63 profile model hint, L258–268 member models, L319–325 lead edits: permanent members, models tool, owner reset), `docs/assistant-gateway.md` (L853–866 tool list, L1864–1933 promotions and lead edits)
 - Delete: `docs/superpowers/specs/2026-10-23-lead-member-models-design.md`, this plan
 
