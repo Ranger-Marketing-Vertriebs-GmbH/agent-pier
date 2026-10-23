@@ -11,6 +11,7 @@ import { excerpt, followUp, memberPrompt, toolResult } from "./lead-request-text
 import { ownerTelegram } from "./team-coding.js";
 import { runReply } from "./history-text.js";
 import { saveText, shortForm } from "./team-texts.js";
+import { deliverRequest } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
@@ -19,11 +20,8 @@ import { applyTaskShare, taskShare } from "./lead-share-input.js";
 export const askWaitMs = 110_000;
 const ended = new Set(["completed", "failed", "cancelled"]);
 const dispatchAttempts = 5;
-// Follow-up delivery: retries back off and end after a few, a follow-up stays well
-// inside the ledger's text limit, and pruning runs about once a minute.
-const delivery = { attempts: 5, baseMs: 2000, maxMs: 120000 };
+// A follow-up stays well inside the ledger's text limit; pruning runs about once a minute.
 const pruneEveryMs = 60000;
-const finalResult = new Set(["completed", "failed", "cancelled", "reviewed"]);
 /**
  * Lead agents ask their own members and delegate tasks to permanent ones. Requests
  * wait until the member is free, run as ordinary turns in the member's chat and
@@ -515,78 +513,18 @@ export class LeadRequests {
     }
     return r;
   }
-  /**
-   * Hands a finished request to its lead as a follow-up turn in the conversation the
-   * request came from, once that conversation is idle. A lead's own cancel and an
-   * owner's decline need no follow-up.
-   */
-  async deliver(id) {
-    const a = this.assistants;
-    let r = this.store.get(id);
-    const settle = (patch) => this.teams.write(r, { ...patch, settled: true });
-    if (!ended.has(r.phase) || ["inline", "skipped", "failed"].includes(r.delivery)) {
-      if (requestTerminal.has(r.phase) && r.delivery && !r.settled) settle({});
-      return;
-    }
-    if (r.resultAttemptId) {
-      const attempt = a.ledger.getAttempt(r.resultAttemptId);
-      const state = attempt.reviewedAt ? "reviewed" : attempt.state;
-      if (r.resultState !== state || (finalResult.has(state) && !r.settled))
-        this.teams.write(r, { resultState: state, settled: finalResult.has(state) });
-      return;
-    }
-    if (r.phase === "cancelled" && r.cancelledBy === "lead")
-      return settle({ delivery: "skipped" });
-    if (a.store.getAssistant(r.parentAssistantId).archivedAt)
-      return settle({ delivery: "skipped", resultDiagnostic: "PARENT_ARCHIVED" });
-    // An ask still waiting takes the answer itself: a routine run has no attempt.
-    if (Date.now() < (r.deliveryRetryAt || 0)) return;
-    if (
-      [...this.waits.values()].includes(id) ||
-      a.ledger
-        .pending()
-        .some(
-          (x) =>
-            a.ledger.getRequest(x.requestId).conversationId === r.parentConversationId,
-        )
-    )
-      return;
-    if (r.delivery !== "pending") r = this.teams.write(r, { delivery: "pending" });
-    try {
-      const sent = await a.send(
-        r.parentConversationId,
-        {
-          clientRequestId: `lead-request-result:${id}`,
-          text: followUp({ ...r, answer: this.store.answer(r) }),
-        },
-        { kind: "member-result", requestId: id },
-      );
-      this.teams.write(this.store.get(id), {
-        delivery: "sent",
-        resultAttemptId: sent.attempt.id,
-        resultState: sent.attempt.state,
-      });
-      a.changed();
-    } catch (error) {
-      // Busy or unavailable: retried with backoff; the stable client id adopts an
-      // admitted follow-up. Anything else, or too many tries, ends visibly.
-      const current = this.store.get(id),
-        failures = (current.deliveryFailures || 0) + 1;
-      if (failures >= delivery.attempts || ![409, 503].includes(error?.status))
-        this.teams.write(current, {
-          delivery: "failed",
-          settled: true,
-          resultDiagnostic: "FOLLOW_UP_FAILED",
-          deliveryFailures: failures,
-        });
-      else
-        this.teams.write(current, {
-          deliveryFailures: failures,
-          deliveryRetryAt:
-            Date.now() + Math.min(delivery.baseMs * 2 ** failures, delivery.maxMs),
-        });
-      a.changed();
-    }
+  /** Hands a finished request on; see deliverRequest. */
+  deliver(id) {
+    return deliverRequest(this, id);
+  }
+  /** Where a finished request is delivered: the lead's conversation by default. */
+  deliveryTarget(r) {
+    return {
+      conversationId: r.parentConversationId,
+      clientRequestId: `lead-request-result:${r.id}`,
+      text: followUp({ ...r, answer: this.store.answer(r) }),
+      context: { kind: "member-result", requestId: r.id },
+    };
   }
   async close() {
     this.closed = true;
