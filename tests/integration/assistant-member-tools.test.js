@@ -126,15 +126,20 @@ test("a member's routine run session reaches peer tools and report", async (t) =
   const r = f.service.requests.store.get(result.reportId);
   assert.equal(r.origin.routine, "");
   // A lead's routine run passes the bridge but is no member: the call is refused.
-  const { ticket } = f.prepare(lead, session(lead), "peer_ask");
-  await assert.rejects(
-    f.bridge.invoke({
-      ticket,
-      action: "peer_ask",
-      input: { memberId: f.second.id, question: "Anything new?" },
-    }),
-    { status: 403 },
-  );
+  const inputs = {
+    peers: {},
+    peer_ask: { memberId: f.second.id, question: "Anything new?" },
+    peer_delegate: { memberId: f.second.id, task: "Check the numbers" },
+    report: { kind: "result", text: "Done" },
+  };
+  for (const action of memberActions) {
+    const { ticket } = f.prepare(lead, session(lead), action);
+    await assert.rejects(
+      f.bridge.invoke({ ticket, action, input: inputs[action] }),
+      { status: 403 },
+      action,
+    );
+  }
 });
 
 test("no member tool in a memory step", async (t) => {

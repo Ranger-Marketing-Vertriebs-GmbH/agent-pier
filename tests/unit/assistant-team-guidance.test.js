@@ -188,3 +188,14 @@ test("a changed roster rewrites AGENTS.md without a full apply", async (t) => {
   assert.doesNotMatch(g.files["AGENTS.md"], /## Your team/);
   assert.equal(updates(), 1);
 });
+
+test("the team section tells the lead members can agree among themselves and report", () => {
+  for (const usage of ["onRequest", "suggest", "autonomous"]) {
+    const text = section(prompt(usage));
+    assert.match(text, /agentpier_team_peer_ask/, usage);
+    assert.match(text, /agentpier_team_peer_delegate/, usage);
+    assert.match(text, /agentpier_team_report/, usage);
+    assert.match(text, /whom to involve and where the result goes/, usage);
+    assert.doesNotMatch(section(prompt(usage, [])), /agentpier_team_peer_ask/, usage);
+  }
+});

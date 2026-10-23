@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { peers } from "../helpers/peer-request-fixture.js";
 import { ask, lead, quoteFor, until } from "../helpers/lead-request-service-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
@@ -323,4 +324,13 @@ test("a member turn confirmed after a lost acknowledgement is running again", as
   );
   await f.service.reconcile();
   assert.equal(f.service.requests.store.get(r.id).phase, "running");
+});
+
+test("members() names the sender of a peer request", async (t) => {
+  const f = await peers(t);
+  const r = await f.peerAsk(f.memberTurn(f.permanent), f.second);
+  const listed = f.service.members(f.turn(), {});
+  const target = listed.members.find((m) => m.memberId === f.second.id);
+  const peer = target.requests.find((x) => x.requestId === r.id);
+  assert.equal(peer.from, f.permanent.name ?? "Member 1");
 });
