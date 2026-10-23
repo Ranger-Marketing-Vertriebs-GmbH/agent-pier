@@ -168,7 +168,9 @@ and lets running turns and cron runs finish, and it exits by itself once drained
 The readiness budget of the next start counts from its spawn, so a drain never
 shortens it. AgentPier's own shutdown keeps the 3 s grace, within the service
 manager's stop timeout (`TimeoutStopSec=10`), and cuts a drain already in progress
-short; the next start reclaims anything left. A failed start, an attempt or member
+short; the next start reclaims anything left. After that shutdown the supervisor
+refuses every start (`RUNTIME_CLOSED`), and a maintenance restart that was draining
+does not start the Gateway again, so no Gateway outlives AgentPier. A failed start, an attempt or member
 recovery and a lost cron acknowledgement stop with the short grace as well.
 
 A maintenance restart (provider changes, a [pending restart](#pending-restart), web
@@ -1943,7 +1945,8 @@ interrupts; further changes join it. `PendingRestart` tries at once and then eve
 15 s. Each try first checks for busy work _outside_ maintenance (`busy()`: the
 maintenance blockers, another restart, maintenance or an update), so a busy host never
 closes admission, pauses Telegram or switches cron off just to find out; `waitingFor`
-names what it waits for. Only an idle host enters the usual maintenance restart, which
+names what it waits for; a refusal by an update or other maintenance waits as
+`active`. Only an idle host enters the usual maintenance restart, which
 checks again inside (see [Process ownership and
 supervision](#process-ownership-and-supervision)). A failed try is logged with its
 code and shown as **The last restart attempt failed**; it is retried. A save made

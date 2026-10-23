@@ -277,7 +277,8 @@ export class AssistantProviderSynchronization {
       }
       await this.prepare();
       if (online && failure) throw assistantProblem("unavailable", 503);
-      if (wasRunning) await a.runtime.start();
+      // Not after AgentPier's shutdown began during the drain (runtime-supervisor.js).
+      if (wasRunning && !a.runtime.closed) await a.runtime.start();
       await this.pauseBlocked({ duringMaintenance: true });
       safeToLeave = true;
       a.changed();

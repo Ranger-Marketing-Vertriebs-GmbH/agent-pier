@@ -590,4 +590,7 @@ test("a stop lets the Gateway drain before SIGKILL; closing AgentPier stays shor
   await stopping;
   assert.deepEqual(await draining, [null, "SIGKILL"]);
   assert.ok(Date.now() - started < 5000);
+  // A restart that was draining must not spawn a Gateway after the shutdown.
+  await assert.rejects(slow.start(), { code: "RUNTIME_CLOSED" });
+  assert.equal(slow.child, null);
 });

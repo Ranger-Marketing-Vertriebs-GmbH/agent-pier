@@ -120,6 +120,18 @@ test("work that starts inside maintenance still refuses; a failure is logged and
   await until(() => pending.status() === null);
 });
 
+test("restart now refused by an update or other maintenance waits instead of failing", async (t) => {
+  const f = fixture(t);
+  const pending = f.make();
+  pending.request("webSearch");
+  pending.close();
+  f.state.fail = Object.assign(new Error("active"), { status: 409, key: "active" });
+  await assert.rejects(pending.restartNow(), { key: "active" });
+  assert.deepEqual(pending.status().waitingFor, ["active"]);
+  assert.equal(pending.status().failed, false);
+  assert.deepEqual(f.warnings, []);
+});
+
 test("a stopped Gateway records nothing; a starting one may have compiled too early", (t) => {
   const f = fixture(t);
   f.runtime.client.ready = false;
