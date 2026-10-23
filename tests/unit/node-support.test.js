@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
-import { isPatchedNode } from "../../server/lib/node-support.js";
+import { isPatchedNode, nodeCheckStatus } from "../../server/lib/node-support.js";
 import { NODE_RUNTIME_VERSION } from "../../server/features/operations/release-runtime.js";
 
 const PATCHED = [
@@ -59,4 +59,13 @@ test("the installer's host Node check matches isPatchedNode", () => {
     }
     assert.equal(accepted, isPatchedNode(version), version);
   }
+});
+
+test("the doctor node check warns on unpatched, passes patched and fails below 22.13", () => {
+  for (const version of ["22.22.2", "22.13.0", "24.22.0", "23.11.0"])
+    assert.equal(nodeCheckStatus(version), "warn", version);
+  for (const version of ["22.23.4", "24.22.1", "26.12.1"])
+    assert.equal(nodeCheckStatus(version), "ok", version);
+  for (const version of ["20.19.0", "22.12.9", "18.0.0"])
+    assert.equal(nodeCheckStatus(version), "fail", version);
 });

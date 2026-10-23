@@ -13,7 +13,7 @@ else
   validate_installer_options "$@"
   INSTALL_TARGET="$SCRIPT_DIR/release-install.mjs"
 fi
-# Behind a proxy, Node's fetch needs NODE_USE_ENV_PROXY (Node 22.21+); loopback
+# Behind a proxy, Node's fetch needs NODE_USE_ENV_PROXY (available since Node 22.21; every host Node in the supported range has it); loopback
 # health checks must never be sent to the proxy.
 NODE_ROUTE=direct
 if [ -n "${HTTPS_PROXY:-}${https_proxy:-}${HTTP_PROXY:-}${http_proxy:-}" ]; then

@@ -12,7 +12,7 @@ AgentPier is a local workspace for coding CLIs, built with React, Vite, Express,
 
 ## Build, Test, and Development Commands
 
-Use macOS or Linux with Node.js 22.23.4+ (or 24.22.1+, 26.12.1+), Git, and tmux.
+Use macOS or Linux with Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported), Git, and tmux.
 
 If a change requires additional runtime tools, provision them through the installation scripts and the update path for existing installations. Do not rely on manual fixes on one developer machine.
 

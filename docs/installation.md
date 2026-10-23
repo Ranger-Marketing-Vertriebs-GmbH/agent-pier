@@ -106,7 +106,7 @@ Then restart the AgentPier web service. If `tmux -V` works but the service still
 ## 1. Prerequisites on the target machine
 
 - macOS with a regular user account that will also run the CLI sessions.
-- Node.js 22.23.4, 24.22.1, 26.12.1 or later (patched releases) with npm, tmux and Git.
+- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported) with npm, tmux and Git.
 - Codex, Claude Code and OpenCode may already be installed or can be installed later under **Your tools → Install CLI**.
 - Optional: Tailscale, signed in to your own tailnet on both the Mac mini and mobile device.
 
@@ -297,7 +297,7 @@ The assistant service is optional and off initially: until the owner turns on
 **Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
 private OpenClaw 2026.10.3 installation and Node 26.7.0 under the data directory's
-`assistants/runtimes/` directory. AgentPier itself retains its Node 22.23.4+ support.
+`assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^22.23.4 || ^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
 The release package includes the installer; no global OpenClaw or second daemon is
@@ -349,8 +349,8 @@ reach uv:
   as the bundle above, to `uv`.
 - `localhost`, `127.0.0.1`, `::1` and `[::1]` are always added to `NO_PROXY` and
   `no_proxy`, so health checks and the Gateway connection never use the proxy.
-- Node's built-in `fetch` honours the proxy on Node 22.21+ or 24+ (not on Node 23,
-  and not on Node 22 before 22.21). The release bundles a suitable Node; if
+- Node's built-in `fetch` honours the proxy on Node 22.21+ or 24+; every Node in the supported range
+  qualifies (Node 23 and Node 22 before 22.21 do not). The release bundles a suitable Node; if
   AgentPier runs on another Node while a proxy is set, downloads fail at once with
   `PROXY_REQUIRES_NEWER_NODE` instead of bypassing the proxy. When a proxy is set,
   the installer does not use such a system Node; it downloads its own pinned Node
@@ -358,7 +358,7 @@ reach uv:
 - Behaviour change: this also applies to AgentPier's own self-update downloads.
   An installation that runs on Node 22.13 to 22.20 behind a proxy now stops an
   update download with `PROXY_REQUIRES_NEWER_NODE` instead of trying a direct
-  connection. Upgrade the Node that runs AgentPier to 22.21+ or 24+.
+  connection. Upgrade the Node that runs AgentPier to the supported range `^22.23.4 || ^24.22.1 || >=26.12.1`.
 
 **The update to OpenClaw 2026.10.3 cannot be undone once committed.** It migrates
 the agent service's state database (schema 19 to 20), and OpenClaw 2026.9.9 and
