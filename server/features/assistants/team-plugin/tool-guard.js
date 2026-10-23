@@ -48,6 +48,23 @@ async function lockedToolCall(event, ctx, bridge) {
   if (policy?.allow === true) return undefined;
   return { block: true, blockReason: "This agent may not use this tool." };
 }
+// Every tool call asks whether it runs in a memory step, which keeps to its memory
+// tools (memory-step-tools.js); an unanswered question refuses.
+async function stepCall(event, ctx, bridge) {
+  const response = await bridge(
+    "/step-policy",
+    {
+      agentId: ctx?.agentId,
+      ...(typeof ctx?.sessionKey === "string" ? { sessionKey: ctx.sessionKey } : {}),
+      ...(typeof ctx?.runId === "string" ? { runId: ctx.runId } : {}),
+      toolName: event?.toolName,
+    },
+    ctx?.abortSignal,
+  ).catch(() => null);
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow === true) return undefined;
+  return { block: true, blockReason: "A memory step only saves the agent's memory." };
+}
 /** The tool call's targets, each as classifyWrite sees a single-path call. */
 export function writeTargets(toolName, params) {
   if (toolName !== "apply_patch") return [params];
@@ -418,6 +435,9 @@ export function registerToolGuard(api) {
     },
     { matcher: writeTools, priority: 1000 },
   );
+  api.on("before_tool_call", (event, ctx) => stepCall(event, ctx, bridge), {
+    priority: 1000,
+  });
   api.on("before_tool_call", (event, ctx) => lockedToolCall(event, ctx, bridge), {
     matcher: lockedCoreTools,
     priority: 1000,
