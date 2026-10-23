@@ -78,13 +78,37 @@ test("a task member's row and header show the server-provided model after a chan
   await expect(row.locator("small").first()).toContainText("anthropic/claude-sonnet-5");
 });
 
-test("a task member's profile names the lead's model instead of offering a choice", async ({
+// Records the profile PATCH and answers with the member as the server stores it.
+async function recordPatches(page, state) {
+  const patches = [];
+  await page.route(/\/api\/assistants\/member-0$/, async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const body = route.request().postDataJSON();
+    patches.push(body);
+    const member = state.assistants[1];
+    if (body.model) Object.assign(member, { model: body.model, ownModel: true });
+    if (body.followLead) {
+      delete member.ownModel;
+      member.model = state.assistants[0].model;
+    }
+    member.revision += 1;
+    await route.fulfill({ json: member });
+  });
+  return patches;
+}
+
+test("a task member's profile follows the lead's model until the owner picks one", async ({
   page,
 }) => {
-  await chatFixture(page, setup());
+  const state = await chatFixture(page, setup());
+  const patches = await recordPatches(page, state);
   await page.goto(baseURL + "/agents/member-0/settings");
+  const follow = page.getByRole("switch", { name: "Follow the lead's model" });
+  await expect(follow).toBeChecked();
   await expect(
-    page.getByText("Follows the lead's model.", { exact: true }),
+    page.getByText("Runs on the lead's current model and changes with it.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.locator(".agent-profile-card")).toContainText(
     "OpenRouter · openai/gpt-4.1-mini",
@@ -93,6 +117,26 @@ test("a task member's profile names the lead's model instead of offering a choic
   await expect(page.getByLabel("Model connection")).toHaveCount(0);
   await expect(page.getByText(/^Model: /)).toHaveCount(0);
   await expect(page.getByLabel("Name", { exact: true })).toBeEditable();
+  // The owner picks a model of its own: the regular fields, prefilled.
+  await follow.click();
+  await expect(page.getByLabel("Model connection")).toBeVisible();
+  await page.getByLabel("Model ID", { exact: true }).fill("anthropic/claude-sonnet-5");
+  await page.getByRole("button", { name: "Save agent", exact: true }).click();
+  await expect.poll(() => patches.length).toBe(1);
+  expect(patches[0]).toMatchObject({
+    model: { connectionId: "router", modelId: "anthropic/claude-sonnet-5" },
+  });
+  expect(patches[0]).not.toHaveProperty("followLead");
+  await expect(follow).not.toBeChecked();
+  // And back: the member follows its lead again.
+  await follow.click();
+  await expect(page.locator(".agent-profile-card")).toContainText(
+    "OpenRouter · openai/gpt-4.1-mini",
+  );
+  await page.getByRole("button", { name: "Save agent", exact: true }).click();
+  await expect.poll(() => patches.length).toBe(2);
+  expect(patches[1]).toMatchObject({ followLead: true });
+  expect(patches[1]).not.toHaveProperty("model");
 });
 
 test("a permanent member's profile offers its own model", async ({ page }) => {
@@ -100,7 +144,7 @@ test("a permanent member's profile offers its own model", async ({ page }) => {
   await page.goto(baseURL + "/agents/member-0/settings");
   await expect(page.getByLabel("Model connection")).toBeVisible();
   await expect(page.getByText("Manage connections", { exact: true })).toBeVisible();
-  await expect(page.getByText("Follows the lead's model.", { exact: true })).toHaveCount(
+  await expect(page.getByRole("switch", { name: "Follow the lead's model" })).toHaveCount(
     0,
   );
   await expect(

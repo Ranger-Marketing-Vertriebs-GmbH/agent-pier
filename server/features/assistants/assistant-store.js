@@ -165,7 +165,12 @@ export class AssistantStore {
       r.teamMemberId ? this.resolved(r, byId.get(r.parentAssistantId)) : r,
     );
   }
-  updateAssistant(id, patch, revision) {
+  /**
+   * `followLead` (a temporary member only) drops the member's own model so it runs on
+   * its lead's again; a model set on a temporary member becomes its own (`ownModel`).
+   * Any other edit writes the effective model back without making it own.
+   */
+  updateAssistant(id, patch, revision, { followLead = false } = {}) {
     const changes = validateDefinition(patch, true),
       current = this.getAssistant(id);
     if (!Number.isSafeInteger(revision) || current.revision !== revision)
@@ -190,6 +195,10 @@ export class AssistantStore {
       delete fields.skills;
     }
     const result = { ...persisted(current), ...fields, revision: revision + 1 };
+    if (temporaryMember(current)) {
+      if (followLead) delete result.ownModel;
+      else if ("model" in fields) result.ownModel = true;
+    } else if (followLead) throw assistantProblem("invalid");
     // Older clients send only the original keys; keep stored newer capabilities.
     if (fields.capabilities)
       result.capabilities = { ...current.capabilities, ...fields.capabilities };

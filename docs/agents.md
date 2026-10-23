@@ -58,9 +58,11 @@ agent's **Profile** names the template with its source, revision and license.
 ### Profile
 
 Name, instructions and model. A team member also shows where it came from and whether
-its instructions changed since it was created. A temporary member has no model of its
-own: its Profile shows the lead's model with "Follows the lead's model." A permanent
-member also shows whether its model changed since it took it over from the lead.
+its instructions changed since it was created. A temporary member has **Follow the
+lead's model** switched on: its Profile then shows the lead's model. Switch it off to
+pick a model of its own; switch it on again to follow the lead. A permanent member, and
+a temporary member with a model of its own, also shows whether its model changed since
+it took it over from the lead.
 
 ### Capabilities
 
@@ -257,12 +259,14 @@ after **Keep as permanent agent**.
 
 Every member row and chat header shows the model the member actually runs on:
 
-- **Temporary members** always use the lead's current model. Change the lead's model
-  and its temporary members use the new one from their next turn on; the member's own
-  Profile revision does not change. A model chosen for a temporary member in an earlier
-  AgentPier version is ignored. When the lead's model connection is removed or
-  unavailable, they stop working with the same hint as the lead until you choose
-  another model for the lead.
+- **Temporary members** use the lead's current model unless they have one of their
+  own. Change the lead's model and its following temporary members use the new one
+  from their next turn on; the member's own Profile revision does not change. A model
+  chosen for a temporary member in an earlier AgentPier version is ignored. When the
+  lead's model connection is removed or unavailable, they stop working with the same
+  hint as the lead until you choose another model for the lead. Switch off **Follow
+  the lead's model** in the member's Profile to give it a model of its own; lead
+  changes then no longer affect it until you switch it on again.
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
   affect it. Change it in the member's Profile.

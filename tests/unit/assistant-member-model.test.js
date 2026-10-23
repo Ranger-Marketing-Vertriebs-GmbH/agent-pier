@@ -113,3 +113,49 @@ test("model overrides are reported for permanent members only", (t) => {
   assert.equal("model" in overrides, false);
   assert.equal(overrides.instructions, false);
 });
+
+test("effectiveModel keeps a temporary member's own model", () => {
+  const lead = { id: "lead", model: second };
+  const task = { teamMemberId: "m", lifetime: "task", model: first, ownModel: true };
+  assert.deepEqual(effectiveModel(task, lead), first);
+});
+
+test("a lead-assigned model is not an owner override", () => {
+  const member = {
+    snapshot: { model: first, instructions: "Plan" },
+    role: "Research",
+    assignment: "Look around",
+    leadModel: second,
+  };
+  const task = {
+    teamMemberId: "m",
+    lifetime: "task",
+    model: second,
+    ownModel: true,
+    instructions: "Plan\n\nRole: Research\nAssignment: Look around",
+  };
+  assert.deepEqual(memberOverrides(member, task), { model: false, instructions: false });
+  assert.equal(memberOverrides(member, { ...task, model: third }).model, true);
+  // A permanent member compares against the lead's assignment too.
+  const kept = { ...task, lifetime: "permanent" };
+  assert.equal(memberOverrides(member, kept).model, false);
+  assert.equal(memberOverrides({ ...member, leadModel: undefined }, kept).model, true);
+});
+
+test("the store marks a temporary member's model as its own only when one is set", (t) => {
+  const f = fixture(t);
+  const id = f.member.assistantId;
+  // An unrelated edit writes the effective model back but does not make it own.
+  f.setLeadModel(second);
+  const renamed = f.store.updateAssistant(id, { name: "Scout 2" }, 1);
+  assert.equal(renamed.ownModel, undefined);
+  f.setLeadModel(third);
+  assert.deepEqual(f.store.getAssistant(id).model, third);
+  const own = f.store.updateAssistant(id, { model: first }, renamed.revision);
+  assert.equal(own.ownModel, true);
+  f.setLeadModel(second);
+  assert.deepEqual(f.store.getAssistant(id).model, first);
+  const back = f.store.updateAssistant(id, {}, own.revision, { followLead: true });
+  assert.equal(back.ownModel, undefined);
+  assert.deepEqual(f.store.getAssistant(id).model, second);
+});

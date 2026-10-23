@@ -1,7 +1,9 @@
 export const assistantTeamCopy = {
   modelChanged: "Modell: seit der Übernahme vom leitenden Agenten geändert",
   modelOriginal: "Modell: wie vom leitenden Agenten übernommen",
-  followsLeadModel: "Folgt dem Modell des leitenden Agenten.",
+  followsLeadModel:
+    "Läuft auf dem aktuellen Modell des leitenden Agenten und wechselt mit ihm.",
+  followLeadModelChoice: "Dem Modell des leitenden Agenten folgen",
   instructionsChanged: "Anweisungen: seit Erstellung geändert",
   instructionsOriginal: "Anweisungen: wie bei Erstellung",
   setupUnknown:
@@ -53,7 +55,7 @@ export const assistantTeamCopy = {
   independent:
     "Modell und Anweisungen gehören diesem Agenten. Änderungen am leitenden Agenten überschreiben sie nicht.",
   independentTask:
-    "Die Anweisungen sind eine unabhängige Kopie, die Änderungen am leitenden Agenten nicht überschreiben; nach Abschluss kannst du sie ändern. Das Modell folgt immer dem leitenden Agenten.",
+    "Die Anweisungen sind eine unabhängige Kopie, die Änderungen am leitenden Agenten nicht überschreiben; nach Abschluss kannst du sie ändern. Das Modell folgt dem leitenden Agenten, solange das Mitglied kein eigenes erhält.",
   promote: "Als dauerhaften Agenten behalten",
   states: {
     partial: "Teilweise erfolgreich",

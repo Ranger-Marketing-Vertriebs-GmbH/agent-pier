@@ -100,26 +100,6 @@ test("a permanent member's Gateway config keeps its own model", async (t) => {
   assert.equal(g.entries[agent.runtimeAgentId].model, "c/m");
 });
 
-test("the agents list shows a task member's effective model and refuses editing it", async (t) => {
-  const { f, parent, member } = await teamWith(t, "task");
-  await f.assistants.update(parent.id, { model: second }, parent.revision);
-  const listed = f.assistants.list().assistants.find((a) => a.id === member.assistantId);
-  assert.deepEqual(listed.model, second);
-  assert.equal(f.assistants.list().members[0].overrides.model, undefined);
-  // Restating the effective model is no change; another model is refused.
-  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
-  const kept = await f.assistants.update(
-    member.assistantId,
-    { name: "Renamed", model: second },
-    listed.revision,
-  );
-  assert.equal(kept.name, "Renamed");
-  await assert.rejects(
-    f.assistants.update(member.assistantId, { model: first }, kept.revision),
-    { status: 409, key: "memberModelFollowsLead" },
-  );
-});
-
 test("an unavailable lead model fails the task member's apply like the lead's", async (t) => {
   const { f, parent, member } = await teamWith(t, "task");
   await f.assistants.update(parent.id, { model: second }, parent.revision);
@@ -145,6 +125,57 @@ const finished = (f, team) => {
     f.service.store.setPhase(m.id, "queued", { phase: "completed" });
   return f.service.store.members(team.id);
 };
+
+test("the owner sets and resets a task member's model", async (t) => {
+  const { f, parent, member } = await teamWith(t, "task");
+  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
+  const id = member.assistantId;
+  const listed = () => f.assistants.list().assistants.find((a) => a.id === id);
+  const own = await f.assistants.update(id, { model: third }, listed().revision);
+  assert.equal(own.ownModel, true);
+  assert.deepEqual(listed().model, third);
+  assert.equal(f.assistants.list().members[0].overrides.model, true);
+  // The lead's model change no longer reaches it.
+  await setLeadModel(f, parent.id, second);
+  assert.deepEqual(listed().model, third);
+  // Restating its own model keeps it.
+  const same = await f.assistants.update(id, { model: third }, own.revision);
+  assert.equal(same.ownModel, true);
+  assert.deepEqual(same.model, third);
+  const back = await f.assistants.update(id, { followLead: true }, same.revision);
+  assert.equal(back.ownModel, undefined);
+  assert.deepEqual(listed().model, second);
+  assert.equal(f.assistants.list().members[0].overrides.model, undefined);
+  await setLeadModel(f, parent.id, first);
+  assert.deepEqual(listed().model, first);
+});
+
+test("an unrelated edit leaves a task member following its lead", async (t) => {
+  const { f, parent, member } = await teamWith(t, "task");
+  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
+  const id = member.assistantId;
+  await setLeadModel(f, parent.id, second);
+  const renamed = await f.assistants.update(
+    id,
+    { name: "Renamed" },
+    f.store.getAssistant(id).revision,
+  );
+  assert.equal(renamed.name, "Renamed");
+  assert.equal(f.store.storedAssistant(id).ownModel, undefined);
+  await setLeadModel(f, parent.id, third);
+  assert.deepEqual(f.store.getAssistant(id).model, third);
+});
+
+test("only a task member can follow its lead's model", async (t) => {
+  const { f, member } = await teamWith(t, "permanent");
+  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
+  const agent = f.store.getAssistant(member.assistantId);
+  for (const input of [{ followLead: true }, { followLead: false }])
+    await assert.rejects(f.assistants.update(agent.id, input, agent.revision), {
+      status: 400,
+      key: "invalid",
+    });
+});
 
 test("members kept one by one each freeze the lead's model of their own moment", async (t) => {
   const { f, parent, team } = await teamWith(t, "task", 3);
@@ -192,4 +223,18 @@ test("a task member counts toward its lead's current connection", async (t) => {
     agents: [{ id: parent.id, name: parent.name }],
     teamMembers: 2,
   });
+});
+
+test("picking the lead's current model pins it for a task member", async (t) => {
+  const { f, parent, member } = await teamWith(t, "task");
+  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
+  const agent = f.store.getAssistant(member.assistantId);
+  await assert.rejects(
+    f.assistants.update(agent.id, { followLead: true, model: first }, agent.revision),
+    { status: 400, key: "invalid" },
+  );
+  const pinned = await f.assistants.update(agent.id, { model: first }, agent.revision);
+  assert.equal(pinned.ownModel, true);
+  await setLeadModel(f, parent.id, second);
+  assert.deepEqual(f.store.getAssistant(agent.id).model, first);
 });

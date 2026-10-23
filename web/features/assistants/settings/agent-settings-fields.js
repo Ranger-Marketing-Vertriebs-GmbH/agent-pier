@@ -26,7 +26,13 @@ export const capabilityFormKeys = [
   "mcpServers",
   "skills",
 ];
-export const profileKeys = ["name", "instructions", "connectionId", "modelId"];
+export const profileKeys = [
+  "name",
+  "instructions",
+  "connectionId",
+  "modelId",
+  "followLead",
+];
 export const heartbeatKeys = [
   "heartbeatEnabled",
   "interval",
@@ -161,21 +167,23 @@ export function sshSummary(grants, hosts) {
 const pick = (source, keys) =>
   Object.fromEntries(keys.map((key) => [key, source?.[key] === true]));
 
+/** A temporary member, which may follow its lead's model or run on its own. */
+export const followsLeadModel = (assistant) =>
+  !!assistant?.teamMemberId && assistant.lifetime !== "permanent";
 export const profileServer = (assistant) => ({
   name: assistant?.name || "",
   instructions: assistant?.instructions || "",
   connectionId: assistant?.model?.connectionId || "",
   modelId: assistant?.model?.modelId || "",
+  followLead: followsLeadModel(assistant) && assistant.ownModel !== true,
 });
-/** A temporary member runs on its lead's model and has none of its own to edit. */
-export const followsLeadModel = (assistant) =>
-  !!assistant?.teamMemberId && assistant.lifetime !== "permanent";
-export const profilePatch = (values, { followsLead = false } = {}) => ({
+/** Following the lead sends `followLead` instead of a model of its own. */
+export const profilePatch = (values) => ({
   name: values.name,
   instructions: values.instructions,
-  ...(!followsLead && {
-    model: { connectionId: values.connectionId, modelId: values.modelId },
-  }),
+  ...(values.followLead
+    ? { followLead: true }
+    : { model: { connectionId: values.connectionId, modelId: values.modelId } }),
 });
 
 export const capabilityServer = (assistant) => ({

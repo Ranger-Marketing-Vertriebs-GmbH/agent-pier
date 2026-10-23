@@ -123,6 +123,7 @@ test("profile drafts send name, instructions and the model together", () => {
     instructions: "Plan meals",
     connectionId: "router",
     modelId: "model",
+    followLead: false,
   });
   assert.deepEqual(profilePatch({ ...server, modelId: "other" }), {
     name: "Home",
@@ -134,7 +135,23 @@ test("profile drafts send name, instructions and the model together", () => {
     instructions: "",
     connectionId: "",
     modelId: "",
+    followLead: false,
   });
+});
+
+test("a temporary member's profile follows its lead until it has its own model", () => {
+  const member = agent({ teamMemberId: "m", lifetime: "task" });
+  const following = profileServer(member);
+  assert.equal(following.followLead, true);
+  assert.deepEqual(profilePatch(following), {
+    name: "Home",
+    instructions: "Plan meals",
+    followLead: true,
+  });
+  const own = profileServer({ ...member, ownModel: true });
+  assert.equal(own.followLead, false);
+  assert.deepEqual(profilePatch(own).model, { connectionId: "router", modelId: "model" });
+  assert.equal(profileServer({ ...member, lifetime: "permanent" }).followLead, false);
 });
 
 test("capability drafts flatten switches and send only what changed", () => {
