@@ -61,6 +61,39 @@ test("after an update an enabled installation stages the new runtime in the back
   assert.deepEqual(read(path.join(f.dataDir, "assistants/runtime.json")), previous);
 });
 
+test("a Node-only pin change stages a separate candidate beside the selection", async (t) => {
+  const f = assistantInstallFixture(t);
+  writeAssistantFeature(f.dataDir, { enabled: true });
+  const selected = await ensureAssistantRuntime(f.options);
+  const selection = path.join(f.dataDir, "assistants/runtime.json");
+  assert.deepEqual(read(selection), selected);
+  // Same OpenClaw version and lock; only the managed Node moves (security release).
+  const manifest = { ...f.manifest, nodeVersion: "26.12.1" };
+  const downloads = [];
+  const download = async (url) => (downloads.push(url), f.options.download(url));
+  const staged = await stageRuntimeInBackground({ ...f.options, manifest, download });
+  assert.equal(staged.version, selected.version);
+  assert.equal(staged.dependencyLockSha256, selected.dependencyLockSha256);
+  assert.equal(staged.nodeVersion, "26.12.1");
+  assert.match(staged.nodePath, /\/2026\.10\.3-node26\.12\.1-darwin-arm64-lock/);
+  assert.notEqual(path.dirname(staged.nodePath), path.dirname(selected.nodePath));
+  assert.ok(downloads.includes(nodeUrl("26.12.1")));
+  assert.equal(
+    read(path.join(f.dataDir, "assistants/candidate.json")).nodeVersion,
+    "26.12.1",
+  );
+  // Activation stays an owner action; the previous runtime stays installed for rollback.
+  assert.deepEqual(read(selection), selected);
+  assert.ok(fs.existsSync(selected.nodePath));
+  // Once staged, a later start prepares nothing again.
+  assert.equal(
+    stageRuntimeInBackground({ ...f.options, manifest, download: () => assert.fail() }),
+    null,
+  );
+});
+const nodeUrl = (version) =>
+  `https://nodejs.org/dist/v${version}/node-v${version}-darwin-arm64.tar.gz`;
+
 test("a disabled installation downloads nothing after an update", async (t) => {
   const f = assistantInstallFixture(t);
   const download = () => assert.fail("unexpected download");

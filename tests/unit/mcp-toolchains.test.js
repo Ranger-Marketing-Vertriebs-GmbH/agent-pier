@@ -48,7 +48,7 @@ test("toolchain directories are named after the pinned versions and target", (t)
   assert.equal(fs.statSync(root).mode & 0o777, 0o700);
   assert.equal(
     nodeDirectory(f.dataDir, "linux-x64"),
-    path.join(root, "node-v26.7.0-linux-x64"),
+    path.join(root, "node-v26.12.1-linux-x64"),
   );
   assert.equal(
     pythonDirectory(f.dataDir, "linux-x64"),
@@ -61,8 +61,8 @@ test("node toolchain installs once, verifies and is read back without downloads"
   assert.equal(readToolchain("node", options(f)), null);
   const node = await ensureToolchain("node", options(f));
   assert.equal(node.kind, "node");
-  assert.equal(node.version, "26.7.0");
-  assert.equal(execFileSync(node.nodePath).toString().trim(), "v26.7.0");
+  assert.equal(node.version, "26.12.1");
+  assert.equal(execFileSync(node.nodePath).toString().trim(), "v26.12.1");
   assert.ok(node.npmCliPath.endsWith("lib/node_modules/npm/bin/npm-cli.js"));
   assert.deepEqual(readToolchain("node", options(f)), node);
   const again = await ensureToolchain("node", options(f));
@@ -264,7 +264,7 @@ test("an interrupted stage is neither used nor blocking and is removed", async (
   fs.writeFileSync(fake, "#!/bin/sh\necho stale\n", { mode: 0o755 });
   assert.equal(readToolchain("node", options(f)), null);
   const node = await ensureToolchain("node", options(f));
-  assert.equal(execFileSync(node.nodePath).toString().trim(), "v26.7.0");
+  assert.equal(execFileSync(node.nodePath).toString().trim(), "v26.12.1");
   assert.equal(f.downloads.length, 1);
   assert.equal(fs.existsSync(stale), false);
   assert.deepEqual(stages(f.dataDir), []);
