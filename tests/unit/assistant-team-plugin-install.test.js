@@ -121,3 +121,22 @@ test("the memory write guard covers the pinned runtime and only startable ones",
       `${runtime} is neither pinned nor a rollback target`,
     );
 });
+
+test("the ask, delegate and members descriptions tell leads about member conversations", async () => {
+  const { default: plugin } =
+    await import("../../server/features/assistants/team-plugin/index.js");
+  const tools = [];
+  plugin.register({
+    pluginConfig: undefined,
+    registrationMode: "cli-metadata",
+    registerTool: (tool) => tools.push(tool),
+  });
+  const byName = Object.fromEntries(
+    tools
+      .map((tool) => tool.create({ agentId: "a", sessionKey: "s" }))
+      .map((tool) => [tool.name, tool]),
+  );
+  assert.match(byName.agentpier_team_ask.description, /ask each other/);
+  assert.match(byName.agentpier_team_delegate.description, /agree among themselves/);
+  assert.match(byName.agentpier_team_members.description, /colleagues sent them/);
+});

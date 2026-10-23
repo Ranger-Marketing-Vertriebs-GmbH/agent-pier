@@ -50,6 +50,8 @@ export function runtimeStatus(runtime, assistants, bridge) {
     ? { ...state, diagnostic: "WRITE_GUARD_PENDING" }
     : state;
 }
+const peerActions = new Set(["peers", "peer_ask", "peer_delegate"]);
+
 export class TeamBridge {
   constructor({ assistants, teams, generation = () => 1, now = Date.now }) {
     Object.assign(this, { assistants, teams, generation, now });
@@ -464,7 +466,7 @@ export class TeamBridge {
         return this.assistants.shares.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
-      if (memberActions.has(action)) return this.teams.peers[action](invocation, input);
+      if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"
         ? this.assistants.reminders.invoke(invocation, input)
         : this.teams[action](invocation, input);

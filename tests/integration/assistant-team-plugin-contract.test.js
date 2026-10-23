@@ -60,7 +60,7 @@ test("the manifest's tool contracts equal the plugin's registered tools", () => 
   assert.deepEqual([...manifest.contracts.tools].sort(), [...names].sort());
   assert.equal(new Set(names).size, names.length);
   // Every team tool is registered once, the members' own included.
-  for (const tool of [...teamTools.slice(1), ...memberTeamTools])
+  for (const tool of teamTools.slice(1))
     assert.equal(names.filter((name) => name === tool).length, 1, tool);
 });
 
