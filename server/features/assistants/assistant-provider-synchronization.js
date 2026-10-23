@@ -135,7 +135,7 @@ export class AssistantProviderSynchronization {
     } catch (error) {
       // A lost cron acknowledgement must not leave scheduling with uncertain
       // authorization. The next start repeats the offline model guard.
-      await a.runtime.stop();
+      await a.runtime.stop({ urgent: true });
       throw error;
     }
   }
@@ -169,11 +169,16 @@ export class AssistantProviderSynchronization {
   /**
    * Changes a connection. One that agents use needs a Gateway restart: in the app the
    * change is saved at once and the restart is left to `pending` (pending-restart.js),
-   * which runs it as soon as nothing is busy. Without one (tools, tests), `confirmed`
-   * records the owner's consent to an immediate restart, checked here together with
-   * the usage it depends on. A native logout (`online`) always restarts at once.
+   * which runs it as soon as nothing is busy. A revocation (`revokes`), or a change
+   * without one (tools, tests), needs `confirmed`, the owner's consent to an immediate
+   * restart, checked here together with the usage it depends on. A native logout
+   * (`online`) always restarts at once.
    */
-  async change(connectionId, operation, { online = false, confirmed = false } = {}) {
+  async change(
+    connectionId,
+    operation,
+    { online = false, confirmed = false, revokes = false } = {},
+  ) {
     const a = this.assistants;
     // Provider keys and account profiles are sealed in update backups. A changed or
     // revoked credential makes every existing backup key worthless first.
@@ -184,8 +189,9 @@ export class AssistantProviderSynchronization {
       revokeBackups();
       return operation();
     }
-    if (!online && this.pending) {
-      // The running Gateway keeps the previous credential until the restart.
+    // A revocation (a deleted connection, a rotated or removed key) never waits: the
+    // owner confirms and the Gateway restarts at once, refused while agents are busy.
+    if (!online && !revokes && this.pending) {
       const usage = this.usage(connectionId);
       revokeBackups();
       const result = await operation();
@@ -201,6 +207,13 @@ export class AssistantProviderSynchronization {
       // that RPC, while the global cron/admission gate is already closed.
       dependent: (profile) => profile.model.connectionId === connectionId,
     });
+  }
+  /** What would refuse a restart now, read without entering maintenance. */
+  async busy() {
+    const a = this.assistants;
+    if (this.changing || a.maintenance || this.isUpdating()) return ["active"];
+    if (!this.maintenance) return ["unavailable"];
+    return this.maintenance.blockers();
   }
   /**
    * Runs `operation` in maintenance and restarts the Gateway, so the next start

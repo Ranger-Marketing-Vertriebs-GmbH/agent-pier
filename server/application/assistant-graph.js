@@ -22,7 +22,7 @@ import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
-import { PendingRestart } from "../features/assistants/pending-restart.js";
+import { PendingRestart, updateBlocked } from "../features/assistants/pending-restart.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import {
@@ -307,7 +307,9 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     runtime: assistantRuntime,
     maintenance,
-    isBlocked: () => !!scope.assistantProviderSynchronization?.changing,
+    // No update while a restart runs, a pending one included (pending-restart.js).
+    isBlocked: () =>
+      updateBlocked(scope.assistantProviderSynchronization, assistants.pendingRestart),
     // MCP OAuth logins cleared since the snapshot are logged out again.
     onRolledBack: ({ createdAt }) => scope.assistantMcpOAuth?.afterRollback(createdAt),
     affected: () => {

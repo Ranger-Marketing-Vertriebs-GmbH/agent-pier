@@ -91,7 +91,9 @@ function activeAssistantRoutes(services) {
     if (
       assistants.maintenance &&
       !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
-      !req.path.startsWith("/assistant-runtime/updates/")
+      !req.path.startsWith("/assistant-runtime/updates/") &&
+      // The owner's "Restart now" waits for a restart attempt in maintenance itself.
+      req.path !== "/assistant-runtime/pending-restart"
     )
       return next(assistantProblem("active", 409));
     next();

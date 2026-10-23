@@ -13,6 +13,13 @@ export const pendingRestartReasons = [
   "telegram",
 ];
 
+/**
+ * Whether a runtime update must wait: a maintenance restart runs, or a pending restart
+ * is trying (its busy check runs outside maintenance, before `changing` is set).
+ */
+export const updateBlocked = (synchronization, pending) =>
+  !!(synchronization?.changing || pending?.running);
+
 const valid = (state) =>
   state &&
   typeof state.since === "number" &&
@@ -63,21 +70,26 @@ export class PendingRestart {
     if (this.state) writePrivate(this.file, this.state);
     else fs.rmSync(this.file, { force: true });
   }
-  /** `{ since, reasons, affected, waitingFor }` while a restart is pending, else null. */
+  /**
+   * `{ since, reasons, affected, waitingFor, failed, running }` while a restart is
+   * pending, else null. `failed`: the last try failed for another reason than busy work.
+   */
   status() {
     if (!this.state) return null;
-    const { since, reasons, affected, waitingFor = [] } = this.state;
-    return { since, reasons, affected, waitingFor, running: !!this.running };
+    const { since, reasons, affected, waitingFor = [], failed = false } = this.state;
+    return { since, reasons, affected, waitingFor, failed, running: !!this.restarting };
   }
   /**
    * Records that the running Gateway needs a restart for `reason`, interrupting
    * `affected` (`{ agents: [{ id, name }], teamMembers }`). A stopped Gateway
-   * compiles the change at its next start, so nothing is recorded then. Resolves
+   * compiles the change at its next start, so nothing is recorded then; a starting
+   * one may have compiled before the save, so it counts as running. Resolves
    * whether a restart is pending.
    */
   request(reason, affected = { agents: [], teamMembers: 0 }) {
     const runtime = this.assistants.runtime;
-    if (!runtime.client?.ready) return false;
+    const availability = runtime.status?.().availability;
+    if (availability ? availability === "disabled" : !runtime.client?.ready) return false;
     const state = this.state || {
       since: Date.now(),
       reasons: [],
@@ -125,9 +137,26 @@ export class PendingRestart {
   restartNow() {
     return this.attempt({ force: true });
   }
+  /** Records what the restart waits for, or that the last try failed. */
+  wait(waitingFor, failed = false) {
+    if (!this.state) return;
+    this.state.waitingFor = waitingFor;
+    this.state.failed = failed;
+    this.persist();
+    this.assistants.changed?.();
+    this.schedule(this.retryMs);
+  }
   async attempt({ force = false } = {}) {
+    // A ready event this instance missed must not cause a needless restart.
+    this.settle();
     if (!this.state) return null;
-    if (this.running) return this.running;
+    if (this.running) {
+      if (!force) return this.running;
+      // The owner's restart never just joins an automatic try that may stop at busy
+      // work: it runs after it, unless that one restarted.
+      await this.running.catch(() => {});
+      return this.attempt({ force });
+    }
     // A stopped or starting Gateway compiles the changes when it starts.
     if (!this.assistants.runtime.client?.ready) {
       this.schedule(this.retryMs);
@@ -136,29 +165,39 @@ export class PendingRestart {
     const version = this.version;
     this.running = (async () => {
       try {
+        // Checked outside maintenance: a busy host never enters it (admission, cron,
+        // Telegram) just to find out. restartGateway checks again inside.
+        if (!force) {
+          const blockers = await this.synchronization.busy();
+          if (blockers.length) {
+            this.wait(blockers);
+            return null;
+          }
+        }
+        this.restarting = true;
+        this.assistants.changed?.();
         await this.synchronization.restartGateway(() => null, { force });
         // A change saved during the restart may have been compiled too late.
         if (this.version === version) this.clear();
         else {
           this.state.generationId = this.assistants.runtime.generationId || null;
-          this.state.waitingFor = [];
-          this.persist();
-          this.schedule(this.retryMs);
+          this.wait([]);
         }
         return { restarted: true };
       } catch (error) {
-        if (this.state) {
-          this.state.waitingFor = error?.blockers || [error?.key || "unavailable"];
-          this.persist();
-          this.assistants.changed?.();
-          this.schedule(this.retryMs);
-        }
+        if (!error?.blockers)
+          this.warn(
+            `A pending agent service restart failed (${error?.code || error?.key || "ERROR"}); retrying.`,
+          );
+        this.wait(error?.blockers || [], !error?.blockers);
         throw error;
       } finally {
         this.running = null;
+        const restarted = this.restarting;
+        this.restarting = false;
+        if (restarted) this.assistants.changed?.();
       }
     })();
-    this.assistants.changed?.();
     return this.running;
   }
   close() {

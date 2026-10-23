@@ -3,6 +3,8 @@ export const assistantRestartCopy = {
   description:
     "Gespeicherte Änderungen gelten nach dem Neustart des Agentendienstes. Er startet von selbst neu, sobald kein Agent beschäftigt ist.",
   running: "Agentendienst wird neu gestartet …",
+  failed:
+    "Der letzte Neustartversuch ist fehlgeschlagen. Er wird gleich erneut versucht.",
   reasons: (labels) => `Nötig für: ${labels}.`,
   reason: {
     webTools: "Web-Tools der Agenten",
@@ -23,8 +25,11 @@ export const assistantRestartCopy = {
     unavailable: "den Agentendienst",
   },
   restartNow: "Jetzt neu starten",
-  restartNowDescription: "Startet sofort neu und unterbricht laufende Agentenarbeit.",
+  restartNowDescription:
+    "Startet sofort neu und unterbricht alle laufende Agentenarbeit.",
+  affected: (names, members = 0) =>
+    `Unterbrochen: ${names || "keine Agenten"}${members ? ` (+${members} Teammitglied${members === 1 ? "" : "er"})` : ""}`,
   confirmTitle: "Agentendienst jetzt neu starten?",
   confirmBody:
-    "Laufende Agentenarbeit wird unterbrochen, und Agenten sind kurz nicht erreichbar. Eine Kontoanmeldung oder ein laufender Workflow wird noch abgeschlossen.",
+    "Alle laufende Agentenarbeit wird unterbrochen, und Agenten sind nicht erreichbar, bis der Dienst wieder läuft. Das kann etwa eine Minute oder länger dauern. Eine Kontoanmeldung oder ein laufender Workflow wird noch abgeschlossen.",
 };
