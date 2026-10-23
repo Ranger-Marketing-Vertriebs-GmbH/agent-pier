@@ -221,7 +221,11 @@ told it was not saved.
   questions from the agent's lead. Every run, trusted or allowed, leaves an activity row
   such as "SSH on opnsense · uptime · Done" in the chat; opening it shows the full
   command (up to 8 KB) with a copy button, the exit code and the duration, never the
-  output. A denied command leaves none. Stored commands hide recognisable secrets
+  output. Two or more runs in a row (with no text between them) share one row, shut
+  by default, such as "SSH activity · 13 calls · proxmox-2" (or "· 3 hosts"); it shows
+  "1 failed" for runs that ended with an exit
+  code other than 0, timed out or were stopped, and opens to the single rows. A denied
+  command leaves none. Stored commands hide recognisable secrets
   (passwords, tokens and keys in flags, headers, URLs and variables) as `•••` and say
   "Secrets hidden"; this is best effort. An approval shows the exact command until you
   decide and it has run. AgentPier keeps the newest 500 trusted runs per agent.

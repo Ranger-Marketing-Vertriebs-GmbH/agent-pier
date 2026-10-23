@@ -136,6 +136,8 @@ test("trusted runs show as activity rows in the transcript", async ({ page }) =>
     note("t333", { commandPreview: "ls‮", outcome: "timedOut" }),
   ]);
   await openChat(page);
+  // Consecutive runs share one group row; opened, it shows each run's own row.
+  await page.locator("[data-activity-group]").getByRole("button").first().click();
   const first = page.locator("[data-ssh-run]").first();
   await expect(first.getByRole("button")).toHaveText(/SSH on opnsense\s*uptime\s*Done/);
   await expect(page.getByText("SSH on nas-01")).toBeVisible();

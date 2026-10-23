@@ -30,6 +30,7 @@ import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
 import TranscriptItem, { noteEvents } from "./TranscriptItem.jsx";
+import { groupActivity } from "./activity-groups.js";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
@@ -203,8 +204,10 @@ export default function AssistantChat({
     () => (member ? [] : teamNotes(teams, { assistantId: assistant.id, conversationId })),
     [member, teams, assistant.id, conversationId],
   );
-  const transcript = foldResultEvents(
-    withTeamNotes(history.messages, notes, { complete: !history.nextBefore }),
+  const transcript = groupActivity(
+    foldResultEvents(
+      withTeamNotes(history.messages, notes, { complete: !history.nextBefore }),
+    ),
   );
   // A team link marks the team's latest shown note.
   const focusedNote =
@@ -476,7 +479,7 @@ export default function AssistantChat({
             )}
             {transcript.map((item) => (
               <TranscriptItem
-                key={item.note?.id ?? item.message.id}
+                key={item.key ?? item.note?.id ?? item.message.id}
                 item={item}
                 assistant={assistant}
                 navigate={navigate}

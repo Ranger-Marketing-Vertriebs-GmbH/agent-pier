@@ -75,6 +75,7 @@ export const assistantSshCopy = {
       timedOut: "Timed out",
       truncated: "Output truncated",
       revoked: "Stopped",
+      running: "Running",
     },
     results: {
       timedOut: "The command reached its time limit and was stopped.",
@@ -90,6 +91,14 @@ export const assistantSshCopy = {
     preview: "Only the start of this command was recorded.",
     redacted: "Secrets hidden",
     cut: "Only the first 8 KB of this command are shown.",
+  },
+  group: {
+    label: "SSH activity",
+    calls: (count) => `${count} ${count === 1 ? "call" : "calls"}`,
+    hosts: (count) => `${count} hosts`,
+    failed: (count) => `${count} failed`,
+    running: "Running",
+    done: "Done",
   },
   history: {
     title: (host) => `SSH on ${host}`,

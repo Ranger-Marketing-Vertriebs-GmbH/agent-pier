@@ -19,6 +19,7 @@ const tones = {
   timedOut: "error",
   revoked: "error",
   truncated: "neutral",
+  running: "running",
 };
 /**
  * An SSH run note (server actionNotes) as its activity row: label, the one-line

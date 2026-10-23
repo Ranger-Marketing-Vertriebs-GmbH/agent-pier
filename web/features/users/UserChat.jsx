@@ -8,6 +8,7 @@ import AssistantComposer from "../assistants/AssistantComposer.jsx";
 import AssistantMessage from "../assistants/AssistantMessage.jsx";
 import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx";
 import TranscriptItem from "../assistants/TranscriptItem.jsx";
+import { groupActivity } from "../assistants/activity-groups.js";
 import useAgentAttachments from "../assistants/useAgentAttachments.js";
 import useTouchInput from "../chat/useTouchInput.js";
 import useSessionViewport from "../sessions/useSessionViewport.js";
@@ -162,16 +163,18 @@ export default function UserChat({
                 <h2>{assistantCopy.emptyChat}</h2>
               </div>
             )}
-            {history.messages.map((message) => (
-              <TranscriptItem
-                key={message.id}
-                item={{ message }}
-                assistant={agent}
-                navigate={none}
-                mentions={null}
-                removeShared={null}
-              />
-            ))}
+            {groupActivity(history.messages.map((message) => ({ message }))).map(
+              (item) => (
+                <TranscriptItem
+                  key={item.key ?? item.message.id}
+                  item={item}
+                  assistant={agent}
+                  navigate={none}
+                  mentions={null}
+                  removeShared={null}
+                />
+              ),
+            )}
             {active &&
               !latest.internal &&
               !history.messages.some((m) => sameTurn(m, latest)) && (
