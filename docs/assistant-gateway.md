@@ -2157,9 +2157,12 @@ images** (`documents`) with its own permanent members, without the owner
 - **Tools.** `agentpier_team_grant` with a permanent member's `memberId` takes only
   `grants.projects`, `grants.documents`, `coding` (project ids) and `mcpServers` and
   stores a standing share; anything else is `PERMANENT_ACCESS_ONLY`, and
-  `revoke: true` takes a share back. `grants.documents: true` needs the lead's own
-  **Read images** (`TEAM_GRANT_NOT_HELD` otherwise) and is only ever standing. `agentpier_team_delegate` takes `access` with the same three fields for that
-  one task: checked against the lead before the request exists and in place before
+  `revoke: true` takes a share back: its notes and result name only what it removed,
+  and a revocation that removes nothing leaves no note (`nothing_to_revoke`).
+  `grants.documents: true` needs the lead's own **Read images**
+  (`TEAM_GRANT_NOT_HELD` otherwise) and is only ever standing.
+  `agentpier_team_delegate` takes `access` with the projects, coding and server
+  fields for that one task: checked against the lead before the request exists and in place before
   the member's turn starts. Shell and SSH are never shared.
 - **Store.** `assistant_lead_shares`, one row per member, lead, resource and scope
   (`requestId` null for a standing share), with `grantedAt`, `grantedBy` and the
@@ -2178,8 +2181,9 @@ images** (`documents`) with its own permanent members, without the owner
   and the lead has **Read images** on: the member's next apply compiles `view_image`
   and `image_view` admits it. When the lead's profile is re-applied
   (`followLead`), its members with such a share are re-applied too, after a prune
-  that removes a share the lead no longer backs (`lead-lost`); switching the lead's
-  **Read images** on again does not bring it back. The member's own switch in its
+  that removes a share the lead no longer backs (`lead-lost`); whichever prune
+  removes such a share (the owner's list, the scheduler's tick) re-applies the member
+  as well. Switching the lead's **Read images** on again does not bring it back. The member's own switch in its
   settings stays as the owner set it.
 - **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
   its task runs in exactly that turn (`workspace-calls.js`): file actions use only the
@@ -2224,9 +2228,10 @@ images** (`documents`) with its own permanent members, without the owner
   **Read images** is listed as `kind: "capability"` with `live.on` and shown in the
   member's **Work → Shared by the lead agent**.
 - **Audit.** `assistant.updated` with `kind: "lead-share"`, `change` (`grant` or
-  `revoke`), `by` (`lead`, `owner` or `system`), the lead, member, task, project ids
-  with coding and folder levels, server ids and shared `capabilities`
-  (`["documents"]`); a folder change through a share adds
+  `revoke`), `by` (`lead`, `owner` or `system`), `reason`, the lead
+  (`leadAssistantId`), member (`memberId`), task (`requestId`), `projects` (ids with
+  coding and folder levels), `mcpServerIds` and shared `capabilities`
+  (`["documents"]`), all kept by the audit schema (`audit-team-details.js`); a folder change through a share adds
   `leadAssistantId` and `leadRequestId` (or `sharedBy`) to its `project-file` record.
   Both chats get the grant note.
 
