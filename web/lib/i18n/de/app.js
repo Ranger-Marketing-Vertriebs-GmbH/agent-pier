@@ -34,7 +34,7 @@ export const sidebarCopy = {
   newAgentItem: "Agent",
   brandAriaLabel: "AgentPier Startseite",
   brandLabel: "AgentPier",
-  localBadge: "LOCAL",
+  localBadge: "LOKAL",
   ariaLabel: "Hauptnavigation",
   collapseSidebar: "Navigation einklappen",
   expandSidebar: "Navigation ausklappen",

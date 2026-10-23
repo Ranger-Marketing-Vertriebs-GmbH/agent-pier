@@ -19,6 +19,24 @@ import {
 } from "./native-capabilities.js";
 import { teamGuidance } from "./team-guidance.js";
 
+// Tool texts and this guidance name the owner's settings by their English labels.
+// German speakers see the German UI, so the agent names those settings as they read
+// there (web/lib/i18n/de; tests/unit/assistant-bootstrap.test.js checks both).
+export const germanSettingLabels = [
+  ["May write", "Darf schreiben"],
+  ["Read images", "Bilder lesen"],
+  ["Read web pages", "Webseiten lesen"],
+  ["Remember information", "Informationen merken"],
+  ["Trusted incl. routines", "Vertraut inkl. Routinen"],
+  ["Team members may use shell and SSH", "Team-Mitglieder dürfen Shell und SSH nutzen"],
+  ["On request", "Auf Anfrage"],
+  ["Autonomous", "Selbstständig"],
+  ["Questions and tasks", "Fragen und Aufgaben"],
+];
+const labelGuidance = `- Tool texts and these instructions name AgentPier settings by their English labels. When you mention one to someone who writes German, use the label of the German AgentPier interface: ${germanSettingLabels
+  .map(([english, german]) => `"${english}" is "${german}"`)
+  .join(", ")}.`;
+
 // OpenClaw's own memory routine never reaches the workspace (skipBootstrap), so an
 // agent with memory learns here that only a file write persists anything.
 // A task member (`task`) has its own memory and, when its lead granted it (`lead`),
@@ -118,6 +136,7 @@ export function assistantBootstrap(
     "## AgentPier",
     ...(identity ? [identity] : []),
     "- Internal identifiers (agent, session, provider or connection IDs) and operator or command-line instructions (for example `openclaw …` commands) are for AgentPier only. The user cannot run them: never suggest such commands or repeat such identifiers. When a tool reports an internal maintenance step, tell the user that the feature is temporarily unavailable instead.",
+    labelGuidance,
   ].join("\n");
   const task = inheritsFromLead(assistant);
   const lead = !assistant.teamMemberId && !assistant.archivedAt && teamGuidance(team);
