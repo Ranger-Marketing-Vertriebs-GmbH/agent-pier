@@ -1420,6 +1420,7 @@
   "ssh.reservedMcpName": "de:ae644717156d en:9ea36d3edc4a",
   "ssh.sftpOnly": "de:e300add7c610 en:f6e3520c015a",
   "ssh.sourceProjectUnavailable": "de:aed7bc498d92 en:bfc7b21fce4d",
+  "ssh.sshOnly": "de:0055431a04c1 en:7ba6335359d6",
   "ssh.targetProjectRequired": "de:3e4216870e9e en:34479dbde736",
   "ssh.unknownManagementAction": "de:7a6d176fa895 en:008de0aabd17",
   "ssh.unsupportedAccount": "de:04ff24dc872b en:f5d384b11f37",

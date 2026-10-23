@@ -7,12 +7,12 @@ import { createSshProjectBinding } from "../../server/features/ssh/ssh-project-s
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
 import { writePrivate } from "../../server/lib/storage.js";
 
-export async function sshManagementFixture(t) {
+export async function sshManagementFixture(t, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-managed-"));
   const dataDir = path.join(root, "data"),
     home = path.join(root, "home");
   fs.mkdirSync(home);
-  const management = new SshManagement({ dataDir, home });
+  const management = new SshManagement({ dataDir, home, ...options });
   await management.ready;
   t.after(async () => {
     await management.close();

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { pidStart } from "../../vendor/agentbus/core/proc.js";
 import { SshIntegration } from "../../server/features/ssh/ssh-integration.js";
+import { SFTP_HINT_ENV, sshReminder } from "../../server/features/ssh/ssh-hook.js";
 import {
   authorizeSsh,
   capabilityFile,
@@ -210,4 +211,30 @@ test("an unsandboxed session keeps the SSH tools without an assignment", async (
   // Assigning a host to a running unsandboxed session still works, so its MCP
   // server is registered up front as before.
   assert.equal(prepared.sshTools.enabled, true);
+});
+
+test("the discovery hint names the sftp tools only when an SFTP host is reachable", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-integration-sftp-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const hosts = [
+    { id: "shell", type: "ssh", projectId: null },
+    { id: "files", type: "sftp", projectId: null },
+  ];
+  const integration = new SshIntegration({ dataDir, accesses: { list: () => hosts } });
+  const prepare = (id, sshAccessIds) =>
+    integration.prepare({
+      id,
+      account: { id: "account", tool: "codex" },
+      cwd: dataDir,
+      launch: { command: "codex", args: [], env: { [SFTP_HINT_ENV]: "1" } },
+      sshAccessIds,
+    });
+  assert.equal((await prepare("with-sftp", ["files"])).env[SFTP_HINT_ENV], "1");
+  assert.equal((await prepare("ssh-only", ["shell"])).env[SFTP_HINT_ENV], undefined);
+  assert.match(
+    sshReminder("agentpier_ssh_", { sftp: true }),
+    /agentpier_ssh_sftp_upload/,
+  );
+  assert.match(sshReminder("", { sftp: true }), /sftp_job/);
+  assert.doesNotMatch(sshReminder("", { sftp: false }), /sftp_/);
 });

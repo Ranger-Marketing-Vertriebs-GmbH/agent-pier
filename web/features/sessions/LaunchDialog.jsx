@@ -409,7 +409,11 @@ export default function LaunchDialog({
                     change={setAgentpierTools}
                   />
                 )}
-                <LaunchSshChoices selected={sshAccessIds} change={setSshAccessIds} />
+                <LaunchSshChoices
+                  selected={sshAccessIds}
+                  change={setSshAccessIds}
+                  sftp={coding}
+                />
               </div>
             </details>
           </AsyncForm>

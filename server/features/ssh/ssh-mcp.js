@@ -13,7 +13,12 @@ import { publicSshError } from "./ssh-errors.js";
 
 function agentSshError(error) {
   const failure = publicSshError(error);
-  return { ...failure, error: agentText(failure.error) };
+  // A failed SFTP job reports its counts and failing path (no credentials).
+  const details =
+    error?.details && /^S(SH|FTP)_/.test(failure.code) && error.details.jobId
+      ? { details: error.details }
+      : {};
+  return { ...failure, error: agentText(failure.error), ...details };
 }
 const args = process.argv.slice(2);
 if (

@@ -32,6 +32,7 @@ export default function SshChoices({
                 )
               }
             >
+              {access.type === "sftp" && <span className="badge">{copy.sftpBadge}</span>}
               {managed && (
                 <span className="check-row-meta">{projectCopy.projectManaged}</span>
               )}

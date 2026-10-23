@@ -92,8 +92,14 @@ export async function sftpRename(session, from, to) {
   return { from, to };
 }
 
+const needsRoot = (root) => {
+  if (typeof root !== "string" || !root.startsWith("/"))
+    throw new TypeError("An SFTP delete needs its allowed remote folder or /.");
+};
+
 /**
- * What deleting `abs` removes. The target is confined to `root` first (its folder
+ * What deleting `abs` removes. The target is confined to `root` (required: the
+ * host's allowed remote folder, or `/` for none) first (its folder
  * resolved, its own name not followed): the allowed folder itself, `/` and anything
  * outside are refused before anything is listed. Without `recursive` only a file, a
  * link or an empty folder (a non-empty one is `SFTP_TYPE_CONFLICT`); with it the
@@ -103,8 +109,9 @@ export async function sftpRename(session, from, to) {
 export async function planDelete(
   session,
   abs,
-  { recursive = false, limits = sftpLimits, root = null } = {},
+  { recursive = false, limits = sftpLimits, root } = {},
 ) {
+  needsRoot(root);
   const target = await confineEntry(session, abs, root);
   const stat = await session.lstat(target);
   if (!stat) throw sftpProblem("SFTP_NOT_FOUND");
@@ -144,7 +151,8 @@ export async function planDelete(
 const sameList = (a, b) => a.length === b.length && a.every((value, i) => value === b[i]);
 
 /**
- * Runs an approved delete plan. The plan is computed again (confined to `root`) and
+ * Runs an approved delete plan. The plan is computed again (confined to the required
+ * `root`) and
  * must match, else `SFTP_PLAN_CHANGED` and nothing is deleted; every path must lie in
  * the plan's target and is confined again; files go first, then folders deepest
  * first. Stops at the first error; `signal` cancels, and `stillAuthorized` is
@@ -158,11 +166,12 @@ export async function runDelete(
     signal,
     onProgress,
     stillAuthorized,
-    root = null,
+    root,
     limits = sftpLimits,
     authorizeEveryMs,
   } = {},
 ) {
+  needsRoot(root);
   const started = Date.now();
   const gate = new SftpGate({ signal, stillAuthorized, everyMs: authorizeEveryMs });
   const result = { state: "completed", files: 0, dirs: 0 };
