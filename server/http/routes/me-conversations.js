@@ -86,6 +86,14 @@ export function meConversationRoutes(
       }),
   );
   router.use("/me/conversations/:id/attachments", attachmentTooLarge);
+  // Her draft's staged file, checked (and kept) when she returns to her chat: only a
+  // file staged in this chat of hers is found.
+  router.get("/me/conversations/:id/attachments/:file", readLimit, (req, res) =>
+    assistants.admit(async () => {
+      const { id } = own(req);
+      res.json(await assistants.attachments.keep(id, req.params.file));
+    }),
+  );
   router.delete("/me/conversations/:id/attachments/:file", uploadLimit, (req, res) =>
     assistants.admit(async () => {
       const { id } = own(req);

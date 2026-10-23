@@ -3924,7 +3924,11 @@ type.
   directory inside the agent's real workspace; a link there refuses the upload. The
   index (name, type, size, request) lives in the assistants database, never in the
   workspace. Unsent uploads expire after a day, and a page that is closed or reloaded
-  discards its own. A conversation keeps at most 20 unsent uploads; a further one
+  discards its own. The page keeps each chat's unsent files with its text draft
+  (`assistant-drafts.js`, `agent-attachment-drafts.js`) when the chat is left; on
+  return it checks each one with `GET …/conversations/:id/attachments/:file`, which
+  restarts its day or answers `attachmentNotFound` (404) for a file that expired or
+  whose copy is gone. A conversation keeps at most 20 unsent uploads; a further one
   replaces the oldest, so files abandoned elsewhere never block a new message. Each
   agent holds at most 1 GB or 1000 files there. On a shared agent of users each
   chat's files stay with that chat: the team plugin asks AgentPier

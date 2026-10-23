@@ -158,6 +158,36 @@ test("staged uploads expire after a day and can be discarded until sent", async 
   await assert.rejects(attachments.discard(c.id, old.id), { status: 404 });
 });
 
+test("a draft's staged upload is kept while its chat is revisited, until it is gone", async (t) => {
+  let clock = Date.parse("2026-10-13T10:00:00Z");
+  const { attachments, agent, workspaces } = setup(t, { now: () => clock });
+  const { a, c } = agent("lead");
+  const other = agent("other");
+  const draft = await attachments.stage(c.id, "draft.txt", Buffer.from("draft"));
+  // Another chat never finds it.
+  await assert.rejects(attachments.keep(other.c.id, draft.id), { status: 404 });
+  // A visit after 20 hours starts its day anew, so it outlives the first day.
+  clock += 20 * 3600 * 1000;
+  assert.deepEqual(await attachments.keep(c.id, draft.id), draft);
+  clock += 20 * 3600 * 1000;
+  await attachments.stage(c.id, "other.txt", Buffer.from("other"));
+  assert.equal((await attachments.keep(c.id, draft.id)).id, draft.id);
+  // A day without a visit, or a copy removed from the folder, makes it unavailable.
+  clock += 25 * 3600 * 1000;
+  await assert.rejects(attachments.keep(c.id, draft.id), {
+    status: 404,
+    key: "attachmentNotFound",
+  });
+  const fresh = await attachments.stage(c.id, "fresh.txt", Buffer.from("fresh"));
+  const folder = path.join(workspaces, a.id, "attachments");
+  for (const name of fs.readdirSync(folder)) fs.rmSync(path.join(folder, name));
+  await assert.rejects(attachments.keep(c.id, fresh.id), { status: 404 });
+  // A sent file is no longer a draft's.
+  const sent = await attachments.stage(c.id, "sent.txt", Buffer.from("sent"));
+  attachments.claim(c.id, [sent.id], "request-1");
+  await assert.rejects(attachments.keep(c.id, sent.id), { status: 404 });
+});
+
 test("a request claims its uploads once and delivers images the model can see", async (t) => {
   const { attachments, agent, store } = setup(t);
   const { a, c } = agent("lead");

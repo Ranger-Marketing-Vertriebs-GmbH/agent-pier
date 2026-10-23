@@ -38,6 +38,7 @@ export const ownerContentRoutes = {
   "POST /api/assistant-conversations/:id/queued": "conversation",
   "DELETE /api/assistant-conversations/:id/queued": "conversation",
   "POST /api/assistant-conversations/:id/attachments": "conversation",
+  "GET /api/assistant-conversations/:id/attachments/:file": "conversation",
   "DELETE /api/assistant-conversations/:id/attachments/:file": "conversation",
   "DELETE /api/assistant-conversations/:id/shared-files/:file": "conversation",
   "POST /api/assistant-conversations/:id/video-uploads": "conversation",

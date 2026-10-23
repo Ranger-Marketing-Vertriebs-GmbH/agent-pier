@@ -49,6 +49,8 @@ const publicFile = ({ id, name, type, kind, size, video }) => ({
   size,
   ...(video && { video }),
 });
+const stagedRow =
+  "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL";
 const agentPath = (file) => `${FOLDER}/${file.file}`;
 const digest = (body) => createHash("sha256").update(body).digest("hex");
 // Staged files a queued message names (queued-messages.js): never expired or removed.
@@ -332,15 +334,26 @@ export class AgentAttachments {
   async discard(conversationId, id) {
     const conversation = this.store.getConversation(conversationId);
     return this.serial(conversation.assistantId, async () => {
-      const [file] = this.rows(
-        "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL",
-        id,
-        conversationId,
-      );
+      const [file] = this.rows(stagedRow, id, conversationId);
       if (!file) throw assistantProblem("attachmentNotFound", 404);
       if (this.queued(conversationId).includes(id))
         throw assistantProblem("queuedAttachment", 409);
       await this.remove(file, (await this.folder(conversation.assistantId)).path);
+    });
+  }
+  // A draft's staged file, checked when its chat is opened again, starts its day anew;
+  // one that expired or whose copy is gone is not available any more.
+  async keep(conversationId, id) {
+    const { assistantId } = this.store.getConversation(conversationId);
+    return this.serial(assistantId, async () => {
+      const folder = await this.folder(assistantId, false);
+      if (folder) await this.expire(assistantId, folder.path);
+      const [file] = folder ? this.rows(stagedRow, id, conversationId) : [];
+      const copy =
+        file && (await fs.lstat(path.join(folder.path, file.file)).catch(() => null));
+      if (!copy?.isFile()) throw assistantProblem("attachmentNotFound", 404);
+      this.touch(conversationId, [id]);
+      return publicFile(file);
     });
   }
   /**
@@ -365,14 +378,7 @@ export class AgentAttachments {
         throw assistantProblem("conflict", 409);
       return claimed;
     }
-    const staged = ids.map(
-      (id) =>
-        this.rows(
-          "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL",
-          id,
-          conversationId,
-        )[0],
-    );
+    const staged = ids.map((id) => this.rows(stagedRow, id, conversationId)[0]);
     if (staged.some((file) => !file)) throw assistantProblem("attachmentNotFound", 404);
     ids.forEach((id, position) =>
       this.db
@@ -399,14 +405,7 @@ export class AgentAttachments {
   // The public form of staged files, in the given order. Strictly, every one must be
   // staged in this conversation; otherwise missing ones are left out.
   staged(conversationId, ids = [], strict = true) {
-    const files = ids.map(
-      (id) =>
-        this.rows(
-          "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL",
-          id,
-          conversationId,
-        )[0],
-    );
+    const files = ids.map((id) => this.rows(stagedRow, id, conversationId)[0]);
     if (strict && files.some((file) => !file))
       throw assistantProblem("attachmentNotFound", 404);
     return files.filter(Boolean).map(publicFile);

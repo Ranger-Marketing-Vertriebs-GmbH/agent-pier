@@ -44,6 +44,7 @@ const conversationRoutes = (id, file) => [
   ["POST", `/api/me/conversations/${id}/queued`, { text: "later" }],
   ["DELETE", `/api/me/conversations/${id}/queued`],
   ["GET", `/api/me/conversations/${id}/attachment-policy`],
+  ["GET", `/api/me/conversations/${id}/attachments/${file}`],
   ["DELETE", `/api/me/conversations/${id}/attachments/${file}`],
   ["GET", `/api/me/conversations/${id}/shared-files/${file}`],
   ["GET", `/api/me/attachments/${file}`],
@@ -109,6 +110,10 @@ test("a user chats with her agent", async (t) => {
   assert.equal(await open(request, agent.id), id);
   assert.equal((await (await request("/api/me/agents")).json())[0].conversationId, id);
   const file = await upload(f, cookie, id);
+  // Back in her chat, the composer finds its unsent file still there.
+  const kept = await request(`/api/me/conversations/${id}/attachments/${file.id}`);
+  assert.equal(kept.status, 200);
+  assert.equal((await kept.json()).id, file.id);
   const sent = await request(`/api/me/conversations/${id}/messages`, {
     method: "POST",
     body: { clientRequestId: "first", text: "Hello", attachments: [file.id] },

@@ -759,7 +759,13 @@ also in a team member's chat. A message holds up to five files of at most 10 MB:
 PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agent's
 workspace so it can read them with its tools. Models that accept images (ChatGPT,
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
-also see images directly; the composer says when the agent's model cannot. Attachments
+also see images directly; the composer says when the agent's model cannot. Files you
+picked but have not sent stay in that chat's composer when you open another chat,
+agent or page, like the typed text, and an upload still running finishes meanwhile. A
+reload, closing the tab or a logout discards them. An unsent file is kept for a day
+after you last returned to its chat; one that is gone by then (or was removed with
+**Clear attachments**) shows "This attachment is no longer available. Add the file
+again." and blocks sending until you remove it. Attachments
 are part of host backups only with history and a passphrase, and then encrypted (see
 [backups](backups.md#what-a-backup-holds)).
 

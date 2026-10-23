@@ -187,6 +187,12 @@ export function assistantAttachmentRoutes({
         .json(await attachments().stage(req.params.id, req.query.name, req.body));
     }),
   );
+  // A draft's staged file, checked (and kept) when the owner returns to the chat.
+  router.get("/assistant-conversations/:id/attachments/:file", read, (req, res) =>
+    assistants.admit(async () => {
+      res.json(await attachments().keep(req.params.id, req.params.file));
+    }),
+  );
   router.delete("/assistant-conversations/:id/attachments/:file", upload, (req, res) =>
     assistants.admit(async () => {
       await attachments().discard(req.params.id, req.params.file);
