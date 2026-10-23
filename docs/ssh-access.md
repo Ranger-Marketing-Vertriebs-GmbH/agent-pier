@@ -104,6 +104,13 @@ commands on it, and its open approvals can no longer run: allowing one marks it
 **Access changed**. The activity log records `ssh.executed` and `ssh.denied` with a
 SHA-256 digest and length of the command, never its text or output.
 
+A coding session's `sftp_*` tools run inside its SSH MCP server, which cannot write the
+activity log. After each transfer or remote write the server reports the outcome to
+AgentPier, which checks the session and its grant and records `sftp.completed` or
+`sftp.failed` (`sftp.denied` for a host the session was never granted). These rows carry
+`reported: "session"`: the operation, counts, bytes, paths and code are what the
+session reported; AgentPier never records passwords, keys or file contents.
+
 Every finished run leaves a note in the chat it ran from, in **With approval** mode as
 well as in the trusted modes; a denied, expired or cancelled request leaves none. The
 note is an activity row with the host, the shortened command and its outcome; opened,

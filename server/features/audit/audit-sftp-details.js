@@ -1,5 +1,8 @@
 // SFTP audit details (sftp-session-audit.js): ids, the operation, counts, bytes, the
 // duration, the paths and a stable code. Never a password, key or file content.
+// `reported: "session"` marks facts a coding session's MCP process reported itself
+// (sftp-session-audit.js): the application checked the session and the grant, not
+// the counts or paths.
 const operations = ["download", "upload", "sync", "mkdir", "rename", "delete"];
 const states = ["completed", "failed", "cancelled", "revoked"];
 // Control characters and line separators could forge log lines.
@@ -13,6 +16,7 @@ export function sftpAuditDetails(details, event, auditId) {
   if (["up", "down"].includes(details.direction))
     event.details.direction = details.direction;
   if (states.includes(details.state)) event.details.state = details.state;
+  if (details.reported === "session") event.details.reported = "session";
   for (const key of ["files", "dirs", "bytes", "deleted"])
     if (count(details[key])) event.details[key] = details[key];
   if (count(details.durationMs) && details.durationMs <= 86400000)
