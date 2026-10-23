@@ -37,9 +37,20 @@ export class ProjectRebind {
     this.definitions = null;
     this.runQueue = null;
   }
+  /**
+   * `found` (see gitInitRebind) with the plain-folder project of a recorded move.
+   * Once that project's row is gone, its directory ID is hashed afresh and differs
+   * after the volume was renumbered at boot; a recorded rebind of one of
+   * `candidates` to the same Git project names it instead.
+   */
+  recorded(found, candidates = []) {
+    if (!found || this.memory.reboundTo(found.fromId) === found.scope.id) return found;
+    const fromId = candidates?.find((id) => this.memory.reboundTo(id) === found.scope.id);
+    return fromId ? { ...found, fromId } : found;
+  }
   /** Resolves to the Git project scope, or null when the strict rejection applies. */
   async rebind({ cwd, previousIds }) {
-    const found = await gitInitRebind(cwd);
+    const found = this.recorded(await gitInitRebind(cwd), previousIds);
     if (!found) return null;
     return this.serial(() => this.adopt(found, previousIds));
   }
@@ -49,7 +60,7 @@ export class ProjectRebind {
    * call left behind.
    */
   async ensure({ cwd, previousIds }) {
-    const found = await gitInitRebind(cwd);
+    const found = this.recorded(await gitInitRebind(cwd), previousIds);
     if (!found) return null;
     const { fromId, scope } = found;
     if (this.memory.reboundTo(fromId) === scope.id && !this.remnants(fromId))
@@ -91,7 +102,7 @@ export class ProjectRebind {
         return null;
     }
     // The folder must still be the same one when shared state starts to move.
-    const current = await gitInitRebind(launch.path);
+    const current = this.recorded(await gitInitRebind(launch.path), [fromId]);
     if (current?.fromId !== fromId || current.scope.id !== scope.id) return null;
     this.incomplete.add(fromId);
     this.memory.adopt(fromId, scope);

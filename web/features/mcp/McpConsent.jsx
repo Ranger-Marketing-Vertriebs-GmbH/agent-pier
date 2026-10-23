@@ -29,10 +29,11 @@ function ConsentForm({ authorization, config }) {
     return () => clearInterval(timer);
   }, []);
   const expired = authorization.expiresAt <= now;
-  // Each project folder once; an older row stays while it is chosen.
-  const choices = (field, group) =>
+  // Each project folder once. A new authorization holds no project yet, so nothing
+  // is kept: a row never disappears while it is being chosen.
+  const choices = (_field, group) =>
     group === "projects"
-      ? listedProjects(config.resources.projects, selection.projectIds)
+      ? listedProjects(config.resources.projects)
       : config.resources[group];
   const toggle = (field, id) =>
     setSelection((current) => ({
