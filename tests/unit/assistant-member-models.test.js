@@ -257,3 +257,45 @@ test("the tool input takes an optional query and limit, nothing else", () => {
   ])
     assert.throws(() => memberModelsInput(input), { status: 400 }, JSON.stringify(input));
 });
+
+test("a ChatGPT account is never named by its e-mail to the lead", () => {
+  const account = (hash, name) => ({
+    id: `openclaw:${hash}`,
+    name,
+    providerId: "openai-chatgpt",
+    available: true,
+    models: [{ modelId: "gpt-5", label: "GPT-5" }],
+  });
+  const catalog = { list: () => [] };
+  const listed = (accounts) =>
+    listMemberModels({
+      models: { listCapabilities: () => accounts, imageInput: () => true },
+      catalog,
+      lead: { model: { connectionId: accounts[0].id, modelId: "gpt-5" } },
+      members: [],
+    });
+  const one = listed([account("a1b2c3d4e5f6", "owner@example.com")]);
+  assert.equal(one.models[0].connection, "ChatGPT");
+  assert.equal(one.current.lead.connection, "ChatGPT");
+  const two = listed([
+    account("a1b2c3d4e5f6", "owner@example.com"),
+    account("ffeeddccbbaa", "other@example.com"),
+  ]);
+  // Several accounts stay apart by a short piece of their id, never their name.
+  assert.deepEqual(
+    two.models.map((m) => m.connection),
+    ["ChatGPT a1b2c3", "ChatGPT ffeedd"],
+  );
+  assert.doesNotMatch(JSON.stringify([one, two]), /@|example\.com/);
+  // The query matches the shown name, not the hidden one.
+  const found = listMemberModels({
+    models: {
+      listCapabilities: () => [account("a1b2c3d4e5f6", "owner@example.com")],
+      imageInput: () => true,
+    },
+    catalog,
+    lead: null,
+    query: "owner",
+  });
+  assert.equal(found.total, 0);
+});

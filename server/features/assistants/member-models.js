@@ -16,7 +16,7 @@ export function memberModelsInput(input) {
 
 const entry = (connection, row, extra) => ({
   connectionId: connection.id,
-  connection: connection.name,
+  connection: connection.shown,
   provider: connection.providerId,
   modelId: row.modelId,
   label: row.label || row.modelId,
@@ -35,9 +35,19 @@ const entry = (connection, row, extra) => ({
  */
 function available(models, catalog) {
   let openRouter;
-  return models
-    .listCapabilities()
+  const connections = models.listCapabilities();
+  // A ChatGPT account's name can be its e-mail, which the lead (and the senders of
+  // its turns) must not read: "ChatGPT", with a piece of the hashed id when several.
+  const accounts = connections.filter((c) => c.providerId === "openai-chatgpt").length;
+  const shown = (c) =>
+    c.providerId !== "openai-chatgpt"
+      ? c.name
+      : accounts > 1
+        ? `ChatGPT ${c.id.replace(/^openclaw:/, "").slice(0, 6)}`
+        : "ChatGPT";
+  return connections
     .filter((connection) => connection.available === true)
+    .map((connection) => ({ ...connection, shown: shown(connection) }))
     .flatMap((connection) => {
       if (connection.providerId === "openrouter") {
         openRouter ??= catalog.list({ providerId: "openrouter" });
