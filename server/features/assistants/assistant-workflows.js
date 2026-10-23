@@ -26,6 +26,7 @@ import { LeadShares } from "./lead-shares.js";
 import { TaskMemberGrants } from "./task-member-grants.js";
 import { workspaceCall, workspaceContext } from "./workspace-calls.js";
 import { AgentGithub } from "./agent-github.js";
+import { backfillSshCommands } from "./ssh-command-backfill.js";
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -50,6 +51,8 @@ export class AssistantWorkflows {
   /** Starts advancing open actions; the application starts it after recovery. */
   start() {
     if (this.timer || this.closed) return;
+    // Once, before the first tick: SSH commands stored before redaction existed.
+    backfillSshCommands(this);
     this.ssh.start().catch(() => {});
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
     this.timer.unref();

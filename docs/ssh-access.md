@@ -116,7 +116,9 @@ well-known key prefixes) are stored as `•••`, best effort: a trusted run's
 approval's once it has run or was declined, expired or cancelled, since the owner
 decides on the exact text. The row then says **Secrets hidden**. The approval
 message for the paired Telegram chat is rewritten the same way in AgentPier; a message
-Telegram already delivered keeps the text it was sent with.
+Telegram already delivered keeps the text it was sent with. Commands stored before
+this redaction existed are redacted once at the first start after the update, also in
+the database files; backups taken before keep them (see docs/backups.md).
 
 Downgrading to a release without agent SSH keeps the stored SSH rows but no longer
 understands them. Such a release shows a finished run's note as a generic coding-run

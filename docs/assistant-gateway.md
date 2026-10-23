@@ -2102,9 +2102,23 @@ approval's Telegram text in `channel_outbox` is rewritten the same way
 (`ChannelOutbox.rewriteActions`); text Telegram already delivered stays in that chat.
 A trusted run is stored redacted at once, at most 8 KiB (`noteCommand`, `commandCut`
 when cut), and only the newest 500 trusted rows per agent are kept
-(`trustedSshRows`). Chat notes of rows stored before redaction existed are redacted
-when read; a secret cut short at the end of an old trusted run's 80-character preview
-may be missed.
+(`trustedSshRows`). Rows stored before redaction existed are redacted once, at the
+first start of a version with `ssh-command-backfill.js` (before the first workflow
+tick): every SSH row that is not awaiting approval, approved or executing gets the
+original's `commandSha256` when it has none, its `command` and `commandPreview` with
+secrets replaced and `commandRedacted` when that changed, and a new revision; the
+Telegram texts about those rows are rewritten with `rewriteActions`. The rewrite runs
+with `secure_delete`, then `VACUUM` rewrites `assistants.sqlite` and
+`channels.sqlite` (earlier revisions of a row survive in freed space otherwise) and a
+TRUNCATE checkpoint empties the write-ahead logs. The marker
+`ssh-command-redaction` in `assistant_migrations` is set only when all of this
+succeeded, so a failure (logged with its code only) retries at the next start; a
+rerun leaves redacted rows unchanged. Until then, and for rows the backfill missed,
+chat notes are redacted when read; a secret cut short at the end of an old trusted
+run's 80-character preview may be missed. Backups taken before the backfill (sealed
+history) and messages Telegram already delivered keep the old text; replace such
+backups if that matters (docs/backups.md). Restoring one brings the plaintext back
+until the next start redacts it again, since its database has no marker.
 
 `server/lib/secret-redaction.js` keeps the flag, header or variable name and replaces
 the value. It recognises:
