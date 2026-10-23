@@ -91,7 +91,7 @@ const reasons = {
   SFTP_ROUTINE_DELETE:
     "Routines never delete files on SFTP hosts, also not with a sync that deletes extra files. Do not retry; say in the routine's result what you would delete, so the owner can do it.",
   SFTP_WORKSPACE_REFUSED:
-    "In your workspace, SFTP never reads or writes your prompt files (AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md), skills/, .agents/, attachments/ or top-level names with other than plain ASCII letters, digits and . _ - ( ) + , or spaces, and never downloads a folder into the workspace itself. Give localPath as a plain subfolder, for example downloads/site.",
+    "In your workspace, SFTP never reads or writes your prompt files (AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md), skills/, .agents/, attachments/ or top-level names with other than plain ASCII letters, digits and . _ - ( ) + , or spaces, and never downloads or syncs a folder into the workspace itself (a single file with another name may land there). Give localPath as a plain subfolder, for example downloads/site, or another file name.",
   SFTP_AUTH_FAILED:
     "The SFTP server refused AgentPier's sign-in for this host. Do not retry; tell the owner to check the host's password or key in the settings.",
   SFTP_HOST_KEY_MISMATCH:

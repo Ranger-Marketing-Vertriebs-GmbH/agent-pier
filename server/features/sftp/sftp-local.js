@@ -44,7 +44,10 @@ function baseRelative(target) {
  * The local side of a transfer, with the project-folder rules (`projectTarget`):
  * no links out, never `.git`, never AgentPier's data directory, and with `write`
  * never the run worktrees or, for restricted users, tool configuration. The rules
- * travel with the target so every file below it is checked the same way.
+ * travel with the target so every file below it is checked the same way. `guarded`
+ * names top-level entries of `root` no transfer may read or write (an agent
+ * workspace's prompt files, agent-sftp-local.js); it is asked by name for every
+ * entry as it is walked, read or written, so an entry that appears later counts too.
  */
 export function localRoot({
   root,
@@ -52,12 +55,22 @@ export function localRoot({
   write = false,
   protectedRoots = [],
   lockToolConfig = false,
+  guarded = null,
 }) {
   const target = projectTarget(root, raw, { write, protectedRoots, lockToolConfig });
   return Object.defineProperty(target, "rules", {
-    value: Object.freeze({ write, protectedRoots: [...protectedRoots], lockToolConfig }),
+    value: Object.freeze({
+      write,
+      protectedRoots: [...protectedRoots],
+      lockToolConfig,
+      guarded,
+    }),
   });
 }
+
+// Whether root-relative `parts` lie in a guarded top-level entry of the target's root.
+const guardedParts = (target, parts) =>
+  parts.length > 0 && Boolean(target.rules?.guarded?.(parts[0]));
 
 /**
  * Whether the target's file system treats names differing only in case as one file
@@ -129,6 +142,7 @@ export async function walkLocal(
   }
   if (!stat.isDirectory()) throw conflict();
   const guarded = (target.rules?.protectedRoots || []).map(realOrSelf);
+  const prefix = target.relative ? target.relative.split("/") : [];
   const tick = scanGuard(limits);
   const pending = [""];
   while (pending.length) {
@@ -151,7 +165,8 @@ export async function walkLocal(
       if (
         fold(name) === ".git" ||
         excluded(child, excludes) ||
-        guarded.some((root) => inside(root, full))
+        guarded.some((root) => inside(root, full)) ||
+        guardedParts(target, [...prefix, ...child.split("/")])
       ) {
         keep(relative);
         continue;
@@ -185,6 +200,7 @@ export async function openLocalSource(target, relative) {
   const parts = [...baseRelative(target).split("/"), ...relativeParts(relative)].filter(
     Boolean,
   );
+  if (guardedParts(target, parts)) throw refused();
   const expected = path.join(target.root, ...parts);
   const resolved = projectTarget(target.root, parts.join("/"), {
     ...target.rules,
@@ -247,6 +263,7 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
   const parts = [...target.relative.split("/"), ...relativeParts(relative)].filter(
     Boolean,
   );
+  if (guardedParts(target, parts)) throw refused();
   projectTarget(target.root, parts.join("/"), target.rules);
   let directory = target.root;
   for (const name of parts.slice(0, -1)) {
@@ -294,6 +311,7 @@ export async function removeLocal(
   const parts = [...target.relative.split("/"), ...relativeParts(relative)].filter(
     Boolean,
   );
+  if (guardedParts(target, parts)) throw refused();
   const expected = path.join(target.root, ...parts);
   const resolved = projectTarget(target.root, parts.join("/"), target.rules);
   if (resolved.real !== expected || !resolved.exists) throw refused();
