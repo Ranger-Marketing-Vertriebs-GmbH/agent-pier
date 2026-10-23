@@ -6,6 +6,7 @@ import path from "node:path";
 import { SshCatalog } from "../../server/features/ssh/ssh-catalog.js";
 import { SshAccessStore } from "../../server/features/ssh/ssh-access-store.js";
 import { LegacySshAccessStore } from "../fixtures/legacy-ssh-catalog-reader.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { sshKeyPair } from "../helpers/sftp-server.js";
 
 const hostKey = sshKeyPair().public.split(/\s+/).slice(0, 2).join(" ");
@@ -78,4 +79,41 @@ test("legacy key list ignores SFTP users", async (t) => {
     store.keyStore.get(ssh.keyId).hosts.map((row) => row.id),
     [ssh.id, key.id],
   );
+});
+
+test("a key deleted by an older release leaves the host list working", async (t) => {
+  const { dataDir, catalog, store, ssh, password } = await fixture(t);
+  const own = await store.keyStore.create({ name: "SFTP only" });
+  const key = await store.create({
+    name: "Orphaned",
+    host: "web.test",
+    username: "other",
+    hostKey,
+    type: "sftp",
+    auth: "key",
+    keyId: own.id,
+  });
+  new LegacySshAccessStore({ dataDir }).removeKey(own.id);
+  const current = new SshAccessStore({ dataDir, catalog });
+  const listed = current.list();
+  assert.equal(listed.length, 4);
+  const orphan = listed.find((row) => row.id === key.id);
+  assert.equal(orphan.keyMissing, true);
+  assert.equal(orphan.keyId, own.id);
+  for (const field of ["keyName", "publicKey", "fingerprint"])
+    assert.equal(orphan[field], null, field);
+  assert.deepEqual(
+    listed.filter((row) => row.keyMissing).map((row) => row.id),
+    [key.id],
+  );
+  assert.equal(current.get(ssh.id).keyName, ssh.keyName);
+  assert.equal(current.sftpConnection(password.id).password, "pw-secret");
+  assert.throws(() => current.sftpConnection(key.id), {
+    status: 409,
+    message: serverMessages.ssh.keyNotFound,
+  });
+  await assert.rejects(current.test(key.id), {
+    status: 409,
+    message: serverMessages.ssh.keyNotFound,
+  });
 });

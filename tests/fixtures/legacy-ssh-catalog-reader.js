@@ -53,10 +53,10 @@ export class LegacySshCatalog {
     return snapshot;
   }
   /** The legacy transaction: clone, replace one part, publish the whole draft. */
-  replaceHosts(rows) {
+  replacePart(name, rows) {
     const before = this.read();
     const draft = structuredClone(before);
-    draft.hosts = structuredClone(rows);
+    draft[name] = structuredClone(rows);
     writeCatalogSnapshot(this.file, draft);
   }
 }
@@ -136,8 +136,21 @@ export class LegacySshAccessStore {
       ...(["existing", "provider", "user"].includes(trustSource) ? { trustSource } : {}),
     };
   }
+  /** Legacy `removeKey`: refuses only keys its own SSH hosts use. */
+  removeKey(id) {
+    if (this.keyStore.get(id).hosts.length) throw problem("SSH key is in use.", 409);
+    this.catalog.replacePart(
+      "keys",
+      this.catalog.read().keys.filter((key) => key.id !== id),
+    );
+    fs.rmSync(path.join(this.catalog.root, "identities", id), {
+      recursive: true,
+      force: true,
+    });
+  }
   rename(id, name) {
-    this.catalog.replaceHosts(
+    this.catalog.replacePart(
+      "hosts",
       this.raw().map((item) => (item.id === id ? { ...item, name } : item)),
     );
   }
