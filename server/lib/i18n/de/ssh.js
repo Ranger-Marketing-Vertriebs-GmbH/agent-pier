@@ -61,5 +61,6 @@ export const ssh = Object.freeze({
     "Der erlaubte Remote-Ordner muss ein absoluter Pfad ohne „..“ und ohne Steuerzeichen sein.",
   hostTypeFixed: "Der Typ eines Hosts kann nicht geändert werden.",
   sftpOnly: "Dieser Host ist nur für SFTP eingerichtet.",
+  sshOnly: "Dieser Host ist für SSH eingerichtet, nicht für SFTP.",
   invalidAuth: "Für SFTP bitte Passwort oder Schlüssel als Anmeldung wählen.",
 });

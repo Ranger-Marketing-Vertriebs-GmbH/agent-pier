@@ -5396,6 +5396,7 @@
   "ssh:sshCopy.selectKey": "de:b4f109306198 en:f1506d0421b3",
   "ssh:sshCopy.sessionHint": "de:673177ead067 en:5bd7275472ea",
   "ssh:sshCopy.sessionSummary": "de:e4fa49b32d1e en:a3549f631d9f",
+  "ssh:sshCopy.sftpBadge": "de:b07c0f4933b3 en:b07c0f4933b3",
   "ssh:sshCopy.test": "de:a5d6a6f03db1 en:5bcf311b19d8",
   "ssh:sshCopy.testHint": "de:92f683f91b94 en:60ae565d77e5",
   "ssh:sshCopy.testOk": "de:8486d4555687 en:856dd8c8677b",

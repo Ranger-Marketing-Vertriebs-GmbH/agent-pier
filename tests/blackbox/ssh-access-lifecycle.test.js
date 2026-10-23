@@ -125,17 +125,29 @@ test("the SSH helper refuses an SFTP host and the API never returns its password
   const listed = await (await f.request("/api/ssh-accesses")).text();
   for (const text of [JSON.stringify(access), listed])
     assert.equal(text.includes("fixture-password-secret"), false);
-  const start = await f.request("/api/sessions", {
+  // A shell only has the SSH helper, so it cannot be granted an SFTP host.
+  const refused = await f.request("/api/sessions", {
     method: "POST",
     body: { accountId: "local-shell", cwd: f.home, sshAccessIds: [access.id] },
   });
+  assert.equal(refused.status, 409, await refused.clone().text());
+  assert.equal((await refused.json()).code, "SSH_HOST_TYPE");
+  const start = await f.request("/api/sessions", {
+    method: "POST",
+    body: { accountId: "local-shell", cwd: f.home },
+  });
   assert.equal(start.status, 201, await start.clone().text());
   const session = await start.json();
+  const granted = await f.request(`/api/sessions/${session.id}/ssh-accesses`, {
+    method: "PUT",
+    body: { accessIds: [access.id] },
+  });
+  assert.equal(granted.status, 409, await granted.clone().text());
   const args = ["--data-dir", f.dataDir, "--session", session.id, "--access", access.id];
   await assert.rejects(
     execute(process.execPath, [helper, ...args, "--", "true"], { timeout: 5000 }),
     (error) =>
-      error.stderr.trim() === englishServerMessages.ssh.sftpOnly &&
+      error.stderr.trim() === englishServerMessages.ssh.accessNotBound &&
       !error.stderr.includes("fixture-password-secret"),
   );
 });

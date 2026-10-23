@@ -14,6 +14,8 @@ export const sshCopy = {
   usageUnavailable: "Usage not loaded yet",
   accessCount: (count) => (count === 1 ? "1 access" : `${count} accesses`),
 
+  // Marks a host the session reaches through the sftp_* file tools only.
+  sftpBadge: "SFTP",
   toolsReady: "SSH tools are ready for this session.",
   toolsStarting: "Waiting for the CLI to connect its SSH tools …",
   toolsReload: "Reload this conversation to enable SSH tools.",

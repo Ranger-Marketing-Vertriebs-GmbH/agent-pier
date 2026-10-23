@@ -62,6 +62,15 @@ test("MCP readiness follows initialized transport, exposes tools and rejects rot
       "ssh_register_host",
       "ssh_scan_host",
       "ssh_test_host",
+      "sftp_list",
+      "sftp_stat",
+      "sftp_download",
+      "sftp_upload",
+      "sftp_sync",
+      "sftp_mkdir",
+      "sftp_rename",
+      "sftp_delete",
+      "sftp_job",
     ].sort(),
   );
   assert.equal(integration.status(session).ready, true);

@@ -6,6 +6,7 @@ import { privateDirectory, readJSON, writePrivate, problem } from "../../lib/sto
 import { shellQuote } from "../../lib/launch-serialization.js";
 
 import { validateSshProjectBinding } from "./ssh-project-scope.js";
+import { sshProblem } from "./ssh-errors.js";
 
 const client = fileURLToPath(new URL("../../ssh.mjs", import.meta.url));
 function identifier(value) {
@@ -28,6 +29,17 @@ function isEligible(session) {
 function eligible(session) {
   if (!isEligible(session))
     throw problem(serverMessages.ssh.interactiveSessionsOnly, 409);
+}
+
+const typeOf = (access) => (access?.type === "sftp" ? "sftp" : "ssh");
+// SSH hosts run commands, SFTP hosts only move files: neither stands in for the other.
+function hostType(access, type) {
+  if (typeOf(access) !== type)
+    throw sshProblem(
+      "SSH_HOST_TYPE",
+      type === "ssh" ? serverMessages.ssh.sftpOnly : serverMessages.ssh.sshOnly,
+      409,
+    );
 }
 
 /** Convenience scoping under one OS user, not a sandbox boundary. */
@@ -74,30 +86,39 @@ export class SshSessions {
   async get(session) {
     const inheritedIds = isEligible(session) ? await this.inherited(session) : [];
     const assignedIds = this.assigned(session);
+    const accesses = this.store.list();
+    const ssh = new Set(accesses.filter((a) => typeOf(a) === "ssh").map((a) => a.id));
+    // A shell has no SFTP tools: it neither lists nor inherits SFTP hosts.
+    const usable = (id) => session.tool !== "shell" || ssh.has(id);
     return {
-      accesses: this.store.list(),
+      accesses: accesses.filter((access) => usable(access.id)),
       assignedIds,
-      inheritedIds,
-      commands: [...new Set([...assignedIds, ...inheritedIds])].map((id) => ({
-        id,
-        command: [
-          process.execPath,
-          client,
-          "--data-dir",
-          this.dataDir,
-          "--session",
-          session.id,
-          "--access",
+      inheritedIds: inheritedIds.filter(usable),
+      // The helper command runs SSH; SFTP hosts are reached through the sftp tools.
+      commands: [...new Set([...assignedIds, ...inheritedIds])]
+        .filter((id) => ssh.has(id))
+        .map((id) => ({
           id,
-        ]
-          .map(shellQuote)
-          .join(" "),
-      })),
+          command: [
+            process.execPath,
+            client,
+            "--data-dir",
+            this.dataDir,
+            "--session",
+            session.id,
+            "--access",
+            id,
+          ]
+            .map(shellQuote)
+            .join(" "),
+        })),
     };
   }
   set(session, ids) {
     eligible(session);
     const accessIds = this.validate(ids);
+    if (session.tool === "shell")
+      for (const id of accessIds) hostType(this.store.get(id), "ssh");
     if (accessIds.length)
       writePrivate(this.file(session.id), {
         identity: identity(session),
@@ -123,7 +144,8 @@ export class SshSessions {
       else fs.rmSync(file, { force: true });
     }
   }
-  async resolve(sessionId, accessId) {
+  /** The connection for a granted host of `type`; another type is `SSH_HOST_TYPE`. */
+  async resolve(sessionId, accessId, { type = "ssh" } = {}) {
     identifier(sessionId);
     identifier(accessId);
     const session = readJSON(
@@ -133,6 +155,7 @@ export class SshSessions {
     eligible(session);
     if (session.id !== sessionId || !(await this.effective(session)).includes(accessId))
       throw problem(serverMessages.ssh.accessNotBound, 403);
+    hostType(this.store.get(accessId), type);
     // Discovery may run Git asynchronously. Recheck live identity and grants before
     // materializing a connection so a stop/reload/revocation during it wins.
     const current = readJSON(
@@ -147,6 +170,9 @@ export class SshSessions {
     const inherited = projectId && this.store.get(accessId).projectId === projectId;
     if (!sameSession || (!inherited && !this.assigned(current).includes(accessId)))
       throw problem(serverMessages.ssh.accessNotBound, 403);
-    return this.store.connection(accessId);
+    hostType(this.store.get(accessId), type);
+    return type === "sftp"
+      ? this.store.sftpConnection(accessId)
+      : this.store.connection(accessId);
   }
 }

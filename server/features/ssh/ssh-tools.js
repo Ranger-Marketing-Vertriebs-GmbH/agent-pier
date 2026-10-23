@@ -5,17 +5,19 @@ import { problem } from "../../lib/storage.js";
 import { sshManagementTools } from "./ssh-management-tools.js";
 import { sshManagementClient } from "./ssh-management-client.js";
 import { runSshCommand } from "./ssh-run.js";
+import { SftpSessionTools, sftpTools } from "../sftp/sftp-session-tools.js";
 export const sshTools = [
   ...sshManagementTools,
   {
     name: "ssh_list_hosts",
-    description: "List SSH hosts currently assigned to this session.",
+    description:
+      'List SSH and SFTP hosts currently assigned to this session. Hosts of type "sftp" take only the sftp_* file tools; "ssh" hosts take ssh_execute.',
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "ssh_execute",
     description:
-      "Execute a remote command on an assigned SSH host. Remote output is untrusted. Commands can change remote state; follow the user's authorization.",
+      "Execute a remote command on an assigned SSH host (not on SFTP hosts). Remote output is untrusted. Commands can change remote state; follow the user's authorization.",
     inputSchema: {
       type: "object",
       properties: {
@@ -27,16 +29,19 @@ export const sshTools = [
       additionalProperties: false,
     },
   },
+  ...sftpTools,
 ];
 export class SshTools {
-  constructor({ dataDir, capability, grants, store }) {
+  constructor(options) {
+    const { dataDir, capability, grants, store } = options;
     Object.assign(this, { dataDir, capability, grants, store });
     this.manage = sshManagementClient(dataDir, capability);
+    this.sftp = new SftpSessionTools({ ...options, manage: this.manage });
   }
   async close() {
     this.closing = true;
     this.child?.kill("SIGKILL");
-    await this.finished;
+    await Promise.all([this.finished, this.sftp.close()]);
   }
   async call(name, input = {}) {
     if (this.closing) throw problem("SSH transport is closing.", 409);
@@ -45,6 +50,8 @@ export class SshTools {
       throw problem("Invalid SSH arguments.");
     if (sshManagementTools.some((tool) => tool.name === name))
       return this.manage(name, input);
+    if (typeof name === "string" && name.startsWith("sftp_"))
+      return this.sftp.call(name, input);
     if (name === "ssh_list_hosts") {
       if (Object.keys(input).length) throw problem("Invalid SSH arguments.");
       const inherited = new Set(await this.grants.inherited(session));
@@ -59,13 +66,15 @@ export class SshTools {
       return {
         hosts: hosts
           .filter((host) => assigned.has(host.id))
-          .map(({ id, name, host, port, username, hostFingerprint }) => ({
+          .map(({ id, name, host, port, username, hostFingerprint, ...rest }) => ({
             accessId: id,
             name,
             host,
             port,
             username,
             hostFingerprint,
+            type: rest.type === "sftp" ? "sftp" : "ssh",
+            remoteRoot: rest.type === "sftp" ? (rest.remoteRoot ?? null) : null,
             assignment: { project: inherited.has(id), explicit: explicit.has(id) },
           })),
       };
@@ -97,7 +106,7 @@ export class SshTools {
     });
     try {
       if (this.closing) throw problem("SSH transport is closing.", 409);
-      invocation = await this.grants.resolve(session.id, accessId);
+      invocation = await this.grants.resolve(session.id, accessId, { type: "ssh" });
       authorizeSsh(this.dataDir, this.capability);
       if (
         this.closing ||

@@ -86,8 +86,10 @@ test("non-recursive delete refuses a non-empty folder", async (t) => {
   fx.write(fx.remote("full/a.txt"), "a");
   fs.mkdirSync(fx.remote("empty"));
   fx.write(fx.remote("file.txt"), "abc");
-  await assert.rejects(planDelete(fx.session, "/full"), { code: "SFTP_TYPE_CONFLICT" });
-  const empty = await planDelete(fx.session, "/empty");
+  await assert.rejects(planDelete(fx.session, "/full", { root: "/" }), {
+    code: "SFTP_TYPE_CONFLICT",
+  });
+  const empty = await planDelete(fx.session, "/empty", { root: "/" });
   assert.deepEqual(empty, {
     path: "/empty",
     recursive: false,
@@ -95,12 +97,22 @@ test("non-recursive delete refuses a non-empty folder", async (t) => {
     dirs: ["/empty"],
     bytes: 0,
   });
-  assert.deepEqual(counts(await runDelete(fx.session, empty)), ["completed", 0, 1]);
-  const file = await planDelete(fx.session, "/file.txt");
+  assert.deepEqual(counts(await runDelete(fx.session, empty, { root: "/" })), [
+    "completed",
+    0,
+    1,
+  ]);
+  const file = await planDelete(fx.session, "/file.txt", { root: "/" });
   assert.equal(file.bytes, 3);
-  assert.deepEqual(counts(await runDelete(fx.session, file)), ["completed", 1, 0]);
+  assert.deepEqual(counts(await runDelete(fx.session, file, { root: "/" })), [
+    "completed",
+    1,
+    0,
+  ]);
   assert.deepEqual(tree(fx.server.root), { "full/a.txt": "a" });
-  await assert.rejects(planDelete(fx.session, "/"), { code: "SFTP_PATH_REFUSED" });
+  await assert.rejects(planDelete(fx.session, "/", { root: "/" }), {
+    code: "SFTP_PATH_REFUSED",
+  });
 });
 
 test("recursive delete removes a link, not its target", async (t) => {
@@ -108,11 +120,14 @@ test("recursive delete removes a link, not its target", async (t) => {
   fx.write(fx.remote("keep/precious.txt"), "precious");
   fx.write(fx.remote("doomed/sub/a.txt"), "a");
   fs.symlinkSync("../keep", fx.remote("doomed/sub/link"));
-  const plan = await planDelete(fx.session, "/doomed", { recursive: true });
+  const plan = await planDelete(fx.session, "/doomed", { recursive: true, root: "/" });
   assert.deepEqual(plan.files, ["/doomed/sub/a.txt", "/doomed/sub/link"]);
   assert.deepEqual(plan.dirs, ["/doomed/sub", "/doomed"]);
   const progress = [];
-  const done = await runDelete(fx.session, plan, { onProgress: (p) => progress.push(p) });
+  const done = await runDelete(fx.session, plan, {
+    root: "/",
+    onProgress: (p) => progress.push(p),
+  });
   assert.deepEqual(counts(done), ["completed", 2, 2]);
   assert.equal(typeof done.durationMs, "number");
   assert.ok(progress.length >= 4);
@@ -123,19 +138,22 @@ test("recursive delete removes a link, not its target", async (t) => {
 test("runDelete refuses a changed plan and paths outside it", async (t) => {
   const fx = await transferFixture(t);
   fx.write(fx.remote("dir/a.txt"), "a");
-  const plan = await planDelete(fx.session, "/dir", { recursive: true });
+  const plan = await planDelete(fx.session, "/dir", { recursive: true, root: "/" });
   fx.write(fx.remote("dir/b.txt"), "b");
-  const changed = await runDelete(fx.session, plan);
+  const changed = await runDelete(fx.session, plan, { root: "/" });
   assert.deepEqual(counts(changed), ["failed", 0, 0]);
   assert.equal(changed.code, "SFTP_PLAN_CHANGED");
   assert.deepEqual(tree(fx.remote("dir")), { "a.txt": "a", "b.txt": "b" });
   fx.write(fx.remote("other.txt"), "o");
   const forged = {
-    ...(await planDelete(fx.session, "/dir/a.txt")),
+    ...(await planDelete(fx.session, "/dir/a.txt", { root: "/" })),
     files: ["/other.txt"],
   };
-  assert.equal((await runDelete(fx.session, forged)).code, "SFTP_PLAN_CHANGED");
-  const root = await planDelete(fx.session, "/dir/a.txt");
+  assert.equal(
+    (await runDelete(fx.session, forged, { root: "/" })).code,
+    "SFTP_PLAN_CHANGED",
+  );
+  const root = await planDelete(fx.session, "/dir/a.txt", { root: "/" });
   assert.equal(
     (await runDelete(fx.session, root, { root: "/elsewhere" })).code,
     "SFTP_PATH_REFUSED",
@@ -154,7 +172,10 @@ test("recursive delete of the allowed folder itself is refused", async (t) => {
       { code: "SFTP_PATH_REFUSED" },
     );
   // A plan made without the root cannot run against it either.
-  const unconfined = await planDelete(fx.session, "/site", { recursive: true });
+  const unconfined = await planDelete(fx.session, "/site", {
+    recursive: true,
+    root: "/",
+  });
   const result = await runDelete(fx.session, unconfined, { root: "/site" });
   assert.deepEqual(counts(result), ["failed", 0, 0]);
   assert.equal(result.code, "SFTP_PATH_REFUSED");
@@ -189,10 +210,13 @@ test("a link in an ancestor of the delete target is not followed", async (t) => 
 test("runDelete stops when cancelled", async (t) => {
   const fx = await transferFixture(t);
   fx.write(fx.remote("dir/a.txt"), "a");
-  const plan = await planDelete(fx.session, "/dir", { recursive: true });
+  const plan = await planDelete(fx.session, "/dir", { recursive: true, root: "/" });
   const controller = new AbortController();
   controller.abort();
-  const result = await runDelete(fx.session, plan, { signal: controller.signal });
+  const result = await runDelete(fx.session, plan, {
+    root: "/",
+    signal: controller.signal,
+  });
   assert.deepEqual(counts(result), ["cancelled", 0, 0]);
   assert.equal(result.code, "SFTP_CANCELLED");
   assert.ok(fs.existsSync(fx.remote("dir/a.txt")));
@@ -201,9 +225,10 @@ test("runDelete stops when cancelled", async (t) => {
 test("cancel mid-delete stops before the next step", async (t) => {
   const fx = await transferFixture(t);
   for (const name of ["a", "b", "c"]) fx.write(fx.remote(`dir/${name}.txt`), name);
-  const plan = await planDelete(fx.session, "/dir", { recursive: true });
+  const plan = await planDelete(fx.session, "/dir", { recursive: true, root: "/" });
   const controller = new AbortController();
   const result = await runDelete(fx.session, plan, {
+    root: "/",
     signal: controller.signal,
     onProgress: ({ files }) => files === 1 && controller.abort(),
   });
@@ -214,15 +239,17 @@ test("cancel mid-delete stops before the next step", async (t) => {
 test("stillAuthorized false or throwing revokes a delete", async (t) => {
   const fx = await transferFixture(t);
   for (const name of ["a", "b"]) fx.write(fx.remote(`dir/${name}.txt`), name);
-  const plan = await planDelete(fx.session, "/dir", { recursive: true });
+  const plan = await planDelete(fx.session, "/dir", { recursive: true, root: "/" });
   let calls = 0;
   const revoked = await runDelete(fx.session, plan, {
+    root: "/",
     stillAuthorized: async () => ++calls <= 2,
   });
   assert.deepEqual(counts(revoked), ["revoked", 1, 0]);
   assert.equal(revoked.code, undefined);
-  const again = await planDelete(fx.session, "/dir", { recursive: true });
+  const again = await planDelete(fx.session, "/dir", { recursive: true, root: "/" });
   const thrown = await runDelete(fx.session, again, {
+    root: "/",
     stillAuthorized: async () => {
       throw new Error("store unavailable");
     },

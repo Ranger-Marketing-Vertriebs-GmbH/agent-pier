@@ -9,6 +9,7 @@ import { capabilityFile, authorizeSsh, revokeSsh } from "./ssh-capability.js";
 import { sshManagementSocket } from "./ssh-management-client.js";
 import { createSshProjectBinding } from "./ssh-project-scope.js";
 import { prepareSshDiscovery } from "./ssh-discovery.js";
+import { SFTP_HINT_ENV } from "./ssh-hook.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
@@ -83,6 +84,14 @@ export class SshIntegration {
         .map((access) => access.id),
     ]);
     if (sandboxProfile && !reachable.size) return launch;
+    // The discovery hint names the sftp tools only when an SFTP host is reachable.
+    if (
+      (this.accesses?.list() || []).some(
+        (access) => access.type === "sftp" && reachable.has(access.id),
+      )
+    )
+      env[SFTP_HINT_ENV] = "1";
+    else delete env[SFTP_HINT_ENV];
     const file = capabilityFile(this.dataDir, id);
     const generation = randomUUID();
     // Each process receives an immutable generation-specific credential file.

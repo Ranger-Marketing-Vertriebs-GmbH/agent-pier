@@ -112,7 +112,8 @@ test(
       ])
         assert.ok(names.includes(name));
       assert.equal(
-        names.some((name) => /download|export/.test(name)),
+        // No key download or export; sftp_download moves files, never key material.
+        names.some((name) => !name.startsWith("sftp_") && /download|export/.test(name)),
         false,
       );
       // Coding agents read English even when the shared service raises German text.

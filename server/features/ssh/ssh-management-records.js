@@ -28,6 +28,12 @@ export function projectKey(store, keyId, projectId) {
     throw sshProblem("SSH_WRONG_PROJECT", "SSH key is not owned by this project.", 403);
   return key;
 }
+// Bootstrap runs over SSH access; an SFTP host is file transfer only.
+function sshOnly(access) {
+  if (access.type === "sftp")
+    throw sshProblem("SSH_HOST_TYPE", serverMessages.ssh.sftpOnly, 409);
+  return access;
+}
 export async function trustedHost(store, grants, session, input) {
   const trust = input.trustSource;
   if (
@@ -49,7 +55,7 @@ export async function trustedHost(store, grants, session, input) {
         "Bootstrap access is not assigned to this session.",
         403,
       );
-    const access = store.get(trust.accessId),
+    const access = sshOnly(store.get(trust.accessId)),
       target = normalizedEndpoint(input),
       source = normalizedEndpoint(access);
     if (
@@ -68,7 +74,7 @@ export async function trustedHost(store, grants, session, input) {
 // Scope has already been validated asynchronously; read mutable grants again at commit.
 export function trustedHostNow(store, grants, session, input, projectId) {
   if (input.trustSource.kind !== "existing") return;
-  const access = store.get(input.trustSource.accessId);
+  const access = sshOnly(store.get(input.trustSource.accessId));
   if (access.projectId !== projectId && !grants.assigned(session).includes(access.id))
     throw sshProblem(
       "SSH_WRONG_PROJECT",

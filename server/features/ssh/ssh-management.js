@@ -23,6 +23,7 @@ import {
   adoptProject,
   ownsProjectAccess,
 } from "./ssh-management-records.js";
+import { recordSessionSftp, sftpRecordFields } from "../sftp/sftp-session-audit.js";
 
 const allowed = {
   ssh_list_keys: ["page"],
@@ -41,6 +42,8 @@ const allowed = {
     "requestId",
   ],
   ssh_test_host: ["accessId"],
+  // Audit rows of the session's own sftp tools (sftp-session-audit.js); no CLI tool.
+  sftp_record: sftpRecordFields,
 };
 const busy = () => sshProblem("SSH_BUSY", serverMessages.ssh.managementBusy, 429);
 
@@ -250,6 +253,7 @@ export class SshManagement {
         total: rows.length,
       };
     }
+    if (name === "sftp_record") return recordSessionSftp(this, context, input);
     if (name === "ssh_get_public_key")
       return projectKey(this.store, input.keyId, projectId);
     if (name === "ssh_scan_host") {
@@ -260,6 +264,8 @@ export class SshManagement {
     if (name === "ssh_test_host") {
       if (!(await this.grants.effective(context.session)).includes(input.accessId))
         throw sshProblem("SSH_WRONG_PROJECT", "SSH host is not assigned.", 403);
+      if (this.store.get(input.accessId).type === "sftp")
+        throw sshProblem("SSH_HOST_TYPE", serverMessages.ssh.sftpOnly, 409);
       const { SshTools } = await import("./ssh-tools.js");
       const tools = new SshTools({
         dataDir: this.dataDir,

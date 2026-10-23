@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { SshIntegration } from "../../server/features/ssh/ssh-integration.js";
 import { SshSessions } from "../../server/features/ssh/ssh-sessions.js";
-import { SshTools } from "../../server/features/ssh/ssh-tools.js";
+import { SshTools, sshTools } from "../../server/features/ssh/ssh-tools.js";
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
 import { writePrivate } from "../../server/lib/storage.js";
 async function fixture(t) {
@@ -143,4 +143,45 @@ test("host discovery excludes project hosts reassigned during validation", async
     return ids;
   };
   assert.deepEqual((await tools.call("ssh_list_hosts", {})).hosts, []);
+});
+
+test("ssh-tools lists sftp tools with closed schemas", () => {
+  const names = sshTools.map((tool) => tool.name);
+  for (const name of [
+    "sftp_list",
+    "sftp_stat",
+    "sftp_download",
+    "sftp_upload",
+    "sftp_sync",
+    "sftp_mkdir",
+    "sftp_rename",
+    "sftp_delete",
+    "sftp_job",
+  ])
+    assert.ok(names.includes(name), name);
+  assert.equal(names.includes("sftp_record"), false);
+  for (const tool of sshTools.filter(({ name }) => name.startsWith("sftp_"))) {
+    assert.equal(tool.inputSchema.additionalProperties, false, tool.name);
+    if (tool.name !== "sftp_job")
+      assert.ok(tool.inputSchema.required.includes("accessId"), tool.name);
+  }
+  const sync = sshTools.find(({ name }) => name === "sftp_sync").inputSchema;
+  assert.deepEqual(sync.properties.direction.enum, ["up", "down"]);
+  assert.equal(sync.properties.exclude.maxItems, 50);
+  assert.equal(sync.properties.exclude.items.maxLength, 200);
+  assert.equal(sync.properties.remotePath.maxLength, 4096);
+});
+
+test("ssh_list_hosts reports the host type and keeps SSH hosts typed ssh", async (t) => {
+  const { tools } = await fixture(t);
+  const [host] = (await tools.call("ssh_list_hosts", {})).hosts;
+  assert.equal(host.type, "ssh");
+  assert.equal(host.remoteRoot, null);
+});
+
+test("sftp tools refuse an SSH host before connecting", async (t) => {
+  const { tools } = await fixture(t);
+  await assert.rejects(tools.call("sftp_list", { accessId: "host" }), {
+    code: "SSH_HOST_TYPE",
+  });
 });
