@@ -31,6 +31,8 @@ export function requireDataCompatibility(manifest, dataDir) {
   if (manifest.schemaMin > version || manifest.schemaMax < version)
     throw problem(serverMessages.releases.schemaUnreadable, 409);
 }
+/** The `code` of the error requireTmuxNames throws, to tell it apart from others. */
+export const TMUX_NAMES_UNSUPPORTED = "RELEASE_TMUX_NAMES_UNSUPPORTED";
 /**
  * Refuses a release that does not understand the tmux session names this release
  * produces: it would lose every session started since the update. A manifest check
@@ -41,5 +43,7 @@ export function requireTmuxNames(manifest) {
     !Array.isArray(manifest?.tmuxNames) ||
     !manifest.tmuxNames.includes(PRODUCED_TMUX_NAME)
   )
-    throw problem(serverMessages.releases.tmuxNamesUnsupported, 409);
+    throw Object.assign(problem(serverMessages.releases.tmuxNamesUnsupported, 409), {
+      code: TMUX_NAMES_UNSUPPORTED,
+    });
 }
