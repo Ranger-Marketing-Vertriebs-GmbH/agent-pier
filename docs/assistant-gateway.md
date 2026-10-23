@@ -167,7 +167,9 @@ A stop gives the Gateway a drain window of up to 60 s (`gatewayDrainMs` in
 and lets running turns and cron runs finish, and it exits by itself once drained.
 The readiness budget of the next start counts from its spawn, so a drain never
 shortens it. AgentPier's own shutdown keeps the 3 s grace, within the service
-manager's stop timeout (`TimeoutStopSec=10`); the next start reclaims anything left.
+manager's stop timeout (`TimeoutStopSec=10`), and cuts a drain already in progress
+short; the next start reclaims anything left. A failed start, an attempt or member
+recovery and a lost cron acknowledgement stop with the short grace as well.
 
 A maintenance restart (provider changes, a [pending restart](#pending-restart), web
 tools) enters maintenance first: admission closes and cron is switched off
@@ -1920,30 +1922,48 @@ its entry and its own `browser.profiles.<agent>` entry, which apply live
 [web tools qualification](assistant-web-tools-qualification.md#f-reload-kinds)).
 
 A Gateway restart is still needed when something changes what an agent's capability
-compiles, or what the Gateway holds:
+compiles, or what the Gateway holds. Additions and other changes leave a pending
+restart:
 
 - a used capability's global section: another search provider or key, another PDF
   model while an agent reads PDFs, a browser installed or removed after the start;
-- a model connection agents use: its key, its endpoint or its removal;
-- an agent's own Telegram bot: connecting or disconnecting it, a new token, the
-  speech key it uses.
+- a model connection agents use: another endpoint, name or other non-key setting;
+- an agent's own Telegram bot: connecting one, a person added, a first speech key.
 
-Such a save is stored at once and applied live as far as possible. The restart is
-recorded as pending in `assistants/pending-restart.json`, with the reasons and the
-agents it interrupts. Further changes join the same pending restart.
-`PendingRestart` runs it as the usual maintenance restart as soon as nothing is busy:
-it tries at once and then every 15 s, and `waitingFor` names the blockers of the last
-try. Any later Gateway start ends it, because each start compiles every saved change.
-This includes an AgentPier restart, after which the file is read again. While the
-restart is pending, the running Gateway keeps the previous provider key, search key
-or bot. Update backups are made worthless at once, as before.
+Revocations keep the immediate restart: deleting a connection agents use, a new or
+removed key on it, removing an agent's bot, replacing its token, and changing or
+removing the speech key its bot uses. The owner confirms (`409
+ASSISTANT_RESTART_REQUIRED`, then `confirmRestart: true`), the Gateway restarts at
+once, and the save is refused while agents are busy, so a revoked credential never
+stays in the running Gateway.
+
+A pending change is stored at once and applied live as far as possible. The restart
+is recorded in `assistants/pending-restart.json`, with the reasons and the agents it
+interrupts; further changes join it. `PendingRestart` tries at once and then every
+15 s. Each try first checks for busy work _outside_ maintenance (`busy()`: the
+maintenance blockers, another restart, maintenance or an update), so a busy host never
+closes admission, pauses Telegram or switches cron off just to find out; `waitingFor`
+names what it waits for. Only an idle host enters the usual maintenance restart, which
+checks again inside (see [Process ownership and
+supervision](#process-ownership-and-supervision)). A failed try is logged with its
+code and shown as **The last restart attempt failed**; it is retried. A save made
+while the Gateway starts counts as pending, since that start may have compiled
+before it. Any Gateway start of a later generation ends it, because each start
+compiles every saved change, also after an AgentPier restart, when the file is read
+again; a try first notices such a start and then ends without restarting. A runtime
+update is refused (`UPDATE_BUSY`) while a try runs.
 
 The agent settings, the connection details, the web search, PDF reading and Telegram
 settings and **Settings → Workspace → Agents → Agent service** show **Agent service
 restart pending** with what it is for and what it waits for. **Restart now** asks
-first and then restarts at once (`POST /api/assistant-runtime/pending-restart`). It
-interrupts running agent work, but it still waits for an account sign-in in
-progress and for a workflow that is executing.
+first and then restarts at once (`POST /api/assistant-runtime/pending-restart`,
+exempt from the maintenance guard). It interrupts all running agent work and can take
+about a minute or longer, but it still waits for an account sign-in in progress and
+for a workflow that is executing. It never just joins an automatic try that may stop
+at busy work: it runs after it unless that one restarted.
+
+The global `tools.allow` lists every available web tool, so OpenClaw's own `main`
+agent, which is no AgentPier agent, gets an explicit `tools.allow: ["session_status"]`.
 
 A user's own switch on her agent still never restarts the Gateway: when it would
 need one, it is refused (`USER_AGENT_RESTART_NEEDED`) and the owner decides. A native

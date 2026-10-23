@@ -197,6 +197,8 @@ test("the owner's restart now runs the pending restart and answers the runtime v
   const request = await serve(t, {
     assistantRuntime: { status: () => ({ availability: "ready", sync: "ready" }) },
     assistants: {
+      // An automatic try in maintenance never refuses the owner's request.
+      maintenance: true,
       store: { listAssistants: () => [] },
       pendingRestart: {
         status: () => pending,

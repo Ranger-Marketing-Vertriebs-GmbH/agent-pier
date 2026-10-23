@@ -174,6 +174,26 @@ test("active work or an existing update maintenance gate leaves credentials unto
   );
   assert.equal(f.connections.secret(f.c.id).apiKey, "original-fixture-key");
 });
+test("a revoked key or deleted connection still restarts at once after confirming", async (t) => {
+  const f = fixture(t);
+  const queued = [];
+  f.sync.pending = { request: (reason) => queued.push(reason) };
+  const rotate = () => f.connections.update(f.c.id, { apiKey: "rotated-fixture-key" });
+  await assert.rejects(f.sync.change(f.c.id, rotate, { revokes: true }), {
+    code: "ASSISTANT_RESTART_REQUIRED",
+  });
+  f.setBlockers(["ASSISTANT_WORK"]);
+  await assert.rejects(
+    f.sync.change(f.c.id, rotate, { revokes: true, confirmed: true }),
+    { status: 409, key: "active" },
+  );
+  assert.equal(f.connections.secret(f.c.id).apiKey, "original-fixture-key");
+  f.setBlockers([]);
+  f.calls.length = 0;
+  await f.sync.change(f.c.id, rotate, { revokes: true, confirmed: true });
+  assert.deepEqual(f.calls, ["enter", "stop", "quiesce", "start", "leave"]);
+  assert.deepEqual(queued, []);
+});
 test("a cron run that starts just before the stop still refuses the restart", async (t) => {
   const f = fixture(t);
   // Idle at the first check; the run shows up by the check right before the stop.

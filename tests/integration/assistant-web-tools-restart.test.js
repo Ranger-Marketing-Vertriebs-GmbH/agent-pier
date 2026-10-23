@@ -211,6 +211,10 @@ test("in the app the change is saved at once and the restart waits until nothing
   for (let n = 0; n < 200 && !pending.status()?.waitingFor.length; n++)
     await new Promise((r) => setTimeout(r, 5));
   assert.deepEqual(pending.status().waitingFor, ["ASSISTANT_WORK"]);
+  // Busy: the retries never entered maintenance.
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(f.calls.includes("enter"), false);
+  assert.ok(!f.service.maintenance);
   // Idle: it restarts by itself, and the Gateway now compiles the browser.
   f.setBlockers([]);
   for (let n = 0; n < 200 && pending.status(); n++)

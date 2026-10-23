@@ -3,7 +3,6 @@ import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import { assistantRestartCopy as copy } from "../../lib/i18n/messages/assistant-restart.js";
-import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "./assistant-api.js";
 import useAssistants from "./useAssistants.js";
 
@@ -29,6 +28,7 @@ export default function PendingRestartNotice({ className = "" }) {
     : [
         copy.description,
         reasons && copy.reasons(reasons),
+        pending.failed && copy.failed,
         waiting && copy.waiting(waiting),
       ]
         .filter(Boolean)
@@ -57,7 +57,7 @@ export default function PendingRestartNotice({ className = "" }) {
           onCancel={() => setConfirming(false)}
         >
           <p className="assistant-note">
-            {assistantCopy.personal.restartAffected(
+            {copy.affected(
               (pending.affected?.agents || []).map((agent) => agent.name).join(", "),
               pending.affected?.teamMembers,
             )}

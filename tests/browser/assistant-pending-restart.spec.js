@@ -68,8 +68,9 @@ test("the agent service shows a pending restart and restarts at once after confi
   await shoot(page, "agent-service-pending");
   await notice.getByRole("button", { name: /Restart now/ }).click();
   const dialog = page.getByRole("dialog", { name: "Restart the agent service now?" });
-  await expect(dialog).toContainText("Running agent work is interrupted");
-  await expect(dialog).toContainText("Briefly unavailable: Olli (+2 team members)");
+  await expect(dialog).toContainText("All running agent work is interrupted");
+  await expect(dialog).toContainText("about a minute or longer");
+  await expect(dialog).toContainText("Interrupted: Olli (+2 team members)");
   await shoot(page, "restart-now-confirm");
   // Cancel first: nothing restarts.
   await dialog.getByRole("button", { name: "Cancel" }).click();
