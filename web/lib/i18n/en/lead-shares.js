@@ -2,12 +2,13 @@
 // owner sees and revokes it (server lead-shares.js).
 export const leadShareCopy = {
   title: "Shared by the lead agent",
-  hint: "The lead agent shares its own access with this permanent member: project folders, coding projects and MCP servers. It counts only while the lead holds it, in the lead's tasks and in your own chats with this member. Coding runs still need your approval, and files change only in tasks that may change files.",
+  hint: "The lead agent shares its own access with this permanent member: project folders, coding projects, MCP servers and Read images. It counts only while the lead holds it, in the lead's tasks and in your own chats with this member. Coding runs still need your approval, and files change only in tasks that may change files.",
   empty: "The lead agent shares nothing with this member.",
   loading: "Loading shares …",
   folder: { read: "Folder: read", write: "Folder: read and write" },
   coding: "Coding",
   mcpServer: (name) => `MCP server ${name}`,
+  capability: { documents: "Read images" },
   unknownProject: "Project no longer readable",
   unknownServer: "Server no longer readable",
   forTask: "For one task",

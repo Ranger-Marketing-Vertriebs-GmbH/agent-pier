@@ -172,7 +172,14 @@ const ownCapabilities = (assistant, eligible = false) =>
 export function personalCapabilities(assistant) {
   if (inheritsFromLead(assistant))
     return ownCapabilities({ capabilities: assistant.inherited.capabilities }, true);
-  return ownCapabilities(assistant, personalEligible(assistant));
+  const eligible = personalEligible(assistant);
+  const own = ownCapabilities(assistant, eligible);
+  // A permanent member also holds what its lead shares with it now (Read images),
+  // resolved on every read (lead-capability-shares.js), never its own setting.
+  if (eligible)
+    for (const [key, on] of Object.entries(assistant.leadCapabilities || {}))
+      if (on === true && key in own) own[key] = true;
+  return own;
 }
 /**
  * The web capabilities the owner released for a user to switch herself

@@ -106,3 +106,24 @@ test("an image view of a project file keeps the view, path and size, never conte
     kind: "project-file",
   });
 });
+
+test("a lead share keeps its change, actor, reason and shared capabilities", () => {
+  assert.deepEqual(
+    event({
+      kind: "lead-share",
+      change: "revoke",
+      by: "system",
+      reason: "lead-lost",
+      leadAssistantId: "lead",
+      capabilities: ["documents", "shell"],
+    }),
+    {
+      kind: "lead-share",
+      leadAssistantId: "lead",
+      change: "revoke",
+      by: "system",
+      reason: "lead-lost",
+      capabilities: ["documents"],
+    },
+  );
+});

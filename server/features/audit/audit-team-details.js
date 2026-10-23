@@ -29,6 +29,19 @@ export function teamAuditDetails(details, event, auditId) {
     if (Array.isArray(details.edited))
       event.details.edited = details.edited.filter((key) => edited.includes(key));
   }
+  // A lead's share with its permanent member (lead-shares.js): what changed, who
+  // changed it, why it ended and which capabilities it shares; never names.
+  if (details.kind === "lead-share") {
+    if (["grant", "revoke"].includes(details.change))
+      event.details.change = details.change;
+    if (["lead", "owner", "system"].includes(details.by)) event.details.by = details.by;
+    if ([...reasons, "task-ended", "lead-lost"].includes(details.reason))
+      event.details.reason = details.reason;
+    if (Array.isArray(details.capabilities))
+      event.details.capabilities = details.capabilities.filter(
+        (key) => key === "documents",
+      );
+  }
   if (details.kind === "native-write") {
     if (["write", "edit", "apply_patch"].includes(details.tool))
       event.details.tool = details.tool;

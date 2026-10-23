@@ -20,6 +20,8 @@ const words = {
     title: "Shared by the lead agent",
     projectSub: "via Home · Folder: read and write · Coding · Standing",
     serverSub: "via Home · Standing",
+    server: "MCP server docs",
+    images: "Read images",
     revoke: "Revoke",
     revokeNow: "Revoke now",
     projectSection: "Shared by lead agents",
@@ -32,6 +34,8 @@ const words = {
     title: "Vom leitenden Agenten geteilt",
     projectSub: "über Home · Ordner: lesen und ändern · Coding · Dauerhaft",
     serverSub: "über Home · Dauerhaft",
+    server: "MCP-Server docs",
+    images: "Bilder lesen",
     revoke: "Widerrufen",
     revokeNow: "Jetzt widerrufen",
     projectSection: "Von leitenden Agenten geteilt",
@@ -72,6 +76,18 @@ const serverShare = {
   serverId: "s1",
   serverName: "docs",
   live: { bound: true },
+};
+// Read images, shared for good (lead-capability-shares.js).
+const imageShare = {
+  id: "share-i",
+  kind: "capability",
+  leadId: "home",
+  leadName: "Home",
+  memberAssistantId: "scout",
+  memberName: "Scout",
+  requestId: null,
+  capability: "documents",
+  live: { on: true },
 };
 
 // The lead-share routes as the server answers them (assistant-lead-shares.js).
@@ -123,7 +139,7 @@ for (const [language, label, viewport] of cases) {
         (value) => localStorage.setItem("agentpier-language", value),
         language,
       );
-      const shares = shareRoutes([projectShare, serverShare]);
+      const shares = shareRoutes([projectShare, serverShare, imageShare]);
       await page.route(/\/api\/assistant/, async (route) => {
         if (await fulfillEnabledAssistantFeature(route)) return;
         const url = new URL(route.request().url());
@@ -172,13 +188,19 @@ for (const [language, label, viewport] of cases) {
       await page.goto(baseURL + settingsPath("work", undefined, "scout"));
       const group = page.locator("#agent-lead-shares");
       await expect(group.getByRole("heading", { name: w.title })).toBeVisible();
+      const row = (name) => group.locator(".lead-share-row", { hasText: name });
       await expect(group.getByText(w.projectSub, { exact: true })).toBeVisible();
-      await expect(group.getByText(w.serverSub, { exact: true })).toBeVisible();
+      await expect(row(w.server).getByText(w.serverSub, { exact: true })).toBeVisible();
+      await expect(row(w.images).getByText(w.serverSub, { exact: true })).toBeVisible();
       expect(await fits(page)).toBe(true);
       await revoke(page, group.locator(".lead-share-row").first(), language);
       expect(shares.deleted).toEqual(["share-p"]);
       await expect(group.getByText(w.projectSub, { exact: true })).toHaveCount(0);
-      await expect(group.getByText(w.serverSub, { exact: true })).toBeVisible();
+      await expect(row(w.server).getByText(w.serverSub, { exact: true })).toBeVisible();
+      // The owner removes the shared Read images like any share.
+      await revoke(page, row(w.images), language);
+      expect(shares.deleted).toEqual(["share-p", "share-i"]);
+      await expect(row(w.images)).toHaveCount(0);
     });
 
     test("a project's Agents section shows shares via the lead and revokes one", async ({

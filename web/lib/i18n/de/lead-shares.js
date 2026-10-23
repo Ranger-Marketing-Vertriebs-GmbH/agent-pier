@@ -2,12 +2,13 @@
 // Mitgliedern teilt, wie der Besitzer es sieht und widerruft (Server lead-shares.js).
 export const leadShareCopy = {
   title: "Vom leitenden Agenten geteilt",
-  hint: "Der leitende Agent teilt seinen eigenen Zugriff mit diesem dauerhaften Mitglied: Projektordner, Coding-Projekte und MCP-Server. Das gilt nur, solange er ihn selbst hat, in seinen Aufgaben und in deinen eigenen Chats mit diesem Mitglied. Coding-Aufträge brauchen weiter deine Freigabe, und Dateien ändern sich nur in Aufgaben, die Dateien ändern dürfen.",
+  hint: "Der leitende Agent teilt seinen eigenen Zugriff mit diesem dauerhaften Mitglied: Projektordner, Coding-Projekte, MCP-Server und Bilder lesen. Das gilt nur, solange er ihn selbst hat, in seinen Aufgaben und in deinen eigenen Chats mit diesem Mitglied. Coding-Aufträge brauchen weiter deine Freigabe, und Dateien ändern sich nur in Aufgaben, die Dateien ändern dürfen.",
   empty: "Der leitende Agent teilt nichts mit diesem Mitglied.",
   loading: "Freigaben werden geladen …",
   folder: { read: "Ordner: lesen", write: "Ordner: lesen und ändern" },
   coding: "Coding",
   mcpServer: (name) => `MCP-Server ${name}`,
+  capability: { documents: "Bilder lesen" },
   unknownProject: "Projekt nicht mehr lesbar",
   unknownServer: "Server nicht mehr lesbar",
   forTask: "Für eine Aufgabe",

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { personalEligible } from "./native-capabilities.js";
+import { personalCapabilities, personalEligible } from "./native-capabilities.js";
 import { projectFileLevels } from "./member-grants.js";
 import { requestTerminal } from "./lead-request-store.js";
 import { shareNote } from "./lead-share-input.js";
@@ -14,8 +14,9 @@ const openCoding = new Set(["awaiting_approval", "approved", "executing", "runni
 /**
  * What a lead shares of its own access with one of its permanent members
  * (AGENTPIER-153): project folders (read or write), coding projects (coding
- * requests on the lead's project and pipelines, each approved by the owner) and the
- * MCP servers bound to the lead. Kept apart from the member's own access
+ * requests on the lead's project and pipelines, each approved by the owner), the
+ * MCP servers bound to the lead and, standing only, Read images (`capability`,
+ * lead-capability-shares.js, resolved into the member's capabilities on every read). Kept apart from the member's own access
  * (assistant_access), one row per member, lead, resource and scope: standing
  * (`requestId` null) or for one delegated task (`requestId`). A share is only an
  * upper bound: it counts while lead and member stay what they are (the lead active,
@@ -140,6 +141,15 @@ export class LeadShares {
    */
   live(row) {
     const ended = this.ended(row);
+    if (row.kind === "capability") {
+      if (ended) return { ended, on: false, unknown: false };
+      try {
+        const lead = this.w.a.store.getAssistant(row.leadId);
+        return { ended, on: personalCapabilities(lead)[row.capability] === true };
+      } catch {
+        return { ended, on: false, unknown: true };
+      }
+    }
     if (row.kind === "mcp") {
       const bound = ended ? false : this.leadBound(row);
       return { ended, bound: bound === true, unknown: bound === null };
@@ -269,7 +279,7 @@ export class LeadShares {
         (r) =>
           r.leadId === lead.id &&
           r.kind === kind &&
-          (r.projectId || r.serverId) === resource &&
+          (r.projectId || r.serverId || r.capability) === resource &&
           (r.requestId || null) === requestId,
       );
     const projects = new Set([...Object.keys(change.projects), ...change.coding]);
@@ -340,6 +350,33 @@ export class LeadShares {
         }),
       );
     }
+    // Read images is only ever shared for good, never with one task.
+    for (const capability of requestId ? [] : change.capabilities || []) {
+      const old = key("capability", capability);
+      if (revoke) {
+        if (old) {
+          this.delete(old.id);
+          changed.push({ ...old, removed: true });
+        }
+        continue;
+      }
+      changed.push(
+        this.write({
+          ...(old || {
+            id: randomUUID(),
+            kind: "capability",
+            leadId: lead.id,
+            memberId: member.id,
+            memberAssistantId: member.assistantId,
+            capability,
+            requestId: null,
+          }),
+          grantedAt: now,
+          grantedBy: "lead",
+          ...(inv?.attemptId ? { attemptId: inv.attemptId } : {}),
+        }),
+      );
+    }
     if (changed.length) {
       this.audit(changed, { change: revoke ? "revoke" : "grant", by: "lead", requestId });
       this.changed(member.assistantId, changed);
@@ -378,7 +415,9 @@ export class LeadShares {
         live.ended ||
         (row.kind === "mcp"
           ? !live.bound && "lead-lost"
-          : !live.coding && !live.folder && "lead-lost");
+          : row.kind === "capability"
+            ? !live.on && "lead-lost"
+            : !live.coding && !live.folder && "lead-lost");
       if (!reason) continue;
       // A coding request on a task's own share stays approvable once the task ended
       // on its own (authorize): the row goes when no open request rests on it.
@@ -450,6 +489,9 @@ export class LeadShares {
               ...(r.removed && { removed: true }),
             })),
           mcpServerIds: rows.filter((r) => r.kind === "mcp").map((r) => r.serverId),
+          capabilities: rows
+            .filter((r) => r.kind === "capability")
+            .map((r) => r.capability),
         },
       });
     } catch (error) {
@@ -512,19 +554,21 @@ export class LeadShares {
           memberName: name(row.memberAssistantId),
           requestId: row.requestId || null,
           grantedAt: row.grantedAt,
-          ...(row.kind === "project"
-            ? {
-                projectId: row.projectId,
-                projectName: projectName(row.projectId),
-                coding: !!row.coding,
-                folder: row.folder || "none",
-                live: { coding: live.coding, folder: live.folder || "none" },
-              }
-            : {
-                serverId: row.serverId,
-                serverName: serverName(row.serverId),
-                live: { bound: live.bound },
-              }),
+          ...(row.kind === "capability"
+            ? { capability: row.capability, live: { on: live.on === true } }
+            : row.kind === "project"
+              ? {
+                  projectId: row.projectId,
+                  projectName: projectName(row.projectId),
+                  coding: !!row.coding,
+                  folder: row.folder || "none",
+                  live: { coding: live.coding, folder: live.folder || "none" },
+                }
+              : {
+                  serverId: row.serverId,
+                  serverName: serverName(row.serverId),
+                  live: { bound: live.bound },
+                }),
         };
       });
   }

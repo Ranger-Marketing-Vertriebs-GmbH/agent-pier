@@ -219,7 +219,8 @@ told it was not saved.
 - **Teams:** the agent's active and archived teams and, below them, **Questions and
   tasks** it sent to its members.
 - **Shared by the lead agent** (permanent members only): the project folders, coding
-  projects and MCP servers the member's lead shares with it, each "via <lead>", with
+  projects, MCP servers and **Read images** the member's lead shares with it, each
+  "via <lead>", with
   **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
 
 ### Routines & check-ins
@@ -400,7 +401,11 @@ access, the lead can share it, without asking you:
   may start pipelines without one. The request shows in the member's chat and in the
   lead's chat,
 - **MCP servers** bound to the lead (servers with agent folder placeholders get the
-  member's own folders).
+  member's own folders),
+- **Read images**, so the member can look at the images in the folders it works in,
+  only while the lead has **Read images** on itself and only for good (never with
+  one task). The member's own **Read images** switch stays as you set it; the shared
+  one shows apart from it and ends for good when the lead loses it.
 
 The lead shares either for good (a standing share, through its grant tool) or with
 one delegated task, ending with that task. A share counts only while the lead holds
