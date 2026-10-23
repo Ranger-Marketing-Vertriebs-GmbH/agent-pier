@@ -5,7 +5,7 @@
 import { autonomousCaps } from "./team-policy.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
-    "Connect a Telegram chat in the agent settings first. Tell the owner; retrying does not help until then.",
+    "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
   INVALID_TIME:
     "Give the time as an ISO timestamp with a UTC offset or Z, for example 2026-10-09T09:00:00+02:00.",
   INVALID_INPUT:

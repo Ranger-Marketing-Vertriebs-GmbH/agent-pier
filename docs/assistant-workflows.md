@@ -228,6 +228,10 @@ create a routine with a name, saved prompt and one of these triggers:
 - A cron expression with an explicit IANA timezone.
 - A manual event or a linked coding task completing successfully.
 
+Asked in any of your chats, the agent can also switch **Also send to Telegram** for
+its reminders and routines; it uses your own paired Telegram chat and asks you to
+pair one first when there is none.
+
 A reminder repeats prescribed text and runs without tools. A routine asks the
 configured model to answer its saved prompt each time, with the agent's own chat
 tools: memory search, reading and writing its own workspace files, web

@@ -135,3 +135,20 @@ test("the bridge admits a task member's reminder and SSH calls only while grante
   f.store.updateAssistant(f.lead, { capabilities: caps(false) }, lead.revision);
   assert.throws(() => bridge.valid(record("reminder")), { status: 403 });
 });
+
+test("a task member cannot choose its reminder's Telegram delivery", async (t) => {
+  const f = setup(t);
+  for (const telegram of [true, false])
+    await assert.rejects(
+      async () =>
+        f.reminders.invoke(f.turn(f.assigned, `tg-${telegram}`), {
+          action: "create",
+          name: "Check",
+          message: "Look at the build.",
+          schedule: { kind: "at", at: new Date(Date.now() + 3600000).toISOString() },
+          telegram,
+        }),
+      { status: 403 },
+    );
+  assert.deepEqual(f.reminders.bindings.list(f.lead), []);
+});

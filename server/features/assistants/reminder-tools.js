@@ -8,7 +8,16 @@ export const memberReminderLimit = 5;
 /** The agent's reminder tool (agentpier_reminder) for one turn. */
 export function invokeReminder(self, invocation, input) {
   invocation.assertCurrent();
-  exact(input, ["action", "name", "message", "schedule", "id", "enabled", "revision"]);
+  exact(input, [
+    "action",
+    "name",
+    "message",
+    "schedule",
+    "id",
+    "enabled",
+    "revision",
+    "telegram",
+  ]);
   const request = self.assistants.ledger.getRequest(
     self.assistants.ledger.getAttempt(invocation.attemptId).requestId,
   );
@@ -31,6 +40,8 @@ export function invokeReminder(self, invocation, input) {
         name: input.name,
         message: input.message,
         schedule: input.schedule,
+        // The person's own paired chat only (routine-targets.js), on her request.
+        ...(input.telegram !== undefined && { telegram: input.telegram }),
       },
       origin,
       invocation.assertCurrent,
@@ -44,6 +55,7 @@ export function invokeReminder(self, invocation, input) {
       input.id,
       {
         enabled: input.enabled,
+        telegram: input.telegram,
         revision: input.revision,
       },
       invocation.assertCurrent,
@@ -62,6 +74,8 @@ export async function memberCreate(self, member, invocation, input, origin) {
     self.kind !== "reminder" ||
     !["team-member", "lead-request"].includes(origin.kind) ||
     input.action !== "create" ||
+    // Its Telegram delivery is the lead's setting, never the member's to choose.
+    input.telegram !== undefined ||
     !personalCapabilities(member).reminders
   )
     throw assistantProblem("invalid", 403);

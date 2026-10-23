@@ -497,7 +497,12 @@ results go to the agent's main chat (the first chat in AgentPier, the same one a
 paired Telegram chat writes into, whatever other chats you started) with a push notification that opens it. With a paired
 Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-ins
 there too; it is a switch per reminder and routine (also when creating one) and one
-for all check-ins. Unpairing Telegram only stops that extra delivery; everything keeps
+for all check-ins. You can also ask the agent in any of your chats, in AgentPier as
+well as in Telegram, to send a reminder or routine to Telegram too or to stop that
+("send it to Telegram as well"); it switches that reminder or routine to your own
+paired chat, never to anyone else's, and asks you to pair Telegram first when you have
+no paired chat. On a shared agent this applies to your own reminders and routines and
+your own paired chat. Unpairing Telegram only stops that extra delivery; everything keeps
 running in the chat. Reminders and routines created before this kept their Telegram
 delivery. An agent whose check-ins were switched on but which had no paired Telegram
 chat (so it never checked in) starts checking in after the update, in its chat with a
