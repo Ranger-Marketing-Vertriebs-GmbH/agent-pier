@@ -201,6 +201,17 @@ const definitions = {
       ["memberId"],
     ),
   },
+  models: {
+    description:
+      "List the models you can give your members, from the owner's connections that work now (ChatGPT accounts, endpoints and OpenRouter), with context and output limits, reasoning and image input where known, and the model you and each of your members run on now (current). query filters by model id, name or connection; limit caps the list (default 50, at most 200), total counts every match. Prices are USD per million input/output tokens where known; null means unknown — say so, never estimate. When you assign a model, tell the owner its known cost and how it compares to the member's previous model.",
+    parameters: schema(
+      {
+        query: { type: "string", maxLength: 100 },
+        limit: { type: "integer", minimum: 1, maximum: 200 },
+      },
+      [],
+    ),
+  },
   member_routine: {
     description:
       "Plan standing work for your own permanent members: set up, list, change, pause/resume (update with enabled) and remove routines that run on a member and report back to you. Temporary members are refused (they work only on their task). A routine runs as the member's own scheduled routine with its own tools and the access you share with it for good; its saved prompt is the member's task. Each run's result shows in the member's chat and reaches you as a separate message from '<member> · routine <name>' to summarize for the owner; a failed run is reported once until it works again, and a run whose prompt says to report only findings can reply NO_REPLY to stay silent. It runs read-only (no file changes, no writing tasks) unless the owner switched on 'May write' for it in the member's settings or your team usage is Autonomous; you cannot set that. Only in a turn of the owner's own message; at team usage 'On request' only when that message names the member. At most 5 of your routines per member. trigger: {kind:'at',at:ISO timestamp with a UTC offset or Z} or {kind:'cron',expr:five-field cron,tz:IANA timezone}, at most every 15 minutes. Updates need the id and revision from list or create; update may change name, prompt and trigger and/or set enabled. The owner sees and can change or remove every routine.",

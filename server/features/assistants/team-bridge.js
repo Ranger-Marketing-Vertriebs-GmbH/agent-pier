@@ -31,11 +31,11 @@ const actions = new Set([
   "archive",
   "grant",
   "member_update",
+  "models", // what a lead can give its members (member-models.js)
   // Routines a lead sets up on its own permanent members (lead-routines.js).
   "member_routine",
   "promote",
-  // Agency agents as member templates (team-templates.js).
-  "templates",
+  "templates", // Agency agents as member templates (team-templates.js)
   "reminder",
   "routine",
   "workspace",
