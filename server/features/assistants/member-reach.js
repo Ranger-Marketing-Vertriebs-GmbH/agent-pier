@@ -17,3 +17,18 @@ export function reachableMember(member, leadId) {
     (!memberEnded.has(member.phase) || !!member.conversationId)
   );
 }
+
+/**
+ * Whether a lead may edit a member of its own (member-edits.js): a task member it can
+ * still reach, or a permanent member it kept, as long as that one is not archived.
+ */
+export function editableMember(member, leadId) {
+  return (
+    reachableMember(member, leadId) ||
+    (!!member &&
+      member.kind === "member" &&
+      member.parentAssistantId === leadId &&
+      member.lifetime === "permanent" &&
+      !member.archivedAt)
+  );
+}

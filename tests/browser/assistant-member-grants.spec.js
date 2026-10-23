@@ -6,7 +6,7 @@ import { fixture } from "./providers-fixture.js";
 
 // A lead with one waiting proposal and one running task member, served by the routes
 // the agent pages read; the Work tab save records its team half.
-async function setup(page, { memberShellSsh = false } = {}) {
+async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const lead = {
@@ -47,7 +47,7 @@ async function setup(page, { memberShellSsh = false } = {}) {
     phase: "running",
     conversationId: "chat-0",
     revision: 1,
-    lifetime: "task",
+    lifetime: permanent ? "permanent" : "task",
     grants: { webSearch: true, memory: true },
     grantLog: [
       {
@@ -307,6 +307,19 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
     "The lead agent changed Finder's name, role; it is now called Scout",
   );
   await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
+  const log = page.locator("[data-grant-log] li").nth(1);
+  await expect(log).toContainText(
+    "the lead agent changed the member's role, instructions",
+  );
+  await log.getByText("Instructions it replaced").click();
+  await expect(log.locator("pre")).toHaveText("Owner text that was replaced.");
+});
+
+test("a permanent member's profile shows its lead's edits and the replaced instructions", async ({
+  page,
+}) => {
+  await setup(page, { permanent: true });
+  await page.goto(baseURL + settingsPath("profile", undefined, "member-0"));
   const log = page.locator("[data-grant-log] li").nth(1);
   await expect(log).toContainText(
     "the lead agent changed the member's role, instructions",
