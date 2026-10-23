@@ -10,7 +10,9 @@ import {
   releaseManifest,
 } from "../../server/features/operations/release-archive.js";
 import {
+  ALTERNATE_SESSION_PREFIX,
   chooseTmuxSocket,
+  SESSION_PREFIX,
   ownedSocket,
   sessionIdFromName,
   tmuxServerAnswers,
@@ -75,13 +77,13 @@ test("current and legacy tmux session names resolve to the same id", () => {
     assert.equal(sessionIdFromName(name), null, name);
 });
 
-test("the socket is chosen by which owned server answers, the produced one first", async (t) => {
+test("the legacy socket stays in use while its server answers, else the agentpier one", async (t) => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "agentpier-socket-choice-"));
-  const { produced, alternate } = tmuxSocketPaths(dataDir);
+  const { produced, legacy } = tmuxSocketPaths(dataDir);
   const servers = [];
   t.after(() => {
     for (const server of servers) server.close();
-    for (const socket of [produced, alternate])
+    for (const socket of [produced, legacy])
       rmSync(path.dirname(socket), { recursive: true, force: true });
     rmSync(dataDir, { recursive: true, force: true });
   });
@@ -98,29 +100,35 @@ test("the socket is chosen by which owned server answers, the produced one first
       asked.push(socket);
       return sockets.includes(socket);
     };
-  assert.match(produced, /^\/tmp\/tuiui-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
-  assert.match(alternate, /^\/tmp\/agentpier-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
+  assert.match(produced, /^\/tmp\/agentpier-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
+  assert.match(legacy, /^\/tmp\/tuiui-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(produced, alternate) }),
+    chooseTmuxSocket(dataDir, { answers: answering(produced, legacy) }),
     produced,
   );
-  assert.deepEqual(asked, [], "no socket file: nothing is asked");
+  assert.deepEqual(asked, [], "no legacy socket file: nothing is asked");
   // A regular file in place of a socket is never ours, so it is never asked.
-  mkdirSync(path.dirname(alternate), { mode: 0o700 });
-  writeFileSync(alternate, "");
-  assert.equal(chooseTmuxSocket(dataDir, { answers: answering(alternate) }), produced);
+  mkdirSync(path.dirname(legacy), { mode: 0o700 });
+  writeFileSync(legacy, "");
+  assert.equal(chooseTmuxSocket(dataDir, { answers: answering(legacy) }), produced);
   assert.deepEqual(asked, []);
-  rmSync(alternate);
-  await listen(alternate);
+  rmSync(legacy);
+  await listen(legacy);
   await listen(produced);
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(produced, alternate) }),
-    produced,
+    chooseTmuxSocket(dataDir, { answers: answering(legacy) }),
+    legacy,
+    "sessions from before the update keep their server",
   );
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(alternate) }),
-    alternate,
-    "a stale produced socket file next to a live later server",
+    chooseTmuxSocket(dataDir, { answers: answering(produced, legacy) }),
+    legacy,
+    "both live: the legacy server keeps its sessions",
+  );
+  assert.equal(
+    chooseTmuxSocket(dataDir, { answers: answering(produced) }),
+    produced,
+    "a stale legacy socket file is not used",
   );
   assert.equal(
     chooseTmuxSocket(dataDir, { answers: answering() }),
@@ -132,12 +140,12 @@ test("the socket is chosen by which owned server answers, the produced one first
     const stat = lstatSync(file);
     return Object.assign(Object.create(Object.getPrototypeOf(stat)), stat, { uid: 0 });
   };
-  assert.equal(ownedSocket(alternate, { lstat: foreign, uid: 501 }), false);
+  assert.equal(ownedSocket(legacy, { lstat: foreign, uid: 501 }), false);
   assert.equal(
     chooseTmuxSocket(dataDir, {
       lstat: foreign,
       uid: 501,
-      answers: answering(alternate),
+      answers: answering(legacy),
     }),
     produced,
   );
@@ -178,15 +186,20 @@ test("system status counts both names and prefers a live pane, then the produced
     [
       ["old", 101],
       ["new", 201],
-      ["both", 301],
+      ["both", 302],
       ["revived", 402],
-      ["gone", 502],
+      ["gone", 501],
     ],
   );
 });
 
+test("new sessions are named agentpier-<id>; tuiui-<id> stays understood", () => {
+  assert.equal(SESSION_PREFIX, "agentpier-");
+  assert.equal(ALTERNATE_SESSION_PREFIX, "tuiui-");
+});
+
 test("release manifests list every tmux name form this release understands", () => {
   const manifest = newReleaseManifest("9.9.9");
-  assert.deepEqual(manifest.tmuxNames, ["tuiui", "agentpier"]);
+  assert.deepEqual([...manifest.tmuxNames].sort(), ["agentpier", "tuiui"]);
   assert.deepEqual(releaseManifest(manifest), manifest);
 });

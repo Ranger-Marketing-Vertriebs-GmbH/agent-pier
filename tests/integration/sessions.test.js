@@ -86,7 +86,7 @@ test("PTY input, resize and reconnect preserve a running CLI across manager rest
           "display-message",
           "-p",
           "-t",
-          `=tuiui-${created.id}:0.0`,
+          `=agentpier-${created.id}:0.0`,
           "#{pane_height}x#{pane_width}",
         ])
       ).stdout.trim() === "37x111",
@@ -136,7 +136,7 @@ test("PTY input, resize and reconnect preserve a running CLI across manager rest
     "display-message",
     "-p",
     "-t",
-    `tuiui-${created.id}`,
+    `agentpier-${created.id}`,
     "#{pane_start_command}",
   ]);
   assert.ok(!args.stdout.includes("never-in-session-metadata"));

@@ -20,7 +20,7 @@ async function fixture(t, initial = {}) {
   t.mock.method(manager, "tmux", async (args) => {
     if (native.missing) throw new Error("can't find pane: owned-fixture");
     if (args[0] === "run-shell") {
-      assert.deepEqual(args, ["run-shell", "-t", "=tuiui-owned-fixture:0.0", ":"]);
+      assert.deepEqual(args, ["run-shell", "-t", "=agentpier-owned-fixture:0.0", ":"]);
       reapRequests.push(args);
       native.afterReap?.();
       return "";
@@ -56,7 +56,9 @@ test("a private tmux reap trigger recovers the real exit code after a lost child
   assert.equal(exited.exitCode, 7);
   assert.equal((await manager.metadata("owned-fixture")).exitCode, 7);
   assert.deepEqual(stopped, ["owned-fixture"]);
-  assert.deepEqual(reapRequests, [["run-shell", "-t", "=tuiui-owned-fixture:0.0", ":"]]);
+  assert.deepEqual(reapRequests, [
+    ["run-shell", "-t", "=agentpier-owned-fixture:0.0", ":"],
+  ]);
   await read();
   assert.equal(reapRequests.length, 1);
 });
