@@ -98,6 +98,8 @@ async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
         role: "Plan",
         assignment: "Plan next step",
         grants: { memory: true, webSearch: true, webFetch: true },
+        model: { connectionId: "local", modelId: "qwen" },
+        modelLabel: { connection: "Local", model: "Qwen" },
       },
       {
         name: "Runner",
@@ -265,6 +267,10 @@ test("the proposal card lists each member's grants", async ({ page }) => {
   );
   await expect(grants.nth(1)).toHaveText("Gets: Browser");
   await expect(card.locator("[data-member-shell-ssh]")).toHaveCount(0);
+  // A model the lead chose shows by its names; a member without one follows the lead.
+  await expect(card.locator("[data-model]")).toHaveText([
+    "Model: Qwen (Local), chosen by the lead agent",
+  ]);
 });
 
 test("a member granted shell is highlighted with the warning", async ({ page }) => {

@@ -11,7 +11,11 @@ import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
 import { MemberGrants } from "./member-grant-requests.js";
 import { MemberEdits } from "./member-edits.js";
-import { listMemberModels, memberModelsInput } from "./member-models.js";
+import {
+  listMemberModels,
+  memberModelsInput,
+  proposedMemberModels,
+} from "./member-models.js";
 import { MemberPromotions } from "./member-promotion.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
@@ -279,7 +283,10 @@ export class TeamService {
     const lease = await a.models.resolve(parent.model);
     lease.release();
     inv.assertCurrent();
-    const members = await resolveTemplates(a.templates, input.members);
+    // A model the owner cannot run now refuses the proposal before it is stored.
+    const chosen = await proposedMemberModels(a.models, input.members);
+    inv.assertCurrent();
+    const members = await resolveTemplates(a.templates, chosen);
     inv.assertCurrent();
     if (this.closed) throw assistantProblem("unavailable", 503);
     const record = this.store.propose({

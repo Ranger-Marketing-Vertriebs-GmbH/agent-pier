@@ -80,6 +80,13 @@ test("the team proposal tool lets the model cite an explicit owner request", asy
   assert.equal(properties.ownerRequestedTeam.type, "boolean");
   assert.equal(properties.ownerRequestQuote.maxLength, 300);
   assert.match(propose.description, /verbatim/);
+  // A member may run on a model the lead picked from agentpier_team_models.
+  const member = properties.members.items;
+  assert.deepEqual(member.properties.model.required, ["connectionId", "modelId"]);
+  assert.equal(member.properties.model.properties.connectionId.maxLength, 200);
+  assert.equal(member.properties.model.properties.modelId.maxLength, 256);
+  assert.ok(!member.required.includes("model"));
+  assert.match(propose.description, /agentpier_team_models/);
 });
 
 // Version gates that must move with the runtime pin (docs/assistant-runtime-updates.md).

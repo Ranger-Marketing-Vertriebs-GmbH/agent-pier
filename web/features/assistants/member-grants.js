@@ -84,6 +84,9 @@ export const fieldLabels = (fields = []) =>
 // A model as the owner reads it: "Qwen (Local)".
 const modelName = ({ connection, model }) => copy.modelName(model, connection);
 
+/** A proposed member's lead-chosen model on the approval card (TeamProposalCard). */
+export const proposalModelText = (label) => copy.proposalModel(modelName(label));
+
 /**
  * A lead's member edit as words: the changed fields with `fieldText`, then the model
  * change with `modelText` when it names both models (server member-edits.js).
