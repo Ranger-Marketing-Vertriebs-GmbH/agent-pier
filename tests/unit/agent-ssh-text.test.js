@@ -66,3 +66,16 @@ test("segments escape hidden characters as codes", () => {
   assert.equal(web.characterCode("\u0007"), "U+0007");
   assert.equal(web.visibleCommand("a\u2028b"), "a[U+2028]b");
 });
+
+test("a note's command keeps at most 8 KiB without splitting a character", () => {
+  assert.deepEqual(server.noteCommand("uptime"), { command: "uptime" });
+  assert.deepEqual(server.noteCommand(undefined), {});
+  const exact = "x".repeat(8192);
+  assert.deepEqual(server.noteCommand(exact), { command: exact });
+  const long = server.noteCommand(`${"é".repeat(5000)}`);
+  assert.equal(long.commandCut, true);
+  assert.ok(Buffer.byteLength(long.command) <= 8192);
+  assert.equal(long.command, "é".repeat(4096));
+  const emoji = server.noteCommand("😀".repeat(3000));
+  assert.equal(emoji.command, "😀".repeat(2048));
+});

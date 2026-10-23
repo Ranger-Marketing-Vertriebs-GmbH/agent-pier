@@ -218,8 +218,10 @@ told it was not saved.
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
   a command with hidden characters or more than 2,000 characters can only be allowed
   in AgentPier. **Trusted** runs without asking in your own chats and in tasks or
-  questions from the agent's lead. Every run, trusted or allowed, leaves a line such as
-  "SSH on opnsense: uptime · done" in the chat; a denied command leaves none.
+  questions from the agent's lead. Every run, trusted or allowed, leaves an activity row
+  such as "SSH on opnsense · uptime · Done" in the chat; opening it shows the full
+  command (up to 8 KB) with a copy button, the exit code and the duration, never the
+  output. A denied command leaves none.
   **Trusted incl. routines** also runs in the agent's routines.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.

@@ -16,13 +16,21 @@ function selectContents(element) {
 
 // A fenced Markdown code block with a copy button. The button sits outside the
 // scrolling <pre>, so long lines keep their horizontal scroll and the copied text is
-// exactly the code without the fence's trailing newline.
-export default function CodeBlock({ node: _node, className, children, ...props }) {
+// exactly the code without the fence's trailing newline. `copyText` copies a given
+// text instead and `copyLabel` names the button (ActivityRow bodies).
+export default function CodeBlock({
+  node: _node,
+  className,
+  children,
+  copyText: text,
+  copyLabel = copy.copyCode,
+  ...props
+}) {
   const pre = useRef(null),
     { status, copy: copyText } = useCopy();
   const copyCode = async () => {
     const element = pre.current;
-    if (!(await copyText(element.textContent.replace(/\n$/, ""))))
+    if (!(await copyText(text ?? element.textContent.replace(/\n$/, ""))))
       selectContents(element);
   };
   return (
@@ -37,8 +45,8 @@ export default function CodeBlock({ node: _node, className, children, ...props }
       <button
         type="button"
         className="code-block-copy"
-        aria-label={copy.copyCode}
-        title={copy.copyCode}
+        aria-label={copyLabel}
+        title={copyLabel}
         data-copied={status === "copied" || undefined}
         onClick={copyCode}
       >

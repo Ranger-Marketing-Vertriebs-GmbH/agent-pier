@@ -39,7 +39,9 @@ test("an owner turn runs a command on a trusted host and leaves one settled row"
   assert.equal(row.settled, true);
   assert.equal(row.state, "completed");
   assert.equal(row.payload.trusted, true);
-  assert.equal(row.payload.command, undefined);
+  // The chat note shows the command (bounded, noteCommand); the output is never kept.
+  assert.equal(row.payload.command, `process.stdout.write("up 3 days") // ${marker}`);
+  assert.equal("stdout" in row.result, false);
   assert.equal(row.payload.originClass, "owner");
   assert.ok(row.chatNotes.result.at > 0);
   const executed = f.audit.filter((e) => e.action === "ssh.executed");

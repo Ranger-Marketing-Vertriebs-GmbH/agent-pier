@@ -13,9 +13,37 @@ export function sshOutcomeText(outcome, exitCode) {
   const label = copy.note.outcomes[outcome] ?? copy.note.outcomes.exit;
   return typeof label === "function" ? label(exitCode ?? "?") : label;
 }
-/** "SSH on opnsense: uptime · done"; hidden characters appear as their codes. */
-export const sshRunNoteText = (note) =>
-  `${copy.note.lead(note.hostName)} ${visibleCommand(note.commandPreview)} · ${sshOutcomeText(note.outcome, note.exitCode)}`;
+const tones = {
+  done: "ok",
+  exit: "error",
+  timedOut: "error",
+  revoked: "error",
+  truncated: "neutral",
+};
+/**
+ * An SSH run note (server actionNotes) as its activity row: label, the one-line
+ * preview, the full command (or the preview where only that was recorded, `partial`),
+ * the status chip and the facts of its body. `copyText` shows hidden characters as
+ * their codes, so a copy holds what the owner sees.
+ */
+export function sshRunView(note) {
+  const outcome = note.outcome in tones ? note.outcome : "exit";
+  const status = copy.note.status[outcome];
+  const command = note.command ?? note.commandPreview ?? "";
+  return {
+    label: copy.note.label(note.hostName),
+    preview: note.commandPreview ?? command,
+    command,
+    copyText: visibleCommand(command),
+    partial: note.command == null ? "preview" : note.commandCut ? "cut" : null,
+    tone: tones[outcome],
+    status: typeof status === "function" ? status(note.exitCode ?? "?") : status,
+    exitCode: note.exitCode ?? (outcome === "done" ? 0 : null),
+    duration:
+      note.durationMs != null ? copy.note.seconds(sshSeconds(note.durationMs)) : null,
+    result: copy.note.results[outcome] ?? null,
+  };
+}
 /** One Work tab history line: host, outcome (or decision) and duration. */
 export function sshHistoryText(action) {
   const r = action.result || {};
