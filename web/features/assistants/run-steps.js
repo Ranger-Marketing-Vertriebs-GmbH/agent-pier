@@ -92,6 +92,13 @@ export function useNow(active, ms = 15000) {
 }
 
 /**
+ * The memory step before a summary (server memory-step.js) is AgentPier's own turn:
+ * while it runs or its outcome is unknown the chat shows that memories are saved, and
+ * no Try again sends "continue" as the person's turn with all its tools.
+ */
+export const memoryStepTurn = (request) => request?.internal === "memory-step";
+
+/**
  * Try again on a stalled or timed-out turn, for the owner's and a user's chat: the
  * turn stops (`stop`, when `active`) and the agent is asked to go on where it stopped
  * (`deliver`). One at a time: a second click while the stop runs does nothing, and

@@ -39,6 +39,7 @@ const languages = {
   },
 };
 
+const retry = { en: "Try again", de: "Erneut versuchen" };
 const earlier = [
   { id: "u0", role: "user", text: "Plan three dinners.", timestamp: 1, requestId: "q0" },
   { id: "a0", role: "assistant", text: "Here they are.", timestamp: 2, runId: "t0" },
@@ -146,6 +147,40 @@ for (const [language, copy] of Object.entries(languages))
       await expect(outcome).toHaveText(`${copy.busy} ${copy.notSaved}`);
       await noSideScroll(page);
       expect(compacts).toEqual(["POST"]);
+    });
+
+    test("a memory step of unknown or failed outcome offers no Retry", async ({
+      page,
+    }) => {
+      const step = (attempt) => ({
+        ...longHistory,
+        requests: [
+          ...longHistory.requests,
+          { id: "q1", state: "accepted", internal: "memory-step", attempt },
+        ],
+      });
+      const state = await chatFixture(page, {
+        language,
+        history: {
+          ...step({ id: "t1", state: "uncertain" }),
+          compacting: "memory",
+        },
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      // The step's run lost its acknowledgement: memories are still being saved.
+      const status = page.locator(".assistant-run-state");
+      await expect(status).toHaveText(copy.saving);
+      // Its run failed: the summary follows, and no Retry sends an owner turn.
+      state.history = {
+        ...step({ id: "t1", state: "failed", failure: "timeout" }),
+        compacting: true,
+      };
+      await page.evaluate(() => window.agentFeed.push("dinner"));
+      await expect(status).toHaveText(copy.summarising);
+      await expect(page.locator(".assistant-run-failure")).toBeVisible();
+      await expect(page.getByRole("button", { name: retry[language] })).toHaveCount(0);
+      await noSideScroll(page);
     });
 
     test("a summary that outlives its request keeps running, then says how it ended", async ({
