@@ -203,7 +203,10 @@ test("a peer-result turn, a reminder turn and a forwarded message cannot start o
     const e = toolError(error);
     assert.equal(e.code, "PEER_TURN", context.kind);
     assert.equal(e.status, 403);
-    assert.match(e.reason, /agentpier_team_report/);
+    assert.match(
+      e.reason,
+      /Reports are not possible in this turn either\. Do not retry\./,
+    );
   }
   // No turn context at all.
   const bare = f.memberTurn(f.permanent);
@@ -404,6 +407,21 @@ test("a peer task may write only from a writable sender turn", async (t) => {
     ),
     "PEER_TURN",
   );
+  // A restricted user's turn is no turn of the member's own work, even as its user.
+  const agent = f.store.getAssistant(f.permanent.assistantId);
+  f.store.db.prepare("UPDATE assistants SET body=? WHERE id=?").run(
+    JSON.stringify({
+      ...agent,
+      userAccess: { members: [{ userId: "u1", level: "standard" }] },
+    }),
+    agent.id,
+  );
+  assert.equal(
+    f.code(() =>
+      f.peerAsk(f.memberTurn(f.permanent, { kind: "user", userId: "u1" }), f.second),
+    ),
+    "PEER_TURN",
+  );
   // A routine of the permanent member writes when its run may write.
   let writable = true;
   f.assistants.routines = { writable: () => writable };
@@ -412,7 +430,11 @@ test("a peer task may write only from a writable sender turn", async (t) => {
     toolCallId: "c4",
     sessionKey: `agent:x:cron:job-1:run:${key}`,
     routine: {
-      binding: { id: "binding-1", definition: { name: "Morning" } },
+      binding: {
+        id: "binding-1",
+        assistantId: f.permanent.assistantId,
+        definition: { name: "Morning" },
+      },
       conversation: f.store.getConversation(f.permanent.conversationId),
     },
     assertCurrent() {},
@@ -429,12 +451,25 @@ test("a peer task may write only from a writable sender turn", async (t) => {
   const temporaryRun = {
     ...run("r3"),
     routine: {
-      ...run("r3").routine,
+      binding: { id: "binding-t", assistantId: f.temporary.assistantId },
       conversation: f.store.getConversation(f.temporary.conversationId),
     },
   };
   assert.equal(
     f.code(() => f.peerAsk(temporaryRun, f.second)),
+    "FORBIDDEN",
+  );
+  // A routine binding paired with another member's chat is no caller either.
+  const foreign = {
+    ...run("r4"),
+    routine: {
+      ...run("r4").routine,
+      conversation: f.store.getConversation(f.second.conversationId),
+    },
+  };
+  assert.throws(() => peerCaller(f.service, foreign), { status: 403 });
+  assert.equal(
+    f.code(() => f.peerAsk(foreign, f.temporary)),
     "FORBIDDEN",
   );
   // A cancelled peer task no longer writes.
@@ -460,7 +495,7 @@ test("the same tool call replays; a changed input conflicts", async (t) => {
     toolCallId: "same",
     sessionKey: "agent:x:cron:job-1:run:r1",
     routine: {
-      binding: { id: "binding-1" },
+      binding: { id: "binding-1", assistantId: f.permanent.assistantId },
       conversation: f.store.getConversation(f.permanent.conversationId),
     },
   };
@@ -477,4 +512,17 @@ test("the same tool call replays; a changed input conflicts", async (t) => {
     }).id,
     routine.id,
   );
+});
+
+test("the owner's limit texts name the numbers of peerCaps", async () => {
+  const catalogs = await Promise.all(
+    ["de", "en"].map((lang) => import(`../../server/lib/i18n/${lang}/assistants.js`)),
+  );
+  for (const catalog of catalogs) {
+    const text = catalog.assistants.peerRequestLimit;
+    assert.deepEqual(text.match(/\d+/g), [
+      String(peerCaps.openPerMember),
+      String(peerCaps.perHour),
+    ]);
+  }
 });

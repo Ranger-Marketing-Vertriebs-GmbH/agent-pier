@@ -30,24 +30,27 @@ export async function deliverRequest(requests, id) {
     return settle({ delivery: "skipped", resultDiagnostic: "PARENT_ARCHIVED" });
   // An ask still waiting takes the answer itself: a routine run has no attempt.
   if (Date.now() < (r.deliveryRetryAt || 0)) return;
-  const target = requests.deliveryTarget(r);
-  if (
-    [...requests.waits.values()].includes(id) ||
-    a.ledger
-      .pending()
-      .some(
-        (x) => a.ledger.getRequest(x.requestId).conversationId === target.conversationId,
-      )
-  )
-    return;
-  if (r.delivery !== "pending") r = requests.teams.write(r, { delivery: "pending" });
+  if ([...requests.waits.values()].includes(id)) return;
   try {
+    // Inside the try: a target that cannot be worked out ends as a failed delivery.
+    const target = requests.deliveryTarget(r);
+    if (
+      a.ledger
+        .pending()
+        .some(
+          (x) =>
+            a.ledger.getRequest(x.requestId).conversationId === target.conversationId,
+        )
+    )
+      return;
+    if (r.delivery !== "pending") r = requests.teams.write(r, { delivery: "pending" });
     const sent = await a.send(
       target.conversationId,
       { clientRequestId: target.clientRequestId, text: target.text },
       target.context,
     );
     requests.teams.write(requests.store.get(id), {
+      ...target.record,
       delivery: "sent",
       resultAttemptId: sent.attempt.id,
       resultState: sent.attempt.state,

@@ -9,6 +9,7 @@ export const memoryNoteReasons = [
   "forwarded",
   "automatic",
   "lead-request",
+  "peer-request",
   "flush",
   "memory-step",
   "shared-write",

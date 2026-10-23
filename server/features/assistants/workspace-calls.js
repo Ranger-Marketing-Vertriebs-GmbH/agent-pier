@@ -138,18 +138,28 @@ function leadRequestContext(w, chat, attempt, req, origin) {
     conversationId: chat.id,
     attemptId: attempt.id,
     origin,
-    leadRequest: { id: r.id, leadId: r.parentAssistantId, writable: taskWritable(r) },
+    leadRequest: {
+      id: r.id,
+      leadId: r.parentAssistantId,
+      writable: taskWritable(r),
+      // A sibling's request: the member's own access, never a share for a task.
+      ...(r.fromMemberId ? { peer: true } : {}),
+    },
     ...(telegram ? { telegram } : {}),
   };
 }
 
+// A task of the lead only: what the lead shares with it, standing or for this task.
+const leadTask = (ctx) => !!ctx.leadRequest && !ctx.leadRequest.peer;
+const shareScope = (ctx) => ({ requestId: leadTask(ctx) ? ctx.leadRequest.id : null });
+
 /**
  * The project a call works on, under the agent's own grant or, failing that, a
- * share of its lead (lead-shares.js): `{ policy, inherited }`. A task of the lead
- * uses only the lead's shares.
+ * standing share of its lead (lead-shares.js): `{ policy, inherited }`. A task of
+ * the lead uses only the lead's shares.
  */
 function authorizeCall(w, ctx, projectId, pipelineId) {
-  const scope = { requestId: ctx.leadRequest?.id ?? null };
+  const scope = shareScope(ctx);
   const viaShare = () => {
     const share = w.shares.coding(ctx.assistantId, projectId, scope);
     if (!share) throw assistantProblem("invalid", 403);
@@ -169,7 +179,7 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
       inherited,
     };
   };
-  if (ctx.leadRequest) return viaShare();
+  if (leadTask(ctx)) return viaShare();
   try {
     return { policy: w.access.authorize(ctx.assistantId, projectId, pipelineId) };
   } catch (error) {
@@ -185,8 +195,8 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
 
 /** The catalog: own projects and pipelines, and what the lead shares (`sharedBy`). */
 function catalog(w, ctx) {
-  const scope = { requestId: ctx.leadRequest?.id ?? null };
-  const own = ctx.leadRequest
+  const scope = shareScope(ctx);
+  const own = leadTask(ctx)
     ? { projectIds: [], pipelineIds: [], projectFiles: {} }
     : w.access.get(ctx.assistantId);
   const shared = w.shares.codingProjects(ctx.assistantId, scope);
@@ -310,6 +320,7 @@ export async function workspaceCall(w, inv, input) {
       !ctx.requestedBy &&
       !inherited &&
       !routine &&
+      !task?.peer &&
       !ctx.memberResult
         ? "approved"
         : "awaiting_approval",

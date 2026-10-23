@@ -9,6 +9,7 @@ import { TeamMcpBindings } from "./team-mcp.js";
 import { MemberLongChats } from "./member-long-chats.js";
 import { MemberSummaries } from "./member-summaries.js";
 import { LeadRequests } from "./lead-requests.js";
+import { PeerRequests } from "./peer-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
 import { MemberGrants } from "./member-grant-requests.js";
@@ -124,6 +125,8 @@ export class TeamService {
     this.mcp = new TeamMcpBindings({ teams: store, assistants });
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     this.requests = new LeadRequests({ teams: store, service: this });
+    // Members' requests to their siblings run on the lead's scheduler (peer-requests.js).
+    this.peers = this.requests.peers = new PeerRequests({ teams: store, service: this });
     // Leads hear when a member's task chat grows long (member-long-chats.js).
     this.memberLongChats = new MemberLongChats({ teams: store, assistants });
     // A lead's summaries of its members' task chats (member-summaries.js): no hint
