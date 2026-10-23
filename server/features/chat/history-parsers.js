@@ -12,6 +12,7 @@ import {
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
 import { createSubagentTracker, isSubagentTool } from "./claude-subagents.js";
+import { claudeNarrationText } from "./claude-narration.js";
 import {
   attachmentPlaceholders,
   extractToolImages,
@@ -221,6 +222,16 @@ export function normalizeClaude(records) {
           ...(queuedImages && { claudeImageInput: queuedImages }),
         });
       }
+      // What the model told the user between tool calls (claude-narration.js).
+      const narration = record.type === "assistant" ? claudeNarrationText(block) : "";
+      if (narration)
+        messages.set(id, {
+          id,
+          role: "assistant",
+          text: narration,
+          narration: true,
+          ...timestamp,
+        });
       if (block.type === "tool_use" && record.type === "assistant") {
         const output = results.get(id);
         const input = object(parse(block.input));

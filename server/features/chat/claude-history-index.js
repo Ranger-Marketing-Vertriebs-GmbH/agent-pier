@@ -4,6 +4,7 @@ import {
   claudeVisibleRecord,
 } from "./claude-conversation-record.js";
 import { isSubagentTool, subagentKey } from "./claude-subagents.js";
+import { claudeNarrationText } from "./claude-narration.js";
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
@@ -209,7 +210,8 @@ export class ClaudeHistoryIndex {
         : blocks.some(
             (block) =>
               (block?.type === "text" && block.text && !resultEnvelope) ||
-              (block?.type === "tool_use" && record.type === "assistant"),
+              (record.type === "assistant" &&
+                (block?.type === "tool_use" || claudeNarrationText(block))),
           ));
     this.db.prepare("INSERT INTO records VALUES (?,?,?)").run(offset, length, group);
     this.db

@@ -57,7 +57,8 @@ const prompt = (row) =>
  * the history when a row has its id (Codex items and OpenCode parts keep it), when
  * the current turn (the rows after the last prompt) already holds as many
  * assistant messages as precede it (`order`, Claude: its message ids are not the
- * transcript's), or when a reply of that turn starts with its text. Runs of
+ * transcript's; narration rows do not count), or when a reply of that turn starts
+ * with its text. Runs of
  * another conversation (a Codex sub-agent thread) never show.
  */
 export function visibleReplies(runs, snapshot) {
@@ -68,6 +69,9 @@ export function visibleReplies(runs, snapshot) {
   const replies = messages
     .slice(lastUser + 1)
     .filter((row) => row.role === "assistant" && normalized(row.text || ""));
+  // A Claude narration row is no text run of the turn (the mod shows it as
+  // thinking), so it does not count towards the runs' `order`.
+  const counted = replies.filter((row) => !row.narration);
   return [...runs.values()]
     .filter((run) => {
       const text = normalized(run.text);
@@ -78,7 +82,7 @@ export function visibleReplies(runs, snapshot) {
         run.thread !== snapshot.providerSessionId
       )
         return false;
-      if (Number.isInteger(run.order) && replies.length > run.order) return false;
+      if (Number.isInteger(run.order) && counted.length > run.order) return false;
       return !replies.some((row) => normalized(row.text).startsWith(text));
     })
     .sort((a, b) =>

@@ -144,6 +144,39 @@ for (const viewport of viewports)
       await expect(page.getByText("Let me check.")).toHaveCount(1);
     });
 
+    test("a Claude narration reply shows and leaves the turn's text draft live", async ({
+      page,
+    }) => {
+      const chat = await chatFixture(page, "claude");
+      const live = page.locator(".chat-message.streaming");
+      chat.sync([
+        {
+          id: "msg_01:1",
+          role: "assistant",
+          text: "Nothing arrived yet; merging now.",
+          narration: true,
+        },
+        {
+          id: "toolu_1",
+          role: "tool",
+          toolName: "Bash",
+          text: "ls",
+          status: "completed",
+        },
+      ]);
+      await expect(page.getByText("Nothing arrived yet; merging now.")).toBeVisible();
+      chat.frame({
+        type: "stream",
+        runId: "claude-a",
+        from: 0,
+        text: "Merged.\n",
+        turn: "turn-1",
+        order: 0,
+      });
+      await expect(live).toHaveCount(1);
+      await expect(live).toContainText("Merged.");
+    });
+
     test("an OpenCode part streams and an ended run without history fades", async ({
       page,
     }) => {

@@ -6,6 +6,7 @@ import path from "node:path";
 import { ClaudeHistoryIndex } from "../../server/features/chat/claude-history-index.js";
 import { JsonlHistoryReader } from "../../server/features/chat/jsonl-history-reader.js";
 import { normalizeClaude } from "../../server/features/chat/history-parsers.js";
+import { claudeSignature } from "../helpers/claude-signature.js";
 
 async function fixture(t, records) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "claude-index-"));
@@ -423,5 +424,30 @@ test("Claude paste wrappers are stripped on live tail and indexed pages", async 
   assert.deepEqual(
     normalizeClaude(page.records).messages.map((row) => row.text),
     expected,
+  );
+});
+
+test("a message whose only visible block is narration is paged like a reply", async (t) => {
+  const block = (type, extra) => ({ type, ...extra });
+  const narration = (id, thinking, kind) => ({
+    type: "assistant",
+    uuid: `${id}-${kind}`,
+    message: {
+      id,
+      content: [block("thinking", { thinking, signature: claudeSignature(kind) })],
+    },
+  });
+  const records = [
+    narration("hidden", "", "thinking"),
+    narration("told", "Status for the user", "narration"),
+    ...Array.from({ length: 3 }, (_, i) => message(`m${i}`, String(i))),
+  ];
+  const f = await fixture(t, records);
+  const identity = await f.identity();
+  await f.index.refresh(identity);
+  const page = await f.index.page({ identity, limit: 50 });
+  assert.deepEqual(
+    normalizeClaude(page.records).messages.map((row) => row.text),
+    ["Status for the user", "0", "1", "2"],
   );
 });
