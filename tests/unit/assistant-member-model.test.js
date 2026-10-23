@@ -105,7 +105,7 @@ test("promotion freezes the lead's model of that moment into the member", (t) =>
   assert.equal(memberOverrides(promoted, edited).model, true);
 });
 
-test("model overrides are reported for permanent members only", (t) => {
+test("a temporary member that follows its lead reports no model override", (t) => {
   const f = fixture(t);
   f.setLeadModel(second);
   const task = f.store.getAssistant(f.member.assistantId);

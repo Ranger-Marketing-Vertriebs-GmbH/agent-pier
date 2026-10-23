@@ -166,6 +166,22 @@ test("an unrelated edit leaves a task member following its lead", async (t) => {
   assert.deepEqual(f.store.getAssistant(id).model, third);
 });
 
+test("an unrelated owner edit keeps a task member's own model", async (t) => {
+  const { f, parent, member } = await teamWith(t, "task");
+  f.service.store.setPhase(member.id, "queued", { phase: "completed" });
+  const id = member.assistantId;
+  const own = await f.assistants.update(
+    id,
+    { model: third },
+    f.store.getAssistant(id).revision,
+  );
+  const renamed = await f.assistants.update(id, { name: "Renamed" }, own.revision);
+  assert.equal(renamed.name, "Renamed");
+  assert.equal(f.store.storedAssistant(id).ownModel, true);
+  await setLeadModel(f, parent.id, second);
+  assert.deepEqual(f.store.getAssistant(id).model, third);
+});
+
 test("only a task member can follow its lead's model", async (t) => {
   const { f, member } = await teamWith(t, "permanent");
   f.service.store.setPhase(member.id, "queued", { phase: "completed" });
