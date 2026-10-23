@@ -88,6 +88,8 @@ export async function startSftpServer({
   keyboardInteractive = false,
   chroot = true,
   posixRename = true,
+  // Like OpenSSH: REALPATH resolves links and fails for a missing path.
+  resolveLinks = false,
 } = {}) {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-sftp-")),
@@ -181,9 +183,16 @@ export async function startSftpServer({
         );
       });
 
-    on("REALPATH", (reqid, remote) =>
-      sftp.name(reqid, [{ filename: virtual(remote), longname: "", attrs: {} }]),
-    );
+    on("REALPATH", async (reqid, remote) => {
+      let filename = virtual(remote);
+      if (resolveLinks) {
+        const relative = path.relative(root, await fs.realpath(local(remote)));
+        if (relative.startsWith(".."))
+          return sftp.status(reqid, STATUS_CODE.NO_SUCH_FILE);
+        filename = `/${relative.split(path.sep).join("/")}`;
+      }
+      sftp.name(reqid, [{ filename, longname: "", attrs: {} }]);
+    });
     on("STAT", async (reqid, remote) =>
       sftp.attrs(reqid, attrs(await fs.stat(local(remote)))),
     );
