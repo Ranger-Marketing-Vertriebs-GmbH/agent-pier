@@ -129,8 +129,8 @@ below its minimum version until it is updated. A source checkout updates with `g
 
 > **Upgrading from 1.x**
 >
-> - Backups made by 2.0 cannot be restored on 1.x. Take a backup before updating if
->   you might roll back.
+> - There is no rollback to 1.x after the update, and backups made by 2.0 cannot be
+>   restored on 1.x. Take a backup before updating if you might go back.
 > - Sign in again once to OAuth MCP servers used from managed Codex accounts.
 > - Lead agents now ask and instruct their members without an approval prompt.
 > - Settings moved into the Workspace, Access and Operations tabs; old links still work.
