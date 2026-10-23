@@ -81,6 +81,8 @@ export const assistantTeamCopy = {
     "memory-result":
       "Eine Notiz im Projektwissen wurde nicht gespeichert. Der Agent wurde informiert.",
     "ssh-result": "Ergebnis eines SSH-Befehls eingegangen.",
+    "memory-step":
+      "Der Agent wurde gebeten, vor der Zusammenfassung seine Erinnerungen zu speichern.",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,

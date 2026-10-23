@@ -5,6 +5,7 @@ import {
   flushTarget,
 } from "./memory-flushes.js";
 import { inheritsFromLead } from "./native-capabilities.js";
+import { ownMemoryTarget } from "./lead-request-writes.js";
 import { isShared, memberLevel } from "../users/user-access.js";
 
 /**
@@ -19,6 +20,49 @@ export const directOrigin = (origin) =>
  */
 export const directTurn = (origin, agent) =>
   directOrigin(origin) && (origin.kind !== "user" || !!memberLevel(agent, origin.userId));
+/**
+ * The memory step before a summary (long-chats.js): a hidden turn only AgentPier
+ * sends, with context kind `memory-step`, never an owner quote. It is no direct turn:
+ * it writes the agent's own memory (MEMORY.md and notes below memory/, never the
+ * copy of a lead's memory, ownMemoryTarget) and nothing else, and never on a shared
+ * agent, whose memory all its users read (as OpenClaw's flush, flushWrite).
+ */
+export const memoryStep = (context) => context?.kind === "memory-step";
+export const memoryStepWrite = (context, { agent, root, path }) =>
+  memoryStep(context) &&
+  !!agent &&
+  !isShared(agent) &&
+  ownMemoryTarget(root, agent.runtimeAgentId, path);
+/**
+ * Whether a turn bound to this session is a memory step: it runs no shell, session,
+ * SSH, team, project folder or other bridge tool (TeamBridge.toolPolicy, valid).
+ */
+export const memoryStepSession = (bridge, sessionKey) =>
+  bridge
+    .bound(sessionKey)
+    .some((a) => memoryStep(bridge.teams.store?.context(a.requestId)));
+/**
+ * Whether a native write of this bound turn is admitted: a direct turn, a task
+ * member's own memory in any turn it works (never the copy of its lead's memory or
+ * anything else, member-memory.js), a memory step's own memory, or a task the owner
+ * asked for or approved in exactly its own member turn.
+ */
+export function turnWrite(bridge, { attempt, parent, origin, current }, input) {
+  const root = bridge.assistants.runtime?.paths?.workspaces;
+  return (
+    current &&
+    (directTurn(origin, parent) ||
+      (inheritsFromLead(parent) && ownMemoryTarget(root, input.agentId, input.path)) ||
+      memoryStepWrite(origin, { agent: parent, root, path: input.path }) ||
+      (origin?.kind === "lead-request" &&
+        !!bridge.teams.requests?.mayWrite(
+          origin.requestId,
+          attempt.id,
+          parent.id,
+          input.path,
+        )))
+  );
+}
 // Refused flush writes are logged once per flush session (bounded).
 const logged = new Set();
 function diagnose(bridge, input, code) {

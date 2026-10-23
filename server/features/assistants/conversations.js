@@ -88,6 +88,8 @@ const internalKinds = new Set([
   "coding-result",
   "member-result",
   "memory-result",
+  // The memory step before a summary (memory-write-policy.js memoryStep).
+  "memory-step",
   "ssh-result",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {
