@@ -14,7 +14,11 @@ import {
 } from "./release-archive.js";
 import { applicationVersion, compareReleaseVersions } from "./version.js";
 import { problem } from "../../lib/storage.js";
-import { requireDataCompatibility, requireTmuxNames } from "./release-schema.js";
+import {
+  requireDataCompatibility,
+  requireTmuxNames,
+  TMUX_NAMES_UNSUPPORTED,
+} from "./release-schema.js";
 
 import {
   cleanupState,
@@ -136,8 +140,8 @@ export class Releases {
               } catch (error) {
                 canRollback = false;
                 reason =
-                  error.message === serverMessages.releases.tmuxNamesUnsupported
-                    ? error.message
+                  error?.code === TMUX_NAMES_UNSUPPORTED
+                    ? serverMessages.releases.tmuxNamesUnsupported
                     : serverMessages.releases.incompatibleRollback;
               }
               return {

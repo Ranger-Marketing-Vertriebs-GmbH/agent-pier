@@ -7,7 +7,10 @@ import { serverMessages } from "../../server/lib/i18n/de.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import { Releases } from "../../server/features/operations/releases.js";
 import { activateRelease } from "../../server/features/operations/release-activation.js";
-import { requireTmuxNames } from "../../server/features/operations/release-schema.js";
+import {
+  requireTmuxNames,
+  TMUX_NAMES_UNSUPPORTED,
+} from "../../server/features/operations/release-schema.js";
 
 const platform = `${process.platform}-${process.arch}`;
 
@@ -58,7 +61,11 @@ test("a rollback to a release without agentpier in tmuxNames is refused", async 
           health: async () => true,
         },
       ),
-      { message: serverMessages.releases.tmuxNamesUnsupported, status: 409 },
+      {
+        message: serverMessages.releases.tmuxNamesUnsupported,
+        status: 409,
+        code: TMUX_NAMES_UNSUPPORTED,
+      },
       version,
     );
     assert.equal(await fs.readlink(path.join(root, "current")), "releases/2.6.0");
@@ -101,6 +108,7 @@ test("the tmux name check reads only the manifest", () => {
   for (const tmuxNames of [undefined, null, "agentpier", [], ["tuiui"], ["AgentPier"]])
     assert.throws(() => requireTmuxNames({ tmuxNames }), {
       message: serverMessages.releases.tmuxNamesUnsupported,
+      code: TMUX_NAMES_UNSUPPORTED,
     });
   requireTmuxNames({ tmuxNames: ["tuiui", "agentpier"] });
   for (const catalog of Object.values(serverCatalogs))
