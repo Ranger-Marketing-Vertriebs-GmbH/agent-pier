@@ -81,11 +81,43 @@ export const grantsLine = (grants, servers) => {
 export const fieldLabels = (fields = []) =>
   fields.map((key) => copy.fields[key] || key).join(", ");
 
+// A model as the owner reads it: "Qwen (Local)".
+const modelName = ({ connection, model }) => copy.modelName(model, connection);
+
+/**
+ * A lead's member edit as words: the changed fields with `fieldText`, then the model
+ * change with `modelText` when it names both models (server member-edits.js).
+ */
+function editText(edited = [], model, fieldText, modelText) {
+  const fields = model ? edited.filter((key) => key !== "model") : edited;
+  const parts = fields.length || !model ? [fieldText(fieldLabels(fields))] : [];
+  if (model) parts.push(modelText(modelName(model.from), modelName(model.to)));
+  return parts.join(". ");
+}
+
+/** The chat note of a lead's member edit (server member-grant-notes.js grantNotes). */
+export const updateNoteText = (note) =>
+  editText(
+    note.edited,
+    note.model,
+    (fields) =>
+      note.previousName
+        ? copy.note.renamed(note.previousName, note.memberName, fields)
+        : copy.note.updated(note.memberName, fields),
+    (from, to) => copy.note.model(note.memberName, from, to),
+  );
+
 /** One change in a member's grant log, dated as the viewer reads dates. */
 export function logText(entry) {
   const date = new Date(entry.at).toLocaleString();
   if (entry.promoted) return copy.log.promoted(date);
-  if (entry.edited) return copy.log.edited(date, fieldLabels(entry.edited));
+  if (entry.edited)
+    return editText(
+      entry.edited,
+      entry.model,
+      (fields) => copy.log.edited(date, fields),
+      (from, to) => copy.log.model(date, from, to),
+    );
   const labels = keyLabels(entry.revoked || entry.granted, entry.mcpServers);
   if (entry.revoked)
     return entry.by !== "owner"

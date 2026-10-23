@@ -1916,6 +1916,15 @@ history of its Profile tab:
 - `instructions` (65536) replaces the member's whole instructions, whatever the
   owner wrote before (owner's decision: the lead may rewrite them completely, since
   earlier text could interfere). It cannot be combined with `extraInstructions`.
+- `model` (`{ connectionId, modelId }`) moves the member to another model. It is
+  checked like the runtime uses it (`validateMemberModel` in `member-models.js`
+  resolves it and gives the lease back): a connection without its key, a
+  signed-out ChatGPT account or an endpoint model outside its list is refused and
+  nothing changes. The member's team record keeps it as the lead's (`leadModel`),
+  so only later owner changes show as a model override; a temporary member keeps
+  it as its own (`ownModel`) and no longer follows the lead's model. The same model
+  again is `unchanged`. The note and the log name both models; the audit adds
+  their ids only (`details.models`).
 
 Owner edits never block the lead. Every result is recorded as the lead's
 (`leadInstructions` on the member's team record), so the member's settings show an

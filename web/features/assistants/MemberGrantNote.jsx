@@ -1,6 +1,6 @@
 import React from "react";
 import { memberGrantCopy as copy } from "../../lib/i18n/messages/assistant-member-grants.js";
-import { fieldLabels, keyLabels } from "./member-grants.js";
+import { keyLabels, updateNoteText } from "./member-grants.js";
 
 // A lead's grant to a team member, or the owner's decision on one, as a quiet line in
 // the member's and the lead's chats (server member-grant-notes.js grantNotes).
@@ -11,16 +11,12 @@ export default function MemberGrantNote({ note }) {
         {copy.note.promoted(note.memberName)}
       </p>
     );
-  if (note.event === "member-update") {
-    const fields = fieldLabels(note.edited);
+  if (note.event === "member-update")
     return (
       <p className="assistant-note assistant-event" data-member-update="">
-        {note.previousName
-          ? copy.note.renamed(note.previousName, note.memberName, fields)
-          : copy.note.updated(note.memberName, fields)}
+        {updateNoteText(note)}
       </p>
     );
-  }
   if (note.event === "member-reminder")
     return (
       <p className="assistant-note assistant-event" data-member-reminder="">

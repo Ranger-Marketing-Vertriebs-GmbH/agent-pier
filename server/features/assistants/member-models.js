@@ -123,3 +123,30 @@ export function listMemberModels({
     },
   };
 }
+
+/** A lead's model choice as given: exactly a connectionId and a modelId. */
+export function memberModelInput(model) {
+  exact(model, ["connectionId", "modelId"]);
+  return {
+    connectionId: textValue(model.connectionId, 200),
+    modelId: textValue(model.modelId, 256),
+  };
+}
+
+/**
+ * The model a lead assigns, checked as the runtime would use it: models.resolve()
+ * refuses one the owner cannot run now (a connection without its key, a signed-out
+ * ChatGPT account, an endpoint model not in its list). The lease is given back at
+ * once; the member's next turn takes its own. Returns the ids and the owner's names.
+ */
+export async function validateMemberModel(models, { connectionId, modelId }) {
+  let lease;
+  try {
+    lease = await models.resolve({ connectionId, modelId });
+  } catch (error) {
+    // An unknown connection is a model the lead cannot give, like any other.
+    throw error?.key ? error : assistantProblem("provider");
+  }
+  lease.release?.();
+  return { connectionId, modelId, display: { ...lease.display } };
+}

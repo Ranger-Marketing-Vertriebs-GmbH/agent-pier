@@ -90,6 +90,7 @@ export function grantNotes(a) {
         memberName: p.memberName,
         ...(p.previousName ? { previousName: p.previousName } : {}),
         edited: p.edited,
+        ...(p.model ? { model: p.model } : {}),
         timestamp: a.chatNotes.result.at,
         runId: null,
       },
