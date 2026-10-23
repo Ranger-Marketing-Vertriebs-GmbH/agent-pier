@@ -39,6 +39,7 @@ test("a live native session and old release helper survive backup, activation an
         schemaVersion: 1,
         schemaMin: 1,
         schemaMax: 2,
+        tmuxNames: ["agentpier", "tuiui"],
       }),
     );
   }

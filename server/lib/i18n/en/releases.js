@@ -31,6 +31,8 @@ export const releaseCopy = Object.freeze({
   schemaUnverifiable: "Cannot verify data schema safely.",
   schemaUnreadable:
     "Release cannot read the current data schema; rollback would require a separate fresh-target restore.",
+  tmuxNamesUnsupported:
+    "This release does not understand the agentpier tmux session names and would lose running sessions; rolling back to it is not possible.",
   serviceUnsupported: "This platform has no supported service adapter.",
   serviceRestartFailed: "The AgentPier user service could not be restarted.",
   noMigration: "No migration is running for this release.",
