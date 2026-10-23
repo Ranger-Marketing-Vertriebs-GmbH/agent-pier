@@ -51,6 +51,15 @@ async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
     grants: { webSearch: true, memory: true },
     grantLog: [
       {
+        at: "2026-10-17T08:00:00.000Z",
+        by: "lead",
+        edited: ["model"],
+        model: {
+          from: { connection: "Router", model: "Fixture" },
+          to: { connection: "Local", model: "Qwen" },
+        },
+      },
+      {
         at: "2026-10-17T09:00:00.000Z",
         by: "lead",
         edited: ["role", "instructions"],
@@ -181,6 +190,19 @@ async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
                   timestamp: Date.now() - 500,
                   runId: null,
                 },
+                {
+                  id: "member-update:model",
+                  role: "event",
+                  event: "member-update",
+                  memberName: "Scout",
+                  edited: ["model"],
+                  model: {
+                    from: { connection: "Router", model: "Fixture" },
+                    to: { connection: "Local", model: "Qwen" },
+                  },
+                  timestamp: Date.now() - 400,
+                  runId: null,
+                },
               ]
             : [],
         requests: [],
@@ -303,8 +325,13 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
 }) => {
   await setup(page);
   await page.goto(baseURL + "/agents/member-0/chats/chat-0");
-  await expect(page.locator("[data-member-update]")).toHaveText(
+  const notes = page.locator("[data-member-update]");
+  await expect(notes.filter({ hasText: "Finder" })).toHaveText(
     "The lead agent changed Finder's name, role; it is now called Scout",
+  );
+  // A model change names both models.
+  await expect(notes.filter({ hasText: "moved" })).toHaveText(
+    "The lead agent moved Scout from Fixture (Router) to Qwen (Local)",
   );
   await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
   const log = page.locator("[data-grant-log] li").nth(1);
@@ -313,6 +340,11 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
   );
   await log.getByText("Instructions it replaced").click();
   await expect(log.locator("pre")).toHaveText("Owner text that was replaced.");
+  await expect(
+    page.locator("[data-grant-log] li").filter({ hasText: "moved" }),
+  ).toContainText(
+    "the lead agent moved the member from Fixture (Router) to Qwen (Local)",
+  );
 });
 
 test("a permanent member's profile shows its lead's edits and the replaced instructions", async ({

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { editableMember } from "./member-reach.js";
+import { memberModelInput, validateMemberModel } from "./member-models.js";
 import { extraEnd, extraSection, extraStart } from "./team-presentation.js";
 import { dropText, readText, saveText } from "./team-texts.js";
 
@@ -29,6 +30,9 @@ const section = new RegExp(
   `\\n*${escape(extraStart)}\\n[\\s\\S]*?\\n${escape(extraEnd)}`,
 );
 const block = ({ role, assignment }) => `Role: ${role}\nAssignment: ${assignment}`;
+const ids = ({ connectionId, modelId }) => ({ connectionId, modelId });
+const sameModel = (a, b) =>
+  a?.connectionId === b?.connectionId && a?.modelId === b?.modelId;
 
 /**
  * `text` with the lead's composed Role and Assignment block replaced by `next`. The
@@ -112,16 +116,41 @@ function nextLog(teams, member, entry) {
  * its own beside the member record, never in what the lead sees. Every change is
  * visible: the member's log (team card), a note in both chats and an audit
  * that names the fields only. The member's next turn applies the new revision.
+ * `model` moves the member to a model the owner can run now (validateMemberModel);
+ * the member's record keeps it as the lead's (`leadModel`), so only later owner
+ * changes count as overrides, and a temporary member keeps it as its own.
  */
 export class MemberEdits {
   constructor({ teams, assistants, audit = null, onChanged = () => {} }) {
     Object.assign(this, { teams, assistants, audit, onChanged });
   }
-  update(inv, input) {
-    return Promise.resolve().then(() => this.updateNow(inv, input));
+  async update(inv, input) {
+    exact(input, ["memberId", ...editFields, "model"]);
+    if (!("model" in input)) return this.updateNow(inv, input);
+    const models = this.assistants.models;
+    const chosen = await validateMemberModel(models, memberModelInput(input.model));
+    return this.updateNow(inv, input, { ...chosen, previous: await this.label(input) });
   }
-  updateNow(inv, input) {
-    exact(input, ["memberId", ...editFields]);
+  // The member's model before the change, named as the owner reads it (ids for one
+  // that no longer resolves); null when the member is not found (updateNow refuses).
+  async label({ memberId }) {
+    let model;
+    try {
+      model = this.assistants.store.getAssistant(
+        this.teams.member(memberId).assistantId,
+      ).model;
+    } catch {
+      return null;
+    }
+    const display = await validateMemberModel(this.assistants.models, model).then(
+      (named) => named.display,
+      () => ({ connection: model.connectionId, model: model.modelId }),
+    );
+    return { ...ids(model), display };
+  }
+  // `chosen` is the checked model of the call (update), with the one it replaces.
+  updateNow(inv, input, chosen = null) {
+    exact(input, ["memberId", ...editFields, ...(chosen ? ["model"] : [])]);
     if (typeof input.memberId !== "string") throw assistantProblem("invalid");
     const changes = {};
     for (const key of editFields)
@@ -132,7 +161,7 @@ export class MemberEdits {
             : key === "instructions"
               ? textValue(input[key], limits[key])
               : textValue(input[key], limits[key]).trim();
-    if (!Object.keys(changes).length) throw assistantProblem("invalid");
+    if (!Object.keys(changes).length && !chosen) throw assistantProblem("invalid");
     // A whole rewrite says everything itself; an extra section on top is ambiguous.
     if ("instructions" in changes && "extraInstructions" in changes)
       throw assistantProblem("invalid");
@@ -155,7 +184,7 @@ export class MemberEdits {
     const current = { ...member, name: agent.name, instructions: agent.instructions };
     // A field the lead restates counts when its text is gone from the instructions
     // (the owner removed it), so restating restores it.
-    const changed = editFields.filter(
+    const edited = editFields.filter(
       (key) =>
         key in changes &&
         (changes[key] !== (current[key] ?? "") ||
@@ -163,6 +192,15 @@ export class MemberEdits {
             editedInstructions(agent.instructions, member, { [key]: changes[key] }) !==
               agent.instructions)),
     );
+    const model = chosen && !sameModel(agent.model, chosen) && ids(chosen);
+    const changed = model ? [...edited, "model"] : edited;
+    // What the owner reads: the names of both models (ids for an old one gone since).
+    const models = model && {
+      from: sameModel(chosen.previous, agent.model)
+        ? chosen.previous.display
+        : { connection: agent.model.connectionId, model: agent.model.modelId },
+      to: chosen.display,
+    };
     if (!changed.length) return { status: "unchanged", memberId: member.id, changed };
     const instructions =
       "instructions" in changes
@@ -174,24 +212,36 @@ export class MemberEdits {
         {
           ...(changes.name !== undefined ? { name: changes.name } : {}),
           ...(instructions !== agent.instructions ? { instructions } : {}),
+          // A temporary member keeps it as its own model (AssistantStore, ownModel).
+          ...(model ? { model } : {}),
         },
         agent.revision,
       );
-      const entry = { at: new Date().toISOString(), by: "lead", edited: changed };
+      const entry = {
+        at: new Date().toISOString(),
+        by: "lead",
+        edited: changed,
+        ...(models ? { model: models } : {}),
+      };
       // What the change replaced, for the owner alone (replacedInstructions).
       if (instructions !== agent.instructions) {
         entry.replaced = randomUUID();
         saveText(this.teams.db, member.id, textName(entry.replaced), agent.instructions);
       }
-      const stored = changed.filter((key) => key !== "instructions");
+      const stored = edited.filter((key) => key !== "instructions");
       return this.teams.write(member, {
         ...Object.fromEntries(stored.map((key) => [key, changes[key] || undefined])),
+        ...(model ? { leadModel: model } : {}),
         leadInstructions: saved.instructions,
         grantLog: nextLog(this.teams, member, entry),
       });
     });
-    this.record(lead, next, changed);
-    this.note(lead, next, conversation, inv, { changed, previousName: member.name });
+    this.record(lead, next, changed, model && { from: ids(agent.model), to: model });
+    this.note(lead, next, conversation, inv, {
+      changed,
+      previousName: member.name,
+      models,
+    });
     this.onChanged(next);
     a.changed?.();
     return {
@@ -201,7 +251,8 @@ export class MemberEdits {
       effective: "next_turn",
     };
   }
-  record(lead, member, changed) {
+  // Model changes name their ids only, never the owner's connection names.
+  record(lead, member, changed, models) {
     try {
       this.audit?.append({
         action: "assistant.updated",
@@ -212,6 +263,7 @@ export class MemberEdits {
         details: {
           kind: "member-edit",
           edited: changed,
+          ...(models ? { models } : {}),
           teamId: member.teamId,
           leadAssistantId: lead.id,
         },
@@ -221,7 +273,7 @@ export class MemberEdits {
     }
   }
   // One settled row per chat, the member's and the lead's (actionNotes).
-  note(lead, member, conversation, inv, { changed, previousName }) {
+  note(lead, member, conversation, inv, { changed, previousName, models }) {
     const store = this.assistants.workflows?.store;
     if (!store) return;
     const at = Date.now();
@@ -232,6 +284,7 @@ export class MemberEdits {
       ...(previousName !== member.name ? { previousName } : {}),
       teamId: member.teamId,
       edited: changed,
+      ...(models ? { model: models } : {}),
     };
     for (const [assistantId, conversationId] of [
       [member.assistantId, member.conversationId],

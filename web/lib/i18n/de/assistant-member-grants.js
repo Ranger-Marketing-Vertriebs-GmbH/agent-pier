@@ -28,7 +28,9 @@ export const memberGrantCopy = {
     assignment: "Auftrag",
     extraInstructions: "zusätzliche Anweisungen",
     instructions: "Anweisungen",
+    model: "Modell",
   },
+  modelName: (model, connection) => `${model} (${connection})`,
   none: "Keine Tools",
   gets: (labels) => `Erhält: ${labels}`,
   proposalWarning:
@@ -55,6 +57,8 @@ export const memberGrantCopy = {
       `${date}: Der leitende Agent hat das Mitglied als dauerhaften Agenten behalten`,
     edited: (date, fields) =>
       `${date}: Der leitende Agent hat beim Mitglied ${fields} geändert`,
+    model: (date, from, to) =>
+      `${date}: Der leitende Agent hat das Mitglied von ${from} auf ${to} umgestellt`,
     lead: (date, labels) => `${date}: Der leitende Agent hat ${labels} gewährt`,
     revoked: (date, labels) => `${date}: Der leitende Agent hat ${labels} entzogen`,
     ownerRevoked: (date, labels) =>
@@ -67,6 +71,8 @@ export const memberGrantCopy = {
       `Der leitende Agent hat ${member} als dauerhaften Agenten behalten`,
     updated: (member, fields) =>
       `Der leitende Agent hat bei ${member} ${fields} geändert`,
+    model: (member, from, to) =>
+      `Der leitende Agent hat ${member} von ${from} auf ${to} umgestellt`,
     renamed: (previous, member, fields) =>
       `Der leitende Agent hat bei ${previous} ${fields} geändert; es heißt jetzt ${member}`,
     reminder: (member) =>

@@ -209,6 +209,12 @@ test("a lead re-briefs its permanent member; the owner's next chat runs with it"
     f.channel.conversationId,
   );
   assert.equal(note.event, "member-update");
+  // Its task chat, still there, gets the note too.
+  const [own] = actionNotes(
+    f.workflows.store.list(f.member.assistantId),
+    f.memberChat.id,
+  );
+  assert.equal(own.event, "member-update");
 });
 
 test("a permanent member without a task chat still gets a history entry", async (t) => {
