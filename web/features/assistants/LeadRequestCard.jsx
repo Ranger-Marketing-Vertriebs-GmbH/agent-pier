@@ -5,7 +5,6 @@ import RouteLink from "./RouteLink.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 const open = new Set(["queued", "dispatching", "running", "uncertain"]);
-/** The state label; a finished question reads "Answered", a finished task "Done". */
 /** A member's exchange with another member, its own report, or the lead's request. */
 const titleOf = (r) =>
   r.fromName
@@ -13,6 +12,7 @@ const titleOf = (r) =>
     : r.reportKind
       ? copy.reportTitle(r.reportKind, r.memberName)
       : copy.title(r.type, r.memberName);
+/** The state label; a finished question reads "Answered", a finished task "Done". */
 export const requestState = (r) =>
   r.phase === "completed" && r.type === "question"
     ? copy.states.answered

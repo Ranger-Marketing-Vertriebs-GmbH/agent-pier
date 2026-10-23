@@ -84,7 +84,7 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
 // Turns AgentPier itself submits for synthesis carry attributed reports, not owner
 // words. The ledger keeps their exact text for audit; the visible history shows a
 // compact event in their place.
-const internalKinds = new Set([
+export const internalKinds = new Set([
   "team-result",
   "coding-result",
   "member-result",

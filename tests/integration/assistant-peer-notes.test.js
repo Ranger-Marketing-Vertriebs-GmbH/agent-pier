@@ -88,3 +88,22 @@ test("a pruned peer request leaves no note and no error", async (t) => {
   assert.ok(!f.service.requests.list().some((x) => x.id === r.id));
   assert.throws(() => f.service.requestDetail(r.id), { status: 404 });
 });
+
+test("a peer request made while the lead had no main chat shows in its later one", async (t) => {
+  const f = await peers(t);
+  f.assistants.store.updateConversation(f.chat.id, {
+    archivedAt: new Date().toISOString(),
+  });
+  const r = f.peerAsk(f.memberTurn(f.permanent), f.second);
+  assert.equal(f.service.requests.store.get(r.id).parentConversationId, null);
+  // The archived chat is no main chat: no note there, and no error.
+  assert.deepEqual(notesOf(await f.assistants.history(f.chat.id)), []);
+  const next = f.assistants.store.saveConversation({
+    assistantId: f.parent.id,
+    runtimeSessionKey: "parent-next",
+  });
+  assert.deepEqual(
+    notesOf(await f.assistants.history(next.id)).map((m) => m.id),
+    [`peer-start:${r.id}`],
+  );
+});
