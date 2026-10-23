@@ -1529,9 +1529,10 @@ note for a model without image input.
   `model` argument (the agent cannot pick another configured model) and any
   reference with a scheme (`http(s)`, `file:`, `media:`): PDFs come from the
   agent's workspace (`tools.fs.workspaceOnly`), never from the web.
-- Choosing another model, or the first agent switching it on, changes the startup
-  sections and asks to restart the agent service. Editing or deleting the PDF model's
-  connection counts as a change for every agent that reads PDFs.
+- A start compiles `pdf` with the chosen model before any agent reads PDFs, so
+  switching it on for an agent applies live. Choosing another model while an agent
+  reads PDFs needs a [pending restart](#pending-restart). Editing or deleting the PDF
+  model's connection counts as a change for every agent that reads PDFs.
 
 ### Image generation (2026-10-18)
 
@@ -1543,8 +1544,9 @@ expiring). Only then does the startup configuration add `image_generate` to the 
 `{ primary: "openai/gpt-image-2", timeoutMs: 180000 }` (compiler-owned: a stale image
 model is removed). OpenClaw 2026.10.3 then routes the request through that OAuth
 profile and the Codex Responses backend, not an API key. Like the web tools this is a
-startup section: switching it on asks to restart the agent service, and an account
-signed in later takes effect at the next restart. Without a ready account (its last
+startup section, compiled with a ready account before any agent uses it: switching
+it on applies live. An account signed in after the start takes effect at the next
+restart, which an agent switching it on then leaves [pending](#pending-restart). Without a ready account (its last
 known status, also while the service is away) the switch is disabled with a hint; the
 agent's AGENTS.md mentions images only while it can create them.
 
@@ -1640,7 +1642,8 @@ build without Homebrew or administrator rights (`server/features/tools/`
   lock before the service starts).
 - Detection compiles the versioned real path, so an install, update or removal
   changes the browser block. The agent settings then offer **Restart agent service**
-  (`restartNeeded` in `GET /api/assistant-runtime`), with the usual confirmation.
+  (`restartNeeded` in `GET /api/assistant-runtime`), with the usual confirmation; an
+  agent switching its browser on meanwhile leaves a [pending restart](#pending-restart).
 - The dashboard card shows the installed version, **Update browser** when the
   pinned version is newer and **Remove** (`DELETE /api/tools/chromium`). Removal is
   refused (409) while an agent browser runs or the running agent service was started
@@ -1725,9 +1728,11 @@ limits:
   restored from the Dock, are left alone. The CDP port is loopback-only and
   unauthenticated, like OpenClaw's own.
 
-Switching the browser on for another agent, or switching a window on or off, changes
-the compiled profiles and restarts the agent service after the owner confirms, like
-other web tool changes. **Reset browser profile** stops the agent's browser and
+Switching the browser on or off for an agent, or switching its window on or off,
+patches only that agent's profile into the running Gateway (`BrowserProfileSync`):
+the agent keeps its CDP port, a new agent takes the lowest free one, and a running
+browser whose profile changes is stopped first and starts again with the new mode on
+its next use. The member slots are compiled whenever the browser is. **Reset browser profile** stops the agent's browser and
 deletes its profile. An archived agent keeps its profile, since archiving can be
 undone, and can still reset it. While an agent's browser runs, its chat header shows
 **Browser running**.
@@ -1882,26 +1887,54 @@ The provider plugins are bundled with the managed runtime (see
 written only into the provider plugin's entry in the Gateway configuration, which
 OpenClaw redacts on read; it is not passed as an environment variable.
 
-### Restart confirmation
+<a id="restart-confirmation"></a>
 
-In team mode `plugins.allow` is restrictive, and OpenClaw needs a Gateway restart to
-activate the browser or a search plugin. AgentPier therefore compares the global
-web-tools sections (the global tool allow list, `tools.web`, the browser block and
-the search plugin) that a save would compile with those of the running Gateway:
+### Pending restart
 
-- If they are unchanged (for example, a second agent switches on a tool another agent
-  already uses), the save applies live.
-- If they change, the save answers `409 ASSISTANT_RESTART_REQUIRED` and stores
-  nothing. The settings page shows **Restart the agent service?** with the agents
-  that will be briefly unavailable. Confirming resends the save; AgentPier then runs
-  the maintenance restart used for provider changes. If an agent is busy, the save is
-  refused and nothing changes.
-- Switching off the last agent that uses a tool also changes the sections and asks
-  for a restart.
-- With the Gateway stopped, the save is stored and compiled at the next start.
+In team mode `plugins.allow` is restrictive, and OpenClaw does not take the browser
+block or a search plugin live. Since AGENTPIER-202 a start therefore compiles every
+web section the runtime can serve, whether an agent uses it yet or not: the global
+tool allow list (an upper bound; each agent's entry names its own tools),
+`tools.web`, the browser block with its member slots, the search plugin, PDF
+extraction with the PDF model, and the image model. Switching web search, web
+pages, the browser, its visible window, PDFs or images for one agent changes only
+its entry and its own `browser.profiles.<agent>` entry, which apply live
+(`BrowserProfileSync`, verified in the
+[web tools qualification](assistant-web-tools-qualification.md#f-reload-kinds)).
 
-Creating or archiving an agent with web capabilities, and rotating the OpenRouter
-key that Perplexity uses, take effect at the next Gateway start.
+A Gateway restart is still needed when something changes what an agent's capability
+compiles, or what the Gateway holds:
+
+- a used capability's global section: another search provider or key, another PDF
+  model while an agent reads PDFs, a browser installed or removed after the start;
+- a model connection agents use: its key, its endpoint or its removal;
+- an agent's own Telegram bot: connecting or disconnecting it, a new token, the
+  speech key it uses.
+
+Such a save is stored at once and applied live as far as possible. The restart is
+recorded as pending in `assistants/pending-restart.json`, with the reasons and the
+agents it interrupts. Further changes join the same pending restart.
+`PendingRestart` runs it as the usual maintenance restart as soon as nothing is busy:
+it tries at once and then every 15 s, and `waitingFor` names the blockers of the last
+try. Any later Gateway start ends it, because each start compiles every saved change.
+This includes an AgentPier restart, after which the file is read again. While the
+restart is pending, the running Gateway keeps the previous provider key, search key
+or bot. Update backups are made worthless at once, as before.
+
+The agent settings, the connection details, the web search, PDF reading and Telegram
+settings and **Settings → Workspace → Agents → Agent service** show **Agent service
+restart pending** with what it is for and what it waits for. **Restart now** asks
+first and then restarts at once (`POST /api/assistant-runtime/pending-restart`). It
+interrupts running agent work, but it still waits for an account sign-in in
+progress and for a workflow that is executing.
+
+A user's own switch on her agent still never restarts the Gateway: when it would
+need one, it is refused (`USER_AGENT_RESTART_NEEDED`) and the owner decides. A native
+account logout restarts at once and is refused while agents are busy. Advanced
+OpenClaw settings that need a restart still ask for confirmation and are refused
+while agents are busy. With the Gateway stopped, every save is stored and compiled
+at the next start. Rotating the OpenRouter key that Perplexity uses takes effect at
+the next Gateway start.
 
 ### Unavailable states
 
@@ -2647,11 +2680,10 @@ exactly one member, a shared agent one or more. A level is `chat`, `personalize`
 `extended`. `released` lists the web capabilities an Extended user may switch on
 herself. The Gateway compiles a released capability like a switched-on one (its web
 sections and her browser profile, `native-capabilities.js` `releasedCapabilities`), so
-her own switch applies live. A release that changes those sections therefore restarts
-the Gateway here: without `confirmRestart: true` it answers 409
-`ASSISTANT_RESTART_REQUIRED` with the affected agents, and **Profile › Released
-capabilities** asks the owner first. A new user agent starts without the releases the
-running Gateway would need a restart for. The owner's existing agents never become user
+her own switch applies live. A release applies live as well, unless the running
+Gateway started without what it needs (a browser installed later): then it is saved
+and the restart is left [pending](#pending-restart). A new user agent starts without
+the releases the running Gateway would need a restart for. The owner's existing agents never become user
 agents: assigning one answers 409 `USER_AGENT_REQUIRED`. An own agent stays with its user: changing its member or turning
 it into a shared agent answers 409 `USER_AGENT_OWN_FIXED`, because its memory, files and
 browser profile are hers and would reach the owner or another user without her opt-in.

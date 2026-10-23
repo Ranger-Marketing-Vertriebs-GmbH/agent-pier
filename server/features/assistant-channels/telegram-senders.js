@@ -336,7 +336,8 @@ export class TelegramSenders {
   }
   /**
    * Runs `operation` at once when the running Gateway is unaffected or only its
-   * allowlists change (patched in live right after), otherwise after the owner's
+   * allowlists change (patched in live right after). Otherwise the change is saved
+   * and a pending restart recorded, or, without one, it runs after the owner's
    * confirmation inside a Gateway restart.
    */
   async commit(inputs, operation, confirmed) {
@@ -347,6 +348,13 @@ export class TelegramSenders {
       // A starting Gateway gets the lists once it answers (ready()). A failed patch
       // of a removed person falls back to the revocation restart (converge).
       if (live && this.assistants.runtime.client?.ready) await this.converge();
+      return result;
+    }
+    // Saved now; the restart waits until nothing is busy (pending-restart.js).
+    if (this.synchronization.pending) {
+      const result = operation();
+      this.assistants.changed?.();
+      this.synchronization.pending.request("telegram", this.usage());
       return result;
     }
     if (!confirmed) throw restartRequired("telegramSendersRestartRequired", this.usage());
@@ -531,7 +539,8 @@ export class TelegramSenders {
     if (!this.differs()) return { applied: false };
     const live = !!this.liveChanges();
     await this.commit(this.inputs(), () => null, confirmed);
-    return { applied: live ? !this.differs() : true };
+    // A queued restart applies it once nothing is busy (pending-restart.js).
+    return { applied: live ? !this.differs() : !this.synchronization.pending };
   }
   /** One audit record per change; never a token, an id or a name. */
   record(assistantId, before, after, { token = false } = {}) {

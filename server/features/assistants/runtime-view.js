@@ -9,6 +9,8 @@ export function runtimeView({ runtime, assistants, bridge, webTools }) {
     ...runtimeStatus(runtime, assistants, bridge),
     // Whether the agents can drive a browser; the settings page gates its switch on it.
     browser: browserStatus(webTools),
+    // A Gateway restart saved changes still wait for (pending-restart.js), or null.
+    pendingRestart: assistants?.pendingRestart?.status() || null,
   };
 }
 

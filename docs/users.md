@@ -68,8 +68,9 @@ An agent for users is either:
 - an **own agent** (Eigener Agent): it serves one user. Its memory, files, browser
   profile, reminders and routines are hers. It stays with her: the owner can change
   her level and released capabilities, but not give the agent to someone else.
-  Releasing a capability may restart the agent service once he confirms it; her own
-  switch then never does.
+  Releasing a capability applies while the agent service keeps running, or leaves a
+  pending restart when the service started without what it needs; her own switch
+  never restarts it.
 - a **shared agent** (Geteilter Agent): it serves several users. Each user has her own
   private chats with it, but its memory, profile (`USER.md`) and browser are shared
   with everyone who uses it, and its chat says so. Files sent in a chat stay with

@@ -99,8 +99,9 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
   removed bot (the first bot also enables the Telegram plugin), a replaced token, the
   last person removed (OpenClaw rejects an empty allowlist, so the account is
   dropped) and the speech key. A save that changes one of them in what the running or
-  starting Gateway compiled restarts it after the owner confirmed, like the web
-  search settings. Such a revocation (a removed bot, a replaced token or speech key)
+  starting Gateway compiled is stored at once and leaves a
+  [pending restart](assistant-gateway.md#pending-restart), like the web search
+  settings. Such a revocation (a removed bot, a replaced token or speech key)
   that slipped past a start restarts the Gateway once it answers; additions stay
   "pending" until the owner applies them. Every
   comparison uses the agents the next start finds in `openclaw.json`, the same set
@@ -109,15 +110,15 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
   (busy agents) back off from 30 seconds and stop after five attempts. A revocation
   that is still running then shows an error asking the owner to restart.
 - States: `running`, `starting`, `error`, `stopped` (no Gateway), `pending` (saved,
-  not in the running Gateway yet; "Apply now" patches allowed people live and
-  restarts for anything else, `pendingLive` tells which) and `inactive` (nobody
+  not in the running Gateway yet; "Apply now" patches allowed people live and leaves
+  a pending restart for anything else, `pendingLive` tells which) and `inactive` (nobody
   allowed, the agent cannot own a bot, or the agent has no Gateway entry until its
   first apply). Only the agent concerned shows a pending change.
 - Tokens live in `native_telegram_credentials` (sealed in update and host backups)
   and in the private `openclaw.json` (sealed copies in backups). Replacing or
   removing a token, and changing or removing the Deepgram key while a bot exists,
-  destroys the backup keys first; a key change also asks to restart a Gateway that
-  uses another key. OpenClaw's own local copies beside `openclaw.json` (`.bak*`,
+  destroys the backup keys first; a key change also leaves a pending restart for a
+  Gateway that uses another key. OpenClaw's own local copies beside `openclaw.json` (`.bak*`,
   `.last-good`) can keep a removed token until they rotate; they stay in the private
   state directory. Update backups made while an earlier, since-removed bot ran keep
   that Deepgram key sealed until they expire: a later key change with no bot left

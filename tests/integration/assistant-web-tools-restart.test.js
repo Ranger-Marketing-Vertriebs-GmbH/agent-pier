@@ -11,6 +11,7 @@ import { WebSearchSettings } from "../../server/features/assistants/web-search-s
 import { WebToolsChanges } from "../../server/features/assistants/web-tools-changes.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { PendingRestart } from "../../server/features/assistants/pending-restart.js";
 
 const searchPlugins = {
   duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" },
@@ -183,6 +184,42 @@ test("a used capability whose section changed since the start asks for confirmat
   assert.equal(f.runtime.webTools.availability.browser, true);
 });
 
+test("in the app the change is saved at once and the restart waits until nothing is busy", async (t) => {
+  const f = fixture(t);
+  const a = f.agent("Home", { browser: true });
+  f.started({ browser: { available: false } });
+  const synchronization = f.service.webTools.synchronization;
+  const pending =
+    (synchronization.pending =
+    f.service.pendingRestart =
+      new PendingRestart({ assistants: f.service, synchronization, retryMs: 5 }));
+  f.setBlockers(["ASSISTANT_WORK"]);
+  const saved = await f.service.update(
+    a.id,
+    { capabilities: caps({ browser: true, webSearch: true }) },
+    a.revision,
+  );
+  // No question and no refusal: saved and applied live, the restart recorded.
+  assert.equal(saved.capabilities.webSearch, true);
+  assert.equal(f.store.getAssistant(a.id).capabilities.webSearch, true);
+  assert.deepEqual(pending.status().reasons, ["webTools"]);
+  assert.deepEqual(
+    pending.status().affected.agents.map((x) => x.name),
+    ["Home"],
+  );
+  assert.equal(f.calls[0], `apply:${a.id}`);
+  for (let n = 0; n < 200 && !pending.status()?.waitingFor.length; n++)
+    await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(pending.status().waitingFor, ["ASSISTANT_WORK"]);
+  // Idle: it restarts by itself, and the Gateway now compiles the browser.
+  f.setBlockers([]);
+  for (let n = 0; n < 200 && pending.status(); n++)
+    await new Promise((r) => setTimeout(r, 5));
+  assert.equal(pending.status(), null);
+  assert.equal(f.runtime.webTools.availability.browser, true);
+  assert.ok(f.calls.includes("stop") && f.calls.includes("start"));
+});
+
 test("busy work refuses the confirmed restart and persists nothing", async (t) => {
   const f = fixture(t);
   const a = f.agent("Home", { reminders: true });
@@ -288,5 +325,30 @@ test("search settings save directly while no agent uses web search", async (t) =
   await assert.rejects(
     f.service.webTools.saveSearch({ revision: 0, provider: "duckduckgo" }),
     { status: 409, key: "conflict" },
+  );
+});
+
+test("in the app a changed search key is saved at once and its restart queued", async (t) => {
+  const f = fixture(t);
+  f.agent("Home", { webSearch: true });
+  f.started();
+  const queued = [];
+  f.service.webTools.synchronization.pending = {
+    request: (reason, affected) => queued.push({ reason, affected }),
+  };
+  const saved = await f.service.webTools.saveSearch({
+    revision: 0,
+    provider: "brave",
+    braveKey: "secret-brave-fixture",
+  });
+  assert.equal(saved.provider, "brave");
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(
+    queued.map((entry) => entry.reason),
+    ["webSearch"],
+  );
+  assert.deepEqual(
+    queued[0].affected.agents.map((agent) => agent.name),
+    ["Home"],
   );
 });

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import PendingRestartNotice from "./PendingRestartNotice.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import { assistantPdfCopy as copy } from "../../lib/i18n/messages/assistant-pdf.js";
@@ -136,6 +137,7 @@ export default function PdfModelSettings({
       }
     >
       <ErrorMessage error={error || data.pdfModelError} />
+      <PendingRestartNotice />
       {settings && (
         <form
           ref={formRef}

@@ -235,4 +235,6 @@ export const assistantApi = {
       "DELETE",
     ),
   operate: (action) => api(`/assistant-runtime/${action}`, "POST", {}),
+  // Runs a pending Gateway restart at once (pending-restart.js).
+  restartPending: () => api("/assistant-runtime/pending-restart", "POST", {}),
 };

@@ -271,7 +271,8 @@ export class AssistantService {
    * `confirmFull: true`; lowering needs neither and applies even while the agent works
    * (shell-changes.js).
    */
-  async update(id, input, revision, { confirmed = false, outcome = {} } = {}) {
+  // `queue: false` (a user's own switch) refuses a change that needs a restart.
+  async update(id, input, revision, { confirmed, outcome = {}, queue = true } = {}) {
     const { mcpServers, confirmStdio, confirmShell, confirmFull, followLead, ...body } =
       input || {};
     const binds = mcpServers !== undefined;
@@ -339,14 +340,16 @@ export class AssistantService {
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
       // Only bundled skills the running Gateway reports, refused before any change.
       if (patch.skills) await this.skills.check(current, changes.skills);
-      // Without the owner's confirmation nothing changes, not even reminders.
-      // The browser profiles, and whether each opens a window, are global sections too.
+      // A change of what a used capability compiles (web-tools-changes.js).
       const restart =
         (!!patch.capabilities || "browserVisible" in patch) &&
         !!this.webTools?.differs({ profiles: this.webTools.profilesWith(id, patch) });
       const disableReminders =
         !!current.capabilities?.reminders && patch.capabilities?.reminders === false;
-      if (restart) {
+      // In the app it is saved now and the restart waits until nothing is busy
+      // (pending-restart.js); otherwise nothing changes without the confirmation.
+      const queued = restart && queue && !!this.webTools.pending;
+      if (restart && !queued) {
         this.webTools.confirm(confirmed);
         // Reminders are switched off inside the restart, once no blocker can refuse.
         return { restart, disableReminders };
@@ -370,6 +373,7 @@ export class AssistantService {
       )
         await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
+      if (queued) this.webTools.queue();
       this.changed();
       return { record, pending };
     });
@@ -572,6 +576,7 @@ export class AssistantService {
   async close() {
     this.closed = true;
     clearInterval(this.poll);
+    this.pendingRestart?.close();
     clearTimeout(this.skills.timer);
     this.longChats.close();
     this.liveView?.close();

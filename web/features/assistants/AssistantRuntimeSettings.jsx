@@ -1,4 +1,5 @@
 import AssistantRuntimeUpdates from "./AssistantRuntimeUpdates.jsx";
+import PendingRestartNotice from "./PendingRestartNotice.jsx";
 import React, { useState } from "react";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -27,6 +28,7 @@ export default function AssistantRuntimeSettings() {
     <div className="page assistants-page">
       <p className="assistant-note">{copy.runtimeDescription}</p>
       <ErrorMessage error={error || loadError} />
+      <PendingRestartNotice />
       <section className="assistant-runtime-card">
         {copy.runtimeDiagnostics[runtime.diagnostic] && (
           <p role="status" className="assistant-notice">

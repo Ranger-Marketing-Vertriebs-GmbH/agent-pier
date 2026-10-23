@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import PendingRestartNotice from "../assistants/PendingRestartNotice.jsx";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ListCard from "../../components/ListCard.jsx";
@@ -230,6 +231,7 @@ export default function ConnectionDetail({
       {draft.confirmation?.kind === "restart" && (
         <ConnectionRestartBlock confirmation={draft.confirmation} />
       )}
+      <PendingRestartNotice />
       {connection && (
         <UsedByGroup
           usage={usage}

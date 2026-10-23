@@ -99,6 +99,12 @@ export class UserAgents {
           profile.id === id ? { ...profile, userAccess: next.access } : profile,
         );
       if (!web?.differs({ profiles })) return { result: save(next) };
+      // Saved now; the restart waits until nothing is busy (pending-restart.js).
+      if (web.pending) {
+        const result = save(next);
+        web.queue();
+        return { result };
+      }
       // Without the owner's confirmation nothing changes.
       web.confirm(body.confirmRestart === true);
       return { restart: true };

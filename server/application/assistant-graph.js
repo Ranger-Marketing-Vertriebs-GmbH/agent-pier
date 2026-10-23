@@ -22,6 +22,7 @@ import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
+import { PendingRestart } from "../features/assistants/pending-restart.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
 import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js";
 import {
@@ -322,6 +323,10 @@ export function constructAssistantGraph(host, created = {}) {
     isUpdating: () => scope.assistantUpdates.status().busy,
     pdfModel: () => assistantPdfModel.selection(),
   });
+  // A saved change that still needs a Gateway restart waits there until nothing is
+  // busy, or until the owner restarts at once.
+  assistants.pendingRestart = assistantProviderSynchronization.pending =
+    new PendingRestart({ assistants, synchronization: assistantProviderSynchronization });
   // The agents' own Telegram bots for other people; their changes restart the Gateway
   // like web tool changes do.
   const assistantTelegramSenders = new TelegramSenders({

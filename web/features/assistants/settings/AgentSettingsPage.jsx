@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import PendingRestartNotice from "../PendingRestartNotice.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import UnderlineTabs from "../../../components/UnderlineTabs.jsx";
 import { assistantSettingsCopy as copy } from "../../../lib/i18n/messages/assistant-settings.js";
@@ -72,6 +73,7 @@ export default function AgentSettingsPage({
       </div>
       <div className="assistant-settings-scroll" ref={scroller}>
         <ErrorMessage error={error} />
+        <PendingRestartNotice />
         <div className="agent-settings-layout">
           <div
             className="agent-settings-main"

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import PendingRestartNotice from "./PendingRestartNotice.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
@@ -147,6 +148,7 @@ export default function WebSearchSettings({
       }
     >
       <ErrorMessage error={error || data.webSearchError} />
+      <PendingRestartNotice />
       {settings && (
         <form
           ref={formRef}
