@@ -65,6 +65,13 @@ before) is sealed as `assistant-history/<path below assistants/>`, and a restore
 with the passphrase puts it in place of the configuration copy. Credential rows in
 either copy travel only in the sealed sidecar, exactly as without this split.
 
+A sealed full copy holds the rows as they were when the backup was taken. Agent SSH
+commands stored before AgentPier redacted their secrets are redacted in the live
+databases once after the update (docs/assistant-gateway.md#agent-ssh-access-2026-10-16),
+but backups taken earlier keep the old text: delete or replace them with a new backup
+if they may contain passwords or tokens from SSH commands. A restore of such a backup
+brings the text back until the next server start redacts it again.
+
 - AgentPier's `assistants.sqlite` and `channels.sqlite` lose their private rows:
   conversations, requests and attempts, cached messages, attachment and share
   indexes, queued messages, routine results and events, memory notes, hidden
