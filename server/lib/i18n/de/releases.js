@@ -36,6 +36,8 @@ export const releaseCopy = Object.freeze({
   schemaUnverifiable: "Das Datenschema kann nicht sicher geprüft werden.",
   schemaUnreadable:
     "Das Release kann das aktuelle Datenschema nicht lesen; ein Zurücksetzen erfordert eine separate Wiederherstellung in ein neues Ziel.",
+  tmuxNamesUnsupported:
+    "Dieses Release kennt die agentpier-Namen der tmux-Sessions nicht und würde laufende Sessions verlieren; ein Zurücksetzen darauf ist nicht möglich.",
   serviceUnsupported: "Für diese Plattform gibt es keine unterstützte Dienstanbindung.",
   serviceRestartFailed: "Der AgentPier-Benutzerdienst konnte nicht neu gestartet werden.",
   noMigration: "Für dieses Release läuft keine Migration.",

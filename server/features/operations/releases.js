@@ -14,7 +14,7 @@ import {
 } from "./release-archive.js";
 import { applicationVersion, compareReleaseVersions } from "./version.js";
 import { problem } from "../../lib/storage.js";
-import { requireDataCompatibility } from "./release-schema.js";
+import { requireDataCompatibility, requireTmuxNames } from "./release-schema.js";
 
 import {
   cleanupState,
@@ -132,9 +132,13 @@ export class Releases {
                   ),
                 );
                 requireDataCompatibility(manifest, this.dataDir);
-              } catch {
+                requireTmuxNames(manifest);
+              } catch (error) {
                 canRollback = false;
-                reason = serverMessages.releases.incompatibleRollback;
+                reason =
+                  error.message === serverMessages.releases.tmuxNamesUnsupported
+                    ? error.message
+                    : serverMessages.releases.incompatibleRollback;
               }
               return {
                 version,

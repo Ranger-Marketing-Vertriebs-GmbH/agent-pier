@@ -1188,6 +1188,7 @@
   "releases.smokeFailed": "de:c35ffc74e492 en:0d2907cc7c32",
   "releases.stableDataRequired": "de:fe0b8918e4a6 en:348cf4876bc1",
   "releases.stagedNotFound": "de:0f1b721c4246 en:628063bc1cfc",
+  "releases.tmuxNamesUnsupported": "de:281fc63601ee en:545431b7c147",
   "releases.unsupportedArchive": "de:8523bc3e5fa7 en:90c1524e0f70",
   "releases.versionMismatch": "de:43e1c7910d5e en:1ec039d4b1d9",
   "releases.versionedInstallMissing": "de:24547949c1e4 en:94700f16dfc2",

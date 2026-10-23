@@ -6,7 +6,7 @@ import { folder, readJson, identifier } from "./files.js";
 import { releaseVersion, releaseManifest } from "./release-archive.js";
 import { restartService, checkHealth } from "./release-service.js";
 import { problem } from "../../lib/storage.js";
-import { requireDataCompatibility } from "./release-schema.js";
+import { requireDataCompatibility, requireTmuxNames } from "./release-schema.js";
 
 export function switchRelease(root, version) {
   releaseVersion(version);
@@ -38,6 +38,12 @@ export function installLauncher({ installRoot, dataDir }) {
   fs.chmodSync(file, 0o755);
   return file;
 }
+/** Whether the release in `target` may become current: its data schema and tmux names. */
+function requireTarget(target, dataDir) {
+  const manifest = releaseManifest(readJson(path.join(target, "release.json")));
+  requireDataCompatibility(manifest, dataDir);
+  requireTmuxNames(manifest);
+}
 export async function activateRelease(
   input,
   { restart = restartService, health = checkHealth } = {},
@@ -57,10 +63,7 @@ export async function activateRelease(
     target = path.join(root, "releases", version);
   if (fs.realpathSync(target) !== target)
     throw problem(serverMessages.releases.directoryLinked);
-  requireDataCompatibility(
-    releaseManifest(readJson(path.join(target, "release.json"))),
-    dataDir,
-  );
+  requireTarget(target, dataDir);
   const currentPath = path.join(root, "current");
   if (!fs.existsSync(currentPath) || !fs.lstatSync(currentPath).isSymbolicLink())
     throw problem(serverMessages.releases.initialReleaseRequired, 409);
@@ -84,10 +87,7 @@ export async function activateRelease(
     // A cleanup may have finished between initial validation and lock acquisition.
     if (fs.realpathSync(target) !== target)
       throw problem(serverMessages.releases.directoryLinked);
-    requireDataCompatibility(
-      releaseManifest(readJson(path.join(target, "release.json"))),
-      dataDir,
-    );
+    requireTarget(target, dataDir);
     switchRelease(root, version);
     try {
       await restart({ installRoot: root, dataDir });
