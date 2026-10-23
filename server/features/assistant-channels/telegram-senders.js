@@ -336,9 +336,9 @@ export class TelegramSenders {
   }
   /**
    * Runs `operation` at once when the running Gateway is unaffected or only its
-   * allowlists change (patched in live right after). Otherwise the change is saved
-   * and a pending restart recorded, or, without one, it runs after the owner's
-   * confirmation inside a Gateway restart.
+   * allowlists change (patched in live right after). Otherwise an addition is saved
+   * and a pending restart recorded; a revocation, or any change without one, runs
+   * after the owner's confirmation inside a Gateway restart.
    */
   async commit(inputs, operation, confirmed) {
     const live = this.liveChanges(inputs);
@@ -350,8 +350,9 @@ export class TelegramSenders {
       if (live && this.assistants.runtime.client?.ready) await this.converge();
       return result;
     }
-    // Saved now; the restart waits until nothing is busy (pending-restart.js).
-    if (this.synchronization.pending) {
+    // Saved now; the restart waits until nothing is busy (pending-restart.js). A
+    // revocation (a removed bot, a replaced token or speech key) never waits.
+    if (this.synchronization.pending && !this.revoked(inputs)) {
       const result = operation();
       this.assistants.changed?.();
       this.synchronization.pending.request("telegram", this.usage());

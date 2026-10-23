@@ -207,3 +207,34 @@ test("token and speech key changes are told by revisions, never by their values"
   h.speech.save({ apiKey: "dg-three", revision: 4 });
   assert.equal(h.senders.inputs().speech.keyRevision, 4);
 });
+
+test("with a pending restart a new bot is queued, a removal still restarts at once", async (t) => {
+  const h = fixture(t);
+  const [one, two] = [h.agent("One"), h.agent("Two")];
+  const saved = await h.senders.save(one.id, { token: token(1), people, revision: null });
+  h.start();
+  const queued = [];
+  h.senders.synchronization.pending = {
+    request: (reason, affected) => queued.push({ reason, affected }),
+  };
+  // An addition: saved, the restart left pending.
+  const added = await h.senders.save(two.id, {
+    token: token(2),
+    people,
+    revision: null,
+  });
+  assert.equal(added.bot.username, "agent_two_bot");
+  assert.deepEqual(
+    queued.map((entry) => entry.reason),
+    ["telegram"],
+  );
+  assert.equal(h.restarts.length, 0);
+  // A revocation: the owner confirms and the Gateway restarts at once, as before.
+  await assert.rejects(h.senders.remove(one.id, saved.bot.revision), {
+    code: "ASSISTANT_RESTART_REQUIRED",
+  });
+  assert.ok(h.senders.store.get(one.id), "nothing removed unconfirmed");
+  await h.senders.remove(one.id, saved.bot.revision, { confirmed: true });
+  assert.equal(h.restarts.length, 1);
+  assert.equal(queued.length, 1);
+});

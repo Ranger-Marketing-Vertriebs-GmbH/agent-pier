@@ -18,13 +18,19 @@ export function providerConnectionRoutes(services) {
     response.json(await endpointTester.test(request.body, controller.signal));
   });
   // Assistants can be switched on or off at runtime, so resolve them per request.
-  // Changing a connection an agent uses restarts its Gateway; the owner confirms that.
-  const change = (request, operation) =>
+  // Changing a connection an agent uses needs a Gateway restart. A revocation (a
+  // deletion, a new or removed key) restarts at once after the owner confirmed it;
+  // anything else is saved and the restart left pending (pending-restart.js).
+  const change = (request, operation, revokes) =>
     services.assistantProviderSynchronization
       ? services.assistantProviderSynchronization.change(request.params.id, operation, {
           confirmed: request.body?.confirmRestart === true,
+          revokes,
         })
       : operation();
+  const revokesKey = (body) =>
+    body?.removeApiKey === true ||
+    (typeof body?.apiKey === "string" && !!body.apiKey.trim());
   const withoutConfirmation = (body) => {
     if (!body || typeof body !== "object" || Array.isArray(body)) return body;
     const { confirmRestart: _confirmRestart, ...rest } = body;
@@ -33,8 +39,14 @@ export function providerConnectionRoutes(services) {
   router.patch("/provider-connections/:id", async (request, response) => {
     let result;
     try {
-      result = await change(request, () =>
-        providerConnections.update(request.params.id, withoutConfirmation(request.body)),
+      result = await change(
+        request,
+        () =>
+          providerConnections.update(
+            request.params.id,
+            withoutConfirmation(request.body),
+          ),
+        revokesKey(request.body),
       );
     } catch (error) {
       return restartRequired(response, error);
@@ -43,7 +55,7 @@ export function providerConnectionRoutes(services) {
   });
   router.delete("/provider-connections/:id", async (request, response) => {
     try {
-      await change(request, () => providerConnections.remove(request.params.id));
+      await change(request, () => providerConnections.remove(request.params.id), true);
     } catch (error) {
       return restartRequired(response, error);
     }
