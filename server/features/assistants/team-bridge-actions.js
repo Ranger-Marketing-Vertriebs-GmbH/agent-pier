@@ -11,6 +11,8 @@ export const actions = new Set([
   "archive",
   "grant",
   "member_update",
+  // A lead's summary of its member's task chat (member-summaries.js).
+  "member_summarise",
   "models", // what a lead can give its members (member-models.js)
   // Routines a lead sets up on its own permanent members (lead-routines.js).
   "member_routine",

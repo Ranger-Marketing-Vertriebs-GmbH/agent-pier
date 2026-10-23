@@ -192,3 +192,27 @@ test("no hint for other chats, other agents, archived members or a pending summa
   assert.equal(f.hints().length, 0);
   assert.equal(f.long.told(f.taskChat.id), null);
 });
+
+test("one note that fails to deliver neither stops the others nor the team tick", async (t) => {
+  const f = await longChat(t);
+  const insert = f.long.db.prepare(
+    "INSERT INTO assistant_member_long_chats VALUES (?,?,?,?,?,?,?,?)",
+  );
+  for (const id of ["first", "second"])
+    insert.run(id, f.member.id, 130000, 200000, "pending", 0, 0, "2026-10-23T10:00:00Z");
+  const delivered = [];
+  const deliver = f.long.deliver.bind(f.long);
+  f.long.deliver = async (id) => {
+    if (id === "first") throw Error("unreadable");
+    delivered.push(id);
+    return deliver(id);
+  };
+  const warn = t.mock.method(console, "warn", () => {});
+  await f.long.tick();
+  assert.deepEqual(delivered, ["second"]);
+  assert.equal(warn.mock.callCount(), 1);
+  // The team tick resolves; the failing note stays pending, logged once.
+  await f.service.reconcile();
+  assert.equal(f.long.row("first").delivery, "pending");
+  assert.equal(warn.mock.callCount(), 1, "logged once");
+});

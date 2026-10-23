@@ -76,6 +76,10 @@ export const memberGrantCopy = {
       `Der leitende Agent hat ${member} von ${from} auf ${to} umgestellt`,
     renamed: (previous, member, fields) =>
       `Der leitende Agent hat bei ${previous} ${fields} geändert; es heißt jetzt ${member}`,
+    summarised: (member) =>
+      `Der leitende Agent hat den Chat von ${member} zusammenfassen lassen`,
+    summaryQueued: (member) =>
+      `Der leitende Agent lässt den Chat von ${member} zusammenfassen, sobald die laufende Aufgabe endet`,
     reminder: (member) =>
       `${member} hat beim leitenden Agenten eine Erinnerung angelegt; sie steht in dessen Erinnerungen`,
     granted: (member, labels) => `${member} hat vom leitenden Agenten ${labels} erhalten`,

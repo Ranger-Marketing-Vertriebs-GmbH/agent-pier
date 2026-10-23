@@ -29,6 +29,7 @@ export class MemberLongChats {
     this.db = assistants.store.db;
     this.db.exec(memberLongChatTable);
     this.delivering = new Set();
+    this.failing = new Set();
     this.now = () => Date.now();
     // Whether a summary after the member's task is pending (member-summaries.js).
     this.summaryPending = () => false;
@@ -107,7 +108,17 @@ export class MemberLongChats {
         "SELECT conversation_id FROM assistant_member_long_chats WHERE delivery='pending'",
       )
       .all();
-    for (const { conversation_id: id } of rows) await this.deliver(id);
+    for (const { conversation_id: id } of rows)
+      try {
+        await this.deliver(id);
+        this.failing.delete(id);
+      } catch (error) {
+        // One note must not hold back the others or reject the team tick; its
+        // failure is logged once until it delivers.
+        if (this.failing.has(id)) continue;
+        this.failing.add(id);
+        console.warn(`Telling the lead about chat ${id} failed: ${error?.message}`);
+      }
   }
   /**
    * Sends the note into the lead's main chat once that chat has no turn underway, as

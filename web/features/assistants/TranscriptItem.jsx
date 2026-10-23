@@ -25,9 +25,13 @@ export default function TranscriptItem({
     <CodingRunNote note={m} navigate={navigate} />
   ) : m.event === "ssh-run" ? (
     <SshRunNote note={m} />
-  ) : ["member-grant", "member-reminder", "member-update", "member-promote"].includes(
-      m.event,
-    ) ? (
+  ) : [
+      "member-grant",
+      "member-reminder",
+      "member-update",
+      "member-promote",
+      "member-summarise",
+    ].includes(m.event) ? (
     <MemberGrantNote note={m} />
   ) : m.event === "routine-failed" ? (
     <p className="assistant-note assistant-event" data-routine-failed>

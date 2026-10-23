@@ -106,6 +106,7 @@ const nativeAllow = [
   "agentpier_team_archive",
   "agentpier_team_grant",
   "agentpier_team_member_update",
+  "agentpier_team_member_summarise",
   "agentpier_team_models",
   "agentpier_team_member_routine",
   "agentpier_team_promote",

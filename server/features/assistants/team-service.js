@@ -7,6 +7,7 @@ import { decideAudited } from "./approval-audit.js";
 import { assertWired } from "./service-wiring.js";
 import { TeamMcpBindings } from "./team-mcp.js";
 import { MemberLongChats } from "./member-long-chats.js";
+import { MemberSummaries } from "./member-summaries.js";
 import { LeadRequests } from "./lead-requests.js";
 import { publicRequest } from "./lead-request-store.js";
 import { reportText } from "./team-results.js";
@@ -125,6 +126,16 @@ export class TeamService {
     this.requests = new LeadRequests({ teams: store, service: this });
     // Leads hear when a member's task chat grows long (member-long-chats.js).
     this.memberLongChats = new MemberLongChats({ teams: store, assistants });
+    // A lead's summaries of its members' task chats (member-summaries.js): no hint
+    // while one waits, and any summary of such a chat takes the waiting one's place.
+    this.memberSummaries = new MemberSummaries({
+      teams: store,
+      assistants,
+      hints: this.memberLongChats,
+    });
+    this.memberLongChats.summaryPending = (id) => this.memberSummaries.pending(id);
+    if (assistants.longChats)
+      assistants.longChats.onStart = (id) => this.memberSummaries.started(id);
     this.grants = new MemberGrants({
       teams: store,
       assistants,
@@ -459,6 +470,11 @@ export class TeamService {
     assertWired(this);
     return this.edits.update(inv, input);
   }
+  // A lead's summary of its member's task chat, now or after its task.
+  member_summarise(inv, input) {
+    assertWired(this);
+    return this.memberSummaries.request(inv, input);
+  }
   // The models a lead can give its members and what they run on (member-models.js).
   models(inv, input) {
     assertWired(this);
@@ -541,6 +557,8 @@ export class TeamService {
       ? Promise.resolve()
       : this.scheduler
           .tick()
+          // Before the next lead request reaches a member's chat (lead-requests.js).
+          .finally(() => this.memberSummaries.tick())
           .finally(() => this.requests.advance())
           .finally(() => this.memberLongChats.tick())
           // Lead routines whose lead or member left end for good (lead-routines.js).
