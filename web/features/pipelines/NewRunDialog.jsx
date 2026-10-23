@@ -11,7 +11,7 @@ import { formatNumber } from "../../lib/i18n/index.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
 import ProjectFields, { segmentLimit } from "./ProjectFields.jsx";
-import { listedProjectsPath } from "./project-list.js";
+import { listedProjectsPath } from "../../lib/project-list.js";
 import { pipelineQueueCopy as queueCopy } from "../../lib/i18n/messages/pipeline-queue.js";
 import "./run-dialog.css";
 

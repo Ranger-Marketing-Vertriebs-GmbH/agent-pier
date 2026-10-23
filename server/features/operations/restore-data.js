@@ -46,7 +46,8 @@ export async function mapProjects(directory, projectMap = {}) {
   for (const [oldId, cwd] of Object.entries(projectMap)) {
     const old = projects.find((project) => project.id === oldId);
     if (!old) throw problem(serverMessages.backups.unknownMappedProject);
-    const scope = await projectScope(cwd);
+    // The folder's own identity: the live registry does not decide the backup's rows.
+    const scope = await projectScope(cwd, { known: false });
     if (
       targets.has(scope.id) ||
       projects.some(

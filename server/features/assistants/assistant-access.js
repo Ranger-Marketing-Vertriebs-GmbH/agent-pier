@@ -122,6 +122,24 @@ export class AssistantAccess {
     };
   }
   /**
+   * The catalog's projects for the owner's Work tab, with folders that have several
+   * project rows described like in the projects hub (`duplicateOf`, `pipelineWork`),
+   * so the tab lists each folder once (web/lib/project-list.js).
+   */
+  async describedProjects() {
+    const rows = this.s.memory.projects().projects;
+    const described = this.s.projectDuplicates
+      ? await this.s.projectDuplicates.describe(rows)
+      : rows;
+    return described.map(({ id, name, cwd, duplicateOf, pipelineWork }) => ({
+      id,
+      name,
+      path: cwd,
+      ...(duplicateOf ? { duplicateOf } : {}),
+      ...(pipelineWork !== undefined ? { pipelineWork } : {}),
+    }));
+  }
+  /**
    * Validates a policy change against `revision`; returns the record, writes nothing.
    * Projects that no longer exist (an older row merged away) are dropped instead of
    * refused and listed in `notes.removedProjectIds`, so a stale grant never blocks

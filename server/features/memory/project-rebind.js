@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { projectScope } from "./project-scope.js";
+import { projectId, projectScope } from "./project-scope.js";
 
 /**
  * The one project identity change that keeps a running session's accesses: the
@@ -11,8 +10,7 @@ import { projectScope } from "./project-scope.js";
  * linked Git directory, Git to plain directory) is not a rebind.
  */
 export function directoryProjectId(launch) {
-  const identity = JSON.stringify(["directory", launch.path, launch.dev, launch.ino]);
-  return createHash("sha256").update(identity).digest("hex");
+  return projectId(["directory", launch.path, launch.dev, launch.ino]);
 }
 export function folderIdentity(cwd) {
   const canonical = fs.realpathSync(cwd);

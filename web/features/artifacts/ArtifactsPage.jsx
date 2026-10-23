@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { listedProjects, listedProjectsPath } from "../../lib/project-list.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import { InfoHintButton, InfoHintText, useInfoHint } from "../../components/InfoHint.jsx";
@@ -27,7 +28,7 @@ function useProjects() {
   const [projects, setProjects] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
-    api("/memory/projects", "GET", undefined, controller.signal)
+    api(listedProjectsPath, "GET", undefined, controller.signal)
       .then((result) => {
         if (!controller.signal.aborted) setProjects(result.projects || []);
       })
@@ -87,7 +88,7 @@ function Toolbar({ term, setTerm, projectId, projects, onProject }) {
           onChange={(event) => onProject(event.target.value)}
         >
           <option value="">{copy.allProjects}</option>
-          {(projects || []).map((project) => (
+          {listedProjects(projects, projectId).map((project) => (
             <option key={project.id} value={project.id}>
               {project.name}
             </option>

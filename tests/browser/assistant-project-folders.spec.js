@@ -48,7 +48,17 @@ test("English Work tab grants a project folder for reading and writing and remov
       body = { availability: "ready", sync: "current" };
     else if (url.pathname === "/api/assistant-workspace-catalog")
       body = {
-        projects: [{ id: "project", name: "Demo project", path: "/Users/me/demo" }],
+        // Older rows of the same folder (restarts, git init) are listed only once.
+        projects: [
+          { id: "project", name: "Demo project", path: "/Users/me/demo" },
+          ...["older", "oldest"].map((id) => ({
+            id,
+            name: "Demo project",
+            path: "/Users/me/demo",
+            duplicateOf: "project",
+            pipelineWork: false,
+          })),
+        ],
         pipelines: [],
         sshHosts: [],
       };
@@ -73,7 +83,7 @@ test("English Work tab grants a project folder for reading and writing and remov
   });
   await page.goto(baseURL + settingsPath("work"));
   await page.getByRole("link", { name: /^Allowed projects/ }).click();
-  await expect(page.getByText("/Users/me/demo", { exact: true })).toBeVisible();
+  await expect(page.getByText("/Users/me/demo", { exact: true })).toHaveCount(1);
   // Folder access appears only for an allowed project, and starts at none.
   await expect(page.getByText("Direct folder access", { exact: true })).toHaveCount(0);
   await page.getByLabel("Demo project", { exact: true }).check();

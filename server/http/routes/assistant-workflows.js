@@ -8,9 +8,11 @@ export function assistantWorkflowRoutes({ assistants }) {
       if (!assistants.workflows) throw assistantProblem("unavailable", 503);
       return assistants.workflows;
     };
-  router.get("/assistant-workspace-catalog", (_req, res) =>
+  router.get("/assistant-workspace-catalog", async (_req, res) =>
     res.json({
       ...service().access.catalog(),
+      // Each folder once: older rows of a folder are marked (projects hub rule).
+      projects: await service().access.describedProjects(),
       // Token profiles (metadata only) and the managed GitHub MCP server's state.
       github: { profiles: service().github.catalog(), server: service().github.server() },
     }),

@@ -11,7 +11,7 @@ import RiskRulesEditor from "./RiskRulesEditor.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import useDraftParts from "./useDraftParts.js";
 import { pipelineRoutePath } from "./routes.js";
-import { listedProjects, listedProjectsPath } from "./project-list.js";
+import { listedProjects, listedProjectsPath } from "../../lib/project-list.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import "./profiles.css";
 import "./verification.css";

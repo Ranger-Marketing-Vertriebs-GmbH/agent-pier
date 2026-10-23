@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { applicationFixture } from "../helpers/application.js";
 import { projectScope } from "../../server/features/memory/project-scope.js";
 import { RunStore } from "../../server/features/pipelines/run-store.js";
-import { listedProjects } from "../../web/features/pipelines/project-list.js";
+import { listedProjects } from "../../web/lib/project-list.js";
 
 const steps = [{ name: "Test", command: "npm test", timeoutMs: 60000, blocking: true }];
 
