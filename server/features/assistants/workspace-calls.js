@@ -142,10 +142,14 @@ function leadRequestContext(w, chat, attempt, req, origin) {
       id: r.id,
       leadId: r.parentAssistantId,
       writable: taskWritable(r),
-      // A sibling's request: never a share for a task. One a writable lead task
-      // started reaches only the lead's standing shares, as the lead's own would.
+      // A sibling's request: never a share for a task. One the lead started (its
+      // request, assignment or routine; peerLeadScope) reaches only the lead's
+      // standing shares, as the lead's own would, for reads and writes.
       ...(r.fromMemberId
-        ? { peer: true, sharesOnly: r.peerWrites?.kind === "lead-task" }
+        ? {
+            peer: true,
+            sharesOnly: r.leadScope === true || r.peerWrites?.kind === "lead-task",
+          }
         : {}),
     },
     ...(telegram ? { telegram } : {}),

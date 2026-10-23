@@ -273,3 +273,86 @@ test("the peer-result turn cannot write or open project folders", async (t) => {
     { status: 403 },
   );
 });
+
+test("a peer request records whether the lead started the sender's turn", async (t) => {
+  const f = await peers(t);
+  f.service.requests.waitMs = 0;
+  let now = Date.now();
+  const scope = (inv, type = "task") => {
+    now += 3600000;
+    const r = (type === "task" ? f.peerDelegate : f.peerAsk)(inv, f.second, {}, now);
+    f.finish(r);
+    return r.leadScope;
+  };
+  // The owner's own turn with the sender keeps the receiver's own access.
+  assert.equal(scope(f.memberTurn(f.permanent)), false);
+  assert.equal(scope(f.memberTurn(f.permanent), "question"), false);
+  // A team assignment, a lead question and a lead task are the lead's.
+  const assignment = { kind: "team-member", teamId: f.team.id, memberId: f.permanent.id };
+  assert.equal(scope(f.memberTurn(f.permanent, assignment), "question"), true);
+  f.settle();
+  const asked = await f.service.ask(f.turn(), {
+    memberId: f.permanent.id,
+    question: "What is the budget?",
+  });
+  const q = f.service.requests.store.get(asked.requestId);
+  const inv = (r, id) => ({ attemptId: r.attemptId, toolCallId: id, assertCurrent() {} });
+  assert.equal(scope(inv(q, "q"), "question"), true);
+  f.finish(q);
+  f.settle();
+  const tasked = await f.service.delegate(f.turn(), {
+    memberId: f.permanent.id,
+    task: "Draft the plan",
+  });
+  const task = f.service.requests.store.get(tasked.requestId);
+  assert.equal(scope(inv(task, "t")), true);
+  f.finish(task);
+  // A routine is the lead's when the lead set it up, also an autonomous one.
+  f.assistants.routines = { writable: () => true };
+  const run = (key, binding) => ({
+    attemptId: null,
+    toolCallId: key,
+    sessionKey: `agent:x:cron:job-1:run:${key}`,
+    routine: {
+      binding: { id: key, assistantId: f.permanent.assistantId, ...binding },
+      conversation: f.store.getConversation(f.permanent.conversationId),
+    },
+    assertCurrent() {},
+  });
+  assert.equal(scope(run("owner-routine", {})), false);
+  assert.equal(scope(run("lead-routine", { createdBy: "lead" })), true);
+});
+
+test("a peer chain the lead started never reaches the receiver's own folders", async (t) => {
+  const f = await leadShareFixture(t);
+  const from = await sibling(f);
+  const project = f.folderProject.id;
+  f.workflows.access.save(
+    f.member.assistantId,
+    { ...f.policy, projectIds: [project], projectFiles: { [project]: "write" } },
+    f.workflows.access.get(f.member.assistantId).revision,
+  );
+  const done = (task) => f.teams.write(f.teams.get(task.id), { phase: "completed" });
+  // A writable task from the lead's (autonomous) routine cannot write the folder.
+  const routine = await peerTask(f, from, {
+    writeAllowed: true,
+    peerWrites: { kind: "routine", bindingId: "b" },
+    leadScope: true,
+  });
+  await assert.rejects(
+    f.call(routine.inv, { action: "file_write", path: "x.md", content: "x" }),
+    code("PROJECT_NOT_GRANTED"),
+  );
+  done(routine);
+  // A question from a lead's question or assignment cannot read it either.
+  const question = await peerTask(f, from, { type: "question", leadScope: true });
+  await assert.rejects(
+    f.call(question.inv, { action: "files_list" }),
+    code("PROJECT_NOT_GRANTED"),
+  );
+  assert.deepEqual((await f.call(question.inv, { action: "catalog" })).projects, []);
+  done(question);
+  // The owner's own turn keeps the receiver's own grant, read-only in a question.
+  const own = await peerTask(f, from, { type: "question", leadScope: false });
+  assert.equal((await f.call(own.inv, { action: "files_list" })).access, "read");
+});
