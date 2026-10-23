@@ -96,10 +96,13 @@ export async function updateSftp(store, id, input, previous) {
   if (keyId) store.keyStore.get(keyId);
   if (password !== undefined) {
     const revision = access.credentialRevision;
-    store.catalog.afterRollback(() =>
-      fs.rmSync(store.passwords.file(id, revision), { force: true }),
-    );
+    // The host's stored password stays committed: drop the new revision and marker.
+    store.catalog.afterRollback(() => {
+      fs.rmSync(store.passwords.file(id, revision), { force: true });
+      store.passwords.settle(id);
+    });
     store.passwords.write(id, revision, password);
+    store.catalog.afterCommit(() => store.passwords.settle(id));
   }
   if (access.credentialRevision !== stored.credentialRevision)
     store.catalog.afterCommit(() =>

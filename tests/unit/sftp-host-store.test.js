@@ -369,36 +369,61 @@ test("project moves and collisions cover sftpHosts", async (t) => {
   assert.equal(stored().hosts.length, 0);
 });
 
-test("startup removes password directories without a host", async (t) => {
+test("startup removes only uncommitted password directories without a host", async (t) => {
   const { dataDir, store, passwords } = fixture(t);
   const host = await store.create(sftp());
-  const orphan = path.join(passwords, randomUUID());
-  fs.mkdirSync(orphan, { mode: 0o700 });
-  fs.writeFileSync(path.join(orphan, randomUUID()), "left by a crash", { mode: 0o600 });
+  assert.deepEqual(fs.readdirSync(path.join(passwords, host.id)).length, 1);
+  const crashed = path.join(passwords, randomUUID());
+  fs.mkdirSync(crashed, { mode: 0o700 });
+  fs.writeFileSync(path.join(crashed, ".pending"), "", { mode: 0o600 });
+  fs.writeFileSync(path.join(crashed, randomUUID()), "left by a crash", { mode: 0o600 });
+  const committed = path.join(passwords, randomUUID());
+  fs.mkdirSync(committed, { mode: 0o700 });
+  fs.writeFileSync(path.join(committed, randomUUID()), "committed", { mode: 0o600 });
+  fs.writeFileSync(path.join(passwords, host.id, ".pending"), "", { mode: 0o600 });
   new SshCatalog({ dataDir }).migrate();
-  assert.deepEqual(fs.readdirSync(passwords), [host.id]);
+  assert.deepEqual(
+    fs.readdirSync(passwords).sort(),
+    [host.id, path.basename(committed)].sort(),
+  );
+  assert.equal(fs.existsSync(path.join(passwords, host.id, ".pending")), false);
   assert.equal(store.sftpConnection(host.id).password, "pw-secret");
 });
 
-test("an unreadable password directory does not abort startup", async (t) => {
-  const { dataDir, store, passwords } = fixture(t);
-  await store.create(sftp());
-  const warnings = [];
-  t.mock.method(console, "warn", (...args) => warnings.push(args.join(" ")));
-  fs.chmodSync(passwords, 0o000);
-  try {
-    assert.doesNotThrow(() => new SshCatalog({ dataDir }).migrate());
-  } finally {
-    fs.chmodSync(passwords, 0o700);
-  }
-  assert.equal(warnings.length, 1);
-  assert.doesNotMatch(warnings[0], /pw-secret/);
+test("a password change settles its marker after the commit", async (t) => {
+  const { store, passwords } = fixture(t);
+  const host = await store.create(sftp());
+  await store.update(host.id, { password: "pw-second" });
+  assert.deepEqual(fs.readdirSync(path.join(passwords, host.id)).length, 1);
+  assert.equal(store.sftpConnection(host.id).password, "pw-second");
 });
 
-test("a catalog rebuilt from accesses.json keeps stored passwords", async (t) => {
+test(
+  "an unreadable password directory does not abort startup",
+  {
+    skip: process.getuid?.() === 0 && "root reads any directory",
+  },
+  async (t) => {
+    const { dataDir, store, passwords } = fixture(t);
+    await store.create(sftp());
+    const warnings = [];
+    t.mock.method(console, "warn", (...args) => warnings.push(args.join(" ")));
+    fs.chmodSync(passwords, 0o000);
+    try {
+      assert.doesNotThrow(() => new SshCatalog({ dataDir }).migrate());
+    } finally {
+      fs.chmodSync(passwords, 0o700);
+    }
+    assert.equal(warnings.length, 1);
+    assert.doesNotMatch(warnings[0], /pw-secret/);
+  },
+);
+
+test("a catalog rebuilt from accesses.json keeps committed passwords", async (t) => {
   const { dataDir, catalog, store, passwords } = fixture(t);
   const host = await store.create(sftp());
   fs.rmSync(catalog.file);
+  new SshCatalog({ dataDir }).migrate();
   new SshCatalog({ dataDir }).migrate();
   assert.deepEqual(fs.readdirSync(passwords), [host.id]);
 });
