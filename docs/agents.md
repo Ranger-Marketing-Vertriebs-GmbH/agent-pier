@@ -269,7 +269,8 @@ Every member row and chat header shows the model the member actually runs on:
   changes then no longer affect it until you switch it on again.
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
-  affect it. Change it in the member's Profile.
+  affect it. Change it in the member's Profile; its lead can change it too (see
+  below). A lead's own assignment is not shown as "changed since taken over".
 
 The lead decides what each temporary member gets, and can only give what it has
 itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
@@ -321,12 +322,26 @@ instructions stay, and it stays under its lead. You can archive it at any time.
 A lead also talks to its members directly:
 
 - It can **edit** its temporary members while they work or later, as long as it can
-  still reach them: their name, role and assignment, additional instructions, or
-  their whole instructions, even ones you edited yourself. Each change shows as a
-  note in the member's and the lead's chats and in the member's **Capabilities →
-  Granted by the lead agent** history, which also keeps, for you only, the
-  instructions the last five changes replaced. It takes effect from the member's
-  next turn.
+  still reach them, and its permanent members that are not archived: their name, role
+  and assignment, additional instructions, or their whole instructions, even ones you
+  edited yourself, and their model. It does this on its own initiative. Each change
+  shows as a note in the member's and the lead's chats and in the member's
+  **Capabilities → Granted by the lead agent** history (for a permanent member also
+  in its Profile), which also keeps, for you only, the instructions the last five
+  changes replaced. It takes effect from the member's next turn, also in your own
+  chats with a permanent member.
+- It can **look up models** to give its members: it lists the models of your usable
+  sources (ChatGPT accounts, OpenRouter connections with a key, endpoint connections)
+  with context window, output limit, reasoning, image input and, for OpenRouter, the
+  price per million input and output tokens (unknown otherwise), and it sees what it
+  and its members run on now. It cannot do this in routines. It can name a model per
+  new member in a team proposal (shown on the approval card) or move an existing
+  member to another model, and it tells you what a model costs when the price is
+  known. A temporary member with a model assigned this way keeps it when the lead's
+  model changes. Each model change shows as a note in the lead's chat (and in the
+  member's task chat, if it has one), as a history entry with the old and new model
+  and in the audit log. If an assigned model stops working, the member's turns fail
+  visibly; it does not fall back to another model.
 
 - It can **ask** any of its members a question and **delegate** a task to a permanent
   member. The answer comes back to the lead, and to Telegram when the request came
