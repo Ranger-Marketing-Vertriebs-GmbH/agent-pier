@@ -68,11 +68,12 @@ const shell = (extra) => ({
 });
 
 /**
- * Reproduces a rollback from a later release that names sessions `agentpier-<id>`: its
- * tmux server outlived the service restart and still runs such a session, either on
- * that release's own socket (`alternate`) or on this release's socket (`produced`).
+ * Reproduces an update from the release before this one, which named sessions
+ * `tuiui-<id>`: its tmux server outlived the service restart and still runs such a
+ * session, either on the legacy socket (`legacy`, every update from it) or on this
+ * release's socket (`produced`, when it ran there after a rollback from this release).
  */
-async function laterRelease(t, { socket = "alternate", launch = {} } = {}) {
+async function earlierRelease(t, { socket = "legacy", launch = {} } = {}) {
   const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-name-forms-"));
   const sockets = tmuxSocketPaths(dataDir);
   const managers = [];
@@ -105,23 +106,23 @@ async function laterRelease(t, { socket = "alternate", launch = {} } = {}) {
   assert.equal(previous.socketPath, server);
   await previous.ready;
   await previous.tmux(["source-file", previous.configPath]);
-  const later = await previous.create(
-    shell({ id: "later-one", cwd: dataDir, ...launch }),
+  const earlier = await previous.create(
+    shell({ id: "earlier-one", cwd: dataDir, ...launch }),
   );
   await exec(tmuxPath, [
     "-S",
     server,
     "rename-session",
     "-t",
-    `=tuiui-${later.id}`,
-    `agentpier-${later.id}`,
+    `=agentpier-${earlier.id}`,
+    `tuiui-${earlier.id}`,
   ]);
   await exec(tmuxPath, ["-S", server, "kill-session", "-t", "=boot"]);
   await previous.close();
-  return { dataDir, server, id: later.id, start };
+  return { dataDir, server, id: earlier.id, start };
 }
 
-test("new sessions keep the tuiui name on the tuiui socket", async (t) => {
+test("new sessions get the agentpier name on the agentpier socket", async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-produced-names-"));
   const { produced } = tmuxSocketPaths(dataDir);
   const manager = new SessionManager({ dataDir, tmuxPath });
@@ -131,25 +132,26 @@ test("new sessions keep the tuiui name on the tuiui socket", async (t) => {
     await rm(path.dirname(produced), { recursive: true, force: true });
     await rm(dataDir, { recursive: true, force: true });
   });
+  assert.match(produced, /\/tmp\/agentpier-[^/]+\/tmux\.sock$/);
   assert.equal(manager.socketPath, produced);
   const created = await manager.create(shell({ id: "new-one", cwd: dataDir }));
-  assert.equal(manager.target(created.id), `=tuiui-${created.id}`);
-  assert.deepEqual(await names(produced), [`tuiui-${created.id}`]);
+  assert.equal(manager.target(created.id), `=agentpier-${created.id}`);
+  assert.deepEqual(await names(produced), [`agentpier-${created.id}`]);
 });
 
-for (const socket of ["alternate", "produced"])
-  test(`a rollback keeps agentpier sessions operable on the ${socket} socket`, async (t) => {
-    const { dataDir, server, id, start } = await laterRelease(t, { socket });
+for (const socket of ["legacy", "produced"])
+  test(`after an update tuiui sessions stay operable on the ${socket} socket`, async (t) => {
+    const { dataDir, server, id, start } = await earlierRelease(t, { socket });
     const manager = start();
     await manager.ready;
     assert.equal(manager.socketPath, server);
-    assert.equal(manager.target(id), `=agentpier-${id}`);
+    assert.equal(manager.target(id), `=tuiui-${id}`);
     assert.equal((await manager.get(id)).status, "running");
     await eventually(async () => (await manager.screen(id)).includes("READY"), "replay");
-    await manager.input(id, "after rollback", true);
+    await manager.input(id, "after update", true);
     await eventually(
-      async () => (await manager.screen(id)).includes("REPLY:after rollback"),
-      "input to the agentpier session",
+      async () => (await manager.screen(id)).includes("REPLY:after update"),
+      "input to the tuiui session",
     );
     let replay = "";
     const client = await manager.attach(id, {
@@ -157,15 +159,16 @@ for (const socket of ["alternate", "produced"])
       rows: 30,
       onData: (data) => (replay += data),
     });
-    await eventually(() => replay.includes("REPLY:after rollback"), "attach replay");
+    await eventually(() => replay.includes("REPLY:after update"), "attach replay");
     client.dispose();
     assert.deepEqual(
       (await sessionPanes(manager)).map((pane) => pane.id),
       [id],
     );
 
+    // New sessions join the same server under the new name.
     const created = await manager.create(shell({ id: "fresh-one", cwd: dataDir }));
-    assert.deepEqual(await names(server), [`agentpier-${id}`, `tuiui-${created.id}`]);
+    assert.deepEqual(await names(server), [`agentpier-${created.id}`, `tuiui-${id}`]);
     assert.deepEqual(
       (await manager.list()).map((session) => [session.id, session.status]),
       [
@@ -174,15 +177,15 @@ for (const socket of ["alternate", "produced"])
       ],
     );
     await manager.stop(id);
-    assert.deepEqual(await names(server), [`tuiui-${created.id}`]);
+    assert.deepEqual(await names(server), [`agentpier-${created.id}`]);
     assert.equal((await manager.get(id)).status, "stopped");
   });
 
-test("startup picks the socket whose tmux server answers, not the one whose file exists", async (t) => {
+test("startup keeps the legacy socket only while its tmux server answers", async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-socket-liveness-"));
-  const { produced, alternate } = tmuxSocketPaths(dataDir);
+  const { produced, legacy } = tmuxSocketPaths(dataDir);
   t.after(async () => {
-    for (const file of [produced, alternate]) {
+    for (const file of [produced, legacy]) {
       await exec(tmuxPath, ["-S", file, "kill-server"]).catch(() => {});
       await rm(path.dirname(file), { recursive: true, force: true });
     }
@@ -202,27 +205,28 @@ test("startup picks the socket whose tmux server answers, not the one whose file
   };
   const stop = (socket) => exec(tmuxPath, ["-S", socket, "kill-server"]);
   const choose = () => chooseTmuxSocket(dataDir, { tmuxPath });
+  await serve(legacy);
+  assert.equal(choose(), legacy, "the server from before the update keeps running");
   await serve(produced);
-  await serve(alternate);
-  assert.equal(choose(), produced, "both live: the produced socket wins");
+  assert.equal(choose(), legacy, "both live: the legacy server keeps its sessions");
+  await stop(legacy);
+  assert.ok(ownedSocket(legacy), "tmux leaves its socket file behind");
+  assert.equal(choose(), produced, "a stale legacy file is not used");
   await stop(produced);
-  assert.ok(ownedSocket(produced), "tmux leaves its socket file behind");
-  assert.equal(choose(), alternate, "a stale produced file next to a live later server");
-  await stop(alternate);
   assert.equal(choose(), produced, "none live");
 });
 
 test("a session missed by the startup scan is still found under its other name", async (t) => {
-  const { id, start } = await laterRelease(t);
+  const { id, start } = await earlierRelease(t);
   const manager = start();
   await manager.ready;
   manager.alternateSessions.clear();
   assert.equal((await manager.get(id)).status, "running");
-  assert.equal(manager.target(id), `=agentpier-${id}`);
+  assert.equal(manager.target(id), `=tuiui-${id}`);
 });
 
-test("a replacement relaunches under the tuiui name only", async (t) => {
-  const { server, id, start } = await laterRelease(t);
+test("a replacement relaunches under the agentpier name only", async (t) => {
+  const { server, id, start } = await earlierRelease(t);
   const manager = start();
   await manager.updateReload(id, { state: "reloading", nativeId: "fixture-native" });
   const result = await manager.replace(id, async () => ({
@@ -231,8 +235,8 @@ test("a replacement relaunches under the tuiui name only", async (t) => {
     env: {},
   }));
   assert.equal(result.status, "running");
-  assert.equal(manager.target(id), `=tuiui-${id}`);
-  assert.deepEqual(await names(server), [`tuiui-${id}`]);
+  assert.equal(manager.target(id), `=agentpier-${id}`);
+  assert.deepEqual(await names(server), [`agentpier-${id}`]);
   await eventually(
     async () => (await manager.screen(id)).includes("REPLACED"),
     "relaunch",
@@ -241,12 +245,12 @@ test("a replacement relaunches under the tuiui name only", async (t) => {
 
 for (const operation of ["stop", "remove", "replace"])
   test(`${operation} leaves no dead pane under the other name`, async (t) => {
-    const { server, id, start } = await laterRelease(t, {
+    const { server, id, start } = await earlierRelease(t, {
       launch: { args: ["-c", "echo DONE"] },
     });
     const manager = start();
     await manager.ready;
-    await paneDead(server, `agentpier-${id}`);
+    await paneDead(server, `tuiui-${id}`);
     // The recorded exit; this start missed the dead pane.
     await manager.save({ ...(await manager.metadata(id)), status: "stopped" });
     manager.alternateSessions.clear();
@@ -260,17 +264,28 @@ for (const operation of ["stop", "remove", "replace"])
         env: {},
       }));
     }
-    assert.deepEqual(await names(server), operation === "replace" ? [`tuiui-${id}`] : []);
+    assert.deepEqual(
+      await names(server),
+      operation === "replace" ? [`agentpier-${id}`] : [],
+    );
   });
 
 test("a dead pane never shadows a live one under the other name", async (t) => {
-  const { server, id, start } = await laterRelease(t);
-  // A dead tuiui-<id> beside the live agentpier-<id>, e.g. from an older relaunch.
-  await exec(tmuxPath, ["-S", server, "new-session", "-d", "-s", `tuiui-${id}`, "true"]);
-  await paneDead(server, `tuiui-${id}`);
+  const { server, id, start } = await earlierRelease(t);
+  // A dead agentpier-<id> beside the live tuiui-<id>, e.g. from an earlier relaunch.
+  await exec(tmuxPath, [
+    "-S",
+    server,
+    "new-session",
+    "-d",
+    "-s",
+    `agentpier-${id}`,
+    "true",
+  ]);
+  await paneDead(server, `agentpier-${id}`);
   const manager = start();
   await manager.ready;
-  assert.equal(manager.target(id), `=agentpier-${id}`, "the startup scan prefers live");
+  assert.equal(manager.target(id), `=tuiui-${id}`, "the startup scan prefers live");
   assert.equal((await manager.get(id)).status, "running");
   assert.deepEqual(
     (await sessionPanes(manager)).map((pane) => pane.id),
@@ -279,7 +294,7 @@ test("a dead pane never shadows a live one under the other name", async (t) => {
   // Without the scan, the dead produced pane still leads to the live one.
   manager.alternateSessions.clear();
   assert.equal((await manager.get(id)).status, "running");
-  assert.equal(manager.target(id), `=agentpier-${id}`);
+  assert.equal(manager.target(id), `=tuiui-${id}`);
   await manager.input(id, "still here", true);
   await eventually(
     async () => (await manager.screen(id)).includes("REPLY:still here"),
@@ -290,14 +305,14 @@ test("a dead pane never shadows a live one under the other name", async (t) => {
 });
 
 test("an unanswered probe keeps the recorded state and leaves a trace", async (t) => {
-  const { id, start } = await laterRelease(t);
+  const { id, start } = await earlierRelease(t);
   const manager = start();
   await manager.ready;
   manager.alternateSessions.clear();
-  await manager.tmux(["rename-session", "-t", `=agentpier-${id}`, `hidden-${id}`]);
+  await manager.tmux(["rename-session", "-t", `=tuiui-${id}`, `hidden-${id}`]);
   const tmux = manager.tmux.bind(manager);
   t.mock.method(manager, "tmux", async (args, options) => {
-    if (args[0] === "list-panes" && args[2].startsWith("=agentpier-"))
+    if (args[0] === "list-panes" && args[2].startsWith("=tuiui-"))
       throw new Error("tmux: out of memory");
     return tmux(args, options);
   });

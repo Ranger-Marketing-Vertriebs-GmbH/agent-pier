@@ -32,7 +32,7 @@ async function fixture(t, initial = {}) {
     if (["capture-pane", "kill-session", "run-shell"].includes(args[0])) return "";
     assert.equal(args[0], "list-panes");
     // No session runs under the other name form.
-    if (args[2].startsWith("=agentpier-")) throw new Error("can't find session");
+    if (args[2].startsWith("=tuiui-")) throw new Error("can't find session");
     if (tmux.paneError) throw new Error(tmux.paneError);
     return tmux.panes + "\n";
   });
@@ -47,7 +47,7 @@ async function fixture(t, initial = {}) {
 
 test("an unreachable tmux server marks a running session as interrupted", async (t) => {
   const { tmux, interrupted, settle, read } = await fixture(t);
-  tmux.paneError = "no server running on /tmp/tuiui-501-x/tmux.sock";
+  tmux.paneError = "no server running on /tmp/agentpier-501-x/tmux.sock";
   const session = await read();
   assert.equal(session.status, "stopped");
   assert.equal(session.interruption.cause, "tmux-server-lost");
@@ -73,7 +73,7 @@ test("a missing session on a replaced tmux server is an interruption", async (t)
   const { tmux, read } = await fixture(t, {
     tmuxServer: { pid: 100, startTime: 1700000000 },
   });
-  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.paneError = "can't find session: agentpier-owned-fixture";
   tmux.server = "100|1790000000"; // Same pid after a reboot, new start time.
   assert.equal((await read()).interruption?.resume, "pending");
 });
@@ -82,7 +82,7 @@ test("a missing session on the same tmux server is no interruption", async (t) =
   const { tmux, interrupted, settle, read } = await fixture(t, {
     tmuxServer: { pid: 100, startTime: 1700000000 },
   });
-  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.paneError = "can't find session: agentpier-owned-fixture";
   const session = await read();
   assert.equal(session.status, "stopped");
   assert.equal(session.interruption, undefined);
@@ -129,7 +129,7 @@ test("a live server without sessions is no interruption", async (t) => {
   const { tmux, interrupted, settle, read } = await fixture(t, {
     tmuxServer: { pid: 100, startTime: 1700000000 },
   });
-  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.paneError = "can't find session: agentpier-owned-fixture";
   tmux.server = ""; // exit-empty off: the server answers with no output.
   const session = await read();
   assert.equal(session.status, "stopped");
@@ -142,7 +142,7 @@ test("a failing identity probe is no interruption", async (t) => {
   const { tmux, interrupted, settle, read } = await fixture(t, {
     tmuxServer: { pid: 100, startTime: 1700000000 },
   });
-  tmux.paneError = "can't find session: tuiui-owned-fixture";
+  tmux.paneError = "can't find session: agentpier-owned-fixture";
   tmux.serverError = "permission denied";
   const session = await read();
   assert.equal(session.interruption, undefined);

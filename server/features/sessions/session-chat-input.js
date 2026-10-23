@@ -13,6 +13,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.js";
 import { problem } from "../../lib/storage.js";
+import { SESSION_PREFIX } from "./tmux-naming.js";
 import {
   claudeChipsOnly,
   claudeComposerImages,
@@ -33,7 +34,7 @@ export function normalizeChatText(text) {
 }
 
 async function pasteText(manager, target, text) {
-  const buffer = `tuiui-${randomUUID()}`;
+  const buffer = `${SESSION_PREFIX}${randomUUID()}`;
   try {
     await manager.tmux(["load-buffer", "-b", buffer, "-"], { input: text });
     await manager.tmux(["paste-buffer", "-d", "-p", "-r", "-b", buffer, "-t", target]);

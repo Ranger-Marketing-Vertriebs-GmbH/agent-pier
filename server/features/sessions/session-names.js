@@ -31,7 +31,7 @@ export async function scanSessionNames(manager) {
     if (entry.alternate) manager.alternateSessions.add(id);
 }
 
-/** The state of `agentpier-<id>`: "live", "dead", "missing" or "unknown" (probe failed). */
+/** The state of `tuiui-<id>`: "live", "dead", "missing" or "unknown" (probe failed). */
 export async function alternatePaneState(manager, id) {
   try {
     // display-message would answer for a missing target too; list-panes fails instead.

@@ -41,7 +41,7 @@ export class SessionManager {
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
     this.socketPath = chooseTmuxSocket(dataDir, { tmuxPath });
-    // Ids whose session runs as `agentpier-<id>`, started by a later release.
+    // Ids whose session runs as `tuiui-<id>`, started by an earlier release.
     this.alternateSessions = new Set();
     this.tmuxPath = tmuxPath;
     this.configPath = path.join(this.directory, "tmux.conf");
@@ -73,7 +73,7 @@ export class SessionManager {
     await scanSessionNames(this);
   }
   /**
-   * Adopts `agentpier-<id>` for a running session when its pane is in one of `states`:
+   * Adopts `tuiui-<id>` for a running session when its pane is in one of `states`:
    * "adopted", "no", or "unknown" when tmux could not answer.
    */
   async adoptAlternate(session, states) {

@@ -30,7 +30,7 @@ test("a test process that skips teardown leaves no tmux server behind", async (t
     { encoding: "utf8" },
   );
   const socket = child.stdout.trim();
-  assert.match(socket, /\/tmp\/tuiui-.*\/tmux\.sock$/);
+  assert.match(socket, /\/tmp\/agentpier-.*\/tmux\.sock$/);
   assert.notEqual(child.status, 0);
   await assert.rejects(exec("tmux", ["-S", socket, "list-sessions"]));
   await assert.rejects(fs.stat(path.dirname(socket)));

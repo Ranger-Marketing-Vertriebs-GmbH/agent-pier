@@ -3,20 +3,22 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-// AgentPier was formerly called "tuiui", and its tmux sessions and socket still carry
-// that name. The switch to "agentpier" runs in two releases so that an update and a
-// rollback never lose a running session: this release still produces the legacy names
-// and only learns to understand the new ones; a later release produces the new names
-// and refuses rollbacks to releases that do not understand them (see release.json
-// `tmuxNames`). A tmux server outlives a service restart, so both sides must keep
-// reaching whatever the other one left running.
+// AgentPier was formerly called "tuiui", and its tmux sessions and socket carried that
+// name. The switch to "agentpier" runs in two releases so that an update and a rollback
+// never lose a running session: the release before this one still produced the legacy
+// names and learned to understand the new ones; this release produces the new names,
+// still understands the legacy ones, and refuses rollbacks to releases that do not
+// understand the new ones (see release.json `tmuxNames`). A tmux server outlives a
+// service restart, so both sides must keep reaching whatever the other one left running.
 
+/** The tmux name form this release produces; a rollback target must understand it. */
+export const PRODUCED_TMUX_NAME = "agentpier";
 /** The name this release gives new sessions. */
-export const SESSION_PREFIX = "tuiui-";
-/** The name a later release gives them; understood here, never produced. */
-export const ALTERNATE_SESSION_PREFIX = "agentpier-";
+export const SESSION_PREFIX = `${PRODUCED_TMUX_NAME}-`;
+/** The name earlier releases gave them; understood here, never produced. */
+export const ALTERNATE_SESSION_PREFIX = "tuiui-";
 /** Every session name form this release understands, for the release manifest. */
-export const TMUX_NAMES = Object.freeze(["tuiui", "agentpier"]);
+export const TMUX_NAMES = Object.freeze(["agentpier", "tuiui"]);
 
 const id = "[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}";
 const sessionName = new RegExp(`^(?:agentpier|tuiui)-(${id})$`);
@@ -36,10 +38,10 @@ function socketPath(prefix, dataDir) {
   return `/tmp/${prefix}-${process.getuid?.() ?? "user"}-${hash}/tmux.sock`;
 }
 
-/** `produced` is the socket this release starts; `alternate` is a later release's. */
+/** `produced` is the socket this release starts; `legacy` is the earlier releases'. */
 export const tmuxSocketPaths = (dataDir) => ({
-  produced: socketPath("tuiui", dataDir),
-  alternate: socketPath("agentpier", dataDir),
+  produced: socketPath("agentpier", dataDir),
+  legacy: socketPath("tuiui", dataDir),
 });
 
 /**
@@ -82,19 +84,17 @@ export function tmuxServerAnswers(socket, { tmuxPath = "tmux", spawn = spawnSync
 
 /**
  * All sessions of a data directory share one tmux server, so the socket is chosen once,
- * at startup, by which of our sockets a server answers on: the produced socket when its
- * server answers; otherwise a later release's socket when its server answers, i.e.
- * after a rollback from that release while its server still runs (its sessions stay
- * reachable until that server is gone); otherwise the produced socket, where tmux
- * starts a fresh server even over a stale socket file.
+ * at startup: the legacy socket while its server answers, i.e. the server an earlier
+ * release started keeps running across the update with its sessions, and new sessions
+ * join it under the new name; otherwise the produced socket, where tmux starts a fresh
+ * server even over a stale socket file.
  */
 export function chooseTmuxSocket(dataDir, options = {}) {
-  const { produced, alternate } = tmuxSocketPaths(dataDir);
-  const live = (socket) =>
-    ownedSocket(socket, options) &&
-    (options.answers || tmuxServerAnswers)(socket, options);
-  if (live(produced)) return produced;
-  return live(alternate) ? alternate : produced;
+  const { produced, legacy } = tmuxSocketPaths(dataDir);
+  const live =
+    ownedSocket(legacy, options) &&
+    (options.answers || tmuxServerAnswers)(legacy, options);
+  return live ? legacy : produced;
 }
 
 /**
