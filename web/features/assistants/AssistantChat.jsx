@@ -172,8 +172,8 @@ export default function AssistantChat({
     ? { ...latest.attempt, state: "unconfirmed" }
     : latest?.attempt;
   // The run summarises its long history before it answers (compactions.js), or the
-  // owner had it summarised (useLongChat.js).
-  const compacting = Boolean(!uncertain && history.compacting);
+  // owner had it summarised (useLongChat.js; "memory" while its memory step runs first).
+  const compacting = (!uncertain && history.compacting) || false;
   // Every agent's own requests wait in its chat: a permanent member may have a shell.
   // The feed carries them while its socket is connected; else the hook reads them.
   const liveActions = view.live?.actions;
@@ -525,6 +525,7 @@ export default function AssistantChat({
               uncertain={uncertain}
               compacting={compacting}
               compactOutcome={history.compactOutcome}
+              memoryNotSaved={history.memoryNotSaved}
               steps={stepsOf(feed.steps, latest?.attempt)}
               longChat={history.longChat}
               longChatActions={available ? longChat : null}

@@ -52,6 +52,7 @@ export const agentRunStepsCopy = {
   summarise: "Jetzt zusammenfassen",
   dismiss: "Ausblenden",
   compactOutcome: {
+    memoryNotSaved: "Vor der Zusammenfassung wurden keine Erinnerungen gespeichert.",
     failed: "Die Zusammenfassung wurde nicht fertig. Der Chat ist wieder bereit.",
     nothing: "Es gab nichts mehr zusammenzufassen. Der Chat ist wieder bereit.",
     busy: "Die Zusammenfassung konnte nicht starten, weil der Agent beschäftigt war. Der Chat ist wieder bereit.",

@@ -4,6 +4,7 @@ import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 import { reopenRefusedChat } from "./native-chat-archive.js";
+import { memoryStep } from "./memory-write-policy.js";
 
 function usersAgent(service, conversation) {
   try {
@@ -76,8 +77,10 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       .some(
         (a) => service.ledger.getRequest(a.requestId).conversationId === conversationId,
       ) ||
-    // The chat's history is being summarised on request (long-chats.js).
-    service.longChats?.compacting(conversationId)
+    // The chat's history is being summarised on request (long-chats.js), which lets
+    // only its own memory step through.
+    (service.longChats?.compacting(conversationId) &&
+      !(memoryStep(trustedContext) && service.longChats.savingMemory(conversationId)))
   )
     throw assistantProblem("active", 409);
   service.teams?.assertMemberTurn(conversation.assistantId, context);

@@ -406,9 +406,11 @@ export const assistantCopy = {
     unconfirmed: "Bestätigung ausstehend",
     cancelled: "Abgebrochen",
     compacting: "Fasst Verlauf zusammen",
+    savingMemories: "Speichert Erinnerungen",
   },
   // Ein Lauf, der zuerst seinen langen Verlauf kürzt (Server compactions.js).
   compaction: {
+    memory: "Speichert Erinnerungen vor der Zusammenfassung …",
     running:
       "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
     note: (before, after) =>
