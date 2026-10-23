@@ -242,6 +242,14 @@ export const assistants = {
     "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
   memberRequestRate:
     "Der Agent hat in kurzer Zeit zu viele Fragen oder Aufgaben geschickt. Warte einen Moment.",
+  peerRequestTurn:
+    "Ein Mitglied kann andere Mitglieder nur in seiner eigenen Arbeit fragen oder beauftragen.",
+  peerRequestLoop:
+    "Ein Mitglied kann keine weitere Frage oder Aufgabe stellen, solange es die Anfrage eines anderen Mitglieds bearbeitet.",
+  peerRequestOpen:
+    "Zwischen diesen Mitgliedern ist schon eine Anfrage offen, oder das Mitglied arbeitet schon an einer Aufgabe.",
+  peerRequestLimit:
+    "Ein Mitglied darf höchstens 3 offene Anfragen an andere Mitglieder haben und 6 pro Stunde stellen.",
   memberRequestAutonomousLimit:
     "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
   memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,
