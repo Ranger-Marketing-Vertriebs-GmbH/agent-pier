@@ -73,6 +73,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "smol-toml": "^1.9.0",
+    "ssh2": "1.17.0",
     "toml-eslint-parser": "^1.0.3",
     "web-push": "^3.6.7",
     "ws": "^8.22.0",
@@ -108,8 +109,10 @@
     "url": "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/issues"
   },
   "allowScripts": {
+    "cpu-features@0.0.10": false,
     "koffi@3.3.2": false,
-    "node-pty@1.1.0": true
+    "node-pty@1.1.0": true,
+    "ssh2@1.17.0": false
   },
   "overrides": {
     "typed-rest-client": {

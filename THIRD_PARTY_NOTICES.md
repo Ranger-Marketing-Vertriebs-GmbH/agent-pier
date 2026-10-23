@@ -43,6 +43,17 @@ allowed for native compilation on platforms without a shipped prebuild. Older np
 versions may not enforce allowScripts; release validation always requires the
 platform binary inside the staged archive.
 
+SFTP access uses `ssh2` 1.17.0 (MIT, Copyright Brian White) with its dependencies
+`asn1` 0.2.6 (MIT, Copyright (c) 2011 Mark Cavage), `bcrypt-pbkdf` 1.0.2
+(BSD-3-Clause, Copyright 1997 Niels Provos, 2013 Ted Unangst and 2016 Joyent, Inc.),
+`tweetnacl` 0.14.5 (Unlicense, public domain) and `safer-buffer` 2.1.2 (MIT, Copyright
+(c) 2018 Nikita Skovoroda). Its optional `cpu-features` 0.0.10 and `buildcheck` 0.0.7
+(MIT, Copyright Brian White) and `nan` 2.30.0 (MIT, Copyright (c) 2018 NAN
+contributors) packages may be installed with it. Their licenses are preserved in
+`node_modules`. AgentPier uses the pure JavaScript cryptography of `ssh2`: the install
+scripts of `ssh2` 1.17.0 and `cpu-features` 0.0.10 are disabled in the project
+allowScripts policy, so no native addon is built.
+
 ## Fonts
 
 The web interface bundles the DM Sans and Manrope fonts through
