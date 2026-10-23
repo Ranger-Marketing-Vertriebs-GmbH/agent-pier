@@ -29,6 +29,7 @@ test("an SFTP transfer keeps its facts and drops unknown keys", () => {
     durationMs: 1500,
     remotePath: "/www",
     localPath: "site",
+    reported: "session",
     password: "pw-secret",
     content: "FILE-CONTENT",
     privateKey: "-----BEGIN",
@@ -45,6 +46,7 @@ test("an SFTP transfer keeps its facts and drops unknown keys", () => {
     durationMs: 1500,
     remotePath: "/www",
     localPath: "site",
+    reported: "session",
   });
 });
 

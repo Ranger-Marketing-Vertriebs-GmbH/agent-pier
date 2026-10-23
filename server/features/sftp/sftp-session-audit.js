@@ -11,6 +11,7 @@ export const sftpRecordFields = [
   "files",
   "bytes",
   "deleted",
+  "dirs",
   "durationMs",
   "remotePath",
   "localPath",
@@ -20,8 +21,7 @@ const operations = ["download", "upload", "sync", "mkdir", "rename", "delete"];
 const states = ["completed", "failed", "cancelled", "revoked"];
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 
-function grantedSftp(management, accessId, effective) {
-  if (!effective.includes(accessId)) return false;
+function sftpHost(management, accessId) {
   try {
     return management.store.get(accessId).type === "sftp";
   } catch {
@@ -30,8 +30,13 @@ function grantedSftp(management, accessId, effective) {
 }
 
 /**
- * Appends `sftp.completed` or `sftp.failed` for a host in the session's effective
- * grants; a record for any other host is appended as `sftp.denied` and refused.
+ * Appends `sftp.completed` or `sftp.failed` for an SFTP host in the session's
+ * effective grants. A job stopped because its grant was revoked is no longer granted
+ * when it reports, so `state: "revoked"` is accepted for any existing SFTP host. A
+ * record for an existing host the session was never granted is appended as
+ * `sftp.denied` and refused; an unknown id is refused without a row. Every row is
+ * marked `reported: "session"`: the session MCP process states its counts and
+ * paths, the application only checks the session and the grant.
  */
 export async function recordSessionSftp(management, context, input) {
   const { accessId, operation, state } = input;
@@ -42,6 +47,9 @@ export async function recordSessionSftp(management, context, input) {
     !states.includes(state)
   )
     throw sshProblem("SSH_INVALID_ARGUMENT", "Invalid SFTP record.");
+  const refused = () =>
+    sshProblem("SSH_WRONG_PROJECT", "SFTP host is not assigned.", 403);
+  if (!sftpHost(management, accessId)) throw refused();
   const row = {
     resourceType: "ssh",
     resourceId: accessId,
@@ -49,23 +57,23 @@ export async function recordSessionSftp(management, context, input) {
     sessionId: context.session.id,
     projectId: context.project.projectId,
   };
+  const details = { ...input, reported: "session" };
   const effective = await management.grants.effective(context.session);
-  if (!grantedSftp(management, accessId, effective)) {
+  if (!effective.includes(accessId) && state !== "revoked") {
     management.audit?.append({
       ...row,
       action: "sftp.denied",
       outcome: "failure",
-      // A job revoked mid-run still reports what it did before it stopped.
-      details: { ...input, code: input.code ?? "SSH_WRONG_PROJECT" },
+      details: { ...details, code: "SSH_WRONG_PROJECT" },
     });
-    throw sshProblem("SSH_WRONG_PROJECT", "SFTP host is not assigned.", 403);
+    throw refused();
   }
   const completed = state === "completed";
   management.audit?.append({
     ...row,
     action: completed ? "sftp.completed" : "sftp.failed",
     outcome: completed ? "success" : "failure",
-    details: { ...input },
+    details: completed ? details : { ...details, code: input.code ?? "SFTP_FAILED" },
   });
   return { recorded: true };
 }
