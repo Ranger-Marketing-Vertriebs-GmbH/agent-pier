@@ -11,6 +11,16 @@ const label = (value, fallback) =>
     ? value
     : fallback;
 
+// OpenRouter quotes USD per token as strings; "-1" marks dynamic pricing.
+function perMillion(value) {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const perToken = Number(value);
+  if (!Number.isFinite(perToken) || perToken < 0) return null;
+  const scaled = Math.round(perToken * 1e12) / 1e6;
+  return Number.isFinite(scaled) ? scaled : null;
+}
+
 function unique(models) {
   return [...new Map(models.map((model) => [model.modelId, model])).values()].sort(
     (a, b) => a.modelId.localeCompare(b.modelId),
@@ -36,6 +46,10 @@ export function normalizeOpenRouter(payload, fetchedAt) {
         contextTokens: tokenLimit(model.context_length),
         routingContextTokens: tokenLimit(model.top_provider?.context_length),
         outputTokens: tokenLimit(model.top_provider?.max_completion_tokens),
+        pricing: {
+          inputPerMTok: perMillion(model.pricing?.prompt),
+          outputPerMTok: perMillion(model.pricing?.completion),
+        },
         tools: ["codex", "claude", "opencode"],
         source: "https://openrouter.ai/api/v1/models",
         fetchedAt: timestamp(fetchedAt),

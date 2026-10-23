@@ -118,3 +118,34 @@ test("Z.ai Codex exposes only verified Responses models and separate Coding Plan
   model.contextTokens = 1;
   assert.equal(catalog.get("openrouter", "z-ai/glm-5.3").contextTokens, 1310720);
 });
+
+test("OpenRouter rows carry per-million prices and null for unusable values", () => {
+  const price = (pricing) =>
+    normalizeOpenRouter({ data: [row({ pricing })] }, "2026-09-06T00:00:00.000Z")[0]
+      .pricing;
+  assert.deepEqual(price({ prompt: "0.000003", completion: "0.000015" }), {
+    inputPerMTok: 3,
+    outputPerMTok: 15,
+  });
+  const none = { inputPerMTok: null, outputPerMTok: null };
+  assert.deepEqual(price(undefined), none);
+  assert.deepEqual(price({ prompt: "-1", completion: "abc" }), none);
+  assert.deepEqual(price({ prompt: "-0.5", completion: "" }), none);
+  assert.deepEqual(price({ prompt: "0.000001", completion: "-1" }), {
+    inputPerMTok: 1,
+    outputPerMTok: null,
+  });
+});
+
+test("catalog prices are null or finite non-negative numbers", () => {
+  fc.assert(
+    fc.property(fc.anything(), fc.anything(), (prompt, completion) => {
+      const [model] = normalizeOpenRouter({
+        data: [row({ pricing: { prompt, completion } })],
+      });
+      for (const value of [model.pricing.inputPerMTok, model.pricing.outputPerMTok])
+        assert.ok(value === null || (Number.isFinite(value) && value >= 0));
+    }),
+    { seed: 90307, numRuns: 200 },
+  );
+});
