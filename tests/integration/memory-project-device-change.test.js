@@ -82,13 +82,17 @@ test("a plain folder keeps its project across a renumbered volume", async (t) =>
   assert.equal(rows(memory).length, 1);
 });
 
-test("an exact identity wins over an older row of the same folder", async (t) => {
+test("the newest row of a folder stays current when an earlier device number returns", async (t) => {
   const { root, memory } = fixture(t);
   const cwd = path.join(root, "electronic-lab");
   execFileSync("git", ["init", "-q", cwd]);
-  await registeredBeforeRestart(memory, cwd);
-  const own = insert(memory, cwd, oldIdentity(cwd), "2026-10-22T11:49:35Z");
-  assert.equal((await memory.register(cwd)).id, own);
+  // Registered under today's device number first, then again after a renumbering;
+  // this boot got the first device number back, so the older row matches exactly.
+  const exact = insert(memory, cwd, oldIdentity(cwd), "2026-10-03T15:47:21Z");
+  const newest = insert(memory, cwd, oldIdentity(cwd, 2n), "2026-10-23T09:40:54Z");
+  assert.equal((await projectScope(cwd)).id, newest);
+  assert.equal((await memory.register(cwd)).id, newest);
+  assert.notEqual(exact, newest);
   assert.equal(rows(memory).length, 2);
 });
 

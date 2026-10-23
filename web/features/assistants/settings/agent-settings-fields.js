@@ -374,3 +374,13 @@ export const createInput = (values) => ({
   capabilities: pick(values, capabilityKeys),
   ...(values.shell !== "off" ? { shell: values.shell } : {}),
 });
+
+/**
+ * The projects the saved access holds (granted or with folder access). The Work tab
+ * keeps an older row of a folder listed while they name it, also after unticking it
+ * in the draft, so the owner can tick it again or save its removal.
+ */
+export const savedProjectIds = (policy) => [
+  ...(policy?.projectIds || []),
+  ...Object.keys(policy?.projectFiles || {}),
+];

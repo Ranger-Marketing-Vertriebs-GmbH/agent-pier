@@ -28,6 +28,7 @@ import {
   invalidTeamKeys,
   permissionKeys,
   removedProjectCount,
+  savedProjectIds,
   sshSummary,
   teamLimits,
   teamUsageLevels,
@@ -144,13 +145,8 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
     },
   });
   const label = settingsCopy.tabs.work;
-  // One row per folder; an older row the agent still holds stays listed to revoke.
-  const projects =
-    catalog &&
-    listedProjects(catalog.projects, [
-      ...draft.values.projectIds,
-      ...Object.keys(draft.values.projectFiles),
-    ]);
+  // One row per folder; an older row the saved access holds stays listed to revoke.
+  const projects = catalog && listedProjects(catalog.projects, savedProjectIds(policy));
   const sshHostIds = catalog?.sshHosts ? catalog.sshHosts.map((h) => h.id) : null;
   const steps = [workStep({ assistantId: assistant.id, label, withTeam, sshHostIds })];
   // A granted project that no longer exists (an older row merged away) is dropped by

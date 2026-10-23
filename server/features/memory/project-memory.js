@@ -67,18 +67,18 @@ export class ProjectMemory {
     this.leaveRegistry = useProjectRegistry((folder) => this.registeredId(folder));
   }
   /**
-   * The registered project of a folder identity: the row with exactly this ID, else
-   * the most recently registered row of the same folder (same kind, path and inode)
-   * whose device number differs, so a restart never registers the folder again.
+   * The registered project of a folder identity: the most recently registered row of
+   * the same folder (same kind, path and inode), whatever device number it was
+   * registered under. A restart never registers the folder again, and a boot that
+   * gets an earlier device number back does not make an older row current again.
    */
-  registeredId({ id, kind, path, ino }) {
+  registeredId({ kind, path, ino }) {
     if (this.closed) return null;
     const rows = this.db
       .prepare(
         "SELECT id,identity FROM projects WHERE kind=? ORDER BY created_at DESC,id DESC",
       )
       .all(kind);
-    if (rows.some((row) => row.id === id)) return id;
     const wanted = JSON.stringify([kind, path, ino]);
     return rows.find((row) => stableIdentity(row.identity) === wanted)?.id ?? null;
   }
@@ -507,9 +507,16 @@ export class ProjectMemory {
   }
   /** Points a row at its project root folder; its identity stays the same. */
   relocate(projectId, scope) {
+    // The stored identity may name an earlier device number of the same folder.
+    const row = this.db
+      .prepare("SELECT identity FROM projects WHERE id=? AND kind=?")
+      .get(projectId, scope.kind);
+    if (!row || stableIdentity(row.identity) !== stableIdentity(scope.identity))
+      return false;
     this.db
-      .prepare("UPDATE projects SET name=?,cwd=? WHERE id=? AND kind=? AND identity=?")
-      .run(scope.name, scope.cwd, projectId, scope.kind, scope.identity);
+      .prepare("UPDATE projects SET name=?,cwd=? WHERE id=?")
+      .run(scope.name, scope.cwd, projectId);
+    return true;
   }
   /** Removes a project row that holds no entries and no session capability. */
   removeEmpty(projectId) {

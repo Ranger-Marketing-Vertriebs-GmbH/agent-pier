@@ -87,7 +87,9 @@ async function unfinishedMoves({ memory, projectRebind }) {
     .prepare("SELECT from_id,to_id FROM project_rebinds")
     .all()) {
     if (!memory.hasProject(toId) || !projectRebind.remnants(fromId)) continue;
-    const found = await gitInitRebind(memory.project(toId).cwd);
+    const found = projectRebind.recorded(await gitInitRebind(memory.project(toId).cwd), [
+      fromId,
+    ]);
     if (found?.fromId === fromId && found.scope.id === toId) moves.push(found);
   }
   return moves;
@@ -169,10 +171,8 @@ export async function cleanUpProjects(services) {
     } catch {
       complete = false;
     }
-  for (const { id, scope } of relocations) {
-    memory.relocate(id, scope);
-    summary.relocated++;
-  }
+  for (const { id, scope } of relocations)
+    if (memory.relocate(id, scope)) summary.relocated++;
   for (const row of removals)
     if (memory.removeEmpty(row.id)) {
       summary.removed++;

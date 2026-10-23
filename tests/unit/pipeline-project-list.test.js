@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { describeDuplicates } from "../../server/features/memory/project-duplicates.js";
 import { listedProjects, listedProjectsPath } from "../../web/lib/project-list.js";
+import { savedProjectIds } from "../../web/features/assistants/settings/agent-settings-fields.js";
 
 const row = (id, cwd, kind, createdAt) => ({
   id,
@@ -59,4 +60,21 @@ test("an older row with pipeline work its current row lacks stays listed", () =>
     listedProjects(described).map((project) => project.id),
     ["lab-dir", "lab-git", "pier", "ops-git"],
   );
+});
+
+test("the Work tab keeps an older row the saved access holds, even when unticked", () => {
+  const projects = [
+    { id: "current", name: "lab", path: "/p/lab" },
+    { id: "older", name: "lab", path: "/p/lab", duplicateOf: "current" },
+    { id: "oldest", name: "lab", path: "/p/lab", duplicateOf: "current" },
+  ];
+  const saved = { projectIds: ["older"], projectFiles: {} };
+  // The draft no longer names "older" after unticking it; the saved access still does.
+  const listed = listedProjects(projects, savedProjectIds(saved)).map((row) => row.id);
+  assert.deepEqual(listed, ["current", "older"]);
+  assert.deepEqual(
+    savedProjectIds({ projectIds: [], projectFiles: { oldest: "read" } }),
+    ["oldest"],
+  );
+  assert.deepEqual(savedProjectIds(null), []);
 });
