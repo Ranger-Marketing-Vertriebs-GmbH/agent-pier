@@ -88,6 +88,7 @@ export const assistantSshCopy = {
     seconds: (seconds) => `${seconds} s`,
     result: "Result",
     preview: "Only the start of this command was recorded.",
+    redacted: "Secrets hidden",
     cut: "Only the first 8 KB of this command are shown.",
   },
   history: {

@@ -2014,6 +2014,22 @@ with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
 that keeps the original turn's origin class. Agents with SSH grants never own a bot
 for other people.
 
+What an SSH action row keeps (`assistant_actions`, read by the chat note and
+**Actions and coding tasks**): an approval keeps the exact command (at most 16 KiB)
+while it waits and runs, because the owner decides on that text and it runs as such;
+once it settles (completed, failed, declined, expired, cancelled or unknown),
+`redactedCommand` replaces recognisable secrets with `•••` and sets
+`commandRedacted`. A trusted run is stored redacted at once, at most 8 KiB
+(`noteCommand`, `commandCut` when cut), and only the newest 500 trusted rows per agent
+are kept (`trustedSshRows`). `server/lib/secret-redaction.js` recognises password,
+token, key and secret flags (`--password=…`, `--token …`, `--client-secret …`),
+`mysql -p…` and `sshpass -p …`, `Authorization`, `X-Api-Key` and `X-Auth-Token`
+headers, `scheme://user:password@` URLs, `NAME=value` where the name ends in
+PASSWORD, PASSWD, SECRET, TOKEN, API_KEY, APIKEY, ACCESS_KEY or PRIVATE_KEY, JWTs and
+well-known key prefixes (`sk-`, `ghp_`, `github_pat_`, `xoxb-`, `AKIA…`). This is best
+effort: a secret in another form stays. The duplicate-call check and the audit use
+the SHA-256 of the original command, never its text.
+
 ## Lead promotions of team members (2026-10-17)
 
 `agentpier_team_promote` (lead-only, `member-promotion.js`) keeps one of the lead's

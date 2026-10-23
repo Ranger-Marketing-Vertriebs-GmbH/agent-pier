@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { conversationHistory } from "../../server/features/assistants/conversations.js";
 import { agentSshFixture, hostId, waitFor } from "../helpers/agent-ssh-fixture.js";
+import { commandDigest } from "../../server/features/assistants/agent-ssh-text.js";
 
 const telegram = (f) => ({
   kind: "telegram",
@@ -153,4 +154,68 @@ test("Telegram cannot approve a command it could not show in full", async (t) =>
     );
     assert.equal(f.workflows.get(actionId).state, "declined");
   }
+});
+
+// Built at run time so no committed line looks like a credential to the secret scanner.
+const AUTH = ["Author", "ization"].join("");
+const secretCommand = `process.exit(0) // curl -H "${AUTH}: Bearer ${["s3cr3t", "T0KEN"].join("-")}"`;
+const redactedText = `process.exit(0) // curl -H "${AUTH}: Bearer •••"`;
+
+test("a trusted run stores and shows its command with secrets redacted", async (t) => {
+  const f = await agentSshFixture(t);
+  f.grant([{ accessId: hostId, mode: "trusted" }]);
+  await f.execute(f.ownTurn(), secretCommand);
+  const [row] = f.workflows.store.list(f.id).filter((a) => a.payload.action === "ssh");
+  assert.equal(row.payload.command, redactedText);
+  assert.equal(row.payload.commandRedacted, true);
+  assert.equal(JSON.stringify(row).includes("s3cr3t-T0KEN"), false);
+  // The digest is still the original's, so the audit correlates as before.
+  assert.equal(row.payload.commandSha256, commandDigest(secretCommand));
+  const [note] = await notes(f);
+  assert.deepEqual(
+    [note.command, note.commandRedacted, note.commandPreview.includes("s3cr3t")],
+    [redactedText, true, false],
+  );
+});
+
+test("an approved run runs the exact command and then keeps it redacted", async (t) => {
+  const f = await agentSshFixture(t);
+  f.workflows.ssh.approvals.pollMs = 20;
+  f.grant([{ accessId: hostId, mode: "approval" }]);
+  const run = f.execute(f.ownTurn(), secretCommand);
+  const a = await waitFor(() =>
+    f.workflows.store.list(f.id).find((x) => x.state === "awaiting_approval"),
+  );
+  // The owner decides on the exact text.
+  assert.equal(a.payload.command, secretCommand);
+  await f.workflows.decide(
+    a.id,
+    { decision: "approve", revision: a.revision },
+    { kind: "owner" },
+  );
+  const result = await run;
+  assert.equal(result.exitCode, 0);
+  const row = f.workflows.get(a.id);
+  assert.equal(row.payload.command, redactedText);
+  assert.equal(row.payload.commandRedacted, true);
+  assert.equal(JSON.stringify(row).includes("s3cr3t-T0KEN"), false);
+  const [note] = await notes(f);
+  assert.deepEqual([note.command, note.commandRedacted], [redactedText, true]);
+});
+
+test("a declined command is kept redacted as well", async (t) => {
+  const f = await agentSshFixture(t);
+  f.workflows.ssh.approvals.pollMs = 20;
+  f.grant([{ accessId: hostId, mode: "approval" }]);
+  const run = f.execute(f.ownTurn(), secretCommand);
+  const a = await waitFor(() =>
+    f.workflows.store.list(f.id).find((x) => x.state === "awaiting_approval"),
+  );
+  await f.workflows.decide(
+    a.id,
+    { decision: "decline", revision: a.revision },
+    { kind: "owner" },
+  );
+  await run;
+  assert.equal(f.workflows.get(a.id).payload.command, redactedText);
 });

@@ -41,7 +41,8 @@ function ExecCard({ action: a, act }) {
 }
 
 // An SSH command: waiting or running, it is the chat's card; otherwise one line with
-// the host, the outcome and the command (trusted rows keep only its first line).
+// the host, the outcome and the command (up to 8 KiB for trusted rows, only the first
+// line for older ones) with recognisable secrets redacted.
 function SshCard({ action: a, act, assistantId }) {
   if (["awaiting_approval", "executing"].includes(a.state))
     return (
@@ -57,7 +58,12 @@ function SshCard({ action: a, act, assistantId }) {
       {a.payload.trusted && (
         <p className="assistant-note">{assistantSshCopy.history.trusted}</p>
       )}
-      <pre className="exec-approval-command ssh-approval-command">
+      {a.payload.commandRedacted && (
+        <p className="assistant-note" data-command-redacted>
+          {assistantSshCopy.note.redacted}
+        </p>
+      )}
+      <pre className="exec-approval-command ssh-approval-command ssh-history-command">
         <code>
           <SshCommandText command={a.payload.command ?? a.payload.commandPreview ?? ""} />
         </code>

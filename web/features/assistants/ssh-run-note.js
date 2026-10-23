@@ -36,6 +36,7 @@ export function sshRunView(note) {
     command,
     copyText: visibleCommand(command),
     partial: note.command == null ? "preview" : note.commandCut ? "cut" : null,
+    redacted: note.commandRedacted === true,
     tone: tones[outcome],
     status: typeof status === "function" ? status(note.exitCode ?? "?") : status,
     exitCode: note.exitCode ?? (outcome === "done" ? 0 : null),

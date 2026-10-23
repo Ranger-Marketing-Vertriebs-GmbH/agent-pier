@@ -3,6 +3,7 @@ import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
+import { redactSecrets } from "../../lib/secret-redaction.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
@@ -208,17 +209,23 @@ const sshOutcome = (r = {}, diagnostic) =>
 function sshNotes(a) {
   if (!a.chatNotes.result) return [];
   const r = a.result || {},
-    outcome = sshOutcome(r, a.diagnostic);
+    outcome = sshOutcome(r, a.diagnostic),
+    // Rows settled before redaction existed are redacted for the note as well.
+    command = redactSecrets(a.payload.command);
   return [
     {
       id: `ssh-run:${a.id}`,
       role: "event",
       event: "ssh-run",
       hostName: a.payload.hostName,
-      commandPreview: a.payload.commandPreview ?? commandPreview(a.payload.command || ""),
+      commandPreview:
+        redactSecrets(a.payload.commandPreview) ?? commandPreview(command || ""),
       // Trusted rows recorded before notes carried commands keep only the preview.
-      ...noteCommand(a.payload.command),
+      ...noteCommand(command),
       ...(a.payload.commandCut ? { commandCut: true } : {}),
+      ...(a.payload.commandRedacted || command !== a.payload.command
+        ? { commandRedacted: true }
+        : {}),
       outcome,
       ...(outcome === "exit"
         ? { exitCode: r.exitCode ?? r.signal ?? null }

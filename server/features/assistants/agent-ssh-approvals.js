@@ -2,6 +2,7 @@ import { actionTerminal } from "./assistant-action-store.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { pairedTelegram } from "./team-coding.js";
+import { commandDigest, redactedCommand } from "./agent-ssh-text.js";
 
 // An agent SSH command on an `approval` host waits for the owner's Allow once or Deny
 // (web card or Telegram). The bridge call holds for 110 s; a later decision runs the
@@ -69,6 +70,7 @@ export class SshApprovals {
           projectId: host.projectId ?? null,
           projectName: host.projectName ?? null,
           command: input.command,
+          commandSha256: commandDigest(input.command),
           timeoutSeconds: input.timeoutSeconds,
           connectionRevision: host.revision,
           originClass: cls,
@@ -84,7 +86,9 @@ export class SshApprovals {
     } else if (
       action.payload.action !== "ssh" ||
       action.payload.accessId !== input.accessId ||
-      action.payload.command !== input.command ||
+      // By digest: a settled card's command may be redacted (redactedCommand).
+      (action.payload.commandSha256 ?? commandDigest(action.payload.command)) !==
+        commandDigest(input.command) ||
       action.payload.timeoutSeconds !== input.timeoutSeconds
     )
       // A retry of the same tool call finds its card; a different call never does.
@@ -151,10 +155,21 @@ export class SshApprovals {
     if (!host) return "HOST_REMOVED";
     return host.revision === a.payload.connectionRevision ? null : "ACCESS_CHANGED";
   }
+  // The owner decides on the exact command and it runs as such; once it can no longer
+  // run, the row keeps it with recognisable secrets redacted.
   finish(id, values) {
-    const next = this.w.store.patch(id, values);
+    const done = values.state && values.state !== "executing";
+    const next = this.w.store.patch(id, {
+      ...values,
+      ...(done ? this.redacted(id) : {}),
+    });
     this.w.a.changed({ feeds: false });
     return next;
+  }
+  redacted(id) {
+    const payload = this.w.store.get(id).payload;
+    const fields = redactedCommand(payload);
+    return fields.command ? { payload: { ...payload, ...fields } } : {};
   }
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */
   decide(action, decision) {
@@ -239,7 +254,7 @@ export class SshApprovals {
       !(await this.followUp(a))
     )
       return;
-    this.w.store.patch(a.id, { settled: true });
+    this.w.store.patch(a.id, { settled: true, ...this.redacted(a.id) });
   }
   async followUp(a) {
     if (a.followUpRetryAt > this.ssh.now()) return false;
@@ -286,7 +301,11 @@ export class SshApprovals {
         a.payload.accessId === accessId &&
         a.state === "awaiting_approval"
       ) {
-        this.w.store.patch(a.id, { state: "cancelled", diagnostic: "HOST_REMOVED" });
+        this.w.store.patch(a.id, {
+          state: "cancelled",
+          diagnostic: "HOST_REMOVED",
+          ...this.redacted(a.id),
+        });
         count++;
       }
     return count;

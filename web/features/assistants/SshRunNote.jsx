@@ -30,6 +30,11 @@ export default function SshRunNote({ note }) {
           <SshCommandText command={view.command} />
         </code>
       </CodeBlock>
+      {view.redacted && (
+        <p className="activity-row-note" data-command-redacted>
+          {t.redacted}
+        </p>
+      )}
       {view.partial && <p className="activity-row-note">{t[view.partial]}</p>}
       <dl className="activity-row-facts">
         {view.exitCode != null && (
