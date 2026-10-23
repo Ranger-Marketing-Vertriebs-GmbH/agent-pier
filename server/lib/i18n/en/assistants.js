@@ -233,6 +233,7 @@ export const assistants = {
     "A request between these members is already open, or the member already works on a task.",
   peerRequestLimit:
     "A member may have at most 3 open requests to other members and send 6 per hour.",
+  memberReportLimit: "A member may send its lead agent at most 6 reports per hour.",
   memberRequestAutonomousLimit:
     "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",

@@ -250,6 +250,8 @@ export const assistants = {
     "Zwischen diesen Mitgliedern ist schon eine Anfrage offen, oder das Mitglied arbeitet schon an einer Aufgabe.",
   peerRequestLimit:
     "Ein Mitglied darf höchstens 3 offene Anfragen an andere Mitglieder haben und 6 pro Stunde stellen.",
+  memberReportLimit:
+    "Ein Mitglied darf seinem leitenden Agenten höchstens 6 Berichte pro Stunde senden.",
   memberRequestAutonomousLimit:
     "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
   memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,

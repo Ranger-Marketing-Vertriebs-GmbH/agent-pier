@@ -189,6 +189,7 @@
   "assistants.memberGrants.states.failed": "de:bb8439a4f5a8 en:3b8c00284cd8",
   "assistants.memberGrants.warning": "de:469db5617d23 en:dc0f9a013e4a",
   "assistants.memberReminderLimit": "de:90f54a8cff95 en:a9ba3d448d67",
+  "assistants.memberReportLimit": "de:68469eec6b61 en:e9edcd5166f2",
   "assistants.memberRequestAutonomousLimit": "de:c49bd1947fdf en:599c12ed1c9f",
   "assistants.memberRequestNoReply": "de:f67632a44538 en:941c69406d5f",
   "assistants.memberRequestNotFinished": "de:3889755d71b3 en:55ce78d59927",

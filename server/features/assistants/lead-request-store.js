@@ -491,7 +491,19 @@ export function publicRequest(r, { full = false } = {}) {
       ? { routine: textOr(r.origin.name) }
       : {}),
     // A report of the lead's routine of this name on the member.
-    ...(r.type === "report" ? { memberRoutine: textOr(r.origin?.name) } : {}),
+    ...(r.origin?.kind === "member-routine"
+      ? { memberRoutine: textOr(r.origin.name) }
+      : {}),
+    // A member's own report: a result or a problem, maybe from its routine.
+    ...(r.origin?.kind === "member-report"
+      ? {
+          reportKind: r.origin.reportKind,
+          files: Array.isArray(r.files) ? r.files : [],
+          ...(typeof r.origin.routine === "string"
+            ? { memberRoutine: r.origin.routine }
+            : {}),
+        }
+      : {}),
     ...(r.startedAt ? { startedAt: r.startedAt } : {}),
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),
