@@ -73,3 +73,11 @@ export function memberLevel(agent, userId) {
     agent?.userAccess?.members?.find((member) => member.userId === userId)?.level ?? null
   );
 }
+
+/**
+ * Whether the user may pair her own Telegram chat on the agent (me-telegram.js): only
+ * on her own agent, at "extended". A shared agent's one bot is the owner's.
+ */
+export function canPairTelegram(agent, userId) {
+  return !isShared(agent) && memberLevel(agent, userId) === "extended";
+}

@@ -501,8 +501,9 @@ for all check-ins. You can also ask the agent in any of your chats, in AgentPier
 well as in Telegram, to send a reminder or routine to Telegram too or to stop that
 ("send it to Telegram as well"); it switches that reminder or routine to your own
 paired chat, never to anyone else's, and asks you to pair Telegram first when you have
-no paired chat. On a shared agent this applies to your own reminders and routines and
-your own paired chat. Unpairing Telegram only stops that extra delivery; everything keeps
+no paired chat. Users can pair Telegram only on their own agent with **Extended**
+access; on a shared agent or at a lower level the agent tells them Telegram delivery is
+not available, and results still reach their chat. Unpairing Telegram only stops that extra delivery; everything keeps
 running in the chat. Reminders and routines created before this kept their Telegram
 delivery. An agent whose check-ins were switched on but which had no paired Telegram
 chat (so it never checked in) starts checking in after the update, in its chat with a

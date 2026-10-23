@@ -43,6 +43,8 @@ export function assistantRoutineRoutes(services) {
   router.use((error, _req, _res, next) => {
     if (error.message === serverMessages.assistants.reminderChannelRequired)
       return next(assistantProblem("reminderChannelRequired", 409));
+    if (error.message === serverMessages.assistants.reminderTelegramUnavailable)
+      return next(assistantProblem("reminderTelegramUnavailable", 409));
     if (error.message === serverMessages.assistants.reminderTimezoneRequired)
       return next(assistantProblem("reminderTimezoneRequired"));
     if (error.code === "REVIEW_REQUIRED") return next(error);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isShared } from "../../features/users/user-access.js";
+import { canPairTelegram } from "../../features/users/user-access.js";
 import { userProblem } from "../../features/users/user-errors.js";
 import { mainConversation } from "../../features/assistants/routine-targets.js";
 
@@ -40,8 +40,7 @@ export function meTelegramRoutes({ assistants, assistantChannels: channels, user
   const router = Router();
   const mine = (req) => {
     const agent = userScope.agentOf(req.principal, req.params.id);
-    if (isShared(agent) || userScope.level(agent.id, req.principal.userId) !== "extended")
-      throw userProblem("USER_LEVEL");
+    if (!canPairTelegram(agent, req.principal.userId)) throw userProblem("USER_LEVEL");
     return agent;
   };
   const channelOf = (agent, userId) =>

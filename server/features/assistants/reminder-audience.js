@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { isUserAgent, memberLevel } from "../users/user-access.js";
+import { canPairTelegram, isUserAgent, memberLevel } from "../users/user-access.js";
 
 /**
  * Whom reminders, routines and check-ins belong to. On a shared agent each person's
@@ -61,3 +61,15 @@ export const agentName = (assistants, id) => {
     return undefined;
   }
 };
+
+/**
+ * Why a person has no Telegram destination on the agent: pair one first, or, for a
+ * user who cannot pair one there (me-telegram.js), that it is not available to her.
+ */
+export const noTelegram = (agent, userId) =>
+  assistantProblem(
+    userId === null || canPairTelegram(agent, userId)
+      ? "reminderChannelRequired"
+      : "reminderTelegramUnavailable",
+    409,
+  );

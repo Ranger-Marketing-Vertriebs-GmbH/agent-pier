@@ -1360,7 +1360,10 @@ whose binding it is (`turnAudience`: an owner, Telegram or user turn that was no
 forwarded), from any of her chats; scheduled, forwarded and member turns are refused.
 `true` binds that person's paired, enabled chat (`pairedChannel`, or the Telegram turn's
 own chat), never one the agent names; without one the tool fails with
-`TELEGRAM_NOT_CONNECTED` (`reminderChannelRequired`). `false` switches it off; without
+`TELEGRAM_NOT_CONNECTED` (`reminderChannelRequired`), or, for a user who cannot pair
+one there (a shared agent, or below Extended on her own; `canPairTelegram`),
+`TELEGRAM_UNAVAILABLE` (`reminderTelegramUnavailable`). A replayed create finds its
+binding by creation key before resolving the chat. `false` switches it off; without
 the parameter creation keeps the default above and an update keeps the setting. A task
 member's reminder never takes `telegram`; it follows its lead's paired chat. The Telegram
 outbox is used only while it is on and that chat is still paired and enabled;

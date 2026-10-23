@@ -230,7 +230,8 @@ create a routine with a name, saved prompt and one of these triggers:
 
 Asked in any of your chats, the agent can also switch **Also send to Telegram** for
 its reminders and routines; it uses your own paired Telegram chat and asks you to
-pair one first when there is none.
+pair one first when there is none (users can pair only on their own agent with
+**Extended** access).
 
 A reminder repeats prescribed text and runs without tools. A routine asks the
 configured model to answer its saved prompt each time, with the agent's own chat

@@ -220,6 +220,7 @@
   "assistants.reminderChannelRequired": "de:ed5283918794 en:6a3fa6aa0acc",
   "assistants.reminderFailed": "de:a45221639445 en:60b55c7762fd",
   "assistants.reminderReviewRequired": "de:cb7716fd8836 en:49f64de897a8",
+  "assistants.reminderTelegramUnavailable": "de:0bc954db24f7 en:b649811d41e0",
   "assistants.reminderTimezoneRequired": "de:1b5ded782c53 en:2ce635e5785b",
   "assistants.restartRequired": "de:234ba11994e8 en:64d6acd1bf3d",
   "assistants.routineReviewRequired": "de:97f2e525c436 en:1dc6ea78700b",
