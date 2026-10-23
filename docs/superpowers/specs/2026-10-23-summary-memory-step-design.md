@@ -59,7 +59,7 @@ long-chat hint there goes unseen.
   with a context kind such as `member-long-chat`), naming the member and the chat
   size, and explaining the two choices. It is told again only after the chat grew by
   half or 50,000 tokens (same growth rule as hidden hints), or after a summary.
-- The owner's own chats with a permanent member are not covered: the owner sees the
+- Further chats the owner opened with a member are not covered: the owner sees the
   hint there.
 - New lead tool `agentpier_team_member_summarise` with `{ memberId, when: "now" |
   "after_task" }`, for the lead's own non-archived members (`editableMember`):
@@ -75,10 +75,14 @@ long-chat hint there goes unseen.
 ## Calls made during the design (builder check)
 
 - **Which member chat:** every team member record has one task chat
-  (`member.conversationId`, created in `TeamProvisioning.adopt`); lead questions and
-  tasks to permanent members go there too. The hint and the tool act on that chat
-  only, for temporary and permanent members. The owner's own chats with a permanent
-  member are separate conversations and are never touched.
+  (`member.conversationId`, created in `TeamProvisioning.adopt`). It is an ordinary
+  owner chat (channel `agentpier`, no `userId`) and becomes the member's main chat, so
+  it is the very chat the owner opens and writes in; lead questions and tasks go there
+  too. The hint and the tool act on that chat, for temporary and permanent members.
+  The owner keeps seeing the normal hint there as well; whoever acts first starts the
+  summary, the other then sees it in the chat (the tool answers "already summarising"
+  or "nothing to summarise"). Further chats the owner opened with a member
+  ("new chat") are the owner's alone: no lead hint, never touched by the tool.
 - **What the memory step may do:** it is not a direct turn, so the existing gates for
   non-direct turns keep applying (shell/SSH approvals, workspace and project writes,
   coding, team and share tools refuse as for other automatic turns). The only new
@@ -104,7 +108,8 @@ long-chat hint there goes unseen.
 
 - No change to OpenClaw's automatic compaction or its flush.
 - No push or inbox notifications.
-- No lead hints for the owner's own chats with a member, nor for non-member agents.
+- No lead hints for further chats the owner opened with a member, nor for non-member
+  agents.
 - No owner setting to switch the memory step off.
 
 ## Anti-goals
