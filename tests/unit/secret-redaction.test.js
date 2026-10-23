@@ -7,6 +7,7 @@ const M = redactedMark;
 // Synthetic secrets are built at run time, so no committed line looks like a real
 // credential to the repository's secret scanner (.github/workflows/secrets.yml).
 const AUTH = ["Author", "ization"].join("");
+const pem = (edge, kind) => ["-----", edge, " ", kind, " PRIVATE", " KEY-----"].join("");
 const jwt = [
   ["eyJhbGci", "OiJIUzI1NiJ9"].join(""),
   ["eyJzdWIi", "OiIxMjM0NTY3ODkwIn0"].join(""),
@@ -57,6 +58,44 @@ const redacted = [
   [`echo ${["xoxb", "1234567890", "abcdefghij"].join("-")}`, `echo ${M}`],
   [`aws s3 ls # ${["AKIA", "IOSFODNN7EXAMPLE"].join("")}`, `aws s3 ls # ${M}`],
   ["echo 'pässwört' --password ünïcødé😀 x", `echo 'pässwört' --password ${M} x`],
+  ["curl -u bob:s3cret https://x.invalid", `curl -u bob:${M} https://x.invalid`],
+  ["curl --user=bob:s3cret x", `curl --user=bob:${M} x`],
+  ["curl -sS -ubob:s3cret x", `curl -sS -ubob:${M} x`],
+  [
+    `printf '%s' '${pem("BEGIN", "RSA")}\nMIIEow\nAAAB\n${pem("END", "RSA")}' > k`,
+    `printf '%s' '${pem("BEGIN", "RSA")}\n${M}\n${pem("END", "RSA")}' > k`,
+  ],
+  [
+    `cat <<EOF\n${pem("BEGIN", "OPENSSH")}\nb3BlbnNzaA`,
+    `cat <<EOF\n${pem("BEGIN", "OPENSSH")}\n${M}`,
+  ],
+  ["MYSQL_PWD=hunter2 mysql db", `MYSQL_PWD=${M} mysql db`],
+  [
+    `curl -d '{"password": "hunter2", "user": "bob"}' x`,
+    `curl -d '{"password": "${M}", "user": "bob"}' x`,
+  ],
+  [
+    `curl -d "{\\"${AUTH}\\":\\"Bearer abc\\"}" x`,
+    `curl -d "{\\"${AUTH}\\":\\"Bearer ${M}\\"}" x`,
+  ],
+  [`{"${AUTH}": "Bearer abc.def"}`, `{"${AUTH}": "Bearer ${M}"}`],
+  ["redis-cli -h r -a hunter2 ping", `redis-cli -h r -a ${M} ping`],
+  ["docker login -u bob -p hunter2 reg", `docker login -u bob -p ${M} reg`],
+  [
+    "openssl enc -aes256 -pass pass:hunter2 -in f",
+    `openssl enc -aes256 -pass pass:${M} -in f`,
+  ],
+  [
+    "openssl rsa -passin pass:x1 -passout pass:x2",
+    `openssl rsa -passin pass:${M} -passout pass:${M}`,
+  ],
+  ["smbclient //nas/share -U bob%hunter2", `smbclient //nas/share -U bob%${M}`],
+  ['mytool --password=a"b c" -v', `mytool --password=${M} -v`],
+  ['PASSWORD="a\\"b c" ./run', `PASSWORD="${M}" ./run`],
+  [
+    "git clone https://bob:p@ss@git.invalid/r",
+    `git clone https://bob:${M}@git.invalid/r`,
+  ],
 ];
 
 for (const [command, expected] of redacted)
@@ -80,6 +119,12 @@ const untouched = [
   "SECRETARY=bob ./run",
   "BYPASS=1 PASSWORD_FILE=/run/pw ./run",
   "pfctl -s rules; configctl filter reload",
+  "GITHUB_TOKEN=$(cat f) gh pr list",
+  'DB_PASSWORD=$PW ./run --password ${PW} --token "$TOKEN"',
+  "curl -u bob https://x.invalid && docker login --password-stdin",
+  "sort -u a:b; openssl enc -pass env:PW; smbclient -L nas -U bob",
+  "mysql -p db; redis-cli ping",
+  '{"user": "bob", "tokens": 3}',
 ];
 for (const command of untouched)
   test(`leaves alone: ${command}`, () => {
@@ -100,4 +145,29 @@ test("redaction is idempotent and keeps text around a secret intact", () => {
   );
   assert.equal(redactSecrets(""), "");
   assert.equal(redactSecrets(undefined), undefined);
+});
+
+test("every rule stays fast on adversarial 16 KB input", () => {
+  const inputs = [
+    "a".repeat(16384),
+    "a.".repeat(8192),
+    "PASSWORD".repeat(2048),
+    `eyJ${"a".repeat(16384)}`,
+    "--password ".repeat(1500),
+    "mysql ".repeat(2700),
+    "curl -u ".repeat(2000),
+    "a://b:".repeat(2700),
+    "$(".repeat(8192),
+    '"'.repeat(16384),
+    pem("BEGIN", "RSA").repeat(500),
+    '\\"password\\":\\"'.repeat(1000),
+  ];
+  redactSecrets("warm up --password x");
+  const start = performance.now();
+  for (const input of inputs) redactSecrets(input);
+  const took = performance.now() - start;
+  assert.ok(took < 20 * (inputs.length / 5), `took ${took.toFixed(1)} ms`);
+  const five = performance.now();
+  for (const input of inputs.slice(0, 5)) redactSecrets(input);
+  assert.ok(performance.now() - five < 20, "the five named inputs in under 20 ms");
 });

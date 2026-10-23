@@ -210,16 +210,20 @@ function sshNotes(a) {
   if (!a.chatNotes.result) return [];
   const r = a.result || {},
     outcome = sshOutcome(r, a.diagnostic),
-    // Rows settled before redaction existed are redacted for the note as well.
-    command = redactSecrets(a.payload.command);
+    // A row stored since redaction exists (it has the original's digest and the
+    // command) is redacted already; older rows are redacted for the note, an
+    // approval's whole command and a trusted run's 80-character preview (a secret
+    // cut short at its end may be missed there).
+    stored = a.payload.commandSha256 && typeof a.payload.command === "string",
+    command = stored ? a.payload.command : redactSecrets(a.payload.command),
+    preview = stored ? a.payload.commandPreview : redactSecrets(a.payload.commandPreview);
   return [
     {
       id: `ssh-run:${a.id}`,
       role: "event",
       event: "ssh-run",
       hostName: a.payload.hostName,
-      commandPreview:
-        redactSecrets(a.payload.commandPreview) ?? commandPreview(command || ""),
+      commandPreview: preview ?? commandPreview(command || ""),
       // Trusted rows recorded before notes carried commands keep only the preview.
       ...noteCommand(command),
       ...(a.payload.commandCut ? { commandCut: true } : {}),

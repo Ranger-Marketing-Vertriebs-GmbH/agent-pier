@@ -2019,16 +2019,38 @@ What an SSH action row keeps (`assistant_actions`, read by the chat note and
 while it waits and runs, because the owner decides on that text and it runs as such;
 once it settles (completed, failed, declined, expired, cancelled or unknown),
 `redactedCommand` replaces recognisable secrets with `•••` and sets
-`commandRedacted`. A trusted run is stored redacted at once, at most 8 KiB
-(`noteCommand`, `commandCut` when cut), and only the newest 500 trusted rows per agent
-are kept (`trustedSshRows`). `server/lib/secret-redaction.js` recognises password,
-token, key and secret flags (`--password=…`, `--token …`, `--client-secret …`),
-`mysql -p…` and `sshpass -p …`, `Authorization`, `X-Api-Key` and `X-Auth-Token`
-headers, `scheme://user:password@` URLs, `NAME=value` where the name ends in
-PASSWORD, PASSWD, SECRET, TOKEN, API_KEY, APIKEY, ACCESS_KEY or PRIVATE_KEY, JWTs and
-well-known key prefixes (`sk-`, `ghp_`, `github_pat_`, `xoxb-`, `AKIA…`). This is best
-effort: a secret in another form stays. The duplicate-call check and the audit use
-the SHA-256 of the original command, never its text.
+`commandRedacted`, and the row keeps the SHA-256 of the original command
+(`commandSha256`), so a retry of the same tool call still finds its card. The
+approval's Telegram text in `channel_outbox` is rewritten the same way
+(`ChannelOutbox.rewriteActions`); text Telegram already delivered stays in that chat.
+A trusted run is stored redacted at once, at most 8 KiB (`noteCommand`, `commandCut`
+when cut), and only the newest 500 trusted rows per agent are kept
+(`trustedSshRows`). Chat notes of rows stored before redaction existed are redacted
+when read; a secret cut short at the end of an old trusted run's 80-character preview
+may be missed.
+
+`server/lib/secret-redaction.js` keeps the flag, header or variable name and replaces
+the value. It recognises:
+
+- password, token, key and secret flags (`--password=…`, `--token …`,
+  `--client-secret …`, also partly quoted values such as `--password=a"b c"`);
+- `mysql -p…`, `sshpass -p …`, `redis-cli -a …`, `docker login -p …`,
+  `curl -u user:…`, `smbclient -U user%…` and `openssl … -pass pass:…`, each within
+  300 characters after the tool's name;
+- `Authorization`, `Proxy-Authorization`, `X-Api-Key`, `X-Auth-Token` and similar
+  headers, and JSON fields such as `"password": "…"` or
+  `"Authorization": "Bearer …"`;
+- `scheme://user:password@host` (up to the last `@` before the host);
+- `NAME=value` where the name ends in PASSWORD, PASSWD, SECRET, TOKEN, API_KEY,
+  APIKEY, ACCESS_KEY or PRIVATE_KEY, and `MYSQL_PWD=`;
+- PEM private key bodies, JWTs and well-known key prefixes (`sk-`, `ghp_`,
+  `github_pat_`, `xoxb-`, `AKIA…`).
+
+Shell references (`$PW`, `${PW}`, `$(cat file)`) are not secrets and stay. Every rule
+runs in linear time. Limits, best effort: secrets fed through stdin
+(`echo pw | sudo -S`, `docker login --password-stdin`), here-documents such as a
+`.netrc`, positional arguments, a bare `-p` of other tools and any form not listed
+above stay as they are. The audit never holds the text, only the digest and length.
 
 ## Lead promotions of team members (2026-10-17)
 

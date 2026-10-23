@@ -3,6 +3,7 @@ import { notifyAction } from "./assistant-action-notifications.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { pairedTelegram } from "./team-coding.js";
 import { commandDigest, redactedCommand } from "./agent-ssh-text.js";
+import { redactSecrets } from "../../lib/secret-redaction.js";
 
 // An agent SSH command on an `approval` host waits for the owner's Allow once or Deny
 // (web card or Telegram). The bridge call holds for 110 s; a later decision runs the
@@ -166,10 +167,21 @@ export class SshApprovals {
     this.w.a.changed({ feeds: false });
     return next;
   }
+  // The settled row's command with secrets redacted, keeping the original's digest
+  // (cards from before redaction have none) for the duplicate-call check; the
+  // Telegram approval text not delivered yet, or kept for the browser, follows.
   redacted(id) {
     const payload = this.w.store.get(id).payload;
     const fields = redactedCommand(payload);
-    return fields.command ? { payload: { ...payload, ...fields } } : {};
+    if (!fields.command) return {};
+    this.w.s.assistantChannels?.outbox?.rewriteActions([id], redactSecrets);
+    return {
+      payload: {
+        ...payload,
+        commandSha256: payload.commandSha256 ?? commandDigest(payload.command),
+        ...fields,
+      },
+    };
   }
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */
   decide(action, decision) {

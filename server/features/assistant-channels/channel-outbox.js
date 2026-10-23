@@ -114,25 +114,49 @@ export class ChannelOutbox {
    * delivered yet are never sent. Text already delivered stays in Telegram.
    */
   redactActions(actionIds) {
-    const ids = new Set(actionIds);
-    const rows = this.all().filter(
-      (e) => ids.has(e.source?.actionId) && (e.text || e.parts?.length),
+    this.overwrite(this.about(actionIds), (e) => ({
+      ...e,
+      text: "",
+      parts: [],
+      diagnostic: "MEMORY_FORGOTTEN",
+      state: terminal.has(e.state) ? e.state : "reviewed",
+    }));
+  }
+  /**
+   * Rewrites the text of notices about the given actions with `rewrite` (SSH approvals
+   * with secrets redacted), with secure_delete. Text already delivered stays in
+   * Telegram; an entry still to be sent goes out rewritten.
+   */
+  rewriteActions(actionIds, rewrite) {
+    this.overwrite(
+      this.about(actionIds).filter((e) => e.text && rewrite(e.text) !== e.text),
+      (e) => {
+        const text = rewrite(e.text);
+        return { ...e, text, parts: telegramParts(text, e.link) };
+      },
     );
+  }
+  about(actionIds) {
+    const ids = [...new Set(actionIds)];
+    if (!ids.length) return [];
+    return this.db
+      .prepare(
+        `SELECT body FROM channel_outbox WHERE json_extract(body,'$.source.actionId') IN (${ids.map(() => "?").join(",")})`,
+      )
+      .all(...ids)
+      .map((r) => JSON.parse(r.body))
+      .filter((e) => e.text || e.parts?.length);
+  }
+  overwrite(rows, next) {
     if (!rows.length) return;
     const previous = this.db.prepare("PRAGMA secure_delete").get().secure_delete;
     this.db.exec("PRAGMA secure_delete=ON");
     try {
       for (const e of rows) {
-        const next = {
-          ...e,
-          text: "",
-          parts: [],
-          diagnostic: "MEMORY_FORGOTTEN",
-          state: terminal.has(e.state) ? e.state : "reviewed",
-        };
+        const row = next(e);
         this.db
           .prepare("UPDATE channel_outbox SET state=?,body=? WHERE id=?")
-          .run(next.state, JSON.stringify(next), e.id);
+          .run(row.state, JSON.stringify(row), e.id);
       }
       this.db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
     } finally {
