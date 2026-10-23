@@ -141,6 +141,10 @@ information** on, AgentPier tells the agent to write durable facts and plans to
 never to say it saved something unless the write succeeded. Before a conversation
 is shortened, the agent gets one last chance to append to the day note.
 
+When you press **Summarise now** ([long chats](#what-the-agent-is-doing)), AgentPier
+first gives the agent a hidden memory step in that chat, because no automatic last
+chance comes before a summary you ask for. See below.
+
 Shortening a long conversation can take a few minutes before the agent answers.
 Meanwhile the chat shows **Summarising the conversation so far — this can take a few
 minutes for long chats.** instead of **Working**, and the header shows **Summarising
@@ -487,6 +491,18 @@ for the chosen level:
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not
   count.
 
+A lead is also told when a member's task chat (the chat you open for the member) grows
+long, by the same rule as the hint above (60 % of the context window, else 100,000
+tokens): one short message in its main chat. It is told again only after the chat grew
+by half again or by 50,000 tokens, or after a summary, and not while a summary after
+the member's task is pending. Further chats you opened with a member give the lead no
+hint. The lead can then call `agentpier_team_member_summarise` for one of its own
+members that are not archived, **now** (refused with a busy answer while the member
+works) or **after_task** (starts at once on an idle member, otherwise once the member is
+idle and before the lead's next request reaches the chat; dropped when the member is
+archived). Both chats get a note, the memory step above applies, and routines cannot use
+the tool.
+
 At every level the lead is told not to involve members for trivial requests and to
 summarize their answers for you.
 
@@ -619,9 +635,14 @@ gives up after a few tries.
 When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
-**Summarise now** has the agent service summarise the chat's history right away: the
-chat shows **Summarising the conversation so far — this can take a few minutes for long
-chats.** and afterwards the quiet line **Earlier messages were summarised …**; the chat
+**Summarise now** has the agent service summarise the chat's history right away. When
+the agent may write memory (**Remember information** is on, writing memory is proven
+safe, and the agent is not shared), AgentPier first runs a hidden memory step in that
+chat: the agent may only search and read its memory and write to its own `MEMORY.md`
+and `memory/` notes, and every other tool is refused. The chat shows **Saving memories
+before the summary …** (header: **Saving memories**) while it runs; the step ends after
+at most five minutes, like **Stop**. Then the chat shows **Summarising the conversation
+so far — this can take a few minutes for long chats.** and afterwards the quiet line **Earlier messages were summarised …**; the chat
 stays the same chat, also your main chat with its reminders, routines, check-ins and
 Telegram. A message you send meanwhile waits and goes out afterwards, once. A very long
 history can take more than ten minutes: the chat then keeps showing the summary as
@@ -629,10 +650,14 @@ running and unlocks as soon as the agent service is done. If the summary ends wi
 a result after that, because it failed, found nothing left to summarise, could not
 start, the agent runtime stopped or restarted, or its end could not be confirmed, the
 chat says so once it is ready again, until you write your next message. If there is nothing
-left to summarise, or the agent service refuses, the chat says so. **Hide**
+left to summarise, or the agent service refuses, the chat says so. If the memory step
+failed, was refused or ran out of time, the summary still follows and the chat says
+**No memories were saved before the summary.**; if the chat is still busy after the
+step, the summary is refused and the chat says so next to that note. Shared agents
+get no memory step, and nothing of it is sent to Telegram. **Hide**
 puts the hint away for this chat; it comes back once the chat grew by half again or by
 50,000 tokens, whichever comes first, or once it is long again after its history was
-summarised. Summarising writes nothing to the agent's memory.
+summarised.
 An archived chat shows the hint without actions. Server details:
 [Live steps and stalled turns](assistant-gateway.md#live-steps-and-stalled-turns).
 

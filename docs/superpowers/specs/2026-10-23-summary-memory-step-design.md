@@ -62,7 +62,7 @@ long-chat hint there goes unseen.
 - Further chats the owner opened with a member are not covered: the owner sees the
   hint there.
 - New lead tool `agentpier_team_member_summarise` with `{ memberId, when: "now" |
-  "after_task" }`, for the lead's own non-archived members (`editableMember`):
+"after_task" }`, for the lead's own non-archived members (`editableMember`):
   - `now`: runs the summary (with memory step) at once; when the member is busy it is
     refused with a clear "busy" result so the lead can choose `after_task`.
   - `after_task`: one pending summary per member; the team tick runs it once the member
