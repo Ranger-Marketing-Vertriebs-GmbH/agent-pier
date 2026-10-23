@@ -47,7 +47,10 @@ export function memoryStepSession(bridge, input) {
   return !first || step(first);
 }
 
-/** The plugin's question for every tool call: refused only in a memory step. */
+/**
+ * The plugin's question for every tool call: refused only in a memory step, with
+ * `reason: "memoryStep"`, or while the bridge closes (`reason: "unavailable"`).
+ */
 export function stepPolicy(bridge, input) {
   const keys = ["agentId", "sessionKey", "toolName", "runId"];
   if (
@@ -59,8 +62,9 @@ export function stepPolicy(bridge, input) {
   for (const k of ["agentId", "toolName"]) textValue(input[k], 4096);
   for (const k of ["sessionKey", "runId"])
     if (k in input) textValue(input[k], k === "runId" ? 512 : 4096);
-  if (bridge.closed) return { allow: false };
-  return {
-    allow: memoryStepTools.includes(input.toolName) || !memoryStepSession(bridge, input),
-  };
+  // A closing bridge confirms nothing; the plugin names only a step's own refusal.
+  if (bridge.closed) return { allow: false, reason: "unavailable" };
+  if (memoryStepTools.includes(input.toolName) || !memoryStepSession(bridge, input))
+    return { allow: true };
+  return { allow: false, reason: "memoryStep" };
 }

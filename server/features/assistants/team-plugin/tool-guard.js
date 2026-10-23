@@ -48,11 +48,18 @@ async function lockedToolCall(event, ctx, bridge) {
   if (policy?.allow === true) return undefined;
   return { block: true, blockReason: "This agent may not use this tool." };
 }
+// Why the step hook refused a tool call, for the model: only the bridge's own
+// memory-step answer names the memory step; no answer (unreachable, timeout, an
+// error status, a closing bridge) says AgentPier could not confirm the call.
+export const stepRefusals = {
+  memoryStep: "A memory step only saves the agent's memory.",
+  unavailable: "AgentPier is not reachable right now; try again shortly.",
+};
 // Every tool call asks whether it runs in a memory step, which keeps to its memory
 // tools (memory-step-tools.js); an unanswered question refuses.
 // A memory step is an agent run (chat.send) and always names its agent; a call of
 // no agent (an internal run) is no step's.
-async function stepCall(event, ctx, bridge) {
+export async function stepCall(event, ctx, bridge) {
   if (typeof ctx?.agentId !== "string" || !ctx.agentId) return undefined;
   const response = await bridge(
     "/step-policy",
@@ -66,7 +73,13 @@ async function stepCall(event, ctx, bridge) {
   ).catch(() => null);
   const policy = response?.ok ? await response.json().catch(() => null) : null;
   if (policy?.allow === true) return undefined;
-  return { block: true, blockReason: "A memory step only saves the agent's memory." };
+  return {
+    block: true,
+    blockReason:
+      policy?.reason === "memoryStep"
+        ? stepRefusals.memoryStep
+        : stepRefusals.unavailable,
+  };
 }
 /** The tool call's targets, each as classifyWrite sees a single-path call. */
 export function writeTargets(toolName, params) {
