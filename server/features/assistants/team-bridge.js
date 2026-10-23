@@ -10,8 +10,13 @@ import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
-import { directTurn, flushWrite, noteRefusal } from "./memory-write-policy.js";
-import { isMemory, ownMemoryTarget } from "./lead-request-writes.js";
+import {
+  flushWrite,
+  memoryStepSession as stepSession,
+  noteRefusal,
+  turnWrite,
+} from "./memory-write-policy.js";
+import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
 import { isLeadRoutine } from "./lead-routines.js";
@@ -160,6 +165,8 @@ export class TeamBridge {
       parent = this.assistants.store.getAssistant(c.assistantId);
     if (
       c.runtimeSessionKey !== record.sessionKey ||
+      // A memory step calls no bridge tool (memory-write-policy.js).
+      stepSession(this, record.sessionKey) ||
       parent.runtimeAgentId !== record.agentId ||
       // Members reach the workspace bridge (temporary ones only for coding
       // requests, enforced there); personal tools stay with permanent members,
@@ -266,7 +273,8 @@ export class TeamBridge {
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
   // own message, a lead's follow-up on its member's result (member-result-writes.js),
-  // a routine's run (routineWrite) or the completion run of a command such a direct
+  // a routine's run (routineWrite), a memory step's own memory (memory-write-policy.js)
+  // or the completion run of a command such a direct
   // turn started (exec-continuation.js); forwarded, other scheduled, internal and
   // member turns never write, apart from an owner-proven task.
   toolPolicy(input) {
@@ -282,7 +290,9 @@ export class TeamBridge {
     // plugin asks for every call of a locked core tool (tool-guard.js lockedToolCall).
     if (lockedTools.includes(input.toolName)) {
       textValue(input.agentId, 4096);
-      return { allow: !lockedCall(this.agentOf(input.agentId), input.toolName) };
+      // A memory step runs none of them (memory-write-policy.js).
+      const locked = lockedCall(this.agentOf(input.agentId), input.toolName);
+      return { allow: !locked && !stepSession(this, input.sessionKey) };
     }
     if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
@@ -375,25 +385,7 @@ export class TeamBridge {
       if (r) auditResultWrite(this.assistants, r, input);
       return !!r;
     }
-    const allowed =
-      current &&
-      (directTurn(origin, parent) ||
-        // A task member writes its own memory in any turn it works, never the copy
-        // of its lead's memory or anything else (member-memory.js).
-        (inheritsFromLead(parent) &&
-          ownMemoryTarget(
-            this.assistants.runtime?.paths?.workspaces,
-            input.agentId,
-            input.path,
-          )) ||
-        // A task the owner asked for or approved, in exactly its own member turn.
-        (origin?.kind === "lead-request" &&
-          !!this.teams.requests?.mayWrite(
-            origin.requestId,
-            attempt.id,
-            parent.id,
-            input.path,
-          )));
+    const allowed = turnWrite(this, { attempt, parent, origin, current }, input);
     if (allowed && isShared(parent) && isMemory(input.path))
       this.noteShared(
         `${attempt.id}:shared-write`,
