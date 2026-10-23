@@ -74,3 +74,28 @@ test("removeOthers keeps only the current revision", (t) => {
   store.removeHost(host);
   store.removeOthers(host, current);
 });
+
+test("refuses a symlinked host directory before changing its mode", (t) => {
+  const { root, store, host } = fixture(t);
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-passwords-outside-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  fs.chmodSync(outside, 0o755);
+  fs.mkdirSync(path.join(root, "passwords"), { mode: 0o700 });
+  fs.symlinkSync(outside, path.join(root, "passwords", host));
+  assert.throws(() => store.write(host, randomUUID(), "pw"), { status: 409 });
+  assert.equal(fs.statSync(outside).mode & 0o777, 0o755);
+  assert.deepEqual(fs.readdirSync(outside), []);
+});
+
+test("removeOrphans keeps only directories of listed hosts", (t) => {
+  const { root, store, host } = fixture(t);
+  const orphan = randomUUID();
+  store.write(host, randomUUID(), "keep");
+  store.write(orphan, randomUUID(), "drop");
+  fs.writeFileSync(path.join(root, "passwords", "notes"), "x");
+  store.removeOrphans([host]);
+  assert.deepEqual(
+    fs.readdirSync(path.join(root, "passwords")).sort(),
+    [host, "notes"].sort(),
+  );
+});

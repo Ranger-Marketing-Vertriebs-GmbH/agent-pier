@@ -18,6 +18,19 @@ export function passwordValue(raw) {
   return raw;
 }
 
+function syncDirectory(directory) {
+  try {
+    const fd = fs.openSync(directory, "r");
+    try {
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    /* Some filesystems do not support directory synchronization. */
+  }
+}
+
 /**
  * SFTP passwords live like SSH keys: one 0600 file per credential revision in
  * `ssh/passwords/<hostId>/<revision>`, owned by this user, never followed through links.
@@ -38,6 +51,17 @@ export class SshPasswordStore {
       throw problem(serverMessages.ssh.passwordUnavailable, 409);
     return path.join(directory, revision);
   }
+  ownDirectory(directory) {
+    let stat;
+    try {
+      stat = fs.lstatSync(directory);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    if (stat && (!stat.isDirectory() || stat.uid !== process.getuid()))
+      throw problem(serverMessages.ssh.passwordUnavailable, 409);
+    privateDirectory(directory);
+  }
   // Refuses a linked or replaced directory, so a file never lands outside the store.
   assertDirectory(hostId) {
     const directory = this.hostDirectory(hostId);
@@ -50,8 +74,9 @@ export class SshPasswordStore {
   write(hostId, revision, password) {
     const value = Buffer.from(passwordValue(password));
     const file = this.file(hostId, revision);
-    privateDirectory(this.directory);
-    privateDirectory(path.dirname(file));
+    // Check before chmod: privateDirectory would follow a planted link.
+    this.ownDirectory(this.directory);
+    this.ownDirectory(path.dirname(file));
     this.assertDirectory(hostId);
     const fd = fs.openSync(
       file,
@@ -70,6 +95,7 @@ export class SshPasswordStore {
     } finally {
       fs.closeSync(fd);
     }
+    syncDirectory(path.dirname(file));
   }
   read(hostId, revision) {
     const file = this.file(hostId, revision);
@@ -102,6 +128,14 @@ export class SshPasswordStore {
     } finally {
       if (fd !== undefined) fs.closeSync(fd);
     }
+  }
+  /** Removes password directories of hosts the catalog no longer has. */
+  removeOrphans(hostIds) {
+    if (!fs.existsSync(this.directory)) return;
+    const owned = new Set(hostIds);
+    for (const name of fs.readdirSync(this.directory))
+      if (identifier.test(name) && !owned.has(name))
+        fs.rmSync(path.join(this.directory, name), { recursive: true, force: true });
   }
   removeHost(hostId) {
     fs.rmSync(this.hostDirectory(hostId), { recursive: true, force: true });
