@@ -10,6 +10,7 @@ import { commandDigest, commandPreview, noteCommand } from "./agent-ssh-text.js"
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 import { AgentSftp, sftpActions } from "./agent-sftp.js";
+import { sftpPermits } from "./agent-sftp-policy.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
@@ -164,7 +165,10 @@ export class AgentSsh {
       hosts: this.w.access.get(id).sshAccesses.flatMap(({ accessId, mode }) => {
         const h = byId.get(accessId);
         if (!h) return [];
-        const usable = permits(mode, cls) !== "refuse";
+        // An SFTP host is usable when it may at least read in this turn.
+        const usable =
+          (h.type === "sftp" ? sftpPermits(mode, cls, "read") : permits(mode, cls)) !==
+          "refuse";
         return [
           {
             accessId,

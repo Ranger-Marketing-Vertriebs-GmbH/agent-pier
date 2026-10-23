@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { sshProblem } from "../ssh/ssh-errors.js";
 
 // The coding sessions' SFTP audit rows. The session MCP process cannot write the
@@ -46,9 +47,9 @@ export async function recordSessionSftp(management, context, input) {
     !operations.includes(operation) ||
     !states.includes(state)
   )
-    throw sshProblem("SSH_INVALID_ARGUMENT", "Invalid SFTP record.");
+    throw sshProblem("SSH_INVALID_ARGUMENT", serverMessages.ssh.sftpRecordInvalid);
   const refused = () =>
-    sshProblem("SSH_WRONG_PROJECT", "SFTP host is not assigned.", 403);
+    sshProblem("SSH_WRONG_PROJECT", serverMessages.ssh.sftpNotAssigned, 403);
   if (!sftpHost(management, accessId)) throw refused();
   const row = {
     resourceType: "ssh",

@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { sshProblem } from "../ssh/ssh-errors.js";
 import { sftpLimits } from "./sftp-limits.js";
 
@@ -91,7 +92,8 @@ export const sftpTools = [
 ];
 
 const byName = new Map(sftpTools.map((item) => [item.name, item.inputSchema]));
-const invalid = () => sshProblem("SSH_INVALID_ARGUMENT", "Invalid SFTP arguments.");
+const invalid = () =>
+  sshProblem("SSH_INVALID_ARGUMENT", serverMessages.ssh.sftpInvalidArguments);
 
 function valid(schema, value) {
   if (schema.type === "boolean") return typeof value === "boolean";
@@ -112,7 +114,8 @@ function valid(schema, value) {
 /** The tool's arguments checked against its schema; `SSH_INVALID_ARGUMENT` else. */
 export function sftpArguments(name, input) {
   const schema = byName.get(name);
-  if (!schema) throw sshProblem("SSH_INVALID_ARGUMENT", "Unknown SFTP tool.");
+  if (!schema)
+    throw sshProblem("SSH_INVALID_ARGUMENT", serverMessages.ssh.sftpUnknownTool);
   if (!input || typeof input !== "object" || Array.isArray(input)) throw invalid();
   for (const [key, value] of Object.entries(input))
     if (!Object.hasOwn(schema.properties, key) || !valid(schema.properties[key], value))
