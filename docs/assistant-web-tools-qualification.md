@@ -32,7 +32,8 @@ node scripts/provision-assistant-contracts.mjs --data-dir /tmp/agentpier-contrac
 set -a; . /tmp/contracts.env; set +a
 node --test --test-concurrency=1 \
   tests/integration/assistant-web-tools-contract.test.js \
-  tests/integration/assistant-web-tools-compiled-contract.test.js
+  tests/integration/assistant-web-tools-compiled-contract.test.js \
+  tests/integration/assistant-web-tools-live-contract.test.js
 ```
 
 The compiled contract reads the search plugins from the provisioned installation's
@@ -353,6 +354,27 @@ recovery restart is required`. The Gateway restarts, and `RuntimeSupervisor`
 
 AgentPier should therefore compile these sections into the startup configuration
 and restart the Gateway when they change, rather than relying on live patches.
+
+These measurements are from 2026.9.8. Since 2026-10-23 (AGENTPIER-202) a start compiles
+every section the runtime can serve, whether an agent uses it yet or not: the browser
+block with the member slots, the search provider's plugin, `document-extract` with
+the PDF model, and the image model. The global `tools.allow` is only an upper bound;
+each agent's entry names its own tools. Switching web search, web pages, the browser,
+its visible window, PDFs or images for one agent then changes only that agent's entry
+and its own `browser.profiles.<agent>` entry. `BrowserProfileSync` patches the profile
+live; an agent keeps its CDP port and a new one takes the lowest free port.
+
+`tests/integration/assistant-web-tools-live-contract.test.js` verifies this on
+2026.10.3 under the team plugin's restrictive `plugins.allow`. The Gateway starts
+with no agent using a web capability. The test switches web search, web pages, PDFs
+and the browser on for one agent. The agent is offered all four tools. A browser
+`start` runs on the agent's live-added profile. Switching off removes the profile.
+The same Gateway process serves every step, and its log has no `requires gateway
+restart` line. The test runs with the other web tools contracts (see
+[Running the contracts](#running-the-contracts)) and in the `native-contracts` job.
+Enabling the browser block itself live (a browser installed after the start) was not
+measured again. AgentPier keeps that case, a changed search provider or key and a
+changed PDF model on the [pending restart](assistant-gateway.md#pending-restart).
 
 ## Boundaries
 

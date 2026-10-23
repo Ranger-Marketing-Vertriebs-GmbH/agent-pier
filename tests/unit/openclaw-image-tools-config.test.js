@@ -4,7 +4,7 @@ import { compileOpenClawConfig } from "../../server/features/assistants/runtime-
 import {
   webToolsAvailability,
   webToolsSections,
-  webToolsSignature,
+  webToolsSignatures,
 } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import {
   capabilityKeys,
@@ -113,38 +113,34 @@ test("a ready ChatGPT account compiles the image tool and OpenAI's image model",
   );
 });
 
-test("no account, or no agent creating images, compiles neither", () => {
-  for (const [profiles, ready] of [
-    [[artist], false],
-    [[plain], true],
-  ]) {
-    const config = compile(profiles, webTools(ready));
-    assert.equal(config.tools.allow.includes("image_generate"), false);
-    assert.equal(config.agents.defaults.mediaModels, undefined);
-  }
-  assert.deepEqual(
+test("without an account neither is compiled; with one, before any agent uses it", () => {
+  const config = compile([artist], webTools(false));
+  assert.equal(config.tools.allow.includes("image_generate"), false);
+  assert.equal(config.agents.defaults.mediaModels, undefined);
+  // Ready but unused: compiled, so switching it on applies live, and granted nobody.
+  const unused = compile([plain], webTools(true));
+  assert.ok(unused.tools.allow.includes("image_generate"));
+  assert.equal(
+    unused.agents.entries["ap-a2"].tools.allow.includes("image_generate"),
+    false,
+  );
+  assert.ok(
     webToolsSections({ profiles: [plain], webTools: webTools(true), port: 0 }).media,
-    undefined,
   );
   // An image model an earlier start compiled does not survive; others stay.
-  const stale = compile([plain], webTools(true), {
+  const stale = compile([plain], webTools(false), {
     mediaModels: { image: { primary: "openai/gpt-image-2" }, video: { primary: "x/y" } },
   });
   assert.deepEqual(stale.agents.defaults.mediaModels, { video: { primary: "x/y" } });
-  const only = compile([plain], webTools(true), {
+  const only = compile([plain], webTools(false), {
     mediaModels: { image: { primary: "openai/gpt-image-2" } },
   });
   assert.equal(only.agents.defaults.mediaModels, undefined);
 });
 
-test("an account that becomes ready changes what a start compiles", () => {
-  assert.notEqual(
-    webToolsSignature({ profiles: [artist], webTools: webTools(true) }),
-    webToolsSignature({ profiles: [artist], webTools: webTools(false) }),
-  );
-  // Without an agent that creates images, the account changes nothing.
-  assert.equal(
-    webToolsSignature({ profiles: [plain], webTools: webTools(true) }),
-    webToolsSignature({ profiles: [plain], webTools: webTools(false) }),
-  );
+test("an account that becomes ready changes only the image section's signature", () => {
+  const ready = webToolsSignatures({ webTools: webTools(true) });
+  const none = webToolsSignatures({ webTools: webTools(false) });
+  assert.notEqual(ready.createImages, none.createImages);
+  assert.deepEqual({ ...ready, createImages: null }, { ...none, createImages: null });
 });

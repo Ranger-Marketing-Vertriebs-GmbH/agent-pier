@@ -6,7 +6,7 @@ import path from "node:path";
 import tls from "node:tls";
 import { EventEmitter, once } from "node:events";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { webToolsSignature } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSignatures } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { consoleLogLimit } from "../../server/features/assistants/gateway-log.js";
 import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
 test("disabled service stays inert and interrupted installation cannot launch after close", async (t) => {
@@ -245,7 +245,7 @@ test("a start compiles the web tools its team configuration reports", async (t) 
   // Stopped before that Gateway answered: no running state was recorded.
   assert.equal(runtime.webTools, null);
   assert.equal(compiled.browser.executablePath, "/usr/bin/chromium");
-  assert.deepEqual(compiled.tools.web, { search: { provider: "duckduckgo" } });
+  assert.deepEqual(compiled.tools.web.search, { provider: "duckduckgo" });
   assert.ok(compiled.tools.allow.includes("web_search"));
   assert.deepEqual(compiled.plugins.load.paths, ["/rt/teams", "/rt/ddg"]);
 });
@@ -300,7 +300,7 @@ test("a Gateway's key-free web tool state is recorded once it answers", async (t
     webSearch: true,
   });
   assert.deepEqual(runtime.webTools.searchPlugins, webTools.searchPlugins);
-  assert.equal(runtime.webTools.signature, webToolsSignature({ profiles, webTools }));
+  assert.deepEqual(runtime.webTools.signatures, webToolsSignatures({ webTools }));
   assert.equal(JSON.stringify(runtime.webTools).includes("secret-brave-fixture"), false);
 });
 

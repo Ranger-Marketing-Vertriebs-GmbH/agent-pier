@@ -47,32 +47,75 @@ export function browserAgents(profiles = []) {
 
 /**
  * Every AgentPier browser profile a Gateway start compiles, by profile name:
- * `{ cdpPort, headless, agentId? , slot? }`. A visible window needs the agent's own
- * setting and a separate agent browser app with a display (detectBrowser().visible).
- * Agents beyond the CDP port range get no profile; their browser calls are refused.
+ * `{ cdpPort, headless, agentId? , slot? }`. The member slots exist whenever the
+ * browser is compiled (both kinds when a visible window is possible), so an agent
+ * switching the browser or its window on or off changes only its own profile, which
+ * the running Gateway applies live (nextBrowserProfiles). A visible window needs the
+ * agent's own setting and a separate agent browser app with a display
+ * (detectBrowser().visible). Agents beyond the CDP port range get no profile; their
+ * browser calls are refused.
  */
 export function browserProfileMap({ profiles, browser, port }) {
   const visibleApp = browser?.visible?.available === true;
-  const agents = browserAgents(profiles);
-  const map = {};
-  const anyVisible = visibleApp && agents.some(browserVisible);
-  if (agents.length)
-    for (const visible of anyVisible ? [false, true] : [false])
-      for (let index = 0; index < memberSlotCount; index++)
-        map[memberSlotName(visible, index)] = {
-          cdpPort: port + slotPort + (visible ? memberSlotCount : 0) + index,
-          headless: !visible,
-          slot: true,
-        };
-  let offset = agentPort;
-  for (const agent of agents) {
+  const slots = {};
+  for (const visible of visibleApp ? [false, true] : [false])
+    for (let index = 0; index < memberSlotCount; index++)
+      slots[memberSlotName(visible, index)] = {
+        cdpPort: port + slotPort + (visible ? memberSlotCount : 0) + index,
+        headless: !visible,
+        slot: true,
+      };
+  return nextBrowserProfiles({ current: slots, profiles, visibleApp, port });
+}
+
+/**
+ * The profiles once `profiles` are applied to the running map `current`: an agent
+ * keeps its CDP port and only its window mode follows its setting, a new agent takes
+ * the lowest free port, and an agent without the browser loses its profile. Slots
+ * stay as compiled.
+ */
+export function nextBrowserProfiles({ current = {}, profiles, visibleApp, port }) {
+  const next = Object.fromEntries(
+    Object.entries(current).filter(([, entry]) => !entry.agentId),
+  );
+  const agents = browserAgents(profiles).flatMap((agent) => {
     const name = agentProfileName(agent.id);
-    if (!name || offset > lastCdpOffset) continue;
-    map[name] = {
-      cdpPort: port + offset++,
-      headless: !(visibleApp && browserVisible(agent)),
-      agentId: agent.id,
-    };
+    return name ? [{ agent, name }] : [];
+  });
+  const headless = (agent) => !(visibleApp && browserVisible(agent));
+  for (const { agent, name } of agents)
+    if (current[name]?.agentId === agent.id)
+      next[name] = { ...current[name], headless: headless(agent) };
+  const used = new Set(Object.values(next).map((entry) => entry.cdpPort));
+  let offset = agentPort;
+  for (const { agent, name } of agents) {
+    if (next[name]) continue;
+    while (offset <= lastCdpOffset && used.has(port + offset)) offset++;
+    if (offset > lastCdpOffset) break;
+    used.add(port + offset);
+    next[name] = { cdpPort: port + offset, headless: headless(agent), agentId: agent.id };
   }
-  return map;
+  return next;
+}
+
+/** A profile as the Gateway configuration holds it. */
+export const compiledProfile = ({ cdpPort, headless }) => ({
+  driver: "openclaw",
+  cdpPort,
+  headless,
+});
+
+/**
+ * The `browser.profiles` merge patch from `current` to `next`, or null when nothing
+ * changed: changed or added profiles, and null for removed ones.
+ */
+export function browserProfilesPatch(current = {}, next = {}) {
+  const patch = {};
+  for (const [name, entry] of Object.entries(next)) {
+    const before = current[name];
+    if (!before || before.cdpPort !== entry.cdpPort || before.headless !== entry.headless)
+      patch[name] = compiledProfile(entry);
+  }
+  for (const name of Object.keys(current)) if (!(name in next)) patch[name] = null;
+  return Object.keys(patch).length ? patch : null;
 }

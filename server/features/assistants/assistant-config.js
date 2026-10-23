@@ -244,6 +244,7 @@ export class AssistantConfig {
         assistant.effectiveRevision === assistant.revision
       ) {
         await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
+        if (nativeReady) await this.browserProfiles?.sync();
         await this.verifyBootstrap(assistant, bootstrap);
         this.onApplied?.(id);
         return {
@@ -281,6 +282,8 @@ export class AssistantConfig {
         // Not what the fingerprint says: the next apply must ask the Gateway again.
         gatewayDropped = !verified.complete;
       }
+      // Its browser profile exists before its entry offers the browser tool.
+      if (nativeReady) await this.browserProfiles?.sync();
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
       await this.client.call("agents.update", {
