@@ -17,8 +17,19 @@ export class BrowserProfileSync {
   constructor({ runtime, store, stop = async () => {} }) {
     Object.assign(this, { runtime, store, stop });
   }
-  /** Applies the profiles the agents need now; resolves the names that changed. */
-  async sync() {
+  /**
+   * Applies the profiles the agents need now; resolves the names that changed. One at
+   * a time: each sync reads the snapshot the previous one wrote, so two applies never
+   * hand out the same CDP port.
+   */
+  sync() {
+    const run = (this.queue || Promise.resolve())
+      .catch(() => {})
+      .then(() => this.syncOnce());
+    this.queue = run;
+    return run;
+  }
+  async syncOnce() {
     const running = this.runtime.client?.ready && this.runtime.webTools;
     if (!running?.availability?.browser) return [];
     const current = running.browserProfiles || {};

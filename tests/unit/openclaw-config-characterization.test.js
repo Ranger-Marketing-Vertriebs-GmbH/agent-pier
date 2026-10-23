@@ -170,6 +170,8 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "web_fetch",
     "view_image",
   ]);
+  // OpenClaw's own `main` agent never inherits that upper bound.
+  assert.deepEqual(config.agents.entries.main.tools.allow, ["session_status"]);
   assert.equal(config.tools.fs.workspaceOnly, true);
   assert.deepEqual(config.cron, {
     enabled: true,

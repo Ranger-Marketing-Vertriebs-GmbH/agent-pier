@@ -267,6 +267,10 @@ export function compileOpenClawConfig({
       if (Array.isArray(entry.tools?.allow))
         entry.tools.allow = entry.tools.allow.filter((t) => !guardGatedTools.includes(t));
       const profile = teams.profiles?.find((a) => a.runtimeAgentId === (entry.id || key));
+      // OpenClaw's own `main` agent is no AgentPier agent: it never inherits the global
+      // list, which offers every available web tool (web-tools.js).
+      if (!profile && (entry.id || key) === "main")
+        entry.tools = { ...entry.tools, allow: ["session_status"] };
       if (!profile) continue;
       Object.assign(
         entry,
