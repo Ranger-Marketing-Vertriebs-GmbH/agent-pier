@@ -6,6 +6,13 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 
 const open = new Set(["queued", "dispatching", "running", "uncertain"]);
 /** The state label; a finished question reads "Answered", a finished task "Done". */
+/** A member's exchange with another member, its own report, or the lead's request. */
+const titleOf = (r) =>
+  r.fromName
+    ? copy.peerTitle(r.type, r.fromName, r.memberName)
+    : r.reportKind
+      ? copy.reportTitle(r.reportKind, r.memberName)
+      : copy.title(r.type, r.memberName);
 export const requestState = (r) =>
   r.phase === "completed" && r.type === "question"
     ? copy.states.answered
@@ -41,14 +48,17 @@ export default function LeadRequestCard({
   return (
     <article
       className="assistant-approval-card lead-request-card"
-      aria-label={copy.title(r.type, r.memberName)}
+      aria-label={titleOf(r)}
     >
       <div className="assistant-approval-head">
-        <strong>{copy.title(r.type, r.memberName)}</strong>
+        <strong>{titleOf(r)}</strong>
         {r.type === "task" && (
           <span className={`lead-request-access${r.writeAllowed ? " writes" : ""}`}>
             {r.writeAllowed ? copy.mayWrite : copy.readOnly}
           </span>
+        )}
+        {r.fromName && r.resultTo === "lead" && (
+          <span className="lead-request-access">{copy.toLead}</span>
         )}
         {r.selfInitiated && (
           <span className="lead-request-access">{copy.selfInitiated}</span>

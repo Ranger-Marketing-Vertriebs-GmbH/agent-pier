@@ -77,6 +77,8 @@ export const assistantTeamCopy = {
   internalTurns: {
     "team-result": "Team-Ergebnisse eingegangen. Der Agent fasst sie zusammen.",
     "member-result": "Antwort eines Mitglieds eingegangen. Der Agent gibt sie weiter.",
+    "peer-result":
+      "Antwort eines anderen Mitglieds eingegangen. Der Agent arbeitet weiter.",
     "coding-result": "Ergebnis eines Coding-Laufs eingegangen.",
     "memory-result":
       "Eine Notiz im Projektwissen wurde nicht gespeichert. Der Agent wurde informiert.",

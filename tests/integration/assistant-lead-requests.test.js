@@ -332,5 +332,5 @@ test("members() names the sender of a peer request", async (t) => {
   const listed = f.service.members(f.turn(), {});
   const target = listed.members.find((m) => m.memberId === f.second.id);
   const peer = target.requests.find((x) => x.requestId === r.id);
-  assert.equal(peer.from, f.permanent.name ?? "Member 1");
+  assert.equal(peer.from, "Member 1");
 });

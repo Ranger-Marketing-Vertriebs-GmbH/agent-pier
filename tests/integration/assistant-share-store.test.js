@@ -60,7 +60,7 @@ test("the owner deletes a shared file from either chat it shows in", async (t) =
     runtimeSessionKey: "agent:member:task",
   });
   f.service.teams.requests = {
-    store: { get: () => ({ parentConversationId: f.chat.id }) },
+    store: { get: () => ({ parentConversationId: f.chat.id }), list: () => [] },
   };
   f.file(member, "findings.md", "# Findings\n");
   await f.turn(memberChat, "lead-task", {
