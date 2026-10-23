@@ -104,7 +104,8 @@ const entryOf = (relative, stat) => ({
  * with more than one link (a hard link may share an inode outside the folder) and
  * special files and names the server side refuses (`unsafeName`) are counted as
  * skipped; `.git`, leftover `.agentpier-part-` files, excludes and protected roots are
- * left out. A target file lists itself under its name.
+ * left out. A target file lists itself under its name. `dirs` lists the walked folders
+ * and `kept` those holding something left out (never empty after a sync's deletes).
  */
 export async function walkLocal(
   target,
@@ -112,12 +113,20 @@ export async function walkLocal(
 ) {
   const skipped = { links: 0, special: 0, unsafe: 0 };
   const entries = [];
+  const dirs = [];
+  const kept = new Set();
+  const keep = (relative) => {
+    for (let dir = relative; dir !== "." && dir && !kept.has(dir);) {
+      kept.add(dir);
+      dir = path.posix.dirname(dir);
+    }
+  };
   const stat = await fs.promises.lstat(target.real);
   if (stat.isFile()) {
     const name = path.basename(target.real);
     if (stat.nlink > 1) skipped.links++;
     else if (!excluded(name, excludes)) entries.push(entryOf(name, stat));
-    return { entries, skipped };
+    return { entries, skipped, dirs, kept };
   }
   if (!stat.isDirectory()) throw conflict();
   const guarded = (target.rules?.protectedRoots || []).map(realOrSelf);
@@ -128,10 +137,14 @@ export async function walkLocal(
     const directory = path.join(target.real, relative);
     for (const name of await fs.promises.readdir(directory)) {
       tick();
-      if (isPartFile(name)) continue;
+      if (isPartFile(name)) {
+        keep(relative);
+        continue;
+      }
       // The server side refuses these names; count them instead of failing later.
       if (unsafeName.test(name)) {
         skipped.unsafe++;
+        keep(relative);
         continue;
       }
       const child = relative ? `${relative}/${name}` : name;
@@ -140,19 +153,29 @@ export async function walkLocal(
         fold(name) === ".git" ||
         excluded(child, excludes) ||
         guarded.some((root) => inside(root, full))
-      )
+      ) {
+        keep(relative);
         continue;
+      }
       const info = await lstatOrNull(full);
       if (!info) continue;
-      if (info.isSymbolicLink()) skipped.links++;
-      else if (info.isDirectory()) pending.push(child);
-      else if (!info.isFile()) skipped.special++;
-      else if (info.nlink > 1) skipped.links++;
-      else entries.push(entryOf(child, info));
+      if (info.isDirectory()) {
+        dirs.push(child);
+        pending.push(child);
+        continue;
+      }
+      if (info.isFile() && info.nlink === 1) {
+        entries.push(entryOf(child, info));
+        continue;
+      }
+      keep(relative);
+      if (info.isSymbolicLink() || info.isFile()) skipped.links++;
+      else skipped.special++;
     }
   }
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { entries, skipped };
+  dirs.sort();
+  return { entries, skipped, dirs, kept };
 }
 
 /**
@@ -258,4 +281,33 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
     throw error;
   }
   return { overwritten: Boolean(existing) };
+}
+
+/**
+ * Removes the file (or, with `directory`, the empty folder) `relative` below a
+ * writable target: the rules are checked again and no link may sit on the way or be
+ * the entry itself, so a delete never reaches outside the target.
+ */
+export async function removeLocal(target, relative, { directory = false } = {}) {
+  if (!target.rules?.write) throw refused();
+  const parts = [...target.relative.split("/"), ...relativeParts(relative)].filter(
+    Boolean,
+  );
+  const expected = path.join(target.root, ...parts);
+  const resolved = projectTarget(target.root, parts.join("/"), target.rules);
+  if (resolved.real !== expected || !resolved.exists) throw refused();
+  const stat = await fs.promises.lstat(expected);
+  if (directory ? !stat.isDirectory() : !stat.isFile()) throw conflict();
+  if (directory) await fs.promises.rmdir(expected);
+  else await fs.promises.unlink(expected);
+}
+
+/** The target's parent folder with the same rules (for a target that is a file). */
+export function localParent(target) {
+  const parent = path.posix.dirname(target.relative);
+  return localRoot({
+    root: target.root,
+    raw: parent === "." ? "" : parent,
+    ...target.rules,
+  });
 }
