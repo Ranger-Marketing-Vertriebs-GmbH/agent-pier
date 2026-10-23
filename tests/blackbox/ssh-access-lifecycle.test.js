@@ -100,3 +100,42 @@ test("the SSH helper answers invalid arguments in English", async () => {
       "Usage: ssh.mjs --data-dir DIR --session ID --access ID [-- remote command]",
   );
 });
+
+test("the SSH helper refuses an SFTP host and the API never returns its password", async (t) => {
+  const f = await applicationFixture(t);
+  const key = path.join(f.root, "fixture-host-key");
+  await execute("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-f", key]);
+  const hostKey = (await fs.readFile(key + ".pub", "utf8")).trim();
+  const created = await f.request("/api/ssh-accesses", {
+    method: "POST",
+    body: {
+      name: "Webspace",
+      host: "192.0.2.1",
+      username: "fixture",
+      hostKey,
+      type: "sftp",
+      auth: "password",
+      password: "fixture-password-secret",
+    },
+  });
+  assert.equal(created.status, 201, await created.clone().text());
+  const access = await created.json();
+  assert.equal(access.type, "sftp");
+  assert.equal(access.hasPassword, true);
+  const listed = await (await f.request("/api/ssh-accesses")).text();
+  for (const text of [JSON.stringify(access), listed])
+    assert.equal(text.includes("fixture-password-secret"), false);
+  const start = await f.request("/api/sessions", {
+    method: "POST",
+    body: { accountId: "local-shell", cwd: f.home, sshAccessIds: [access.id] },
+  });
+  assert.equal(start.status, 201, await start.clone().text());
+  const session = await start.json();
+  const args = ["--data-dir", f.dataDir, "--session", session.id, "--access", access.id];
+  await assert.rejects(
+    execute(process.execPath, [helper, ...args, "--", "true"], { timeout: 5000 }),
+    (error) =>
+      error.stderr.trim() === englishServerMessages.ssh.sftpOnly &&
+      !error.stderr.includes("fixture-password-secret"),
+  );
+});
