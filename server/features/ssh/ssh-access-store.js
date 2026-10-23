@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   privateDirectory,
   writePrivate,
@@ -19,20 +19,16 @@ import {
 } from "./ssh-keys.js";
 
 import { SshKeyStore } from "./ssh-key-store.js";
-import { SshPasswordStore, passwordValue } from "./ssh-password-store.js";
-import { hostTypes, sftpAuths, remoteRootValue } from "./sftp-host-fields.js";
+import { SshPasswordStore } from "./ssh-password-store.js";
 import { sshProblem } from "./ssh-errors.js";
-import { openSftp } from "../sftp/sftp-client.js";
-
-// SSH rows keep their original digest; SFTP rows also pin auth, root and credential.
-function connectionRevision(row) {
-  const { host, port, username, keyId, hostKey } = row;
-  const fields = [host, port, username, keyId, hostKey];
-  if (row.type === "sftp")
-    fields.push(row.type, row.auth, row.remoteRoot, row.credentialRevision);
-  return createHash("sha256").update(JSON.stringify(fields)).digest("hex");
-}
-const isSftp = (row) => row?.type === "sftp";
+import {
+  connectionRevision,
+  isSftp,
+  sftpFields,
+  updateSftp,
+  sftpConnection,
+  testSftp,
+} from "./sftp-host-access.js";
 
 export class SshAccessStore {
   constructor({ dataDir, catalog, run = runOpenSsh }) {
@@ -169,7 +165,7 @@ export class SshAccessStore {
     ]);
     if (input.keyId !== undefined && input.privateKey !== undefined)
       throw problem(serverMessages.ssh.chooseOneKey);
-    const sftp = this.sftpFields(input);
+    const sftp = sftpFields(this, input);
     const selected = input.keyId === undefined ? null : this.keyStore.get(input.keyId);
     if (selected && selected.projectId !== (input.projectId ?? null))
       throw problem(serverMessages.ssh.keyInOtherProject, 409);
@@ -224,33 +220,6 @@ export class SshAccessStore {
       throw problem(serverMessages.ssh.accessSaveFailed);
     }
   }
-  /** Validated SFTP fields of a create request, or null for an SSH host. */
-  sftpFields(input) {
-    const type = input.type ?? "ssh";
-    if (!hostTypes.includes(type)) throw problem(serverMessages.ssh.invalidAccessFields);
-    if (type === "ssh") {
-      if (input.password !== undefined)
-        throw problem(serverMessages.ssh.passwordNotAllowed);
-      if (input.remoteRoot !== undefined)
-        throw problem(serverMessages.ssh.invalidAccessFields);
-      if (input.auth !== undefined && input.auth !== "key")
-        throw problem(serverMessages.ssh.invalidAuth);
-      return null;
-    }
-    if (!this.catalog) throw problem(serverMessages.ssh.managementRequired, 503);
-    if (!sftpAuths.includes(input.auth)) throw problem(serverMessages.ssh.invalidAuth);
-    const remoteRoot = remoteRootValue(input.remoteRoot);
-    if (input.auth === "key") {
-      if (input.password !== undefined)
-        throw problem(serverMessages.ssh.passwordNotAllowed);
-      return { auth: "key", remoteRoot };
-    }
-    if (input.keyId !== undefined || input.privateKey !== undefined)
-      throw problem(serverMessages.ssh.invalidAuth);
-    if (input.password === undefined || input.password === "")
-      throw problem(serverMessages.ssh.passwordRequired);
-    return { auth: "password", remoteRoot, password: passwordValue(input.password) };
-  }
   update(id, input = {}) {
     this.keyStore.assertWriter();
     if (this.catalog) return this.catalog.run(() => this.updateAccess(id, input));
@@ -283,7 +252,7 @@ export class SshAccessStore {
     } = this.get(id);
     if (input.type !== undefined && input.type !== type)
       throw problem(serverMessages.ssh.hostTypeFixed, 409);
-    if (type === "sftp") return this.updateSftp(id, input, previous);
+    if (type === "sftp") return updateSftp(this, id, input, previous);
     if (input.password !== undefined)
       throw problem(serverMessages.ssh.passwordNotAllowed);
     if (input.remoteRoot !== undefined || (input.auth ?? "key") !== "key")
@@ -312,67 +281,6 @@ export class SshAccessStore {
     this.get(id);
     this.keyStore.get(keyId);
     if (!this.catalog) this.knownHosts(access);
-    this.save(this.raw().map((item) => (item.id === id ? access : item)));
-    return this.project(access);
-  }
-  async updateSftp(id, input, previous) {
-    const stored = this.row(id);
-    const auth = input.auth ?? stored.auth;
-    if (!sftpAuths.includes(auth)) throw problem(serverMessages.ssh.invalidAuth);
-    let keyId = null;
-    if (auth === "key") {
-      if (input.password !== undefined)
-        throw problem(serverMessages.ssh.passwordNotAllowed);
-      keyId = input.keyId === undefined ? stored.keyId : input.keyId;
-      if (!keyId) throw problem(serverMessages.ssh.invalidAuth);
-      if (this.keyStore.get(keyId).projectId !== previous.projectId)
-        throw problem(serverMessages.ssh.keyInOtherProject, 409);
-    } else if (input.keyId !== undefined) throw problem(serverMessages.ssh.invalidAuth);
-    const password =
-      auth === "password" && input.password !== undefined
-        ? passwordValue(input.password)
-        : undefined;
-    if (auth === "password" && stored.auth !== "password" && password === undefined)
-      throw problem(serverMessages.ssh.passwordRequired);
-    const target = endpoint({ ...previous, ...input });
-    if (!target.username) throw problem(serverMessages.ssh.invalidUsername);
-    if (
-      (target.host !== previous.host || target.port !== previous.port) &&
-      input.hostKey === undefined
-    )
-      throw problem(serverMessages.ssh.confirmChangedHostKey);
-    const hostKey = publicKeyValue(input.hostKey ?? previous.hostKey);
-    const access = {
-      ...stored,
-      ...target,
-      name: input.name === undefined ? stored.name : nameValue(input.name),
-      keyId,
-      auth,
-      remoteRoot:
-        input.remoteRoot === undefined
-          ? stored.remoteRoot
-          : remoteRootValue(input.remoteRoot),
-      hostKey,
-      hostFingerprint: await fingerprint(hostKey, this.root, this.run),
-      credentialRevision:
-        password !== undefined || auth !== stored.auth
-          ? randomUUID()
-          : stored.credentialRevision,
-    };
-    // A concurrent deletion must not resurrect a deleted access.
-    this.get(id);
-    if (keyId) this.keyStore.get(keyId);
-    if (password !== undefined) {
-      const revision = access.credentialRevision;
-      this.catalog.afterRollback(() =>
-        fs.rmSync(this.passwords.file(id, revision), { force: true }),
-      );
-      this.passwords.write(id, revision, password);
-    }
-    if (access.credentialRevision !== stored.credentialRevision)
-      this.catalog.afterCommit(() =>
-        this.passwords.removeOthers(id, access.credentialRevision),
-      );
     this.save(this.raw().map((item) => (item.id === id ? access : item)));
     return this.project(access);
   }
@@ -451,38 +359,7 @@ export class SshAccessStore {
   }
   /** In-process SFTP credentials; never leaves the server process. */
   sftpConnection(id) {
-    this.get(id);
-    const row = this.row(id);
-    if (!isSftp(row))
-      throw sshProblem("SSH_HOST_TYPE", serverMessages.ssh.accessNotFound, 404);
-    const { host, port, username } = endpoint(row);
-    const connection = {
-      revision: connectionRevision(row),
-      host,
-      port,
-      username,
-      hostKey: row.hostKey,
-      remoteRoot: row.remoteRoot ?? null,
-    };
-    if (row.auth === "password")
-      connection.password = this.passwords.read(id, row.credentialRevision);
-    else connection.privateKey = this.privateKey(row.keyId);
-    return connection;
-  }
-  privateKey(keyId) {
-    const { fd, size } = this.keyStore.openPrivate(keyId);
-    try {
-      const buffer = Buffer.alloc(size);
-      let offset = 0;
-      while (offset < size) {
-        const read = fs.readSync(fd, buffer, offset, size - offset, null);
-        if (!read) break;
-        offset += read;
-      }
-      return buffer.subarray(0, offset);
-    } finally {
-      fs.closeSync(fd);
-    }
+    return sftpConnection(this, id);
   }
   async scan(input = {}) {
     validateFields(input, ["host", "port"]);
@@ -520,7 +397,7 @@ export class SshAccessStore {
     }
   }
   async test(id) {
-    if (this.get(id).type === "sftp") return this.testSftp(id);
+    if (this.get(id).type === "sftp") return testSftp(this, id);
     const { command, args, cwd, cleanup } = this.connection(id);
     try {
       await this.run(command, [...args, "true"], { ...processOptions, cwd });
@@ -529,21 +406,6 @@ export class SshAccessStore {
       throw problem(serverMessages.ssh.connectionFailed, 502);
     } finally {
       cleanup();
-    }
-  }
-  async testSftp(id) {
-    const connection = this.sftpConnection(id);
-    let session;
-    try {
-      session = await openSftp(connection);
-      const root = await session.realpath(connection.remoteRoot ?? ".");
-      // Some servers resolve missing paths; the allowed folder must exist.
-      if ((await session.lstat(root))?.type !== "dir") throw new Error("no folder");
-      return { ok: true };
-    } catch {
-      throw problem(serverMessages.ssh.connectionFailed, 502);
-    } finally {
-      session?.close();
     }
   }
 }
