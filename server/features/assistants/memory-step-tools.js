@@ -15,9 +15,14 @@ const running = new Set(["pending", "accepted", "running"]);
 function turns(bridge, { agentId, sessionKey }) {
   if (typeof sessionKey === "string") return bridge.bound(sessionKey);
   const { ledger, store } = bridge.assistants;
+  // An attempt whose request, chat or agent is gone belongs to no agent: skipped.
   return ledger.pending().filter((a) => {
-    const chat = store.getConversation(ledger.getRequest(a.requestId).conversationId);
-    return store.getAssistant(chat.assistantId)?.runtimeAgentId === agentId;
+    try {
+      const chat = store.getConversation(ledger.getRequest(a.requestId).conversationId);
+      return store.getAssistant(chat.assistantId)?.runtimeAgentId === agentId;
+    } catch {
+      return false;
+    }
   });
 }
 

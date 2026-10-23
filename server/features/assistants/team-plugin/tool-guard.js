@@ -50,7 +50,10 @@ async function lockedToolCall(event, ctx, bridge) {
 }
 // Every tool call asks whether it runs in a memory step, which keeps to its memory
 // tools (memory-step-tools.js); an unanswered question refuses.
+// A memory step is an agent run (chat.send) and always names its agent; a call of
+// no agent (an internal run) is no step's.
 async function stepCall(event, ctx, bridge) {
+  if (typeof ctx?.agentId !== "string" || !ctx.agentId) return undefined;
   const response = await bridge(
     "/step-policy",
     {
