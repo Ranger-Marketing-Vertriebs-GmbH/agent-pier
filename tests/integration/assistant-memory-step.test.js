@@ -7,6 +7,7 @@ import { nativeWriteGuard } from "../helpers/native-write-guard.js";
 import { teamFixture } from "../helpers/assistant-team-fixture.js";
 import { sshOrigin } from "../../server/features/assistants/agent-ssh-origin.js";
 import { memoryStepWrite } from "../../server/features/assistants/memory-write-policy.js";
+import { MemoryNotes } from "../../server/features/assistants/memory-notes.js";
 
 const step = { kind: "memory-step" };
 
@@ -59,6 +60,19 @@ test("a memory step writes the agent's own memory and nothing else", async (t) =
   fs.mkdirSync(path.join(f.dataDir, "elsewhere"));
   fs.symlinkSync(path.join(f.dataDir, "elsewhere"), path.join(f.workspace, "memory"));
   assert.equal(await f.call("memory/2026-10-23.md"), false);
+});
+
+test("a memory step's refused write names the memory step as the reason", async (t) => {
+  const f = await setup(t);
+  f.assistants.memoryNotes = new MemoryNotes(f.store.db);
+  await f.invocation("step", step);
+  assert.equal(await f.call("memory/lead/MEMORY.md"), false);
+  assert.deepEqual(
+    f.assistants.memoryNotes
+      .forConversation(f.channel.conversationId)
+      .map((n) => n.reason),
+    ["memory-step"],
+  );
 });
 
 test("a memory step on a shared agent writes nothing", async (t) => {

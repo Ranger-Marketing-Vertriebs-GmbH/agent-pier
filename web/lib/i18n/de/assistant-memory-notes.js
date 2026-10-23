@@ -14,6 +14,8 @@ export const memoryNoteCopy = {
       "Gedächtnis nicht gespeichert: Aufgaben des leitenden Agenten können das Gedächtnis nicht ändern.",
     flush:
       "Gedächtnis nicht gespeichert: Die automatische Notiz vor dem Kürzen der Unterhaltung wurde abgelehnt.",
+    "memory-step":
+      "Gedächtnis nicht gespeichert: Vor einer Zusammenfassung darf der Agent nur sein eigenes Gedächtnis ändern.",
     "shared-write": "Gilt für alle, die diesen Agenten nutzen.",
   },
   unknown: "Gedächtnis nicht gespeichert.",

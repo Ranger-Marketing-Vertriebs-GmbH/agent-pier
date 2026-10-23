@@ -10,6 +10,8 @@ export const memoryNoteCopy = {
     "lead-request": "Memory not saved: tasks from the lead agent cannot change memory.",
     flush:
       "Memory not saved: the automatic note before shortening the conversation was refused.",
+    "memory-step":
+      "Memory not saved: before a summary, the agent may change only its own memory.",
     "shared-write": "Applies to everyone who uses this agent.",
   },
   unknown: "Memory not saved.",

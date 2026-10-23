@@ -43,3 +43,11 @@ test("a permanent agent's delegated turn still never flushes", () => {
   assert.equal(flushWrite(bridge(permanent, { kind: "lead-request" }), input), false);
   assert.equal(flushWrite(bridge(permanent, { kind: "owner" }), input), true);
 });
+
+test("a memory step takes OpenClaw's flush on its own agent, never on a shared one", () => {
+  const own = { runtimeAgentId: agentId };
+  assert.equal(flushWrite(bridge(own, { kind: "memory-step" }), input), true);
+  const shared = { runtimeAgentId: agentId, userAccess: { mode: "shared" } };
+  assert.equal(flushWrite(bridge(shared, { kind: "memory-step" }), input), false);
+  assert.equal(flushWrite(bridge(own, { kind: "routine" }), input), false);
+});

@@ -10,6 +10,7 @@ export const memoryNoteReasons = [
   "automatic",
   "lead-request",
   "flush",
+  "memory-step",
   "shared-write",
 ];
 const kept = 100;
