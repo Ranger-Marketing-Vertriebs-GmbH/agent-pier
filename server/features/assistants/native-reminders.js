@@ -17,7 +17,7 @@ import {
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
 
-import { agentName, audienceOf, pushAudience } from "./reminder-audience.js";
+import { agentName, audienceOf, noTelegram, pushAudience } from "./reminder-audience.js";
 export { exact, schedule, updateInput } from "./reminder-input.js";
 export { memberReminderLimit } from "./reminder-tools.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
@@ -171,7 +171,7 @@ export class NativeReminders {
           ? this.channels.store.get(channelId)
           : pairedChannel(this.channels, id, person);
     if (!personalChannel(this.channels, channel, id, person))
-      throw assistantProblem("reminderChannelRequired", 409);
+      throw noTelegram(this.assistants.store.getAssistant(id), person);
     if (
       origin?.kind === "telegram" &&
       ["chatId", "userId"].some((k) => channel[k] !== origin[k])
@@ -236,20 +236,23 @@ export class NativeReminders {
       textValue(input?.clientRequestId, 768);
       textValue(input.name, 100);
       const agent = this.agent(id, true);
-      const telegram = this.wantsTelegram(input, origin)
-        ? this.telegramTarget(id, input.channelId, origin, metadata.userId ?? null)
-        : null;
+      const wants = this.wantsTelegram(input, origin);
       const old = this.bindings.list(id).find((b) => b.key === input.clientRequestId);
-      // Replay lookup precedes due-time validation: an acknowledged one-shot may
-      // already be in the past when the caller recovers its creation result.
+      // Replay lookup precedes due-time validation and the Telegram chat: an
+      // acknowledged one-shot may already be in the past, and its chat unpaired, when
+      // the caller recovers its creation result.
       const values = this.values(input, old);
+      const telegram =
+        wants && !old
+          ? this.telegramTarget(id, input.channelId, origin, metadata.userId ?? null)
+          : null;
       // The source is the agent alone: results go to its main chat, and the
       // Telegram extra may be switched later.
       const { binding, fresh } = this.bindings.reserve(
         id,
         input.clientRequestId,
         { assistantId: id },
-        { ...values, telegram: !!telegram },
+        { ...values, telegram: wants },
         {
           kind: this.kind,
           definition: values,

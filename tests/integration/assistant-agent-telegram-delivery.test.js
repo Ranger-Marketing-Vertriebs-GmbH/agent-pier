@@ -174,47 +174,81 @@ test("scheduled, forwarded and member turns cannot switch Telegram", async (t) =
   assert.equal(telegramOf(f, routine.id), null);
 });
 
-test("a user's turn on a shared agent uses her paired chat, never the owner's", async (t) => {
-  const f = setup(t);
-  const agent = f.store.getAssistant(f.id);
+// The agent made a user's: Anna at `level`, her main chat open.
+function forAnna(f, mode, level) {
   f.store.setUserAccess(
     f.id,
-    { mode: "shared", members: [{ userId: "anna", level: "personalize" }] },
-    agent.revision,
+    { mode, members: [{ userId: "anna", level }] },
+    f.store.getAssistant(f.id).revision,
   );
-  const annasChat = f.store.saveConversation({
+  const chat = f.store.saveConversation({
     assistantId: f.id,
     userId: "anna",
     runtimeSessionKey: "anna-session",
     main: true,
   });
   const anna = { kind: "user", userId: "anna" };
+  const call = (input) => f.call("routines", input, anna, chat.id);
   const create = (extra) =>
-    f.call(
-      "routines",
-      { action: "create", name: "Anna", prompt: "Plan.", trigger: schedule, ...extra },
-      anna,
-      annasChat.id,
+    call({
+      action: "create",
+      name: "Anna",
+      prompt: "Plan.",
+      trigger: schedule,
+      ...extra,
+    });
+  return { chat, call, create };
+}
+
+test("a user who cannot pair Telegram is told it is unavailable, not to pair", async (t) => {
+  for (const [mode, level] of [
+    ["shared", "personalize"],
+    ["shared", "extended"],
+    ["own", "personalize"],
+  ]) {
+    const f = setup(t);
+    const anna = forAnna(f, mode, level);
+    // The agent's only Telegram chat is the owner's: never Anna's destination.
+    const error = await anna.create({ telegram: true }).catch((e) => e);
+    assert.equal(error.key, "reminderTelegramUnavailable", `${mode} ${level}`);
+    assert.equal(toolError(error).code, "TELEGRAM_UNAVAILABLE");
+    assert.doesNotMatch(toolError(error).reason, /pair Telegram in/);
+    const quiet = await anna.create();
+    await assert.rejects(
+      anna.call({
+        action: "update",
+        id: quiet.id,
+        telegram: true,
+        revision: quiet.revision,
+      }),
+      { key: "reminderTelegramUnavailable" },
     );
-  // The agent's only Telegram chat is the owner's: Anna's request is refused.
-  await assert.rejects(create({ telegram: true }), { key: "reminderChannelRequired" });
-  const quiet = await create();
-  await assert.rejects(
-    f.call(
-      "routines",
-      { action: "update", id: quiet.id, telegram: true, revision: quiet.revision },
-      anna,
-      annasChat.id,
-    ),
-    { key: "reminderChannelRequired" },
-  );
-  assert.equal(telegramOf(f, quiet.id), null);
-  // Once the chat is Anna's own, her request delivers there.
+    assert.equal(telegramOf(f, quiet.id), null);
+  }
+});
+
+test("an Extended user on her own agent is told to pair, then uses her chat", async (t) => {
+  const f = setup(t);
+  const anna = forAnna(f, "own", "extended");
+  const error = await anna.create({ telegram: true }).catch((e) => e);
+  assert.equal(error.key, "reminderChannelRequired");
+  assert.equal(toolError(error).code, "TELEGRAM_NOT_CONNECTED");
+  // Once she paired the agent's bot with her own chat, her request delivers there.
   const channel = f.service.store.get(f.channel.id);
-  f.service.store.write({ ...channel, conversationId: annasChat.id }, channel.revision);
-  const loud = await create({ telegram: true });
+  f.service.store.write({ ...channel, conversationId: anna.chat.id }, channel.revision);
+  const loud = await anna.create({ telegram: true });
   assert.equal(f.reminders.bindings.get(loud.id).userId, "anna");
   assert.equal(telegramOf(f, loud.id).channelId, f.channel.id);
+});
+
+test("a retried create returns its routine even after Telegram was unpaired", async (t) => {
+  const f = setup(t);
+  const input = { ...f.input, telegram: true };
+  const first = await f.routines.create(f.id, input);
+  f.service.store.disconnect(f.channel.id, f.service.store.get(f.channel.id).revision);
+  const again = await f.routines.create(f.id, input);
+  assert.equal(again.id, first.id);
+  assert.equal(f.jobs.size, 1);
 });
 
 test("the tool schemas offer telegram and tell the agent it may switch it", () => {

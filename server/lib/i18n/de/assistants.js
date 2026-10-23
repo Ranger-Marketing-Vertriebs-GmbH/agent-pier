@@ -85,6 +85,8 @@ export const assistants = {
   heartbeatPrefix: "Check-in:",
   reminderChannelRequired:
     "Um auch an Telegram zu senden, verbinde zuerst einen Telegram-Chat mit diesem Agenten.",
+  reminderTelegramUnavailable:
+    "Telegram-Zustellung steht dir bei diesem Agenten nicht zur Verfügung; Ergebnisse erreichen deinen Chat weiterhin mit einer Push-Benachrichtigung.",
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",
   routineReviewRequired:

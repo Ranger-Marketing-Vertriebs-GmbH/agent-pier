@@ -6,6 +6,8 @@ import { autonomousCaps } from "./team-policy.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
+  TELEGRAM_UNAVAILABLE:
+    "Telegram delivery is not available to this person on this agent: only the owner, or a user on her own agent with Extended access, can pair a Telegram chat. Do not retry; results still reach this chat with a push notification.",
   INVALID_TIME:
     "Give the time as an ISO timestamp with a UTC offset or Z, for example 2026-10-09T09:00:00+02:00.",
   INVALID_INPUT:
@@ -115,6 +117,7 @@ const reasons = {
 };
 const byKey = {
   reminderChannelRequired: "TELEGRAM_NOT_CONNECTED",
+  reminderTelegramUnavailable: "TELEGRAM_UNAVAILABLE",
   reminderTimezoneRequired: "INVALID_TIME",
   reminderReviewRequired: "REVIEW_REQUIRED",
   routineReviewRequired: "REVIEW_REQUIRED",
