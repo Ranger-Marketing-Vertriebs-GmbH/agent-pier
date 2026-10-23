@@ -105,7 +105,7 @@ export class SshAccessStore {
     credentialRevision,
   }) {
     const sftp = type === "sftp";
-    const key = keyId ? this.keyStore.get(keyId) : null;
+    const key = keyId ? this.projectKey(keyId, sftp) : null;
     return {
       id,
       name,
@@ -125,7 +125,17 @@ export class SshAccessStore {
       auth: sftp ? auth : "key",
       remoteRoot: sftp ? remoteRoot : null,
       hasPassword: sftp && auth === "password" && Boolean(credentialRevision),
+      ...(key?.missing ? { keyMissing: true } : {}),
     };
+  }
+  // An older release may delete a key only SFTP hosts use; that host degrades alone.
+  projectKey(keyId, sftp) {
+    try {
+      return this.keyStore.get(keyId);
+    } catch (error) {
+      if (!sftp || error.status !== 404) throw error;
+      return { missing: true, name: null, publicKey: null, fingerprint: null };
+    }
   }
   get(id) {
     const access = this.list().find((item) => item.id === id);

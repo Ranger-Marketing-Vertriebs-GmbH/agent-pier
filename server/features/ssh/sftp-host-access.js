@@ -126,7 +126,10 @@ export function sftpConnection(store, id) {
   };
   if (row.auth === "password")
     connection.password = store.passwords.read(id, row.credentialRevision);
-  else connection.privateKey = readPrivateKey(store.keyStore, row.keyId);
+  else {
+    if (store.project(row).keyMissing) throw problem(serverMessages.ssh.keyNotFound, 409);
+    connection.privateKey = readPrivateKey(store.keyStore, row.keyId);
+  }
   return connection;
 }
 function readPrivateKey(keyStore, keyId) {
