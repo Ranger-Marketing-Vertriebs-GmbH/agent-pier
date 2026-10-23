@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { describeDuplicates } from "../../server/features/memory/project-duplicates.js";
-import {
-  listedProjects,
-  listedProjectsPath,
-} from "../../web/features/pipelines/project-list.js";
+import { listedProjects, listedProjectsPath } from "../../web/lib/project-list.js";
 
 const row = (id, cwd, kind, createdAt) => ({
   id,

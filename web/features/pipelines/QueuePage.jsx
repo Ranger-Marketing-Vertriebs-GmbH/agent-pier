@@ -11,7 +11,7 @@ import QueueItems from "./QueueItems.jsx";
 import useDraftGuard from "./useDraftGuard.jsx";
 import useDraftParts from "./useDraftParts.js";
 import { pipelineRoutePath } from "./routes.js";
-import { listedProjects, listedProjectsPath } from "./project-list.js";
+import { listedProjects, listedProjectsPath } from "../../lib/project-list.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { pipelineQueueCopy as copy } from "../../lib/i18n/messages/pipeline-queue.js";
 import "./definitions.css";

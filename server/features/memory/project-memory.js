@@ -8,7 +8,7 @@ import {
   textValue,
   record,
 } from "./memory-validation.js";
-import { projectScope } from "./project-scope.js";
+import { projectScope, stableIdentity, useProjectRegistry } from "./project-scope.js";
 import { classifyProjectFolder, runWorktreeRoot } from "./project-folders.js";
 import { gitInitRebind } from "./project-rebind.js";
 import {
@@ -64,6 +64,23 @@ export class ProjectMemory {
     this.onForget = null;
     // An interrupted or incomplete purge of forgotten entries is retried at start.
     purgeForgotten(this);
+    this.leaveRegistry = useProjectRegistry((folder) => this.registeredId(folder));
+  }
+  /**
+   * The registered project of a folder identity: the row with exactly this ID, else
+   * the most recently registered row of the same folder (same kind, path and inode)
+   * whose device number differs, so a restart never registers the folder again.
+   */
+  registeredId({ id, kind, path, ino }) {
+    if (this.closed) return null;
+    const rows = this.db
+      .prepare(
+        "SELECT id,identity FROM projects WHERE kind=? ORDER BY created_at DESC,id DESC",
+      )
+      .all(kind);
+    if (rows.some((row) => row.id === id)) return id;
+    const wanted = JSON.stringify([kind, path, ino]);
+    return rows.find((row) => stableIdentity(row.identity) === wanted)?.id ?? null;
   }
   gitProjectAt(cwd) {
     return Boolean(
@@ -506,6 +523,7 @@ export class ProjectMemory {
   close() {
     if (!this.closed) {
       this.closed = true;
+      this.leaveRegistry();
       this.db.close();
     }
   }

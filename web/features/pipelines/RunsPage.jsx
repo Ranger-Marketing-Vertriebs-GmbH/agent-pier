@@ -7,6 +7,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useResource from "../../lib/useResource.js";
+import { listedProjects, listedProjectsPath } from "../../lib/project-list.js";
 import RunDetail from "./RunDetail.jsx";
 import NewRunDialog from "./NewRunDialog.jsx";
 import RunStatusFilter from "./RunStatusFilter.jsx";
@@ -25,7 +26,7 @@ export default function RunsPage({ route, navigate, home, onTotal }) {
     });
   const [version, setVersion] = useState(0);
   const list = useResource(detail ? null : `/pipeline-runs?${query}`, { poll: 5000 }),
-    projects = useResource("/memory/projects");
+    projects = useResource(listedProjectsPath);
   const counts = useRunStatusCounts({
     projectId: route.projectId || "",
     enabled: !detail,
@@ -78,10 +79,12 @@ export default function RunsPage({ route, navigate, home, onTotal }) {
             onChange={(value) => navigate({ projectId: value, pipelinePage: 1 })}
             options={[
               { value: "", label: copy.allProjects },
-              ...(projects.data?.projects || []).map((project) => ({
-                value: project.id,
-                label: project.name,
-              })),
+              ...listedProjects(projects.data?.projects, route.projectId).map(
+                (project) => ({
+                  value: project.id,
+                  label: project.name,
+                }),
+              ),
             ]}
           />
           <button

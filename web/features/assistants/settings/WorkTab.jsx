@@ -14,6 +14,7 @@ import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import api from "../../../lib/api.js";
 import { routePath } from "../../../app/routes.js";
+import { listedProjects } from "../../../lib/project-list.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantWorkflowCopy as wf } from "../../../lib/i18n/messages/assistant-workflows.js";
@@ -143,6 +144,13 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
     },
   });
   const label = settingsCopy.tabs.work;
+  // One row per folder; an older row the agent still holds stays listed to revoke.
+  const projects =
+    catalog &&
+    listedProjects(catalog.projects, [
+      ...draft.values.projectIds,
+      ...Object.keys(draft.values.projectFiles),
+    ]);
   const sshHostIds = catalog?.sshHosts ? catalog.sshHosts.map((h) => h.id) : null;
   const steps = [workStep({ assistantId: assistant.id, label, withTeam, sshHostIds })];
   // A granted project that no longer exists (an older row merged away) is dropped by
@@ -233,7 +241,7 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
     return (
       <>
         <ProjectGrantPage
-          items={catalog?.projects ?? null}
+          items={projects ?? null}
           selected={draft.values.projectIds}
           levels={draft.values.projectFiles}
           foldersOnly={userAgent}
@@ -300,9 +308,9 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
               catalog
                 ? commonCopy.ofCount(
                     userAgent
-                      ? grantCount(Object.keys(values.projectFiles), catalog.projects)
-                      : grantCount(values.projectIds, catalog.projects),
-                    catalog.projects.length,
+                      ? grantCount(Object.keys(values.projectFiles), projects)
+                      : grantCount(values.projectIds, projects),
+                    projects.length,
                   )
                 : unknownValue
             }
