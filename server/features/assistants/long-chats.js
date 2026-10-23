@@ -191,6 +191,8 @@ export class LongChats {
     this.outcomes.delete(id);
     this.saving.add(id);
     let stopped = false;
+    // Until the step's end is known, nothing counts as saved.
+    let memoryNotSaved = true;
     const job = Promise.resolve(stillRuns());
     this.memoryStep
       .run(conversation)
@@ -198,7 +200,7 @@ export class LongChats {
       .then((step) => {
         this.saving.delete(id);
         if (stopped) return;
-        const memoryNotSaved = !step.saved;
+        memoryNotSaved = !step.saved;
         let current;
         try {
           current = service.store.getConversation(id);
@@ -227,6 +229,7 @@ export class LongChats {
         this.stops.delete(id);
         this.running.delete(id);
         this.outcomes.set(id, { outcome: "failed", at: now() });
+        if (memoryNotSaved) this.unsaved.set(id, now());
         service.changed({ conversationId: id });
       });
     // Shutdown or a deleted chat: the summary ends after the step without a notice.
