@@ -523,8 +523,11 @@ or proposing a team sends an **Agent approval** push notification as well.
   shell and MCP servers, as far as they are switched on) but cannot schedule. It reads
   the agent's project folders (its own and those its lead shares with it for good)
   and changes files there only when you switch on **May write** ("Project folders and
-  delegated tasks") in the routine's details; only you can, the agent cannot.
-  Otherwise a write attempt is refused and the routine's result says so. Every change
+  delegated tasks") in the routine's details, or ask the agent to switch it on or
+  off when it creates or changes the routine for you ("this routine may write"). The
+  agent does that only on your own message in one of your chats, never from a
+  scheduled run, forwarded or tool-provided content, and never for a user's routine
+  (users cannot switch it). Otherwise a write attempt is refused and the routine's result says so. Every change
   is recorded in the activity log with the routine. A coding request from a routine
   always waits for your approval in the agent's chat, also when the agent may start
   pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask

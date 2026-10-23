@@ -233,6 +233,12 @@ its reminders and routines; it uses your own paired Telegram chat and asks you t
 pair one first when there is none (users can pair only on their own agent with
 **Extended** access).
 
+Asked by the owner in one of his chats, the agent can likewise switch **May write**
+on or off when it creates or changes one of its routines; its unattended runs may
+then change files in its project folders and delegate tasks that change members'
+files. Scheduled runs, forwarded or tool-provided content and users' requests never
+switch it.
+
 A reminder repeats prescribed text and runs without tools. A routine asks the
 configured model to answer its saved prompt each time, with the agent's own chat
 tools: memory search, reading and writing its own workspace files, web

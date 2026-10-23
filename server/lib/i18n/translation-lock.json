@@ -224,6 +224,7 @@
   "assistants.reminderTimezoneRequired": "de:1b5ded782c53 en:2ce635e5785b",
   "assistants.restartRequired": "de:234ba11994e8 en:64d6acd1bf3d",
   "assistants.routineReviewRequired": "de:97f2e525c436 en:1dc6ea78700b",
+  "assistants.routineWritesOwnerOnly": "de:faaa0902041e en:7093d76b1634",
   "assistants.scanRules.bidi-control": "de:41d3c8648047 en:485719097c5c",
   "assistants.scanRules.binary-executable": "de:5ecdd7357a2a en:580a2f44d05d",
   "assistants.scanRules.credential-exfiltration": "de:16f0997ba3ff en:ad68a48d2e1a",
