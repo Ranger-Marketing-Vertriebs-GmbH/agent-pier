@@ -452,7 +452,11 @@ test(
     const client = runtime.client;
     const record = path.join(dataDir, "stdio-record.jsonl");
     const { config: initial } = await client.call("config.get", {});
-    assert.deepEqual(initial.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
+    // Every web capability the runtime can serve is compiled at the start, whether an
+    // agent uses it or not (web-tools.js webToolsSections): here only the search
+    // plugin, since the fixture offers no browser and no PDF model.
+    const startAllow = ["agentpier-teams", "openai", "memory-core", "duckduckgo"];
+    assert.deepEqual(initial.plugins.allow, startAllow);
     const generation = runtime.generation;
     const log = path.join(runtime.paths.logs, "gateway-console.log");
     const logFrom = fs.statSync(log).size;
@@ -463,7 +467,7 @@ test(
     await allow(["bundle-mcp"], globs);
     // `bundle-mcp` is not a plugin id for plugins.allow, and none is needed.
     const { config } = await client.call("config.get", {});
-    assert.deepEqual(config.plugins.allow, ["agentpier-teams", "openai", "memory-core"]);
+    assert.deepEqual(config.plugins.allow, startAllow);
     const listed = await client.call("plugins.list", {});
     assert.equal(
       (listed.plugins ?? listed).some((p) => p.id === "bundle-mcp"),
