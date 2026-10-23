@@ -29,8 +29,9 @@ function phaseText(view) {
  * last), a turn that hears nothing from the model with Stop and Try again, a turn
  * of unknown outcome (`explainUncertain` says why; `onRecover` reviews it), why a
  * failed turn ended, and a hint when the chat grew very long. `compacting` also shows
- * a summary the person asked for outside a turn, and `compactOutcome` how one ended
- * that outlived its request (server long-chats.js). `onStop`, `onRetry`, `onRecover` and
+ * a summary the person asked for outside a turn ("memory" while its memory step runs
+ * first), `compactOutcome` how one ended that outlived its request, and
+ * `memoryNotSaved` that its memory step saved nothing (server long-chats.js). `onStop`, `onRetry`, `onRecover` and
  * `longChatActions` (useLongChat) are null where the chat cannot act.
  */
 export default function AgentRunState({
@@ -40,6 +41,7 @@ export default function AgentRunState({
   uncertain,
   compacting,
   compactOutcome,
+  memoryNotSaved = false,
   steps,
   longChat,
   longChatActions = null,
@@ -56,6 +58,10 @@ export default function AgentRunState({
   useNow(Boolean(view));
   const stalled = stalledMinutes(view, Date.now());
   const failure = !active && attempt?.state === "failed" ? attempt.failure : null;
+  const outcome = [
+    copy.compactOutcome[compactOutcome],
+    memoryNotSaved && copy.compactOutcome.memoryNotSaved,
+  ].filter(Boolean);
   return (
     <>
       {(attempt || compacting) && (
@@ -68,11 +74,13 @@ export default function AgentRunState({
           {(running || compacting) && (
             <StatusDot tone="working" pulse className="assistant-run-dot" />
           )}
-          {compacting
-            ? assistantCopy.compaction.running
-            : view
-              ? phaseText(view)
-              : assistantCopy.status[shownAttempt.state]}
+          {compacting === "memory"
+            ? assistantCopy.compaction.memory
+            : compacting
+              ? assistantCopy.compaction.running
+              : view
+                ? phaseText(view)
+                : assistantCopy.status[shownAttempt.state]}
         </p>
       )}
       {view && view.steps.length > 0 && (
@@ -163,9 +171,9 @@ export default function AgentRunState({
           )}
         </div>
       )}
-      {compactOutcome && !compacting && copy.compactOutcome[compactOutcome] && (
+      {outcome.length > 0 && !compacting && (
         <p className="assistant-notice assistant-compact-outcome" role="status">
-          {copy.compactOutcome[compactOutcome]}
+          {outcome.join(" ")}
         </p>
       )}
       {longChat && !active && !compacting && (

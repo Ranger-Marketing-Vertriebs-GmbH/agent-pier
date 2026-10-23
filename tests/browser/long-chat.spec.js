@@ -19,6 +19,8 @@ const languages = {
     nothing: "The history cannot be summarised any further right now.",
     interrupted:
       "The summary stopped because the agent runtime stopped or restarted. The chat is ready again.",
+    saving: "Saving memories before the summary …",
+    notSaved: "No memories were saved before the summary.",
   },
   de: {
     hint: /Dieser Chat ist lang\./,
@@ -30,6 +32,8 @@ const languages = {
     nothing: "Der Verlauf lässt sich gerade nicht weiter zusammenfassen.",
     interrupted:
       "Die Zusammenfassung wurde abgebrochen, weil die Agent-Laufzeit beendet oder neu gestartet wurde. Der Chat ist wieder bereit.",
+    saving: "Speichert Erinnerungen vor der Zusammenfassung …",
+    notSaved: "Vor der Zusammenfassung wurden keine Erinnerungen gespeichert.",
   },
 };
 
@@ -95,6 +99,46 @@ for (const [language, copy] of Object.entries(languages))
       await expect(status).not.toHaveText(copy.summarising);
       await expect(hint(page)).toHaveCount(0);
       expect(compacts).toEqual(["POST"]);
+    });
+
+    test("Summarise now saves memories first, and says when none were saved", async ({
+      page,
+    }) => {
+      const state = await chatFixture(page, { language, history: longHistory });
+      const steps = {};
+      const next = (name) => new Promise((resolve) => (steps[name] = resolve));
+      await page.route("**/api/assistant-conversations/dinner/compact", async (route) => {
+        // The memory step runs first (server long-chats.js), then the summary.
+        state.history = { ...longHistory, compacting: "memory" };
+        await page.evaluate(() => window.agentFeed.push("dinner"));
+        await next("saved");
+        state.history = { ...longHistory, compacting: true };
+        await page.evaluate(() => window.agentFeed.push("dinner"));
+        await next("summarised");
+        state.history = {
+          ...longHistory,
+          longChat: undefined,
+          messages: [...earlier, note],
+          memoryNotSaved: true,
+        };
+        await route.fulfill({ json: { compacted: true } });
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      const status = page.locator(".assistant-run-state");
+      await expect(status).toHaveText(copy.saving);
+      await expect(hint(page)).toHaveCount(0);
+      await noSideScroll(page);
+      if (language === "en" && process.env.MEMORY_STEP_SCREENSHOT)
+        await page.screenshot({ path: process.env.MEMORY_STEP_SCREENSHOT });
+      steps.saved();
+      await expect(status).toHaveText(copy.summarising);
+      steps.summarised();
+      await expect(page.getByText(copy.note)).toBeVisible();
+      await expect(page.locator(".assistant-compact-outcome")).toHaveText(copy.notSaved);
+      await expect(status).not.toHaveText(copy.summarising);
+      await noSideScroll(page);
     });
 
     test("a summary that outlives its request keeps running, then says how it ended", async ({

@@ -393,9 +393,11 @@ export const assistantCopy = {
     unconfirmed: "Awaiting confirmation",
     cancelled: "Cancelled",
     compacting: "Summarising conversation",
+    savingMemories: "Saving memories",
   },
   // A run that shortens its long history first (server compactions.js).
   compaction: {
+    memory: "Saving memories before the summary …",
     running:
       "Summarising the conversation so far — this can take a few minutes for long chats.",
     note: (before, after) =>

@@ -193,6 +193,15 @@ test("the header says the agent is summarising while its run compacts", () => {
     label: "Fasst Verlauf zusammen",
   });
   assert.equal(headerStatus({ ...input, copy: en }).label, "Working");
+  // The memory step before a summary on request (server long-chats.js).
+  assert.deepEqual(headerStatus({ ...input, copy: en, compacting: "memory" }), {
+    tone: "working",
+    label: "Saving memories",
+  });
+  assert.equal(
+    headerStatus({ ...input, copy: de, compacting: "memory" }).label,
+    "Speichert Erinnerungen",
+  );
   // An unclear outcome is not hidden behind a summary that may be over.
   assert.equal(
     headerStatus({

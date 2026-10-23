@@ -2,6 +2,7 @@ import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
+import { MemoryStep } from "./memory-step.js";
 import {
   answerCodeOf,
   compactOutcome,
@@ -16,7 +17,8 @@ import {
 // it is done: { ok, compacted, reason, result }. It refuses a session with an active
 // run or queued work (INVALID_REQUEST) and answers `compacted: false` when there is
 // nothing to summarise. Unlike the compaction before a run, it never runs the
-// pre-compaction memory flush (agent-runner-memory), so it writes no memory. A large
+// pre-compaction memory flush (agent-runner-memory), so AgentPier runs its own memory
+// step first where the agent may write its memory (memory-step.js). A large
 // history takes long: the request answers after `answerMs` that it still runs, the
 // chat stays compacting until the Gateway ended it, at most `maxMs` (compactions.js).
 // After a dropped call it waits for a new compaction marker for `lostMs` at most
@@ -51,6 +53,18 @@ export const reappearsAt = (tokens) =>
 export const dismissalTable =
   "CREATE TABLE IF NOT EXISTS assistant_long_chat_dismissals (conversation_id TEXT NOT NULL, person TEXT NOT NULL, tokens INTEGER NOT NULL, dismissed_at TEXT NOT NULL, PRIMARY KEY(conversation_id, person))";
 
+// Whether a turn of the chat is still unresolved (as sendTurn's busy rule).
+const activeTurn = (service, conversationId) =>
+  service.ledger.pending().some((attempt) => {
+    try {
+      return (
+        service.ledger.getRequest(attempt.requestId).conversationId === conversationId
+      );
+    } catch {
+      return false;
+    }
+  });
+
 // Whose chat it is: a user's own, or the owner's.
 const personOf = (conversation) =>
   typeof conversation.userId === "string" ? conversation.userId : "owner";
@@ -68,6 +82,11 @@ export class LongChats {
     // Watches of summaries that outlived their request, and how such ones ended.
     this.stops = new Map();
     this.outcomes = new Map();
+    // Chats whose memory step runs before their summary, and those whose step saved
+    // nothing, with when their summary ended.
+    this.saving = new Set();
+    this.unsaved = new Map();
+    this.memoryStep = new MemoryStep({ service });
     this.timing = { ...compactTiming };
     this.db = service.store.db;
     this.db.exec(dismissalTable);
@@ -75,6 +94,18 @@ export class LongChats {
   /** Whether the chat's history is being summarised on request now. */
   compacting(conversationId) {
     return this.running.has(conversationId);
+  }
+  /** What the chat's summary does now: "memory" (its memory step), true or false. */
+  phase(conversationId) {
+    return this.saving.has(conversationId) ? "memory" : this.running.has(conversationId);
+  }
+  /** Whether the chat's memory step runs, the one turn its summary lets through. */
+  savingMemory(conversationId) {
+    return this.saving.has(conversationId);
+  }
+  /** Whether the chat's last summary ran without its memory step having saved. */
+  memoryNotSaved(conversationId) {
+    return this.unsaved.has(conversationId);
   }
   /**
    * Whether its person hid the hint at a size the context has not clearly outgrown. A
@@ -105,8 +136,9 @@ export class LongChats {
   }
   /**
    * Summarises the chat's history now. A second request while one runs joins it, so a
-   * double click compacts once. Refused while a turn runs, a message waits or team
-   * work reports into the chat, and for a chat that takes no turns.
+   * double click compacts once, also while its memory step runs. Refused while a turn
+   * runs, a message waits or team work reports into the chat, and for a chat that
+   * takes no turns.
    */
   async summarise(conversationId) {
     const service = this.service;
@@ -119,8 +151,59 @@ export class LongChats {
       refuseClosedChat(service, conversation);
       service.requireReady();
       if (chatBusy(service, conversationId)) throw chatProblem("CHAT_BUSY");
-      job = this.compact(conversation);
+      job = this.start(conversation);
     });
+    return job;
+  }
+  /**
+   * Where the agent may write its memory, the memory step runs first (memory-step.js):
+   * the chat is summarising meanwhile, so a message waits and a second request joins,
+   * but shows that memories are saved. Whatever the step's end, the summary follows;
+   * one that saved nothing leaves the chat's notice (memoryNotSaved). A Gateway that
+   * is not ready after the step, or a run of the step that a timeout could not end,
+   * ends the summary with its refusal instead.
+   */
+  start(conversation) {
+    const id = conversation.id;
+    if (!this.memoryStep.eligible(conversation)) return this.compact(conversation);
+    const service = this.service;
+    this.outcomes.delete(id);
+    this.unsaved.delete(id);
+    this.saving.add(id);
+    let stopped = false;
+    const job = this.memoryStep
+      .run(conversation)
+      .catch(() => ({ saved: false }))
+      .then((step) => {
+        this.saving.delete(id);
+        if (stopped) throw assistantProblem("notFound", 404);
+        const memoryNotSaved = !step.saved;
+        let current;
+        try {
+          current = service.store.getConversation(id);
+          refuseClosedChat(service, current);
+          service.requireReady();
+          if (activeTurn(service, id)) throw chatProblem("CHAT_BUSY");
+        } catch (refusal) {
+          this.stops.delete(id);
+          this.running.delete(id);
+          if (memoryNotSaved) this.unsaved.set(id, service.now?.() ?? Date.now());
+          service.changed({ conversationId: id });
+          if (!service.closed) dispatchQueued(service, id).catch(() => {});
+          throw refusal;
+        }
+        return this.compact(current, { memoryNotSaved });
+      });
+    job.catch(() => {});
+    // Shutdown or a deleted chat: the summary ends after the step without a notice.
+    this.stops.set(id, () => {
+      stopped = true;
+      this.saving.delete(id);
+      this.stops.delete(id);
+      this.running.delete(id);
+    });
+    this.running.set(id, job);
+    service.changed({ conversationId: id });
     return job;
   }
   /**
@@ -133,7 +216,7 @@ export class LongChats {
    * (compaction-watch.js). A Gateway that is gone or stopping ends it at once. An end
    * the request no longer reported is the chat's notice (outcome).
    */
-  compact(conversation) {
+  compact(conversation, { memoryNotSaved = false } = {}) {
     const service = this.service;
     const id = conversation.id;
     const sessionKey = conversation.runtimeSessionKey;
@@ -200,6 +283,7 @@ export class LongChats {
         this.outcomes.set(id, { outcome, at: service.now?.() ?? Date.now() });
       }
       try {
+        if (memoryNotSaved) this.unsaved.set(id, service.now?.() ?? Date.now());
         // A hint hidden before measured the history that is summarised now.
         if (outcome === "compacted") this.unhide(id, personOf(conversation));
         service.changed({ conversationId: id });
@@ -308,6 +392,9 @@ export class LongChats {
   settle(conversationId, writtenAt) {
     const entry = this.outcomes.get(conversationId);
     if (entry && !(writtenAt < entry.at)) this.outcomes.delete(conversationId);
+    const unsaved = this.unsaved.get(conversationId);
+    if (unsaved !== undefined && !(writtenAt < unsaved))
+      this.unsaved.delete(conversationId);
   }
   /** Ends every summary's run at shutdown; the Gateway's own work is not touched. */
   close() {
@@ -375,6 +462,7 @@ export class LongChats {
   forget(conversationId) {
     this.stops.get(conversationId)?.();
     this.outcomes.delete(conversationId);
+    this.unsaved.delete(conversationId);
     this.db
       .prepare("DELETE FROM assistant_long_chat_dismissals WHERE conversation_id=?")
       .run(conversationId);

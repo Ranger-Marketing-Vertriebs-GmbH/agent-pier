@@ -293,10 +293,12 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     queued: queuedView(service, id),
     nextBefore,
     stale,
-    // While the active attempt's run summarises the conversation (compactions.js), or
-    // its person had it summarised (long-chats.js).
+    // While its person had it summarised (long-chats.js; "memory" while its memory
+    // step runs first), or the active attempt's run summarises it (compactions.js).
     compacting:
-      summarising(service, conversation, requests) || !!service.longChats?.compacting(id),
+      service.longChats?.phase(id) || summarising(service, conversation, requests),
+    // That memory step saved nothing before the last summary (long-chats.js).
+    ...(service.longChats?.memoryNotSaved(id) ? { memoryNotSaved: true } : {}),
     // How a summary ended that outlived its request (long-chats.js).
     ...(service.longChats?.outcome(id)
       ? { compactOutcome: service.longChats.outcome(id) }
