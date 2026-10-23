@@ -30,8 +30,32 @@ test("agentpier_ssh is registered with its schema and a 245 s call budget", () =
   assert.equal(tool.name, "agentpier_ssh");
   assert.deepEqual(tool.parameters.required, ["action"]);
   assert.equal(tool.parameters.additionalProperties, false);
-  assert.deepEqual(tool.parameters.properties.action.enum, ["hosts", "execute"]);
+  assert.deepEqual(tool.parameters.properties.action.enum, [
+    "hosts",
+    "execute",
+    "list",
+    "stat",
+    "download",
+    "upload",
+    "sync",
+    "mkdir",
+    "rename",
+    "delete",
+    "job",
+    "cancel",
+  ]);
   assert.equal(tool.parameters.properties.command.maxLength, 16384);
+  // The SFTP parameters follow the limits of the coding sessions' sftp_* tools.
+  const p = tool.parameters.properties;
+  for (const key of ["remotePath", "toPath", "localPath"])
+    assert.equal(p[key].maxLength, 4096, key);
+  assert.equal(p.exclude.maxItems, 50);
+  assert.equal(p.exclude.items.maxLength, 200);
+  assert.deepEqual(p.direction.enum, ["up", "down"]);
+  for (const key of ["deleteExtra", "checksum", "recursive", "parents", "dryRun"])
+    assert.equal(p[key].type, "boolean", key);
+  assert.match(tool.description, /deletes \(delete, deleteExtra\) always ask/);
+  assert.match(tool.description, /jobId/);
   assert.equal(tool.parameters.properties.timeoutSeconds.maximum, 120);
   assert.match(tool.description, /untrusted external data/);
   assert.equal(toolTimeouts.ssh, 245000);

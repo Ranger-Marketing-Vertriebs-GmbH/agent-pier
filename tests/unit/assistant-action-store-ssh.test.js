@@ -32,7 +32,7 @@ test("trusted SSH rows are pruned to the newest per agent", (t) => {
   row(b.id, "ssh:b:0", { action: "ssh", trusted: true, commandSha256: "b" });
   row(a.id, "memory:1", { action: "memory_write" });
   row(a.id, "ssh:a:approval", { action: "ssh", command: "uptime" });
-  actions.pruneTrustedSsh(a.id, 4);
+  actions.pruneTrusted(a.id, "ssh", 4);
   assert.deepEqual(
     actions
       .list(a.id)

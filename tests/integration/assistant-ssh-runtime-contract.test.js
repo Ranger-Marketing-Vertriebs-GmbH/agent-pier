@@ -24,7 +24,7 @@ const toolResults = (request) =>
   JSON.stringify(request.messages.filter((m) => m.role === "tool"));
 
 test(
-  "pinned runtime offers agentpier_ssh to a granted agent, holds a long call and admits its routine",
+  "pinned runtime offers agentpier_ssh to a granted agent, holds a long call and admits its routine's SFTP action",
   { skip: !installed, timeout: holdMs + 240000 },
   async (t) => {
     let runtime, reminders, model, bridge;
@@ -41,8 +41,22 @@ test(
     model.reply = (request) => {
       const answered = request.messages.some((m) => m.role === "tool");
       // First: a routine's prompt quotes the recent chat, which names the chat marker.
+      // A routine plans an SFTP sync: the runtime accepts the file action parameters.
       if (!answered && text(request).includes("SSH_ROUTINE_CONTRACT"))
-        return { tool: { name: "agentpier_ssh", arguments: { action: "hosts" } } };
+        return {
+          tool: {
+            name: "agentpier_ssh",
+            arguments: {
+              action: "sync",
+              accessId: "host-2",
+              direction: "up",
+              remotePath: "/www",
+              localPath: "site",
+              exclude: ["*.map"],
+              dryRun: true,
+            },
+          },
+        };
       if (!answered && text(request).includes("SSH_CHAT_CONTRACT"))
         return {
           tool: {
@@ -160,7 +174,7 @@ test(
       calls.map((c) => [c.action, c.routine]),
       [
         ["execute", false],
-        ["hosts", true],
+        ["sync", true],
       ],
     );
   },

@@ -201,6 +201,9 @@ export const assistants = {
   sshBusy: "An SSH command is already running for this agent.",
   sshApprovalLimit: "Three SSH commands of this agent already wait for your approval.",
   sshRevoked: "The SSH access changed; the command was stopped.",
+  sshHostType:
+    "This access does not fit the action: SFTP accesses take only file actions, SSH accesses only commands.",
+  sftpRoutineDelete: "Routines may never delete files on SFTP accesses.",
   projectFolderNotGranted: "This project folder is not granted to the agent.",
   projectFolderReadOnly: "The agent may only read this project folder.",
   projectRoutineReadOnly:

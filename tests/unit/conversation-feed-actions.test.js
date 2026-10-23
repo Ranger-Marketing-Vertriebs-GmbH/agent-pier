@@ -119,7 +119,7 @@ test("the action store reports every written row and counts writes", () => {
   // A retry of the same reservation writes nothing.
   store.reserve(record);
   store.patch(a.id, { state: "declined" });
-  store.pruneTrustedSsh("agent-1", 5);
+  store.pruneTrusted("agent-1", "ssh", 5);
   assert.deepEqual(written, [["awaiting_approval"], ["awaiting_approval", "declined"]]);
   assert.equal(store.writes, 2);
 });

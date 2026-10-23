@@ -64,6 +64,8 @@ test("hosts lists only granted hosts and never key material", async (t) => {
       port: 22,
       username: "root",
       hostFingerprint: "SHA256:opnsense",
+      type: "ssh",
+      remoteRoot: null,
       mode: "approval",
       usable: true,
     },
