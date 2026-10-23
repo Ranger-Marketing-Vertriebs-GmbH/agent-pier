@@ -135,12 +135,16 @@ it took it over from the lead.
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent
 service: another web search provider or key, another PDF model, a browser installed
-after the service started, a changed or removed model connection that agents use,
-and an agent's own Telegram bot. AgentPier saves such a change at once and shows
+after the service started, a changed model connection that agents use, and a new
+Telegram bot for an agent. AgentPier saves such a change at once and shows
 **Agent service restart pending**, with what it is for and what it waits for. The
 service restarts by itself as soon as no agent is busy; further changes join the same
-restart. **Restart now** restarts at once after you confirm and interrupts running
-agent work. See "Pending restart" in `docs/assistant-gateway.md`.
+restart. **Restart now** restarts at once after you confirm; it interrupts all running
+agent work and can take about a minute or longer. Revoking access still restarts at
+once after you confirm and is refused while an agent is busy: deleting a connection
+agents use or changing or removing its key, removing an agent's bot or replacing its
+token, and changing or removing the speech key a bot uses. See "Pending restart" in
+`docs/assistant-gateway.md`.
 
 ### Memory
 
@@ -252,8 +256,9 @@ told it was not saved.
   AgentPier's own tools or session tools for them, so shell must be off, stdio
   servers removed and SSH accesses removed before you connect such a bot. Adding,
   removing or renaming people applies at once while the agent service keeps running;
-  connecting or disconnecting a bot, replacing its token or removing the last person
-  needs a restart of the agent service, which then is pending (see above).
+  connecting a bot needs a restart of the agent service, which then is pending (see
+  above); disconnecting a bot, replacing its token or removing the last person
+  restarts the agent service after you confirm.
 
 ## Teams, asks and tasks
 

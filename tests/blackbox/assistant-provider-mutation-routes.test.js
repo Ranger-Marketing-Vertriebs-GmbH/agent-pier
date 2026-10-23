@@ -74,14 +74,16 @@ test("changing a connection agents use requires confirming the Gateway restart",
     name: "Sessions",
     apiKey: "fixture-other",
   });
-  const restarts = [];
+  const restarts = [],
+    revoking = [];
   const app = express();
   app.use(express.json());
   app.use(
     providerConnectionRoutes({
       providerConnections: connections,
       assistantProviderSynchronization: {
-        async change(id, operation, { confirmed }) {
+        async change(id, operation, { confirmed, revokes }) {
+          revoking.push(revokes);
           // Mirrors AssistantProviderSynchronization: usage and consent are checked together.
           if (id === used.id && !confirmed)
             throw Object.assign(Error("restart"), {
@@ -140,4 +142,7 @@ test("changing a connection agents use requires confirming the Gateway restart",
   assert.equal((await send(used.id, "DELETE", { confirmRestart: true })).status, 204);
   assert.deepEqual(restarts, [used.id, used.id]);
   assert.equal(connections.list().length, 0);
+  // Revocations (a new or removed key, a deletion) keep the immediate restart; a
+  // rename is saved with a pending one.
+  assert.deepEqual(revoking, [true, true, true, false, true, true, true]);
 });
