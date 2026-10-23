@@ -415,6 +415,8 @@ export class LeadRequests {
           .find((x) => x.id !== id && x.createdAt < r.createdAt)
       )
         return r;
+      // A summary its lead asked for after the task comes first (member-summaries.js).
+      if (await this.service.memberSummaries?.before(member)) return r;
     }
     r = this.teams.write(r, { phase: "dispatching" });
     // A finished task member works again: its granted MCP servers are bound now and
