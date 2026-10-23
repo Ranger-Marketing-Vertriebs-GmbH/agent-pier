@@ -79,6 +79,7 @@ export const assistantTeamCopy = {
     "memory-result": "A project knowledge note was not saved. The agent was told.",
     "ssh-result": "SSH command result received.",
     "memory-step": "The agent was asked to save its memories before the summary.",
+    "member-long-chat": "A member's chat has grown long. The agent was told.",
   },
   notes: {
     started: (title) => `Team started: ${title}`,

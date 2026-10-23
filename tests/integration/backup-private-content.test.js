@@ -100,7 +100,12 @@ test("without a passphrase, private content is left out and agents keep their se
     rows(path.join(agents, "assistants.sqlite"), "SELECT id FROM assistants"),
     [{ id: "home" }],
   );
-  for (const table of ["conversations", "messages", "assistant_long_chat_dismissals"])
+  for (const table of [
+    "conversations",
+    "messages",
+    "assistant_long_chat_dismissals",
+    "assistant_member_long_chats",
+  ])
     assert.deepEqual(
       rows(path.join(agents, "assistants.sqlite"), `SELECT * FROM ${table}`),
       [],

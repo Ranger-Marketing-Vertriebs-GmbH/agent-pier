@@ -83,6 +83,8 @@ export const assistantTeamCopy = {
     "ssh-result": "Ergebnis eines SSH-Befehls eingegangen.",
     "memory-step":
       "Der Agent wurde gebeten, vor der Zusammenfassung seine Erinnerungen zu speichern.",
+    "member-long-chat":
+      "Der Chat eines Mitglieds ist lang geworden. Der Agent wurde informiert.",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,

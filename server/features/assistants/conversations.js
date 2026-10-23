@@ -90,6 +90,8 @@ const internalKinds = new Set([
   "memory-result",
   // The memory step before a summary (memory-write-policy.js memoryStep).
   "memory-step",
+  // A lead's note that its member's task chat grew long (member-long-chats.js).
+  "member-long-chat",
   "ssh-result",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {

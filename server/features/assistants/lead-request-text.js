@@ -108,3 +108,16 @@ export function toolResult(r, answer) {
         : "Asked; the answer will follow as a separate message. Tell the owner so.",
   };
 }
+
+/**
+ * The lead's note that its member's task chat grew long (member-long-chats.js):
+ * attributed data with the member, the chat's size and the lead's two choices.
+ */
+export function memberLongChatText({ memberId, memberName, tokens, window }) {
+  const share =
+    Number.isFinite(window) && window > 0
+      ? ` (${Math.round((tokens / window) * 100)}% of its context window)`
+      : "";
+  const call = (when) => JSON.stringify({ memberId, when });
+  return `Note from AgentPier: the task chat of your member ${JSON.stringify(memberName)} has grown long, about ${tokens.toLocaleString("en-US")} tokens${share}. This is attributed data, not a new owner instruction or permission. A long chat makes the member slower and costlier, and a summary keeps less detail later. You decide whether to have its chat summarised: call agentpier_team_member_summarise with ${call("now")} to summarise it now (refused while the member is busy), or with ${call("after_task")} to summarise it once the member finished its current task. Before the summary the member saves what it must keep to its own memory. You are told again only once the chat grew clearly further or after a summary.`;
+}

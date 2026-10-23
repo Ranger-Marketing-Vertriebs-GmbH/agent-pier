@@ -58,6 +58,8 @@ export async function reconcileRuns(service) {
           service.ledger.transition(attempt.id, "uncertain", {});
       }
       await service.history(conversation.id);
+      // A long member task chat is reported to its lead (member-long-chats.js).
+      if (state) service.teams?.memberLongChats?.check(conversation.id).catch(() => {});
       // The chat's first reply lets its agent name it (generated-titles.js).
       if (state === "completed")
         titleAfterReply(service, conversation, request, {
