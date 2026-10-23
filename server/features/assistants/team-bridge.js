@@ -10,12 +10,8 @@ import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
-import {
-  flushWrite,
-  memoryStepSession as stepSession,
-  noteRefusal,
-  turnWrite,
-} from "./memory-write-policy.js";
+import { flushWrite, memoryStep, noteRefusal, turnWrite } from "./memory-write-policy.js";
+import { memoryStepSession, stepPolicy } from "./memory-step-tools.js";
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
@@ -165,8 +161,8 @@ export class TeamBridge {
       parent = this.assistants.store.getAssistant(c.assistantId);
     if (
       c.runtimeSessionKey !== record.sessionKey ||
-      // A memory step calls no bridge tool (memory-write-policy.js).
-      stepSession(this, record.sessionKey) ||
+      // A memory step calls no bridge tool (memory-step-tools.js).
+      memoryStep(this.teams.store?.context(a.requestId)) ||
       parent.runtimeAgentId !== record.agentId ||
       // Members reach the workspace bridge (temporary ones only for coding
       // requests, enforced there); personal tools stay with permanent members,
@@ -274,9 +270,9 @@ export class TeamBridge {
   // Native write/edit calls are permitted only while the current turn is the owner's
   // own message, a lead's follow-up on its member's result (member-result-writes.js),
   // a routine's run (routineWrite), a memory step's own memory (memory-write-policy.js)
-  // or the completion run of a command such a direct
-  // turn started (exec-continuation.js); forwarded, other scheduled, internal and
-  // member turns never write, apart from an owner-proven task.
+  // or the completion run of a command such a direct turn started
+  // (exec-continuation.js); forwarded, other scheduled, internal and member turns
+  // never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
       !input ||
@@ -290,9 +286,9 @@ export class TeamBridge {
     // plugin asks for every call of a locked core tool (tool-guard.js lockedToolCall).
     if (lockedTools.includes(input.toolName)) {
       textValue(input.agentId, 4096);
-      // A memory step runs none of them (memory-write-policy.js).
+      // A memory step runs none of them (memory-step-tools.js).
       const locked = lockedCall(this.agentOf(input.agentId), input.toolName);
-      return { allow: !locked && !stepSession(this, input.sessionKey) };
+      return { allow: !locked && !memoryStepSession(this, input) };
     }
     if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
@@ -525,6 +521,7 @@ export class TeamBridge {
           "/prepare",
           "/invoke",
           "/tool-policy",
+          "/step-policy",
           "/browser-policy",
           "/image-policy",
           "/attachment-policy",
@@ -556,15 +553,17 @@ export class TeamBridge {
         ? this.prepare(input)
         : req.url === "/tool-policy"
           ? this.toolPolicy(input)
-          : req.url === "/browser-policy"
-            ? this.browserPolicy(input)
-            : req.url === "/image-policy"
-              ? this.imagePolicy(input)
-              : req.url === "/attachment-policy"
-                ? this.attachmentPolicy(input)
-                : req.url === "/guard"
-                  ? this.registerGuard(input)
-                  : this.invoke(input));
+          : req.url === "/step-policy"
+            ? stepPolicy(this, input)
+            : req.url === "/browser-policy"
+              ? this.browserPolicy(input)
+              : req.url === "/image-policy"
+                ? this.imagePolicy(input)
+                : req.url === "/attachment-policy"
+                  ? this.attachmentPolicy(input)
+                  : req.url === "/guard"
+                    ? this.registerGuard(input)
+                    : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

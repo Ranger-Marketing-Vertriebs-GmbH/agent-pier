@@ -96,17 +96,45 @@ test("memoryStepWrite admits only the memory-step kind", async (t) => {
     assert.equal(memoryStepWrite(context, target), false, context?.kind);
 });
 
-test("a memory step runs no shell, session tools, SSH or project folder calls", async (t) => {
+// Every tool but the memory ones, a future tool included.
+const refused = [
+  "exec",
+  "process",
+  "sessions_send",
+  "sessions_spawn",
+  "browser",
+  "image_generate",
+  "web_fetch",
+  "web_search",
+  "pdf",
+  "apply_patch",
+  "agentpier_ssh",
+  "agentpier_workspace",
+  "agentpier_share_file",
+  "agentpier_reminder",
+  "agentpier_team_ask",
+  "some_future_tool",
+];
+const memoryTools = ["memory_search", "memory_get", "read", "write", "edit"];
+
+test("a memory step runs only memory tools: no shell, SSH, project folder or other tool", async (t) => {
   const f = await setup(t);
   const owner = await f.invocation("owner", { kind: "owner" });
   // The owner's own turn reaches them (control).
   assert.equal(await f.tool("exec"), true);
   assert.equal(typeof f.prepare("workspace").ticket, "string");
+  for (const toolName of [...refused, ...memoryTools])
+    assert.equal(await f.step(toolName), true, `owner ${toolName}`);
   f.assistants.ledger.transition(owner.attemptId, "completed");
 
   const inv = await f.invocation("step", step);
+  for (const toolName of refused) assert.equal(await f.step(toolName), false, toolName);
+  for (const toolName of memoryTools)
+    assert.equal(await f.step(toolName), true, toolName);
+  // The existing gates refuse too: OpenClaw's locked tools and apply_patch's write.
   for (const toolName of ["exec", "process", "sessions_send", "sessions_spawn"])
     assert.equal(await f.tool(toolName), false, toolName);
+  assert.equal(await f.patch(["*** Add File: MEMORY.md", "+Saved"]), false);
   for (const action of ["workspace", "ssh", "share_file", "reminder", "routine", "ask"])
     assert.throws(() => f.prepare(action), { status: 403 }, action);
   assert.equal(sshOrigin({ context: step }).class, "refused");
@@ -166,4 +194,40 @@ test("a memory step shows compactly in the chat's history", async (t) => {
   const visible = history.requests.find((r) => r.id === sent.request.id);
   assert.equal(visible.internal, "memory-step");
   assert.equal(visible.text, undefined);
+});
+
+test("a call without a session fails closed while the agent has a memory step", async (t) => {
+  const f = await setup(t);
+  const ctx = { agentId: f.agentId };
+  const owner = await f.invocation("owner", { kind: "owner" });
+  assert.equal(await f.tool("exec", ctx), true);
+  assert.equal(await f.step("browser", ctx), true);
+  f.assistants.ledger.transition(owner.attemptId, "completed");
+  await f.invocation("step", step);
+  assert.equal(await f.tool("exec", ctx), false);
+  assert.equal(await f.step("browser", ctx), false);
+  assert.equal(await f.step("memory_search", ctx), true);
+});
+
+test("a memory step queued behind an owner turn takes none of its tools", async (t) => {
+  const f = await setup(t);
+  const owner = await f.invocation("owner", { kind: "owner" });
+  // The step waits behind the running owner turn in the same session.
+  const request = f.assistants.ledger.accept(f.channel.conversationId, {
+    clientRequestId: "queued-step",
+    text: "Save what you must keep.",
+  });
+  const context = f.assistants.teams.store.context;
+  f.assistants.teams.store.context = (id) => (id === request.id ? step : context(id));
+  const queued = f.assistants.ledger.recordAttempt(request.id);
+  const session = { agentId: f.agentId, sessionKey: "session" };
+  assert.equal(await f.tool("exec"), true);
+  assert.equal(await f.step("browser"), true);
+  assert.equal(await f.step("browser", { ...session, runId: owner.attemptId }), true);
+  // The step's own run is refused.
+  assert.equal(await f.step("browser", { ...session, runId: queued.id }), false);
+  // Once the owner turn ended, the step is the session's running turn.
+  f.assistants.ledger.transition(owner.attemptId, "completed");
+  assert.equal(await f.step("browser"), false);
+  assert.equal(await f.tool("exec"), false);
 });

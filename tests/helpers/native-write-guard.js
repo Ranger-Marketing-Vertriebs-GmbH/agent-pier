@@ -47,6 +47,20 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
         ctx || { agentId, sessionKey: "session" },
       )
     )?.block;
+  // The memory step's hook on every tool call: true when the call passes.
+  const stepHook = hooks.find(
+    (h) =>
+      h.name === "before_tool_call" &&
+      !h.options?.matcher &&
+      h.options?.priority === 1000,
+  );
+  const step = async (toolName, ctx) =>
+    !(
+      await stepHook.handler(
+        { toolName, params: {} },
+        ctx || { agentId, sessionKey: "session" },
+      )
+    )?.block;
   const call = async (target, { toolName = "write", ctx } = {}) =>
     !(
       await hook.handler(
@@ -87,6 +101,7 @@ export async function nativeWriteGuard(t, f, { registrationMode = "full" } = {})
     call,
     patch,
     tool,
+    step,
     locked,
     agentId,
     root,

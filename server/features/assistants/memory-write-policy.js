@@ -34,14 +34,6 @@ export const memoryStepWrite = (context, { agent, root, path }) =>
   !isShared(agent) &&
   ownMemoryTarget(root, agent.runtimeAgentId, path);
 /**
- * Whether a turn bound to this session is a memory step: it runs no shell, session,
- * SSH, team, project folder or other bridge tool (TeamBridge.toolPolicy, valid).
- */
-export const memoryStepSession = (bridge, sessionKey) =>
-  bridge
-    .bound(sessionKey)
-    .some((a) => memoryStep(bridge.teams.store?.context(a.requestId)));
-/**
  * Whether a native write of this bound turn is admitted: a direct turn, a task
  * member's own memory in any turn it works (never the copy of its lead's memory or
  * anything else, member-memory.js), a memory step's own memory, or a task the owner
@@ -49,6 +41,8 @@ export const memoryStepSession = (bridge, sessionKey) =>
  */
 export function turnWrite(bridge, { attempt, parent, origin, current }, input) {
   const root = bridge.assistants.runtime?.paths?.workspaces;
+  // A memory step changes its memory with write and edit only (memory-step-tools.js).
+  if (memoryStep(origin) && !["write", "edit"].includes(input.toolName)) return false;
   return (
     current &&
     (directTurn(origin, parent) ||
