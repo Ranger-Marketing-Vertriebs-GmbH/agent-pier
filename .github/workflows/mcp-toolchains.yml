@@ -9,6 +9,8 @@ on:
     paths:
       - ".github/workflows/mcp-toolchains.yml"
       - "server/features/mcp-packages/toolchain*"
+      # The Node toolchain pin (version, npm, checksums) comes from the runtime manifest.
+      - "server/features/assistants/runtime-manifest.js"
       - "server/features/mcp-packages/verified-files.js"
       - "server/features/mcp-packages/cpython-relocation.js"
       - "scripts/verify-mcp-toolchains.mjs"
@@ -24,6 +26,8 @@ on:
     paths:
       - ".github/workflows/mcp-toolchains.yml"
       - "server/features/mcp-packages/toolchain*"
+      # The Node toolchain pin (version, npm, checksums) comes from the runtime manifest.
+      - "server/features/assistants/runtime-manifest.js"
       - "server/features/mcp-packages/verified-files.js"
       - "server/features/mcp-packages/cpython-relocation.js"
       - "scripts/verify-mcp-toolchains.mjs"
