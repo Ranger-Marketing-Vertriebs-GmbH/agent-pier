@@ -377,10 +377,15 @@ export class NativeRoutines extends NativeReminders {
       return this.remove(id, input.id, invocation.assertCurrent);
     throw assistantProblem("invalid");
   }
-  /** The tool's create; "May write" comes with the binding, audited once (no replay). */
+  /**
+   * The tool's create; "May write" comes with the binding. It is logged when this call
+   * brings the routine into being: also on a retry whose first attempt never got bound
+   * (prepared, pending or unknown), never on a replay of one already bound.
+   */
   async createOwn(id, invocation, input, origin, userId) {
     const clientRequestId = `${invocation.attemptId}:${invocation.toolCallId}`;
-    const replay = this.bindings.list(id).some((b) => b.key === clientRequestId);
+    const before = this.bindings.list(id).find((b) => b.key === clientRequestId);
+    const logged = ["bound", "removed", "revoked"].includes(before?.state);
     const routine = await this.create(
       id,
       {
@@ -398,8 +403,9 @@ export class NativeRoutines extends NativeReminders {
         ...(input.writes !== undefined && { routineWrites: input.writes }),
       },
     );
-    if (!replay && input.writes === true)
-      this.auditWrites(this.bindings.get(routine.id), true, "assistant");
+    const binding = this.bindings.get(routine.id);
+    if (!logged && binding.state === "bound" && binding.routineWrites === true)
+      this.auditWrites(binding, true, "assistant");
     return routine;
   }
   /**

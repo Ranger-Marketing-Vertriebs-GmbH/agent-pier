@@ -90,7 +90,7 @@ export const assistants = {
   reminderTimezoneRequired:
     "Gib den Erinnerungszeitpunkt mit Zeitzonen-Offset an, zum Beispiel 2026-10-09T09:00:00+02:00.",
   routineWritesOwnerOnly:
-    "„Darf schreiben“ einer Routine kann nur der Besitzer in den Agent-Einstellungen ändern.",
+    "Bitte den Besitzer, „Darf schreiben“ für diese Routine in den Agent-Einstellungen umzuschalten.",
   routineReviewRequired:
     "Ob diese Routine angelegt wurde, ist unklar. Prüfe sie in den Agent-Einstellungen, bevor du es erneut versuchst.",
   reminderReviewRequired:

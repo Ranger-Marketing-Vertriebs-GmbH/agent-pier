@@ -217,6 +217,67 @@ test("a replayed create returns its routine without switching it again", async (
   );
 });
 
+test("a retried create that finishes the routine logs May write once", async (t) => {
+  const f = setup(t);
+  const input = {
+    action: "create",
+    name: "Cleanup",
+    prompt: f.input.prompt,
+    trigger: schedule,
+    writes: true,
+  };
+  // The first attempt stopped after reserving the record (still "prepared").
+  const apply = f.assistants.config.apply;
+  f.assistants.config.apply = async () => {
+    throw new Error("down");
+  };
+  await assert.rejects(f.call(input));
+  const turn = f.last;
+  const [prepared] = f.reminders.bindings.list(f.id);
+  assert.equal(prepared.state, "prepared");
+  assert.equal(f.jobs.size, 0);
+  f.assistants.config.apply = apply;
+  const done = await f.call(input, ownerTurn, f.channel.conversationId, turn);
+  assert.equal(done.id, prepared.id);
+  assert.equal(done.writes, true);
+  // A later replay of the now bound routine is not logged again.
+  await f.call(input, ownerTurn, f.channel.conversationId, turn);
+  assert.deepEqual(
+    writeAudits(f).map((e) => [e.details.routineId, e.details.actor]),
+    [[prepared.id, "assistant"]],
+  );
+});
+
+test("a retried create that adopts the job of an unknown attempt logs May write", async (t) => {
+  const f = setup(t);
+  const input = {
+    action: "create",
+    name: "Cleanup",
+    prompt: f.input.prompt,
+    trigger: schedule,
+    writes: true,
+  };
+  // The scheduler took the job but its answer was lost: the record is "unknown".
+  const call = f.assistants.runtime.client.call;
+  f.assistants.runtime.client.call = async (method, payload) => {
+    const result = await call(method, payload);
+    if (method === "cron.add") {
+      f.assistants.runtime.client.call = call;
+      throw new Error("lost");
+    }
+    return result;
+  };
+  await assert.rejects(f.call(input));
+  const turn = f.last;
+  const [unknown] = f.reminders.bindings.list(f.id);
+  assert.equal(unknown.state, "unknown");
+  const adopted = await f.call(input, ownerTurn, f.channel.conversationId, turn);
+  assert.equal(adopted.id, unknown.id);
+  assert.equal(adopted.writes, true);
+  assert.equal(f.jobs.size, 1);
+  assert.equal(writeAudits(f).length, 1);
+});
+
 test("the routine tool offers writes and explains May write; member routines do not", () => {
   const factories = [];
   plugin.register({
