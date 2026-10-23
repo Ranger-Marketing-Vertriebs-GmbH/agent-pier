@@ -3,6 +3,7 @@ import TeamNote from "./TeamNote.jsx";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
 import SshRunNote from "./SshRunNote.jsx";
+import ActivityGroup from "./ActivityGroup.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
@@ -19,17 +20,20 @@ export const noteEvents = new Set([
   "peer-request",
 ]);
 
-// One entry of the agent chat's transcript: a team note, a quiet event line or a
-// message (AssistantChat.jsx). `removeShared` is null while the chat is offline.
+// One entry of the agent chat's transcript: a team note, a group of activity rows
+// (activity-groups.js), a quiet event line or a message (AssistantChat.jsx).
+// `removeShared` is null while the chat is offline.
 export default function TranscriptItem({
-  item: { message: m, note },
+  item: { message: m, note, activity },
   assistant,
   navigate,
   focusedNote,
   mentions,
   removeShared,
 }) {
-  return note ? (
+  return activity ? (
+    <ActivityGroup messages={activity} />
+  ) : note ? (
     <TeamNote note={note} navigate={navigate} focused={note.id === focusedNote} />
   ) : m.event === "coding-run" ? (
     <CodingRunNote note={m} navigate={navigate} />

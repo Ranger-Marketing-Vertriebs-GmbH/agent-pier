@@ -114,6 +114,16 @@
   margin: 0;
   color: var(--hint);
 }
+/* Consecutive rows nested in one row (className="activity-group"): its detail is a
+   plain summary such as "13 calls · proxmox-2", and its rows sit closer together. */
+.activity-group > .activity-row-head .activity-row-detail {
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+}
+.activity-group > .activity-row-body {
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
 @media (max-width: 700px) {
   .activity-row-label {
     max-width: 50%;
