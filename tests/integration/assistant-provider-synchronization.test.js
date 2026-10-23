@@ -194,6 +194,18 @@ test("a revoked key or deleted connection still restarts at once after confirmin
   assert.deepEqual(f.calls, ["enter", "stop", "quiesce", "start", "leave"]);
   assert.deepEqual(queued, []);
 });
+test("a shutdown during the restart's drain never starts the Gateway again", async (t) => {
+  const f = fixture(t);
+  const stop = f.runtime.stop;
+  f.runtime.stop = async () => {
+    await stop();
+    // AgentPier's close() arrived while the Gateway drained.
+    f.runtime.closed = true;
+  };
+  await f.sync.restartGateway(() => null);
+  assert.deepEqual(f.calls, ["enter", "stop", "quiesce", "leave"]);
+  assert.equal(f.running(), false);
+});
 test("a cron run that starts just before the stop still refuses the restart", async (t) => {
   const f = fixture(t);
   // Idle at the first check; the run shows up by the check right before the stop.

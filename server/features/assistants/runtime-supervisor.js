@@ -141,6 +141,12 @@ export class RuntimeSupervisor extends EventEmitter {
   }
   start({ automatic = false } = {}) {
     assertWired(this);
+    // After AgentPier's shutdown nothing may spawn a Gateway that would outlive it
+    // (KillMode=process), not even a restart that was draining meanwhile.
+    if (this.closed)
+      return Promise.reject(
+        Object.assign(Error("Assistant runtime is closed."), { code: "RUNTIME_CLOSED" }),
+      );
     if (this.stopping) return this.stopping.then(() => this.start({ automatic }));
     if (this.starting) return this.starting;
     if (this.client?.ready) return Promise.resolve();
@@ -488,6 +494,7 @@ export class RuntimeSupervisor extends EventEmitter {
   }
   // AgentPier's shutdown: also cuts a drain in progress short (TimeoutStopSec=10).
   close() {
+    this.closed = true;
     return this.stop({ urgent: true });
   }
 }

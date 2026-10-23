@@ -185,11 +185,14 @@ export class PendingRestart {
         }
         return { restarted: true };
       } catch (error) {
-        if (!error?.blockers)
+        // A refusal (busy work, an update or other maintenance) is waited out.
+        const refused = error?.status === 409 && error?.key === "active";
+        const blockers = error?.blockers || (refused ? ["active"] : null);
+        if (!blockers)
           this.warn(
             `A pending agent service restart failed (${error?.code || error?.key || "ERROR"}); retrying.`,
           );
-        this.wait(error?.blockers || [], !error?.blockers);
+        this.wait(blockers || [], !blockers);
         throw error;
       } finally {
         this.running = null;
