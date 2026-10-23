@@ -79,20 +79,73 @@ function commonFolder(a, b) {
   return folder;
 }
 
-function transferSummary(prepared, local) {
+// Path lists share one UTF-8 budget so a result stays well inside the MCP server's
+// 512 KiB output budget: the summary lists get 256 KiB, a result's `overwritten` 64.
+const SUMMARY_BYTES = 256 * 1024;
+const RESULT_BYTES = 64 * 1024;
+
+/** Fills `lists` in order within `budget` bytes; `cut` counts what was left out. */
+export function withinBudget(lists, budget) {
+  let left = budget;
+  const kept = {};
+  const cut = {};
+  for (const [key, paths] of Object.entries(lists)) {
+    const keep = [];
+    for (const item of paths) {
+      const cost = Buffer.byteLength(JSON.stringify(item)) + 1;
+      if (cost > left) break;
+      left -= cost;
+      keep.push(item);
+    }
+    left = keep.length === paths.length ? left : 0;
+    kept[key] = keep;
+    cut[key] = paths.length - keep.length;
+  }
+  return { kept, cut };
+}
+
+/** The plan as a tool reports it: lists capped by count and by `SUMMARY_BYTES`. */
+export function transferSummary(prepared, local) {
   const limit = sftpLimits.resultListLimit;
   const { operation, direction, kind, remotePath: base } = prepared.summary;
   const dirs = prepared.plan.deleteDirs;
+  const planned = planSummary(prepared.plan, limit);
+  const { kept, cut } = withinBudget(
+    {
+      create: planned.create,
+      update: planned.update,
+      delete: planned.delete,
+      deleteDirs: dirs.slice(0, limit),
+    },
+    SUMMARY_BYTES,
+  );
   return {
-    ...planSummary(prepared.plan, limit),
+    ...planned,
+    create: kept.create,
+    update: kept.update,
+    delete: kept.delete,
+    more: {
+      create: planned.more.create + cut.create,
+      update: planned.more.update + cut.update,
+      delete: planned.more.delete + cut.delete,
+    },
     operation,
     direction,
     kind,
     remotePath: base,
     localPath: local.relative || ".",
-    deleteDirs: dirs.slice(0, limit),
-    moreDeleteDirs: Math.max(0, dirs.length - limit),
+    deleteDirs: kept.deleteDirs,
+    moreDeleteDirs: Math.max(0, dirs.length - limit) + cut.deleteDirs,
   };
+}
+
+// A finished job's result with its `overwritten` list inside `RESULT_BYTES`.
+function budgetedResult(result) {
+  if (!Array.isArray(result.overwritten)) return result;
+  const { kept, cut } = withinBudget({ overwritten: result.overwritten }, RESULT_BYTES);
+  return cut.overwritten
+    ? { ...result, overwritten: kept.overwritten, moreOverwritten: cut.overwritten }
+    : result;
 }
 
 /**
@@ -114,7 +167,7 @@ export class SftpSessionTools {
     manage,
     jobs = new SftpJobs(),
     open = openSftp,
-    waitMs = 20000,
+    waitMs = 10000,
     authorizeEveryMs = AUTHORIZE_EVERY_MS,
   }) {
     Object.assign(this, { dataDir, capability, grants, store, manage, jobs, open });
@@ -136,7 +189,8 @@ export class SftpSessionTools {
     clearTimeout(timer);
   }
 
-  async call(name, input = {}) {
+  /** `signal` (an MCP cancellation) cancels the job the call waits for. */
+  async call(name, input = {}, { signal } = {}) {
     try {
       if (this.closing)
         throw sshProblem("SSH_UNAVAILABLE", "SSH transport is closing.", 409);
@@ -149,7 +203,7 @@ export class SftpSessionTools {
       const hand = () => (handed = true);
       try {
         const home = access.root ?? (await sftp.realpath("."));
-        const context = { session, access, sftp, home, args, hand };
+        const context = { session, access, sftp, home, args, hand, signal };
         if (name === "sftp_list") return await this.#list(context);
         if (name === "sftp_stat") return await this.#stat(context);
         if (name === "sftp_mkdir") return await this.#mkdir(context);
@@ -304,25 +358,35 @@ export class SftpSessionTools {
       operation === "upload" ? "up" : operation === "download" ? "down" : args.direction;
     const abs = this.#remote(context, args.remotePath);
     const fallback = operation === "download" && abs !== "/" ? posix.basename(abs) : ".";
+    // A sync that deletes local files names its folder; never the whole launch folder.
+    if (direction === "down" && args.deleteExtra && args.localPath === undefined)
+      throw sshProblem(
+        "SSH_INVALID_ARGUMENT",
+        "sftp_sync down with deleteExtra needs an explicit localPath.",
+      );
     const local = await this.#local(
       session,
       args.localPath ?? fallback,
       direction === "down",
     );
-    const prepared = await prepareTransfer(sftp, {
-      operation,
-      direction,
-      local,
-      remotePath: abs,
-      remoteRoot: access.root,
-      excludes: args.exclude ?? [],
-      defaultExcludes: args.defaultExcludes !== false,
-      deleteExtra: Boolean(args.deleteExtra),
-      checksum: Boolean(args.checksum),
-      hostId: access.accessId,
-      hostRevision: access.revision,
-      projectId: session.sshTools?.project?.projectId ?? null,
-    });
+    const prepared = await prepareTransfer(
+      sftp,
+      {
+        operation,
+        direction,
+        local,
+        remotePath: abs,
+        remoteRoot: access.root,
+        excludes: args.exclude ?? [],
+        defaultExcludes: args.defaultExcludes !== false,
+        deleteExtra: Boolean(args.deleteExtra),
+        checksum: Boolean(args.checksum),
+        hostId: access.accessId,
+        hostRevision: access.revision,
+        projectId: session.sshTools?.project?.projectId ?? null,
+      },
+      { signal: context.signal },
+    );
     const summary = transferSummary(prepared, local);
     if (args.dryRun) return { status: "planned", summary };
     return this.#job(context, {
@@ -363,7 +427,29 @@ export class SftpSessionTools {
       },
     });
     hand();
-    return this.#answer(await this.jobs.wait(this.owner, view.jobId, this.waitMs));
+    return this.#answer(await this.#wait(view.jobId, context.signal));
+  }
+
+  // Waits up to `waitMs`; an aborted `signal` cancels the job and waits for its end.
+  async #wait(jobId, signal) {
+    if (!signal) return this.jobs.wait(this.owner, jobId, this.waitMs);
+    let stop;
+    const aborted = new Promise((resolve) => {
+      stop = () => resolve(true);
+      if (signal.aborted) resolve(true);
+      else signal.addEventListener("abort", stop, { once: true });
+    });
+    try {
+      const ended = await Promise.race([
+        this.jobs.wait(this.owner, jobId, this.waitMs),
+        aborted,
+      ]);
+      if (ended !== true) return ended;
+      this.jobs.cancel(this.owner, jobId);
+      return this.jobs.wait(this.owner, jobId, CANCEL_WAIT_MS);
+    } finally {
+      signal.removeEventListener("abort", stop);
+    }
   }
 
   async #run(access, sftp, record, work, progress, signal) {
@@ -395,6 +481,7 @@ export class SftpSessionTools {
       files: outcome.files,
       bytes: outcome.bytes,
       deleted: record.operation === "delete" ? outcome.files : outcome.deleted,
+      dirs: outcome.dirs,
       durationMs: outcome.durationMs,
       remotePath: capped(record.remotePath),
       localPath: capped(record.localPath),
@@ -419,7 +506,7 @@ export class SftpSessionTools {
     const { jobId, summary } = view;
     if (view.state === "running")
       return { status: "running", jobId, progress: view.progress, summary };
-    const { state, code, ...result } = view.result;
+    const { state, code, ...result } = budgetedResult(view.result);
     if (state === "failed") throw toolError(code, { jobId, ...result });
     if (state === "revoked") throw revoked({ jobId, ...result });
     return { status: state, jobId, ...result, ...(code ? { code } : {}), summary };

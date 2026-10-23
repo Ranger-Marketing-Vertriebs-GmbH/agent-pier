@@ -272,6 +272,26 @@ test("sftp_sync dryRun lists deletes without changing anything", async (t) => {
   });
   assert.equal(synced.status, "completed");
   assert.equal(synced.deleted, 1);
+  // Deleting local files needs a named folder, never the whole launch folder.
+  await assert.rejects(
+    fx.tools.call("sftp_sync", {
+      accessId: fx.host.id,
+      direction: "down",
+      remotePath: "/www",
+      deleteExtra: true,
+      dryRun: true,
+    }),
+    { code: "SSH_INVALID_ARGUMENT" },
+  );
+  const down = await fx.tools.call("sftp_sync", {
+    accessId: fx.host.id,
+    direction: "down",
+    remotePath: "/www",
+    localPath: "site",
+    deleteExtra: true,
+    dryRun: true,
+  });
+  assert.equal(down.status, "planned");
   assert.deepEqual(tree(path.join(fx.server.root, "www")), { "keep.txt": "new" });
 });
 
@@ -343,6 +363,13 @@ test("revoking the grant stops a running job", async (t) => {
   });
   assert.equal(ended.code, "SSH_ACCESS_REVOKED");
   assert.deepEqual(partFiles(fx.server.root), []);
+  // The grant is gone when the job reports; the row is still a failed upload.
+  const row = await until(() =>
+    fx.audit.find((item) => item.details.state === "revoked"),
+  );
+  assert.equal(row.action, "sftp.failed");
+  assert.equal(row.details.code, "SSH_ACCESS_REVOKED");
+  assert.equal(row.details.operation, "upload");
 });
 
 test("sftp_job reports progress and cancels", async (t) => {
@@ -443,13 +470,37 @@ test("writes are audited by the application with source mcp", async (t) => {
   const text = JSON.stringify(rows);
   assert.doesNotMatch(text, new RegExp(PASSWORD));
   assert.doesNotMatch(text, /FILE-CONTENT/);
-  // A record for a host this session holds no grant for is refused and audited.
+  assert.equal(done.details.reported, "session");
+  assert.equal(failed.details.reported, "session");
+  // An unknown id is refused without a row; an existing host never granted is denied.
+  const before = fx.audit.length;
   await assert.rejects(
     fx.cli.call("sftp_record", {
       accessId: "00000000-0000-4000-8000-000000000000",
       operation: "upload",
       state: "completed",
     }),
+    { code: "SSH_WRONG_PROJECT" },
   );
+  assert.equal(fx.audit.length, before);
+  const other = await fx.f.management.ui("createHost", {
+    name: "Other site",
+    host: fx.server.host,
+    port: fx.server.port,
+    username: "other",
+    hostKey: fx.server.hostKey,
+    type: "sftp",
+    auth: "password",
+    password: "other-secret",
+  });
+  await assert.rejects(
+    fx.cli.call("sftp_record", {
+      accessId: other.id,
+      operation: "upload",
+      state: "completed",
+    }),
+    { code: "SSH_WRONG_PROJECT" },
+  );
+  assert.equal(fx.audit.length, before + 1);
   assert.equal(fx.audit.at(-1).action, "sftp.denied");
 });

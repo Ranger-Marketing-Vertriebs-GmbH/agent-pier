@@ -43,7 +43,7 @@ export class SshTools {
     this.child?.kill("SIGKILL");
     await Promise.all([this.finished, this.sftp.close()]);
   }
-  async call(name, input = {}) {
+  async call(name, input = {}, options = {}) {
     if (this.closing) throw problem("SSH transport is closing.", 409);
     const session = authorizeSsh(this.dataDir, this.capability);
     if (!input || typeof input !== "object" || Array.isArray(input))
@@ -51,7 +51,7 @@ export class SshTools {
     if (sshManagementTools.some((tool) => tool.name === name))
       return this.manage(name, input);
     if (typeof name === "string" && name.startsWith("sftp_"))
-      return this.sftp.call(name, input);
+      return this.sftp.call(name, input, options);
     if (name === "ssh_list_hosts") {
       if (Object.keys(input).length) throw problem("Invalid SSH arguments.");
       const inherited = new Set(await this.grants.inherited(session));
