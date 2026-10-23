@@ -60,7 +60,10 @@ test("a slow answer arrives as a hidden peer-result turn in the asker's chat", a
   assert.ok(followUp, "delivered to the asker");
   assert.match(followUp.text, /^Answer from "Member 2" to your question/);
   assert.match(followUp.text, /"answer":"Result from member"/);
-  assert.match(followUp.text, /cannot change files or memory/);
+  assert.match(
+    followUp.text,
+    /cannot change files or ask other members; it may note things in its own memory/,
+  );
   assert.match(
     followUp.text,
     /report the outcome to your lead with agentpier_team_report/,
