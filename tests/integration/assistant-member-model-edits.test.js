@@ -16,9 +16,12 @@ const usable = {
 // Models like AssistantModels.resolve: a lease for a usable model, else a refusal.
 function models() {
   const leases = { taken: 0, released: 0 };
+  const calls = { resolve: 0 };
   return {
     leases,
+    calls,
     async resolve({ connectionId, modelId }) {
+      calls.resolve++;
       const model = usable[connectionId]?.models[modelId];
       if (!model) throw assistantProblem("provider");
       leases.taken++;
@@ -38,8 +41,11 @@ async function setup(t) {
     assistants: f.assistants,
     audit: f.services.audit,
   });
-  const update = async (input) =>
-    edits.update(await f.invocation(randomUUID()), { memberId: f.member.id, ...input });
+  const update = async (input, inv) =>
+    edits.update(inv ?? (await f.invocation(randomUUID())), {
+      memberId: f.member.id,
+      ...input,
+    });
   const notes = () => [
     ...actionNotes(f.workflows.store.list(f.member.assistantId), f.memberChat.id),
     ...actionNotes(
@@ -112,6 +118,66 @@ test("a lead gives a task member its own model; a later lead model change leaves
     lead.revision,
   );
   assert.deepEqual(f.agent().model, qwen);
+});
+
+test("a lead pins its own current model on a following task member", async (t) => {
+  const f = await setup(t);
+  const leadModel = f.store.getAssistant(f.id).model;
+  // A following member already runs on the lead's model.
+  assert.deepEqual(f.agent().model, leadModel);
+  assert.equal(f.agent().ownModel, undefined);
+  const result = await f.update({ model: { ...leadModel } });
+  assert.equal(result.status, "updated");
+  assert.deepEqual(result.changed, ["model"]);
+  assert.equal(f.agent().ownModel, true);
+  assert.deepEqual(f.teams.member(f.member.id).leadModel, leadModel);
+  assert.deepEqual(f.teams.member(f.member.id).grantLog.at(-1).edited, ["model"]);
+  assert.equal(f.notes().length, 2);
+  assert.deepEqual(f.audits.at(-1).details.models, { from: leadModel, to: leadModel });
+  const lead = f.store.getAssistant(f.id);
+  f.store.updateAssistant(lead.id, { model: qwen }, lead.revision);
+  assert.deepEqual(f.agent().model, leadModel);
+  // Pinned once, the same model again is unchanged.
+  assert.equal((await f.update({ model: { ...leadModel } })).status, "unchanged");
+});
+
+test("a model for a foreign, archived or unknown member is refused before any check", async (t) => {
+  const f = await setup(t);
+  const calls = f.assistants.models.calls;
+  f.teams.write(f.teams.member(f.member.id), { archivedAt: "2026-10-17" });
+  await assert.rejects(f.update({ model: qwen }), {
+    key: "teamGrantMemberEnded",
+    status: 409,
+  });
+  f.teams.write(f.teams.member(f.member.id), { archivedAt: undefined });
+  await assert.rejects(f.update({ model: qwen, memberId: "missing" }), {
+    key: "teamGrantMemberEnded",
+    status: 409,
+  });
+  // Another lead's turn cannot change, or read the model of, this member.
+  const other = f.store.createAssistant({
+    name: "Other",
+    instructions: "",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const chat = f.store.saveConversation({
+    assistantId: other.id,
+    runtimeSessionKey: "o",
+  });
+  const request = f.assistants.ledger.accept(chat.id, {
+    clientRequestId: "o",
+    text: "x",
+  });
+  const attempt = f.assistants.ledger.recordAttempt(request.id);
+  await assert.rejects(
+    f.update(
+      { model: qwen },
+      { attemptId: attempt.id, toolCallId: "x", assertCurrent() {} },
+    ),
+    { key: "teamGrantMemberEnded", status: 409 },
+  );
+  assert.equal(calls.resolve, 0);
+  assert.equal(f.agent().ownModel, undefined);
 });
 
 test("an unusable model is refused; nothing is stored and no note is written", async (t) => {
