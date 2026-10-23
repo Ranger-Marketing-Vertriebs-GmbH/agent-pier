@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { sftpProblem } from "./sftp-errors.js";
 import { sftpLimits } from "./sftp-limits.js";
 import { unsafeName } from "./sftp-remote-paths.js";
@@ -12,6 +13,27 @@ const partFile = /^\..+\.agentpier-part-[0-9a-f]+$/;
 /** A temporary file a transfer writes before renaming it into place. */
 export function isPartFile(name) {
   return partFile.test(name);
+}
+
+const NAME_BYTES = 255;
+
+/**
+ * A fresh temporary name for `name`: `.<name>.agentpier-part-<16 hex>`, with `name`
+ * shortened (on a character boundary) so the result fits a 255-byte file name; the
+ * random part keeps it unique.
+ */
+export function partName(name) {
+  const suffix = `.agentpier-part-${randomBytes(8).toString("hex")}`;
+  const room = NAME_BYTES - 1 - Buffer.byteLength(suffix);
+  let kept = "";
+  let bytes = 0;
+  for (const char of name) {
+    const size = Buffer.byteLength(char);
+    if (bytes + size > room) break;
+    kept += char;
+    bytes += size;
+  }
+  return `.${kept}${suffix}`;
 }
 const refused = () => sftpProblem("SFTP_PATH_REFUSED");
 

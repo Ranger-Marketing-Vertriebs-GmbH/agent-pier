@@ -99,6 +99,7 @@ export async function startSftpServer({
   const clients = new Set();
   const failures = new Map();
   const stalls = new Set();
+  const drops = new Set();
   const log = [];
   let attempts = 0;
   let dropAt = Infinity;
@@ -172,6 +173,7 @@ export async function startSftpServer({
           op === "EXTENDED" && args[0] === "posix-rename@openssh.com" ? args[0] : op;
         log.push(name);
         if (stalls.delete(op)) return;
+        if (drops.delete(op)) return client._sock?.destroy();
         if (failures.has(op)) {
           const status = failures.get(op);
           failures.delete(op);
@@ -330,6 +332,9 @@ export async function startSftpServer({
     },
     stallNext(op) {
       stalls.add(String(op).toUpperCase());
+    },
+    dropNext(op) {
+      drops.add(String(op).toUpperCase());
     },
     async close() {
       for (const client of clients) client._sock?.destroy();

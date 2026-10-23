@@ -1,10 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
 import { projectTarget } from "../assistants/project-paths.js";
 import { fold } from "../assistants/team-plugin/tool-guard.js";
 import { sftpProblem } from "./sftp-errors.js";
-import { defaultExcludes, excluded, isPartFile } from "./sftp-excludes.js";
+import { defaultExcludes, excluded, isPartFile, partName } from "./sftp-excludes.js";
 import { sftpLimits } from "./sftp-limits.js";
 import { relativeParts, unsafeName } from "./sftp-remote-paths.js";
 
@@ -259,10 +258,7 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
   const existing = await lstatOrNull(destination);
   if (existing?.isDirectory()) throw conflict();
   if (existing && !existing.isFile()) throw refused();
-  const temporary = path.join(
-    directory,
-    `.${name}.agentpier-part-${randomBytes(8).toString("hex")}`,
-  );
+  const temporary = path.join(directory, partName(name));
   const handle = await fs.promises.open(
     temporary,
     O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
@@ -286,9 +282,14 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
 /**
  * Removes the file (or, with `directory`, the empty folder) `relative` below a
  * writable target: the rules are checked again and no link may sit on the way or be
- * the entry itself, so a delete never reaches outside the target.
+ * the entry itself, so a delete never reaches outside the target. With `expect`
+ * the file must still have that size and mtime (else `SFTP_PLAN_CHANGED`).
  */
-export async function removeLocal(target, relative, { directory = false } = {}) {
+export async function removeLocal(
+  target,
+  relative,
+  { directory = false, expect = null } = {},
+) {
   if (!target.rules?.write) throw refused();
   const parts = [...target.relative.split("/"), ...relativeParts(relative)].filter(
     Boolean,
@@ -298,6 +299,8 @@ export async function removeLocal(target, relative, { directory = false } = {}) 
   if (resolved.real !== expected || !resolved.exists) throw refused();
   const stat = await fs.promises.lstat(expected);
   if (directory ? !stat.isDirectory() : !stat.isFile()) throw conflict();
+  if (expect && (stat.size !== expect.size || stat.mtimeMs !== expect.mtimeMs))
+    throw sftpProblem("SFTP_PLAN_CHANGED");
   if (directory) await fs.promises.rmdir(expected);
   else await fs.promises.unlink(expected);
 }

@@ -126,3 +126,66 @@ test("stillAuthorized is checked during a long file", async (t) => {
   assert.equal(result.failedPath, "big.bin");
   assert.deepEqual(partFiles(fx.server.root), []);
 });
+
+test("dropped connection during the delete phase of a sync", async (t) => {
+  const fx = await transferFixture(t, { posixRename: false });
+  fx.write(fx.local("site/a.txt"), "alpha");
+  for (const name of ["x", "y"]) fx.write(fx.remote(`www/${name}.txt`), name);
+  const req = request(fx, "sync", "up", "/www", "site", { deleteExtra: true });
+  const prepared = await prepareTransfer(fx.session, req);
+  fx.server.dropNext("REMOVE");
+  const result = await runTransfer(fx.session, prepared, { reopen: fx.connect });
+  assert.equal(result.state, "failed");
+  assert.equal(result.code, "SFTP_UNREACHABLE");
+  assert.equal(result.files, 1);
+  assert.equal(result.deleted, 0);
+  assert.equal(result.failedPath, "x.txt");
+  assert.deepEqual(partFiles(fx.server.root), []);
+  const session = await fx.connect();
+  const rerun = await runTransfer(session, await prepareTransfer(session, req));
+  assert.equal(rerun.state, "completed", JSON.stringify(rerun));
+  assert.equal(rerun.deleted, 2);
+  assert.deepEqual(tree(fx.remote("www")), { "a.txt": "alpha" });
+});
+
+test("a throwing stillAuthorized revokes a transfer", async (t) => {
+  const fx = await transferFixture(t);
+  fx.write(fx.local("site/a.txt"), "a");
+  const prepared = await prepareTransfer(
+    fx.session,
+    request(fx, "upload", "up", "/www", "site"),
+  );
+  const result = await runTransfer(fx.session, prepared, {
+    stillAuthorized: async () => {
+      throw new Error("store unavailable");
+    },
+  });
+  assert.equal(result.state, "revoked");
+  assert.equal(result.files, 0);
+  assert.ok(!fs.existsSync(fx.remote("www/a.txt")));
+});
+
+test("a delete checks the planned size and mtime first", async (t) => {
+  const fx = await transferFixture(t);
+  fx.write(fx.local("site/a.txt"), "alpha");
+  fx.write(fx.remote("www/stray.txt"), "stray");
+  const req = request(fx, "sync", "up", "/www", "site", { deleteExtra: true });
+  const prepared = await prepareTransfer(fx.session, req);
+  // Changed between the re-plan and the delete: lstat now reports another size.
+  const racing = new Proxy(fx.session, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop);
+      if (prop !== "lstat")
+        return typeof value === "function" ? value.bind(target) : value;
+      return async (p) => {
+        const stat = await target.lstat(p);
+        return p.endsWith("stray.txt") && stat ? { ...stat, size: 99 } : stat;
+      };
+    },
+  });
+  const result = await runTransfer(racing, prepared);
+  assert.equal(result.state, "failed");
+  assert.equal(result.code, "SFTP_PLAN_CHANGED");
+  assert.equal(result.failedPath, "stray.txt");
+  assert.equal(fs.readFileSync(fx.remote("www/stray.txt"), "utf8"), "stray");
+});
