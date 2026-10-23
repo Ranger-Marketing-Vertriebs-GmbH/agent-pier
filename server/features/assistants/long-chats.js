@@ -29,6 +29,8 @@ export const compactTiming = {
   lostMs: 10 * 60000,
   pollMs: 30000,
 };
+// What the request answers for a summary that still runs.
+const stillRuns = () => ({ compacted: false, running: true });
 // The runtime states in which the Gateway that runs a summary may still finish it.
 const runningStates = new Set(["ready", "reconnecting"]);
 // What the request answers for an outcome it still reports.
@@ -158,43 +160,60 @@ export class LongChats {
   /**
    * Where the agent may write its memory, the memory step runs first (memory-step.js):
    * the chat is summarising meanwhile, so a message waits and a second request joins,
-   * but shows that memories are saved. Whatever the step's end, the summary follows;
-   * one that saved nothing leaves the chat's notice (memoryNotSaved). A Gateway that
-   * is not ready after the step, or a run of the step that a timeout could not end,
-   * ends the summary with its refusal instead.
+   * but shows that memories are saved. The request answers at once that the summary
+   * runs; every end shows as the chat's notice (outcome). Whatever the step's end, the
+   * summary follows; one that saved nothing leaves the notice memoryNotSaved. A
+   * Gateway that is not ready after the step ("interrupted"), or a run of the step
+   * that a timeout could not end ("busy"), ends the summary instead.
    */
   start(conversation) {
     const id = conversation.id;
+    // A notice of an earlier summary goes with this one, also without a step.
+    this.unsaved.delete(id);
     if (!this.memoryStep.eligible(conversation)) return this.compact(conversation);
     const service = this.service;
+    const now = () => service.now?.() ?? Date.now();
     this.outcomes.delete(id);
-    this.unsaved.delete(id);
     this.saving.add(id);
     let stopped = false;
-    const job = this.memoryStep
+    const job = Promise.resolve(stillRuns());
+    this.memoryStep
       .run(conversation)
       .catch(() => ({ saved: false }))
       .then((step) => {
         this.saving.delete(id);
-        if (stopped) throw assistantProblem("notFound", 404);
+        if (stopped) return;
         const memoryNotSaved = !step.saved;
         let current;
         try {
           current = service.store.getConversation(id);
           refuseClosedChat(service, current);
           service.requireReady();
+          // Only the chat's ledger turns are checked again here: other work in the
+          // session makes `sessions.compact` refuse, which shows as "busy" too.
           if (activeTurn(service, id)) throw chatProblem("CHAT_BUSY");
         } catch (refusal) {
           this.stops.delete(id);
           this.running.delete(id);
-          if (memoryNotSaved) this.unsaved.set(id, service.now?.() ?? Date.now());
+          const outcome = refusal?.code === "CHAT_BUSY" ? "busy" : "interrupted";
+          this.outcomes.set(id, { outcome, at: now() });
+          if (memoryNotSaved) this.unsaved.set(id, now());
           service.changed({ conversationId: id });
           if (!service.closed) dispatchQueued(service, id).catch(() => {});
-          throw refusal;
+          return;
         }
-        return this.compact(current, { memoryNotSaved });
+        this.compact(current, { memoryNotSaved, answered: true });
+      })
+      .catch((error) => {
+        console.warn(`Summarising chat ${id} failed: ${reasonOf(error)}`);
+        // A summary that never started its compaction still frees the chat.
+        if (this.running.get(id) !== job) return;
+        this.saving.delete(id);
+        this.stops.delete(id);
+        this.running.delete(id);
+        this.outcomes.set(id, { outcome: "failed", at: now() });
+        service.changed({ conversationId: id });
       });
-    job.catch(() => {});
     // Shutdown or a deleted chat: the summary ends after the step without a notice.
     this.stops.set(id, () => {
       stopped = true;
@@ -216,7 +235,7 @@ export class LongChats {
    * (compaction-watch.js). A Gateway that is gone or stopping ends it at once. An end
    * the request no longer reported is the chat's notice (outcome).
    */
-  compact(conversation, { memoryNotSaved = false } = {}) {
+  compact(conversation, { memoryNotSaved = false, answered: early = false } = {}) {
     const service = this.service;
     const id = conversation.id;
     const sessionKey = conversation.runtimeSessionKey;
@@ -248,7 +267,8 @@ export class LongChats {
         }
       };
     this.outcomes.delete(id);
-    let answered = false;
+    // A request answered already (start): every end is the chat's notice.
+    let answered = early;
     let settled = false;
     let answer;
     const timers = [];
@@ -303,7 +323,7 @@ export class LongChats {
       console.warn(
         `Summarising chat ${id} still runs; the chat stays locked until the Gateway ends it.`,
       );
-      answer.resolve({ compacted: false, running: true });
+      answer.resolve(stillRuns());
     };
     // Reads the newest marker first, so a later one shows the summary's success.
     const baseline = readBaseline(client, sessionKey, warn);
@@ -332,6 +352,7 @@ export class LongChats {
     const job = new Promise((resolve, reject) => {
       answer = { resolve, reject };
     });
+    if (early) answer.resolve(stillRuns());
     later(goOn, answerMs);
     // The upper bound, also when the client's own timeout never fires.
     later(() => finish("unknown"), maxMs);
