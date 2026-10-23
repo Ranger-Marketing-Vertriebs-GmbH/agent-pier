@@ -15,6 +15,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
 import { assistantMemoryModel } from "../helpers/assistant-memory-model.js";
+import { stepPolicyBridge } from "../helpers/assistant-step-policy-bridge.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_MEMORY_RUNTIME;
@@ -39,12 +40,13 @@ async function fixture(t) {
   };
   const runtime = new RuntimeSupervisor({ dataDir, install: async () => descriptor });
   const store = new AssistantStore({ dataDir });
-  let model;
+  let model, bridge;
   t.after(async () => {
     try {
       await runtime.close();
       store.close();
       await model?.close();
+      await bridge?.close();
     } finally {
       fs.rmSync(dataDir, { recursive: true, force: true });
     }
@@ -54,9 +56,12 @@ async function fixture(t) {
     paths: runtime.paths,
     runtimeVersion: descriptor.version,
   });
+  // Every native tool call, memory_search included, asks the bridge whether it runs
+  // in a memory step.
+  bridge = await stepPolicyBridge("memory-fixture");
   runtime.teamConfiguration = async () => ({
     directory: plugin.directory,
-    connection: { url: "http://127.0.0.1:1", token: "memory-fixture" },
+    connection: bridge.connection,
     hostMaxConcurrent: 4,
     native: { token: "memory-fixture" },
     profiles: store.listAssistants(),
@@ -179,7 +184,7 @@ async function fixture(t) {
     );
     return session.key;
   }
-  return { runtime, store, config, memory, model, create, save, restart, turn };
+  return { runtime, store, config, memory, model, bridge, create, save, restart, turn };
 }
 
 test(
@@ -196,6 +201,10 @@ test(
     await f.restart({ reindex: [agent] });
     for (const token of ["COBALTCLEARTOKEN", "ORCHIDREMOVALTOKEN"])
       assert.ok((await f.memory.search(agent.id, token)).results.length > 0);
+    assert.ok(
+      f.bridge.calls.some((c) => c.url === "/step-policy" && c.authorized),
+      "native memory_search asked the bridge's step policy",
+    );
 
     const cleared = await f.save(agent, "");
     assert.equal(cleared.content, "");

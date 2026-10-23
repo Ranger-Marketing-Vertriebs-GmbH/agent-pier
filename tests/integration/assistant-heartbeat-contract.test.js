@@ -13,6 +13,7 @@ import { runtimeManifest } from "../../server/features/assistants/runtime-manife
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { telegramMessages } from "../../server/features/assistant-channels/telegram-messages.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
+import { stepPolicyBridge } from "../helpers/assistant-step-policy-bridge.js";
 import {
   fixtureModels,
   proactivityModel,
@@ -29,11 +30,12 @@ test(
   { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
-    let runtime, reminders, model;
+    let runtime, reminders, model, bridge;
     t.after(async () => {
       await runtime?.close();
       await reminders?.close();
       await model?.close();
+      await bridge?.close();
     });
     const f = channelFixture(t, { language: () => "en" }),
       id = f.channel.assistantId;
@@ -93,9 +95,11 @@ test(
       paths: runtime.paths,
       runtimeVersion: runtimeManifest.version,
     });
+    // Every native tool call asks the bridge whether it runs in a memory step.
+    bridge = await stepPolicyBridge("heartbeat-fixture");
     runtime.teamConfiguration = async () => ({
       directory: plugin.directory,
-      connection: { url: "http://127.0.0.1:1", token: "heartbeat-fixture" },
+      connection: bridge.connection,
       hostMaxConcurrent: 4,
       native: { token: connection.token },
       profiles: f.store.listAssistants(),
@@ -198,6 +202,10 @@ test(
       JSON.stringify(runRequests.at(-1).messages.filter((m) => m.role === "tool")),
       /MEMORYTOKEN/,
       "the check-in reads the agent's MEMORY.md",
+    );
+    assert.ok(
+      bridge.calls.some((c) => c.url === "/step-policy" && c.authorized),
+      "the check-in's tool call asked the bridge's step policy",
     );
     assert.match(text(runRequest), /MEMORY\.md/, "the prompt asks for MEMORY.md");
     assert.ok(runRequest, "the check-in prompt reached the model");
