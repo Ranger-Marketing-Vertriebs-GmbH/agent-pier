@@ -218,10 +218,11 @@ test("loopback calls bypass an unreachable proxy for AgentPier and the Gateway",
 test("the installer tells Node to use the proxy and never proxies loopback", async (t) => {
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-install-proxy-"));
   t.after(() => fs.rmSync(bin, { recursive: true, force: true }));
-  // The version probe runs on the real Node; the installer itself only reports env.
+  // The version probe always accepts this host Node, whatever version runs the tests; the
+  // installer itself only reports env.
   fs.writeFileSync(
     path.join(bin, "node"),
-    `#!/bin/sh\nif [ "$1" = -e ]; then exec "${process.execPath}" "$@"; fi\nprintf '%s|%s|%s' "\${NODE_USE_ENV_PROXY:-}" "\${NO_PROXY:-}" "\${no_proxy:-}"\n`,
+    `#!/bin/sh\nif [ "$1" = -e ]; then exit 0; fi\nprintf '%s|%s|%s' "\${NODE_USE_ENV_PROXY:-}" "\${NO_PROXY:-}" "\${no_proxy:-}"\n`,
     { mode: 0o755 },
   );
   const run = (env) =>
