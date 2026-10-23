@@ -296,7 +296,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.10.3 installation and Node 26.7.0 under the data directory's
+private OpenClaw 2026.10.3 installation and Node 26.12.1 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^22.23.4 || ^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
@@ -375,8 +375,8 @@ This installs the runtime only; it does not enable or start a service.
 ### Toolchains for MCP server packages
 
 AgentPier installs MCP server packages from npm and PyPI with its own pinned
-toolchains under the data directory's `toolchains/` directory: Node 26.7.0 with npm
-11.19.0, uv 0.12.21 and CPython 3.14.7 (python-build-standalone 20260929). They are
+toolchains under the data directory's `toolchains/` directory: Node 26.12.1 with npm
+11.20.0, uv 0.12.21 and CPython 3.14.7 (python-build-standalone 20260929). They are
 separate from the agents' OpenClaw runtime and need no agents. Every archive is
 checked against a SHA-256 pinned in AgentPier before it is unpacked. AgentPier
 unpacks the verified CPython archive itself and records the toolchain folder in
@@ -395,12 +395,16 @@ arm64 and x64; other hosts report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`.
 
 A toolchain that fails verification is never repaired automatically; package
 installs report `MCP_PACKAGE_TOOLCHAIN_UNAVAILABLE`. Delete the affected folder under
-`<data>/toolchains/` (for example `node-v26.7.0-linux-x64`) and AgentPier reinstalls it
+`<data>/toolchains/` (for example `node-v26.12.1-linux-x64`) and AgentPier reinstalls it
 on next use.
 
-Once no packaged MCP server and no running install uses an older toolchain version,
-AgentPier removes its folder (at start, after each install, after a server is removed
-and after a server switches back to an own command); the current pins always stay.
+A packaged server keeps running on the toolchain it was installed with. After an
+update that moves a pin, for example the Node security release 26.12.1, new
+installs, updates and **Reinstall** use the new toolchain; reinstall an existing
+packaged server to move it there. Once no packaged MCP server and no running install
+uses an older toolchain version, AgentPier removes its folder (at start, after each
+install, after a server is removed and after a server switches back to an own
+command); the current pins always stay.
 How packages are installed: [MCP](mcp.md#installing-a-server-package).
 
 ### Assistant qualification in a source checkout

@@ -1,12 +1,13 @@
 // Official npm distribution integrity verified 2026-10-14 (OpenClaw 2026.10.3 and its
-// search plugins); nodejs.org SHASUMS256 verified 2026-10-07.
+// search plugins); nodejs.org SHASUMS256 for Node 26.12.1 verified 2026-10-23 (signed
+// by release key 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356).
 export const runtimeManifest = {
   version: "2026.10.3",
   // Qualified predecessors an activation may roll back to (see the release
   // qualification); the managed team plugin must stay compatible with each.
   rollbackTargets: ["2026.9.9", "2026.9.8"],
-  nodeVersion: "26.7.0",
-  npmVersion: "11.19.0",
+  nodeVersion: "26.12.1",
+  npmVersion: "11.20.0",
   dependencyLockSha256:
     "5d0ace4d722aa7800e8f11ff8a84f274e0aef3ad781158b8ed54c81e0774bbd2",
   packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.10.3.tgz",
@@ -38,9 +39,9 @@ export const runtimeManifest = {
     },
   },
   nodeChecksums: {
-    "darwin-arm64": "7ee659a7768e641bbfd5360940660b8e8fd0052f77488f365562bac522fc15d4",
-    "darwin-x64": "f279d1ed28ce57f7788bf23435d2ad7fdd7438904ad5c4d8a1081a7cde3d4b96",
-    "linux-arm64": "925aa6157dd37542d0d7f2e28b7bf61e7b39284411210b0498bc3788db4aef68",
-    "linux-x64": "bd6b6c31e377bad9ad579bed72e5bc11f4c879ac9452ad51d30e646ea3d828df",
+    "darwin-arm64": "1901d539912c02afa10d1cc126943a8855a7eedebe830119463470db5e6c59e8",
+    "darwin-x64": "b85c2ea4420ad0bc4abf2dc6cf1f55130ed681f1cabf60cf3f526e4c9e2712ff",
+    "linux-arm64": "a6c01af459dd8972ab3fb08ee5da81244d26ba8c4944a62d5bbba8c597ae154f",
+    "linux-x64": "0fd1eb7770598f52a21995edf6ed35fc690400fa437c2386af329519e9143132",
   },
 };

@@ -91,15 +91,15 @@ variables, skip without it and run in the `native-contracts` CI job.
 
 What is real and what is a double:
 
-| Part               | In the run                                                                                                                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Gateway            | The pinned OpenClaw 2026.10.3 runtime (Node 26.7.0, lock `5d0ace4d722a…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
-| AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.     |
-| Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                 |
-| Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                             |
-| Transcription      | AgentPier's `SpeechService` and `DeepgramTranscriber`; only the request to `api.deepgram.com` is redirected to a loopback `/v1/listen` fake with a fixture key.                                                          |
-| Coding run         | AgentPier's real `PipelineEngine` with a one-stage pipeline; its stage driver launches no coding CLI and no tmux session but writes a passing verdict and an artifact into the run's workspace.                          |
-| Timing             | No clock hooks: the reminder is due 15 seconds after the agent creates it and fires through OpenClaw's own scheduler.                                                                                                    |
+| Part               | In the run                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gateway            | The pinned OpenClaw 2026.10.3 runtime (Node 26.12.1, lock `5d0ace4d722a…`) with the installed team plugin, started by AgentPier's `RuntimeSupervisor`; only its runtime selection points at the provisioned installation. |
+| AgentPier services | All production services and their wiring: `AssistantService`, `TeamService` with its scheduler and lead requests, `TeamBridge`, `NativeReminders`, `ChannelService`, `AssistantWorkflows`, `LeadShares`, `McpTools`.      |
+| Model              | A scripted OpenAI-compatible loopback endpoint behind a real endpoint provider connection (`ProviderConnections`, preset `custom`); it decides each turn from its text and tool results.                                  |
+| Telegram           | The loopback Bot API of the agents' own bots contract (`tests/helpers/assistant-telegram-fakes.js`), reached through `TelegramClient`'s `apiRoot` test seam.                                                              |
+| Transcription      | AgentPier's `SpeechService` and `DeepgramTranscriber`; only the request to `api.deepgram.com` is redirected to a loopback `/v1/listen` fake with a fixture key.                                                           |
+| Coding run         | AgentPier's real `PipelineEngine` with a one-stage pipeline; its stage driver launches no coding CLI and no tmux session but writes a passing verdict and an artifact into the run's workspace.                           |
+| Timing             | No clock hooks: the reminder is due 15 seconds after the agent creates it and fires through OpenClaw's own scheduler.                                                                                                     |
 
 **Voice note to reminder** (`tests/integration/assistant-voice-reminder-e2e-contract.test.js`).
 The owner creates an agent with reminders, saves the speech key, connects and pairs
@@ -339,11 +339,11 @@ runtime that release pins (`stageRuntimeInBackground`); the owner activates it. 
 release requires an intermediate step, so a user's runtime update goes from whatever
 runtime their last release pinned straight to the current pin. The release tags pin:
 
-| AgentPier release | Pinned OpenClaw | Rollback targets   | Update path to the current pin (2026.10.3) |
-| ----------------- | --------------- | ------------------ | ------------------------------------------ |
-| v1.27.0 – v1.28.1 | 2026.9.8        | 2026.9.7           | 2026.9.8 → 2026.10.3 (skip update)         |
-| v2.0.0            | 2026.9.9        | 2026.9.8, 2026.9.7 | 2026.9.9 → 2026.10.3                       |
-| v2.1.0 – v2.3.0   | 2026.10.3       | 2026.9.9, 2026.9.8 | none                                       |
+| AgentPier release | Pinned OpenClaw (Node) | Rollback targets   | Update path to the current pin (2026.10.3, Node 26.12.1) |
+| ----------------- | ---------------------- | ------------------ | -------------------------------------------------------- |
+| v1.27.0 – v1.28.1 | 2026.9.8 (26.7.0)      | 2026.9.7           | 2026.9.8 → 2026.10.3 (skip update)                       |
+| v2.0.0            | 2026.9.9 (26.7.0)      | 2026.9.8, 2026.9.7 | 2026.9.9 → 2026.10.3                                     |
+| v2.1.0 – v2.5.1   | 2026.10.3 (26.7.0)     | 2026.9.9, 2026.9.8 | Node 26.7.0 → 26.12.1, same OpenClaw and lock            |
 
 Releases before v1.27.0 had no managed assistants. 2026.9.7 was never pinned by a
 release, so no installed user runs it. 2026.9.8 → 2026.9.9 is no longer reachable:
@@ -398,6 +398,42 @@ pairs on Ubuntu x64 nightly, on demand and before a release. It checks out the
 release tags `v1.28.1` and `v2.0.0`, provisions their runtimes as above, and fails
 when a test skips. Its matrix must follow `rollbackTargets`: a predecessor that
 leaves the list is refused by the team plugin and leaves the matrix too.
+
+### Node 26.12.1 security update (2026-10-23)
+
+The managed runtime moves from Node 26.7.0 to 26.12.1, the patched 26.x line of the
+[Node.js October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+OpenClaw stays at 2026.10.3, the lock stays `5d0ace4d722a…` and `rollbackTargets`
+stays `["2026.9.9", "2026.9.8"]`; the team plugin checks OpenClaw versions only.
+Node 26.12.1 bundles npm 11.20.0 (was 11.19.0), so `npmVersion` follows it. The four
+`nodeChecksums` come from `https://nodejs.org/dist/v26.12.1/SHASUMS256.txt`, whose
+signature was verified against release key `5BE8A3F6C8A5C01D106C0AD820B1A390B168D356`.
+The MCP Node toolchain derives from the same pins and becomes `node-v26.12.1-<target>`.
+
+The lock was not re-resolved: a Node security release changes no package, and a full
+refresh would move transitive versions without a reason. `refresh-assistant-runtime-lock.mjs --keep-graph`
+on the new runtime reproduced both lock files byte for byte with npm 11.20.0.
+
+Installed users on v2.1.0 – v2.5.1 run `2026.10.3-node26.7.0-<target>-lock5d0ace4d722a`.
+The changed Node version is part of the runtime identity, so their next start stages
+`2026.10.3-node26.12.1-<target>-lock5d0ace4d722a` next to it, and activation goes
+through the usual snapshot, validation and rollback flow. OpenClaw's state schema is
+unchanged, so this update runs no migration.
+
+Qualified on macOS arm64 (Darwin 25.5) in disposable data directories:
+
+- All 40 native contract files of the `native-contracts` job against the new runtime:
+  85 of 85 passed, 0 skipped (about 32 minutes).
+- `scripts/verify-assistant-installation.mjs` and `scripts/verify-mcp-toolchains.mjs darwin-arm64`
+  passed (`node v26.12.1, npm 11.20.0`).
+- **Node-only update path.** The predecessor runtime came from a `git archive v2.5.1`
+  tree via its own `provision-assistant-contracts.mjs`. A throwaway copy of
+  `assistant-runtime-cross-version.test.js` (not committed) that tells the runtimes
+  apart by Node path instead of OpenClaw version passed 3 of 3: activation keeps
+  memory, the disabled schedule, history and the receipt across a restart without a
+  model request; an injected validation failure restores the Node 26.7.0 runtime and
+  the original memory; the legacy roster is canonicalized. The committed
+  `cross-version` job cannot run this pair because it requires two OpenClaw versions.
 
 ### Native architectures (2026-10-19)
 

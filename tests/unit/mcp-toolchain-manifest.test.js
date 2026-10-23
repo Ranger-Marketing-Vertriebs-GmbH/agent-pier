@@ -24,7 +24,7 @@ test("every supported target pins Node, uv and CPython with a SHA-256", () => {
 test("download URLs name the pinned versions and official hosts", () => {
   assert.equal(
     m.node.url("darwin-arm64"),
-    "https://nodejs.org/dist/v26.7.0/node-v26.7.0-darwin-arm64.tar.gz",
+    "https://nodejs.org/dist/v26.12.1/node-v26.12.1-darwin-arm64.tar.gz",
   );
   assert.equal(
     m.uv.url("linux-x64"),

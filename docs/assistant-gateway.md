@@ -389,7 +389,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.10.3 with Node 26.7.0 in private
+The foundation now provisions OpenClaw 2026.10.3 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it in Settings → Workspace → Agents provisions
 the runtime; enabled installations provision the selected version at startup after
