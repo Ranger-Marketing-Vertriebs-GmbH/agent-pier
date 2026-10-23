@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { peers } from "../helpers/peer-request-fixture.js";
 import { until } from "../helpers/lead-request-service-fixture.js";
+import { retention } from "../../server/features/assistants/lead-request-store.js";
 
 const notesOf = (history) => history.messages.filter((m) => m.event === "peer-request");
 const chatOf = (f, member) => f.service.store.member(member.id).conversationId;
@@ -106,4 +107,29 @@ test("a peer request made while the lead had no main chat shows in its later one
     notesOf(await f.assistants.history(next.id)).map((m) => m.id),
     [`peer-start:${r.id}`],
   );
+});
+
+test("members' requests and reports never push the lead's own requests out", async (t) => {
+  const f = await peers(t);
+  const store = f.service.requests.store;
+  const peer = store.get(f.peerAsk(f.memberTurn(f.permanent), f.second).id);
+  const at = new Date().toISOString();
+  const settled = { phase: "completed", settled: true, createdAt: at, finishedAt: at };
+  const { fromMemberId, ...lead } = { ...peer, ...settled, id: "lead-own" };
+  assert.ok(fromMemberId);
+  f.service.store.insert(lead);
+  f.service.store.write(peer, settled);
+  const add = (n, patch) =>
+    f.service.store.insert({ ...peer, ...settled, ...patch, id: `${n}` });
+  for (let n = 0; n < retention.membersPerLead; n++) add(`peer-${n}`, {});
+  add("report", {
+    fromMemberId: undefined,
+    type: "report",
+    origin: { kind: "member-report", reportKind: "result" },
+  });
+  // The members' own bound drops their oldest; the lead's own request stays.
+  assert.equal(store.prune(), 2);
+  assert.ok(store.get("lead-own"));
+  assert.ok(store.get("report"));
+  assert.ok(!f.requests().some((x) => x.id === peer.id || x.id === "peer-0"));
 });

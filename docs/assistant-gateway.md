@@ -1091,7 +1091,8 @@ A lead reaches its own members without the owner relaying anything
   or a task's result reaches the lead as a follow-up turn in the routine's chat once no
   ask waits for it. **Work → Teams** marks such requests "Scheduled · <routine>".
 - **Recovery.** Requests are durable records in the team store; settled ones are
-  pruned after 30 days or beyond the newest 200 per lead, and the scheduling pass
+  pruned after 30 days or beyond the newest 200 per lead (members' requests to each
+  other and their reports count apart, with their own 200), and the scheduling pass
   reads only open or undelivered ones. A send whose outcome is unknown at a restart
   is adopted by its stable request id instead of sent again; an unknown member
   outcome ends `failed` once reviewed and is reported to the lead. Archiving a
