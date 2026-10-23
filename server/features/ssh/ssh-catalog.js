@@ -55,7 +55,8 @@ export class SshCatalog {
   migrate() {
     privateDirectory(this.root);
     const marker = path.join(this.root, "migration.json");
-    if (!fs.existsSync(this.file)) {
+    const rebuilt = !fs.existsSync(this.file);
+    if (rebuilt) {
       writePrivate(marker, { phase: "cutover" });
       fs.rmSync(path.join(this.root, "capabilities"), { recursive: true, force: true });
       const keys = new SshKeyStore({ root: this.root });
@@ -77,14 +78,14 @@ export class SshCatalog {
       }
       fs.rmSync(marker);
     }
-    this.recoverArtifacts();
+    // A catalog rebuilt from accesses.json has lost its SFTP hosts, not their
+    // passwords: keep them for a restored catalog instead of deleting them for good.
+    this.recoverArtifacts({ passwords: !rebuilt });
   }
-  recoverArtifacts() {
+  recoverArtifacts({ passwords = true } = {}) {
     const current = this.read();
     // Passwords are written before a commit; a crash can leave a host's directory.
-    new SshPasswordStore({ root: this.root }).removeOrphans(
-      current.sftpHosts.map((row) => row.id),
-    );
+    if (passwords) this.removePasswordOrphans(current.sftpHosts.map((row) => row.id));
     const owned = new Set(current.keys.map((k) => k.id));
     for (const part of ["identities", "staging"]) {
       const directory = path.join(this.root, part);
@@ -96,6 +97,15 @@ export class SshCatalog {
         if (fs.existsSync(path.join(artifact, ".catalog-owned")))
           fs.rmSync(artifact, { recursive: true, force: true });
       }
+    }
+  }
+  removePasswordOrphans(hostIds) {
+    try {
+      new SshPasswordStore({ root: this.root }).removeOrphans(hostIds);
+    } catch (error) {
+      console.warn(
+        `SSH catalog kept orphaned SFTP passwords (${error.code || "error"}).`,
+      );
     }
   }
 
