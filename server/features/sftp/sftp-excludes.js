@@ -1,8 +1,18 @@
 import { sftpProblem } from "./sftp-errors.js";
 import { sftpLimits } from "./sftp-limits.js";
+import { unsafeName } from "./sftp-remote-paths.js";
 
-export const defaultExcludes = Object.freeze([".git", ".env"]);
-const unsafe = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\\]/;
+// Git internals and environment files (`.env`, `.env.local`, `.env.production`) hold
+// credentials; these defaults match any case, since a case-insensitive file system
+// serves `.ENV` as `.env`.
+export const defaultExcludes = Object.freeze([".git", ".env", ".env.*"]);
+const caseless = new Set(defaultExcludes);
+const partFile = /^\..+\.agentpier-part-[0-9a-f]+$/;
+
+/** A temporary file a transfer writes before renaming it into place. */
+export function isPartFile(name) {
+  return partFile.test(name);
+}
 const refused = () => sftpProblem("SFTP_PATH_REFUSED");
 
 function patternValue(raw) {
@@ -10,7 +20,7 @@ function patternValue(raw) {
     typeof raw !== "string" ||
     !raw ||
     raw.length > sftpLimits.excludeChars ||
-    unsafe.test(raw)
+    unsafeName.test(raw)
   )
     throw refused();
   const parts = raw.split("/").filter(Boolean);
@@ -19,7 +29,7 @@ function patternValue(raw) {
   return raw;
 }
 
-/** The validated exclude patterns, after `.git` and `.env` unless `defaults` is off. */
+/** The validated exclude patterns, after `defaultExcludes` unless `defaults` is off. */
 export function excludeList(patterns = [], { defaults = true } = {}) {
   if (!Array.isArray(patterns) || patterns.length > sftpLimits.excludes) throw refused();
   const list = patterns.map(patternValue);
@@ -28,9 +38,12 @@ export function excludeList(patterns = [], { defaults = true } = {}) {
 
 // `*` and `?` within one name, matched greedily with backtracking to the last star:
 // O(name × pattern), never exponential.
-function segmentMatcher(pattern) {
-  if (!/[*?]/.test(pattern)) return (name) => name === pattern;
-  return (name) => {
+function segmentMatcher(raw, ignoreCase) {
+  const pattern = ignoreCase ? raw.toLowerCase() : raw;
+  const literal = !/[*?]/.test(pattern);
+  return (value) => {
+    const name = ignoreCase ? value.toLowerCase() : value;
+    if (literal) return name === pattern;
     let p = 0,
       n = 0,
       star = -1,
@@ -60,7 +73,10 @@ function compile(pattern) {
   const steps = (anchored ? parts : ["**", ...parts]).filter(
     (part, i, all) => part !== "**" || all[i - 1] !== "**",
   );
-  const matchers = steps.map((part) => (part === "**" ? null : segmentMatcher(part)));
+  const ignoreCase = caseless.has(pattern);
+  const matchers = steps.map((part) =>
+    part === "**" ? null : segmentMatcher(part, ignoreCase),
+  );
   return (names) => {
     // Simulates the pattern as an automaton over the path's names: linear in names.
     const close = (states) => {

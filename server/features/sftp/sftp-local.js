@@ -4,11 +4,11 @@ import { randomBytes } from "node:crypto";
 import { projectTarget } from "../assistants/project-paths.js";
 import { fold } from "../assistants/team-plugin/tool-guard.js";
 import { sftpProblem } from "./sftp-errors.js";
-import { defaultExcludes, excluded } from "./sftp-excludes.js";
+import { defaultExcludes, excluded, isPartFile } from "./sftp-excludes.js";
 import { sftpLimits } from "./sftp-limits.js";
+import { relativeParts, unsafeName } from "./sftp-remote-paths.js";
 
 const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW } = fs.constants;
-const unsafe = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\\]/;
 const refused = () => sftpProblem("SFTP_PATH_REFUSED");
 const conflict = () => sftpProblem("SFTP_TYPE_CONFLICT");
 const inside = (parent, child) =>
@@ -30,15 +30,6 @@ async function lstatOrNull(file) {
     if (error.code === "ENOENT") return null;
     throw error;
   }
-}
-
-function relativeParts(relative) {
-  if (typeof relative !== "string" || relative.length > sftpLimits.pathChars)
-    throw refused();
-  const parts = relative.split("/");
-  if (unsafe.test(relative) || parts.some((p) => !p || p === "." || p === ".."))
-    throw refused();
-  return parts;
 }
 
 // Paths a transfer resolves against: the target folder, or the folder holding a
@@ -69,6 +60,30 @@ export function localRoot({
   });
 }
 
+/**
+ * Whether the target's file system treats names differing only in case as one file
+ * (APFS and NTFS by default). Probed once per transfer on the deepest existing folder:
+ * a name of it, or of an ancestor on the same device, is looked up case-swapped.
+ * Without a probe-able name it assumes yes, which only matches more names.
+ */
+export function caseInsensitiveTarget(target) {
+  let current = target.real;
+  while (!fs.existsSync(current)) current = path.dirname(current);
+  const device = fs.statSync(current).dev;
+  for (; current !== path.dirname(current); current = path.dirname(current)) {
+    const stat = fs.statSync(current);
+    if (stat.dev !== device) break;
+    const name = path.basename(current);
+    const swapped = name === name.toUpperCase() ? name.toLowerCase() : name.toUpperCase();
+    if (swapped === name) continue;
+    const other = fs.statSync(path.join(path.dirname(current), swapped), {
+      throwIfNoEntry: false,
+    });
+    return Boolean(other && other.ino === stat.ino && other.dev === stat.dev);
+  }
+  return true;
+}
+
 function scanGuard(limits) {
   const started = Date.now();
   let scanned = 0;
@@ -87,14 +102,15 @@ const entryOf = (relative, stat) => ({
 /**
  * Lists the regular files below the target without following links. Links, files
  * with more than one link (a hard link may share an inode outside the folder) and
- * special files are counted as skipped; `.git`, excludes and protected roots are left
- * out. A target file lists itself under its name.
+ * special files and names the server side refuses (`unsafeName`) are counted as
+ * skipped; `.git`, leftover `.agentpier-part-` files, excludes and protected roots are
+ * left out. A target file lists itself under its name.
  */
 export async function walkLocal(
   target,
   { excludes = defaultExcludes, limits = sftpLimits } = {},
 ) {
-  const skipped = { links: 0, special: 0 };
+  const skipped = { links: 0, special: 0, unsafe: 0 };
   const entries = [];
   const stat = await fs.promises.lstat(target.real);
   if (stat.isFile()) {
@@ -112,6 +128,12 @@ export async function walkLocal(
     const directory = path.join(target.real, relative);
     for (const name of await fs.promises.readdir(directory)) {
       tick();
+      if (isPartFile(name)) continue;
+      // The server side refuses these names; count them instead of failing later.
+      if (unsafeName.test(name)) {
+        skipped.unsafe++;
+        continue;
+      }
       const child = relative ? `${relative}/${name}` : name;
       const full = path.join(directory, name);
       if (
