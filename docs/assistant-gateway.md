@@ -1176,6 +1176,9 @@ was compacted and the plan was gone. Four rules close that gap:
   `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy and every bridge
   action refuse the session's other tools. The step is bound by the chat's own
   attempt, never reaches Telegram and is aborted like **Stop** after five minutes.
+  OpenClaw's own pre-run flush during the step (`flushWrite`) may write the day note
+  like a direct turn's. The chat offers no **Try again** on a failed or stalled step
+  and keeps showing that memories are saved while the step's outcome is uncertain.
 - **Summarising status.** A long conversation makes OpenClaw shorten its history
   before it answers, which can take minutes. The pinned runtime signals it on the
   source session with Gateway `agent` events: before a run (preflight,
@@ -1338,7 +1341,8 @@ was compacted and the plan was gone. Four rules close that gap:
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
   newest 100 per conversation): forwarded content, a scheduled or automatic turn,
-  a lead's task, another non-owner turn, or a refused flush. A refused flush the
+  a lead's task, another non-owner turn, a memory step's write outside its own
+  memory, or a refused flush. A refused flush the
   Gateway did not report (for example after a runtime change renamed the event) is
   attributed to the agent's single active owner turn, so it never goes unnoticed.
   The chat renders them as quiet lines ("Memory not saved: …"). A run without an
@@ -3593,8 +3597,9 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   as soon as the step starts, and the history carries `compacting: "memory"` during the
   step (the chat shows "Saving memories before the summary …" and "Saving memories" in
   the header) and `true` during the summary. Any step result but a saved one (failed,
-  refused, timed out, interrupted) still leads to the summary and sets `memoryNotSaved`
-  in `compactOutcome` ("No memories were saved before the summary."); if the chat is
+  refused, timed out, interrupted, or a summary that failed after it) still leads to
+  the summary and sets the separate history field `memoryNotSaved: true` next to
+  `compactOutcome` ("No memories were saved before the summary."); if the chat is
   still busy afterwards the summary ends with `busy` next to that note. Other sends
   are refused (409) for the whole job. `POST …/long-chat-dismissal` (same routes and
   refusals) reads the session's current `totalTokens` and stores it per person and
