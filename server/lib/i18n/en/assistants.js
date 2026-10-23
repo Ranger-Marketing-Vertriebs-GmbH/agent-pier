@@ -258,7 +258,7 @@ export const assistants = {
   teamMcpServersUnavailable:
     "The MCP server list of this team cannot be read right now. Try again later.",
   teamShareAccessOnly:
-    "A lead agent can share only project folders, coding projects and MCP servers with a permanent member.",
+    "A lead agent can share only project folders, Read images, coding projects and MCP servers with a permanent member.",
   teamGrantNotHeld:
     "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
   leadRoutineOwnerTurn:

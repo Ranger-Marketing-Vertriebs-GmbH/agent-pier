@@ -275,7 +275,7 @@ export const assistants = {
   teamMcpServersUnavailable:
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
   teamShareAccessOnly:
-    "Mit einem dauerhaften Mitglied kann ein leitender Agent nur Projektordner, Coding-Projekte und MCP-Server teilen.",
+    "Mit einem dauerhaften Mitglied kann ein leitender Agent nur Projektordner, Bilder lesen, Coding-Projekte und MCP-Server teilen.",
   teamGrantNotHeld:
     "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
   leadRoutineOwnerTurn:

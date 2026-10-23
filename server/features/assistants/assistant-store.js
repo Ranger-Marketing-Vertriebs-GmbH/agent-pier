@@ -10,6 +10,7 @@ import { fencedDatabase } from "./ledger-fence.js";
 import { migrateAssistants } from "./assistant-schema.js";
 import { personalEligible } from "./native-capabilities.js";
 import { memberInheritance } from "./member-grants.js";
+import { sharedCapabilities } from "./lead-capability-shares.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 
@@ -31,8 +32,13 @@ export function cachedWindow(messages) {
     total -= textLength(kept[start++]);
   return start ? kept.slice(start) : kept;
 }
-// A read resolves `inherited` (memberInheritance); writes never persist it.
-export const persisted = ({ inherited: _inherited, ...record }) => record;
+// A read resolves `inherited` (memberInheritance) and a permanent member's
+// `leadCapabilities` (lead-capability-shares.js); writes never persist them.
+export const persisted = ({
+  inherited: _inherited,
+  leadCapabilities: _leadCapabilities,
+  ...record
+}) => record;
 export class AssistantStore {
   constructor({ dataDir }) {
     // What the lead granted a temporary member, and whether its shell and SSH grants
@@ -123,6 +129,10 @@ export class AssistantStore {
   }
   resolved(record, lead) {
     const next = { ...record, model: effectiveModel(record, lead) };
+    if (record.lifetime === "permanent") {
+      const shared = sharedCapabilities(this.db, record, lead);
+      return Object.keys(shared).length ? { ...next, leadCapabilities: shared } : next;
+    }
     if (!temporaryMember(record) || record.archivedAt) return next;
     let granted = { grants: {}, shellSsh: false };
     try {

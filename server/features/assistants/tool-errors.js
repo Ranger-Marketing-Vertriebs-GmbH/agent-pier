@@ -85,7 +85,7 @@ const reasons = {
   ROUTINE_READ_ONLY:
     "This routine may only read project folders: the owner has not allowed it to write. Do not retry; say in the routine's result which change you would make, so the owner can switch on 'May write' for this routine or make it.",
   PERMANENT_ACCESS_ONLY:
-    "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
+    "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), Read images (grants.documents), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
   PROJECT_WRITE_UNAVAILABLE:
     "Project folder changes are unavailable until AgentPier has verified the agent runtime's tool guard. Try again in a minute; tell the owner if it persists.",
   PROJECT_PATH_REFUSED:

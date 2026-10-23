@@ -215,6 +215,7 @@ export function auditEvent(input) {
       "member-promote",
       "project-file",
       "project-grants",
+      "lead-share",
       "lead-routine",
       "native-write",
       "share",

@@ -1,6 +1,8 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { projectFileLevels } from "./member-grants.js";
 import { leadServerIds, memberServerNames } from "./team-mcp.js";
+import { personalCapabilities } from "./native-capabilities.js";
+import { shareableCapabilities } from "./lead-capability-shares.js";
 
 const maxProjects = 20;
 const projectId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
@@ -9,14 +11,22 @@ const record = (value) => !!value && typeof value === "object" && !Array.isArray
 
 /**
  * What a lead shares with a permanent member (lead-shares.js), normalized; shape
- * only. `grants` may carry only `projects` ({ projectId: "read" | "write" }): a
- * permanent member's other settings are the owner's. `coding` names projects for
- * coding requests, `mcpServers` servers by name.
+ * only. `grants` may carry only `projects` ({ projectId: "read" | "write" }) and
+ * `documents` (Read images, `true`): a permanent member's other settings are the
+ * owner's. `coding` names projects for coding requests, `mcpServers` servers by name.
  */
 export function shareInput({ grants, coding, mcpServers } = {}) {
   if (grants !== undefined && !record(grants)) throw assistantProblem("invalid");
-  if (grants && Object.keys(grants).some((key) => key !== "projects"))
+  if (
+    grants &&
+    Object.keys(grants).some(
+      (key) => key !== "projects" && !shareableCapabilities.includes(key),
+    )
+  )
     throw assistantProblem("teamShareAccessOnly", 409);
+  for (const key of shareableCapabilities)
+    if (grants && key in grants && typeof grants[key] !== "boolean")
+      throw assistantProblem("invalid");
   const projects = grants?.projects ?? {};
   if (!record(projects)) throw assistantProblem("invalid");
   const entries = Object.entries(projects);
@@ -38,8 +48,14 @@ export function shareInput({ grants, coding, mcpServers } = {}) {
     projects: Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : 1))),
     coding: [...(coding || [])].sort(),
     names,
+    capabilities: shareableCapabilities.filter((key) => grants?.[key] === true),
   };
-  if (!entries.length && !change.coding.length && !names.length)
+  if (
+    !entries.length &&
+    !change.coding.length &&
+    !names.length &&
+    !change.capabilities.length
+  )
     throw assistantProblem("invalid");
   return change;
 }
@@ -71,6 +87,9 @@ export function leadHolds(w, lead, member, change, { revoke = false } = {}) {
     )
       refuse();
   if (change.coding.some((id) => !policy.projectIds.includes(id))) refuse();
+  // Read images only while the lead has it switched on itself.
+  const held = personalCapabilities(lead);
+  if (change.capabilities.some((key) => !held[key])) refuse();
   const serverIds = leadServerIds(servers, lead.id, change.names);
   if (
     w.a.mcp?.telegramSenders?.connected(member.assistantId) &&
@@ -109,6 +128,9 @@ export function shareMember(w, lead, member) {
 const keysOf = (rows) => [
   ...(rows.some((r) => r.kind === "project" && r.folder) ? ["projects"] : []),
   ...(rows.some((r) => r.kind === "project" && r.coding) ? ["coding"] : []),
+  ...shareableCapabilities.filter((key) =>
+    rows.some((r) => r.kind === "capability" && r.capability === key),
+  ),
 ];
 
 /**
@@ -185,6 +207,7 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
           keys: [
             ...(Object.keys(change.projects).length ? ["projects"] : []),
             ...(change.coding.length ? ["coding"] : []),
+            ...change.capabilities,
           ],
         }
       : {}),
@@ -199,6 +222,7 @@ export function leadShare(w, { lead, member, conversation, inv, input }) {
     projects: Object.keys(change.projects),
     coding: change.coding,
     mcpServers: change.serverIds.length,
+    ...(change.capabilities.length ? { capabilities: change.capabilities } : {}),
   };
 }
 

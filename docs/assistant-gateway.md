@@ -2150,13 +2150,15 @@ it, and prefer `approval` modes for its shell level and SSH hosts.
 ## Lead shares with permanent members (2026-10-19, AGENTPIER-153)
 
 A lead shares its own project folders (`read` or `write`, at most its level), coding
-projects (requests on its project and pipelines) and MCP servers bound to it with its
-own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js`):
+projects (requests on its project and pipelines), MCP servers bound to it and **Read
+images** (`documents`) with its own permanent members, without the owner
+(`lead-shares.js`, `lead-share-input.js`, `lead-capability-shares.js`):
 
 - **Tools.** `agentpier_team_grant` with a permanent member's `memberId` takes only
-  `grants.projects`, `coding` (project ids) and `mcpServers` and stores a standing
-  share; anything else is `PERMANENT_ACCESS_ONLY`, and `revoke: true` takes a share
-  back. `agentpier_team_delegate` takes `access` with the same three fields for that
+  `grants.projects`, `grants.documents`, `coding` (project ids) and `mcpServers` and
+  stores a standing share; anything else is `PERMANENT_ACCESS_ONLY`, and
+  `revoke: true` takes a share back. `grants.documents: true` needs the lead's own
+  **Read images** (`TEAM_GRANT_NOT_HELD` otherwise) and is only ever standing. `agentpier_team_delegate` takes `access` with the same three fields for that
   one task: checked against the lead before the request exists and in place before
   the member's turn starts. Shell and SSH are never shared.
 - **Store.** `assistant_lead_shares`, one row per member, lead, resource and scope
@@ -2169,6 +2171,16 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   record (`reason`), when the lead or member is archived or gone, the member is no
   longer the lead's permanent member, the task ended (`task-ended`) or the lead holds
   nothing of it any more (`lead-lost`).
+- **Read images.** A `capability` row (`capability: "documents"`) is resolved into a
+  permanent member's record on every read (`AssistantStore.resolved` →
+  `leadCapabilities`, never persisted; `personalCapabilities` adds it to the
+  member's own switches) while the member is the lead's unarchived permanent member
+  and the lead has **Read images** on: the member's next apply compiles `view_image`
+  and `image_view` admits it. When the lead's profile is re-applied
+  (`followLead`), its members with such a share are re-applied too, after a prune
+  that removes a share the lead no longer backs (`lead-lost`); switching the lead's
+  **Read images** on again does not bring it back. The member's own switch in its
+  settings stays as the owner set it.
 - **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
   its task runs in exactly that turn (`workspace-calls.js`): file actions use only the
   lead's shares for that scope (standing and the task's own). A `write` share is the
@@ -2208,10 +2220,13 @@ own permanent members, without the owner (`lead-shares.js`, `lead-share-input.js
   share change marks the MCP state pending; the scheduler's tick applies it.
 - **Owner.** `GET /api/assistant-lead-shares` (filters `memberId`, `leadId`,
   `projectId`, `serverId`) and `DELETE /api/assistant-lead-shares/:id`; the project's
-  Agents view carries `shared`, the MCP server list `shared` per server.
+  Agents view carries `shared`, the MCP server list `shared` per server. A shared
+  **Read images** is listed as `kind: "capability"` with `live.on` and shown in the
+  member's **Work → Shared by the lead agent**.
 - **Audit.** `assistant.updated` with `kind: "lead-share"`, `change` (`grant` or
   `revoke`), `by` (`lead`, `owner` or `system`), the lead, member, task, project ids
-  with coding and folder levels and server ids; a folder change through a share adds
+  with coding and folder levels, server ids and shared `capabilities`
+  (`["documents"]`); a folder change through a share adds
   `leadAssistantId` and `leadRequestId` (or `sharedBy`) to its `project-file` record.
   Both chats get the grant note.
 

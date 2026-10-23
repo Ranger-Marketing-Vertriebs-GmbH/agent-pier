@@ -4,6 +4,8 @@ import { setLanguage } from "../../web/lib/i18n/index.js";
 import {
   memberGrantDetail,
   memberGrantName,
+  shareDetail,
+  shareName,
 } from "../../web/features/assistants/lead-shares.js";
 import { logText } from "../../web/features/assistants/member-grants.js";
 
@@ -47,4 +49,18 @@ test("the owner's own revocation reads apart from switching shell and SSH off", 
     logText({ at, by: "owner", direct: true, revoked: ["ssh"] }),
     /widerrufen/,
   );
+});
+
+test("a lead's shared Read images reads as a standing share that counts now", () => {
+  setLanguage("en", { persist: false });
+  const share = { kind: "capability", capability: "documents", requestId: null };
+  assert.equal(shareName(share), "Read images");
+  assert.equal(shareDetail({ ...share, live: { on: true } }), "Standing");
+  assert.equal(
+    shareDetail({ ...share, live: { on: false } }),
+    "Not in effect: the lead agent does not hold it right now · Standing",
+  );
+  setLanguage("de", { persist: false });
+  assert.equal(shareName(share), "Bilder lesen");
+  assert.equal(shareDetail({ ...share, live: { on: true } }), "Dauerhaft");
 });
