@@ -216,6 +216,7 @@ export class SshAccessStore {
       if (sftp?.password !== undefined) {
         this.catalog.afterRollback(() => this.passwords.removeHost(id));
         this.passwords.write(id, access.credentialRevision, sftp.password);
+        this.catalog.afterCommit(() => this.passwords.settle(id));
       }
       if (!this.catalog) this.knownHosts(access);
       else

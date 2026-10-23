@@ -5,6 +5,7 @@ import { privateDirectory, problem } from "../../lib/storage.js";
 
 const MAX_BYTES = 1024;
 const identifier = /^[0-9a-f-]{36}$/;
+const pending = ".pending";
 
 /** A login password: 1-1024 UTF-8 bytes, no NUL, CR or LF. */
 export function passwordValue(raw) {
@@ -78,6 +79,7 @@ export class SshPasswordStore {
     this.ownDirectory(this.directory);
     this.ownDirectory(path.dirname(file));
     this.assertDirectory(hostId);
+    this.markPending(hostId);
     const fd = fs.openSync(
       file,
       fs.constants.O_WRONLY |
@@ -129,13 +131,35 @@ export class SshPasswordStore {
       if (fd !== undefined) fs.closeSync(fd);
     }
   }
-  /** Removes password directories of hosts the catalog no longer has. */
+  // A host directory holds `.pending` from a password write until its catalog commit,
+  // so startup can tell a crashed write from a committed password.
+  markPending(hostId) {
+    const fd = fs.openSync(
+      path.join(this.hostDirectory(hostId), pending),
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW,
+      0o600,
+    );
+    fs.closeSync(fd);
+  }
+  /** Marks the host's passwords as committed; called after the catalog commit. */
+  settle(hostId) {
+    fs.rmSync(path.join(this.hostDirectory(hostId), pending), { force: true });
+  }
+  /**
+   * Removes password directories of uncommitted writes (no host in the catalog and
+   * still `.pending`) and settles the markers of hosts the catalog has. A committed
+   * password is never removed here, even when the catalog was lost.
+   */
   removeOrphans(hostIds) {
     if (!fs.existsSync(this.directory)) return;
     const owned = new Set(hostIds);
-    for (const name of fs.readdirSync(this.directory))
-      if (identifier.test(name) && !owned.has(name))
-        fs.rmSync(path.join(this.directory, name), { recursive: true, force: true });
+    for (const name of fs.readdirSync(this.directory)) {
+      if (!identifier.test(name)) continue;
+      const directory = path.join(this.directory, name);
+      if (owned.has(name)) this.settle(name);
+      else if (fs.existsSync(path.join(directory, pending)))
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
   }
   removeHost(hostId) {
     fs.rmSync(this.hostDirectory(hostId), { recursive: true, force: true });
