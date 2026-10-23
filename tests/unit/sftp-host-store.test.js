@@ -379,3 +379,26 @@ test("startup removes password directories without a host", async (t) => {
   assert.deepEqual(fs.readdirSync(passwords), [host.id]);
   assert.equal(store.sftpConnection(host.id).password, "pw-secret");
 });
+
+test("an unreadable password directory does not abort startup", async (t) => {
+  const { dataDir, store, passwords } = fixture(t);
+  await store.create(sftp());
+  const warnings = [];
+  t.mock.method(console, "warn", (...args) => warnings.push(args.join(" ")));
+  fs.chmodSync(passwords, 0o000);
+  try {
+    assert.doesNotThrow(() => new SshCatalog({ dataDir }).migrate());
+  } finally {
+    fs.chmodSync(passwords, 0o700);
+  }
+  assert.equal(warnings.length, 1);
+  assert.doesNotMatch(warnings[0], /pw-secret/);
+});
+
+test("a catalog rebuilt from accesses.json keeps stored passwords", async (t) => {
+  const { dataDir, catalog, store, passwords } = fixture(t);
+  const host = await store.create(sftp());
+  fs.rmSync(catalog.file);
+  new SshCatalog({ dataDir }).migrate();
+  assert.deepEqual(fs.readdirSync(passwords), [host.id]);
+});
