@@ -537,7 +537,7 @@ export class TeamService {
     if (a.recovering || a.ledger.pending().length) throw assistantProblem("active", 409);
     a.recovering = true;
     try {
-      await a.runtime.stop();
+      await a.runtime.stop({ urgent: true });
       await Promise.allSettled(
         [...a.locks.values(), this.scheduler.running].filter(Boolean),
       );

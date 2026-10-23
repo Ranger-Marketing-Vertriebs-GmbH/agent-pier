@@ -17,7 +17,7 @@ export async function recoverAttempt(service, id, input) {
   service.recovering = true;
   try {
     // Confirm the owned process has exited before permitting another delivery.
-    await service.runtime.stop();
+    await service.runtime.stop({ urgent: true });
     await Promise.allSettled(
       [...service.locks.values(), service.reconciling].filter(Boolean),
     );

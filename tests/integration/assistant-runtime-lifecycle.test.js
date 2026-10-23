@@ -564,4 +564,30 @@ test("a stop lets the Gateway drain before SIGKILL; closing AgentPier stays shor
   const killed = once(child, "exit");
   await supervisor.close();
   assert.deepEqual(await killed, [null, "SIGKILL"]);
+  // A shutdown during a long drain cuts it short, like a failed start's stop.
+  const slow = new RuntimeSupervisor({
+    dataDir,
+    install: async () => ({ nodePath: process.execPath, entryPath, version: "f" }),
+    clientFactory: () =>
+      Object.assign(new EventEmitter(), {
+        ready: false,
+        async connect() {
+          this.ready = true;
+        },
+        close() {
+          this.ready = false;
+        },
+      }),
+    timing: { drainMs: 60000, killGraceMs: 50 },
+  });
+  t.after(() => slow.close());
+  await slow.start();
+  await listening();
+  const draining = once(slow.child, "exit");
+  const started = Date.now();
+  const stopping = slow.stop();
+  await slow.close();
+  await stopping;
+  assert.deepEqual(await draining, [null, "SIGKILL"]);
+  assert.ok(Date.now() - started < 5000);
 });
