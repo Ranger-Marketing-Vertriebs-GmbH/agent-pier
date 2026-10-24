@@ -209,17 +209,18 @@ builder.**
 
 ### Rights per tick
 
-| Tick            | Grants (within the agent's own rights)                                                                                                  | Stays as today                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Notify          | Result to the chat, a push notice and, if switched on, the paired Telegram chat; `NO_REPLY` stays silent                                | Without it: only the event area, no push or Telegram                                   |
-| Research        | Web search/fetch (`capabilityTools` web group)                                                                                          | Browser stays off **(controller's call)**                                              |
-| Coding CLI      | `coding_start`, `coding_status`, `coding_artifacts` on the agent's granted projects and pipelines, started as `approved` without a card | `coding_cancel` refused; a publish pipeline still needs the agent's publishing setting |
-| Shell           | The agent's shell level                                                                                                                 | "Approval" still shows a card in chat/Telegram                                         |
-| SSH             | As the `routine` class: hosts in mode `routines`                                                                                        | Other hosts refused, as for routines **(controller's call)**                           |
-| Project folders | Read; write only with the hook's own **May write**                                                                                      | Audited with `origin: "hook"`, `hookId`                                                |
-| MCP servers     | `*__*` (for example a Zabbix MCP to "check details")                                                                                    | Separate tick, off by default **(controller's call)**                                  |
+| Tick            | Grants (within the agent's own rights)                                                                                                      | Stays as today                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Notify          | A push notice and, if switched on, the paired Telegram chat or the Inbox; the reply itself lives in the event area; `NO_REPLY` stays silent | Without it: only the event area, no push or Telegram                                   |
+| Research        | Web search/fetch (`capabilityTools` web group)                                                                                              | Browser stays off **(controller's call)**                                              |
+| Coding CLI      | `coding_start`, `coding_status`, `coding_artifacts` on the agent's granted projects and pipelines, started as `approved` without a card     | `coding_cancel` refused; a publish pipeline still needs the agent's publishing setting |
+| Shell           | A level set per hook, at most the agent's own (Off / With approval / Full) **(owner decision)**                                             | "Approval" still shows a card in chat/Telegram                                         |
+| SSH             | Hosts chosen per hook from the agent's hosts in mode `routines` **(owner decision: per-hook level)**                                        | Other hosts refused, as for routines                                                   |
+| Project folders | Folders chosen per hook, each at most the agent's level: Read, or Read and write **(owner decision: per-hook level)**                       | Audited with `origin: "hook"`, `hookId`                                                |
+| Write memory    | Write the agent's own `MEMORY.md` and `memory/` notes; off by default **(owner decision)**                                                  | Without it: memory search only; the agent's workspace stays read-only                  |
+| MCP servers     | `*__*` (for example a Zabbix MCP to "check details")                                                                                        | Separate tick, off by default **(controller's call)**                                  |
 
-Always present: memory search and `session_status`. Never present: reminder, routine
+Always present: memory search and `session_status`. Without **Write memory**, a hook run writes neither memory nor the agent's own workspace (unlike routines), because its payload is untrusted. **Owner decision** (memory) / **controller's call** (workspace). Never present: reminder, routine
 and hook tools, team tools, and owner-only switches. **Controller's call.**
 
 ### Setup and proposals
@@ -237,8 +238,9 @@ and hook tools, team tools, and owner-only switches. **Controller's call.**
 - The agent proposes with a new tool (for example `agentpier_hook`, action
   `propose`, giving name, sender, ticks and a reason) only in a direct owner turn.
   The proposal is an `assistant_actions` card in the chat, Telegram and the Inbox
-  **Agents** tab. When the owner approves, the hook is created and the secret reveal
-  opens in the browser. The agent learns only that the hook exists and its address,
+  **Agents** tab. When the owner approves (anywhere, including Telegram), the hook is created without a revealed secret; the secret is only ever shown in AgentPier in the browser, from the hook's detail page (**Show secret** once, then **Regenerate secret**). Telegram never receives it. **Controller's call.**
+- A **Send test event** button on the hook's detail page sends a sample delivery from AgentPier itself, so the owner can try a hook from the browser. **Controller's call** (owner asked for browser-triggered deliveries; to be confirmed).
+- The agent learns only that the hook exists and its address,
   never the secret. The owner may edit the ticks before approving.
 - Enabling requires **Allow reminders and routines** on the agent (the same switch
   as routines). Turning that off pauses every hook, and the endpoint returns 404.
@@ -281,7 +283,9 @@ permanent team members (the `goalAgent` predicate in `goal-turns.js`: not archiv
 not a user agent, not a temporary member). Restricted users' agents get none: their
 hard lock already removes shell and coding (`user-agent-lock.js`), and an endpoint
 that wakes a user's private chat from the LAN needs its own ownership and reveal
-rules. Hook events of a shared agent go only to the owner's main chat with that agent.
+rules. **Owner decision:** restricted users' agents and shared agents get no hooks in v1; maybe later for **Extended** users.
+
+- Permanent team members: a hook result also reaches the lead as a report "<member> · hook <name>", like member routines, and the lead's standing shares apply as in member routines. **Controller's call.**
 
 ## Constraints
 
@@ -306,10 +310,10 @@ endpoint (hosts, Funnel and browser refusals, dedup, rate limit, 503), a
 blackbox test of a delivery through to the chat, and a browser test of settings,
 reveal and the event area in English.
 
-## Open questions for the owner
+## Resolved questions (owner, 2026-10-24)
 
-1. **Filters in AgentPier?** Should a hook be able to drop events before any model
-   call (for example "severity below High")? The default here is no: filter at the
-   sender (Zabbix action conditions, the GitHub bridge).
-2. **Restricted users' agents:** stay without hooks (the default here), or should
-   users with **Extended** access get hooks on their own agents later?
+1. **Filters in AgentPier:** no. Events are filtered at the sender (Zabbix action conditions, the GitHub bridge).
+2. **Restricted users' agents:** no hooks in v1 (see Account isolation).
+3. **Memory writes:** a per-hook **Write memory** tick, off by default.
+4. **Per-hook levels** for shell, SSH and project folders, at most the agent's own.
+5. Browser-triggered deliveries: the owner asked for them; v1 offers **Send test event** from AgentPier. Cross-site requests from arbitrary pages stay refused. Open to confirm with the owner.
