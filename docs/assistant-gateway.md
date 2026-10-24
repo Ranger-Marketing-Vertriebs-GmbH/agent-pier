@@ -1953,7 +1953,11 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against; a rolled-back runtime starts with OpenClaw's defaults.
+list was qualified against (`advancedSettingsRuntime`, 2026.10.7); a rolled-back runtime
+starts with OpenClaw's defaults. After the AgentPier update that moved the approval
+from 2026.10.3 to 2026.10.7, stored overrides therefore stay inactive on 2026.10.3
+until the owner activates 2026.10.7, and again after a rollback before commit
+(`overridesFor`, `openclaw-config/overrides.js`).
 The owner edits them under **Settings → Workspace → Agents → Agent service → Advanced settings**
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
