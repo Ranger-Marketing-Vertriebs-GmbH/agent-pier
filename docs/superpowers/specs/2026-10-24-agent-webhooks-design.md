@@ -239,7 +239,7 @@ and hook tools, team tools, and owner-only switches. **Controller's call.**
   `propose`, giving name, sender, ticks and a reason) only in a direct owner turn.
   The proposal is an `assistant_actions` card in the chat, Telegram and the Inbox
   **Agents** tab. When the owner approves (anywhere, including Telegram), the hook is created without a revealed secret; the secret is only ever shown in AgentPier in the browser, from the hook's detail page (**Show secret** once, then **Regenerate secret**). Telegram never receives it. **Controller's call.**
-- A **Send test event** button on the hook's detail page sends a sample delivery from AgentPier itself, so the owner can try a hook from the browser. **Controller's call** (owner asked for browser-triggered deliveries; to be confirmed).
+- A **Send test event** button on the hook's detail page sends a sample delivery from AgentPier itself, so the owner can try a hook from the browser. **Owner decision** (2026-10-24): this is what the owner meant by browser deliveries; cross-site requests from other pages stay refused.
 - The agent learns only that the hook exists and its address,
   never the secret. The owner may edit the ticks before approving.
 - Enabling requires **Allow reminders and routines** on the agent (the same switch
@@ -316,4 +316,4 @@ reveal and the event area in English.
 2. **Restricted users' agents:** no hooks in v1 (see Account isolation).
 3. **Memory writes:** a per-hook **Write memory** tick, off by default.
 4. **Per-hook levels** for shell, SSH and project folders, at most the agent's own.
-5. Browser-triggered deliveries: the owner asked for them; v1 offers **Send test event** from AgentPier. Cross-site requests from arbitrary pages stay refused. Open to confirm with the owner.
+5. **Browser deliveries:** the owner meant trying a hook from the browser; **Send test event** covers it. Cross-site requests from other pages stay refused.
