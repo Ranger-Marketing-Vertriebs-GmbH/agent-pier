@@ -11,9 +11,12 @@ import { projectScope } from "../../server/features/memory/project-scope.js";
 import { SshCatalog } from "../../server/features/ssh/ssh-catalog.js";
 import { SshAccessStore } from "../../server/features/ssh/ssh-access-store.js";
 import {
+  restoreSftpHosts,
   sftpHostsMember,
   sftpHostsOmission,
+  unreadableSftpHostOmission,
 } from "../../server/features/ssh/sftp-backup.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { archiveText, loadArchive } from "../helpers/backup-archive.js";
 import { startSftpServer } from "../helpers/sftp-server.js";
 
@@ -77,9 +80,9 @@ function start(dataDir) {
   return { catalog, store: new SshAccessStore({ dataDir, catalog }) };
 }
 
-const sealed = (dataDir) =>
+const sealed = (dataDir, includeHistory = false) =>
   new Backup({ dataDir }).create({
-    includeHistory: false,
+    includeHistory,
     withCredentials: true,
     passphrase,
   });
@@ -120,28 +123,79 @@ test("ordinary backup lists the SFTP omission", async (t) => {
 
 test("credential backup seals the SFTP host", async (t) => {
   const { dataDir, sftp, ssh, keyed } = await setup(t);
-  const made = await sealed(dataDir);
-  const archive = loadArchive(made.file);
-  assert.equal(made.manifest.omissions.includes(sftpHostsOmission), false);
-  for (const member of archive.files)
-    assert.equal(
-      Buffer.from(member.content, "base64").toString("latin1").includes(secret),
-      false,
-      member.path,
+  // Also with sealed history, which adds a seal record to the capsule.
+  for (const includeHistory of [false, true]) {
+    const made = await sealed(dataDir, includeHistory);
+    const archive = loadArchive(made.file);
+    assert.equal(made.manifest.includeHistory, includeHistory);
+    assert.equal(made.manifest.omissions.includes(sftpHostsOmission), false);
+    for (const member of archive.files)
+      assert.equal(
+        Buffer.from(member.content, "base64").toString("latin1").includes(secret),
+        false,
+        member.path,
+      );
+    assert.equal(archiveText(made.file).includes(secret), false);
+    assert.equal(JSON.stringify(archive.manifest).includes(secret), false);
+    const opened = await decryptCredentials(archive.credentials, passphrase);
+    const member = opened.find((entry) => entry.path === sftpHostsMember);
+    assert.ok(member, opened.map((entry) => entry.path).join(","));
+    const value = JSON.parse(Buffer.from(member.content, "base64").toString("utf8"));
+    assert.deepEqual(
+      value.hosts.map((row) => row.id),
+      [sftp.id],
     );
-  assert.equal(archiveText(made.file).includes(secret), false);
-  assert.equal(JSON.stringify(archive.manifest).includes(secret), false);
-  const opened = await decryptCredentials(archive.credentials, passphrase);
-  const member = opened.find((entry) => entry.path === sftpHostsMember);
-  assert.ok(member, opened.map((entry) => entry.path).join(","));
-  const value = JSON.parse(Buffer.from(member.content, "base64").toString("utf8"));
-  assert.deepEqual(
-    value.hosts.map((row) => row.id),
-    [sftp.id],
+    assert.deepEqual(value.passwords, { [sftp.id]: secret });
+    const ids = JSON.stringify(opened);
+    for (const left of [ssh.id, keyed.id]) assert.equal(ids.includes(left), false);
+  }
+});
+
+test("an unreadable password is named as omitted", async (t) => {
+  const { dataDir, sftp } = await setup(t);
+  const directory = path.join(dataDir, "ssh/passwords", sftp.id);
+  const [revision] = fs.readdirSync(directory).filter((name) => name !== ".pending");
+  // The store refuses a password file others may read.
+  fs.chmodSync(path.join(directory, revision), 0o644);
+  const made = await sealed(dataDir);
+  assert.ok(
+    made.manifest.omissions.includes(unreadableSftpHostOmission("Webspace")),
+    made.manifest.omissions.join("|"),
   );
-  assert.deepEqual(value.passwords, { [sftp.id]: secret });
-  const ids = JSON.stringify(opened);
-  for (const left of [ssh.id, keyed.id]) assert.equal(ids.includes(left), false);
+  assert.equal(archiveText(made.file).includes(secret), false);
+  const opened = await decryptCredentials(loadArchive(made.file).credentials, passphrase);
+  assert.equal(
+    opened.some((entry) => entry.path === sftpHostsMember),
+    false,
+  );
+});
+
+test("restore refuses crafted SFTP rows", async (t) => {
+  const { dataDir, sftp } = await setup(t);
+  const catalog = JSON.parse(fs.readFileSync(path.join(dataDir, "ssh/catalog.json")));
+  const row = catalog.sftpHosts.find((entry) => entry.id === sftp.id);
+  const other = { ...row, id: "00000000-0000-4000-8000-000000000001" };
+  const cases = [
+    [{ ...row, keyId: "00000000-0000-4000-8000-000000000002" }],
+    // Two hosts at one address: the first start would drop the second.
+    [row, other],
+  ];
+  for (const hosts of cases) {
+    const stage = fs.mkdtempSync(path.join(path.dirname(dataDir), "stage-"));
+    fs.mkdirSync(path.join(stage, "ssh"), { mode: 0o700 });
+    const passwords = Object.fromEntries(hosts.map((entry) => [entry.id, secret]));
+    fs.writeFileSync(
+      path.join(stage, sftpHostsMember),
+      JSON.stringify({ version: 1, hosts, passwords }),
+      { mode: 0o600 },
+    );
+    assert.throws(
+      () => restoreSftpHosts(stage, []),
+      (error) => error.message === serverMessages.backups.unexpectedComponent,
+    );
+    assert.equal(fs.existsSync(path.join(stage, sftpHostsMember)), false);
+    assert.equal(fs.existsSync(path.join(stage, "ssh/passwords")), false);
+  }
 });
 
 test("wrong passphrase restores nothing", async (t) => {
@@ -167,7 +221,7 @@ test("restore brings the password host back", async (t) => {
   const { root, dataDir, sftp } = await setup(t);
   const made = await sealed(dataDir);
   const { target, report } = await restore(root, dataDir, made, { passphrase });
-  assert.deepEqual(report.sftpHosts, { restored: 1, skipped: 1 });
+  assert.deepEqual(report.sftpHosts, { restored: 1, withoutProject: 1 });
   assert.equal(JSON.stringify(report).includes(secret), false);
   // Only the password store holds the password; the capsule member is gone.
   assert.equal(fs.existsSync(path.join(target, sftpHostsMember)), false);
@@ -210,7 +264,7 @@ test("restore maps the host's project", async (t) => {
     passphrase,
     projectMap: { [scope.id]: moved },
   });
-  assert.deepEqual(report.sftpHosts, { restored: 1, skipped: 0 });
+  assert.deepEqual(report.sftpHosts, { restored: 1, withoutProject: 0 });
   const expected = (await projectScope(moved, { known: false })).id;
   assert.notEqual(expected, scope.id);
   assert.equal(start(target).store.get(sftp.id).projectId, expected);
