@@ -134,18 +134,25 @@ export class AgentSftp {
   }
   /**
    * The turn's workspace context for the local side. A follow-up turn on an SSH or
-   * SFTP result is no direct turn and reaches no local folder; it is told so.
+   * SFTP result is no direct turn and reaches no local folder; it is told so. A turn
+   * that ended or was reviewed keeps the refusal every turn gets for that.
    */
   turnContext(inv, caller, cls, input) {
     try {
       return workspaceContext(this.w, inv);
     } catch (error) {
       if (
-        error?.status === 403 &&
-        ["ssh-result", "sftp-result"].includes(caller.origin?.kind)
+        error?.status !== 403 ||
+        !["ssh-result", "sftp-result"].includes(caller.origin?.kind)
       )
-        throw this.refuse(caller, cls, input, "sshOriginRefused");
-      throw error;
+        throw error;
+      const attempt = this.w.a.ledger.getAttempt(inv.attemptId);
+      if (
+        !["pending", "accepted", "running"].includes(attempt.state) ||
+        attempt.reviewedAt
+      )
+        throw error;
+      throw this.refuse(caller, cls, input, "sshOriginRefused");
     }
   }
   /**
