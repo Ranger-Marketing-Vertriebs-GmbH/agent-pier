@@ -33,6 +33,14 @@ On 2026-10-14 both tests, and the advanced settings contract below, passed on
 macOS arm64 against OpenClaw 2026.10.3 as part of the `native-contracts` run
 recorded in the
 [release qualification](assistant-release-qualification.md#openclaw-202699--2026103-2026-10-14).
+
+On 2026-10-24 both tests and the advanced settings contract passed on macOS arm64
+against OpenClaw 2026.10.7 (2 of 2 each, no skips), as part of the run recorded in
+the
+[release qualification](assistant-release-qualification.md#openclaw-2026103--2026107-2026-10-24).
+All six allow-listed settings kept their schema node, `reloadKind` (`hot`), doc
+texts and the `ttlHours: 500` refusal, so `advancedSettingsRuntime` is now
+2026.10.7.
 The facts below were recorded on 2026.9.8 unless stated otherwise.
 
 ## Covered behavior

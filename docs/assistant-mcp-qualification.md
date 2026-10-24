@@ -69,6 +69,13 @@ current `runtime-lock/package-lock.json`: the OpenClaw contract with 4 tests in
 about 50 seconds, the compiled contract with 2 tests in about 30 seconds, 0 skips
 and 0 failures each.
 
+On 2026-10-24 both passed on macOS arm64 against OpenClaw 2026.10.7 (MCP SDK
+1.32.0), the OpenClaw contract with 4 tests and the compiled contract with 2, 0
+skips and 0 failures, as part of the run recorded in the
+[release qualification](assistant-release-qualification.md#openclaw-2026103--2026107-2026-10-24).
+The facts below that the contracts pin therefore still hold; facts marked _probe_
+and section (h) were not checked again on 2026.10.7.
+
 ## Verified facts
 
 ### (a) Server shapes

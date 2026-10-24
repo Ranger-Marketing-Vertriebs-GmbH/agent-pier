@@ -89,6 +89,16 @@ either copy travel only in the sealed sidecar, exactly as without this split.
   and diagnostic events, memory and full-text indexes. A full-text or vector index
   is emptied through its module; one whose module this host lacks loses the rows of
   its shadow tables.
+- OpenClaw's credential tables in that allowlist (`auth_profile_store`,
+  `auth_profile_state`, `secret_store_entries`, `config_machine_state`, the device
+  and worker credential tables) are emptied in every public copy and travel only
+  sealed. OpenClaw 2026.10.7 keeps model credentials, Web Push keys and update
+  recovery keys in `config_machine_state`, next to channel and operator identity,
+  webhook listener decisions, onboarding and voice preferences and plugin indexes,
+  so the whole table is sealed. A restore without credentials, or an update rollback
+  after a logout, therefore leaves that table empty. OpenClaw rebuilds its indexes at
+  the next start, and channel, webhook and operator machine state return to their
+  defaults.
 - Databases in a private folder (`state/memory/`, transcripts) are private as a
   whole. OpenClaw's lock and writer databases (`*-lock.sqlite`,
   `*.generation-writer.sqlite`) and its `state/locks/` and `state/tmp/` folders are

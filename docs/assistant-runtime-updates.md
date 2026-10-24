@@ -15,6 +15,30 @@ switching the selection. Authenticated readiness and read-only reconciliation mu
 succeed before admission resumes. Active and uncertain work must be resolved first;
 the updater never cancels or resends requests.
 
+When the candidate has a different OpenClaw version, activation runs OpenClaw's own
+migration between the snapshot and the candidate's first start, in phase `migrating`
+(shown as "Migrating data"): the candidate's `openclaw doctor --fix --non-interactive`,
+in the stopped runtime's environment, with `OPENCLAW_SERVICE_REPAIR_POLICY=external`
+so it never repairs a system service. OpenClaw 2026.10.7 needs it: its Gateway
+refuses an agent database below schema 25 until Doctor migrates it. Its output goes
+to `logs/gateway-console.log`; only the exit code counts. It takes about 16 seconds
+for one agent, is bounded to ten minutes and runs in its own process group, whose
+identity (pid, start time, executable, boot) is recorded in the update journal
+before it is awaited. Any other end than exit 0 (an error, a signal, the timeout, an
+unreadable identity) fails the activation with `UPDATE_MIGRATION_FAILED` and
+restores the snapshot like any failed activation. After every run AgentPier removes
+what Doctor keeps for its own manual recovery, because it holds private data and
+credentials in plain form: the `*.pre-startup-migration-*.bak` copy of each
+migrated database with its `-wal`, `-shm` and `-journal` files, and the
+`state.update-captures/` folder beside `state/`. A rollback removes them as well.
+Startup recovery of an activation that crashed in `migrating` first stops a Doctor
+that outlived AgentPier, but only a group it can attribute to the recorded one (the
+same boot, every member started after it, one running the runtime's own Node). A
+group it cannot attribute while it still exists keeps the update in
+`recovery_required`, retried at the next start, instead of restoring under a
+running migration. A same-version runtime change (a new Node or lock) runs no
+migration.
+
 The snapshot covers Gateway home, state and workspaces, plus all AgentPier SQLite
 ledgers under the assistant root. Gateway home/state files that start with the SQLite header are copied with
 `VACUUM INTO`, so each copy is self-contained; every other file, including any
@@ -32,8 +56,8 @@ fails the snapshot; the update status names its relative path (`SNAPSHOT_FAILED`
 Credentials are sealed in the backup with AES-256-GCM: OpenClaw's auth stores
 (`auth-profiles.json`, `auth-state.json`, `auth.json`, `oauth.json` and
 `state/credentials/`), its credential tables (`auth_profile_store`,
-`auth_profile_state`, `secret_store_entries`, MCP OAuth stores, device and worker
-credential tables), the secret members of `openclaw.json` and of each copy beside
+`auth_profile_state`, `secret_store_entries`, `config_machine_state`, MCP OAuth
+stores, device and worker credential tables), the secret members of `openclaw.json` and of each copy beside
 it that parses as JSON, such as `.bak*` and `.last-good` (Gateway, cron and plugin
 tokens, provider API keys, headers and MCP server environments; a copy that does not
 parse is left out) and the Telegram bot tokens in
@@ -58,7 +82,8 @@ sessions are outside this restore boundary. Backups must not be attached to
 diagnostic reports.
 
 Host backups (Settings → Operations → Backups) include `assistants/` except `logs/`, `runtimes/`,
-`npm-cache/`, `tmp/`, `backups/`, `tls/`, `backup-keys/`, the Gateway ownership
+`npm-cache/`, `tmp/`, `backups/`, `tls/`, `backup-keys/`, `state.update-captures/`
+(Doctor's plain pre-repair capture, should one survive a crash), the Gateway ownership
 record, the reminder webhook secret and the host-bound runtime state (`runtime.json`,
 `candidate.json`, `update.json`, `runtime-maintenance.json`). A host backup is refused
 with 409 while a runtime update or provider change is running; update or maintenance
@@ -162,15 +187,24 @@ AGENTPIER_ASSISTANT_UPDATE_RUNTIME=/absolute/path/to/installed-runtime \
   node --test tests/integration/assistant-runtime-update-native.test.js
 ```
 
-This passed with OpenClaw 2026.9.8 and Node 26.7.0 on macOS arm64. The subsequent
+This passed with OpenClaw 2026.9.8 and Node 26.7.0 on macOS arm64, and on 2026.10.7,
+where the activation also runs Doctor. The subsequent
 [cross-version qualification](assistant-release-qualification.md) also passed
-2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9 and 2026.9.9 → 2026.10.3 activation and rollback after failed validation. Other version
-pairs and native hosts remain unqualified.
+2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9, 2026.9.9 → 2026.10.3, 2026.9.8 → 2026.10.3
+and 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.7 activation and rollback after failed
+validation. Other version pairs and native hosts remain unqualified.
 
 The update to OpenClaw 2026.10.3 migrates the state database from schema 19 to 20,
 which 2026.9.9 and 2026.9.8 refuse. Rollback before commit restores the snapshot
 taken before activation, so it works as for any other update; after commit no
-downgrade to 2026.9.x is possible. The installer now also consumes the reviewed dependency lock described below;
+downgrade to 2026.9.x is possible. The update to OpenClaw 2026.10.7 is one-way in
+the same way: its Doctor migrates each agent database from schema 24 to 25 (and the
+state database of a 2026.9.x installation from 19 to 20), and 2026.10.3, 2026.9.9 and
+2026.9.8 refuse the migrated agent databases. Before commit the snapshot restores the
+previous runtime and its schema-24 data; after commit the update panel offers only
+the pinned 2026.10.7, and retention has removed the previous installation. An older
+AgentPier (2.6.x or earlier) does not accept 2026.10.7 either: its team plugin
+refuses every OpenClaw version outside its own pin and rollback targets. The installer now also consumes the reviewed dependency lock described below;
 all separately downloaded package archives carry integrity checks.
 
 ## Locked dependency installation
@@ -182,8 +216,10 @@ the manifest. The graph fixes registry tarball versions and SHA-512 integrities,
 including platform-specific optional packages. Bundled dependencies are covered by
 their containing package archive's integrity. They are not listed in the lock:
 `npm install --package-lock-only` does not record the children of a bundled
-dependency (npm's own bundle and the packages OpenClaw bundles), so Dependabot cannot
-report advisories for them.
+dependency, so Dependabot cannot report advisories for them. Since OpenClaw 2026.10.7
+that is npm's own bundle and `chrome-devtools-mcp`, the only package OpenClaw still
+bundles; `@openclaw/proxyline` and `undici` are ordinary dependencies now and appear
+in the lock.
 
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
@@ -203,7 +239,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.3). They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.7). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not
