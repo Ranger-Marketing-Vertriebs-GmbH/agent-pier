@@ -39,6 +39,7 @@ export const operationsCopy = {
     restore: "Sicherung in einem neuen Verzeichnis wiederherstellen?",
     activate: (version) => `Version ${version} aktivieren?`,
     rollback: (version) => `Auf Version ${version} zurücksetzen?`,
+    deleteStaged: (version) => `${version} löschen?`,
     orphans: (version, count) =>
       `${count} verwaiste(n) Prozess(e) der Version ${version} beenden?`,
   },
@@ -50,6 +51,7 @@ export const operationsCopy = {
     restore: "Jetzt wiederherstellen",
     activate: "Jetzt aktivieren",
     rollback: "Jetzt zurücksetzen",
+    deleteStaged: "Jetzt löschen",
     orphans: "Jetzt beenden",
   },
   unknown: "Unbekannt",
@@ -200,7 +202,7 @@ export const operationsCopy = {
     "Sicheres Aufräumen ist gerade nicht möglich. Lade die Seite neu und versuche es erneut.",
   cleanupReasons: {
     active: "Aktiv",
-    newer: "Vorbereitete oder neuere Version",
+    newer: "Neuere Version",
     inUse: "Von laufendem Prozess verwendet",
     busy: "Update läuft",
     unsafe: "Nicht unterstütztes Verzeichnis",
@@ -248,6 +250,9 @@ export const operationsCopy = {
   checkUpdates: "Nach Updates suchen",
   stageRelease: "Version vorbereiten",
   activateRelease: "Vorbereitete Version aktivieren",
+  deleteStaged: "Löschen",
+  deleteStagedConfirmation:
+    "Das Paket wird entfernt, und diese Version lässt sich danach nicht mehr aktivieren.",
   releaseHistory: "Frühere Versionen und Rollback",
   rollback: "Version zurücksetzen",
   upToDate: "Die installierte Version ist aktuell.",
