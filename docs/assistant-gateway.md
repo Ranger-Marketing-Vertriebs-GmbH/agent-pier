@@ -126,9 +126,12 @@ calls `listen(port, host)`. It does support `gateway.tls`, so AgentPier uses tha
 - The token is sent in `connect` only after the pinned TLS handshake has succeeded.
   If an impostor holds the port, the attempt fails with `ENDPOINT_UNTRUSTED`. The
   port is drawn free and then released, so another listener can take it before the
-  Gateway binds it: the same start therefore stops the child and launches again on
-  a fresh port, up to three ports. Only then does the start fail with
-  `ENDPOINT_UNTRUSTED`, and a restart on a fresh port follows the crash backoff. Any
+  Gateway binds it. The same start therefore stops the child and launches again on
+  a fresh port, up to three ports. It does the same when the Gateway exits while
+  starting and the port is still held by someone else (its bind failed), even if
+  that listener never answered. Only then does the start fail, and a restart on a
+  fresh port follows the crash backoff; the retries within a start use none of its
+  five attempts. Any
   failure after the TCP connection and before the TLS handshake completes counts as
   `ENDPOINT_UNTRUSTED`; a refused connection while the Gateway is still starting is
   retried.

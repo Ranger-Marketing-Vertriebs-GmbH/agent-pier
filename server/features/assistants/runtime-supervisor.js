@@ -59,6 +59,20 @@ export async function freePort({ draw = drawPort } = {}) {
     if (port <= maxGatewayPort) return port;
   }
 }
+// Whether another listener holds the port now that our Gateway is gone.
+async function portInUse(port) {
+  const server = net.createServer();
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, "127.0.0.1", resolve);
+    });
+  } catch (error) {
+    return error.code === "EADDRINUSE";
+  }
+  await new Promise((r) => server.close(r));
+  return false;
+}
 async function drawPort() {
   const server = net.createServer();
   await new Promise((resolve, reject) => {
@@ -165,19 +179,17 @@ export class RuntimeSupervisor extends EventEmitter {
           return await this.launch(generation);
         } catch (error) {
           // A drawn port another listener took before the Gateway bound it
-          // (freePort releases it): the token was not sent, so this start goes on
-          // with a fresh port; the Gateway still starting is retired by the next
-          // launch. Only a repeated refusal fails the start.
+          // (freePort releases it): the listener either answered the probe without
+          // our certificate, so the token was not sent, or the Gateway exited and
+          // the port is still held. This start goes on with a fresh port; the
+          // Gateway still starting is retired by the next launch. Only a repeated
+          // refusal fails the start.
           if (
-            error.code !== "ENDPOINT_UNTRUSTED" ||
+            !(error.code === "ENDPOINT_UNTRUSTED" || error.portTaken) ||
             port >= portAttempts ||
             generation !== this.generation
           )
             throw error;
-          // A Gateway that already exited on the taken port scheduled a restart;
-          // this start's next launch takes its place.
-          clearTimeout(this.retryTimer);
-          this.retryTimer = null;
         }
       }
     };
@@ -190,8 +202,10 @@ export class RuntimeSupervisor extends EventEmitter {
             availability: "failed",
             diagnostic: error.code || "START_FAILED",
           });
+          // A Gateway that exited while starting is restarted from here: its exit
+          // handler leaves a start in progress to its launch.
           if (
-            (automatic || error.code === "ENDPOINT_UNTRUSTED") &&
+            (automatic || ["ENDPOINT_UNTRUSTED", "PROCESS_EXIT"].includes(error.code)) &&
             !terminal.has(error.code)
           ) {
             this.wanted = true;
@@ -343,6 +357,9 @@ export class RuntimeSupervisor extends EventEmitter {
       this.setState({ availability: "failed", diagnostic: "PROCESS_START" });
     });
     if (child.pid) recordOwner(ownerPath, child.pid, runtime, this.identity);
+    // Until it answers, the launch alone handles this child's exit: it retries on a
+    // fresh port or fails the start, which schedules the restart itself.
+    child.starting = true;
     child.once("exit", (code) => {
       clearInterval(logTimer);
       if (this.child !== child) return;
@@ -352,7 +369,7 @@ export class RuntimeSupervisor extends EventEmitter {
       this.client?.close();
       clearTimeout(this.healthyTimer);
       fs.rmSync(ownerPath, { force: true });
-      if (this.wanted && generation === this.generation) {
+      if (this.wanted && generation === this.generation && !child.starting) {
         this.setState({
           availability: "failed",
           diagnostic: code === 78 ? "INVALID_CONFIG" : child.retired || "PROCESS_EXIT",
@@ -373,12 +390,19 @@ export class RuntimeSupervisor extends EventEmitter {
       spawned +
       Math.max(this.timing.readyMs, this.timing.readyFactor * (this.lastReadyMs || 0));
     while (generation === this.generation) {
-      if (child.exitCode !== null)
-        throw Object.assign(Error("Assistant Gateway exited."), {
+      if (child.exitCode !== null) {
+        const error = Object.assign(Error("Assistant Gateway exited."), {
           code: child.exitCode === 78 ? "INVALID_CONFIG" : "PROCESS_EXIT",
         });
+        // Its bind failed (EADDRINUSE) on a port another listener took, whatever
+        // OpenClaw logged; a listener that never answers TLS ends up here too.
+        if (error.code === "PROCESS_EXIT" && (await portInUse(port)))
+          error.portTaken = true;
+        throw error;
+      }
       try {
         await client.connect();
+        child.starting = false;
         break;
       } catch (error) {
         // ENDPOINT_UNTRUSTED: something else answers on the probed port without our

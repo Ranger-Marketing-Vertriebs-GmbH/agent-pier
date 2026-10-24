@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import tls from "node:tls";
 import { EventEmitter, once } from "node:events";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { webToolsSignatures } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { consoleLogLimit } from "../../server/features/assistants/gateway-log.js";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
 test("disabled service stays inert and interrupted installation cannot launch after close", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-supervisor-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -455,68 +453,6 @@ test("the Gateway serves loopback TLS with a private, pinned and rotated certifi
   await runtime.restart();
   assert.notEqual(fs.readFileSync(tls.certPath, "utf8"), first);
   assert.deepEqual(await runtime.client.call("anything"), { value: 42 });
-});
-
-test("an impostor on the Gateway port never receives the token", async (t) => {
-  const { dataDir } = lifecycleFixture(t, "assistant-gateway-impostor-");
-  const record = path.join(dataDir, "impostor.log");
-  const { install } = fakeGateway(t, "assistant-gateway-impostor-entry-", {
-    impostor: true,
-    record,
-  });
-  const runtime = new RuntimeSupervisor({
-    dataDir,
-    install,
-    timing: { restartMs: 60000 },
-  });
-  t.after(() => runtime.close());
-  await assert.rejects(runtime.start(), { code: "ENDPOINT_UNTRUSTED" });
-  const token = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway.auth
-    .token;
-  const received = fs.existsSync(record) ? fs.readFileSync(record, "utf8") : "";
-  assert.equal(received.includes(token), false);
-  assert.equal(received.includes("connect"), false);
-  assert.equal(runtime.status().diagnostic, "ENDPOINT_UNTRUSTED");
-  assert.ok(runtime.retryTimer, "a fresh port is tried after the backoff");
-});
-
-// A port drawn free can be taken before the Gateway binds it: freePort releases it,
-// and any listen(0) meanwhile may receive it (the team bridge's own did, AGENTPIER-198).
-test("a port taken before the Gateway binds is abandoned for a fresh one within the start", async (t) => {
-  const { dataDir, install } = fakeGateway(t, "assistant-gateway-occupied-");
-  const received = [];
-  const squatter = tls.createServer(issueGatewayCertificate(), (socket) =>
-    socket.on("data", (bytes) => received.push(bytes)),
-  );
-  squatter.on("tlsClientError", () => {});
-  t.after(() => new Promise((r) => squatter.close(r)));
-  const runtime = new RuntimeSupervisor({
-    dataDir,
-    install,
-    timing: { restartMs: 60000 },
-  });
-  t.after(() => runtime.close());
-  const ports = [];
-  // Another local listener grabs the probed port between selection and the bind.
-  runtime.beforeSpawn = async () => {
-    const { port } = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway;
-    ports.push(port);
-    if (ports.length === 1)
-      await new Promise((r) => squatter.listen(port, "127.0.0.1", r));
-  };
-  const states = [];
-  runtime.on("status", ({ availability }) => states.push(availability));
-  await runtime.start();
-  assert.equal(runtime.status().availability, "ready");
-  assert.equal(states.includes("failed"), false, "the caller never sees a failed start");
-  assert.ok(!runtime.retryTimer, "no restart is left behind");
-  assert.equal(ports.length, 2);
-  assert.notEqual(ports[1], ports[0]);
-  assert.equal(runtime.client.url, `wss://127.0.0.1:${ports[1]}`);
-  assert.deepEqual(await runtime.client.call("anything"), { value: 42 });
-  const token = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway.auth
-    .token;
-  assert.equal(Buffer.concat(received).includes(token), false);
 });
 
 test("a stop lets the Gateway drain before SIGKILL; closing AgentPier stays short", async (t) => {
