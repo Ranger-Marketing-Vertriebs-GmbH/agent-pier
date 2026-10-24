@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { setLanguage } from "../../web/lib/i18n/index.js";
+import * as de from "../../web/lib/i18n/de/assistant-sftp.js";
+import * as en from "../../web/lib/i18n/en/assistant-sftp.js";
+import { SFTP_STATUSES } from "../../server/features/sftp/sftp-errors.js";
 import {
+  sftpCodeText,
   sftpHistoryText,
   sftpProgressText,
   sftpRunView,
@@ -131,7 +135,7 @@ test("a failed run names its code and the path it stopped at", () => {
         created: 3,
         updated: 0,
         deleted: 0,
-        code: "SFTP_PERMISSION_DENIED",
+        code: "SFTP_PERMISSION",
         failedPath: "/srv/www/x",
         durationMs: 800,
       },
@@ -141,7 +145,7 @@ test("a failed run names its code and the path it stopped at", () => {
   assert.equal(view.status, "Failed");
   assert.deepEqual(view.facts.slice(-3), [
     ["Duration", "0.8 s"],
-    ["Error", "SFTP_PERMISSION_DENIED"],
+    ["Error", "Permission denied."],
     ["Failed at", "/srv/www/x"],
   ]);
 });
@@ -189,7 +193,7 @@ test("one Work tab history line per SFTP row", () => {
       action({ state: "failed", result: { state: "failed", code: "SFTP_TIMEOUT" } }),
       "en-US",
     ),
-    "SFTP · Upload on nas-01 · Failed · SFTP_TIMEOUT",
+    "SFTP · Upload on nas-01 · Failed · The operation took too long and was stopped.",
   );
   setLanguage("de");
   assert.equal(
@@ -197,4 +201,64 @@ test("one Work tab history line per SFTP row", () => {
     "SFTP · Hochladen auf nas-01 · Fertig · 124 Dateien · 2 kB · 1,2 s",
   );
   setLanguage("en");
+});
+
+test("every SFTP problem code and row diagnostic has German and English text", () => {
+  const codes = [
+    ...Object.keys(SFTP_STATUSES),
+    "SFTP_WORKSPACE_REFUSED",
+    "SFTP_APPROVAL_LIMIT",
+    "SFTP_ROUTINE_DELETE",
+    "SSH_REVOKED",
+    "ACCESS_CHANGED",
+    "HOST_REMOVED",
+    "PROJECT_NOT_GRANTED",
+  ];
+  for (const catalog of [de.assistantSftpCopy, en.assistantSftpCopy])
+    for (const code of codes) assert.equal(typeof catalog.codes[code], "string", code);
+  setLanguage("de");
+  assert.equal(sftpCodeText("SFTP_PERMISSION"), "Zugriff verweigert.");
+  assert.equal(sftpCodeText("NEW_CODE"), "Übertragung fehlgeschlagen (NEW_CODE)");
+  setLanguage("en");
+  assert.equal(sftpCodeText("NEW_CODE"), "Transfer failed (NEW_CODE)");
+  assert.equal(sftpCodeText("toString"), "Transfer failed (toString)");
+});
+
+test("a card cancelled before its job reads as the card does, not as stopped", () => {
+  setLanguage("en");
+  const action = (extra) => ({
+    state: "cancelled",
+    payload: { action: "sftp", hostName: "nas-01", operation: "upload", direction: "up" },
+    ...extra,
+  });
+  assert.equal(
+    sftpHistoryText(action({ diagnostic: "HOST_REMOVED" })),
+    "SFTP · Upload on nas-01 · Host removed",
+  );
+  assert.equal(
+    sftpHistoryText(action({ diagnostic: "ACCESS_CHANGED" })),
+    "SFTP · Upload on nas-01 · Access changed",
+  );
+  // A job cancelled while it ran did stop.
+  assert.equal(
+    sftpHistoryText(
+      action({
+        chatNotes: { started: { at: 1 } },
+        result: { state: "cancelled", code: "SFTP_CANCELLED" },
+      }),
+    ),
+    "SFTP · Upload on nas-01 · Stopped · The job was cancelled.",
+  );
+});
+
+test("one file reads singular, and an unknown operation keeps its name", () => {
+  setLanguage("en");
+  assert.equal(sftpProgressText({ files: 1, filesDone: 1 }), "100 % · 1 of 1 file");
+  setLanguage("de");
+  assert.equal(sftpProgressText({ files: 1, filesDone: 0 }), "0 % · 0 von 1 Datei");
+  setLanguage("en");
+  assert.equal(
+    sftpRunView(note({ operation: "chmod" }), "en-US").label,
+    "chmod on nas-01",
+  );
 });

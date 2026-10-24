@@ -42,6 +42,14 @@ export function sftpProgressText(progress) {
   return copy.progress(percent, done, files);
 }
 
+/**
+ * A stable problem or diagnostic code (server sftp-errors.js, tool-errors.js) as its
+ * catalog text; an unknown one as "Transfer failed (CODE)".
+ */
+export function sftpCodeText(code) {
+  return Object.hasOwn(copy.codes, code) ? copy.codes[code] : copy.unknownCode(code);
+}
+
 function label(note) {
   const t = copy.note.labels;
   const key =
@@ -50,7 +58,10 @@ function label(note) {
         ? "syncDown"
         : "syncUp"
       : note.operation;
-  return (t[key] ?? t.upload)(note.hostName);
+  // A future operation keeps its own name rather than reading as an upload.
+  return key !== "other" && t[key]
+    ? t[key](note.hostName)
+    : t.other(sftpOperationText(note.operation, note.direction), note.hostName);
 }
 function icon(note) {
   if (note.operation === "delete") return "trash";
@@ -94,7 +105,7 @@ export function sftpRunView(note, locale = currentLocale) {
     [t.overwrites, r.overwrites > 0 ? String(r.overwrites) : null],
     [t.skipped, skippedCount(r.skipped) > 0 ? String(skippedCount(r.skipped)) : null],
     [t.duration, r.durationMs != null ? seconds(r.durationMs, locale) : null],
-    [t.code, state !== "completed" ? (r.code ?? null) : null],
+    [t.code, state !== "completed" && r.code ? sftpCodeText(r.code) : null],
     [t.failedPath, r.failedPath ?? null],
     [t.progress, progress],
     [t.current, state === "executing" ? (note.progress?.current ?? null) : null],
@@ -113,12 +124,18 @@ export function sftpRunView(note, locale = currentLocale) {
 export function sftpHistoryText(action, locale = currentLocale) {
   const p = action.payload || {};
   const r = action.result || {};
-  const ran = ["completed", "failed", "cancelled", "unknown"].includes(action.state);
+  // A card cancelled before its job started (its host changed or went) never ran: it
+  // reads as the card does.
+  const ran =
+    ["completed", "failed", "unknown"].includes(action.state) ||
+    (action.state === "cancelled" && Boolean(action.chatNotes?.started));
   const parts = [
     copy.history.title(sftpOperationText(p.operation, p.direction), p.hostName),
     ran
       ? copy.note.status[action.state]
-      : copy.card.states[action.state] || copy.card.states.unknown,
+      : action.state === "cancelled" && action.diagnostic === "HOST_REMOVED"
+        ? copy.card.removed
+        : copy.card.states[action.state] || copy.card.states.unknown,
   ];
   if (action.state === "completed") {
     if (p.operation === "delete" && r.files != null)
@@ -128,7 +145,7 @@ export function sftpHistoryText(action, locale = currentLocale) {
       if (r.bytes != null) parts.push(formatBytes(r.bytes, locale));
     }
   } else if (ran && (r.code || action.diagnostic))
-    parts.push(r.code || action.diagnostic);
+    parts.push(sftpCodeText(r.code || action.diagnostic));
   if (action.state === "completed" && r.durationMs != null)
     parts.push(seconds(r.durationMs, locale));
   return parts.join(" · ");

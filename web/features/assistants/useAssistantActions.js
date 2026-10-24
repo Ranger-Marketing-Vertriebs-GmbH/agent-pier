@@ -4,10 +4,11 @@ import usePolling from "./usePolling.js";
 import { useAssistantEvents } from "./useAssistants.js";
 import usePushedDecisions from "./usePushedDecisions.js";
 
-// What waits for the owner in this agent's chat: its own coding tasks, memory changes,
-// shell and SSH commands, SFTP operations (team members included: a permanent member may have a shell),
-// and its members' shell commands in turns it delegated (leadAssistantId). Team coding
-// requests (teamId) belong to the lead's team card (useTeamCodingRequests).
+// What waits for the owner in this agent's chat: its own coding tasks, memory
+// changes, shell and SSH commands and SFTP operations (team members included: a
+// permanent member may have a shell), and its members' shell commands in turns it
+// delegated (leadAssistantId). Team coding requests (teamId) belong to the lead's
+// team card (useTeamCodingRequests).
 const own = (a) =>
   !a.teamId &&
   (a.state === "awaiting_approval" ||

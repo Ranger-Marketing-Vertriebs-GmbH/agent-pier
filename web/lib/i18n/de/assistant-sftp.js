@@ -59,10 +59,42 @@ export const assistantSftpCopy = {
   },
   counts: (created, updated, deleted) =>
     `${created} neu · ${updated} geändert · ${deleted} gelöscht`,
-  progress: (percent, done, files) => `${percent} % · ${done} von ${files} Dateien`,
+  progress: (percent, done, files) =>
+    `${percent} % · ${done} von ${files} ${files === 1 ? "Datei" : "Dateien"}`,
   fileCount: (count) => `${count} ${count === 1 ? "Datei" : "Dateien"}`,
   deleted: (files, dirs) =>
     `${files} ${files === 1 ? "Datei" : "Dateien"} · ${dirs} Ordner`,
+  codes: {
+    SFTP_AUTH_FAILED: "Der Server hat die Anmeldung abgelehnt.",
+    SFTP_HOST_KEY_MISMATCH:
+      "Der Host-Schlüssel des Servers passt nicht mehr zum vertrauten.",
+    SFTP_UNREACHABLE: "Der Server war nicht erreichbar.",
+    SFTP_TIMEOUT: "Der Vorgang dauerte zu lange und wurde gestoppt.",
+    SFTP_NOT_FOUND: "Der Pfad existiert auf dem Server nicht.",
+    SFTP_PERMISSION: "Zugriff verweigert.",
+    SFTP_PATH_REFUSED: "Der Pfad liegt außerhalb des erlaubten Ordners.",
+    SFTP_LIMIT: "Die Übertragung überschreitet die Größen- oder Dateigrenze.",
+    SFTP_TYPE_CONFLICT: "Wo ein Ordner erwartet wird, liegt eine Datei, oder umgekehrt.",
+    SFTP_PLAN_CHANGED:
+      "Die Dateien haben sich seit dem Plan geändert. Es wurde nichts geschrieben.",
+    SFTP_JOB_NOT_FOUND: "Der Auftrag ist nicht mehr bekannt.",
+    SFTP_BUSY: "In diesem Ordner läuft bereits eine andere Übertragung.",
+    SFTP_CANCELLED: "Der Auftrag wurde abgebrochen.",
+    SFTP_FAILED: "Die Übertragung ist fehlgeschlagen.",
+    SFTP_WORKSPACE_REFUSED:
+      "Der lokale Ordner darf für diese Übertragung nicht genutzt werden.",
+    SFTP_APPROVAL_LIMIT: "Zu viele SFTP-Vorgänge warten auf eine Entscheidung.",
+    SFTP_ROUTINE_DELETE: "Routinen löschen auf SFTP-Zugängen nie.",
+    SSH_REVOKED: "Gestoppt, weil sich der Zugang geändert hat.",
+    ACCESS_CHANGED: "Der Zugang zum Host hat sich geändert, bevor der Vorgang lief.",
+    HOST_REMOVED: "Der Host wurde entfernt, bevor der Vorgang lief.",
+    PROJECT_NOT_GRANTED: "Der Agent darf diesen Projektordner nicht mehr nutzen.",
+    PROJECT_READ_ONLY: "Der Projektordner ist für diesen Agenten schreibgeschützt.",
+    PROJECT_PATH_REFUSED: "Der lokale Pfad ist nicht erlaubt.",
+    PROJECT_WRITE_UNAVAILABLE:
+      "In den Projektordner kann gerade nicht geschrieben werden.",
+  },
+  unknownCode: (code) => `Übertragung fehlgeschlagen (${code})`,
   note: {
     labels: {
       upload: (host) => `Hochladen auf ${host}`,
@@ -72,6 +104,7 @@ export const assistantSftpCopy = {
       mkdir: (host) => `Neuer Ordner auf ${host}`,
       rename: (host) => `Umbenennen auf ${host}`,
       delete: (host) => `Löschen auf ${host}`,
+      other: (operation, host) => `${operation} auf ${host}`,
     },
     status: {
       executing: "Läuft",

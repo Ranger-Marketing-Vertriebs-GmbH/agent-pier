@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
+import { actionNotes } from "../../server/features/assistants/assistant-action-notifications.js";
 import { hostId, sftpHostId, waitFor } from "../helpers/agent-ssh-fixture.js";
 import { PASSWORD, code, setup, until } from "../helpers/agent-sftp-fixture.js";
 import { partFiles, tree } from "../helpers/sftp-transfer-fixture.js";
@@ -323,6 +324,40 @@ test("long upload returns running with jobId and job reports progress", async (t
     "SFTP_JOB_NOT_FOUND",
   );
   await job(f, started.jobId, "cancel");
+});
+
+test("a running job's progress updates its chat note in place", async (t) => {
+  const f = await setup(t);
+  const chat = f.channel.conversationId;
+  // The notes the chat's history merges in (conversations.js withRunNotes).
+  const notes = async () =>
+    actionNotes(f.workflows.store.list(f.id), chat).filter((m) => m.event === "sftp-run");
+  const touched = [];
+  const changed = f.assistants.changed;
+  f.assistants.changed = (event = {}) => {
+    touched.push(event.conversationId);
+    return changed.call(f.assistants, event);
+  };
+  const started = await longUpload(f);
+  const [before] = await notes();
+  assert.equal(before.id, `sftp-run:${started.jobId}`);
+  assert.equal(before.state, "executing");
+  await waitFor(() => f.rows()[0].progress?.bytes === 65536);
+  // The progress patch re-reads the chat (its feed), and the same note carries it.
+  assert.ok(touched.includes(chat));
+  const during = await notes();
+  assert.equal(during.length, 1);
+  assert.equal(during[0].id, before.id);
+  assert.equal(during[0].timestamp, before.timestamp);
+  assert.equal(during[0].progress.bytes, 65536);
+  assert.equal(during[0].progress.files, 1);
+  await job(f, started.jobId, "cancel");
+  const after = await notes();
+  assert.equal(after.length, 1);
+  assert.equal(after[0].id, before.id);
+  assert.equal(after[0].state, "cancelled");
+  assert.equal(after[0].progress, null);
+  assert.equal(after[0].result.code, "SFTP_CANCELLED");
 });
 
 test("cancel stops the job", async (t) => {
