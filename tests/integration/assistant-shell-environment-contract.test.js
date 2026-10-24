@@ -139,12 +139,18 @@ test(
     const written = listTree(owner.home).filter((f) => !owner.tree.includes(f));
     t.diagnostic(`written into the owner's HOME=${JSON.stringify(written)}`);
     t.diagnostic(`private home=${JSON.stringify(listTree(gw.runtime.paths.home))}`);
-    // 2026.10.3 also wrote Library/Caches/openclaw, 2026.10.7 only the per-user one.
+    // 2026.10.3 wrote Library/Caches/openclaw, 2026.10.7 the per-user one.
+    const version = JSON.parse(
+      fs.readFileSync(
+        path.join(installed, "app/node_modules/openclaw/package.json"),
+        "utf8",
+      ),
+    ).version;
+    const cache = /^2026\.(9\.|10\.[0-5]$)/.test(version)
+      ? "Library/Caches/openclaw"
+      : `Library/Caches/openclaw-${process.getuid()}`;
     if (process.platform === "darwin")
-      assert.ok(
-        written.some((f) => /^Library\/Caches\/openclaw(-\d+)?$/.test(f)),
-        JSON.stringify(written),
-      );
+      assert.ok(written.includes(cache), JSON.stringify(written));
   },
 );
 

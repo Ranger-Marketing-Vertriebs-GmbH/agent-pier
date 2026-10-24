@@ -247,9 +247,9 @@ test(
     const second = seen.slice(before);
     // The run flushes memory, then summarises, then answers; AgentPier showed the
     // session as summarising until the answer. The cut splits the first turn:
-    // 2026.10.3 summarises only its prefix, 2026.10.7 also reconciles the history.
-    const summaries = second.length - 2;
-    assert.ok(summaries === 1 || summaries === 2, JSON.stringify(second));
+    // 2026.10.3 summarises only its prefix (one call), 2026.10.7 also reconciles the
+    // history (two calls).
+    const summaries = /^2026\.(9\.|10\.[0-5]$)/.test(runtimeVersion) ? 1 : 2;
     assert.deepEqual(
       second.map((s) => s.kind),
       ["flush", ...Array(summaries).fill("summary"), "turn"],
