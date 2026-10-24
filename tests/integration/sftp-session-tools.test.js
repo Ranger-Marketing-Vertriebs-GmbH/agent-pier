@@ -382,7 +382,12 @@ test("sftp_job reports progress and cancels", async (t) => {
     remotePath: "/big.bin",
   });
   assert.equal(started.status, "running");
-  const running = await fx.sftp.call("sftp_job", { jobId: started.jobId });
+  // The job counts its files once its plan is ready, shortly after it starts.
+  let running = await fx.sftp.call("sftp_job", { jobId: started.jobId });
+  for (let i = 0; running.progress.files !== 1 && i < 150; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    running = await fx.sftp.call("sftp_job", { jobId: started.jobId });
+  }
   assert.equal(running.status, "running");
   assert.equal(running.progress.files, 1);
   assert.equal(running.progress.bytes, 65536);

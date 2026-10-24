@@ -115,10 +115,10 @@ test("stillAuthorized is checked during a long file", async (t) => {
     fx.session,
     request(fx, "upload", "up", "/www", "site"),
   );
-  let calls = 0;
   fx.server.stallNext("WRITE");
+  // Revoked only once the file is being written, whatever the timer order.
   const result = await runTransfer(fx.session, prepared, {
-    stillAuthorized: async () => ++calls <= 1,
+    stillAuthorized: async () => !fx.server.ops().includes("WRITE"),
     authorizeEveryMs: 20,
   });
   assert.equal(result.state, "revoked");
