@@ -1,5 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { handBackNotes } from "./browser-hand-back.js";
+import { goalTurn } from "./goal-turns.js";
 
 // A chat's title (AGENTPIER-181): the first message's start, or one the person set.
 // Without either the chat list shows "New chat", or "Main chat" for the main chat.
@@ -141,8 +142,9 @@ export function firstTurnTitle(service, conversationId) {
  */
 export function firstWrittenTurn(service, conversationId) {
   for (const request of service.ledger.requests(conversationId)) {
-    const kind = service.teams?.store.context(request.id)?.kind ?? "owner";
-    if (!written.has(kind)) continue;
+    const context = service.teams?.store.context(request.id);
+    // A continuation is AgentPier's turn, never the person's writing.
+    if (goalTurn(context) || !written.has(context?.kind ?? "owner")) continue;
     const text = writtenText(request.text);
     if (autoTitle(text)) return { request, text };
   }

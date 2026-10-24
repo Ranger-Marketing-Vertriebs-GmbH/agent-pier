@@ -1,4 +1,5 @@
 import { firstWrittenTurn, generatedTitle, written } from "./chat-titles.js";
+import { goalTurn } from "./goal-turns.js";
 import {
   chatTitleMethod,
   titleSourceLimit,
@@ -65,7 +66,7 @@ async function nameChat(service, conversation, request, attempt) {
   // is not retried on later turns).
   // A scheduled or team turn never decides; only written turns read the chat's turns.
   const context = service.teams?.store.context(request.id);
-  if (!written.has(context?.kind ?? "owner")) return;
+  if (goalTurn(context) || !written.has(context?.kind ?? "owner")) return;
   const tried = () => service.store.updateConversation(id, { titleTried: true });
   const first = firstWrittenTurn(service, id);
   if (!first) return;
