@@ -27,14 +27,14 @@ test("shipped lock pins the three search plugins with registry integrity", () =>
     const pin = runtimeManifest.searchPlugins[id];
     assert.equal(pin.id, id);
     assert.equal(pin.package, `@openclaw/${id}-plugin`);
-    assert.equal(pin.version, "2026.10.3");
-    assert.equal(dependencies[pin.package], "2026.10.3");
+    assert.equal(pin.version, runtimeManifest.version);
+    assert.equal(dependencies[pin.package], runtimeManifest.version);
     const entry = packages[`node_modules/${pin.package}`];
-    assert.equal(entry.version, "2026.10.3");
+    assert.equal(entry.version, runtimeManifest.version);
     assert.equal(entry.integrity, `sha512-${pin.integrity}`);
     assert.equal(
       entry.resolved,
-      `https://registry.npmjs.org/@openclaw/${id}-plugin/-/${id}-plugin-2026.10.3.tgz`,
+      `https://registry.npmjs.org/@openclaw/${id}-plugin/-/${id}-plugin-${runtimeManifest.version}.tgz`,
     );
     // No plugin pulls in further packages: it only imports openclaw's plugin SDK.
     assert.equal(entry.dependencies, undefined);
