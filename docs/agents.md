@@ -620,8 +620,8 @@ Ask your agent, in your own message in AgentPier, to finish a job or to keep wor
 until it is done ("finish the episode", "work until you're done"). The agent
 recognises that by meaning in any wording and language, sets a **work goal** with a
 short title, what done means and its open steps, and keeps working. While the goal is
-open, the chat shows **Working until done: <title>** with a **Stop** button above the
-composer.
+open, the chat shows **Working until done: <title>** with a **Stop** button under the
+chat header.
 
 - **One goal per chat.** A new goal in the same chat replaces the open one; both
   changes appear as notes in the chat ("Goal replaced: ...", "Working until done: ...").
