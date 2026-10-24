@@ -125,18 +125,10 @@ test("shares end when member or lead is archived", async (t) => {
   }
 });
 
-test("a lead's task uses only what the lead shares, and writes at the shared level", async (t) => {
+test("a lead's task uses what the lead shares, and writes at the shared level", async (t) => {
   const f = await setup(t);
-  // The member's own owner-granted folder does not reach a task of its lead.
-  f.workflows.access.save(
-    f.member.assistantId,
-    {
-      ...f.policy,
-      projectIds: [f.folderProject.id],
-      projectFiles: { [f.folderProject.id]: "write" },
-    },
-    f.workflows.access.get(f.member.assistantId).revision,
-  );
+  // Without an own grant or a share, a task of the lead reaches no folder
+  // (own grants in a lead's task: assistant-lead-task-own-folders.test.js).
   const readOnly = await f.task();
   await assert.rejects(
     f.call(readOnly.inv, { action: "files_list" }),

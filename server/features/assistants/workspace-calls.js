@@ -12,8 +12,8 @@ import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
-// What a task from the member's lead reaches (lead-shares.js): the folders and
-// coding projects the lead shares with it, nothing of the member's own grants.
+// What a task from the member's lead reaches: the member's own folders and coding
+// projects and what the lead shares with it (lead-shares.js), never project memory.
 const leadTaskActions = new Set([
   "catalog",
   "actions",
@@ -156,18 +156,18 @@ function leadRequestContext(w, chat, attempt, req, origin) {
   };
 }
 
-// A task of the lead (and a sibling's request it started) uses only what the lead
-// shares; a lead task's own share counts in that task alone.
-const leadTask = (ctx) =>
-  !!ctx.leadRequest && (!ctx.leadRequest.peer || ctx.leadRequest.sharesOnly);
+// A sibling's request the lead started uses only the lead's standing shares; a lead
+// task's own share counts in that task alone.
+const sharesOnly = (ctx) => !!ctx.leadRequest?.peer && !!ctx.leadRequest.sharesOnly;
 const shareScope = (ctx) => ({
   requestId: ctx.leadRequest && !ctx.leadRequest.peer ? ctx.leadRequest.id : null,
 });
 
 /**
  * The project a call works on, under the agent's own grant or, failing that, a
- * standing share of its lead (lead-shares.js): `{ policy, inherited }`. A task of
- * the lead uses only the lead's shares.
+ * share of its lead (lead-shares.js; in a lead's task also that task's own):
+ * `{ policy, inherited }`. A sibling's request the lead started uses only the
+ * lead's standing shares.
  */
 function authorizeCall(w, ctx, projectId, pipelineId) {
   const scope = shareScope(ctx);
@@ -190,7 +190,7 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
       inherited,
     };
   };
-  if (leadTask(ctx)) return viaShare();
+  if (sharesOnly(ctx)) return viaShare();
   try {
     return { policy: w.access.authorize(ctx.assistantId, projectId, pipelineId) };
   } catch (error) {
@@ -207,7 +207,7 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
 /** The catalog: own projects and pipelines, and what the lead shares (`sharedBy`). */
 function catalog(w, ctx) {
   const scope = shareScope(ctx);
-  const own = leadTask(ctx)
+  const own = sharesOnly(ctx)
     ? { projectIds: [], pipelineIds: [], projectFiles: {} }
     : w.access.get(ctx.assistantId);
   const shared = w.shares.codingProjects(ctx.assistantId, scope);
@@ -323,15 +323,16 @@ export async function workspaceCall(w, inv, input) {
     payload,
     accessRevision: approvalRevision(p),
     key: `${routine?.key || inv.attemptId}:${inv.toolCallId}`,
-    // A member's request, and every request on a lead's share, waits for the owner,
-    // whatever the standing permission says.
+    // A member's request, every request on a lead's share and every request in a
+    // lead's or sibling's task waits for the owner, whatever the standing permission
+    // says.
     state:
       input.action === "coding_start" &&
       p.autonomous &&
       !ctx.requestedBy &&
       !inherited &&
       !routine &&
-      !task?.peer &&
+      !task &&
       !ctx.memberResult
         ? "approved"
         : "awaiting_approval",

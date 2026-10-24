@@ -65,6 +65,11 @@ test("writes name how they were authorized: a lead share, a member result or a c
   });
   assert.equal(file.via, "lead-share");
   assert.equal(file.leadRequestId, "request-2");
+  // A change on the member's own grant in a lead's task says so.
+  assert.equal(
+    event({ kind: "project-file", filePath: "a.md", via: "own-grant" }).via,
+    "own-grant",
+  );
   // A command's completion run names the owner turn that started the command.
   for (const kind of ["native-write", "project-file"])
     assert.deepEqual(

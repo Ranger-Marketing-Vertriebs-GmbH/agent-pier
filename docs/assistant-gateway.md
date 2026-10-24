@@ -2419,15 +2419,22 @@ images** (`documents`) with its own permanent members, without the owner
   as well. Switching the lead's **Read images** on again does not bring it back. The member's own switch in its
   settings stays as the owner set it.
 - **Where it works.** `AssistantWorkflows.context` admits a `lead-request` turn while
-  its task runs in exactly that turn (`workspace-calls.js`): file actions use only the
-  lead's shares for that scope (standing and the task's own). A `write` share is the
+  its task runs in exactly that turn (`workspace-calls.js`): file actions use the
+  member's own `projectFiles`, capped at `read` unless `taskWritable`
+  (`leadRequest.writable`), and the lead's shares for that scope (standing and the
+  task's own), the higher level per folder (`AgentProjectFiles.levels`, also for
+  `image_view` and the SFTP local side). A `write` share is the
   lead's own authorization: with the proven guard it writes in every task of that
   lead, whatever `taskWritable` says, capped live at the lead's level (a `read` share
   or a lowered lead gets `PROJECT_READ_ONLY`), and each change is audited with
-  `leadAssistantId`, `leadRequestId` and `via: "lead-share"`. `taskWritable` (owner
-  proof, autonomous lead or a write-enabled routine) still governs the member's native
-  writes in its own workspace (`LeadRequests.mayWrite`); the member's own
-  owner-granted folders, project memory and other actions stay out. In the owner's
+  `leadAssistantId`, `leadRequestId` and `via: "lead-share"`; a change the share does
+  not carry is on the member's own grant (`via: "own-grant"`). `taskWritable` (owner
+  proof, autonomous lead or a write-enabled routine) also governs the member's native
+  writes in its own workspace (`LeadRequests.mayWrite`). Coding requests use the
+  member's own grant first and the lead's share otherwise (`authorizeCall`), and every
+  coding request in a lead's task waits for the owner; project memory and other
+  actions stay out. A sibling's request the lead started (`sharesOnly`) still reaches
+  only the lead's standing shares. In the owner's
   own turns with the member the shares add to its own levels and projects, and so do
   standing shares in the member's own routine runs (see routine folders below).
 - **Routine folders.** A routine's own run session reaches `agentpier_workspace`
