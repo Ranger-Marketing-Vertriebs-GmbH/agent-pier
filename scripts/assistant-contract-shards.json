@@ -40,7 +40,8 @@
     "tests/integration/assistant-voice-reminder-e2e-contract.test.js",
     "tests/integration/assistant-team-coding-e2e-contract.test.js",
     "tests/integration/assistant-run-steps-contract.test.js",
-    "tests/integration/assistant-exec-continuation-contract.test.js"
+    "tests/integration/assistant-exec-continuation-contract.test.js",
+    "tests/integration/assistant-work-goals-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -83,6 +84,7 @@
     "tests/integration/assistant-team-coding-e2e-contract.test.js": 55,
     "tests/integration/assistant-user-agent-lock-contract.test.js": 90,
     "tests/integration/assistant-run-steps-contract.test.js": 110,
-    "tests/integration/assistant-exec-continuation-contract.test.js": 80
+    "tests/integration/assistant-exec-continuation-contract.test.js": 80,
+    "tests/integration/assistant-work-goals-contract.test.js": 30
   }
 }
