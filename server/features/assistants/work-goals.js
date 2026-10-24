@@ -1,9 +1,9 @@
 // The `agentpier_goal` actions (AGENTPIER-208). The owner's own turn sets a goal;
-// any attempt-bound turn of that chat may note its steps or end it as done or
-// blocked, and the owner stops it. Every change is visible in the chat as a note
+// it or a goal turn notes its steps, any attempt-bound turn of that chat may end it
+// as done or blocked, and the owner stops it. Every change is visible in the chat as a note
 // and audited by its kind only, never with the goal's texts.
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { directOwnerTurn, goalChat, goalLimits } from "./goal-turns.js";
+import { directOwnerTurn, goalChat, goalLimits, goalTurn } from "./goal-turns.js";
 import { WorkGoalStore } from "./work-goal-store.js";
 import { tickGoals } from "./work-goal-nudges.js";
 
@@ -79,6 +79,8 @@ export class WorkGoals {
     const { action, values } = goalInput(input);
     const { request, conversation, context } = this.turn(inv);
     if (action === "set" && !directOwnerTurn(context))
+      throw assistantProblem("goalOwnerTurn", 403);
+    if (action === "update" && !directOwnerTurn(context) && !goalTurn(context))
       throw assistantProblem("goalOwnerTurn", 403);
     inv.assertCurrent?.();
     const conversationId = conversation.id;

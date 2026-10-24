@@ -334,3 +334,39 @@ test("a deleted chat takes its goals with it", async (t) => {
   await forgetChat(f.assistants, chat);
   assert.deepEqual(f.service.goals.store.list(chat.id), []);
 });
+
+test("only the owner's direct turn or a goal turn updates the steps", async (t) => {
+  const f = teamFixture(t),
+    { chat } = setupAgent(f);
+  const set = turn(f, chat, owner, "Finish the episode");
+  const { goal } = await f.service.goal(set.inv, {
+    action: "set",
+    title: "Episode",
+    done: "Cut",
+  });
+  const update = (context, steps) =>
+    f.service.goal(turn(f, chat, context).inv, { action: "update", steps });
+  for (const context of [
+    { kind: "owner", forwarded: true },
+    { kind: "lead-request", requestId: "r", leadAssistantId: "lead" },
+    { kind: "member-result", requestId: "r" },
+    { kind: "routine", bindingId: "b", name: "Daily" },
+  ])
+    await assert.rejects(
+      update(context, "1. Wrong"),
+      (e) => e.key === "goalOwnerTurn" && e.status === 403,
+      JSON.stringify(context),
+    );
+  assert.equal(f.service.goals.view(chat.id).steps, "");
+  const marker = { id: goal.id, anchorRequestId: set.request.id, title: "Episode" };
+  await update({ kind: "owner", goal: marker }, "1. Cut");
+  assert.equal(f.service.goals.view(chat.id).steps, "1. Cut");
+  await update({ kind: "telegram", channelId: "c" }, "1. Cut\n2. Mix");
+  assert.equal(f.service.goals.view(chat.id).steps, "1. Cut\n2. Mix");
+  // Ending stays open to any turn of the chat.
+  await f.service.goal(turn(f, chat, { kind: "owner", forwarded: true }).inv, {
+    action: "done",
+    summary: "Cut",
+  });
+  assert.equal(f.service.goals.view(chat.id), null);
+});
