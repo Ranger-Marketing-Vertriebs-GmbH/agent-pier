@@ -4195,15 +4195,12 @@ person who asked, never the owner.
   stay inside it are resolved, as for folder reads), and the audit event names the
   project. Below the root no component
   may be a symbolic link (even one pointing back inside). Every folder on the way is
-  checked with `lstat` (a real directory, its identity recorded), then the file is
-  opened with `O_NOFOLLOW|O_NONBLOCK` and must be a regular, non-empty file of at most
-  25 MiB with a single hard link. After the open, strictly in order, the folders are
-  checked again, the file's own identity is compared with the descriptor, and the
-  folders once more; the bytes are read through the descriptor. On Linux the
-  descriptor's own path (`/proc/self/fd`) closes the gap. Node offers no `openat`,
-  so on macOS an agent with a shell that swaps a folder for a link fast enough can in
-  principle win the race: the checks there are best effort, and the copy lives where
-  the agent cannot read it back (below). A path in the wrong case is a missing file. Refusals return a stable code and an English reason to the model
+  checked with `lstat` (a real directory), then the file is opened without following
+  any link (`project-open.js`: `O_NOFOLLOW_ANY` on macOS, the descriptor's own path
+  in `/proc/self/fd` on Linux) and must be a regular, non-empty file of at most
+  25 MiB with a single hard link. A folder that an agent with a shell swaps for a
+  link after the checks is refused by that open, on both platforms; the bytes are
+  read through the descriptor. A path in the wrong case is a missing file. Refusals return a stable code and an English reason to the model
   (`SHARE_OUTSIDE`, `SHARE_NOT_FOUND`, `SHARE_TOO_LARGE`, `SHARE_EMPTY`).
 - **Store.** The copy goes outside every workspace, into
   `<data>/assistants/shares/<agent id>/` (mode 0700; `SharedFiles`,
