@@ -82,8 +82,8 @@ function leadRequestOpen(goals, conversation) {
     );
 }
 
-/** The first hold that keeps the goal's chat from a continuation now, or null. */
-export async function goalWait(goals, goal, conversation) {
+/** The first hold in the chat itself that keeps it from a continuation, or null. */
+export function goalWait(goals, conversation) {
   if (busy(goals.assistants, conversation)) return "busy";
   if (awaitingApproval(goals, conversation)) return "approval";
   if (leadRequestOpen(goals, conversation)) return "lead-request";
@@ -96,14 +96,21 @@ export async function goalWait(goals, goal, conversation) {
       )
   )
     return "team";
-  if (await backgroundRunning(goals.service, conversation.runtimeSessionKey)) {
-    // The hold lasts at most `backgroundWaitMs` from when it was first seen.
-    if (!goals.backgroundSince.has(goal.id))
-      goals.backgroundSince.set(goal.id, goals.now());
-    if (goals.now() - goals.backgroundSince.get(goal.id) < backgroundWaitMs)
-      return "background";
-  } else goals.backgroundSince.delete(goal.id);
   return null;
+}
+
+/**
+ * Whether a background command in the chat's session holds the goal. Asked of the
+ * Gateway only once the delay is over, or while a hold seen earlier lasts. The hold
+ * lasts at most `backgroundWaitMs` from when the chat became idle around it.
+ */
+async function backgroundHold(goals, goal, conversation, since) {
+  if (!(await backgroundRunning(goals.service, conversation.runtimeSessionKey))) {
+    goals.backgroundSince.delete(goal.id);
+    return false;
+  }
+  if (!goals.backgroundSince.has(goal.id)) goals.backgroundSince.set(goal.id, since);
+  return goals.now() - goals.backgroundSince.get(goal.id) < backgroundWaitMs;
 }
 
 // A failed turn or send counts towards the technical brake.
@@ -191,14 +198,25 @@ async function tickGoal(goals, goal) {
     return goals.end(goal, "ended", { reasonCode: "ineligible" });
   goal = evaluate(goals, goal);
   if (goal.state !== "open") return;
-  const anchor = latestOwnerTurn(goals.service, goal.conversationId);
-  if (!anchor) return goals.end(goal, "blocked", { reasonCode: "proof" });
-  if (anchor.id !== goal.anchorRequestId)
-    goal = goals.store.write(goal, { anchorRequestId: anchor.id });
-  if (await goalWait(goals, goal, conversation))
-    return void goals.idleSince.delete(goal.id);
-  if (!goals.idleSince.has(goal.id)) goals.idleSince.set(goal.id, goals.now());
-  if (goals.now() - goals.idleSince.get(goal.id) < nudgeDelayMs) return;
+  const hold = () => void goals.idleSince.delete(goal.id);
+  if (goalWait(goals, conversation)) return hold();
+  const since = goals.idleSince.get(goal.id) ?? goals.now();
+  const due = goals.now() - since >= nudgeDelayMs;
+  // The anchor is read only for a continuation about to go out.
+  let anchor = null;
+  if (due) {
+    anchor = latestOwnerTurn(goals.service, goal.conversationId);
+    if (!anchor) return goals.end(goal, "blocked", { reasonCode: "proof" });
+    if (anchor.id !== goal.anchorRequestId)
+      goal = goals.store.write(goal, { anchorRequestId: anchor.id });
+  }
+  // The Gateway is asked then too, and on every pass while a hold seen earlier lasts.
+  if (
+    (due || goals.backgroundSince.has(goal.id)) &&
+    (await backgroundHold(goals, goal, conversation, since))
+  )
+    return hold();
+  if (!due) return void goals.idleSince.set(goal.id, since);
   // The next delay starts once the continuation has ended (or was refused).
   goals.idleSince.delete(goal.id);
   await nudge(goals, goal, anchor);
