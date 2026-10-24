@@ -5,8 +5,13 @@ import { issueGatewayCertificate } from "../../server/features/assistants/gatewa
 
 // Child-process stand-in for `openclaw gateway run`: reads the config the supervisor
 // prepared and serves the protocol-4 handshake over the configured TLS material.
-// An impostor serves its own certificate on the same port instead.
-export async function runFakeGateway({ impostor = false, record } = {}) {
+// An impostor serves its own certificate on the same port instead. A failed bind
+// exits the process as OpenClaw's does, unless `stayOnBindError` keeps it running.
+export async function runFakeGateway({
+  impostor = false,
+  record,
+  stayOnBindError = false,
+} = {}) {
   const config = JSON.parse(fs.readFileSync(process.env.OPENCLAW_CONFIG_PATH, "utf8"));
   const { port, auth, tls } = config.gateway;
   const material = impostor
@@ -45,5 +50,6 @@ export async function runFakeGateway({ impostor = false, record } = {}) {
     });
   });
   process.on("SIGTERM", () => process.exit(0));
+  if (stayOnBindError) listener.on("error", () => setInterval(() => {}, 1000));
   listener.listen(port, "127.0.0.1");
 }
