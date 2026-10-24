@@ -2858,8 +2858,8 @@ their permissions set the limit.
 
 An agent with shell and GitHub access gets its own folder
 `<data>/github-sessions/agent-<id>/`, laid out like a session's (`config.yml`,
-`hosts.yml` with the token, `selection.json`), plus `shell-env.sh` and an empty
-`bin/`. `bin/` comes first in the agent's `tools.exec.pathPrepend`. OpenClaw starts
+`hosts.yml` with the token, `selection.json`), plus `shell-env.sh` and `bin/`
+(empty, except for the read-only push helper described below). `bin/` comes first in the agent's `tools.exec.pathPrepend`. OpenClaw starts
 the shell without those entries on `PATH`: it passes them as `OPENCLAW_PREPEND_PATH`
 and exports them inside the command string. The exec wrapper (`exec-shell.js`)
 therefore looks in `OPENCLAW_PREPEND_PATH` first and then in `PATH`, and sources
@@ -2879,6 +2879,25 @@ folder is removed at the next refresh or Gateway start. The token never appears 
 agent's instructions or files, but with shell access the agent runs as the owner and
 can read it like the owner can. Like sessions, this separates
 configurations, not operating-system users: a command with shell runs as the owner.
+
+At the **Read** level, `git push` from the agent's shell to the profile's host
+fails with a clear message, while fetch, clone and pull keep working.
+`shell-env.sh` then also sets
+`url.agentpier-read-only://<host>/.pushInsteadOf` for `https://<host>/`,
+`git@<host>:` and `ssh://git@<host>/` (and `gist.<host>` over HTTPS), and `bin/`
+holds the remote helper `git-remote-agentpier-read-only`. git therefore pushes to
+the `agentpier-read-only://` URL, and the helper prints "AgentPier: this agent has
+Read access to GitHub; pushing is not allowed. Ask the owner for Read and write." and
+exits with status 1. **Read and write** sets neither. The folder is written again
+whenever the agent is re-applied, so a level change in **Work → GitHub** reaches the
+next command (`github-credentials.js` `prepareAgent`). This is best effort, not a
+sandbox: the agent runs as the owner, and a remote with an explicit `pushurl`, other
+git configuration or another URL form for the same host (an SSH host alias, for
+example) bypass it. The shell's `gh` is not limited: it uses the profile's token with
+everything that token allows (`gh pr merge`, `gh api -X POST`). The agent's
+instructions state its level and, for **Read** with shell, that pushes are refused
+and that it must not change anything with `gh`; only a token without write permissions enforces
+**Read** on GitHub itself.
 
 ## Agents of restricted users
 

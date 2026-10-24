@@ -188,8 +188,9 @@ test("with shell, gh and git use the agent's profile, never the owner's", async 
   assert.doesNotMatch(shellEnv, new RegExp(token));
   assert.doesNotMatch(shellEnv, /owner-login/);
   assert.match(shellEnv, new RegExp(`GH_CONFIG_DIR=${folder}`));
-  // github.com and gist.github.com, each: cleared, AgentPier's helper, quit.
-  assert.match(shellEnv, /GIT_CONFIG_COUNT=6/);
+  // github.com and gist.github.com, each: cleared, AgentPier's helper, quit; then,
+  // for Read, four push rewrites (AGENTPIER-211).
+  assert.match(shellEnv, /GIT_CONFIG_COUNT=10/);
   assert.match(
     shellEnv,
     /GIT_CONFIG_KEY_4=credential\.https:\/\/gist\.github\.com\.helper/,

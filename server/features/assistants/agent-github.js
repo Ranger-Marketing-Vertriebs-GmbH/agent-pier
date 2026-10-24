@@ -229,7 +229,7 @@ export class AgentGithub {
     const access = personalShell(assistant) !== "off" && this.forAgent(assistant);
     if (!github || !access) return [];
     try {
-      const marker = github.prepareAgent(assistant.id, access.credentialId);
+      const marker = github.prepareAgent(assistant.id, access.credentialId, access.level);
       if (!marker) return [];
       const gh = path.join(github.dataDir, "clis", "gh", "bin");
       return [marker, ...(fs.existsSync(gh) ? [gh] : [])];

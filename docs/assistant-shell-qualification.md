@@ -304,7 +304,9 @@ config, while exec children get the owner's real `HOME` and login `PATH`:
   and then in `PATH`, and sources the folder's `shell-env.sh` before it hands over to
   `/bin/sh`. It leaves `OPENCLAW_PREPEND_PATH` in place for the command's own
   export. The environment contract asserts that the folder is absent from the
-  shell's starting `PATH` and that the command sees the folder's `GH_CONFIG_DIR`.
+  shell's starting `PATH`, that the command sees the folder's `GH_CONFIG_DIR`, and
+  that the command finds the folder's `git-remote-agentpier-read-only` helper
+  (the **Read** level's push refusal) on its `PATH`.
 - **Token:**
   - the Gateway starts and AgentPier's client connects with `OPENCLAW_GATEWAY_TOKEN`
     removed from the Gateway environment (the token only in `gateway.auth.token`);
