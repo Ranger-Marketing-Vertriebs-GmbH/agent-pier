@@ -3,6 +3,7 @@ import { registerToolGuard } from "./tool-guard.js";
 import { callRun, execEvidence, registerExecProcesses } from "./exec-processes.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { shareDefinition } from "./share-tool.js";
+import { goalDefinition } from "./goal-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { registerChatTitle } from "./chat-title.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
@@ -31,7 +32,7 @@ export const toolTimeouts = {
   propose: 95000,
 };
 // AgentPier's own tools; the team tools carry the agentpier_team_ prefix.
-const ownTools = ["reminder", "routine", "workspace", "ssh", "share_file"];
+const ownTools = ["reminder", "routine", "workspace", "ssh", "share_file", "goal"];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
 const owner = {
@@ -88,6 +89,7 @@ const definitions = {
   ...workflowDefinitions,
   ...sshDefinition,
   ...shareDefinition,
+  ...goalDefinition,
   ...memberDefinitions,
   reminder: {
     description:

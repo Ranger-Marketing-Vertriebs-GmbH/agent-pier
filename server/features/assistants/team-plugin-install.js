@@ -10,6 +10,7 @@ const files = [
   "workflow-tools.js",
   "ssh-tool.js",
   "share-tool.js",
+  "goal-tool.js",
   "member-tools.js",
   "chat-title.js",
   "tool-guard.js",
