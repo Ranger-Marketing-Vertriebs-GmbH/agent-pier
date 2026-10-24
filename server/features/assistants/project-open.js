@@ -10,11 +10,13 @@ import fs from "node:fs";
  *   kernel refuses next to it.
  * - Linux: the open keeps O_NOFOLLOW, and /proc/self/fd/<fd> names the file the
  *   descriptor really refers to. Unless that is the expected path, the open went
- *   through a link and is refused (ELOOP); a file it created there is removed.
+ *   through a link and is refused (ELOOP); a file it created exclusively there is
+ *   removed, best effort, and the descriptor is always closed.
  * `file` must be a real path (projectTarget's `real`), which holds no link itself.
  * Without /proc the open is refused rather than unchecked.
  */
-const { O_NOFOLLOW, O_CREAT } = fs.constants;
+const { O_NOFOLLOW, O_CREAT, O_EXCL } = fs.constants;
+const created = O_CREAT | O_EXCL;
 const O_NOFOLLOW_ANY = fs.constants.O_NOFOLLOW_ANY ?? 0x20000000;
 const darwin = process.platform === "darwin";
 
@@ -32,13 +34,16 @@ function openedPath(fd) {
   }
 }
 
-// Whether the descriptor is the file at `file`; otherwise removes what O_CREAT made.
+// Whether the descriptor is the file at `file`. Otherwise a file this call created
+// exclusively (O_CREAT|O_EXCL, so never one that existed) is removed, best effort.
 function verified(fd, file, flags) {
   if (darwin) return true;
   const opened = openedPath(fd);
   if (opened === file) return true;
-  if (flags & O_CREAT && opened && !opened.endsWith(" (deleted)"))
-    fs.rmSync(opened, { force: true });
+  if ((flags & created) === created && opened && !opened.endsWith(" (deleted)"))
+    try {
+      fs.rmSync(opened, { force: true });
+    } catch {}
   return false;
 }
 
