@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { projectTarget } from "../assistants/project-paths.js";
+import { openInside } from "../assistants/project-open.js";
 import { fold } from "../assistants/team-plugin/tool-guard.js";
 import { sftpProblem } from "./sftp-errors.js";
 import { defaultExcludes, excluded, isPartFile, partName } from "./sftp-excludes.js";
 import { sftpLimits } from "./sftp-limits.js";
 import { relativeParts, unsafeName } from "./sftp-remote-paths.js";
 
-const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW } = fs.constants;
+const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL } = fs.constants;
 const refused = () => sftpProblem("SFTP_PATH_REFUSED");
 const conflict = () => sftpProblem("SFTP_TYPE_CONFLICT");
 const inside = (parent, child) =>
@@ -194,7 +195,8 @@ export async function walkLocal(
 
 /**
  * Opens a walked file for reading: the rules are checked again, no link may sit on
- * the way, and the opened file must be regular with a single link.
+ * the way (openInside, also for a parent folder swapped for one after the check),
+ * and the opened file must be regular with a single link.
  */
 export async function openLocalSource(target, relative) {
   const parts = [...baseRelative(target).split("/"), ...relativeParts(relative)].filter(
@@ -209,16 +211,14 @@ export async function openLocalSource(target, relative) {
   if (resolved.real !== expected || !resolved.exists) throw refused();
   let handle;
   try {
-    handle = await fs.promises.open(expected, O_RDONLY | O_NOFOLLOW);
+    handle = await openInside(expected, O_RDONLY);
   } catch (error) {
     if (error.code === "ELOOP") throw refused();
     throw error;
   }
   try {
     const stat = await handle.stat();
-    const parent = path.dirname(expected);
-    if (!stat.isFile() || stat.nlink !== 1 || realOrSelf(parent) !== parent)
-      throw refused();
+    if (!stat.isFile() || stat.nlink !== 1) throw refused();
     return handle;
   } catch (error) {
     await handle.close();
@@ -255,8 +255,10 @@ async function copyInto(readable, handle, signal) {
 /**
  * Writes `readable` to `relative` below a writable target: the rules are checked for
  * the file, parents are created one name at a time and never through a link, the
- * data lands in an exclusive `.<name>.agentpier-part-<hex>` file that is renamed into
- * place, and the temporary file is removed on any error or abort.
+ * data lands in an exclusive `.<name>.agentpier-part-<hex>` file, created without
+ * following any link (openInside), that is renamed into place, and the temporary
+ * file is removed on any error or abort. The rename and the parent checks stay
+ * path-based (Node has no renameat).
  */
 export async function writeLocal(target, relative, readable, { mtimeMs, signal } = {}) {
   if (!target.rules?.write) throw refused();
@@ -276,11 +278,13 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
   if (existing?.isDirectory()) throw conflict();
   if (existing && !existing.isFile()) throw refused();
   const temporary = path.join(directory, partName(name));
-  const handle = await fs.promises.open(
-    temporary,
-    O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
-    0o666,
-  );
+  let handle;
+  try {
+    handle = await openInside(temporary, O_WRONLY | O_CREAT | O_EXCL, 0o666);
+  } catch (error) {
+    if (error.code === "ELOOP") throw refused();
+    throw error;
+  }
   try {
     await copyInto(readable, handle, signal);
     if (mtimeMs !== undefined && mtimeMs !== null)

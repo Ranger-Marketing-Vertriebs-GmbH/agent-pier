@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
+import { openInside, openInsideSync } from "./project-open.js";
 import { fold } from "./team-plugin/tool-guard.js";
 import {
   INLINE_IMAGE_TYPES,
@@ -35,15 +36,16 @@ const unsuitable = () => assistantProblem("projectFileUnsuitable", 400);
 const missing = () => assistantProblem("notFound", 404);
 const strict = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 // O_NONBLOCK: a FIFO or device opens at once and is refused by its type.
-const { O_RDONLY, O_NOFOLLOW, O_NONBLOCK } = fs.constants;
-const readFlags = O_RDONLY | O_NOFOLLOW | O_NONBLOCK;
+const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NONBLOCK } = fs.constants;
+const readFlags = O_RDONLY | O_NONBLOCK;
 
 // A regular file with a single link; a second hard link could be a file outside
-// the folder, a final symbolic link one that does not resolve inside it.
+// the folder, and no symbolic link is followed on the way (openInside), not even a
+// parent folder swapped for one after the path was checked.
 async function openRegular(file) {
   let handle;
   try {
-    handle = await fs.promises.open(file, readFlags);
+    handle = await openInside(file, readFlags);
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") throw missing();
     throw unsuitable();
@@ -275,9 +277,10 @@ function ensureFolders(target) {
  * its mode. projectTarget already resolved every link that leads somewhere, so an
  * existing link inside the folder is written at its real target. Only a dangling
  * link remains at the final name, and the rename replaces that link itself instead
- * of creating its target. The checks and the write are separate steps: a process
- * that can already change the folder (for example an agent with shell) could swap a
- * folder for a link in between; AgentPier does not defend against that.
+ * of creating its target. The temporary file is created without following any link
+ * (openInsideSync), so its data never lands outside the folder. The rename and the
+ * folder creation stay path-based (Node has no renameat): a process that can change
+ * the folder could still swap a folder for a link during them.
  */
 function replaceFile(target, data) {
   let mode = 0o666 & ~process.umask();
@@ -292,8 +295,14 @@ function replaceFile(target, data) {
     parent,
     `.${path.basename(target.real)}.agentpier-${randomBytes(6).toString("hex")}.tmp`,
   );
-  const fd = fs.openSync(temporary, "wx", mode);
+  let fd;
   try {
+    fd = openInsideSync(temporary, O_WRONLY | O_CREAT | O_EXCL, mode);
+  } catch (error) {
+    throw error.code === "ELOOP" ? unsuitable() : error;
+  }
+  try {
+    fs.fchmodSync(fd, mode);
     fs.writeFileSync(fd, data);
     fs.fsyncSync(fd);
   } catch (error) {
@@ -303,7 +312,6 @@ function replaceFile(target, data) {
   }
   fs.closeSync(fd);
   try {
-    fs.chmodSync(temporary, mode);
     fs.renameSync(temporary, target.real);
   } catch (error) {
     fs.rmSync(temporary, { force: true });
