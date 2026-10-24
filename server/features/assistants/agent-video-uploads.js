@@ -120,6 +120,15 @@ export class VideoUploads {
     }
     return this.a.staged(conversationId, [entry.fileId], false)[0] || null;
   }
+  /** Whether begin() finds a slot for one more of the agent's videos now. */
+  hasSlot(assistantId) {
+    const open = [...this.uploads.values()].filter((u) => u.assistantId === assistantId);
+    const now = Date.now();
+    return (
+      open.length < MAX_OPEN_PER_AGENT ||
+      open.some((u) => !u.busy && now - u.touched > ACTIVE_MS)
+    );
+  }
   /** fileName → announced size of the videos still arriving for an agent. */
   arriving(assistantId) {
     const sizes = new Map();

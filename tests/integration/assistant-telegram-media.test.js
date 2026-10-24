@@ -1,97 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { channelFixture, telegramMessage } from "../helpers/assistant-channel-fixture.js";
 import { jpegOf } from "../helpers/image-bytes.js";
 import { mp4File } from "../helpers/video-fixtures.js";
-import { TelegramClient } from "../../server/features/assistant-channels/telegram-client.js";
 import { ALBUM_QUIET_MS } from "../../server/features/assistant-channels/channel-ledger.js";
-import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import { NOTE_HEADER } from "../../server/features/assistants/agent-attachment-types.js";
-
-const token = "123456:abcdefghijklmnopqrstuv";
-const signal = () => new AbortController().signal;
-const en = serverCatalogs.en.assistants;
-const MB = 1024 * 1024;
-
-/**
- * A loopback-free fake Bot API behind the real TelegramClient: getFile answers for
- * the files given (id → { path, body, size }), the file URL serves their bytes.
- */
-function fakeTelegram(files) {
-  const requests = [];
-  const fetchImpl = async (url, init = {}) => {
-    const { pathname } = new URL(url);
-    requests.push(pathname.replace(token, "<token>"));
-    if (pathname === `/bot${token}/getFile`) {
-      const { file_id } = JSON.parse(init.body);
-      const file = files[file_id];
-      if (!file)
-        return Response.json(
-          { ok: false, error_code: 400, description: `Bad Request ${url}` },
-          { status: 400 },
-        );
-      return Response.json({
-        ok: true,
-        result: {
-          file_id,
-          file_size: file.size ?? file.body.length,
-          file_path: file.path,
-        },
-      });
-    }
-    const file = Object.values(files).find(
-      (f) => pathname === `/file/bot${token}/${f.path}`,
-    );
-    if (file) return new Response(file.body);
-    return Response.json({ ok: true, result: { message_id: 1, chat: { id: 42 } } });
-  };
-  return {
-    requests,
-    downloads: () => requests.filter((r) => r.startsWith("/file/")).length,
-    clientFactory: (secret) => new TelegramClient({ token: secret, fetchImpl }),
-  };
-}
-
-function setup(t, files, options = {}) {
-  let clock = Date.parse("2026-10-24T10:00:00Z");
-  const api = fakeTelegram(files);
-  const f = channelFixture(t, {
-    language: () => "en",
-    now: () => clock,
-    clientFactory: api.clientFactory,
-    ...options,
-  });
-  return {
-    ...f,
-    api,
-    advance: (ms) => (clock += ms),
-    files: (n = 0) =>
-      f.assistants.attachments.files(f.service.ledger.list(f.channel.id)[n].requestId),
-    notices: () => f.service.outbox.all(f.channel.id).map((n) => n.text),
-    folder: () =>
-      fs.readdirSync(path.join(f.workspaces, f.channel.assistantId, "attachments")),
-  };
-}
-
-// A media message from the paired chat; `fields` are its Telegram content.
-const media = (updateId, fields) => {
-  const update = telegramMessage(updateId);
-  delete update.message.text;
-  Object.assign(update.message, fields);
-  return update;
-};
-const photo = (id, size) => ({
-  photo: [
-    { file_id: `${id}-small`, file_size: 100 },
-    { file_id: id, ...(size && { file_size: size }) },
-  ],
-});
-const run = async (f) => {
-  f.advance(ALBUM_QUIET_MS + 1);
-  await f.service.process(f.channel.id, signal());
-};
+import {
+  MB,
+  en,
+  media,
+  photo,
+  run,
+  setup,
+  signal,
+  token,
+} from "../helpers/telegram-media-fixture.js";
 
 test("a photo with a caption reaches the agent as an attachment with the caption as its text", async (t) => {
   const f = setup(t, { p1: { path: "photos/file_1.jpg", body: jpegOf() } });
@@ -237,7 +159,7 @@ test("a sticker gets one notice naming it and never reaches the agent", async (t
   ]);
   await f.service.process(f.channel.id, signal());
   assert.equal(f.sent.length, 0);
-  assert.equal(f.service.ledger.list(f.channel.id)[0].diagnostic, "MEDIA_UNSUPPORTED");
+  assert.equal(f.service.ledger.list(f.channel.id)[0].diagnostic, "MEDIA_REFUSED");
   assert.deepEqual(f.notices(), [
     en.telegramMediaNothing(
       `${en.telegramMediaLabels.sticker}: ${en.telegramMediaReasons.kind}`,

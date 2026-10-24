@@ -136,12 +136,20 @@ export class TelegramClient {
     return { id: me.id, username: me.username };
   }
   async audio(fileId, signal, limit = 10 * 1024 * 1024) {
-    return this.download(fileId, signal, limit, voiceFolders);
+    try {
+      return await this.download(fileId, signal, limit, voiceFolders);
+    } catch (error) {
+      // A voice note is not retried by itself; its transcription can be.
+      if (error.code === "MEDIA_UNAVAILABLE") throw channelError("MEDIA_DOWNLOAD", 400);
+      throw error;
+    }
   }
   /**
    * One file a message carries (getFile, then the file URL), bounded by `limit` before
    * and while it is read. Only files from Telegram's folders in `folders` are fetched.
    * The token is part of both URLs, so no error carries Telegram's answer or the URL.
+   * A file Telegram refuses (4xx) fails with MEDIA_DOWNLOAD; a network error, timeout
+   * or server error with MEDIA_UNAVAILABLE, which a later try may overcome.
    */
   async download(fileId, signal, limit, folders = mediaFolders) {
     const file = await this.call("getFile", { file_id: fileId }, signal);
@@ -165,13 +173,19 @@ export class TelegramClient {
           redirect: "error",
         },
       );
-      if (!response.ok) throw channelError("MEDIA_DOWNLOAD");
+      if (!response.ok) {
+        await response.body?.cancel();
+        const lasting = response.status < 500 && response.status !== 429;
+        throw channelError(
+          lasting ? "MEDIA_DOWNLOAD" : "MEDIA_UNAVAILABLE",
+          lasting ? 400 : 503,
+        );
+      }
       return await boundedBytes(response, limit);
     } catch (error) {
-      throw channelError(
-        error.code === "MEDIA_TOO_LARGE" ? error.code : "MEDIA_DOWNLOAD",
-        400,
-      );
+      if (["MEDIA_TOO_LARGE", "MEDIA_DOWNLOAD"].includes(error.code))
+        throw channelError(error.code, 400);
+      throw channelError("MEDIA_UNAVAILABLE", 503);
     }
   }
 }

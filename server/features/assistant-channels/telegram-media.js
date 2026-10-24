@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { assistantProblem } from "../assistants/assistant-validation.js";
 import { MAX_TELEGRAM_DOWNLOAD_BYTES } from "./telegram-client.js";
 import {
   MAX_ATTACHMENT_BYTES,
@@ -62,24 +63,38 @@ export function telegramParts(message) {
     name: named ? item.file_name.slice(0, 300) : defaultNames[kind],
     named,
   };
-  const limit = videoLike(kind, mime)
-    ? MAX_TELEGRAM_DOWNLOAD_BYTES
-    : MAX_ATTACHMENT_BYTES;
   if (!part.fileId) return [{ ...part, refused: { reason: "download" } }];
-  if (size > limit) return [{ ...part, refused: { reason: "tooLarge", mb: limit / MB } }];
+  if (size > limitOf(part))
+    return [{ ...part, refused: { reason: "tooLarge", mb: limitOf(part) / MB } }];
   return [part];
 }
 
-// A failure that leaves the part undecided: the input waits and tries again.
-const transient = (error) =>
-  error?.code === "TELEGRAM_RATE_LIMIT" ||
-  error?.status === 503 ||
-  error?.key === "videoUploadsBusy";
+// What one part may be at most: Telegram's download limit for a video, the
+// attachment limit for anything else. Downloads stop at it while streaming.
+const limitOf = (part) =>
+  videoLike(part.kind, part.mime) ? MAX_TELEGRAM_DOWNLOAD_BYTES : MAX_ATTACHMENT_BYTES;
 
-function refusal(error) {
+/**
+ * A file Telegram could not serve right now (network, timeout, 5xx, 429) is tried
+ * again after 5 s and then 20 s; the third failure refuses it, so an outage never
+ * holds the chat's queue for long. Each failure counts on the part itself.
+ */
+export const MAX_FILE_TRIES = 3;
+const backoff = (tries) => Math.min(60000, 5000 * 4 ** (tries - 1));
+const retryable = (error) =>
+  ["TELEGRAM_UNAVAILABLE", "TELEGRAM_RATE_LIMIT", "MEDIA_UNAVAILABLE"].includes(
+    error?.code,
+  );
+// AgentPier itself cannot take the file now (maintenance, all video slots in use):
+// the input waits without counting a try.
+const waiting = (error) => ["unavailable", "videoUploadsBusy"].includes(error?.key);
+const WAIT_MS = 5000;
+const later = (retryAt) => Object.assign(Error("MEDIA_WAIT"), { retryAt });
+
+function refusal(error, part) {
   if (error?.reason) return { reason: error.reason };
   if (error?.code === "MEDIA_TOO_LARGE" || error?.key === "videoTooLarge")
-    return { reason: "tooLarge", mb: MAX_TELEGRAM_DOWNLOAD_BYTES / MB };
+    return { reason: "tooLarge", mb: limitOf(part) / MB };
   if (error?.key === "attachmentTooLarge")
     return { reason: "tooLarge", mb: MAX_ATTACHMENT_BYTES / MB };
   if (error?.key === "attachmentUnsupported") return { reason: "type" };
@@ -114,6 +129,7 @@ export class TelegramMedia {
     // A restricted user's chat takes what her web chat takes: no videos.
     const byUser = typeof conversation.userId === "string";
     const media = entry.media.map((part) => ({ ...part }));
+    const keep = () => ledger.patch(entry.id, { media });
     // A staged copy that expired or was given up while the input waited is fetched again.
     for (const part of media)
       if (
@@ -128,30 +144,68 @@ export class TelegramMedia {
         part.refused = { reason: "tooMany" };
         continue;
       }
+      const video = videoLike(part.kind, part.mime);
       // Known to be a video: never downloaded for a chat that cannot take it.
-      if (byUser && videoLike(part.kind, part.mime)) {
+      if (byUser && video) {
         part.refused = { reason: "video" };
         continue;
       }
       signal?.throwIfAborted();
+      // Nothing is downloaded that could not be saved now.
+      if (
+        this.unavailable() ||
+        (video && !attachments.videos.hasSlot(conversation.assistantId))
+      ) {
+        keep();
+        throw later(this.service.now() + WAIT_MS);
+      }
       try {
         const body = await clientFactory(store.secret(channel.id)).download(
           part.fileId,
           signal,
-          MAX_TELEGRAM_DOWNLOAD_BYTES,
+          limitOf(part),
         );
         part.staged = await this.save(conversation.id, part.name, body, byUser);
+        delete part.tries;
         usable++;
       } catch (error) {
-        if (signal?.aborted || transient(error)) {
-          ledger.patch(entry.id, { media });
+        if (signal?.aborted) {
+          keep();
           throw error;
         }
-        part.refused = refusal(error);
+        if (waiting(error)) {
+          keep();
+          throw later(this.service.now() + WAIT_MS);
+        }
+        part.tries = (part.tries || 0) + (retryable(error) ? 1 : 0);
+        if (retryable(error) && part.tries < MAX_FILE_TRIES) {
+          keep();
+          const asked =
+            error.code === "TELEGRAM_RATE_LIMIT" ? error.retryAfter * 1000 : 0;
+          throw later(this.service.now() + Math.max(backoff(part.tries), asked || 0));
+        }
+        part.refused = refusal(error, part);
       }
-      ledger.patch(entry.id, { media });
+      keep();
     }
-    return ledger.patch(entry.id, { media }).media;
+    return keep().media;
+  }
+  // The assistant service takes no files during maintenance, recovery or shutdown,
+  // like the web upload routes (assistant-attachments.js gate).
+  unavailable() {
+    const { assistants } = this.service;
+    return !!(assistants.closed || assistants.recovering || assistants.maintenance);
+  }
+  /** Gives up the staged copies of an input that will never be sent. */
+  async discard(channel, entry) {
+    const { assistants } = this.service;
+    for (const part of entry.media || [])
+      if (part.staged)
+        await assistants
+          .admit(() =>
+            assistants.attachments.discard(channel.conversationId, part.staged),
+          )
+          .catch(() => {});
   }
   async save(conversationId, name, body, byUser) {
     const { assistants } = this.service;
@@ -171,10 +225,12 @@ export class TelegramMedia {
       ),
     );
     try {
-      for (let offset = 0; offset < body.length; offset += VIDEO_CHUNK_BYTES)
+      for (let offset = 0; offset < body.length; offset += VIDEO_CHUNK_BYTES) {
+        if (this.unavailable()) throw assistantProblem("unavailable", 503);
         await videos.receive(conversationId, upload, offset, [
           body.subarray(offset, offset + VIDEO_CHUNK_BYTES),
         ]);
+      }
       return (await assistants.admit(() => videos.finish(conversationId, upload))).id;
     } catch (error) {
       await videos.cancel(conversationId, upload).catch(() => {});

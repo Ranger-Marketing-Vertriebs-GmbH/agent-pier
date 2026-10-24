@@ -141,7 +141,7 @@ test("content that is never a file is answered once, naming what was not passed 
   assert.equal(entries.length, 5);
   for (const entry of entries) {
     assert.equal(entry.state, "failed");
-    assert.equal(entry.diagnostic, "MEDIA_UNSUPPORTED");
+    assert.equal(entry.diagnostic, "MEDIA_REFUSED");
   }
   assert.deepEqual(
     f.service.outbox.all(f.channel.id).map((n) => n.text),

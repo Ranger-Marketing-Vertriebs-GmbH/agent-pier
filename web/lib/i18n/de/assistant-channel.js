@@ -72,7 +72,8 @@ export const assistantChannelCopy = {
     TELEGRAM_RATE_LIMIT:
       "Telegram verlangt eine Pause. Der Versand wird nach der Wartezeit fortgesetzt.",
     MEDIA_TOO_LARGE: "Sprachnachrichten sind auf 10 MB und zehn Minuten begrenzt.",
-    MEDIA_UNSUPPORTED:
+    MEDIA_UNSUPPORTED: "Nur Ogg-Sprachnachrichten können transkribiert werden.",
+    MEDIA_REFUSED:
       "Nichts aus dieser Nachricht konnte an den Agenten weitergegeben werden. Der Telegram-Chat hat erfahren, was fehlgeschlagen ist.",
     VOICE_TOO_LONG:
       "Die Sprachnachricht war zu lang und wurde vor dem Herunterladen abgelehnt.",

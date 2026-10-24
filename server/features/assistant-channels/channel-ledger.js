@@ -9,7 +9,8 @@ export const queueLimit = 200;
 /**
  * Telegram sends an album as one message per item, sharing a media_group_id, within
  * about a second; long polling may split them across responses. The album's first
- * input waits until no item came for this long, so later items join it.
+ * input waits until no item came for this long, so later items join it, and until a
+ * poll began after its newest item (TelegramIngress.albumSettled).
  */
 export const ALBUM_QUIET_MS = 2500;
 const content = [
@@ -180,7 +181,9 @@ export class ChannelLedger {
         (e) =>
           e.mediaGroupId === group &&
           e.chatId === String(message.chat.id) &&
-          e.state === "queued",
+          e.state === "queued" &&
+          // Once its files were fetched and its notice sent, an album takes no more.
+          !e.dispatchedAt,
       );
     if (head) return this.merge(head, update, { text, hidden, media }, now);
     if (this.active(channel.id).length >= queueLimit)
@@ -191,7 +194,7 @@ export class ChannelLedger {
       voice && Number(voice.duration) > this.maxVoiceSeconds
         ? "VOICE_TOO_LONG"
         : !voice && !text.trim() && !group && !media.some((part) => !part.refused)
-          ? "MEDIA_UNSUPPORTED"
+          ? "MEDIA_REFUSED"
           : null;
     const entry = {
       ...this.source(channel, update),
@@ -201,7 +204,9 @@ export class ChannelLedger {
       ...(hidden.length ? { hidden } : {}),
       forwarded: !!message.forward_origin,
       ...(media.length ? { media } : {}),
-      ...(group ? { mediaGroupId: group, collectUntil: now + ALBUM_QUIET_MS } : {}),
+      ...(group
+        ? { mediaGroupId: group, lastItemAt: now, collectUntil: now + ALBUM_QUIET_MS }
+        : {}),
       requestId: null,
       attemptId: null,
       diagnostic,
@@ -273,6 +278,7 @@ export class ChannelLedger {
       ...(ranges.length ? { hidden: ranges } : {}),
       forwarded: head.forwarded || !!update.message.forward_origin,
       media: [...head.media, ...media].sort((a, b) => a.messageId - b.messageId),
+      lastItemAt: now,
       collectUntil: now + ALBUM_QUIET_MS,
     });
   }
