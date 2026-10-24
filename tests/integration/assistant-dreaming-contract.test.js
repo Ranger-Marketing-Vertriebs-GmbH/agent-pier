@@ -22,7 +22,12 @@ const dreamingKey = "memory-core:memory-dreaming-promotion";
 /** A compiled native team Gateway (memory-core) with fixture agents. */
 async function nativeFixture(t) {
   assert.ok(path.isAbsolute(installed));
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-dreaming-contract-"));
+  // A resolved temp root: on macOS os.tmpdir() sits behind the /var -> /private/var
+  // symlink, and 2026.10.7's dreaming sweep then fails every workspace with "Canonical
+  // session reader continuation is no longer current" and writes no session corpus.
+  const dataDir = fs.mkdtempSync(
+    path.join(fs.realpathSync(os.tmpdir()), "assistant-dreaming-contract-"),
+  );
   const descriptor = {
     version: runtimeManifest.version,
     nodePath: path.join(installed, "node/bin/node"),
