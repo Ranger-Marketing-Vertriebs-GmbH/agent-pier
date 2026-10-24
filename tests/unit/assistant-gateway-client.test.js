@@ -302,3 +302,29 @@ test("declared client caps reach the handshake and closing forgets the features"
   assert.equal(plain.features, undefined);
   assert.equal(plain.supports("config.get"), false);
 });
+
+// The supervisor closes the client when its Gateway exits; a probe of a listener
+// that never answers must end then, not after its timeout (AGENTPIER-198).
+test("close ends a pending connect at once", async (t) => {
+  const fixture = await gatewayFixture();
+  t.after(() => fixture.close());
+  const sockets = [];
+  const silent = net.createServer((socket) => sockets.push(socket.pause()));
+  await new Promise((r) => silent.listen(0, "127.0.0.1", r));
+  t.after(() => {
+    sockets.forEach((socket) => socket.destroy());
+    return new Promise((r) => silent.close(r));
+  });
+  const client = new GatewayClient({
+    url: `wss://127.0.0.1:${silent.address().port}`,
+    certPath: fixture.certPath,
+    token: "fixture",
+    timeoutMs: 30000,
+  });
+  const connecting = client.connect();
+  while (!sockets.length) await new Promise((r) => setTimeout(r, 10));
+  const closed = Date.now();
+  client.close();
+  await assert.rejects(connecting, { code: "UNAVAILABLE" });
+  assert.ok(Date.now() - closed < 1000);
+});
