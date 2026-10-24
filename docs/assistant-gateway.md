@@ -622,11 +622,16 @@ code and link formatting kept out of owner proofs like a text message's. Content
 is never a file (stickers, audio, contacts, polls and the like) and a stated size above
 the limit (20 MB, Telegram's `getFile` download limit, for videos; 10 MB for any
 other file) are refused before any download. An album (items sharing a
-`media_group_id`) is one input: its first item opens it, later items join it while it
-is still queued, and it is held for 2.5 seconds after its newest item, since long
-polling may split an album across responses. Each later item keeps a ledger row in
-the `merged` state, so a repeated update is still recognised; the activity list shows
-only the album's input.
+`media_group_id`) is one input: its first item opens it, and later items join it while
+it is queued and its files were not fetched yet (`dispatchedAt`), since long polling
+may split an album across responses. It goes out once no item came for 2.5 seconds
+and a poll that began after its newest item has returned or stayed open for a second
+(Telegram answers at once while updates are pending). Poll times live in memory, so
+after a restart the album waits for the new process's first poll, which brings the
+items Telegram still holds; an album whose polls keep failing goes out after 60
+seconds. Each later item keeps a ledger row in the `merged` state, so a repeated update
+is still recognised; the activity list shows only the album's input. A later item of
+an album that was already fetched is an input of its own, with its own notice.
 
 The files are fetched at dispatch, when the input reaches the head of the queue, and
 staged through the same pipeline as a browser upload (`AgentAttachments.stage`, or
@@ -635,15 +640,27 @@ the stamped copy goes to the agent's `attachments/` folder within its quota, and
 request claims the staged files exactly like an AgentPier message, so images reach
 vision models inline and videos only as files. Only paths below Telegram's own file
 folders are fetched; the bot token is part of the `getFile` and file URLs only, and
-errors carry a code, never Telegram's answer or the URL. Each file's outcome is
-recorded on the input as it is decided, so a restart, an agent that is busy or a
-Telegram rate limit (the input waits for its delay) never downloads a decided file
-again; a staged copy that expired meanwhile is fetched anew. At most five files are
-passed on. One notice per input names every part that was not passed on and why; an
-input with neither text nor a staged file fails with `MEDIA_UNSUPPORTED`. Forwarded
-files carry the forwarded prefix and never authorize. A restricted user's channel
-refuses videos, as her web chat cannot upload them. Bots for other people are
-OpenClaw's native Telegram accounts and do not use this path.
+errors carry a code, never Telegram's answer or the URL. A download stops at the
+part's own limit (10 MB, or 20 MB for a video) while streaming. Each file's outcome is
+recorded on the input as it is decided, so a restart or an agent that is busy never
+downloads a decided file again; a staged copy that expired meanwhile is fetched anew.
+A transient failure of `getFile` or the file URL (network, timeout, 5xx, 429) counts a
+try on that part and holds the input (`retryAt`) for 5 s, then 20 s, or Telegram's
+`retry_after` when longer; the third failure refuses the part. Before each download
+the input waits, without a try, while the assistant service is in maintenance,
+recovery or shutdown, or when a video would find no free upload slot; video chunks
+check maintenance like the web upload route. At most five files are passed on. One
+notice per input names every part that was not passed on and why; an input with
+neither text nor a staged file fails with `MEDIA_REFUSED`. An input that finally
+fails (`MODEL_REQUEST_FAILED`, a changed destination) gives up its staged copies at
+once. Forwarded files carry the forwarded prefix and never authorize; `/team` counts
+only in a text message. A restricted user's channel refuses videos, as her web chat
+cannot upload them. Bots for other people are OpenClaw's native Telegram accounts and
+do not use this path; reading the bundled OpenClaw 2026.10.3, its Telegram plugin
+downloads their photos, videos, documents, audio and stickers into its own
+`media/inbound` store
+(`mediaMaxMb`, default 100 MB, within Telegram's 20 MB) and passes them to the turn.
+No contract test covers that.
 
 ### Live dictation in the chats
 

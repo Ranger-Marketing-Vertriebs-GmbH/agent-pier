@@ -289,9 +289,10 @@ told it was not saved.
   connecting a bot needs a restart of the agent service, which then is pending (see
   above); disconnecting a bot, replacing its token or removing the last person
   restarts the agent service after you confirm. Such a bot is run by the agent service
-  itself, so photos and files its people send are handled there as before, like
-  their text: they are kept in the agent service's own media store, never in the
-  agent's `attachments/` folder, and none of the AgentPier rules below apply to them.
+  itself, and AgentPier's [files from Telegram](#files-from-telegram) do not apply to
+  it: the bundled OpenClaw version handles its people's photos and files on its own
+  (it keeps them in its own media store, never in the agent's `attachments/` folder).
+  AgentPier's tests do not cover this.
 
 ## Teams, asks and tasks
 
@@ -900,15 +901,22 @@ cannot be fetched; other files stay limited to 10 MB.
 
 - **Albums:** several photos or videos sent together arrive as one message with all
   their files in order and the caption. AgentPier waits until no further item of the
-  album has come for 2.5 seconds; an item that Telegram delivers later still joins the
-  album while it waits for an earlier message to finish. At most five files per message
-  are passed on; the chat is told how many were left out.
+  album has come for 2.5 seconds and AgentPier has asked Telegram again for anything
+  newer, also after a restart; an item that Telegram delivers later still joins the
+  album while it waits for an earlier message to finish, but not once its files were
+  fetched. At most five files per message are passed on; the chat is told how many were
+  left out.
 - **What does not arrive:** stickers, audio files, contacts, locations, polls, files
   of an unsupported type, files that are too large or could not be downloaded, and a
   full attachment folder are named in one reply per message or album, for example
   "Not everything reached the agent – “backup.zip”: file type not supported. The rest
   of the message was passed on." The caption and the other files still reach the agent.
   A message with nothing to pass on is not sent to the agent.
+- **Telegram unreachable:** a file Telegram cannot serve right now is tried again
+  after 5 and 20 seconds; after the third failure it is named as not downloaded. While
+  the agent service is in maintenance, or all three of the agent's video uploads are
+  in use, the message waits without counting a try.
+- **Commands:** `/team` works only as a text message; in a caption it is ignored.
 - **Forwarded** photos and files reach the agent as forwarded content, like forwarded
   text: quoted data that never starts a team or changes settings.
 - A restricted user's own bot takes what her chat in AgentPier takes: images, PDF
