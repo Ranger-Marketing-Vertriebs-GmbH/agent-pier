@@ -15,6 +15,7 @@ import { sealHistory } from "./history-seal.js";
 import { backupOptions, capture, omissions } from "./snapshot.js";
 import { mcpServersPresent } from "./mcp-server-backup.js";
 import { usersPresent } from "../users/user-backup.js";
+import { sftpHostsOmission, sftpHostsPresent } from "../ssh/sftp-backup.js";
 import { applicationVersion } from "./version.js";
 import { privateContentOmissions } from "./private-content.js";
 import { problem } from "../../lib/storage.js";
@@ -58,6 +59,7 @@ export class Backup {
     const assistants = assistantsCaptured(this.dataDir);
     const mcpServers = mcpServersPresent(this.dataDir);
     const users = usersPresent(this.dataDir);
+    const sftpHosts = sftpHostsPresent(this.dataDir);
     const sealing = options.includeHistory && options.withCredentials;
     return {
       components: [
@@ -94,6 +96,7 @@ export class Backup {
                 : []),
               ...(mcpServers ? ["encrypted-mcp-server-values"] : []),
               ...(users ? ["encrypted-user-passwords"] : []),
+              ...(sftpHosts ? ["sealed-sftp-hosts"] : []),
             ]
           : []),
       ],
@@ -116,6 +119,7 @@ export class Backup {
         ...(mcpServers ? [mcpLoginOmission] : []),
         ...(mcpServers && !options.withCredentials ? [mcpValueOmission] : []),
         ...(users && !options.withCredentials ? [userPasswordOmission] : []),
+        ...(sftpHosts && !options.withCredentials ? [sftpHostsOmission] : []),
         ...(!options.withCredentials
           ? ["Managed native configuration and credentials"]
           : []),

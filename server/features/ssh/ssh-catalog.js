@@ -7,6 +7,7 @@ import { writeCatalogSnapshot as writePrivate } from "./ssh-catalog-snapshot.js"
 import { sshPhysicalRoot } from "./ssh-root.js";
 import { SshKeyStore } from "./ssh-key-store.js";
 import { SshPasswordStore } from "./ssh-password-store.js";
+import { mergeRestoredSftpHosts, sftpRestoreFile } from "./sftp-backup.js";
 
 const parts = ["keys", "hosts", "receipts", "projects"];
 // Optional parts: releases without them validate only `parts` and keep the rest.
@@ -77,7 +78,17 @@ export class SshCatalog {
       }
       fs.rmSync(marker);
     }
+    // Before recovery: a restored password stays pending until its host is imported.
+    this.importRestoredSftpHosts();
     this.recoverArtifacts();
+  }
+  /** Adds the SFTP hosts a restore left behind; repeated after an interruption. */
+  importRestoredSftpHosts() {
+    const file = path.join(this.root, sftpRestoreFile);
+    if (!fs.existsSync(file)) return;
+    const merged = mergeRestoredSftpHosts(file, this.read());
+    if (merged) writePrivate(this.file, merged);
+    fs.rmSync(file, { force: true });
   }
   recoverArtifacts() {
     const current = this.read();
