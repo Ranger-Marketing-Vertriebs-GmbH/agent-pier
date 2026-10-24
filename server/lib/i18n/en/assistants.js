@@ -313,6 +313,11 @@ export const assistants = {
     "A lead agent can share only project folders, Read images, coding projects and MCP servers with a permanent member.",
   teamGrantNotHeld:
     "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
+  goalOwnerTurn:
+    "A goal can only be set in a reply to your own message, not in a continuation or a forwarded, scheduled or delegated turn.",
+  goalOwnerOnly: "This needs your own message; a goal continuation cannot do it.",
+  goalUnavailable: "Goals are only available in your own chats with this agent.",
+  goalNotOpen: "This chat has no open goal.",
   leadRoutineOwnerTurn:
     "A lead agent sets up or changes routines on its members only in a turn of your own message.",
   leadRoutineNotPermanent:

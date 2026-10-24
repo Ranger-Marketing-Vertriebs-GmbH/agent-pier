@@ -99,8 +99,8 @@ export function deleteChat(service, conversationId) {
 
 /**
  * What AgentPier keeps of a chat: its cached messages, request texts, files (uploads
- * and what the agent shared), the results of reminders and routines and its hidden
- * long-chat hints.
+ * and what the agent shared), the results of reminders and routines, its hidden
+ * long-chat hints and its work goals.
  */
 export async function forgetChat(assistants, conversation) {
   try {
@@ -113,6 +113,7 @@ export async function forgetChat(assistants, conversation) {
   assistants.ledger.forgetTexts(conversation.id);
   new RoutineResults(assistants.store.db).forget(conversation.id);
   assistants.longChats?.forget(conversation.id);
+  assistants.teams?.goals?.forget(conversation.id);
 }
 
 /**

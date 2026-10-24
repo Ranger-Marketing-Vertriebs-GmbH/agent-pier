@@ -166,6 +166,13 @@ const reasons = {
     "AgentPier's storage for this file is full. Do not retry; tell the owner.",
   STORAGE_UNSAFE:
     "AgentPier's storage for shared files is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
+  GOAL_OWNER_TURN:
+    "A goal can only be set in a turn of the owner's own message, not in continuations, forwarded, scheduled or member-result turns. Do not retry; keep working on the open goal or ask the owner.",
+  GOAL_OWNER_ONLY:
+    "This needs the owner's own message; a goal continuation cannot do it. Do not retry; tell the owner what you need.",
+  GOAL_UNAVAILABLE:
+    "Goals are only available in the owner's own chats with this agent. Do not retry.",
+  GOAL_NOT_OPEN: "This chat has no open goal. Do not retry.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -232,6 +239,10 @@ const byKey = {
   shareEmpty: "SHARE_EMPTY",
   attachmentStorageFull: "STORAGE_FULL",
   attachmentStorageUnsafe: "STORAGE_UNSAFE",
+  goalOwnerTurn: "GOAL_OWNER_TURN",
+  goalOwnerOnly: "GOAL_OWNER_ONLY",
+  goalUnavailable: "GOAL_UNAVAILABLE",
+  goalNotOpen: "GOAL_NOT_OPEN",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",
