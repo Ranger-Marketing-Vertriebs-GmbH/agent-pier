@@ -22,6 +22,7 @@ _(German)_ are not translated yet.
 | [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
 | [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
 | [SSH accesses](ssh-access.md)                              | SSH keys and hosts for projects, sessions and agents         |
+| [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs     |
 | [GitHub connections](github-agents.md)                     | Tokens for clones and pull requests                          |
 | [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and Agency agents          |
 | [Codex context](codex-context.md)                          | Codex context windows and model status                       |

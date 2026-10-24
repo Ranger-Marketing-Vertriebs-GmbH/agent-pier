@@ -10,6 +10,8 @@ The project is bound when the session launches. Running `cd` does not change it.
 
 In **Settings → Access → SSH accesses**, use the **Accesses** and **Keys** tabs to browse compact lists. Search by name, host, username or project, and combine the search with the project filter. Lists show 20 entries per page. Select an entry to open its details alongside the list; on narrow screens, close the details to return to the list. Host fingerprints stay collapsed until opened. Connection tests and private-key downloads still require an explicit action.
 
+A host is either an SSH host (commands) or an SFTP host (file transfer, see [SFTP access](sftp-access.md)). The host form has a **Type** choice for it; an SFTP host signs in with a **Password** or a **Key** (**Sign-in**) and can confine every remote path to an optional **Allowed remote folder**. The list's **Sign-in** column shows "Password" or the key's name, and SFTP hosts carry an **SFTP** badge.
+
 Select the project when creating keys or hosts. The current project filter preselects ownership for new entries. A project host must use a key owned by the same project. Existing global entries remain global. Explicit session assignments add access to selected global or other-project hosts without transferring key ownership. The session picker marks inherited hosts as **Project**; manage those hosts in settings. Removing an explicit assignment does not remove independently inherited project access.
 
 ### Git initialization in a session folder
@@ -45,7 +47,7 @@ Ordinary API results and every MCP result contain public metadata only. **Downlo
 
 ## Add a server
 
-In the hosts section, enter a name, hostname/IP address, SSH port and username, then select a saved key.
+In the hosts section, enter a name, hostname/IP address, SSH port and username, then select a saved key. For file transfer choose **Type** → **SFTP** instead; [SFTP access](sftp-access.md) describes the password sign-in, the allowed remote folder and the transfer tools.
 
 Fetch the server's host key, compare the displayed SHA256 fingerprint with an independently trusted source such as the server console, and confirm it. Scanning alone does not authenticate a server. Save the host, copy the selected key's public key and install that public key for the intended user on the target system. **Test connection** explicitly authenticates and runs `true`; saving or assigning an access makes no remote connection.
 
@@ -94,7 +96,10 @@ accesses of their own. A lead can grant them SSH on its own accesses only while
 its **Work → Team members may use shell and SSH** is on, for teams proposed while it
 is on; a later SSH grant waits for the owner's approval (see [agents](agents.md)).
 
-The agent's `agentpier_ssh` tool can list its granted hosts and run one command at a
+SFTP hosts are granted the same way and show **SFTP** in the picker; the tool lists,
+downloads, uploads and syncs on them with approvals as described in
+[SFTP access](sftp-access.md#agent-actions-and-approvals). On SSH hosts, the agent's
+`agentpier_ssh` tool can list its granted hosts and run one command at a
 time; it cannot create, import, scan, test or download keys or hosts. AgentPier runs
 the command with the same pinned connection as sessions (`-F /dev/null`, only the
 pinned host key, no agent forwarding), with at most 16 KiB of command, 120 seconds and
@@ -144,6 +149,8 @@ This is convenience scoping under one OS user, **not an operating-system sandbox
 Private keys live in owner-only files (0600) under `AGENTPIER_DATA_DIR/ssh/identities`, inside owner-only directories (0700). The versioned `ssh/catalog.json` contains keys, hosts, project records and mutation receipts. The application owns catalog writes through a private local management socket; standalone MCP/helper processes read published state and delegate mutations. Prepared identities use `ssh/staging`; each connection receives an immutable pin snapshot under `ssh/connections` and cleans up its own snapshot.
 
 Catalog publication is atomic. Receipts are retained, with a 16 MiB limit on new catalog growth; deletion and size-reducing changes remain available. Legacy migration preserves oversized catalogs instead of dropping records. Generated keys are unencrypted at rest and rely on local account/filesystem protection. Private bytes are excluded from ordinary responses, prompts and audit records; the explicit authenticated owner download is the export path. Host keys are pinned, and the managed helper disables inherited SSH configuration, other agents, password fallback, agent forwarding and connection multiplexing.
+
+SFTP hosts live in the same catalog (`sftpHosts`). Their passwords are 0600 files under `ssh/passwords/<host>/`, unencrypted at rest like keys. Ordinary backups omit them; a backup with a passphrase and credentials seals password hosts (see [backups](backups.md#sftp-hosts-in-backups)).
 
 SSH accesses, private keys, project records, receipts and session grants are **omitted from AgentPier backups**, including backups with credentials. Keep an independent secure key backup through the owner download or retain imported source keys. Do not put the runtime SSH directory into Git.
 

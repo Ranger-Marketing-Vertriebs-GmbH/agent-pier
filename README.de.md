@@ -49,6 +49,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
   für lokale Server ([MCP](docs/mcp.md)).
+- **SSH und SFTP:** geprüfte SSH-Hosts und SFTP-Hosts (Passwort oder Schlüssel), die
+  Coding-CLIs und Agenten nutzen, mit Freigaben für Änderungen und Löschungen,
+  Ordnerübertragungen, Abgleich und Live-Aktivitätszeilen
+  ([SSH](docs/ssh-access.md), [SFTP](docs/sftp-access.md)).
 - **Accounts an einer Stelle:** native CLI-Accounts, Provider-Zugänge, ChatGPT für
   Agenten und Dienste für Agenten ([Provider](docs/providers.md)).
 - **Dateien und Wissen:** ein Datei-Explorer, private Artifacts, gemeinsames
@@ -163,12 +167,12 @@ Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Check
 
 Die [Dokumentationsübersicht](docs/README.md) listet alle Anleitungen.
 
-| Bereich    | Anleitungen                                                                                                                                                                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Benachrichtigungen](docs/notifications.md) |
-| Agenten    | [Agenten](docs/agents.md) · [Benutzer](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                              |
-| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                          |
-| Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                |
+| Bereich    | Anleitungen                                                                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [Benachrichtigungen](docs/notifications.md) |
+| Agenten    | [Agenten](docs/agents.md) · [Benutzer](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                            |
+| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                                        |
+| Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                                              |
 
 ## Daten und Sicherheitsgrenzen
 

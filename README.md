@@ -46,6 +46,9 @@ and agents that work as a team.
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier and per-agent folders for local servers
   ([MCP](docs/mcp.md)).
+- **SSH and SFTP:** pinned SSH hosts and SFTP hosts (password or key) that coding
+  CLIs and agents use, with approvals for changes and deletes, whole-folder transfers,
+  syncs and live activity rows ([SSH](docs/ssh-access.md), [SFTP](docs/sftp-access.md)).
 - **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and
   agent services in one place ([providers](docs/providers.md)).
 - **Files and knowledge:** a file explorer, private artifacts, shared project memory
@@ -145,12 +148,12 @@ below its minimum version until it is updated. A source checkout updates with `g
 
 The [docs index](docs/README.md) lists every guide.
 
-| Area    | Guides                                                                                                                                                                                                                                               |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [Notifications](docs/notifications.md) |
-| Agents  | [Agents](docs/agents.md) · [Users](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                       |
-| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                |
-| Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                        |
+| Area    | Guides                                                                                                                                                                                                                                                                             |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [Notifications](docs/notifications.md) |
+| Agents  | [Agents](docs/agents.md) · [Users](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                     |
+| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                              |
+| Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                                                      |
 
 ## Data and security boundaries
 

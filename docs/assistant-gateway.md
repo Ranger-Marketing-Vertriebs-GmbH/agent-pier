@@ -2149,6 +2149,31 @@ runs in linear time. Limits, best effort: secrets fed through stdin
 `.netrc`, positional arguments, a bare `-p` of other tools and any form not listed
 above stay as they are. The audit never holds the text, only the digest and length.
 
+### Agent SFTP access
+
+The SFTP actions of `agentpier_ssh` (`list`, `stat`, `download`, `upload`, `sync`,
+`mkdir`, `rename`, `delete`, `job`, `cancel`; `hosts` lists each host's `type` and
+`remoteRoot`) share the SSH grant, the origin classes and the bridge budget. `AgentSftp`
+(`agent-sftp.js`) decides with `sftpPermits(mode, class, kind)`: reads and dry runs run,
+writes run on `trusted` and `routines` hosts and otherwise open a card, deletes (also a
+sync with `deleteExtra`) always open a card, and a routine never deletes
+(`SFTP_ROUTINE_DELETE`). `execute` on an SFTP host and file actions on an SSH host fail
+with `SSH_HOST_TYPE`. The local side is the agent's workspace or a granted project
+folder; the workspace's guarded entries (prompt files, `skills/`, `.agents/`,
+`attachments/`) are never transferred and a folder download or sync down needs a
+subfolder (`SFTP_WORKSPACE_REFUSED`).
+
+A card is an `assistant_actions` row with `action: "sftp"`, the path lists capped at
+500 per kind, a plan digest and no credentials. At most 3 stay open (`SFTP_APPROVAL_LIMIT`).
+`allow-always` is accepted only when the card has no deletes and the grant holder is the
+card's own agent; it then switches the grant to `trusted`. An approval re-plans and
+compares the digest before anything is written (`SFTP_PLAN_CHANGED`). Telegram approves
+only plans with at most 20 paths per list and no hidden characters. A transfer that runs
+longer than the hold continues as a job: `job` and `cancel` act on the action row's id,
+and the result returns as an `sftp-result` follow-up turn that keeps the original origin
+class. Rows hold counts only; completions are audited as `sftp.completed` and
+`sftp.failed`. See [SFTP access](sftp-access.md).
+
 ## Lead promotions of team members (2026-10-17)
 
 `agentpier_team_promote` (lead-only, `member-promotion.js`) keeps one of the lead's
