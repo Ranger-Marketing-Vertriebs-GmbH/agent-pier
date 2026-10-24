@@ -12,6 +12,7 @@ import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
 import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
 import AssistantMemberContext from "./AssistantMemberContext.jsx";
+import WorkGoalLine from "./WorkGoalLine.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
 import React, {
@@ -142,8 +143,7 @@ export default function AssistantChat({
     onReachable: (reachable) => setUnreachable(!reachable),
   });
   // The streamed reply so far, with its run: { runId, text } or null.
-  const delta = feed.stream;
-  const refresh = feed.refresh;
+  const { stream: delta, refresh } = feed;
   const removeShared = useCallback(
     async (file) => {
       await assistantApi.deleteSharedFile(conversationId, file.id);
@@ -422,8 +422,8 @@ export default function AssistantChat({
         navigate={navigate}
       />
       <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
+      <WorkGoalLine goal={history.goal} {...{ conversationId }} onStopped={refresh} />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
-
       <div
         className="assistant-chat-panel"
         {...drop}

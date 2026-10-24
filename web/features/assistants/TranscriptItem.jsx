@@ -6,6 +6,7 @@ import SshRunNote from "./SshRunNote.jsx";
 import SftpRunNote from "./SftpRunNote.jsx";
 import RemoteActivityGroup from "./RemoteActivityGroup.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
+import WorkGoalNote from "./WorkGoalNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
@@ -19,6 +20,7 @@ export const noteEvents = new Set([
   "routine-failed",
   "coding-run",
   "peer-request",
+  "goal",
 ]);
 
 // One entry of the agent chat's transcript: a team note, a group of activity rows
@@ -38,6 +40,8 @@ export default function TranscriptItem({
     <TeamNote note={note} navigate={navigate} focused={note.id === focusedNote} />
   ) : m.event === "coding-run" ? (
     <CodingRunNote note={m} navigate={navigate} />
+  ) : m.event === "goal" || m.event === "goal-continuation" ? (
+    <WorkGoalNote note={m} />
   ) : m.event === "ssh-run" ? (
     <SshRunNote note={m} />
   ) : m.event === "sftp-run" ? (

@@ -5848,5 +5848,21 @@
   "users:usersCopy.resetTitle": "de:286e7d8bc4bb en:26761bbbb250",
   "users:usersCopy.shared": "de:f343711a49cf en:5cec16a7834b",
   "users:usersCopy.unknownUser": "de:a7ce1c039bb3 en:0bca69475fcf",
-  "users:usersCopy.username": "de:fc309e30dbbe en:e3b89e9d33f8"
+  "users:usersCopy.username": "de:fc309e30dbbe en:e3b89e9d33f8",
+  "work-goals:workGoalCopy.continuing": "de:c52b5dbacc6a en:a29b79f1d544",
+  "work-goals:workGoalCopy.line": "de:8ed8e8a4481a en:1ff9b6d96a8f",
+  "work-goals:workGoalCopy.notes.blocked": "de:0e437a289b2c en:45a5aca75e1a",
+  "work-goals:workGoalCopy.notes.done": "de:9568a70439c3 en:2a1c350733c0",
+  "work-goals:workGoalCopy.notes.ended": "de:17276831f141 en:82caf9c44a2c",
+  "work-goals:workGoalCopy.notes.replaced": "de:ea2514a6d775 en:56c16b6be5e4",
+  "work-goals:workGoalCopy.notes.set": "de:8ed8e8a4481a en:1ff9b6d96a8f",
+  "work-goals:workGoalCopy.notes.stopped": "de:973ae6e2649b en:1ebeac38eaf9",
+  "work-goals:workGoalCopy.reasons.archived": "de:35ba65809ec4 en:322b0c6c82db",
+  "work-goals:workGoalCopy.reasons.ineligible": "de:a678c659a884 en:f4c7cdfe4428",
+  "work-goals:workGoalCopy.reasons.no-progress": "de:d0d602624b43 en:0fbbf2ce0d09",
+  "work-goals:workGoalCopy.reasons.proof": "de:87386c0703a4 en:f4120c20fe52",
+  "work-goals:workGoalCopy.reasons.technical": "de:1f3986f17c97 en:e1ef51837b99",
+  "work-goals:workGoalCopy.reasons.turn-cancelled": "de:162e948f3d74 en:42fc9308ea0a",
+  "work-goals:workGoalCopy.stop": "de:39ff84785ea9 en:cae7d57bc067",
+  "work-goals:workGoalCopy.stopFailed": "de:9724c5bc2b1e en:f83c3a902a18"
 }

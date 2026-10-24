@@ -33,6 +33,7 @@ export const ownerContentRoutes = {
   // Summarising a long chat or hiding its hint acts on it: his own only.
   "POST /api/assistant-conversations/:id/compact": "conversation",
   "POST /api/assistant-conversations/:id/long-chat-dismissal": "conversation",
+  "POST /api/assistant-conversations/:id/goal/stop": "conversation",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/queued": "conversation",
