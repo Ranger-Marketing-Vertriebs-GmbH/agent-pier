@@ -8,6 +8,8 @@ import {
   lockedTools,
   memberTeamTools,
 } from "../../server/features/assistants/native-capabilities.js";
+import { lockedCall } from "../../server/features/users/user-agent-lock.js";
+import { bridgeTool } from "../../server/features/assistants/team-bridge-actions.js";
 
 const userAccess = {
   mode: "own",
@@ -19,8 +21,14 @@ test("the plugin hook covers every locked core tool; the rest are plugin tools",
   for (const tool of lockedCoreTools) assert.ok(lockedTools.includes(tool), tool);
   assert.deepEqual(
     lockedTools.filter((tool) => !lockedCoreTools.includes(tool)).sort(),
-    ["agentpier_ssh", ...delegationTools, ...memberTeamTools].sort(),
+    ["agentpier_ssh", "agentpier_goal", ...delegationTools, ...memberTeamTools].sort(),
   );
+  // The plugin tools are refused by the bridge (TeamBridge.valid), by their tool name.
+  const user = { id: "a", userAccess };
+  for (const action of ["ssh", "goal"]) {
+    assert.equal(lockedCall(user, bridgeTool(action)), true, action);
+    assert.equal(lockedCall({ id: "a" }, bridgeTool(action)), false, action);
+  }
 });
 
 test("the plugin refuses a user agent's exec and session tools at run time", async (t) => {
