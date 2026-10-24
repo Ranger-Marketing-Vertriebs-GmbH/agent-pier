@@ -133,7 +133,11 @@ ran). Finished jobs stay readable for an hour.
   down need read-and-write access, and a routine needs **May write**. Links out of the
   folder and AgentPier's protected roots are refused. Files to upload and the
   temporary files of a download are opened without following any link, so a parent
-  folder swapped for a link after the checks is refused (`SFTP_PATH_REFUSED`).
+  folder swapped for a link after the checks is refused (`SFTP_PATH_REFUSED`). The
+  local walk, deletes, the final rename and creating missing folders stay path-based
+  (Node has no `openat`, `renameat` or `unlinkat`) and are best effort: a process
+  that can change the folder could still follow a folder swapped for a link in that
+  instant.
 - **Guarded workspace entries:** in the agent workspace, prompt files such as
   `AGENTS.md` and `SOUL.md`, `skills/`, `.agents/` and `attachments/` are never
   transferred, in either direction. A folder download or sync down needs a named
