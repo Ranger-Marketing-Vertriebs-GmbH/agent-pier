@@ -170,8 +170,9 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest]
-        # v1.27.0-v1.28.1 pinned OpenClaw 2026.9.8, v2.0.0 pinned 2026.9.9.
-        from: [v1.28.1, v2.0.0]
+        # v1.27.0-v1.28.1 pinned OpenClaw 2026.9.8, v2.0.0 pinned 2026.9.9,
+        # v2.1.0-v2.6.1 pinned 2026.10.3 (v2.6.x on Node 26.12.1).
+        from: [v1.28.1, v2.0.0, v2.6.1]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
