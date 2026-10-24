@@ -505,3 +505,16 @@ test("a Stop while the pass waits on the Gateway sends nothing", async (t) => {
   assert.equal(goalOf(f, chat).state, "stopped");
   assert.equal(sends(f).length, 0);
 });
+
+test("the Gateway is asked about background commands only once the delay is over", async (t) => {
+  const { f, chat } = setup(t);
+  await setGoal(f, chat);
+  let asked = 0;
+  background(f, () => (asked++, false));
+  await at(f, 0);
+  await at(f, nudgeDelayMs - 1);
+  assert.equal(asked, 0);
+  await at(f, nudgeDelayMs);
+  assert.equal(asked, 1);
+  assert.equal(sends(f).length, 1);
+});
