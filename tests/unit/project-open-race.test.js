@@ -17,6 +17,10 @@ import {
   openLocalSource,
   writeLocal,
 } from "../../server/features/sftp/sftp-local.js";
+import {
+  openInside,
+  openInsideSync,
+} from "../../server/features/assistants/project-open.js";
 
 // A process that can change the project folder swaps a parent folder for a link to
 // an outside folder after the path was checked and before it is opened, and swaps
@@ -169,5 +173,58 @@ test(
       throw Object.assign(new Error("no proc"), { code: "ENOENT" });
     });
     await assert.rejects(readFile(root, "sub/notes.txt"), unsuitable);
+  },
+);
+
+const linuxOnly = {
+  skip: process.platform === "darwin" && "macOS refuses in the open itself",
+};
+
+test(
+  "a failed cleanup of an escaped create still closes the descriptor and refuses",
+  linuxOnly,
+  async (t) => {
+    const { outside, sub } = fixture(t);
+    swapOnOpen(t, sub, outside);
+    const closed = [];
+    const closeSync = fs.closeSync;
+    t.mock.method(fs, "closeSync", (fd) => {
+      closed.push(fd);
+      return closeSync(fd);
+    });
+    t.mock.method(fs, "rmSync", () => {
+      throw Object.assign(new Error("is a directory"), { code: "EISDIR" });
+    });
+    const { O_WRONLY, O_CREAT, O_EXCL } = fs.constants;
+    assert.throws(
+      () => openInsideSync(path.join(sub, "new.txt"), O_WRONLY | O_CREAT | O_EXCL, 0o600),
+      { code: "ELOOP" },
+    );
+    assert.equal(closed.length, 1);
+    t.mock.restoreAll();
+    swapOnOpen(t, sub, outside);
+    t.mock.method(fs, "rmSync", () => {
+      throw Object.assign(new Error("denied"), { code: "EACCES" });
+    });
+    await assert.rejects(
+      openInside(path.join(sub, "other.txt"), O_WRONLY | O_CREAT | O_EXCL, 0o600),
+      { code: "ELOOP" },
+    );
+    // The fixture's cleanup needs the real rmSync again.
+    t.mock.restoreAll();
+  },
+);
+
+test(
+  "an escaped open without O_EXCL never removes the outside file",
+  linuxOnly,
+  async (t) => {
+    const { outside, sub } = fixture(t);
+    swapOnOpen(t, sub, outside);
+    const { O_WRONLY, O_CREAT } = fs.constants;
+    await assert.rejects(openInside(path.join(sub, "notes.txt"), O_WRONLY | O_CREAT), {
+      code: "ELOOP",
+    });
+    assert.equal(fs.readFileSync(path.join(outside, "notes.txt"), "utf8"), "secret\n");
   },
 );
