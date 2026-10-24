@@ -4,6 +4,7 @@ import { spawn as spawnProcess } from "node:child_process";
 import { runtimeEnvironment } from "./runtime-config.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { openConsoleLog } from "./gateway-log.js";
+import { readJSON, writePrivate } from "../../lib/storage.js";
 import { inspectOwner, ownerRecord, ownershipConflict } from "./gateway-ownership.js";
 import {
   bootIdentity,
@@ -50,6 +51,42 @@ export function removeMigrationLeftovers(paths) {
     recursive: true,
     force: true,
   });
+}
+
+/**
+ * Takes every plain `models.providers.*.apiKey` out of openclaw.json for Doctor's run
+ * and returns them. Doctor copies such keys into OpenClaw's auth profile store, where
+ * they outrank openclaw.json on 2026.10.7: a key the owner later rotates or removes
+ * would still be sent, and stay in OpenClaw's state and its backups. AgentPier owns
+ * these keys in openclaw.json alone, so Doctor sees none.
+ */
+export function withholdProviderKeys(paths) {
+  const config = readJSON(paths.config, null);
+  const providers = config?.models?.providers;
+  const keys = [];
+  if (!providers || typeof providers !== "object") return keys;
+  for (const [id, provider] of Object.entries(providers))
+    if (typeof provider?.apiKey === "string") {
+      keys.push([id, provider.apiKey]);
+      delete provider.apiKey;
+    }
+  if (keys.length) writePrivate(paths.config, config);
+  return keys;
+}
+/** Puts the withheld keys back into the providers Doctor left in openclaw.json. */
+export function restoreProviderKeys(paths, keys) {
+  if (!keys.length) return;
+  const config = readJSON(paths.config, null);
+  const providers = config?.models?.providers;
+  if (!providers) return;
+  for (const [id, apiKey] of keys)
+    if (
+      providers[id] &&
+      typeof providers[id] === "object" &&
+      !("apiKey" in providers[id])
+    )
+      providers[id].apiKey = apiKey;
+  writePrivate(paths.config, config);
 }
 
 // True while a member may remain. macOS answers EPERM for a group whose members
@@ -163,7 +200,9 @@ export async function migrateRuntimeState(
   } = {},
 ) {
   let outcome = false;
+  let keys = [];
   try {
+    keys = withholdProviderKeys(paths);
     const log = openConsoleLog(path.join(paths.logs, "gateway-console.log"));
     let child;
     try {
@@ -220,6 +259,7 @@ export async function migrateRuntimeState(
     outcome = false;
   } finally {
     try {
+      restoreProviderKeys(paths, keys);
       removeMigrationLeftovers(paths);
     } catch {
       // Plain copies that cannot be removed fail the migration; rollback retries.
