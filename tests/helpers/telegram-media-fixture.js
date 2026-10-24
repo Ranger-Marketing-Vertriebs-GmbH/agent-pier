@@ -15,7 +15,7 @@ export const MB = 1024 * 1024;
 /**
  * A fake Bot API: getUpdates hands out `pending`, getFile answers for the files given
  * (id → { path, body, size }), the file URL serves their bytes. `fault(kind, id)` may
- * return a Response (or throw) for "getFile" or "file" first, to simulate outages.
+ * return a Response (or throw) for "getUpdates", "getFile" or "file" first, to simulate outages.
  */
 function fakeTelegram(files) {
   const requests = [];
@@ -25,7 +25,9 @@ function fakeTelegram(files) {
     const { pathname } = new URL(url);
     requests.push(pathname.replace(token, "<token>"));
     if (pathname === `/bot${token}/getUpdates`)
-      return Response.json({ ok: true, result: pending.splice(0) });
+      return (
+        api.fault("getUpdates") || Response.json({ ok: true, result: pending.splice(0) })
+      );
     if (pathname === `/bot${token}/getFile`) {
       const { file_id } = JSON.parse(init.body);
       const faulty = api.fault("getFile", file_id);
