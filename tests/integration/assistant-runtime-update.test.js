@@ -191,6 +191,14 @@ test("a failed migration restores the snapshot and reports UPDATE_MIGRATION_FAIL
   assert.equal(status.diagnostic, "UPDATE_MIGRATION_FAILED");
 });
 
+// Polls `ready` until it holds, failing the test after 10 s instead of hanging.
+async function waitFor(ready, what) {
+  for (const end = Date.now() + 10000; !ready();) {
+    assert.ok(Date.now() < end, `timed out waiting for the ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
 // A long-running Doctor leading its own process group, with a grandchild in it. A
 // launcher starts it and exits, so it is nobody's child here, like a Doctor whose
 // AgentPier process crashed (a child of this process would linger as a zombie).
@@ -217,8 +225,10 @@ spawn(process.execPath, [${JSON.stringify(entryPath)}, "doctor"], { detached: tr
 `,
   );
   execFileSync(process.execPath, [launcher]);
-  while (!fs.existsSync(pids) || !fs.readFileSync(pids, "utf8"))
-    await new Promise((resolve) => setTimeout(resolve, 20));
+  await waitFor(
+    () => fs.existsSync(pids) && fs.readFileSync(pids, "utf8"),
+    "fake Doctor",
+  );
   const [doctor, grandchild] = fs.readFileSync(pids, "utf8").split(" ").map(Number);
   t.after(() => {
     try {
@@ -265,7 +275,7 @@ test("recovery after a crash stops a Doctor left running before restoring", asyn
     },
   });
   f.updates.activate();
-  while (!readJSON(f.journal).doctor) await new Promise((r) => setTimeout(r, 10));
+  await waitFor(() => readJSON(f.journal).doctor, "recorded Doctor");
   assert.deepEqual(readJSON(f.journal).doctor, doctor.owner);
   assert.equal(doctor.pids.every(doctor.alive), true);
   const started = [];
