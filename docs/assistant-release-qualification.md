@@ -546,7 +546,12 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   (`sqlite-readonly-location.worker.js`, also in 2026.10.3) exit only after the
   Gateway, once they see the IPC disconnect, and write Node's compile cache into
   `assistants/tmp` on the way out, which raced the removal of the data directory
-  (`ENOTEMPTY`) once on the Intel macOS runner. No product code changed for these.
+  (`ENOTEMPTY`) once on the Intel macOS runner. The live web tools contract
+  retries a browser `start` once when OpenClaw answers "timed out … Retry the browser
+  tool once": the start request's 15 s budget ran out on all four 2026.10.7 Intel runs
+  while Chrome kept launching (the one 2026.10.3 Intel sample started in time; with an
+  injected launch delay both versions time out alike). No product code changed for
+  these.
 
 **Results.**
 

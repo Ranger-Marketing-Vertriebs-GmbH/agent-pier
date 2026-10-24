@@ -221,7 +221,11 @@ test(
         .filter((m) => m.role === "tool")
         .map((m) => String(m.content))
         .at(-1);
-      t.diagnostic(`${label} result=${JSON.stringify(result?.slice(0, 300))}`);
+      // A tool error in full: its own text follows OpenClaw's untrusted-content preamble.
+      const shown = result?.includes('"status": "error"')
+        ? result
+        : result?.slice(0, 300);
+      t.diagnostic(`${label} result=${JSON.stringify(shown)}`);
       return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
     }
     try {
@@ -231,6 +235,15 @@ test(
       );
       for (const name of ["web_search", "web_fetch", "pdf", "browser"])
         assert.ok(started.offered.includes(name), `offered ${name}`);
+      // The start request has a 15 s budget that a cold Chrome launch exceeds on the
+      // Intel macOS runner (about 10 s on Apple silicon); OpenClaw then answers
+      // "timed out … Retry the browser tool once" while Chrome keeps starting. The
+      // agent retries, and so does the contract, once.
+      if (/"status": "error"[\s\S]*timed out\./.test(started.result ?? ""))
+        await turn(
+          { name: "browser", arguments: { action: "start" } },
+          "live-start-retry",
+        );
       const { result } = await turn(
         { name: "browser", arguments: { action: "status" } },
         "live-status",
