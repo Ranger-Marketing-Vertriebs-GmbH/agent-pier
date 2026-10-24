@@ -91,7 +91,9 @@ export class AssistantActionStore {
          WHERE json_extract(body,'$.settled') IS NOT 1 AND (
            (json_extract(body,'$.payload.action') IN ('ssh','sftp') AND json_extract(body,'$.followUp')=1
              AND json_extract(body,'$.followUpSent') IS NULL
-             AND json_extract(body,'$.state') IN ('approved','executing','completed','failed'))
+             AND (json_extract(body,'$.state') IN ('approved','executing','completed','failed')
+               OR (json_extract(body,'$.payload.action')='sftp'
+                 AND json_extract(body,'$.state')='cancelled')))
            OR (json_extract(body,'$.payload.action')='coding_start'
              AND json_extract(body,'$.requestedBy') IS NOT NULL
              AND json_extract(body,'$.parentResult') IS NULL

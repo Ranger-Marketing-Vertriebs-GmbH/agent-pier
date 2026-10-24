@@ -244,6 +244,64 @@ test("edited host cancels the card", async (t) => {
   assert.equal(read(f, "www/about.html"), "<p>about v1</p>");
 });
 
+test("allow-always on a card whose host was edited changes no grant", async (t) => {
+  const f = await approvalFixture(t);
+  const call = upload(f);
+  const a = await waitFor(() => card(f));
+  f.catalog.rows.get(sftpHostId).revision = "r2";
+  const decided = await decide(f, a, "allow-always");
+  assert.equal(decided.state, "cancelled");
+  assert.equal(decided.diagnostic, "ACCESS_CHANGED");
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "approval");
+  assert.equal(
+    f.audit.some((e) => e.details.reason === "always-allow"),
+    false,
+  );
+  assert.equal(await code(call), "SSH_REVOKED");
+});
+
+test("a failed grant write fails allow-always before anything runs", async (t) => {
+  const f = await approvalFixture(t);
+  const call = upload(f);
+  const a = await waitFor(() => card(f));
+  const write = f.workflows.access.write;
+  f.workflows.access.write = () => {
+    throw new Error("disk full");
+  };
+  await assert.rejects(decide(f, a, "allow-always"), /disk full/);
+  f.workflows.access.write = write;
+  assert.equal(f.workflows.get(a.id).state, "awaiting_approval");
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "approval");
+  assert.equal(fs.existsSync(path.join(f.server.root, "www/index.html")), false);
+  await decide(f, a, "decline");
+  await call;
+});
+
+test("allow-always on a temporary member's card trusts the lead's grant it uses", async (t) => {
+  const f = await approvalFixture(t);
+  const member = f.member({ lifetime: "task" });
+  const grants = f.store.memberGrants;
+  f.store.memberGrants = (record) =>
+    record.id === member.id ? { grants: { ssh: true }, shellSsh: true } : grants(record);
+  const call = f.sftpCall(f.turn(member.conversationId, { kind: "team-member" }), {
+    action: "mkdir",
+    remotePath: "/made",
+  });
+  const a = await waitFor(
+    () =>
+      card(f) ||
+      f.workflows.store
+        .list(member.id)
+        .find((x) => x.payload.action === "sftp" && x.state === "awaiting_approval"),
+  );
+  assert.equal(a.assistantId, member.id);
+  await decide(f, a, "allow-always");
+  assert.equal((await call).status, "completed");
+  // The member holds no grant of its own; the lead's grant became trusted.
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "trusted");
+  assert.deepEqual(f.workflows.access.get(member.id).sshAccesses, []);
+});
+
 test("removed host cancels open SFTP cards", async (t) => {
   const f = await approvalFixture(t);
   const call = upload(f);
@@ -292,6 +350,29 @@ test("result after the hold arrives as sftp-result follow-up and is classified w
   // The follow-up turn acts with the class of the owner turn it continues.
   const followUp = f.turn(f.channel.conversationId, f.followUps[0].context);
   assert.equal((await f.sftpCall(followUp, { action: "list" })).untrusted, true);
+  // It reaches no local folder: a transfer is refused with a code that says so.
+  assert.equal(
+    await code(
+      f.sftpCall(f.turn(f.channel.conversationId, f.followUps[0].context), {
+        action: "upload",
+        localPath: "site",
+        remotePath: "/www",
+      }),
+    ),
+    "SSH_ORIGIN_REFUSED",
+  );
+  // A cancelled job whose result is owed keeps its chat owing a turn.
+  f.workflows.store.patch(a.id, {
+    state: "cancelled",
+    followUpSent: undefined,
+    settled: false,
+  });
+  assert.ok(f.workflows.store.owingConversations().includes(f.channel.conversationId));
+  f.workflows.store.patch(a.id, {
+    state: "completed",
+    followUpSent: true,
+    settled: true,
+  });
   // Another agent's follow-up turn on this action inherits nothing.
   const member = f.member();
   const forged = f.turn(member.conversationId, f.followUps[0].context);

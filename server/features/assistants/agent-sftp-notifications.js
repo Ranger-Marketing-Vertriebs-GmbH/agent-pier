@@ -12,7 +12,11 @@ const visible = (text) =>
     hiddenAll,
     (c) => `<U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`,
   );
-const count = (s, key) => (s[key]?.length ?? 0) + (s.more?.[key] ?? 0);
+// How many entries a list names, with those the card cut (`moreDeleteDirs` for
+// folders).
+const count = (s, key) =>
+  (s[key]?.length ?? 0) +
+  ((key === "deleteDirs" ? s.moreDeleteDirs : s.more?.[key]) ?? 0);
 
 // Every path the card names: the targets and the plan's lists.
 function cardPaths(p) {

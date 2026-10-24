@@ -247,19 +247,23 @@ export class SftpApprovals {
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */
   decide(action, decision) {
     if (decision === "decline") return this.finish(action.id, { state: "declined" });
-    if (decision === "allow-always") {
-      // A delete always asks again, so "Always allow" never covers one.
-      if (!action.payload.allowAlways || action.payload.deletes > 0)
-        throw assistantProblem("invalid", 400);
-      try {
-        const holder = this.w.access.sshHolder(action.assistantId).id;
-        alwaysAllowSftp(this.w.access, holder, action.payload.accessId);
-      } catch {
-        // An ineligible agent is cancelled by the check below.
-      }
-    }
+    // A delete always asks again, so "Always allow" never covers one.
+    if (
+      decision === "allow-always" &&
+      (!action.payload.allowAlways || action.payload.deletes > 0)
+    )
+      throw assistantProblem("invalid", 400);
+    // A card that can no longer run changes no grant either.
     const reason = this.ssh.approvals.stale(action);
     if (reason) return this.finish(action.id, { state: "cancelled", diagnostic: reason });
+    // The grant the card ran on: a temporary member's is its lead's (sshHolder). A
+    // failed write fails the decision before anything runs.
+    if (decision === "allow-always")
+      alwaysAllowSftp(
+        this.w.access,
+        this.w.access.sshHolder(action.assistantId).id,
+        action.payload.accessId,
+      );
     const next = this.finish(action.id, { state: "executing" });
     const run = this.execute(next).finally(() => this.runs.delete(action.id));
     this.runs.set(action.id, run);
