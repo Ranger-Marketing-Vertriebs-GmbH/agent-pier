@@ -5,7 +5,12 @@ import { runtimeEnvironment } from "./runtime-config.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { openConsoleLog } from "./gateway-log.js";
 import { inspectOwner, ownerRecord, ownershipConflict } from "./gateway-ownership.js";
-import { processIdentity } from "../../lib/process-identity.js";
+import {
+  bootIdentity,
+  processGroupMembers,
+  processIdentity,
+  startedAtOrAfter,
+} from "../../lib/process-identity.js";
 
 const failure = (code, status = 503) => Object.assign(Error(code), { code, status });
 // OpenClaw's pre-migration database copies beside each agent and state database.
@@ -47,12 +52,15 @@ export function removeMigrationLeftovers(paths) {
   });
 }
 
+// True while a member may remain. macOS answers EPERM for a group whose members
+// are all exited and not yet reaped, so EPERM is waited out, never trusted.
 const groupKill = (kill) => (pid, name) => {
   try {
     kill(-pid, name);
     return true;
   } catch (error) {
     if (error.code === "ESRCH") return false;
+    if (error.code === "EPERM") return true;
     throw ownershipConflict();
   }
 };
@@ -64,7 +72,10 @@ const tryKill = (kill, pid) => {
     /* Reported by killGroup. */
   }
 };
-/** Kills process group `pid` and waits until none of its members is left. */
+/**
+ * Kills process group `pid` and waits until none of its members is left; a group
+ * still there after `graceMs` is a conflict.
+ */
 async function killGroup(pid, { kill, graceMs = 5000 }) {
   const signal = groupKill(kill);
   signal(pid, "SIGKILL");
@@ -73,27 +84,58 @@ async function killGroup(pid, { kill, graceMs = 5000 }) {
   if (signal(pid, 0)) throw ownershipConflict();
 }
 
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+/**
+ * Whether group `owner.pid`, whose leader is gone, is still our Doctor's: the same
+ * boot, every member started no earlier than Doctor, and one of them runs the
+ * runtime's own Node (a daemon group behind a reused pid runs something else).
+ */
+function ourOrphans(owner, { identity, members, boot }) {
+  try {
+    if (!owner.boot || owner.boot !== boot()) return false;
+    const found = members(owner.pid).map((pid) => identity(pid));
+    return (
+      found.length > 0 &&
+      found.every((member) => startedAtOrAfter(member.startTime, owner.startTime)) &&
+      found.some((member) => member.executable === owner.executable)
+    );
+  } catch {
+    // A member that cannot be observed is not attributed to Doctor.
+    return false;
+  }
+}
+
 /**
  * Stops a Doctor an earlier AgentPier process left running (`owner` from the update
  * journal), with every process of its group, before a rollback restores state under
- * it. Its own process, or its group after it exited, is killed; a pid that now
- * belongs to another process is left alone (a live group keeps its id from reuse).
+ * it. Only a group attributable to that Doctor is killed: its verified leader, or
+ * members left after the leader exited (ourOrphans). A pid that now belongs to
+ * another process is left alone; a live leader that cannot be verified is a
+ * conflict, which leaves the update in recovery until it is gone.
  */
 export async function stopDoctor(
   owner,
-  { identity = processIdentity, kill = process.kill, graceMs } = {},
+  {
+    identity = processIdentity,
+    kill = process.kill,
+    members = processGroupMembers,
+    boot = bootIdentity,
+    graceMs,
+  } = {},
 ) {
   if (!owner?.pid) return;
   const state = inspectOwner(owner, identity);
   if (state === "conflict") throw ownershipConflict();
-  let reused = false;
-  try {
-    kill(owner.pid, 0);
-    reused = state === "stale";
-  } catch {
-    // The leader is gone; members of its group may still run.
-  }
-  if (!reused) await killGroup(owner.pid, { kill, graceMs });
+  if (state === "stale" && (alive(owner.pid) || !owner.startTime)) return;
+  if (state === "ours" || ourOrphans(owner, { identity, members, boot }))
+    await killGroup(owner.pid, { kill, graceMs });
 }
 
 /**
@@ -114,6 +156,7 @@ export async function migrateRuntimeState(
     env = process.env,
     identity = processIdentity,
     kill = process.kill,
+    boot = bootIdentity,
     onSpawn = () => {},
   } = {},
 ) {
@@ -146,10 +189,15 @@ export async function migrateRuntimeState(
         else tryKill(kill, child.pid);
       });
     });
-    // Recorded before it is awaited; an unrecorded Doctor is not let run.
-    let recorded = true;
+    // Recorded before it is awaited; a Doctor whose identity cannot be recorded in
+    // full could not be attributed after a crash, so it is not let run.
+    let recorded = !!child.pid;
     try {
-      if (child.pid) onSpawn(ownerRecord(child.pid, runtime, identity));
+      if (child.pid) {
+        const owner = { ...ownerRecord(child.pid, runtime, identity), boot: boot() };
+        if (!owner.startTime || !owner.executable) throw Error("Unverifiable Doctor.");
+        onSpawn(owner);
+      }
     } catch {
       recorded = false;
       tryKill(kill, child.pid);

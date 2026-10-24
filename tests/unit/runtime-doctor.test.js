@@ -7,11 +7,14 @@ import { EventEmitter } from "node:events";
 import {
   migrateRuntimeState,
   removeMigrationLeftovers,
+  stopDoctor,
 } from "../../server/features/assistants/runtime-doctor.js";
+import { processIdentity } from "../../server/lib/process-identity.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
 
-const runtime = { nodePath: "/opt/node/bin/node", entryPath: "/opt/app/openclaw.mjs" };
+// A real executable: the recorded identity resolves its path.
+const runtime = { nodePath: process.execPath, entryPath: "/opt/app/openclaw.mjs" };
 function fixture(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-doctor-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -50,7 +53,15 @@ function fakeSpawn(exit, { pid = fakePid, lingering = false } = {}) {
     return child;
   };
   const identity = () => ({ startTime: "fake start" });
-  return { spawn, calls, kill, signals, identity, options: { spawn, kill, identity } };
+  const boot = () => "boot-1";
+  return {
+    spawn,
+    calls,
+    kill,
+    signals,
+    identity,
+    options: { spawn, kill, identity, boot },
+  };
 }
 const leftovers = (paths) => {
   const agent = path.join(paths.state, "agents", "ap-1", "agent");
@@ -104,6 +115,8 @@ test("Doctor runs non-interactively in the runtime's private environment", async
   assert.equal(owners[0].pid, fakePid);
   assert.equal(owners[0].startTime, "fake start");
   assert.equal(owners[0].entryPath, runtime.entryPath);
+  assert.equal(owners[0].executable, fs.realpathSync(process.execPath));
+  assert.equal(owners[0].boot, "boot-1");
   const log = path.join(paths.logs, "gateway-console.log");
   assert.equal(fs.readFileSync(log, "utf8"), "doctor output\n");
   assert.equal(fs.statSync(log).mode & 0o777, 0o600);
@@ -208,6 +221,121 @@ test("an unrecorded Doctor is killed and fails the migration", async (t) => {
     { code: "UPDATE_MIGRATION_FAILED" },
   );
   assert.deepEqual(fake.signals[0], [-fakePid, "SIGKILL"]);
+});
+
+test("a Doctor whose start time cannot be read is never recorded and is killed", async (t) => {
+  const paths = fixture(t);
+  const fake = fakeSpawn(null);
+  const owners = [];
+  await assert.rejects(
+    migrateRuntimeState(paths, runtime, {
+      ...fake.options,
+      identity: () => {
+        throw Error("ps unavailable");
+      },
+      env: {},
+      onSpawn: (owner) => owners.push(owner),
+    }),
+    { code: "UPDATE_MIGRATION_FAILED" },
+  );
+  assert.deepEqual(owners, []);
+  assert.deepEqual(fake.signals[0], [-fakePid, "SIGKILL"]);
+});
+
+// A recorded Doctor whose leader is gone (the fake pid never exists).
+const gone = {
+  pid: fakePid,
+  startTime: "Sat Oct 24 12:00:00 2026",
+  executable: fs.realpathSync(process.execPath),
+  entryPath: "/opt/app/openclaw.mjs",
+  boot: "boot-1",
+};
+function groupFake(members) {
+  const signals = [];
+  let group = true;
+  return {
+    signals,
+    kill: (target, signal) => {
+      signals.push([target, signal]);
+      if (!group) throw Object.assign(Error("no such group"), { code: "ESRCH" });
+      if (signal === "SIGKILL") group = false;
+      return true;
+    },
+    members: () => Object.keys(members).map(Number),
+    identity: (pid) => members[pid],
+    boot: () => "boot-1",
+  };
+}
+const ourNode = { startTime: "Sat Oct 24 12:00:05 2026", executable: gone.executable };
+
+test("Doctor's orphaned group is killed when every member is attributable", async () => {
+  const fake = groupFake({ 7001: ourNode });
+  await stopDoctor(gone, fake);
+  assert.deepEqual(fake.signals[0], [-fakePid, "SIGKILL"]);
+});
+
+test("a group behind a gone leader that is not Doctor's is left alone", async () => {
+  for (const [why, members, boot] of [
+    [
+      "a member predates Doctor",
+      { 7001: ourNode, 7002: { ...ourNode, startTime: "Sat Oct 24 11:00:00 2026" } },
+    ],
+    [
+      "no member runs the runtime's Node",
+      { 7001: { ...ourNode, executable: "/usr/sbin/daemon" } },
+    ],
+    ["the host rebooted since", { 7001: ourNode }, "boot-2"],
+  ]) {
+    const fake = groupFake(members);
+    if (boot) fake.boot = () => boot;
+    await stopDoctor(gone, fake);
+    assert.deepEqual(fake.signals, [], why);
+  }
+});
+
+test("a recorded pid now used by another process is left alone", async () => {
+  // This test's own process stands in for the process that reused the pid; its
+  // group would otherwise look like Doctor's orphans.
+  const fake = groupFake({ 7001: ourNode });
+  const reused = { ...gone, pid: process.pid, startTime: "Thu Jan  1 00:00:00 2026" };
+  const identity = (pid) => (pid === process.pid ? processIdentity(pid) : ourNode);
+  await stopDoctor(reused, { ...fake, identity });
+  assert.deepEqual(fake.signals, []);
+});
+
+test("an exited but unreaped group (EPERM on macOS) is waited out", async () => {
+  const signals = [];
+  let probes = 0;
+  const kill = (target, signal) => {
+    signals.push(signal);
+    if (signal === "SIGKILL" || ++probes < 3)
+      throw Object.assign(Error("zombie"), { code: "EPERM" });
+    throw Object.assign(Error("reaped"), { code: "ESRCH" });
+  };
+  await stopDoctor(gone, { ...groupFake({ 7001: ourNode }), kill });
+  assert.deepEqual(signals, ["SIGKILL", 0, 0, 0]);
+});
+
+test("a live recorded Doctor that cannot be verified is a conflict", async () => {
+  const fake = groupFake({});
+  const own = processIdentity(process.pid);
+  const foreign = {
+    ...gone,
+    pid: process.pid,
+    startTime: own.startTime,
+    executable: "/nonexistent",
+  };
+  await assert.rejects(stopDoctor(foreign, { ...fake, identity: processIdentity }), {
+    code: "OWNERSHIP_CONFLICT",
+  });
+  // Without a start time, a live pid cannot be attributed either.
+  await assert.rejects(
+    stopDoctor({ ...foreign, startTime: null }, { ...fake, identity: processIdentity }),
+    {
+      code: "OWNERSHIP_CONFLICT",
+    },
+  );
+  assert.deepEqual(fake.signals, []);
 });
 
 test("an unsafe console log fails the migration and still cleans up", async (t) => {
