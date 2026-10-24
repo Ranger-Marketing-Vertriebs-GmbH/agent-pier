@@ -34,7 +34,14 @@ test("a running turn's steps reach every viewer, also one who joins later", (t) 
   const first = listen(feed, "a");
   feed.steps("a", "r1", view("tool"));
   feed.steps("b", "r1", view("tool"));
-  assert.deepEqual(first(), [{ type: "steps", runId: "r1", ...view("tool") }]);
+  // The quiet time counts on from the call, so a slow runner may add a millisecond.
+  const [sent] = first();
+  assert.equal(first().length, 1);
+  assert.ok(sent.quietMs >= 0 && sent.quietMs < 1000);
+  assert.deepEqual(
+    { ...sent, quietMs: 0 },
+    { type: "steps", runId: "r1", ...view("tool") },
+  );
   const late = listen(feed, "a");
   assert.equal(late()[0].phase, "tool");
   assert.equal(late()[0].steps[0].tool, "exec");
