@@ -124,8 +124,11 @@ calls `listen(port, host)`. It does support `gateway.tls`, so AgentPier uses tha
   CA would accept, and so is plain TCP or `ws://`. The pin is never learned from
   the network. A regenerated certificate takes effect on the next connection.
 - The token is sent in `connect` only after the pinned TLS handshake has succeeded.
-  If an impostor holds the port, the attempt fails with `ENDPOINT_UNTRUSTED`, the
-  child is stopped and a restart on a fresh port follows the crash backoff. Any
+  If an impostor holds the port, the attempt fails with `ENDPOINT_UNTRUSTED`. The
+  port is drawn free and then released, so another listener can take it before the
+  Gateway binds it: the same start therefore stops the child and launches again on
+  a fresh port, up to three ports. Only then does the start fail with
+  `ENDPOINT_UNTRUSTED`, and a restart on a fresh port follows the crash backoff. Any
   failure after the TCP connection and before the TLS handshake completes counts as
   `ENDPOINT_UNTRUSTED`; a refused connection while the Gateway is still starting is
   retried.

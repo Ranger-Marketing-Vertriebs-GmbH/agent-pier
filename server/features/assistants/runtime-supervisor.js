@@ -48,6 +48,8 @@ const terminal = new Set([
 // rare run that still finishes. AgentPier's own shutdown keeps `killGraceMs`, within
 // its service manager's stop timeout (scripts/service.mjs).
 export const gatewayDrainMs = 60000;
+// Fresh ports one start tries when another listener answers on the drawn one.
+const portAttempts = 3;
 // The browsers' CDP ports sit at the Gateway port + 12 up to + 110 (web-tools.js,
 // browser-profiles.js).
 export const maxGatewayPort = 65535 - lastCdpOffset;
@@ -152,12 +154,35 @@ export class RuntimeSupervisor extends EventEmitter {
     if (this.client?.ready) return Promise.resolve();
     // An owner's explicit start after exhausted retries grants a fresh budget.
     if (!automatic && this.state.diagnostic === "RESTART_LIMIT") this.attempts = 0;
-    const generation = ++this.generation;
-    // Unique across AgentPier restarts, unlike the counter: evidence of one launch
-    // never matches another (run-confirmation.js).
-    this.generationId = randomUUID();
+    let generation;
+    const launch = async () => {
+      for (let port = 1; ; port++) {
+        generation = ++this.generation;
+        // Unique across AgentPier restarts, unlike the counter: evidence of one
+        // launch never matches another (run-confirmation.js).
+        this.generationId = randomUUID();
+        try {
+          return await this.launch(generation);
+        } catch (error) {
+          // A drawn port another listener took before the Gateway bound it
+          // (freePort releases it): the token was not sent, so this start goes on
+          // with a fresh port; the Gateway still starting is retired by the next
+          // launch. Only a repeated refusal fails the start.
+          if (
+            error.code !== "ENDPOINT_UNTRUSTED" ||
+            port >= portAttempts ||
+            generation !== this.generation
+          )
+            throw error;
+          // A Gateway that already exited on the taken port scheduled a restart;
+          // this start's next launch takes its place.
+          clearTimeout(this.retryTimer);
+          this.retryTimer = null;
+        }
+      }
+    };
     this.wanted = true;
-    this.starting = this.launch(generation)
+    this.starting = launch()
       .catch(async (error) => {
         if (this.generation === generation) {
           if (this.child) await this.stop({ urgent: true });
@@ -202,11 +227,13 @@ export class RuntimeSupervisor extends EventEmitter {
     // The runtime the Gateway runs; the OpenClaw CLI (MCP OAuth) uses the same one.
     this.runtime = runtime;
     if (runtime.diagnostic) this.setState({ diagnostic: runtime.diagnostic });
-    const port = await freePort();
-    if (generation !== this.generation) return;
     const teams = this.teamConfiguration
       ? await this.teamConfiguration(runtime)
       : undefined;
+    if (generation !== this.generation) return;
+    // Drawn after the team bridge listens: its listen(0) could otherwise receive the
+    // port freePort has just released.
+    const port = await freePort();
     if (generation !== this.generation) return;
     // What this start compiles, without the search key. It becomes the running
     // Gateway's state only once that Gateway answers; until then nothing runs.
