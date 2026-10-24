@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   continuationPrompt,
   directOwnerTurn,
+  goalAgent,
   goalChat,
   goalTurn,
   ownerSource,
@@ -101,4 +102,10 @@ test("owner-only actions refuse a continuation", () => {
     (e) => e.key === "goalOwnerOnly" && e.status === 403,
   );
   refuseInGoalTurn({ kind: "owner" });
+});
+
+test("no agent is no goal agent", () => {
+  assert.equal(goalAgent(undefined), false);
+  assert.equal(goalAgent(null), false);
+  assert.equal(goalChat(undefined, { id: "c", assistantId: "a" }), false);
 });

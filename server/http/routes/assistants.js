@@ -214,9 +214,11 @@ function activeAssistantRoutes(services) {
   router.delete("/assistant-conversations/:id/queued", (req, res) =>
     res.json(assistants.takeBackQueued(req.params.id)),
   );
-  router.post("/assistant-attempts/:id/cancel", async (req, res) =>
-    res.json(await assistants.cancel(req.params.id)),
-  );
+  // The owner's stop control; a work goal's continuation it ends stops as his.
+  router.post("/assistant-attempts/:id/cancel", async (req, res) => {
+    assistants.teams?.goals?.ownerCancel(req.params.id);
+    res.json(await assistants.cancel(req.params.id));
+  });
   router.post("/assistant-attempts/:id/recover", async (req, res) =>
     res.json(await assistants.recover(req.params.id, req.body)),
   );

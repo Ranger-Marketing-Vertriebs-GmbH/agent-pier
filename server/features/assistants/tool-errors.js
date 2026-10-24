@@ -173,6 +173,8 @@ const reasons = {
   GOAL_UNAVAILABLE:
     "Goals are only available in the owner's own chats with this agent. Do not retry.",
   GOAL_NOT_OPEN: "This chat has no open goal. Do not retry.",
+  GOAL_UPDATE_TURN:
+    "The steps of the open goal can only be noted in a turn of the owner's own message or in a turn of that goal, not in forwarded, scheduled or member-result turns or for a goal that has since been replaced. Do not retry; keep working on the open goal.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -243,6 +245,7 @@ const byKey = {
   goalOwnerOnly: "GOAL_OWNER_ONLY",
   goalUnavailable: "GOAL_UNAVAILABLE",
   goalNotOpen: "GOAL_NOT_OPEN",
+  goalUpdateTurn: "GOAL_UPDATE_TURN",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

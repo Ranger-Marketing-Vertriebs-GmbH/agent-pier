@@ -21,7 +21,7 @@ import {
 } from "./member-grants.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 import { draftModel } from "./member-models.js";
-import { ownerSource } from "./goal-turns.js";
+import { directOwnerTurn, ownerSource } from "./goal-turns.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
 // words containing "team" (also in compounds such as "Rechercheteam"), as whole
@@ -346,9 +346,8 @@ export class TeamStore {
         throw assistantProblem("active", 409);
       const context = this.context(request.id),
         { request: anchor, context: anchorContext } = ownerSource(this, request),
-        ownerTurn =
-          (["owner", "telegram"].includes(context.kind) && !context.forwarded) ||
-          origin?.kind === "owner";
+        // In a goal turn the anchor's: a lost one is no owner turn (goal-turns.js).
+        ownerTurn = directOwnerTurn(anchorContext) || origin?.kind === "owner";
       const consumed = this.list().some(
         ({ authorization: a }) => a?.kind === "task" && a.requestId === anchor.id,
       );

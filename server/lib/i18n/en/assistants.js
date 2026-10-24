@@ -318,6 +318,8 @@ export const assistants = {
   goalOwnerOnly: "This needs your own message; a goal continuation cannot do it.",
   goalUnavailable: "Goals are only available in your own chats with this agent.",
   goalNotOpen: "This chat has no open goal.",
+  goalUpdateTurn:
+    "The goal's steps can only be noted in a reply to your own message or in a continuation of that goal, not in a forwarded, scheduled or delegated turn.",
   leadRoutineOwnerTurn:
     "A lead agent sets up or changes routines on its members only in a turn of your own message.",
   leadRoutineNotPermanent:

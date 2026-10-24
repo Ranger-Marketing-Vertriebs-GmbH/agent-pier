@@ -15,9 +15,15 @@ const actions = {
   blocked: { required: ["reason"], optional: [] },
 };
 const toolRunLimit = 256;
+// The goal tool itself is no progress on the goal (the no-progress brake).
+export const goalToolName = "agentpier_goal";
 
 function goalInput(input) {
-  const spec = input && typeof input === "object" && actions[input.action];
+  const spec =
+    input &&
+    typeof input === "object" &&
+    Object.hasOwn(actions, input.action) &&
+    actions[input.action];
   if (
     !spec ||
     Array.isArray(input) ||
@@ -47,6 +53,7 @@ export class WorkGoals {
     this.store = new WorkGoalStore(teams);
     this.toolRuns = new Set();
     this.sentRuns = new Set();
+    this.ownerCancels = new Set();
     // In memory only (work-goal-nudges.js): since when each goal's chat is idle, and
     // since when a background command holds it.
     this.idleSince = new Map();
@@ -81,7 +88,7 @@ export class WorkGoals {
     if (action === "set" && !directOwnerTurn(context))
       throw assistantProblem("goalOwnerTurn", 403);
     if (action === "update" && !directOwnerTurn(context) && !goalTurn(context))
-      throw assistantProblem("goalOwnerTurn", 403);
+      throw assistantProblem("goalUpdateTurn", 403);
     inv.assertCurrent?.();
     const conversationId = conversation.id;
     if (action === "set") {
@@ -109,6 +116,13 @@ export class WorkGoals {
     }
     const open = this.store.open(conversationId);
     if (!open) throw assistantProblem("goalNotOpen", 409);
+    // A goal turn notes the steps of its own goal only, never of one set after it.
+    if (
+      action === "update" &&
+      !directOwnerTurn(context) &&
+      goalTurn(context).id !== open.id
+    )
+      throw assistantProblem("goalUpdateTurn", 403);
     if (action === "update") {
       this.store.write(open, { steps: values.steps });
       this.audit(open, "updated");
@@ -171,11 +185,15 @@ export class WorkGoals {
   forget(conversationId) {
     this.store.forget(conversationId);
   }
-  /** Marks a run that used a tool: the turn made progress. */
+  /**
+   * Marks a run that used a tool other than the goal tool: the turn made progress.
+   * The Gateway's item event names the tool; one without a name counts.
+   */
   observe(payload) {
     if (
       payload?.stream !== "item" ||
       payload.data?.kind !== "tool" ||
+      payload.data.name === goalToolName ||
       typeof payload.runId !== "string"
     )
       return;
@@ -190,6 +208,13 @@ export class WorkGoals {
   }
   sentRun(attemptId) {
     return this.sentRuns.has(attemptId);
+  }
+  /** Marks an attempt the owner cancels with the chat's stop control (routes). */
+  ownerCancel(attemptId) {
+    if (typeof attemptId === "string") remember(this.ownerCancels, attemptId);
+  }
+  ownerCancelled(attemptId) {
+    return this.ownerCancels.has(attemptId);
   }
   /** One nudge pass over the open goals (work-goal-nudges.js). */
   tick() {

@@ -14,6 +14,7 @@ import { saveText, shortForm } from "./team-texts.js";
 import { deliverRequest } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
 import { latestOwnerTurn } from "./work-goal-nudges.js";
+import { recordedTurn } from "./goal-turns.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
 // stuck-session diagnostics only flag a call as long-running after two minutes, so
@@ -529,13 +530,23 @@ export class LeadRequests {
     const report = r.origin?.kind === "member-report";
     const conversationId =
       report && this.reports ? this.reports.conversationId(r) : r.parentConversationId;
-    const result = { kind: "member-result", requestId: r.id };
+    const result = { kind: "member-result", requestId: r.id },
+      clientRequestId = `lead-request-result:${r.id}`;
+    // A follow-up accepted before a crash lost its bookkeeping goes again as it was
+    // recorded, a goal turn or not, whatever the goal's state is now.
+    const lost = conversationId
+      ? recordedTurn(this.teams, conversationId, clientRequestId)
+      : null;
     return {
       conversationId,
-      clientRequestId: `lead-request-result:${r.id}`,
-      text: followUp({ ...r, answer: this.store.answer(r) }),
+      clientRequestId,
+      text: lost?.request.text ?? followUp({ ...r, answer: this.store.answer(r) }),
       context: result,
-      ...(!r.fromMemberId && !report ? this.goalResult(conversationId, result) : {}),
+      ...(lost
+        ? { context: lost.context, teamAllowed: lost.teamAllowed }
+        : !r.fromMemberId && !report
+          ? this.goalResult(conversationId, result)
+          : {}),
     };
   }
   /**

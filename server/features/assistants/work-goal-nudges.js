@@ -6,7 +6,14 @@
 // continuations sent are in memory: a restart only restarts the delay, and a
 // continuation this process did not send counts as progress.
 import { teamActivePhases } from "./assistant-activity.js";
-import { continuationPrompt, directOwnerTurn, goalChat } from "./goal-turns.js";
+import { abortAndReview } from "./attempt-recovery.js";
+import {
+  continuationPrompt,
+  directOwnerTurn,
+  goalChat,
+  recordedTurn,
+} from "./goal-turns.js";
+import { mainConversation } from "./routine-targets.js";
 import { backgroundMethod } from "./team-plugin/background-commands.js";
 
 export const nudgeDelayMs = 90000;
@@ -69,16 +76,26 @@ function awaitingApproval(goals, conversation) {
   );
 }
 
+// The chat a request's result will go to: the asking member's for a colleague's
+// answer it takes itself, else the lead's main chat (peer-requests.js target).
+function resultChat(goals, r) {
+  if (!r.fromMemberId) return r.parentConversationId;
+  return r.resultTo !== "lead" && goals.service.peers?.reachable(r)
+    ? r.fromConversationId
+    : mainConversation(goals.assistants.store, r.parentAssistantId)?.id;
+}
+
+// A question or task whose result will arrive in the chat: the lead's own, or a
+// colleague's answer for a member. Member reports are not waited for.
 function leadRequestOpen(goals, conversation) {
   return goals.service.requests.store
     .pending()
     .some(
       (r) =>
-        r.parentConversationId === conversation.id &&
-        !r.fromMemberId &&
         r.type !== "report" &&
         !r.resultAttemptId &&
-        !settledDeliveries.has(r.delivery),
+        !settledDeliveries.has(r.delivery) &&
+        resultChat(goals, r) === conversation.id,
     );
 }
 
@@ -134,10 +151,11 @@ export function evaluate(goals, goal) {
   }
   if (!terminalAttempts.has(attempt.state) && !attempt.reviewedAt) return goal;
   const evaluated = { evaluatedAttemptId: id };
+  // Only the owner's stop control is his; any other abort is AgentPier's or the Gateway's.
   if (attempt.state === "cancelled")
     return goals.end(goals.store.write(goal, evaluated), "stopped", {
       reasonCode: "turn-cancelled",
-      source: "user",
+      source: goals.ownerCancelled(id) ? "user" : "system",
     });
   if (technicalAttempts.has(attempt.state))
     return technicalFailure(goals, goal, evaluated);
@@ -151,26 +169,52 @@ export function evaluate(goals, goal) {
     : next;
 }
 
+/**
+ * An interrupted continuation AgentPier sent itself is reviewed as the owner's review
+ * would (attempt-recovery.js): its run is aborted in its session, then the attempt is
+ * marked reviewed, and it counts as a technical failure. An uncertain one may still
+ * run and waits for the owner. A failed abort is tried again on the next pass.
+ */
+async function reviewInterrupted(goals, goal) {
+  const a = goals.assistants;
+  try {
+    const attempt = goal.lastAttemptId && a.ledger.getAttempt(goal.lastAttemptId);
+    if (attempt?.state !== "interrupted" || attempt.reviewedAt) return;
+    const { clientRequestId } = a.ledger.getRequest(attempt.requestId);
+    if (!clientRequestId.startsWith(`goal-continuation:${goal.id}:`)) return;
+    await abortAndReview(a, attempt);
+    goals.audit(goal, "continuation-reviewed");
+  } catch {
+    /* Retried on the next pass; the attempt holds the chat until then. */
+  }
+}
+
 async function nudge(goals, stale, anchor) {
   const a = goals.assistants,
     anchorContext = goals.teams.context(anchor.id);
   // The pass awaited the Gateway: a Stop or a new goal meanwhile wins.
   const goal = goals.store.open(stale.conversationId);
   if (goal?.id !== stale.id || goal.revision !== stale.revision) return goal;
+  const clientRequestId = `goal-continuation:${goal.id}:${goal.nudges + 1}`;
+  // Accepted before a crash that lost its bookkeeping: adopted as it was recorded.
+  const lost = recordedTurn(goals.teams, goal.conversationId, clientRequestId);
   try {
     const { attempt } = await a.send(
       goal.conversationId,
       {
-        clientRequestId: `goal-continuation:${goal.id}:${goal.nudges + 1}`,
-        text: continuationPrompt(goal),
-        ...(anchorContext.teamAllowed ? { teamAllowed: true } : {}),
+        clientRequestId,
+        text: lost?.request.text ?? continuationPrompt(goal),
+        ...((lost ? lost.teamAllowed : anchorContext.teamAllowed)
+          ? { teamAllowed: true }
+          : {}),
       },
-      {
+      lost?.context ?? {
         kind: "owner",
         goal: { id: goal.id, anchorRequestId: anchor.id, title: goal.title },
       },
     );
-    goals.sent(attempt.id);
+    // A run another process sent was not watched for tool calls.
+    if (!lost) goals.sent(attempt.id);
     const next = goals.store.write(goal, {
       nudges: goal.nudges + 1,
       lastAttemptId: attempt.id,
@@ -196,6 +240,7 @@ async function tickGoal(goals, goal) {
     return goals.end(goal, "ended", { reasonCode: "archived" });
   if (!goalChat(agent, conversation))
     return goals.end(goal, "ended", { reasonCode: "ineligible" });
+  await reviewInterrupted(goals, goal);
   goal = evaluate(goals, goal);
   if (goal.state !== "open") return;
   const hold = () => void goals.idleSince.delete(goal.id);

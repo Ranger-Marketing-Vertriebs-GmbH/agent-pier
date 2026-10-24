@@ -87,7 +87,7 @@ const unknownOutcome = (attempt) => ["uncertain", "interrupted"].includes(attemp
 
 // Only once the Gateway took the abort of the run in its own session is the attempt
 // marked reviewed and a new turn may follow: a send that timed out may still run there.
-async function abortAndReview(service, attempt) {
+export async function abortAndReview(service, attempt) {
   const conversation = service.store.getConversation(
     service.ledger.getRequest(attempt.requestId).conversationId,
   );

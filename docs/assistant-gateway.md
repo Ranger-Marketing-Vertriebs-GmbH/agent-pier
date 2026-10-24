@@ -3673,18 +3673,23 @@ so a switch limited to agents with memory cannot be built yet.
 
 The agent tool `agentpier_goal` (actions `set`, `update`, `done`, `blocked`) records one
 work goal per chat in `work-goal-store.js`; the owner's `POST
-/api/assistant-conversations/:id/goal/stop` stops it. It is offered only for the owner's
+/api/assistant-conversations/:id/goal/stop` stops it (404 for an unknown chat, 503
+while teams are not wired). It is offered only for the owner's
 own chats with a personal agent or permanent member (not shared or user agents,
 not temporary members). `set` needs the owner's direct turn (context `owner` or
 `telegram`, not forwarded, no `goal` marker), recognised by meaning from the model, never
 from forwarded, quoted, scheduled, tool-provided or member content. `update` works from
-the owner's direct turn or a goal turn; `done` and `blocked` work from any attempt-bound
+the owner's direct turn or a goal turn of the open goal (a turn of a replaced goal is
+refused with `GOAL_UPDATE_TURN`); `done` and `blocked` work from any attempt-bound
 turn of that agent in the goal chat. None of them widens rights. Every change is a note in the chat and is audited by its
 kind only, never with the goal's texts.
 
 **Nudge, not cron or heartbeat.** AgentPier itself sends the continuation as a follow-up
 turn (ledger request with recorded context) 90 seconds after the goal's chat has been
-idle. OpenClaw cron and heartbeat runs have no attempt and no context, so every right
+idle. A follow-up accepted under its client request id (`goal-continuation:<goal>:<n>`
+or `lead-request-result:<request>`) whose bookkeeping a crash lost is sent again with
+the text and context recorded for it, never a context worked out anew, so a retry
+adopts the accepted request instead of conflicting. OpenClaw cron and heartbeat runs have no attempt and no context, so every right
 would need `exec-continuation.js`-style proof; the follow-up turn keeps rights, audit and
 the live feed unchanged. The idle timers are in memory: a restart only restarts the delay.
 
@@ -3705,19 +3710,28 @@ routines (both go through `turnAudience`), grant shell or SSH access, or set or 
 goal. Lead shares and grants a lead turn may make today stay allowed.
 
 **Holds.** No nudge while the chat has a pending attempt, a live check-in run, a running
-compaction or summary, a queued owner message, an approval card, the chat's own open lead
-requests or team, or a background command. An interrupted or uncertain attempt stays
-pending until the owner reviews it, so it holds the goal until then. Background commands
+compaction or summary, a queued owner message, an approval card, an open lead or peer
+request whose result will be delivered into this chat (the lead's own, a colleague's
+answer for a permanent member's chat, or one a member sends to the lead; member reports
+excluded), its team, or a background command. An uncertain attempt, and any interrupted
+attempt other than a goal continuation, stays pending until the owner reviews it, so it
+holds the goal until then: an uncertain run may still be running and may have run tools.
+An interrupted continuation AgentPier sent itself is reviewed on the next pass the way a
+user's own review works (`abortAndReview` in `attempt-recovery.js`: `sessions.abort` for
+its run, then the attempt is marked reviewed), audited as `continuation-reviewed`. Background commands
 are asked with the Gateway method `agentpier.backgroundCommands` (team plugin,
 `background-commands.js`) for the chat's session once the delay is over, and then on every
 pass while that hold lasts; they hold for at most 2 hours from when the chat became idle
 around them, and an error counts as none running. The anchor is also read only then.
 
-**Brakes.** 3 technical failures (failed, interrupted or uncertain attempts) in a row, or 3
-continuations without any tool call, end the goal as blocked. A refusal that only says "not
+**Brakes.** 3 technical failures (failed, interrupted or reviewed uncertain attempts) in a
+row, or 3 continuations without any tool call, end the goal as blocked. A tool call is a
+Gateway `item` event of kind `tool`; one named `agentpier_goal` is not progress, one
+without a name is. A refusal that only says "not
 now" (409, 503) restarts the delay. An archived chat or agent, a lost anchor, an agent that
-became ineligible, or the owner stopping a running continuation turn (`turn-cancelled`) end
-the goal. Continuations and goal notes are not sent to Telegram, and goals never block
+became ineligible, or a cancelled continuation turn (`turn-cancelled`) end the goal; it is
+audited with source `user` only when the owner's stop control
+(`POST /api/assistant-attempts/:id/cancel`) cancelled it, otherwise `system`. Continuations and goal notes are not sent to Telegram, and goals never block
 saving agent settings between turns.
 
 ## Live agent chat feed

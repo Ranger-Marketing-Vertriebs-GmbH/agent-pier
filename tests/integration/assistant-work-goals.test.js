@@ -221,6 +221,7 @@ test("goal problems reach the model as their codes", () => {
     goalOwnerOnly: ["GOAL_OWNER_ONLY", 403],
     goalUnavailable: ["GOAL_UNAVAILABLE", 409],
     goalNotOpen: ["GOAL_NOT_OPEN", 409],
+    goalUpdateTurn: ["GOAL_UPDATE_TURN", 403],
   };
   for (const [key, [code, status]] of Object.entries(codes)) {
     const result = toolError({ key, status });
@@ -354,7 +355,7 @@ test("only the owner's direct turn or a goal turn updates the steps", async (t) 
   ])
     await assert.rejects(
       update(context, "1. Wrong"),
-      (e) => e.key === "goalOwnerTurn" && e.status === 403,
+      (e) => e.key === "goalUpdateTurn" && e.status === 403,
       JSON.stringify(context),
     );
   assert.equal(f.service.goals.view(chat.id).steps, "");

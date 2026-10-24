@@ -640,9 +640,12 @@ done: <title>** with a **Stop** button under the chat header.
   Between turns you can still write, change settings or open other chats.
 - **What still holds it.** AgentPier waits while a turn or a summary runs, while an
   approval card, a team proposal or one of your queued messages waits for you, while
-  the chat's own questions and tasks to members are open, and while a background
-  command of the agent runs (for up to 2 hours). An interrupted turn, or one whose
-  outcome is uncertain, waits for your review and holds the goal until then.
+  the chat's own questions and tasks to members are open (in a permanent member's
+  chat also its questions and tasks to colleagues whose answer comes back there), and
+  while a background command of the agent runs (for up to 2 hours). Members' reports
+  do not hold it. A turn whose outcome is uncertain, or any other interrupted turn,
+  waits for your review and holds the goal until then. An interrupted continuation is
+  reviewed by AgentPier itself and counts as a technical failure.
 - **Rights of a continuation.** A continuation has exactly the rights of your latest own
   direct message in that chat (at first the one that set the goal), including
   Trusted SSH and SFTP hosts, and a lead's tasks to its members may change files in the
@@ -654,7 +657,9 @@ done: <title>** with a **Stop** button under the chat header.
   on **May write** for routines, create reminders or routines, grant access or set a
   goal.
 - **Brakes.** The goal ends as blocked after 3 technical failures of the model in a
-  row, or after 3 continuations without any tool call. The agent can also finish it
+  row (an interrupted continuation counts as one), or after 3 continuations without
+  any tool call; a continuation that only noted, finished or blocked the goal does not
+  count as progress. The agent can also finish it
   itself ("Goal done: ...") or report it blocked ("Goal blocked: ...") when it needs
   you.
 - **Stop.** **Stop** on the goal line ends the goal at once ("Goal stopped: ...").
