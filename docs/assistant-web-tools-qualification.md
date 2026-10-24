@@ -51,8 +51,8 @@ user's Chrome profile.
 The `native-contracts` job (`.github/workflows/assistant-runtime.yml`) exports
 `AGENTPIER_TEST_BROWSER_PATH` from the runner's preinstalled Google Chrome
 (`/usr/bin/google-chrome` on `ubuntu-latest`,
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on `macos-latest`
-and `macos-15-intel`) and fails that step when neither exists. On `ubuntu-24.04-arm`
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on `macos-latest`)
+and fails that step when neither exists. On `ubuntu-24.04-arm`
 without Google Chrome it installs Playwright's Chromium and allows unprivileged user
 namespaces on that disposable runner, so Chromium's own sandbox starts; this path is
 unverified until the first nightly run.
