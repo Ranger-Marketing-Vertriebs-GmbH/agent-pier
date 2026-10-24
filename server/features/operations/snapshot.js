@@ -22,6 +22,7 @@ import {
   userCredentialsMember,
   usersMember,
 } from "../users/user-backup.js";
+import { captureSftpHosts, sftpHostsMember } from "../ssh/sftp-backup.js";
 
 export const omissions = [
   "File trash, file journals and transfer bytes",
@@ -197,6 +198,10 @@ export function capture({
       if (users.credentials)
         credentials.push(fileMember(userCredentialsMember, users.credentials));
     }
+    // SFTP passwords travel only in the capsule; plan() lists the omission otherwise.
+    const sftpHosts = withCredentials ? captureSftpHosts(dataDir) : null;
+    if (sftpHosts)
+      credentials.push(fileMember(sftpHostsMember, { version: 1, ...sftpHosts }));
     if (fs.existsSync(path.join(dataDir, "memory/memory.sqlite"))) {
       const startedAt = new Date().toISOString();
       files.push(
