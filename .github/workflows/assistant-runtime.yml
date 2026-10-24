@@ -65,30 +65,23 @@ jobs:
   native-contracts:
     # The contracts run in parallel shards that scripts/assistant-contract-shards.mjs
     # balances by the measured seconds in scripts/assistant-contract-shards.json:
-    # four per runner, six on the Intel macOS runner, which needs about 2.2 times as
-    # long as Apple silicon. Each shard is its own runner with its own runtime
-    # installation, data directories and ports.
-    name: Native contracts (${{ matrix.runner }}) shard ${{ matrix.shard }}/${{ matrix.runner == 'macos-15-intel' && 6 || 4 }}
-    timeout-minutes: ${{ matrix.runner == 'macos-15-intel' && 45 || 30 }}
+    # four per runner. Each shard is its own runner with its own runtime
+    # installation, data directories and ports. Intel macOS (darwin-x64) is not
+    # qualified here: its hosted runners are too slow and flaky for these timings.
+    name: Native contracts (${{ matrix.runner }}) shard ${{ matrix.shard }}/4
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # Every target of the runtime manifest's nodeChecksums. The arm64 Linux and
-        # Intel macOS runners only run nightly, on demand and before a release.
+        # Linux x64, Linux arm64 and macOS arm64. The arm64 Linux runner only runs
+        # nightly, on demand and before a release.
         runner: >-
           ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]'
           || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
           || startsWith(github.ref, 'refs/tags/'))
-          && '["ubuntu-latest","macos-latest","ubuntu-24.04-arm","macos-15-intel"]'
+          && '["ubuntu-latest","macos-latest","ubuntu-24.04-arm"]'
           || '["ubuntu-latest","macos-latest"]') }}
-        shard: [1, 2, 3, 4, 5, 6]
-        exclude:
-          - { runner: ubuntu-latest, shard: 5 }
-          - { runner: ubuntu-latest, shard: 6 }
-          - { runner: macos-latest, shard: 5 }
-          - { runner: macos-latest, shard: 6 }
-          - { runner: ubuntu-24.04-arm, shard: 5 }
-          - { runner: ubuntu-24.04-arm, shard: 6 }
+        shard: [1, 2, 3, 4]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -151,12 +144,10 @@ jobs:
         # full wait budget of lead-requests.js; pull requests use a 12 s ask.
         env:
           AGENTPIER_TEAM_LONG_ASK: ${{ github.event_name != 'pull_request' && '1' || '' }}
-          # The Intel macOS runner stretches the contracts' own wait budgets.
-          AGENTPIER_CONTRACT_TIME_SCALE: ${{ matrix.runner == 'macos-15-intel' && '2.5' || '1' }}
         # macOS has bash 3.2 without mapfile; the contract paths contain no spaces.
         run: |
           files=$(node scripts/assistant-contract-shards.mjs \
-            --shard "${{ matrix.shard }}" --total "${{ matrix.runner == 'macos-15-intel' && 6 || 4 }}")
+            --shard "${{ matrix.shard }}" --total 4)
           echo "$files"
           # shellcheck disable=SC2086
           node --test --test-concurrency=1 \

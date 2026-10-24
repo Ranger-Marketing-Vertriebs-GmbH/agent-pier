@@ -449,10 +449,13 @@ other host gets `Unsupported assistant runtime platform`.
 | linux-x64    | `ubuntu-24.04`, also pull requests        | `ubuntu-latest`, also pull requests                |
 | linux-arm64  | `ubuntu-24.04-arm`, also pull requests    | `ubuntu-24.04-arm`, nightly and release only (new) |
 | darwin-arm64 | `macos-15`, after merge and nightly       | `macos-latest`, after merge and nightly            |
-| darwin-x64   | `macos-15-intel`, after merge and nightly | `macos-15-intel`, nightly and release only (new)   |
+| darwin-x64   | `macos-15-intel`, after merge and nightly | not run                                            |
 
-`macos-13` is retired; `macos-15-intel` is the GitHub-hosted Intel label the
-`fresh-install` job already used. On Linux arm64 the web tools contract uses Google
+Intel Macs (darwin-x64) stay supported: release packages are built for them and the
+fresh install and MCP toolchain jobs run on `macos-15-intel`. The full native agent
+contract qualification does not run there, because the hosted Intel runners are slow
+and produced repeated timing flakes. Agents on Intel Macs are therefore not covered
+by the full native qualification; linux-x64, linux-arm64 and darwin-arm64 are. On Linux arm64 the web tools contract uses Google
 Chrome when the image has it and otherwise Playwright's Chromium, for which the job
 lifts the Ubuntu 24.04 AppArmor restriction on unprivileged user namespaces (on the
 disposable runner only) so Chromium's sandbox starts. These jobs were validated with
