@@ -306,9 +306,14 @@ test("long upload returns running with jobId and job reports progress", async (t
   assert.equal(started.jobId, row.id);
   assert.equal(row.state, "executing");
   assert.equal(row.followUp, true);
-  const running = await job(f, started.jobId);
-  assert.equal(running.status, "running");
+  // The job counts its files once its plan is ready, shortly after it starts.
+  let running = await job(f, started.jobId);
+  for (let i = 0; running.progress.files !== 1 && i < 150; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    running = await job(f, started.jobId);
+  }
   assert.equal(running.progress.files, 1);
+  assert.equal(running.status, "running");
   assert.equal(running.progress.bytes, 65536);
   await waitFor(() => f.rows()[0].progress?.bytes === 65536);
   assert.equal(await code(job(f, "unknown-job")), "SFTP_JOB_NOT_FOUND");
