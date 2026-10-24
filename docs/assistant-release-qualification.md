@@ -531,8 +531,14 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
 - **Contract helpers.** The multi-chat contract finds the session maintenance
   functions by their export clause (2026.10.7 moved them to another chunk); the
   shell environment contract expects `Library/Caches/openclaw-<uid>` on 2026.10.7;
-  the work-goals contract recognises the event turn. No product code changed for
-  these.
+  the work-goals contract recognises the event turn. The dreaming contract creates
+  its data directory under the resolved temporary directory (see the known upstream
+  behaviour below), and `GuardedRuntimeSupervisor` waits for the Gateway's child
+  processes after a stop: OpenClaw's SQLite read children
+  (`sqlite-readonly-location.worker.js`, also in 2026.10.3) exit only after the
+  Gateway, once they see the IPC disconnect, and write Node's compile cache into
+  `assistants/tmp` on the way out, which raced the removal of the data directory
+  (`ENOTEMPTY`) once on the Intel macOS runner. No product code changed for these.
 
 **Results.**
 
@@ -571,7 +577,12 @@ two completions that end at the same moment (`SessionDeliveryGenerationUnavailab
 in the Gateway log); the dropped completion gets no follow-up turn, which fails
 closed. An exec continuation can also be refused at random when OpenClaw reuses a
 process slug with a `-2` suffix whose first eight characters match a live one; this
-is unchanged since 2026.10.3.
+is unchanged since 2026.10.3. When the state directory's path runs through a
+symbolic link (on macOS `os.tmpdir()` is `/var/folders/…`, a link to
+`/private/var/folders/…`), 2026.10.7's dreaming sweep fails every workspace with
+"Canonical session reader continuation is no longer current" and writes no session
+corpus; 2026.10.3 passed the same contract there. Dreaming stays off in AgentPier,
+and no other native contract showed this error on the macOS runners.
 
 ### Native architectures (2026-10-19)
 

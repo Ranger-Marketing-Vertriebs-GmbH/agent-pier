@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
 
 // Long-lived or signal-ignoring processes a test starts. Each is stopped in the
@@ -60,9 +61,32 @@ export function guardProcess(t, child, { group = false, graceMs = 1000 } = {}) {
 /** How many processes are registered (for the helper's own tests). */
 export const guardedCount = () => guarded.size;
 
+/** Every live descendant of `root`, from one process table snapshot. */
+function descendants(root) {
+  const rows = execFileSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" })
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/).map(Number));
+  const found = new Set([root]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [pid, ppid] of rows)
+      if (found.has(ppid) && !found.has(pid)) {
+        found.add(pid);
+        grew = true;
+      }
+  }
+  found.delete(root);
+  return [...found];
+}
+
 /**
  * A RuntimeSupervisor whose Gateway processes are guarded: a test that dies before
- * runtime.close() never leaves an openclaw-gateway behind for days.
+ * runtime.close() never leaves an openclaw-gateway behind for days. Stopping it also
+ * waits for the Gateway's children: OpenClaw's SQLite read children exit only after
+ * the Gateway, once they see the IPC disconnect, and write Node's compile cache into
+ * the data directory on their way out, so an immediate removal of that directory
+ * raced them (ENOTEMPTY). One that is still there after `lingerMs` is killed.
  */
 export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
   constructor(options) {
@@ -73,5 +97,13 @@ export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
       guardProcess(null, child);
       return child;
     };
+  }
+  async terminateOwnedChild(graceMs, { lingerMs = 10000 } = {}) {
+    const pid = this.child?.pid;
+    const children = pid && alive(pid) ? descendants(pid) : [];
+    await super.terminateOwnedChild(graceMs);
+    for (const end = Date.now() + lingerMs; Date.now() < end && children.some(alive);)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const child of children.filter(alive)) signal({ pid: child }, "SIGKILL");
   }
 }
