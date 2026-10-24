@@ -476,10 +476,11 @@ test(
         assert.match(blocked, /browser navigation blocked by policy/);
         assert.equal(page.hits, 0);
         try {
-          await call({ action: "start" }, "start");
+          const { result: started } = await call({ action: "start" }, "start");
           const { result: running } = await call({ action: "status" }, "browser-running");
           const { running: launched, userDataDir } = JSON.parse(running);
-          assert.equal(launched, true);
+          // Both answers, so a browser that did not come up says why.
+          assert.equal(launched, true, `start=${started} status=${running}`);
           assert.ok(
             fs.realpathSync(userDataDir).startsWith(fs.realpathSync(dataDir) + path.sep),
             userDataDir,
