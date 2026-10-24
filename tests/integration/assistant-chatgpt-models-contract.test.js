@@ -26,6 +26,20 @@ const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 const profileId = "openai:models-contract";
 const reasons = ["missing-auth", "auth-failed", "cooldown"];
 
+// The Gateway's own lines about the openai catalog (no credentials: the profile is
+// synthetic and every request ends at the local proxy).
+function discoveryLog(paths) {
+  const lines = [];
+  for (const name of ["gateway-console.log", "openclaw.log"]) {
+    const file = path.join(paths.logs, name);
+    if (!fs.existsSync(file)) continue;
+    for (const line of fs.readFileSync(file, "utf8").split("\n"))
+      if (/openai|catalog|discovery|auth profile|proxy/i.test(line))
+        lines.push(`${name}: ${line.slice(0, 400)}`);
+  }
+  return `gateway log=${JSON.stringify(lines.slice(-40))}`;
+}
+
 test(
   "the pinned Gateway answers the ChatGPT model list read in the shape AgentPier parses",
   { skip: !installed, timeout: contractTimeout(240000) },
@@ -151,10 +165,11 @@ test(
       { agentId: "main", provider: "openai", view: "all" },
       { timeoutMs: 60000 },
     );
-    assert.deepEqual(
-      raw.providerOutcomes?.find((o) => o.profileId === profileId),
-      { provider: "openai", profileId, status: "auth-rejected" },
-    );
+    const outcome = raw.providerOutcomes?.find((o) => o.profileId === profileId);
+    // Once on ubuntu-latest the cached outcome was `unavailable` (discovery did not
+    // run, or failed other than with the proxy's 401); the Gateway's log says which.
+    if (outcome?.status !== "auth-rejected") t.diagnostic(discoveryLog(runtime.paths));
+    assert.deepEqual(outcome, { provider: "openai", profileId, status: "auth-rejected" });
     assert.ok(raw.models.length > 0, "the openai catalog lists its models");
     for (const row of raw.models) {
       assert.equal(row.provider, "openai");
