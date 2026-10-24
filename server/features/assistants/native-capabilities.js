@@ -41,7 +41,7 @@ export const guardedTools = ["write", "edit"];
 // keeps on workspace files and the owner's PDF model (tool-guard.js pdfCall).
 export const guardGatedTools = [...guardedTools, "browser", "image_generate", "pdf"];
 const guardGatedCapabilities = ["browser", "createImages", "readPdfs"];
-export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3"];
+export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3", "2026.10.7"];
 export const delegationTools = [
   "agentpier_team_propose",
   "agentpier_team_status",
