@@ -48,13 +48,7 @@ import useLongChat from "./useLongChat.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
-// OpenClaw stores a sent turn without trailing whitespace (assistant-channel-contract.js).
-const turnText = (text) => String(text).replace(/\r\n?/g, "\n").trimEnd();
-const sameTurnText = (a, b) => turnText(a) === turnText(b);
-// A stored turn names its request; older or unkeyed turns still match by text.
-const sameTurn = (m, request) =>
-  m.role === "user" &&
-  (m.requestId ? m.requestId === request.id : sameTurnText(m.text, request.text));
+import { sameTurn } from "./same-turn.js";
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
@@ -422,7 +416,11 @@ export default function AssistantChat({
         navigate={navigate}
       />
       <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
-      <WorkGoalLine goal={history.goal} {...{ conversationId }} onStopped={refresh} />
+      <WorkGoalLine
+        goal={history.goal}
+        conversationId={conversationId}
+        onStopped={refresh}
+      />
       {member && <AssistantMemberContext member={member} navigate={navigate} />}
       <div
         className="assistant-chat-panel"
