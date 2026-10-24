@@ -4,7 +4,7 @@
 
 **Goal:** An agent told by its owner to finish something records one open goal per chat and keeps working through AgentPier-sent continuation turns until it calls done or blocked, the owner stops it, or a brake ends it (AGENTPIER-208).
 
-**Architecture:** The nudge is an AgentPier-sent follow-up turn through `service.send` (the path of `ssh-result`, `sftp-result` and lead-request result follow-ups), not OpenClaw cron or heartbeat: only a ledger turn has an attempt, a request and a recorded trusted context in SQLite, so every existing owner-turn check works on it unchanged and survives a restart. Cron/heartbeat runs have none of these and would need the `exec-continuation.js` proof for every right. The continuation's context is recorded as `{ kind: "owner", goal: { id, anchorRequestId, title } }`, so it is a direct owner turn everywhere; a short, explicit exclusion list (`goalTurn(context)`) refuses what needs the owner's own confirmation, and owner-text proofs (quotes, @mentions, negations) read the anchor request's text, never the continuation prompt. A `WorkGoals` service on `TeamService` (records in `assistant_team_records`, kind `work-goal`) serves the `agentpier_goal` tool, and the team tick (1 s) sends the nudge 90 s after the chat went idle unless something in it still waits on the owner or will wake it anyway; running background commands come from a new plugin Gateway method over the plugin's existing exec record.
+**Architecture:** The nudge is an AgentPier-sent follow-up turn through `service.send` (the path of `ssh-result`, `sftp-result` and lead-request result follow-ups), not OpenClaw cron or heartbeat: only a ledger turn has an attempt, a request and a recorded trusted context in SQLite, so every existing owner-turn check works on it unchanged and survives a restart. Cron/heartbeat runs have none of these and would need the `exec-continuation.js` proof for every right. The continuation's context is recorded as `{ kind: "owner", goal: { id, anchorRequestId, title } }`, so it is a direct owner turn everywhere; a short, explicit exclusion list (`goalTurn(context)`) refuses what needs the owner's own confirmation, and owner-text proofs (quotes, @mentions, negations) read the anchor request's text, never the continuation prompt. While a goal is open, the lead's turn that handles a member's result in that chat is recorded the same way (`{ kind: "owner", goal, result: { kind: "member-result", requestId } }`), and every task a goal turn delegates may write like an **Autonomous** lead's own task, at any team usage level. A `WorkGoals` service on `TeamService` (records in `assistant_team_records`, kind `work-goal`) serves the `agentpier_goal` tool, and the team tick (1 s) sends the nudge 90 s after the chat went idle unless something in it still waits on the owner or will wake it anyway; running background commands come from a new plugin Gateway method over the plugin's existing exec record.
 
 **Tech Stack:** Node.js ES modules, `node:sqlite` via `TeamStore`, OpenClaw 2026.10.3 Gateway and the `agentpier-teams` plugin, React/JSX, `node:test`, Playwright.
 
@@ -17,6 +17,9 @@
 - One open goal per chat; a new `set` in the same chat replaces the open one, shown in the chat.
 - Anchor = the owner's **latest** direct turn in that chat. Continuations get exactly that turn's rights and never more.
 - Continuation turns are full owner direct turns except: approval cards (still shown and awaited), owner-only switches and grants (routine and reminder changes incl. **May write** and Telegram, lead routines, shell/SSH grants stay approval cards), the **Go ahead** / short-yes consent, and setting or widening a goal.
+- **Owner ruling, delegation:** in a goal turn (continuation or goal member-result turn) a delegated task may write exactly like a task an **Autonomous** lead starts on its own in reply to the owner's message, whatever **Use team** says (On request, Suggest, Autonomous). Owner proofs still come only from the anchor's own text; a negation or limit there ("change nothing") keeps the tasks read-only. The self-initiated limit of 4 per turn applies; goal-turn tasks neither count against nor are refused by the 20-per-hour limit.
+- **Owner ruling, member results:** while a goal is open in a chat, the lead's `member-result` follow-up in that chat (`lead-requests.js` `deliveryTarget`) is a goal turn with the anchor's rights and the same exclusion list. Members' own reports (`member-report`) and colleagues' results (peer requests) stay as they are.
+- **AGENTPIER-209** (branch `fix/member-own-folders-in-lead-tasks`) merges before this plan executes: it changes `AgentProjectFiles.levels()` and `workspace-calls.js` `authorizeCall` so a member's own owner-granted project folders apply in its lead's tasks (write only when the task is writable). Rebase onto main first; no task here edits those functions, and no change may revert them. Task 6's write tests build on that behaviour.
 - Nudge: `nudgeDelayMs = 90000` after the chat became idle. Holds while: a ledger attempt of the chat is unresolved, a heartbeat run is live in its session, its history is being summarised, an owner message is queued, an approval card or SSH/SFTP follow-up of the chat is open, a lead request of the goal chat (`parentConversationId`, not `fromMemberId`, not `type: "report"`) will still deliver, a team of the chat is active, or a background command runs in its session (at most `backgroundWaitMs = 7200000`).
 - Brakes: `technicalFailureLimit = 3` consecutive continuation turns ending `failed`, `interrupted` or `uncertain` (reviewed) → blocked `technical`; `idleTurnLimit = 3` consecutive completed continuation turns without any tool call → blocked `no-progress`.
 - Continuation turns and goal notes never go to Telegram, even when the goal was set from Telegram.
@@ -74,7 +77,8 @@
   - `goalLimits = { title: 120, done: 1000, steps: 4000, summary: 1000, reason: 1000 }`
   - `goalTurn(context) -> { id: string, anchorRequestId: string, title: string } | null` — the `goal` marker of a recorded context when all three are strings, else null.
   - `directOwnerTurn(context) -> boolean` — kind `owner` or `telegram`, not `forwarded`, no `goal` marker.
-  - `turnKind(context) -> string | undefined` — `"goal-continuation"` for a continuation, else `context?.kind`.
+  - `turnKind(context) -> string | undefined` — for a goal turn `context.result?.kind ?? "goal-continuation"` (a goal member-result turn shows as `"member-result"`), else `context?.kind`.
+  - Goal turn contexts: continuation `{ kind: "owner", goal: { id, anchorRequestId, title } }`; goal member-result `{ kind: "owner", goal: { id, anchorRequestId, title }, result: { kind: "member-result", requestId } }`. `goalTurn` returns the marker for both, so `ownerSource` and `refuseInGoalTurn` treat them alike.
   - `goalAgent(agent) -> boolean` — not archived, not `isUserAgent`, and no `teamMemberId` or `lifetime === "permanent"`.
   - `goalChat(agent, conversation) -> boolean` — `goalAgent(agent)`, `conversation.assistantId === agent.id`, no string `userId`, not `userReleased`, not `archivedAt`.
   - `ownerSource(teams, request) -> { request, context, continuation: boolean }` — for a continuation request: the anchor request and its context when that context is `directOwnerTurn`, else `{ request: { ...request, text: "" }, context: { kind: "unknown" }, continuation: true }`; otherwise the request itself, its context, `continuation: false`.
@@ -95,6 +99,9 @@ test("a continuation context is an owner turn with a goal marker", () => {
   assert.equal(directOwnerTurn({ kind: "user", userId: "u" }), false);
   assert.equal(turnKind(c), "goal-continuation");
   assert.equal(turnKind({ kind: "ssh-result" }), "ssh-result");
+  const result = { ...c, result: { kind: "member-result", requestId: "lr" } };
+  assert.equal(turnKind(result), "member-result");
+  assert.deepEqual(goalTurn(result), c.goal);
 });
 
 test("only own agents and permanent members keep goals, in the owner's chats", () => {
@@ -580,14 +587,15 @@ git commit -m "feat: continue open work goals after each turn"
 
 **Files:**
 
-- Modify: `server/features/assistants/lead-request-store.js` (`create`), `server/features/assistants/team-store.js` (`propose`, stays ≤600), `server/features/assistants/reminder-audience.js` (`turnAudience`), `server/features/assistants/lead-routines.js` (owner-turn check)
+- Modify: `server/features/assistants/lead-request-store.js` (`create`), `server/features/assistants/lead-requests.js` (`deliveryTarget`), `server/features/assistants/lead-request-delivery.js` (passes `target.teamAllowed`), `server/features/assistants/team-store.js` (`propose`, stays ≤600), `server/features/assistants/reminder-audience.js` (`turnAudience`), `server/features/assistants/lead-routines.js` (owner-turn check)
 - Test: `tests/integration/assistant-work-goal-rights.test.js`
 
 **Interfaces:**
 
-- Consumes: Task 1 `ownerSource`, `goalTurn`, `refuseInGoalTurn`.
+- Consumes: Task 1 `ownerSource`, `goalTurn`, `refuseInGoalTurn`; Task 2 `goals.store.open(conversationId)`; Task 5 `latestOwnerTurn(service, conversationId)`.
 - Produces (behaviour later tasks and docs rely on):
-  - `LeadRequestStore.create`: parses `ownerSource(t, request)` text/context for quote, mention, negation and prose; new proofs carry `ownerProof.requestId = source.request.id`; `proofs` = the lead's requests with `ownerProof?.requestId === source.request.id` (one owner sentence or mention proves one task across the anchor and all its continuations); the consent ("short yes") proof only when `!source.continuation`; per-turn caps stay per actual request.
+  - `LeadRequestStore.create`: parses `ownerSource(t, request)` text/context for quote, mention, negation and prose; new proofs carry `ownerProof.requestId = source.request.id`; `proofs` = the lead's requests with `ownerProof?.requestId === source.request.id` (one owner sentence or mention proves one task across the anchor and all its continuations); the consent ("short yes") proof only when `!source.continuation`; per-turn caps stay per actual request. **Goal task (owner ruling):** `goal = goalTurn(context)`; a `task` without proof in a goal turn whose anchor text is not negated (`!messageNegated(parsed)`, `parsed` non-null) has `writeAllowed: true` and is recorded `selfInitiated: true, goalId: goal.id`, whatever `policy.usage` is and whether or not the anchor names the member (ruling: the goal is the owner's involvement, so `named` does not make it read-only). It counts against `autonomousCaps.perTurn` (4, with the turn's other self-initiated tasks) and throws `memberRequestAutonomousLimit` beyond it; the `perHour` check neither counts requests with `goalId` nor applies to them.
+  - `LeadRequests.deliveryTarget(r)`: for the lead's own request (no `fromMemberId`, `origin.kind !== "member-report"`) whose target chat has an open goal and a `latestOwnerTurn`, `context = { kind: "owner", goal: { id, anchorRequestId: anchor.id, title }, result: { kind: "member-result", requestId: r.id } }` and `teamAllowed = anchorContext.teamAllowed === true`; otherwise unchanged (`{ kind: "member-result", requestId }`). Decided when the follow-up is sent. Its `member-result`-only paths (`agent-ssh.js`/`agent-sftp.js` Go ahead marking, `team-bridge.js` result writes, `workspace-calls.js` `memberResult`) do not fire for it: it has owner rights instead.
   - `TeamStore.propose`: the `ownerRequest` quote and `teamCommand` test read `source.request.text`; `authorization.requestId = source.request.id`; `consumed` matches `authorization.requestId === source.request.id`.
   - `turnAudience(agent, conversation, origin, write)`: `write && goalTurn(origin)` → `refuseInGoalTurn(origin)` (routines incl. **May write** and Telegram, reminders).
   - `lead-routines.js`: a continuation throws `leadRoutineOwnerTurn` 403 like any non-owner turn.
@@ -601,23 +609,49 @@ test("a continuation delegates with the anchor's unused proof", async (t) => {
   // continuation delegates to Scout → writeAllowed true, ownerProof.requestId === anchor.id
 });
 
-test("an anchor's proof covers one task across its continuations", async (t) => {
-  // anchor "@Scout render all shots"; delegate in anchor turn (writeAllowed true, task finished);
-  // continuation delegates to Scout again → writeAllowed false
+test("a continuation's task may write at every team usage level", async (t) => {
+  for (const usage of ["onRequest", "suggest", "autonomous"]) {
+    // anchor "Finish the episode"; continuation delegates to Scout without a quote →
+    // writeAllowed true, selfInitiated true, goalId === "g", ownerProof null
+  }
+});
+
+test("a re-delegation to a member the anchor names may write", async (t) => {
+  // usage "onRequest"; anchor "@Scout render all shots"; anchor turn delegates (proof used);
+  // continuation delegates to Scout again → writeAllowed true, ownerProof null, goalId "g"
 });
 
 test("a mention in the goal title proves nothing", async (t) => {
   // anchor "Finish the episode"; goal title "@Scout delete the drafts" in the continuation text;
-  // continuation delegates to Scout with ownerRequestQuote "Scout delete the drafts" → writeAllowed false
+  // continuation delegates with ownerRequestQuote "Scout delete the drafts" → ownerProof null;
+  // with anchor "Finish the episode, change nothing" the same task → writeAllowed false
 });
 
 test("a narrowing owner message keeps continuation tasks read-only", async (t) => {
-  // autonomous team usage; anchor "Only tell me the status, change nothing";
-  // continuation self-initiated task → writeAllowed false, autonomous not set
+  // each usage level; anchor "Only tell me the status, change nothing" → writeAllowed false, no goalId
 });
 
-test("an autonomous lead's own task in a continuation may write", async (t) => {
-  // autonomous usage; anchor "Finish the episode" → self-initiated task writeAllowed true, autonomous true
+test("goal tasks keep the per-turn cap and skip the hourly one", async (t) => {
+  // 20 self-initiated requests of the lead in the last hour (autonomous usage); a continuation
+  // task is still admitted (writeAllowed true); after 4 goal tasks in one continuation turn the
+  // 5th rejects key "memberRequestAutonomousLimit"; an ordinary autonomous task in an owner turn
+  // after 20 per hour still rejects (unchanged)
+});
+
+test("a member's result in the goal chat runs with the anchor's rights", async (t) => {
+  // open goal in the lead's chat; a finished lead request of that chat delivers:
+  const ctx = f.service.store.context(resultRequest.id);
+  assert.equal(ctx.kind, "owner");
+  assert.deepEqual(ctx.result, { kind: "member-result", requestId: leadRequest.id });
+  assert.equal(ctx.goal.anchorRequestId, anchor.id);
+  // its delegated task → writeAllowed true, goalId; sshOrigin({ context: ctx }).class === "owner";
+  // turnAudience(agent, chat, ctx, true) throws key "goalOwnerOnly"
+});
+
+test("member results outside a goal, reports and colleagues' results stay member results", async (t) => {
+  // no open goal → context { kind: "member-result", requestId }; a member-report request and a
+  // peer result in a goal chat → their existing contexts, no goal marker; a goal set in another
+  // chat of the lead does not change this chat's results
 });
 
 test("a short yes never counts in a continuation", async (t) => {
@@ -645,9 +679,9 @@ test("a continuation writes files and memory and uses trusted SSH like the owner
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail** — `node --test tests/integration/assistant-work-goal-rights.test.js`: FAIL on the first four.
-- [ ] **Step 3: Implement** the four edits. In `team-store.js` add `source = ownerSource(this, request)` to the existing `const context = …, ownerTurn = …` declaration so the file stays ≤600.
-- [ ] **Step 4: Run to verify they pass** — same command plus `tests/unit/assistant-lead-request-*.test.js`, `tests/integration/assistant-lead-request-writes.test.js`, `tests/integration/assistant-lead-requests-safety.test.js`: PASS.
+- [ ] **Step 2: Run to verify they fail** — `node --test tests/integration/assistant-work-goal-rights.test.js`: FAIL on the goal-task, cap and member-result tests.
+- [ ] **Step 3: Implement** the edits. In `team-store.js` add `source = ownerSource(this, request)` to the existing `const context = …, ownerTurn = …` declaration so the file stays ≤600.
+- [ ] **Step 4: Run to verify they pass** — same command plus `tests/unit/assistant-lead-request-*.test.js`, `tests/integration/assistant-lead-request-writes.test.js`, `tests/integration/assistant-lead-requests-safety.test.js`, `tests/integration/assistant-lead-request-delivery.test.js`: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -668,7 +702,7 @@ git commit -m "feat: give goal continuations the anchor turn's rights"
 
 - Consumes: Task 1 `turnKind`, `goalTurn`; Task 2 `goals.view`, `goals.notes`.
 - Produces:
-  - `internalKinds` gains `"goal-continuation"`; `hideInternal` classifies by `turnKind(context)` and gives that event `goalTitle: context.goal.title`: `{ id, role: "event", event: "goal-continuation", goalTitle, timestamp, runId }`; the request gets `internal: "goal-continuation"` and loses `text`.
+  - `internalKinds` gains `"goal-continuation"`; `hideInternal` classifies by `turnKind(context)` and gives that event `goalTitle: context.goal.title`: `{ id, role: "event", event: "goal-continuation", goalTitle, timestamp, runId }`; the request gets `internal: "goal-continuation"` and loses `text`. A goal member-result turn classifies as `"member-result"` (its existing event and label, no `goalTitle`); `goAheadMarks` keeps matching only plain `member-result` contexts.
   - `conversationHistory` returns `goal: service.teams?.goals?.view(id) ?? null` and merges `service.teams?.goals?.notes(id) ?? []` with the memory and peer notes.
   - A continuation never names a chat: `firstWrittenTurn` and `generated-titles.js` skip contexts with `goalTurn(context)`.
 
@@ -694,6 +728,10 @@ test("the history carries the open goal and its notes", async (t) => {
   ]);
   assert.ok(history.messages.some((m) => m.event === "goal" && m.phase === "set"));
   // after done: history.goal === null and a note { phase: "done", text: summary }
+});
+
+test("a member's result during a goal shows as a member result", async (t) => {
+  // goal member-result context → event "member-result", request internal "member-result", no goAhead mark
 });
 
 test("a continuation never names the chat", () => {
@@ -804,7 +842,7 @@ git commit -m "test: pin work goal continuations against the Gateway"
 
 **Files:**
 
-- Modify: `docs/agents.md` (new "Work until done" section under "Teams, asks and tasks" or before "Routines, reminders and check-ins": how to ask, the line and Stop, what continues and what still waits for you, brakes, no Telegram, where goals exist), `docs/assistant-gateway.md` (continuation context, anchor, exclusions, nudge holds and brakes, `agentpier.backgroundCommands`, why no cron/heartbeat), `docs/assistant-workflows.md` (approval cards and SSH/SFTP follow-ups hold the nudge; continuation SSH origin is `owner`), `docs/ui-guide.md` (only if a path or label it quotes changed; otherwise name it as checked), `README.md` and `README.de.md` (feature list: "work goals" / "Arbeitsziele")
+- Modify: `docs/agents.md` (new "Work until done" section under "Teams, asks and tasks" or before "Routines, reminders and check-ins": how to ask, the line and Stop, what continues and what still waits for you, brakes, no Telegram, where goals exist), `docs/assistant-gateway.md` (continuation context, anchor, exclusions, nudge holds and brakes, `agentpier.backgroundCommands`, why no cron/heartbeat), `docs/agents.md` "When a lead uses its team" and the member-result paragraph (goal turns delegate like Autonomous at any level, 4 per turn, outside the hourly limit; member results during a goal), `docs/assistant-workflows.md` (approval cards and SSH/SFTP follow-ups hold the nudge; continuation SSH origin is `owner`), `docs/ui-guide.md` (only if a path or label it quotes changed; otherwise name it as checked), `README.md` and `README.de.md` (feature list: "work goals" / "Arbeitsziele")
 - Delete: `docs/superpowers/plans/2026-10-24-work-goals.md`, `docs/superpowers/specs/2026-10-24-work-goals-design.md` (before the PR opens)
 
 - [ ] **Step 1: Write the docs** in English (`README.de.md` in German); quote UI labels exactly as Task 8 ships them.
@@ -822,7 +860,9 @@ git commit -m "docs: describe work goals"
 ## Rulings on the spec
 
 - **Nudge mechanism:** AgentPier-sent follow-up turn (ledger request, recorded context), not OpenClaw cron/heartbeat: those runs have no attempt or context, so every right would need `exec-continuation.js`-style proof.
-- **Owner proofs:** the anchor's quotes, @mentions and team request count once across the anchor and all its continuations (existing rule "one owner sentence covers one task"); the short-yes consent never counts in a continuation (the **Go ahead** exclusion). Writable delegation in continuations comes from an unused anchor proof or autonomous team usage.
+- **Owner proofs:** the anchor's quotes, @mentions and team request count once across the anchor and all its continuations (existing rule "one owner sentence covers one task"); the short-yes consent never counts in a goal turn (the **Go ahead** exclusion).
+- **Delegation in goal turns (owner ruling, overrules the earlier narrower ruling):** tasks write like an **Autonomous** lead's own task at every usage level unless the anchor negates or limits; 4 per turn; outside the 20-per-hour limit. Claude's addition: a member the anchor names does not make such a task read-only.
+- **Member results during an open goal (owner ruling):** the lead's `member-result` follow-up in the goal chat is a goal turn with the anchor's rights; member reports and peer results are not.
 - **Reminders** join routines as owner-only in continuations (both go through `turnAudience`); lead shares and grants that any lead turn may make today stay allowed; shell/SSH grants remain approval cards.
 - **Owner cancels a running continuation turn** → the goal stops (`turn-cancelled`).
 - **`update`, `done`, `blocked`** work from any turn of that agent in the goal chat (they never widen rights); only `set` needs the owner's direct turn.

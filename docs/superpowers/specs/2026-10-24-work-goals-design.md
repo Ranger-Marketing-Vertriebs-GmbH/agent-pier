@@ -46,7 +46,7 @@ until it is done or genuinely blocked, without anyone nudging it.
 - **Continuation turns count as the owner's own message (owner decision).** "Er soll
   genau so weiter machen können als hätte ich geschrieben." A continuation turn has
   the full rights of an owner direct turn in that chat, wider than the
-  `exec-continuation.js` model (files and memory only): it may delegate tasks to
+  `exec-continuation.js` model (files and memory only; delegation per the owner rulings below): it may delegate tasks to
   members that may write, use Trusted SSH/SFTP hosts without asking, use team actions
   an owner message allows (`/team`, `@member` permissions for that message), and
   write memory. Excluded, because they need the owner's own confirmation: approval
@@ -121,6 +121,24 @@ until it is done or genuinely blocked, without anyone nudging it.
 - Waiting on team requests counts only the goal chat's own open lead requests (results
   return to the asking chat via `lead-requests.js` `deliveryTarget`); members'
   unsolicited reports land in the lead's main chat and do not hold the nudge.
+
+### Owner rulings after plan review (2026-10-24)
+
+- **Delegation in continuations:** in a continuation turn, a task the lead delegates
+  may write exactly like a task an **Autonomous** lead starts on its own in reply to
+  the owner's message, whatever the lead's **Use team** setting (On request, Suggest or
+  Autonomous): the goal is the owner's permission. Model-written text still never
+  counts as an owner proof: quotes, @mentions and negations are read from the anchor's
+  own text only, and a negation or limit there ("change nothing") keeps the tasks
+  read-only. The limit of 4 self-initiated tasks per turn applies; continuation
+  delegations do not count against the 20-per-hour limit, which would stall an
+  overnight production.
+- **Member results during an open goal:** while a goal is open in a chat, the lead's
+  turn that handles a member's result in that chat (a `member-result` follow-up from
+  `lead-requests.js`) counts with the goal's anchor rights like a continuation turn:
+  its delegated tasks may write under the rule above, Trusted SSH/SFTP runs as in an
+  owner turn, and the same exclusion list applies. Members' unsolicited reports
+  (`member-report`) and colleagues' results (peer requests) are not covered.
 
 ## Non-goals
 
