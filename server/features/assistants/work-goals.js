@@ -34,11 +34,19 @@ function goalInput(input) {
   return { action: input.action, values };
 }
 
+// Keeps the newest `toolRunLimit` ids.
+function remember(set, id) {
+  set.delete(id);
+  set.add(id);
+  if (set.size > toolRunLimit) set.delete(set.values().next().value);
+}
+
 export class WorkGoals {
   constructor({ teams, service, now = Date.now }) {
     Object.assign(this, { teams, service, now });
     this.store = new WorkGoalStore(teams);
     this.toolRuns = new Set();
+    this.sentRuns = new Set();
     // In memory only (work-goal-nudges.js): since when each goal's chat is idle, and
     // since when a background command holds it.
     this.idleSince = new Map();
@@ -169,13 +177,17 @@ export class WorkGoals {
       typeof payload.runId !== "string"
     )
       return;
-    this.toolRuns.delete(payload.runId);
-    this.toolRuns.add(payload.runId);
-    if (this.toolRuns.size > toolRunLimit)
-      this.toolRuns.delete(this.toolRuns.values().next().value);
+    remember(this.toolRuns, payload.runId);
   }
   toolRun(runId) {
     return this.toolRuns.has(runId);
+  }
+  /** Marks a continuation attempt this process sent: its tool calls are watched. */
+  sent(attemptId) {
+    remember(this.sentRuns, attemptId);
+  }
+  sentRun(attemptId) {
+    return this.sentRuns.has(attemptId);
   }
   /** One nudge pass over the open goals (work-goal-nudges.js). */
   tick() {
