@@ -4,6 +4,7 @@ import { exact, schedule } from "./reminder-input.js";
 import { namesMember, ownerProse, parseOwnerText } from "./lead-request-proof.js";
 import { minGapMinutes } from "./cron-gap.js";
 import { routineReport } from "./lead-routine-reports.js";
+import { directOwnerTurn } from "./goal-turns.js";
 
 // What a lead may set up on one of its permanent members (AGENTPIER-175).
 export const leadRoutineLimits = { perMember: 5, minIntervalMinutes: 15 };
@@ -94,9 +95,8 @@ export class LeadRoutines {
     const { request, lead } = this.assistants.teams.requests.store.lead(inv.attemptId);
     const origin = this.teams.context(request.id);
     // Standing work for a member: only in a turn of the owner's own message, never
-    // from forwarded, scheduled, member-result or other internal turns.
-    if (!["owner", "telegram"].includes(origin.kind) || origin.forwarded)
-      throw assistantProblem("leadRoutineOwnerTurn", 403);
+    // from forwarded, scheduled, member-result, goal or other internal turns.
+    if (!directOwnerTurn(origin)) throw assistantProblem("leadRoutineOwnerTurn", 403);
     if (input.action === "list") return this.list(lead, input.memberId);
     if (input.action === "create") return this.create(inv, lead, request, origin, input);
     const binding = this.owned(lead, input.id);

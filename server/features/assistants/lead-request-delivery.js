@@ -50,7 +50,11 @@ export async function deliverRequest(requests, id) {
     if (r.delivery !== "pending") r = requests.teams.write(r, { delivery: "pending" });
     const sent = await a.send(
       target.conversationId,
-      { clientRequestId: target.clientRequestId, text: target.text },
+      {
+        clientRequestId: target.clientRequestId,
+        text: target.text,
+        ...(target.teamAllowed ? { teamAllowed: true } : {}),
+      },
       target.context,
     );
     requests.teams.write(requests.store.get(id), {
