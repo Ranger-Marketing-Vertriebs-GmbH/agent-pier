@@ -19,7 +19,7 @@ export default function SshResourceList({
       <div className="ssh-list-columns" aria-hidden="true">
         <span>{isAccess ? copy.nameConnection : copy.name}</span>
         <span>{projectCopy.project}</span>
-        <span>{isAccess ? copy.keyMode : copy.keyInUse}</span>
+        <span>{isAccess ? copy.signIn : copy.keyInUse}</span>
       </div>
       <ul aria-label={isAccess ? copy.accessesTab : copy.keysTab}>
         {items.map((item) => (
@@ -39,11 +39,17 @@ export default function SshResourceList({
               <span className="ssh-resource-name">
                 <Icon name={isAccess ? "terminal" : "shield"} />
                 <span>
-                  <strong>{item.name}</strong>
+                  <strong>
+                    {item.name}
+                    {isAccess && item.type === "sftp" && (
+                      <span className="badge ssh-type-badge">{copy.sftpBadge}</span>
+                    )}
+                  </strong>
                   {isAccess && (
                     <small id={`${idPrefix}-${item.id}-endpoint`}>
                       {item.username}@{item.host}
                       {item.port !== 22 ? `:${item.port}` : ""}
+                      {item.remoteRoot ? ` · ${item.remoteRoot}` : ""}
                     </small>
                   )}
                 </span>
@@ -53,7 +59,9 @@ export default function SshResourceList({
               </span>
               <span className="ssh-resource-meta" id={`${idPrefix}-${item.id}-meta`}>
                 {isAccess
-                  ? item.keyName
+                  ? item.auth === "password"
+                    ? copy.signInPassword
+                    : item.keyName
                   : accesses === null
                     ? copy.usageUnavailable
                     : copy.accessCount(

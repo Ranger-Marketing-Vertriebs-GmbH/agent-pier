@@ -109,16 +109,19 @@ export class AssistantAccess {
       // Public catalog metadata only; null tells the Work tab it could not be read.
       sshHosts:
         hosts &&
-        hosts.map(({ id, name, host, port, username, hostFingerprint, projectId }) => ({
-          id,
-          name,
-          host,
-          port,
-          username,
-          hostFingerprint,
-          projectId: projectId ?? null,
-          projectName: (projectId && names.get(projectId)) || null,
-        })),
+        hosts.map(
+          ({ id, name, host, port, username, hostFingerprint, projectId, type }) => ({
+            id,
+            name,
+            host,
+            port,
+            username,
+            hostFingerprint,
+            type: type === "sftp" ? "sftp" : "ssh",
+            projectId: projectId ?? null,
+            projectName: (projectId && names.get(projectId)) || null,
+          }),
+        ),
     };
   }
   /**

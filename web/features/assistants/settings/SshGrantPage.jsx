@@ -90,6 +90,7 @@ export default function SshGrantPage({
                   <CheckboxRow
                     label={h.name}
                     sub={[
+                      h.type === "sftp" ? copy.sftp : "",
                       copy.endpoint(h.username, h.host, h.port),
                       h.projectName ? copy.project(h.projectName) : "",
                     ]
@@ -113,7 +114,9 @@ export default function SshGrantPage({
                             name={`ssh-mode-${h.id}`}
                             value={m}
                             label={copy.modes[m]}
-                            sub={copy.modeHints[m]}
+                            sub={
+                              (h.type === "sftp" ? copy.sftpModeHints : copy.modeHints)[m]
+                            }
                             checked={mode === m}
                             disabled={disabled}
                             onChange={(value) =>
@@ -123,7 +126,11 @@ export default function SshGrantPage({
                         ))}
                       </ListCard>
                       {mode !== "approval" && (
-                        <p className="ssh-grant-warning">{copy.trustedWarning}</p>
+                        <p className="ssh-grant-warning">
+                          {h.type === "sftp"
+                            ? copy.sftpTrustedWarning
+                            : copy.trustedWarning}
+                        </p>
                       )}
                     </div>
                   )}

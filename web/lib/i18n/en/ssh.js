@@ -16,6 +16,26 @@ export const sshCopy = {
 
   // Marks a host the session reaches through the sftp_* file tools only.
   sftpBadge: "SFTP",
+  type: "Type",
+  typeSsh: "SSH",
+  typeSftp: "SFTP",
+  signIn: "Sign-in",
+  signInPassword: "Password",
+  signInKey: "Key",
+  password: "Password",
+  passwordSaved: "Saved. Enter a new password to replace it.",
+  passwordHint:
+    "The password is stored locally with owner-only file permissions and never shown again.",
+  remoteRoot: "Allowed remote folder",
+  remoteRootHint:
+    "Optional absolute path, for example /srv/files. Agents cannot leave this folder.",
+  remoteFolder: "Remote folder",
+  noRemoteRoot: "Whole account",
+  keyMissing: "The key of this host was deleted. Choose another key.",
+  sftpTestHint:
+    "An explicit test signs in and opens the remote folder. It changes nothing on the server.",
+  sftpDeleteHint:
+    "Delete this host? A saved password is deleted too; SSH keys stay available.",
   toolsReady: "SSH tools are ready for this session.",
   toolsStarting: "Waiting for the CLI to connect its SSH tools …",
   toolsReload: "Reload this conversation to enable SSH tools.",

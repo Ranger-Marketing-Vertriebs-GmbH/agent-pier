@@ -305,3 +305,19 @@
     padding: 20px;
   }
 }
+
+.ssh-type-badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ssh-form .ssh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+.ssh-form .ssh-action-hint {
+  color: var(--muted);
+  font-size: 12px;
+}

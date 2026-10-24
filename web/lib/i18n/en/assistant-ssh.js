@@ -16,6 +16,7 @@ export const assistantSshCopy = {
   project: (name) => `Project: ${name}`,
   endpoint: (user, host, port) => `${user}@${host}:${port}`,
   modeLegend: "Mode",
+  sftp: "SFTP",
   modes: {
     approval: "With approval",
     trusted: "Trusted",
@@ -28,6 +29,14 @@ export const assistantSshCopy = {
   },
   trustedWarning:
     "Commands this agent derives from web pages or files could run without your confirmation.",
+  sftpModeHints: {
+    approval: "Reading runs, every change asks.",
+    trusted: "Changes run without asking, deletes always ask.",
+    routines:
+      "Changes also run without asking in routines. Deletes always ask; routines never delete.",
+  },
+  sftpTrustedWarning:
+    "Transfers this agent derives from web pages or files could run without your confirmation.",
   card: {
     title: "SSH command",
     agent: "Agent",
