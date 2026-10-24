@@ -231,7 +231,13 @@ execution.` `PATH` and `LD_*`/`DYLD_*` overrides are refused the same way.
 - **`tools.exec.pathPrepend`** (global or per agent, hot) prepends directories after
   OpenClaw's own `<state>/tmp/agent-cli` shim directory. The approval analysis
   resolves executables against the same `PATH`, so `resolvedPath` matches what
-  runs.
+  runs. Since 2026.10.3 the shell does not start with these entries on its `PATH`:
+  OpenClaw removes them from the child's `PATH`, passes them as
+  `OPENCLAW_PREPEND_PATH` and prefixes the command string with an export of that
+  variable, `export PATH="${OPENCLAW_PREPEND_PATH}${PATH:+:$PATH}"`, and an `unset`
+  of it. Only the command sees the entries on `PATH`; the `$SHELL` program itself,
+  such as AgentPier's exec wrapper, finds them in `OPENCLAW_PREPEND_PATH`. The
+  environment contract records both.
 
 Candidates tested live:
 
@@ -293,6 +299,12 @@ config, while exec children get the owner's real `HOME` and login `PATH`:
   wrapper instead would make the approval analysis resolve against a different
   `PATH`. If the account cannot be resolved, the Gateway starts without the
   wrapper and logs a diagnostic.
+- An agent with shell and GitHub access has its GitHub folder's `bin/` first in its
+  `pathPrepend`. The wrapper looks for that folder in `OPENCLAW_PREPEND_PATH` first
+  and then in `PATH`, and sources the folder's `shell-env.sh` before it hands over to
+  `/bin/sh`. It leaves `OPENCLAW_PREPEND_PATH` in place for the command's own
+  export. The environment contract asserts that the folder is absent from the
+  shell's starting `PATH` and that the command sees the folder's `GH_CONFIG_DIR`.
 - **Token:**
   - the Gateway starts and AgentPier's client connects with `OPENCLAW_GATEWAY_TOKEN`
     removed from the Gateway environment (the token only in `gateway.auth.token`);

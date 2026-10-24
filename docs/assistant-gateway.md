@@ -2859,8 +2859,11 @@ their permissions set the limit.
 An agent with shell and GitHub access gets its own folder
 `<data>/github-sessions/agent-<id>/`, laid out like a session's (`config.yml`,
 `hosts.yml` with the token, `selection.json`), plus `shell-env.sh` and an empty
-`bin/`. `bin/` comes first in the agent's `tools.exec.pathPrepend`; the exec wrapper
-(`exec-shell.js`) sources `shell-env.sh` from the first such entry on `PATH`. It sets
+`bin/`. `bin/` comes first in the agent's `tools.exec.pathPrepend`. OpenClaw starts
+the shell without those entries on `PATH`: it passes them as `OPENCLAW_PREPEND_PATH`
+and exports them inside the command string. The exec wrapper (`exec-shell.js`)
+therefore looks in `OPENCLAW_PREPEND_PATH` first and then in `PATH`, and sources
+`shell-env.sh` from the first such entry. It sets
 `GH_CONFIG_DIR` to the folder, unsets `GH_TOKEN`, `GITHUB_TOKEN` and the other
 override variables, and routes git's HTTPS authentication for that host through
 AgentPier's helper alone (`credential.https://<host>.helper` and

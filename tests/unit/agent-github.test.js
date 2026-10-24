@@ -254,7 +254,7 @@ test("the Work tab prefills the default profile for agents", () => {
   );
 });
 
-test("the exec wrapper sources only an agent's GitHub folder on its PATH", (t) => {
+test("the exec wrapper sources only an agent's GitHub folder on its exec PATH", (t) => {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agent-github-sh-")));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const home = path.join(dir, "home");
@@ -267,16 +267,22 @@ test("the exec wrapper sources only an agent's GitHub folder on its PATH", (t) =
   );
   const wrapper = path.join(dir, "sh");
   fs.writeFileSync(wrapper, execShellScript(home), { mode: 0o700 });
-  const run = (PATH) =>
-    execFileSync(
-      wrapper,
-      ["-c", 'printf "%s|%s|%s" "$GH_CONFIG_DIR" "$GH_TOKEN" "$HOME"'],
-      {
-        env: { PATH, GH_TOKEN: "owner-token" },
-        encoding: "utf8",
-      },
-    );
+  const probe = 'printf "%s|%s|%s" "$GH_CONFIG_DIR" "$GH_TOKEN" "$HOME"';
+  const run = (PATH, extra = {}, command = probe) =>
+    execFileSync(wrapper, ["-c", command], {
+      env: { PATH, GH_TOKEN: "owner-token", ...extra },
+      encoding: "utf8",
+    });
   assert.equal(run(`${path.join(folder, "bin")}:/usr/bin:/bin`), `${folder}||${home}`);
+  // OpenClaw 2026.10.3 starts the shell without its pathPrepend entries on PATH and
+  // exports them from OPENCLAW_PREPEND_PATH inside the command (fact d).
+  const openclaw =
+    'export PATH="${OPENCLAW_PREPEND_PATH}${PATH:+:$PATH}"; ' +
+    `unset OPENCLAW_PREPEND_PATH; ${probe}`;
+  assert.equal(
+    run("/usr/bin:/bin", { OPENCLAW_PREPEND_PATH: path.join(folder, "bin") }, openclaw),
+    `${folder}||${home}`,
+  );
   // Without the folder on PATH nothing changes: the owner's environment stays.
   assert.equal(run("/usr/bin:/bin"), `|owner-token|${home}`);
   // A folder without its environment file is skipped.
