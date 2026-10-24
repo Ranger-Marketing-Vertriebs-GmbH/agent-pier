@@ -34,6 +34,10 @@ const credentialTables = new Set([
   "worker_environment_credentials",
   "channel_credentials",
   "native_telegram_credentials",
+  // OpenClaw 2026.10.7's machine state holds the model credentials Doctor copies
+  // (authProfiles.store), Web Push VAPID keys and update recovery keys among keys
+  // that cannot all be classified: the whole table is sealed.
+  "config_machine_state",
 ]);
 // Secret members of openclaw.json: Gateway, cron and plugin tokens, provider keys
 // and MCP server environment values.
