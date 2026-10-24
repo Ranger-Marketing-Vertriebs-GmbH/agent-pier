@@ -166,7 +166,12 @@ export class Operations {
           resourceId: jobId,
           outcome: "success",
           source: "user",
-          details: { version },
+          details: {
+            version,
+            ...(result.stagedIds?.[version]
+              ? { stagedId: result.stagedIds[version] }
+              : {}),
+          },
         });
       return result;
     });
