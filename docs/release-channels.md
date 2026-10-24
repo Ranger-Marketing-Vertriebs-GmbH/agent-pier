@@ -106,7 +106,8 @@ data directory. New installations default to Stable. Changing the channel clears
 the checked offer and invalidates in-flight checks and staging downloads. It does
 not activate a release, downgrade an installation, or delete already staged
 packages. A package staged from Preview therefore stays activatable after switching
-to Stable, and the Updates page marks it as a pre-release.
+to Stable, and the Updates page marks it as a pre-release. To discard a staged
+package, use **Delete** on its card under **Settings → Operations → Updates**.
 
 Rollback is checked against the data directory. After an RC has migrated the data
 to a newer schema, rollback to an older stable version that cannot open this schema

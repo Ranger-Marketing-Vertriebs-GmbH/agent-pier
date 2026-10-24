@@ -25,6 +25,8 @@ All endpoints below have `/api/operations` prefix and use existing owner authori
 - POST `/releases/stage` with `{version}` → 202 `{job}`; result `{stagedId,version}`.
 - POST `/releases/activate` with `{stagedId}` → 202 `{job}`.
 - POST `/releases/rollback` with `{version}` → 202 `{job}`.
+- GET `/releases/cleanup` → `{available,versions:[{version,canDelete,deleteReason,newer,stagedIds,sessionIds,…}]}`; `deleteReason` is `unsafe`, `active`, `newer` (newer without a staging receipt), `busy`, `inUse` or null.
+- POST `/releases/cleanup` with `{versions}` → 202 `{job}`; result `{removedVersions,stagedIds?}`. Deletes older versions and staged versions newer than the active one; the release directory and its receipts are removed.
 - Activation jobs survive web restart. Poll the same job after reconnect. Result `{from,to,activated,rolledBack}` describes health-confirmed outcome. A failure remains `failed` even when rollback restores availability. Show only server-listed rollback choices.
 
 No request accepts arbitrary backup output paths or service commands. Passphrases never enter durable job input, audit, or URLs. Release channel/install root are server configuration, not browser-supplied URLs. Downloads contain private task history; encrypted credentials are explicit opt-in.
