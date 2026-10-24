@@ -45,7 +45,7 @@ test("a staged release newer than the active one can be deleted with its receipt
   assert.deepEqual(staged.stagedIds, [STAGED_ID]);
   assert.deepEqual(await r.cleanup(["1.3.0"]), {
     removedVersions: ["1.3.0"],
-    stagedIds: { "1.3.0": STAGED_ID },
+    stagedIds: { "1.3.0": [STAGED_ID] },
   });
   await assert.rejects(fs.stat(path.join(r.installRoot, "releases/1.3.0")));
   assert.deepEqual(await fs.readdir(r.directory), []);
@@ -89,8 +89,13 @@ test("a busy activation or a running process keeps a staged release", async (t) 
   assert.equal((await fs.readdir(r.directory)).length, 1);
 });
 
-test("deleting a staged release records its staged id in the audit", async (t) => {
+test("deleting a staged release records all its staged ids in the audit", async (t) => {
   const r = await fixture(t);
+  // Two receipts for one version (normally impossible): both go, both are recorded.
+  await fs.writeFile(
+    path.join(r.directory, "ffff.json"),
+    JSON.stringify({ id: "ffff", version: "1.3.0" }),
+  );
   const audit = new AuditStore({ dataDir: r.dataDir });
   t.after(() => audit.close());
   const operations = new Operations({
@@ -111,6 +116,43 @@ test("deleting a staged release records its staged id in the audit", async (t) =
     .sort((a, b) => a.version.localeCompare(b.version));
   assert.deepEqual(events, [
     { version: "1.0.0" },
-    { version: "1.3.0", stagedId: STAGED_ID },
+    { version: "1.3.0", stagedIds: [STAGED_ID, "ffff"] },
   ]);
+  assert.deepEqual(await fs.readdir(r.directory), []);
 });
+
+test(
+  "a removal that fails partway leaves no activatable staged release and is swept later",
+  { skip: process.getuid?.() === 0 && "root ignores directory permissions" },
+  async (t) => {
+    const r = await fixture(t);
+    const releases = path.join(r.installRoot, "releases");
+    // A read-only subdirectory makes the recursive removal fail with EACCES.
+    const locked = path.join(releases, "1.3.0/locked");
+    await fs.mkdir(locked);
+    await fs.writeFile(path.join(locked, "file"), "fixture");
+    await fs.chmod(locked, 0o500);
+    t.after(() => fs.chmod(locked, 0o700).catch(() => {}));
+    assert.deepEqual(await r.cleanup(["1.3.0"]), {
+      removedVersions: ["1.3.0"],
+      stagedIds: { "1.3.0": [STAGED_ID] },
+    });
+    // The receipt is gone and the version is no longer listed or staged.
+    assert.deepEqual(await fs.readdir(r.directory), []);
+    assert.deepEqual(r.status().staged, []);
+    assert.deepEqual(
+      r.status().releases.map((item) => item.version),
+      ["1.0.0", "1.2.0", "1.4.0"],
+    );
+    assert.equal(entry(r, "1.3.0"), undefined);
+    const leftovers = (await fs.readdir(releases)).filter((name) =>
+      name.startsWith(".deleting-"),
+    );
+    assert.equal(leftovers.length, 1);
+    assert.ok(await fs.stat(path.join(releases, leftovers[0], "locked")));
+    // A later cleanup sweeps the retired directory once it can be removed.
+    await fs.chmod(path.join(releases, leftovers[0], "locked"), 0o700);
+    await r.cleanup(["1.0.0"]);
+    assert.deepEqual((await fs.readdir(releases)).sort(), ["1.2.0", "1.4.0"]);
+  },
+);

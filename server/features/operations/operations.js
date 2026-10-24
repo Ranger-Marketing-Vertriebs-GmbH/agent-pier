@@ -169,7 +169,7 @@ export class Operations {
           details: {
             version,
             ...(result.stagedIds?.[version]
-              ? { stagedId: result.stagedIds[version] }
+              ? { stagedIds: result.stagedIds[version] }
               : {}),
           },
         });

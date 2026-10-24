@@ -194,13 +194,11 @@ export function auditEvent(input) {
     details.fromProjectId !== undefined
   )
     event.details.fromProjectId = auditId(details.fromProjectId);
-  // A deleted release names the staged receipt it had (release-cleanup.js).
-  if (
-    input.resourceType === "release" &&
-    typeof details.stagedId === "string" &&
-    /^[a-f0-9][a-f0-9-]{0,63}$/.test(details.stagedId)
-  )
-    event.details.stagedId = details.stagedId;
+  // A deleted release names the staged receipts it had (release-cleanup.js).
+  if (input.resourceType === "release" && Array.isArray(details.stagedIds))
+    event.details.stagedIds = details.stagedIds
+      .filter((id) => typeof id === "string" && /^[a-f0-9][a-f0-9-]{0,63}$/.test(id))
+      .slice(0, 100);
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
   if (

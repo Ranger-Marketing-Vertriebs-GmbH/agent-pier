@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { releaseVersion } from "./release-archive.js";
 import { compareReleaseVersions, applicationRoot } from "./version.js";
 import { readJson } from "./files.js";
@@ -250,6 +251,24 @@ export async function stopOrphanedProcesses(
   return { stopped };
 }
 
+// A retired release directory (releases/.deleting-<uuid>): never a valid version name,
+// so listings skip it; a later cleanup removes what an interrupted one left behind.
+const DELETING = ".deleting-";
+async function removeRetired(retired) {
+  try {
+    await fs.promises.rm(retired, { recursive: true });
+  } catch {
+    // The version is already gone; the leftover is swept by a later cleanup.
+  }
+}
+async function sweepDeleting(directory) {
+  for (const name of fs.readdirSync(directory)) {
+    if (!name.startsWith(DELETING)) continue;
+    const target = path.join(directory, name);
+    const stat = fs.lstatSync(target);
+    if (stat.isDirectory() && !stat.isSymbolicLink()) await removeRetired(target);
+  }
+}
 export async function cleanupReleases(options, versions) {
   if (
     !Array.isArray(versions) ||
@@ -278,15 +297,20 @@ export async function cleanupReleases(options, versions) {
       )
     )
       throw cleanupError("cleanupChanged", serverMessages.releases.cleanupChanged, 409);
-    const root = fs.realpathSync(options.installRoot);
+    const directory = path.join(fs.realpathSync(options.installRoot), "releases");
+    await sweepDeleting(directory);
     const stagedIds = {};
     for (const version of versions) {
-      await fs.promises.rm(path.join(root, "releases", version), { recursive: true });
+      // Retire the version atomically first: listings and activation never see a
+      // half-removed directory, and its receipts go before any byte is removed.
+      const retired = path.join(directory, `${DELETING}${randomUUID()}`);
+      fs.renameSync(path.join(directory, version), retired);
       const receipts = stagedReceipts(options.dataDir)
         .filter((receipt) => receipt.version === version)
         .sort((a, b) => a.id.localeCompare(b.id));
       for (const receipt of receipts) fs.unlinkSync(receipt.file);
-      if (receipts.length) stagedIds[version] = receipts[0].id;
+      if (receipts.length) stagedIds[version] = receipts.map((receipt) => receipt.id);
+      await removeRetired(retired);
     }
     return {
       removedVersions: versions,
