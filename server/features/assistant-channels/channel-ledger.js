@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { channelError } from "./telegram-client.js";
+import { telegramParts } from "./telegram-media.js";
 const inboxSchema =
   "CREATE TABLE IF NOT EXISTS channel_inbox(id TEXT PRIMARY KEY, channel_id TEXT NOT NULL REFERENCES channels(id), update_id INTEGER NOT NULL, message_id INTEGER NOT NULL, body TEXT NOT NULL, chat_id TEXT NOT NULL, UNIQUE(channel_id,chat_id,message_id))";
-const terminal = ["delivered", "failed", "cancelled", "reviewed"];
+// "merged": an album item whose files and caption joined the album's first input.
+const terminal = ["delivered", "failed", "cancelled", "reviewed", "merged"];
 export const queueLimit = 200;
+/**
+ * Telegram sends an album as one message per item, sharing a media_group_id, within
+ * about a second; long polling may split them across responses. The album's first
+ * input waits until no item came for this long, so later items join it.
+ */
+export const ALBUM_QUIET_MS = 2500;
 const content = [
   "text",
   "voice",
@@ -144,7 +152,7 @@ export class ChannelLedger {
       (r) => reviewStates.includes(r.state) || r.state === "model_uncertain",
     );
   }
-  accept(channel, update) {
+  accept(channel, update, now = Date.now()) {
     const message = update.message;
     const existing = this.db
       .prepare(
@@ -152,41 +160,51 @@ export class ChannelLedger {
       )
       .get(channel.id, String(message.chat.id), message.message_id);
     if (existing) return this.get(existing.id);
+    const voice = message.voice;
+    // A caption is the text of a photo, document or video.
+    const own = typeof message.text === "string";
+    const raw = own ? message.text : message.caption;
+    const text = typeof raw === "string" ? raw.slice(0, 65536) : "";
+    const hidden = telegramHidden(
+      own ? message.entities : message.caption_entities,
+      text,
+    );
+    const media = voice ? [] : telegramParts(message);
+    const group =
+      typeof message.media_group_id === "string" && media.length
+        ? message.media_group_id.slice(0, 100)
+        : null;
+    const head =
+      group &&
+      this.active(channel.id).find(
+        (e) =>
+          e.mediaGroupId === group &&
+          e.chatId === String(message.chat.id) &&
+          e.state === "queued",
+      );
+    if (head) return this.merge(head, update, { text, hidden, media }, now);
     if (this.active(channel.id).length >= queueLimit)
       throw channelError("CHANNEL_QUEUE_FULL", 409);
-    const voice = message.voice;
-    const text = typeof message.text === "string" ? message.text.slice(0, 65536) : "";
-    const hidden = telegramHidden(message.entities, text);
-    // Rejected before any download: the sender is told why (see TelegramIngress).
+    // Rejected before any download: the sender is told why (see TelegramIngress). An
+    // album item waits, since a later item may still bring a caption or a file.
     const diagnostic =
       voice && Number(voice.duration) > this.maxVoiceSeconds
         ? "VOICE_TOO_LONG"
-        : !voice && !text.trim()
+        : !voice && !text.trim() && !group && !media.some((part) => !part.refused)
           ? "MEDIA_UNSUPPORTED"
           : null;
     const entry = {
-      id: randomUUID(),
-      channelId: channel.id,
-      chatId: String(message.chat.id),
-      userId: String(message.from.id),
-      conversationId: channel.conversationId,
-      updateId: update.update_id,
-      messageId: message.message_id,
-      kind: voice ? "voice" : "text",
+      ...this.source(channel, update),
+      kind: voice ? "voice" : media.length ? "media" : "text",
       state: diagnostic ? "failed" : voice ? "voice_pending" : "queued",
       text,
       ...(hidden.length ? { hidden } : {}),
       forwarded: !!message.forward_origin,
-      ...(diagnostic === "MEDIA_UNSUPPORTED" &&
-      typeof message.caption === "string" &&
-      message.caption.trim()
-        ? { captionIgnored: true }
-        : {}),
-      receipt: "pending",
+      ...(media.length ? { media } : {}),
+      ...(group ? { mediaGroupId: group, collectUntil: now + ALBUM_QUIET_MS } : {}),
       requestId: null,
       attemptId: null,
       diagnostic,
-      createdAt: new Date().toISOString(),
       ...(voice
         ? {
             voice: {
@@ -198,17 +216,65 @@ export class ChannelLedger {
           }
         : {}),
     };
+    this.insert(update, entry);
+    return entry;
+  }
+  // The fields every input row has: its source message and arrival.
+  source(channel, update) {
+    const message = update.message;
+    return {
+      id: randomUUID(),
+      channelId: channel.id,
+      chatId: String(message.chat.id),
+      userId: String(message.from.id),
+      conversationId: channel.conversationId,
+      updateId: update.update_id,
+      messageId: message.message_id,
+      receipt: "pending",
+      createdAt: new Date().toISOString(),
+    };
+  }
+  insert(update, entry) {
     this.db
       .prepare("INSERT INTO channel_inbox VALUES(?,?,?,?,?,?)")
       .run(
         entry.id,
-        channel.id,
+        entry.channelId,
         update.update_id,
-        message.message_id,
+        update.message.message_id,
         JSON.stringify(entry),
         entry.chatId,
       );
-    return entry;
+  }
+  /**
+   * Adds an album item to the album's waiting input: its file in message order and
+   * its caption (Telegram puts it on one item). The item keeps a row of its own, so a
+   * repeated update is recognised and the item gets its own 👀.
+   */
+  merge(head, update, { text, hidden, media }, now) {
+    let joined = head.text;
+    let ranges = head.hidden || [];
+    if (text.trim() && joined.trim()) {
+      const offset = joined.length + 2;
+      joined = `${joined}\n\n${text}`.slice(0, 65536);
+      ranges = [...ranges, ...hidden.map(([a, b]) => [a + offset, b + offset])]
+        .filter(([a]) => a < joined.length)
+        .map(([a, b]) => [a, Math.min(b, joined.length)]);
+    } else if (text.trim()) [joined, ranges] = [text, hidden];
+    this.insert(update, {
+      ...this.source({ id: head.channelId, conversationId: head.conversationId }, update),
+      kind: "media",
+      state: "merged",
+      mergedInto: head.id,
+      text: "",
+    });
+    return this.patch(head.id, {
+      text: joined,
+      ...(ranges.length ? { hidden: ranges } : {}),
+      forwarded: head.forwarded || !!update.message.forward_origin,
+      media: [...head.media, ...media].sort((a, b) => a.messageId - b.messageId),
+      collectUntil: now + ALBUM_QUIET_MS,
+    });
   }
   pendingReceipt(channelId, chatId, userId) {
     const row = this.db
@@ -232,6 +298,7 @@ export class ChannelLedger {
       )
       .all(channelId, ...terminal, channelId)
       .map((r) => JSON.parse(r.body))
+      .filter((r) => r.state !== "merged")
       .map(
         ({
           id,

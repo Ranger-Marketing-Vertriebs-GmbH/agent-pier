@@ -5,8 +5,10 @@ import { ChannelService } from "../../server/features/assistant-channels/channel
 import { SpeechConnections } from "../../server/features/speech/speech-connections.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
+import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 // `language` is the owner's interface language, stored on the created channel.
-export function channelFixture(t, { language = () => "de", ...options } = {}) {
+// `userId` binds the channel to that restricted user's chat instead of the owner's.
+export function channelFixture(t, { language = () => "de", userId, ...options } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "channel-worker-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const store = new AssistantStore({ dataDir }),
@@ -18,13 +20,20 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
   const conversation = store.saveConversation({
     assistantId: assistant.id,
     runtimeSessionKey: "session",
+    ...(userId && { userId }),
   });
+  // The real attachment pipeline, writing into a disposable workspace root.
+  const workspaces = path.join(dataDir, "workspaces");
+  fs.mkdirSync(workspaces, { mode: 0o700 });
+  const attachments = new AgentAttachments({ store, config: { workspaces } });
   let ready = true;
   const sent = [],
     contexts = [];
   const assistants = {
     store,
     ledger,
+    attachments,
+    admit: (operation) => Promise.resolve().then(operation),
     changed() {},
     runtime: {
       client: {
@@ -38,6 +47,7 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
       if (!ready) throw Object.assign(Error(), { status: 503 });
       const request = ledger.accept(id, input);
       let attempt = ledger.attemptFor(request.id);
+      attachments.claim(id, input.attachments, request.id, !!attempt);
       if (!attempt) {
         sent.push(input);
         contexts.push(context);
@@ -80,6 +90,7 @@ export function channelFixture(t, { language = () => "de", ...options } = {}) {
   });
   return {
     dataDir,
+    workspaces,
     store,
     assistants,
     speech,

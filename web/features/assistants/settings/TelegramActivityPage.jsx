@@ -38,7 +38,9 @@ export default function TelegramActivityPage({ assistant, telegram, onBack, navi
                 {entry.kind === "file" ? copy.fileNotification : copy.teamNotification}
               </p>
             )}
-            <p className="assistant-channel-text">{entry.text || copy.voice}</p>
+            <p className="assistant-channel-text">
+              {entry.text || (entry.kind === "media" ? copy.media : copy.voice)}
+            </p>
             {entry.diagnostic && (
               <p className="assistant-note">
                 {copy.diagnostics[entry.diagnostic] || copy.failed}

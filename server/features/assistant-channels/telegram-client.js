@@ -30,6 +30,11 @@ export const telegramUploads = { sendPhoto: "photo", sendDocument: "document" };
 export const MAX_TELEGRAM_PHOTO_BYTES = 10 * 1024 * 1024;
 export const MAX_TELEGRAM_DOCUMENT_BYTES = 50 * 1024 * 1024;
 export const MAX_TELEGRAM_CAPTION = 1024;
+// What getFile lets a bot download at most (Bot API, "getFile").
+export const MAX_TELEGRAM_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+// The folders of Telegram's file paths a download may come from.
+const voiceFolders = ["voice"];
+const mediaFolders = ["photos", "documents", "videos", "animations", "video_notes"];
 // Methods that deliver a message: a lost answer leaves the delivery uncertain.
 const delivering = new Set(["sendMessage", ...Object.keys(telegramUploads)]);
 export class TelegramClient {
@@ -131,19 +136,30 @@ export class TelegramClient {
     return { id: me.id, username: me.username };
   }
   async audio(fileId, signal, limit = 10 * 1024 * 1024) {
+    return this.download(fileId, signal, limit, voiceFolders);
+  }
+  /**
+   * One file a message carries (getFile, then the file URL), bounded by `limit` before
+   * and while it is read. Only files from Telegram's folders in `folders` are fetched.
+   * The token is part of both URLs, so no error carries Telegram's answer or the URL.
+   */
+  async download(fileId, signal, limit, folders = mediaFolders) {
     const file = await this.call("getFile", { file_id: fileId }, signal);
     if (file.file_size > limit) throw channelError("MEDIA_TOO_LARGE", 400);
+    const [folder, name, rest] =
+      typeof file.file_path === "string" ? file.file_path.split("/") : [];
     if (
-      typeof file.file_path !== "string" ||
-      !/^voice\/[a-zA-Z0-9_.-]+$/.test(file.file_path)
+      !folders.includes(folder) ||
+      rest !== undefined ||
+      !/^[a-zA-Z0-9_.-]+$/.test(name)
     )
       throw channelError("MEDIA_UNSUPPORTED", 400);
     try {
       const response = await this.fetchImpl(
-        `${this.apiRoot}/file/bot${this.token}/${file.file_path}`,
+        `${this.apiRoot}/file/bot${this.token}/${folder}/${name}`,
         {
           signal: AbortSignal.any([
-            AbortSignal.timeout(30000),
+            AbortSignal.timeout(60000),
             ...(signal ? [signal] : []),
           ]),
           redirect: "error",

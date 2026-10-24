@@ -30,6 +30,7 @@ export const assistantChannelCopy = {
   disconnect: "Disconnect bot",
   activity: "Telegram activity",
   voice: "Voice message",
+  media: "Photo, video or file",
   retry: "Retry",
   review: "Acknowledge without resending",
   openChat: "Review agent chat",
@@ -70,7 +71,8 @@ export const assistantChannelCopy = {
     TELEGRAM_RATE_LIMIT:
       "Telegram requested a pause. Delivery will resume after the waiting period.",
     MEDIA_TOO_LARGE: "Voice messages are limited to 10 MB and ten minutes.",
-    MEDIA_UNSUPPORTED: "Only text and Ogg voice messages are supported.",
+    MEDIA_UNSUPPORTED:
+      "Nothing in this message could be passed on to the agent. The Telegram chat was told what failed.",
     VOICE_TOO_LONG: "The voice message was too long and was declined before download.",
     TRANSCRIPTION_REJECTED:
       "Deepgram rejected the audio. Deepgram's response is shown below.",

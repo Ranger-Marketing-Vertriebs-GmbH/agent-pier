@@ -116,14 +116,15 @@ test("voice above the configured duration is rejected before download and the us
   }
 });
 
-test("unsupported media is answered with the supported message types", async (t) => {
+test("content that is never a file is answered once, naming what was not passed on", async (t) => {
   const f = channelFixture(t, { language: () => "de" });
+  const de = serverCatalogs.de.assistants;
   const media = {
-    photo: [{ file_id: "p" }],
     sticker: { file_id: "s" },
-    document: { file_id: "d" },
     audio: { file_id: "a" },
-    video_note: { file_id: "v" },
+    contact: { phone_number: "1", first_name: "A" },
+    location: { latitude: 1, longitude: 2 },
+    poll: { id: "p", question: "?" },
   };
   await f.service.ingress.receive(
     f.channel.id,
@@ -142,14 +143,18 @@ test("unsupported media is answered with the supported message types", async (t)
     assert.equal(entry.state, "failed");
     assert.equal(entry.diagnostic, "MEDIA_UNSUPPORTED");
   }
-  const notices = f.service.outbox.all(f.channel.id);
-  assert.equal(notices.length, 5);
-  for (const notice of notices)
-    assert.equal(notice.text, serverCatalogs.de.assistants.telegramMediaUnsupported);
+  assert.deepEqual(
+    f.service.outbox.all(f.channel.id).map((n) => n.text),
+    Object.keys(media).map((key) =>
+      de.telegramMediaNothing(
+        `${de.telegramMediaLabels[key]}: ${de.telegramMediaReasons.kind}`,
+      ),
+    ),
+  );
   // A duplicate update neither creates a second input nor a second notice.
   const again = telegramMessage(1);
   delete again.message.text;
-  again.message.photo = media.photo;
+  again.message.sticker = media.sticker;
   await f.service.ingress.receive(f.channel.id, [again]);
   assert.equal(f.service.outbox.all(f.channel.id).length, 5);
 });
@@ -209,7 +214,7 @@ test("messages during runtime maintenance or an update stay queued and are deliv
   );
 });
 
-test("service messages are ignored silently and captions on media are named in the reply", async (t) => {
+test("service messages are ignored silently and captions on media are kept as text", async (t) => {
   const f = channelFixture(t, { language: () => "en" });
   const service = [
     { pinned_message: { message_id: 1 } },
@@ -229,6 +234,7 @@ test("service messages are ignored silently and captions on media are named in t
   assert.deepEqual(f.service.ledger.list(f.channel.id), []);
   assert.deepEqual(f.service.outbox.all(f.channel.id), []);
   assert.equal(f.service.store.offset(f.channel.id), 5);
+  // A caption is the text of its photo or file, which wait for dispatch.
   for (const [n, fields] of [
     [5, { photo: [{ file_id: "p" }], caption: "Plan dinner from this" }],
     [6, { document: { file_id: "d" }, caption: "  " }],
@@ -239,14 +245,13 @@ test("service messages are ignored silently and captions on media are named in t
     await f.service.ingress.receive(f.channel.id, [update]);
   }
   assert.deepEqual(
-    f.service.outbox.all(f.channel.id).map((n) => n.text),
+    f.service.ledger.list(f.channel.id).map((e) => [e.kind, e.state, e.text]),
     [
-      serverCatalogs.en.assistants.telegramMediaCaptionUnsupported,
-      serverCatalogs.en.assistants.telegramMediaUnsupported,
+      ["media", "queued", "Plan dinner from this"],
+      ["media", "queued", "  "],
     ],
   );
-  await f.service.ingress.dispatch(f.channel.id);
-  assert.equal(f.sent.length, 0);
+  assert.deepEqual(f.service.outbox.all(f.channel.id), []);
 });
 
 test("the stranger reply is cancelled with the poll", async (t) => {

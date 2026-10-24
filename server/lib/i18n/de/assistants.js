@@ -204,10 +204,40 @@ export const assistants = {
   telegramInputNeedsReview: "Eine Nachricht braucht deine Aufmerksamkeit in AgentPier.",
   telegramPrivateBot:
     "Dieser Bot ist privat und antwortet nur der Person, mit der er verbunden ist.",
-  telegramMediaUnsupported:
-    "Dieser Nachrichtentyp wird noch nicht unterstützt. Sende Text oder eine Sprachnachricht.",
-  telegramMediaCaptionUnsupported:
-    "Dieser Nachrichtentyp wird noch nicht unterstützt, und die Bildunterschrift wurde nicht verarbeitet. Sende Text oder eine Sprachnachricht.",
+  telegramMediaPartly: (parts) =>
+    `Nicht alles kam beim Agenten an – ${parts}. Der Rest der Nachricht wurde weitergegeben.`,
+  telegramMediaNothing: (parts) =>
+    `Diese Nachricht konnte nicht an den Agenten weitergegeben werden – ${parts}. Unterstützt werden Text, Sprachnachrichten, Fotos, Videos und Dateien (Bilder, PDF, Text).`,
+  telegramMediaFile: (name) => `„${name}“`,
+  telegramMediaLabels: {
+    photo: "Foto",
+    video: "Video",
+    video_note: "Videonachricht",
+    animation: "GIF",
+    document: "Datei",
+    sticker: "Sticker",
+    audio: "Audiodatei",
+    contact: "Kontakt",
+    location: "Standort",
+    venue: "Ort",
+    poll: "Umfrage",
+    dice: "Würfel",
+    game: "Spiel",
+    story: "Story",
+    paid_media: "Bezahlinhalt",
+    other: "Inhalt",
+  },
+  telegramMediaReasons: {
+    kind: "wird nicht unterstützt",
+    type: "Dateityp wird nicht unterstützt",
+    download: "konnte nicht von Telegram geladen werden",
+    storage: "der Anhangsordner des Agenten ist voll",
+    video: "Videos sind in diesem Chat nicht möglich",
+    failed: "konnte nicht gespeichert werden",
+  },
+  telegramMediaTooLarge: (mb) => `größer als ${mb} MB`,
+  telegramMediaTooMany: (count, max) =>
+    `${count} ${count === 1 ? "weitere Datei" : "weitere Dateien"}: höchstens ${max} pro Nachricht`,
   telegramVoiceTooLong: (minutes) =>
     `Sprachnachrichten dürfen höchstens ${minutes} min lang sein. Sende eine kürzere Nachricht oder schreibe sie als Text.`,
   telegramOpenInAgentPier: "In AgentPier öffnen",

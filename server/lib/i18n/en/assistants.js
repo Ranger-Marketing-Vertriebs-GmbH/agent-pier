@@ -194,10 +194,40 @@ export const assistants = {
   telegramInputNeedsReview: "A message needs your attention in AgentPier.",
   telegramPrivateBot:
     "This bot is private and only answers the person it is paired with.",
-  telegramMediaUnsupported:
-    "This message type is not supported yet. Send text or a voice message.",
-  telegramMediaCaptionUnsupported:
-    "This message type is not supported yet, and its caption was not processed. Send text or a voice message.",
+  telegramMediaPartly: (parts) =>
+    `Not everything reached the agent – ${parts}. The rest of the message was passed on.`,
+  telegramMediaNothing: (parts) =>
+    `This message could not be passed on to the agent – ${parts}. Text, voice messages, photos, videos and files (images, PDF, text) are supported.`,
+  telegramMediaFile: (name) => `“${name}”`,
+  telegramMediaLabels: {
+    photo: "Photo",
+    video: "Video",
+    video_note: "Video message",
+    animation: "GIF",
+    document: "File",
+    sticker: "Sticker",
+    audio: "Audio file",
+    contact: "Contact",
+    location: "Location",
+    venue: "Place",
+    poll: "Poll",
+    dice: "Dice",
+    game: "Game",
+    story: "Story",
+    paid_media: "Paid media",
+    other: "Content",
+  },
+  telegramMediaReasons: {
+    kind: "not supported",
+    type: "file type not supported",
+    download: "could not be downloaded from Telegram",
+    storage: "the agent's attachment folder is full",
+    video: "videos are not available in this chat",
+    failed: "could not be saved",
+  },
+  telegramMediaTooLarge: (mb) => `larger than ${mb} MB`,
+  telegramMediaTooMany: (count, max) =>
+    `${count} more ${count === 1 ? "file" : "files"}: at most ${max} per message`,
   telegramVoiceTooLong: (minutes) =>
     `Voice messages can be at most ${minutes} min long. Send a shorter one or type your message.`,
   telegramOpenInAgentPier: "Open in AgentPier",
