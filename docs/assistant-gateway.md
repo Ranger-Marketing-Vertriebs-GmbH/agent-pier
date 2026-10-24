@@ -3647,6 +3647,52 @@ and REM phase notes and a Dream Diary there. 2026.9.8 offers no per-agent scope
 (`memoryPolicy.excludeSessions` filters by channel, chat type or hook source only),
 so a switch limited to agents with memory cannot be built yet.
 
+## Work goals (2026-10-24, AGENTPIER-208)
+
+The agent tool `agentpier_goal` (actions `set`, `update`, `done`, `blocked`) records one
+work goal per chat in `work-goal-store.js`; the owner's `POST
+/api/assistant-conversations/:id/goal/stop` stops it. It is offered only for the owner's
+own chats with a personal agent or permanent member (not shared or user agents,
+not temporary members). `set` needs the owner's direct turn, recognised by meaning from
+the model, never from forwarded, quoted, scheduled, tool-provided or member content.
+`update`, `done` and `blocked` work from any attempt-bound turn of that agent in the goal
+chat and never widen rights. Every change is a note in the chat and is audited by its
+kind only, never with the goal's texts.
+
+**Nudge, not cron or heartbeat.** AgentPier itself sends the continuation as a follow-up
+turn (ledger request with recorded context) 90 seconds after the goal's chat has been
+idle. OpenClaw cron and heartbeat runs have no attempt and no context, so every right
+would need `exec-continuation.js`-style proof; the follow-up turn keeps rights, audit and
+the live feed unchanged. The idle timers are in memory: a restart only restarts the delay.
+
+**Context and anchor.** A continuation is recorded as `kind: "owner"` with a `goal` marker
+and has exactly the rights of its anchor, the owner's latest direct turn in the chat, and
+never more. Owner proofs (@mentions, quotes, negations such as "change nothing") are
+read from the anchor's text only, once across the anchor and all its continuations.
+The lead's `member-result` follow-up in the goal chat counts as a goal turn; member
+reports (`member-report`) and peer results do not. In a goal turn a delegated task writes
+like an Autonomous lead's own task at every Use team level, at most 4 per turn and outside
+the 20-per-hour limit; a member named in the anchor does not make it read-only. Trusted
+SSH and SFTP hosts work as in an owner turn (origin `owner`).
+
+**Exclusions.** Approval cards still wait for the owner. A goal turn cannot use the
+short-yes consent (**Go ahead**), switch **May write**, create or change reminders or
+routines (both go through `turnAudience`), grant shell or SSH access, or set or widen a
+goal. Lead shares and grants a lead turn may make today stay allowed.
+
+**Holds.** No nudge while the chat has a pending attempt, a live check-in run, a running
+compaction or summary, a queued owner message, an approval card, the chat's own open lead
+requests or team, or a background command. Background commands are asked with the Gateway
+method `agentpier.backgroundCommands` (team plugin, `background-commands.js`) for the
+chat's session and hold for at most 2 hours; an error counts as none running.
+
+**Brakes.** 3 technical failures (failed, interrupted or uncertain attempts) in a row, or 3
+continuations without any tool call, end the goal as blocked. A refusal that only says "not
+now" (409, 503) restarts the delay. An archived chat or agent, a lost anchor, an agent that
+became ineligible, or the owner stopping a running continuation turn (`turn-cancelled`) end
+the goal. Continuations and goal notes are not sent to Telegram, and goals never block
+saving agent settings between turns.
+
 ## Live agent chat feed
 
 `/api/assistant-conversations/<id>/stream?cursor=<cursor>` is a WebSocket behind the
