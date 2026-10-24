@@ -90,6 +90,7 @@ function assistantData(root) {
     "backup-keys/8b0c5f0e-8f43-4a8e-9a55-3c2f4c1d0e01.key",
     "owner.json",
     "reminder-webhook.json",
+    "state.update-captures/doctor-1/payload/2",
   ])
     write(root, excluded, "excluded");
 }
@@ -135,6 +136,7 @@ test("host backups include assistant data without runtimes, caches or keys", asy
     "backup-keys",
     "owner.json",
     "reminder-webhook.json",
+    "state.update-captures",
   ])
     assert.equal(
       paths.some(

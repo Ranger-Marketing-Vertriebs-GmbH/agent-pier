@@ -20,6 +20,7 @@ export const assistantCopy = {
       draining: "Draining work",
       snapshotting: "Creating backup",
       activating: "Activating",
+      migrating: "Migrating data",
       validating: "Validating",
       committed: "Committed; resuming operation",
       complete: "Update complete",
@@ -33,6 +34,8 @@ export const assistantCopy = {
       UPDATE_STAGE_INTERRUPTED: "Staging was interrupted. Stage again.",
       UPDATE_BLOCKED: "Active or unresolved work blocks the update.",
       UPDATE_ROLLED_BACK: "Activation failed; the previous version was restored.",
+      UPDATE_MIGRATION_FAILED:
+        "Migrating the data to the new version failed; the previous version was restored.",
       UPDATE_RECOVERY_REQUIRED: "Recovery is required. The service remains stopped.",
       UPDATE_RESUME_REQUIRED:
         "State was committed. Resume without rolling back later work.",
