@@ -230,6 +230,21 @@ told it was not saved.
   "Secrets hidden"; this is best effort. An approval shows the exact command until you
   decide and it has run. AgentPier keeps the newest 500 trusted runs per agent.
   **Trusted incl. routines** also runs in the agent's routines.
+- **SFTP hosts** appear in the same list, marked **SFTP**, with the same modes (see
+  [SFTP access](sftp-access.md)). The agent lists and downloads without asking. With
+  **With approval**, every change on the server (upload, new folder, rename, sync up)
+  shows a card in the chat and in the paired Telegram chat with **Allow once**,
+  **Always allow for this host** and **Deny**; Telegram offers the buttons only for
+  plans of up to 20 paths per list without hidden characters. **Always allow for this
+  host** switches that agent's grant to **Trusted** (set it back here to revoke it) and
+  appears only on cards for the agent's own grant: not on delete cards and not on a
+  temporary member's cards. **Trusted** changes run without asking. Deletes (a delete
+  or a sync that deletes extra files) always ask, and routines never delete. At most 3
+  SFTP cards wait at once. Local paths are in the agent's workspace unless it names a
+  granted project folder; prompt files such as `AGENTS.md` and `SOUL.md`, `skills/`,
+  `.agents/` and `attachments/` are never transferred, and a folder download needs a
+  subfolder. Every transfer leaves a live activity row (progress, then counts, size and
+  duration); consecutive calls share one group, "SFTP activity".
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
 - **Team:** **Use team** (**On request**, **Suggest** or **Autonomous**; see

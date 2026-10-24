@@ -130,6 +130,8 @@ scrypt-derived key):
   configuration files of its CLI (table below).
 - Provider connection keys, repository credentials and MCP server values.
 - The restricted users' password salts and hashes (`users/credentials.json`).
+- SFTP hosts that sign in with a password, together with their passwords (see "SFTP
+  hosts in backups").
 
 The agents' own browser profiles (`assistants/state/browser/agent-<id>/user-data`)
 hold their logins and cookies. They are archived only with **Include encrypted
@@ -144,6 +146,36 @@ passphrase, then encrypted)"; every plan with agents lists "Agent browser caches
 left out. Backups from before this change archived OpenClaw's default profile
 publicly, caches included: a restore brings the profile back, leaves the caches out
 and reports their number as `cachesLeftOut`.
+
+## SFTP hosts in backups
+
+SSH hosts, SSH keys and session grants are never part of a backup (see
+[SSH accesses](ssh-access.md#scope-and-storage)). SFTP hosts that sign in with a
+password are the exception, because their password cannot be recreated from a key:
+
+- An ordinary backup and a backup without **Include encrypted credentials** leave them
+  out. When such hosts exist, the plan and manifest list "SFTP hosts and passwords
+  (only in backups with a passphrase, then encrypted)".
+- With **Include encrypted credentials**, the plan lists the component
+  `sealed-sftp-hosts`. The hosts and passwords travel only in the passphrase capsule
+  as `ssh/sftp-hosts.json`. SFTP hosts that use a key stay omitted, like SSH hosts and
+  keys.
+- A host whose password could not be read when the backup was taken is left out and
+  named in the plan and manifest: `SFTP host "<name>" (its password could not be read)`.
+  Only the host's name appears there, never the password.
+- A restore keeps the host ids, so agents' stored grants work again, and writes the
+  passwords with owner-only permissions. The hosts join the SSH catalog at the first
+  start of the restored data directory. A host whose address and user already exist
+  there is not added twice. A project the restore did not map leaves the host without
+  its project, so only grants apply. The restore report holds
+  `sftpHosts: { restored, withoutProject }` (the counts of restored hosts and of those
+  that lost their project); the Operations page does not show it.
+- **Older releases cannot restore such a backup.** A credential backup that holds
+  password SFTP hosts can only be restored on the release that introduces SFTP or a
+  newer one. AgentPier 2.5.1 and older reject it with "unexpected component", because
+  the capsule member is unknown to them, just as the browser profiles keep 2.0 to 2.2
+  from restoring a backup that holds them (see "Sealed history"). Ordinary backups,
+  and credential backups without password SFTP hosts, still restore on older releases.
 
 ## CLI profile allowlists
 
