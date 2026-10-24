@@ -902,9 +902,10 @@ cannot be fetched; other files stay limited to 10 MB.
 - **Albums:** several photos or videos sent together arrive as one message with all
   their files in order and the caption. AgentPier waits until no further item of the
   album has come for 2.5 seconds and AgentPier has asked Telegram again for anything
-  newer, also after a restart; an item that Telegram delivers later still joins the
-  album while it waits for an earlier message to finish, but not once its files were
-  fetched. At most five files per message are passed on; the chat is told how many were
+  newer, also after a restart; while Telegram cannot be reached, an album waits at most
+  60 seconds after its newest item. An item that Telegram delivers later still joins
+  the album while it waits for an earlier message to finish, but not once all its
+  files were fetched. At most five files per message are passed on; the chat is told how many were
   left out.
 - **What does not arrive:** stickers, audio files, contacts, locations, polls, files
   of an unsupported type, files that are too large or could not be downloaded, and a

@@ -623,13 +623,15 @@ is never a file (stickers, audio, contacts, polls and the like) and a stated siz
 the limit (20 MB, Telegram's `getFile` download limit, for videos; 10 MB for any
 other file) are refused before any download. An album (items sharing a
 `media_group_id`) is one input: its first item opens it, and later items join it while
-it is queued and its files were not fetched yet (`dispatchedAt`), since long polling
+it is queued and its files were not all fetched yet (`dispatchedAt`, set when its
+notice is due), since long polling
 may split an album across responses. It goes out once no item came for 2.5 seconds
-and a poll that began after its newest item has returned or stayed open for a second
-(Telegram answers at once while updates are pending). Poll times live in memory, so
+and a poll that began after its newest item has returned its updates or is still
+open after a second (Telegram answers at once while updates are pending); a failed
+poll counts as neither. Poll times live in memory, so
 after a restart the album waits for the new process's first poll, which brings the
-items Telegram still holds; an album whose polls keep failing goes out after 60
-seconds. Each later item keeps a ledger row in the `merged` state, so a repeated update
+items Telegram still holds; an album whose polls keep failing goes out 60
+seconds after its newest item. Each later item keeps a ledger row in the `merged` state, so a repeated update
 is still recognised; the activity list shows only the album's input. A later item of
 an album that was already fetched is an input of its own, with its own notice.
 
