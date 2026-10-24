@@ -45,16 +45,21 @@ const text = (m) =>
         .filter((c) => c?.type === "text")
         .map((c) => c.text)
         .join("\n");
-// The completion run's prompt: 2026.10.3's "An async command you ran earlier has
-// completed ...", 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line.
-const isCompletion = (request) => {
-  const prompt = text(lastUser(request)[0]) || "";
-  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
-};
 const openClawVersion = (dir) =>
   JSON.parse(
     fs.readFileSync(path.join(dir, "app/node_modules/openclaw/package.json"), "utf8"),
   ).version;
+// 2026.10.6 and later: the completion is an ordinary event turn.
+const eventTurns =
+  !!installed && !/^2026\.(9\.|10\.[0-5]$)/.test(openClawVersion(installed));
+// The completion run's prompt: 2026.10.3's "An async command you ran earlier has
+// completed ...", 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line.
+const isCompletion = (request) => {
+  const prompt = text(lastUser(request)[0]) || "";
+  return eventTurns
+    ? /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt)
+    : /async command/i.test(prompt);
+};
 
 test(
   "pinned Gateway: a work goal continues in its chat until the agent ends it",
@@ -239,7 +244,6 @@ test(
     // 3. OpenClaw's completion run in the chat's session ends. 2026.10.3 marks its
     // events heartbeat-driven; 2026.10.7's ordinary event turn has no marked event,
     // so it is the session's one run that is not the owner's.
-    const eventTurns = !/^2026\.(9\.|10\.[0-5]$)/.test(openClawVersion(installed));
     const ended = (e) =>
       (eventTurns
         ? e.isHeartbeat === false && e.runId !== owner.runId
