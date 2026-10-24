@@ -13,6 +13,7 @@ import {
   plain,
 } from "./lead-request-proof.js";
 import { autonomousCaps } from "./team-policy.js";
+import { directOwnerTurn, goalTurn, ownerSource } from "./goal-turns.js";
 export { ownerQuote } from "./lead-request-proof.js";
 // Questions and tasks a lead agent sends to its own members. They live in the team
 // store as `lead-request` records beside the teams and members they refer to.
@@ -47,10 +48,10 @@ export function exact(input, keys, required) {
 /**
  * Whether a lead's task may change files: a task the owner asked for (ownerProof),
  * one an autonomous lead started in the owner's own turn, or one a routine the owner
- * marked "May write" started (routineWrites, the owner's standing
- * instruction), or a member's task for a sibling sent from a turn that may write
- * itself (peerWrites, peer-request-rules.js); never once cancelled. Where and when
- * it writes is checked apart.
+ * marked "May write" started (routineWrites, the owner's standing instruction), one
+ * a lead started in a goal turn (goalId, goal-turns.js), or a member's task for a
+ * sibling sent from a turn that may write itself (peerWrites, peer-request-rules.js);
+ * never once cancelled. Where and when it writes is checked apart.
  */
 export const taskWritable = (r) =>
   !!r &&
@@ -60,6 +61,7 @@ export const taskWritable = (r) =>
   (!!r.ownerProof ||
     r.autonomous === true ||
     r.routineWrites === true ||
+    typeof r.goalId === "string" ||
     (!!r.fromMemberId && !!r.peerWrites)) &&
   !r.cancelRequested;
 /**
@@ -218,11 +220,13 @@ export class LeadRequestStore {
     const t = this.teams;
     // The owner's message is parsed for the proofs before the transaction; inside
     // it only a parse of the same request (its text and context never change) is used.
+    // In a goal turn the owner's message is the anchor's, never the turn's own text.
     let owner = null;
     if (!routine) {
       try {
         const { request } = this.lead(attemptId);
-        const parsed = parseOwnerText(request.text, t.context(request.id).hidden);
+        const source = ownerSource(t, request);
+        const parsed = parseOwnerText(source.request.text, source.context.hidden);
         owner = { requestId: request.id, parsed };
       } catch {
         owner = null;
@@ -277,9 +281,18 @@ export class LeadRequestStore {
             }
           : t.context(request.id),
         policy = t.policy(lead.id);
-      const ownerTurn =
-        ["owner", "telegram"].includes(context.kind) && !context.forwarded;
-      const proofs = turn.filter((r) => r.ownerProof);
+      // A goal turn (continuation or goal member result, goal-turns.js) proves only
+      // what its anchor, the owner's latest direct turn, proves: one owner sentence
+      // or mention proves one task across the anchor and all its continuations.
+      const source = request && !routine ? ownerSource(t, request) : null,
+        goal = goalTurn(context);
+      const ownerTurn = goal
+        ? directOwnerTurn(source.context)
+        : ["owner", "telegram"].includes(context.kind) && !context.forwarded;
+      const proofId = source?.request.id ?? request?.id;
+      const proofs = mine.filter(
+        (r) => r.ownerProof && r.ownerProof.requestId === proofId,
+      );
       // Requests always run. Only a task the owner explicitly asked for in this
       // very turn may change files in the member's workspace: AgentPier's record of
       // the turn plus a verbatim quote of the owner's words that names the member
@@ -304,7 +317,7 @@ export class LeadRequestStore {
         ? null
         : owner?.requestId === request.id
           ? owner.parsed
-          : parseOwnerText(request.text, context.hidden);
+          : parseOwnerText(source.request.text, source.context.hidden);
       const sentence = quote && parsed ? ownerQuoteProof(quote, parsed) : null;
       // The lead's quote proves a request only by name and an ask or delegate verb;
       // mentions count only from the owner's own message below.
@@ -328,7 +341,7 @@ export class LeadRequestStore {
         addressed &&
         !used(sentence.index) &&
         !proofs.some((r) => plain(r.ownerProof.quote) === plain(quote))
-          ? { requestId: request.id, quote, sentence: sentence.index }
+          ? { requestId: proofId, quote, sentence: sentence.index }
           : null;
       // Second way: the owner's own message @mentions this member, whatever the
       // lead quoted.
@@ -342,7 +355,7 @@ export class LeadRequestStore {
         );
         if (m)
           proof = {
-            requestId: request.id,
+            requestId: proofId,
             quote: m.excerpt,
             sentence: m.sentence,
             mention: m.ordinal,
@@ -351,10 +364,10 @@ export class LeadRequestStore {
       // Third way, where the lead offers members first (team usage "suggest" or
       // "autonomous"): the owner's own short yes in this turn to the lead's last
       // reply, which named this member, once per turn, in a message that names no
-      // other member.
+      // other member. Never in a goal turn: the yes answered another reply.
       const prose = ownerTurn ? ownerProse(parsed) || "" : "";
       const usage = policy.usage;
-      if (open && !proof && quote && parsed && usage !== "onRequest") {
+      if (open && !proof && quote && parsed && usage !== "onRequest" && !goal) {
         const yes = ownerConsent(quote, parsed);
         if (
           yes &&
@@ -368,21 +381,27 @@ export class LeadRequestStore {
             ]),
           )
         )
-          proof = { requestId: request.id, quote, sentence: yes.index, consent: true };
+          proof = { requestId: proofId, quote, sentence: yes.index, consent: true };
       }
       // Whether the owner's message in this turn names the member at all; only for
       // the record and the autonomous caps, never for a permission.
       const named = !!prose && namesMember(prose, assistant.name, others);
-      const selfInitiated = usage === "autonomous" && !proof && !named;
       // A negation or limit anywhere in the owner's message ("but don't change
       // anything") keeps every task of the turn read-only.
       const negated = !parsed || messageNegated(parsed);
+      // The owner's ruling: in a goal turn the goal is the owner's involvement, so a
+      // task without a proof may write like an autonomous lead's own one, whatever
+      // the team usage and whether or not the anchor names the member. Capped per
+      // turn; the hourly limit neither counts nor refuses it.
+      const goalTask = type === "task" && !!goal && !proof && ownerTurn && !negated;
+      const selfInitiated = (usage === "autonomous" && !proof && !named) || goalTask;
       if (selfInitiated) {
         const own = mine.filter((r) => r.selfInitiated);
         if (
           own.filter((r) => turn.includes(r)).length >= autonomousCaps.perTurn ||
-          own.filter((r) => now - Date.parse(r.createdAt) < 3600000).length >=
-            autonomousCaps.perHour
+          (!goalTask &&
+            own.filter((r) => !r.goalId && now - Date.parse(r.createdAt) < 3600000)
+              .length >= autonomousCaps.perHour)
         )
           throw assistantProblem("memberRequestAutonomousLimit", 429);
       }
@@ -391,7 +410,8 @@ export class LeadRequestStore {
       // task for a member the owner named without a valid proof, a negated message
       // and other turns run read-only. Shell, SSH, project folders, GitHub and
       // grants keep their own approvals.
-      const autonomous = type === "task" && selfInitiated && ownerTurn && !negated;
+      const autonomous =
+        type === "task" && selfInitiated && !goalTask && ownerTurn && !negated;
       // A routine the owner marked "May write" stands for the
       // owner's instruction: its tasks may change files like an owner-proven one.
       const routineWrites = type === "task" && !!routine?.writes;
@@ -413,8 +433,9 @@ export class LeadRequestStore {
           text,
           origin: context,
           ownerProof: proof,
-          writeAllowed: !!proof || autonomous || routineWrites,
+          writeAllowed: !!proof || autonomous || routineWrites || goalTask,
           ...(autonomous ? { autonomous: true } : {}),
+          ...(goalTask ? { goalId: goal.id } : {}),
           ...(routineWrites ? { routineWrites: true } : {}),
           ...(selfInitiated ? { selfInitiated: true } : {}),
           runTimeoutMinutes: policy.runTimeoutMinutes,

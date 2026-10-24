@@ -13,6 +13,7 @@ import { runReply } from "./history-text.js";
 import { saveText, shortForm } from "./team-texts.js";
 import { deliverRequest } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
+import { latestOwnerTurn } from "./work-goal-nudges.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
 // stuck-session diagnostics only flag a call as long-running after two minutes, so
@@ -525,14 +526,34 @@ export class LeadRequests {
   /** Where a finished request is delivered: a sibling's asker, or the lead's chat. */
   deliveryTarget(r) {
     if (r.fromMemberId && this.peers) return this.peers.target(r);
+    const report = r.origin?.kind === "member-report";
+    const conversationId =
+      report && this.reports ? this.reports.conversationId(r) : r.parentConversationId;
+    const result = { kind: "member-result", requestId: r.id };
     return {
-      conversationId:
-        r.origin?.kind === "member-report" && this.reports
-          ? this.reports.conversationId(r)
-          : r.parentConversationId,
+      conversationId,
       clientRequestId: `lead-request-result:${r.id}`,
       text: followUp({ ...r, answer: this.store.answer(r) }),
-      context: { kind: "member-result", requestId: r.id },
+      context: result,
+      ...(!r.fromMemberId && !report ? this.goalResult(conversationId, result) : {}),
+    };
+  }
+  /**
+   * The owner's ruling: while a goal is open in the chat, the lead's follow-up on
+   * its own request there is a goal turn with the anchor's rights (goal-turns.js),
+   * decided when it is sent. Its member-result-only paths then do not apply.
+   */
+  goalResult(conversationId, result) {
+    const goal = conversationId ? this.service.goals?.store.open(conversationId) : null;
+    const anchor = goal ? latestOwnerTurn(this.service, conversationId) : null;
+    if (!anchor) return {};
+    return {
+      context: {
+        kind: "owner",
+        goal: { id: goal.id, anchorRequestId: anchor.id, title: goal.title },
+        result,
+      },
+      teamAllowed: this.teams.context(anchor.id).teamAllowed === true,
     };
   }
   async close() {

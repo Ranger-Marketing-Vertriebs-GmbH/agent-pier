@@ -21,6 +21,7 @@ import {
 } from "./member-grants.js";
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 import { draftModel } from "./member-models.js";
+import { ownerSource } from "./goal-turns.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
 // words containing "team" (also in compounds such as "Rechercheteam"), as whole
@@ -344,20 +345,21 @@ export class TeamStore {
       if (this.list(parent.id).some((t) => !terminal.has(t.phase)))
         throw assistantProblem("active", 409);
       const context = this.context(request.id),
+        { request: anchor, context: anchorContext } = ownerSource(this, request),
         ownerTurn =
           (["owner", "telegram"].includes(context.kind) && !context.forwarded) ||
           origin?.kind === "owner";
       const consumed = this.list().some(
-        (t) => t.parentRequestId === request.id && t.authorization?.kind === "task",
+        ({ authorization: a }) => a?.kind === "task" && a.requestId === anchor.id,
       );
-      // An explicit owner request in plain words authorizes this one team. The
-      // turn context is recorded by AgentPier, never by the model, and the quote
-      // must appear in the text AgentPier received for this very request.
+      // An explicit owner request in plain words authorizes this one team. The turn
+      // context is AgentPier's, never the model's, and the quote must appear in the
+      // text AgentPier received for this request (in a goal turn: its anchor's, once).
       const ownerRequest =
         ["owner", "telegram"].includes(context.kind) &&
         !context.forwarded &&
         ownerRequestedTeam &&
-        quoted(ownerRequestQuote, request.text, context);
+        quoted(ownerRequestQuote, anchor.text, anchorContext);
       // Shell or SSH for a member always waits for the owner's own decision.
       // So does a template the scan warned about (team-templates.js).
       const ownerMust = stored.some(
@@ -368,10 +370,10 @@ export class TeamStore {
         : ownerTurn && (context.teamAllowed || ownerRequest) && !consumed
           ? {
               kind: "task",
-              requestId: request.id,
+              requestId: anchor.id,
               ...(!context.teamAllowed
                 ? { source: "ownerRequest", ownerRequestQuote }
-                : { source: teamCommand.test(request.text) ? "command" : "checkbox" }),
+                : { source: teamCommand.test(anchor.text) ? "command" : "checkbox" }),
             }
           : ownerTurn && policy.autonomous
             ? { kind: "standing", policyRevision: policy.revision }

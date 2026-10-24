@@ -1,5 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { canPairTelegram, isUserAgent, memberLevel } from "../users/user-access.js";
+import { refuseInGoalTurn } from "./goal-turns.js";
 
 /**
  * Whom reminders, routines and check-ins belong to. On a shared agent each person's
@@ -31,9 +32,11 @@ export const agentPerson = (agent) =>
 /**
  * Whose bindings a turn may manage with the agent's reminder or routine tool: the
  * person whose chat it is, on a direct turn only. A user's turn writes only while she
- * belongs to the agent at "personalize" or higher.
+ * belongs to the agent at "personalize" or higher. A goal turn (goal-turns.js) only
+ * lists them: changes, "May write" and Telegram need the owner's own message.
  */
 export function turnAudience(agent, conversation, origin, write) {
+  if (write) refuseInGoalTurn(origin);
   if (!["owner", "telegram", "user"].includes(origin?.kind) || origin.forwarded)
     throw assistantProblem("invalid", 403);
   const userId = typeof conversation.userId === "string" ? conversation.userId : null;
