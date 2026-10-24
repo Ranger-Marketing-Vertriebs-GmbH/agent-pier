@@ -5,6 +5,9 @@ export const assistantApi = {
       `/assistant-conversations/${encodeURIComponent(conversationId)}/shared-files/${encodeURIComponent(fileId)}`,
       "DELETE",
     ),
+  // The owner's Stop of the chat's work goal (work-goals.js).
+  stopGoal: (id) =>
+    api(`/assistant-conversations/${encodeURIComponent(id)}/goal/stop`, "POST", {}),
   feature: () => api("/assistant-feature"),
   setFeature: (enabled) => api("/assistant-feature", "PUT", { enabled }),
   memory: (id, name) =>
