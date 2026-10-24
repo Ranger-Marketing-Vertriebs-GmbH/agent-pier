@@ -35,13 +35,16 @@ export function latestOwnerTurn(service, conversationId) {
   return null;
 }
 
-/** Whether the session has background commands running; any error says no. */
+/**
+ * Whether the session has background commands running, or a completion run of
+ * OpenClaw 2026.10.7 under way (whose agent events carry no mark); any error says no.
+ */
 export async function backgroundRunning(service, sessionKey) {
   try {
     const answer = await service.assistants.runtime.client.call(backgroundMethod, {
       sessionKey,
     });
-    return answer?.running > 0;
+    return answer?.running > 0 || answer?.completing > 0;
   } catch {
     return false;
   }
@@ -53,7 +56,7 @@ function busy(a, conversation) {
     a.ledger
       .pending()
       .some((attempt) => a.ledger.getRequest(attempt.requestId).conversationId === id) ||
-    !!a.heartbeatRuns?.live(conversation.runtimeSessionKey).length ||
+    !!a.completionRuns?.live(conversation.runtimeSessionKey).length ||
     !!a.longChats?.compacting(id) ||
     ["waiting", "sending"].includes(a.queued?.get(id)?.state)
   );

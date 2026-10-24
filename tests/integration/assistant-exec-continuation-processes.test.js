@@ -189,7 +189,8 @@ test("the evidence is validated and judged by the attempt's run", () => {
     completion: { runId: "w1", ids: ["brisk-or"], at: 2000 },
     ...over,
   });
-  assert.equal(processRefusal(validEvidence(evidence()), attempt, "w1"), null);
+  // A run CompletionRuns knows (2026.10.3's heartbeat run, a verified event turn).
+  assert.equal(processRefusal(validEvidence(evidence()), attempt, "w1", true), null);
   for (const [value, code] of [
     [null, "EVIDENCE"],
     [evidence({ complete: false }), "UNTRACKED"],
@@ -219,17 +220,33 @@ test("the evidence is validated and judged by the attempt's run", () => {
       "WINDOW",
     ],
   ])
-    assert.equal(processRefusal(validEvidence(value), attempt, "w1"), code);
+    assert.equal(processRefusal(validEvidence(value), attempt, "w1", true), code);
   assert.equal(
-    processRefusal(validEvidence(evidence()), attempt, "w2"),
+    processRefusal(validEvidence(evidence()), attempt, "w2", true),
     "NOT_COMPLETION",
   );
+  // A run it does not know is a completion only with the plugin's event-turn mark.
+  const internal = evidence({
+    completion: { runId: "w1", ids: ["brisk-or"], at: 2000, internal: true },
+  });
+  assert.equal(
+    processRefusal(validEvidence(evidence()), attempt, "w1"),
+    "NOT_COMPLETION",
+  );
+  assert.equal(processRefusal(validEvidence(internal), attempt, "w1"), null);
+  assert.equal(validEvidence(internal).completion.internal, true);
+  assert.equal("internal" in validEvidence(evidence()).completion, false);
   // Malformed evidence is no evidence.
   for (const bad of [
     { ...evidence(), processes: [{ id: 1, runId: "a1" }] },
     { ...evidence(), processes: Array(257).fill({ id: "x", runId: "a1" }) },
     { ...evidence(), completion: { runId: "w1", ids: ["toolongid"], at: 2000 } },
     { ...evidence(), complete: "yes" },
+    // The mark is `true` or absent, nothing else.
+    ...[false, "true", 1, null, {}].map((internal) => ({
+      ...evidence(),
+      completion: { runId: "w1", ids: ["brisk-or"], at: 2000, internal },
+    })),
   ])
     assert.equal(validEvidence(bad), null);
 });

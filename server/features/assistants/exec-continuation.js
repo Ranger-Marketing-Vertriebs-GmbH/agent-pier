@@ -1,22 +1,32 @@
 // What OpenClaw's own run after a background command may change. An owner turn that
 // starts a long `exec` (a render, a build) ends while the command keeps running; when
-// it exits, OpenClaw 2026.10.3 (`tools.exec.notifyOnExit`, on by default) wakes the
-// same session through its heartbeat runner with a hidden user message
-// `[OpenClaw exec completion]` and the input provenance
-// `{ kind: "internal_system", sourceTool: "exec" }` (heartbeat-runner-run,
-// internal-turn-source). That run has no AgentPier attempt. Its writes continue the
-// owner turn that started the command, with that turn's limits, only when AgentPier
-// proves all of this (continuationSource, processRefusal):
+// it exits, OpenClaw (`tools.exec.notifyOnExit`, on by default) runs the same session
+// once more without an AgentPier attempt:
+// - 2026.10.3 (and 9.9, 9.8, the rollback targets) wakes it through its heartbeat
+//   runner with a hidden user message `[OpenClaw exec completion]`; the Gateway's
+//   agent events of that run carry `isHeartbeat: true`;
+// - 2026.10.7 sends an ordinary event turn (enqueueSessionEventForHost, source
+//   "exec") whose prompt is the bare `Exec <status> (<id8>, <exit>) :: <output>`
+//   line. Its agent events carry no mark (`isHeartbeat: false`); only the hooks'
+//   `ctx.trigger: "event"` (which the team plugin records with the completion as
+//   `internal`) and the transcript entry's provenance tell it apart.
+// Both write the completion's user entry with the input provenance
+// `{ kind: "internal_system", sourceTool: "exec" }`. Its writes continue the owner
+// turn that started the command, with that turn's limits, only when AgentPier proves
+// all of this (continuationSource, processRefusal, provenSource):
 // - the session is a chat of the calling agent, which is active and no temporary
 //   task member;
 // - the chat's latest ledger request is a completed direct turn (directTurn, read
 //   live: a restricted user who lost the agent gets nothing) at most
 //   `continuationWindowMs` ago, and no newer request exists;
 // - the call names its run (the write hook's `runId`; a workspace call the run of
-//   its tool call), and the Gateway's agent events mark that run as heartbeat-driven
-//   (`isHeartbeat`) in this session (HeartbeatRuns), and it is not that turn's run.
-//   The run is hidden from the Control UI, so its events reach AgentPier only through
-//   the chat's `sessions.messages.subscribe` (conversation-open.js);
+//   its tool call), it is not that turn's run, and either the Gateway's agent events
+//   mark it heartbeat-driven in this session (CompletionRuns), or the plugin saw it
+//   as an event turn (`completion.internal`) and the session's transcript
+//   (`sessions.get`, read once per run) holds its user entry with exactly that exec
+//   provenance and the same process lines (transcriptRefusal). The run is hidden
+//   from the Control UI, so its events reach AgentPier only through the chat's
+//   `sessions.messages.subscribe` (conversation-open.js);
 // - the Gateway's own record of the session (team-plugin/exec-processes.js, sent
 //   with the call) is complete and shows that the run's prompt is an exec
 //   completion listing only processes whose every possible owner, by the first
@@ -32,54 +42,89 @@ import { directTurn } from "./memory-write-policy.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { isMemory } from "./lead-request-writes.js";
 import { isShared } from "../users/user-access.js";
+import { isDeepStrictEqual } from "node:util";
+import { completedProcesses } from "./team-plugin/exec-processes.js";
 
 /** How long after the owner turn its command's completion may still write. */
 export const continuationWindowMs = 2 * 3600000;
 const maxRuns = 64;
 
-/** The live runs the Gateway marks as heartbeat-driven, by session (agent events). */
-export class HeartbeatRuns {
+/**
+ * The live completion runs, by session: those the Gateway's agent events mark as
+ * heartbeat-driven (2026.10.3 and older) and the 2026.10.7 event turns whose
+ * transcript entry AgentPier has verified (`admit`).
+ */
+export class CompletionRuns {
   constructor({ now = Date.now } = {}) {
     this.now = now;
     this.runs = new Map();
+    // Runs seen ending: a verification that returns late admits nothing.
+    this.ended = new Set();
+    // The transcript read under way per run: concurrent calls share it.
+    this.verifying = new Map();
   }
   /** Takes every Gateway `agent` event. */
   observe(payload) {
     const { runId, sessionKey } = payload || {};
     if (typeof runId !== "string" || typeof sessionKey !== "string") return;
     const phase = payload.data?.phase;
-    if (
-      payload.isHeartbeat === false ||
-      (payload.stream === "lifecycle" && ["end", "error"].includes(phase))
-    )
-      return void this.runs.delete(runId);
-    if (payload.isHeartbeat !== true) return;
     const run = this.runs.get(runId);
+    if (payload.stream === "lifecycle" && ["end", "error"].includes(phase)) {
+      this.ended.add(runId);
+      if (this.ended.size > maxRuns) this.ended.delete(this.ended.values().next().value);
+      return void this.runs.delete(runId);
+    }
+    // A run reported for another session is no longer trusted.
     if (run && run.sessionKey !== sessionKey) return void this.runs.delete(runId);
-    if (!run) this.runs.set(runId, { runId, sessionKey, at: this.now() });
+    // 2026.10.7 marks no event of an event turn: only a heartbeat run loses its mark.
+    if (payload.isHeartbeat === false)
+      return void (run?.kind === "heartbeat" && this.runs.delete(runId));
+    if (payload.isHeartbeat !== true || run) return;
+    this.add({ runId, sessionKey, kind: "heartbeat" });
+  }
+  /** A 2026.10.7 event turn whose transcript entry proved it (provenSource). */
+  admit(runId, sessionKey) {
+    if (this.ended.has(runId) || this.runs.has(runId)) return;
+    this.add({ runId, sessionKey, kind: "event" });
+  }
+  add({ runId, sessionKey, kind }) {
+    this.runs.set(runId, { runId, sessionKey, at: this.now(), kind });
     if (this.runs.size > maxRuns) this.runs.delete(this.runs.keys().next().value);
   }
-  /** The run ids live in this session. */
+  /** The runs live in this session. */
   live(sessionKey) {
     const now = this.now();
     for (const [id, run] of this.runs)
       if (now - run.at > continuationWindowMs) this.runs.delete(id);
-    return [...this.runs.values()].filter((r) => r.sessionKey === sessionKey);
+    return [...this.runs.values()]
+      .filter((r) => r.sessionKey === sessionKey)
+      .map(({ runId, sessionKey: key, at }) => ({ runId, sessionKey: key, at }));
   }
   clear() {
     this.runs.clear();
+    this.ended.clear();
+    this.verifying.clear();
   }
 }
 
+// The plugin's completion of a 2026.10.7 event turn for this very call, or null.
+function eventTurn(input) {
+  const completion = execEvidence(input.exec)?.completion;
+  return completion?.internal === true && completion.runId === input.runId
+    ? completion
+    : null;
+}
+
 // A refusal is logged once per session, run and reason, with a code only (never a
-// path, the prompt or the command's output), and only for a run the Gateway reports
-// as heartbeat-driven in that session: an ordinary refused write elsewhere is not a
-// continuation and stays quiet.
+// path, the prompt or the command's output), and only for a completion run of that
+// session (a live one, or an event turn the plugin reports): an ordinary refused
+// write elsewhere is not a continuation and stays quiet.
 const logged = new Set();
 function refuse(bridge, input, code) {
-  const candidate = bridge.assistants?.heartbeatRuns
-    ?.live(input.sessionKey)
-    .some((r) => r.runId === input.runId);
+  const candidate =
+    bridge.assistants?.completionRuns
+      ?.live(input.sessionKey)
+      .some((r) => r.runId === input.runId) || !!eventTurn(input);
   const key = `${input.sessionKey}\u0000${input.runId}\u0000${code}`;
   if (candidate && !logged.has(key)) {
     if (logged.size > 1000) logged.clear();
@@ -99,7 +144,7 @@ export function continuationSource(bridge, input) {
   const { agentId, sessionKey, runId } = input;
   try {
     if (typeof runId !== "string" || !runId) return refuse(bridge, input, "NO_RUN_ID");
-    const { store, ledger, heartbeatRuns } = bridge.assistants;
+    const { store, ledger, completionRuns } = bridge.assistants;
     const agent = bridge.agentOf(agentId);
     if (
       !agent ||
@@ -123,7 +168,16 @@ export function continuationSource(bridge, input) {
     const age = bridge.now() - Date.parse(attempt.createdAt);
     if (!(age >= 0 && age <= continuationWindowMs))
       return refuse(bridge, input, "WINDOW");
-    const run = (heartbeatRuns?.live(sessionKey) || []).find((r) => r.runId === runId);
+    // A 2026.10.7 event turn not yet verified stays pending (provenSource).
+    const run =
+      (completionRuns?.live(sessionKey) || []).find((r) => r.runId === runId) ||
+      (eventTurn(input) &&
+        !completionRuns?.ended.has(runId) && {
+          runId,
+          sessionKey,
+          at: bridge.now(),
+          pending: true,
+        });
     if (!run || [attempt.id, attempt.runtimeRunId].includes(run.runId))
       return refuse(bridge, input, "RUN");
     return { agent, conversation, attempt, runId, run };
@@ -151,6 +205,8 @@ export function execEvidence(value) {
     (!completion ||
       !shortText(completion.runId, 512) ||
       !Number.isFinite(completion.at) ||
+      // Only the plugin's mark of an event turn, never any other value.
+      !(completion.internal === undefined || completion.internal === true) ||
       !(
         completion.ids === null ||
         (Array.isArray(completion.ids) &&
@@ -166,6 +222,7 @@ export function execEvidence(value) {
       runId: completion.runId,
       ids: completion.ids,
       at: completion.at,
+      ...(completion.internal && { internal: true }),
     },
   };
 }
@@ -174,13 +231,15 @@ export function execEvidence(value) {
  * Why the Gateway's evidence does not prove that the run's completion reports only
  * processes the attempt's own run started; null when it does. OpenClaw reports
  * `id.slice(0, 8)`, so a reported id stands for every process with that exact
- * beginning, and all of them must be the turn's.
+ * beginning, and all of them must be the turn's. `live` says that CompletionRuns
+ * knows the run; otherwise only the plugin's mark of an event turn makes it one.
  */
-export function processRefusal(evidence, attempt, runId) {
+export function processRefusal(evidence, attempt, runId, live = false) {
   if (!evidence) return "EVIDENCE";
   if (evidence.complete !== true) return "UNTRACKED";
   const completion = evidence.completion;
   if (!completion || completion.runId !== runId) return "NOT_COMPLETION";
+  if (!live && completion.internal !== true) return "NOT_COMPLETION";
   if (!completion.ids?.length) return "PROCESSES";
   const keys = [attempt.id, attempt.runtimeRunId].filter(Boolean);
   for (const id of completion.ids) {
@@ -194,13 +253,89 @@ export function processRefusal(evidence, attempt, runId) {
     : "WINDOW";
 }
 
-/** The source of a call whose evidence proves it, or null (logged). */
-function provenSource(bridge, input) {
+const execProvenance = { kind: "internal_system", sourceTool: "exec" };
+const transcriptLimit = 200;
+const entryText = (m) =>
+  typeof m.content === "string"
+    ? m.content
+    : Array.isArray(m.content) && m.content.length === 1 && m.content[0]?.type === "text"
+      ? m.content[0].text
+      : null;
+/**
+ * Whether a `sessions.get` page holds the user entry of the 2026.10.7 completion run
+ * `runId` reporting `ids`. OpenClaw names that entry by neither its run nor its
+ * idempotency key (`<random logical turn id>:user`): it is the entry right before
+ * the run's first record (`__openclaw.runId`), which the run wrote before its tool
+ * call. It must be a user entry with exactly the exec provenance whose content is
+ * the completion's own process lines.
+ */
+export function transcriptHolds(messages, runId, ids) {
+  if (!Array.isArray(messages)) return false;
+  const first = messages.findIndex((m) => m?.__openclaw?.runId === runId);
+  const entry = first > 0 ? messages[first - 1] : null;
+  return (
+    entry?.role === "user" &&
+    (entry.__openclaw?.runId ?? runId) === runId &&
+    isDeepStrictEqual(entry.provenance, execProvenance) &&
+    isDeepStrictEqual(completedProcesses(entryText(entry)), ids)
+  );
+}
+
+// The Gateway's transcript proves the event turn an exec completion; any failure
+// refuses.
+async function transcriptRefusal(bridge, input, completion) {
+  try {
+    const page = await bridge.assistants.runtime.client.call(
+      "sessions.get",
+      { key: input.sessionKey, limit: transcriptLimit },
+      { timeoutMs: 5000 },
+    );
+    return transcriptHolds(page?.messages, input.runId, completion.ids)
+      ? null
+      : "NOT_COMPLETION";
+  } catch {
+    return "NOT_COMPLETION";
+  }
+}
+
+// One read per run at a time: concurrent calls of a pending run wait for the same.
+function verification(bridge, input, completion) {
+  const reads = bridge.assistants.completionRuns?.verifying;
+  const key = `${input.sessionKey}\u0000${input.runId}`;
+  if (reads?.has(key)) return reads.get(key);
+  const read = transcriptRefusal(bridge, input, completion).finally(() => {
+    if (reads?.get(key) === read) reads.delete(key);
+  });
+  reads?.set(key, read);
+  return read;
+}
+
+/**
+ * The source of a call whose evidence proves it, or null (logged). A 2026.10.7 event
+ * turn not yet verified is read from the transcript once (a promise), then admitted
+ * to CompletionRuns and proven again; `verify: false` refuses it instead.
+ */
+function provenSource(bridge, input, { verify = true } = {}) {
   const source = continuationSource(bridge, input);
   if (!source) return null;
-  const code = processRefusal(execEvidence(input.exec), source.attempt, source.runId);
-  return code ? refuse(bridge, input, code) : source;
+  const evidence = execEvidence(input.exec);
+  const code = processRefusal(
+    evidence,
+    source.attempt,
+    source.runId,
+    !source.run.pending,
+  );
+  if (code) return refuse(bridge, input, code);
+  if (!source.run.pending) return source;
+  if (!verify) return refuse(bridge, input, "RUN");
+  return verification(bridge, input, evidence.completion).then((refused) => {
+    if (refused) return refuse(bridge, input, refused);
+    bridge.assistants.completionRuns?.admit(source.runId, input.sessionKey);
+    // The chat may have moved on during the read.
+    return provenSource(bridge, input, { verify: false });
+  });
 }
+const then = (value, next) => (value instanceof Promise ? value.then(next) : next(value));
 
 /** One audit record per continuation write: the path, never content. */
 function audit(assistants, source, input) {
@@ -229,7 +364,9 @@ function audit(assistants, source, input) {
  * shared agent's memory notes it like the owner turn's own write would.
  */
 export function continuationWrite(bridge, input) {
-  const source = provenSource(bridge, input);
+  return then(provenSource(bridge, input), (source) => write(bridge, input, source));
+}
+function write(bridge, input, source) {
   if (!source) return false;
   audit(bridge.assistants, source, input);
   if (isShared(source.agent) && isMemory(input.path))
@@ -244,13 +381,19 @@ export function continuationWrite(bridge, input) {
 /** A workspace ticket's binding for such a run, or null (TeamBridge.prepare). */
 export function continuationBinding(bridge, input) {
   if (input.action !== "workspace") return null;
-  const source = provenSource(bridge, input);
-  return source && { attemptId: source.attempt.id, runId: source.runId };
+  return then(
+    provenSource(bridge, input),
+    (source) => source && { attemptId: source.attempt.id, runId: source.runId },
+  );
 }
 
 /** Re-checks a continuation ticket on every step (TeamBridge.valid); throws. */
 export function assertContinuation(bridge, record) {
-  const source = provenSource(bridge, { ...record, runId: record.continuation.runId });
+  const source = provenSource(
+    bridge,
+    { ...record, runId: record.continuation.runId },
+    { verify: false },
+  );
   if (
     record.action !== "workspace" ||
     source?.attempt.id !== record.continuation.attemptId

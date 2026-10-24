@@ -54,3 +54,32 @@ export function processIdentity(pid) {
     command: processCommand(pid),
   };
 }
+
+/** This boot's identity; it changes with every restart of the host. */
+export function bootIdentity() {
+  const boot =
+    process.platform === "linux"
+      ? fs.readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim()
+      : read("/usr/sbin/sysctl", ["-n", "kern.bootsessionuuid"]);
+  if (!boot) throw Error("Boot identity unavailable.");
+  return boot;
+}
+
+/** The pids of every process in process group `pgid`. */
+export function processGroupMembers(pgid) {
+  return read("ps", ["-A", "-o", "pid=,pgid="])
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/).map(Number))
+    .filter(([pid, group]) => group === pgid && pid > 0)
+    .map(([pid]) => pid);
+}
+
+/**
+ * Whether start time `later` (processIdentity().startTime of this boot) is at or
+ * after `earlier`: clock ticks since boot on Linux, a UTC date elsewhere.
+ */
+export function startedAtOrAfter(later, earlier) {
+  const value = (time) => (/^\d+$/.test(time) ? Number(time) : Date.parse(`${time} UTC`));
+  const [a, b] = [value(later), value(earlier)];
+  return Number.isFinite(a) && Number.isFinite(b) && a >= b;
+}

@@ -9,7 +9,7 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/proces
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
 import { completedProcesses } from "../../server/features/assistants/team-plugin/exec-processes.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
@@ -25,9 +25,16 @@ import {
 // newer forwarded request, or outside the window, stays refused. This pins what the
 // implementation assumes of OpenClaw: the completion's raw transcript entry
 // (`sessions.get`: provenance, the owner turn's idempotency key, the background
-// exec's `sessionId` and the completion's process list), the
-// `isHeartbeat` agent events of its run, the hook's run id and the session it runs in.
+// exec's `sessionId` and the completion's process list), how its run is marked
+// (2026.10.3: `isHeartbeat` agent events; 2026.10.7: no marked event, the hooks'
+// `trigger: "event"` the plugin sends as `completion.internal`, and the user entry
+// right before the run's first record), the hook's run id and the session it runs
+// in. Run against the pinned runtime and against a rollback target.
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
+const openClawVersion = (dir) =>
+  JSON.parse(
+    fs.readFileSync(path.join(dir, "app/node_modules/openclaw/package.json"), "utf8"),
+  ).version;
 const long = { timeoutMs: 60000 };
 // The turn's own message: OpenClaw adds a runtime context message (the active exec
 // sessions) to the model's prompt while a background command runs.
@@ -35,16 +42,29 @@ const turnMessage = (m) =>
   m.role === "user" && !JSON.stringify(m.content).includes("OpenClaw runtime context");
 const lastUser = (request) =>
   request.messages.slice(request.messages.findLastIndex(turnMessage));
-// The completion run's prompt to the model ("An async command you ran earlier has
-// completed ..."); its transcript entry is "[OpenClaw exec completion]".
-const isCompletion = (request) =>
-  /async command/i.test(JSON.stringify(lastUser(request)[0]));
+// The completion run's prompt to the model: 2026.10.3's "An async command you ran
+// earlier has completed ..." (its transcript entry is "[OpenClaw exec completion]"),
+// 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line.
+const text = (m) =>
+  typeof m?.content === "string"
+    ? m.content
+    : (Array.isArray(m?.content) ? m.content : [])
+        .filter((c) => c?.type === "text")
+        .map((c) => c.text)
+        .join("\n");
+const isCompletion = (request) => {
+  const prompt = text(lastUser(request)[0]) || "";
+  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
+};
 
 test(
   "pinned Gateway: an exec completion continues its owner turn's writes",
   { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
+    // 2026.10.6 and later: the completion is an ordinary event turn.
+    const eventTurns = !/^2026\.(9\.|10\.[0-5]$)/.test(openClawVersion(installed));
+    t.diagnostic(`openclaw=${openClawVersion(installed)} eventTurns=${eventTurns}`);
     let runtime, model, bridge, clock;
     t.after(async () => {
       await runtime?.close();
@@ -110,13 +130,13 @@ test(
       }),
     });
     f.assistants.runtime = runtime;
-    const heartbeatRuns = new HeartbeatRuns(),
+    const completionRuns = new CompletionRuns(),
       gatewayEvents = new GatewayEventHub(),
       events = [];
-    f.assistants.heartbeatRuns = heartbeatRuns;
+    f.assistants.completionRuns = completionRuns;
     gatewayEvents.on("agent", (payload) => {
       events.push(payload);
-      heartbeatRuns.observe(payload);
+      completionRuns.observe(payload);
     });
     const contexts = new Map();
     bridge = new TeamBridge({
@@ -145,13 +165,21 @@ test(
     // Every workspace ticket the completion run asks for, with its outcome.
     const prepared = [];
     const prepare = bridge.prepare.bind(bridge);
+    // 2026.10.7's is bound after a transcript read: a promise.
     bridge.prepare = (input) => {
+      const settle = (bound) => prepared.push({ ...input, bound });
       try {
         const ticket = prepare(input);
-        prepared.push({ ...input, bound: true });
-        return ticket;
+        if (!(ticket instanceof Promise)) return (settle(true), ticket);
+        return ticket.then(
+          (value) => (settle(true), value),
+          (error) => {
+            settle(false);
+            throw error;
+          },
+        );
       } catch (error) {
-        prepared.push({ ...input, bound: false });
+        settle(false);
         throw error;
       }
     };
@@ -259,13 +287,23 @@ test(
         })),
       )}`,
     );
-    // Assumptions 2 to 4: heartbeat events, the hook's run id, the chat's own session.
+    // Assumptions 2 to 4: the run's mark, the hook's run id, the chat's own session.
     assert.notEqual(write.runId, owner.runId, "a run of its own");
     assert.ok(run.length, "the completion run's agent events reach AgentPier");
-    assert.ok(
-      run.some((e) => e.isHeartbeat === true),
-      "its events mark it heartbeat-driven",
-    );
+    if (eventTurns) {
+      // No agent event marks it; the plugin saw the hooks' `trigger: "event"`.
+      assert.ok(
+        run.every((e) => e.isHeartbeat === false),
+        "no event marks it",
+      );
+      assert.equal(write.exec.completion?.internal, true, "the plugin marks it");
+    } else {
+      assert.ok(
+        run.some((e) => e.isHeartbeat === true),
+        "its events mark it heartbeat-driven",
+      );
+      assert.equal(write.exec.completion?.internal, undefined);
+    }
     assert.equal(write.sessionKey, session.key, "it runs in the chat's session");
     assert.ok(run.every((e) => e.sessionKey === session.key));
     // Assumption 1: the raw transcript names the owner turn and the completion.
@@ -295,10 +333,21 @@ test(
     const started = page.messages.find(
       (m) => m.toolName === "exec" && m.details?.status === "running",
     ).details;
+    // 2026.10.3 keeps the prompt in a projection; 2026.10.7's content is the line.
+    const entry = page.messages.findLast((m) => m.role === "user");
     const reported = completedProcesses(
-      page.messages.findLast((m) => m.role === "user").__openclaw?.modelPromptProjection
-        ?.text,
+      entry.__openclaw?.modelPromptProjection?.text ?? text(entry),
     );
+    if (eventTurns) {
+      // The entry names neither its run nor a key derived from it; it is the entry
+      // right before the run's first record (exec-continuation.js transcriptHolds).
+      const first = page.messages.findIndex((m) => m.__openclaw?.runId === write.runId);
+      assert.equal(page.messages[first - 1], entry, "the run's user entry");
+      assert.equal(entry.__openclaw?.runId, undefined);
+      assert.notEqual(entry.idempotencyKey, `${write.runId}:user`);
+      assert.deepEqual(entry.provenance, { kind: "internal_system", sourceTool: "exec" });
+      assert.equal(entry.__openclaw?.modelPromptProjection, undefined);
+    }
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");
     // The failed calls came before it and left the record complete.

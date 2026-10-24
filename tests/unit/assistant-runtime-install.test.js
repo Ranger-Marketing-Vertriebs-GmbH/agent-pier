@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { assistantInstallFixture } from "../helpers/assistant-install-fixture.js";
 import {
   ensureAssistantRuntime,
@@ -66,6 +67,15 @@ test("runtime selection rejects symlinked executable ancestors", async (t) => {
     JSON.stringify({ version: "old", nodePath: executable, entryPath: executable }),
   );
   await assert.rejects(selectedAssistantRuntime({ dataDir }), /unsafe/i);
+});
+
+test("the manifest pins OpenClaw 2026.10.7 and its predecessors as rollback targets", () => {
+  assert.equal(runtimeManifest.version, "2026.10.7");
+  assert.deepEqual(runtimeManifest.rollbackTargets, [
+    "2026.10.3",
+    "2026.9.9",
+    "2026.9.8",
+  ]);
 });
 
 test("fresh enable uses private Node and reuses a verified installation on update", async (t) => {

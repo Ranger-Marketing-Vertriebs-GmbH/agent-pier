@@ -152,6 +152,8 @@ function seedCredentials(paths) {
   const state = new DatabaseSync(path.join(paths.state, "state", "openclaw.sqlite"));
   state.exec(`CREATE TABLE auth_profile_store(profile_id TEXT PRIMARY KEY, value_json TEXT);
     INSERT INTO auth_profile_store VALUES ('openai:me', '{"refresh":"refresh-SECRET-2"}');
+    CREATE TABLE config_machine_state(state_key TEXT PRIMARY KEY, value_json TEXT, updated_at_ms INTEGER);
+    INSERT INTO config_machine_state VALUES ('authProfiles.store', '{"key":"machine-SECRET-7"}', 1);
     CREATE TABLE conversations(id TEXT PRIMARY KEY, body TEXT);
     INSERT INTO conversations VALUES ('c1', 'history survives');`);
   state.close();
@@ -206,6 +208,10 @@ test("backups seal credentials and withhold them once their key is destroyed", a
   assert.match(fs.readFileSync(auth, "utf8"), /oauth-SECRET-1/);
   let state = new DatabaseSync(path.join(paths.state, "state", "openclaw.sqlite"));
   assert.equal(state.prepare("SELECT count(*) AS n FROM auth_profile_store").get().n, 1);
+  assert.match(
+    state.prepare("SELECT value_json FROM config_machine_state").get().value_json,
+    /machine-SECRET-7/,
+  );
   state.close();
   assert.equal(
     JSON.parse(fs.readFileSync(paths.config)).gateway.auth.token,
@@ -219,6 +225,11 @@ test("backups seal credentials and withhold them once their key is destroyed", a
   assert.equal(fs.existsSync(auth), false);
   state = new DatabaseSync(path.join(paths.state, "state", "openclaw.sqlite"));
   assert.equal(state.prepare("SELECT count(*) AS n FROM auth_profile_store").get().n, 0);
+  // OpenClaw 2026.10.7 copies model credentials into its machine state.
+  assert.equal(
+    state.prepare("SELECT count(*) AS n FROM config_machine_state").get().n,
+    0,
+  );
   assert.equal(
     state.prepare("SELECT body FROM conversations").get().body,
     "history survives",

@@ -20,6 +20,7 @@ export const assistantCopy = {
       draining: "Arbeit wird abgeschlossen",
       snapshotting: "Datensicherung läuft",
       activating: "Wird aktiviert",
+      migrating: "Daten werden migriert",
       validating: "Wird geprüft",
       committed: "Aktiviert; Betrieb wird fortgesetzt",
       complete: "Update abgeschlossen",
@@ -35,6 +36,8 @@ export const assistantCopy = {
       UPDATE_BLOCKED: "Aktive oder ungeklärte Arbeit blockiert das Update.",
       UPDATE_ROLLED_BACK:
         "Aktivierung fehlgeschlagen; vorherige Version wiederhergestellt.",
+      UPDATE_MIGRATION_FAILED:
+        "Die Daten konnten nicht auf die neue Version migriert werden; vorherige Version wiederhergestellt.",
       UPDATE_RECOVERY_REQUIRED:
         "Wiederherstellung erforderlich. Der Dienst bleibt angehalten.",
       UPDATE_RESUME_REQUIRED:

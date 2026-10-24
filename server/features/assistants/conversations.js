@@ -49,6 +49,9 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
       return [compactionNote(m)];
     }
     if (!["user", "assistant"].includes(m.role)) return [];
+    // OpenClaw's own turns (2026.10.7 shows an exec completion's event turn in the
+    // history; 2026.10.3 hid its heartbeat) are never the owner's words.
+    if (m.role === "user" && m.provenance?.kind === "internal_system") return [];
     const raw =
       typeof m.content === "string"
         ? m.content

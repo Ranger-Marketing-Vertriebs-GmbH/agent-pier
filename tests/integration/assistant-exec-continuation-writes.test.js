@@ -4,8 +4,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { execContinuationFixture as setup } from "../helpers/exec-continuation-fixture.js";
-import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import {
+  eventTranscript,
+  execContinuationFixture as setup,
+} from "../helpers/exec-continuation-fixture.js";
+import {
+  CompletionRuns,
+  continuationSource,
+} from "../../server/features/assistants/exec-continuation.js";
 import { execEvidence } from "../../server/features/assistants/team-plugin/exec-processes.js";
 
 test("an exec completion of an owner turn writes like that turn and is audited", async (t) => {
@@ -21,13 +27,199 @@ test("an exec completion of an owner turn writes like that turn and is audited",
   // The proof never reads the transcript: the Gateway's record comes with the call.
   assert.deepEqual(f.reads, []);
   // Its run ended: no more writes.
-  f.assistants.heartbeatRuns.observe({
+  f.assistants.completionRuns.observe({
     runId: "wake-1",
     sessionKey: "session",
     stream: "lifecycle",
     data: { phase: "end" },
   });
   assert.equal(await f.call("renders/late.md", { ctx }), false);
+});
+
+test("the heartbeat completion of 2026.10.3 still continues", async (t) => {
+  // A rollback to 2026.10.3 before commit: its completion is a heartbeat run, with
+  // the framed prompt and no hook trigger the plugin would read.
+  const f = await setup(t);
+  const attemptId = await f.turn({ kind: "owner" });
+  const ctx = await f.wake("wake-1", {});
+  assert.equal(await f.call("notes.md", { ctx }), true);
+  assert.deepEqual(f.writes(), [["notes.md", attemptId]]);
+  assert.deepEqual(f.reads, []);
+});
+
+test("an event-turn completion of 10.7 continues the owner turn", async (t) => {
+  const f = await setup(t);
+  const attemptId = await f.turn({ kind: "owner" });
+  const ctx = await f.eventTurn();
+  assert.equal(await f.call("renders/notes.md", { ctx }), true);
+  // The transcript is read once per run: the verified run is live from then on.
+  assert.equal(await f.call("MEMORY.md", { ctx, toolName: "edit" }), true);
+  assert.deepEqual(f.writes(), [
+    ["renders/notes.md", attemptId],
+    ["MEMORY.md", attemptId],
+  ]);
+  assert.deepEqual(f.reads, [
+    { method: "sessions.get", params: { key: "session", limit: 200 } },
+  ]);
+  assert.deepEqual(
+    f.assistants.completionRuns.live("session").map((r) => r.runId),
+    ["turn-1"],
+  );
+  // Its agent events carry no mark and keep it; its end ends it.
+  const event = { runId: "turn-1", sessionKey: "session", isHeartbeat: false };
+  f.assistants.completionRuns.observe({ ...event, stream: "assistant" });
+  assert.equal(f.assistants.completionRuns.live("session").length, 1);
+  f.assistants.completionRuns.observe({
+    ...event,
+    stream: "lifecycle",
+    data: { phase: "end" },
+  });
+  assert.equal(await f.call("renders/late.md", { ctx }), false);
+  assert.equal(f.reads.length, 1, "an ended run is not read again");
+});
+
+test("an event turn writes only when its transcript entry is the exec's own", async (t) => {
+  const line = "Exec completed (brisk-or, code 1) :: done";
+  const transcript = eventTranscript("turn-1", line);
+  const [owner, ownerReply, entry, record] = transcript;
+  for (const [name, page] of [
+    ["Gateway error", () => Promise.reject(new Error("unavailable"))],
+    ["no transcript", []],
+    ["entry missing", [owner, ownerReply, record]],
+    ["run missing", [owner, ownerReply, entry]],
+    [
+      "typed by the owner",
+      [owner, ownerReply, { ...entry, provenance: owner.provenance }],
+    ],
+    [
+      "another source",
+      [
+        owner,
+        ownerReply,
+        { ...entry, provenance: { kind: "internal_system", sourceTool: "task" } },
+      ],
+    ],
+    [
+      "more provenance",
+      [
+        owner,
+        ownerReply,
+        { ...entry, provenance: { ...entry.provenance, sourceSessionKey: "x" } },
+      ],
+    ],
+    [
+      "another process",
+      [owner, ownerReply, { ...entry, content: "Exec completed (kind-clo, code 0)" }],
+    ],
+    [
+      "another run's entry",
+      [owner, ownerReply, { ...entry, __openclaw: { runId: "x" } }, record],
+    ],
+    ["not adjacent", [owner, ownerReply, entry, { ...owner }, record]],
+    [
+      "owner message in between",
+      [owner, ownerReply, entry, { ...owner, content: "Also do this." }, record],
+    ],
+  ]) {
+    const f = await setup(t);
+    const warnings = [];
+    f.bridge.warn = (message) => warnings.push(message);
+    await f.turn({ kind: "owner" });
+    // A run of its own per case: a refusal is logged once per run and reason.
+    const runId = `turn-${name}`;
+    const own = (m) => (m === record ? { ...m, __openclaw: { runId } } : m);
+    const ctx = await f.eventTurn(runId, {
+      line,
+      transcript: Array.isArray(page) ? page.map(own) : page,
+    });
+    assert.equal(await f.call("notes.md", { ctx }), false, name);
+    assert.deepEqual(
+      warnings.map((w) => w.match(/\((\w+)\)\.$/)?.[1]),
+      ["NOT_COMPLETION"],
+      name,
+    );
+    assert.deepEqual(f.assistants.completionRuns.live("session"), [], name);
+  }
+});
+
+test("concurrent calls of one pending run share one transcript read", async (t) => {
+  const f = await setup(t);
+  await f.turn({ kind: "owner" });
+  const ctx = await f.eventTurn();
+  const page = f.transcripts.get("session");
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  f.transcripts.set("session", () => gate.then(() => ({ messages: page })));
+  const calls = [f.call("a.md", { ctx }), f.call("b.md", { ctx })];
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  release();
+  assert.deepEqual(await Promise.all(calls), [true, true]);
+  assert.equal(f.reads.filter((r) => r.method === "sessions.get").length, 1);
+});
+
+test("a run that ends while its transcript is read writes nothing", async (t) => {
+  const f = await setup(t);
+  await f.turn({ kind: "owner" });
+  const ctx = await f.eventTurn();
+  const page = f.transcripts.get("session");
+  f.transcripts.set("session", async () => {
+    f.assistants.completionRuns.observe({
+      runId: "turn-1",
+      sessionKey: "session",
+      stream: "lifecycle",
+      data: { phase: "end" },
+    });
+    return { messages: page };
+  });
+  assert.equal(await f.call("notes.md", { ctx }), false);
+  assert.deepEqual(f.assistants.completionRuns.live("session"), []);
+  assert.deepEqual(f.writes(), []);
+});
+
+test("two completion runs in one transcript each prove their own entry", async (t) => {
+  const f = await setup(t);
+  const attemptId = await f.turn({ kind: "owner" }, { sessionId: "brisk-orbit" });
+  await f.exec(attemptId, { sessionId: "kind-cloud" });
+  const first = "Exec completed (brisk-or, code 0) :: one";
+  const second = "Exec completed (kind-clo, code 0) :: two";
+  const [, , entry1, record1] = eventTranscript("turn-1", first);
+  const [owner, ownerReply, entry2, record2] = eventTranscript("turn-2", second);
+  const page = [owner, ownerReply, entry1, record1, entry2, record2];
+  const one = await f.eventTurn("turn-1", { line: first, transcript: page });
+  const two = await f.eventTurn("turn-2", { line: second, transcript: page });
+  assert.equal(await f.call("one.md", { ctx: one }), true);
+  assert.equal(await f.call("two.md", { ctx: two }), true);
+  // Run 2's evidence with run 1's process lines matches neither entry.
+  const swapped = eventTranscript("turn-3", second);
+  const three = await f.eventTurn("turn-3", {
+    line: first,
+    transcript: [...page, swapped[2], swapped[3]],
+  });
+  assert.equal(await f.call("three.md", { ctx: three }), false);
+  assert.deepEqual(
+    f.writes().map(([file]) => file),
+    ["one.md", "two.md"],
+  );
+});
+
+test("an attemptless run with completion-shaped text but without the Gateway marker writes nothing", async (t) => {
+  // A message typed as `Exec completed (…)` is a user turn (`trigger: "user"`), and a
+  // turn whose hooks report no trigger is no event turn either.
+  for (const trigger of ["user", null, "heartbeat"]) {
+    const f = await setup(t);
+    await f.turn({ kind: "owner" });
+    const ctx = await f.eventTurn("turn-1", {
+      line: "Exec completed (brisk-or, code 0) :: typed",
+      trigger,
+    });
+    assert.equal(await f.call("notes.md", { ctx }), false, String(trigger));
+    assert.deepEqual(f.reads, [], "nothing is read for it");
+    // The refusal is RUN: the same call of a run CompletionRuns knew would pass on.
+    const input = { ...ctx, exec: { complete: true, processes: [], completion: null } };
+    assert.equal(continuationSource(f.bridge, input), null);
+    f.assistants.completionRuns.admit("turn-1", "session");
+    assert.equal(continuationSource(f.bridge, input)?.runId, "turn-1");
+  }
 });
 
 test("a completion of a telegram turn writes too, a forwarded or delegated one never", async (t) => {
@@ -108,7 +300,7 @@ test("only an exec completion's own prompt continues", async (t) => {
   }
 });
 
-test("the call's run must be the Gateway's heartbeat run of this session", async (t) => {
+test("the call's run must be the Gateway's completion run of this session", async (t) => {
   const f = await setup(t);
   await f.turn({ kind: "owner" });
   // A run the Gateway never reported as heartbeat-driven, or reported as another's.
@@ -216,8 +408,29 @@ test("project folders follow the same rule, for file actions only", async (t) =>
   );
 });
 
+test("event turns are admitted only while they run", () => {
+  const runs = new CompletionRuns();
+  runs.admit("e1", "s");
+  runs.observe({ runId: "e1", sessionKey: "s", isHeartbeat: false, stream: "item" });
+  assert.deepEqual(
+    runs.live("s").map((r) => r.runId),
+    ["e1"],
+  );
+  runs.observe({ runId: "e1", sessionKey: "x", isHeartbeat: false, stream: "item" });
+  assert.deepEqual(runs.live("s"), []);
+  // A verification that returns after the run's end admits nothing.
+  runs.observe({
+    runId: "e2",
+    sessionKey: "s",
+    stream: "lifecycle",
+    data: { phase: "end" },
+  });
+  runs.admit("e2", "s");
+  assert.deepEqual(runs.live("s"), []);
+});
+
 test("heartbeat runs are tracked per session and forgotten when they end", () => {
-  const runs = new HeartbeatRuns();
+  const runs = new CompletionRuns();
   runs.observe({ runId: "r1", sessionKey: "s", isHeartbeat: true, stream: "item" });
   runs.observe({ runId: "r2", sessionKey: "s", stream: "item" });
   assert.deepEqual(

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
@@ -25,6 +26,34 @@ function descriptor(root) {
     entryPath: path.join(root, "app/node_modules/openclaw/openclaw.mjs"),
   };
 }
+// Every agent's own OpenClaw database in the runtime's state directory.
+const agentDatabases = (paths) => {
+  const agents = path.join(paths.state, "agents");
+  return fs
+    .readdirSync(agents)
+    .map((id) => path.join(agents, id, "agent", "openclaw-agent.sqlite"))
+    .filter((file) => fs.existsSync(file));
+};
+const schemas = (paths) =>
+  Object.fromEntries(
+    agentDatabases(paths).map((file) => {
+      const db = new DatabaseSync(file, { readOnly: true });
+      try {
+        return [file, db.prepare("PRAGMA user_version").get().user_version];
+      } finally {
+        db.close();
+      }
+    }),
+  );
+// What Doctor keeps for its own recovery: none of it may outlive an activation.
+const doctorLeftovers = (paths) => [
+  ...[...agentDatabases(paths).map(path.dirname), path.join(paths.state, "state")]
+    .filter((folder) => fs.existsSync(folder))
+    .flatMap((folder) =>
+      fs.readdirSync(folder).filter((name) => name.includes(".pre-startup-migration-")),
+    ),
+  ...(fs.existsSync(`${paths.state}.update-captures`) ? ["state.update-captures"] : []),
+];
 const variants = {
   upgrade: "activation retains memory, schedules, history and receipts",
   reject: "validation failure restores previous runtime and state",
@@ -217,6 +246,7 @@ for (const [variant, title] of Object.entries(variants))
         });
         await updates.stage();
         assert.equal(runtime.status().version, previous.version);
+        const previousSchemas = schemas(runtime.paths);
         if (rejectCandidate)
           await assert.rejects(updates.activate(), { code: "UPDATE_ROLLED_BACK" });
         else await updates.activate();
@@ -249,6 +279,53 @@ for (const [variant, title] of Object.entries(variants))
         });
         assert.ok(JSON.stringify(history.messages).includes(input.text));
         assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
+        // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
+        // (one-way: 2026.10.3 refuses it), and a committed activation must have done so.
+        if (
+          !rejectCandidate &&
+          (candidate.version === "2026.10.7" || candidate.version === "2026.10.6")
+        ) {
+          const files = agentDatabases(runtime.paths);
+          assert.ok(
+            files.some((file) =>
+              file.includes(`${path.sep}${a.runtimeAgentId}${path.sep}`),
+            ),
+            `the fixture agent's database is among ${files}`,
+          );
+          for (const file of files) {
+            const db = new DatabaseSync(file, { readOnly: true });
+            try {
+              assert.equal(
+                db.prepare("PRAGMA user_version").get().user_version,
+                25,
+                file,
+              );
+            } finally {
+              db.close();
+            }
+            // Doctor's migration keeps them private and leaves no plain copies.
+            for (const copy of [file, `${file}-wal`, `${file}-shm`])
+              if (fs.existsSync(copy))
+                assert.equal(fs.statSync(copy).mode & 0o077, 0, copy);
+            const folder = fs.readdirSync(path.dirname(file));
+            assert.equal(folder.filter((name) => name.endsWith(".bak")).length, 0);
+          }
+          assert.equal(fs.existsSync(`${runtime.paths.state}.update-captures`), false);
+        }
+        if (rejectCandidate) {
+          // The rollback after Doctor's run restores the previous schema (24 on
+          // 2026.10.3) and leaves none of Doctor's copies behind.
+          assert.deepEqual(schemas(runtime.paths), previousSchemas);
+          if (previous.version === "2026.10.3")
+            for (const version of Object.values(previousSchemas))
+              assert.equal(version, 24);
+          assert.deepEqual(doctorLeftovers(runtime.paths), []);
+        }
+        // Doctor never sees the provider key; openclaw.json keeps it either way.
+        assert.equal(
+          readJSON(runtime.paths.config).models.providers.fixture.apiKey,
+          "fixture-key",
+        );
         assert.equal(ledger.getAttempt(attempt.id).state, "completed");
         assert.equal(ledger.requests(conversation.id).length, 1);
         assert.equal(

@@ -173,26 +173,33 @@ export class TeamBridge {
       );
       return c.runtimeSessionKey === input.sessionKey && active.has(a.state);
     });
-    let bound;
-    if (matches.length === 1) bound = { attemptId: matches[0].id };
-    else if (!matches.length && routineActions.has(input.action)) {
+    const issue = (bound) => {
+      const record = this.valid({
+        ...input,
+        ...bound,
+        generation: this.generation(),
+        expires: this.now() + 30000,
+      });
+      const ticket = randomBytes(32).toString("hex");
+      this.tickets.set(ticket, record);
+      return { ticket };
+    };
+    if (matches.length === 1) return issue({ attemptId: matches[0].id });
+    if (!matches.length && routineActions.has(input.action)) {
       // Only SSH (on hosts granted "incl. routines"), shared files, project folders,
       // the lead's ask, delegate and members, and a member's own tools serve a
       // routine's run.
       const routine = this.routineRun(input);
-      const resumed = !routine && continuation.continuationBinding(this, input);
-      if (!routine && !resumed) throw assistantProblem("invalid", 403);
-      bound = { attemptId: null, ...(routine ? { routine } : { continuation: resumed }) };
-    } else throw assistantProblem("invalid", 403);
-    const record = this.valid({
-      ...input,
-      ...bound,
-      generation: this.generation(),
-      expires: this.now() + 30000,
-    });
-    const ticket = randomBytes(32).toString("hex");
-    this.tickets.set(ticket, record);
-    return { ticket };
+      if (routine) return issue({ attemptId: null, routine });
+      // A command's completion run; 2026.10.7's is read from the transcript first.
+      const resume = (resumed) => {
+        if (!resumed) throw assistantProblem("invalid", 403);
+        return issue({ attemptId: null, continuation: resumed });
+      };
+      const resumed = continuation.continuationBinding(this, input);
+      return resumed instanceof Promise ? resumed.then(resume) : resume(resumed);
+    }
+    throw assistantProblem("invalid", 403);
   }
   // The Gateway's own plugin reports its write guard once the hook is registered;
   // write/edit stay withheld until then and after every runtime restart.

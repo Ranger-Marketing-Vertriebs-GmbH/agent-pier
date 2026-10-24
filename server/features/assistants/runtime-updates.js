@@ -15,6 +15,11 @@ import {
 } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
 import {
+  migrateRuntimeState,
+  removeMigrationLeftovers,
+  stopDoctor,
+} from "./runtime-doctor.js";
+import {
   applyRetention,
   markBackupSuccessful,
   terminalPhases as terminal,
@@ -41,6 +46,8 @@ export class RuntimeUpdates {
     freeSpace = availableBytes,
     manifest = runtimeManifest,
     onRolledBack = () => {},
+    migrate = migrateRuntimeState,
+    stopMigration = stopDoctor,
   }) {
     Object.assign(this, {
       dataDir,
@@ -52,6 +59,8 @@ export class RuntimeUpdates {
       freeSpace,
       manifest,
       onRolledBack,
+      migrate,
+      stopDoctor: stopMigration,
     });
     this.paths = runtimePaths(dataDir);
     this.fence = ledgerFence(this.paths.root);
@@ -191,6 +200,17 @@ export class RuntimeUpdates {
         });
         this.persist("activating", { backup: id });
         durablePrivate(this.selection, candidate);
+        // A new OpenClaw version migrates its stopped state (runtime-doctor.js); a
+        // crash meanwhile restores the snapshot like any unfinished activation.
+        if (candidate.version !== previous.version) {
+          this.persist("migrating");
+          // Its identity is durable before it is awaited: a rollback after a crash
+          // stops a Doctor that outlived this process (stopDoctor).
+          await this.migrate(this.paths, candidate, {
+            onSpawn: (doctor) => this.persist("migrating", { doctor }),
+          });
+          this.persist("migrating", { doctor: null });
+        }
         await this.fence.validation(async () => {
           await this.runtime.start();
           this.persist("validating");
@@ -226,6 +246,11 @@ export class RuntimeUpdates {
             diagnostic: "SNAPSHOT_FAILED",
             diagnosticPath: error.path,
           });
+        if (error.code === "UPDATE_MIGRATION_FAILED") {
+          if (this.journal.diagnostic === "UPDATE_ROLLED_BACK")
+            this.persist("rolled_back", { diagnostic: "UPDATE_MIGRATION_FAILED" });
+          throw failure("UPDATE_MIGRATION_FAILED", 500);
+        }
         throw failure("UPDATE_ROLLED_BACK");
       }
     });
@@ -234,6 +259,8 @@ export class RuntimeUpdates {
     const journal = this.journal;
     try {
       this.persist("rolling_back");
+      // Nothing may write under the restore: a Doctor left running goes first.
+      await this.stopDoctor(journal.doctor);
       await this.runtime.stop();
       await this.maintenance.quiesce();
       await this.runtime.assertStopped?.();
@@ -255,6 +282,8 @@ export class RuntimeUpdates {
         // A credential revoked after the backup stays revoked: its key is gone.
         if (restored.credentialsWithheld)
           diagnostic = "UPDATE_ROLLED_BACK_LOGIN_REQUIRED";
+        // Doctor's captures lie beside state/, outside every restored tree.
+        removeMigrationLeftovers(this.paths);
         // Before the Gateway starts on the restored state (MCP OAuth logouts).
         await this.onRolledBack({ createdAt: restored.createdAt });
       }

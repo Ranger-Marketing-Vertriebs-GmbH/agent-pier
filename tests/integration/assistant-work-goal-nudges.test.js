@@ -7,7 +7,9 @@ import { TeamService } from "../../server/features/assistants/team-service.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { backgroundMethod } from "../../server/features/assistants/team-plugin/background-commands.js";
 import {
+  backgroundRunning,
   backgroundWaitMs,
+  goalWait,
   nudgeDelayMs,
 } from "../../server/features/assistants/work-goal-nudges.js";
 
@@ -76,13 +78,18 @@ async function round(f, chat, start) {
   return { request, attempt: f.assistants.ledger.attemptFor(request.id) };
 }
 
-// The Gateway's background commands of every session: `running()` decides.
-function background(f, running) {
+// The Gateway's background commands of every session: `running()` decides, and
+// `completing()` for OpenClaw 2026.10.7's completion runs.
+function background(f, running, completing = () => false) {
   const client = f.assistants.runtime.client,
     call = client.call;
   client.call = async (method, input) =>
     method === backgroundMethod
-      ? { complete: true, running: running() ? 1 : 0 }
+      ? {
+          complete: true,
+          running: running() ? 1 : 0,
+          completing: completing() ? 1 : 0,
+        }
       : call(method, input);
 }
 
@@ -151,13 +158,31 @@ test("the nudge waits while the chat waits on the owner or on results", async (t
     },
     "heartbeat run": (f, { chat }) => {
       const run = { runId: "hb", sessionKey: chat.runtimeSessionKey, isHeartbeat: true };
-      f.assistants.heartbeatRuns.observe({ ...run, stream: "assistant" });
+      f.assistants.completionRuns.observe({ ...run, stream: "assistant" });
       return () =>
-        f.assistants.heartbeatRuns.observe({
+        f.assistants.completionRuns.observe({
           ...run,
           stream: "lifecycle",
           data: { phase: "end" },
         });
+    },
+    // OpenClaw 2026.10.7: a completion run the transcript proved (its agent events
+    // carry no mark), and one the Gateway's record knows before it wrote anything.
+    "verified 10.7 completion run": (f, { chat }) => {
+      const runs = f.assistants.completionRuns;
+      runs.admit("turn-1", chat.runtimeSessionKey);
+      const run = { runId: "turn-1", sessionKey: chat.runtimeSessionKey };
+      runs.observe({ ...run, isHeartbeat: false, stream: "assistant" });
+      return () => runs.observe({ ...run, stream: "lifecycle", data: { phase: "end" } });
+    },
+    "10.7 completion run": (f) => {
+      let completing = true;
+      background(
+        f,
+        () => false,
+        () => completing,
+      );
+      return () => (completing = false);
     },
     "queued message": (f, { chat }) => {
       f.assistants.queued.put(chat.id, { text: "Later", attachments: [] });
@@ -218,6 +243,28 @@ test("the nudge waits while the chat waits on the owner or on results", async (t
     await at(f, cleared + nudgeDelayMs);
     assert.equal(sends(f).length, 1, name);
   }
+});
+
+test("a live 10.7 completion run holds the nudge", async (t) => {
+  // Review Focus 3: no agent event marks it, yet the chat is busy while it runs.
+  const { f, chat } = setup(t);
+  const runs = f.assistants.completionRuns;
+  runs.admit("turn-1", chat.runtimeSessionKey);
+  assert.equal(goalWait(f.service.goals, chat), "busy");
+  runs.observe({
+    runId: "turn-1",
+    sessionKey: chat.runtimeSessionKey,
+    stream: "lifecycle",
+    data: { phase: "end" },
+  });
+  assert.equal(goalWait(f.service.goals, chat), null);
+  // Before it wrote anything, the Gateway's record reports it.
+  background(
+    f,
+    () => false,
+    () => true,
+  );
+  assert.equal(await backgroundRunning(f.service, chat.runtimeSessionKey), true);
 });
 
 test("a member's report to the main chat does not hold the nudge", async (t) => {

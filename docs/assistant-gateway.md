@@ -413,7 +413,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.10.3 with Node 26.12.1 in private
+The foundation now provisions OpenClaw 2026.10.7 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it in Settings → Workspace → Agents provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -872,7 +872,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.3 and its qualified rollback predecessors 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
+to OpenClaw 2026.10.7 and its qualified rollback predecessors 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive `session_status` and their own four
 [member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
@@ -1291,8 +1291,8 @@ was compacted and the plan was gone. Four rules close that gap:
   withheld (no live guard), the section says memory is read-only right now. Turn
   admission rewrites `AGENTS.md`, so existing workspaces pick the text up on their
   next turn.
-- **Pre-compaction flush.** OpenClaw 2026.10.3 runs its memory flush as a separate
-  run (`trigger: "memory"`) in a detached internal session
+- **Pre-compaction flush.** OpenClaw 2026.10.3 and 2026.10.7 run the memory flush
+  as a separate run (`trigger: "memory"`) in a detached internal session
   `agent:<id>:internal-session-effects:<runId>-<sha16>`, whose only file tool is an
   append-only `write` restricted to the day note (`memory/<date>.md`,
   "memory-triggered compaction runs expose only read and append-only write"). No
@@ -1358,8 +1358,15 @@ was compacted and the plan was gone. Four rules close that gap:
   team results) take assistant turns only, and AgentPier never sets
   `agents.defaults.compaction.notifyUser`, so Telegram receives nothing.
   `assistant-compaction-contract.test.js` checks on the pinned runtime that the
-  status covers the flush and the summary call but not the answer, and that the
-  marker carries both token counts.
+  status covers the flush and the summary calls but not the answer, and that the
+  marker carries both token counts. OpenClaw's compaction safeguard checks every
+  summary for its required sections (decisions, open to-dos, constraints, pending
+  asks, exact identifiers) and the latest ask. On 2026.10.7 a compaction that splits
+  a turn makes two summary calls (the history and the split turn's prefix; 2026.10.3
+  made one), and a summary that fails the check is retried once, which costs two more
+  model calls, and is then saved in a reduced form instead of cancelling the
+  compaction as 2026.10.3 did. The chat shows the summarising status throughout
+  either way.
 - **No silent read-only window.** After a start or reconnect the guard reports
   within one interval (15 s). An owner or paired Telegram turn of a memory agent
   waits for it, outside the admission lock, but only until 20 s after the Gateway
@@ -1370,13 +1377,19 @@ was compacted and the plan was gone. Four rules close that gap:
   chat shows a note.
 - **Command completions (AGENTPIER-185).** An owner turn may start a long
   background `exec` (a render, a build) and end before it exits. With
-  `tools.exec.notifyOnExit` (OpenClaw's default) the Gateway then wakes the same
-  session through its heartbeat runner: a hidden user message
-  `[OpenClaw exec completion]` with the input provenance
-  `{ kind: "internal_system", sourceTool: "exec" }` and `senderIsOwner: false`
-  (`heartbeat-runner-run`, `internal-turn-source` in OpenClaw 2026.10.3). That run
-  has no AgentPier attempt, so every `write` and `edit` used to be refused and the
-  agent asked the owner to type "continue". `exec-continuation.js` lets such a run
+  `tools.exec.notifyOnExit` (OpenClaw's default) the Gateway then runs the same
+  session once more. The pinned OpenClaw 2026.10.7 sends an ordinary event turn
+  (`enqueueSessionEventForHost`, source `exec`), one per process, whose prompt is
+  the bare line `Exec <status> (<id8>, <exit>) :: <output>` behind OpenClaw's usual
+  timestamp envelope; its hooks see `ctx.trigger: "event"`, and its agent events
+  carry no mark (`isHeartbeat: false`). The rollback targets 2026.10.3, 2026.9.9 and
+  2026.9.8 wake the session through their heartbeat runner instead, with a hidden
+  framed prompt `[OpenClaw exec completion]` that may list several processes, and
+  agent events marked `isHeartbeat: true` (`heartbeat-runner-run`,
+  `internal-turn-source`). Both write the completion's user entry with the input
+  provenance `{ kind: "internal_system", sourceTool: "exec" }` and
+  `senderIsOwner: false`. That run has no AgentPier attempt, so every `write` and
+  `edit` used to be refused and the agent asked the owner to type "continue". `exec-continuation.js` lets such a run
   write with the rights of the turn that started the command, only when AgentPier
   proves all of this:
   - The session is a chat of the calling agent, which is not archived and no
@@ -1387,12 +1400,28 @@ was compacted and the plan was gone. Four rules close that gap:
     (`continuationWindowMs`, four times OpenClaw's default exec timeout of 30
     minutes), and no newer request exists.
   - The call names its run: the write hook's `runId`, or for `agentpier_workspace`
-    the run of its tool call (looked up by session and tool call id). A call without a run continues nothing. The Gateway's
-    `agent` events mark that run as heartbeat-driven (`isHeartbeat`) in this
-    session (`HeartbeatRuns`, cleared on every reconnect and at the run's
-    `lifecycle` end), and it is not that turn's own run. The run is hidden from the
-    Control UI, so these events arrive only through the chat's
-    `sessions.messages.subscribe`.
+    the run of its tool call (looked up by session and tool call id). A call without
+    a run continues nothing. The run is not that turn's own run, and
+    `CompletionRuns` (cleared on every reconnect and at the run's `lifecycle` end)
+    knows it as a completion run in this session in one of two ways:
+    - **Heartbeat run** (rollback targets): the Gateway's `agent` events mark it
+      heartbeat-driven (`isHeartbeat`). The run is hidden from the Control UI, so
+      these events arrive only through the chat's `sessions.messages.subscribe`.
+    - **Event turn** (2026.10.7): the plugin recorded the run's prompt under
+      `ctx.trigger: "event"`, which only OpenClaw's own session events set (a typed
+      message is `"user"`, and a user turn records nothing), and sends it marked
+      `internal`. Because that trigger is not exec-specific, AgentPier then reads
+      the session's transcript once per run (`sessions.get`, 200 entries, 5 s;
+      concurrent calls of the run share the read). The run's first record (the
+      assistant message holding its tool call, annotated with its run id) must be
+      directly preceded by a user entry without another run's id whose provenance
+      is exactly `{ kind: "internal_system", sourceTool: "exec" }` and whose
+      process lines equal the plugin's. The entry carries no run id or other key
+      that names the run, so this positional match is the link. A Gateway error, a
+      missing, foreign or non-adjacent entry, other provenance or other lines
+      refuse with `NOT_COMPLETION`; a run that ended during the read is not
+      admitted. Only a verified run enters `CompletionRuns`, and the whole proof
+      then runs again.
   - The run's completion names only processes that this turn started in the
     background. OpenClaw names a process by an adjective-noun slug that is unique
     only among live processes, numbered on a clash, and its completion prompt
@@ -1403,9 +1432,12 @@ was compacted and the plan was gone. Four rules close that gap:
     Gateway's own record instead (`team-plugin/exec-processes.js`, on
     `globalThis`, so a plugin reload keeps it). `after_tool_call` records each
     `exec` result with `status: "running"` (`details.sessionId`) and the run that
-    started it. `llm_input` records the completion run's prompt; it must start with
-    OpenClaw's completion text, and every line between that text and "Treat this
-    completion" must be a process line. The write hook and the workspace call send
+    started it. `llm_input` records the completion run's prompt in one of two
+    shapes: 2026.10.3's framing, where every line between OpenClaw's completion
+    text and "Treat this completion" must be a process line; or 2026.10.7's bare
+    shape, only under the `event` trigger, where after the optional timestamp
+    envelope every non-empty line must be a process line or, once after one,
+    OpenClaw's verbatim timeout guidance. The write hook and the workspace call send
     the record for the run. Every process whose first eight characters equal a
     reported id must belong to that turn's run, and at least one must; a shorter id
     must equal a whole id. A completion that batches an earlier turn's process
@@ -1464,20 +1496,29 @@ was compacted and the plan was gone. Four rules close that gap:
   line is read verbatim), a heartbeat poll, a reminder and a completion after
   a newer request stay read-only. So does every completion of a lead-request,
   team-member, forwarded, routine, team-result, coding-result or memory-result
-  turn. The proof never reads the transcript. A refusal of a run the Gateway
-  reports as heartbeat-driven in that session is logged once per session, run and
-  reason with a code such as `PROCESS`, never a path or the command's output; an
-  ordinary refused write elsewhere logs nothing. Each write keeps the
+  turn. Only a 2026.10.7 event turn makes the proof read the transcript, once per
+  run; the heartbeat path and owner writes never do. A refusal of a completion run
+  (heartbeat-driven, or marked as an event turn) in that session is logged once per
+  session, run and reason with a code such as `PROCESS` or `NOT_COMPLETION`, never
+  a path or the command's output; an ordinary refused write elsewhere logs nothing. Each write keeps the
   turn's limits (a shared agent's memory note, `USER.md` and instruction files) and
   is audited as `kind: "native-write"` with `via: "exec-completion"` and
   `sourceAttemptId`. `agentpier_workspace` follows the same rule for project-folder
   file actions only. Folder changes are audited the same way. Coding requests,
   project memory, SSH, shared files, team tools, grants and routines are refused,
   and the command's output never proves an owner request.
+  On 2026.10.7 `chat.history` also returns the completion's user entry, which
+  2026.10.3 hid. The chat history (`conversations.js`) never serves a user entry
+  whose provenance kind is `internal_system`, whatever its source tool (OpenClaw's
+  task, plugin and session events use the same kind), so it never appears as the
+  owner's words; the completion run's reply is shown as before.
   `tests/integration/assistant-exec-continuation-contract.test.js`
-  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime:
+  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime (it
+  also passed on 2026.10.3):
   - the hooks report each background process with its run, the completion's
     prefixes and `gateway_start`;
+  - on 2026.10.7, the completion's transcript entry directly precedes its run's
+    first record and carries no run id;
   - the completion's write continues the owner turn, after an exec call of that
     turn failed argument validation;
   - a blocked exec call leaves nothing open, and the next completion is credited;
@@ -1912,7 +1953,11 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against; a rolled-back runtime starts with OpenClaw's defaults.
+list was qualified against (`advancedSettingsRuntime`, 2026.10.7); a rolled-back runtime
+starts with OpenClaw's defaults. After the AgentPier update that moved the approval
+from 2026.10.3 to 2026.10.7, stored overrides therefore stay inactive on 2026.10.3
+until the owner activates 2026.10.7, and again after a rollback before commit
+(`overridesFor`, `openclaw-config/overrides.js`).
 The owner edits them under **Settings → Workspace → Agents → Agent service → Advanced settings**
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
@@ -3770,7 +3815,10 @@ goal. Lead shares and grants a lead turn may make today stay allowed.
 compaction or summary, a queued owner message, an approval card, an open lead or peer
 request whose result will be delivered into this chat (the lead's own, a colleague's
 answer for a permanent member's chat, or one a member sends to the lead; member reports
-excluded), its team, or a background command. An uncertain attempt, and any interrupted
+excluded), its team, or a background command. On OpenClaw 2026.10.7 a command's
+completion run counts as a background command from its model input until its end
+(the Gateway method's `completing`, for at most 30 minutes per run), because no agent
+event marks it before it writes. An uncertain attempt, and any interrupted
 attempt other than a goal continuation, stays pending until the owner reviews it, so it
 holds the goal until then: an uncertain run may still be running and may have run tools.
 An interrupted continuation AgentPier sent itself is reviewed on the next pass the way a
@@ -3885,7 +3933,8 @@ AGENTPIER-184. A turn showed only "Working" for 15 minutes while its model call 
 after a tool result. The chat now shows what a turn does, says when the model stays
 silent, and a silent turn ends.
 
-What the pinned Gateway (OpenClaw 2026.10.3) sends, pinned by
+What the pinned Gateway (OpenClaw 2026.10.3, re-verified on 2026.10.7) sends, pinned
+by
 `tests/integration/assistant-run-steps-contract.test.js`:
 
 - Every operator connection receives the `agent` events of every run, also of runs

@@ -150,6 +150,11 @@ On 2026-10-14 both contracts also passed on macOS arm64 against OpenClaw 2026.10
 with the 2026.10.3 search plugins, as part of the `native-contracts` run recorded in
 the [release qualification](assistant-release-qualification.md#openclaw-202699--2026103-2026-10-14).
 
+On 2026-10-24 the web tools contracts passed on macOS arm64 against OpenClaw
+2026.10.7 with the 2026.10.7 search plugins (compiled 2 of 2, plugins 1 of 1, live
+1 of 1, no skips), as part of the run recorded in the
+[release qualification](assistant-release-qualification.md#openclaw-2026103--2026107-2026-10-24).
+
 ## Verified configuration
 
 ### (a) DuckDuckGo
@@ -158,7 +163,7 @@ DuckDuckGo, Perplexity and Brave are **not bundled** in OpenClaw 2026.9.8 or 202
 official external plugins: `@openclaw/duckduckgo-plugin`,
 `@openclaw/perplexity-plugin` and `@openclaw/brave-plugin`. Each is published at the
 OpenClaw version, with peer dependency `openclaw >=<that version>` (pinned:
-`2026.10.3`; the `2026.9.9` packages differed from `2026.9.8` only in version
+`2026.10.7`, peer dependency `openclaw >=2026.10.7`; the `2026.9.9` packages differed from `2026.9.8` only in version
 metadata). Each package
 has no runtime dependencies and imports only `openclaw/plugin-sdk/*`. The bundled
 web search providers are `gemini` (google), `grok` (xai), `minimax` and `ollama`.

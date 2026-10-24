@@ -27,6 +27,8 @@ const access = "mcp-access-SECRET-1";
 const client = "mcp-dcr-client-SECRET-2";
 const verifier = "mcp-pkce-verifier-SECRET-3";
 const profile = "auth-profile-SECRET-4";
+// OpenClaw 2026.10.7's Doctor copies the model credential into its machine state.
+const machine = "machine-state-SECRET-5";
 const passphrase = "mcp oauth backup fixture phrase";
 const stateDatabase = "state/state/openclaw.sqlite";
 
@@ -43,7 +45,13 @@ function seedState(file) {
   db.exec(`CREATE TABLE mcp_oauth_stores(store_key TEXT PRIMARY KEY, value_json TEXT);
     CREATE TABLE mcp_oauth_pending_authorizations(store_key TEXT PRIMARY KEY, value_json TEXT);
     CREATE TABLE auth_profile_store(profile_id TEXT PRIMARY KEY, value_json TEXT);
+    CREATE TABLE config_machine_state(state_key TEXT PRIMARY KEY, value_json TEXT, updated_at_ms INTEGER);
     CREATE TABLE conversations(id TEXT PRIMARY KEY, body TEXT);`);
+  db.prepare("INSERT INTO config_machine_state VALUES (?,?,?)").run(
+    "authProfiles.store",
+    JSON.stringify({ profiles: { "fixture:default": { key: machine } } }),
+    1,
+  );
   db.prepare("INSERT INTO mcp_oauth_stores VALUES (?,?)").run(
     "docs-hash",
     JSON.stringify({ tokens: { access_token: access }, client: { secret: client } }),
@@ -101,7 +109,7 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
     const text = archive.files
       .map((m) => Buffer.from(m.content, "base64").toString("latin1"))
       .join("\n");
-    for (const secret of [access, client, verifier, profile])
+    for (const secret of [access, client, verifier, profile, machine])
       assert.equal(text.includes(secret), false, secret);
     // The sidecar seals the auth profile only: with the key, nothing of the login.
     const sidecar = archive.files.find(
@@ -123,6 +131,7 @@ test("host backups leave MCP OAuth logins out, sealed or not", async (t) => {
     assert.equal(count(restored, "conversations"), withCredentials ? 1 : 0);
     // The auth profile comes back on this host; only it decides "assistants".
     assert.equal(count(restored, "auth_profile_store"), withCredentials ? 1 : 0);
+    assert.equal(count(restored, "config_machine_state"), withCredentials ? 1 : 0);
     assert.equal(report.credentialsNeedingLogin.includes("assistants"), !withCredentials);
     // The server the login belongs to comes back without any memory of the login.
     const restoredServers = new McpServerStore({ dataDir: target, pathEnv: "/fake/bin" });
@@ -142,7 +151,7 @@ test("a state database whose only credentials are MCP logins needs no sidecar", 
   const source = path.join(folder, "openclaw.sqlite");
   seedState(source);
   const db = new DatabaseSync(source);
-  db.exec("DROP TABLE auth_profile_store");
+  db.exec("DROP TABLE auth_profile_store; DROP TABLE config_machine_state");
   db.close();
   const copy = path.join(folder, "copy.sqlite");
   const sealed = await sealDatabase(source, copy, {
