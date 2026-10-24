@@ -1,4 +1,5 @@
 import test from "node:test";
+import { startBrowser } from "../helpers/browser-start.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -476,7 +477,10 @@ test(
         assert.match(blocked, /browser navigation blocked by policy/);
         assert.equal(page.hits, 0);
         try {
-          const { result: started } = await call({ action: "start" }, "start");
+          // Retried once after a timed-out start (helpers/browser-start.js).
+          const { result: started } = await startBrowser((label) =>
+            call({ action: "start" }, label),
+          );
           const { result: running } = await call({ action: "status" }, "browser-running");
           const { running: launched, userDataDir } = JSON.parse(running);
           // Both answers, so a browser that did not come up says why.
