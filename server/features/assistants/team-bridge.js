@@ -141,7 +141,7 @@ export class TeamBridge {
           record.action === "workspace" ||
           record.action === "share_file" ||
           memberActions.has(record.action) ||
-          (["reminder", "routine", "ssh"].includes(record.action) &&
+          (["reminder", "routine", "ssh", "goal"].includes(record.action) &&
             parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
         )) ||

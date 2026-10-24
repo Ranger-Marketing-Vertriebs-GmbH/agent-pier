@@ -1,4 +1,5 @@
 import { isUserAgent } from "../users/user-access.js";
+import { goalAgent } from "./goal-turns.js";
 
 export const capabilityKeys = [
   "memory",
@@ -93,6 +94,7 @@ export const sessionTools = [
 export const lockedTools = [
   ...shellTools,
   "agentpier_ssh",
+  "agentpier_goal",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -252,6 +254,8 @@ export function profileTools(
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
     // Every agent may hand the owner a file from its own workspace (agent-shares.js).
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_share_file"] : []),
+    // Work goals: own agents and permanent members only (goal-turns.js).
+    ...(nativeReady && goalAgent(assistant) ? ["agentpier_goal"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

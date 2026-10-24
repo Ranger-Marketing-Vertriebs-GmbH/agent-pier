@@ -29,7 +29,8 @@
       "agentpier_routine",
       "agentpier_workspace",
       "agentpier_ssh",
-      "agentpier_share_file"
+      "agentpier_share_file",
+      "agentpier_goal"
     ]
   },
   "configSchema": {

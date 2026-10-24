@@ -84,6 +84,7 @@ test("native teams grant profile tools without guarded writes on a fresh start",
     "agentpier_routine",
     "agentpier_workspace",
     "agentpier_share_file",
+    "agentpier_goal",
   ]);
   assert.equal(config.agents.entries["ap-a1"].memory.search.enabled, true);
   assert.equal(config.cron.enabled, true);
@@ -171,6 +172,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "agentpier_workspace",
     "agentpier_ssh",
     "agentpier_share_file",
+    "agentpier_goal",
     // Compiled before any agent uses them; each agent's entry names its own tools.
     "web_fetch",
     "view_image",
