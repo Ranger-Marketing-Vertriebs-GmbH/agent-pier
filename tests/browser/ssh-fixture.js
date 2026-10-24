@@ -137,11 +137,20 @@ export async function fixture(page) {
       };
     } else if (method === "POST" && path.endsWith("/test")) result = { ok: true };
     else if (method === "POST") {
+      const { password, ...fields } = body;
+      const sftpPassword = body.type === "sftp" && body.auth === "password";
       const created = {
         ...access,
-        ...body,
+        ...fields,
         id: `ssh-${state.accesses.length + 1}`,
         keyName: state.keys.find((key) => key.id === body.keyId)?.name,
+        // A password host has no key and the server never echoes the password.
+        ...(sftpPassword && {
+          keyId: null,
+          keyName: null,
+          publicKey: null,
+          hasPassword: Boolean(password),
+        }),
       };
       state.accesses.push(created);
       result = created;

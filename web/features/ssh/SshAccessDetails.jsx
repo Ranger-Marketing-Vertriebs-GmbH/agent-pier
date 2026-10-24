@@ -12,6 +12,8 @@ export default function SshAccessDetails({
   loading,
   viewKey,
 }) {
+  const sftp = access.type === "sftp",
+    usesKey = Boolean(access.keyId);
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -30,7 +32,10 @@ export default function SshAccessDetails({
   };
   return (
     <article className="ssh-card">
-      <h2>{access.name}</h2>
+      <h2>
+        {access.name}
+        {sftp && <span className="badge ssh-type-badge">{copy.sftpBadge}</span>}
+      </h2>
       <p className="ssh-owner-badge">
         {projectCopy.owner}: {project?.name || projectCopy.global}
       </p>
@@ -42,6 +47,12 @@ export default function SshAccessDetails({
         <dd>{access.username}</dd>
         <dt>{copy.port}</dt>
         <dd>{access.port}</dd>
+        {sftp && (
+          <>
+            <dt>{copy.remoteFolder}</dt>
+            <dd>{access.remoteRoot || copy.noRemoteRoot}</dd>
+          </>
+        )}
       </dl>
       <div className="ssh-actions">
         <button
@@ -64,29 +75,35 @@ export default function SshAccessDetails({
           {copy.test}
         </button>
       </div>
-      <p className="ssh-action-hint">{copy.testHint}</p>
+      <p className="ssh-action-hint">{sftp ? copy.sftpTestHint : copy.testHint}</p>
       {error && <p role="alert">{error}</p>}
       {busy && <p role="status">{copy.busy}</p>}
       {tested && <p role="status">{copy.testOk}</p>}
       <div className="ssh-detail-section">
-        <h3>{copy.keyMode}</h3>
-        <div className="ssh-key-link">
-          <span>{access.keyName}</span>
-          <button
-            className="ssh-text-button"
-            disabled={loading}
-            onClick={() => viewKey(access.keyId)}
-          >
-            {copy.viewKey}
-          </button>
-        </div>
-        <SshCopy
-          compact
-          label={copy.publicKey}
-          text={access.publicKey}
-          button={copy.copyKey}
-        />
-        <p className="ssh-action-hint">{copy.publicKeyHint}</p>
+        <h3>{sftp ? copy.signIn : copy.keyMode}</h3>
+        {sftp && !usesKey && <p>{copy.signInPassword}</p>}
+        {usesKey && access.keyMissing && <p role="status">{copy.keyMissing}</p>}
+        {usesKey && !access.keyMissing && (
+          <>
+            <div className="ssh-key-link">
+              <span>{access.keyName}</span>
+              <button
+                className="ssh-text-button"
+                disabled={loading}
+                onClick={() => viewKey(access.keyId)}
+              >
+                {copy.viewKey}
+              </button>
+            </div>
+            <SshCopy
+              compact
+              label={copy.publicKey}
+              text={access.publicKey}
+              button={copy.copyKey}
+            />
+            <p className="ssh-action-hint">{copy.publicKeyHint}</p>
+          </>
+        )}
       </div>
       <details className="ssh-detail-section">
         <summary>{copy.fingerprint}</summary>
@@ -103,7 +120,7 @@ export default function SshAccessDetails({
       </div>
       {confirm && (
         <div className="ssh-confirm">
-          <p>{copy.deleteHint}</p>
+          <p>{sftp ? copy.sftpDeleteHint : copy.deleteHint}</p>
           <div className="ssh-actions">
             <button
               className="button secondary"
