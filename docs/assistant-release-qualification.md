@@ -533,8 +533,8 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   shell environment contract expects `Library/Caches/openclaw-<uid>` on 2026.10.7;
   the work-goals contract recognises the event turn. The dreaming contract creates
   its data directory under the resolved temporary directory (see the known upstream
-  behaviour below), and `GuardedRuntimeSupervisor` waits for the Gateway's child
-  processes after a stop: OpenClaw's SQLite read children
+  behaviour below), and `GuardedRuntimeSupervisor` waits for the Gateway's OpenClaw
+  worker processes (not its exec commands) after a stop: OpenClaw's SQLite read children
   (`sqlite-readonly-location.worker.js`, also in 2026.10.3) exit only after the
   Gateway, once they see the IPC disconnect, and write Node's compile cache into
   `assistants/tmp` on the way out, which raced the removal of the data directory
