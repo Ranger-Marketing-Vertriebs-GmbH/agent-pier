@@ -14,7 +14,11 @@ import {
   verifyUpdateSnapshot,
 } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
-import { migrateRuntimeState, removeMigrationLeftovers } from "./runtime-doctor.js";
+import {
+  migrateRuntimeState,
+  removeMigrationLeftovers,
+  stopDoctor,
+} from "./runtime-doctor.js";
 import {
   applyRetention,
   markBackupSuccessful,
@@ -43,6 +47,7 @@ export class RuntimeUpdates {
     manifest = runtimeManifest,
     onRolledBack = () => {},
     migrate = migrateRuntimeState,
+    stopMigration = stopDoctor,
   }) {
     Object.assign(this, {
       dataDir,
@@ -55,6 +60,7 @@ export class RuntimeUpdates {
       manifest,
       onRolledBack,
       migrate,
+      stopDoctor: stopMigration,
     });
     this.paths = runtimePaths(dataDir);
     this.fence = ledgerFence(this.paths.root);
@@ -198,7 +204,12 @@ export class RuntimeUpdates {
         // crash meanwhile restores the snapshot like any unfinished activation.
         if (candidate.version !== previous.version) {
           this.persist("migrating");
-          await this.migrate(this.paths, candidate);
+          // Its identity is durable before it is awaited: a rollback after a crash
+          // stops a Doctor that outlived this process (stopDoctor).
+          await this.migrate(this.paths, candidate, {
+            onSpawn: (doctor) => this.persist("migrating", { doctor }),
+          });
+          this.persist("migrating", { doctor: null });
         }
         await this.fence.validation(async () => {
           await this.runtime.start();
@@ -248,6 +259,8 @@ export class RuntimeUpdates {
     const journal = this.journal;
     try {
       this.persist("rolling_back");
+      // Nothing may write under the restore: a Doctor left running goes first.
+      await this.stopDoctor(journal.doctor);
       await this.runtime.stop();
       await this.maintenance.quiesce();
       await this.runtime.assertStopped?.();

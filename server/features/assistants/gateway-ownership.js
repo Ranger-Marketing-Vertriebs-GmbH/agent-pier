@@ -27,20 +27,24 @@ function realpath(file) {
   }
 }
 
-export function recordOwner(file, pid, runtime, identity = processIdentity) {
+/** The identity of OpenClaw process `pid` that `inspectOwner` verifies later. */
+export function ownerRecord(pid, runtime, identity = processIdentity) {
   let startTime = null;
   try {
     startTime = identity(pid).startTime;
   } catch {
     // Without a start time the record stays unverifiable and fails closed later.
   }
-  writePrivate(file, {
+  return {
     pid,
     parentPid: process.pid,
     startTime,
     executable: realpath(runtime.nodePath),
     entryPath: runtime.entryPath,
-  });
+  };
+}
+export function recordOwner(file, pid, runtime, identity = processIdentity) {
+  writePrivate(file, ownerRecord(pid, runtime, identity));
 }
 
 // "stale": the recorded process is gone (or its pid now belongs to a process that
