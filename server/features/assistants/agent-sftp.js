@@ -85,7 +85,7 @@ export class AgentSftp {
     }
     const side =
       Object.hasOwn(transfers, input.action) || input.action === "sync"
-        ? this.local(workspaceContext(this.w, inv), input)
+        ? this.local(this.turnContext(inv, caller, cls, input), input)
         : null;
     const access = this.access(caller, cls, input, host);
     const session = await access.open();
@@ -130,6 +130,22 @@ export class AgentSftp {
       return await this.runs.hold(inv, started);
     } finally {
       if (!handed) session.close();
+    }
+  }
+  /**
+   * The turn's workspace context for the local side. A follow-up turn on an SSH or
+   * SFTP result is no direct turn and reaches no local folder; it is told so.
+   */
+  turnContext(inv, caller, cls, input) {
+    try {
+      return workspaceContext(this.w, inv);
+    } catch (error) {
+      if (
+        error?.status === 403 &&
+        ["ssh-result", "sftp-result"].includes(caller.origin?.kind)
+      )
+        throw this.refuse(caller, cls, input, "sshOriginRefused");
+      throw error;
     }
   }
   /**

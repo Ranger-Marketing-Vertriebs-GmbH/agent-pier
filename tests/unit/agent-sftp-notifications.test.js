@@ -104,6 +104,20 @@ test("a card with deletes never offers Always allow", () => {
   assert.match(entry.text, /Deleted: 1/);
 });
 
+test("the deleted count includes folders the card cut", () => {
+  const entry = notify(
+    action({
+      summary: transfer({
+        delete: ["a"],
+        deleteDirs: ["d1"],
+        more: { create: 0, update: 0, delete: 2 },
+        moreDeleteDirs: 4,
+      }),
+    }),
+  );
+  assert.match(entry.text, /Deleted: 8/);
+});
+
 test("Telegram decides only plans it lists in full", () => {
   const paths = (n) => Array.from({ length: n }, (_, i) => `f${i}.txt`);
   assert.equal(sftpTelegramApprovable(action().payload), true);
