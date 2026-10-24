@@ -31,6 +31,13 @@ what Doctor keeps for its own manual recovery, because it holds private data and
 credentials in plain form: the `*.pre-startup-migration-*.bak` copy of each
 migrated database with its `-wal`, `-shm` and `-journal` files, and the
 `state.update-captures/` folder beside `state/`. A rollback removes them as well.
+For Doctor's run AgentPier takes every plain `models.providers.*.apiKey` out of
+`openclaw.json` and puts the keys back afterwards, on success and on failure.
+2026.10.7's Doctor would otherwise copy each key into OpenClaw's auth profile store
+(`config_machine_state`, `authProfiles.store`), where it outranks `openclaw.json`: the
+model would first receive a key the owner had since rotated, and a removed key would
+stay in OpenClaw's state and its backups. A crash in between restores the snapshot,
+keys included.
 Startup recovery of an activation that crashed in `migrating` first stops a Doctor
 that outlived AgentPier, but only a group it can attribute to the recorded one (the
 same boot, every member started after it, one running the runtime's own Node). A

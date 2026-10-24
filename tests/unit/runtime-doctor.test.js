@@ -12,6 +12,7 @@ import {
 import { processIdentity } from "../../server/lib/process-identity.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { readJSON, writePrivate } from "../../server/lib/storage.js";
 
 // A real executable: the recorded identity resolves its path.
 const runtime = { nodePath: process.execPath, entryPath: "/opt/app/openclaw.mjs" };
@@ -133,6 +134,43 @@ test("a successful Doctor run removes its own backups and update captures", asyn
   assert.equal(fs.existsSync(files.captures), false);
   for (const kept of ["agentDb", "stateDb", "configBackup", "other"])
     assert.equal(fs.existsSync(files[kept]), true, kept);
+});
+
+test("Doctor never sees a provider key, and openclaw.json gets it back", async (t) => {
+  const paths = fixture(t);
+  const config = {
+    gateway: { auth: { token: "gateway-token" } },
+    models: {
+      providers: {
+        deepgram: { apiKey: "voice-key", baseUrl: "https://dg.example", models: [] },
+        "ap-c1-1": { apiKey: "model-key", api: "openai-completions", models: [] },
+        local: { api: "openai-completions", models: [] },
+      },
+    },
+  };
+  for (const exit of [0, 78]) {
+    writePrivate(paths.config, config);
+    let seen;
+    const fake = fakeSpawn((child) => {
+      seen = readJSON(paths.config);
+      // Doctor rewrites the file and drops a provider of its own accord.
+      delete seen.models.providers.local;
+      seen.meta = { lastTouchedVersion: "2026.10.7" };
+      writePrivate(paths.config, seen);
+      child.emit("exit", exit, null);
+    });
+    const run = migrateRuntimeState(paths, runtime, { ...fake.options, env: {} });
+    if (exit) await assert.rejects(run, { code: "UPDATE_MIGRATION_FAILED" });
+    else await run;
+    assert.equal(JSON.stringify(seen).includes("-key"), false, `exit ${exit}`);
+    assert.equal(seen.gateway.auth.token, "gateway-token");
+    const after = readJSON(paths.config);
+    assert.equal(after.models.providers.deepgram.apiKey, "voice-key");
+    assert.equal(after.models.providers["ap-c1-1"].apiKey, "model-key");
+    assert.equal(after.models.providers.local, undefined);
+    assert.deepEqual(after.meta, { lastTouchedVersion: "2026.10.7" });
+    assert.equal(fs.statSync(paths.config).mode & 0o777, 0o600);
+  }
 });
 
 test("a non-zero exit rejects with UPDATE_MIGRATION_FAILED", async (t) => {
