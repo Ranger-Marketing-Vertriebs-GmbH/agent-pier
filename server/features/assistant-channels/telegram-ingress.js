@@ -32,6 +32,7 @@ export class TelegramIngress {
         },
         signal,
       );
+      this.pollEnded(id, started);
       if (
         signal?.aborted ||
         this.service.closed ||
@@ -48,6 +49,7 @@ export class TelegramIngress {
           : failure,
       );
     } catch (error) {
+      this.pollEnded(id, started);
       if (signal?.aborted || this.service.closed) return;
       if (
         ["TELEGRAM_CONFLICT", "TELEGRAM_REJECTED", "TELEGRAM_WEBHOOK"].includes(
@@ -65,6 +67,12 @@ export class TelegramIngress {
       else store.diagnostic(id, "TELEGRAM_UNAVAILABLE", Date.now() + 10000);
       this.service.assistants.changed();
     }
+  }
+  // A poll that returned (or failed) no longer counts as one standing open; only a
+  // returned poll whose updates were received counts, as `completed`.
+  pollEnded(id, started) {
+    const poll = this.polls.get(id);
+    if (poll?.started === started) this.polls.set(id, { ...poll, started: undefined });
   }
   async receive(id, updates, signal) {
     const { store, ledger, assistants } = this.service;
@@ -219,10 +227,7 @@ export class TelegramIngress {
         )
     )
       return;
-    ledger.patch(entry.id, {
-      state: "dispatching",
-      ...(entry.media && !entry.dispatchedAt && { dispatchedAt: now }),
-    });
+    ledger.patch(entry.id, { state: "dispatching" });
     if (entry.media && !existing) {
       entry = await this.stageMedia(channel, entry, signal);
       if (!entry) return;
@@ -315,6 +320,8 @@ export class TelegramIngress {
       });
       return null;
     }
+    // Its files are fetched and its notice is due: the album takes no more items.
+    ledger.patch(entry.id, { dispatchedAt: this.service.now() });
     const delivered = !!entry.text.trim() || media.some((part) => part.staged);
     const text = mediaNotice(telegramMessages(channel), media, delivered);
     if (text) this.inputNotice(channel, entry, text);

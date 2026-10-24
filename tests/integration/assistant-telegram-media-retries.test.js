@@ -166,6 +166,41 @@ test("after a restart an album waits for the first poll to bring its remaining i
   assert.equal(f.service.ledger.public(f.channel.id).length, 1);
 });
 
+test("a failed first poll after a restart keeps the album waiting, for at most 60 s", async (t) => {
+  const f = setup(t, {
+    a: { path: "photos/a.jpg", body: jpegOf() },
+    b: { path: "photos/b.jpg", body: jpegOf(8, 8) },
+  });
+  await f.deliver([media(1, { ...photo("a"), media_group_id: "g", caption: "Both" })]);
+  f.service.ingress = new TelegramIngress(f.service);
+  f.advance(10 * ALBUM_QUIET_MS);
+  let down = true;
+  f.api.fault = (kind) => (kind === "getUpdates" && down ? outage() : undefined);
+  await f.deliver();
+  f.advance(5000);
+  await process(f);
+  assert.equal(f.sent.length, 0);
+  down = false;
+  await f.deliver([media(2, { ...photo("b"), media_group_id: "g" })]);
+  await run(f);
+  assert.equal(f.sent.length, 1);
+  assert.equal(f.files().length, 2);
+  // Polls that only ever fail hold an album for 60 s after its newest item at most.
+  f.service.ledger.patch(input(f).id, { state: "delivered" });
+  f.assistants.ledger.transition(input(f).attemptId, "completed");
+  await f.deliver([media(3, { ...photo("a"), media_group_id: "h" })]);
+  f.service.ingress = new TelegramIngress(f.service);
+  down = true;
+  f.advance(59000);
+  await f.deliver();
+  f.advance(500);
+  await process(f);
+  assert.equal(f.sent.length, 1);
+  f.advance(500);
+  await process(f);
+  assert.equal(f.sent.length, 2);
+});
+
 test("an item arriving after its album was fetched is its own input with its own notice", async (t) => {
   const f = setup(t, {
     a: { path: "photos/a.jpg", body: jpegOf() },
