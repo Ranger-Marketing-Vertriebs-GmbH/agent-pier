@@ -78,10 +78,13 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
   router.post("/assistant-conversations/:id/compact", async (req, res) =>
     res.json(await assistants.longChats.summarise(req.params.id)),
   );
-  // The owner's Stop of a work goal (work-goals.js); the guard refuses hers.
-  router.post("/assistant-conversations/:id/goal/stop", (req, res) =>
-    res.json(assistants.teams.goals.stop(req.params.id)),
-  );
+  // The owner's Stop of a work goal (work-goals.js); the guard refuses hers, and an
+  // unknown chat is not found as on every chat route.
+  router.post("/assistant-conversations/:id/goal/stop", (req, res) => {
+    assistants.store.getConversation(req.params.id);
+    if (!assistants.teams?.goals) throw assistantProblem("unavailable", 503);
+    res.json(assistants.teams.goals.stop(req.params.id));
+  });
   router.post("/assistant-conversations/:id/long-chat-dismissal", async (req, res) =>
     res.json(await assistants.longChats.dismiss(req.params.id)),
   );

@@ -338,6 +338,8 @@ export const assistants = {
     "Das braucht deine eigene Nachricht; eine Fortsetzung des Ziels kann das nicht.",
   goalUnavailable: "Ziele gibt es nur in deinen eigenen Chats mit diesem Agenten.",
   goalNotOpen: "Dieser Chat hat kein offenes Ziel.",
+  goalUpdateTurn:
+    "Die Schritte eines Ziels lassen sich nur in einer Antwort auf deine eigene Nachricht oder in einer Fortsetzung dieses Ziels festhalten, nicht in einer weitergeleiteten, geplanten oder delegierten Antwort.",
   leadRoutineOwnerTurn:
     "Ein leitender Agent legt Routinen bei seinen Mitgliedern nur in einer Antwort auf deine eigene Nachricht an oder ändert sie.",
   leadRoutineNotPermanent:

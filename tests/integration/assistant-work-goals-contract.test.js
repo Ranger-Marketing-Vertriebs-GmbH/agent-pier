@@ -269,6 +269,26 @@ test(
       "GOAL\n",
     );
 
+    // The Gateway's item events name each tool, the plugin's goal tool too: the
+    // no-progress brake leaves agentpier_goal out (work-goals.js observe).
+    const tools = new Set(
+      events
+        .filter(
+          (e) =>
+            e.runId === continuation.runId &&
+            e.stream === "item" &&
+            e.data?.kind === "tool",
+        )
+        .map((e) => e.data.name),
+    );
+    t.diagnostic(`continuation tools=${JSON.stringify([...tools])}`);
+    assert.deepEqual([...tools].sort(), ["agentpier_goal", "write"]);
+    teams.goals.toolRuns.clear();
+    for (const e of events)
+      if (e.runId === continuation.runId && e.data?.name === "agentpier_goal")
+        teams.goals.observe(e);
+    assert.equal(teams.goals.toolRun(continuation.runId), false);
+
     // 6. The agent ended the goal; later ticks send nothing more.
     const final = teams.goals.store.list(chat.id).at(-1);
     assert.equal(final.id, goal.id);

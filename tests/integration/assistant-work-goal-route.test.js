@@ -67,3 +67,40 @@ test("the owner stops a goal through the route; a user's chat is refused", async
   assert.deepEqual(await refused.json(), notFoundBody());
   assert.equal(goals.store.open(annaMain)?.id, annaGoal.id);
 });
+
+test("Stop of an unknown chat is not found; without teams it is unavailable", async (t) => {
+  const { f } = await chatFixture(t);
+  const unknown = await stop(f.request, crypto.randomUUID());
+  assert.equal(unknown.status, 404);
+  const renamed = await f.request(`/api/assistant-conversations/${crypto.randomUUID()}`, {
+    method: "PATCH",
+    body: { title: "X" },
+  });
+  assert.equal(renamed.status, 404);
+  assert.deepEqual(await unknown.json(), await renamed.json(), "as other chat routes");
+  const agent = await json(
+    await f.request("/api/assistants", {
+      method: "POST",
+      body: { name: "Helper", instructions: "", model: fixtureModel(f) },
+    }),
+    201,
+  );
+  const main = (
+    await json(
+      await f.request(`/api/assistants/${agent.id}/conversations`, { method: "POST" }),
+      200,
+    )
+  ).id;
+  const teams = f.application.assistants.teams;
+  f.application.assistants.teams = null;
+  const unwired = await stop(f.request, main);
+  f.application.assistants.teams = teams;
+  assert.equal(unwired.status, 503);
+});
+
+test("the owner's stop control marks the attempt as cancelled by him", async (t) => {
+  const { f } = await chatFixture(t);
+  const id = crypto.randomUUID();
+  await f.request(`/api/assistant-attempts/${id}/cancel`, { method: "POST", body: {} });
+  assert.equal(f.application.assistants.teams.goals.ownerCancelled(id), true);
+});

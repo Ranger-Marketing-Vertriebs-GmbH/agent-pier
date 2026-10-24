@@ -221,7 +221,8 @@ test("the nudge waits while the chat waits on the owner or on results", async (t
 });
 
 test("a member's report to the main chat does not hold the nudge", async (t) => {
-  for (const body of [{ type: "report" }, { type: "question", fromMemberId: "m" }]) {
+  // A colleague's answer for the lead holds it (assistant-work-goal-follow-ups.test.js).
+  for (const body of [{ type: "report" }, { type: "report", fromMemberId: "m" }]) {
     const { f, agent, chat } = setup(t);
     await setGoal(f, chat);
     record(f, agent, chat, { kind: "lead-request", phase: "running", ...body });
@@ -324,6 +325,8 @@ test("cancelling a continuation turn stops the goal", async (t) => {
   const entries = [];
   f.assistants.audit = { append: (entry) => entries.push(entry) };
   const { attempt } = await round(f, chat, 0);
+  // The owner's stop control (POST /api/assistant-attempts/:id/cancel).
+  f.service.goals.ownerCancel(attempt.id);
   f.assistants.ledger.transition(attempt.id, "cancelled");
   await at(f, 2 * nudgeDelayMs);
   const goal = goalOf(f, chat);

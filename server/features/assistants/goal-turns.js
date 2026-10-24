@@ -46,7 +46,8 @@ export function turnKind(context) {
 
 export function goalAgent(agent) {
   return (
-    !agent?.archivedAt &&
+    !!agent &&
+    !agent.archivedAt &&
     !isUserAgent(agent) &&
     (!agent.teamMemberId || agent.lifetime === "permanent")
   );
@@ -76,6 +77,20 @@ export function ownerSource(teams, request) {
     };
   }
   return { request, context: teams.context(request.id), continuation: false };
+}
+
+/**
+ * The request and recorded context of a follow-up already accepted under this client
+ * id, or null. A retry after a crash between acceptance and its bookkeeping sends them
+ * again unchanged; a context worked out anew could differ and conflict for good.
+ */
+export function recordedTurn(teams, conversationId, clientRequestId) {
+  const request = teams.ledger
+    .requests(conversationId)
+    .find((r) => r.clientRequestId === clientRequestId);
+  if (!request) return null;
+  const context = teams.context(request.id);
+  return { request, context, teamAllowed: context.teamAllowed === true };
 }
 
 export function refuseInGoalTurn(context, key = "goalOwnerOnly") {
