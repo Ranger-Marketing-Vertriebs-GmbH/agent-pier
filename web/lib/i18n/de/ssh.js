@@ -25,7 +25,7 @@ export const sshCopy = {
   password: "Passwort",
   passwordSaved: "Gespeichert. Gib ein neues Passwort ein, um es zu ersetzen.",
   passwordHint:
-    "Das Passwort wird lokal mit Zugriffsrechten nur für den Besitzer gespeichert und nie wieder angezeigt.",
+    "Das Passwort wird nur lokal gespeichert, die Datei ist nur für den Besitzer lesbar, und es wird nie wieder angezeigt.",
   remoteRoot: "Erlaubter Remote-Ordner",
   remoteRootHint:
     "Optionaler absoluter Pfad, zum Beispiel /srv/files. Agenten können diesen Ordner nicht verlassen.",

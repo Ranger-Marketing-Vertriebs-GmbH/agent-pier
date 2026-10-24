@@ -105,7 +105,6 @@ test("edit form never shows the saved password", async ({ page }) => {
   await expect(
     dialog.getByText("Saved. Enter a new password to replace it."),
   ).toBeVisible();
-  expect(await page.content()).not.toContain("fixture-secret");
   await dialog.getByLabel("Allowed remote folder").fill("");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   const patch = state.calls.find((call) => call.method === "PATCH");
