@@ -182,12 +182,22 @@ test(
       }
       assert.fail(`check-in run ${count} did not finish`);
     };
-    const force = async () =>
-      assert.equal(
-        (await runtime.client.call("cron.run", { id: job.id, mode: "force" }, long))
-          .enqueued,
-        true,
-      );
+    // OpenClaw logs a run "finished" before it clears the job's active marker
+    // (finalizeCompletedCronRunOutcomes), so a force right after the previous run may
+    // still be refused as already running (AGENTPIER-198).
+    const force = async () => {
+      const deadline = Date.now() + 10000;
+      for (;;) {
+        const result = await runtime.client.call(
+          "cron.run",
+          { id: job.id, mode: "force" },
+          long,
+        );
+        if (result?.reason !== "already-running" || Date.now() > deadline)
+          return assert.equal(result?.enqueued, true, JSON.stringify(result));
+        await delay(200);
+      }
+    };
 
     // 1. A check-in with content, full context, into the conversation and the chat.
     let offset = model.requests.length;
