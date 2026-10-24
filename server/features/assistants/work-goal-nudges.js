@@ -182,8 +182,9 @@ async function reviewInterrupted(goals, goal) {
     if (attempt?.state !== "interrupted" || attempt.reviewedAt) return;
     const { clientRequestId } = a.ledger.getRequest(attempt.requestId);
     if (!clientRequestId.startsWith(`goal-continuation:${goal.id}:`)) return;
-    await abortAndReview(a, attempt);
-    goals.audit(goal, "continuation-reviewed");
+    // Settled meanwhile (the reconciler saw its end): it speaks for itself.
+    if ((await abortAndReview(a, attempt)).reviewedAt)
+      goals.audit(goal, "continuation-reviewed");
   } catch {
     /* Retried on the next pass; the attempt holds the chat until then. */
   }

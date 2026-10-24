@@ -213,6 +213,9 @@ export class WorkGoals {
   ownerCancel(attemptId) {
     if (typeof attemptId === "string") remember(this.ownerCancels, attemptId);
   }
+  ownerCancelFailed(attemptId) {
+    this.ownerCancels.delete(attemptId);
+  }
   ownerCancelled(attemptId) {
     return this.ownerCancels.has(attemptId);
   }

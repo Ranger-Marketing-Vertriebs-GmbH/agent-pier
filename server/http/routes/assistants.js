@@ -215,9 +215,17 @@ function activeAssistantRoutes(services) {
     res.json(assistants.takeBackQueued(req.params.id)),
   );
   // The owner's stop control; a work goal's continuation it ends stops as his.
+  // Marked before the abort, since the reconciler may settle the attempt within it;
+  // a cancel that fails takes the mark back.
   router.post("/assistant-attempts/:id/cancel", async (req, res) => {
-    assistants.teams?.goals?.ownerCancel(req.params.id);
-    res.json(await assistants.cancel(req.params.id));
+    const goals = assistants.teams?.goals;
+    goals?.ownerCancel(req.params.id);
+    try {
+      res.json(await assistants.cancel(req.params.id));
+    } catch (error) {
+      goals?.ownerCancelFailed(req.params.id);
+      throw error;
+    }
   });
   router.post("/assistant-attempts/:id/recover", async (req, res) =>
     res.json(await assistants.recover(req.params.id, req.body)),
