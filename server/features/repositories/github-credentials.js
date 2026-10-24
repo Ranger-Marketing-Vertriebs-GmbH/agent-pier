@@ -59,6 +59,37 @@ export function gitCredentialConfig(selections, location, session = null) {
 export const agentFolderName = (agentId) => `agent-${agentId}`;
 export const agentShellFile = "shell-env.sh";
 
+// Read access in an agent's shell (AGENTPIER-211): git rewrites pushes to the
+// profile's host, over HTTPS or SSH, to this scheme, and the remote helper of that
+// name in the folder's bin/ (on the agent's PATH) refuses them with the reason.
+// Fetch, clone and pull keep their URLs. Best effort, not a sandbox: the shell runs
+// as the owner, and an explicit remote pushurl or the agent's own git config can
+// bypass the rewrite.
+const readOnlyScheme = "agentpier-read-only";
+export const readOnlyHelperFile = `git-remote-${readOnlyScheme}`;
+export const readOnlyPushMessage =
+  "AgentPier: this agent has Read access to GitHub; pushing is not allowed. Ask the owner for Read and write.";
+const readOnlyHelper = `#!/bin/sh\n# Written by AgentPier: this agent's GitHub access is Read.\nprintf '%s\\n' ${quote(
+  readOnlyPushMessage,
+)} >&2\nexit 1\n`;
+
+/** The git configuration that refuses pushes to `host` (and its gists) for Read. */
+export function readOnlyPushConfig(host) {
+  return [
+    [host, [`https://${host}/`, `git@${host}:`, `ssh://git@${host}/`]],
+    [`gist.${host}`, [`https://gist.${host}/`]],
+  ].flatMap(([base, prefixes]) =>
+    prefixes.map((prefix) => [`url.${readOnlyScheme}://${base}/.pushInsteadOf`, prefix]),
+  );
+}
+
+const writeAtomic = (file, content, mode) => {
+  const temporary = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, content, { mode });
+  fs.chmodSync(temporary, mode);
+  fs.renameSync(temporary, file);
+};
+
 const tokenKeys = [
   "GH_TOKEN",
   "GITHUB_TOKEN",
@@ -233,10 +264,12 @@ export class GithubCredentials {
    * selected profile, plus `bin/`, the marker the exec wrapper finds on the agent's
    * PATH (exec-shell.js), and `shell-env.sh`, which the wrapper sources. That file
    * names the folder and the git helper; the token stays in hosts.yml, which only gh
-   * and the helper read. Returns the marker directory, or null for a profile whose
-   * host native gh cannot address (the folder is removed then).
+   * and the helper read. With `level` "read", git refuses pushes to the host
+   * (readOnlyPushConfig); anything else is Read and write. Returns the marker
+   * directory, or null for a profile whose host native gh cannot address (the
+   * folder is removed then).
    */
-  prepareAgent(agentId, credentialId) {
+  prepareAgent(agentId, credentialId, level = "read") {
     const id = agentFolderName(agentId);
     const folder = this.folder(id);
     const entry = this.repositories.listCredentials().find((c) => c.id === credentialId);
@@ -256,6 +289,12 @@ export class GithubCredentials {
     const identity = selectedCommitIdentity(this.repositories, folder, selections);
     if (identity)
       config.push(["user.name", identity.name], ["user.email", identity.email]);
+    const readOnly = level !== "write";
+    const helper = path.join(folder, "bin", readOnlyHelperFile);
+    if (readOnly) {
+      config.push(...readOnlyPushConfig(host));
+      writeAtomic(helper, readOnlyHelper, 0o700);
+    } else fs.rmSync(helper, { force: true });
     const lines = [
       "# Written by AgentPier for this agent's shell; it holds no token.",
       `export GH_CONFIG_DIR=${quote(folder)}`,
@@ -275,10 +314,7 @@ export class GithubCredentials {
           ]
         : []),
     ];
-    const file = path.join(folder, agentShellFile);
-    const temporary = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(temporary, `${lines.join("\n")}\n`, { mode: 0o600 });
-    fs.renameSync(temporary, file);
+    writeAtomic(path.join(folder, agentShellFile), `${lines.join("\n")}\n`, 0o600);
     return this.agentMarker(agentId);
   }
   /** The PATH marker of an agent shell's GitHub folder (it may not exist). */

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { decide, listTree, shellGateway } from "../helpers/assistant-shell-gateway.js";
+import { readOnlyHelperFile } from "../../server/features/repositories/github-credentials.js";
 
 // docs/assistant-shell-qualification.md, fact (d): which environment exec children
 // get, and how they can run with the owner's HOME and login PATH while the Gateway
@@ -214,12 +215,19 @@ test(
       `printf '%s\\n%s\\n' "$PATH" "\${OPENCLAW_PREPEND_PATH:-}" > '${seenAt}'\n` +
         `export GH_CONFIG_DIR='${folder}'\n`,
     );
+    // For Read, git finds the folder's remote helper on the command's PATH.
+    fs.writeFileSync(path.join(marker, readOnlyHelperFile), "#!/bin/sh\nexit 1\n", {
+      mode: 0o700,
+    });
     await gw.configure({ tools: { exec: { pathPrepend: [marker, owner.bin] } } });
     const out = path.join(gw.dataDir, "github.txt");
     await gw.turn("github", {
-      command: `printf '%s\\n%s\\n' "$GH_CONFIG_DIR" "$PATH" > ${out}`,
+      command: `printf '%s\\n%s\\n%s\\n' "$GH_CONFIG_DIR" "$PATH" "$(command -v ${readOnlyHelperFile})" > ${out}`,
     });
-    const [configDir, commandPath] = fs.readFileSync(out, "utf8").trim().split("\n");
+    const [configDir, commandPath, helper] = fs
+      .readFileSync(out, "utf8")
+      .trim()
+      .split("\n");
     const [startPath, prepend] = fs.readFileSync(seenAt, "utf8").split("\n");
     t.diagnostic(
       `start PATH=${startPath} prepend=${prepend} command PATH=${commandPath}`,
@@ -230,5 +238,6 @@ test(
     assert.ok(prepend.split(":").includes(marker));
     assert.equal(configDir, folder);
     assert.ok(commandPath.split(":").includes(marker));
+    assert.equal(helper, path.join(marker, readOnlyHelperFile));
   },
 );

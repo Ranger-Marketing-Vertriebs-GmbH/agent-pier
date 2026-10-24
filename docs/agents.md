@@ -205,7 +205,11 @@ told it was not saved.
   **Read and write** also comments on and creates issues and pull requests, merges
   pull requests, pushes, changes and deletes files, runs workflows and creates, forks
   and deletes repositories, all without an approval per change. With shell access, `gh` and `git` in the
-  agent's commands use the same profile instead of your own login. The token never
+  agent's commands use the same profile instead of your own login. With **Read**,
+  `git push` to the profile's host fails with a message naming the level, while
+  fetch, clone and pull work. This is best effort, not a sandbox: with shell access
+  the agent runs as you, other git configuration can get around it, and `gh` is not
+  limited. Use a token without write permissions to enforce **Read** on GitHub. The token never
   appears in the agent's instructions, files, chat or the browser (with shell access
   the agent runs as you and could read it like you can); a rotated token reaches the
   agent at once, a deleted profile removes the access. Each profile and level runs

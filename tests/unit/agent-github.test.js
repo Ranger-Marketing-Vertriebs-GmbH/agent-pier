@@ -27,6 +27,11 @@ import {
 import { assistantBootstrap } from "../../server/features/assistants/assistant-bootstrap.js";
 import { execShellScript } from "../../server/features/assistants/exec-shell.js";
 import {
+  GithubCredentials,
+  readOnlyHelperFile,
+  readOnlyPushMessage,
+} from "../../server/features/repositories/github-credentials.js";
+import {
   githubChoice,
   githubScopeGap,
 } from "../../web/features/assistants/settings/agent-github-fields.js";
@@ -202,6 +207,7 @@ test("compiled servers carry the token only in their environment", () => {
   assert.match(instructions, new RegExp(`${server.name}__\\*`));
   assert.match(instructions, /read-only/);
   assert.match(instructions, /gh and git use the same profile/);
+  assert.match(instructions, /refuses git push/);
   assert.doesNotMatch(instructions, new RegExp(token));
   // Read and write names everything it can do, deleting repositories included.
   const write = assistantBootstrap(
@@ -221,6 +227,7 @@ test("compiled servers carry the token only in their environment", () => {
   assert.match(write, /start workflows/);
   assert.match(write, /create, fork and delete repositories/);
   assert.doesNotMatch(write, /you cannot/);
+  assert.doesNotMatch(write, /refuses git push/);
 });
 
 test("missing scopes are named only when the token's scopes are known", () => {
@@ -299,4 +306,58 @@ test("the exec wrapper sources only an agent's GitHub folder on its exec PATH", 
   // A folder without its environment file is skipped.
   fs.rmSync(path.join(folder, "shell-env.sh"));
   assert.equal(run(`${path.join(folder, "bin")}:/usr/bin:/bin`), `|owner-token|${home}`);
+});
+
+test("an agent's shell environment refuses pushes to its host only for Read", (t) => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agent-github-ro-")));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const github = new GithubCredentials({
+    dataDir: dir,
+    repositories: {
+      listCredentials: () => [{ id: "p1", host: "https://ghe.example.com" }],
+      listProjects: () => [],
+      secretFile: () => path.join(dir, "missing.json"),
+    },
+    helperLocation: () => ({ node: "/node", script: "/helper.js", reads: [] }),
+  });
+  const shellEnv = (level) => {
+    const marker = github.prepareAgent("a1", "p1", level);
+    return {
+      env: fs.readFileSync(path.join(path.dirname(marker), "shell-env.sh"), "utf8"),
+      helper: path.join(marker, readOnlyHelperFile),
+    };
+  };
+  const rewrites = [
+    "https://ghe.example.com/",
+    "git@ghe.example.com:",
+    "ssh://git@ghe.example.com/",
+  ];
+  const read = shellEnv("read");
+  // Six credential entries, then the push rewrites, counted after them.
+  assert.match(read.env, /^export GIT_CONFIG_COUNT=10$/m);
+  rewrites.forEach((prefix, index) => {
+    assert.match(
+      read.env,
+      new RegExp(
+        `^export GIT_CONFIG_KEY_${6 + index}='url\\.agentpier-read-only://ghe\\.example\\.com/\\.pushInsteadOf'$`,
+        "m",
+      ),
+    );
+    assert.ok(read.env.includes(`GIT_CONFIG_VALUE_${6 + index}='${prefix}'\n`));
+  });
+  assert.ok(read.env.includes("GIT_CONFIG_VALUE_9='https://gist.ghe.example.com/'\n"));
+  // The remote helper git runs for the rewritten URL names the reason and fails.
+  assert.equal(fs.statSync(read.helper).mode & 0o777, 0o700);
+  assert.throws(
+    () => execFileSync(read.helper, [], { stdio: ["ignore", "ignore", "pipe"] }),
+    (error) =>
+      error.status === 1 && error.stderr.toString().trim() === readOnlyPushMessage,
+  );
+  // Read and write: no rewrite, no helper; switching back restores both.
+  const write = shellEnv("write");
+  assert.doesNotMatch(write.env, /pushInsteadOf/);
+  assert.match(write.env, /^export GIT_CONFIG_COUNT=6$/m);
+  assert.equal(fs.existsSync(write.helper), false);
+  assert.equal(shellEnv("read").env, read.env);
+  assert.ok(fs.existsSync(read.helper));
 });
