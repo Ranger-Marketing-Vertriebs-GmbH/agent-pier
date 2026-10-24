@@ -114,10 +114,18 @@ view is audited with its path and size, like a change.
   only valid UTF-8 files (`PROJECT_FILE_ENCODING` otherwise), so a Latin-1 file is
   never rewritten with replacement characters; reading stays lenient. Changes need
   the running Gateway's proven tool guard (the same condition as native writes) and
-  are refused with `PROJECT_WRITE_UNAVAILABLE` before it reports. The path checks and
-  the write are separate steps: a process that can already change the folder, such
-  as an agent with shell, could swap a folder for a link in between. AgentPier does
-  not defend against that race.
+  are refused with `PROJECT_WRITE_UNAVAILABLE` before it reports.
+- **Folder swaps:** the path checks and the open are separate steps, so a process that
+  can already change the folder, such as an agent with shell, could swap a parent
+  folder for a link in between. Every file a read, `image_view`, search, edit or
+  append opens, and every temporary file a write creates, is therefore opened without
+  following any link (`project-open.js`): on macOS the kernel refuses a link in any
+  part of the path (`O_NOFOLLOW_ANY`), on Linux the opened descriptor's own path
+  (`/proc/self/fd`) must be the checked path. Such a swap ends in
+  `PROJECT_FILE_UNSUITABLE`, never in a file outside the folder. Steps without a
+  descriptor stay path-based (Node has no `openat` or `renameat`): a folder listing,
+  creating missing folders and the final rename of a write could still follow a
+  folder swapped in that instant.
 - **Audit:** each change is one `assistant.updated` record (`kind: "project-file"`)
   with the project, the relative path, `fileChange` (`create`, `replace`, `edit` or
   `append`), the size in bytes and, for a member, its member ID; never the content.
