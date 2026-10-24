@@ -26,6 +26,9 @@ export async function setup(t, { remoteRoot = null } = {}) {
   f.assistants.config = { writeGuard: () => guard.live };
   const sftp = f.workflows.ssh.sftp;
   sftp.authorizeEveryMs = 20;
+  // A card ends its call quickly unless a test decides within the hold.
+  sftp.approvals.pollMs = 20;
+  sftp.approvals.holdMs = 100;
   const access = (sshAccesses, projectFiles = {}) =>
     f.workflows.access.save(
       f.id,

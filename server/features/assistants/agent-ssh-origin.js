@@ -7,7 +7,7 @@ export const sshModes = ["approval", "trusted", "routines"];
  * (teams.store.context), `routine` is true only for the run session of a bound,
  * enabled routine of the caller (routines.runOrigin), `permanentMember` says whether
  * the caller is a permanent team member, and `inherited` is the class stored on the
- * action an `ssh-result` follow-up continues. Content the owner did not write
+ * action an `ssh-result` or `sftp-result` follow-up continues. Content the owner did not write
  * (forwarded, member results, reminders, check-ins, unknown) is refused outright.
  */
 export function sshOrigin({
@@ -22,7 +22,10 @@ export function sshOrigin({
     return { class: "owner" };
   if (["lead-request", "team-member"].includes(kind) && permanentMember)
     return { class: "delegated" };
-  if (kind === "ssh-result" && ["owner", "delegated"].includes(inherited))
+  if (
+    ["ssh-result", "sftp-result"].includes(kind) &&
+    ["owner", "delegated"].includes(inherited)
+  )
     return { class: inherited };
   return { class: "refused" };
 }

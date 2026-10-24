@@ -73,6 +73,43 @@ export const assistants = {
   },
   sshTimedOut: "Zeitlimit erreicht",
   sshTruncated: "Ausgabe gekürzt",
+  sftpApproval: "SFTP-Vorgang wartet auf Freigabe",
+  sftpOperation: (operation) => `Vorgang: ${operation}`,
+  sftpOperations: {
+    upload: "Hochladen",
+    download: "Herunterladen",
+    sync: "Synchronisieren",
+    mkdir: "Ordner anlegen",
+    rename: "Umbenennen",
+    delete: "Löschen",
+  },
+  sftpRemotePath: (path) => `Pfad auf dem Server: ${path}`,
+  sftpToPath: (path) => `Neuer Pfad: ${path}`,
+  sftpLocalPath: (place, path) => `Lokal: ${place} · ${path}`,
+  sftpWorkspace: "Arbeitsbereich",
+  sftpCounts: (created, changed, deleted) =>
+    `Neu: ${created} · Geändert: ${changed} · Gelöscht: ${deleted}`,
+  sftpSize: (size) => `Größe: ${size}`,
+  sftpOverwrites: (count) => `Überschreibt: ${count}`,
+  sftpLists: {
+    create: "Neu",
+    update: "Geändert",
+    delete: "Gelöscht",
+    deleteDirs: "Gelöschte Ordner",
+  },
+  sftpOpenToApprove:
+    "Der Plan ist lang oder enthält versteckte Zeichen. Prüfe und erlaube ihn in AgentPier.",
+  sftpAllowOnce: "Einmal erlauben",
+  sftpAllowAlways: "Immer erlauben",
+  sftpDeny: "Ablehnen",
+  sftpStates: {
+    completed: "SFTP-Vorgang abgeschlossen",
+    failed: "SFTP-Vorgang fehlgeschlagen; prüfe ihn in AgentPier",
+    cancelled: "SFTP-Vorgang abgebrochen; der Zugang hat sich geändert",
+    declined: "SFTP-Vorgang abgelehnt",
+    expired: "Freigabe abgelaufen; der Vorgang lief nicht",
+    unknown: "Ergebnis unbekannt; prüfe es in AgentPier",
+  },
   execAllowlistPrograms: (programs) =>
     `Für diesen Agenten jetzt immer erlaubt, jeweils mit beliebigen Argumenten: ${programs}. Manche Programme können über ihre Argumente andere Befehle ausführen, etwa git über Hooks oder Aliase; „Immer erlauben“ deckt auch das ab. Du kannst die Einträge in den Agent-Einstellungen löschen.`,
   execAllowlistSkipped: (reason) =>
@@ -216,6 +253,8 @@ export const assistants = {
   sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
   sshHostType:
     "Dieser Zugang passt nicht zur Aktion: SFTP-Zugänge nehmen nur Dateiaktionen an, SSH-Zugänge nur Befehle.",
+  sftpApprovalLimit:
+    "Drei Dateivorgänge dieses Agenten warten bereits auf deine Freigabe.",
   sftpRoutineDelete: "Routinen dürfen auf SFTP-Zugängen nie Dateien löschen.",
   sftpWorkspaceRefused:
     "SFTP überträgt im Arbeitsbereich des Agenten nie seine Prompt-Dateien, Skills, .agents oder Anhänge und lädt oder synchronisiert keinen Ordner direkt in den Arbeitsbereich; einzelne Dateien mit anderem Namen dürfen dort landen.",

@@ -104,7 +104,7 @@ const actionTitle = (a) => {
   const p = a.payload || {};
   if (p.action === "coding_start") return p.task;
   if (p.action === "memory_write") return p.title || p.content;
-  if (p.action === "ssh") return p.hostName;
+  if (p.action === "ssh" || p.action === "sftp") return p.hostName;
   if (p.action === "member_grant") return p.memberName;
   return "";
 };

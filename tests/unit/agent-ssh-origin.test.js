@@ -40,12 +40,14 @@ test("a routine run session is the routine class whatever its context says", () 
   assert.equal(cls({ context: null, routine: true }), "routine");
 });
 
-test("an ssh-result turn keeps the class of the action it continues", () => {
-  const context = { kind: "ssh-result", actionId: "a" };
-  assert.equal(cls({ context, inherited: "owner" }), "owner");
-  assert.equal(cls({ context, inherited: "delegated" }), "delegated");
-  assert.equal(cls({ context, inherited: "routine" }), "refused");
-  assert.equal(cls({ context, inherited: null }), "refused");
+test("an ssh-result or sftp-result turn keeps the class of the action it continues", () => {
+  for (const kind of ["ssh-result", "sftp-result"]) {
+    const context = { kind, actionId: "a" };
+    assert.equal(cls({ context, inherited: "owner" }), "owner");
+    assert.equal(cls({ context, inherited: "delegated" }), "delegated");
+    assert.equal(cls({ context, inherited: "routine" }), "refused");
+    assert.equal(cls({ context, inherited: null }), "refused");
+  }
 });
 
 test("permits follows the mode table", () => {

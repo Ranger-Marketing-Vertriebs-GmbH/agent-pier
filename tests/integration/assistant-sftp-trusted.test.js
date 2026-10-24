@@ -169,32 +169,33 @@ test("trusted mode never runs a delete directly", async (t) => {
   const f = await setup(t);
   f.access([{ accessId: sftpHostId, mode: "trusted" }]);
   f.file(f.server.root, "keep.txt", "k");
-  await assert.rejects(
-    f.sftpCall(f.ownTurn(), { action: "delete", remotePath: "/keep.txt" }),
-    { status: 503 },
-  );
+  const asks = async (input) => {
+    const result = await f.sftpCall(f.ownTurn(), input);
+    assert.equal(result.status, "awaiting_approval");
+    return f.workflows.get(result.actionId);
+  };
+  // A delete and a sync that deletes extra files wait for the owner.
+  const removal = await asks({ action: "delete", remotePath: "/keep.txt" });
+  assert.equal(removal.payload.allowAlways, false);
   f.file(f.workspace, "site/a.txt", "a");
-  await assert.rejects(
-    f.sftpCall(f.ownTurn(), {
-      action: "sync",
-      direction: "up",
-      localPath: "site",
-      remotePath: "/",
-      deleteExtra: true,
-    }),
-    // Until the owner can decide SFTP cards, a call that would ask never runs.
-    { status: 503 },
-  );
+  const sync = await asks({
+    action: "sync",
+    direction: "up",
+    localPath: "site",
+    remotePath: "/",
+    deleteExtra: true,
+  });
+  assert.equal(sync.payload.kind, "delete");
   assert.equal(fs.readFileSync(path.join(f.server.root, "keep.txt"), "utf8"), "k");
   assert.equal(fs.existsSync(path.join(f.server.root, "a.txt")), false);
-  // In approval mode every write asks; until the owner can decide it never runs.
+  // In approval mode every write asks.
   f.access([{ accessId: sftpHostId, mode: "approval" }]);
-  await assert.rejects(
-    f.sftpCall(f.ownTurn(), { action: "upload", localPath: "site", remotePath: "/" }),
-    { status: 503 },
-  );
+  await asks({ action: "upload", localPath: "site", remotePath: "/" });
   assert.equal(fs.existsSync(path.join(f.server.root, "a.txt")), false);
-  assert.deepEqual(f.rows(), []);
+  assert.deepEqual(
+    f.rows().map((a) => a.state),
+    ["awaiting_approval", "awaiting_approval", "awaiting_approval"],
+  );
 });
 
 test("routine with routines mode uploads; delete refused", async (t) => {

@@ -80,7 +80,8 @@ export class AssistantActionStore {
       .map((r) => JSON.parse(r.body));
   }
   // The conversations an action still owes a follow-up turn once its turn has ended:
-  // an allowed SSH command whose call returned before it ran (agent-ssh-approvals.js),
+  // an allowed SSH command or SFTP job whose call returned before it ran or finished
+  // (agent-ssh-approvals.js, agent-sftp-approvals.js),
   // a team member's coding run its team summary may list as pending (team-coding.js)
   // and a project-knowledge write that was not saved (memory-follow-up.js).
   owingConversations() {
@@ -88,7 +89,7 @@ export class AssistantActionStore {
       .prepare(
         `SELECT DISTINCT json_extract(body,'$.conversationId') AS id FROM assistant_actions
          WHERE json_extract(body,'$.settled') IS NOT 1 AND (
-           (json_extract(body,'$.payload.action')='ssh' AND json_extract(body,'$.followUp')=1
+           (json_extract(body,'$.payload.action') IN ('ssh','sftp') AND json_extract(body,'$.followUp')=1
              AND json_extract(body,'$.followUpSent') IS NULL
              AND json_extract(body,'$.state') IN ('approved','executing','completed','failed'))
            OR (json_extract(body,'$.payload.action')='coding_start'
@@ -104,11 +105,11 @@ export class AssistantActionStore {
       .filter(Boolean);
   }
   // Members' requests still waiting in turns this lead delegated, and their allowed SSH
-  // commands while they run, as the member's own chat shows them.
+  // commands and SFTP jobs while they run, as the member's own chat shows them.
   delegated(leadId) {
     return this.db
       .prepare(
-        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.leadAssistantId')=? AND (json_extract(body,'$.state')='awaiting_approval' OR (json_extract(body,'$.state')='executing' AND json_extract(body,'$.payload.action')='ssh')) ORDER BY rowid",
+        "SELECT body FROM assistant_actions WHERE json_extract(body,'$.leadAssistantId')=? AND (json_extract(body,'$.state')='awaiting_approval' OR (json_extract(body,'$.state')='executing' AND json_extract(body,'$.payload.action') IN ('ssh','sftp'))) ORDER BY rowid",
       )
       .all(leadId)
       .map((r) => JSON.parse(r.body));

@@ -210,6 +210,7 @@ export function auditEvent(input) {
       "proactivity",
       "telegram",
       "ssh",
+      "sftp",
       "ssh-grants",
       "project-rebind",
       "member-grant",
