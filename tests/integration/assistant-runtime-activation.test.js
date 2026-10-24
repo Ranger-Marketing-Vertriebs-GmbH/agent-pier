@@ -60,7 +60,14 @@ function fixture(t) {
       calls.push("leave");
     },
   };
-  const options = { dataDir, runtime, maintenance, stage: async () => target };
+  // Doctor's migration has its own tests (assistant-runtime-update.test.js).
+  const options = {
+    dataDir,
+    runtime,
+    maintenance,
+    stage: async () => target,
+    migrate: async () => {},
+  };
   return {
     ...options,
     paths,

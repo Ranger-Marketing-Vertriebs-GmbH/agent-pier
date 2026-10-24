@@ -77,6 +77,7 @@ function fixture(t, { fenced = false } = {}) {
     maintenance,
     stage: async () => next,
     freeSpace: async () => Number.MAX_SAFE_INTEGER,
+    migrate: async () => {},
   };
   return {
     dataDir,

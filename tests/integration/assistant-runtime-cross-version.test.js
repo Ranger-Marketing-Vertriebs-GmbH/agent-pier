@@ -282,7 +282,14 @@ for (const [variant, title] of Object.entries(variants))
             } finally {
               db.close();
             }
+            // Doctor's migration keeps them private and leaves no plain copies.
+            for (const copy of [file, `${file}-wal`, `${file}-shm`])
+              if (fs.existsSync(copy))
+                assert.equal(fs.statSync(copy).mode & 0o077, 0, copy);
+            const folder = fs.readdirSync(path.dirname(file));
+            assert.equal(folder.filter((name) => name.endsWith(".bak")).length, 0);
           }
+          assert.equal(fs.existsSync(`${runtime.paths.state}.update-captures`), false);
         }
         assert.equal(ledger.getAttempt(attempt.id).state, "completed");
         assert.equal(ledger.requests(conversation.id).length, 1);

@@ -93,3 +93,142 @@ test("a second process installing concurrently gets RUNTIME_BUSY until its lock 
   assert.equal((await stageAssistantRuntime(options)).version, "2026.10.3");
   assert.equal(fs.existsSync(lock), false);
 });
+
+async function activationFixture(t, { candidate, migrate }) {
+  const { RuntimeUpdates } =
+    await import("../../server/features/assistants/runtime-updates.js");
+  const { runtimePaths } =
+    await import("../../server/features/assistants/runtime-paths.js");
+  const { readJSON, writePrivate } = await import("../../server/lib/storage.js");
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-migration-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const paths = runtimePaths(dataDir);
+  const selection = path.join(paths.root, "runtime.json");
+  const journal = path.join(paths.root, "update.json");
+  const previous = { version: "2026.10.3", nodeVersion: "26.12.1" };
+  writePrivate(selection, previous);
+  fs.writeFileSync(path.join(paths.state, "history"), "before");
+  const calls = [];
+  const runtime = {
+    running: true,
+    status() {
+      return { availability: this.running ? "ready" : "disabled" };
+    },
+    async stop() {
+      this.running = false;
+    },
+    async start() {
+      calls.push(`start:${readJSON(selection).version}`);
+      this.running = true;
+    },
+  };
+  const maintenance = {
+    enter: async () => {},
+    blockers: async () => [],
+    quiesce: async () => {},
+    validate: async () => {},
+    leave: async () => {},
+  };
+  const options = {
+    dataDir,
+    runtime,
+    maintenance,
+    stage: async () => candidate,
+    freeSpace: async () => Number.MAX_SAFE_INTEGER,
+    migrate: async (...args) => {
+      const update = readJSON(journal);
+      calls.push({
+        migrate: args,
+        phase: update.phase,
+        backup: update.backup,
+        selected: readJSON(selection).version,
+        running: runtime.running,
+      });
+      return migrate?.(paths);
+    },
+  };
+  const updates = new RuntimeUpdates(options);
+  await updates.stage();
+  return { RuntimeUpdates, paths, selection, journal, previous, calls, options, updates };
+}
+
+test("a version change migrates the stopped runtime's state before its first start", async (t) => {
+  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1", nodePath: "/n" };
+  const f = await activationFixture(t, { candidate });
+  await f.updates.activate();
+  assert.equal(f.calls.length, 2);
+  const [migration, start] = f.calls;
+  assert.deepEqual(migration.migrate, [f.paths, candidate]);
+  // Inside the fence: the snapshot exists, the candidate is selected, nothing runs.
+  assert.equal(migration.phase, "migrating");
+  assert.match(migration.backup, /^[a-f0-9-]{36}$/);
+  assert.equal(migration.selected, "2026.10.7");
+  assert.equal(migration.running, false);
+  assert.equal(start, "start:2026.10.7");
+  assert.equal(f.updates.status().phase, "complete");
+});
+
+test("a failed migration restores the snapshot and reports UPDATE_MIGRATION_FAILED", async (t) => {
+  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1" };
+  const f = await activationFixture(t, {
+    candidate,
+    migrate: (paths) => {
+      fs.writeFileSync(path.join(paths.state, "history"), "half migrated");
+      throw Object.assign(Error("UPDATE_MIGRATION_FAILED"), {
+        code: "UPDATE_MIGRATION_FAILED",
+        status: 500,
+      });
+    },
+  });
+  await assert.rejects(f.updates.activate(), { code: "UPDATE_MIGRATION_FAILED" });
+  const { readJSON } = await import("../../server/lib/storage.js");
+  assert.deepEqual(readJSON(f.selection), f.previous);
+  assert.equal(fs.readFileSync(path.join(f.paths.state, "history"), "utf8"), "before");
+  assert.deepEqual(f.calls.slice(1), ["start:2026.10.3"]);
+  const status = f.updates.status();
+  assert.equal(status.phase, "rolled_back");
+  assert.equal(status.diagnostic, "UPDATE_MIGRATION_FAILED");
+});
+
+test("a crash during the migration rolls back and removes Doctor's captures", async (t) => {
+  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1" };
+  const { readJSON } = await import("../../server/lib/storage.js");
+  const f = await activationFixture(t, {
+    candidate,
+    migrate: (paths) => {
+      fs.writeFileSync(path.join(paths.state, "history"), "half migrated");
+      fs.mkdirSync(path.join(paths.root, "state.update-captures", "doctor-1"), {
+        recursive: true,
+      });
+      throw Error("process crashed");
+    },
+  });
+  // The crash: the journal still says "migrating" when the next process starts.
+  f.options.maintenance.leave = async () => {};
+  f.options.runtime.stop = async () => {
+    if (readJSON(f.journal).phase === "rolling_back") throw Error("crash");
+    f.options.runtime.running = false;
+  };
+  await assert.rejects(f.updates.activate());
+  const update = readJSON(f.journal);
+  update.phase = "migrating";
+  fs.writeFileSync(f.journal, JSON.stringify(update));
+  f.options.runtime.stop = async () => {
+    f.options.runtime.running = false;
+  };
+  const recovered = new f.RuntimeUpdates(f.options);
+  assert.equal(recovered.status().recoveryRequired, true);
+  await recovered.recover();
+  assert.deepEqual(readJSON(f.selection), f.previous);
+  assert.equal(fs.readFileSync(path.join(f.paths.state, "history"), "utf8"), "before");
+  assert.equal(fs.existsSync(path.join(f.paths.root, "state.update-captures")), false);
+  assert.equal(recovered.status().phase, "rolled_back");
+});
+
+test("a same-version runtime change never runs the migration", async (t) => {
+  const candidate = { version: "2026.10.3", nodeVersion: "26.13.0" };
+  const f = await activationFixture(t, { candidate });
+  await f.updates.activate();
+  assert.deepEqual(f.calls, ["start:2026.10.3"]);
+  assert.equal(f.updates.status().phase, "complete");
+});

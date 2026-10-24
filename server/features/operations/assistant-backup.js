@@ -61,6 +61,9 @@ const excludedFolders = new Set([
   "backup-keys",
   // Attachment folders on their way out (agent-attachment-storage.js).
   "attachment-trash",
+  // OpenClaw Doctor's plain pre-migration copies (configuration with its secrets);
+  // runtime-doctor.js removes them, a crash may leave them behind.
+  "state.update-captures",
 ]);
 const excludedFiles = new Set([
   // Live process ownership and the loopback webhook secret are regenerated on start.
