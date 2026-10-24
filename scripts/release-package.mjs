@@ -41,6 +41,24 @@ function publish(archive, output, result) {
   }
 }
 
+/**
+ * Gives every hard-linked file under `dir` its own copy. node-gyp's make build on
+ * Linux hard-links each native addon into `build/Release` (`ln -f`), and the
+ * archive accepts only files with a single link.
+ */
+export function separateHardLinks(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) separateHardLinks(file);
+    else if (entry.isFile() && fs.lstatSync(file).nlink > 1) {
+      const copy = `${file}.${randomUUID()}.tmp`;
+      fs.copyFileSync(file, copy, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(copy, fs.statSync(file).mode & 0o7777);
+      fs.renameSync(copy, file);
+    }
+  }
+}
+
 export async function buildRelease({
   source,
   output,
@@ -96,6 +114,7 @@ export async function buildRelease({
         recursive: true,
         dereference: false,
       });
+    separateHardLinks(path.join(stage, "node_modules"));
     const version = JSON.parse(fs.readFileSync(path.join(stage, "package.json"))).version;
     const archive = path.join(runtime, path.basename(output));
     const result = packageRelease({

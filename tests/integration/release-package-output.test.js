@@ -4,7 +4,7 @@ import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { buildRelease } from "../../scripts/release-package.mjs";
+import { buildRelease, separateHardLinks } from "../../scripts/release-package.mjs";
 import { unpackRelease } from "../../server/features/operations/release-archive.js";
 import { digest } from "../../server/features/operations/files.js";
 async function fixture(t, exitCode = 0) {
@@ -145,4 +145,30 @@ test("every release target executes native relocation, install and update accept
     workflow,
     /Verify native relocation, install and update[\s\S]*node --test tests\/integration\/file-native-release\.test\.js/,
   );
+});
+
+test("release builder gives hard-linked dependency files their own copy", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-hard-links-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const release = path.join(root, "build/Release");
+  await fs.mkdir(path.join(release, "obj.target"), { recursive: true });
+  const addon = path.join(release, "obj.target/sshcrypto.node"),
+    copy = path.join(release, "sshcrypto.node");
+  await fs.writeFile(addon, "addon");
+  await fs.chmod(addon, 0o755);
+  await fs.link(addon, copy);
+  await fs.symlink("sshcrypto.node", path.join(release, "alias.node"));
+  separateHardLinks(root);
+  for (const file of [addon, copy]) {
+    const info = await fs.lstat(file);
+    assert.equal(info.nlink, 1);
+    assert.equal(info.mode & 0o777, 0o755);
+    assert.equal(await fs.readFile(file, "utf8"), "addon");
+  }
+  assert.ok((await fs.lstat(path.join(release, "alias.node"))).isSymbolicLink());
+  assert.deepEqual((await fs.readdir(release)).sort(), [
+    "alias.node",
+    "obj.target",
+    "sshcrypto.node",
+  ]);
 });
