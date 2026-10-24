@@ -576,7 +576,9 @@ export class TeamService {
           .finally(() => this.requests.advance())
           .finally(() => this.memberLongChats.tick())
           // Lead routines whose lead or member left end for good (lead-routines.js).
-          .finally(() => this.assistants.routines?.lead?.prune());
+          .finally(() => this.assistants.routines?.lead?.prune())
+          // Open work goals continue once their chats are idle (work-goal-nudges.js).
+          .finally(() => this.goals.tick());
   }
   async close() {
     if (this.closed) return;
