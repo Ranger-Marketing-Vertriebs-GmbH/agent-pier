@@ -209,6 +209,29 @@ test("with shell, gh and git use the agent's profile, never the owner's", async 
       `github-credentials.js' --git-credential --session '${folder}'`,
     ),
   );
+  // OpenClaw 2026.10.3's form (fact d): the marker is not on the shell's starting PATH
+  // but in OPENCLAW_PREPEND_PATH, which the command string itself exports. git in
+  // that command still routes github.com through AgentPier's helper for the folder.
+  const prepended = execFileSync(
+    wrapper,
+    [
+      "-c",
+      'export PATH="${OPENCLAW_PREPEND_PATH}${PATH:+:$PATH}"; ' +
+        'unset OPENCLAW_PREPEND_PATH; printf "%s\\n" "$GH_CONFIG_DIR"; ' +
+        "git config --get-all credential.https://github.com.helper",
+    ],
+    {
+      env: {
+        PATH: "/usr/bin:/bin",
+        OPENCLAW_PREPEND_PATH: marker,
+        GH_TOKEN: "owner-login",
+        GIT_CONFIG_NOSYSTEM: "1",
+      },
+      encoding: "utf8",
+    },
+  ).split("\n");
+  assert.equal(prepended[0], folder);
+  assert.ok(prepended.includes(vars.GIT_CONFIG_VALUE_1), prepended.join("\n"));
   // AgentPier's helper answers git with the profile's token for that host only.
   const answer = (environment) =>
     gitCredential("protocol=https\nhost=github.com\n\n", environment);

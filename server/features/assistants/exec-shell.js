@@ -8,7 +8,8 @@ import { privateFolder } from "./runtime-paths.js";
 // the Gateway keeps its private HOME, state and config. OpenClaw has no exec
 // environment setting and refuses a per-call HOME, so the Gateway's SHELL points to
 // a wrapper that sets HOME and hands over to /bin/sh, and the PATH reaches exec
-// through tools.exec.pathPrepend (docs/assistant-shell-qualification.md, fact d).
+// through tools.exec.pathPrepend, which OpenClaw exports inside the command string
+// (docs/assistant-shell-qualification.md, fact d).
 
 // Package manager directories a login profile commonly adds; used when present.
 export const standardPathDirectories = [
@@ -20,16 +21,20 @@ export const standardPathDirectories = [
 /** A POSIX single-quoted word: safe for quotes, `$`, backticks and newlines. */
 export const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 
-// An agent with GitHub access and shell has its own folder on its PATH
-// (tools.exec.pathPrepend, agent-github.js): the first PATH entry that names such a
-// folder's bin/ makes the wrapper source the folder's shell-env.sh, so gh and git in
-// that agent's commands use its token profile, never the owner's login
-// (github-credentials.js prepareAgent). Exec children cannot override PATH (fact d).
+// An agent with GitHub access and shell has its own folder's bin/ first in its
+// tools.exec.pathPrepend (agent-github.js). OpenClaw 2026.10.3 does not start the
+// shell with those entries on PATH: it strips them, passes them as
+// OPENCLAW_PREPEND_PATH and exports them inside the command string, after this
+// wrapper ran (fact d). So the wrapper scans OPENCLAW_PREPEND_PATH first and then
+// PATH; the first entry that names such a folder's bin/ makes it source the folder's
+// shell-env.sh, so gh and git in that agent's commands use its token profile, never
+// the owner's login (github-credentials.js prepareAgent). The variable is left for
+// the command's own export. Exec children cannot override PATH (fact d).
 const githubShellLines = [
   "agentpier_ifs=$IFS",
   "IFS=:",
   "set -f",
-  "for agentpier_dir in $PATH; do",
+  "for agentpier_dir in ${OPENCLAW_PREPEND_PATH:-}:${PATH:-}; do",
   "  case $agentpier_dir in",
   "    */github-sessions/agent-*/bin)",
   '      if [ -f "${agentpier_dir%/bin}/shell-env.sh" ]; then . "${agentpier_dir%/bin}/shell-env.sh"; fi',

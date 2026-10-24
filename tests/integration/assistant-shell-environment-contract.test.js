@@ -197,3 +197,38 @@ test(
     t.diagnostic(`private home=${JSON.stringify(listTree(gw.runtime.paths.home))}`);
   },
 );
+
+test(
+  "an agent's GitHub folder in pathPrepend reaches the wrapper through OPENCLAW_PREPEND_PATH",
+  options,
+  async (t) => {
+    const { gw, owner } = await ownerGateway(t, "shell-env-github-", (env) => env);
+    // A simulated agent GitHub folder (github-credentials.js prepareAgent): its
+    // shell-env.sh records the PATH and prepend the wrapper saw when it sourced it.
+    const folder = path.join(gw.dataDir, "github-sessions", "agent-contract");
+    const marker = path.join(folder, "bin");
+    fs.mkdirSync(marker, { recursive: true });
+    const seenAt = path.join(gw.dataDir, "sourced.txt");
+    fs.writeFileSync(
+      path.join(folder, "shell-env.sh"),
+      `printf '%s\\n%s\\n' "$PATH" "\${OPENCLAW_PREPEND_PATH:-}" > '${seenAt}'\n` +
+        `export GH_CONFIG_DIR='${folder}'\n`,
+    );
+    await gw.configure({ tools: { exec: { pathPrepend: [marker, owner.bin] } } });
+    const out = path.join(gw.dataDir, "github.txt");
+    await gw.turn("github", {
+      command: `printf '%s\\n%s\\n' "$GH_CONFIG_DIR" "$PATH" > ${out}`,
+    });
+    const [configDir, commandPath] = fs.readFileSync(out, "utf8").trim().split("\n");
+    const [startPath, prepend] = fs.readFileSync(seenAt, "utf8").split("\n");
+    t.diagnostic(
+      `start PATH=${startPath} prepend=${prepend} command PATH=${commandPath}`,
+    );
+    // OpenClaw starts the shell without the prepend entries on PATH and exports them
+    // inside the command; the wrapper finds the folder in OPENCLAW_PREPEND_PATH.
+    assert.equal(startPath.split(":").includes(marker), false);
+    assert.ok(prepend.split(":").includes(marker));
+    assert.equal(configDir, folder);
+    assert.ok(commandPath.split(":").includes(marker));
+  },
+);
