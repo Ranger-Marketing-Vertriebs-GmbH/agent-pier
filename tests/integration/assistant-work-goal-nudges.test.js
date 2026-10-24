@@ -448,7 +448,11 @@ test("settings save between continuation turns", async (t) => {
 test("a restart keeps the goal and its anchor", async (t) => {
   const { f, chat } = setup(t);
   const { goal, anchor } = await setGoal(f, chat);
-  const { attempt } = await round(f, chat, 0);
+  const first = await round(f, chat, 0);
+  f.complete(first.attempt.id);
+  // The second continuation ends unseen by the process that sent it.
+  const { attempt } = await round(f, chat, 3 * nudgeDelayMs);
+  assert.equal(goalOf(f, chat).idleTurns, 1);
   f.complete(attempt.id);
   let now = 0;
   const store = new AssistantStore({ dataDir: f.dataDir });
@@ -470,10 +474,34 @@ test("a restart keeps the goal and its anchor", async (t) => {
   assert.equal(open.id, goal.id);
   assert.equal(open.anchorRequestId, anchor.id);
   await service.goals.tick();
+  // A turn this process did not send counts as progress.
+  assert.equal(service.goals.store.open(chat.id).idleTurns, 0);
+  assert.equal(service.goals.store.open(chat.id).evaluatedAttemptId, attempt.id);
   now = nudgeDelayMs;
   await service.goals.tick();
-  assert.equal(sends(f).length, 2);
+  assert.equal(sends(f).length, 3);
   const request = assistants.ledger.latestRequest(chat.id);
   assert.equal(service.store.context(request.id).goal.anchorRequestId, anchor.id);
-  assert.equal(request.clientRequestId, `goal-continuation:${goal.id}:2`);
+  assert.equal(request.clientRequestId, `goal-continuation:${goal.id}:3`);
+});
+
+test("a Stop while the pass waits on the Gateway sends nothing", async (t) => {
+  const { f, chat } = setup(t);
+  await setGoal(f, chat);
+  await at(f, 0);
+  let answer;
+  const client = f.assistants.runtime.client,
+    call = client.call;
+  client.call = (method, input) =>
+    method === backgroundMethod
+      ? new Promise((resolve) => (answer = resolve))
+      : call(method, input);
+  f.clock(nudgeDelayMs);
+  const pass = f.service.goals.tick();
+  await new Promise((resolve) => setImmediate(resolve));
+  f.service.goals.stop(chat.id);
+  answer({ complete: true, running: 0 });
+  await pass;
+  assert.equal(goalOf(f, chat).state, "stopped");
+  assert.equal(sends(f).length, 0);
 });

@@ -2,8 +2,9 @@
 // idle for `nudgeDelayMs`, AgentPier sends a continuation turn on the owner's behalf
 // with the rights of the anchor, the owner's latest direct turn. It waits while the
 // chat works or waits on the owner or on results, and brakes after repeated failed
-// or idle turns. `idleSince`, the background holds and the tool runs are in memory:
-// a restart only restarts the delay and counts an unknown turn as progress.
+// or idle turns. `idleSince`, the background holds, the tool runs and the
+// continuations sent are in memory: a restart only restarts the delay, and a
+// continuation this process did not send counts as progress.
 import { teamActivePhases } from "./assistant-activity.js";
 import { continuationPrompt, directOwnerTurn, goalChat } from "./goal-turns.js";
 import { backgroundMethod } from "./team-plugin/background-commands.js";
@@ -133,7 +134,9 @@ export function evaluate(goals, goal) {
     });
   if (technicalAttempts.has(attempt.state))
     return technicalFailure(goals, goal, evaluated);
-  const progress = goals.toolRun(id) || goals.toolRun(attempt.runtimeRunId);
+  // Only a run this process sent was watched for tool calls; any other counts.
+  const progress =
+    !goals.sentRun(id) || goals.toolRun(id) || goals.toolRun(attempt.runtimeRunId);
   const idleTurns = progress ? 0 : goal.idleTurns + 1;
   const next = goals.store.write(goal, { ...evaluated, failures: 0, idleTurns });
   return idleTurns >= idleTurnLimit
@@ -141,9 +144,12 @@ export function evaluate(goals, goal) {
     : next;
 }
 
-async function nudge(goals, goal, anchor) {
+async function nudge(goals, stale, anchor) {
   const a = goals.assistants,
     anchorContext = goals.teams.context(anchor.id);
+  // The pass awaited the Gateway: a Stop or a new goal meanwhile wins.
+  const goal = goals.store.open(stale.conversationId);
+  if (goal?.id !== stale.id || goal.revision !== stale.revision) return goal;
   try {
     const { attempt } = await a.send(
       goal.conversationId,
@@ -157,6 +163,7 @@ async function nudge(goals, goal, anchor) {
         goal: { id: goal.id, anchorRequestId: anchor.id, title: goal.title },
       },
     );
+    goals.sent(attempt.id);
     const next = goals.store.write(goal, {
       nudges: goal.nudges + 1,
       lastAttemptId: attempt.id,
