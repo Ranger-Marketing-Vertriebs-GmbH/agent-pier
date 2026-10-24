@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
-import useResource from "../../lib/useResource.js";
 import api from "../../lib/api.js";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ReleaseSessions from "./ReleaseSessions.jsx";
 import ReleaseOrphans from "./ReleaseOrphans.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 
-export default function ReleaseCleanup({ busy, job, navigate }) {
-  const resource = useResource("/operations/releases/cleanup");
+// `resource` is the cleanup state UpdatesPage also reads for its staged cards.
+export default function ReleaseCleanup({ resource, busy, job, navigate }) {
   const [selection, setSelection] = useState(null);
   const [migration, setMigration] = useState(null);
   const { refresh } = resource;
@@ -23,8 +22,11 @@ export default function ReleaseCleanup({ busy, job, navigate }) {
     if (jobId !== migration.jobId) setMigration(null);
     else if (jobStatus && jobStatus !== "running") setMigration(null);
   }, [migration, jobId, jobStatus]);
+  // A staged newer version is deleted from its own card, never with the old ones.
   const versions =
-    resource.data?.versions.filter((item) => item.deleteReason !== "active") || [];
+    resource.data?.versions.filter(
+      (item) => item.deleteReason !== "active" && !(item.newer && item.stagedIds?.length),
+    ) || [];
   const removable = versions.filter((item) => item.canDelete).map((item) => item.version);
   return (
     <details className="operations-card">

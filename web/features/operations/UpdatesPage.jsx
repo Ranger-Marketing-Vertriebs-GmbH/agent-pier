@@ -26,6 +26,7 @@ const channelOf = (releases) =>
 
 export default function UpdatesPage({ route, navigate, frame }) {
   const resource = useResource("/operations/releases"),
+    cleanup = useResource("/operations/releases/cleanup"),
     action = useAsyncAction(),
     [plan, setPlan] = useState(null),
     [confirm, setConfirm] = useState(null),
@@ -141,30 +142,51 @@ export default function UpdatesPage({ route, navigate, frame }) {
                 </button>
               </article>
             )}
-            {presentation.staged.map((staged) => (
-              <article className="operations-card" key={staged.id}>
-                <h3>
-                  {copy.staged}: {staged.version}
-                  <PrereleaseBadge version={staged.version} />
-                </h3>
-                <ReleaseNotes version={staged.version} from={releases.current} />
-                <button
-                  className="button primary"
-                  aria-label={`${copy.activateRelease}: ${staged.version}`}
-                  disabled={releaseBusy || !releases.installed || !releases.supported}
-                  onClick={() => {
-                    setReloadSessions(false);
-                    setConfirm({
-                      kind: "activate",
-                      stagedId: staged.id,
-                      version: staged.version,
-                    });
-                  }}
-                >
-                  {copy.activateRelease}
-                </button>
-              </article>
-            ))}
+            {presentation.staged.map((staged) => {
+              // The same deletion as "Delete old versions", with its guards.
+              const removal = cleanup.data?.versions?.find(
+                (item) => item.version === staged.version,
+              );
+              return (
+                <article className="operations-card" key={staged.id}>
+                  <h3>
+                    {copy.staged}: {staged.version}
+                    <PrereleaseBadge version={staged.version} />
+                  </h3>
+                  <ReleaseNotes version={staged.version} from={releases.current} />
+                  <div className="operations-actions">
+                    <button
+                      className="button primary"
+                      aria-label={`${copy.activateRelease}: ${staged.version}`}
+                      disabled={releaseBusy || !releases.installed || !releases.supported}
+                      onClick={() => {
+                        setReloadSessions(false);
+                        setConfirm({
+                          kind: "activate",
+                          stagedId: staged.id,
+                          version: staged.version,
+                        });
+                      }}
+                    >
+                      {copy.activateRelease}
+                    </button>
+                    <button
+                      className="button destructive"
+                      aria-label={`${copy.deleteStaged}: ${staged.version}`}
+                      disabled={releaseBusy || !removal?.canDelete}
+                      onClick={() =>
+                        setConfirm({ kind: "deleteStaged", version: staged.version })
+                      }
+                    >
+                      {copy.deleteStaged}
+                    </button>
+                    {removal?.deleteReason && (
+                      <span>{copy.cleanupReasons[removal.deleteReason]}</span>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
             {presentation.history.length > 0 && (
               <details>
                 <summary>{copy.releaseHistory}</summary>
@@ -189,6 +211,7 @@ export default function UpdatesPage({ route, navigate, frame }) {
           </>
         )}
         <ReleaseCleanup
+          resource={cleanup}
           busy={jobPending || action.busy}
           job={observedJob}
           navigate={navigate}
@@ -198,7 +221,17 @@ export default function UpdatesPage({ route, navigate, frame }) {
           onComplete={resource.refresh}
           onState={setObservedJob}
         />
-        {confirm && (
+        {confirm?.kind === "deleteStaged" && (
+          <ConfirmDialog
+            destructive
+            title={copy.confirmTitles.deleteStaged(confirm.version)}
+            body={copy.deleteStagedConfirmation}
+            confirmLabel={copy.confirmLabels.deleteStaged}
+            onCancel={() => setConfirm(null)}
+            onConfirm={() => start("cleanup", { versions: [confirm.version] })}
+          />
+        )}
+        {confirm && confirm.kind !== "deleteStaged" && (
           <ConfirmDialog
             title={copy.confirmTitles[confirm.kind](confirm.version)}
             body={

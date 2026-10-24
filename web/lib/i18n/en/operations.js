@@ -39,6 +39,7 @@ export const operationsCopy = {
     restore: "Restore the backup to a new directory?",
     activate: (version) => `Activate version ${version}?`,
     rollback: (version) => `Roll back to version ${version}?`,
+    deleteStaged: (version) => `Delete ${version}?`,
     orphans: (version, count) =>
       `Stop ${count} orphaned process(es) of version ${version}?`,
   },
@@ -50,6 +51,7 @@ export const operationsCopy = {
     restore: "Restore now",
     activate: "Activate now",
     rollback: "Roll back now",
+    deleteStaged: "Delete now",
     orphans: "Stop now",
   },
   unknown: "Unknown",
@@ -193,7 +195,7 @@ export const operationsCopy = {
     "Safe cleanup is currently unavailable. Refresh the page and try again.",
   cleanupReasons: {
     active: "Active",
-    newer: "Prepared or newer version",
+    newer: "Newer version",
     inUse: "Used by a running process",
     busy: "Update in progress",
     unsafe: "Unsupported directory",
@@ -241,6 +243,9 @@ export const operationsCopy = {
   checkUpdates: "Check for updates",
   stageRelease: "Stage release",
   activateRelease: "Activate staged release",
+  deleteStaged: "Delete",
+  deleteStagedConfirmation:
+    "The package is removed and this version can no longer be activated.",
   releaseHistory: "Previous versions and rollback",
   rollback: "Roll back version",
   upToDate: "The installed version is up to date.",
