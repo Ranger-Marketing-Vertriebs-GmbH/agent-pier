@@ -1,4 +1,5 @@
 import test from "node:test";
+import { startBrowser } from "../helpers/browser-start.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -229,21 +230,12 @@ test(
       return { offered: requests[0]?.tools?.map((d) => d.function.name) ?? [], result };
     }
     try {
-      const started = await turn(
-        { name: "browser", arguments: { action: "start" } },
-        "live-start",
+      // Retried once after a timed-out start (helpers/browser-start.js).
+      const started = await startBrowser((label) =>
+        turn({ name: "browser", arguments: { action: "start" } }, `live-${label}`),
       );
       for (const name of ["web_search", "web_fetch", "pdf", "browser"])
         assert.ok(started.offered.includes(name), `offered ${name}`);
-      // The start request has a 15 s budget that a cold Chrome launch exceeds on the
-      // Intel macOS runner (about 10 s on Apple silicon); OpenClaw then answers
-      // "timed out … Retry the browser tool once" while Chrome keeps starting. The
-      // agent retries, and so does the contract, once.
-      if (/"status": "error"[\s\S]*timed out\./.test(started.result ?? ""))
-        await turn(
-          { name: "browser", arguments: { action: "start" } },
-          "live-start-retry",
-        );
       const { result } = await turn(
         { name: "browser", arguments: { action: "status" } },
         "live-status",
