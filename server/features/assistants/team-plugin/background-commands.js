@@ -4,8 +4,9 @@ export const backgroundMethod = "agentpier.backgroundCommands";
 
 /**
  * Registers the method AgentPier asks before it nudges a goal: how many background
- * commands the session has running by the Gateway's record. Admin-only (only
- * AgentPier holds that scope); it answers counts, never ids, commands or output.
+ * commands the session has running by the Gateway's record, and how many completion
+ * runs of OpenClaw 2026.10.7 run in it. Admin-only (only AgentPier holds that
+ * scope); it answers counts, never ids, commands or output.
  */
 export function registerBackgroundCommands(api) {
   api.registerGatewayMethod?.(

@@ -10,7 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { HeartbeatRuns } from "../../server/features/assistants/exec-continuation.js";
+import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
 import { backgroundMethod } from "../../server/features/assistants/team-plugin/background-commands.js";
 import { continuationPrompt } from "../../server/features/assistants/goal-turns.js";
 import { nudgeDelayMs } from "../../server/features/assistants/work-goal-nudges.js";
@@ -110,13 +110,13 @@ test(
         entryPath: path.join(installed, "app/node_modules/openclaw/openclaw.mjs"),
       }),
     });
-    const heartbeatRuns = new HeartbeatRuns(),
+    const completionRuns = new CompletionRuns(),
       gatewayEvents = new GatewayEventHub(),
       events = [];
-    Object.assign(f.assistants, { runtime, heartbeatRuns, gatewayEvents });
+    Object.assign(f.assistants, { runtime, completionRuns, gatewayEvents });
     gatewayEvents.on("agent", (payload) => {
       events.push(payload);
-      heartbeatRuns.observe(payload);
+      completionRuns.observe(payload);
     });
     // The goals' clock runs `shift` ahead of the Gateway's.
     teams = new TeamService({
@@ -234,7 +234,7 @@ test(
     assert.ok(completionRun, "the completion run ended");
     assert.notEqual(completionRun, owner.runId);
     assert.ok(model.requests.some(isCompletion), "the model answered the completion run");
-    assert.deepEqual(heartbeatRuns.live(session.key), []);
+    assert.deepEqual(completionRuns.live(session.key), []);
     const finished = await background();
     t.diagnostic(`after completion=${JSON.stringify(finished)}`);
     assert.equal(finished.running, 0);

@@ -139,6 +139,42 @@ test("runtime timeout is nonterminal, cancellation is distinct and duplicate his
     { id: "stable", role: "assistant", text: "Reply", timestamp: 10, runId: null },
   ]);
 });
+test("an exec completion's user entry is never served as an owner message", async () => {
+  // OpenClaw 2026.10.7's chat.history shows the completion turn's user entry (10.3
+  // hid it): only its reply is the chat's.
+  const { publicMessages } =
+    await import("../../server/features/assistants/conversations.js");
+  const messages = [
+    {
+      role: "user",
+      content: "Render it.",
+      provenance: { kind: "external_user" },
+      timestamp: 1,
+      __openclaw: { id: "owner" },
+    },
+    {
+      role: "user",
+      content: "Exec completed (salty-sh, code 0) :: RENDERED",
+      provenance: { kind: "internal_system", sourceTool: "exec" },
+      timestamp: 2,
+      __openclaw: { id: "completion", senderIsOwner: false },
+    },
+    {
+      role: "assistant",
+      content: [{ type: "text", text: "Saved." }],
+      timestamp: 3,
+      __openclaw: { id: "reply", runId: "turn-1" },
+    },
+  ];
+  assert.deepEqual(
+    publicMessages(messages).map((m) => [m.id, m.role, m.text]),
+    [
+      ["owner", "user", "Render it."],
+      ["reply", "assistant", "Saved."],
+    ],
+  );
+});
+
 test("recovery blocks new dispatch until the owned process exits and preserves uncertainty", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-recover-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
