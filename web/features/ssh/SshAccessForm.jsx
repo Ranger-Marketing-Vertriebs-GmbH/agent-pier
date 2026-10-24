@@ -43,7 +43,11 @@ export default function SshAccessForm({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const change = (field, value) => {
-    setDraft((current) => ({ ...current, [field]: value }));
+    setDraft((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "auth" && value === "key" ? { password: "" } : {}),
+    }));
     if (["host", "port", "username"].includes(field)) {
       setHostKey("");
       setFingerprint("");

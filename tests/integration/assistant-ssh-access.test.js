@@ -104,6 +104,34 @@ test("the workspace catalog lists SSH hosts, or null while the catalog is unread
     ],
   );
   assert.equal("keyId" in sshHosts[0], false);
+  // SFTP hosts carry their type; no credential or folder fields reach the Work tab.
+  const row = f.catalog.rows.get(otherHostId);
+  Object.assign(row, {
+    type: "sftp",
+    auth: "password",
+    remoteRoot: "/srv/files",
+    credentialRevision: "rev",
+    password: "secret",
+  });
+  const listed = f.workflows.access.catalog().sshHosts;
+  assert.deepEqual(
+    listed.map((h) => [h.name, h.type]),
+    [
+      ["opnsense", "ssh"],
+      ["nas-01", "sftp"],
+    ],
+  );
+  for (const host of listed)
+    for (const field of [
+      "password",
+      "hasPassword",
+      "auth",
+      "remoteRoot",
+      "credentialRevision",
+      "keyId",
+      "hostKey",
+    ])
+      assert.equal(field in host, false, field);
   f.grant([{ accessId: hostId, mode: "trusted" }]);
   f.catalog.failing = true;
   assert.equal(f.workflows.access.catalog().sshHosts, null);
