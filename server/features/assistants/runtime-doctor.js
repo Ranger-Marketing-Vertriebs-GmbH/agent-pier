@@ -78,6 +78,7 @@ export function restoreProviderKeys(paths, keys) {
   if (!keys.length) return;
   const config = readJSON(paths.config, null);
   const providers = config?.models?.providers;
+  // Providers Doctor dropped get their keys back when the next start rebuilds them.
   if (!providers) return;
   for (const [id, apiKey] of keys)
     if (
