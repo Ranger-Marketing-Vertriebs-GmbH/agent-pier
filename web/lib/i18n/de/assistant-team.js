@@ -88,6 +88,8 @@ export const assistantTeamCopy = {
       "Der Agent wurde gebeten, vor der Zusammenfassung seine Erinnerungen zu speichern.",
     "member-long-chat":
       "Der Chat eines Mitglieds ist lang geworden. Der Agent wurde informiert.",
+    "goal-continuation":
+      "AgentPier hat den Agenten gebeten, an seinem Ziel weiterzuarbeiten.",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,

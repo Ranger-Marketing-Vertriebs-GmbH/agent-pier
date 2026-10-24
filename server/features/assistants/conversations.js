@@ -12,6 +12,7 @@ import {
 import { withRoutineResults } from "./routine-results.js";
 import { withMemoryNotes } from "./memory-notes.js";
 import { peerNotes } from "./peer-notes.js";
+import { turnKind } from "./goal-turns.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
 import { completePage, historyReads, withoutMarks } from "./history-completion.js";
@@ -97,26 +98,43 @@ export const internalKinds = new Set([
   "member-long-chat",
   "ssh-result",
   "sftp-result",
+  // AgentPier asks the agent to continue its open work goal (goal-turns.js).
+  "goal-continuation",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {
+  const kindFor = (id) => {
+    const kind = turnKind(contexts.get(id));
+    return internalKinds.has(kind) ? kind : null;
+  };
   const internal = requests
-    .map((r) => [r, contexts.get(r.id)?.kind])
-    .filter(([, kind]) => internalKinds.has(kind));
+    .map((r) => [r, kindFor(r.id)])
+    .filter(([, kind]) => kind !== null);
   if (!internal.length) return { messages, requests };
   // A turn's delivery key names its request; the text decides only without one.
-  const kindOf = (m) => {
-    const kind =
-      m.turnKey && attempts.has(m.turnKey)
-        ? contexts.get(attempts.get(m.turnKey))?.kind
-        : internal.find(([r]) => m.text === r.text || m.text.endsWith(r.text))?.[1];
-    return internalKinds.has(kind) ? kind : null;
+  const entryOf = (m) => {
+    if (m.turnKey && attempts.has(m.turnKey)) {
+      const id = attempts.get(m.turnKey);
+      const kind = kindFor(id);
+      return kind ? [id, kind] : null;
+    }
+    const found = internal.find(([r]) => m.text === r.text || m.text.endsWith(r.text));
+    return found ? [found[0].id, found[1]] : null;
   };
   return {
     messages: messages.map((m) => {
-      const kind = m.role === "user" && kindOf(m);
-      return kind
-        ? { id: m.id, role: "event", event: kind, timestamp: m.timestamp, runId: m.runId }
-        : m;
+      const entry = m.role === "user" && entryOf(m);
+      if (!entry) return m;
+      const [id, kind] = entry;
+      return {
+        id: m.id,
+        role: "event",
+        event: kind,
+        ...(kind === "goal-continuation" && {
+          goalTitle: contexts.get(id).goal.title,
+        }),
+        timestamp: m.timestamp,
+        runId: m.runId,
+      };
     }),
     requests: requests.map((r) => {
       const kind = internal.find(([x]) => x === r)?.[1];
@@ -269,6 +287,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
   const visible = hideInternal(messages, requests, contexts, attempts);
   return {
     ...visible,
+    goal: service.teams?.goals?.view(id) ?? null,
     requests: goAheadMarks(
       service,
       requestsWithSources(visible.requests, contexts),
@@ -291,7 +310,11 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
           { from: pageStart(nextBefore, messages) },
         ),
         // Members' requests to each other join the lead's chat alike (peer-notes.js).
-        [...(service.memoryNotes?.forConversation(id) || []), ...peerNotes(service, id)],
+        [
+          ...(service.memoryNotes?.forConversation(id) || []),
+          ...peerNotes(service, id),
+          ...(service.teams?.goals?.notes(id) ?? []),
+        ],
         { from: pageStart(nextBefore, messages) },
       ),
       service.attachments?.sharedFor?.(id) || [],
