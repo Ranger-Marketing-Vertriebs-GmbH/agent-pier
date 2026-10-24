@@ -92,13 +92,18 @@ either copy travel only in the sealed sidecar, exactly as without this split.
 - OpenClaw's credential tables in that allowlist (`auth_profile_store`,
   `auth_profile_state`, `secret_store_entries`, `config_machine_state`, the device
   and worker credential tables) are emptied in every public copy and travel only
-  sealed. OpenClaw 2026.10.7 keeps model credentials, Web Push keys and update
-  recovery keys in `config_machine_state`, next to channel and operator identity,
-  webhook listener decisions, onboarding and voice preferences and plugin indexes,
-  so the whole table is sealed. A restore without credentials, or an update rollback
-  after a logout, therefore leaves that table empty. OpenClaw rebuilds its indexes at
-  the next start, and channel, webhook and operator machine state return to their
-  defaults.
+  sealed. OpenClaw 2026.10.7 keeps auth profiles, Web Push keys and update recovery
+  keys in `config_machine_state`, next to channel and operator identity, webhook
+  listener decisions, onboarding and voice preferences and plugin indexes, so the
+  whole table is sealed. AgentPier's own provider keys stay in `openclaw.json`; the
+  update's Doctor run never sees them. A restore without credentials, or an update
+  rollback after a logout, therefore leaves that table empty, and OpenClaw starts
+  without those rows. Tested so far: 2026.10.7 started with the table emptied after
+  an activation, re-created its operator policy and webhook listener rows itself, and
+  kept sessions, chat history, memory and schedules; 2026.10.3 started with the table
+  emptied after a rollback and kept the same. Neither test ran a model turn after
+  emptying the table (model access comes from `openclaw.json`), and a restore of a
+  credential-less host backup onto 2026.10.3 was not run end to end.
 - Databases in a private folder (`state/memory/`, transcripts) are private as a
   whole. OpenClaw's lock and writer databases (`*-lock.sqlite`,
   `*.generation-writer.sqlite`) and its `state/locks/` and `state/tmp/` folders are

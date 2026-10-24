@@ -25,6 +25,10 @@ limits are in the [Gateway design](assistant-gateway.md),
    marked **Immediate** or **Restart needed**. AgentPier offers only settings that do
    not touch security, access or management, and applies them only to the runtime
    version they were approved for; an older runtime starts with OpenClaw's defaults.
+   When an AgentPier update approves them for a new runtime version, saved values stay
+   stored but inactive until you activate that version under **Agent service**, and
+   again after a rollback before commit; the page names the installed version
+   meanwhile.
    The activity log records each change as `setting.updated` with the setting and its
    old and new value.
 

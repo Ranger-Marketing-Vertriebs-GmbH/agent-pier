@@ -360,9 +360,10 @@ can return the agent service to 2026.9.x. Create a host backup under
 
 **The update to OpenClaw 2026.10.7 cannot be undone once committed either.**
 Activation runs OpenClaw's own database migration before the agents start (status
-"Migrating data"; this can take a moment on large histories). It migrates each
-agent's OpenClaw database from schema 24 to 25, and OpenClaw 2026.10.3, 2026.9.9 and
-2026.9.8 refuse the migrated databases. If activation fails before the update is
+"Migrating data"). It took 15–17 seconds with one agent in our tests; a migration
+still running after 10 minutes is stopped, and the activation rolls back. It
+migrates each agent's OpenClaw database from schema 24 to 25, and OpenClaw
+2026.10.3, 2026.9.9 and 2026.9.8 refuse the migrated databases. If activation fails before the update is
 committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
 neither **Settings → Workspace → Agents → Agent service** nor an older AgentPier
 (2.6.x or earlier) can return the agent service to 2026.10.3. Installations on
