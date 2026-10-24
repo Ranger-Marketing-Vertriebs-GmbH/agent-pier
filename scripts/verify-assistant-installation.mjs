@@ -9,6 +9,7 @@ import { stageAssistantRuntime } from "../server/features/assistants/runtime-ins
 import { RuntimeSupervisor } from "../server/features/assistants/runtime-supervisor.js";
 import {
   GatewayClient,
+  agentCreateTimeoutMs,
   sessionCreateTimeoutMs,
 } from "../server/features/assistants/gateway-client.js";
 import { runtimePaths } from "../server/features/assistants/runtime-paths.js";
@@ -237,10 +238,11 @@ export async function qualifyInstalledGateway(
   }
   const agentId = "installation-qualification";
   const created = await phase("create-agent", () =>
-    runtime.client.call("agents.create", {
-      name: agentId,
-      workspace: path.join(runtime.paths.workspaces, agentId),
-    }),
+    runtime.client.call(
+      "agents.create",
+      { name: agentId, workspace: path.join(runtime.paths.workspaces, agentId) },
+      { timeoutMs: agentCreateTimeoutMs },
+    ),
   );
   assert.equal(created.agentId, agentId);
   await phase("initial-roster", () => assertRoster(runtime, agentId));

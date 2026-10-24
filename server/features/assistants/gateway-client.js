@@ -48,6 +48,11 @@ function pinnedSocket(url, certPath, handshake) {
 // on Intel macOS runners); later calls take milliseconds. Waiting is the only safe
 // option: a timed-out create leaves it unknown whether the session exists.
 export const sessionCreateTimeoutMs = 60000;
+// agents.create on 2026.10.7 takes 1.5 to 2 times as long as on 2026.10.3 on every
+// platform (about 2 s on fast hosts, 5.6 s on an Intel macOS runner); a fresh install's
+// first agent on a slow Intel Mac took more than the default 10 s. Like a session, a
+// timed-out create leaves it unknown whether the agent exists.
+export const agentCreateTimeoutMs = 30000;
 // What GatewayClient.download may read: OpenClaw's managed outgoing media.
 const downloadPaths = ["/api/chat/media/outgoing/"];
 

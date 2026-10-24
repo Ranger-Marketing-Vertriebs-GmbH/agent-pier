@@ -528,6 +528,14 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   quality check is retried and then saved in reduced form instead of cancelled.
   AgentPier's status is unchanged; the compaction contract pins one summary call on
   2026.10.3 and two on 2026.10.7, and fails on a degraded summary.
+- **Agent creation budget.** `agents.create` takes 1.5 to 2 times as long on
+  2026.10.7 as on 2026.10.3 in the `fresh-install` job on every platform (about
+  1.2–1.6 s → 1.7–2.7 s; Intel macOS 2.9–4.3 s → 5.6 s), and once more than the
+  default 10 s call timeout on a slow Intel macOS runner (`TIMEOUT` in the first
+  agent's creation). AgentPier and `scripts/verify-assistant-installation.mjs` now
+  give `agents.create` its own 30 s budget (`agentCreateTimeoutMs` in
+  `gateway-client.js`); every other call keeps the default. The owner's create
+  request does not wait for it: the agent reaches the Gateway in its first apply.
 - **Contract helpers.** The multi-chat contract finds the session maintenance
   functions by their export clause (2026.10.7 moved them to another chunk); the
   shell environment contract expects `Library/Caches/openclaw-<uid>` on 2026.10.7;

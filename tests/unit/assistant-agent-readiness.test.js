@@ -8,6 +8,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import {
   GatewayClient,
+  agentCreateTimeoutMs,
   sessionCreateTimeoutMs,
 } from "../../server/features/assistants/gateway-client.js";
 import {
@@ -75,10 +76,12 @@ test("a new agent that the Gateway lists only after 8 s is still applied", async
     model: { connectionId: "c", modelId: "m" },
   });
   const bootstrap = [];
+  const creates = [];
   const config = new AssistantConfig({
     store,
     client: {
-      call: async (method, params) => {
+      call: async (method, params, options) => {
+        if (method === "agents.create") creates.push(options?.timeoutMs);
         if (method === "agents.files.set" && params.name === "AGENTS.md")
           bootstrap.push(params.content);
         const result = await gateway.call(method, params);
@@ -95,6 +98,10 @@ test("a new agent that the Gateway lists only after 8 s is still applied", async
   });
   await config.apply(a.id);
   assert.equal(store.getAssistant(a.id).effectiveRevision, 1);
+  // agents.create gets its own budget: 2026.10.7 needed more than the default 10 s
+  // for a fresh install's first agent on a slow Intel Mac.
+  assert.deepEqual(creates, [agentCreateTimeoutMs]);
+  assert.equal(agentCreateTimeoutMs, 30000);
   // Listed after the reload, not earlier: the old 50 x 100 ms budget ended at 5 s.
   assert.ok(c.at >= 8000 && c.at < 9000, String(c.at));
   // The pause grows to one second, so a long reload costs few roster reads.
