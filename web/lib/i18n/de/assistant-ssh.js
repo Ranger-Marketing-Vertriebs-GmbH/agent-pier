@@ -32,7 +32,7 @@ export const assistantSshCopy = {
   trustedWarning:
     "Befehle, die dieser Agent aus Webseiten oder Dateien ableitet, könnten ohne deine Bestätigung laufen.",
   sftpModeHints: {
-    approval: "Lesen läuft, jede Änderung fragt nach.",
+    approval: "Lesen läuft ohne Rückfrage, jede Änderung fragt nach.",
     trusted: "Änderungen laufen ohne Rückfrage, Löschen fragt immer nach.",
     routines:
       "Änderungen laufen auch in Routinen ohne Rückfrage. Löschen fragt immer nach; Routinen löschen nie.",

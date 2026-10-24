@@ -30,7 +30,7 @@ export const assistantSshCopy = {
   trustedWarning:
     "Commands this agent derives from web pages or files could run without your confirmation.",
   sftpModeHints: {
-    approval: "Reading runs, every change asks.",
+    approval: "Reads run without asking; every change asks.",
     trusted: "Changes run without asking, deletes always ask.",
     routines:
       "Changes also run without asking in routines. Deletes always ask; routines never delete.",

@@ -50,9 +50,11 @@ SFTP access uses `ssh2` 1.17.0 (MIT, Copyright Brian White) with its dependencie
 (c) 2018 Nikita Skovoroda). Its optional `cpu-features` 0.0.10 and `buildcheck` 0.0.7
 (MIT, Copyright Brian White) and `nan` 2.30.0 (MIT, Copyright (c) 2018 NAN
 contributors) packages may be installed with it. Their licenses are preserved in
-`node_modules`. AgentPier uses the pure JavaScript cryptography of `ssh2`: the install
-scripts of `ssh2` 1.17.0 and `cpu-features` 0.0.10 are disabled in the project
-allowScripts policy, so no native addon is built.
+`node_modules`. AgentPier needs no native addon for `ssh2` and relies on its pure
+JavaScript cryptography: the install scripts of `ssh2` 1.17.0 and `cpu-features` 0.0.10
+are disabled in the project allowScripts policy. An npm version that does not enforce
+allowScripts may still build their optional native bindings; `ssh2` then uses them, and
+a failed build does not stop the installation.
 
 ## Fonts
 

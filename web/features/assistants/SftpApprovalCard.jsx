@@ -14,6 +14,22 @@ const shortFingerprint = (value = "") =>
   value.length > 24 ? `${value.slice(0, 20)}…` : value;
 const cut = (s, key) => (key === "deleteDirs" ? s.moreDeleteDirs : s.more?.[key]) || 0;
 const count = (s, key) => (s[key]?.length ?? 0) + cut(s, key);
+// The local place and path in the catalog's order (card.local), the path as code.
+const slot = "\u0000";
+function localPlace(local) {
+  const [before, after = ""] = copy.card
+    .local(local.projectName || copy.card.workspace, slot)
+    .split(slot);
+  return (
+    <>
+      {before}
+      <code>
+        <SshCommandText command={local.path ?? "."} />
+      </code>
+      {after}
+    </>
+  );
+}
 
 /**
  * An agent's SFTP operation: waiting for the owner (Allow once, Always allow for
@@ -135,16 +151,7 @@ export default function SftpApprovalCard({ action, decide, viewerId }) {
               <SshCommandText command={p.toPath} />
             </code>,
           )}
-        {p.local &&
-          fact(
-            card.localPath,
-            <>
-              {p.local.projectName || card.workspace} ·{" "}
-              <code>
-                <SshCommandText command={p.local.path ?? "."} />
-              </code>
-            </>,
-          )}
+        {p.local && fact(card.localPath, localPlace(p.local))}
         {planned &&
           fact(card.counts, copy.counts(count(s, "create"), count(s, "update"), deletes))}
         {planned && s.bytes != null && fact(card.size, formatBytes(s.bytes, locale))}

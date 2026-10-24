@@ -272,23 +272,24 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    hold. Key generation, key import, host scanning and host registration are forwarded
    over the management broker socket, which is granted as its own capability, but the
    store itself cannot be withheld: `SshAccessStore` and `SshSessions` create and chmod
-   their own directories under `<dataDir>/ssh` when the server's module loads, before
-   any tool call and before the broker is reachable, so without that grant the server
-   exits on startup with `EPERM: operation not permitted, chmod '<dataDir>/ssh'`. `ssh`
-   then reads the identity files below the same root. `<dataDir>/ssh` is therefore
-   granted read-write in full, and a sandboxed session with the SSH tools can read every
-   project's private keys — as an unsandboxed session already can, so this is not a
-   regression, but the sandbox buys nothing on that surface. Keeping the keys out needs
-   the store brokered outside the sandbox, which is deferred. Because the price is that
-   high, a sandboxed session is given the SSH tools only when it can actually reach a
-   host at launch, counting both the hosts assigned to it and the hosts its project
-   owns. Reaching none means neither the MCP server nor these grants, so setting up a
-   first host from inside a sandboxed session is not supported: register it from the
-   AgentPier UI, or from an unsandboxed session, and reload — which `status()` already
-   reports as `reload-required`. `<dataDir>/sessions` is granted read access alongside
-   the store, because every tool call re-authorizes against the session record, which is
-   replaced by rename on each status update. An unsandboxed session is unaffected and
-   keeps taking assignments while it runs.
+   their own directories under `<dataDir>/ssh` when the server's module loads, before any
+   tool call and before the broker is reachable, so without that grant the server exits on
+   startup with `EPERM: operation not permitted, chmod '<dataDir>/ssh'`. `ssh` then reads
+   the identity files below the same root. `<dataDir>/ssh` is therefore granted read-write
+   in full, and a sandboxed session with the SSH tools can read every project's private
+   keys and the stored passwords of every SFTP host, including hosts not granted to that
+   session — as an unsandboxed session already can, so this is not a regression, but the
+   sandbox buys nothing on that surface. Keeping the keys and passwords out needs the
+   store brokered outside the sandbox, which is deferred. Because the price is that high,
+   a sandboxed session is given the SSH tools only when it can actually reach a host at
+   launch, counting both the hosts assigned to it and the hosts its project owns. Reaching
+   none means neither the MCP server nor these grants, so setting up a first host from
+   inside a sandboxed session is not supported: register it from the AgentPier UI, or from
+   an unsandboxed session, and reload — which `status()` already reports as
+   `reload-required`. `<dataDir>/sessions` is granted read access alongside the store,
+   because every tool call re-authorizes against the session record, which is replaced by
+   rename on each status update. An unsandboxed session is unaffected and keeps taking
+   assignments while it runs.
 
 8. **MCP servers outside the central list.** Stdio servers the owner added to a CLI
    outside AgentPier get no grants until they are adopted. A bound command that loads

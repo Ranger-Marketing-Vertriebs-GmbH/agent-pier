@@ -6,15 +6,14 @@ export const activityEvents = new Set(["ssh-run", "sftp-run"]);
 // Outcomes of a run that still counts as done; a running one has none yet.
 const settled = new Set(["done", "truncated"]);
 
-/** Whether an activity note is still running, ended well or failed. */
+// An SFTP job's row state (agent-sftp-notes.js) as an activity state; a stopped job
+// is neither done nor failed, like its row's neutral "Stopped".
+const sftpStates = { executing: "running", completed: "ok", cancelled: "stopped" };
+
+/** Whether an activity note is still running, ended well, was stopped or failed. */
 export function activityState(message) {
-  // An SFTP job (agent-sftp-notes.js) has a row state instead of an outcome.
-  if (message.event === "sftp-run")
-    return message.state === "executing"
-      ? "running"
-      : message.state === "completed"
-        ? "ok"
-        : "failed";
+  // An SFTP job has a row state instead of an outcome.
+  if (message.event === "sftp-run") return sftpStates[message.state] ?? "failed";
   if (message.outcome === "running") return "running";
   return settled.has(message.outcome) ? "ok" : "failed";
 }
@@ -51,12 +50,13 @@ export function groupActivity(items) {
 /**
  * A group's ActivityGroup props: "SSH activity" ("SFTP activity" when every call is
  * an SFTP job), the one host its calls share (or the number of hosts), and how many
- * calls failed or still run.
+ * calls failed, were stopped or still run.
  */
 export function activityGroupView(messages) {
   const hosts = new Set(messages.map((m) => m.hostName));
   const states = messages.map(activityState);
   const failed = states.filter((s) => s === "failed").length;
+  const stopped = states.filter((s) => s === "stopped").length;
   const running = states.includes("running");
   return {
     label: messages.every((m) => m.event === "sftp-run")
@@ -65,7 +65,8 @@ export function activityGroupView(messages) {
     count: messages.length,
     summary: hosts.size === 1 ? [...hosts][0] : copy.group.hosts(hosts.size),
     failed,
+    stopped,
     running,
-    done: !failed && !running,
+    done: !failed && !stopped && !running,
   };
 }

@@ -82,6 +82,9 @@ export async function buildRelease({
       "THIRD_PARTY_NOTICES.md",
     ])
       fs.cpSync(path.join(source, name), path.join(stage, name), { recursive: true });
+    // allowScripts keeps the install scripts it disables from running only where this
+    // npm enforces it; an older npm may also build optional bindings such as ssh2's
+    // (THIRD_PARTY_NOTICES.md), which the archive then ships.
     if (prepareDependencies)
       execFileSync("npm", ["ci", "--omit=dev", "--no-audit", "--no-fund"], {
         cwd: stage,

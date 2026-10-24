@@ -61,7 +61,9 @@ export default function SshResourceList({
                 {isAccess
                   ? item.auth === "password"
                     ? copy.signInPassword
-                    : item.keyName
+                    : item.keyMissing
+                      ? copy.keyDeleted
+                      : item.keyName
                   : accesses === null
                     ? copy.usageUnavailable
                     : copy.accessCount(

@@ -32,6 +32,7 @@ export const sshCopy = {
   remoteFolder: "Remote folder",
   noRemoteRoot: "Whole account",
   keyMissing: "The key of this host was deleted. Choose another key.",
+  keyDeleted: "Key deleted",
   sftpTestHint:
     "An explicit test signs in and opens the remote folder. It changes nothing on the server.",
   sftpDeleteHint:

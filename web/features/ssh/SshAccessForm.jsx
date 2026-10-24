@@ -18,7 +18,8 @@ export default function SshAccessForm({
   const ownedKeys = keys.filter((key) => (key.projectId || "") === owner);
   const [draft, setDraft] = useState({
     name: access?.name || "",
-    keyId: access?.keyId || ownedKeys[0]?.id || "",
+    // A deleted key is no choice: Save waits until a valid key is selected.
+    keyId: access?.keyMissing ? "" : access?.keyId || ownedKeys[0]?.id || "",
     host: access?.host || "",
     port: access?.port || 22,
     username: access?.username || "",
@@ -82,7 +83,7 @@ export default function SshAccessForm({
           </option>
         ))}
       </select>
-      {access?.keyMissing && draft.keyId === access.keyId && (
+      {access?.keyMissing && !draft.keyId && (
         <small className="ssh-action-hint">{copy.keyMissing}</small>
       )}
     </label>

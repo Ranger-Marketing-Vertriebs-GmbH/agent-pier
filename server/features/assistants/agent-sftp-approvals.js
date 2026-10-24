@@ -168,7 +168,9 @@ export class SftpApprovals {
             summary,
             planDigest: planDigest(host.id, prepared),
             deletes,
-            allowAlways: deletes === 0 && ownGrant,
+            // Never for a delete-kind action (delete, or sync with deleteExtra), even
+            // when its plan deletes nothing now: the next one may.
+            allowAlways: request.kind !== "delete" && deletes === 0 && ownGrant,
             input,
             inputSha256,
             localContext: request.localContext,
@@ -251,10 +253,14 @@ export class SftpApprovals {
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */
   decide(action, decision) {
     if (decision === "decline") return this.finish(action.id, { state: "declined" });
-    // A delete always asks again, so "Always allow" never covers one.
+    // A delete always asks again, so "Always allow" never covers one: not a card
+    // with deletes, and not a delete-kind action (sync with deleteExtra) without any.
     if (
       decision === "allow-always" &&
-      (!action.payload.allowAlways || action.payload.deletes > 0)
+      (!action.payload.allowAlways ||
+        action.payload.deletes > 0 ||
+        action.payload.kind === "delete" ||
+        action.payload.deleteExtra === true)
     )
       throw assistantProblem("invalid", 400);
     // A card that can no longer run changes no grant either.
