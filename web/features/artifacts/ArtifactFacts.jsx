@@ -4,12 +4,8 @@ import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import { locale } from "../../lib/i18n/index.js";
 import { artifactCopy as copy } from "../../lib/i18n/messages/artifacts.js";
-import {
-  artifactTypeLabel,
-  exactTime,
-  formatBytes,
-  shortId,
-} from "./artifact-presentation.js";
+import { artifactTypeLabel, exactTime, shortId } from "./artifact-presentation.js";
+import { formatBytes } from "../../lib/format-bytes.js";
 
 /** Technical facts behind a disclosure, collapsed by default. */
 export default function ArtifactFacts({ item, copyText }) {

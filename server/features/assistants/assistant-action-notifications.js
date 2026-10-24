@@ -3,6 +3,7 @@ import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { notifySftp } from "./agent-sftp-notifications.js";
+import { sftpNotes } from "./agent-sftp-notes.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
@@ -261,22 +262,25 @@ const codingNotes = (a) =>
       pipelineName: a.pipelineName || null,
       ...(a.memberName ? { memberName: a.memberName } : {}),
     }));
-// The event notes of a conversation's coding runs and SSH runs, oldest first.
+// The event notes of a conversation's coding runs, SSH runs and SFTP jobs, oldest
+// first.
 export function actionNotes(actions, conversationId) {
   return actions
     .filter((a) => a.conversationId === conversationId && a.chatNotes)
     .flatMap((a) =>
       a.payload.action === "ssh"
         ? sshNotes(a)
-        : [
-              "member_grant",
-              "member_reminder",
-              "member_update",
-              "member_promote",
-              "member_summarise",
-            ].includes(a.payload.action)
-          ? grantNotes(a)
-          : codingNotes(a),
+        : a.payload.action === "sftp"
+          ? sftpNotes(a)
+          : [
+                "member_grant",
+                "member_reminder",
+                "member_update",
+                "member_promote",
+                "member_summarise",
+              ].includes(a.payload.action)
+            ? grantNotes(a)
+            : codingNotes(a),
     )
     .sort((x, y) => x.timestamp - y.timestamp);
 }

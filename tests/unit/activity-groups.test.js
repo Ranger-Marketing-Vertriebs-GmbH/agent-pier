@@ -136,3 +136,52 @@ test("session chat groups name their main tools and show no chip while unknown",
   });
   assert.equal(activityGroupHead({ count: 2, done: true }).detail, "2 calls");
 });
+
+const sftp = (id, extra = {}) => ({
+  message: {
+    id: `sftp-run:${id}`,
+    role: "event",
+    event: "sftp-run",
+    hostName: "proxmox-2",
+    operation: "upload",
+    direction: "up",
+    remotePath: "/srv/www",
+    state: "completed",
+    ...extra,
+  },
+});
+
+test("SFTP rows join the SSH rows' group instead of ending it", () => {
+  const items = [text("u1", "user"), ssh("a"), sftp("b"), ssh("c"), text("r1")];
+  assert.deepEqual(shape(groupActivity(items)), [
+    "u1",
+    ["ssh-run:a", "sftp-run:b", "ssh-run:c"],
+    "r1",
+  ]);
+});
+
+test("SFTP states count as running, done or failed in their group", () => {
+  setLanguage("en");
+  const running = activityGroupView([
+    sftp("a").message,
+    sftp("b", { state: "executing" }).message,
+  ]);
+  assert.deepEqual(running, {
+    label: "SFTP activity",
+    count: 2,
+    summary: "proxmox-2",
+    failed: 0,
+    running: true,
+    done: false,
+  });
+  const failed = activityGroupView([
+    sftp("a", { state: "failed" }).message,
+    sftp("b", { state: "cancelled" }).message,
+    sftp("c", { state: "unknown" }).message,
+    ssh("d").message,
+  ]);
+  assert.deepEqual(
+    [failed.label, failed.failed, failed.done],
+    ["SSH activity", 3, false],
+  );
+});

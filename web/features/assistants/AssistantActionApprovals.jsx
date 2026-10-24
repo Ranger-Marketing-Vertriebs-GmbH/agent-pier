@@ -3,10 +3,12 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 import ExecApprovalCard from "./ExecApprovalCard.jsx";
 import SshApprovalCard from "./SshApprovalCard.jsx";
+import SftpApprovalCard from "./SftpApprovalCard.jsx";
 import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
+const isSftp = (a) => a.payload.action === "sftp";
 const isGrant = (a) => a.payload.action === "member_grant";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
@@ -27,9 +29,12 @@ export default function AssistantActionApprovals({
     }
   }
   if (!actions.length && !error) return null;
-  // Shell and SSH commands have their own cards; they decide through
-  // `decide(id, decision)`. An SSH card stays while its allowed command runs.
-  const others = actions.filter((a) => !isExec(a) && !isSsh(a) && !isGrant(a));
+  // Shell and SSH commands and SFTP operations have their own cards; they decide
+  // through `decide(id, decision)`. An SSH or SFTP card stays while its allowed
+  // command or job runs.
+  const others = actions.filter(
+    (a) => !isExec(a) && !isSsh(a) && !isSftp(a) && !isGrant(a),
+  );
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
       <h3 className="sr-only">{copy.pendingApprovals}</h3>
@@ -39,6 +44,14 @@ export default function AssistantActionApprovals({
       ))}
       {actions.filter(isSsh).map((a) => (
         <SshApprovalCard
+          key={a.id}
+          action={a}
+          viewerId={assistantId}
+          decide={(_, d) => decide(a, d)}
+        />
+      ))}
+      {actions.filter(isSftp).map((a) => (
+        <SftpApprovalCard
           key={a.id}
           action={a}
           viewerId={assistantId}
