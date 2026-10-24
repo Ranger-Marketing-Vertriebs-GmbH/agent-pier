@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
@@ -25,6 +26,14 @@ function descriptor(root) {
     entryPath: path.join(root, "app/node_modules/openclaw/openclaw.mjs"),
   };
 }
+// Every agent's own OpenClaw database in the runtime's state directory.
+const agentDatabases = (paths) => {
+  const agents = path.join(paths.state, "agents");
+  return fs
+    .readdirSync(agents)
+    .map((id) => path.join(agents, id, "agent", "openclaw-agent.sqlite"))
+    .filter((file) => fs.existsSync(file));
+};
 const variants = {
   upgrade: "activation retains memory, schedules, history and receipts",
   reject: "validation failure restores previous runtime and state",
@@ -249,6 +258,32 @@ for (const [variant, title] of Object.entries(variants))
         });
         assert.ok(JSON.stringify(history.messages).includes(input.text));
         assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
+        // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
+        // (one-way: 2026.10.3 refuses it), and a committed activation must have done so.
+        if (
+          !rejectCandidate &&
+          (candidate.version === "2026.10.7" || candidate.version === "2026.10.6")
+        ) {
+          const files = agentDatabases(runtime.paths);
+          assert.ok(
+            files.some((file) =>
+              file.includes(`${path.sep}${a.runtimeAgentId}${path.sep}`),
+            ),
+            `the fixture agent's database is among ${files}`,
+          );
+          for (const file of files) {
+            const db = new DatabaseSync(file, { readOnly: true });
+            try {
+              assert.equal(
+                db.prepare("PRAGMA user_version").get().user_version,
+                25,
+                file,
+              );
+            } finally {
+              db.close();
+            }
+          }
+        }
         assert.equal(ledger.getAttempt(attempt.id).state, "completed");
         assert.equal(ledger.requests(conversation.id).length, 1);
         assert.equal(
