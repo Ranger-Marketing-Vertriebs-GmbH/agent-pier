@@ -90,10 +90,14 @@ test(
               },
             },
             // OpenClaw announces a silent successful exit with no completion run
-            // (tools.exec.notifyOnExitEmptySuccess), so the command prints.
+            // (tools.exec.notifyOnExitEmptySuccess), so the command prints. It runs
+            // until the test creates `.release`, so the held ticks see it running.
             {
               name: "exec",
-              arguments: { command: "sleep 3; echo SLEPT", background: true },
+              arguments: {
+                command: "while [ ! -e .release ]; do sleep 0.1; done; echo SLEPT",
+                background: true,
+              },
             },
           ];
       return steps < plan.length ? { tool: plan[steps] } : { text: "Started." };
@@ -184,6 +188,8 @@ test(
       const settled = runtime.client
         .call("agent.wait", { runId: sent.runId, timeoutMs: 60000 }, { timeoutMs: 65000 })
         .then(() => f.assistants.ledger.transition(attempt.id, "completed"));
+      // A failed assertion before the await must not leave an unhandled rejection.
+      settled.catch(() => {});
       sends.push({ input, context, request, attempt, runId: sent.runId, settled });
       return { request, attempt };
     };
@@ -213,6 +219,7 @@ test(
     await tick(0);
     await tick(nudgeDelayMs);
     assert.equal(sends.length, 1, "no continuation while the command runs");
+    fs.writeFileSync(path.join(workspace, ".release"), "");
 
     // 3. OpenClaw's completion run in the chat's session ends.
     const ended = (e) =>
