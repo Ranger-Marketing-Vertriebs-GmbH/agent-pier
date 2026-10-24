@@ -2,16 +2,25 @@ import { channelError } from "./telegram-client.js";
 import { queueLimit, serviceMessage } from "./channel-ledger.js";
 import { telegramMessages } from "./telegram-messages.js";
 import { TelegramMedia, mediaNotice } from "./telegram-media.js";
+// A long poll that stayed open this long found nothing pending at Telegram.
+const POLL_OPEN_MS = 1000;
+// An album whose polls keep failing goes out with what it has after this long.
+const ALBUM_MAX_WAIT_MS = 60000;
 export class TelegramIngress {
   constructor(service) {
     this.service = service;
     this.media = new TelegramMedia(service);
+    // channel id → { started, completed }: when the running poll and the last poll
+    // that returned began. Kept in memory: after a restart, albums wait for a poll.
+    this.polls = new Map();
   }
   async poll(id, signal) {
     const { store, clientFactory } = this.service;
     const channel = store.get(id),
       token = store.secret(id);
     if (!token || (!channel.enabled && !(channel.pairingExpiresAt > Date.now()))) return;
+    const started = this.service.now();
+    this.polls.set(id, { ...this.polls.get(id), started });
     try {
       const updates = await clientFactory(token).call(
         "getUpdates",
@@ -31,6 +40,7 @@ export class TelegramIngress {
         return;
       if (!Array.isArray(updates)) throw channelError("TELEGRAM_UNAVAILABLE");
       const failure = await this.receive(id, updates, signal);
+      this.polls.set(id, { ...this.polls.get(id), completed: started });
       store.diagnostic(
         id,
         this.service.ledger.active(id).length >= queueLimit
@@ -147,7 +157,7 @@ export class TelegramIngress {
             this.service.ledger.maxVoiceSeconds / 60,
           ),
         ),
-      MEDIA_UNSUPPORTED: () => mediaNotice(messages, entry.media, false),
+      MEDIA_REFUSED: () => mediaNotice(messages, entry.media, false),
     }[entry.state === "failed" && entry.diagnostic];
     if (text) this.inputNotice(channel, entry, text());
   }
@@ -185,12 +195,13 @@ export class TelegramIngress {
     if (!entry || entry.state !== "queued") return;
     // An album waits for its remaining items; Telegram asked a download to wait.
     const now = this.service.now();
-    if (entry.collectUntil > now || entry.retryAt > now) return;
+    if (!this.albumSettled(id, entry, now) || entry.retryAt > now) return;
     if (entry.chatId !== channel.chatId || entry.userId !== channel.userId) {
       ledger.patch(entry.id, {
         state: "delivery_failed",
         diagnostic: "CHANNEL_DESTINATION_CHANGED",
       });
+      await this.media.discard(channel, entry);
       assistants.changed({ conversationId: channel.conversationId });
       return;
     }
@@ -208,7 +219,10 @@ export class TelegramIngress {
         )
     )
       return;
-    ledger.patch(entry.id, { state: "dispatching" });
+    ledger.patch(entry.id, {
+      state: "dispatching",
+      ...(entry.media && !entry.dispatchedAt && { dispatchedAt: now }),
+    });
     if (entry.media && !existing) {
       entry = await this.stageMedia(channel, entry, signal);
       if (!entry) return;
@@ -258,12 +272,31 @@ export class TelegramIngress {
         diagnostic: null,
       });
     } catch (error) {
+      const again = [409, 503].includes(error.status);
       ledger.patch(entry.id, {
-        state: [409, 503].includes(error.status) ? "queued" : "failed",
-        diagnostic: [409, 503].includes(error.status) ? null : "MODEL_REQUEST_FAILED",
+        state: again ? "queued" : "failed",
+        diagnostic: again ? null : "MODEL_REQUEST_FAILED",
       });
+      // Its files would otherwise wait a day, in the quota and among the chat's drafts.
+      if (!again) await this.media.discard(channel, ledger.get(entry.id));
     }
     assistants.changed({ conversationId: channel.conversationId });
+  }
+  /**
+   * Whether an album may go out: no item came for ALBUM_QUIET_MS, and a poll began
+   * after its newest item and returned or stayed open (Telegram answers at once while
+   * updates are pending). After a restart the remaining items are still unacknowledged
+   * at Telegram, so the album waits for this process's first poll to bring them.
+   */
+  albumSettled(id, entry, now) {
+    if (!entry.mediaGroupId) return true;
+    if (now - entry.lastItemAt >= ALBUM_MAX_WAIT_MS) return true;
+    if (entry.collectUntil > now) return false;
+    const { started, completed } = this.polls.get(id) || {};
+    return (
+      completed > entry.lastItemAt ||
+      (started > entry.lastItemAt && now - started >= POLL_OPEN_MS)
+    );
   }
   /**
    * Downloads and stages an input's files (telegram-media.js) and sends its one
@@ -278,9 +311,7 @@ export class TelegramIngress {
     } catch (error) {
       ledger.patch(entry.id, {
         state: "queued",
-        ...(error.code === "TELEGRAM_RATE_LIMIT" && {
-          retryAt: this.service.now() + (error.retryAfter || 30) * 1000,
-        }),
+        ...(error.retryAt && { retryAt: error.retryAt }),
       });
       return null;
     }
@@ -288,7 +319,7 @@ export class TelegramIngress {
     const text = mediaNotice(telegramMessages(channel), media, delivered);
     if (text) this.inputNotice(channel, entry, text);
     if (delivered) return ledger.get(entry.id);
-    ledger.patch(entry.id, { state: "failed", diagnostic: "MEDIA_UNSUPPORTED" });
+    ledger.patch(entry.id, { state: "failed", diagnostic: "MEDIA_REFUSED" });
     assistants.changed({ conversationId: channel.conversationId });
     return null;
   }
