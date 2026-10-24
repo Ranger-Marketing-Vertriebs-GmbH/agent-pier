@@ -22,6 +22,11 @@ export function alwaysAllowSftp(access, holderId, accessId) {
     approvalRevision: approvalRevision(before),
   });
   access.auditSsh(holderId, before, after, "always-allow");
-  access.s.assistants.changed();
+  // The grant is written; a failing change notice must not fail the decision.
+  try {
+    access.s.assistants.changed();
+  } catch (error) {
+    console.error("Agent SFTP grant change notice failed:", error?.name ?? "Error");
+  }
   return true;
 }

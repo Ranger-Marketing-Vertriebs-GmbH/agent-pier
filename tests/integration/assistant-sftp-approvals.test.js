@@ -277,7 +277,7 @@ test("a failed grant write fails allow-always before anything runs", async (t) =
   await call;
 });
 
-test("allow-always on a temporary member's card trusts the lead's grant it uses", async (t) => {
+test("a temporary member's card never offers Always allow for its lead's grant", async (t) => {
   const f = await approvalFixture(t);
   const member = f.member({ lifetime: "task" });
   const grants = f.store.memberGrants;
@@ -287,19 +287,50 @@ test("allow-always on a temporary member's card trusts the lead's grant it uses"
     action: "mkdir",
     remotePath: "/made",
   });
-  const a = await waitFor(
-    () =>
-      card(f) ||
-      f.workflows.store
-        .list(member.id)
-        .find((x) => x.payload.action === "sftp" && x.state === "awaiting_approval"),
+  const a = await waitFor(() =>
+    f.workflows.store
+      .list(member.id)
+      .find((x) => x.payload.action === "sftp" && x.state === "awaiting_approval"),
   );
-  assert.equal(a.assistantId, member.id);
-  await decide(f, a, "allow-always");
+  assert.equal(a.payload.deletes, 0);
+  assert.equal(a.payload.allowAlways, false);
+  await assert.rejects(decide(f, a, "allow-always"), { status: 400 });
+  assert.equal(f.workflows.get(a.id).state, "awaiting_approval");
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "approval");
+  assert.equal(
+    f.audit.some((e) => e.details.reason === "always-allow"),
+    false,
+  );
+  // Allow once still runs it.
+  await decide(f, a, "approve");
   assert.equal((await call).status, "completed");
-  // The member holds no grant of its own; the lead's grant became trusted.
+  assert.ok(fs.existsSync(path.join(f.server.root, "made")));
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "approval");
+});
+
+test("a failing change notice after the grant write keeps the decision", async (t) => {
+  const f = await approvalFixture(t);
+  const call = upload(f);
+  const a = await waitFor(() => card(f));
+  const changed = f.workflows.access.s.assistants.changed;
+  let thrown = 0;
+  f.workflows.access.s.assistants.changed = function (...args) {
+    if (!thrown++) throw new Error("feed closed");
+    return changed.apply(this, args);
+  };
+  const logged = [];
+  const error = console.error;
+  console.error = (...args) => logged.push(args.join(" "));
+  try {
+    await decide(f, a, "allow-always");
+  } finally {
+    console.error = error;
+    f.workflows.access.s.assistants.changed = changed;
+  }
+  assert.equal(thrown >= 1, true);
+  assert.equal((await call).status, "completed");
   assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "trusted");
-  assert.deepEqual(f.workflows.access.get(member.id).sshAccesses, []);
+  assert.deepEqual(logged, ["Agent SFTP grant change notice failed: Error"]);
 });
 
 test("removed host cancels open SFTP cards", async (t) => {
@@ -360,6 +391,15 @@ test("result after the hold arrives as sftp-result follow-up and is classified w
       }),
     ),
     "SSH_ORIGIN_REFUSED",
+  );
+  // A follow-up turn that has ended keeps the refusal every ended turn gets.
+  const ended = f.turn(f.channel.conversationId, f.followUps[0].context);
+  f.assistants.ledger.transition(ended.attemptId, "completed");
+  assert.equal(
+    await code(
+      f.sftpCall(ended, { action: "upload", localPath: "site", remotePath: "/www" }),
+    ),
+    "FORBIDDEN",
   );
   // A cancelled job whose result is owed keeps its chat owing a turn.
   f.workflows.store.patch(a.id, {

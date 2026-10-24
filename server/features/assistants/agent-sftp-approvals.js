@@ -131,6 +131,10 @@ export class SftpApprovals {
       const telegram = leadAssistantId ? pairedTelegram(this.w, leadAssistantId) : null;
       const expiresAt = this.ssh.now() + sshApprovalMs;
       const { summary, deletes } = cardSummary(prepared);
+      // "Always allow" changes the agent's own grant only: a temporary member uses its
+      // lead's (sshHolder), which its card never widens.
+      const ownGrant =
+        this.w.access.sshHolder(caller.assistant.id).id === caller.assistant.id;
       const { input } = request;
       action = this.w.store.reserve({
         assistantId: caller.assistant.id,
@@ -164,7 +168,7 @@ export class SftpApprovals {
             summary,
             planDigest: planDigest(host.id, prepared),
             deletes,
-            allowAlways: deletes === 0,
+            allowAlways: deletes === 0 && ownGrant,
             input,
             inputSha256,
             localContext: request.localContext,
@@ -256,14 +260,13 @@ export class SftpApprovals {
     // A card that can no longer run changes no grant either.
     const reason = this.ssh.approvals.stale(action);
     if (reason) return this.finish(action.id, { state: "cancelled", diagnostic: reason });
-    // The grant the card ran on: a temporary member's is its lead's (sshHolder). A
-    // failed write fails the decision before anything runs.
-    if (decision === "allow-always")
-      alwaysAllowSftp(
-        this.w.access,
-        this.w.access.sshHolder(action.assistantId).id,
-        action.payload.accessId,
-      );
+    // A failed grant write fails the decision before anything runs.
+    if (decision === "allow-always") {
+      // Only the card's own agent's grant: a temporary member's is its lead's.
+      if (this.w.access.sshHolder(action.assistantId).id !== action.assistantId)
+        throw assistantProblem("invalid", 400);
+      alwaysAllowSftp(this.w.access, action.assistantId, action.payload.accessId);
+    }
     const next = this.finish(action.id, { state: "executing" });
     const run = this.execute(next).finally(() => this.runs.delete(action.id));
     this.runs.set(action.id, run);
