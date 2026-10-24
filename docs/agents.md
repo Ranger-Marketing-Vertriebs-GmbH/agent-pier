@@ -616,12 +616,12 @@ hand each other tasks and report back
 
 ## Work until done
 
-Ask your agent, in your own message in AgentPier, to finish a job or to keep working
-until it is done ("finish the episode", "work until you're done"). The agent
-recognises that by meaning in any wording and language, sets a **work goal** with a
-short title, what done means and its open steps, and keeps working. While the goal is
-open, the chat shows **Working until done: <title>** with a **Stop** button under the
-chat header.
+Ask your agent, in your own message in AgentPier or your own (not forwarded) message in
+its paired Telegram chat, to finish a job or to keep working until it is done ("finish
+the episode", "work until you're done"). The agent recognises that by meaning in any
+wording and language, sets a **work goal** with a short title, what done means and its
+open steps, and keeps working. While the goal is open, the chat shows **Working until
+done: <title>** with a **Stop** button under the chat header.
 
 - **One goal per chat.** A new goal in the same chat replaces the open one; both
   changes appear as notes in the chat ("Goal replaced: ...", "Working until done: ...").
@@ -630,16 +630,17 @@ chat header.
 - **Where goals exist.** Only in your own chats with your own agents and their
   permanent members. Shared agents, agents of other users and temporary members have
   none, and neither do forwarded, scheduled or member-written messages: only your own
-  direct message sets a goal.
+  direct message sets a goal, in AgentPier or in the paired Telegram chat.
 - **Continuing.** When a chat with an open goal has been idle for 90 seconds, AgentPier
   sends the agent a follow-up turn marked **Continuing · <title>** so it carries on.
   Between turns you can still write, change settings or open other chats.
 - **What still holds it.** AgentPier waits while a turn or a summary runs, while an
   approval card, a team proposal or one of your queued messages waits for you, while
   the chat's own questions and tasks to members are open, and while a background
-  command of the agent runs (for up to 2 hours).
-- **Rights of a continuation.** A continuation has exactly the rights of your own
-  message that set the goal (or of your latest message in the chat), including
+  command of the agent runs (for up to 2 hours). An interrupted turn, or one whose
+  outcome is uncertain, waits for your review and holds the goal until then.
+- **Rights of a continuation.** A continuation has exactly the rights of your latest own
+  direct message in that chat (at first the one that set the goal), including
   Trusted SSH and SFTP hosts, and a lead's tasks to its members may change files in the
   members' workspaces at every **Use team** level (at most 4 per turn, not counted
   against the 20 per hour), unless your message said not to change anything.

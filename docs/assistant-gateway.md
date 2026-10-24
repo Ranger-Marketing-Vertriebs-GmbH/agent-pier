@@ -3653,10 +3653,11 @@ The agent tool `agentpier_goal` (actions `set`, `update`, `done`, `blocked`) rec
 work goal per chat in `work-goal-store.js`; the owner's `POST
 /api/assistant-conversations/:id/goal/stop` stops it. It is offered only for the owner's
 own chats with a personal agent or permanent member (not shared or user agents,
-not temporary members). `set` needs the owner's direct turn, recognised by meaning from
-the model, never from forwarded, quoted, scheduled, tool-provided or member content.
-`update`, `done` and `blocked` work from any attempt-bound turn of that agent in the goal
-chat and never widen rights. Every change is a note in the chat and is audited by its
+not temporary members). `set` needs the owner's direct turn (context `owner` or
+`telegram`, not forwarded, no `goal` marker), recognised by meaning from the model, never
+from forwarded, quoted, scheduled, tool-provided or member content. `update` works from
+the owner's direct turn or a goal turn; `done` and `blocked` work from any attempt-bound
+turn of that agent in the goal chat. None of them widens rights. Every change is a note in the chat and is audited by its
 kind only, never with the goal's texts.
 
 **Nudge, not cron or heartbeat.** AgentPier itself sends the continuation as a follow-up
@@ -3666,13 +3667,14 @@ would need `exec-continuation.js`-style proof; the follow-up turn keeps rights, 
 the live feed unchanged. The idle timers are in memory: a restart only restarts the delay.
 
 **Context and anchor.** A continuation is recorded as `kind: "owner"` with a `goal` marker
-and has exactly the rights of its anchor, the owner's latest direct turn in the chat, and
-never more. Owner proofs (@mentions, quotes, negations such as "change nothing") are
+and has exactly the rights of its anchor, the owner's latest direct turn in the chat (at
+first the one that set the goal; a direct Telegram message counts), and never more. Owner proofs (@mentions, quotes, negations such as "change nothing") are
 read from the anchor's text only, once across the anchor and all its continuations.
 The lead's `member-result` follow-up in the goal chat counts as a goal turn; member
 reports (`member-report`) and peer results do not. In a goal turn a delegated task writes
 like an Autonomous lead's own task at every Use team level, at most 4 per turn and outside
-the 20-per-hour limit; a member named in the anchor does not make it read-only. Trusted
+the 20-per-hour limit, and only while the goal is still open (a turn running on after Stop
+delegates as it would without a goal); a member named in the anchor does not make it read-only. Trusted
 SSH and SFTP hosts work as in an owner turn (origin `owner`).
 
 **Exclusions.** Approval cards still wait for the owner. A goal turn cannot use the
@@ -3682,9 +3684,12 @@ goal. Lead shares and grants a lead turn may make today stay allowed.
 
 **Holds.** No nudge while the chat has a pending attempt, a live check-in run, a running
 compaction or summary, a queued owner message, an approval card, the chat's own open lead
-requests or team, or a background command. Background commands are asked with the Gateway
-method `agentpier.backgroundCommands` (team plugin, `background-commands.js`) for the
-chat's session and hold for at most 2 hours; an error counts as none running.
+requests or team, or a background command. An interrupted or uncertain attempt stays
+pending until the owner reviews it, so it holds the goal until then. Background commands
+are asked with the Gateway method `agentpier.backgroundCommands` (team plugin,
+`background-commands.js`) for the chat's session once the delay is over, and then on every
+pass while that hold lasts; they hold for at most 2 hours from when the chat became idle
+around them, and an error counts as none running. The anchor is also read only then.
 
 **Brakes.** 3 technical failures (failed, interrupted or uncertain attempts) in a row, or 3
 continuations without any tool call, end the goal as blocked. A refusal that only says "not
