@@ -98,9 +98,41 @@ test("Stop of an unknown chat is not found; without teams it is unavailable", as
   assert.equal(unwired.status, 503);
 });
 
-test("the owner's stop control marks the attempt as cancelled by him", async (t) => {
+test("only a cancel that went through marks the attempt as the owner's", async (t) => {
   const { f } = await chatFixture(t);
-  const id = crypto.randomUUID();
-  await f.request(`/api/assistant-attempts/${id}/cancel`, { method: "POST", body: {} });
-  assert.equal(f.application.assistants.teams.goals.ownerCancelled(id), true);
+  const goals = f.application.assistants.teams.goals;
+  const unknown = crypto.randomUUID();
+  const failed = await f.request(`/api/assistant-attempts/${unknown}/cancel`, {
+    method: "POST",
+    body: {},
+  });
+  assert.equal(failed.status, 404);
+  assert.equal(goals.ownerCancelled(unknown), false, "a failed cancel is no mark");
+  const agent = await json(
+    await f.request("/api/assistants", {
+      method: "POST",
+      body: { name: "Helper", instructions: "", model: fixtureModel(f) },
+    }),
+    201,
+  );
+  const main = (
+    await json(
+      await f.request(`/api/assistants/${agent.id}/conversations`, { method: "POST" }),
+      200,
+    )
+  ).id;
+  const ledger = f.application.assistants.ledger;
+  const request = ledger.accept(main, {
+    clientRequestId: crypto.randomUUID(),
+    text: "Go",
+  });
+  const attempt = ledger.recordAttempt(request.id);
+  await json(
+    await f.request(`/api/assistant-attempts/${attempt.id}/cancel`, {
+      method: "POST",
+      body: {},
+    }),
+    200,
+  );
+  assert.equal(goals.ownerCancelled(attempt.id), true);
 });

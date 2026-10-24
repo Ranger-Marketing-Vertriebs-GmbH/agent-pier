@@ -171,6 +171,26 @@ test("an interrupted continuation is reviewed and counts as a technical failure"
   await round(f, chat, 3 * nudgeDelayMs);
 });
 
+test("a continuation the reconciler settled during the abort is not audited as reviewed", async (t) => {
+  const { f, chat } = setup(t);
+  await setGoal(f, chat);
+  const entries = [];
+  f.assistants.audit = { append: (entry) => entries.push(entry) };
+  const { attempt } = await round(f, chat, 0);
+  f.assistants.ledger.transition(attempt.id, "interrupted", {});
+  const client = f.assistants.runtime.client,
+    call = client.call;
+  client.call = async (method, input) => {
+    // Its end arrives while the abort is under way.
+    if (method === "sessions.abort") f.assistants.ledger.transition(attempt.id, "failed");
+    return call(method, input);
+  };
+  await at(f, 2 * nudgeDelayMs);
+  assert.equal(f.assistants.ledger.getAttempt(attempt.id).reviewedAt, null);
+  assert.ok(!entries.some((e) => e.details.change === "continuation-reviewed"));
+  assert.equal(goalOf(f, chat).failures, 1, "the failed run still counts");
+});
+
 test("an uncertain continuation and the owner's interrupted turn wait for him", async (t) => {
   for (const which of ["uncertain continuation", "owner turn"]) {
     const { f, chat } = setup(t);
