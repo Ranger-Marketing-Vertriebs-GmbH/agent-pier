@@ -200,8 +200,15 @@ export function capture({
     }
     // SFTP passwords travel only in the capsule; plan() lists the omission otherwise.
     const sftpHosts = withCredentials ? captureSftpHosts(dataDir) : null;
-    if (sftpHosts)
-      credentials.push(fileMember(sftpHostsMember, { version: 1, ...sftpHosts }));
+    if (sftpHosts?.hosts.length)
+      credentials.push(
+        fileMember(sftpHostsMember, {
+          version: 1,
+          hosts: sftpHosts.hosts,
+          passwords: sftpHosts.passwords,
+        }),
+      );
+    if (sftpHosts) extraOmissions.push(...sftpHosts.omissions);
     if (fs.existsSync(path.join(dataDir, "memory/memory.sqlite"))) {
       const startedAt = new Date().toISOString();
       files.push(

@@ -52,23 +52,44 @@ function passwordHosts(dataDir) {
 /** Whether this data folder holds SFTP hosts that sign in with a password. */
 export const sftpHostsPresent = (dataDir) => passwordHosts(dataDir).length > 0;
 
+/** The omission of a host whose password could not be read; names only its label. */
+export const unreadableSftpHostOmission = (name) =>
+  `SFTP host "${name}" (its password could not be read)`;
+
 /**
- * The password SFTP hosts of the published catalog with their current passwords, or
- * null without any. A host whose password cannot be read is left out.
+ * The password SFTP hosts of the published catalog with their current passwords, and
+ * the omissions of hosts whose password could not be read; null without any host.
  */
 export function captureSftpHosts(dataDir) {
+  const rows = passwordHosts(dataDir);
+  if (!rows.length) return null;
   const store = new SshPasswordStore({ root: path.join(dataDir, "ssh") });
+  const read = (row) => {
+    try {
+      return store.read(row.id, row.credentialRevision);
+    } catch {
+      return null;
+    }
+  };
   const hosts = [];
   const passwords = Object.create(null);
-  for (const row of passwordHosts(dataDir)) {
-    try {
-      passwords[row.id] = store.read(row.id, row.credentialRevision);
-    } catch {
+  const omissions = [];
+  for (let row of rows) {
+    let password = read(row);
+    if (password === null) {
+      // A password change between the catalog and the password read: read both again.
+      row = passwordHosts(dataDir).find((next) => next.id === row.id);
+      if (!row) continue;
+      password = read(row);
+    }
+    if (password === null) {
+      omissions.push(unreadableSftpHostOmission(row.name));
       continue;
     }
+    passwords[row.id] = password;
     hosts.push(row);
   }
-  return hosts.length ? { hosts, passwords: { ...passwords } } : null;
+  return { hosts, passwords: { ...passwords }, omissions };
 }
 
 // A row the server would refuse at its start fails the restore instead.
@@ -80,6 +101,7 @@ function restoredRow(row, passwords) {
     !identifier.test(row.id) ||
     row.type !== "sftp" ||
     row.auth !== "password" ||
+    (row.keyId !== null && row.keyId !== undefined) ||
     typeof row.credentialRevision !== "string" ||
     !identifier.test(row.credentialRevision) ||
     (row.projectId !== null && typeof row.projectId !== "string") ||
@@ -99,7 +121,7 @@ function restoredRow(row, passwords) {
 /**
  * Prepares the sealed SFTP hosts of a restore `stage` for the first start: removes the
  * capsule member, maps each host's project through `projectMappings` (an unmapped
- * project leaves the host without one; those are counted as `skipped`), writes the
+ * project leaves the host without one; those are counted as `withoutProject`), writes the
  * passwords to the stage's password store and the hosts to `ssh/sftp-restore.json`.
  * Returns null when the backup held no SFTP hosts.
  */
@@ -120,17 +142,18 @@ export function restoreSftpHosts(stage, projectMappings = []) {
   try {
     if (value?.version !== 1 || !Array.isArray(value.hosts)) throw new Error("invalid");
     hosts = value.hosts.map((row) => restoredRow(row, passwords));
-    if (new Set(hosts.map((row) => row.id)).size !== hosts.length)
-      throw new Error("invalid");
+    // The first start would drop a second host at the same address.
+    for (const key of [(row) => row.id, hostTuple])
+      if (new Set(hosts.map(key)).size !== hosts.length) throw new Error("invalid");
   } catch {
     throw problem(serverMessages.backups.unexpectedComponent);
   }
-  let skipped = 0;
+  let withoutProject = 0;
   const mapped = hosts.map((row) => {
     if (row.projectId === null || row.projectId === undefined)
       return { ...row, projectId: null };
     const mapping = projectMappings.find((entry) => entry.from === row.projectId);
-    if (!mapping) skipped++;
+    if (!mapping) withoutProject++;
     return { ...row, projectId: mapping ? mapping.to : null };
   });
   const root = path.join(stage, "ssh");
@@ -139,7 +162,7 @@ export function restoreSftpHosts(stage, projectMappings = []) {
   for (const row of mapped)
     store.write(row.id, row.credentialRevision, passwords[row.id]);
   writePrivate(path.join(root, sftpRestoreFile), { version: 1, hosts: mapped });
-  return { restored: mapped.length, skipped };
+  return { restored: mapped.length, withoutProject };
 }
 
 function tupleOf(row) {
