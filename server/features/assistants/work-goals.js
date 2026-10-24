@@ -5,6 +5,7 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { directOwnerTurn, goalChat, goalLimits } from "./goal-turns.js";
 import { WorkGoalStore } from "./work-goal-store.js";
+import { tickGoals } from "./work-goal-nudges.js";
 
 // Each action's keys, the required ones first, and how its texts are read.
 const actions = {
@@ -38,6 +39,11 @@ export class WorkGoals {
     Object.assign(this, { teams, service, now });
     this.store = new WorkGoalStore(teams);
     this.toolRuns = new Set();
+    // In memory only (work-goal-nudges.js): since when each goal's chat is idle, and
+    // since when a background command holds it.
+    this.idleSince = new Map();
+    this.backgroundSince = new Map();
+    service.assistants?.gatewayEvents?.on("agent", (p) => this.observe(p));
   }
   get assistants() {
     return this.service.assistants;
@@ -171,8 +177,9 @@ export class WorkGoals {
   toolRun(runId) {
     return this.toolRuns.has(runId);
   }
-  async tick() {
-    if (this.closed) return;
+  /** One nudge pass over the open goals (work-goal-nudges.js). */
+  tick() {
+    return tickGoals(this);
   }
   close() {
     this.closed = true;

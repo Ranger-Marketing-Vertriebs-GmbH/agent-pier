@@ -164,6 +164,7 @@ export function teamFixture(t) {
     return { team: service.store.get(result.id), parent, chat, attempt };
   }
   return {
+    dataDir,
     store,
     assistants,
     service,
