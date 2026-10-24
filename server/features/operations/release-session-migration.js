@@ -95,7 +95,8 @@ export class ReleaseSessionMigration {
       unidentifiedProcesses: [],
       sessions: [],
     };
-    if (!entry || entry.deleteReason !== "inUse") return base;
+    // Sessions move onto the active version only from an older one, never a newer one.
+    if (!entry || entry.deleteReason !== "inUse" || entry.newer) return base;
     const sessions = (
       await Promise.all(entry.sessionIds.map((id) => this.describe(id)))
     ).filter(Boolean);

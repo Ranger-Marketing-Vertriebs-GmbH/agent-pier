@@ -35,7 +35,10 @@ test("cleanup removes selected old versions and stale receipts but preserves cur
       .map((v) => v.version),
     ["1.1.0", "1.0.0"],
   );
-  assert.deepEqual(await r.cleanup(["1.0.0"]), { removedVersions: ["1.0.0"] });
+  assert.deepEqual(await r.cleanup(["1.0.0"]), {
+    removedVersions: ["1.0.0"],
+    stagedIds: { "1.0.0": "abc" },
+  });
   assert.deepEqual(await fs.readdir(path.join(r.installRoot, "releases")), [
     "1.1.0",
     "1.2.0",

@@ -62,6 +62,28 @@ export function releaseProcesses() {
     processExecutable,
   );
 }
+/** Staged receipts in <dataDir>/operations/releases: [{ id, version, file }]. */
+function stagedReceipts(dataDir) {
+  const directory = path.join(dataDir, "operations/releases");
+  let names;
+  try {
+    names = fs.readdirSync(directory);
+  } catch {
+    return [];
+  }
+  return names.flatMap((name) => {
+    if (!/^[a-f0-9-]+\.json$/.test(name)) return [];
+    const file = path.join(directory, name);
+    try {
+      const stat = fs.lstatSync(file);
+      if (!stat.isFile() || stat.isSymbolicLink()) return [];
+      const { version } = JSON.parse(fs.readFileSync(file, "utf8"));
+      return [{ id: name.slice(0, -".json".length), version, file }];
+    } catch {
+      return [];
+    }
+  });
+}
 export function cleanupState({
   installRoot,
   dataDir,
@@ -93,6 +115,7 @@ export function cleanupState({
     } catch {
       return blocked;
     }
+    const receipts = stagedReceipts(dataDir);
     const versions = fs.readdirSync(directory).flatMap((version) => {
       try {
         releaseVersion(version);
@@ -119,12 +142,19 @@ export function cleanupState({
           (candidate) => value.includes(candidate + path.sep) || value === candidate,
         ),
       );
+      const newer = compareReleaseVersions(version, active) > 0;
+      const stagedIds = receipts
+        .filter((receipt) => receipt.version === version)
+        .map((receipt) => receipt.id)
+        .sort();
+      // A newer version can be deleted only as a staged package (its receipt); one
+      // installed without a receipt may be another install's target and stays.
       const reason =
         !stat.isDirectory() || stat.isSymbolicLink() || !manifestValid
           ? "unsafe"
           : version === active
             ? "active"
-            : compareReleaseVersions(version, active) >= 0
+            : newer && !stagedIds.length
               ? "newer"
               : busy
                 ? "busy"
@@ -136,6 +166,8 @@ export function cleanupState({
           version,
           canDelete: !reason,
           deleteReason: reason,
+          newer,
+          stagedIds,
           sessionIds: references.sessionIds,
           nodeOnlyProcesses: references.nodeOnly,
           helperProcesses: references.helperReferences,
@@ -187,7 +219,11 @@ export async function stopOrphanedProcesses(
   const orphans = () =>
     new Set((entry()?.orphanedProcesses || []).map((item) => item.pid));
   const current = entry();
-  if (!current || ["active", "newer", "unsafe"].includes(current.deleteReason))
+  if (
+    !current ||
+    current.newer ||
+    ["active", "newer", "unsafe"].includes(current.deleteReason)
+  )
     throw cleanupError("cleanupInvalid", serverMessages.releases.cleanupInvalid, 400);
   const known = orphans();
   if (pids.some((pid) => !known.has(pid)))
@@ -243,24 +279,19 @@ export async function cleanupReleases(options, versions) {
     )
       throw cleanupError("cleanupChanged", serverMessages.releases.cleanupChanged, 409);
     const root = fs.realpathSync(options.installRoot);
+    const stagedIds = {};
     for (const version of versions) {
       await fs.promises.rm(path.join(root, "releases", version), { recursive: true });
-      const receipts = path.join(options.dataDir, "operations/releases");
-      for (const name of fs.readdirSync(receipts)) {
-        if (!/^[a-f0-9-]+\.json$/.test(name)) continue;
-        const file = path.join(receipts, name);
-        const stat = fs.lstatSync(file);
-        if (!stat.isFile() || stat.isSymbolicLink()) continue;
-        let receipt;
-        try {
-          receipt = JSON.parse(fs.readFileSync(file, "utf8"));
-        } catch {
-          continue;
-        }
-        if (receipt.version === version) fs.unlinkSync(file);
-      }
+      const receipts = stagedReceipts(options.dataDir)
+        .filter((receipt) => receipt.version === version)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      for (const receipt of receipts) fs.unlinkSync(receipt.file);
+      if (receipts.length) stagedIds[version] = receipts[0].id;
     }
-    return { removedVersions: versions };
+    return {
+      removedVersions: versions,
+      ...(Object.keys(stagedIds).length ? { stagedIds } : {}),
+    };
   } finally {
     fs.closeSync(fd);
     fs.unlinkSync(lock);

@@ -194,6 +194,13 @@ export function auditEvent(input) {
     details.fromProjectId !== undefined
   )
     event.details.fromProjectId = auditId(details.fromProjectId);
+  // A deleted release names the staged receipt it had (release-cleanup.js).
+  if (
+    input.resourceType === "release" &&
+    typeof details.stagedId === "string" &&
+    /^[a-f0-9][a-f0-9-]{0,63}$/.test(details.stagedId)
+  )
+    event.details.stagedId = details.stagedId;
   if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
   if (

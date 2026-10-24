@@ -290,3 +290,26 @@ test("migrate rejects invalid options before touching any job", async (t) => {
     });
   assert.equal(f.operations.jobs.running("release-"), false);
 });
+
+test("sessions on a staged version newer than the active one are never migrated", async (t) => {
+  const f = await fixture(t, [{ id: ids[0], status: "running", activity: "idle" }]);
+  const newer = `${f.installRoot}/releases/1.2.0`;
+  await fs.mkdir(newer);
+  await fs.writeFile(
+    path.join(newer, "release.json"),
+    JSON.stringify({ version: "1.2.0" }),
+  );
+  const receipts = f.operations.releases.directory;
+  await fs.writeFile(
+    path.join(receipts, "abcd.json"),
+    JSON.stringify({ id: "abcd", version: "1.2.0" }),
+  );
+  f.lines.set(
+    ids[0],
+    `100     1 ${newer}/bin/node ${newer}/server/terminal-launcher.js x/sessions/${ids[0]}.launch.json`,
+  );
+  const plan = await f.migration.plan("1.2.0");
+  assert.equal(plan.deleteReason, "inUse");
+  assert.equal(plan.migratable, false);
+  assert.deepEqual(plan.sessions, []);
+});
