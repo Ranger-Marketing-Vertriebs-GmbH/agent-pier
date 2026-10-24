@@ -3,6 +3,7 @@ import { registerToolGuard } from "./tool-guard.js";
 import { callRun, execEvidence, registerExecProcesses } from "./exec-processes.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { shareDefinition } from "./share-tool.js";
+import { registerBackgroundCommands } from "./background-commands.js";
 import { goalDefinition } from "./goal-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { registerChatTitle } from "./chat-title.js";
@@ -293,6 +294,11 @@ export default {
     try {
       if (typeof api.on === "function" && api.registrationMode === "full")
         registerExecProcesses(api);
+    } catch {}
+    // What the record holds, as counts for the goal's nudge (background-commands.js).
+    try {
+      if (typeof api.on === "function" && api.registrationMode === "full")
+        registerBackgroundCommands(api);
     } catch {}
     for (const [action, definition] of Object.entries(definitions))
       api.registerTool(
