@@ -19,6 +19,7 @@ import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
+import { agentCreateTimeoutMs } from "./gateway-client.js";
 import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
@@ -262,11 +263,15 @@ export class AssistantConfig {
         }));
       const agents = await this.client.call("agents.list", {});
       if (!agents.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
-        const created = await this.client.call("agents.create", {
-          name: assistant.runtimeAgentId,
-          workspace: path.join(this.workspaces, assistant.id),
-          model: lease.modelRef,
-        });
+        const created = await this.client.call(
+          "agents.create",
+          {
+            name: assistant.runtimeAgentId,
+            workspace: path.join(this.workspaces, assistant.id),
+            model: lease.modelRef,
+          },
+          { timeoutMs: agentCreateTimeoutMs },
+        );
         if (created.agentId !== assistant.runtimeAgentId)
           throw assistantProblem("conflict", 409);
       }
