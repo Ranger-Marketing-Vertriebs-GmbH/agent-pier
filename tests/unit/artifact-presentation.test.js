@@ -8,12 +8,12 @@ import {
   artifactListQuery,
   artifactSourceLine,
   artifactTypeLabel,
-  formatBytes,
   groupArtifactsByDate,
   relativeTime,
   shortId,
   storageWarning,
 } from "../../web/features/artifacts/artifact-presentation.js";
+import { formatBytes } from "../../web/lib/format-bytes.js";
 
 const at = (day, hour, minute = 0) => new Date(2026, 9, day, hour, minute);
 

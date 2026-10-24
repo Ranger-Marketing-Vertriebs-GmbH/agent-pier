@@ -6,6 +6,9 @@ import { assistantSshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { assistantWorkflowCopy as copy } from "../../../lib/i18n/messages/assistant-workflows.js";
 import ExecApprovalCard from "../ExecApprovalCard.jsx";
 import SshApprovalCard from "../SshApprovalCard.jsx";
+import SftpApprovalCard from "../SftpApprovalCard.jsx";
+import { assistantSftpCopy } from "../../../lib/i18n/messages/assistant-sftp.js";
+import { sftpHistoryText } from "../sftp-run-note.js";
 import SshCommandText from "../SshCommandText.jsx";
 import { sshHistoryText } from "../ssh-run-note.js";
 import SubpageHeader from "./SubpageHeader.jsx";
@@ -72,9 +75,32 @@ function SshCard({ action: a, act, assistantId }) {
   );
 }
 
+// An SFTP operation: waiting or running, it is the chat's card; otherwise one line
+// with the operation, host, outcome, files, size and duration.
+function SftpCard({ action: a, act, assistantId }) {
+  if (["awaiting_approval", "executing"].includes(a.state))
+    return (
+      <SftpApprovalCard
+        action={a}
+        viewerId={assistantId}
+        decide={(_, d) => act(() => decide(a, d))}
+      />
+    );
+  return (
+    <article className="assistant-card assistant-reminder-row" data-sftp-history>
+      <h3>{sftpHistoryText(a)}</h3>
+      {a.payload.trusted && (
+        <p className="assistant-note">{assistantSftpCopy.history.trusted}</p>
+      )}
+    </article>
+  );
+}
+
 function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "ssh")
     return <SshCard action={a} act={act} assistantId={assistantId} />;
+  if (a.payload.action === "sftp")
+    return <SftpCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
   // A lead's edit of a member, or a member's reminder on its lead: its chat line.
   if (

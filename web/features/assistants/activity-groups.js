@@ -1,12 +1,20 @@
 import { assistantSshCopy as copy } from "../../lib/i18n/messages/assistant-ssh.js";
+import { assistantSftpCopy } from "../../lib/i18n/messages/assistant-sftp.js";
 
 // Transcript events an agent chat shows as an ActivityRow (TranscriptItem.jsx).
-export const activityEvents = new Set(["ssh-run"]);
+export const activityEvents = new Set(["ssh-run", "sftp-run"]);
 // Outcomes of a run that still counts as done; a running one has none yet.
 const settled = new Set(["done", "truncated"]);
 
 /** Whether an activity note is still running, ended well or failed. */
 export function activityState(message) {
+  // An SFTP job (agent-sftp-notes.js) has a row state instead of an outcome.
+  if (message.event === "sftp-run")
+    return message.state === "executing"
+      ? "running"
+      : message.state === "completed"
+        ? "ok"
+        : "failed";
   if (message.outcome === "running") return "running";
   return settled.has(message.outcome) ? "ok" : "failed";
 }
@@ -41,8 +49,9 @@ export function groupActivity(items) {
 }
 
 /**
- * A group's ActivityGroup props: "SSH activity", the one host its calls share (or the
- * number of hosts), and how many calls failed or still run.
+ * A group's ActivityGroup props: "SSH activity" ("SFTP activity" when every call is
+ * an SFTP job), the one host its calls share (or the number of hosts), and how many
+ * calls failed or still run.
  */
 export function activityGroupView(messages) {
   const hosts = new Set(messages.map((m) => m.hostName));
@@ -50,7 +59,9 @@ export function activityGroupView(messages) {
   const failed = states.filter((s) => s === "failed").length;
   const running = states.includes("running");
   return {
-    label: copy.group.label,
+    label: messages.every((m) => m.event === "sftp-run")
+      ? assistantSftpCopy.group.label
+      : copy.group.label,
     count: messages.length,
     summary: hosts.size === 1 ? [...hosts][0] : copy.group.hosts(hosts.size),
     failed,

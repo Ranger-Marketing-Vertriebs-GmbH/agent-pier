@@ -5,14 +5,17 @@ import { useAssistantEvents } from "./useAssistants.js";
 import usePushedDecisions from "./usePushedDecisions.js";
 
 // What waits for the owner in this agent's chat: its own coding tasks, memory changes,
-// shell and SSH commands (team members included: a permanent member may have a shell),
+// shell and SSH commands, SFTP operations (team members included: a permanent member may have a shell),
 // and its members' shell commands in turns it delegated (leadAssistantId). Team coding
 // requests (teamId) belong to the lead's team card (useTeamCodingRequests).
 const own = (a) =>
   !a.teamId &&
   (a.state === "awaiting_approval" ||
-    // An allowed SSH command stays visible while it runs.
-    (a.payload?.action === "ssh" && a.state === "executing"));
+    // An allowed SSH command stays visible while it runs, and so does an allowed SFTP
+    // card with its progress (a trusted job shows as its activity row only).
+    (a.state === "executing" &&
+      (a.payload?.action === "ssh" ||
+        (a.payload?.action === "sftp" && a.payload.trusted === false))));
 
 /**
  * `pushed` is the list the chat's live feed carries (useAgentConversationStream) while
