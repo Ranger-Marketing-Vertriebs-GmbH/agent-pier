@@ -96,18 +96,20 @@ function alive(pid) {
  * Whether group `owner.pid`, whose leader is gone, is still our Doctor's: the same
  * boot, every member started no earlier than Doctor, and one of them runs the
  * runtime's own Node (a daemon group behind a reused pid runs something else).
+ * Throws when that cannot be decided while the group still exists (a probe failed,
+ * a member exited mid-check): neither killing nor ignoring it is safe then.
  */
-function ourOrphans(owner, { identity, members, boot }) {
+function ourOrphans(owner, { identity, members, boot, kill }) {
   try {
     if (!owner.boot || owner.boot !== boot()) return false;
     const found = members(owner.pid).map((pid) => identity(pid));
+    if (!found.length) throw Error("Group members unavailable.");
     return (
-      found.length > 0 &&
       found.every((member) => startedAtOrAfter(member.startTime, owner.startTime)) &&
       found.some((member) => member.executable === owner.executable)
     );
   } catch {
-    // A member that cannot be observed is not attributed to Doctor.
+    if (groupKill(kill)(owner.pid, 0)) throw ownershipConflict();
     return false;
   }
 }
@@ -134,7 +136,7 @@ export async function stopDoctor(
   const state = inspectOwner(owner, identity);
   if (state === "conflict") throw ownershipConflict();
   if (state === "stale" && (alive(owner.pid) || !owner.startTime)) return;
-  if (state === "ours" || ourOrphans(owner, { identity, members, boot }))
+  if (state === "ours" || ourOrphans(owner, { identity, members, boot, kill }))
     await killGroup(owner.pid, { kill, graceMs });
 }
 

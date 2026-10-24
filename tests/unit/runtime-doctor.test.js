@@ -242,6 +242,25 @@ test("a Doctor whose start time cannot be read is never recorded and is killed",
   assert.deepEqual(fake.signals[0], [-fakePid, "SIGKILL"]);
 });
 
+test("a Doctor whose boot identity cannot be read is never recorded and is killed", async (t) => {
+  const paths = fixture(t);
+  const fake = fakeSpawn(null);
+  const owners = [];
+  await assert.rejects(
+    migrateRuntimeState(paths, runtime, {
+      ...fake.options,
+      boot: () => {
+        throw Error("sysctl unavailable");
+      },
+      env: {},
+      onSpawn: (owner) => owners.push(owner),
+    }),
+    { code: "UPDATE_MIGRATION_FAILED" },
+  );
+  assert.deepEqual(owners, []);
+  assert.deepEqual(fake.signals[0], [-fakePid, "SIGKILL"]);
+});
+
 // A recorded Doctor whose leader is gone (the fake pid never exists).
 const gone = {
   pid: fakePid,
@@ -301,6 +320,36 @@ test("a recorded pid now used by another process is left alone", async () => {
   const identity = (pid) => (pid === process.pid ? processIdentity(pid) : ourNode);
   await stopDoctor(reused, { ...fake, identity });
   assert.deepEqual(fake.signals, []);
+});
+
+test("an attribution that fails while the group exists is a conflict", async () => {
+  const fail = () => {
+    throw Error("ps timed out");
+  };
+  for (const [why, change] of [
+    ["a member exits mid-check", { identity: fail }],
+    ["the member list cannot be read", { members: fail }],
+    ["the member list comes back empty", { members: () => [] }],
+    ["the boot identity cannot be read", { boot: fail }],
+  ]) {
+    const fake = groupFake({ 7001: ourNode });
+    await assert.rejects(
+      stopDoctor(gone, { ...fake, ...change }),
+      { code: "OWNERSHIP_CONFLICT" },
+      why,
+    );
+    assert.deepEqual(
+      fake.signals.filter(([, signal]) => signal === "SIGKILL"),
+      [],
+      why,
+    );
+  }
+  // With the group gone meanwhile, there is nothing left to decide.
+  const ended = groupFake({});
+  ended.kill = () => {
+    throw Object.assign(Error("no such group"), { code: "ESRCH" });
+  };
+  await stopDoctor(gone, { ...ended, identity: fail });
 });
 
 test("an exited but unreaped group (EPERM on macOS) is waited out", async () => {
