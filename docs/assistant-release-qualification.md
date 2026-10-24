@@ -501,11 +501,19 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   and without a network attempt (checked under a sandbox that denied every
   non-loopback connection). It only adds bookkeeping keys to `openclaw.json`
   (`meta.lastTouchedVersion`, `meta.migrations.webhookListeners`, `wizard.*`).
-- **Machine state sealed.** Doctor copies the model credential in plain form into
-  the state database's `config_machine_state`, which also holds Web Push and update
-  recovery keys. The whole table is now a credential table: emptied in public host
-  backup copies and sealed in update snapshots (see
+- **Machine state sealed.** Doctor copies every plain `models.providers.*.apiKey` into
+  the state database's `config_machine_state` (`authProfiles.store`), which also holds
+  Web Push and update recovery keys. The whole table is now a credential table:
+  emptied in public host backup copies and sealed in update snapshots (see
   [backups](backups.md#agent-databases)).
+- **Provider keys withheld from Doctor.** On 2026.10.7 such a copied profile
+  outranks the key in `openclaw.json` (AgentPier compiles no provider `auth` mode).
+  Measured on 2026.10.3 → 2026.10.7: after a key rotation the first model request
+  still carried the old key, was refused, and only then fell back to the new one; the
+  old key stayed in `config_machine_state`. AgentPier now takes the plain provider
+  keys out of `openclaw.json` for Doctor's run and puts them back afterwards
+  (`runtime-doctor.js`), so Doctor copies nothing. No `auth` field was added to the
+  compiled providers, so the rollback targets see the same configuration as before.
 - **Exec completion turn.** 2026.10.7 continues a background command through an
   ordinary event turn instead of a heartbeat run: one turn per process, the bare
   `Exec <status> (<id8>, <exit>) :: <output>` line behind the timestamp envelope,
@@ -538,7 +546,15 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   new check that every agent database is at schema 25, private (no group or other
   bits) and without Doctor's leftovers. The skip update 9.8 → 10.7 crosses both
   migrations in one activation. Without the Doctor step all 12 failed and rolled
-  back cleanly.
+  back cleanly. The rollback case also checks that the previous agent database
+  schema (24 on 2026.10.3) is back and that none of Doctor's copies remain, and every
+  case that the provider key is still in `openclaw.json`.
+- `assistant-doctor-credentials-cross-version.test.js` (new, in the `cross-version`
+  job) activates through Doctor, rotates a model key the provider then refuses, and
+  checks that every later request carries the new key, that no OpenClaw database
+  holds the old or the new key after a restart, and that removing the provider leaves
+  no request and no copy. It failed before the fix (the old key in
+  `config_machine_state`) and passed after it from v2.6.1, v2.0.0 and v1.28.1.
 - The team plugin, native write and runtime contracts passed with the new code on
   the rollback targets 2026.10.3, 2026.9.9 and 2026.9.8 (5 of 5 on each).
 - `scripts/verify-assistant-installation.mjs` and `scripts/verify-mcp-toolchains.mjs`
