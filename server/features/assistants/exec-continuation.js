@@ -60,6 +60,8 @@ export class CompletionRuns {
     this.runs = new Map();
     // Runs seen ending: a verification that returns late admits nothing.
     this.ended = new Set();
+    // The transcript read under way per run: concurrent calls share it.
+    this.verifying = new Map();
   }
   /** Takes every Gateway `agent` event. */
   observe(payload) {
@@ -101,6 +103,7 @@ export class CompletionRuns {
   clear() {
     this.runs.clear();
     this.ended.clear();
+    this.verifying.clear();
   }
 }
 
@@ -295,6 +298,18 @@ async function transcriptRefusal(bridge, input, completion) {
   }
 }
 
+// One read per run at a time: concurrent calls of a pending run wait for the same.
+function verification(bridge, input, completion) {
+  const reads = bridge.assistants.completionRuns?.verifying;
+  const key = `${input.sessionKey}\u0000${input.runId}`;
+  if (reads?.has(key)) return reads.get(key);
+  const read = transcriptRefusal(bridge, input, completion).finally(() => {
+    if (reads?.get(key) === read) reads.delete(key);
+  });
+  reads?.set(key, read);
+  return read;
+}
+
 /**
  * The source of a call whose evidence proves it, or null (logged). A 2026.10.7 event
  * turn not yet verified is read from the transcript once (a promise), then admitted
@@ -313,7 +328,7 @@ function provenSource(bridge, input, { verify = true } = {}) {
   if (code) return refuse(bridge, input, code);
   if (!source.run.pending) return source;
   if (!verify) return refuse(bridge, input, "RUN");
-  return transcriptRefusal(bridge, input, evidence.completion).then((refused) => {
+  return verification(bridge, input, evidence.completion).then((refused) => {
     if (refused) return refuse(bridge, input, refused);
     bridge.assistants.completionRuns?.admit(source.runId, input.sessionKey);
     // The chat may have moved on during the read.

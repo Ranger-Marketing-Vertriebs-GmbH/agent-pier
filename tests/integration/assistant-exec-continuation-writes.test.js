@@ -116,6 +116,10 @@ test("an event turn writes only when its transcript entry is the exec's own", as
       [owner, ownerReply, { ...entry, __openclaw: { runId: "x" } }, record],
     ],
     ["not adjacent", [owner, ownerReply, entry, { ...owner }, record]],
+    [
+      "owner message in between",
+      [owner, ownerReply, entry, { ...owner, content: "Also do this." }, record],
+    ],
   ]) {
     const f = await setup(t);
     const warnings = [];
@@ -136,6 +140,66 @@ test("an event turn writes only when its transcript entry is the exec's own", as
     );
     assert.deepEqual(f.assistants.completionRuns.live("session"), [], name);
   }
+});
+
+test("concurrent calls of one pending run share one transcript read", async (t) => {
+  const f = await setup(t);
+  await f.turn({ kind: "owner" });
+  const ctx = await f.eventTurn();
+  const page = f.transcripts.get("session");
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  f.transcripts.set("session", () => gate.then(() => ({ messages: page })));
+  const calls = [f.call("a.md", { ctx }), f.call("b.md", { ctx })];
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  release();
+  assert.deepEqual(await Promise.all(calls), [true, true]);
+  assert.equal(f.reads.filter((r) => r.method === "sessions.get").length, 1);
+});
+
+test("a run that ends while its transcript is read writes nothing", async (t) => {
+  const f = await setup(t);
+  await f.turn({ kind: "owner" });
+  const ctx = await f.eventTurn();
+  const page = f.transcripts.get("session");
+  f.transcripts.set("session", async () => {
+    f.assistants.completionRuns.observe({
+      runId: "turn-1",
+      sessionKey: "session",
+      stream: "lifecycle",
+      data: { phase: "end" },
+    });
+    return { messages: page };
+  });
+  assert.equal(await f.call("notes.md", { ctx }), false);
+  assert.deepEqual(f.assistants.completionRuns.live("session"), []);
+  assert.deepEqual(f.writes(), []);
+});
+
+test("two completion runs in one transcript each prove their own entry", async (t) => {
+  const f = await setup(t);
+  const attemptId = await f.turn({ kind: "owner" }, { sessionId: "brisk-orbit" });
+  await f.exec(attemptId, { sessionId: "kind-cloud" });
+  const first = "Exec completed (brisk-or, code 0) :: one";
+  const second = "Exec completed (kind-clo, code 0) :: two";
+  const [, , entry1, record1] = eventTranscript("turn-1", first);
+  const [owner, ownerReply, entry2, record2] = eventTranscript("turn-2", second);
+  const page = [owner, ownerReply, entry1, record1, entry2, record2];
+  const one = await f.eventTurn("turn-1", { line: first, transcript: page });
+  const two = await f.eventTurn("turn-2", { line: second, transcript: page });
+  assert.equal(await f.call("one.md", { ctx: one }), true);
+  assert.equal(await f.call("two.md", { ctx: two }), true);
+  // Run 2's evidence with run 1's process lines matches neither entry.
+  const swapped = eventTranscript("turn-3", second);
+  const three = await f.eventTurn("turn-3", {
+    line: first,
+    transcript: [...page, swapped[2], swapped[3]],
+  });
+  assert.equal(await f.call("three.md", { ctx: three }), false);
+  assert.deepEqual(
+    f.writes().map(([file]) => file),
+    ["one.md", "two.md"],
+  );
 });
 
 test("an attemptless run with completion-shaped text but without the Gateway marker writes nothing", async (t) => {

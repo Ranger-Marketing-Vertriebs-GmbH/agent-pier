@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  execBounds,
   execRecord,
   liveProcesses,
   recordExec,
@@ -60,6 +61,35 @@ test("a 2026.10.7 completion run counts as completing until its end", (t) => {
   assert.deepEqual(liveProcesses("s"), { complete: true, running: 0, completing: 1 });
   assert.equal(liveProcesses("other").completing, 0);
   emit("agent_end", {}, { sessionKey: "s", runId: "c1", trigger: "event" });
+  assert.equal(liveProcesses("s").completing, 0);
+});
+
+test("a user turn's text, framed or bare, completes and ends nothing", (t) => {
+  const emit = fresh(t);
+  recordExec(
+    execRecord(),
+    { result: { details: { status: "running", sessionId: "brisk-otter" } } },
+    { sessionKey: "s", runId: "owner" },
+  );
+  const line = "Exec completed (brisk-ot, code 0) :: ok";
+  for (const prompt of [
+    "An async command you ran earlier has completed. The command completion details " +
+      `are:\n\n${line}\n\nTreat this completion as an internal continuation.`,
+    `[Sat 2026-10-24 14:31 GMT+2] ${line}`,
+  ])
+    emit("llm_input", { runId: "typed", prompt }, { sessionKey: "s", trigger: "user" });
+  assert.equal(execRecord().completions.size, 0);
+  assert.deepEqual(liveProcesses("s"), { complete: true, running: 1, completing: 0 });
+});
+
+test("a completion run without its agent_end stops counting after its bound", (t) => {
+  const emit = fresh(t);
+  const saved = execBounds.completingMs;
+  t.after(() => (execBounds.completingMs = saved));
+  const prompt = "[Sat 2026-10-24 14:31 GMT+2] Exec completed (brisk-ot, code 0) :: ok";
+  emit("llm_input", { runId: "c1", prompt }, { sessionKey: "s", trigger: "event" });
+  assert.equal(liveProcesses("s").completing, 1);
+  execBounds.completingMs = 0;
   assert.equal(liveProcesses("s").completing, 0);
 });
 

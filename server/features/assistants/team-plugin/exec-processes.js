@@ -57,6 +57,9 @@ export const execBounds = {
   maxPending: 1024,
   dropAfterMs: 2 * 3600000,
   marginMs: 10 * 60000,
+  // A 2026.10.7 completion run counts as under way this long at most: its agent_end
+  // may never come (an attempt that throws, a detached or finalizing one).
+  completingMs: 30 * 60000,
 };
 const filterBits = 1 << 20;
 // Exec results that never leave a process running for a later completion.
@@ -293,10 +296,12 @@ export function liveProcesses(sessionKey) {
     !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
     !pending;
   // 2026.10.7's completion runs under way: the Gateway marks no agent event of
-  // theirs, so only this record knows them (until their agent_end).
+  // theirs, so only this record knows them (until their agent_end, or its bound).
   let completing = 0;
+  const now = Date.now();
   for (const c of record.completions.values())
-    if (c.internal && c.sessionKey === sessionKey) completing += 1;
+    if (c.internal && c.sessionKey === sessionKey && now - c.at < execBounds.completingMs)
+      completing += 1;
   return {
     complete,
     running: entry ? entry.processes.filter((p) => !p.endedAt).length : 0,
@@ -421,6 +426,8 @@ export function registerExecProcesses(api) {
     const runId = event?.runId ?? ctx?.runId;
     if (typeof runId !== "string" || typeof ctx?.sessionKey !== "string") return;
     if (record.completions.has(runId)) return;
+    // Whatever a user turn's text says, it reports no process (and ends none).
+    if (ctx.trigger === "user") return;
     const ids = completedProcesses(event?.prompt);
     if (!ids) return;
     // The bare line counts only in an event turn: typed by anyone it is a user turn.
