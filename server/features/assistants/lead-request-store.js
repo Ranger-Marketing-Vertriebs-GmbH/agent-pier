@@ -14,6 +14,7 @@ import {
 } from "./lead-request-proof.js";
 import { autonomousCaps } from "./team-policy.js";
 import { directOwnerTurn, goalTurn, ownerSource } from "./goal-turns.js";
+import { WorkGoalStore } from "./work-goal-store.js";
 export { ownerQuote } from "./lead-request-proof.js";
 // Questions and tasks a lead agent sends to its own members. They live in the team
 // store as `lead-request` records beside the teams and members they refer to.
@@ -392,8 +393,15 @@ export class LeadRequestStore {
       // The owner's ruling: in a goal turn the goal is the owner's involvement, so a
       // task without a proof may write like an autonomous lead's own one, whatever
       // the team usage and whether or not the anchor names the member. Capped per
-      // turn; the hourly limit neither counts nor refuses it.
-      const goalTask = type === "task" && !!goal && !proof && ownerTurn && !negated;
+      // turn; the hourly limit neither counts nor refuses it. Only while the goal is
+      // still open: a continuation that runs on after Stop is no goal turn.
+      const goalTask =
+        type === "task" &&
+        !!goal &&
+        new WorkGoalStore(t).open(conversation.id)?.id === goal.id &&
+        !proof &&
+        ownerTurn &&
+        !negated;
       const selfInitiated = (usage === "autonomous" && !proof && !named) || goalTask;
       if (selfInitiated) {
         const own = mine.filter((r) => r.selfInitiated);
