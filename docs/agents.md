@@ -276,7 +276,9 @@ told it was not saved.
   split between paragraphs or lines (beyond about 64,000 characters or 40 messages
   a closing note says the reply was shortened). **Telegram activity** shows deliveries that
   need a decision. Voice messages are transcribed when a Deepgram key is set under
-  **Accounts → Services for agents → Speech recognition**. Files the agent shares in
+  **Accounts → Services for agents → Speech recognition**. Photos, documents and
+  videos you send there reach the agent like [attachments](#attachments) (see
+  [files from Telegram](#files-from-telegram)). Files the agent shares in
   a Telegram turn reach Telegram too ([files from agents](#files-from-agents)).
 - **Telegram for other people:** gives the agent its own bot for people you choose,
   each with a separate conversation. Add each person by numeric Telegram user ID
@@ -286,7 +288,10 @@ told it was not saved.
   removing or renaming people applies at once while the agent service keeps running;
   connecting a bot needs a restart of the agent service, which then is pending (see
   above); disconnecting a bot, replacing its token or removing the last person
-  restarts the agent service after you confirm.
+  restarts the agent service after you confirm. Such a bot is run by the agent service
+  itself, so photos and files its people send are handled there as before, like
+  their text: they are kept in the agent service's own media store, never in the
+  agent's `attachments/` folder, and none of the AgentPier rules below apply to them.
 
 ## Teams, asks and tasks
 
@@ -881,6 +886,33 @@ The agent receives the video as a file in its workspace, with its length and siz
 pixels, and is told that it cannot watch it. No model sees the video itself: AgentPier
 sends no video to the model and extracts no frames. Videos count toward the agent's
 1 GB of attachments.
+
+### Files from Telegram
+
+Photos, documents and videos you send in the agent's paired Telegram chat become
+attachments of that message, with the same types, limits and storage as files
+attached in AgentPier: the caption is the message's text, and the chat shows the
+files under the message "via Telegram". AgentPier downloads each file from Telegram
+with the bot's token on the host (the token never reaches the browser, the agent,
+logs or notices) and saves the copy in the agent's `attachments/` folder like an
+upload. Telegram lets bots download files of at most 20 MB, so a video above 20 MB
+cannot be fetched; other files stay limited to 10 MB.
+
+- **Albums:** several photos or videos sent together arrive as one message with all
+  their files in order and the caption. AgentPier waits until no further item of the
+  album has come for 2.5 seconds; an item that Telegram delivers later still joins the
+  album while it waits for an earlier message to finish. At most five files per message
+  are passed on; the chat is told how many were left out.
+- **What does not arrive:** stickers, audio files, contacts, locations, polls, files
+  of an unsupported type, files that are too large or could not be downloaded, and a
+  full attachment folder are named in one reply per message or album, for example
+  "Not everything reached the agent – “backup.zip”: file type not supported. The rest
+  of the message was passed on." The caption and the other files still reach the agent.
+  A message with nothing to pass on is not sent to the agent.
+- **Forwarded** photos and files reach the agent as forwarded content, like forwarded
+  text: quoted data that never starts a team or changes settings.
+- A restricted user's own bot takes what her chat in AgentPier takes: images, PDF
+  and text files, but no videos.
 
 ### Files from agents
 
