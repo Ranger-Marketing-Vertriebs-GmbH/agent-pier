@@ -134,6 +134,38 @@ test("key sign-in offers saved keys", async ({ page }) => {
   expect(post.body).not.toHaveProperty("password");
 });
 
+test("a host whose key was deleted needs a new key before Save", async ({ page }) => {
+  const state = await fixture(page);
+  state.accesses = [
+    sftpHost(state, {
+      auth: "key",
+      keyId: "key-gone",
+      keyName: null,
+      keyMissing: true,
+      hasPassword: false,
+    }),
+  ];
+  await english(page);
+  await page.goto(baseURL + "/settings/ssh");
+  const row = page.getByRole("button", { name: "Files box", exact: true });
+  await expect(row).toContainText("Key deleted");
+  await openAccess(page, "Files box");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const key = dialog.getByRole("combobox", { name: "SSH key" });
+  await expect(key).toHaveValue("");
+  await expect(
+    dialog.getByText("The key of this host was deleted. Choose another key."),
+  ).toBeVisible();
+  const save = dialog.getByRole("button", { name: "Save", exact: true });
+  await expect(save).toBeDisabled();
+  await key.selectOption("key-one");
+  await expect(save).toBeEnabled();
+  await save.click();
+  const patch = state.calls.find((call) => call.method === "PATCH");
+  expect(patch.body).toMatchObject({ auth: "key", keyId: "key-one" });
+});
+
 test("test connection reports success", async ({ page }) => {
   const state = await fixture(page);
   state.accesses = [sftpHost(state)];
@@ -164,7 +196,9 @@ test("Work tab shows SFTP mode texts", async ({ page }) => {
   await page.goto(baseURL + settingsPath("work", "ssh"));
   await page.getByLabel("files-box", { exact: true }).check();
   const modes = page.getByRole("group", { name: "Mode" });
-  await expect(modes.getByText("Reading runs, every change asks.")).toBeVisible();
+  await expect(
+    modes.getByText("Reads run without asking; every change asks."),
+  ).toBeVisible();
   await expect(
     modes.getByText("Changes run without asking, deletes always ask."),
   ).toBeVisible();

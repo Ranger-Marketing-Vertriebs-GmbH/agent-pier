@@ -46,9 +46,10 @@ and agents that work as a team.
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier and per-agent folders for local servers
   ([MCP](docs/mcp.md)).
-- **SSH and SFTP:** pinned SSH hosts and SFTP hosts (password or key) that coding
-  CLIs and agents use, with approvals for changes and deletes, whole-folder transfers,
-  syncs and live activity rows ([SSH](docs/ssh-access.md), [SFTP](docs/sftp-access.md)).
+- **SSH and SFTP:** SSH and SFTP hosts with a pinned host key (SFTP with a password
+  or a key) that coding CLIs and agents use, with approvals for changes and deletes,
+  whole-folder transfers, syncs and live activity rows ([SSH](docs/ssh-access.md),
+  [SFTP](docs/sftp-access.md)).
 - **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and
   agent services in one place ([providers](docs/providers.md)).
 - **Files and knowledge:** a file explorer, private artifacts, shared project memory

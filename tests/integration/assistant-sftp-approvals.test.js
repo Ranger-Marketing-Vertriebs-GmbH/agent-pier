@@ -202,6 +202,27 @@ test("allow-always is refused on a card with deletes", async (t) => {
   assert.equal(read(f, "gone.txt"), "g");
 });
 
+test("a deleteExtra sync never offers or accepts Always allow, even without deletes", async (t) => {
+  const f = await approvalFixture(t);
+  const call = f.sftpCall(f.ownTurn(), {
+    action: "sync",
+    direction: "up",
+    localPath: "site",
+    remotePath: "/www",
+    deleteExtra: true,
+  });
+  const a = await waitFor(() => card(f));
+  assert.equal(a.payload.kind, "delete");
+  assert.equal(a.payload.deletes, 0);
+  assert.equal(a.payload.allowAlways, false);
+  // Even a card that claims it, decide refuses on the action's kind.
+  f.workflows.store.patch(a.id, { payload: { ...a.payload, allowAlways: true } });
+  await assert.rejects(decide(f, a, "allow-always"), { status: 400 });
+  assert.equal(f.workflows.access.get(f.id).sshAccesses[0].mode, "approval");
+  await decide(f, a, "decline");
+  assert.equal((await call).status, "denied");
+});
+
 test("deny writes nothing", async (t) => {
   const f = await approvalFixture(t);
   const call = upload(f);

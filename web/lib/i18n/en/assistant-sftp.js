@@ -71,13 +71,14 @@ export const assistantSftpCopy = {
     SFTP_TIMEOUT: "The operation took too long and was stopped.",
     SFTP_NOT_FOUND: "The path does not exist on the server.",
     SFTP_PERMISSION: "Permission denied.",
-    SFTP_PATH_REFUSED: "The path is outside the allowed folder.",
+    SFTP_PATH_REFUSED:
+      "The path is not allowed: it is outside the allowed folder or its name or pattern is invalid.",
     SFTP_LIMIT: "The transfer exceeds the size or file limit.",
     SFTP_TYPE_CONFLICT:
       "A file stands where a folder is expected, or the other way round.",
     SFTP_PLAN_CHANGED: "The files changed since the plan was made. Nothing was written.",
     SFTP_JOB_NOT_FOUND: "The job is no longer known.",
-    SFTP_BUSY: "Another transfer is running on this folder.",
+    SFTP_BUSY: "Too many transfers are running, or another one writes to this folder.",
     SFTP_CANCELLED: "The job was cancelled.",
     SFTP_FAILED: "The transfer failed.",
     SFTP_WORKSPACE_REFUSED: "The local folder may not be used for this transfer.",

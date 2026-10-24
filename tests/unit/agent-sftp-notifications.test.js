@@ -153,7 +153,7 @@ test("German texts and the result", () => {
     "SFTP-Vorgang wartet auf Freigabe",
     "Vorgang: Hochladen",
     "Neu: 1 · Geändert: 1 · Gelöscht: 0",
-    "Überschreibt: 1",
+    "Überschreibungen: 1",
   ])
     assert.ok(entry.text.includes(part), part);
   const done = notify(action({}, { state: "completed" }), "result", "de");

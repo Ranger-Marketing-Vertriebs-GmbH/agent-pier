@@ -49,9 +49,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
   für lokale Server ([MCP](docs/mcp.md)).
-- **SSH und SFTP:** geprüfte SSH-Hosts und SFTP-Hosts (Passwort oder Schlüssel), die
-  Coding-CLIs und Agenten nutzen, mit Freigaben für Änderungen und Löschungen,
-  Ordnerübertragungen, Abgleich und Live-Aktivitätszeilen
+- **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
+  Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
+  Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und
+  Live-Aktivitätszeilen
   ([SSH](docs/ssh-access.md), [SFTP](docs/sftp-access.md)).
 - **Accounts an einer Stelle:** native CLI-Accounts, Provider-Zugänge, ChatGPT für
   Agenten und Dienste für Agenten ([Provider](docs/providers.md)).

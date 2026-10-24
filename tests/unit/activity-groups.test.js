@@ -74,6 +74,7 @@ test("a group of calls on one host names it and reads done", () => {
     count: 3,
     summary: "proxmox-2",
     failed: 0,
+    stopped: 0,
     running: false,
     done: true,
   });
@@ -160,7 +161,7 @@ test("SFTP rows join the SSH rows' group instead of ending it", () => {
   ]);
 });
 
-test("SFTP states count as running, done or failed in their group", () => {
+test("SFTP states count as running, done, stopped or failed in their group", () => {
   setLanguage("en");
   const running = activityGroupView([
     sftp("a").message,
@@ -171,6 +172,7 @@ test("SFTP states count as running, done or failed in their group", () => {
     count: 2,
     summary: "proxmox-2",
     failed: 0,
+    stopped: 0,
     running: true,
     done: false,
   });
@@ -181,7 +183,31 @@ test("SFTP states count as running, done or failed in their group", () => {
     ssh("d").message,
   ]);
   assert.deepEqual(
-    [failed.label, failed.failed, failed.done],
-    ["SSH activity", 3, false],
+    [failed.label, failed.failed, failed.stopped, failed.done],
+    ["SSH activity", 2, 1, false],
   );
+});
+
+test("a stopped SFTP job counts as stopped, not failed, like its row", () => {
+  setLanguage("en");
+  const view = activityGroupView([
+    sftp("a").message,
+    sftp("b", { state: "cancelled" }).message,
+  ]);
+  assert.deepEqual([view.failed, view.stopped, view.done], [0, 1, false]);
+  assert.deepEqual(activityGroupHead(view), {
+    detail: "2 calls · proxmox-2",
+    status: "1 stopped",
+    tone: "neutral",
+  });
+  const mixed = activityGroupHead(
+    activityGroupView([
+      sftp("a", { state: "failed" }).message,
+      sftp("b", { state: "cancelled" }).message,
+    ]),
+  );
+  assert.deepEqual([mixed.status, mixed.tone], ["1 failed · 1 stopped", "error"]);
+  setLanguage("de");
+  assert.equal(activityGroupHead(view).status, "1 gestoppt");
+  setLanguage("en");
 });

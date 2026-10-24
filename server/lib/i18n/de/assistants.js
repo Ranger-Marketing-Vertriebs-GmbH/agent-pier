@@ -90,7 +90,7 @@ export const assistants = {
   sftpCounts: (created, changed, deleted) =>
     `Neu: ${created} · Geändert: ${changed} · Gelöscht: ${deleted}`,
   sftpSize: (size) => `Größe: ${size}`,
-  sftpOverwrites: (count) => `Überschreibt: ${count}`,
+  sftpOverwrites: (count) => `Überschreibungen: ${count}`,
   sftpLists: {
     create: "Neu",
     update: "Geändert",

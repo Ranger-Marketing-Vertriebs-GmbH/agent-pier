@@ -171,10 +171,12 @@ password are the exception, because their password cannot be recreated from a ke
   `sftpHosts: { restored, withoutProject }` (the counts of restored hosts and of those
   that lost their project); the Operations page does not show it.
 - **Older releases cannot restore such a backup.** A credential backup that holds
-  password SFTP hosts can only be restored on AgentPier 2.6.0 or newer. AgentPier 2.5.1 and older reject it with "unexpected component", because
-  the capsule member is unknown to them, just as the browser profiles keep 2.0 to 2.2
-  from restoring a backup that holds them (see "Sealed history"). Ordinary backups,
-  and credential backups without password SFTP hosts, still restore on older releases.
+  password SFTP hosts can only be restored on AgentPier 2.6.0 or newer. AgentPier 2.5.1
+  and older reject it with "Unerwarteter Backup-Bestandteil." (in English: "Unexpected
+  backup component."), because the capsule member is unknown to them, just as the
+  browser profiles keep 2.0 to 2.2 from restoring a backup that holds them (see "Sealed
+  history"). Ordinary backups, and credential backups without password SFTP hosts,
+  still restore on older releases.
 
 ## CLI profile allowlists
 

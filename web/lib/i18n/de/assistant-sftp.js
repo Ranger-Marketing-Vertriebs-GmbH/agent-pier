@@ -27,7 +27,7 @@ export const assistantSftpCopy = {
     local: (place, path) => `${place} · ${path}`,
     counts: "Dateien",
     size: "Größe",
-    overwrites: "Überschreibt",
+    overwrites: "Überschreibungen",
     deleteExtra: "Löscht Dateien am Ziel, die in der Quelle fehlen.",
     deletes: (count) =>
       `Löscht ${count} ${count === 1 ? "Eintrag" : "Einträge"} auf dem Server. Löschen fragt immer nach.`,
@@ -44,7 +44,7 @@ export const assistantSftpCopy = {
     allowOnce: "Einmal erlauben",
     allowAlways: "Für diesen Host immer erlauben",
     deny: "Ablehnen",
-    expires: (time) => `Läuft ab ${time}`,
+    expires: (time) => `Läuft ab: ${time}`,
     states: {
       awaiting_approval: "Wartet auf deine Entscheidung",
       executing: "Läuft …",
@@ -67,18 +67,20 @@ export const assistantSftpCopy = {
   codes: {
     SFTP_AUTH_FAILED: "Der Server hat die Anmeldung abgelehnt.",
     SFTP_HOST_KEY_MISMATCH:
-      "Der Host-Schlüssel des Servers passt nicht mehr zum vertrauten.",
+      "Der Host-Schlüssel des Servers passt nicht mehr zum bestätigten Host-Schlüssel.",
     SFTP_UNREACHABLE: "Der Server war nicht erreichbar.",
     SFTP_TIMEOUT: "Der Vorgang dauerte zu lange und wurde gestoppt.",
     SFTP_NOT_FOUND: "Der Pfad existiert auf dem Server nicht.",
     SFTP_PERMISSION: "Zugriff verweigert.",
-    SFTP_PATH_REFUSED: "Der Pfad liegt außerhalb des erlaubten Ordners.",
+    SFTP_PATH_REFUSED:
+      "Der Pfad ist nicht erlaubt: Er liegt außerhalb des erlaubten Ordners, oder sein Name oder Muster ist ungültig.",
     SFTP_LIMIT: "Die Übertragung überschreitet die Größen- oder Dateigrenze.",
     SFTP_TYPE_CONFLICT: "Wo ein Ordner erwartet wird, liegt eine Datei, oder umgekehrt.",
     SFTP_PLAN_CHANGED:
       "Die Dateien haben sich seit dem Plan geändert. Es wurde nichts geschrieben.",
     SFTP_JOB_NOT_FOUND: "Der Auftrag ist nicht mehr bekannt.",
-    SFTP_BUSY: "In diesem Ordner läuft bereits eine andere Übertragung.",
+    SFTP_BUSY:
+      "Es laufen zu viele Übertragungen, oder eine andere schreibt gerade in diesen Ordner.",
     SFTP_CANCELLED: "Der Auftrag wurde abgebrochen.",
     SFTP_FAILED: "Die Übertragung ist fehlgeschlagen.",
     SFTP_WORKSPACE_REFUSED:

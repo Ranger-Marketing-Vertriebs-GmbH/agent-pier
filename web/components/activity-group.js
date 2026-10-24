@@ -3,17 +3,27 @@ import { activityGroupCopy as copy } from "../lib/i18n/messages/activity-group.j
 /**
  * The head of an activity group (ActivityGroup.jsx): "N calls" with an optional
  * `summary` (a host, or the main tools), and a chip that keeps failures visible while
- * the group is shut: "Running" while a call runs, "N failed", or "Done" once every
- * call is known to have ended well (`done`); no chip otherwise.
+ * the group is shut: "Running" while a call runs, "N failed", "N stopped" (neutral, like
+ * a stopped call's own row), or "Done" once every call is known to have ended well
+ * (`done`); no chip otherwise.
  */
-export function activityGroupHead({ count, summary, failed = 0, running = false, done }) {
-  const status = [running && copy.running, failed > 0 && copy.failed(failed)].filter(
-    Boolean,
-  );
+export function activityGroupHead({
+  count,
+  summary,
+  failed = 0,
+  stopped = 0,
+  running = false,
+  done,
+}) {
+  const status = [
+    running && copy.running,
+    failed > 0 && copy.failed(failed),
+    stopped > 0 && copy.stopped(stopped),
+  ].filter(Boolean);
   return {
     detail: [copy.calls(count), summary].filter(Boolean).join(" · "),
     status: status.length ? status.join(" · ") : done ? copy.done : null,
-    tone: failed > 0 ? "error" : running ? "running" : "ok",
+    tone: failed > 0 ? "error" : running ? "running" : stopped > 0 ? "neutral" : "ok",
   };
 }
 

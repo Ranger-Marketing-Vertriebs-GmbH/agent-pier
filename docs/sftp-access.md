@@ -67,6 +67,9 @@ combination fails with `SSH_HOST_TYPE`.
 | Rename     | Rename or move an entry. It never replaces an existing target.            |
 | Delete     | A file, a link or an empty folder; a whole folder only with `recursive`.  |
 
+Delete and rename never touch the allowed remote folder itself, nor `/`: both are
+refused with `SFTP_PATH_REFUSED`.
+
 Reading (list, stat, download, sync down without deletes) never asks. Every change on
 the server (upload, new folder, rename, sync up) asks agents unless the host is
 trusted. Deletes always ask, in every mode.
@@ -106,6 +109,11 @@ trusted. Deletes always ask, in every mode.
 Size and file count are checked on a pre-scan before any approval card, so an agent can
 never ask you to approve more than the caps. Two jobs that write to overlapping remote
 folders on one host do not run together (`SFTP_BUSY`).
+
+Known limit: the job and folder limits apply per process. The AgentPier server runs the
+agents' jobs, and every coding session runs its own. Writing jobs from two coding
+sessions, or from a session and an agent, are therefore not serialized and can overlap
+on the same host folder, sync deletes included. Coordinate such work yourself.
 
 ### Jobs and cancel
 
@@ -185,8 +193,9 @@ An approval card appears in the chat and, for the paired Telegram chat, as a mes
   files would be overwritten and the paths (expandable). Hidden characters in paths are
   shown as codes.
 - **Always allow for this host** appears only on cards for the agent's own grant. It
-  never appears on delete cards, nor on cards of temporary members, who use their
-  lead's grant.
+  never appears on cards of temporary members, who use their lead's grant, nor on any
+  delete: neither on `delete` nor on a `sync` with `deleteExtra`, even when its plan
+  deletes nothing.
 - At most 3 SFTP cards can be open at once; a fourth request is refused with
   `SFTP_APPROVAL_LIMIT`.
 - Telegram offers the buttons only when the card can be decided there: at most 20
@@ -199,7 +208,9 @@ An approval card appears in the chat and, for the paired Telegram chat, as a mes
 
 Every transfer leaves an activity row in the chat (see [agents](agents.md#work)). Rows
 of consecutive calls share one group ("SFTP activity", or "SSH activity" when SSH
-commands are mixed in). The Work tab keeps a one-line history per operation.
+commands are mixed in). Its chip counts failed jobs ("1 failed") apart from stopped ones
+("1 stopped"), like the rows' own "Stopped". The Work tab keeps a one-line history per
+operation.
 
 Agents see list and stat results as untrusted data: file names are never instructions.
 

@@ -34,8 +34,12 @@
   border: 1px solid currentColor;
   font-size: 0.8em;
 }
+/* The host key's button sits on its term's line like any other fact; it grows to the
+   touch target only on phones and touch screens. */
+.ssh-approval-facts {
+  align-items: baseline;
+}
 .ssh-host-key {
-  min-height: 44px;
   max-width: 100%;
   overflow-wrap: anywhere;
   background: none;
@@ -57,6 +61,11 @@
 @keyframes ssh-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@media (max-width: 700px), (any-pointer: coarse) {
+  .ssh-host-key {
+    min-height: var(--touch-target);
   }
 }
 @media (prefers-reduced-motion: reduce) {

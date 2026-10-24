@@ -162,22 +162,38 @@ test("Allow once and Deny send their decisions", async ({ page }) => {
     ]);
 });
 
-test("delete card has no Always allow", async ({ page }) => {
+test("delete, deleteExtra and member cards have no Always allow", async ({ page }) => {
   await setup(page, {
     actions: [
       deleteAction("d1"),
       // A temporary member's card uses its lead's grant: no Always allow either.
       sftpAction("m1", { payload: { allowAlways: false, hostName: "web-02" } }),
+      // A sync with deleteExtra always asks, even when its plan deletes nothing.
+      sftpAction("x1", {
+        payload: {
+          operation: "sync",
+          kind: "delete",
+          deleteExtra: true,
+          allowAlways: false,
+          hostName: "web-03",
+        },
+      }),
     ],
   });
   await openChat(page);
-  const [del, member] = [sftpCard(page).first(), sftpCard(page).nth(1)];
+  const [del, member, extra] = [0, 1, 2].map((i) => sftpCard(page).nth(i));
+  // Neither card without deletes warns about deletes.
+  for (const card of [member, extra]) {
+    await expect(card).toContainText("5 new · 1 changed · 0 deleted");
+    await expect(card.locator("[data-deletes]")).toHaveCount(0);
+  }
+  await expect(extra).toContainText("web-03");
   await expect(del).toContainText("Delete");
   await expect(del).toContainText("0 new · 0 changed · 4 deleted");
   await expect(del.locator("[data-deletes]")).toHaveText(
     "Deletes 4 entries on the server. Deletes always ask.",
   );
-  for (const card of [del, member]) {
+  for (const card of [del, member, extra]) {
     await expect(card.getByRole("button", { name: "Allow once" })).toBeVisible();
     await expect(card.getByRole("button", { name: "Deny" })).toBeVisible();
     await expect(card.getByRole("button", { name: /Always allow/ })).toHaveCount(0);
