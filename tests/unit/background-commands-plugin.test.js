@@ -32,7 +32,7 @@ test("a backgrounded exec counts as running until its end is observed", (t) => {
     },
     { sessionKey: "s", runId: "r" },
   );
-  assert.deepEqual(liveProcesses("s"), { complete: true, running: 1 });
+  assert.deepEqual(liveProcesses("s"), { complete: true, running: 1, completing: 0 });
   emit(
     "after_tool_call",
     {
@@ -43,6 +43,24 @@ test("a backgrounded exec counts as running until its end is observed", (t) => {
   );
   assert.equal(liveProcesses("s").running, 0);
   assert.equal(liveProcesses("other").running, 0);
+});
+
+test("a 2026.10.7 completion run counts as completing until its end", (t) => {
+  const emit = fresh(t);
+  recordExec(
+    execRecord(),
+    { result: { details: { status: "running", sessionId: "brisk-otter" } } },
+    { sessionKey: "s", runId: "owner" },
+  );
+  const prompt = "[Sat 2026-10-24 14:31 GMT+2] Exec completed (brisk-ot, code 0) :: ok";
+  // A typed line is a user turn: nothing completes.
+  emit("llm_input", { runId: "typed", prompt }, { sessionKey: "s", trigger: "user" });
+  assert.deepEqual(liveProcesses("s"), { complete: true, running: 1, completing: 0 });
+  emit("llm_input", { runId: "c1", prompt }, { sessionKey: "s", trigger: "event" });
+  assert.deepEqual(liveProcesses("s"), { complete: true, running: 0, completing: 1 });
+  assert.equal(liveProcesses("other").completing, 0);
+  emit("agent_end", {}, { sessionKey: "s", runId: "c1", trigger: "event" });
+  assert.equal(liveProcesses("s").completing, 0);
 });
 
 test("a session with an unknown exec result is not complete", (t) => {
@@ -92,6 +110,6 @@ test("the method answers counts only, admin scope, and refuses bad input", async
       ],
     ]);
   assert.deepEqual(await call({ sessionKey: "s" }), [
-    [true, { complete: true, running: 1 }],
+    [true, { complete: true, running: 1, completing: 0 }],
   ]);
 });

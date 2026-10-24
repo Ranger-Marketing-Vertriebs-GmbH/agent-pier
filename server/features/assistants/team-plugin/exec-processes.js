@@ -16,7 +16,12 @@
 //   Every other error leaves its session uncertain: OpenClaw may report an error
 //   after the command already ran in the background (an abort after the yield);
 // - llm_input (conversation access, runtime-config.js): the prompt of a completion
-//   run starts with OpenClaw's completion text and lists its processes;
+//   run lists its processes. OpenClaw 2026.10.3 frames them in its completion text
+//   (a heartbeat run, `ctx.trigger: "heartbeat"`); 2026.10.7 sends each as the bare
+//   line of an ordinary event turn (`ctx.trigger: "event"`, which only OpenClaw's
+//   own session events set; a typed message is `"user"`). The bare shape counts
+//   only with that trigger, and is marked `internal` for AgentPier's proof, keyed
+//   by the run, since before_tool_call names the run but not its trigger;
 // - gateway_start: the record is complete only when it existed before the Gateway
 //   started serving, so no earlier process can be missing.
 // A process leaves the record only when its end is positively observed, never by
@@ -184,9 +189,10 @@ function endingById(entry, id, now = Date.now()) {
   if (found.length === 1 && !found[0].endedAt) found[0].endedAt = now;
 }
 
-// OpenClaw's completion prompt (heartbeat-events-filter buildExecEventPrompt): one
-// line per process, `Exec <status> (<first 8 characters of its id>, <exit>)`, then
-// ` :: <output>` folded to one line, or ` without captured stdout/stderr.`.
+// OpenClaw 2026.10.3's completion prompt (heartbeat-events-filter
+// buildExecEventPrompt): one line per process, `Exec <status> (<first 8 characters
+// of its id>, <exit>)`, then ` :: <output>` folded to one line, or ` without
+// captured stdout/stderr.`.
 const detailsStart =
   "An async command you ran earlier has completed. The command completion details are:\n\n";
 const detailsEnd = "\n\nTreat this completion";
@@ -196,31 +202,40 @@ const processLine =
 // (user-facing-text EXEC_TIMEOUT_RETRY_GUIDANCE), accepted verbatim and only there.
 const timeoutGuidance =
   "The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun non-idempotent commands. Use a higher timeout only when the command is known to be safe to retry.";
-/**
- * The process ids a completion prompt reports, or null when they cannot all be read:
- * another prompt (no output, delivery off), a truncated list or any line that is not
- * a process line (an approval's `Exec finished (gateway id=…)` with raw output).
- */
-export function completedProcesses(text) {
-  if (typeof text !== "string") return null;
-  // Only a prompt that is the completion itself, never text quoting one.
-  if (!text.startsWith(detailsStart)) return null;
-  const end = text.indexOf(detailsEnd, detailsStart.length);
-  if (end < 0) return null;
-  const lines = text
-    .slice(detailsStart.length, end)
-    .split("\n")
-    .filter((line) => line.trim());
+// OpenClaw 2026.10.7's envelope before a turn's prompt (injectTimestamp:
+// `[<weekday> YYYY-MM-DD HH:MM <zone>] `); it leaves it out for an invalid zone.
+const envelope =
+  /^\[(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{4}-\d{2}-\d{2} \d{2}:\d{2}(?: [A-Za-z0-9:+-]{1,16})?\] /;
+// Every non-empty line a process line, or the guidance once after one.
+function processIds(body) {
   const ids = [];
-  // The guidance follows the process line it belongs to, once.
   let noted = 0;
-  for (const line of lines) {
+  for (const line of body.split("\n").filter((l) => l.trim())) {
     const id = processLine.exec(line)?.[1];
     if (id) ids.push(id);
     else if (line === timeoutGuidance && ids.length > noted) noted = ids.length;
     else return null;
   }
   return ids.length ? ids : null;
+}
+/** Whether the prompt has OpenClaw 2026.10.3's framing (not 2026.10.7's bare line). */
+export const framedCompletion = (text) =>
+  typeof text === "string" && text.startsWith(detailsStart);
+/**
+ * The process ids a completion prompt reports, or null when they cannot all be read:
+ * another prompt (no output, delivery off), a truncated list or any line that is not
+ * a process line (an approval's `Exec finished (gateway id=…)` with raw output).
+ * Either OpenClaw 2026.10.3's framed prompt or 2026.10.7's bare lines, the whole
+ * prompt (after the envelope) and nothing else.
+ */
+export function completedProcesses(text) {
+  if (typeof text !== "string") return null;
+  // Only a prompt that is the completion itself, never text quoting one.
+  if (framedCompletion(text)) {
+    const end = text.indexOf(detailsEnd, detailsStart.length);
+    return end < 0 ? null : processIds(text.slice(detailsStart.length, end));
+  }
+  return processIds(text.replace(envelope, ""));
 }
 
 /**
@@ -253,13 +268,19 @@ export function execEvidence(sessionKey, runId) {
   return {
     complete,
     processes: complete ? processes.map(({ id, runId: by }) => ({ id, runId: by })) : [],
-    completion: completion && { runId, ids: completion.ids, at: completion.at },
+    completion: completion && {
+      runId,
+      ids: completion.ids,
+      at: completion.at,
+      ...(completion.internal && { internal: true }),
+    },
   };
 }
 
 /**
- * How many background commands of the session are still live by the record, and
- * whether the record is complete for it (as in `execEvidence`). Counts only: AgentPier
+ * How many background commands of the session are still live by the record, how many
+ * completion runs of 2026.10.7 run in it, and whether the record is complete for it
+ * (as in `execEvidence`). Counts only: AgentPier
  * holds a goal's nudge while one runs, and needs no id, command or output for that.
  */
 export function liveProcesses(sessionKey) {
@@ -271,9 +292,15 @@ export function liveProcesses(sessionKey) {
     record.complete === true &&
     !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
     !pending;
+  // 2026.10.7's completion runs under way: the Gateway marks no agent event of
+  // theirs, so only this record knows them (until their agent_end).
+  let completing = 0;
+  for (const c of record.completions.values())
+    if (c.internal && c.sessionKey === sessionKey) completing += 1;
   return {
     complete,
     running: entry ? entry.processes.filter((p) => !p.endedAt).length : 0,
+    completing,
   };
 }
 
@@ -396,6 +423,9 @@ export function registerExecProcesses(api) {
     if (record.completions.has(runId)) return;
     const ids = completedProcesses(event?.prompt);
     if (!ids) return;
+    // The bare line counts only in an event turn: typed by anyone it is a user turn.
+    const internal = ctx.trigger === "event";
+    if (!framedCompletion(event.prompt) && !internal) return;
     // The completion's processes have ended: each that one prefix names alone.
     const entry = session(record, ctx.sessionKey, false);
     if (entry) for (const id of ids) ending(entry, id);
@@ -403,6 +433,7 @@ export function registerExecProcesses(api) {
       sessionKey: ctx.sessionKey,
       ids,
       at: Date.now(),
+      ...(internal && { internal: true }),
     });
   });
 }

@@ -16,7 +16,7 @@ import {
 } from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
-import { HeartbeatRuns } from "./exec-continuation.js";
+import { CompletionRuns } from "./exec-continuation.js";
 import { MemoryNotes } from "./memory-notes.js";
 import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
@@ -103,8 +103,8 @@ export class AssistantService {
     this.memoryNotes = new MemoryNotes(store.db, now);
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
     // A command's completion run may continue its owner turn (exec-continuation.js).
-    this.heartbeatRuns = new HeartbeatRuns({ now });
-    this.gatewayEvents.on("agent", (payload) => this.heartbeatRuns.observe(payload));
+    this.completionRuns = new CompletionRuns({ now });
+    this.gatewayEvents.on("agent", (payload) => this.completionRuns.observe(payload));
     // The chat says when a run summarises its conversation (compactions.js).
     this.compactions = watchCompactions(this, { now });
     this.gatewayEvents.onReady(reapplySkills);
@@ -139,7 +139,7 @@ export class AssistantService {
   }
   bindGateway() {
     this.memoryFlushes.clear();
-    this.heartbeatRuns.clear();
+    this.completionRuns.clear();
     this.compactions?.clear();
     this.bindEvents();
     this.gatewayEvents.bind(this.runtime.client);
