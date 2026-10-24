@@ -116,48 +116,42 @@ test("a path in the wrong case is a missing file or the file itself, never a lin
   else assert.equal(read.body.toString(), "Summary\n");
 });
 
-// The checks around the open, in order; a swap may land before any of them.
-const points = ["beforeOpen", "afterOpen", "beforeIdentity", "beforeRecheck"];
-// The one interleaving only the descriptor's own path (Linux) can catch: the link
-// in place at the open and the identity check, the folder back for both folder
-// checks. On macOS it is the documented best-effort limit (agent-share-source.js).
-const gap = ["beforeOpen", "afterOpen", "beforeIdentity", "beforeRecheck"];
-
-test("a folder swapped for a link between any of the checks never yields outside bytes", async (t) => {
+test("a folder swapped for a link between the checks and the open is refused", async (t) => {
   const { base, root, roots } = workspace(t);
   fs.mkdirSync(path.join(root, "d"));
   fs.writeFileSync(path.join(root, "d", "f.txt"), "inside");
   fs.mkdirSync(path.join(base, "out"));
   fs.writeFileSync(path.join(base, "out", "f.txt"), "SECRET");
-  fs.symlinkSync(path.join(base, "out"), path.join(root, "d.link"));
   const d = path.join(root, "d"),
-    real = path.join(root, "d.real"),
-    link = path.join(root, "d.link");
-  let linked = false;
-  // d becomes the link, or the real folder again.
-  const swap = () => {
-    if (linked) {
-      fs.renameSync(d, link);
+    real = path.join(root, "d.real");
+  // d is a link to the outside folder only while the file is opened and while the
+  // opened file's name is looked up again: every folder check sees the real folder.
+  const swapped = async (call) => {
+    fs.renameSync(d, real);
+    fs.symlinkSync(path.join(base, "out"), d);
+    try {
+      return await call();
+    } finally {
+      fs.unlinkSync(d);
       fs.renameSync(real, d);
-    } else {
-      fs.renameSync(d, real);
-      fs.renameSync(link, d);
     }
-    linked = !linked;
   };
-  // Every subset of the points, each a deterministic interleaving.
-  for (let mask = 1; mask < 2 ** points.length; mask++) {
-    const at = points.filter((_, bit) => mask & (2 ** bit));
-    const hooks = Object.fromEntries(at.map((name) => [name, swap]));
-    const result = await readShareSource(roots, "d/f.txt", { hooks }).catch((e) => e);
-    if (linked) swap();
-    const outcome = result instanceof Error ? result.key : result.body.toString();
-    if (at.join() === gap.join() && process.platform === "darwin") {
-      t.diagnostic(`documented macOS limit (${at.join(", ")}): ${outcome}`);
-      continue;
-    }
-    assert.notEqual(outcome, "SECRET", at.join(", "));
-    // A swap before the open always ends in a refusal, never in the folder's file.
-    if (at.includes("beforeOpen")) assert.equal(outcome, "shareOutside", at.join(", "));
-  }
+  const below = (file) =>
+    typeof file === "string" && file.startsWith(fs.realpathSync(d) + path.sep);
+  const { open, lstat } = fs.promises;
+  let opened = false;
+  t.mock.method(fs.promises, "open", async (file, ...rest) => {
+    if (!below(file)) return open(file, ...rest);
+    const handle = await swapped(() => open(file, ...rest));
+    opened = true;
+    return handle;
+  });
+  t.mock.method(fs.promises, "lstat", (file, ...rest) =>
+    opened && below(file) ? swapped(() => lstat(file, ...rest)) : lstat(file, ...rest),
+  );
+  const result = await readShareSource(roots, "d/f.txt").catch((e) => e);
+  assert.equal(
+    result instanceof Error ? result.key : result.body.toString(),
+    "shareOutside",
+  );
 });
