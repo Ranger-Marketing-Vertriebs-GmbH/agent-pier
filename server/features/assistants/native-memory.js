@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
+import { openInside } from "./project-open.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -85,9 +86,10 @@ export class NativeMemory {
       await assertRealDirectories(root);
       const real = await fs.realpath(file);
       if (real !== path.join(await fs.realpath(root), name)) throw Error("link");
-      // The opened handle is checked itself, so a swap after the checks above
-      // cannot substitute a link or an oversized file.
-      handle = await fs.open(real, constants.O_RDONLY | constants.O_NOFOLLOW);
+      // The open follows no link on the way (openInside), so a folder swapped for
+      // one after the checks above is refused; the opened handle is checked itself,
+      // so a swap cannot substitute an oversized file either.
+      handle = await openInside(real, constants.O_RDONLY);
       const stat = await handle.stat();
       if (!stat.isFile() || stat.size > maxNoteBytes) throw Error("size");
       const content = await handle.readFile("utf8");

@@ -154,3 +154,36 @@ test("memory/ notes follow the same availability gate as the root notes", async 
   await assert.rejects(memory.files(f.id), { status: 503 });
   await assert.rejects(memory.read(f.id, "memory/note.md"), { status: 503 });
 });
+test("a note folder swapped for a link around the open is never read", async (t) => {
+  const f = fixture(t),
+    fs = await import("node:fs"),
+    os = await import("node:os"),
+    path = await import("node:path");
+  const workspaces = fs.mkdtempSync(path.join(os.tmpdir(), "memory-workspaces-"));
+  t.after(() => fs.rmSync(workspaces, { recursive: true, force: true }));
+  const memory = new NativeMemory(f.assistants, { workspaces });
+  const topics = path.join(workspaces, f.id, "memory", "topics");
+  const outside = path.join(workspaces, "outside");
+  fs.mkdirSync(topics, { recursive: true });
+  fs.mkdirSync(outside);
+  fs.writeFileSync(path.join(topics, "cats.md"), "Cat names");
+  fs.writeFileSync(path.join(outside, "cats.md"), "SECRET");
+  // topics is a link to the outside folder only while the note is opened.
+  const real = fs.realpathSync(topics);
+  const open = fs.promises.open;
+  t.mock.method(fs.promises, "open", async (file, ...rest) => {
+    if (typeof file !== "string" || !file.startsWith(real + path.sep))
+      return open(file, ...rest);
+    fs.renameSync(topics, `${topics}.moved`);
+    fs.symlinkSync(outside, topics);
+    try {
+      return await open(file, ...rest);
+    } finally {
+      fs.unlinkSync(topics);
+      fs.renameSync(`${topics}.moved`, topics);
+    }
+  });
+  await assert.rejects(memory.read(f.id, "memory/topics/cats.md"), { status: 400 });
+  t.mock.restoreAll();
+  assert.equal((await memory.read(f.id, "memory/topics/cats.md")).content, "Cat names");
+});
