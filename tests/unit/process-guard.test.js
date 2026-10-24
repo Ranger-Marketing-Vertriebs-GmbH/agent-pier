@@ -51,31 +51,44 @@ test("a guarded child that exited is never signalled again", async () => {
   assert.equal(guardedCount(), before);
 });
 
-// A Gateway stand-in whose IPC child outlives it: like OpenClaw 2026.10.7's SQLite
-// read children, it exits only once it sees the disconnect and writes on its way out
-// (Node's compile cache), after the Gateway itself is gone.
-const lingering = (marker) => `const { spawn } = require("node:child_process");
-const child = spawn(process.execPath, ["-e", ${JSON.stringify(
-  `process.on("disconnect", () => setTimeout(() => { require("node:fs").writeFileSync(${JSON.stringify(marker)}, "late"); process.exit(0); }, 400)); setInterval(() => {}, 1000);`,
-)}], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
-console.log(child.pid);
+// A Gateway stand-in with two children. Its OpenClaw worker (a dist/*.worker.js, like
+// the SQLite read children) exits only once it sees the IPC disconnect and writes on
+// its way out (Node's compile cache), after the Gateway itself is gone. Its other
+// child stands for a background exec, which a stop must leave running.
+const worker = `process.on("disconnect", () => setTimeout(() => {
+  require("node:fs").writeFileSync(process.argv[2], "late");
+  process.exit(0);
+}, 400));
+setInterval(() => {}, 1000);`;
+const gatewayScript = `const { spawn } = require("node:child_process");
+const [workerPath, marker] = process.argv.slice(1);
+const w = spawn(process.execPath, [workerPath, marker], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
+const exec = spawn("sleep", ["30"], { stdio: "ignore" });
+console.log(w.pid + " " + exec.pid);
 process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);`;
 
-test("stopping a guarded Gateway waits for the children it leaves behind", async (t) => {
+test("stopping a guarded Gateway waits for its OpenClaw workers, not its execs", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "process-guard-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const workerPath = path.join(dataDir, "openclaw", "dist", "infra", "fixture.worker.js");
+  fs.mkdirSync(path.dirname(workerPath), { recursive: true });
+  fs.writeFileSync(workerPath, worker);
   const marker = path.join(dataDir, "late-write");
   const runtime = new GuardedRuntimeSupervisor({ dataDir, install: async () => ({}) });
-  const gateway = spawn(process.execPath, ["-e", lingering(marker)], {
+  const gateway = spawn(process.execPath, ["-e", gatewayScript, workerPath, marker], {
     stdio: ["ignore", "pipe", "ignore"],
   });
   guardProcess(t, gateway);
   const [line] = await once(gateway.stdout, "data");
-  const child = Number(String(line).trim());
+  const [child, exec] = String(line).trim().split(" ").map(Number);
   guardProcess(t, child);
+  guardProcess(t, exec);
   runtime.child = gateway;
   await runtime.terminateOwnedChild(2000);
-  assert.equal(alive(child), false, "the Gateway's child has exited");
+  assert.equal(alive(child), false, "the Gateway's worker has exited");
   assert.equal(fs.readFileSync(marker, "utf8"), "late");
+  // A kill would take effect within this time.
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(alive(exec), true, "a background exec is left running");
 });

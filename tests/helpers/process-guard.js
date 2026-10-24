@@ -61,32 +61,44 @@ export function guardProcess(t, child, { group = false, graceMs = 1000 } = {}) {
 /** How many processes are registered (for the helper's own tests). */
 export const guardedCount = () => guarded.size;
 
-/** Every live descendant of `root`, from one process table snapshot. */
-function descendants(root) {
-  const rows = execFileSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" })
+// OpenClaw's own worker processes (dist/**/*.worker.js), not exec commands: a
+// background exec may outlive a stop on purpose (assistant-shell-abort-contract).
+const openClawWorker = /[\\/]openclaw[\\/]dist[\\/]\S*\.worker\.js(\s|$)/;
+
+/** The live OpenClaw workers below `root`, from one process table snapshot. */
+function openClawWorkers(root) {
+  const rows = execFileSync("ps", ["-A", "-o", "pid=,ppid=,command="], {
+    encoding: "utf8",
+  })
     .trim()
     .split("\n")
-    .map((line) => line.trim().split(/\s+/).map(Number));
+    .map((line) => {
+      const [, pid, ppid, command] = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/) ?? [];
+      return { pid: Number(pid), ppid: Number(ppid), command: command ?? "" };
+    });
   const found = new Set([root]);
   for (let grew = true; grew;) {
     grew = false;
-    for (const [pid, ppid] of rows)
+    for (const { pid, ppid } of rows)
       if (found.has(ppid) && !found.has(pid)) {
         found.add(pid);
         grew = true;
       }
   }
-  found.delete(root);
-  return [...found];
+  return rows
+    .filter((row) => row.pid !== root && found.has(row.pid))
+    .filter((row) => openClawWorker.test(row.command))
+    .map((row) => row.pid);
 }
 
 /**
  * A RuntimeSupervisor whose Gateway processes are guarded: a test that dies before
  * runtime.close() never leaves an openclaw-gateway behind for days. Stopping it also
- * waits for the Gateway's children: OpenClaw's SQLite read children exit only after
- * the Gateway, once they see the IPC disconnect, and write Node's compile cache into
- * the data directory on their way out, so an immediate removal of that directory
- * raced them (ENOTEMPTY). One that is still there after `lingerMs` is killed.
+ * waits for OpenClaw's worker processes: its SQLite read children exit only after the
+ * Gateway, once they see the IPC disconnect, and write Node's compile cache into the
+ * data directory on their way out, so an immediate removal of that directory raced
+ * them (ENOTEMPTY). One still there after `lingerMs` is killed. Exec commands are
+ * left alone.
  */
 export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
   constructor(options) {
@@ -100,7 +112,7 @@ export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
   }
   async terminateOwnedChild(graceMs, { lingerMs = 10000 } = {}) {
     const pid = this.child?.pid;
-    const children = pid && alive(pid) ? descendants(pid) : [];
+    const children = pid && alive(pid) ? openClawWorkers(pid) : [];
     await super.terminateOwnedChild(graceMs);
     for (const end = Date.now() + lingerMs; Date.now() < end && children.some(alive);)
       await new Promise((resolve) => setTimeout(resolve, 50));
