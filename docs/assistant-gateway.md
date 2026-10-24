@@ -266,7 +266,7 @@ for the implementation and remaining native platform/version qualification.
   (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)). A turn that is
   forwarded, internal, made by a team member without owner proof, or a reminder or
   check-in run, cannot change files, and no turn but the owner's changes memory
-  settings, reminders or routines. Forwarded Telegram text or voice is
+  settings, reminders or routines. Forwarded Telegram text, voice or files are
   quoted data, never authority. Plain-language team requests follow the rule in
   [Visible teams](#visible-teams-operation-and-recovery).
 - **Bootstrap and skills protection.** The files OpenClaw loads into every prompt
@@ -613,6 +613,38 @@ use Ogg, with a 10 MiB / ten-minute cap. Downloaded bytes are bounded during rea
 kept transiently in memory and cleared after use; no audio files are retained.
 There are at most four active processing workers and eight long polls per process.
 
+### Telegram files
+
+Photos, documents, videos, animations and video messages from the paired chat become
+chat attachments (`telegram-media.js`). The ledger records each file's Telegram id,
+stated size and name at intake; a caption becomes the input's text, with its quote,
+code and link formatting kept out of owner proofs like a text message's. Content that
+is never a file (stickers, audio, contacts, polls and the like) and a stated size above
+the limit (20 MB, Telegram's `getFile` download limit, for videos; 10 MB for any
+other file) are refused before any download. An album (items sharing a
+`media_group_id`) is one input: its first item opens it, later items join it while it
+is still queued, and it is held for 2.5 seconds after its newest item, since long
+polling may split an album across responses. Each later item keeps a ledger row in
+the `merged` state, so a repeated update is still recognised; the activity list shows
+only the album's input.
+
+The files are fetched at dispatch, when the input reaches the head of the queue, and
+staged through the same pipeline as a browser upload (`AgentAttachments.stage`, or
+`VideoUploads` for a video), under the admission lock: byte sniffing decides the type,
+the stamped copy goes to the agent's `attachments/` folder within its quota, and the
+request claims the staged files exactly like an AgentPier message, so images reach
+vision models inline and videos only as files. Only paths below Telegram's own file
+folders are fetched; the bot token is part of the `getFile` and file URLs only, and
+errors carry a code, never Telegram's answer or the URL. Each file's outcome is
+recorded on the input as it is decided, so a restart, an agent that is busy or a
+Telegram rate limit (the input waits for its delay) never downloads a decided file
+again; a staged copy that expired meanwhile is fetched anew. At most five files are
+passed on. One notice per input names every part that was not passed on and why; an
+input with neither text nor a staged file fails with `MEDIA_UNSUPPORTED`. Forwarded
+files carry the forwarded prefix and never authorize. A restricted user's channel
+refuses videos, as her web chat cannot upload them. Bots for other people are
+OpenClaw's native Telegram accounts and do not use this path.
+
 ### Live dictation in the chats
 
 The same Deepgram connection powers the microphone in both chat composers: the agent
@@ -782,7 +814,7 @@ or pasted (also Telegram quote, code and link formatting), not after a quotation
 mark, and not in a message with a negation anywhere ("do not build a team …",
 "kein Team …"); such a request needs the owner's approval. The turn context comes from AgentPier's own records, never from the
 model. The owner's own web and Telegram messages qualify, including transcribed
-Telegram voice; forwarded content (text or voice), scheduled turns and internal
+Telegram voice and captions; forwarded content (text, voice or files), scheduled turns and internal
 member/result turns never authorize, and one request authorizes at most one team.
 The authorization records its source (`command`, `checkbox` or `ownerRequest`).
 Parent settings can enable standing team permission; a plain-language request never
