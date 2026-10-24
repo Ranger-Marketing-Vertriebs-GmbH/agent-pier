@@ -261,7 +261,9 @@ Candidates tested live:
      `OPENCLAW_STATE_DIR` and `OPENCLAW_CONFIG_PATH` stay set.
    - **But the Gateway itself writes into the owner's home.** On macOS it wrote
      `Library/Caches/openclaw`, `Library/Caches/openclaw-501` and
-     `.npm/_logs/<ts>-debug-0.log`, and the private home stayed empty. Under today's
+     `.npm/_logs/<ts>-debug-0.log`, and the private home stayed empty. OpenClaw
+     2026.10.7 writes only the per-user `Library/Caches/openclaw-<uid>` cache
+     folder, not `Library/Caches/openclaw`; the finding is unchanged. Under today's
      configuration these same files land in the private home. `OPENCLAW_HOME`
      covers only OpenClaw's own path defaults. This candidate does not keep the
      Gateway's own `HOME` private.
@@ -442,6 +444,17 @@ writable: [<program>] }`. Always allow resolves allow-once, writes the entry
 - Without `process` in the agent's tools, `exec` cannot background
   (`processToolAvailabilityRef`): `background: true` runs in the turn, and an abort
   kills it.
+
+## OpenClaw 2026.10.7 (2026-10-24)
+
+All four shell contracts passed against OpenClaw 2026.10.7 on macOS arm64 (shell 7
+of 7, environment 4 of 4, compiled 4 of 4, changes 1 of 1, plus the abort contract
+2 of 2), with no skips. The `pathPrepend` text that OpenClaw adds before a command is
+byte for byte the same as in 2026.10.3 (`export PATH="${OPENCLAW_PREPEND_PATH}${PATH:+:$PATH}"`,
+then `unset OPENCLAW_PREPEND_PATH`), so the exec wrapper (d) is unchanged. The only
+difference the environment contract needed is the cache folder named in candidate 2
+above; the contract now pins `Library/Caches/openclaw` on 2026.10.3 and older and
+`Library/Caches/openclaw-<uid>` on 2026.10.7.
 
 ## Boundaries
 

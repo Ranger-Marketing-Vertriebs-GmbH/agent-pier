@@ -400,6 +400,19 @@ native contracts. `assistant-mcp-oauth-cross-version.test.js` passed 2026.9.9 �
 skip update 2026.9.8 → 2026.10.3 passed on 2026-10-19 with one missing-issuer
 warning after the update, as for 2026.9.8 → 2026.9.9.
 
+## OpenClaw 2026.10.7
+
+2026.10.7 moves `@modelcontextprotocol/sdk` from 1.31.0 to 1.32.0. The facts above
+still hold: on 2026-10-24 both MCP OAuth contracts passed against 2026.10.7 on macOS
+arm64 (OpenClaw CLI 2 of 2, compiled 1 of 1, no skips), so the printed login output,
+the `status --json` shape and the `Reason:` lines under `OPENCLAW_DEBUG` are
+unchanged. `assistant-mcp-oauth-cross-version.test.js` passed from each
+predecessor a release still pins, 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.7: the
+login made on the previous runtime refreshes twice after the activation, which now
+includes OpenClaw's Doctor migration, without a new registration or authorization.
+See the
+[release qualification](assistant-release-qualification.md#openclaw-2026103--2026107-2026-10-24).
+
 ## Compiled path
 
 The compiled contract runs one server `docs` (logged in) and one server `spare`

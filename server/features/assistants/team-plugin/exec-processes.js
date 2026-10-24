@@ -1,10 +1,10 @@
 // What the Gateway itself knows about the background commands of each session, for
 // AgentPier's proof that an exec completion run continues an owner turn
-// (exec-continuation.js). OpenClaw 2026.10.3 names a process by an adjective-noun
-// slug that is unique only among live processes, and tells the completion run only
-// its first eight characters (`Exec <status> (<id>, <exit>)`). So AgentPier needs
-// every background process of the session with its full id and the run that
-// started it. Only the Gateway's own hooks see them all, without reading the
+// (exec-continuation.js). OpenClaw (2026.10.3 and 2026.10.7) names a process by an
+// adjective-noun slug that is unique only among live processes, and tells the
+// completion run only its first eight characters (`Exec <status> (<id>, <exit>)`).
+// So AgentPier needs every background process of the session with its full id and
+// the run that started it. Only the Gateway's own hooks see them all, without reading the
 // transcript:
 // - after_tool_call of `exec`: a result with `status: "running"` is a backgrounded
 //   process (`details.sessionId`), started by `ctx.runId`, with the call's
@@ -12,7 +12,8 @@
 //   keeps its own "not started" mark (markToolExecutionNotStarted) private, so an
 //   errored call counts as having started nothing only when its error is one that
 //   OpenClaw raises before the command can start (`notStarted`, verbatim from
-//   2026.10.3): argument validation, or the exec host checks marked not started.
+//   2026.10.3 and 2026.10.7): argument validation, or the exec host checks marked
+//   not started.
 //   Every other error leaves its session uncertain: OpenClaw may report an error
 //   after the command already ran in the background (an abort after the yield);
 // - llm_input (conversation access, runtime-config.js): the prompt of a completion
@@ -77,9 +78,9 @@ const ended = new Set([
   // A before_tool_call block (buildBlockedToolResult) before anything ran.
   "blocked",
 ]);
-// Errors OpenClaw 2026.10.3 raises before an exec command can start: argument
-// validation (validation.js validateToolArguments) and resolveExecTarget, whose
-// errors are marked not started.
+// Errors OpenClaw 2026.10.3 and 2026.10.7 raise before an exec command can start:
+// argument validation (validation.js validateToolArguments) and resolveExecTarget,
+// whose errors are marked not started.
 const notStarted = [
   /^Validation failed for tool "exec":\n/,
   /^This session requires a sandbox, but its sandbox runtime is unavailable\.$/,

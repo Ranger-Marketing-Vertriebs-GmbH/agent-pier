@@ -57,8 +57,9 @@ export function answerCodeOf(result) {
 
 /**
  * The one outcome of a `sessions.compact` answer or failure. OpenClaw 2026.10.3
- * answers a summary that failed as a successful call: `{ok: false, compacted: false,
- * reason}` (provider or auth errors, aborts, context-engine failures, embedded-agent),
+ * (re-verified on 2026.10.7) answers a summary that failed as a successful call:
+ * `{ok: false, compacted: false, reason}` (provider or auth errors, aborts,
+ * context-engine failures, embedded-agent),
  * an active run with its "manual compaction unavailable while another embedded run
  * is active" reason (the `failure` it carries inside does not reach the call), and
  * nothing to do as
