@@ -69,28 +69,36 @@ const text = (messages) =>
     ),
   );
 
-// The pinned runtime's own session maintenance (OpenClaw 2026.10.3,
-// dist/store-maintenance-*.mjs): `t` archives stale dashboard entries, `c` applies
-// `pruneAfter`, `n` caps `maxEntries`, `u` resolves `session.maintenance`.
+// The pinned runtime's own session maintenance functions, found by name in the
+// chunk that exports them (2026.10.3: dist/store-maintenance-*.mjs, 2026.10.7:
+// dist/session-accessor.sqlite-entry-worker-publication-*.mjs); the bundler's
+// one-letter export aliases differ between releases.
+const maintenanceExports = {
+  archiveDashboard: "archiveStaleDashboardEntries",
+  prune: "pruneStaleEntries",
+  cap: "capEntryCount",
+  resolve: "resolveMaintenanceConfigFromInput",
+};
 async function runtimeMaintenance(runtime) {
   const dist = path.join(runtime, "app/node_modules/openclaw/dist");
-  const [file] = fs.readdirSync(dist).filter((name) => {
-    if (!/^store-maintenance-.+\.mjs$/.test(name)) return false;
+  const found = [];
+  for (const name of fs.readdirSync(dist)) {
+    if (!name.endsWith(".mjs")) continue;
     const source = fs.readFileSync(path.join(dist, name), "utf8");
-    return (
-      source.includes("archiveStaleDashboardEntries as t") &&
-      source.includes("pruneStaleEntries as c") &&
-      source.includes("capEntryCount as n") &&
-      source.includes("resolveMaintenanceConfigFromInput as u")
+    const clause = source.match(/^export \{([^}]*)\};?$/m)?.[1];
+    if (!clause) continue;
+    const aliases = Object.fromEntries(
+      clause.split(",").map((entry) => entry.trim().split(/\s+as\s+/)),
     );
-  });
-  const module = await import(pathToFileURL(path.join(dist, file)).href);
-  return {
-    archiveDashboard: module.t,
-    prune: module.c,
-    cap: module.n,
-    resolve: module.u,
-  };
+    if (Object.values(maintenanceExports).every((fn) => aliases[fn]))
+      found.push({ name, aliases });
+  }
+  assert.equal(found.length, 1, JSON.stringify(found.map((f) => f.name)));
+  const [{ name, aliases }] = found;
+  const module = await import(pathToFileURL(path.join(dist, name)).href);
+  return Object.fromEntries(
+    Object.entries(maintenanceExports).map(([key, fn]) => [key, module[aliases[fn]]]),
+  );
 }
 
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;

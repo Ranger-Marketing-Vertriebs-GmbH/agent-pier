@@ -139,8 +139,12 @@ test(
     const written = listTree(owner.home).filter((f) => !owner.tree.includes(f));
     t.diagnostic(`written into the owner's HOME=${JSON.stringify(written)}`);
     t.diagnostic(`private home=${JSON.stringify(listTree(gw.runtime.paths.home))}`);
+    // 2026.10.3 also wrote Library/Caches/openclaw, 2026.10.7 only the per-user one.
     if (process.platform === "darwin")
-      assert.ok(written.includes("Library/Caches/openclaw"));
+      assert.ok(
+        written.some((f) => /^Library\/Caches\/openclaw(-\d+)?$/.test(f)),
+        JSON.stringify(written),
+      );
   },
 );
 
