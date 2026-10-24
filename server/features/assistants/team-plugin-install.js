@@ -16,6 +16,7 @@ const files = [
   "tool-guard.js",
   "patch-paths.js",
   "exec-processes.js",
+  "background-commands.js",
   "openclaw.plugin.json",
   "package.json",
 ];

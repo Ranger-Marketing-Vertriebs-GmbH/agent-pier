@@ -257,6 +257,26 @@ export function execEvidence(sessionKey, runId) {
   };
 }
 
+/**
+ * How many background commands of the session are still live by the record, and
+ * whether the record is complete for it (as in `execEvidence`). Counts only: AgentPier
+ * holds a goal's nudge while one runs, and needs no id, command or output for that.
+ */
+export function liveProcesses(sessionKey) {
+  const record = execRecord();
+  const entry = session(record, sessionKey, false);
+  if (entry) tidy(record, sessionKey, entry);
+  const pending = [...record.pending.values()].some((p) => p.sessionKey === sessionKey);
+  const complete =
+    record.complete === true &&
+    !(entry ? entry.uncertain : forgotten(record, sessionKey)) &&
+    !pending;
+  return {
+    complete,
+    running: entry ? entry.processes.filter((p) => !p.endedAt).length : 0,
+  };
+}
+
 /** The run of a plugin tool call (its execute context names no run). */
 export const callRun = (sessionKey, toolCallId) =>
   execRecord().calls.get(`${sessionKey}\u0000${toolCallId}`) ?? null;
