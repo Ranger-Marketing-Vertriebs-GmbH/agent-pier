@@ -31,10 +31,13 @@ export const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}
 // the owner's login (github-credentials.js prepareAgent). The variable is left for
 // the command's own export. Exec children cannot override PATH (fact d).
 const githubShellLines = [
+  // One variable, then split: dash (Linux's /bin/sh) does not split the literal `:`
+  // of `${A}:${B}`, which would glue it to PATH's first entry.
+  "agentpier_dirs=${OPENCLAW_PREPEND_PATH:-}:${PATH:-}",
   "agentpier_ifs=$IFS",
   "IFS=:",
   "set -f",
-  "for agentpier_dir in ${OPENCLAW_PREPEND_PATH:-}:${PATH:-}; do",
+  "for agentpier_dir in $agentpier_dirs; do",
   "  case $agentpier_dir in",
   "    */github-sessions/agent-*/bin)",
   '      if [ -f "${agentpier_dir%/bin}/shell-env.sh" ]; then . "${agentpier_dir%/bin}/shell-env.sh"; fi',
@@ -43,7 +46,7 @@ const githubShellLines = [
   "done",
   "set +f",
   "IFS=$agentpier_ifs",
-  "unset agentpier_ifs agentpier_dir",
+  "unset agentpier_ifs agentpier_dir agentpier_dirs",
 ];
 
 /**

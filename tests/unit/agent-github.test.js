@@ -268,11 +268,22 @@ test("the exec wrapper sources only an agent's GitHub folder on its exec PATH", 
   const wrapper = path.join(dir, "sh");
   fs.writeFileSync(wrapper, execShellScript(home), { mode: 0o700 });
   const probe = 'printf "%s|%s|%s" "$GH_CONFIG_DIR" "$GH_TOKEN" "$HOME"';
-  const run = (PATH, extra = {}, command = probe) =>
-    execFileSync(wrapper, ["-c", command], {
-      env: { PATH, GH_TOKEN: "owner-token", ...extra },
-      encoding: "utf8",
-    });
+  // The wrapper as /bin/sh runs it, and under dash (Linux's /bin/sh) where present,
+  // which splits words differently from bash (macOS's /bin/sh).
+  const shells = [
+    [wrapper],
+    ...(fs.existsSync("/bin/dash") ? [["/bin/dash", wrapper]] : []),
+  ];
+  const run = (PATH, extra = {}, command = probe) => {
+    const outputs = shells.map(([file, ...args]) =>
+      execFileSync(file, [...args, "-c", command], {
+        env: { PATH, GH_TOKEN: "owner-token", ...extra },
+        encoding: "utf8",
+      }),
+    );
+    for (const output of outputs) assert.equal(output, outputs[0]);
+    return outputs[0];
+  };
   assert.equal(run(`${path.join(folder, "bin")}:/usr/bin:/bin`), `${folder}||${home}`);
   // OpenClaw 2026.10.3 starts the shell without its pathPrepend entries on PATH and
   // exports them from OPENCLAW_PREPEND_PATH inside the command (fact d).
