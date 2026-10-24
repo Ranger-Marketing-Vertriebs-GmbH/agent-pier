@@ -234,6 +234,16 @@ activation. Inspect the pipeline or project memory before marking an outcome as
 checked. This closes the notice without retrying or cancelling external work.
 Failure to inspect one action does not prevent independent actions progressing.
 
+## Work goals
+
+An agent can keep working on a job until it is done ([Work until done](agents.md#work-until-done);
+design in [Gateway](assistant-gateway.md#work-goals-2026-10-24-agentpier-208)). Workflow
+actions keep their approvals: while an approval card (shell, SSH or SFTP, coding, MCP) waits,
+the goal's nudge waits too, and the agent's follow-up after a late approval (for example an
+`ssh-result`) is not a new owner message. A continuation's SSH origin is `owner`, so
+Trusted SSH and SFTP hosts work as in the owner's own turn; routines and reminders stay
+excluded.
+
 ## Native routines and events
 
 Enable **Allow reminders and routines** for that agent; no Telegram chat is needed.

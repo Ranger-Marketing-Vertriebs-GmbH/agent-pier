@@ -416,7 +416,8 @@ A lead also talks to its members directly:
   such change is recorded in the activity log with the request. When the lead tried
   something that needs your own message, such as an SSH command, the chat shows
   **Go ahead** below its reply: it sends "Yes, go ahead" as your own message, so the
-  lead can act in your turn.
+  lead can act in your turn. While a [work goal](#work-until-done) is open in that
+  chat, the turn handling a member's result also has the goal's rights.
 - **Work → Teams → Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", "self-initiated" when an autonomous lead started it
   on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
@@ -603,10 +604,58 @@ idle and before the lead's next request reaches the chat; dropped when the membe
 archived). Both chats get a note, the memory step above applies, and routines cannot use
 the tool.
 
+In a turn AgentPier sends for an open [work goal](#work-until-done), and in the turn in which the
+lead handles a member's result while a goal is open in that chat, a delegated task may
+write like an **Autonomous** task whatever the level, unless your goal message said not
+to change anything. Such a lead starts at most 4 tasks per turn; they do not count against the 20 per hour.
+
 At every level the lead is told not to involve members for trivial requests and to
 summarize their answers for you. At every level it is also told that its members can ask each other,
 hand each other tasks and report back
 ([Members talking to each other](#members-talking-to-each-other)).
+
+## Work until done
+
+Ask your agent, in your own message in AgentPier, to finish a job or to keep working
+until it is done ("finish the episode", "work until you're done"). The agent
+recognises that by meaning in any wording and language, sets a **work goal** with a
+short title, what done means and its open steps, and keeps working. While the goal is
+open, the chat shows **Working until done: <title>** with a **Stop** button above the
+composer.
+
+- **One goal per chat.** A new goal in the same chat replaces the open one; both
+  changes appear as notes in the chat ("Goal replaced: ...", "Working until done: ...").
+  The chat's history also shows "Goal done: ...", "Goal blocked: ...", "Goal stopped:
+  ..." and "Goal ended: ..." with the reason when AgentPier ended it itself.
+- **Where goals exist.** Only in your own chats with your own agents and their
+  permanent members. Shared agents, agents of other users and temporary members have
+  none, and neither do forwarded, scheduled or member-written messages: only your own
+  direct message sets a goal.
+- **Continuing.** When a chat with an open goal has been idle for 90 seconds, AgentPier
+  sends the agent a follow-up turn marked **Continuing · <title>** so it carries on.
+  Between turns you can still write, change settings or open other chats.
+- **What still holds it.** AgentPier waits while a turn or a summary runs, while an
+  approval card, a team proposal or one of your queued messages waits for you, while
+  the chat's own questions and tasks to members are open, and while a background
+  command of the agent runs (for up to 2 hours).
+- **Rights of a continuation.** A continuation has exactly the rights of your own
+  message that set the goal (or of your latest message in the chat), including
+  Trusted SSH and SFTP hosts, and a lead's tasks to its members may change files in the
+  members' workspaces at every **Use team** level (at most 4 per turn, not counted
+  against the 20 per hour), unless your message said not to change anything.
+  When a member's result arrives during an open goal, the lead's turn handling it has
+  the same rights. A continuation never does what needs you:
+  approval cards still wait for you, **Go ahead** does not count, and it cannot switch
+  on **May write** for routines, create reminders or routines, grant access or set a
+  goal.
+- **Brakes.** The goal ends as blocked after 3 technical failures of the model in a
+  row, or after 3 continuations without any tool call. The agent can also finish it
+  itself ("Goal done: ...") or report it blocked ("Goal blocked: ...") when it needs
+  you.
+- **Stop.** **Stop** on the goal line ends the goal at once ("Goal stopped: ...").
+  Stopping a running continuation turn with the chat's stop control ends the goal too.
+- **No Telegram.** Continuations and goal notes stay in AgentPier's chat; nothing is
+  sent to a paired Telegram chat.
 
 ## Routines, reminders and check-ins
 

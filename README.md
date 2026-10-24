@@ -36,7 +36,7 @@ and agents that work as a team.
   coding projects and MCP servers with them or set up routines on them that report
   back, members that agree among themselves and report to their lead, Agency agents
   as templates for
-  agents and members, with @-mentions, Telegram, skills, routines, check-ins, files in both
+  agents and members, work goals that keep an agent going until the job is done, with @-mentions, Telegram, skills, routines, check-ins, files in both
   directions, images created through ChatGPT, PDFs read with one model you choose, read or read-and-write access to project folders and GitHub through your
   token profiles ([agents](docs/agents.md)).
 - **Users:** add family members who sign in with their own password and chat
