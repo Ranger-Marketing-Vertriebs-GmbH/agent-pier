@@ -59,10 +59,39 @@ export const assistantSftpCopy = {
   },
   counts: (created, updated, deleted) =>
     `${created} new · ${updated} changed · ${deleted} deleted`,
-  progress: (percent, done, files) => `${percent} % · ${done} of ${files} files`,
+  progress: (percent, done, files) =>
+    `${percent} % · ${done} of ${files} ${files === 1 ? "file" : "files"}`,
   fileCount: (count) => `${count} ${count === 1 ? "file" : "files"}`,
   deleted: (files, dirs) =>
     `${files} ${files === 1 ? "file" : "files"} · ${dirs} ${dirs === 1 ? "folder" : "folders"}`,
+  codes: {
+    SFTP_AUTH_FAILED: "The server refused the sign-in.",
+    SFTP_HOST_KEY_MISMATCH: "The server's host key no longer matches the trusted one.",
+    SFTP_UNREACHABLE: "The server could not be reached.",
+    SFTP_TIMEOUT: "The operation took too long and was stopped.",
+    SFTP_NOT_FOUND: "The path does not exist on the server.",
+    SFTP_PERMISSION: "Permission denied.",
+    SFTP_PATH_REFUSED: "The path is outside the allowed folder.",
+    SFTP_LIMIT: "The transfer exceeds the size or file limit.",
+    SFTP_TYPE_CONFLICT:
+      "A file stands where a folder is expected, or the other way round.",
+    SFTP_PLAN_CHANGED: "The files changed since the plan was made. Nothing was written.",
+    SFTP_JOB_NOT_FOUND: "The job is no longer known.",
+    SFTP_BUSY: "Another transfer is running on this folder.",
+    SFTP_CANCELLED: "The job was cancelled.",
+    SFTP_FAILED: "The transfer failed.",
+    SFTP_WORKSPACE_REFUSED: "The local folder may not be used for this transfer.",
+    SFTP_APPROVAL_LIMIT: "Too many SFTP operations are waiting for a decision.",
+    SFTP_ROUTINE_DELETE: "Routines never delete on SFTP hosts.",
+    SSH_REVOKED: "Stopped because the access changed.",
+    ACCESS_CHANGED: "The host's access changed before it ran.",
+    HOST_REMOVED: "The host was removed before it ran.",
+    PROJECT_NOT_GRANTED: "The agent may no longer use this project folder.",
+    PROJECT_READ_ONLY: "The project folder is read-only for this agent.",
+    PROJECT_PATH_REFUSED: "The local path is not allowed.",
+    PROJECT_WRITE_UNAVAILABLE: "The project folder cannot be written right now.",
+  },
+  unknownCode: (code) => `Transfer failed (${code})`,
   note: {
     labels: {
       upload: (host) => `Upload to ${host}`,
@@ -72,6 +101,7 @@ export const assistantSftpCopy = {
       mkdir: (host) => `New folder on ${host}`,
       rename: (host) => `Rename on ${host}`,
       delete: (host) => `Delete on ${host}`,
+      other: (operation, host) => `${operation} on ${host}`,
     },
     status: {
       executing: "Running",

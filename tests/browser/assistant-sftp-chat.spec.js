@@ -255,7 +255,7 @@ test("expanded row shows paths, bytes and duration", async ({ page }) => {
         created: 2,
         updated: 0,
         deleted: 0,
-        code: "SFTP_PERMISSION_DENIED",
+        code: "SFTP_PERMISSION",
         failedPath: "/var/backups/db.sql",
         durationMs: 900,
       },
@@ -282,7 +282,7 @@ test("expanded row shows paths, bytes and duration", async ({ page }) => {
     /Local path\s*Workspace · backups/,
   );
   await expect(failed.locator(".activity-row-facts")).toContainText(
-    /Error\s*SFTP_PERMISSION_DENIED\s*Failed at\s*\/var\/backups\/db.sql/,
+    /Error\s*Permission denied.\s*Failed at\s*\/var\/backups\/db.sql/,
   );
   const overflow = await page.evaluate(
     () => document.scrollingElement.scrollWidth - document.documentElement.clientWidth,
