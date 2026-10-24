@@ -92,13 +92,30 @@ function openClawWorkers(root) {
 }
 
 /**
+ * Makes stopping `runtime`'s Gateway also wait for OpenClaw's worker processes: its
+ * SQLite read children exit only after the Gateway, once they see the IPC disconnect,
+ * and write Node's compile cache into the data directory on their way out, so an
+ * immediate removal of that directory raced them (ENOTEMPTY). One still there after
+ * `lingerMs` is killed. Exec commands are left alone. For a supervisor a test does
+ * not construct itself (the assistant graph's); GuardedRuntimeSupervisor does this.
+ */
+export function guardRuntimeWorkers(runtime, { lingerMs = 10000 } = {}) {
+  const terminate = runtime.terminateOwnedChild.bind(runtime);
+  runtime.terminateOwnedChild = async (...args) => {
+    const pid = runtime.child?.pid;
+    const workers = pid && alive(pid) ? openClawWorkers(pid) : [];
+    await terminate(...args);
+    for (const end = Date.now() + lingerMs; Date.now() < end && workers.some(alive);)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const worker of workers.filter(alive)) signal({ pid: worker }, "SIGKILL");
+  };
+  return runtime;
+}
+
+/**
  * A RuntimeSupervisor whose Gateway processes are guarded: a test that dies before
- * runtime.close() never leaves an openclaw-gateway behind for days. Stopping it also
- * waits for OpenClaw's worker processes: its SQLite read children exit only after the
- * Gateway, once they see the IPC disconnect, and write Node's compile cache into the
- * data directory on their way out, so an immediate removal of that directory raced
- * them (ENOTEMPTY). One still there after `lingerMs` is killed. Exec commands are
- * left alone.
+ * runtime.close() never leaves an openclaw-gateway behind for days, and a stop waits
+ * for OpenClaw's worker processes (guardRuntimeWorkers).
  */
 export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
   constructor(options) {
@@ -109,13 +126,6 @@ export class GuardedRuntimeSupervisor extends RuntimeSupervisor {
       guardProcess(null, child);
       return child;
     };
-  }
-  async terminateOwnedChild(graceMs, { lingerMs = 10000 } = {}) {
-    const pid = this.child?.pid;
-    const children = pid && alive(pid) ? openClawWorkers(pid) : [];
-    await super.terminateOwnedChild(graceMs);
-    for (const end = Date.now() + lingerMs; Date.now() < end && children.some(alive);)
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    for (const child of children.filter(alive)) signal({ pid: child }, "SIGKILL");
+    guardRuntimeWorkers(this);
   }
 }

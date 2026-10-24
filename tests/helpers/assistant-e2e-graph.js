@@ -5,7 +5,7 @@ import path from "node:path";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import express from "express";
-import { guardProcess } from "./process-guard.js";
+import { guardProcess, guardRuntimeWorkers } from "./process-guard.js";
 import { proactivityModel } from "./assistant-proactivity-model.js";
 import {
   connectAssistantServices,
@@ -59,7 +59,7 @@ export async function e2eGraph(t, installed, { prefix }) {
   const graph = connectAssistantServices(constructAssistantGraph(host));
   // Every service the routes look up, host services included (the routes spread it).
   const services = { ...host, ...graph };
-  const runtime = graph.assistantRuntime;
+  const runtime = guardRuntimeWorkers(graph.assistantRuntime);
   runtime.install = async () => ({
     version: runtimeManifest.version,
     nodePath: path.join(installed, "node/bin/node"),
