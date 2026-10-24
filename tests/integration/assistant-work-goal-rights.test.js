@@ -27,10 +27,19 @@ function turn(f, text, context = { kind: "owner" }, chat = f.chat) {
   };
 }
 
-// AgentPier's continuation of goal "g" whose anchor is `anchor`.
-function continuation(f, anchor, { title = "Episode", extra = {} } = {}) {
-  const goal = { id: "g", anchorRequestId: anchor.id, title };
-  return turn(f, continuationPrompt({ title, done: "Review the cut", steps: "" }), {
+// AgentPier's continuation of the chat's open goal ("g" unless one is open) whose
+// anchor is `anchor`.
+function continuation(
+  f,
+  anchor,
+  { title = "Episode", done = "Review the cut", extra = {} } = {},
+) {
+  const goals = f.service.goals.store;
+  const id =
+    goals.open(f.chat.id)?.id ??
+    goals.insert({ id: "g", conversationId: f.chat.id, title, done, createdAt: 0 }).id;
+  const goal = { id, anchorRequestId: anchor.id, title };
+  return turn(f, continuationPrompt({ title, done, steps: "" }), {
     kind: "owner",
     goal,
     ...extra,
@@ -120,6 +129,18 @@ test("a narrowing owner message keeps continuation tasks read-only", async (t) =
       assert.equal(r.goalId, undefined);
     });
   }
+});
+
+test("a continuation still running after Stop delegates read-only", async (t) => {
+  const f = await setup(t, "onRequest");
+  const { goal, anchor } = await openGoal(f);
+  const cont = continuation(f, anchor);
+  assert.equal(f.service.store.context(cont.request.id).goal.id, goal.id);
+  f.service.goals.stop(f.chat.id);
+  const r = await delegate(f, cont.inv);
+  assert.equal(r.writeAllowed, false);
+  assert.equal(r.goalId, undefined);
+  assert.ok(!r.selfInitiated);
 });
 
 test("a continuation without a readable anchor stays read-only", async (t) => {
