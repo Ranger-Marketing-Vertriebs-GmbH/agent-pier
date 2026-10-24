@@ -159,6 +159,14 @@ test("an exec completion's user entry is never served as an owner message", asyn
       timestamp: 2,
       __openclaw: { id: "completion", senderIsOwner: false },
     },
+    // Any other session event of OpenClaw's (a task's completion) stays hidden too.
+    {
+      role: "user",
+      content: "Task finished: render-batch",
+      provenance: { kind: "internal_system", sourceTool: "task" },
+      timestamp: 2,
+      __openclaw: { id: "task", senderIsOwner: false },
+    },
     {
       role: "assistant",
       content: [{ type: "text", text: "Saved." }],
