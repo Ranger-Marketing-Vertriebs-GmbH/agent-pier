@@ -386,7 +386,7 @@ export class ChannelService {
     if (!signal.aborted) this.delivery.announceReview(id);
     if (!signal.aborted) await this.teamOutbox.process(id, signal);
     if (!signal.aborted) await this.speechService.process(this, id, signal);
-    if (!signal.aborted) await this.ingress.dispatch(id);
+    if (!signal.aborted) await this.ingress.dispatch(id, signal);
     if (!signal.aborted) await this.delivery.process(id, signal);
   }
   async pause() {
