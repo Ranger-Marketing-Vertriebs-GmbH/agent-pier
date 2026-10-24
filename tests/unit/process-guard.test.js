@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { guardProcess } from "../helpers/process-guard.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { GuardedRuntimeSupervisor, guardProcess } from "../helpers/process-guard.js";
 
 const alive = (pid) => {
   try {
@@ -46,4 +49,33 @@ test("a guarded child that exited is never signalled again", async () => {
   await once(child, "exit");
   // Its pid may belong to another process by the time the test process exits.
   assert.equal(guardedCount(), before);
+});
+
+// A Gateway stand-in whose IPC child outlives it: like OpenClaw 2026.10.7's SQLite
+// read children, it exits only once it sees the disconnect and writes on its way out
+// (Node's compile cache), after the Gateway itself is gone.
+const lingering = (marker) => `const { spawn } = require("node:child_process");
+const child = spawn(process.execPath, ["-e", ${JSON.stringify(
+  `process.on("disconnect", () => setTimeout(() => { require("node:fs").writeFileSync(${JSON.stringify(marker)}, "late"); process.exit(0); }, 400)); setInterval(() => {}, 1000);`,
+)}], { stdio: ["ignore", "ignore", "ignore", "ipc"] });
+console.log(child.pid);
+process.on("SIGTERM", () => process.exit(0));
+setInterval(() => {}, 1000);`;
+
+test("stopping a guarded Gateway waits for the children it leaves behind", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "process-guard-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const marker = path.join(dataDir, "late-write");
+  const runtime = new GuardedRuntimeSupervisor({ dataDir, install: async () => ({}) });
+  const gateway = spawn(process.execPath, ["-e", lingering(marker)], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  guardProcess(t, gateway);
+  const [line] = await once(gateway.stdout, "data");
+  const child = Number(String(line).trim());
+  guardProcess(t, child);
+  runtime.child = gateway;
+  await runtime.terminateOwnedChild(2000);
+  assert.equal(alive(child), false, "the Gateway's child has exited");
+  assert.equal(fs.readFileSync(marker, "utf8"), "late");
 });
