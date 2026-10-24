@@ -23,6 +23,7 @@ import {
 import { MemberPromotions } from "./member-promotion.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
+import { WorkGoals } from "./work-goals.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -156,6 +157,8 @@ export class TeamService {
       audit,
       onChanged: (member) => this.memberChanged(member),
     });
+    // Work goals of agents' chats (work-goals.js).
+    this.goals = new WorkGoals({ teams: store, service: this, ...(now ? { now } : {}) });
     if (autoStart) {
       this.poll = setInterval(() => this.reconcile().catch(() => {}), 1000);
       this.poll.unref();
@@ -523,6 +526,11 @@ export class TeamService {
         .then(() => a.admit(() => a.config.apply(member.assistantId)))
         .catch(() => {});
   }
+  // An agent's work goal in its owner's chat (work-goals.js).
+  goal(inv, input) {
+    assertWired(this);
+    return this.goals.invoke(inv, input);
+  }
   archive(inv, input) {
     return this.requests.archive(inv, input);
   }
@@ -574,6 +582,7 @@ export class TeamService {
     if (this.closed) return;
     this.closed = true;
     clearInterval(this.poll);
+    this.goals.close();
     await this.bridge?.close();
     await this.scheduler.close();
     await this.requests.close();

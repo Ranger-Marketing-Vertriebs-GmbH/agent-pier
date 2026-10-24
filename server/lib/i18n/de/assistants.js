@@ -332,6 +332,12 @@ export const assistants = {
     "Mit einem dauerhaften Mitglied kann ein leitender Agent nur Projektordner, Bilder lesen, Coding-Projekte und MCP-Server teilen.",
   teamGrantNotHeld:
     "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
+  goalOwnerTurn:
+    "Ein Ziel lässt sich nur in einer Antwort auf deine eigene Nachricht setzen, nicht in einer Fortsetzung oder einer weitergeleiteten, geplanten oder delegierten Antwort.",
+  goalOwnerOnly:
+    "Das braucht deine eigene Nachricht; eine Fortsetzung des Ziels kann das nicht.",
+  goalUnavailable: "Ziele gibt es nur in deinen eigenen Chats mit diesem Agenten.",
+  goalNotOpen: "Dieser Chat hat kein offenes Ziel.",
   leadRoutineOwnerTurn:
     "Ein leitender Agent legt Routinen bei seinen Mitgliedern nur in einer Antwort auf deine eigene Nachricht an oder ändert sie.",
   leadRoutineNotPermanent:
