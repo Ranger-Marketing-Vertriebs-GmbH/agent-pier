@@ -3,7 +3,12 @@ import path from "node:path";
 import { isUserAgent } from "../users/user-access.js";
 import { guardedWorkspaceEntry } from "./team-plugin/tool-guard.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { workspaceContext } from "./workspace-calls.js";
+
+// What of a turn's context decides the local side again when an approved card runs
+// after its turn ended (agent-sftp-approvals.js): whose folders, through which task.
+const kept = ["assistantId", "requestedBy", "leadRequest", "memberResult"];
+export const localContext = (ctx) =>
+  Object.fromEntries(kept.filter((k) => ctx[k] !== undefined).map((k) => [k, ctx[k]]));
 
 /**
  * The local side of an agent's SFTP transfer, with the project-folder rules of
@@ -19,10 +24,10 @@ import { workspaceContext } from "./workspace-calls.js";
  * entry walked, read or written (an upload of the workspace skips them), and
  * `assertWorkspaceTarget` refuses a local side inside one. AgentPier's data
  * directory holds the workspace, so it is no protected root there; links out of
- * the workspace are still refused.
+ * the workspace are still refused. `ctx` is the turn's workspaceContext, or the
+ * localContext an approved card stored.
  */
-export function agentLocalRoot(w, inv, { projectId, write = false } = {}) {
-  const ctx = workspaceContext(w, inv);
+export function agentLocalRoot(w, ctx, { projectId, write = false } = {}) {
   const lockToolConfig = isUserAgent(w.a.store.getAssistant(ctx.assistantId));
   const guard = () => {
     if (!w.a.config?.writeGuard?.())

@@ -71,6 +71,43 @@ export const assistants = {
   },
   sshTimedOut: "timed out",
   sshTruncated: "output truncated",
+  sftpApproval: "SFTP operation awaiting approval",
+  sftpOperation: (operation) => `Operation: ${operation}`,
+  sftpOperations: {
+    upload: "Upload",
+    download: "Download",
+    sync: "Sync",
+    mkdir: "Create folder",
+    rename: "Rename",
+    delete: "Delete",
+  },
+  sftpRemotePath: (path) => `Path on the server: ${path}`,
+  sftpToPath: (path) => `New path: ${path}`,
+  sftpLocalPath: (place, path) => `Local: ${place} · ${path}`,
+  sftpWorkspace: "workspace",
+  sftpCounts: (created, changed, deleted) =>
+    `New: ${created} · Changed: ${changed} · Deleted: ${deleted}`,
+  sftpSize: (size) => `Size: ${size}`,
+  sftpOverwrites: (count) => `Overwrites: ${count}`,
+  sftpLists: {
+    create: "New",
+    update: "Changed",
+    delete: "Deleted",
+    deleteDirs: "Deleted folders",
+  },
+  sftpOpenToApprove:
+    "The plan is long or contains hidden characters. Review and allow it in AgentPier.",
+  sftpAllowOnce: "Allow once",
+  sftpAllowAlways: "Always allow",
+  sftpDeny: "Deny",
+  sftpStates: {
+    completed: "SFTP operation completed",
+    failed: "SFTP operation failed; check it in AgentPier",
+    cancelled: "SFTP operation cancelled; the access changed",
+    declined: "SFTP operation denied",
+    expired: "Approval expired; the operation did not run",
+    unknown: "Outcome unknown; review in AgentPier",
+  },
   execAllowlistPrograms: (programs) =>
     `Now always allowed for this agent, each with any arguments: ${programs}. Some programs can run other commands through their arguments, such as git hooks or aliases; "Always allow" covers that too. You can delete the entries in the agent settings.`,
   execAllowlistSkipped: (reason) =>
@@ -203,6 +240,8 @@ export const assistants = {
   sshRevoked: "The SSH access changed; the command was stopped.",
   sshHostType:
     "This access does not fit the action: SFTP accesses take only file actions, SSH accesses only commands.",
+  sftpApprovalLimit:
+    "Three file operations of this agent already wait for your approval.",
   sftpRoutineDelete: "Routines may never delete files on SFTP accesses.",
   sftpWorkspaceRefused:
     "SFTP never transfers the agent's prompt files, skills, .agents or attachments in its workspace, and never downloads or syncs a folder into the workspace itself; a single file with another name may land there.",

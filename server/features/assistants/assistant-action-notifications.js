@@ -2,6 +2,7 @@ import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
+import { notifySftp } from "./agent-sftp-notifications.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
@@ -19,6 +20,8 @@ export function notifyAction(w, action, phase) {
   const m = telegramMessages(store.get(target.channelId));
   if (action.payload.action === "exec") return notifyExec(w, action, phase, key, m);
   if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
+  if (action.payload.action === "sftp")
+    return notifySftp(w, action, phase, key, m, target);
   if (action.payload.action === "member_grant")
     return notifyMemberGrant(w, action, phase, key, m, target);
   const detail =

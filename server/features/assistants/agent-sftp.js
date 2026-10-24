@@ -10,46 +10,43 @@ import { prepareTransfer } from "../sftp/sftp-transfer.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { sshHoldMs } from "./agent-ssh-approvals.js";
 import { sftpInput } from "./agent-sftp-input.js";
+import { workspaceContext } from "./workspace-calls.js";
 import {
   agentLocalRoot,
   assertWorkspacePath,
   assertWorkspaceTarget,
+  localContext,
 } from "./agent-sftp-local.js";
 import { sftpKind, sftpPermits } from "./agent-sftp-policy.js";
+import { SftpApprovals } from "./agent-sftp-approvals.js";
 import { SftpRuns } from "./agent-sftp-runs.js";
 
 export { sftpActions } from "./agent-sftp-input.js";
 
 const posix = path.posix;
 const transfers = { download: "down", upload: "up" };
-// Until the owner can decide SFTP cards (agent-sftp-approvals.js), a write that would
-// ask never runs.
-const noApprovals = {
-  request: async () => {
-    throw assistantProblem("invalid", 503);
-  },
-};
 
 /**
  * The SFTP actions of `agentpier_ssh` on SFTP hosts granted to the agent, with the
  * grant rules, origin classes and audit of agent SSH (AgentSsh): reads run inline
  * without asking and leave no row; transfers and writes run as SftpJobs jobs under
  * one action row each (agent-sftp-runs.js) when the policy (agent-sftp-policy.js)
- * lets them run, else they ask the owner through `approvals`. The host's credentials
+ * lets them run, else they ask the owner (agent-sftp-approvals.js). The credentials
  * stay in this process; the agent sees host names, paths, counts and codes only.
  */
 export class AgentSftp {
   constructor(
     ssh,
     {
-      approvals = noApprovals,
+      approvals = null,
       jobs = new SftpJobs(),
       open = openSftp,
       holdMs = sshHoldMs,
       authorizeEveryMs = AUTHORIZE_EVERY_MS,
     } = {},
   ) {
-    Object.assign(this, { ssh, approvals, jobs, open, holdMs, authorizeEveryMs });
+    Object.assign(this, { ssh, jobs, open, holdMs, authorizeEveryMs });
+    this.approvals = approvals ?? new SftpApprovals(this);
     this.runs = new SftpRuns(this);
   }
   get w() {
@@ -88,7 +85,7 @@ export class AgentSftp {
     }
     const side =
       Object.hasOwn(transfers, input.action) || input.action === "sync"
-        ? this.local(inv, input)
+        ? this.local(workspaceContext(this.w, inv), input)
         : null;
     const access = this.access(caller, cls, input, host);
     const session = await access.open();
@@ -107,8 +104,13 @@ export class AgentSftp {
           host: host.name,
           summary: prepared.summary,
         };
-      if (verdict === "card")
+      if (verdict === "card") {
+        // The card waits without a session; approving opens a new one.
+        handed = true;
+        session.close();
+        request.localContext = side?.context;
         return await this.approvals.request(inv, caller, cls, host, request, prepared);
+      }
       const key = `sftp:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
       if (this.w.store.byKey(key)) throw assistantProblem("conflict", 409);
       // From here the run owns the session, also when it cannot start.
@@ -252,11 +254,11 @@ export class AgentSftp {
    * grant and level, the path rules and, in the workspace, its guarded entries. A
    * download without `localPath` lands under the remote name.
    */
-  local(inv, input) {
+  local(ctx, input) {
     const { action: operation } = input;
     const direction = transfers[operation] ?? input.direction;
     const write = direction === "down";
-    const spec = agentLocalRoot(this.w, inv, { projectId: input.projectId, write });
+    const spec = agentLocalRoot(this.w, ctx, { projectId: input.projectId, write });
     const named = remotePath(input.remotePath, "/");
     const fallback =
       operation === "download" && named !== "/" ? posix.basename(named) : ".";
@@ -271,7 +273,7 @@ export class AgentSftp {
       guarded: spec.guarded ?? null,
     });
     assertWorkspaceTarget(spec, local, { write });
-    return { direction, spec, local };
+    return { direction, spec, local, context: localContext(ctx) };
   }
   async prepareTransfer({ input, host, access, session, home, base, side }) {
     const { action: operation } = input;

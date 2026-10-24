@@ -52,6 +52,8 @@ export class SftpRuns {
     // action id -> { owner, jobId } and job id -> action id, while the job is kept.
     this.byAction = new Map();
     this.byJob = new Map();
+    // Rows whose job has not settled them yet.
+    this.live = new Set();
     this.unsubscribe = sftp.jobs.onProgress((view) => this.progressed(view));
   }
   get w() {
@@ -128,6 +130,7 @@ export class SftpRuns {
       this.sftp.jobs.cancel(owner, view.jobId);
       throw error;
     }
+    this.live.add(id);
     this.byAction.set(id, { owner, jobId: view.jobId });
     this.byJob.set(view.jobId, id);
     this.w.a.changed({ conversationId: caller.conversationId });
@@ -213,6 +216,7 @@ export class SftpRuns {
     outcome.durationMs ??= Date.now() - started;
     // A job whose row could not be reserved was cancelled before it began.
     if (id) this.settle(id, outcome, meta);
+    this.live.delete(id);
     return outcome;
   }
   /** The authorization a running job keeps: agent, grant, mode and host revision. */
@@ -297,10 +301,13 @@ export class SftpRuns {
     if (view.state === "running") this.markFollowUp(id);
     return this.answer(id);
   }
+  // A trusted row is unsettled again, so the workflows tick delivers its result as an
+  // `sftp-result` follow-up (agent-sftp-approvals.js advance).
   markFollowUp(id) {
     try {
       const row = this.w.store.get(id);
-      if (!row.followUp) this.w.store.patch(id, { followUp: true });
+      if (!row.followUp && !row.delivered)
+        this.w.store.patch(id, { followUp: true, settled: false });
     } catch {}
   }
   /** `job` reports one of the agent's SFTP rows; `cancel` stops its job first. */
@@ -330,7 +337,11 @@ export class SftpRuns {
       } catch {
         // An expired job has nothing left to stop.
       }
-    return this.answer(row.id);
+    const answer = this.answer(row.id);
+    // A final state the agent read itself needs no follow-up.
+    if (["completed", "failed", "cancelled", "revoked"].includes(answer.status))
+      this.w.store.patch(row.id, { delivered: true });
+    return answer;
   }
   answer(id) {
     const row = this.w.store.get(id);
@@ -352,6 +363,13 @@ export class SftpRuns {
         progress: view.progress,
         notice:
           "The job runs in the background. Check it with action job and this jobId; action cancel stops it. Do not start it again.",
+      };
+    if (row.state === "awaiting_approval")
+      return {
+        status: row.state,
+        ...base,
+        expiresAt: row.expiresAt,
+        notice: "The owner has not decided yet. Do not start it again.",
       };
     if (!["completed", "failed", "cancelled"].includes(row.state))
       return {

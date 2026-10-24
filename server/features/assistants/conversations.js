@@ -96,6 +96,7 @@ export const internalKinds = new Set([
   // A lead's note that its member's task chat grew long (member-long-chats.js).
   "member-long-chat",
   "ssh-result",
+  "sftp-result",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {
   const internal = requests

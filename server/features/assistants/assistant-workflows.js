@@ -21,6 +21,8 @@ import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.j
 import { AgentSsh } from "./agent-ssh.js";
 import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
+import { sftpDecisions } from "./agent-sftp-approvals.js";
+import { sftpTelegramApprovable } from "./agent-sftp-notifications.js";
 import { AgentProjectFiles } from "./agent-project-files.js";
 import { LeadShares } from "./lead-shares.js";
 import { TaskMemberGrants } from "./task-member-grants.js";
@@ -107,15 +109,15 @@ export class AssistantWorkflows {
   /**
    * What waits for the owner in this agent's chat, pushed on its chat feed
    * (conversation-feeds.js): its approvals (team coding requests included), its
-   * members' approvals in turns it delegated, and allowed SSH commands while they
-   * run. Null when the agent is gone.
+   * members' approvals in turns it delegated, and allowed SSH commands and SFTP jobs
+   * while they run. Null when the agent is gone.
    */
   pending(id) {
     try {
       return this.list(id, { delegated: true }).actions.filter(
         (a) =>
           a.state === "awaiting_approval" ||
-          (a.payload?.action === "ssh" && a.state === "executing"),
+          (["ssh", "sftp"].includes(a.payload?.action) && a.state === "executing"),
       );
     } catch {
       return null;
@@ -168,7 +170,9 @@ export class AssistantWorkflows {
   decide(id, input, origin) {
     let kind = "action";
     try {
-      kind = { exec: "exec", ssh: "ssh" }[this.store.get(id).payload.action] || "action";
+      kind =
+        { exec: "exec", ssh: "ssh", sftp: "sftp" }[this.store.get(id).payload.action] ||
+        "action";
     } catch {}
     const exec = kind === "exec";
     return decideAudited(
@@ -223,9 +227,16 @@ export class AssistantWorkflows {
       const action = this.store.get(id);
       // Exec approvals take the Gateway's decisions; other actions their own.
       const exec = action.payload.action === "exec",
-        ssh = action.payload.action === "ssh";
-      if (!(exec ? execDecisions : ssh ? sshDecisions : coding).includes(input.decision))
-        throw assistantProblem("invalid");
+        ssh = action.payload.action === "ssh",
+        sftp = action.payload.action === "sftp";
+      const allowed = exec
+        ? execDecisions
+        : ssh
+          ? sshDecisions
+          : sftp
+            ? sftpDecisions
+            : coding;
+      if (!allowed.includes(input.decision)) throw assistantProblem("invalid");
       if (input.decision === "review" && origin.kind !== "owner")
         throw assistantProblem("invalid", 403);
       // Telegram approves only commands it showed in full (agent-ssh-notifications.js).
@@ -234,6 +245,14 @@ export class AssistantWorkflows {
         input.decision === "approve" &&
         origin.kind !== "owner" &&
         !sshTelegramApprovable(action.payload.command)
+      )
+        throw assistantProblem("invalid", 403);
+      // Likewise only SFTP plans it listed in full (agent-sftp-notifications.js).
+      if (
+        sftp &&
+        input.decision !== "decline" &&
+        origin.kind !== "owner" &&
+        !sftpTelegramApprovable(action.payload)
       )
         throw assistantProblem("invalid", 403);
       // A user's approval is hers alone: the owner never finds it, another user neither.
@@ -268,6 +287,8 @@ export class AssistantWorkflows {
       // SSH approvals re-check grant, host and pin themselves (agent-ssh-approvals.js),
       // a member's shell or SSH grant its lead's ceiling (member-grant-requests.js).
       if (ssh) return this.project(this.ssh.approvals.decide(action, input.decision));
+      if (sftp)
+        return this.project(this.ssh.sftp.approvals.decide(action, input.decision));
       if (action.payload.action === "member_grant")
         return this.project(this.a.teams.grants.decide(action, input.decision));
       // Project grants do not apply to exec; the Gateway decides the request.
@@ -392,6 +413,7 @@ export class AssistantWorkflows {
   }
   async advanceAction(a) {
     if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
+    if (a.payload.action === "sftp") return this.ssh.sftp.approvals.advance(a);
     if (a.payload.action === "member_grant") return this.a.teams?.grants?.advance(a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))

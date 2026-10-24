@@ -54,6 +54,6 @@ export function sshAuditDetails(details, event, auditId) {
     event.details.modeChanged = details.modeChanged
       .filter((c) => isId(c?.accessId) && modes.includes(c.from) && modes.includes(c.to))
       .map(({ accessId, from, to }) => ({ accessId, from, to }));
-  if (["owner", "host-removed"].includes(details.reason))
+  if (["owner", "host-removed", "always-allow"].includes(details.reason))
     event.details.reason = details.reason;
 }

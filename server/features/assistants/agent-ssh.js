@@ -30,6 +30,7 @@ const statuses = {
   sshRevoked: 403,
   sshHostType: 409,
   sftpRoutineDelete: 403,
+  sftpApprovalLimit: 429,
 };
 const codes = {
   sshNotGranted: "SSH_NOT_GRANTED",
@@ -41,6 +42,7 @@ const codes = {
   sshRevoked: "SSH_REVOKED",
   sshHostType: "SSH_HOST_TYPE",
   sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
+  sftpApprovalLimit: "SFTP_APPROVAL_LIMIT",
 };
 const auditableId = (value) =>
   typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value);
@@ -126,11 +128,13 @@ export class AgentSsh {
   classify(caller) {
     const a = caller.assistant;
     let inherited = null;
-    // An ssh-result follow-up continues the turn of its own action, never another's.
-    if (caller.origin?.kind === "ssh-result")
+    // An ssh-result or sftp-result follow-up continues the turn of its own action,
+    // never another's.
+    const continued = { "ssh-result": "ssh", "sftp-result": "sftp" }[caller.origin?.kind];
+    if (continued)
       try {
         const action = this.w.store.get(caller.origin.actionId);
-        if (action.assistantId === a.id && action.payload.action === "ssh")
+        if (action.assistantId === a.id && action.payload.action === continued)
           inherited = action.payload.originClass;
       } catch {}
     return sshOrigin({
@@ -419,9 +423,10 @@ export class AgentSsh {
   /** SshManagement.removeHost: every agent's grant and open card for the host, at once. */
   revokeAccess(accessId) {
     if (this.closed) return [];
-    const changed = this.w.access.revokeSsh(accessId, () =>
-      this.approvals.cancelFor(accessId),
-    );
+    const changed = this.w.access.revokeSsh(accessId, () => {
+      this.approvals.cancelFor(accessId);
+      this.sftp.approvals.cancelFor(accessId);
+    });
     this.w.a.changed();
     // An agent without grants loses agentpier_ssh; a failed apply converges later.
     for (const id of changed)
