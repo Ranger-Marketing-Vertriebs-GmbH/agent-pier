@@ -65,6 +65,11 @@ export class GatewayClient extends EventEmitter {
     const ws = (this.ws = pinnedSocket(this.url, this.certPath, handshake));
     await new Promise((resolve, reject) => {
       let challenged = false;
+      // close() ends a pending connect at once, e.g. when the Gateway process exits.
+      this.abortConnect = () => {
+        clearTimeout(timer);
+        reject(gatewayError());
+      };
       const timer = setTimeout(() => {
         reject(gatewayError("TIMEOUT"));
         ws.terminate();
@@ -297,6 +302,9 @@ export class GatewayClient extends EventEmitter {
     this.pending.clear();
   }
   close() {
+    const abort = this.abortConnect;
+    this.abortConnect = null;
+    abort?.();
     this.ready = false;
     this.features = undefined;
     this.rejectPending();
