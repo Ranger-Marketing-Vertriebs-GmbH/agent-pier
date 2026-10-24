@@ -91,9 +91,10 @@ connection AgentPier cannot judge is left to the runtime, as for chat uploads). 
 view is audited with its path and size, like a change.
 
 - **Who:** the owner's own turns (in AgentPier or the paired Telegram chat), a
-  task member's team turns, a lead's tasks for a permanent member (with what the
-  lead shares; a write share changes files in every task of that lead, capped at the
-  lead's own level), a lead's own follow-up on its member's result (its own folders
+  task member's team turns, a lead's tasks for a permanent member (its own folders,
+  read-only unless the task may change files, and what the lead shares; a write share
+  changes files in every task of that lead, capped at the lead's own level; where
+  both apply the higher level counts), a lead's own follow-up on its member's result (its own folders
   only, never shares) and the agent's own routine runs, never forwarded content,
   reminders or check-ins. A routine reads the agent's folders and its lead's standing
   shares and changes files only when the owner marked it **May write** (for a
@@ -140,8 +141,9 @@ in its **Work** tab.
 
 A lead can also share its folders and coding projects with its permanent members,
 standing or for one delegated task, apart from the access you give them; in a task
-from the lead only those shares count, and files change only in a task that may
-change files. Coding requests on a shared project always wait for your approval and
+from the lead those shares count beside the member's own folders and projects. The
+member's own folders change only in a task that may change files, a folder the lead
+shares with write access in every task of that lead. Coding requests on a shared project always wait for your approval and
 run on the lead's grant. You see and revoke each share in the member's **Work →
 Shared by the lead agent** and in the project's Agents section
 ([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).

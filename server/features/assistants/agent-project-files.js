@@ -76,18 +76,20 @@ export class AgentProjectFiles {
       return {};
     }
   }
-  // The agent's own levels with its lead's standing shares, the higher one each.
-  ownAndShared(id) {
+  // The agent's own levels, read-only unless `writable`, with what its lead shares
+  // in a scope (standing, or also one task's own), the higher one each.
+  ownAndShared(id, { writable = true, requestId = null } = {}) {
     const own = this.held(id);
-    for (const [projectId, level] of Object.entries(this.shared(id)))
+    if (!writable) for (const projectId in own) own[projectId] = "read";
+    for (const [projectId, level] of Object.entries(this.shared(id, requestId)))
       if (own[projectId] !== "write") own[projectId] = level;
     return own;
   }
   /**
    * The levels that apply to a workspace call (AssistantWorkflows.context): a task
-   * member's grant, a lead's task with what the lead shares for it, a sibling's
-   * request or the owner's own turn with the agent's own levels and its lead's
-   * standing shares.
+   * member's grant; a lead's task with the member's own levels (changing files only
+   * when the task may write) and what the lead shares for it; a sibling's request or
+   * the owner's own turn with the agent's own levels and its lead's standing shares.
    */
   levels(ctx) {
     if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
@@ -101,7 +103,14 @@ export class AgentProjectFiles {
       if (!ctx.leadRequest.writable) for (const id in own) own[id] = "read";
       return own;
     }
-    if (ctx.leadRequest) return this.shared(ctx.assistantId, ctx.leadRequest.id);
+    // A lead's task: the folders the owner granted the member itself, changed only
+    // when the task may write (taskWritable), and the lead's shares for the task at
+    // their own level (see invoke), the higher one each.
+    if (ctx.leadRequest)
+      return this.ownAndShared(ctx.assistantId, {
+        writable: ctx.leadRequest.writable,
+        requestId: ctx.leadRequest.id,
+      });
     // A lead's follow-up on its member's result: what the owner granted the lead.
     if (ctx.memberResult) return this.held(ctx.assistantId);
     return this.ownAndShared(ctx.assistantId);
@@ -171,11 +180,12 @@ export class AgentProjectFiles {
       return { projectId, access: level, ...result };
     }
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
-    // In a lead's task the level is the lead's share alone (standing or for this
+    // In a lead's task a write level comes from the member's own grant only when the
+    // task may write (taskWritable), or from the lead's share (standing or for this
     // task), capped live at the lead's own level. The share is the lead's
     // authorization, so it writes in every task of that lead, like a task member's
-    // grant; the task's own permission (taskWritable) governs only the member's own
-    // workspace (TeamBridge.writeAllowed).
+    // grant; the task's permission also governs the member's own workspace
+    // (TeamBridge.writeAllowed).
     // A routine changes files only when the owner marked it "May write".
     if (ctx.routine && !ctx.routine.writable)
       throw assistantProblem("projectRoutineReadOnly", 403);
@@ -225,6 +235,12 @@ export class AgentProjectFiles {
       .find((r) => r.kind === "project" && r.projectId === projectId);
     return row ? { leadAssistantId: row.leadId, sharedBy: "lead" } : {};
   }
+  // Whether the lead's share for a task carries a change (a write share) or a viewed
+  // image (any share) on its own; otherwise the member's own grant did.
+  viaShare(ctx, projectId, action) {
+    const level = this.shared(ctx.assistantId, ctx.leadRequest.id)[projectId];
+    return action === "image_view" ? !!level : level === "write";
+  }
   // One record per change or viewed image: the agent, project, relative path and
   // size, never content.
   audit(ctx, projectId, action, result) {
@@ -263,12 +279,17 @@ export class AgentProjectFiles {
           ...(ctx.memberResult
             ? { via: "member-result", leadRequestId: ctx.memberResult.requestId }
             : {}),
-          // A change on a lead's share names the lead and the task (lead-shares.js).
+          // A change in a lead's task names the lead, the task and whether the
+          // lead's share (lead-shares.js) or the member's own grant allowed it.
           ...(ctx.leadRequest
             ? {
                 leadAssistantId: ctx.leadRequest.leadId,
                 leadRequestId: ctx.leadRequest.id,
-                via: ctx.leadRequest.peer ? "peer-request" : "lead-share",
+                via: ctx.leadRequest.peer
+                  ? "peer-request"
+                  : this.viaShare(ctx, projectId, action)
+                    ? "lead-share"
+                    : "own-grant",
               }
             : !this.held(ctx.assistantId)[projectId] && this.sharedBy(ctx, projectId)),
         },

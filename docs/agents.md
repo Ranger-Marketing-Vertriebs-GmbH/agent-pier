@@ -495,8 +495,8 @@ one delegated task, ending with that task. A share counts only while the lead ho
 the same access: if the lead's level drops, the member's drops with it at its next
 call; if the lead loses the project or server, or the lead or member is archived or
 the member is no longer the lead's permanent member, the share ends and is removed.
-Shares never change the access you gave the member yourself and are listed apart from
-it: in the member's **Work → Shared by the lead agent**, in **Projects → <project> →
+Shares never lower or replace the access you gave the member yourself and are listed
+apart from it: in the member's **Work → Shared by the lead agent**, in **Projects → <project> →
 Agents → Shared by lead agents** and with the MCP server under **Accounts → MCP
 servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
 coding requests that still wait on it. Every share, revocation and change of a
@@ -505,14 +505,20 @@ task.
 
 Shared folders and coding projects work in the lead's tasks for the member, in your
 own chats with the member and, for standing shares, in the member's own routines (a
-task's share stays with its task). A folder the lead shares with **Read and write**
+task's share stays with its task). In a lead's task the member also keeps the project
+folders and coding projects you granted it yourself in its **Work** tab: a folder you
+set to **Read** only reads, one set to **Read and write** changes files only when the
+task may change files (see below), otherwise it reads. Where a folder is both your
+own grant and a lead's share, the higher level counts. The activity log names a
+change in a lead's task as made on the lead's share or on your own grant. A folder the lead shares with **Read and write**
 is the lead's own permission: the member may change files there in every task from
 that lead, as a temporary member may in its granted folders, never above the lead's
 own level at that moment (a read share or a lead lowered to **Read** only reads).
 Whether a task may change files in the member's own workspace still depends on the
 task (you asked for it, an autonomous lead started it, or a routine marked **May
 write** did). In a routine, shared folders change only when that routine is marked
-**May write**. Coding requests on a shared project always wait for your approval.
+**May write**. Coding requests on a shared project, and every coding request in a
+lead's task (also on the member's own project), always wait for your approval.
 Shell and SSH are never shared this way: a permanent member uses only its own.
 
 The same overviews list what leads granted their temporary members, marked
@@ -578,7 +584,10 @@ for the chosen level:
   and in forwarded, scheduled or follow-up turns, including tasks a routine delegates
   unless you marked it **May write**. Shell, SSH, project folders, GitHub and grants beyond the default keep
   their approvals, and a team the lead proposes on its own still waits for you unless
-  you asked for one or allowed teams without asking. A lead starts at most 4 questions
+  you asked for one or allowed teams without asking. A task may use the member's own
+  project folders: those you set to **Read and write** change only in a task that may
+  change files, and read otherwise; what the lead shares works as described in
+  [Sharing a lead's access](#sharing-a-leads-access-with-permanent-members). A lead starts at most 4 questions
   or tasks on its own per turn and 20 per hour; requests you asked for by name do not
   count.
 

@@ -1,7 +1,8 @@
 // Team audit details that say how an agent was allowed to act: a lead's routines on
 // its members (lead-routines.js), native writes of a lead's follow-up on a member's
 // result (member-result-writes.js) or of a command's completion run
-// (exec-continuation.js) and the way a project file change was authorized.
+// (exec-continuation.js) and the way a project file change was authorized (in a
+// lead's task the lead's share or the member's own grant).
 // Ids, enums and paths only; never a routine's text or file content.
 const changes = ["create", "update", "remove"];
 const reasons = [
@@ -20,7 +21,9 @@ const safePath = (value) =>
   !/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(value);
 
 export function teamAuditDetails(details, event, auditId) {
-  if (["lead-share", "member-result", "exec-completion"].includes(details.via))
+  if (
+    ["lead-share", "own-grant", "member-result", "exec-completion"].includes(details.via)
+  )
     event.details.via = details.via;
   for (const key of ["leadRequestId", "routineId", "sourceAttemptId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
