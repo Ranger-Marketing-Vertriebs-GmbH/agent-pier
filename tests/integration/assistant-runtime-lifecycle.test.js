@@ -480,7 +480,9 @@ test("an impostor on the Gateway port never receives the token", async (t) => {
   assert.ok(runtime.retryTimer, "a fresh port is tried after the backoff");
 });
 
-test("a port taken before the Gateway binds is abandoned for a fresh one with a diagnostic", async (t) => {
+// A port drawn free can be taken before the Gateway binds it: freePort releases it,
+// and any listen(0) meanwhile may receive it (the team bridge's own did, AGENTPIER-198).
+test("a port taken before the Gateway binds is abandoned for a fresh one within the start", async (t) => {
   const { dataDir, install } = fakeGateway(t, "assistant-gateway-occupied-");
   const received = [];
   const squatter = tls.createServer(issueGatewayCertificate(), (socket) =>
@@ -488,25 +490,26 @@ test("a port taken before the Gateway binds is abandoned for a fresh one with a 
   );
   squatter.on("tlsClientError", () => {});
   t.after(() => new Promise((r) => squatter.close(r)));
-  const runtime = new RuntimeSupervisor({ dataDir, install, timing: { restartMs: 1 } });
+  const runtime = new RuntimeSupervisor({
+    dataDir,
+    install,
+    timing: { restartMs: 60000 },
+  });
   t.after(() => runtime.close());
   const ports = [];
-  // Another local process grabs the probed port between selection and the bind.
+  // Another local listener grabs the probed port between selection and the bind.
   runtime.beforeSpawn = async () => {
     const { port } = JSON.parse(fs.readFileSync(runtime.paths.config, "utf8")).gateway;
     ports.push(port);
     if (ports.length === 1)
       await new Promise((r) => squatter.listen(port, "127.0.0.1", r));
   };
-  const diagnostics = [];
-  runtime.on("status", ({ diagnostic }) => diagnostic && diagnostics.push(diagnostic));
-  await assert.rejects(runtime.start(), ({ code }) =>
-    ["ENDPOINT_UNTRUSTED", "PROCESS_EXIT"].includes(code),
-  );
-  assert.ok(
-    diagnostics.some((code) => ["ENDPOINT_UNTRUSTED", "PROCESS_EXIT"].includes(code)),
-  );
-  await until(() => runtime.status().availability === "ready");
+  const states = [];
+  runtime.on("status", ({ availability }) => states.push(availability));
+  await runtime.start();
+  assert.equal(runtime.status().availability, "ready");
+  assert.equal(states.includes("failed"), false, "the caller never sees a failed start");
+  assert.ok(!runtime.retryTimer, "no restart is left behind");
   assert.equal(ports.length, 2);
   assert.notEqual(ports[1], ports[0]);
   assert.equal(runtime.client.url, `wss://127.0.0.1:${ports[1]}`);
