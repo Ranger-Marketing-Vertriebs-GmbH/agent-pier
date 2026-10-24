@@ -18,6 +18,31 @@ import { Compactions } from "../../server/features/assistants/compactions.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
+// OpenClaw's compaction safeguard audits each summary for its five sections, the
+// literal identifiers and the latest ask, and rejects an ask of the retained turn
+// listed as pending; 2026.10.7 regenerates a failing summary and then commits a
+// degraded one, 2026.10.3 cancels the compaction. The fixture answers as a capable
+// model does: every section, with what the owner said recorded as done.
+function compliantSummary(body) {
+  const text = body.messages
+    .map((m) =>
+      typeof m.content === "string"
+        ? m.content
+        : m.content.map((part) => part.text ?? "").join(""),
+    )
+    .join("\n");
+  const said = [...text.matchAll(/^\[User\]: (.*)$/gm)].map((m) => `- ${m[1]}`);
+  return [
+    ["## Decisions", "- The owner describes the network.", ...said],
+    ["## Open TODOs", "- (none)"],
+    ["## Constraints/Rules", "- (none)"],
+    ["## Pending user asks", "- (none)"],
+    ["## Exact identifiers", ...said],
+  ]
+    .map((lines) => lines.join("\n"))
+    .join("\n\n");
+}
+
 // Answers every turn near the context window, so the next one compacts first. It
 // notes for each request whether it was the memory flush, the compaction's summary
 // call or a turn, and whether AgentPier showed the session as summarising then.
@@ -37,7 +62,7 @@ async function compactingModel(seen, summarising) {
       kind === "flush"
         ? "NO_REPLY"
         : kind === "summary"
-          ? "## Goal\nThe owner describes the network."
+          ? compliantSummary(body)
           : `Noted. ${"padding ".repeat(200)}`;
     res.writeHead(200, { "content-type": "text/event-stream" });
     for (const item of [
@@ -221,18 +246,26 @@ test(
     await turn("And the DNS server at 10.0.0.53.", { kind: "owner" });
     const second = seen.slice(before);
     // The run flushes memory, then summarises, then answers; AgentPier showed the
-    // session as summarising for the first two only.
+    // session as summarising until the answer. The cut splits the first turn:
+    // 2026.10.3 summarises only its prefix, 2026.10.7 also reconciles the history.
+    const summaries = second.length - 2;
+    assert.ok(summaries === 1 || summaries === 2, JSON.stringify(second));
     assert.deepEqual(
       second.map((s) => s.kind),
-      ["flush", "summary", "turn"],
+      ["flush", ...Array(summaries).fill("summary"), "turn"],
       JSON.stringify(second),
     );
     assert.deepEqual(
       second.map((s) => s.summarising),
-      [true, true, false],
+      [true, ...Array(summaries).fill(true), false],
       JSON.stringify(second),
     );
     assert.equal(compactions.active(created.key), false, "over once the run is");
+    // The summary passed OpenClaw's quality audit the first time.
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(runtime.paths.logs, "gateway-console.log"), "utf8"),
+      /quality_guard_degraded_fallback|failed quality checks/,
+    );
     // The phases on the source session, in order: memory_flushing, preparing_context
     // (the flush ended, the summary call follows), preparing_workspace (the run).
     const phases = frames

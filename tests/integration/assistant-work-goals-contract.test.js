@@ -38,8 +38,23 @@ const turnMessage = (m) =>
 const lastUser = (request) =>
   request.messages.slice(request.messages.findLastIndex(turnMessage));
 const asked = (request) => JSON.stringify(lastUser(request)[0]);
-// The completion run's prompt ("An async command you ran earlier has completed ...").
-const isCompletion = (request) => /async command/i.test(asked(request));
+const text = (m) =>
+  typeof m?.content === "string"
+    ? m.content
+    : (Array.isArray(m?.content) ? m.content : [])
+        .filter((c) => c?.type === "text")
+        .map((c) => c.text)
+        .join("\n");
+// The completion run's prompt: 2026.10.3's "An async command you ran earlier has
+// completed ...", 2026.10.7's bare `[<time>] Exec <status> (<id8>, <exit>) …` line.
+const isCompletion = (request) => {
+  const prompt = text(lastUser(request)[0]) || "";
+  return /async command/i.test(prompt) || /^\[[^\]]*\] Exec [a-z]+ \(/.test(prompt);
+};
+const openClawVersion = (dir) =>
+  JSON.parse(
+    fs.readFileSync(path.join(dir, "app/node_modules/openclaw/package.json"), "utf8"),
+  ).version;
 
 test(
   "pinned Gateway: a work goal continues in its chat until the agent ends it",
@@ -221,9 +236,14 @@ test(
     assert.equal(sends.length, 1, "no continuation while the command runs");
     fs.writeFileSync(path.join(workspace, ".release"), "");
 
-    // 3. OpenClaw's completion run in the chat's session ends.
+    // 3. OpenClaw's completion run in the chat's session ends. 2026.10.3 marks its
+    // events heartbeat-driven; 2026.10.7's ordinary event turn has no marked event,
+    // so it is the session's one run that is not the owner's.
+    const eventTurns = !/^2026\.(9\.|10\.[0-5]$)/.test(openClawVersion(installed));
     const ended = (e) =>
-      e.isHeartbeat === true &&
+      (eventTurns
+        ? e.isHeartbeat === false && e.runId !== owner.runId
+        : e.isHeartbeat === true) &&
       e.sessionKey === session.key &&
       e.stream === "lifecycle" &&
       ["end", "error"].includes(e.data?.phase);
@@ -238,6 +258,7 @@ test(
     const finished = await background();
     t.diagnostic(`after completion=${JSON.stringify(finished)}`);
     assert.equal(finished.running, 0);
+    assert.equal(finished.completing, 0, "no completion run holds the chat");
 
     // 4. Idle for the delay on the goals' clock: one continuation, as the owner's.
     const base = 2 * nudgeDelayMs;
