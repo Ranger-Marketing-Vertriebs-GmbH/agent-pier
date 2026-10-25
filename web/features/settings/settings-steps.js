@@ -121,6 +121,43 @@ export const hostCapacityStep = ({ label, save, refresh }) =>
     label,
   );
 
+const dreamingConfirmation = "ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED";
+
+/**
+ * PUT /assistant-dreaming with the draft's base revision. Switching on while permanent
+ * agents lack memory asks to confirm turning it on for the agents the server names.
+ */
+export const dreamingStep = ({ label, save, refresh }) =>
+  labelled(
+    {
+      id: "dreaming",
+      keys: ["dreamingEnabled", "dreamingHour", "dreamingTimeZone"],
+      resource: "dreaming",
+      run: async ({ values, revision, confirmations }) => {
+        const result = await save({
+          enabled: values.dreamingEnabled,
+          hour: values.dreamingHour,
+          timeZone: values.dreamingTimeZone,
+          revision,
+          ...confirmations,
+        });
+        try {
+          await refresh?.();
+        } catch {}
+        return result;
+      },
+      confirmation: (error) =>
+        error?.code === dreamingConfirmation
+          ? {
+              kind: "dreamingMemory",
+              flags: { confirmMemory: true },
+              data: { agents: error.agents || [] },
+            }
+          : null,
+    },
+    label,
+  );
+
 /**
  * PUT /operations/releases/channel; the page adopts the returned releases. Changing
  * the channel cancels a running check or stage, so `blocked()` returns a message

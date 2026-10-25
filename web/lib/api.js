@@ -27,6 +27,11 @@ export async function apiError(response) {
     error.names = data.names.filter((item) => typeof item === "string");
   // Agents affected by a connection change, named in its confirmation.
   if (data.affected && typeof data.affected === "object") error.affected = data.affected;
+  // Agents a dreaming switch names: memory to confirm, or busy right now.
+  if (Array.isArray(data.agents))
+    error.agents = data.agents
+      .filter((agent) => agent && typeof agent.name === "string")
+      .map(({ id, name }) => ({ id, name }));
   // The outdated CLI behind a refused launch: { tool, found, required }.
   if (data.updateRequired && typeof data.updateRequired === "object")
     error.updateRequired = data.updateRequired;

@@ -78,6 +78,8 @@ export const assistantApi = {
   saveWork: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/work`, "PUT", input),
   teamSettings: (input) => api("/assistant-team-settings", "PUT", input),
+  dreaming: () => api("/assistant-dreaming"),
+  saveDreaming: (input) => api("/assistant-dreaming", "PUT", input),
   channels: () => api("/assistant-channels"),
   createChannel: (input) => api("/assistant-channels", "POST", input),
   updateChannel: (id, input) =>

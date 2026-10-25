@@ -6,9 +6,12 @@ import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import Modal from "../../components/Modal.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
+import { assistantDreamingCopy as dreamingCopy } from "../../lib/i18n/messages/assistant-dreaming.js";
 import { userApi } from "./user-api.js";
 
 const shortName = (name) => name.replace(/^memory\//, "");
+// The Dream Diary is written by dreaming only: named, read and never deleted here.
+const label = (file) => (file.diary ? dreamingCopy.diary : shortName(file.name));
 
 /**
  * Her agent's notes under memory/: each opens to read. From Personalize on she deletes
@@ -20,10 +23,10 @@ export default function UserMemoryPage({ agent }) {
   const [removing, setRemoving] = useState(null);
   const [reading, setReading] = useState(null);
   const open = async (file) => {
-    setReading({ name: file.name, content: null });
+    setReading({ title: label(file), content: null });
     try {
       const note = await userApi.readMemory(agent.id, file.name);
-      setReading({ name: file.name, content: note.content ?? "" });
+      setReading({ title: label(file), content: note.content ?? "" });
     } catch (e) {
       setReading(null);
       setError(e.message);
@@ -52,10 +55,14 @@ export default function UserMemoryPage({ agent }) {
           {files.map((file) => (
             <ListRow
               key={file.name}
-              label={shortName(file.name)}
-              sub={formatTimestamp(file.modifiedAt)}
+              label={label(file)}
+              sub={
+                file.diary
+                  ? `${dreamingCopy.diaryHint} ${formatTimestamp(file.modifiedAt)}`
+                  : formatTimestamp(file.modifiedAt)
+              }
               onClick={() => open(file)}
-              onDelete={deletable ? () => setRemoving(file) : undefined}
+              onDelete={deletable && !file.diary ? () => setRemoving(file) : undefined}
               deleteLabel={copy.deleteNote(shortName(file.name))}
             />
           ))}
@@ -64,7 +71,7 @@ export default function UserMemoryPage({ agent }) {
         <p className="user-app-hint">{copy.noNotes}</p>
       )}
       {reading && (
-        <Modal title={shortName(reading.name)} close={() => setReading(null)} wide>
+        <Modal title={reading.title} close={() => setReading(null)} wide>
           {reading.content === null ? (
             <p role="status">{copy.loading}</p>
           ) : (

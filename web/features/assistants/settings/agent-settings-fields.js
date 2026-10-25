@@ -19,6 +19,8 @@ export const webCapabilityKeys = capabilityKeys.slice(2);
 export const capabilityDefaults = Object.fromEntries(
   capabilityKeys.map((key) => [key, false]),
 );
+// A new agent remembers by default; a saved agent's unset capability stays off.
+export const createCapabilityDefaults = { ...capabilityDefaults, memory: true };
 export const capabilityFormKeys = [
   ...capabilityKeys,
   "browserVisible",
@@ -366,7 +368,7 @@ export function channelActivity(channel) {
 
 export const createServer = () => ({
   ...profileServer(),
-  ...capabilityDefaults,
+  ...createCapabilityDefaults,
   shell: "off",
 });
 export const createInput = (values) => ({
