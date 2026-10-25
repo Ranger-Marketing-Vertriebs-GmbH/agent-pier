@@ -86,7 +86,8 @@ it took it over from the lead.
   included. For agents whose model does not, an optional fallback model reads them,
   chosen under **Accounts → Services for agents → PDF reading** from the model
   connections and ChatGPT accounts; without one, such an agent reads only the text of
-  PDFs, not scanned pages or pages without text. PDFs never go to any other model.
+  PDFs, not scanned pages or pages without text. PDFs never go to another provider;
+  with several ChatGPT accounts any signed-in one may read them.
   **Read images** also lets the
   agent look at PNG, JPEG, GIF and WebP files (up to 6 MiB) in the project folders
   you gave it, when its model takes images; each such view is recorded in the

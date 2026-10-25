@@ -1716,9 +1716,10 @@ agent's own. AgentPier therefore never lets the tool choose:
   model when it accepts images (`AssistantModels.imageInput`, the same facts its
   compiled provider declares), otherwise the fallback the running Gateway was started
   with, otherwise the agent's own text-only model. A `model` the agent passes is
-  replaced. OpenClaw then reads with exactly that model and no fallbacks. Without an
-  answer (an agent that may not read PDFs, an unknown agent, an unusable model, the
-  bridge away) the call is refused. The reference is resolved like the agent's live
+  replaced. OpenClaw then reads with that model and no fallbacks, never with another
+  provider. Without an answer (an agent that may not read PDFs, an unknown agent, an
+  unusable model, the bridge away) the call is refused; an agent whose own model takes
+  images but is unusable right now is refused too, not passed to the fallback. The reference is resolved like the agent's live
   apply, so it names the provider the Gateway runs; an agent's model change applies
   to its PDFs with the same live apply.
 - **Fallback:** **Accounts → Services for agents → PDF reading** optionally chooses a
@@ -1745,7 +1746,15 @@ agent's own. AgentPier therefore never lets the tool choose:
   pinned runtime: the guard's model reads (page images for an image model, text only
   for a text-only one) while the agent names another, the placeholder reaches no
   configured model (an image-capable decoy provider included), a refused call reaches
-  none either, and a started fallback reads for the text-only agent.
+  none either, and a started fallback reads for the text-only agent. Integration tests
+  pin that the guard's reference equals the one the start compiled and that a provider
+  change waiting for its restart names an unknown provider (the call fails).
+- **ChatGPT accounts:** the reference names the account
+  (`openai/<model>@<profile>`), but OpenClaw 2026.10.7 drops the profile when it
+  resolves the pdf tool's model and reads through the `openai` provider without it.
+  Like [image generation](#image-generation-2026-10-18), with several signed-in
+  ChatGPT accounts any of them may read the PDF. The ChatGPT read path is not
+  qualified natively (it needs real accounts).
 
 ### Image generation (2026-10-18)
 

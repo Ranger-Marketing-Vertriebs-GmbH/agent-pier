@@ -77,6 +77,11 @@ test("a text-only agent reads with the started fallback, else its own model", as
     allow: true,
     model: "ap-fb-1/fallback",
   });
+  // An own model that takes images but is unusable refuses: no fallback reads for it.
+  assert.deepEqual(await withFallback.check({ agentId: "ap-o" }), {
+    allow: false,
+    reason: "unavailable",
+  });
   const without = fixture().policy;
   // Text only: OpenClaw drops the page images for a model without image input.
   assert.deepEqual(await without.check({ agentId: "ap-t" }), {

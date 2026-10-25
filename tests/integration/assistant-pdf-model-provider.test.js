@@ -9,6 +9,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
+import { PdfPolicy } from "../../server/features/assistants/pdf-policy.js";
 
 // A stopped Gateway whose start compiled `pdf` for an agent that reads PDFs; the
 // provider preparation then adds the owner's PDF fallback before the Gateway runs.
@@ -67,6 +68,7 @@ function fixture(t, { offered = true } = {}) {
     own,
     reading,
     connections,
+    store,
     choose: (value) => {
       selection = value;
     },
@@ -128,4 +130,60 @@ test("the PDF model's connection counts as used by agents that read PDFs", (t) =
   assert.equal(sync.affects(own.id), true);
   choose(null);
   assert.equal(sync.affects(reading.id), false);
+});
+
+test("the tool guard's model is the reference the start compiled; a changed provider fails closed", async (t) => {
+  const { paths, sync, connections, store } = fixture(t);
+  const endpoint = (url) => ({
+    preset: "custom",
+    openaiBaseUrl: url,
+    authHeader: null,
+    protocols: { messages: false, responses: false, chatCompletions: true },
+    models: [
+      {
+        modelId: "vl",
+        source: "manual",
+        contextTokens: 32768,
+        outputTokens: 4096,
+        images: true,
+      },
+    ],
+  });
+  const vision = connections.create({
+    providerId: "endpoint",
+    name: "Local",
+    endpoint: endpoint("http://127.0.0.1:9/v1"),
+  });
+  const agent = store.createAssistant({
+    name: "Viewer",
+    instructions: "",
+    model: { connectionId: vision.id, modelId: "vl" },
+    capabilities: { memory: false, reminders: false, readPdfs: true },
+  });
+  const config = readJSON(paths.config);
+  config.agents.entries[agent.runtimeAgentId] = {
+    id: agent.runtimeAgentId,
+    tools: { allow: ["pdf"] },
+  };
+  writePrivate(paths.config, config);
+  await sync.prepare();
+  const compiled = readJSON(paths.config);
+  const policy = new PdfPolicy({
+    assistants: { store, models: sync.assistants.models, providerSynchronization: sync },
+  });
+  // The same AssistantModels resolves the same transport: the ref the Gateway runs.
+  const { primary } = compiled.agents.entries[agent.runtimeAgentId].model;
+  assert.deepEqual(await policy.check({ agentId: agent.runtimeAgentId }), {
+    allow: true,
+    model: primary,
+  });
+  // A provider change waiting for its restart gets a new transport the Gateway does
+  // not know: with an explicit PDF model without fallbacks OpenClaw fails the call
+  // ("Unknown model") instead of reaching another provider.
+  connections.update(vision.id, { endpoint: endpoint("http://127.0.0.1:10/v1") });
+  const changed = await policy.check({ agentId: agent.runtimeAgentId });
+  assert.equal(changed.allow, true);
+  assert.notEqual(changed.model, primary);
+  assert.equal(compiled.models.providers[changed.model.split("/")[0]], undefined);
+  assert.deepEqual(compiled.agents.defaults.pdfModel.fallbacks, []);
 });

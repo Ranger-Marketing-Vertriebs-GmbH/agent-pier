@@ -411,8 +411,10 @@ changed PDF fallback model on the [pending restart](assistant-gateway.md#pending
 - The Perplexity key and transport were verified through configuration acceptance
   and the plugin source, not with a request.
 - `pdf` is covered with the extraction path of custom providers, with and without
-  image input; native PDF input (Anthropic, Google) and a ChatGPT account as the
-  reading model are not exercised.
+  image input; native PDF input (Anthropic, Google) is not exercised. The ChatGPT
+  account read path is unqualified natively: OpenClaw 2026.10.7 drops the account
+  profile from the pdf tool's model, so with several signed-in accounts any of them
+  may read (see [PDF reading](assistant-gateway.md#pdf-reading-2026-10-19)).
 - Headless Linux Chrome without `noSandbox` is unverified on hosted runners (see
   [continuous integration](#continuous-integration)).
 - The browser plugin's bundled `browser-automation` skill is skipped in the

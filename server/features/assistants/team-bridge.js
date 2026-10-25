@@ -21,6 +21,7 @@ import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
 import { attachmentsAllowed } from "./attachment-access.js";
 import { browserUploadDone } from "./agent-browser-uploads.js";
+import { toolPolicy, toolPolicyRoutes } from "./bridge-tool-policies.js";
 import {
   actions,
   bridgeTool,
@@ -281,18 +282,6 @@ export class TeamBridge {
     const allow = this.writeAllowed(input);
     return allow instanceof Promise ? allow.then(settle) : settle(allow);
   }
-  // Every image_generate call is checked and audited (image-policy.js).
-  imagePolicy(input) {
-    if (this.closed || !this.assistants.imagePolicy)
-      return { allow: false, reason: "unavailable" };
-    return this.assistants.imagePolicy.check(input);
-  }
-  // Every pdf call reads with the model AgentPier names for its agent (pdf-policy.js).
-  pdfPolicy(input) {
-    if (this.closed || !this.assistants.pdfPolicy)
-      return { allow: false, reason: "unavailable" };
-    return this.assistants.pdfPolicy.check(input);
-  }
   // Every browser call drives the calling agent's own profile (agent-browsers.js).
   async browserPolicy(input) {
     if (this.closed || !this.assistants.browsers)
@@ -524,10 +513,9 @@ export class TeamBridge {
           "/step-policy",
           "/browser-policy",
           "/browser-upload",
-          "/image-policy",
-          "/pdf-policy",
           "/attachment-policy",
           "/guard",
+          ...Object.keys(toolPolicyRoutes),
         ].includes(req.url)
       )
         throw assistantProblem("invalid", 404);
@@ -561,15 +549,13 @@ export class TeamBridge {
               ? this.browserPolicy(input)
               : req.url === "/browser-upload"
                 ? this.closed || browserUploadDone(this, input)
-                : req.url === "/image-policy"
-                  ? this.imagePolicy(input)
-                  : req.url === "/pdf-policy"
-                    ? this.pdfPolicy(input)
-                    : req.url === "/attachment-policy"
-                      ? this.attachmentPolicy(input)
-                      : req.url === "/guard"
-                        ? this.registerGuard(input)
-                        : this.invoke(input));
+                : Object.hasOwn(toolPolicyRoutes, req.url)
+                  ? toolPolicy(this, req.url, input)
+                  : req.url === "/attachment-policy"
+                    ? this.attachmentPolicy(input)
+                    : req.url === "/guard"
+                      ? this.registerGuard(input)
+                      : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {
