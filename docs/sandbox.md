@@ -63,7 +63,8 @@ prompt nono raises on a denial (see limitation 3 below).
 
 Each launch adapter that gives the CLI a working integration — project memory,
 AgentBus, the GitHub credential helper, the SSH tools, the MCP integration, native
-session binding, native chat questions — declares the filesystem and Unix-socket paths
+session binding, native chat questions, the session's secrets folder (read,
+[secrets](secrets.md#coding-sessions)) — declares the filesystem and Unix-socket paths
 that integration needs by appending to the launch description's grant list
 (`server/features/nono/sandbox-grants.js`). The final adapter in the chain,
 `server/features/nono/nono-launch.js`, only consumes that list; it does not infer

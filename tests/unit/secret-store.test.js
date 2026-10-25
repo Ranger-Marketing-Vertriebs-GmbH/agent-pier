@@ -190,6 +190,31 @@ test("the store works without an audit sink", () => {
   }
 });
 
+test("a failing audit still notifies the delivery of every committed change", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "secret-store-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const errors = t.mock.method(console, "error", () => {});
+  const store = new SecretStore({
+    dataDir,
+    audit: {
+      append() {
+        throw Object.assign(new Error("disk full hunter2"), { code: "ENOSPC" });
+      },
+    },
+  });
+  let notified = 0;
+  store.onChange(() => notified++);
+  const made = store.create({ name: "A", value: "hunter2" });
+  store.update(made.id, { value: "next" });
+  store.remove(made.id);
+  assert.equal(notified, 3);
+  assert.deepEqual(store.names(), []);
+  assert.equal(errors.mock.callCount(), 3);
+  for (const call of errors.mock.calls)
+    assert.deepEqual(call.arguments, ["Secret audit failed:", "ENOSPC"]);
+  store.db.close();
+});
+
 test("update accepts a partial body and keeps every absent field", () => {
   const { dataDir, store } = fixture();
   try {

@@ -94,7 +94,8 @@ export class AgentSecrets {
 /**
  * Connects the delivery to a constructed assistant graph: secret changes and agent
  * changes (AssistantService.changed) refresh every file at once, and each turn
- * syncs first (assistant-config.js). Returns the instance, or null without a
+ * syncs first and names the file in the bootstrap while it has entries
+ * (assistant-config.js). Returns the instance, or null without a
  * secret store; `close()` stops listening.
  */
 export function connectAgentSecrets(store, graph) {
@@ -110,9 +111,19 @@ export function connectAgentSecrets(store, graph) {
   const refresh = () => quietly(agentSecrets.refresh());
   const unsubscribe = [store.onChange(refresh), assistants.events.subscribe(refresh)];
   assistants.config.syncSecrets = (id) => agentSecrets.sync(id);
+  // The bootstrap names the file while the agent receives a secret; it is computed
+  // on every apply, which runs before each turn, so a grant change reaches it then.
+  assistants.config.secretsGranted = (agent) => {
+    try {
+      return agentSecrets.entries(agent.id).length > 0;
+    } catch {
+      return false;
+    }
+  };
   agentSecrets.close = () => {
     for (const stop of unsubscribe) stop();
     delete assistants.config.syncSecrets;
+    delete assistants.config.secretsGranted;
   };
   return agentSecrets;
 }

@@ -209,6 +209,8 @@ export class AssistantConfig {
       github: (nativeReady && this.github?.(assistant)) || null,
       // The image tool this start can serve (web-tools.js availability).
       images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
+      // Whether it receives a secrets file; names the file, never its contents.
+      secrets: !!this.secretsGranted?.(assistant),
     };
     // A lead's "Your team" section names its members as they are now. It changes
     // with every busy member, so it stays out of the fingerprint: verifyBootstrap

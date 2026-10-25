@@ -123,12 +123,21 @@ test("a secret added after launch reaches a session that started with none", asy
 
 test("a sandboxed CLI without SSH tools gets the start hook for the secrets hint", async (t) => {
   const f = fixture(t);
+  const noSsh = { command: "/bin/sh", args: [], env: {}, sshTools: undefined };
+  // Without secrets at launch no hook is registered; the file's variable still is.
+  const empty = await f.prepare({ id: "no-secrets", launch: noSsh });
+  assert.equal(empty.env[SSH_HINT_ENV], undefined);
+  assert.deepEqual(empty.args, []);
+  assert.ok(!empty.sandboxGrants.some((g) => g.path === process.execPath));
+  assert.equal(empty.env[SECRETS_FILE_ENV], f.sessionSecrets.file("no-secrets"));
+  const secret = f.store.create({ name: "TOKEN", value: "v" }, owner);
   for (const tool of ["claude", "codex", "opencode"]) {
     const id = `hint-${tool}`;
     const launch = await f.prepare({
       id,
       account: { id: "a", tool },
-      launch: { command: "/bin/sh", args: [], env: {}, sshTools: undefined },
+      launch: noSsh,
+      secretIds: [secret.id],
     });
     const folder = path.dirname(f.sessionSecrets.file(id));
     assert.equal(launch.env[SSH_HINT_ENV], "0", tool);
@@ -149,13 +158,14 @@ test("a sandboxed CLI without SSH tools gets the start hook for the secrets hint
         /ssh-opencode\.js$/,
       );
   }
-  const ssh = await f.prepare({ id: "with-ssh" });
+  const ssh = await f.prepare({ id: "with-ssh", secretIds: [secret.id] });
   assert.equal(ssh.env[SSH_HINT_ENV], undefined);
   assert.deepEqual(ssh.args, []);
   const shell = await f.prepare({
     id: "shell",
     account: { id: "local-shell", tool: "shell" },
     launch: { command: "/bin/sh", args: [], env: {}, sshTools: { enabled: false } },
+    secretIds: [secret.id],
   });
   assert.equal(shell.env[SSH_HINT_ENV], undefined);
   assert.deepEqual(shell.args, []);
