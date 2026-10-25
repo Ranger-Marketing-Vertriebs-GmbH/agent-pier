@@ -16,7 +16,7 @@ import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
-import { patchConfig } from "./openclaw-config/live-patch.js";
+import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
 import { settledAdmission } from "./agent-admission.js";
@@ -272,18 +272,20 @@ export class AssistantConfig {
         await patchConfig(this.client, () => ({
           patch: { models: { providers: { [lease.providerId]: lease.provider } } },
         }));
-      // agents.create and agents.update write the configuration (agent-admission.js).
+      // agents.create and agents.update write the configuration (live-patch.js).
       await settledAdmission(this.client);
       const agents = await this.client.call("agents.list", {});
       if (!agents.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
-        const created = await this.client.call(
-          "agents.create",
-          {
-            name: assistant.runtimeAgentId,
-            workspace: path.join(this.workspaces, assistant.id),
-            model: lease.modelRef,
-          },
-          { timeoutMs: agentCreateTimeoutMs },
+        const created = await configWrite(this.client, () =>
+          this.client.call(
+            "agents.create",
+            {
+              name: assistant.runtimeAgentId,
+              workspace: path.join(this.workspaces, assistant.id),
+              model: lease.modelRef,
+            },
+            { timeoutMs: agentCreateTimeoutMs },
+          ),
         );
         if (created.agentId !== assistant.runtimeAgentId)
           throw assistantProblem("conflict", 409);
@@ -305,11 +307,13 @@ export class AssistantConfig {
       if (nativeReady) await this.browserProfiles?.sync();
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
-      await this.client.call("agents.update", {
-        agentId: assistant.runtimeAgentId,
-        name: assistant.name,
-        model: lease.modelRef,
-      });
+      await configWrite(this.client, () =>
+        this.client.call("agents.update", {
+          agentId: assistant.runtimeAgentId,
+          name: assistant.name,
+          model: lease.modelRef,
+        }),
+      );
       if (this.teamReady || this.nativeReady || lease.agentRuntime) {
         adoption.mark();
         await patchConfig(this.client, (config) => {

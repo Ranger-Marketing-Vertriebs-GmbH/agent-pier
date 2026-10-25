@@ -561,13 +561,25 @@ supersedes it, and OpenClaw never retries it: the agent stays refused
 `UNAVAILABLE`.
 
 AgentPier therefore never writes the configuration while an agent is pending
-(`agent-admission.js`). Every writer (`patchConfig` in `live-patch.js` and
-`AssistantConfig.apply`) first waits, once per Gateway connection, until
-`agents.list` lists no pending agent, for at most 120 s; writes that arrive meanwhile
-share that wait and go out one after the other afterwards. Once the background
-admission is done, a write can no longer supersede it, so no further debounce is
-needed. A turn of a healthy agent that needs a configuration write after a start
-waits with it; on a busy host the admission has taken about 5 s.
+(`agent-admission.js`). Every writer (`patchConfig` and `configWrite` in
+`live-patch.js`, which `AssistantConfig.apply` uses for `agents.create` and
+`agents.update` too) first waits, once per Gateway connection, until `agents.list`
+lists no pending agent. A roster read the Gateway cannot answer yet (`UNAVAILABLE`, a
+timeout) is asked again; a closed connection or a Gateway without this roster lets
+the write through (a closed connection fails it there). The wait ends after 120 s without progress: each agent admitted meanwhile
+starts the 120 s again, so a slow host with many agents is never cut short. Writes
+that arrive meanwhile share the wait, and the writes of one connection always run
+one after the other, so writers that waited together never race one base hash. Once
+the background admission is done, a write can no longer supersede it, so no further
+debounce is needed. A turn of a healthy agent that needs a configuration write after
+a start waits with it; in the native contract two agents took about 5 s, and the time
+grows with the number and size of the agent databases.
+
+The roster stays watched after the wait (for at most 30 minutes per connection), so
+an agent refused later is found too. When the background admission ends, the list is
+refreshed and every chat subscribes again at once, so a healthy agent's chat that
+was refused while it was still being admitted does not show
+`SESSION_UNAVAILABLE` until the next retry.
 
 An agent still refused afterwards, or one whose call reported the refusal, is
 degraded until the Gateway restarts: the agent list marks it `degraded`, its activity
@@ -576,6 +588,11 @@ start in the agent service. Restart the agent service to bring it back.**
 (`AGENT_DEGRADED`, ahead of `SESSION_UNAVAILABLE`) with **Restart agent service**
 (the usual `POST /api/assistant-runtime/restart`, refused while turns are open). A new
 turn to it is refused with `503` (`agentDegraded`) before anything reaches the Gateway.
+Only a refusal with an admission code (`agent-database-…`) counts; a disconnect
+forgets the degraded agents until the next roster says so again. A Telegram message
+to a degraded agent stays queued, as during any agent-service outage, and is
+delivered after the restart; its bot sends no notice meanwhile, and the owner sees
+the agent's state in AgentPier.
 AgentPier does not restart the Gateway on its own: the owner decides when to
 interrupt the other agents. A clean restart admits the agent again; the
 [native contract](../tests/integration/assistant-agent-admission-contract.test.js)

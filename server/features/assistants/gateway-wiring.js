@@ -2,7 +2,7 @@
 // events of the current connection (streamed replies, finished runs, generated
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
 import { confirmFromEvent } from "./run-confirmation.js";
-import { settledAdmission } from "./agent-admission.js";
+import { admissionDone } from "./agent-admission.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
 export function runtimeStatusHandler(service) {
@@ -35,12 +35,20 @@ export function runtimeStatusHandler(service) {
       // A reconnect re-subscribes every session at once; a pass that started on
       // the previous connection must not absorb this one.
       service.sessionFailures.clear();
-      // Agents still admitted in the background, then those the Gateway refused,
-      // show in the list once known (agent-admission.js).
+      // Once the Gateway admitted or refused its agents (agent-admission.js), the
+      // list shows the refused ones and every chat subscribes again at once: one
+      // refused while its agent was still being admitted is no session fault.
       const client = service.runtime.client;
-      settledAdmission(client).then(
-        () => client === service.runtime.client && service.changed(),
-      );
+      admissionDone(client).then((waited) => {
+        if (client !== service.runtime.client || service.maintenance) return;
+        service.changed();
+        if (!waited) return;
+        service.sessionFailures.clear();
+        (service.reconciling || Promise.resolve())
+          .catch(() => {})
+          .then(() => service.reconcile())
+          .catch(() => {});
+      });
       // The start compiled the store; a level a lost apply left pending is checked.
       service.shellChanges.retry({ force: true }).catch(() => {});
       (service.reconciling || Promise.resolve())

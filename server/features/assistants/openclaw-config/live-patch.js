@@ -6,9 +6,29 @@ import { settledAdmission } from "../agent-admission.js";
 // rejects a stale base hash with the generic INVALID_REQUEST, so a changed hash
 // after the rejection is what identifies the conflict. A Gateway still admitting
 // agents in the background is never written to before it is done
-// (agent-admission.js).
-export async function patchConfig(client, build) {
-  await settledAdmission(client);
+// (agent-admission.js), and the writes of one client run one after the other
+// (`configWrite`), so writers that waited together do not race one base hash.
+const writes = new WeakMap();
+
+/** Runs `write` after every earlier configuration write of `client`. */
+export function configWrite(client, write) {
+  const run = (writes.get(client) || Promise.resolve()).then(async () => {
+    await settledAdmission(client);
+    return write();
+  });
+  if (client)
+    writes.set(
+      client,
+      run.catch(() => {}),
+    );
+  return run;
+}
+
+export function patchConfig(client, build) {
+  return configWrite(client, () => patchOnce(client, build));
+}
+
+async function patchOnce(client, build) {
   const current = await client.call("config.get", {});
   const change = build(current.config || {});
   if (!change) return null;
