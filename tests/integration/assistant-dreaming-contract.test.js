@@ -53,7 +53,7 @@ test(
     const offset = f.model.requests.length;
     const run = await f.forceRun(job.id);
     assert.equal(run.status, "ok", JSON.stringify(run));
-    await f.settle();
+    await f.settle({ files: Object.values(agents).map(f.diary) });
     const requests = f.model.requests.slice(offset);
     t.diagnostic(`run: ${JSON.stringify(run)}`);
     t.diagnostic(
@@ -166,7 +166,7 @@ test(
     await f.dreaming(dreamingOn);
     const job = await f.job();
     assert.equal((await f.forceRun(job.id)).status, "ok");
-    await f.settle();
+    await f.settle({ files: [f.diary(orchid)] });
     const first = f.ingestion(orchid);
     t.diagnostic(`ingestion state after run 1: ${JSON.stringify(first)}`);
     for (const sessionId of Object.values(ids))
@@ -181,15 +181,23 @@ test(
 
     // 1. Removed by hand while the transcript remains: the next run reads the state
     // at its start and writes it back whole at its end, so the chat is re-ingested.
-    const db = new DatabaseSync(
-      path.join(f.runtime.paths.state, "state", "openclaw.sqlite"),
-    );
+    // A short-lived handle on the live Gateway's databases, closed on every path.
+    const withDb = (file, options, use) => {
+      const db = new DatabaseSync(file, options);
+      try {
+        return use(db);
+      } finally {
+        db.close();
+      }
+    };
     const drop = (sessionId) =>
-      db
-        .prepare(
-          "DELETE FROM plugin_state_entries WHERE plugin_id='memory-core' AND namespace LIKE 'dreaming-session-ingestion-%' AND value_json LIKE ?",
-        )
-        .run(`%/${sessionId}%`).changes;
+      withDb(path.join(f.runtime.paths.state, "state", "openclaw.sqlite"), {}, (db) =>
+        db
+          .prepare(
+            "DELETE FROM plugin_state_entries WHERE plugin_id='memory-core' AND namespace LIKE 'dreaming-session-ingestion-%' AND value_json LIKE ?",
+          )
+          .run(`%/${sessionId}%`),
+      ).changes;
     const strip = (marker) => {
       for (const name of fs.readdirSync(corpusDir)) {
         const file = path.join(corpusDir, name);
@@ -235,7 +243,7 @@ test(
     const goneKey = second.files.some((k) => k.endsWith(`/${ids.gone}`));
     const goneSeen = second.seen.some((k) => k.includes(`/${ids.gone}`));
     assert.deepEqual([/DREAMGONE/.test(corpus), goneKey, goneSeen], [true, false, true]);
-    const agentDb = new DatabaseSync(
+    const archived = withDb(
       path.join(
         f.runtime.paths.state,
         "agents",
@@ -244,11 +252,13 @@ test(
         "openclaw-agent.sqlite",
       ),
       { readOnly: true },
+      (db) =>
+        db
+          .prepare(
+            "SELECT count(*) AS n FROM session_transcript_archives WHERE session_id=?",
+          )
+          .get(ids.gone).n,
     );
-    const archived = agentDb
-      .prepare("SELECT count(*) AS n FROM session_transcript_archives WHERE session_id=?")
-      .get(ids.gone).n;
-    agentDb.close();
     t.diagnostic(
       `archived transcript rows of the deleted chat in openclaw-agent.sqlite: ${archived}`,
     );
@@ -286,6 +296,5 @@ test(
       [false, false],
       "a forgotten chat stays out of later runs",
     );
-    db.close();
   },
 );

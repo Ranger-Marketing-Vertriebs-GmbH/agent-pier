@@ -190,9 +190,12 @@ export async function nativeFixture(t, { resolve = true } = {}) {
     await call("cron.run", { id, mode: "force" });
     return finished(id, started);
   }
-  // Waits until the model double saw no request for `quietMs` (detached narratives).
-  async function settle(quietMs = 4000, ms = 90000) {
+  // Waits until each of `files` (paths in a workspace, e.g. a diary) exists and the
+  // model double then saw no request for `quietMs` (detached narratives).
+  async function settle({ files = [], quietMs = 4000, ms = 90000 } = {}) {
     const deadline = Date.now() + ms;
+    for (const file of files)
+      await until(() => fs.existsSync(file), Math.max(0, deadline - Date.now()), file);
     let count = -1;
     while (Date.now() < deadline) {
       if (count === model.requests.length) return;
@@ -201,6 +204,7 @@ export async function nativeFixture(t, { resolve = true } = {}) {
     }
   }
   const workspace = (agent) => path.join(runtime.paths.workspaces, agent.id);
+  const diary = (agent) => path.join(workspace(agent), "DREAMS.md");
   const corpus = (agent) =>
     Object.values(snapshot(path.join(workspace(agent), "memory", ".dreams"))).join("\n");
   // memory-core keeps its dreaming state in the Gateway's SQLite plugin state, keyed
@@ -263,6 +267,7 @@ export async function nativeFixture(t, { resolve = true } = {}) {
     settle,
     until,
     workspace,
+    diary,
     corpus,
     sessions,
     pluginState,
