@@ -77,9 +77,14 @@ export class SecretStore {
     this.clock = clock;
     this.listeners = new Set();
     this.db = privateDatabase(path.join(dataDir, "secrets"), "secrets.sqlite");
-    this.db.exec(schema);
-    this.restoreFile = path.join(dataDir, "secrets", secretsRestoreFile);
-    this.importRestored();
+    try {
+      this.db.exec(schema);
+      this.restoreFile = path.join(dataDir, "secrets", secretsRestoreFile);
+      this.importRestored();
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
   close() {
     this.db.close();
