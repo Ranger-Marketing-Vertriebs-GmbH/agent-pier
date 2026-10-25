@@ -15,6 +15,7 @@ const cases = [
   ["sshApprovalLimit", 429, "SSH_APPROVAL_LIMIT"],
   ["sshRevoked", 403, "SSH_REVOKED"],
   ["sshHostType", 409, "SSH_HOST_TYPE"],
+  ["sshConsoleControl", 400, "SSH_CONSOLE_CONTROL"],
   ["sftpRoutineDelete", 403, "SFTP_ROUTINE_DELETE"],
 ];
 

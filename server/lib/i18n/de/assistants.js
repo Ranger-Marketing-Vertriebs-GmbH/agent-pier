@@ -290,6 +290,8 @@ export const assistants = {
   sshRevoked: "Der SSH-Zugang hat sich geändert; der Befehl wurde gestoppt.",
   sshHostType:
     "Dieser Zugang passt nicht zur Aktion: SFTP-Zugänge nehmen nur Dateiaktionen an, SSH-Zugänge nur Befehle.",
+  sshConsoleControl:
+    "Dieser Host führt Befehle in seiner interaktiven Konsole aus; ein Befehl darf nur einfache Zeilen ohne Steuerzeichen enthalten.",
   sftpApprovalLimit:
     "Drei Dateivorgänge dieses Agenten warten bereits auf deine Freigabe.",
   sftpRoutineDelete: "Routinen dürfen auf SFTP-Zugängen nie Dateien löschen.",

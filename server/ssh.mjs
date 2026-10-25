@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { SshAccessStore } from "./features/ssh/ssh-access-store.js";
 import { SshSessions } from "./features/ssh/ssh-sessions.js";
 import { runSshCommand } from "./features/ssh/ssh-run.js";
+import { consoleCommand } from "./features/ssh/ssh-interactive-shell.js";
 
 // No shell interpolation or credentials in arguments. The supplied remote command
 // follows normal OpenSSH semantics; this helper is not an OS isolation boundary.
@@ -33,6 +34,10 @@ try {
     const command = args.slice(7);
     if (invocation.interactive && command.length) {
       // A console-only device: type the command into its shell (ssh-interactive-run.js).
+      if (consoleCommand(command.join(" ")) === null)
+        throw problem(
+          "Interactive shell hosts take only plain lines, no control characters.",
+        );
       const result = await runSshCommand(invocation, command.join(" "), {
         timeoutMs: 120000,
       });

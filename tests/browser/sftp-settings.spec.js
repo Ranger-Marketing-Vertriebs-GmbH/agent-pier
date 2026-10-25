@@ -87,6 +87,7 @@ test("SSH hosts keep the plain SSH request", async ({ page }) => {
     [
       "hostKey",
       "host",
+      "interactiveShell",
       "keyId",
       "legacyAlgorithms",
       "name",

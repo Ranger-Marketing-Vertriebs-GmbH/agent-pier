@@ -23,6 +23,7 @@ if (flag("--fail")) {
 let mode = "user";
 let input = "";
 let paging = null;
+let question = false;
 let waitingForKey = flag("--login-pager");
 const prompt = () =>
   write(flag("--quiet-login") ? "login ok:" : mode === "user" ? "Switch>" : "Switch#");
@@ -40,7 +41,23 @@ function run(line) {
   // A pseudo-terminal echoes what is typed.
   write(`${line}\r\n`);
   const command = line.trim();
-  if (command === "enable") mode = "enable";
+  if (question) {
+    question = false;
+    write(`answered: ${command}\r\n`);
+  } else if (command === "reload") {
+    question = true;
+    return write("Proceed with reload? [confirm]");
+  } else if (command === "copy") {
+    question = true;
+    return write("Destination filename [startup-config]? ");
+  } else if (command === "status") {
+    // A status line that looks like a "]" prompt, then a pause before the prompt.
+    write("Saving configuration\r\n[OK]");
+    return setTimeout(() => {
+      write("\r\n");
+      prompt();
+    }, 300);
+  } else if (command === "enable") mode = "enable";
   else if (command === "show version")
     write("\x1b[1mFakeSwitch\x1b[0m OS 1.0\r\nUptime: 3 days\x1b[K\r\n");
   else if (command === "show long") {
