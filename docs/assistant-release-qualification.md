@@ -555,7 +555,9 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   tool once" (`tests/helpers/browser-start.js`): the start request's 15 s budget ran
   out on all four 2026.10.7 Intel runs and once on ubuntu-latest while Chrome kept
   launching (the one 2026.10.3 Intel sample started in time; with an injected launch
-  delay both versions time out alike). No product code changed for
+  delay both versions time out alike). The browser upload contract uses the same retry;
+  its call first handed the helper a bare string, so a timed-out start went unretried
+  and failed later on the closed CDP port. No product code changed for
   these.
 
 **Results.**

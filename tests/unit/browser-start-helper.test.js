@@ -36,3 +36,10 @@ test("a timed-out browser start is repeated once, any other answer is not", asyn
     assert.equal(answer.result, result);
   }
 });
+
+test("a browser start that does not answer { result } fails instead of skipping the retry", async () => {
+  await assert.rejects(
+    startBrowser(async () => timedOut),
+    /must answer \{ result \}/,
+  );
+});

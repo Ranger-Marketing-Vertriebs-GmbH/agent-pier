@@ -12,5 +12,8 @@ export const startTimedOut = (result) =>
  */
 export async function startBrowser(start) {
   const first = await start("start");
+  // A bare string answer would hide every timeout from the retry.
+  if (typeof first !== "object" || first === null || !("result" in first))
+    throw TypeError("The browser start must answer { result }.");
   return startTimedOut(first.result) ? await start("start-retry") : first;
 }

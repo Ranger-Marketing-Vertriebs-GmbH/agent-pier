@@ -255,8 +255,23 @@ test(
     }
     let target = null;
     try {
-      await startBrowser((label) =>
-        turn({ name: "browser", arguments: { action: "start" } }, `upload-${label}`),
+      // Retried once after a timed-out start (helpers/browser-start.js), which reads
+      // the answer as `{ result }`.
+      const { result: started } = await startBrowser(async (label) => ({
+        result: await turn(
+          { name: "browser", arguments: { action: "start" } },
+          `upload-${label}`,
+        ),
+      }));
+      const running = await turn(
+        { name: "browser", arguments: { action: "status" } },
+        "upload-status",
+      );
+      // Both answers, so a browser that did not come up says why.
+      assert.equal(
+        JSON.parse(running).running,
+        true,
+        `start=${started} status=${running}`,
       );
       const port = runtime.webTools.browserProfiles[own].cdpPort;
       target = await pageTarget(port);
