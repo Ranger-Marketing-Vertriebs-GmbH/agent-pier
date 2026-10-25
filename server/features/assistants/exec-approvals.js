@@ -3,7 +3,7 @@ import { notifyAction } from "./assistant-action-notifications.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
-import { telegramOf } from "./routine-targets.js";
+import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
 // owner (`payload.action: "exec"`), keyed by the Gateway's approval id. A request
@@ -93,6 +93,20 @@ export class ExecApprovals {
         assistantId: assistant.id,
         conversationId: routine.conversation.id,
         origin: telegram ? { kind: "telegram", ...telegram } : { kind: "owner" },
+      };
+    }
+    // A hook's run asks in the agent's main chat, and in its paired Telegram chat
+    // while the hook may also send there (Also send to Telegram).
+    const hook = a.routines?.hooks?.runOrigin(assistant, sessionKey);
+    if (hook) {
+      const channel =
+        hook.effective.telegram && pairedChannel(a.routines.channels, assistant.id);
+      return {
+        assistantId: assistant.id,
+        conversationId: hook.conversation.id,
+        origin: channel
+          ? { kind: "telegram", ...telegramTarget(channel) }
+          : { kind: "owner" },
       };
     }
     const conversation =

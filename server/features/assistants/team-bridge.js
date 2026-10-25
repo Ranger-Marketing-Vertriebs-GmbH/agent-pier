@@ -16,6 +16,7 @@ import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
+import * as hooks from "./agent-hook-bridge.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
@@ -110,6 +111,8 @@ export class TeamBridge {
     // Team tools and SSH are locked for user agents (user-agent-lock.js).
     if (lockedCall(this.agentOf(record.agentId), bridgeTool(record.action)))
       throw assistantProblem("invalid", 403);
+    // A hook's run session stays current while its event runs (agent-hook-bridge.js).
+    if (record.hook) return hooks.assertHookRecord(this, record);
     // A routine's own run session (no attempt) stays current while its routine does.
     if (record.routine) {
       const run = this.routineRun(record);
@@ -188,6 +191,12 @@ export class TeamBridge {
       return { ticket };
     };
     if (matches.length === 1) return issue({ attemptId: matches[0].id });
+    // A hook's run session serves only its own actions while its event runs.
+    if (!matches.length && hooks.hookSession(this, input)) {
+      const hook = hooks.hookActions.has(input.action) && hooks.hookRun(this, input);
+      if (hook) return issue({ attemptId: null, hook });
+      throw assistantProblem("invalid", 403);
+    }
     if (!matches.length && routineActions.has(input.action)) {
       // Only SSH (on hosts granted "incl. routines"), shared files, project folders,
       // the lead's ask, delegate and members, and a member's own tools serve a
@@ -250,10 +259,11 @@ export class TeamBridge {
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
   // own message (a work-goal continuation counts as one), a lead's follow-up on its
-  // member's result (member-result-writes.js), a routine's run (routineWrite), a
-  // memory step's own memory (memory-write-policy.js) or the completion run of a
-  // command one of the first two started (exec-continuation.js); forwarded, other scheduled, internal and member turns
-  // never write, apart from an owner-proven task.
+  // member's result (member-result-writes.js), a routine's run (routineWrite), a hook
+  // run's own memory (agent-hook-bridge.js), a memory step's own memory
+  // (memory-write-policy.js) or the completion run of a command one of the first two
+  // started (exec-continuation.js); forwarded, other scheduled, internal and member
+  // turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
       !input ||
@@ -269,6 +279,8 @@ export class TeamBridge {
       textValue(input.agentId, 4096);
       // A memory step runs none of them (memory-step-tools.js).
       const locked = lockedCall(this.agentOf(input.agentId), input.toolName);
+      const hook = hooks.hookLockedTool(this, input);
+      if (hook !== null) return { allow: hook && !locked };
       return { allow: !locked && !memoryStepSession(this, input) };
     }
     if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
@@ -352,6 +364,8 @@ export class TeamBridge {
     // A routine's own run session has no attempt: its writes are its own origin. A
     // command's completion run may continue its owner turn (exec-continuation.js).
     if (!matches.length) {
+      // A hook session writes only its own memory, never once its event settled.
+      if (hooks.hookSession(this, input)) return hooks.hookWrite(this, input);
       const allowed = this.routineWrite(input);
       if (!allowed) return continuation.continuationWrite(this, input);
       if (isShared(this.agentOf(input.agentId)) && isMemory(input.path)) {
@@ -442,6 +456,7 @@ export class TeamBridge {
       startedAt: Date.now(),
       assertCurrent: () => this.valid(record),
       routine: record.routine || null,
+      hook: record.hook || null,
       continuation: record.continuation || null,
       sessionKey: record.sessionKey,
     };
