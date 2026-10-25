@@ -23,6 +23,7 @@ const windowMinutes = 5;
 const freshMs = 6 * 60 * 60 * 1000;
 const forgetTimeoutMs = 60000;
 const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL } = fs.constants;
+const partial = /^MEMORY-\d{8}T\d{9}Z\.md\.tmp$/;
 
 const stamp = (date) => date.toISOString().replace(/[-:.]/g, "");
 const stampTime = (name) => {
@@ -61,32 +62,46 @@ export function backupMemory(paths, agent, { keep = 7, now = new Date() } = {}) 
   }
   const root = privateFolder(path.join(fs.realpathSync(paths.root), folderName));
   const folder = privateFolder(path.join(root, agent.runtimeAgentId));
+  // What a crash left half written is never a copy.
+  for (const name of fs.readdirSync(folder).filter((n) => partial.test(n)))
+    fs.rmSync(path.join(folder, name), { force: true });
   const target = path.join(folder, `MEMORY-${stamp(now)}.md`);
-  const out = openInsideSync(target, O_WRONLY | O_CREAT | O_EXCL, 0o600);
+  const temporary = `${target}.tmp`;
+  const out = openInsideSync(temporary, O_WRONLY | O_CREAT | O_EXCL, 0o600);
   try {
     fs.writeFileSync(out, content);
+    fs.fsyncSync(out);
   } finally {
     fs.closeSync(out);
   }
+  fs.renameSync(temporary, target);
   for (const name of backupsIn(folder).slice(0, -keep))
     fs.rmSync(path.join(folder, name), { force: true });
   return target;
 }
 
-// Whether `now` lies in the `windowMinutes` before `hour` in `timeZone`.
-function inWindow(now, hour, timeZone) {
-  const parts = Object.fromEntries(
+const localTime = (date, timeZone) =>
+  Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
       timeZone,
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
     })
-      .formatToParts(now)
+      .formatToParts(date)
       .map(({ type, value }) => [type, Number(value)]),
   );
-  const ahead = (hour * 60 - (parts.hour * 60 + parts.minute) + 1440) % 1440;
-  return ahead > 0 && ahead <= windowMinutes;
+// Whether `now` lies in the `windowMinutes` before `hour` in `timeZone`. On the night
+// the clock springs forward to `hour` (02:00 -> 03:00), the minutes before the jump.
+function inWindow(now, hour, timeZone) {
+  const local = localTime(now, timeZone);
+  const ahead = (hour * 60 - (local.hour * 60 + local.minute) + 1440) % 1440;
+  if (ahead > 0 && ahead <= windowMinutes) return true;
+  if (local.hour === hour) return false;
+  for (let k = 1; k <= windowMinutes; k++)
+    if (localTime(new Date(now.getTime() + k * 60000), timeZone).hour === hour)
+      return true;
+  return false;
 }
 
 /**
@@ -109,8 +124,9 @@ export class DreamingBackups {
     this.timer = null;
   }
   // Under the admission gate: never while a restore or update replaces workspaces.
-  async run(now = this.clock()) {
-    return this.assistants.admit(() => this.tick(now));
+  // The time is read once admitted, so a tick that waited never acts on a stale one.
+  async run(now) {
+    return this.assistants.admit(() => this.tick(now ?? this.clock()));
   }
   tick(now) {
     const paths = this.assistants.runtime?.paths;
@@ -120,7 +136,9 @@ export class DreamingBackups {
     );
     const workspace = (agent) => path.join(paths.workspaces, agent.id);
     const root = path.join(paths.root, folderName);
-    for (const name of fs.existsSync(root) ? fs.readdirSync(root) : []) {
+    // Without the workspaces root (moved or unmounted) nothing is judged gone.
+    const prunable = fs.existsSync(root) && fs.existsSync(paths.workspaces);
+    for (const name of prunable ? fs.readdirSync(root) : []) {
       const agent = agents.get(name);
       if (!agent || !fs.existsSync(workspace(agent)))
         fs.rmSync(path.join(root, name), { recursive: true, force: true });
