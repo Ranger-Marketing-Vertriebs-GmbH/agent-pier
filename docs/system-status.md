@@ -88,8 +88,10 @@ its sessions runs there, so no session is lost. Until then, the start page above
 convenient; AgentPier then starts new sessions on the new server." and the names of
 those sessions. Stop them whenever it suits you (**Stop session**); new sessions join
 the old server until the last one there has stopped. The next session then starts on
-the new server, and the notice disappears. AgentPier never ends these sessions or the
-old server itself. See [architecture](architecture.md) for the details.
+the new server, and the notice disappears. AgentPier never ends a running session; it
+ends the old server once only finished AgentPier sessions remain on it, after recording
+their exits and last screens. A session on it that AgentPier did not start keeps the old
+server running. See [architecture](architecture.md) for the details.
 
 ## API
 

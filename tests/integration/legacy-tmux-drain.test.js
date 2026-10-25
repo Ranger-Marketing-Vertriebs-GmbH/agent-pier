@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -82,8 +82,20 @@ async function legacyServer(t, sessions) {
 }
 
 const byId = (sessions) => [...sessions].sort((a, b) => a.id.localeCompare(b.id));
+const noServer = async (socket) =>
+  assert.rejects(exec(tmuxPath, ["-S", socket, "list-sessions"]), "no server there");
+const quietly = (t) => t.mock.method(console, "error", () => {});
 
-test("sessions on the legacy server are reported until the last one stops", async (t) => {
+async function eventually(fn, message, timeout = 5000) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    if (await fn()) return;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
+  assert.fail(`Timed out waiting for ${message}`);
+}
+
+test("the old server is ended once only finished sessions remain on it", async (t) => {
   const { dataDir, sockets, manager, start } = await legacyServer(t, [
     ["alpha", "Alpha review"],
     ["beta", "Beta fix"],
@@ -103,14 +115,15 @@ test("sessions on the legacy server are reported until the last one stops", asyn
   await manager.stop("gamma");
   assert.deepEqual(await legacyTmuxSessions(manager), []);
 
-  // None is left: the next session starts on the new server, and AgentPier stays there.
+  // None is left: the old server ends and the next session starts on the new one.
   await manager.create(shell("delta", "Delta", dataDir));
   assert.equal(manager.socketPath, sockets.produced);
   assert.deepEqual(await names(sockets.produced), ["agentpier-delta"]);
   assert.equal((await manager.get("delta")).status, "running");
   assert.deepEqual(await legacyTmuxSessions(manager), []);
-  // The legacy server is left running, never killed.
-  await exec(tmuxPath, ["-S", sockets.legacy, "list-sessions"]);
+  // Rollback safety: no server is left on the legacy socket for an older release to
+  // pick, so it reaches the agentpier one, and so does a restart.
+  await noServer(sockets.legacy);
   assert.equal(chooseTmuxSocket(dataDir, { tmuxPath }), sockets.produced);
   const restarted = await start();
   assert.equal(restarted.socketPath, sockets.produced);
@@ -128,23 +141,98 @@ test("a relaunch of the last legacy session starts it on the new server", async 
   assert.equal(result.status, "running");
   assert.equal(manager.socketPath, sockets.produced);
   assert.deepEqual(await names(sockets.produced), ["agentpier-solo"]);
-  assert.deepEqual(await names(sockets.legacy), []);
+  await noServer(sockets.legacy);
 });
 
-test("a session that exited on the legacy server is recorded before the move", async (t) => {
+test("an exit not seen yet is recorded with its screen before the old server ends", async (t) => {
   const { dataDir, sockets, manager } = await legacyServer(t, [["quiet", "Quiet"]]);
-  await manager.save({ ...(await manager.metadata("quiet")), status: "running" });
-  await manager.tmux(["respawn-pane", "-k", "-t", "=agentpier-quiet:0.0", "true"]);
-  const until = Date.now() + 5000;
-  while ((await legacyTmuxSessions(manager)).length && Date.now() < until)
-    await new Promise((resolve) => setTimeout(resolve, 40));
-  assert.deepEqual(await legacyTmuxSessions(manager), [], "the pane is dead");
+  await manager.tmux(["respawn-pane", "-k", "-t", "=agentpier-quiet:0.0", "echo BYE"]);
+  await eventually(
+    async () => !(await legacyTmuxSessions(manager)).length,
+    "the pane to die",
+  );
   assert.equal((await manager.metadata("quiet")).status, "running", "not seen yet");
   await manager.create(shell("next", "Next", dataDir));
   assert.equal(manager.socketPath, sockets.produced);
   const quiet = await manager.metadata("quiet");
   assert.equal(quiet.status, "stopped");
   assert.equal(quiet.interruption, undefined, "an exit, not a lost server");
-  // Its dead pane stays on the legacy server.
-  assert.deepEqual(await names(sockets.legacy), ["agentpier-quiet"]);
+  assert.match(
+    await readFile(path.join(dataDir, "sessions", "quiet.screen"), "utf8"),
+    /BYE/,
+  );
+  await noServer(sockets.legacy);
+});
+
+test("a CLI that ended while AgentPier was stopped is recorded at startup", async (t) => {
+  const { dataDir, sockets, manager, start } = await legacyServer(t, [["late", "Late"]]);
+  await manager.close();
+  await exec(tmuxPath, [
+    "-S",
+    sockets.legacy,
+    "respawn-pane",
+    "-k",
+    "-t",
+    "=agentpier-late:0.0",
+    "echo GONE; exit 3",
+  ]);
+  await eventually(
+    async () =>
+      (
+        await exec(tmuxPath, [
+          "-S",
+          sockets.legacy,
+          "list-sessions",
+          "-F",
+          "#{pane_dead}",
+        ])
+      ).stdout.trim() === "1",
+    "the pane to die",
+  );
+  const restarted = await start();
+  assert.equal(restarted.socketPath, sockets.produced);
+  const late = await restarted.metadata("late");
+  assert.equal(late.status, "stopped");
+  assert.equal(late.exitCode, 3);
+  assert.equal(late.interruption, undefined, "not a lost server, so no auto-resume");
+  assert.match(
+    await readFile(path.join(dataDir, "sessions", "late.screen"), "utf8"),
+    /GONE/,
+  );
+  await noServer(sockets.legacy);
+});
+
+test("a session without a stored record keeps the old server but is not listed", async (t) => {
+  const { dataDir, sockets, manager } = await legacyServer(t, [["alpha", "Alpha"]]);
+  await exec(tmuxPath, [
+    "-S",
+    sockets.legacy,
+    "new-session",
+    "-d",
+    "-s",
+    "agentpier-ghost",
+    "sleep 60",
+  ]);
+  assert.deepEqual(await legacyTmuxSessions(manager), [{ id: "alpha", name: "Alpha" }]);
+  await manager.stop("alpha");
+  assert.deepEqual(await legacyTmuxSessions(manager), []);
+  const logged = quietly(t);
+  await manager.create(shell("next", "Next", dataDir));
+  assert.equal(manager.socketPath, sockets.legacy, "never ends what is not ours");
+  assert.deepEqual(await names(sockets.legacy), ["agentpier-ghost", "agentpier-next"]);
+  assert.match(String(logged.mock.calls.at(-1).arguments[0]), /not AgentPier's/);
+});
+
+test("an unusable new socket folder keeps the old server", async (t) => {
+  const { dataDir, sockets, manager } = await legacyServer(t, [["alpha", "Alpha"]]);
+  await manager.stop("alpha");
+  await writeFile(path.dirname(sockets.produced), "");
+  const logged = quietly(t);
+  await manager.create(shell("next", "Next", dataDir));
+  assert.equal(manager.socketPath, sockets.legacy);
+  assert.equal((await manager.get("next")).status, "running");
+  assert.match(
+    String(logged.mock.calls.at(-1).arguments[0]),
+    /could not prepare the new tmux socket folder/,
+  );
 });
