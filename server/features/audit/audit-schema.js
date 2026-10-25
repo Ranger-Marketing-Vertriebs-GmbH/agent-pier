@@ -12,6 +12,7 @@ import { secretAuditDetails } from "./audit-secret-details.js";
 import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 import { MAX_QUEUE_CONCURRENCY } from "../pipelines/queue-policy.js";
 import { teamAuditDetails } from "./audit-team-details.js";
+import { hookAuditDetails } from "./audit-hook-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
   "memory",
@@ -230,6 +231,9 @@ export function auditEvent(input) {
       "project-grants",
       "lead-share",
       "lead-routine",
+      // Agent hooks: owner changes and every delivery (audit-hook-details.js).
+      "hook",
+      "hook-delivery",
       "native-write",
       "share",
       "github-access",
@@ -527,7 +531,10 @@ export function auditEvent(input) {
       );
   }
   // How a lead's team acted: routines, follow-up writes, shared folders.
-  if (input.resourceType === "assistant") teamAuditDetails(details, event, auditId);
+  if (input.resourceType === "assistant") {
+    teamAuditDetails(details, event, auditId);
+    hookAuditDetails(details, event, auditId);
+  }
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);

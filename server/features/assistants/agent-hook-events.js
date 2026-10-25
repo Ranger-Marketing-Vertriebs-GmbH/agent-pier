@@ -149,6 +149,15 @@ export class HookEvents {
       .all(assistantId, limit)
       .map((row) => JSON.parse(row.body));
   }
+  /** The hook's newest event, or null. */
+  last(hookId) {
+    const row = this.db
+      .prepare(
+        "SELECT body FROM assistant_hook_events WHERE hook_id=? ORDER BY received_at DESC, rowid DESC LIMIT 1",
+      )
+      .get(hookId);
+    return row ? JSON.parse(row.body) : null;
+  }
   payload(id) {
     const row = this.db
       .prepare("SELECT payload FROM assistant_hook_events WHERE id=?")

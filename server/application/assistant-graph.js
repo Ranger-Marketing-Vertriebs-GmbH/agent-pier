@@ -5,7 +5,7 @@ import { temporaryMember } from "../features/assistants/team-presentation.js";
 import { TeamService } from "../features/assistants/team-service.js";
 import { NativeMemory } from "../features/assistants/native-memory.js";
 import { NativeReminders } from "../features/assistants/native-reminders.js";
-import { NativeHeartbeats } from "../features/assistants/native-heartbeats.js";
+import { attachWakeups } from "../features/assistants/assistant-wakeups.js";
 import {
   deleteReleasedSessions,
   retireReleased,
@@ -279,12 +279,10 @@ export function constructAssistantGraph(host, created = {}) {
     notifications: host.notifications,
   });
   const assistantRoutines = new NativeRoutines({ reminders: assistantReminders });
-  // Reached as reminders.heartbeats (shares the webhook).
-  new NativeHeartbeats({
-    reminders: assistantReminders,
-    notifications: host.notifications,
-  });
-  // The workflow layer looks services up by name: these here, the rest from the host.
+  // Check-ins (assistantReminders.heartbeats) and hooks (assistantRoutines.hooks).
+  attachWakeups({ reminders: assistantReminders, routines: assistantRoutines, host });
+  // The workflow layer looks services up by name: assistant services from this graph,
+  // everything else (sessions, projects, configuration) from the application.
   const scope = Object.assign(Object.create(host), {
     assistantRuntime,
     assistants,

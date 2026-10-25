@@ -185,6 +185,10 @@ const reasons = {
   GOAL_NOT_OPEN: "This chat has no open goal. Do not retry.",
   GOAL_UPDATE_TURN:
     "The steps of the open goal can only be noted in a turn of the owner's own message or in a turn of that goal, not in forwarded, scheduled or member-result turns or for a goal that has since been replaced. Do not retry; keep working on the open goal.",
+  HOOK_RIGHT_EXCEEDS:
+    "A hook cannot hold a right you do not have yourself. Remove that right and propose again.",
+  HOOK_UNAVAILABLE:
+    "Hooks are only available to your owner's own agents and permanent members with reminders and routines switched on. Do not retry; tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -246,6 +250,8 @@ const byKey = {
   projectEditNoMatch: "PROJECT_EDIT_NO_MATCH",
   projectFileEncoding: "PROJECT_FILE_ENCODING",
   projectWriteTooLarge: "PROJECT_WRITE_TOO_LARGE",
+  hookRightExceeds: "HOOK_RIGHT_EXCEEDS",
+  hookUnavailable: "HOOK_UNAVAILABLE",
   shareNotFound: "SHARE_NOT_FOUND",
   shareOutside: "SHARE_OUTSIDE",
   shareTooLarge: "SHARE_TOO_LARGE",

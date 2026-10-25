@@ -162,6 +162,7 @@
   "assistants.heartbeatMemoryRequired": "de:5cdd51428288 en:6c6d293dabd5",
   "assistants.heartbeatPrefix": "de:a44e12f35468 en:a44e12f35468",
   "assistants.hookRightExceeds": "de:7d8514749cf4 en:42e06356eb00",
+  "assistants.hookUnavailable": "de:9dc403785f24 en:bc6f6eb828f9",
   "assistants.hostCapacity": "de:260502d2d145 en:87eadc04eb94",
   "assistants.invalid": "de:3f14be5288a5 en:4ab8fab30897",
   "assistants.leadRoutineInterval": "de:91c25adb03a1 en:00982f47e387",
