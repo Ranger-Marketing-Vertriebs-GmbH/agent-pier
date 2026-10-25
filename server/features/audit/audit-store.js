@@ -86,6 +86,23 @@ export class AuditStore {
       .get(first, ...actions, since, id, id);
     return row ? { ...JSON.parse(row.document), id: String(row.id) } : null;
   }
+  /**
+   * The newest event time per resource id among events with one of `actions`, any
+   * outcome (connection-last-use.js). Reads only those actions through their index.
+   */
+  latestByResource(actions) {
+    if (!actions.length) return new Map();
+    const rows = this.db
+      .prepare(
+        `SELECT json_extract(document,'$.resourceId') AS resource, MAX(created_at) AS at FROM events WHERE action IN (${actions.map(() => "?").join(",")}) GROUP BY resource`,
+      )
+      .all(...actions.map((action) => auditAction(action)));
+    return new Map(
+      rows
+        .filter((row) => typeof row.resource === "string" && row.resource)
+        .map((row) => [row.resource, row.at]),
+    );
+  }
   firstSince(since) {
     const bounds = this.db
       .prepare("SELECT MIN(id) AS low, MAX(id) AS high FROM events")

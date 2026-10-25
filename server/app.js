@@ -88,6 +88,7 @@ import { dictationRoutes } from "./http/routes/dictation.js";
 import { DictationService } from "./features/speech/dictation-service.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
+import { connectionsRoutes } from "./http/routes/connections.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
@@ -346,6 +347,7 @@ export async function createApplication(config) {
   mount(fileTransfersRoutes(services));
   mount(filesRoutes(services));
   mount(accountsRoutes(services));
+  mount(connectionsRoutes(services));
   mount(sessionsRoutes(services));
   mount(sshRoutes(services));
   mount(secretsRoutes(services));

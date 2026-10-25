@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { decoratedMcpServers } from "../../features/mcp-servers/mcp-server-list.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { STDIO_CONFIRMATION_REQUIRED } from "../../features/mcp-servers/stdio-confirmation.js";
 import { VALUE_REFERENCE } from "../../features/mcp-servers/value-references.js";
@@ -116,18 +117,9 @@ export function mcpServerRoutes(services) {
   });
   router.use(mcpCliRoutes(services, { auditMcp, replyStdioConfirmation }));
   router.use(mcpPackageRoutes(services, { auditMcp }));
-  // OAuth servers carry their agent login status (see McpOAuthLogins.decorate); every
-  // server its CLI bindings, their status and its users (CliMcpBindings.decorate).
+  // Login status, placeholder views and CLI bindings: mcp-server-list.js.
   router.get("/mcp-servers", async (_req, res) => {
-    let list = changes().list();
-    if (services.assistantMcpOAuth)
-      list = await services.assistantMcpOAuth.decorate(list);
-    // Servers with agent placeholders show what each bound agent's folders resolve to.
-    if (services.assistantMcpChanges)
-      list = services.assistantMcpChanges.sharedViews(
-        services.assistantMcpChanges.placeholderViews(list),
-      );
-    res.json(services.cliMcp ? await services.cliMcp.decorate(list) : list);
+    res.json(await decoratedMcpServers(services, changes().list()));
   });
   // `clis` (optional) binds the server to coding CLIs in the same write.
   router.post("/mcp-servers", async (req, res) => {

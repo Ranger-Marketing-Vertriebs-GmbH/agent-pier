@@ -109,22 +109,33 @@ export function sshRoutes({
     );
     res.status(204).end();
   });
-  router.get("/ssh-accesses", (_req, res) => res.json({ accesses: sshAccesses.list() }));
+  // The owner's list and edits carry each host's last connection test.
+  const withLastTest = (access) => sshAccesses.withLastTests([access])[0];
+  router.get("/ssh-accesses", (_req, res) =>
+    res.json({ accesses: sshAccesses.withLastTests(sshAccesses.list()) }),
+  );
   router.post("/ssh-accesses/scan", async (req, res) =>
     res.json(await sshAccesses.scan(req.body)),
   );
   router.post("/ssh-accesses", async (req, res) =>
     res
       .status(201)
-      .json(await mutate("createHost", req.body, () => sshAccesses.create(req.body))),
+      .json(
+        withLastTest(
+          await mutate("createHost", req.body, () => sshAccesses.create(req.body)),
+        ),
+      ),
   );
   router.patch("/ssh-accesses/:id", async (req, res) =>
     res.json(
-      await mutate("updateHost", { id: req.params.id, body: req.body }, () =>
-        sshAccesses.update(req.params.id, req.body),
+      withLastTest(
+        await mutate("updateHost", { id: req.params.id, body: req.body }, () =>
+          sshAccesses.update(req.params.id, req.body),
+        ),
       ),
     ),
   );
+  // The answer stays as before; the outcome is kept for the list (lastTest).
   router.post("/ssh-accesses/:id/test", async (req, res) =>
     res.json(await sshAccesses.test(req.params.id)),
   );

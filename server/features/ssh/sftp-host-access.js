@@ -7,6 +7,8 @@ import { passwordValue } from "./ssh-password-store.js";
 import { hostTypes, sftpAuths, remoteRootValue } from "./sftp-host-fields.js";
 import { sshProblem } from "./ssh-errors.js";
 import { openSftp } from "../sftp/sftp-client.js";
+import { isSftpProblem } from "../sftp/sftp-errors.js";
+import { withTestOutcome } from "./ssh-test-results.js";
 
 // SFTP rules of SshAccessStore; each function takes the store it works on.
 // SSH rows keep their original digest; SFTP rows also pin auth, root and credential.
@@ -170,8 +172,14 @@ export async function testSftp(store, id) {
     // Some servers resolve missing paths; the allowed folder must exist.
     if ((await session.lstat(root))?.type !== "dir") throw new Error("no folder");
     return { ok: true };
-  } catch {
-    throw problem(serverMessages.ssh.connectionFailed, 502);
+  } catch (error) {
+    // The SFTP client's stable problem code names the cause, never a host or secret.
+    const code = isSftpProblem(error) ? error.code : null;
+    throw withTestOutcome(problem(serverMessages.ssh.connectionFailed, 502), {
+      code,
+      hostKeyMismatch: code === "SFTP_HOST_KEY_MISMATCH",
+      detail: code,
+    });
   } finally {
     session?.close();
   }
