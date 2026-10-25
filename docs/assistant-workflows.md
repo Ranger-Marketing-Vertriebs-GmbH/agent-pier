@@ -139,6 +139,41 @@ view is audited with its path and size, like a change.
   file and skips binaries and files over 1 MiB, and stops after 5,000 files, 32 MiB
   read or 200 matches.
 
+### Browser uploads from folders
+
+An agent with **Use a browser** can upload a file from a folder it may at least read,
+or from its own workspace, through its own browser, for example a finished episode to
+YouTube Studio. OpenClaw's browser takes upload files only from its own uploads folder,
+so the agent first calls `agentpier_workspace` with `browser_upload_stage`: `path`,
+`projectId` for a project folder (without it the path is in the agent's own
+workspace) and optionally `site`, the website's host name for the record. AgentPier
+answers with `uploadPath`, which the agent passes unchanged in the browser tool's
+`upload` action (`paths`, with `ref`, `inputRef` or `element`). An upload the owner
+asked for needs no further approval.
+
+- **Who and which folders:** the same turns and levels as every read above (the
+  agent's own folders, a task member's grant, its lead's shares, routines read-only),
+  with the browsing agent's own **Use a browser** (`BROWSER_NOT_GRANTED` otherwise;
+  in a team turn the task member's own). A restricted user's agent reaches only the
+  folders its user's grants allow. Without `projectId` the file comes from the
+  browsing agent's own workspace, never from its prompt files, `skills/`, `.agents/` or
+  `attachments/`.
+- **Checks:** the path is resolved like every read (no `.git`, no links leading out,
+  never AgentPier's data), and the file must be a regular file without a second hard
+  link, opened without following any link (`project-open.js`), at most 8 GiB
+  (`UPLOAD_TOO_LARGE`). AgentPier copies it through that opened descriptor; a copy
+  that would leave less than 1 GiB free is refused (`UPLOAD_NO_SPACE`). See
+  [browser uploads](assistant-gateway.md#browser-uploads) for where the copy goes and
+  how long it stays.
+- **Only the agent's own files:** the browser tool guard lets an `upload` name a
+  staged file only for the agent that staged it, while it is still staged. A project
+  file named directly, or any other path outside OpenClaw's own folders, is refused
+  with a reason that tells the agent to stage it first.
+- **Audit:** staging and each browser upload of a staged file are one
+  `assistant.updated` record each (`kind: "browser-upload"`, `browserUpload: "staged"`
+  or `"browser"`) with the agent, the project (or `workspace: true`), the relative
+  path, the size and the `site` the agent named, never the content.
+
 A lead passes folder access to its task members with `projects` in its grants
 (`{ "<projectId>": "read" | "write" }`), at most at its own level, visibly and without
 your approval like its other grants. What a member uses is resolved on every call:

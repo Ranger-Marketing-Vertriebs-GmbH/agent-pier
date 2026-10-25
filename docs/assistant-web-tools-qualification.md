@@ -33,7 +33,8 @@ set -a; . /tmp/contracts.env; set +a
 node --test --test-concurrency=1 \
   tests/integration/assistant-web-tools-contract.test.js \
   tests/integration/assistant-web-tools-compiled-contract.test.js \
-  tests/integration/assistant-web-tools-live-contract.test.js
+  tests/integration/assistant-web-tools-live-contract.test.js \
+  tests/integration/assistant-browser-upload-contract.test.js
 ```
 
 The compiled contract reads the search plugins from the provisioned installation's
@@ -378,6 +379,16 @@ and the browser on for one agent. The agent is offered all four tools. A browser
 The same Gateway process serves every step, and its log has no `requires gateway
 restart` line. The test runs with the other web tools contracts (see
 [Running the contracts](#running-the-contracts)) and in the `native-contracts` job.
+
+`tests/integration/assistant-browser-upload-contract.test.js` drives a real browser
+upload on 2026.10.7 ([browser uploads](assistant-gateway.md#browser-uploads)). It
+stages a workspace file for one agent and a project file for another, fills a blank
+page of the agent's browser with a file input over CDP (OpenClaw keeps local test
+servers closed to the agent's browser), and calls the browser tool's `upload` with
+`element`. The other agent's staged file and the project file named directly are
+refused by the tool guard with their reasons; the agent's own staged file is accepted
+by OpenClaw and reaches the page with its name, size and content, and that upload is
+audited once.
 Enabling the browser block itself live (a browser installed after the start) was not
 measured again. AgentPier keeps that case, a changed search provider or key and a
 changed PDF model on the [pending restart](assistant-gateway.md#pending-restart).
