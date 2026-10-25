@@ -4,6 +4,7 @@ import { eventIdOf, HookEvents } from "./agent-hook-events.js";
 import { HookRuns, runSession } from "./agent-hook-runs.js";
 import { HookStore, newSecret } from "./agent-hook-store.js";
 import { payloadCut } from "./agent-hook-prompt.js";
+import { eventActions } from "./agent-event-area.js";
 import {
   effectiveRights,
   hookDefaults,
@@ -332,13 +333,11 @@ export class AgentHooks {
       throw assistantProblem("notFound", 404);
     const stored = this.events.payload(event.id);
     const cut = stored === null ? null : payloadCut(stored);
-    const workflows = this.assistants.workflows;
-    const coding = (event.coding || []).flatMap((actionId) => {
-      const action = workflows.get(actionId);
-      if (!action || action.assistantId !== assistantId) return [];
-      const run = workflows.liveRun(action).run || action.run;
-      return [{ actionId, state: action.state, runUrl: run?.url ?? null }];
-    });
+    const { coding, remote } = eventActions(
+      this.assistants.workflows,
+      assistantId,
+      event,
+    );
     return {
       receivedAt: new Date(event.receivedAt).toISOString(),
       size: event.size,
@@ -348,6 +347,7 @@ export class AgentHooks {
       payloadCut: !!cut?.omitted,
       activity: event.activity || [],
       coding,
+      remote,
       notified: event.notified || null,
       reply: event.reply ?? null,
     };

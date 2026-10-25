@@ -22,8 +22,9 @@ const hookStatus = {
 const hookPrompt = (m) =>
   m.role === "user" &&
   typeof m.text === "string" &&
-  m.text.startsWith("This is the AgentPier hook ") &&
-  m.text.includes(hookMarkers.start);
+  m.text.includes("not a message from the owner") &&
+  m.text.includes(hookMarkers.start) &&
+  m.text.includes(hookMarkers.end);
 
 /** Whether a transcript entry belongs to the event area instead of the messages. */
 export function areaResult(message) {
@@ -106,4 +107,37 @@ export function eventArea(service, conversation) {
           .map((event) => hookRow(event, hooks.store.get(event.hookId)))
       : [];
   return [...results, ...events].sort((a, b) => b.at - a.at).slice(0, areaLimit);
+}
+
+/**
+ * What a hook event's run started through AgentPier: its coding requests (the ids
+ * the run noted, plus actions whose origin names the event) with their run links,
+ * and its SSH and SFTP runs with the host. Only the agent's own actions.
+ */
+export function eventActions(workflows, assistantId, event) {
+  const own = (a) => a && a.assistantId === assistantId;
+  const ofEvent = (workflows?.store?.list(assistantId) || []).filter(
+    (a) => own(a) && a.origin?.kind === "hook" && a.origin.eventId === event.id,
+  );
+  const codingIds = [
+    ...new Set([
+      ...(event.coding || []),
+      ...ofEvent.filter((a) => a.payload?.action === "coding_start").map((a) => a.id),
+    ]),
+  ];
+  const coding = codingIds.flatMap((actionId) => {
+    const action = workflows?.get?.(actionId);
+    if (!own(action)) return [];
+    const run = workflows.liveRun?.(action)?.run || action.run;
+    return [{ actionId, state: action.state, runUrl: run?.url ?? null }];
+  });
+  const remote = ofEvent
+    .filter((a) => ["ssh", "sftp"].includes(a.payload?.action))
+    .map((a) => ({
+      actionId: a.id,
+      kind: a.payload.action,
+      host: a.payload.hostName || "",
+      state: a.state,
+    }));
+  return { coding, remote };
 }

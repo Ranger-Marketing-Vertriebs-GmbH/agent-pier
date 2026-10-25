@@ -507,7 +507,9 @@ result shows only in the agent's event area.
 **Results.** The event keeps its status (`done`, `failed`, `throttled`, silent), the
 reply, the tool steps the run made (tool name and state from the Gateway's `agent`
 frames, never arguments or output) and what was notified. The main chat's results
-record names it with `kind: "hook"`.
+record names it with `kind: "hook"`. The event area (the `events` of
+the main chat's history) belongs to the main chat only: a chat that is no longer the
+main chat shows none of its earlier routine, check-in or hook results.
 
 **Rights per tick.** A hook holds only what the owner ticks, never more than the agent
 holds: every tick is capped by the agent's live rights on every event and, for
