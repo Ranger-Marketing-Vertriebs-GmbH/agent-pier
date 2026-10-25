@@ -7,19 +7,20 @@ import path from "node:path";
 // read or write there (guardedWorkspaceEntry, agent-share-source.js). A shell can
 // still reach the folder; the next turn's sync restores the file.
 export const managedFolder = ".agentpier";
+// Approximates the case-insensitive, normalization-insensitive lookup of APFS:
+// "AGENTſ.md" (U+017F) and the Kelvin sign U+212A fold to ASCII here.
+export const fold = (name) => name.normalize("NFKC").toUpperCase().toLowerCase();
 export const managedRefusal = "Files in .agentpier are managed by AgentPier.";
 
-/**
- * Whether a workspace-relative POSIX path names the folder or a path below it, in
- * any case (folded as tool-guard.js fold does).
- */
-export const managedName = (relative) =>
-  relative.split("/")[0].normalize("NFKC").toUpperCase().toLowerCase() === managedFolder;
+/** Whether a workspace-relative POSIX path names the folder or a path below it. */
+export const managedName = (relative) => fold(relative.split("/")[0]) === managedFolder;
 
 const missing = (error) => error.code === "ENOENT" || error.code === "ENOTDIR";
 
 // Where a path leads on disk, existing or not: a missing name below its resolved
 // parent, a dangling link where it points (a write through it creates its target).
+// Every step counts against the limit, parent steps included, so a deep path or a
+// long chain is refused as unresolvable (fail closed), never let through.
 function resolved(file, hops) {
   if (++hops.count > 40) throw Object.assign(Error("Too many links"), { code: "ELOOP" });
   try {
@@ -68,10 +69,19 @@ export function reachesManaged(workspace, target) {
     if (missing(error)) return false;
     throw error;
   }
-  return fs.readdirSync(folder).some((name) => {
+  return linked(folder, stat);
+}
+
+// Whether a file anywhere below `folder` is the file `stat` describes. The folder
+// holds AgentPier's few files, so the walk is cheap; links in it are not followed.
+function linked(folder, stat) {
+  return fs.readdirSync(folder, { withFileTypes: true }).some((entry) => {
+    const file = path.join(folder, entry.name);
+    if (entry.isDirectory()) return linked(file, stat);
+    if (!entry.isFile()) return false;
     try {
-      const file = fs.statSync(path.join(folder, name));
-      return file.dev === stat.dev && file.ino === stat.ino;
+      const own = fs.statSync(file);
+      return own.dev === stat.dev && own.ino === stat.ino;
     } catch {
       return false;
     }
