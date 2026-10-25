@@ -7,6 +7,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AssistantComposer from "../assistants/AssistantComposer.jsx";
 import AssistantMessage from "../assistants/AssistantMessage.jsx";
 import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx";
+import AgentEventArea from "../assistants/AgentEventArea.jsx";
 import TranscriptItem from "../assistants/TranscriptItem.jsx";
 import { groupActivity } from "../assistants/activity-groups.js";
 import useAgentAttachments from "../assistants/useAgentAttachments.js";
@@ -125,6 +126,12 @@ export default function UserChat({
           </div>
         </div>
       </UserHeader>
+      {/* Her routine and check-in results (never hooks: those are the owner's). */}
+      <AgentEventArea
+        assistantId={agent.id}
+        conversationId={conversationId}
+        events={history.events}
+      />
       <div className="assistant-chat-panel">
         <ErrorMessage error={chat.error} />
         {chat.unreachable && (

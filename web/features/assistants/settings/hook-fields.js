@@ -67,3 +67,28 @@ export function hookState(hook) {
   if (!hook.active) return "inactive";
   return hook.secretSet ? "active" : "noSecret";
 }
+
+const levelRank = ["none", "read", "write"];
+
+/**
+ * A proposal's rights with the owner's edited ticks, each capped by what the agent
+ * holds now (`ceiling`, `shellChoices` of hookApi.list): an approval never asks for
+ * more than the server accepts. Telegram needs Notify.
+ */
+export function clampRights(rights, ticks, ceiling, shellChoices) {
+  const values = { ...rights, ...ticks };
+  const on = (key) => values[key] === true && (key === "notify" || ceiling[key] === true);
+  const folders = {};
+  for (const [project, level] of Object.entries(rights.folders || {})) {
+    const held = ceiling.folders?.[project];
+    if (!held) continue;
+    folders[project] = levelRank.indexOf(level) > levelRank.indexOf(held) ? held : level;
+  }
+  return {
+    ...Object.fromEntries(hookTicks.map((key) => [key, on(key)])),
+    telegram: on("telegram") && on("notify"),
+    shell: shellChoices.includes(rights.shell) ? rights.shell : "off",
+    sshHosts: (rights.sshHosts || []).filter((host) => ceiling.sshHosts?.includes(host)),
+    folders,
+  };
+}

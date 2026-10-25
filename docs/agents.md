@@ -793,10 +793,12 @@ or proposing a team sends an **Agent approval** push notification as well.
   its members and delegate tasks to permanent ones; such a task runs read-only unless
   the routine is marked **May write**, and **Work → Teams → Questions and tasks**
   marks the request "Scheduled · <name>". A marked routine's tasks count as your
-  standing instruction and may change files like a task you asked for. Its whole result appears in the agent's chat marked
-  "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
-  messages when it is long); a failed run shows a short line there that names why it
-  failed. You can also ask the agent for a routine in the chat. Routines
+  standing instruction and may change files like a task you asked for. Its result
+  appears in the main chat's **Events** area (see [the event area](#the-event-area))
+  as a row with the routine's name and the reply's first line; opening the row shows
+  the whole reply (and, with Telegram switched on, it also goes to the paired chat as
+  several messages when it is long). A failed run's row shows **Failed**. You can also ask
+  the agent for a routine in the chat. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
   watches, so with full shell access they act without asking. A routine can run SSH
   commands only on hosts set to **Trusted incl. routines**; on any other host it is
@@ -812,9 +814,22 @@ or proposing a team sends an **Agent approval** push notification as well.
   history names the cause too.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
   conversation and notes every hour, every 2 or 4 hours or once a day, within active
-  hours, and write only when something needs your attention. A check-in is marked
-  "Check-in" in the chat. It needs **Remember information**. Each check-in costs a model
-  run.
+  hours, and write only when something needs your attention. A check-in's result is a
+  "Check-in" row in the main chat's **Events** area. It needs **Remember information**.
+  Each check-in costs a model run.
+
+### The event area
+
+What routines, check-ins and hooks did stays out of the conversation: the main chat
+shows it in one **Events** strip under the chat header, shut by default, with the number
+of events and how many are new since you last opened it (remembered per browser), plus
+**Running** while one runs and **N failed** for new failures. Each event is a row with
+its name (a hook's with its sender), the reply's first line, duplicates, and **Running**,
+**Done**, **Failed**, **Throttled** or **Silent**. Opening a hook's row shows **What came
+in** as plain text (never formatted), when it arrived, its size and sender, **What the
+agent did** (its tool steps, coding runs with **Open run**, SSH and SFTP runs, the
+notices it sent) and the whole reply. Reminders stay ordinary messages marked
+"Scheduled · <name>". Other chats have no event area.
 
 ## Hooks
 
@@ -853,6 +868,14 @@ plain-text body of at most 64 KiB. An `Idempotency-Key` or `X-Event-Id` header, 
 `eventId` or `id` field, names the event; a repeat of the same event never wakes the
 agent again. The agent treats the event as untrusted data and does not follow
 instructions in it.
+
+An agent can also propose a hook when you ask for one in your own message. The
+proposal waits as a **Hook proposal** card in its chat (and in the Inbox) with the
+name, sender, reason and the rights it asks for; under **Rights to grant** you can
+switch rights off, or on where the agent holds them now, before **Approve hook** or
+**Decline action**. After approval the chat links to the hook's settings ("Show the
+secret in the hook's settings"), where **Create secret** makes its first secret.
+**Work → Actions and coding tasks** lists each proposal with its outcome.
 
 ## Dictation
 

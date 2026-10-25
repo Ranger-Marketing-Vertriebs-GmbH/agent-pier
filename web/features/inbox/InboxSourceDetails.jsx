@@ -109,12 +109,14 @@ export function InboxActionDetail({ item, done }) {
     (a) => a.id === item.id && a.state === "awaiting_approval",
   );
   if (!action) return <InboxStale type={item.type} id={item.id} />;
-  // As useAssistantActions decides in the agent's chat.
-  const decide = async (a, decision) => {
+  // As useAssistantActions decides in the agent's chat (with a hook proposal's
+  // edited rights in `extra`).
+  const decide = async (a, decision, extra = {}) => {
     setError("");
     setBusy(true);
     try {
       await api(`/assistant-actions/${encodeURIComponent(a.id)}/decision`, "POST", {
+        ...extra,
         revision: a.revision,
         decision,
       });

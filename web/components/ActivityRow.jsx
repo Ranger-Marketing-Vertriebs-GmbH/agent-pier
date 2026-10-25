@@ -8,7 +8,7 @@ import "./activity-row.css";
  * row that opens to its details: icon, `label`, a one-line `detail` cut with an
  * ellipsis, and a `status` chip in `tone` (StatusChip's tones). `children` is the
  * expanded body, rendered only while open unless `keepMounted`. The row is a
- * disclosure button with `aria-expanded`.
+ * disclosure button with `aria-expanded`; `onToggle(open)` hears each change.
  */
 export default function ActivityRow({
   icon = "terminal",
@@ -18,6 +18,7 @@ export default function ActivityRow({
   tone = "neutral",
   defaultOpen = false,
   keepMounted = false,
+  onToggle,
   className,
   children,
   ...attributes
@@ -35,7 +36,10 @@ export default function ActivityRow({
         className="activity-row-head"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setOpen(!open);
+          onToggle?.(!open);
+        }}
       >
         <Icon name="chevron" size={14} className="activity-row-chevron" />
         <Icon name={icon} size={16} className="activity-row-icon" />

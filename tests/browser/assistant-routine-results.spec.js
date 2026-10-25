@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
@@ -17,29 +16,39 @@ const digest = [
 const messages = [
   { id: "q", role: "user", text: "Send me the AI news every morning.", timestamp: 1 },
   { id: "a", role: "assistant", text: "Done: a daily routine at 9:00.", timestamp: 2 },
-  {
-    id: "routine",
-    role: "assistant",
-    text: digest,
-    timestamp,
-    scheduled: { name: "AI News Update" },
-  },
+];
+// Routine results leave the transcript for the chat's event area (agent-event-area.js).
+const events = [
   {
     id: "routine:failed",
-    role: "event",
-    event: "routine-failed",
+    source: "routine",
     name: "Weekly review",
-    timestamp: timestamp + 1,
+    at: timestamp + 1,
+    status: "failed",
+    firstLine: "",
+  },
+  {
+    id: "routine:digest",
+    source: "routine",
+    name: "AI News Update",
+    at: timestamp,
+    status: "done",
+    firstLine: "**AI news, October 14**",
+    reply: digest,
   },
 ];
 const copy = {
   en: {
-    badge: "Scheduled · AI News Update",
-    failed: "Routine “Weekly review” could not finish.",
+    group: "Events",
+    done: "Done",
+    failed: "Failed",
+    run: "The run could not finish.",
   },
   de: {
-    badge: "Geplant · AI News Update",
-    failed: "Routine „Weekly review“ konnte nicht abgeschlossen werden.",
+    group: "Ereignisse",
+    done: "Fertig",
+    failed: "Fehlgeschlagen",
+    run: "Der Lauf konnte nicht abgeschlossen werden.",
   },
 };
 
@@ -88,12 +97,13 @@ async function setup(page, language) {
       return route.fulfill({ contentType: "text/event-stream", body: "" });
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
-    else if (p.endsWith("/messages")) body = { messages, requests: [], stale: false };
+    else if (p.endsWith("/messages"))
+      body = { messages, requests: [], events, stale: false };
     else if (p === "/api/assistants/news") body = assistant;
     await route.fulfill({ json: body });
   });
   await page.goto(baseURL + "/agents/news/chats/daily");
-  await expect(page.locator(".assistant-message")).toHaveCount(3);
+  await expect(page.locator(".assistant-message")).toHaveCount(2);
 }
 
 for (const [name, viewport] of [
@@ -103,39 +113,48 @@ for (const [name, viewport] of [
   test.describe(name, () => {
     test.use({ viewport, hasTouch: name === "phone", isMobile: name === "phone" });
     for (const language of ["en", "de"])
-      test(`a routine's result is badged and a failed run is a quiet line (${language})`, async ({
+      test(`a routine's result and a failed run wait in the Events group (${language})`, async ({
         page,
       }) => {
         const words = copy[language];
         await setup(page, language);
-        const result = page
-          .locator(".assistant-message")
-          .filter({ hasText: "AI news, October 14" });
-        const badge = result.locator(".assistant-scheduled-badge");
-        await expect(badge).toHaveText(words.badge);
-        await expect(badge).toBeVisible();
-        // The badge sits beside the agent's name and is read with it.
-        await expect(result.locator(".assistant-message-head > strong")).toHaveText(
-          "AI News",
+        // Neither is a message, and no result carries a "Scheduled" badge any more.
+        await expect(page.locator(".assistant-transcript")).not.toContainText(
+          "October 14",
         );
-        // Only the routine's result carries it.
-        await expect(page.locator(".assistant-scheduled-badge")).toHaveCount(1);
-        const failed = page.locator("[data-routine-failed]");
-        await expect(failed).toHaveText(words.failed);
-        await expect(failed).toHaveClass(/assistant-event/);
-        const box = await badge.boundingBox();
-        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+        await expect(page.locator(".assistant-scheduled-badge")).toHaveCount(0);
+        const head = page.locator(".agent-event-group > .activity-row-head");
+        await expect(head.locator(".activity-row-label")).toHaveText(words.group);
+        await head.click();
+        const rows = page.locator(".agent-event-row");
+        await expect(rows).toHaveCount(2);
+        const result = rows.filter({ hasText: "AI News Update" });
+        await expect(result.locator(".status-chip")).toHaveText(words.done);
+        await expect(result.locator(".activity-row-detail")).toHaveText(
+          "**AI news, October 14**",
+        );
+        await result.locator(".activity-row-head").click();
+        // The full reply renders as the agent's Markdown.
+        await expect(result.locator(".agent-event-reply strong")).toHaveText(
+          "AI news, October 14",
+        );
+        await expect(result.locator(".agent-event-reply li")).toHaveCount(3);
+        const failed = rows.filter({ hasText: "Weekly review" });
+        await expect(failed.locator(".status-chip")).toHaveText(words.failed);
+        await failed.locator(".activity-row-head").click();
+        await expect(failed.locator(".activity-row-body")).toContainText(words.run);
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth - innerWidth,
         );
         expect(overflow).toBeLessThanOrEqual(1);
       });
-    test(`routine results screenshot (${name})`, async ({ page }) => {
-      const directory = process.env.ROUTINE_RESULT_SHOTS;
-      test.skip(!directory, "Screenshots are taken on request.");
+    test(`routine results screenshot (${name})`, async ({ page }, info) => {
+      test.skip(!process.env.ROUTINE_RESULT_SHOTS, "Screenshots are taken on request.");
       await page.emulateMedia({ colorScheme: "dark" });
       await setup(page, "de");
-      fs.mkdirSync(directory, { recursive: true });
-      await page.screenshot({ path: `${directory}/routine-result-${name}-de-dark.png` });
+      await page.locator(".agent-event-group > .activity-row-head").click();
+      await page.screenshot({
+        path: info.outputPath(`routine-result-${name}-de-dark.png`),
+      });
     });
   });

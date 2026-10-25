@@ -1616,8 +1616,10 @@ Telegram pairing writes into that same conversation, so a paired agent's main ch
 its Telegram conversation. Creating a reminder or routine opens the main chat when the
 agent has none yet; the binding stores it as `target` (`conversationId`,
 `sessionKey`). A reminder runs isolated and tool-less; its text is recorded for the
-chat (`assistant_routine_results`, kind `reminder`), which shows it marked
-"Scheduled · <name>", and a failed run as a quiet line. Every recorded result also
+chat (`assistant_routine_results`, kind `reminder`), which shows it as a message
+marked "Scheduled · <name>", and a failed run as a quiet line. Routine and check-in
+results instead leave the transcript for the main chat's **Events** area (the
+history's `events`, `server/features/assistants/agent-event-area.js`). Every recorded result also
 sends an `agent-routine` push notice that names only the agent and the conversation
 it opens (`/agents/<id>/chats/<conversationId>`); a replayed completion sends none.
 
@@ -3887,10 +3889,11 @@ sync opens it when the agent has none yet):
   message, in AgentPier or on Telegram, has the check-in in its context.
 - AgentPier handles a check-in only when the completion event reports the commit
   into the conversation as `delivered`; a check-in that did not reach the
-  conversation stays in the run history. In the AgentPier chat it is badged
-  "Check-in" in the owner's interface language (a `heartbeat` record in
-  `assistant_routine_results`); Telegram gets the `Check-in:` marker in the
-  channel's language.
+  conversation stays in the run history. In the AgentPier chat it leaves the
+  transcript for a "Check-in" row of the main chat's **Events** area, in the owner's
+  interface language (a `heartbeat` record in `assistant_routine_results`, served as
+  the history's `events`); Telegram gets the `Check-in:` marker in the channel's
+  language.
 - MEMORY.md is not part of a detached run's prompt (a chat turn's is), so the
   check-in prompt asks the agent to read it with `memory_get` first; the run's tools
   are `memory_search` and `memory_get` only, so nothing is written unattended.

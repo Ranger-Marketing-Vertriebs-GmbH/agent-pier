@@ -5,21 +5,29 @@ import ExecApprovalCard from "./ExecApprovalCard.jsx";
 import SshApprovalCard from "./SshApprovalCard.jsx";
 import SftpApprovalCard from "./SftpApprovalCard.jsx";
 import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
+import HookProposalCard, { HookCreatedNote } from "./HookProposalCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
 const isSftp = (a) => a.payload.action === "sftp";
 const isGrant = (a) => a.payload.action === "member_grant";
+const isHook = (a) => a.payload.action === "hook_proposal";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
+// The viewer is `assistantId`, or the chat's `assistant`; `go` navigates (to an
+// approved hook's settings).
 export default function AssistantActionApprovals({
   actions,
   error,
   decide,
-  assistantId,
+  assistant,
+  assistantId = assistant?.id,
+  go,
 }) {
   const [busy, setBusy] = useState(false);
+  // Hooks the owner approved here: they leave the list, their secret waits in settings.
+  const [created, setCreated] = useState([]);
   async function choose(a, decision) {
     setBusy(true);
     try {
@@ -28,12 +36,12 @@ export default function AssistantActionApprovals({
       setBusy(false);
     }
   }
-  if (!actions.length && !error) return null;
+  if (!actions.length && !error && !created.length) return null;
   // Shell and SSH commands and SFTP operations have their own cards; they decide
   // through `decide(id, decision)`. An SSH or SFTP card stays while its allowed
   // command or job runs.
   const others = actions.filter(
-    (a) => !isExec(a) && !isSsh(a) && !isSftp(a) && !isGrant(a),
+    (a) => !isExec(a) && !isSsh(a) && !isSftp(a) && !isGrant(a) && !isHook(a),
   );
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
@@ -60,6 +68,21 @@ export default function AssistantActionApprovals({
       ))}
       {actions.filter(isGrant).map((a) => (
         <MemberGrantApprovalCard key={a.id} action={a} busy={busy} choose={choose} />
+      ))}
+      {actions.filter(isHook).map((a) => (
+        <HookProposalCard
+          key={a.id}
+          action={a}
+          onDecide={async (decision, rights) => {
+            const decided = await decide(a, decision, rights ? { rights } : {});
+            if (decided?.state === "completed" && decided.result?.hookId)
+              setCreated((list) => [...list, decided]);
+            return decided;
+          }}
+        />
+      ))}
+      {created.map((a) => (
+        <HookCreatedNote key={a.id} action={a} navigate={go} />
       ))}
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>

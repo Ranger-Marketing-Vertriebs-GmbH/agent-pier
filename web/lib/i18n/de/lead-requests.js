@@ -15,6 +15,8 @@ export const leadRequestCopy = {
   // Die Frage oder Aufgabe eines Mitglieds an ein anderes Mitglied desselben Leads.
   peerTitle: (type, from, to) =>
     `${from} → ${to} · ${type === "task" ? "Aufgabe" : "Frage"}`,
+  // Ein Bericht über einen der Hooks des Mitglieds.
+  hookTitle: (member) => `Hook-Bericht von ${member}`,
   // Ein eigener Bericht eines Mitglieds an seinen leitenden Agenten.
   reportTitle: (kind, member) =>
     kind === "problem" ? `Problem von ${member}` : `Ergebnis von ${member}`,

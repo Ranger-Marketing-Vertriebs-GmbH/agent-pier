@@ -1,0 +1,51 @@
+/* The main chat's event area under its header (AgentEventArea.jsx): one shut
+   ActivityGroup "Events" whose rows are routine, check-in and hook events. */
+.agent-event-area {
+  flex-shrink: 0;
+  padding: var(--space-2) 28px;
+  border-bottom: 1px solid var(--header-line);
+  background: var(--sidebar-bg);
+}
+/* Opened, the events scroll inside the strip and leave room for the transcript. */
+.agent-event-group > .activity-row-body {
+  max-height: 45vh;
+  overflow-y: auto;
+  gap: var(--space-2);
+}
+.agent-event-row .activity-row-body h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.agent-event-did,
+.agent-event-reply {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.agent-event-did ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-event-did li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.agent-event-reply .message-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .agent-event-area {
+    padding: var(--space-2) 12px var(--space-2) 16px;
+  }
+}

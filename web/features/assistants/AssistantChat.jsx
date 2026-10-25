@@ -10,9 +10,7 @@ import {
 import useAgentConversationStream from "./useAgentConversationStream.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
-import AssistantApprovalStrip from "./AssistantApprovalStrip.jsx";
-import AssistantMemberContext from "./AssistantMemberContext.jsx";
-import WorkGoalLine from "./WorkGoalLine.jsx";
+import ChatStrips from "./ChatStrips.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
 import React, {
@@ -171,7 +169,6 @@ export default function AssistantChat({
   const pushedActions =
     feed.connection === "connected" && Array.isArray(liveActions) ? liveActions : null;
   const ownActions = useAssistantActions(assistant.id, pushedActions);
-  const entry = activityFor(activity, assistant.id);
   const canSend = Boolean(
     (text.trim() || files) &&
     !busy &&
@@ -405,17 +402,17 @@ export default function AssistantChat({
         conversationId={conversationId}
         navigate={navigate}
       />
-      <AssistantApprovalStrip
-        count={entry.pendingApprovals}
+      <ChatStrips
+        entry={activityFor(activity, assistant.id)}
         output={output}
+        history={history}
         stick={stick}
-      />
-      <WorkGoalLine
-        goal={history.goal}
         conversationId={conversationId}
+        assistant={assistant}
+        member={member}
+        navigate={navigate}
         onStopped={refresh}
       />
-      {member && <AssistantMemberContext member={member} navigate={navigate} />}
       <div
         className="assistant-chat-panel"
         {...drop}
@@ -534,7 +531,7 @@ export default function AssistantChat({
               pushed={pushedActions}
             />
           )}
-          <AssistantActionApprovals {...ownActions} assistantId={assistant.id} />
+          <AssistantActionApprovals {...ownActions} assistant={assistant} go={navigate} />
         </div>
         <div
           className="assistant-announcer"

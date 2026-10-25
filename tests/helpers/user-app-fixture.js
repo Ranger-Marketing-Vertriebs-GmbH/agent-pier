@@ -74,6 +74,8 @@ export async function userAppFixture(page, options = {}) {
       options.chats ||
       Object.fromEntries(agents.map((a) => [a.id, [userChat({ id: a.conversationId })]])),
     messages: options.messages || {},
+    // The main chat's event area (routine and check-in results), by chat id.
+    areaEvents: options.areaEvents || {},
     requests: options.requests || {},
     // Chats whose history says they are very long, by id.
     longChat: options.longChat || {},
@@ -351,6 +353,7 @@ function chatRoute(route, state, chat, rest, method, body) {
       messages: state.messages[id] || [],
       requests: state.requests[id] || [],
       stale: false,
+      ...(state.areaEvents[id] ? { events: state.areaEvents[id] } : {}),
       ...(state.compacting?.[id] ? { compacting: true } : {}),
       ...(state.longChat?.[id] ? { longChat: true } : {}),
     });
