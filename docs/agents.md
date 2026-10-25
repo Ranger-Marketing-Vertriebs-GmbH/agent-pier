@@ -190,8 +190,9 @@ from a lead agent cannot. When a background command the agent started for one of
 messages (a long render, for example) finishes after its reply, the agent's follow-up
 on the result may still change files, memory and granted project folders like that
 message did and [hand you files](#files-from-agents): for up to two hours, and only
-until a newer message arrives in that chat. The same holds for a command a lead agent
-started while handling its member's result. A command started for forwarded content,
+until a newer message arrives in that chat. The same holds for a command started in a
+[work goal](#work-until-done) continuation and for one a lead agent started while
+handling its member's result. A command started for forwarded content,
 a reminder or a lead's task stays read-only,
 and the command's output never counts as your message. When a write is refused, the chat shows a quiet line such as
 **Memory not saved: only your own messages can change memory.** Right after the

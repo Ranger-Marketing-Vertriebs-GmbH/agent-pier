@@ -24,10 +24,10 @@ import { routineOrigin } from "./routine-targets.js";
  *
  * With `projectId` the file comes from a granted project folder (AGENTPIER-123)
  * instead of the workspace, in the turns that may use project folders (the owner's
- * own, a task member's team turns, a lead's follow-up on its member's result and the
- * completion run of a command one of them started): read access is enough, and the
- * path is resolved
- * like every folder read (project-paths.js: never .git, never AgentPier's data).
+ * own, a work-goal continuation, a task member's team turns, a lead's follow-up on
+ * its member's result and the completion run of a command one of them started): read
+ * access is enough, and the path is resolved like every folder read (project-paths.js:
+ * never .git, never AgentPier's data).
  */
 /**
  * What the tool result tells the agent about who sees the file now: the owner in his
@@ -60,7 +60,7 @@ export class AgentShares {
     // No workspace reads while a restore or update may replace them.
     if (a.closed || a.maintenance || a.recovering)
       throw assistantProblem("unavailable", 503);
-    const { conversation, requestId, origin } = this.turn(invocation);
+    const { conversation, requestId, origin, via } = this.turn(invocation);
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
     const source = input.projectId
@@ -80,7 +80,7 @@ export class AgentShares {
       mirror: this.leadChat(origin, agent),
     });
     const telegram = this.telegram(origin, file, caption);
-    this.audit(agent, origin, telegram, input.projectId);
+    this.audit(agent, origin, telegram, input.projectId, "share", "success", via);
     a.changed?.();
     return {
       status: "shared",
@@ -131,6 +131,10 @@ export class AgentShares {
       conversation: a.store.getConversation(request.conversationId),
       requestId: request.id,
       origin: a.teams?.store?.context(request.id) || { kind: "unknown" },
+      // Audited like the run's writes and folder actions (exec-continuation.js).
+      ...(!invocation.attemptId && {
+        via: { via: "exec-completion", sourceAttemptId: attempt.id },
+      }),
     };
   }
   // The lead's chat a member's turn works for, or null.
@@ -190,8 +194,17 @@ export class AgentShares {
       return "unavailable";
     }
   }
-  // `kind` "generated-image" marks an image the agent created (generated-images.js).
-  audit(agent, origin, telegram, projectId, kind = "share", outcome = "success") {
+  // `kind` "generated-image" marks an image the agent created (generated-images.js);
+  // `via` names the turn a command's completion run continues.
+  audit(
+    agent,
+    origin,
+    telegram,
+    projectId,
+    kind = "share",
+    outcome = "success",
+    via = null,
+  ) {
     try {
       this.assistants.audit?.append({
         action: "assistant.sent",
@@ -206,6 +219,7 @@ export class AgentShares {
           ...(origin.kind === "lead-request" && origin.leadAssistantId
             ? { leadAssistantId: origin.leadAssistantId }
             : {}),
+          ...via,
         },
       });
     } catch {
