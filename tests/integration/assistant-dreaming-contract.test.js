@@ -1,176 +1,291 @@
 import test from "node:test";
-import { contractTimeout } from "../helpers/contract-timeout.js";
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
+import { deletedTranscripts } from "../../server/features/assistants/chat-removal.js";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
-import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
-import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
+import { DatabaseSync } from "node:sqlite";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
-  fixtureModels,
-  proactivityModel,
-} from "../helpers/assistant-proactivity-model.js";
+  changed,
+  dreamingKey,
+  dreamingOn,
+  installed,
+  nativeFixture,
+  snapshot,
+} from "../helpers/assistant-dreaming-fixture.js";
 
-const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
-const dreamingKey = "memory-core:memory-dreaming-promotion";
+const markers = ["DREAMORCHID", "DREAMFERN", "DREAMFORGETFUL"];
+const text = (request) => JSON.stringify(request.messages ?? request.input ?? request);
 
-/** A compiled native team Gateway (memory-core) with fixture agents. */
-async function nativeFixture(t) {
-  assert.ok(path.isAbsolute(installed));
-  // A resolved temp root: on macOS os.tmpdir() sits behind the /var -> /private/var
-  // symlink, and 2026.10.7's dreaming sweep then fails every workspace with "Canonical
-  // session reader continuation is no longer current" and writes no session corpus.
-  const dataDir = fs.mkdtempSync(
-    path.join(fs.realpathSync(os.tmpdir()), "assistant-dreaming-contract-"),
-  );
-  const descriptor = {
-    version: runtimeManifest.version,
-    nodePath: path.join(installed, "node/bin/node"),
-    entryPath: path.join(installed, "app/node_modules/openclaw/openclaw.mjs"),
-  };
-  const runtime = new RuntimeSupervisor({ dataDir, install: async () => descriptor });
-  const store = new AssistantStore({ dataDir });
-  const model = await proactivityModel();
-  t.after(async () => {
-    try {
-      await runtime.close();
-      store.close();
-      await model.close();
-    } finally {
-      fs.rmSync(dataDir, { recursive: true, force: true });
-    }
-  });
-  const plugin = provisionTeamPlugin({
-    paths: runtime.paths,
-    runtimeVersion: descriptor.version,
-  });
-  runtime.teamConfiguration = async () => ({
-    directory: plugin.directory,
-    connection: { url: "http://127.0.0.1:1", token: "dreaming-fixture" },
-    hostMaxConcurrent: 4,
-    native: { token: "dreaming-fixture" },
-    profiles: store.listAssistants(),
-  });
-  await runtime.start();
-  const config = new AssistantConfig({
-    client: runtime.client,
-    store,
-    models: fixtureModels(model),
-    workspaces: runtime.paths.workspaces,
-  });
-  config.nativeReady = () => true;
-  async function create(name, capabilities) {
-    const agent = store.createAssistant({
-      name,
-      instructions: "",
-      model: { connectionId: "fixture", modelId: "fixture-model" },
-    });
-    store.updateAssistant(agent.id, { capabilities }, agent.revision);
-    await config.apply(agent.id);
-    return store.getAssistant(agent.id);
-  }
-  // A conversation as AgentPier opens one; labels are unique per Gateway. The first
-  // call after a live apply waits for the plugin reload, so it gets more time.
-  async function turn(agent, text) {
-    const session = await runtime.client.call(
-      "sessions.create",
-      {
-        agentId: agent.runtimeAgentId,
-        label: `AgentPier ${agent.id} ${crypto.randomUUID()}`,
-      },
-      { timeoutMs: 60000 },
-    );
-    const offset = model.requests.length;
-    const sent = await runtime.client.call(
-      "sessions.send",
-      { key: session.key, message: text, idempotencyKey: crypto.randomUUID() },
-      { timeoutMs: 60000 },
-    );
-    const done = await runtime.client.call(
-      "agent.wait",
-      { runId: sent.runId, timeoutMs: 60000 },
-      { timeoutMs: 65000 },
-    );
-    assert.equal(done.status, "ok", JSON.stringify(done));
-    return model.requests.slice(offset);
-  }
-  const effective = async () => (await runtime.client.call("config.get", {})).config;
-  return { runtime, store, config, model, create, turn, effective };
-}
 test(
-  "pinned native dreaming stays off, and once on would ingest AgentPier chats of agents without memory",
-  { skip: !installed, timeout: contractTimeout(300000) },
+  "enabled dreaming sweeps each agent's own chats into its own memory only",
+  { skip: !installed, timeout: contractTimeout(420000) },
   async (t) => {
     const f = await nativeFixture(t);
-    const withMemory = await f.create("Dreamer", { memory: true, reminders: false });
-    const withoutMemory = await f.create("Forgetful", {
-      memory: false,
-      reminders: false,
-    });
-    const dreamingJobs = async () =>
-      (
-        await f.runtime.client.call("cron.list", { includeDisabled: true, limit: 200 })
-      ).jobs.filter((j) => j.declarationKey === dreamingKey);
-    assert.deepEqual(await dreamingJobs(), [], "the compiled default schedules no sweep");
-    await f.turn(withMemory, "I water the orchids every Sunday DREAMWITHMEMORY.");
-    await f.turn(withoutMemory, "I water the ferns every Monday DREAMWITHOUTMEMORY.");
+    const orchid = await f.create(
+      "Orchid",
+      { memory: true, reminders: false },
+      "orchid-model",
+    );
+    const fern = await f.create("Fern", { memory: true, reminders: false }, "fern-model");
+    const forgetful = await f.create("Forgetful", { memory: false, reminders: false });
+    assert.deepEqual(
+      await f.dreamingJobs(),
+      [],
+      "the compiled default schedules no sweep",
+    );
+    await f.turn(orchid, "I water the orchids every Sunday DREAMORCHID.");
+    await f.turn(fern, "I water the ferns every Monday DREAMFERN.");
+    await f.turn(forgetful, "I water the cacti every Friday DREAMFORGETFUL.");
+    const agents = { DREAMORCHID: orchid, DREAMFERN: fern, DREAMFORGETFUL: forgetful };
+    const before = Object.fromEntries(
+      Object.entries(agents).map(([m, a]) => [m, snapshot(f.workspace(a))]),
+    );
+    const rootBefore = snapshot(f.runtime.paths.workspaces);
+    const sessionsBefore = {};
+    for (const [m, a] of Object.entries(agents)) sessionsBefore[m] = await f.sessions(a);
 
-    // What a global switch would do: memory-core's documented dreaming setting.
-    const base = await f.runtime.client.call("config.get", {});
-    await f.runtime.client.call("config.patch", {
-      baseHash: base.hash,
-      raw: JSON.stringify({
-        plugins: {
-          entries: { "memory-core": { config: { dreaming: { enabled: true } } } },
-        },
-      }),
-    });
-    let job;
-    for (let n = 0; n < 60 && !job; n++) {
-      [job] = await dreamingJobs();
-      if (!job) await delay(500);
-    }
-    assert.ok(job, "enabling dreaming schedules memory-core's sweep");
+    await f.dreaming(dreamingOn);
+    const job = await f.job();
+    assert.equal(job.declarationKey, dreamingKey);
     assert.equal(job.schedule.expr, "0 3 * * *");
-    await f.runtime.client.call("cron.run", { id: job.id, mode: "force" });
-    const deadline = Date.now() + 90000;
-    let runs = [];
-    while (Date.now() < deadline) {
-      runs = (await f.runtime.client.call("cron.runs", { id: job.id, limit: 5 })).entries;
-      if (runs.some((r) => r.action === "finished")) break;
-      await delay(500);
-    }
-    assert.ok(
-      runs.some((r) => r.status === "ok"),
-      JSON.stringify(runs),
-    );
-    const corpus = (agent) => {
-      const dir = path.join(
-        f.runtime.paths.workspaces,
-        agent.id,
-        "memory",
-        ".dreams",
-        "session-corpus",
-      );
-      return fs.existsSync(dir)
-        ? fs
-            .readdirSync(dir)
-            .map((name) => fs.readFileSync(path.join(dir, name), "utf8"))
-            .join("\n")
-        : "";
-    };
-    // AgentPier-origin sessions count as interactive: dreaming does process them.
-    assert.match(corpus(withMemory), /DREAMWITHMEMORY/);
-    // The sweep covers every configured agent workspace, memory capability or not.
-    // This is why AgentPier ships no dreaming switch (docs/assistant-gateway.md).
-    assert.match(corpus(withoutMemory), /DREAMWITHOUTMEMORY/);
+    t.diagnostic(`dreaming job: ${JSON.stringify(job)}`);
+    const offset = f.model.requests.length;
+    const run = await f.forceRun(job.id);
+    assert.equal(run.status, "ok", JSON.stringify(run));
+    await f.settle();
+    const requests = f.model.requests.slice(offset);
+    t.diagnostic(`run: ${JSON.stringify(run)}`);
     t.diagnostic(
-      "Dreaming copied transcripts of the agent without memory into its workspace; no per-agent scope exists in 2026.9.8.",
+      `sweep model calls: ${JSON.stringify(
+        requests.map((r) => ({
+          model: r.model,
+          markers: markers.filter((m) => text(r).includes(m)),
+          system: text(r).slice(0, 200),
+        })),
+      )}`,
     );
+
+    for (const [marker, agent] of Object.entries(agents)) {
+      const corpus = f.corpus(agent);
+      assert.match(corpus, new RegExp(marker), `${agent.name} dreams over its own chat`);
+      const written = changed(before[marker], snapshot(f.workspace(agent)));
+      t.diagnostic(`${agent.name} wrote: ${JSON.stringify(Object.keys(written))}`);
+      for (const [name, content] of Object.entries(written)) {
+        for (const other of markers.filter((m) => m !== marker))
+          assert.equal(content.includes(other), false, `${name} holds ${other}`);
+        t.diagnostic(`${agent.name} ${name}:\n${content.slice(0, 1500)}`);
+      }
+      t.diagnostic(
+        `${agent.name} MEMORY.md before=${JSON.stringify(before[marker]["MEMORY.md"] ?? null)} after=${JSON.stringify(snapshot(f.workspace(agent))["MEMORY.md"] ?? null)}`,
+      );
+      const after = await f.sessions(agent);
+      t.diagnostic(
+        `${agent.name} sessions before=${sessionsBefore[marker].length} after=${after.length}: ${JSON.stringify(after.map((s) => s.key))}`,
+      );
+    }
+    for (const request of requests) {
+      const found = markers.filter((m) => text(request).includes(m));
+      assert.ok(found.length <= 1, `one agent per dreaming call: ${found}`);
+      if (found.length)
+        assert.equal(
+          request.model,
+          agents[found[0]].model.modelId,
+          `${found[0]}'s dreaming runs on its own model`,
+        );
+    }
+    // Deep promotion needs repeated recalls; with its thresholds at zero (observation
+    // only, not what AgentPier compiles) one more run shows how deep writes MEMORY.md.
+    // Raw chat turns are refused there ("contamination"); a daily note is promoted.
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format();
+    fs.writeFileSync(
+      path.join(f.workspace(orchid), "memory", `${day}.md`),
+      "# Notes\n\n- Orchid fertiliser goes on every second Sunday DREAMORCHID note.\n",
+    );
+    const beforeDeep = Object.fromEntries(
+      Object.entries(agents).map(([m, a]) => [m, snapshot(f.workspace(a))]),
+    );
+    await f.dreaming({
+      ...dreamingOn,
+      phases: { deep: { minScore: 0, minRecallCount: 0, minUniqueQueries: 0 } },
+    });
+    const deepOffset = f.model.requests.length;
+    assert.equal((await f.forceRun(job.id)).status, "ok");
+    await f.settle();
+    for (const [marker, agent] of Object.entries(agents)) {
+      const written = changed(beforeDeep[marker], snapshot(f.workspace(agent)));
+      t.diagnostic(
+        `${agent.name} deep run wrote: ${JSON.stringify(Object.keys(written))}`,
+      );
+      for (const [name, content] of Object.entries(written)) {
+        for (const other of markers.filter((m) => m !== marker))
+          assert.equal(content.includes(other), false, `${name} holds ${other}`);
+        if (name === "MEMORY.md" || name.includes("deep"))
+          t.diagnostic(`${agent.name} ${name} after deep:\n${content.slice(0, 1500)}`);
+      }
+    }
+    const promoted = snapshot(f.workspace(orchid))["MEMORY.md"];
+    assert.match(
+      promoted,
+      /<!-- openclaw-memory-promotion:[^>]+-->\n- Notes: .*DREAMORCHID note/,
+    );
+    assert.doesNotMatch(
+      promoted,
+      /User:|Assistant:/,
+      "no raw chat turn reaches MEMORY.md",
+    );
+    for (const request of f.model.requests.slice(deepOffset)) {
+      const found = markers.filter((m) => text(request).includes(m));
+      assert.ok(found.length <= 1, `one agent per dreaming call: ${found}`);
+      if (found.length) assert.equal(request.model, agents[found[0]].model.modelId);
+    }
+    t.diagnostic(
+      `deep run model calls: ${JSON.stringify(f.model.requests.slice(deepOffset).map((r) => [r.model, markers.filter((m) => text(r).includes(m))]))}`,
+    );
+    const root = changed(rootBefore, snapshot(f.runtime.paths.workspaces));
+    t.diagnostic(`all written under workspaces: ${JSON.stringify(Object.keys(root))}`);
+  },
+);
+
+test(
+  "a dreaming run rewrites ingestion state wholesale; a deleted or forgotten chat stays out",
+  { skip: !installed, timeout: contractTimeout(420000) },
+  async (t) => {
+    const f = await nativeFixture(t);
+    const orchid = await f.create(
+      "Orchid",
+      { memory: true, reminders: false },
+      "orchid-model",
+    );
+    const keep = await f.turn(orchid, "My balcony faces south DREAMKEEP.");
+    const gone = await f.turn(orchid, "My old phone number was 555 DREAMGONE.");
+    const retain = await f.turn(orchid, "My cat sleeps on the radiator DREAMRETAIN.");
+    const id = async (key) =>
+      (await f.call("sessions.describe", { key })).session.sessionId;
+    const ids = { keep: await id(keep), gone: await id(gone), retain: await id(retain) };
+    await f.dreaming(dreamingOn);
+    const job = await f.job();
+    assert.equal((await f.forceRun(job.id)).status, "ok");
+    await f.settle();
+    const first = f.ingestion(orchid);
+    t.diagnostic(`ingestion state after run 1: ${JSON.stringify(first)}`);
+    for (const sessionId of Object.values(ids))
+      assert.ok(first.files.some((k) => k.endsWith(`/${sessionId}`)));
+    const corpusDir = path.join(
+      f.workspace(orchid),
+      "memory",
+      ".dreams",
+      "session-corpus",
+    );
+    t.diagnostic(`corpus files: ${JSON.stringify(fs.readdirSync(corpusDir))}`);
+
+    // 1. Removed by hand while the transcript remains: the next run reads the state
+    // at its start and writes it back whole at its end, so the chat is re-ingested.
+    const db = new DatabaseSync(
+      path.join(f.runtime.paths.state, "state", "openclaw.sqlite"),
+    );
+    const drop = (sessionId) =>
+      db
+        .prepare(
+          "DELETE FROM plugin_state_entries WHERE plugin_id='memory-core' AND namespace LIKE 'dreaming-session-ingestion-%' AND value_json LIKE ?",
+        )
+        .run(`%/${sessionId}%`).changes;
+    const strip = (marker) => {
+      for (const name of fs.readdirSync(corpusDir)) {
+        const file = path.join(corpusDir, name);
+        const lines = fs.readFileSync(file, "utf8").split("\n");
+        const at = lines.findIndex((l) => l.includes(marker));
+        const sessionPath = at < 0 ? null : lines[at].slice(1, lines[at].indexOf("#L"));
+        fs.writeFileSync(
+          file,
+          lines
+            .filter((l) => !sessionPath || !l.startsWith(`[${sessionPath}#`))
+            .join("\n"),
+        );
+      }
+    };
+    t.diagnostic(`dropped state rows for the retained chat: ${drop(ids.retain)}`);
+    strip("DREAMRETAIN");
+    assert.doesNotMatch(f.corpus(orchid), /DREAMRETAIN/);
+
+    // 2. Deleted as AgentPier deletes a chat (chat-removal.js deleteNativeSession).
+    await f.call("sessions.delete", { key: gone, deleteTranscript: true });
+    for (const file of deletedTranscripts(
+      f.runtime.paths.state,
+      orchid.runtimeAgentId,
+      ids.gone,
+    ))
+      fs.rmSync(file, { force: true });
+    await f.turn(orchid, "My balcony now has tomatoes DREAMKEEPTWO.");
+    assert.equal((await f.forceRun(job.id)).status, "ok");
+    await f.settle();
+    const second = f.ingestion(orchid);
+    t.diagnostic(`ingestion state after run 2: ${JSON.stringify(second)}`);
+    const corpus = f.corpus(orchid);
+    assert.match(corpus, /DREAMKEEPTWO/);
+    const retained = /DREAMRETAIN/.test(corpus);
+    const retainedKey = second.files.some((k) => k.endsWith(`/${ids.retain}`));
+    assert.deepEqual(
+      [retained, retainedKey],
+      [true, true],
+      "a hand removal does not survive while the transcript remains",
+    );
+    // The run drops the files entry of a chat whose transcript is gone, but keeps
+    // its corpus lines and its seen-message hashes.
+    const goneKey = second.files.some((k) => k.endsWith(`/${ids.gone}`));
+    const goneSeen = second.seen.some((k) => k.includes(`/${ids.gone}`));
+    assert.deepEqual([/DREAMGONE/.test(corpus), goneKey, goneSeen], [true, false, true]);
+    const agentDb = new DatabaseSync(
+      path.join(
+        f.runtime.paths.state,
+        "agents",
+        orchid.runtimeAgentId,
+        "agent",
+        "openclaw-agent.sqlite",
+      ),
+      { readOnly: true },
+    );
+    const archived = agentDb
+      .prepare("SELECT count(*) AS n FROM session_transcript_archives WHERE session_id=?")
+      .get(ids.gone).n;
+    agentDb.close();
+    t.diagnostic(
+      `archived transcript rows of the deleted chat in openclaw-agent.sqlite: ${archived}`,
+    );
+
+    // 3. memory-core's own deletion of a chat's derived artifacts.
+    const forgot = JSON.parse(
+      await f.cli([
+        "memory",
+        "forget",
+        "--agent",
+        orchid.runtimeAgentId,
+        "--session",
+        ids.gone,
+        "--json",
+      ]),
+    );
+    t.diagnostic(
+      `openclaw memory forget --session <deleted chat>: ${JSON.stringify(forgot)}`,
+    );
+    assert.deepEqual(forgot.refusals, []);
+    const hasGone = () => {
+      const state = f.ingestion(orchid);
+      return [
+        /DREAMGONE/.test(f.corpus(orchid)),
+        [...state.files, ...state.seen].some((k) => k.includes(`/${ids.gone}`)),
+      ];
+    };
+    assert.deepEqual(hasGone(), [false, false], "forget removes corpus lines and state");
+    await f.turn(orchid, "Tomatoes need water daily DREAMKEEPTHREE.");
+    assert.equal((await f.forceRun(job.id)).status, "ok");
+    await f.settle();
+    assert.match(f.corpus(orchid), /DREAMKEEPTHREE/);
+    assert.deepEqual(
+      hasGone(),
+      [false, false],
+      "a forgotten chat stays out of later runs",
+    );
+    db.close();
   },
 );
