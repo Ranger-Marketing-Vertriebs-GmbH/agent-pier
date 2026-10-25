@@ -48,7 +48,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
       ]);
       await expect(
         log.getByRole("link", { name: "Team completed: Research hosting vendors" }),
-      ).toHaveAttribute("href", "/agents/home/settings?tab=work&team=research");
+      ).toHaveAttribute("href", "/agents/home/settings?tab=team&team=research");
       // The synthesis event right after the end note would only repeat it.
       await expect(log.getByText("Team results received", { exact: false })).toHaveCount(
         0,
@@ -72,7 +72,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
         .getByRole("log")
         .getByRole("link", { name: "Team started: Research hosting vendors" })
         .click();
-      await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=work&team=research$/);
+      await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=team&team=research$/);
       const card = page.locator("#assistant-team-research");
       await expect(card).toHaveAttribute("open", "");
       await expect(card).toHaveAttribute("data-focused", "");

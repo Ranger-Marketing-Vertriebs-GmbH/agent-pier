@@ -59,7 +59,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
     return route.fulfill({ json: {} });
   });
   await page.goto("/plugins");
-  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex\?tab=plugins$/);
   await expect(page.getByRole("heading", { name: "Extensions", level: 1 })).toBeVisible();
   await expect(
     page.getByText("Skills and plugins for each CLI profile.", {

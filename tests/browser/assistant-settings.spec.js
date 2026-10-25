@@ -69,13 +69,13 @@ test("links to Accounts and Settings navigate inside the app", async ({ page }) 
   await page.getByRole("link", { name: /^Speech recognition · Deepgram/ }).click();
   // Cross-links carry their origin so the back arrow returns to the Telegram tab.
   await expect(page).toHaveURL(
-    /\/accounts\?section=services&item=speech&returnTo=%2Fagents%2Fhome%2Fsettings%3Ftab%3Dtelegram$/,
+    /\/connections\?section=services&item=speech&returnTo=%2Fagents%2Fhome%2Fsettings%3Ftab%3Dchannels$/,
   );
   await expect(page.getByLabel("Deepgram API key")).toBeVisible();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
   const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("link", { name: "Agent service settings" }).click();
-  await expect(page).toHaveURL(/\/settings\/assistants\?returnTo=%2Faccounts%3F/);
+  await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=%2Fconnections%3F/);
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
 });
 

@@ -131,7 +131,7 @@ export default function ListFixture() {
       ),
       h(ReferenceRow, {
         title: "Suchanbieter",
-        href: "/accounts?section=services&item=web-search",
+        href: "/connections?section=services&item=web-search",
         onOpen: () => record("accounts:services/web-search"),
       }),
       h(ReferenceRow, {

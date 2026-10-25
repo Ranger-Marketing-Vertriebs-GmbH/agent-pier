@@ -113,7 +113,7 @@ for (const mobile of [false, true])
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     const { writes, agencyReads } = await fixture(page);
     await page.goto(baseURL + "/extensions/work");
-    await expect(page).toHaveURL(/extensions\/local-claude$/);
+    await expect(page).toHaveURL(/coding\/clis\/extensions\/local-claude$/);
     const profiles = (await openProfiles(page)).getByRole("button");
     await expect(profiles).toHaveCount(2);
     await expect(profiles.filter({ hasText: "Claude Code" })).toHaveAttribute(
@@ -136,7 +136,9 @@ for (const mobile of [false, true])
     await expect(page.getByRole("button", { name: "Agency Agents" })).toHaveCount(0);
     expect(agencyReads).toEqual([]);
     await openTab(page, "Agenten");
-    await expect(page).toHaveURL(/extensions\/local-claude\?tab=agents$/);
+    await expect(page).toHaveURL(
+      /coding\/clis\/extensions\/local-claude\?tab=subagents$/,
+    );
     await expect(
       page.getByText("Installierte Agenten gelten für alle Accounts dieser CLI."),
     ).toBeVisible();

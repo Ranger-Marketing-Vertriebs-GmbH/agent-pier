@@ -23,20 +23,22 @@ test("a cross-link from agent settings carries the exact origin tab", () => {
     { view: "accounts", section: "services", item: "speech" },
     telegram,
   );
-  assert.equal(target.returnTo, "/agents/home/settings?tab=telegram");
+  // The old Telegram tab is the Channels tab; Accounts › Dienste is in Zugänge.
+  assert.equal(target.returnTo, "/agents/home/settings?tab=channels");
   const path = routePath(target);
   assert.equal(
     path,
-    "/accounts?section=services&item=speech&returnTo=%2Fagents%2Fhome%2Fsettings%3Ftab%3Dtelegram",
+    "/connections?section=services&item=speech&returnTo=%2Fagents%2Fhome%2Fsettings%3Ftab%3Dchannels",
   );
   const reloaded = read(path);
-  assert.deepEqual(reloaded, { view: "accounts", ...target });
+  assert.deepEqual(reloaded, target);
+  assert.equal(reloaded.view, "connections");
   assert.equal(routePath(reloaded), path);
   assert.deepEqual(returnRoute(reloaded), {
     view: "agents",
     assistantId: "home",
     agentSettings: true,
-    agentTab: "telegram",
+    agentTab: "channels",
   });
 });
 
@@ -46,7 +48,8 @@ test("settings subpages keep returnTo through a reload", () => {
     { view: "agents", assistantId: "home", agentSettings: true },
   );
   const reloaded = read(routePath(target));
-  assert.equal(reloaded.settingsSection, "assistants");
+  // The agent service settings are the agents hub's Runtime tab.
+  assert.equal(reloaded.agentsTab, "runtime");
   assert.equal(reloaded.returnTo, "/agents/home/settings");
   assert.equal(routePath(returnRoute(reloaded)), "/agents/home/settings");
 });
@@ -63,6 +66,22 @@ test("links inside one area, to other views or without an origin stay plain", ()
     accounts,
   );
   assert.equal(read("/accounts?section=models").returnTo, undefined);
+  // Zugänge models and SSH were two pages (Accounts, Settings): links keep returnTo.
+  assert.equal(
+    crossLinkRoute({ view: "connections", section: "ssh" }, accounts).returnTo,
+    "/connections?section=models",
+  );
+  // An agent's own pages never carry returnTo, but its Runtime tab does.
+  const agent = { view: "agents", assistantId: "home", agentSettings: true };
+  assert.equal(crossLinkRoute(agent, accounts), agent);
+  assert.equal(
+    crossLinkRoute({ view: "agents", agentsTab: "runtime" }, agent).returnTo,
+    "/agents/home/settings",
+  );
+  assert.equal(
+    routePath({ view: "agents", agentsTab: "teams", returnTo: "/settings" }),
+    "/agents?tab=teams",
+  );
   assert.equal(routePath({ view: "agents", returnTo: "/settings" }), "/agents");
 });
 
@@ -89,7 +108,7 @@ test("malicious or foreign returnTo values are dropped", () => {
     const route = read(withReturn("/accounts", value));
     assert.equal(route.returnTo, undefined, value);
     assert.equal(returnRoute({ returnTo: value }), null, value);
-    assert.equal(routePath(route), "/accounts", value);
+    assert.equal(routePath(route), "/connections", value);
   }
 });
 
@@ -97,7 +116,7 @@ test("returnTo is rebuilt from the parsed origin, never echoed", () => {
   const route = read(
     withReturn("/settings/assistants", "/agents/home/settings?tab=work&evil=<x>#frag"),
   );
-  assert.equal(route.returnTo, "/agents/home/settings?tab=work");
+  assert.equal(route.returnTo, "/agents/home/settings?tab=overview");
 });
 
 test("chained cross-links keep the first origin, one level deep", () => {
@@ -105,7 +124,7 @@ test("chained cross-links keep the first origin, one level deep", () => {
     view: "agents",
     assistantId: "home",
     agentSettings: true,
-    agentTab: "telegram",
+    agentTab: "channels",
   };
   const speech = crossLinkRoute(
     { view: "accounts", section: "services", item: "speech" },
@@ -124,9 +143,9 @@ test("chained cross-links keep the first origin, one level deep", () => {
   // A third link drops the oldest origin instead of nesting without bound.
   const third = crossLinkRoute({ view: "accounts", section: "models" }, reloaded);
   const settings = returnRoute(read(routePath(third)));
-  assert.equal(settings.settingsSection, "assistants");
+  assert.equal(settings.agentsTab, "runtime");
   assert.deepEqual(returnRoute(settings), {
-    view: "accounts",
+    view: "connections",
     section: "services",
     item: "speech",
   });
@@ -143,7 +162,7 @@ test("chained cross-links keep the first origin, one level deep", () => {
     ),
   );
   assert.equal(returnRoute(returnRoute(deep)).returnTo, undefined);
-  assert.equal(returnRoute(returnRoute(deep)).section, "cli");
+  assert.equal(returnRoute(returnRoute(deep)).codingTab, "accounts");
 });
 
 test("appPathParts accepts only same-origin app paths", () => {

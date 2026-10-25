@@ -110,7 +110,7 @@ test("deleting a changed connection leaves without asking", async ({ page }) => 
     .getByRole("dialog")
     .getByRole("button", { name: "Delete now", exact: true })
     .click();
-  await expect(page).toHaveURL(`${baseURL}/accounts?section=models`);
+  await expect(page).toHaveURL(`${baseURL}/connections?section=models`);
   await expect(page.getByRole("dialog", { name: "Save changes?" })).toHaveCount(0);
   await expect(accountRow(page, "Agent router")).toHaveCount(0);
 });

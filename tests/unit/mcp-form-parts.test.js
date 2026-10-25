@@ -13,6 +13,17 @@ test("an edit draft stays only on the same entry and the same step", () => {
   assert.equal(staysOnEntry(entry, next({ ...entry, item: "srv-2" })), false);
   assert.equal(staysOnEntry(entry, { next: { ...entry, view: "chat" } }), false);
   assert.equal(staysOnEntry(entry, {}), false);
+  // The same entry at its new Zugänge address keeps the draft.
+  assert.equal(staysOnEntry(entry, { next: { view: "connections", ...entry } }), true);
+  assert.equal(
+    staysOnEntry(
+      { section: "cli", item: "a-1" },
+      {
+        next: { view: "coding", codingTab: "accounts", item: "a-1" },
+      },
+    ),
+    true,
+  );
 });
 
 test("an entry without a step stays on routes without a step", () => {

@@ -1,8 +1,6 @@
 import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
-import { navigateTo } from "../helpers/navigation.js";
-import { settingsRow } from "../helpers/settings.js";
 import {
   fixture,
   openCloneDialog,
@@ -175,9 +173,13 @@ test("token changes wait while a clone started elsewhere is running", async ({
   await dialog.getByRole("button", { name: "Repository klonen", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Wird geklont …" })).toBeDisabled();
   await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
-  await navigateTo(page, "Einstellungen");
-  await page.getByRole("tab", { name: "Zugriff", exact: true }).click();
-  await settingsRow(page, "GitHub-Zugänge").click();
+  // GitHub-Zugänge moved from Settings › Zugriff to Zugänge; open it in-app so the
+  // pending clone survives (an unindexed history entry is navigated in place).
+  await page.evaluate(() => {
+    history.pushState(null, "", "/connections?section=github");
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page).toHaveURL(/\/connections\?section=github$/);
   const edit = page.getByRole("button", { name: "Persönlich bearbeiten" });
   const remove = page.getByRole("button", { name: "Persönlich löschen" });
   const add = page.getByRole("button", { name: "Zugang hinzufügen" });

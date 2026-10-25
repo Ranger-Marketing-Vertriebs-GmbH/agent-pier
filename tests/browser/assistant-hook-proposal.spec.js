@@ -136,12 +136,12 @@ for (const language of ["en", "de"])
     const link = created.getByRole("link", { name: t.link });
     await expect(link).toHaveAttribute(
       "href",
-      `/agents/home/settings?tab=routines&page=hook&hook=${hookId}`,
+      `/agents/home/settings?tab=automation&page=hook&hook=${hookId}`,
     );
     await expect(page.locator("[data-hook-proposal]")).toHaveCount(0);
     await link.click();
     await expect(page).toHaveURL(
-      /\/agents\/home\/settings\?tab=routines&page=hook&hook=/,
+      /\/agents\/home\/settings\?tab=automation&page=hook&hook=/,
     );
   });
 

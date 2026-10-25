@@ -94,7 +94,7 @@ test("group actions and the Accounts reference row navigate in-app", async ({ pa
   const reference = page.getByRole("link", { name: /Suchanbieter/ });
   await expect(reference).toHaveAttribute(
     "href",
-    "/accounts?section=services&item=web-search",
+    "/connections?section=services&item=web-search",
   );
   await expect(reference).toContainText("Zentral unter Accounts");
   await reference.click();

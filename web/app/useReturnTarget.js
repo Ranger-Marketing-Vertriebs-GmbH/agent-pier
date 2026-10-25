@@ -5,10 +5,13 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import { extensionsPageCopy } from "../lib/i18n/messages/extensions.js";
 import { operationsCopy } from "../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../lib/i18n/messages/settings.js";
-import { returnRoute, routePath } from "./routes.js";
+import { returnRoute, routePath, screenRoute } from "./routes.js";
 import { markReturn } from "./return-scroll.js";
 
-function originName(origin, assistants, sessions) {
+// Origins are named after the page that shows them (Zugänge as Accounts or its
+// settings section) until the new areas have names of their own.
+function originName(address, assistants, sessions) {
+  const origin = screenRoute(address);
   if (origin.view === "workspace")
     return (
       (sessions || []).find((session) => session.id === origin.sessionId)?.name ||

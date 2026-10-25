@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
+import { screenOf } from "../../app/route-screens.js";
 
 /**
  * Whether a navigation keeps `entry` on screen: the same Accounts item and, for the
  * MCP wizard's edit steps, the same step. Each edit step keeps its own draft.
  */
-export const staysOnEntry = (entry, request) =>
-  request.next?.view === "accounts" &&
-  request.next.section === entry.section &&
-  request.next.item === entry.item &&
-  (request.next.step ?? "") === (entry.step ?? "");
+export const staysOnEntry = (entry, request) => {
+  // Old Accounts routes and their new places (Zugänge, Coding) compare alike.
+  const next = screenOf(request.next);
+  return (
+    next?.view === "accounts" &&
+    next.section === entry.section &&
+    next.item === entry.item &&
+    (next.step ?? "") === (entry.step ?? "")
+  );
+};
 
 /**
  * One entry's draft and its unsaved-changes guard. Navigations that keep the same

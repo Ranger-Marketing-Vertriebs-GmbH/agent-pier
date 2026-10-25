@@ -166,7 +166,7 @@ test("an obsolete save continuation cannot resolve a newer navigation decision",
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
-  await expect(page).toHaveURL(`${baseURL}/accounts`);
+  await expect(page).toHaveURL(`${baseURL}/connections`);
 });
 
 test("Back restores the indexed route once while the guard decides", async ({ page }) => {
@@ -235,7 +235,7 @@ test("application navigation during history replay reconciles before push", asyn
     }
   });
   expect(replay).toEqual({ delta: -1, index: 2, calls: 1 });
-  await expect(page).toHaveURL(`${baseURL}/accounts`);
+  await expect(page).toHaveURL(`${baseURL}/connections`);
   await page.goBack({ waitUntil: "commit" });
   await expect(page).toHaveURL(committedURL);
   expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(2);

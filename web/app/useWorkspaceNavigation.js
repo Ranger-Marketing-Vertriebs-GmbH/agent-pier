@@ -2,9 +2,10 @@ import { extensionProfiles } from "../features/extensions/sharedProfiles.js";
 import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SessionViewMemory } from "./session-view-memory.js";
-import { readRoute, routePath } from "./routes.js";
-import { defaultExtensionTab } from "../features/extensions/routes.js";
+import { canonicalRoute, readRoute, routePath } from "./routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
+import { connectionsRoute } from "../features/connections/routes.js";
+import { codingRoute } from "../features/coding/routes.js";
 import {
   navigationReason,
   requestNavigation as requestFileNavigation,
@@ -74,7 +75,9 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     [commitWorkspaceNavigation],
   );
   const navigate = useCallback(
-    (next, replace = false, normalization = false) => {
+    (target, replace = false, normalization = false) => {
+      // Pages that still link to a moved page's old route reach its new place.
+      const next = canonicalRoute(target);
       let operation = historyOperation.current;
       if (replace && (activeIntent.current || operation)) return Promise.resolve(false);
       const physicalIndex = window.history.state?.[navigationIndex];
@@ -235,11 +238,15 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     () => extensionProfiles(state.accounts, state.sharedCliExtensions),
     [state.accounts, state.sharedCliExtensions],
   );
-  const activeProfile = profileAccounts.find((account) => account.id === route.profileId);
+  // The CLI extensions page (Coding › Erweiterungen) needs one CLI profile.
+  const extensionsShown = view === "coding" && route.codingTab === "extensions";
+  const activeProfile = extensionsShown
+    ? profileAccounts.find((account) => account.id === route.profileId)
+    : undefined;
   useEffect(() => {
     if (!ready || view === "missing" || latestRoute.current !== route) return;
     let normalized = route;
-    if (view === "extensions") {
+    if (extensionsShown) {
       const legacy =
         state.sharedCliExtensions &&
         state.accounts.find(
@@ -283,6 +290,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     activeProfile,
     profileAccounts,
     navigate,
+    extensionsShown,
     state.accounts,
     state.sharedCliExtensions,
     sessionViews,
@@ -292,25 +300,21 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     profileAccounts.find((a) => a.id === profileMemory.current)?.id ||
     profileAccounts[0]?.id ||
     "";
-  // Sidebar, dashboard and utility follow-ups open pages by name; "settings/github" is
-  // a settings section and "projects" opens the hub at its canonical route.
+  // Sidebar, dashboard and utility follow-ups open pages by name; "connections/github"
+  // is a Zugänge category and "projects" opens the hub at its canonical route.
   const page = (view) => {
-    if (view === "settings/github")
-      return navigate({ view: "settings", settingsSection: "github" });
+    if (view === "connections/github") return navigate(connectionsRoute("github"));
     if (view === "projects") return navigate(projectsRoute());
-    return navigate({
-      view,
-      ...(view === "extensions"
-        ? { extensionTab: defaultExtensionTab, profileId: resolveProfileId() }
-        : {}),
-    });
+    if (view === "extensions")
+      return navigate(codingRoute("extensions", { profileId: resolveProfileId() }));
+    return navigate({ view });
   };
   const missing =
     view === "missing"
       ? copy.pageNotFound
       : ready && selected && !activeSession
         ? copy.sessionNotFound
-        : ready && view === "extensions" && route.profileId && !activeProfile
+        : ready && extensionsShown && route.profileId && !activeProfile
           ? copy.profileNotFound
           : null;
   return {
@@ -322,5 +326,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     activeSession,
     page,
     missing,
+    // The profile the agents hub's Templates tab shows until it has its own page.
+    extensionProfileId: resolveProfileId(),
   };
 }

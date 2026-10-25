@@ -335,7 +335,7 @@ test("a marketplaces link for OpenCode normalises to Skills without showing the 
   await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
   await expect(page).toHaveURL(/\?tab=marketplaces$/);
   release();
-  await expect(page).toHaveURL(/\/extensions\/fixture-opencode$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/fixture-opencode$/);
   await expect(page.getByRole("tab", { name: /^Marketplaces/ })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",

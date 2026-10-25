@@ -9,8 +9,9 @@ import {
 // chat: the lead's follow-up turn with the member's answer or result goes back
 // there once it completes.
 const terminal = new Set(["completed", "failed", "cancelled"]);
+// The lead's Team tab, where member requests are listed.
 const requestPath = (r) =>
-  `/agents/${encodeURIComponent(r.parentAssistantId)}/settings?tab=work`;
+  `/agents/${encodeURIComponent(r.parentAssistantId)}/settings?tab=team`;
 const telegramOrigin = (r) => r.origin?.kind === "telegram" && !r.origin.forwarded;
 
 /** Open or not yet reported Telegram requests keep the channel's worker busy. */

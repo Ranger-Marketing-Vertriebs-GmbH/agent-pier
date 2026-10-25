@@ -57,7 +57,7 @@ test("an empty or out-of-range team number blocks the save with a field error", 
   await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
   await agentTab(page, "Profile").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
-  await expect(page).toHaveURL(/tab=work$/);
+  await expect(page).toHaveURL(/tab=overview$/);
   expect(state.work).toEqual([]);
   await size.fill("8");
   await expect(size).toHaveAccessibleDescription("");
@@ -135,7 +135,7 @@ test("a disconnected channel keeps its activity and drops its unsaved fields", a
   );
   await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(unsavedSheet(page)).toHaveCount(0);
-  await expect(page).toHaveURL(/tab=telegram&page=telegram-activity$/);
+  await expect(page).toHaveURL(/tab=channels&page=telegram-activity$/);
   await expect(panel.getByText("One")).toBeVisible();
   expect(state.channelPatches).toEqual([]);
 });
@@ -145,7 +145,7 @@ test("a Telegram subpage link for an agent without a channel opens the tab", asy
 }) => {
   await setup(page);
   await page.goto(baseURL + settingsPath("telegram", "telegram-connection"));
-  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
   await expect(page.getByLabel("Telegram bot token")).toBeVisible();
   await expect(unsavedSheet(page)).toHaveCount(0);
 });

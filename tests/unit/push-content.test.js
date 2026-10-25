@@ -178,7 +178,7 @@ test("each event links to its inbox item or its exact view", () => {
   );
   assert.equal(link({ kind: "agent-checkin", assistantId: "a1" }), "/agents");
   assert.equal(link({ kind: "disk-space" }), "/");
-  assert.equal(link({ kind: "github-token" }), "/settings/github");
+  assert.equal(link({ kind: "github-token" }), "/connections?section=github");
   assert.equal(
     link({ kind: "telegram-revocation", assistantId: "a1" }),
     "/agents/a1/settings",

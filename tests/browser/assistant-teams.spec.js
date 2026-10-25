@@ -201,7 +201,7 @@ test("host capacity overwrite uses the newer revision and leaving asks first", a
   const sheet = page.getByRole("dialog", { name: "Save changes?" });
   await expect(sheet).toContainText("1 change in Agent service is not saved yet.");
   await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page).toHaveURL(/\/settings\/assistants$/);
+  await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
   await expect(capacity).toHaveValue("8");
   await back.click();
   await sheet.getByRole("button", { name: "Discard", exact: true }).click();

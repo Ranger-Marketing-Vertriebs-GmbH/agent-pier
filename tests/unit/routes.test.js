@@ -79,22 +79,16 @@ test("projects routes carry tab state and old links map onto them", () => {
     "/projects/b1?tab=agentbus&bus=messages&page=3",
   );
   assert.equal(path(read("/repositories")), "/projects");
-  assert.equal(path(read("/plugins/local-codex")), "/extensions/local-codex?tab=plugins");
+  // CLI extensions moved to Coding › CLIs & Erweiterungen (route-redirects tests).
   assert.equal(
-    path(read("/extensions/local-codex?tab=agents")),
-    "/extensions/local-codex?tab=agents",
+    path(read("/plugins/local-codex")),
+    "/coding/clis/extensions/local-codex?tab=plugins",
   );
-  assert.equal(path(read("/extensions/local-codex")), "/extensions/local-codex");
   // The MCP tab became a reference row on Skills (settings redesign step 4).
   assert.equal(read("/extensions/local-codex?tab=mcp").extensionTab, "skills");
-  assert.equal(path(read("/extensions/local-codex?tab=mcp")), "/extensions/local-codex");
   assert.equal(
-    path(read("/extensions/local-codex?tab=skills")),
-    "/extensions/local-codex",
-  );
-  assert.equal(
-    path(read("/extensions/local-codex?tab=marketplaces")),
-    "/extensions/local-codex?tab=marketplaces",
+    path(read("/extensions/local-codex?tab=mcp")),
+    "/coding/clis/extensions/local-codex",
   );
   assert.equal(read("/projects/a%2Fb").view, "missing");
   assert.equal(read("/projects/p1?tab=nope").projectTab, "overview");
@@ -165,21 +159,12 @@ test("pipeline deep links retain tabs identities and bounded filters", () => {
 });
 
 test("settings deep links preserve durable jobs and bounded audit filters", () => {
-  for (const section of [
-    "notifications",
-    "diagnostics",
-    "backups",
-    "updates",
-    "audit",
-    "ssh",
-    "github",
-  ]) {
+  for (const section of ["notifications", "diagnostics", "backups", "updates", "audit"]) {
     const route = read(`/settings/${section}`);
     assert.equal(route.view, "settings");
     assert.equal(route.settingsSection, section);
     assert.equal(routePath(route), `/settings/${section}`);
   }
-  assert.equal(read("/settings/github").settingsSection, "github");
   const job = read("/settings/updates?job=job-one");
   assert.equal(job.operationId, "job-one");
   assert.equal(routePath(job), "/settings/updates?job=job-one");
@@ -221,27 +206,27 @@ test("file explorer links retain Unicode paths, preview and pagination", () => {
   assert.deepEqual(read(routePath(route)), route);
   assert.equal(read("/sessions/demo/files?page=-1").filePage, 1);
 });
-test("the central MCP list has its own Accounts address", () => {
-  const route = read("/accounts?section=mcp-servers");
-  assert.deepEqual(route, { view: "accounts", section: "mcp-servers" });
-  assert.equal(path(route), "/accounts?section=mcp-servers");
-  assert.deepEqual(read("/accounts?section=other"), { view: "accounts" });
-  assert.equal(path({ view: "accounts" }), "/accounts");
+test("the central MCP list has its own Zugänge address", () => {
+  const route = read("/connections?section=mcp-servers");
+  assert.deepEqual(route, { view: "connections", section: "mcp-servers" });
+  assert.equal(path(route), "/connections?section=mcp-servers");
+  assert.deepEqual(read("/connections?section=other"), { view: "connections" });
+  assert.equal(path({ view: "connections" }), "/connections");
 });
 
 test("MCP wizard steps are allowlisted per item and survive a round trip", () => {
   for (const step of ["package", "settings", "connect", "done"]) {
-    const route = read(`/accounts?section=mcp-servers&item=new&step=${step}`);
+    const route = read(`/connections?section=mcp-servers&item=new&step=${step}`);
     assert.deepEqual(route, {
-      view: "accounts",
+      view: "connections",
       section: "mcp-servers",
       item: "new",
       step,
     });
-    assert.equal(path(route), `/accounts?section=mcp-servers&item=new&step=${step}`);
+    assert.equal(path(route), `/connections?section=mcp-servers&item=new&step=${step}`);
   }
-  assert.deepEqual(read("/accounts?section=mcp-servers&item=s1&step=settings"), {
-    view: "accounts",
+  assert.deepEqual(read("/connections?section=mcp-servers&item=s1&step=settings"), {
+    view: "connections",
     section: "mcp-servers",
     item: "s1",
     step: "settings",
@@ -253,9 +238,9 @@ test("MCP wizard steps are allowlisted per item and survive a round trip", () =>
     "section=models&item=new&step=package",
     "section=mcp-servers&item=new&step=%3Cscript%3E",
   ])
-    assert.equal(read(`/accounts?${query}`).step, undefined, query);
+    assert.equal(read(`/connections?${query}`).step, undefined, query);
   assert.equal(
-    path({ view: "accounts", section: "mcp-servers", item: "s1", step: "install" }),
-    "/accounts?section=mcp-servers&item=s1",
+    path({ view: "connections", section: "mcp-servers", item: "s1", step: "install" }),
+    "/connections?section=mcp-servers&item=s1",
   );
 });

@@ -40,7 +40,8 @@ test("the callback result survives as route state while the address drops it", (
     serverId: "s-1",
     reason: "access_denied",
   });
-  assert.equal(routePath(route), "/accounts");
+  // The old Accounts address lands on Zugänge with the result kept.
+  assert.equal(routePath(route), "/connections");
   assert.deepEqual(readMcpOAuthResult("?oauth=maybe&server=s-1"), {});
   assert.deepEqual(readMcpOAuthResult("?oauth=connected&server=../x&reason=x"), {
     mcpOAuth: { result: "connected" },

@@ -3,8 +3,9 @@ import Icon from "../../components/Icon.jsx";
 import { dictationCopy as copy } from "../../lib/i18n/messages/dictation.js";
 import useDictation, { browserReason, useDictationStatus } from "./useDictation.js";
 import "./dictation.css";
+import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js";
 
-const setupHref = "/accounts?section=services&item=speech";
+const setupHref = connectionsRoutePath(connectionsRoute("services", "speech"));
 
 function noticeText(notice) {
   if (!notice) return "";

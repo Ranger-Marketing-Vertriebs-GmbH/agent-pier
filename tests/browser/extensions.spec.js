@@ -138,7 +138,7 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
   const claude = profileList(page).getByRole("button", { name: /Claude Code/ });
   await claude.click();
   await expect(claude).toHaveAttribute("aria-current", "true");
-  await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
   await expect(page.getByRole("tab")).toHaveText([/^Skills/, /^Plugins/]);
   // Page margins sit on the frame, so the hover arrows line up with the tab row.
   const tabList = page.getByRole("tablist");
@@ -153,7 +153,7 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
   ).toHaveCount(0);
   await reference.click();
   await expect(page).toHaveURL(
-    /\/accounts\?section=mcp-servers&returnTo=%2Fextensions%2F/,
+    /\/connections\?section=mcp-servers&returnTo=%2Fcoding%2Fclis%2Fextensions%2F/,
   );
   await expect(accountRow(page, "In den CLIs gefunden")).toBeVisible();
   expect(writes).toHaveLength(0);
@@ -165,7 +165,7 @@ test("skill file upload and GitHub download show native shared scope and protect
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   await openTab(page, "Skills");
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await page.getByRole("button", { name: "Hinweis anzeigen", exact: true }).click();
   await expect(
     page.getByText(
@@ -280,7 +280,7 @@ for (const mobile of [false, true])
     await expect(extensionRow(section, "skill-01")).toBeVisible();
     await page.getByRole("searchbox", { name: "Skills suchen" }).fill("skill-47");
     await (await openProfiles(page)).getByRole("button", { name: /Claude Code/ }).click();
-    await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+    await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
     await expect(page.getByRole("searchbox", { name: "Skills suchen" })).toHaveValue("");
     await expect(extensionRow(section, "skill-01")).toBeVisible();
     expect(writes).toEqual([]);

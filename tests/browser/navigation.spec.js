@@ -92,8 +92,8 @@ test("Shell profile deep links are rejected and never become the profile navigat
 }) => {
   const calls = await fixture(page, { shellFirst: true });
   for (const [path, expected] of [
-    ["extensions/local-shell", "extensions/local-shell"],
-    ["plugins/local-shell", "extensions/local-shell?tab=plugins"],
+    ["extensions/local-shell", "coding/clis/extensions/local-shell"],
+    ["plugins/local-shell", "coding/clis/extensions/local-shell?tab=plugins"],
   ]) {
     await page.goto(`${base}/${path}`);
     await expect(
@@ -102,14 +102,14 @@ test("Shell profile deep links are rejected and never become the profile navigat
     await expect(page).toHaveURL(`${base}/${expected}`);
   }
   await navigateTo(page, "Erweiterungen");
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(
     profileList(page).getByRole("button", { name: /Codex Lokal/ }),
   ).toHaveAttribute("aria-current", "true");
   await expect(profileList(page).getByRole("button", { name: /Shell/ })).toHaveCount(0);
   await navigateTo(page, "Erweiterungen");
   await page.goto(`${base}/extensions/local-codex?tab=plugins`);
-  await expect(page).toHaveURL(/\/extensions\/local-codex\?tab=plugins$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex\?tab=plugins$/);
   await expect(page.getByRole("tab", { name: /^Plugins/ })).toHaveAttribute(
     "aria-selected",
     "true",
@@ -125,7 +125,7 @@ test("unsupported extension tabs normalise the URL without flashing the tab", as
 }) => {
   await fixture(page);
   await page.goto(`${base}/extensions/local-codex?tab=agents`);
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(page.getByRole("tab", { name: /^Agenten/ })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",
@@ -139,12 +139,12 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   const codex = profileList(page).getByRole("button", { name: /Codex Lokal/ });
   await expect(claude).toHaveAttribute("aria-current", "true");
   await codex.click();
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(codex).toHaveAttribute("aria-current", "true");
   await page.goBack();
   await expect(claude).toHaveAttribute("aria-current", "true");
   await page.getByRole("tab", { name: /^Plugins/ }).click();
-  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/work-claude\?tab=plugins$/);
   await page.goBack();
   await expect(page.getByRole("tab", { name: /^Skills/ })).toHaveAttribute(
     "aria-selected",
@@ -152,7 +152,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   );
   await navigateTo(page, "Erweiterungen");
   await page.goto(`${base}/extensions/work-claude?tab=plugins`);
-  await expect(page).toHaveURL(/\/extensions\/work-claude\?tab=plugins$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/work-claude\?tab=plugins$/);
   await page.reload();
   await expect(claude).toHaveAttribute("aria-current", "true");
   await expect(page.getByRole("tab", { name: /^Plugins/ })).toHaveAttribute(
@@ -160,7 +160,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
     "true",
   );
   await navigateTo(page, "Accounts");
-  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(page).toHaveURL(/\/connections$/);
   await navigateTo(page, "Projekte");
   await expect(page).toHaveURL(/\/projects$/);
   await page.goBack();
@@ -168,7 +168,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
 });
 for (const [path, message] of [
   ["/sessions/missing/chat", "Session nicht gefunden"],
-  ["/extensions/missing", "Profil nicht gefunden"],
+  ["/coding/clis/extensions/missing", "Profil nicht gefunden"],
   ["/unknown-page", "Seite nicht gefunden"],
 ])
   test(`missing route is explicit and does not create sessions: ${path}`, async ({

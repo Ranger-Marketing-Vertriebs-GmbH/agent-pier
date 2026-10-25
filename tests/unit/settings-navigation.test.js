@@ -13,7 +13,8 @@ const read = (address) => readRoute(new URL(address, "http://localhost"));
 
 test("tab roots and subpages have stable addresses", () => {
   assert.equal(routePath(tabRoot("workspace")), "/settings");
-  assert.equal(routePath(tabRoot("access")), "/settings?tab=access");
+  // The Access tab moved to Zugänge.
+  assert.equal(routePath(tabRoot("access")), "/connections");
   assert.equal(routePath(tabRoot("operations")), "/settings?tab=operations");
   assert.equal(routePath(tabRoot("bogus")), "/settings");
   assert.equal(routePath(subpage("diagnostics")), "/settings/diagnostics");
@@ -40,11 +41,11 @@ test("subpage navigation keeps the tab of the resulting section", () => {
     operationId: "job-2",
   });
   assert.equal(
-    mergeSettingsRoute(read("/settings/mcp"), { settingsSection: "audit" }).settingsTab,
+    mergeSettingsRoute(subpage("mcp"), { settingsSection: "audit" }).settingsTab,
     "operations",
   );
   assert.equal(
-    mergeSettingsRoute(read("/settings/mcp"), { settingsSection: "general" }).settingsTab,
+    mergeSettingsRoute(subpage("mcp"), { settingsSection: "general" }).settingsTab,
     "access",
   );
 });
@@ -60,4 +61,11 @@ test("a draft stays on screen only for its own section and tab", () => {
   const updates = staysOn("updates");
   assert.equal(updates({ next: { ...subpage("updates"), operationId: "job-1" } }), true);
   assert.equal(updates({ next: tabRoot("operations") }), false);
+  // Moved sections compare their new addresses as the same settings page.
+  const ssh = staysOn("ssh");
+  assert.equal(ssh({ next: read("/connections?section=ssh") }), true);
+  assert.equal(ssh({ next: subpage("ssh") }), true);
+  assert.equal(ssh({ next: read("/connections?section=github") }), false);
+  assert.equal(staysOn("assistants")({ next: read("/agents?tab=runtime") }), true);
+  assert.equal(staysOn("mcp")({ next: read("/coding/clis?tab=mcp&page=2") }), true);
 });

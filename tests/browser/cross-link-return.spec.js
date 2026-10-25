@@ -55,7 +55,7 @@ for (const [language, text] of Object.entries(copy))
         await link.scrollIntoViewIfNeeded();
         const offset = await scrollOffset(page);
         await link.click();
-        await expect(page).toHaveURL(/\/accounts\?section=models&returnTo=/);
+        await expect(page).toHaveURL(/\/connections\?section=models&returnTo=/);
         // The origin survives a reload of the target page.
         await page.reload();
         await back(page, text.backToAgent).click();
@@ -72,7 +72,7 @@ for (const [language, text] of Object.entries(copy))
         await setup(page, { language });
         await page.goto(baseURL + settingsPath());
         await page.getByRole("link", { name: text.runtime }).first().click();
-        await expect(page).toHaveURL(/\/settings\/assistants\?returnTo=/);
+        await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=/);
         await back(page, text.backToAgent).click();
         await expect(page).toHaveURL(/\/agents\/home\/settings$/);
         await expect(agentTab(page, text.profile)).toHaveAttribute(
@@ -86,10 +86,10 @@ for (const [language, text] of Object.entries(copy))
         await page.goto(baseURL + settingsPath("telegram"));
         await page.getByRole("link", { name: text.speech }).click();
         await expect(page).toHaveURL(
-          /\/accounts\?section=services&item=speech&returnTo=/,
+          /\/connections\?section=services&item=speech&returnTo=/,
         );
         await back(page, text.backToAgent).click();
-        await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+        await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
         await expect(agentTab(page, text.telegram)).toHaveAttribute(
           "aria-selected",
           "true",
@@ -111,7 +111,7 @@ for (const [language, text] of Object.entries(copy))
             "/settings/assistants?returnTo=" +
             encodeURIComponent("//evil.test/x"),
         );
-        await expect(page).toHaveURL(/\/settings\/assistants$/);
+        await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
         await back(page, text.backToWorkspace).click();
         await expect(page).toHaveURL(/\/settings$/);
       });
@@ -127,15 +127,14 @@ test("a cross-link's origin does not leak into later navigation", async ({ page 
   await expect(page).toHaveURL(/returnTo=/);
   // Leaving through the app's own navigation drops the origin, even within Accounts.
   await navigateTo(page, "Accounts");
-  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(page).toHaveURL(/\/connections$/);
   await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
   await navigateTo(page, "Settings");
   await expect(page).toHaveURL(/\/settings$/);
+  // The Access tab moved to Zugänge: a plain move between areas carries no origin.
   await page.getByRole("tab", { name: "Access" }).click();
-  await page.getByRole("link", { name: /^Provider access, MCP servers/ }).click();
-  await expect(page).toHaveURL(/\/accounts\?returnTo=%2Fsettings%3Ftab%3Daccess$/);
-  await back(page, "Back to Access").click();
-  await expect(page).toHaveURL(/\/settings\?tab=access$/);
+  await expect(page).toHaveURL(/\/connections$/);
+  await expect(back(page, "Back to Access")).toHaveCount(0);
 });
 
 test.describe("cross-links on phones", () => {
@@ -152,7 +151,7 @@ test.describe("cross-links on phones", () => {
     await expect(page).toHaveURL(/item=chatgpt&returnTo=/);
     await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
     await back(page, "Back").click();
-    await expect(page).toHaveURL(/\/accounts\?section=models&returnTo=/);
+    await expect(page).toHaveURL(/\/connections\?section=models&returnTo=/);
     await back(page, copy.en.backToAgent).click();
     await expect(page).toHaveURL(/\/agents\/home\/settings$/);
   });
@@ -168,7 +167,7 @@ test.describe("cross-links on phones", () => {
         "/accounts?section=services&item=gone&returnTo=" +
         encodeURIComponent("/agents/home/settings?tab=telegram"),
     );
-    await expect(page).toHaveURL(/\/accounts\?section=services&returnTo=/);
+    await expect(page).toHaveURL(/\/connections\?section=services&returnTo=/);
     await expect(page.getByRole("button", { name: copy.en.menu })).toBeVisible();
     await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
   });
@@ -188,7 +187,7 @@ test.describe("cross-links on phones", () => {
     );
     await expect(page.getByLabel("Deepgram API key")).toBeVisible();
     await back(page, copy.en.backToAgent).click();
-    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
   });
 });
 
@@ -199,7 +198,7 @@ test("Accounts on desktop keeps the origin for the whole visit", async ({ page }
   await openAccountItem(page, "Web search");
   await expect(page).toHaveURL(/item=web-search&returnTo=/);
   await back(page, copy.en.backToAgent).click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });
 
 test("chained cross-links lead back through every origin", async ({ page }) => {
@@ -208,10 +207,10 @@ test("chained cross-links lead back through every origin", async ({ page }) => {
   await page.getByRole("link", { name: copy.en.speech }).click();
   const panel = await openAccountItem(page, "ChatGPT for agents");
   await panel.getByRole("link", { name: copy.en.runtime }).click();
-  await expect(page).toHaveURL(/\/settings\/assistants\?returnTo=/);
+  await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=/);
   await page.reload();
   await back(page, "Back to Accounts").click();
-  await expect(page).toHaveURL(/\/accounts\?section=models&item=chatgpt&returnTo=/);
+  await expect(page).toHaveURL(/\/connections\?section=models&item=chatgpt&returnTo=/);
   await back(page, copy.en.backToAgent).click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });

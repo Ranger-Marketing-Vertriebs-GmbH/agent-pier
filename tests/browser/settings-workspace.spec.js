@@ -56,8 +56,9 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.goto(baseURL + "/settings");
       const toggle = page.getByRole("switch", { name: resume });
       await toggle.click();
-      const access = page.getByRole("tab", { name: t("Zugriff", "Access") });
-      await access.click();
+      // The Access tab moved to Zugänge; Operations is a settings tab of its own.
+      const operations = page.getByRole("tab", { name: t("Betrieb", "Operations") });
+      await operations.click();
       const sheet = page.getByRole("dialog", {
         name: t("Änderungen speichern?", "Save changes?"),
       });
@@ -72,11 +73,11 @@ for (const locale of ["de-DE", "en-GB"]) {
         .click();
       await expect(page).toHaveURL(/\/settings$/);
       await expect(toggle).not.toBeChecked();
-      await access.click();
+      await operations.click();
       await sheet
         .getByRole("button", { name: t("Verwerfen", "Discard"), exact: true })
         .click();
-      await expect(page).toHaveURL(/\/settings\?tab=access$/);
+      await expect(page).toHaveURL(/\/settings\?tab=operations$/);
       await page.getByRole("tab", { name: t("Arbeitsbereich", "Workspace") }).click();
       await expect(toggle).toBeChecked();
       await toggle.click();
@@ -164,7 +165,7 @@ test("rows, browser back and closing the page ask while the tab has changes", as
   page,
 }) => {
   await operationsFixture(page);
-  await page.goto(baseURL + "/settings?tab=access");
+  await page.goto(baseURL + "/settings?tab=operations");
   await page.getByRole("tab", { name: "Arbeitsbereich" }).click();
   await page
     .getByRole("switch", { name: "Unterbrochene Sessions automatisch fortsetzen" })
@@ -185,7 +186,7 @@ test("rows, browser back and closing the page ask while the tab has changes", as
   await page.evaluate(() => history.back());
   await expect(sheet).toBeVisible();
   await sheet.getByRole("button", { name: "Verwerfen", exact: true }).click();
-  await expect(page).toHaveURL(/\/settings\?tab=access$/);
+  await expect(page).toHaveURL(/\/settings\?tab=operations$/);
   expect(await unload()).toBe(false);
 });
 
@@ -308,19 +309,20 @@ test.describe("settings workspace field checks", () => {
     await expect(sheet).toHaveCount(0);
     await expect(row).toBeFocused();
     // An arrow key switch the sheet refused leaves focus on the tab still selected.
+    // ArrowLeft wraps to Operations (the Access tab leads to Zugänge).
     const workspace = page.getByRole("tab", { name: "Workspace" });
-    const access = page.getByRole("tab", { name: "Access" });
+    const operations = page.getByRole("tab", { name: "Operations" });
     await workspace.focus();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
     await expect(sheet).toBeVisible();
     await sheet.getByRole("button", { name: "Cancel" }).click();
     await expect(sheet).toHaveCount(0);
     await expect(workspace).toHaveAttribute("aria-selected", "true");
     await expect(workspace).toBeFocused();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
     await sheet.getByRole("button", { name: "Discard", exact: true }).click();
-    await expect(access).toHaveAttribute("aria-selected", "true");
-    await expect(access).toBeFocused();
+    await expect(operations).toHaveAttribute("aria-selected", "true");
+    await expect(operations).toBeFocused();
   });
 
   test("an agent switch the server did not apply stays unsaved", async ({ page }) => {
