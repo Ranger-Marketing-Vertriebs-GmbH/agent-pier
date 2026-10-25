@@ -11,7 +11,7 @@ const networkHost = "192.168.1.20:4380";
 
 // The middleware inside a real HTTP server, a hook with its one-time secret, and
 // `post` for requests from loopback with any Host and headers.
-async function endpoint(t, { network = false, throttle } = {}) {
+async function endpoint(t, { network = false, throttle, requestLimit } = {}) {
   const f = hookFixture(t);
   const { hook, secret } = f.hooks.create(f.id, { name: "Zabbix", sender: "zabbix01" });
   const config = {
@@ -21,7 +21,12 @@ async function endpoint(t, { network = false, throttle } = {}) {
     networkHosts: new Set([networkHost]),
   };
   const app = express();
-  app.use(hookEndpoint({ assistantRoutines: f.routines }, () => config, { throttle }));
+  app.use(
+    hookEndpoint({ assistantRoutines: f.routines }, () => config, {
+      throttle,
+      requestLimit,
+    }),
+  );
   app.use((req, res) => res.status(418).json({ next: true }));
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -296,6 +301,22 @@ test("rotating X-Forwarded-For values share one tailnet window and a capped map"
   // The local machine keeps its own window.
   assert.equal((await post({}, { data: '{"id":"local-1"}' })).status, 202);
   assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 2);
+});
+
+test("a request ceiling per stored hook keeps unknown IDs in one shared window", async (t) => {
+  const { post } = await endpoint(t, { requestLimit: 2 });
+  const unknown = { path: `/hooks/${randomUUID()}` };
+  assert.equal((await post({}, unknown)).status, 404);
+  assert.equal((await post({}, { path: `/hooks/${randomUUID()}` })).status, 404);
+  const flooded = await post({}, unknown);
+  assert.equal(flooded.status, 429);
+  assert.equal(flooded.text, '{"error":"HOOK_RATE_LIMITED"}');
+  assert.ok(Number(flooded.headers["retry-after"]) > 0);
+  assert.equal((await post()).status, 202);
+  assert.equal((await post({ "x-event-id": "e2" })).status, 202);
+  const limited = await post({ "x-event-id": "e3" });
+  assert.equal(limited.status, 429);
+  assert.equal(limited.body.error, "HOOK_RATE_LIMITED");
 });
 
 test("the auth throttle evicts the least recently failed key, never a fixed one", () => {

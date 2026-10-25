@@ -1,3 +1,5 @@
+import express from "express";
+import { rateLimit } from "express-rate-limit";
 import { problem } from "../lib/storage.js";
 import { secretMatches } from "../features/assistants/agent-hook-store.js";
 import { hookEligible } from "../features/assistants/agent-hook-rights.js";
@@ -184,10 +186,27 @@ function readBody(req) {
 export function hookEndpoint(
   services,
   effective,
-  { throttle = new AuthThrottle() } = {},
+  { throttle = new AuthThrottle(), requestLimit = 600 } = {},
 ) {
-  return async (req, res, next) => {
-    if (req.path !== "/hooks" && !req.path.startsWith("/hooks/")) return next();
+  const isHookRequest = (req) => req.path === "/hooks" || req.path.startsWith("/hooks/");
+  // A request ceiling in front of every check: one window per stored hook and one
+  // shared window for everything else, so the key count stays bounded by the stored
+  // hooks and a flood of unknown IDs never fills a real hook's window.
+  const requests = rateLimit({
+    windowMs: 60_000,
+    limit: requestLimit,
+    skip: (req) => !isHookRequest(req),
+    keyGenerator: (req) => {
+      const id = hookPath.exec(req.path)?.[1];
+      return id && services.assistantRoutines?.hooks?.store.get(id) ? id : "unknown";
+    },
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) => res.status(429).json({ error: "HOOK_RATE_LIMITED" }),
+  });
+  const router = express.Router();
+  router.use(requests, async (req, res, next) => {
+    if (!isHookRequest(req)) return next();
     const reply = (status, body, headers = {}) => {
       for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
       res.status(status).json(body);
@@ -279,5 +298,6 @@ export function hookEndpoint(
       console.error("Agent hook delivery failed:", error?.message);
       reply(503, { error: "HOOK_UNAVAILABLE" }, { "Retry-After": "30" });
     }
-  };
+  });
+  return router;
 }
