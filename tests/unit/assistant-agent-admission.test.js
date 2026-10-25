@@ -2,13 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import {
+  admissionDone,
   agentDegraded,
   degradedAgents,
   noteRefusal,
   settledAdmission,
   withAdmission,
 } from "../../server/features/assistants/agent-admission.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import {
+  configWrite,
+  patchConfig,
+} from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { sendRefusal } from "../../server/features/assistants/conversation-turns.js";
 
 const pending = (id) => ({
@@ -61,58 +65,102 @@ test("config writes wait until the Gateway admitted every agent", async () => {
   assert.equal(client.calls.length, 4);
 });
 
-test("a patch waits for the admission, and concurrent writers share the wait", async () => {
+test("writers that waited together run one after the other, never on one base hash", async () => {
   const client = gateway([{ agents: [pending("ap-a")] }, { agents: [{ id: "ap-a" }] }]);
-  client.answer = (method) => (method === "config.get" ? { hash: "h", config: {} } : {});
+  let hash = 0;
+  client.answer = (method, params) => {
+    if (method === "config.get") return { hash: `h${hash}`, config: {} };
+    // As OpenClaw refuses a stale base hash.
+    if (params.baseHash !== `h${hash}`) throw answered("INVALID_REQUEST");
+    hash++;
+    return {};
+  };
   // The default pacing: the roster is read again after 250 ms.
-  await Promise.all(
-    [1, 2].map((n) =>
+  await Promise.all([
+    ...[1, 2, 3].map((n) =>
       patchConfig(client, () => ({
         patch: { agents: { defaults: { maxConcurrent: n } } },
       })),
     ),
-  );
+    configWrite(client, () => client.call("agents.update", { baseHash: `h${hash}` })),
+  ]);
   assert.deepEqual(client.calls, [
     "agents.list",
     "agents.list",
-    "config.get",
-    "config.get",
-    "config.patch",
-    "config.patch",
+    ...Array(3).fill(["config.get", "config.patch"]).flat(),
+    "agents.update",
   ]);
+  assert.equal(hash, 4);
+  // A failed write does not stop the next one.
+  await assert.rejects(configWrite(client, async () => assert.fail("refused")));
+  assert.equal(await configWrite(client, async () => "next"), "next");
 });
 
 test("the agents still refused afterwards are degraded until the Gateway restarts", async () => {
   const client = gateway([
-    { agents: [pending("ap-a"), pending("ap-b")] },
-    { agents: [failed("ap-a"), { id: "ap-b" }] },
+    { agents: [pending("ap-a"), pending("ap-b"), { id: "ap-c", status: "degraded" }] },
+    { agents: [failed("ap-a"), { id: "ap-b" }, { id: "ap-c", status: "degraded" }] },
   ]);
-  await settledAdmission(client, clock());
+  assert.equal(await admissionDone(client), true);
+  // Only an admission refusal counts, not another degraded status.
   assert.deepEqual([...degradedAgents(client)], ["ap-a"]);
   assert.equal(agentDegraded(client, "ap-a"), true);
   assert.equal(agentDegraded(client, "ap-b"), false);
   // A new Gateway is a new client: nothing is degraded there.
   assert.equal(agentDegraded(gateway([{ agents: [] }]), "ap-a"), false);
+  // A reconnect forgets them until the roster says so again.
+  client.emit("disconnected");
+  assert.equal(agentDegraded(client, "ap-a"), false);
+  assert.equal(await admissionDone(gateway([{ agents: [{ id: "ap-a" }] }])), false);
 });
 
-test("the wait is bounded and a Gateway still starting is asked again", async () => {
+test("the wait ends only without progress, and the roster is still watched", async () => {
   const warnings = [];
   const options = { ...clock(), timeoutMs: 5000, warn: (line) => warnings.push(line) };
-  const starting = gateway([answered("UNAVAILABLE"), { agents: [] }]);
-  await settledAdmission(starting, options);
-  assert.deepEqual(starting.calls, ["agents.list", "agents.list"]);
-  const stuck = gateway([{ agents: [pending("ap-a")] }]);
+  // Each agent admitted gives the rest the whole wait again.
+  const slow = gateway([
+    // Read at 0, 250, 750 and 1750 ms, then at 3750, 5750 and 7750 ms.
+    ...Array(4).fill({ agents: [pending("ap-a"), pending("ap-b")] }),
+    ...Array(3).fill({ agents: [pending("ap-b")] }),
+    { agents: [{ id: "ap-a" }, { id: "ap-b" }] },
+  ]);
+  await settledAdmission(slow, options);
+  // Admitted at 9750 ms, beyond 5000 ms after the start.
+  assert.deepEqual(warnings, []);
+  assert.equal(slow.calls.length, 8);
+  // Without progress the writes go on; agents refused later are still found.
+  const stuck = gateway([
+    ...Array(10).fill({ agents: [pending("ap-a")] }),
+    { agents: [failed("ap-a")] },
+  ]);
   await settledAdmission(stuck, options);
-  assert.ok(stuck.calls.length > 2);
   assert.match(warnings.join(), /5000 ms/);
   assert.doesNotMatch(warnings.join(), /ap-a/);
+  assert.ok(stuck.calls.length < 10);
+  await admissionDone(stuck);
+  assert.equal(agentDegraded(stuck, "ap-a"), true);
+  assert.equal(warnings.length, 1);
 });
 
-test("a failed roster read never blocks a write and is asked again next time", async () => {
-  const client = gateway([Object.assign(Error("closed"), { code: "UNAVAILABLE" })]);
-  await settledAdmission(client, clock());
-  await settledAdmission(client, clock());
-  assert.equal(client.calls.length, 2);
+test("a Gateway that cannot answer yet is asked again; a closed one never blocks", async () => {
+  const options = clock();
+  const starting = gateway([
+    answered("UNAVAILABLE"),
+    Object.assign(Error("timeout"), { code: "TIMEOUT" }),
+    { agents: [] },
+  ]);
+  starting.ready = true;
+  await settledAdmission(starting, options);
+  assert.equal(starting.calls.length, 3);
+  const closed = gateway([Object.assign(Error("closed"), { code: "UNAVAILABLE" })]);
+  closed.ready = false;
+  await settledAdmission(closed, options);
+  await settledAdmission(closed, options);
+  assert.equal(closed.calls.length, 2);
+  // A Gateway without this roster has no admission to wait for.
+  const older = gateway([answered("INVALID_REQUEST")]);
+  await settledAdmission(older, options);
+  assert.equal(older.calls.length, 1);
   await settledAdmission(null);
   assert.equal(degradedAgents(null).size, 0);
 });

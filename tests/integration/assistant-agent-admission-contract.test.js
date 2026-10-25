@@ -173,13 +173,17 @@ test(
     // they wait for the admission, and every agent is admitted.
     await crash();
     config = configFor();
-    // Concurrent writers to one base hash conflict (live-patch.js), so the burst is
-    // queued at once and runs one write after the other, as AgentPier's writers do.
-    for (const n of [21, 22, 23])
-      await patchConfig(runtime.client, () => ({
-        patch: { agents: { defaults: { maxConcurrent: n } } },
-      }));
-    for (const a of agents) await config.apply(a.id);
+    // The concurrent writers of a start (the agents' re-apply, MCP, Telegram, the
+    // shell level) wait for the admission together and then write one after the
+    // other (live-patch.js), so none races another's base hash.
+    await Promise.all([
+      ...[21, 22, 23].map((n) =>
+        patchConfig(runtime.client, () => ({
+          patch: { agents: { defaults: { maxConcurrent: n } } },
+        })),
+      ),
+      ...agents.map((a) => config.apply(a.id)),
+    ]);
     assert.deepEqual(
       (await roster()).filter((a) => a.status === "degraded"),
       [],
