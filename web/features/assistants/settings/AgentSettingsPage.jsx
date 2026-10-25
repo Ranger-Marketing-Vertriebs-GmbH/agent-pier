@@ -47,9 +47,19 @@ export default function AgentSettingsPage({
     navigate(agentRoute(assistant.id, nextTab, nextPage));
   const scroller = useRef(null);
   // Back from a cross-link target (Accounts, agent service) lands where the owner was.
-  useReturnScroll(scroller, routePath(agentRoute(assistant.id, tab, page)));
+  useReturnScroll(
+    scroller,
+    routePath(agentRoute(assistant.id, tab, page, route.agentHook)),
+  );
   const Panel = panels[tab];
-  const props = { assistant, page, go, navigate, focusTeamId: route.agentTeam };
+  const props = {
+    assistant,
+    page,
+    go,
+    navigate,
+    focusTeamId: route.agentTeam,
+    hookId: route.agentHook,
+  };
   return (
     <section className="assistant-detail assistant-settings-page agent-settings">
       <AssistantHeader

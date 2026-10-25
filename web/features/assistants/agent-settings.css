@@ -278,3 +278,8 @@
   gap: 8px;
   min-width: 0;
 }
+/* A hook's one-time secret and sample request wrap instead of widening the dialog. */
+.agent-hook-secret .code-block > .code-block-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -148,11 +148,18 @@ test("generated settings, agent and accounts addresses round-trip and normalise 
       fc.constantFrom(...Object.keys(agentPages), "junk", ""),
       fc.constantFrom(...accountSections, "junk", ""),
       fc.constantFrom(...settingsTabs, "junk"),
-      (id, tab, page, section, settingsTab) => {
+      fc.uuid(),
+      (id, tab, page, section, settingsTab, hookId) => {
         const agentRoute = parse(`/agents/${id}/settings?tab=${tab}&page=${page}`);
         assert.deepEqual(parse(routePath(agentRoute)), agentRoute);
         if (agentRoute.agentPage)
           assert.equal(agentRoute.agentTab, agentPages[agentRoute.agentPage]);
+        // A hook id survives the round trip on the hook page and only there.
+        const hooked = parse(
+          `/agents/${id}/settings?tab=${tab}&page=${page}&hook=${hookId}`,
+        );
+        assert.deepEqual(parse(routePath(hooked)), hooked);
+        assert.equal(hooked.agentHook, page === "hook" ? hookId : undefined);
         const accounts = parse(`/accounts?section=${section}&item=${id}`);
         assert.deepEqual(parse(routePath(accounts)), accounts);
         assert.equal(accounts.item === undefined, !accountSections.includes(section));

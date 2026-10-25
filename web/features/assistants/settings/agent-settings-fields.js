@@ -77,6 +77,7 @@ const pageTabs = {
   ssh: "work",
   github: "work",
   secrets: "work",
+  hook: "routines",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };
@@ -113,12 +114,13 @@ export function resolveAgentLocation(assistant, route) {
   return { tab, page, tabs, normalized: tab !== wanted.tab || page !== wanted.page };
 }
 
-export const agentRoute = (assistantId, tab = "profile", page = "") => ({
+export const agentRoute = (assistantId, tab = "profile", page = "", hook = "") => ({
   view: "agents",
   assistantId,
   agentSettings: true,
   ...(tab !== "profile" || page ? { agentTab: tab } : {}),
   ...(page ? { agentPage: page } : {}),
+  ...(page && hook ? { agentHook: hook } : {}),
 });
 
 /** A tab's draft stays on screen for navigations within the same agent and tab. */
