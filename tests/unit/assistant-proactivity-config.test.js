@@ -40,6 +40,19 @@ test("session tools stay same-agent on every Gateway, native or not", (t) => {
   assert.deepEqual(compile(t, teams([])).tools.sessions, { visibility: "agent" });
 });
 
+test("native Gateways compile the owner's dreaming setting", (t) => {
+  const config = compile(t, {
+    ...teams([profile({ memory: true }, { model: "m1" })]),
+    dreaming: { enabled: true, hour: 3, timeZone: "Europe/Berlin" },
+  });
+  const dreaming = config.plugins.entries["memory-core"].config.dreaming;
+  assert.equal(dreaming.frequency, "0 3 * * *");
+  assert.equal(dreaming.timezone, "Europe/Berlin");
+  const off = compile(t, teams([profile({ memory: true }, { model: "m1" })]));
+  assert.ok(Object.keys(config.agents.entries).length);
+  assert.deepEqual(config.agents.entries, off.agents.entries);
+});
+
 test("native Gateways keep proactive defaults off and recall unconfigured", (t) => {
   const config = compile(t, teams([profile({ memory: true, reminders: false })]));
   assert.ok(!config.plugins.allow.includes("active-memory"));
