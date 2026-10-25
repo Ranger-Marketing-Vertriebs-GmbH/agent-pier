@@ -85,7 +85,7 @@ export const notificationCopy = {
     telegram: "Also what Telegram delivered",
   },
   telegramSub:
-    "Check-ins and routine results that also reached the agent's paired Telegram chat.",
+    "Check-ins, routine and hook results that also reached the agent's paired Telegram chat.",
   systemNote:
     "Delivery problems, Telegram access, GitHub tokens and low disk space always notify.",
   behaviourGroup: "Grouping and quiet",

@@ -6,9 +6,9 @@ export const hookCopy = {
   empty: "No hooks yet.",
   loading: "Loading hooks …",
   unknownName: "Hook",
-  shared: "Hooks are not available for shared agents.",
+  shared: "Hooks are not available for shared agents or agents of users.",
   paused:
-    "Hooks are paused while “Allow reminders and routines” is off. You can still delete them.",
+    "Hooks are inactive while “Allow reminders and routines” is off. You can still delete them.",
   createTitle: "Add hook",
   name: "Hook name",
   sender: "Sender",

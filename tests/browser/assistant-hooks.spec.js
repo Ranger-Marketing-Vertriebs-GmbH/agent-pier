@@ -59,7 +59,10 @@ const hookView = (input) => ({
   lastEvent: null,
 });
 
-async function setup(page, { language = "en", hooks = [], reminders = true } = {}) {
+async function setup(
+  page,
+  { language = "en", hooks = [], reminders = true, userAccess } = {},
+) {
   await fixture(page);
   await page.addInitScript(
     (value) => localStorage.setItem("agentpier-language", value),
@@ -82,6 +85,7 @@ async function setup(page, { language = "en", hooks = [], reminders = true } = {
             model: { connectionId: "router", modelId: "model" },
             revision: 1,
             capabilities: { reminders, memory: true },
+            ...(userAccess && { userAccess }),
           },
         ],
         conversations: [],
@@ -161,6 +165,8 @@ test("creating a hook reveals its secret and curl sample once", async ({ page })
   const reveal = page.getByRole("dialog", { name: "Hook secret" });
   await expect(reveal.getByText("AgentPier shows it only this once")).toBeVisible();
   await expect(reveal.locator("pre").first()).toHaveText(firstSecret);
+  // One control copies the secret, one the sample.
+  await expect(reveal.getByRole("button", { name: "Copy secret" })).toHaveCount(1);
   await expect(reveal.locator("pre").nth(1)).toHaveText(
     `curl -X POST -H "Authorization: Bearer ${firstSecret}" -H "Content-Type: application/json" -d '{"id":"1","message":"test"}' https://pier.example.ts.net/hooks/${hookId}`,
   );
@@ -294,14 +300,16 @@ test("a proposal-created hook offers Create secret; deleting confirms", async ({
   expect(state.hooks).toHaveLength(0);
 });
 
-test("paused hooks stay listed and a refused save names the reason", async ({ page }) => {
+test("inactive hooks stay listed and a refused save names the reason", async ({
+  page,
+}) => {
   await setup(page, {
     reminders: false,
     hooks: [hookView({ name: "Uptime", sender: "Kuma", active: false })],
   });
   await page.goto(baseURL + settingsPath("routines"));
   const group = hooksGroup(page);
-  await expect(group.getByText("Hooks are paused while")).toBeVisible();
+  await expect(group.getByText("Hooks are inactive while")).toBeVisible();
   await expect(group.getByRole("button", { name: "+ Add" })).toBeDisabled();
   await group.getByRole("link", { name: /Uptime Kuma · Inactive/ }).click();
   await page.getByLabel("Hook name").fill("Uptime 2");
@@ -318,7 +326,7 @@ test("the hook flow renders German labels", async ({ page }) => {
   await expect(group.getByText("Noch keine Hooks.")).toBeVisible();
   await group.getByRole("button", { name: "+ Hinzufügen" }).click();
   const form = page.getByRole("dialog", { name: "Hook hinzufügen" });
-  await form.getByLabel("Hookname").fill("Uptime");
+  await form.getByLabel("Name des Hooks").fill("Uptime");
   await form.getByLabel("Absender").fill("Uptime Kuma");
   await form.getByRole("button", { name: "Hook erstellen" }).click();
   const reveal = page.getByRole("dialog", { name: "Hook-Geheimnis" });
@@ -330,4 +338,15 @@ test("the hook flow renders German labels", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Geheimnis neu erzeugen" }),
   ).toBeVisible();
+});
+
+test("an agent of a user says that it has no hooks", async ({ page }) => {
+  await setup(page, {
+    userAccess: { mode: "own", members: [{ id: "user-1", level: "extended" }] },
+  });
+  await page.goto(baseURL + settingsPath("routines"));
+  await expect(
+    page.getByText("Hooks are not available for shared agents or agents of users."),
+  ).toBeVisible();
+  await expect(hooksGroup(page)).toHaveCount(0);
 });

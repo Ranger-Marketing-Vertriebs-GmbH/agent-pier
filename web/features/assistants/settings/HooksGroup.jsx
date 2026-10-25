@@ -15,7 +15,8 @@ import HookSecretDialog from "./HookSecretDialog.jsx";
 /**
  * The agent's hooks: one row per hook into its detail subpage, and "+ Add", which
  * creates a hook from a name and a sender and reveals its secret once. `paused`
- * (reminders and routines off) keeps the list, so paused hooks can be deleted.
+ * (reminders and routines off) keeps the list of inactive hooks, so they can be
+ * deleted.
  */
 export default function HooksGroup({ assistantId, paused = false, navigate }) {
   const id = useId();
