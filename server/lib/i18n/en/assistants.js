@@ -403,6 +403,8 @@ export const assistants = {
     "There is not enough free disk space, or AgentPier already holds as many prepared browser uploads as allowed.",
   browserUploadSlow: "Copying this file for the browser took too long and was cancelled.",
   invalid: "Invalid agent input.",
+  hookRightExceeds:
+    "A hook cannot hold more than its agent: the agent does not have this right.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
   capacity: "The team size exceeds this host's capacity. Choose a smaller value.",

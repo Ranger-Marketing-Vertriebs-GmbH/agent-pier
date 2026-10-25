@@ -431,6 +431,8 @@ export const assistants = {
   browserUploadSlow:
     "Das Kopieren dieser Datei für den Browser hat zu lange gedauert und wurde abgebrochen.",
   invalid: "Ungültige Agenten-Eingabe.",
+  hookRightExceeds:
+    "Ein Hook darf nicht mehr als sein Agent: Dieses Recht hat der Agent nicht.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
   capacity:
