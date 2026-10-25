@@ -1,6 +1,6 @@
 import TeamApprovals from "./TeamApprovals.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
-import { anchorToChild } from "./transcript-scroll.js";
+import { anchorToChild, followEnd } from "./transcript-scroll.js";
 import {
   emptyHistoryView,
   shownHistory,
@@ -118,8 +118,6 @@ export default function AssistantChat({
   const output = useRef(null);
   const stick = useRef(true);
   const scroll = useRef(0);
-  // The transcript height the last resize left; see onScroll.
-  const outputHeight = useRef(0);
   // The transcript's distance from its end before an older page was prepended.
   const prepended = useRef(null);
   // Keeps the composer above the on-screen keyboard, as the session chat does.
@@ -229,21 +227,13 @@ export default function AssistantChat({
     element.scrollTop = element.scrollHeight;
     scroll.current = element.scrollTop;
   }, [history.messages, history.requests, delta, busy, notes]);
+  // A chat opens at its newest message and keeps it in view while late content (images,
+  // cards, the on-screen keyboard) changes sizes, until the reader scrolls away.
   useLayoutEffect(() => {
+    if (!output.current) return undefined;
     stick.current = true;
+    return followEnd(output.current, stick, scroll);
   }, [conversationId]);
-  // A shrinking viewport (on-screen keyboard) must keep the latest message in view.
-  useLayoutEffect(() => {
-    const element = output.current;
-    if (!element) return;
-    outputHeight.current = element.clientHeight;
-    const resize = new ResizeObserver(() => {
-      if (stick.current) element.scrollTop = element.scrollHeight;
-      outputHeight.current = element.clientHeight;
-    });
-    resize.observe(element);
-    return () => resize.disconnect();
-  }, []);
   // A team link (/agents/:id/teams/:teamId) shows what the team needs from the owner,
   // or else its latest note, once the history is rendered (not just received) and either
   // is there; it stays there while late content shifts, until the reader moves.
@@ -415,7 +405,11 @@ export default function AssistantChat({
         conversationId={conversationId}
         navigate={navigate}
       />
-      <AssistantApprovalStrip count={entry.pendingApprovals} output={output} />
+      <AssistantApprovalStrip
+        count={entry.pendingApprovals}
+        output={output}
+        stick={stick}
+      />
       <WorkGoalLine
         goal={history.goal}
         conversationId={conversationId}
@@ -451,19 +445,7 @@ export default function AssistantChat({
             {copy.stale}
           </p>
         )}
-        <div
-          className="assistant-transcript"
-          ref={output}
-          onScroll={(event) => {
-            const element = event.currentTarget;
-            // Resizing can emit scroll before ResizeObserver runs. It must not
-            // turn off bottom-following as though the user scrolled backwards.
-            if (element.clientHeight !== outputHeight.current) return;
-            scroll.current = element.scrollTop;
-            stick.current =
-              element.scrollHeight - element.scrollTop - element.clientHeight < 80;
-          }}
-        >
+        <div className="assistant-transcript" ref={output}>
           <div role="log" aria-live="off" aria-label={copy.conversation}>
             {history.nextBefore && (
               <button className="button secondary" onClick={earlier}>
