@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Verbindungen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0;background:#101114}
+a{color:#ffc99d}a:hover{color:#f49a58}
+.eb{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#92949d}
+.gl{display:flex;align-items:center;gap:8px;margin:18px 0 8px;padding:0 4px}
+.gl h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#92949d}
+.gla{margin-left:auto;border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:13px;color:#ffc99d;text-decoration:none}
+.lc{display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid #28292d;border-radius:12px;background:#232428}
+.lr{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px 0 12px;background:#16171b;color:#e8e8ec;flex-wrap:wrap}
+.lt{display:grid;gap:2px;min-width:0;padding:9px 0;flex:1 1 140px}
+.ll{font-size:14px;line-height:1.35}
+.ls{font-size:12px;color:#92949d}
+.btn{height:43px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:7px;font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer;text-decoration:none}
+.bp{background:#f49a58;color:#242529}.bp:hover{background:#ffc99d;color:#242529}
+.bs{background:#202125;border-color:#323337;color:#dcdde1}.bs:hover{color:#dcdde1}
+.bd{background:transparent;border-color:#6b3a37;color:#f0a39d}
+.bsm{height:32px;padding:0 11px}
+.sel{height:32px;padding:0 8px;border-radius:7px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:12px}
+.inp{height:36px;padding:0 12px;border-radius:8px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:13px;box-sizing:border-box}
+.cat{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:0 12px;border:0;border-radius:7px;background:transparent;font:inherit;font-size:13px;text-align:left;cursor:pointer;color:#c4c5c9}
+.cat small{margin-left:auto;font-size:11px;color:#8a8b8f;font-variant-numeric:tabular-nums}
+.warnc{font-size:10px;font-weight:700;color:#242529;background:#e8b765;border-radius:999px;padding:1px 6px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:999px;border:1px solid #323337;background:#1b1c20;color:#cfd0d4;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.chip.on{border-color:#f49a5866;background:#30261c;color:#ffc99d}
+.view{height:30px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:#a2a3a7;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.view.on{background:#26272b;color:#ffc99d}
+.grid{display:grid;grid-template-columns:28px minmax(180px,1fr) 64px 170px 110px 84px;align-items:center;column-gap:10px}
+.hdr{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8a8b8f;padding:0 12px;height:32px}
+.row{padding:0 12px;min-height:46px;border-top:1px solid #1f2024;font-size:13px;color:#cfd0d4;cursor:pointer}
+.nm{display:grid;gap:1px;min-width:0}
+.nm b{font-weight:500;color:#e8e8ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm span{font-size:11px;color:#8a8b8f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,Menlo,monospace}
+.gh{display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 12px;border:0;border-top:1px solid #28292d;background:#18191d;color:#a2a3a7;font:inherit;font-size:12px;font-weight:600;cursor:pointer;text-align:left}
+.cb{width:16px;height:16px;accent-color:#f49a58;margin:0}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.bdg{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid #37383c;color:#a2a3a7;white-space:nowrap}
+.hint{font-size:12px;color:#92949d;line-height:1.5;margin:8px 4px 0}
+.av{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#1f2024;border:1px solid #323337;color:#cfd0d4;flex:none}
+</style>
+</helmet>
+<div style="min-height: 1100px; background: #101114; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif; display: flex; flex-wrap: wrap">
+<div style="flex: 0 1 280px; min-width: 0">
+<dc-import name="RSidebar" active="connections" menu-open="{{ false }}" hint-size="280px,1040px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+<div class="eb">Konfiguration / Verbindungen</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.02em">Verbindungen</h1>
+<p style="margin: 0; font-size: 14px; color: #a2a3a7; max-width: 640px; line-height: 1.5">Einmal anlegen, überall freigeben. Links nur die Arten mit Anzahl, rechts eine durchsuchbare Liste, die auch bei hunderten Einträgen kompakt bleibt.</p>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<nav aria-label="Arten" style="flex: 1 1 190px; max-width: 210px; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<button type="button" class="cat">Modelle<small>4</small></button>
+<button type="button" class="cat">Dienste<small>3</small><span class="warnc">1</span></button>
+<button type="button" class="cat" style="{{catStyle.mcp}}" onClick="{{goMcp}}">MCP-Server<small>38</small><span class="warnc">4</span></button>
+<button type="button" class="cat" style="{{catStyle.ssh}}" onClick="{{goSsh}}">SSH/SFTP<small>64</small><span class="warnc">3</span></button>
+<button type="button" class="cat">Geheimnisse<small>12</small></button>
+<button type="button" class="cat">GitHub<small>3</small></button>
+<div style="border-top: 1px solid #28292d; margin: 10px 4px"></div>
+<p class="hint" style="margin: 0 8px">Gelbe Zahl: Einträge mit Problem (Test fehlgeschlagen, Anmeldung abgelaufen, Update nötig).</p>
+</nav>
+
+<section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 20px; font-weight: 600">{{catTitle}}</h2><span class="ls">{{catCount}}</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-if value="{{isSsh}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn bs bsm">Schlüssel · 6</button></sc-if>
+<sc-if value="{{isMcp}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn bs bsm">In CLIs gefunden · 3</button></sc-if>
+<button type="button" class="btn bp bsm">{{addLabel}}</button>
+</div>
+</div>
+
+<div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 3px; border: 1px solid #28292d; border-radius: 8px; background: #141519; align-self: flex-start">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="4"><button type="button" class="{{v.cls}}" onClick="{{v.go}}">{{v.label}}</button></sc-for>
+</div>
+
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<input class="inp" type="search" placeholder="Name, Host, Benutzer, Befehl …" aria-label="Liste durchsuchen" style="flex: 1 1 220px; min-width: 180px">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="3"><button type="button" class="{{c.cls}}">{{c.label}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></sc-for>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a2a3a7">Gruppieren<select class="sel" aria-label="Gruppieren nach"><option>{{groupBy}}</option><option>Status</option><option>Keine</option></select></label>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a2a3a7">Sortieren<select class="sel" aria-label="Sortieren"><option>Name</option><option>Zuletzt benutzt</option><option>Zuletzt geändert</option></select></label>
+</div>
+
+<sc-if value="{{hasChecked}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px 8px 14px; border: 1px solid #f49a5833; border-radius: 10px; background: #30261c">
+<span style="font-size: 13px; color: #ffc99d; font-weight: 600">{{checkedCount}} ausgewählt</span>
+<span style="flex: 1"></span>
+<sc-for list="{{bulk}}" as="b" hint-placeholder-count="4"><button type="button" class="{{b.cls}}">{{b.label}}</button></sc-for>
+<button type="button" class="btn bs bsm" onClick="{{clearChecked}}">Auswahl aufheben</button>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<div style="flex: 999 1 520px; min-width: 0; border: 1px solid #28292d; border-radius: 12px; background: #16171b; overflow-x: auto">
+<div style="min-width: 680px">
+<div class="grid hdr"><span><input class="cb" type="checkbox" aria-label="Alle sichtbaren auswählen"></span><span>Name</span><span>{{colType}}</span><span>Benutzt von</span><span>Status</span><span>{{colLast}}</span></div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div>
+<button type="button" class="gh" onClick="{{g.toggle}}" aria-expanded="{{g.expanded}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="{{g.chevStyle}}"><path d="m6 9 6 6 6-6"></path></svg>{{g.name}}<span style="font-weight: 400; color: #8a8b8f">{{g.count}}</span><span style="margin-left: auto; font-weight: 400; color: #e8b765">{{g.problems}}</span></button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{ true }}">
+<div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+<div class="grid row" style="{{r.style}}" onClick="{{r.pick}}">
+<span><input class="cb" type="checkbox" checked="{{r.checked}}" onChange="{{r.check}}" aria-label="{{r.name}} auswählen"></span>
+<span class="nm"><b>{{r.name}}</b><span>{{r.sub}}</span></span>
+<span><span class="bdg">{{r.type}}</span></span>
+<span style="font-size: 12px; color: #a2a3a7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.used}}</span>
+<span class="st"><span class="dot" style="{{r.dot}}"></span><span style="{{r.stColor}}">{{r.status}}</span></span>
+<span style="font-size: 12px; color: #8a8b8f; white-space: nowrap">{{r.last}}</span>
+</div>
+</sc-for>
+<sc-if value="{{g.more}}" hint-placeholder-val="{{ false }}"><div style="padding: 8px 12px 10px 50px; border-top: 1px solid #1f2024"><button type="button" class="gla" style="margin: 0; font-size: 12px">{{g.moreLabel}}</button></div></sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid #28292d; font-size: 12px; color: #8a8b8f"><span>{{footer}}</span><span>Liste lädt beim Scrollen nach · ↑↓ navigieren · Leertaste auswählen</span></div>
+</div>
+</div>
+
+<aside style="flex: 1 1 300px; max-width: 340px; min-width: 0; border: 1px solid #28292d; border-radius: 12px; background: #15161a; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<div class="eb">{{detail.kind}}</div>
+<h3 style="margin: 2px 0 0; font-size: 18px; font-weight: 600">{{detail.name}}</h3>
+<span class="ls" style="font-family: ui-monospace, Menlo, monospace">{{detail.sub}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px"><button type="button" class="btn bs bsm">{{detail.test}}</button><button type="button" class="btn bs bsm">Bearbeiten</button><button type="button" class="btn bs bsm">Vollansicht</button></div>
+<div class="gl"><h3>Details</h3></div>
+<div class="lc">
+<sc-for list="{{detail.facts}}" as="f" hint-placeholder-count="4"><div class="lr"><span class="ls" style="flex: 1">{{f.k}}</span><span style="font-size: 12px; text-align: right">{{f.v}}</span></div></sc-for>
+</div>
+<div class="gl"><h3>Benutzt von</h3><button type="button" class="gla" style="font-size: 12px">+ Freigeben</button></div>
+<div class="lc">
+<sc-for list="{{detail.used}}" as="u" hint-placeholder-count="3"><div class="lr"><span class="av">{{u.i}}</span><div class="lt"><span class="ll">{{u.n}}</span><span class="ls">{{u.s}}</span></div><button type="button" class="btn bd bsm">Entziehen</button></div></sc-for>
+</div>
+<p class="hint">Die Vollansicht öffnet alle Felder wie heute (Formular, Hostschlüssel, Neu zuweisen, Löschen).</p>
+</aside>
+</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { cat: 'ssh', view: 'all', sel: 's3', checked: { s2: true, s3: true, s5: true }, closed: {} };
+}
+renderVals() {
+const cat = this.state.cat ?? 'ssh';
+const view = this.state.view ?? 'all';
+const checked = this.state.checked ?? {};
+const closed = this.state.closed ?? {};
+const S = {
+ok: ['OK', '#7dd6a5', '#a4cdb3'], fail: ['Test fehlgeschlagen', '#e5796b', '#f0a39d'], untested: ['Ungetestet', '#737478', '#92949d'],
+oauth: ['Anmeldung abgelaufen', '#e8b765', '#e8b765'], update: ['Update verfügbar', '#f49a58', '#ffc99d'], install: ['Installationsfehler', '#e5796b', '#f0a39d']
+};
+const sshGroups = [
+{ name: 'Global', total: 14, rows: [
+['s1', 'backup-nas', 'admin@nas.lan:22', 'SFTP', 'Ops-Wache · 1 Hook', 'ok', 'vor 1 Std.'],
+['s2', 'prod-db-01', 'deploy@10.0.4.11:22', 'SSH', 'Ops-Wache, Rechercheur', 'fail', 'gestern'],
+['s3', 'prod-web-01', 'deploy@10.0.4.21:22', 'SSH', 'Ops-Wache · 2 Sessions', 'ok', 'vor 12 Min.'],
+['s4', 'prod-web-02', 'deploy@10.0.4.22:22', 'SSH', 'Ops-Wache', 'ok', 'vor 12 Min.'],
+['s5', 'staging-01', 'deploy@10.0.8.5:2222', 'SSH', 'nicht benutzt', 'untested', '–']
+]},
+{ name: '[Projekt Website]', total: 22, rows: [
+['s6', 'web-cdn-upload', 'ftp@cdn.example:22', 'SFTP', 'Schreibhilfe', 'ok', 'vor 3 Tagen'],
+['s7', 'web-preview', 'ci@preview.example:22', 'SSH', '1 Pipeline', 'ok', 'vor 2 Std.'],
+['s8', 'web-legacy', 'root@old.example:22', 'SSH', 'nicht benutzt', 'fail', 'vor 3 Mon.']
+]},
+{ name: '[Projekt api-server]', total: 18, rows: [
+['s9', 'api-k8s-bastion', 'ops@bastion.example:22', 'SSH', 'Ops-Wache · Hook', 'ok', 'vor 5 Min.']
+]},
+{ name: '[Projekt Homelab]', total: 10, rows: [
+['s10', 'macstudio', 'david@macstudio.lan:22', 'SSH', 'Rechercheur', 'ok', 'heute']
+]}
+];
+const mcpGroups = [
+{ name: 'HTTP · Internet', total: 15, rows: [
+['m1', '[Kalender]', 'https://mcp.kalender.example/sse', 'HTTP', 'C ✳ · 2 Agenten', 'ok', 'OAuth'],
+['m2', '[Tickets]', 'https://mcp.tickets.example', 'HTTP', '✳ · Ops-Wache', 'oauth', 'OAuth'],
+['m3', '[Wiki]', 'https://wiki.example/mcp', 'HTTP', 'C ✳ O', 'ok', 'Header']
+]},
+{ name: 'Pakete (npm, PyPI)', total: 19, rows: [
+['m4', '[Dateisuche]', 'npm @scope/file-search 1.4.2', 'stdio', 'C ✳ O · 3 Agenten', 'update', 'npm'],
+['m5', '[Postgres]', 'pypi mcp-postgres 0.9.1', 'stdio', '✳', 'install', 'PyPI'],
+['m6', '[Browser-Tools]', 'npm @scope/browser 2.0.0', 'stdio', 'nicht benutzt', 'ok', 'npm']
+]},
+{ name: 'Eigene Befehle', total: 4, rows: [
+['m7', '[Lokale Notizen]', '~/bin/notes-mcp --stdio', 'stdio', 'Rechercheur', 'ok', 'Befehl']
+]}
+];
+const isSsh = cat === 'ssh';
+const src = isSsh ? sshGroups : mcpGroups;
+const pass = (r) => view === 'all' || (view === 'problems' && ['fail', 'oauth', 'update', 'install'].includes(r[5])) || (view === 'unused' && r[4] === 'nicht benutzt') || (view === 'recent' && /Min\.|Std\.|heute/.test(r[6]));
+const sel = this.state.sel;
+let selRow = null;
+const groups = src.map((g) => {
+const rows = g.rows.filter(pass).map((r) => {
+if (r[0] === sel) selRow = r;
+const s = S[r[5]];
+return {
+name: r[1], sub: r[2], type: r[3], used: r[4], status: s[0], last: r[6],
+dot: { background: s[1] }, stColor: { color: s[2] },
+checked: !!checked[r[0]],
+style: r[0] === sel ? { background: '#26272b' } : {},
+pick: () => this.setState({ sel: r[0] }),
+check: () => { const c = Object.assign({}, this.state.checked); if (c[r[0]]) delete c[r[0]]; else c[r[0]] = true; this.setState({ checked: c }); }
+};
+});
+const open = !closed[g.name];
+const probs = g.rows.filter((r) => ['fail', 'oauth', 'update', 'install'].includes(r[5])).length;
+return {
+name: g.name, count: String(g.total), rows, open, expanded: open ? 'true' : 'false',
+problems: probs ? probs + ' mit Problem' : '',
+chevStyle: open ? {} : { transform: 'rotate(-90deg)' },
+more: view === 'all' && g.total > g.rows.length,
+moreLabel: 'Weitere ' + (g.total - g.rows.length) + ' anzeigen',
+toggle: () => { const c = Object.assign({}, this.state.closed); c[g.name] = !c[g.name]; this.setState({ closed: c }); }
+};
+}).filter((g) => g.rows.length > 0);
+if (!selRow) selRow = src[0].rows[0];
+const checkedCount = Object.keys(checked).length;
+const vdefs = [['all', 'Alle'], ['problems', isSsh ? 'Mit Problemen · 3' : 'Mit Problemen · 4'], ['unused', isSsh ? 'Nicht benutzt · 11' : 'Nicht benutzt · 6'], ['recent', 'Heute benutzt']];
+const views = vdefs.map(([id, label]) => ({ label, cls: id === view ? 'view on' : 'view', go: () => this.setState({ view: id }) }));
+const chips = isSsh
+? [{ label: 'Projekt: Alle', cls: 'chip' }, { label: 'Typ: SSH + SFTP', cls: 'chip' }, { label: 'Benutzt von: Ops-Wache', cls: 'chip on' }, { label: 'Status', cls: 'chip' }]
+: [{ label: 'Transport: Alle', cls: 'chip' }, { label: 'CLI: Alle', cls: 'chip' }, { label: 'Agent: Alle', cls: 'chip' }, { label: 'Status', cls: 'chip' }];
+const bulk = isSsh
+? [{ label: 'Agent freigeben …', cls: 'btn bp bsm' }, { label: 'Testen', cls: 'btn bs bsm' }, { label: 'Projekt zuweisen …', cls: 'btn bs bsm' }, { label: 'Entziehen …', cls: 'btn bs bsm' }, { label: 'Löschen', cls: 'btn bd bsm' }]
+: [{ label: 'An CLI binden …', cls: 'btn bp bsm' }, { label: 'Agent freigeben …', cls: 'btn bs bsm' }, { label: 'Updates prüfen', cls: 'btn bs bsm' }, { label: 'Entfernen', cls: 'btn bd bsm' }];
+const detail = isSsh ? {
+kind: 'SSH-Zugang', name: selRow[1], sub: selRow[2], test: 'Verbindung testen',
+facts: [{ k: 'Typ', v: selRow[3] }, { k: 'Projekt', v: 'Global' }, { k: 'Anmeldung', v: 'Schlüssel [ed25519]' }, { k: 'Hostschlüssel', v: 'fixiert' }, { k: 'Interaktive Shell', v: 'an' }],
+used: [{ i: 'O', n: 'Ops-Wache', s: 'Agent · Mit Freigabe' }, { i: 'H', n: 'Hook „Monitoring-Alarm“', s: 'von Ops-Wache' }, { i: 'S', n: '2 Coding-Sessions', s: 'beim Start gewählt' }]
+} : {
+kind: 'MCP-Server', name: selRow[1], sub: selRow[2], test: 'Status prüfen',
+facts: [{ k: 'Transport', v: selRow[3] }, { k: 'Quelle', v: selRow[6] }, { k: 'Claude Code · Codex · OpenCode', v: 'an · an · aus' }, { k: 'Agentenordner', v: 'je Agent eigener' }],
+used: [{ i: 'R', n: 'Rechercheur', s: 'Agent' }, { i: 'O', n: 'Ops-Wache', s: 'Agent' }, { i: 'F', n: 'Faktencheck', s: 'über Lead geteilt' }]
+};
+return {
+isSsh, isMcp: !isSsh,
+catTitle: isSsh ? 'SSH/SFTP-Zugänge' : 'MCP-Server',
+catCount: isSsh ? '58 Zugänge · 6 Schlüssel' : '38 Server',
+addLabel: isSsh ? '+ Zugang' : '+ MCP-Server',
+colType: isSsh ? 'Typ' : 'Art', colLast: isSsh ? 'Zuletzt' : 'Quelle',
+groupBy: isSsh ? 'Projekt' : 'Quelle',
+query: '',
+views, chips, bulk, groups, detail,
+hasChecked: checkedCount > 0, checkedCount,
+clearChecked: () => this.setState({ checked: {} }),
+footer: isSsh ? '58 Zugänge in 4 Gruppen · 3 mit Problem' : '38 Server in 3 Gruppen · 4 mit Problem',
+catStyle: { ssh: isSsh ? { background: '#26272b', color: '#ffc99d' } : {}, mcp: !isSsh ? { background: '#26272b', color: '#ffc99d' } : {} },
+goSsh: () => this.setState({ cat: 'ssh', sel: 's3', view: 'all' }),
+goMcp: () => this.setState({ cat: 'mcp', sel: 'm4', view: 'all', checked: {} })
+};
+}
+}
+</script>
+</body>
+</html>

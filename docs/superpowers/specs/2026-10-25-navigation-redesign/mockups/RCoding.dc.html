@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>CLIs und Erweiterungen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0;background:#101114}
+a{color:#ffc99d}a:hover{color:#f49a58}
+.eb{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#92949d}
+.gl{display:flex;align-items:center;gap:8px;margin:20px 0 8px;padding:0 4px}
+.gl h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#92949d}
+.gla{margin-left:auto;border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:13px;color:#ffc99d;text-decoration:none}
+.lc{display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid #28292d;border-radius:12px;background:#232428}
+.lr{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px 0 14px;background:#16171b;color:#e8e8ec;flex-wrap:wrap}
+.lt{display:grid;gap:2px;min-width:0;padding:11px 0;flex:1 1 180px}
+.ll{font-size:15px;line-height:1.4}
+.ls{font-size:12px;color:#92949d}
+.lv{margin-left:auto;font-size:13px;color:#92949d;white-space:nowrap}
+.pl{padding:3px 9px;border:1px solid #f49a5833;border-radius:999px;background:#30261c;font-size:12px;color:#ffc99d;white-space:nowrap}
+.pn{padding:3px 9px;border:1px solid #303137;border-radius:999px;background:#1c1d21;font-size:12px;color:#b9babe;white-space:nowrap}
+.ok{color:#7dd6a5;font-size:13px;white-space:nowrap}
+.cv{flex:none;color:#6f7075}
+.btn{height:43px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 17px;border-radius:7px;font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer;text-decoration:none}
+.bp{background:#f49a58;color:#242529}.bp:hover{background:#ffc99d;color:#242529}
+.bs{background:#202125;border-color:#323337;color:#dcdde1}.bs:hover{color:#dcdde1}
+.bd{background:transparent;border-color:#6b3a37;color:#f0a39d}
+.bsm{height:34px;padding:0 12px}
+.ut{display:flex;gap:28px;height:40px;border-bottom:1px solid #28292d;overflow-x:auto}
+.ut button{flex:none;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;font:inherit;font-size:13px;color:#a2a3a7;cursor:pointer;white-space:nowrap}
+.ut small{font-size:11px;color:#6f7075}
+.seg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;padding:4px;border:1px solid #404145;border-radius:7px;background:#141519}
+.seg span{display:flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:5px;color:#97989c;font-size:11px;font-weight:500;white-space:nowrap}
+.seg .on{background:#2c2d31;color:#ffc99d}
+.inp{height:40px;padding:0 12px;border-radius:8px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:14px;box-sizing:border-box}
+.hint{font-size:12px;color:#92949d;line-height:1.5;margin:8px 4px 0}
+.was{font-size:11px;color:#86b88e;white-space:nowrap}
+.ic{width:34px;height:34px;border-radius:8px;background:#1f2024;border:1px solid #323337;display:flex;align-items:center;justify-content:center;color:#cfd0d4;flex:none}
+.it{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:7px;background:transparent;font:inherit;text-align:left;cursor:pointer;color:#cfd0d4;font-size:13px}
+pre{margin:0;padding:12px 14px;border-radius:8px;background:#101114;border:1px solid #28292d;font:12px/1.6 ui-monospace,Menlo,monospace;color:#cfd0d4;white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+</helmet>
+<div style="min-height: 1040px; background: #101114; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif; display: flex; flex-wrap: wrap">
+<div style="flex: 0 1 280px; min-width: 0">
+<dc-import name="RSidebar" active="clis" menu-open="{{ false }}" hint-size="280px,1040px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div class="eb">Coding / CLIs &amp; Erweiterungen</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -.02em">CLIs &amp; Erweiterungen</h1>
+<p style="margin: 0; font-size: 14px; color: #a2a3a7; max-width: 660px; line-height: 1.5">Alles, was nur Coding-CLIs betrifft: Installation, native Accounts, Skills, Plugins, Subagents und die Verbindung der CLIs zu AgentPier. Gemeinsame Zugänge wie Modelle und MCP-Server liegen unter Verbindungen.</p>
+</div>
+<div class="ut" role="tablist" aria-label="CLI-Bereiche">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{t.sel}}" style="{{t.style}}" onClick="{{t.go}}">{{t.label}}<small>{{t.count}}</small></button>
+</sc-for>
+</div>
+
+<sc-if value="{{tInstall}}" hint-placeholder-val="{{ false }}">
+<div style="max-width: 760px">
+<p class="hint" style="margin: 0 4px">Bleibt zusätzlich auf der Übersicht. <span class="was">bisher nur Übersicht</span></p>
+<div class="gl"><h3>Coding-CLIs</h3></div>
+<div class="lc">
+<div class="lr"><span class="ic">C</span><div class="lt"><span class="ll">Codex</span><span class="ls">[Version] · aktuell</span></div><button type="button" class="btn bs bsm">Session starten</button></div>
+<div class="lr"><span class="ic">✳</span><div class="lt"><span class="ll">Claude Code</span><span class="ls">[Version] · mindestens [Version] nötig</span></div><span class="pl">Update erforderlich</span><button type="button" class="btn bp bsm">CLI aktualisieren</button></div>
+<div class="lr"><span class="ic">O</span><div class="lt"><span class="ll">OpenCode</span><span class="ls">nicht installiert</span></div><button type="button" class="btn bs bsm">CLI installieren</button></div>
+</div>
+<div class="gl"><h3>Werkzeuge</h3></div>
+<div class="lc">
+<div class="lr"><span class="ic">gh</span><div class="lt"><span class="ll">GitHub CLI</span><span class="ls">installiert</span></div><a class="gla" href="RVerbindungen.dc.html">GitHub-Zugänge</a></div>
+<div class="lr"><span class="ic">◎</span><div class="lt"><span class="ll">Chromium</span><span class="ls">für Coding-Sessions</span></div><button type="button" class="btn bd bsm">Entfernen</button></div>
+<div class="lr"><span class="ic">n</span><div class="lt"><span class="ll">nono</span><span class="ls">Sandbox-Profile für Sessions</span></div><span class="ok">bereit</span></div>
+<div class="lr"><span class="ic">$</span><div class="lt"><span class="ll">Shell</span></div><button type="button" class="btn bs bsm">Session starten</button></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{tAccounts}}" hint-placeholder-val="{{ false }}">
+<div style="max-width: 760px">
+<div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center">
+<p class="hint" style="margin: 0 4px">Native Anmeldungen bleiben an ihre CLI gebunden. <span class="was">bisher Accounts › Native CLI-Accounts</span></p>
+<button type="button" class="btn bp bsm">+ Account hinzufügen</button>
+</div>
+<div class="gl"><h3>Accounts</h3><span class="ls" style="margin-left: auto">3</span></div>
+<div class="lc">
+<div class="lr"><span class="ic">C</span><div class="lt"><span class="ll">Lokales codex</span><span class="ls">Codex · Angemeldet · Standard · 2 Sessions</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="lr"><span class="ic">✳</span><div class="lt"><span class="ll">Lokales claude</span><span class="ls">Claude Code · Angemeldet</span></div><button type="button" class="btn bs bsm">Als Standard verwenden</button><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="lr"><span class="ic">O</span><div class="lt"><span class="ll">Arbeit opencode</span><span class="ls" style="color: #ffc99d">Nicht angemeldet</span></div><button type="button" class="btn bp bsm">Anmelden</button></div>
+</div>
+<p class="hint">Detail: Name, Tool, optionaler API-Key, Provider-Bindung (alt), Benutzt von, Account löschen.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{tExt}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<nav aria-label="CLI-Profile" style="flex: 1 1 220px; max-width: 250px; min-width: 0; border: 1px solid #28292d; border-radius: 12px; background: #15161a; padding: 8px">
+<div class="eb" style="padding: 8px 12px">CLI-Profile</div>
+<button type="button" class="it" style="background: #26272b; color: #ffc99d">Claude Code · alle Accounts</button>
+<button type="button" class="it">Codex · alle Accounts</button>
+<button type="button" class="it">OpenCode · alle Accounts</button>
+<p class="hint" style="padding: 0 8px">Ohne gemeinsame Profile: ein Eintrag je Account.</p>
+</nav>
+<section style="flex: 999 1 460px; min-width: 0; max-width: 760px">
+<div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center">
+<div class="seg"><span class="on">Skills · 8</span><span>Plugins · 5</span><span>Marketplaces · 2</span><span>Subagents · 3</span></div>
+<button type="button" class="btn bp bsm">+ Skill installieren</button>
+</div>
+<p class="hint">„Subagents“ hieß bisher „Agenten“ und sind CLI-Agentendefinitionen aus dem Agency-Katalog, nicht deine persönlichen Agenten. <span class="was">bisher Erweiterungen</span></p>
+<div class="gl"><h3>Installiert</h3><input class="inp" type="search" placeholder="Skills suchen" aria-label="Skills suchen" style="margin-left: auto; height: 34px; width: 200px"></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[skill-review]</span><span class="ls">GitHub · [owner/repo]</span></div><button type="button" class="btn bd bsm">Entfernen</button></div>
+<div class="lr"><div class="lt"><span class="ll">[skill-docs]</span><span class="ls">aus MCP-Paket [Dateisuche]</span></div><button type="button" class="btn bd bsm">Entfernen</button></div>
+<div class="lr"><div class="lt"><span class="ll">[skill-deploy]</span><span class="ls">Upload · geprüft</span></div><button type="button" class="btn bd bsm">Entfernen</button></div>
+</div>
+<div class="gl"><h3>Verbunden</h3></div>
+<div class="lc">
+<a class="lr" href="RVerbindungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">MCP-Server · 2 für Claude Code</span><span class="ls">Verbindungen › MCP-Server</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<p class="hint">Skill installieren: Upload oder GitHub-URL, Ziel, Prüfung mit Ergebnis und Bestätigung. Plugins: Installiert/Entdecken, aktivieren, aktualisieren, entfernen. Marketplaces: hinzufügen, aktualisieren, entfernen. Subagents: Katalog, installieren, entfernen, „Persönlichen Agenten anlegen“.</p>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{tMcp}}" hint-placeholder-val="{{ false }}">
+<div style="max-width: 760px">
+<p class="hint" style="margin: 0 4px">CLIs nutzen AgentPier selbst als MCP-Server. Zustimmungs-Links von CLIs bleiben unter ihrer bisherigen Adresse gültig. <span class="was">bisher Einstellungen › Zugriff › MCP</span></p>
+<div class="gl"><h3>Coding-CLI verbinden</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Adresse</span><span class="ls">https://[tailscale-name]/mcp</span></div><button type="button" class="btn bs bsm">Kopieren</button></div>
+<div class="lr" style="padding-bottom: 12px"><div style="display: flex; flex-direction: column; gap: 10px; width: 100%; padding-top: 10px">
+<div class="seg" style="align-self: flex-start"><span class="on">Codex</span><span>Claude</span><span>OpenCode</span></div>
+<pre>codex mcp add agentpier --url https://[tailscale-name]/mcp</pre>
+<span class="ls">Hinzufügen · Anmelden · Verbindung prüfen · Entfernen</span>
+</div></div>
+</div>
+<div class="gl"><h3>Verbundene Clients</h3><span class="ls" style="margin-left: auto">2</span></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Codex auf [Gerät]</span><span class="ls">seit 12.10. · Projekte: 2 · Anbieterverbindungen: 1</span></div><button type="button" class="btn bd bsm">Zugriff widerrufen</button></div>
+<div class="lr"><div class="lt"><span class="ll">Claude Code auf [Gerät]</span><span class="ls">seit 20.10. · alle Projekte</span></div><button type="button" class="btn bd bsm">Zugriff widerrufen</button></div>
+</div>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { tab: 'ext' };
+}
+renderVals() {
+const tab = this.state.tab ?? 'ext';
+const defs = [['install', 'Installation', '6'], ['accounts', 'Accounts', '3'], ['ext', 'Erweiterungen', '18'], ['mcp', 'AgentPier als MCP', '2']];
+const tabs = defs.map(([id, label, count]) => ({
+label, count,
+sel: id === tab ? 'true' : 'false',
+style: id === tab ? { fontWeight: 600, color: '#ffc99d', boxShadow: 'inset 0 -2px 0 #f49a58' } : {},
+go: () => this.setState({ tab: id })
+}));
+return { tabs, tInstall: tab === 'install', tAccounts: tab === 'accounts', tExt: tab === 'ext', tMcp: tab === 'mcp' };
+}
+}
+</script>
+</body>
+</html>
