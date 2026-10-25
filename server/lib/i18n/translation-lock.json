@@ -123,6 +123,8 @@
   "assistants.chatMain": "de:a0aaf05f338c en:49f9602a57e0",
   "assistants.conflict": "de:c131ae5f946c en:8ecfc7b5f1ac",
   "assistants.disabled": "de:dc1291f0a661 en:7a84564b7c71",
+  "assistants.dreamingAgentsBusy": "de:99fab7bbbcef en:2351564c6bb5",
+  "assistants.dreamingMemoryConfirm": "de:c37cdc0f7951 en:ac34fd1eb745",
   "assistants.execAgent": "de:71c55d6bb9a4 en:71c55d6bb9a4",
   "assistants.execAllowAlways": "de:edfad6272dab en:977618bd8bc7",
   "assistants.execAllowAlwaysOnce": "de:a50c464aac42 en:56c7a3a187a5",

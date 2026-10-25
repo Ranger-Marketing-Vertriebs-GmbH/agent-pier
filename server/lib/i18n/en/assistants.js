@@ -117,6 +117,9 @@ export const assistants = {
 
   heartbeatMemoryRequired:
     "Check-ins need memory. Switch on “Remember information” first, or switch check-ins off with it.",
+  dreamingMemoryConfirm:
+    "Dreaming needs memory: these agents do not remember information yet. Confirm to switch it on for all of them.",
+  dreamingAgentsBusy: "These agents are working right now. Try again when they are done.",
   heartbeatPrefix: "Check-in:",
   reminderChannelRequired:
     "To also send to Telegram, connect a Telegram chat to this agent first.",

@@ -24,6 +24,7 @@ export const assistantServiceNames = [
   "assistantWebSearch",
   "assistantPdfModel",
   "assistantDreamingSettings",
+  "assistantDreaming",
   "assistantMcpServers",
   "assistantChannels",
   "assistantMemory",
