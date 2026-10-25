@@ -351,5 +351,7 @@ function publicRoutine(r, writes = r.writes === true) {
     mayWrite: writes,
     nextRunAtMs: r.nextRunAtMs ?? null,
     lastRunStatus: r.lastRunStatus ?? null,
+    // Why the last run failed: a reason and OpenClaw's redacted message.
+    lastFailure: r.lastFailure ?? null,
   };
 }

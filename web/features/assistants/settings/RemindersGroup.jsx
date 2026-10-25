@@ -10,6 +10,7 @@ import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { routineCopy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "../assistant-api.js";
+import { failureText } from "../routine-failure-text.js";
 import usePolling from "../usePolling.js";
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -359,6 +360,7 @@ export default function RemindersGroup({
                     {copy.states[run.completionStatus] ||
                       copy.states[run.status] ||
                       copy.states.unknown}
+                    {run.failure ? ` · ${failureText(run.failure)}` : ""}
                   </p>
                 ))}
               </div>

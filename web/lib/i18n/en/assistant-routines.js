@@ -54,4 +54,26 @@ export const routineCopy = {
   createdBy: (lead) => (lead ? `Created by ${lead}` : "Created by the lead agent"),
   leadHint: (lead) =>
     `${lead || "The lead agent"} set up this routine. Its results also go to ${lead || "the lead agent"}. It only reads unless you switch on May write or the lead agent uses its team autonomously.`,
+  // Why a run failed (server routine-failures.js); OpenClaw's message is the detail.
+  failures: {
+    "gateway-restart": "The Gateway restarted during the run.",
+    "gateway-stopped": "The Gateway stopped during the run.",
+    "agent-unavailable": "The agent was unavailable.",
+    timeout: "The run took too long and was stopped.",
+    model: "The model provider returned an error.",
+    delivery: "The result could not be delivered.",
+    other: "The run failed.",
+  },
+  lastRunFailed: "Last run failed",
+  failedInARow: (count) => `${count} failed runs in a row`,
+  failureMessage: "Error message",
+  copyFailure: "Copy error message",
+  noFailureMessage: "OpenClaw reported no error message.",
+  runAt: "Time",
+  duration: "Duration",
+  seconds: (value) => `${value} s`,
+  history: "Run history",
+  hideHistory: "Hide run history",
+  noRuns: "No runs yet.",
+  runOk: "Completed",
 };

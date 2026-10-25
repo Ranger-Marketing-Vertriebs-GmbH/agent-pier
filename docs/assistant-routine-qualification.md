@@ -76,7 +76,10 @@ gateway, generated model output and HTTP webhook boundary, including the webhook
 2,000-character `summary` cap and the whole reply AgentPier reads from the job's
 session instead. `assistant-routine-restart-contract.test.js` (same variable)
 restarts the real Gateway and lets the native scheduler fire a routine without any
-chat turn or apply; the run must be offered `write` and `edit` and change its note.
+chat turn or apply; the run must be offered `write` and `edit` and change its note. `assistant-routine-failure-contract.test.js` (same variable) restarts the
+Gateway while a run waits on its model and then lets the model endpoint refuse a run
+with HTTP 401; AgentPier must report `gateway-restart` and then `model` as the cause,
+with OpenClaw's redacted message, in the routine list, the run history and the chat.
 
 ## Qualification limits
 

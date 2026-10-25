@@ -92,6 +92,8 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
             timestamp: r.at,
             runId: null,
             ...(r.notes ? { notes: r.notes } : {}),
+            // Why it failed (routine-failures.js); older records have none.
+            ...(r.failure ? { failure: r.failure } : {}),
           },
     );
   if (!own.length) return marked;

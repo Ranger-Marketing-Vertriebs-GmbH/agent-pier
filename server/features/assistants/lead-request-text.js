@@ -115,6 +115,7 @@ function reportFollowUp(r) {
       phase: r.phase,
       ...(answer ? { report: answer } : {}),
       ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}),
+      ...(r.failure ? { failure: r.failure } : {}),
     };
     const shortened = r.answerCut || answer.length < (r.answer || "").length;
     if (shortened) result.shortened = true;

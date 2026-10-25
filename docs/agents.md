@@ -785,12 +785,21 @@ or proposing a team sends an **Agent approval** push notification as well.
   marks the request "Scheduled · <name>". A marked routine's tasks count as your
   standing instruction and may change files like a task you asked for. Its whole result appears in the agent's chat marked
   "Scheduled · <name>" (and, with Telegram switched on, in the paired chat as several
-  messages when it is long); a failed run shows a short line there. You can also ask
-  the agent for a routine in the chat. Routines
+  messages when it is long); a failed run shows a short line there that names why it
+  failed. You can also ask the agent for a routine in the chat. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
   watches, so with full shell access they act without asking. A routine can run SSH
   commands only on hosts set to **Trusted incl. routines**; on any other host it is
   refused and its result says so.
+- **When a routine fails**, its row shows "Last run failed" and its details show the
+  cause in plain words: the Gateway restarted or stopped during the run, the agent was
+  unavailable, the run took too long, the model provider returned an error, or the
+  result could not be delivered. Opening that line shows OpenClaw's own error message
+  (at most 500 characters, keys and tokens hidden) to read or copy, and how many runs
+  failed in a row; **Run history** lists the recent runs the same way. The agent sees
+  the same cause and message when it lists its routines, so it can tell you why
+  instead of only "error"; a lead learns it with the failed run's report. A reminder's
+  history names the cause too.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
   conversation and notes every hour, every 2 or 4 hours or once a day, within active
   hours, and write only when something needs your attention. A check-in is marked

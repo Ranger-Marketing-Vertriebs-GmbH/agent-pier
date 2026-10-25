@@ -58,11 +58,15 @@ test("a failed run is reported once until the routine works again; silence stays
   const run = (event) => f.run(created.id, { runAtMs: (at += 1000), ...event });
   await run({ summary: "NO_REPLY" });
   assert.equal(reports(f).length, 0, "nothing to report");
-  await run({ status: "error", summary: undefined });
+  await run({
+    status: "error",
+    summary: undefined,
+    error: "cron: job interrupted by gateway restart",
+  });
   await run({ status: "error", summary: undefined });
   assert.deepEqual(
-    reports(f).map((r) => [r.phase, r.diagnostic]),
-    [["failed", "ROUTINE_FAILED"]],
+    reports(f).map((r) => [r.phase, r.diagnostic, r.failure?.reason]),
+    [["failed", "ROUTINE_FAILED", "gateway-restart"]],
   );
   await run({});
   await run({ status: "error", summary: undefined });
@@ -73,6 +77,11 @@ test("a failed run is reported once until the routine works again; silence stays
   f.idle();
   await f.service.reconcile();
   assert.match(followUps(f)[0].text, /failed; later failures are not reported/);
+  // The lead learns why, to pass it on: the cause and OpenClaw's message.
+  assert.match(
+    followUps(f)[0].text,
+    /"failure":\{"reason":"gateway-restart","message":"cron: job interrupted by gateway restart"\}/,
+  );
 });
 
 test("a lead routine's run writes only with the owner's switch or an autonomous lead", async (t) => {
