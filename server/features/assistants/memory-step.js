@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { personalCapabilities } from "./native-capabilities.js";
-import { isShared } from "../users/user-access.js";
 
 /**
  * What the agent hears in the memory step: OpenClaw's `sessions.compact` runs no
@@ -40,8 +39,8 @@ export class MemoryStep {
   }
   /**
    * Whether the chat's agent may write its memory: "Remember information" on (a
-   * temporary member's from its lead, personalCapabilities), the write guard proven,
-   * and never on a shared agent, whose memory all its users read (as flushWrite).
+   * temporary member's from its lead, personalCapabilities) and the write guard
+   * proven; a shared agent's step writes its shared memory (as flushWrite).
    */
   eligible(conversation) {
     const { store, config } = this.service;
@@ -51,12 +50,7 @@ export class MemoryStep {
     } catch {
       return false;
     }
-    return (
-      !!agent &&
-      !isShared(agent) &&
-      personalCapabilities(agent).memory &&
-      !!config?.writeGuard?.()
-    );
+    return !!agent && personalCapabilities(agent).memory && !!config?.writeGuard?.();
   }
   /** Runs the step: `{ saved }`, with a `reason` when nothing was saved. */
   async run(conversation) {

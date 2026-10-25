@@ -24,15 +24,12 @@ export const directTurn = (origin, agent) =>
  * The memory step before a summary (long-chats.js): a hidden turn only AgentPier
  * sends, with context kind `memory-step`, never an owner quote. It is no direct turn:
  * it writes the agent's own memory (MEMORY.md and notes below memory/, never the
- * copy of a lead's memory, ownMemoryTarget) and nothing else, and never on a shared
- * agent, whose memory all its users read (as OpenClaw's flush, flushWrite).
+ * copy of a lead's memory, ownMemoryTarget) and nothing else; on a shared agent its
+ * one shared memory, which all its users and the owner read (team-bridge.js noteShared).
  */
 export const memoryStep = (context) => context?.kind === "memory-step";
 export const memoryStepWrite = (context, { agent, root, path }) =>
-  memoryStep(context) &&
-  !!agent &&
-  !isShared(agent) &&
-  ownMemoryTarget(root, agent.runtimeAgentId, path);
+  memoryStep(context) && !!agent && ownMemoryTarget(root, agent.runtimeAgentId, path);
 /**
  * Whether a native write of this bound turn is admitted: a direct turn, a task
  * member's own memory in any turn it works (never the copy of its lead's memory or
@@ -76,10 +73,9 @@ function sources(bridge, input) {
     if (matches.length > 1) return [{ flush, allow: false }];
     if (!matches.length) {
       const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
-      // A routine on a shared agent is one user's and runs against her private
-      // chat: like her own turn's, its flush never lands in the shared memory.
+      // A routine's flush writes like the routine itself, on a shared agent too.
       if (bridge.routineWrite(source))
-        return [{ flush, allow: !isShared(bridge.agentOf(input.agentId)) }];
+        return [{ flush, source, agent: bridge.agentOf(input.agentId), allow: true }];
       return flush.sessionKey.startsWith(`agent:${input.agentId}:`)
         ? [{ flush, allow: false }]
         : [];
@@ -90,17 +86,13 @@ function sources(bridge, input) {
       {
         flush,
         attempt,
+        agent: parent,
         allow:
           current &&
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
           // A task member's own memory takes its flush in any of its turns, and a
           // memory step its own agent's (memoryStep).
-          (directTurn(origin, parent) ||
-            inheritsFromLead(parent) ||
-            memoryStep(origin)) &&
-          // Every chat with a shared agent is private to its person (a user's or the
-          // owner's own): its summary never lands in the memory all its users read.
-          !isShared(parent),
+          (directTurn(origin, parent) || inheritsFromLead(parent) || memoryStep(origin)),
       },
     ];
   });
@@ -110,11 +102,12 @@ function sources(bridge, input) {
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
- * chat or a restricted user on her own agent), a memory step or a routine's run, of the same agent,
- * never a forwarded, lead-requested or other turn, and no direct turn or routine run
- * on a shared agent. The key must name the run the hook reports, the note must be today's or
- * yesterday's, and the first flush session that writes owns the flush; anything
- * else, or more than one flush of the agent at a time, is refused.
+ * chat or a restricted user on her agent), a memory step or a routine's run, of the
+ * same agent, never a forwarded, lead-requested or other turn. The key must name the
+ * run the hook reports, the note must be today's or yesterday's, and the first flush
+ * session that writes owns the flush; anything else, or more than one flush of the
+ * agent at a time, is refused. On a shared agent it writes the one shared memory like
+ * a saved write: the flushing chat (a routine's: its chat) notes "shared-write".
  */
 export function flushWrite(bridge, input) {
   const runId = flushRunOf(input.sessionKey);
@@ -135,7 +128,20 @@ export function flushWrite(bridge, input) {
     );
   if (!bridge.assistants.memoryFlushes.pin(found[0].flush, input.sessionKey))
     return (diagnose(bridge, input, "FLUSH_SESSION"), false);
+  if (isShared(found[0].agent)) noteSharedFlush(bridge, found[0]);
   return true;
+}
+
+// The flushing chat of a shared agent's saved flush, keyed as its run's own writes.
+function noteSharedFlush(bridge, { attempt, source }) {
+  if (attempt)
+    return bridge.noteShared(
+      `${attempt.id}:shared-write`,
+      bridge.assistants.ledger.getRequest(attempt.requestId).conversationId,
+    );
+  const conversationId = bridge.routineRun(source)?.conversation?.id;
+  if (conversationId)
+    bridge.noteShared(`${source.sessionKey}:shared-write`, conversationId);
 }
 
 // The one conversation a refused flush write belongs to: the reported flush's

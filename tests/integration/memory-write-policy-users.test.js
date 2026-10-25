@@ -107,24 +107,55 @@ test("a flush in a user turn on her own agent writes today's note", async (t) =>
   );
 });
 
-test("a flush in a user turn on a shared agent never reaches the shared memory", async (t) => {
+test("a flush in a user turn on a shared agent writes the shared memory", async (t) => {
   const f = await usersFixture(t, shared);
+  await f.benTurn("ben", { kind: "user", userId: "ben" });
   const ctx = await flushTurn(f);
-  // Her chat stays private: its summary is refused, and her chat says so.
-  assert.equal(await f.call(today, { ctx }), false);
-  assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
+  // Like her saved write: it lands in the shared memory, and only her chat says so.
+  assert.equal(await f.call(today, { ctx }), true);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["shared-write"]);
   assert.deepEqual(f.notes(f.other.id), []);
 });
 
-test("a flush in the owner's own chat with a shared agent never reaches the shared memory", async (t) => {
+test("a flush in the owner's own chat with a shared agent writes the shared memory", async (t) => {
   for (const kind of ["owner", "telegram"]) {
     const f = await usersFixture(t, shared);
     const ctx = await flushTurn(f, { kind });
-    // The users read this memory: the owner's private chat is not summarised into it.
-    assert.equal(await f.call(today, { ctx }), false, kind);
-    assert.deepEqual(f.notes(f.channel.conversationId), ["flush"], kind);
+    assert.equal(await f.call(today, { ctx }), true, kind);
+    assert.deepEqual(f.notes(f.channel.conversationId), ["shared-write"], kind);
     assert.deepEqual(f.notes(f.other.id), [], kind);
   }
+});
+
+test("a routine run's flush on a shared agent writes and notes in the routine's chat", async (t) => {
+  const f = await usersFixture(t, shared);
+  const body = {
+    ...f.store.storedAssistant(f.id),
+    capabilities: { memory: true, reminders: true },
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+  const routineKey = `agent:${f.agentId}:cron:job-1:run:r1`;
+  f.assistants.routines = {
+    runOrigin: (_a, key) =>
+      key === routineKey ? { binding: {}, conversation: { id: f.other.id } } : null,
+  };
+  f.assistants.memoryFlushes.observe({
+    stream: "run_status",
+    runId: "routine-run",
+    sessionKey: routineKey,
+    data: { phase: "memory_flushing" },
+  });
+  const run = "5f08b3e6-5b4a-47e1-ba9d-02ad108f78c4";
+  const ctx = {
+    agentId: f.agentId,
+    sessionKey: `agent:${f.agentId}:internal-session-effects:${run}-21a903bbd7325dca`,
+    runId: run,
+  };
+  assert.equal(await f.call(today, { ctx }), true);
+  assert.deepEqual(f.notes(f.other.id), ["shared-write"]);
+  assert.deepEqual(f.notes(f.channel.conversationId), []);
 });
 
 test("a shared agent's memory write leaves an applies-to-everyone note only in the writing user's chat", async (t) => {

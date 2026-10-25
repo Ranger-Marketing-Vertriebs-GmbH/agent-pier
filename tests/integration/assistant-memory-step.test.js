@@ -75,7 +75,7 @@ test("a memory step's refused write names the memory step as the reason", async 
   );
 });
 
-test("a memory step on a shared agent writes nothing", async (t) => {
+test("a memory step on a shared agent writes its shared memory", async (t) => {
   const f = await setup(t, {
     userAccess: {
       mode: "shared",
@@ -83,16 +83,29 @@ test("a memory step on a shared agent writes nothing", async (t) => {
       released: [],
     },
   });
+  f.assistants.memoryNotes = new MemoryNotes(f.store.db);
+  f.assistants.changed = () => {};
   await f.invocation("step", step);
   for (const target of ["MEMORY.md", "memory/2026-10-23.md"])
-    assert.equal(await f.call(target), false, target);
+    assert.equal(await f.call(target), true, target);
   assert.equal(
     memoryStepWrite(step, {
       agent: f.store.getAssistant(f.id),
       root: f.root,
       path: "MEMORY.md",
     }),
-    false,
+    true,
+  );
+  // USER.md stays the owner's, and every other tool is still refused.
+  for (const target of ["USER.md", "notes.md", "memory/lead/MEMORY.md"])
+    assert.equal(await f.call(target), false, target);
+  for (const toolName of ["exec", "apply_patch", "agentpier_workspace"])
+    assert.equal(await f.tool(toolName), false, toolName);
+  assert.deepEqual(
+    f.assistants.memoryNotes
+      .forConversation(f.channel.conversationId)
+      .map((n) => n.reason),
+    ["shared-write", "memory-step"],
   );
 });
 
