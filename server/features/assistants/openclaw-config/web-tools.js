@@ -40,9 +40,9 @@ export function webToolsAvailability(webTools) {
     // A ChatGPT account (an `openai` OAuth profile) that is signed in: OpenClaw routes
     // gpt-image-2 through it (docs/tools/image-generation.md of 2026.10.3).
     createImages: webTools?.images?.ready === true,
-    // The owner chose a model that can read PDFs (pdf-model-settings.js), and the
-    // runtime bundles the extraction plugin the pdf tool needs for non-native models.
-    readPdfs: webTools?.pdf?.ready === true && webTools?.documentExtract === true,
+    // The runtime bundles the extraction plugin the pdf tool needs for non-native
+    // models. Agents read with their own model; the owner's fallback is optional.
+    readPdfs: webTools?.documentExtract === true,
     browser: !!(webTools?.browser?.available && webTools.browser.executablePath),
     webSearch: !!(
       search?.provider &&
@@ -63,7 +63,8 @@ export function webToolsAvailability(webTools) {
  * - `tools`: tool names to append to the global `tools.allow`.
  * - `web`: `tools.web`, or undefined.
  * - `browser`: the root `browser` block, or undefined (keep `{ enabled: false }`).
- * - `pdf`: `{ connectionId, modelId }` of the PDF model to compile, or undefined.
+ * - `pdf`: `{ connectionId, modelId }` of the fallback PDF model, `{}` without a
+ *   usable one, or undefined while no agent can read PDFs.
  * - `plugins`: `{ allow, paths, entries }` to add to the plugin configuration.
  */
 export function webToolsSections({ profiles, webTools, port, only }) {
@@ -100,12 +101,13 @@ export function webToolsSections({ profiles, webTools, port, only }) {
   if (active("createImages"))
     sections.media = { image: { primary: imageModel, timeoutMs: 180000 } };
   // Ids only: AssistantProviderSynchronization.prepare resolves them into
-  // agents.defaults.pdfModel and its provider before the Gateway starts.
+  // agents.defaults.pdfModel and its provider before the Gateway starts, or compiles
+  // a placeholder without a fallback; the tool guard names each call's model.
   if (active("readPdfs")) {
-    sections.pdf = {
-      connectionId: webTools.pdf.connectionId,
-      modelId: webTools.pdf.modelId,
-    };
+    sections.pdf =
+      webTools.pdf?.ready === true
+        ? { connectionId: webTools.pdf.connectionId, modelId: webTools.pdf.modelId }
+        : {};
     // Bundled, but the restrictive allow list leaves it off; without it the pdf tool
     // refuses every PDF a non-native model reads ("PDF extraction disabled").
     sections.plugins.allow.push(documentExtractPlugin);

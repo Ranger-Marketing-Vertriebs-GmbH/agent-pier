@@ -25,7 +25,6 @@ import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.j
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { textPdf } from "../helpers/text-pdf.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
@@ -162,7 +161,7 @@ test(
         release() {},
       }),
     };
-    // The owner chose the fixture model for PDFs; the real provider preparation
+    // The owner chose the fixture model as PDF fallback; the real provider preparation
     // compiles it into agents.defaults.pdfModel before each spawn, as in the app.
     const pdfModel = { connectionId: "fixture", modelId: "fixture-model" };
     const synchronization = new AssistantProviderSynchronization({
@@ -294,7 +293,7 @@ test(
     // Image creation needs a signed-in ChatGPT account, which no contract has.
     assert.equal(running.tools.allow.includes("image_generate"), false);
     assert.equal(running.agents.defaults.mediaModels, undefined);
-    // The one PDF model every agent reads with, from the owner's choice.
+    // The owner's PDF fallback, explicit and without fallbacks of its own.
     assert.deepEqual(running.agents.defaults.pdfModel, {
       primary: "fixture/fixture-model",
       fallbacks: [],
@@ -380,24 +379,8 @@ test(
     assert.match(fetched.result, /Blocked hostname or private\/internal\/special-use IP/);
     assert.equal(page.hits, 0);
 
-    // Read PDFs: a workspace PDF reaches the owner's PDF model as extracted text.
-    fs.writeFileSync(
-      path.join(runtime.paths.workspaces, web.id, "report.pdf"),
-      textPdf("AGENTPIER_PDF_MARKER quarterly report"),
-    );
-    const from = model.requests.length;
-    const read = await turn(
-      web,
-      { name: "pdf", arguments: { pdf: "report.pdf", prompt: "Summarize it." } },
-      "pdf-read",
-    );
-    const pdfRequests = model.requests
-      .slice(from)
-      .filter((r) => JSON.stringify(r.messages).includes("AGENTPIER_PDF_MARKER"));
-    assert.ok(pdfRequests.length, "the PDF text reached the PDF model");
-    assert.equal(pdfRequests[0].model, "fixture-model");
-    assert.match(read.result, /A useful assistant reply/);
-    // The tool guard keeps calls on workspace files and the owner's PDF model.
+    // Read PDFs: which model reads is pinned in assistant-pdf-own-model-contract; the
+    // tool guard refuses a web address before asking AgentPier for a model.
     const remote = await turn(
       web,
       { name: "pdf", arguments: { pdf: local } },
@@ -405,12 +388,6 @@ test(
     );
     assert.match(remote.result, /without a web address/);
     assert.equal(page.hits, 0);
-    const other = await turn(
-      web,
-      { name: "pdf", arguments: { pdf: "report.pdf", model: "fixture/other" } },
-      "pdf-model",
-    );
-    assert.match(other.result, /Leave model unset/);
 
     // The lead's member is offered its granted web tools under the same private
     // network block.

@@ -40,7 +40,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Routinen anlegen, die an sie zurückberichten, Mitglieder, die sich untereinander
   abstimmen und ihrem Lead berichten, Agency-Agenten
   als Vorlagen für Agenten und Mitglieder, Arbeitsziele, mit denen ein Agent weiterarbeitet, bis die Aufgabe erledigt ist, mit @-Erwähnungen, Telegram, Skills, Routinen, Check-ins,
-  Dateien in beide Richtungen, über ChatGPT erstellte Bilder, PDFs gelesen mit einem Modell deiner Wahl, Lese- oder Schreibzugriff auf Projektordner und GitHub
+  Dateien in beide Richtungen, über ChatGPT erstellte Bilder, PDFs gelesen mit dem eigenen Modell des Agenten (oder einem optionalen Ersatzmodell), Lese- oder Schreibzugriff auf Projektordner und GitHub
   über deine Tokenprofile ([Agenten](docs/agents.md)).
 - **Benutzer:** Familienmitglieder melden sich mit eigenem Passwort an und chatten
   privat mit eigenen oder geteilten Agenten, gesperrt für Shell, Coding und den Rest

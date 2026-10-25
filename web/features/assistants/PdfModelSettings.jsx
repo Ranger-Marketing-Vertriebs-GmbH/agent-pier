@@ -20,8 +20,9 @@ const serverOf = (settings) => ({
 });
 
 /**
- * The one model every agent reads PDFs with, chosen from the agents' model
- * connections. Only ids are saved; the connection keeps its key.
+ * The optional PDF fallback model, for agents whose own model does not accept images,
+ * chosen from the agents' model connections. Only ids are saved; the connection keeps
+ * its key.
  */
 export default function PdfModelSettings({
   entry,
@@ -147,6 +148,7 @@ export default function PdfModelSettings({
             form.save();
           }}
         >
+          <p className="accounts-note">{copy.intro}</p>
           <p className="accounts-note" role="status">
             {settings.ready ? copy.ready : copy.status[settings.reason]}
           </p>

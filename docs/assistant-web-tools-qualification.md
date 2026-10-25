@@ -97,19 +97,22 @@ was skipped there; it is unchanged by PDF reading).
   `view_image` and `pdf`. `web_search` is not called (no real search). `web_fetch` of the
   loopback page fails with `Blocked hostname or private/internal/special-use IP
 address`; the page receives no request.
-- **`pdf` reads with the owner's PDF model** (since 2026-10-19, see
+- **`pdf` is compiled with the owner's PDF fallback** (since 2026-10-19, see
   [PDF reading](assistant-gateway.md#pdf-reading-2026-10-19)). The contract chooses the
-  fixture model as PDF model; the real `AssistantProviderSynchronization.prepare`
+  fixture model as fallback; the real `AssistantProviderSynchronization.prepare`
   runs before each spawn and compiles `agents.defaults.pdfModel` as
   `{ primary: "fixture/fixture-model", fallbacks: [] }`, and `plugins.allow` gains
-  `document-extract`, which `plugins.list` reports active. A call of `pdf` on a
-  generated one-page PDF in the agent's workspace sends the extracted page text to the
-  fixture model and returns its answer. The tool guard refuses a loopback URL
-  (`without a web address`, the page gets no request) and a `model` argument
-  (`Leave model unset`). Without `document-extract` in `plugins.allow` the call fails
-  with `PDF extraction disabled or unavailable`. On 2026.10.3 the agent entry
-  schema still rejects `pdfModel` and `imageModel` as unrecognized keys (checked
-  against the runtime's own schema on 2026-10-19), so the model stays global.
+  `document-extract`, which `plugins.list` reports active. The tool guard refuses a
+  loopback URL (`without a web address`, the page gets no request). Which model reads
+  a PDF is pinned since AGENTPIER-218 by `assistant-pdf-own-model-contract.test.js`
+  (2026.10.7): the tool guard sets each call's `model` (the agent's own image model
+  with page images, a text-only model with the extracted text only, or the started
+  fallback for a text-only agent), a `model` the agent names is replaced, and the
+  placeholder `agentpier-unavailable/blocked` fails with `Unknown model` while an
+  image-capable decoy provider with a key gets no request. Without `document-extract`
+  in `plugins.allow` the call fails with `PDF extraction disabled or unavailable`. On
+  2026.10.3 and 2026.10.7 the agent entry schema rejects `pdfModel` and `imageModel`
+  as unrecognized keys, so the configured model stays global.
 - **The lead's temporary member** has the default grants (since 2026-10-17,
   [team member grants](assistant-gateway.md#team-member-grants-2026-10-17)): its
   entry holds `web_search`, `web_fetch` and `memory_search` within the lead's
@@ -365,7 +368,7 @@ and restart the Gateway when they change, rather than relying on live patches.
 These measurements are from 2026.9.8. Since 2026-10-23 (AGENTPIER-202) a start compiles
 every section the runtime can serve, whether an agent uses it yet or not: the browser
 block with the member slots, the search provider's plugin, `document-extract` with
-the PDF model, and the image model. The global `tools.allow` is only an upper bound;
+the PDF fallback or its placeholder, and the image model. The global `tools.allow` is only an upper bound;
 each agent's entry names its own tools. Switching web search, web pages, the browser,
 its visible window, PDFs or images for one agent then changes only that agent's entry
 and its own `browser.profiles.<agent>` entry. `BrowserProfileSync` patches the profile
@@ -392,7 +395,7 @@ outcome report records that upload once as `uploaded`, and a clean stop removes 
 staged file.
 Enabling the browser block itself live (a browser installed after the start) was not
 measured again. AgentPier keeps that case, a changed search provider or key and a
-changed PDF model on the [pending restart](assistant-gateway.md#pending-restart).
+changed PDF fallback model on the [pending restart](assistant-gateway.md#pending-restart).
 
 ## Boundaries
 
@@ -407,10 +410,9 @@ changed PDF model on the [pending restart](assistant-gateway.md#pending-restart)
   search, which is not repeated.
 - The Perplexity key and transport were verified through configuration acceptance
   and the plugin source, not with a request.
-- `pdf` is covered with the extraction path of a custom provider whose model accepts
-  images only; a text-only PDF model (text only, page images dropped, per OpenClaw's
-  `docs/tools/pdf.md`), native PDF input (Anthropic, Google) and a ChatGPT account as
-  PDF model are not exercised.
+- `pdf` is covered with the extraction path of custom providers, with and without
+  image input; native PDF input (Anthropic, Google) and a ChatGPT account as the
+  reading model are not exercised.
 - Headless Linux Chrome without `noSandbox` is unverified on hosted runners (see
   [continuous integration](#continuous-integration)).
 - The browser plugin's bundled `browser-automation` skill is skipped in the

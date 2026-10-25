@@ -244,7 +244,6 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
-  // The one model every agent reads PDFs with (Read PDFs capability).
   const assistantPdfModel = (created.pdfModel = new PdfModelSettings({
     dataDir,
     models,
@@ -259,8 +258,9 @@ export function constructAssistantGraph(host, created = {}) {
   }));
   // A shared file also reaches the owner's Telegram chat its turn came from.
   assistants.shares.channels = assistantChannels;
-  // Every image_generate call is checked and counted through the bridge.
+  // Every image_generate and pdf call is checked through the bridge (pdf-policy.js).
   assistants.imagePolicy = new ImagePolicy({ assistants });
+  assistants.pdfPolicy = assistantPdfModel.policy(assistants);
   const assistantMemory = new NativeMemory(assistants, {
     workspaces: assistantRuntime.paths.workspaces,
   });
@@ -568,7 +568,7 @@ export function connectAssistantServices(graph) {
           searchPlugins: installed.searchPlugins || {},
           // The same readiness a save compares with (web-tools-changes.js).
           images: webToolsChanges.images(),
-          // The owner's PDF model, ids only (pdf-model-settings.js).
+          // The owner's PDF fallback, ids only (pdf-model-settings.js).
           pdf: webToolsChanges.pdf(),
           documentExtract: hasDocumentExtract(installed),
         },

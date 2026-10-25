@@ -1,17 +1,20 @@
 import path from "node:path";
 import { privateDatabase } from "../../lib/private-database.js";
 import { assistantProblem } from "./assistant-validation.js";
+import { PdfPolicy } from "./pdf-policy.js";
 
 const account = (connectionId) => connectionId.startsWith("openclaw:");
 
 /**
- * The owner's choice of the one model that reads PDFs for every agent. OpenClaw's
- * `pdf` tool takes its model only from agents.defaults.pdfModel (an agent entry
- * cannot name one, verified on 2026.10.3), so this is global; without a usable
- * choice the Read PDFs capability stays unavailable. Only ids are stored here: the
- * connection's key stays with the model connection and reaches only openclaw.json
- * (AssistantProviderSynchronization.prepare). A model without image input is allowed:
- * it reads the PDF text, not scanned pages.
+ * The owner's optional PDF fallback model. Agents read PDFs with their own model when
+ * it accepts images; this model reads them for agents whose model does not
+ * (pdf-policy.js). Without a usable fallback those agents read the PDF's text only.
+ * OpenClaw's `pdf` tool takes a model only from the global agents.defaults.pdfModel
+ * (an agent entry cannot name one, verified on 2026.10.7), which a start compiles
+ * from this choice or, without one, a placeholder that never resolves. Only ids are
+ * stored here: the connection's key stays with the model connection and reaches only
+ * openclaw.json (AssistantProviderSynchronization.prepare). A model without image
+ * input is allowed: it reads the PDF text, not scanned pages.
  */
 export class PdfModelSettings {
   // `models` is AssistantModels: the same connections and accounts agents choose from.
@@ -68,6 +71,10 @@ export class PdfModelSettings {
       ready: !reason,
       ...(reason && { reason }),
     };
+  }
+  /** The bridge's answer to the plugin's pdf hook (pdf-policy.js). */
+  policy(assistants) {
+    return new PdfPolicy({ assistants });
   }
   /** The compiler's view: `{ ready, connectionId, modelId }`, ids only. */
   resolve() {

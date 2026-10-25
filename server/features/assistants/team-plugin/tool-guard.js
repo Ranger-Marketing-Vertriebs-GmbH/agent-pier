@@ -402,19 +402,21 @@ export async function imageCall(event, ctx, bridge) {
 }
 // Why a pdf call was refused, for the model.
 export const pdfRefusals = {
-  model: "PDFs are read with the model the owner chose. Leave model unset.",
+  unavailable: "Reading PDFs is not available right now. Say so plainly; do not retry.",
+  notGranted: "This agent may not read PDFs.",
   reference: "Give PDFs as paths to files in your workspace, without a web address.",
 };
 /**
- * Lets a pdf call through only with the owner's PDF model (agents.defaults.pdfModel;
- * `model` would pick any configured model) and with workspace files: OpenClaw fetches
- * http(s) references itself, which would reach the web without the agent's web
- * capabilities. Local paths stay within the workspace (tools.fs.workspaceOnly).
+ * Lets a pdf call through only with workspace files (OpenClaw fetches http(s)
+ * references itself, which would reach the web without the agent's web capabilities;
+ * local paths stay within the workspace, tools.fs.workspaceOnly) and sets `model` to
+ * the one AgentPier names for the calling agent (pdf-policy.js): OpenClaw would
+ * otherwise read with the global agents.defaults.pdfModel. A `model` the agent passes
+ * is replaced, never used. Fails closed.
  */
-export function pdfCall(event) {
+export async function pdfCall(event, ctx, bridge) {
   const params = event?.params || {};
   const block = (reason) => ({ block: true, blockReason: pdfRefusals[reason] });
-  if (params.model !== undefined) return block("model");
   const references = [
     ...(params.pdf === undefined ? [] : [params.pdf]),
     ...(params.pdfs === undefined
@@ -429,7 +431,20 @@ export function pdfCall(event) {
     )
   )
     return block("reference");
-  return undefined;
+  const response = await bridge(
+    "/pdf-policy",
+    {
+      agentId: ctx?.agentId,
+      ...(typeof ctx?.sessionKey === "string" && { sessionKey: ctx.sessionKey }),
+    },
+    ctx?.abortSignal,
+  ).catch(() => null);
+  const policy = response?.ok ? await response.json().catch(() => null) : null;
+  if (policy?.allow !== true || typeof policy.model !== "string" || !policy.model)
+    return block(
+      Object.hasOwn(pdfRefusals, policy?.reason) ? policy.reason : "unavailable",
+    );
+  return { params: { ...params, model: policy.model } };
 }
 export function registerToolGuard(api) {
   const configured = api.pluginConfig?.workspaces;
@@ -513,7 +528,7 @@ export function registerToolGuard(api) {
     matcher: attachmentTools,
     priority: 1000,
   });
-  api.on("before_tool_call", (event) => pdfCall(event), {
+  api.on("before_tool_call", (event, ctx) => pdfCall(event, ctx, bridge), {
     matcher: ["pdf"],
     priority: 1000,
   });

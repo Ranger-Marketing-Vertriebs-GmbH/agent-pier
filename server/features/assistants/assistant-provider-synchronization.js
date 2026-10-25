@@ -17,7 +17,7 @@ export const restartRequired = (key, affected) =>
   });
 
 export class AssistantProviderSynchronization {
-  // `pdfModel()` is the owner's PDF model selection, or null (pdf-model-settings.js).
+  // `pdfModel()` is the owner's PDF fallback selection, or null (pdf-model-settings.js).
   constructor({
     assistants,
     connections,
@@ -28,6 +28,7 @@ export class AssistantProviderSynchronization {
     Object.assign(this, { assistants, connections, maintenance, isUpdating, pdfModel });
     this.blocked = new Set();
     this.changing = false;
+    this.pdfFallback = null;
   }
   // Called after runtime config preparation, before spawning the owned Gateway.
   // Authored config is updated while stopped; native contract tests verify that
@@ -82,16 +83,19 @@ export class AssistantProviderSynchronization {
     a.config.reset?.();
   }
   /**
-   * The PDF model of a start that offers `pdf` (web-tools.js compiled the tool for an
-   * agent that reads PDFs): its reference and, for a model connection, its provider.
-   * Without a usable model the tool is withdrawn, so no agent is offered a tool that
-   * would pick some other model on its own.
+   * The global PDF model of a start that offers `pdf` (web-tools.js compiled the tool
+   * for agents that may read PDFs): the owner's fallback with its provider, or a
+   * placeholder that never resolves. Either way it is explicit with no fallbacks, so
+   * OpenClaw never picks some other configured model itself; the tool guard names
+   * each call's model (pdf-policy.js).
    */
   async preparePdf(config, providers, pdf) {
     const offered =
       Array.isArray(config.tools?.allow) && config.tools.allow.includes("pdf");
+    // The fallback this start compiles; the tool guard reads with no other.
+    this.pdfFallback = null;
     if (!offered) return;
-    let primary = null;
+    let primary = blockedModel.primary;
     let lease;
     try {
       if (pdf && !central({ model: pdf })) {
@@ -108,22 +112,15 @@ export class AssistantProviderSynchronization {
         }
       }
     } catch {
-      primary = null;
+      primary = blockedModel.primary;
     } finally {
       lease?.release();
     }
-    if (primary) {
-      config.agents = {
-        ...config.agents,
-        defaults: { ...config.agents?.defaults, pdfModel: { primary, fallbacks: [] } },
-      };
-      return;
-    }
-    config.tools.allow = config.tools.allow.filter((tool) => tool !== "pdf");
-    const entries = config.agents?.entries || config.agents?.list || {};
-    for (const entry of Object.values(entries))
-      if (Array.isArray(entry?.tools?.allow))
-        entry.tools.allow = entry.tools.allow.filter((tool) => tool !== "pdf");
+    if (primary !== blockedModel.primary) this.pdfFallback = primary;
+    config.agents = {
+      ...config.agents,
+      defaults: { ...config.agents?.defaults, pdfModel: { primary, fallbacks: [] } },
+    };
   }
   async pauseBlocked({ duringMaintenance = false } = {}) {
     const a = this.assistants;
@@ -139,7 +136,7 @@ export class AssistantProviderSynchronization {
       throw error;
     }
   }
-  /** Whether `profile` runs on the connection: its model, or the PDF model it reads with. */
+  /** Whether `profile` runs on the connection: its model, or the PDF fallback it may read with. */
   uses(profile, connectionId, pdf = this.pdfModel()) {
     return (
       profile.model.connectionId === connectionId ||

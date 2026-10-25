@@ -11,7 +11,7 @@ import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 
 // A stopped Gateway whose start compiled `pdf` for an agent that reads PDFs; the
-// provider preparation then adds the owner's PDF model before the Gateway runs.
+// provider preparation then adds the owner's PDF fallback before the Gateway runs.
 function fixture(t, { offered = true } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-pdf-model-"));
   const paths = runtimePaths(dataDir);
@@ -73,7 +73,7 @@ function fixture(t, { offered = true } = {}) {
   };
 }
 
-test("a start that offers pdf compiles the owner's PDF model with its provider", async (t) => {
+test("a start that offers pdf compiles the owner's PDF fallback with its provider", async (t) => {
   const { paths, sync, reading, agent } = fixture(t);
   await sync.prepare();
   const config = readJSON(paths.config);
@@ -87,28 +87,38 @@ test("a start that offers pdf compiles the owner's PDF model with its provider",
   assert.equal(config.models.providers[`ap-${reading.id}-stale`], undefined);
   assert.ok(config.tools.allow.includes("pdf"));
   assert.ok(config.agents.entries[agent.runtimeAgentId].tools.allow.includes("pdf"));
+  // The tool guard reads text-only agents' PDFs with the fallback this start runs.
+  assert.equal(sync.pdfFallback, primary);
 });
 
-test("without a usable PDF model the tool is withdrawn instead", async (t) => {
+test("without a usable fallback pdf stays with a placeholder that never resolves", async (t) => {
   for (const broken of [null, "deleted"]) {
     const { paths, sync, agent, reading, connections, choose } = fixture(t);
     if (broken === "deleted") connections.remove(reading.id);
     else choose(null);
     await sync.prepare();
     const config = readJSON(paths.config);
-    assert.equal(config.agents.defaults.pdfModel, undefined);
-    assert.equal(config.tools.allow.includes("pdf"), false);
+    // Explicit, without fallbacks: OpenClaw never picks another configured model.
+    assert.deepEqual(config.agents.defaults.pdfModel, {
+      primary: "agentpier-unavailable/blocked",
+      fallbacks: [],
+    });
     assert.equal(
-      config.agents.entries[agent.runtimeAgentId].tools.allow.includes("pdf"),
+      Object.keys(config.models.providers).some((key) => key.startsWith("agentpier")),
       false,
     );
+    assert.ok(config.tools.allow.includes("pdf"));
+    assert.ok(config.agents.entries[agent.runtimeAgentId].tools.allow.includes("pdf"));
+    assert.equal(sync.pdfFallback, null);
   }
 });
 
 test("a start that offers no pdf compiles no PDF model", async (t) => {
   const { paths, sync } = fixture(t, { offered: false });
+  sync.pdfFallback = "stale/model";
   await sync.prepare();
   assert.equal(readJSON(paths.config).agents.defaults.pdfModel, undefined);
+  assert.equal(sync.pdfFallback, null);
 });
 
 test("the PDF model's connection counts as used by agents that read PDFs", (t) => {

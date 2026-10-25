@@ -96,38 +96,45 @@ async function setup(page, { language = "en", pdf = {} } = {}) {
 const copy = {
   en: {
     capability: "Read PDFs",
-    unavailable:
-      "Choose a PDF model under Accounts › Services for agents › PDF reading first.",
-    referenceUnset: "PDF model · Not chosen",
-    referenceSet: "PDF model · vl-1",
+    description:
+      "Reads PDF files in its workspace with its own model, page images included if that model accepts images.",
+    referenceUnset: "PDF fallback · Not chosen",
+    referenceSet: "PDF fallback · vl-1",
     title: "PDF reading",
-    notSet: "No model chosen: agents cannot read PDFs until you choose one.",
+    intro: "This optional fallback model reads them for agents whose model does not",
+    notSet:
+      "No fallback model: agents whose model does not accept images read only the text of PDFs.",
     connection: "Model connection",
     model: "Model",
-    save: "Save PDF model",
+    save: "Save fallback model",
     ready: "Ready",
-    remove: "Remove PDF model",
+    remove: "Remove fallback model",
     saveAgent: "Save agent",
     textOnly:
-      "This model does not accept images: it reads the text of PDFs, but not scanned pages or pages without text.",
+      "This model does not accept images either: it reads the text of PDFs, but not scanned pages or pages without text.",
+    missing: "The chosen connection no longer exists. Choose another model.",
     unsaved: "Unsaved changes",
   },
   de: {
     capability: "PDFs lesen",
-    unavailable:
-      "Wähle zuerst unter Accounts › Dienste für Agenten › PDF-Lesen ein PDF-Modell.",
-    referenceUnset: "PDF-Modell · Nicht gewählt",
-    referenceSet: "PDF-Modell · vl-1",
+    description:
+      "Liest PDF-Dateien in seinem Arbeitsordner mit seinem eigenen Modell, samt Seitenbildern, wenn dieses Modell Bilder annimmt.",
+    referenceUnset: "PDF-Ersatzmodell · Nicht gewählt",
+    referenceSet: "PDF-Ersatzmodell · vl-1",
     title: "PDF-Lesen",
-    notSet: "Kein Modell gewählt: Agenten können erst PDFs lesen, wenn du eines wählst.",
+    intro:
+      "Dieses optionale Ersatzmodell liest sie für Agenten, deren Modell das nicht tut",
+    notSet:
+      "Kein Ersatzmodell: Agenten, deren Modell keine Bilder annimmt, lesen nur den Text von PDFs.",
     connection: "Provider-Zugang",
     model: "Modell",
-    save: "PDF-Modell speichern",
+    save: "Ersatzmodell speichern",
     ready: "Bereit",
-    remove: "PDF-Modell entfernen",
+    remove: "Ersatzmodell entfernen",
     saveAgent: "Agent speichern",
     textOnly:
-      "Dieses Modell nimmt keine Bilder an: Es liest den Text von PDFs, aber keine gescannten Seiten oder Seiten ohne Text.",
+      "Auch dieses Modell nimmt keine Bilder an: Es liest den Text von PDFs, aber keine gescannten Seiten oder Seiten ohne Text.",
+    missing: "Den gewählten Zugang gibt es nicht mehr. Wähle ein anderes Modell.",
     unsaved: "Ungespeicherte Änderungen",
   },
 };
@@ -135,18 +142,21 @@ const copy = {
 for (const language of ["en", "de"]) {
   const t = copy[language];
   test.describe(language, () => {
-    test("Read PDFs stays off until the owner chooses a PDF model", async ({ page }) => {
+    test("Read PDFs works without a fallback, which the owner may choose", async ({
+      page,
+    }) => {
       const state = await setup(page, { language });
       await page.goto(baseURL + settingsPath("capabilities"));
       const pdf = page.getByLabel(t.capability, { exact: true });
-      await expect(pdf).toBeDisabled();
-      await expect(pdf).not.toBeChecked();
-      await expect(page.getByText(t.unavailable)).toBeVisible();
-      // The reference row leads to the one place the model is chosen.
+      // Agents read with their own model: no fallback is needed.
+      await expect(pdf).toBeEnabled();
+      await expect(page.getByText(t.description)).toBeVisible();
+      // The reference row leads to the one place the fallback is chosen.
       await page.getByRole("link", { name: t.referenceUnset }).click();
       await expect(page).toHaveURL(/section=services&item=pdf-model/);
       const panel = page.locator(".accounts-detail");
       await expect(panel.getByRole("heading", { name: t.title })).toBeVisible();
+      await expect(panel.getByText(t.intro)).toBeVisible();
       await expect(panel.getByText(t.notSet)).toBeVisible();
       await panel.getByLabel(t.connection).selectOption("vision");
       await panel
@@ -168,14 +178,14 @@ for (const language of ["en", "de"]) {
           path: ".cache/assistant-pdf-model-en.png",
           fullPage: true,
         });
-      // Removing saves at once and makes PDF reading unavailable again.
+      // Removing saves at once; agents keep reading with their own model.
       await panel.getByRole("button", { name: t.remove }).click();
       await expect.poll(() => state.puts.length).toBe(2);
       expect(state.puts[1]).toEqual({ revision: 1, connectionId: null, modelId: null });
       await expect(panel.getByText(t.notSet)).toBeVisible();
     });
 
-    test("a text-only PDF model is usable and says scans stay unreadable", async ({
+    test("a text-only fallback is usable and says scans stay unreadable", async ({
       page,
     }) => {
       await setup(page, {
@@ -196,17 +206,11 @@ for (const language of ["en", "de"]) {
       await expect(panel.getByRole("note")).toContainText(t.textOnly);
     });
 
-    test("with a PDF model the Read PDFs switch is saved with the agent", async ({
-      page,
-    }) => {
-      const state = await setup(page, {
-        language,
-        pdf: { revision: 1, connectionId: "vision", modelId: "vl-1", ready: true },
-      });
+    test("the Read PDFs switch is saved with the agent", async ({ page }) => {
+      const state = await setup(page, { language });
       await page.goto(baseURL + settingsPath("capabilities"));
-      await expect(page.getByRole("link", { name: t.referenceSet })).toBeVisible();
+      await expect(page.getByRole("link", { name: t.referenceUnset })).toBeVisible();
       const pdf = page.getByLabel(t.capability, { exact: true });
-      await expect(pdf).toBeEnabled();
       await pdf.check();
       await saveBar(page, t.unsaved).getByRole("button", { name: t.saveAgent }).click();
       await expect.poll(() => state.patches.length).toBe(1);
@@ -220,22 +224,22 @@ for (const language of ["en", "de"]) {
           fullPage: true,
         });
     });
+
+    test("a fallback's lost connection leaves the switch usable", async ({ page }) => {
+      await setup(page, {
+        language,
+        pdf: {
+          revision: 2,
+          connectionId: "gone",
+          modelId: "vl-1",
+          ready: false,
+          reason: "connectionMissing",
+        },
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByLabel(t.capability, { exact: true })).toBeEnabled();
+      await page.getByRole("link", { name: t.referenceSet }).click();
+      await expect(page.locator(".accounts-detail").getByText(t.missing)).toBeVisible();
+    });
   });
 }
-
-test("a PDF model's lost connection is explained on the switch", async ({ page }) => {
-  await setup(page, {
-    pdf: {
-      revision: 2,
-      connectionId: "gone",
-      modelId: "vl-1",
-      ready: false,
-      reason: "connectionMissing",
-    },
-  });
-  await page.goto(baseURL + settingsPath("capabilities"));
-  await expect(page.getByLabel("Read PDFs", { exact: true })).toBeDisabled();
-  await expect(
-    page.getByText("The PDF model's connection no longer exists."),
-  ).toBeVisible();
-});
