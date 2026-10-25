@@ -356,7 +356,10 @@ for the implementation and remaining native platform/version qualification.
   the same source answers 429 as well, because the window is checked before the
   secret. A 404 for a well-formed hook ID (a scan) counts for the whole source and
   blocks every hook from it. At most 1000 windows are kept, and the least recently
-  failed one is evicted first (never a local or shared tailnet window). Unknown,
+  failed one is evicted first (never a local or shared tailnet window). In front of
+  every check, a request ceiling of 600 requests per minute per stored hook (and one
+  shared window for unknown IDs and other `/hooks` paths) answers
+  `429 HOOK_RATE_LIMITED` with `Retry-After` as well. Unknown,
   disabled and ineligible hooks answer the same
   `404 HOOK_NOT_FOUND`. Bodies are JSON or `text/plain` (else `415`), at most
   64 KiB (else `413`), and must arrive within 15 s; only the event-ID headers reach
