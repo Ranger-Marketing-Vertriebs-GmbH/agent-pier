@@ -1,5 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
 import { assistantProblem } from "./assistant-validation.js";
-import { memoryEnabled, personalEligible } from "./native-capabilities.js";
+import {
+  capabilityKeys,
+  memoryEnabled,
+  personalEligible,
+} from "./native-capabilities.js";
 import { dreamingSection } from "./openclaw-config/dreaming.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 
@@ -18,7 +23,9 @@ const named = ({ id, name }) => ({ id, name });
 /**
  * The owner's dreaming switch. Switching on first turns memory on for every permanent
  * agent without it, after the owner confirmed the list; the change then reaches the
- * running Gateway live, or its next start when it is not ready.
+ * running Gateway live. A change the Gateway did not take (not ready, or the patch
+ * refused) stays pending until the one-minute backup tick applies it (`converge`), or a
+ * start compiles it (`compiled`).
  */
 export class DreamingService {
   constructor({ settings, assistants, warn = console.warn }) {
@@ -50,8 +57,12 @@ export class DreamingService {
     for (const { id } of uncovered) {
       const current = this.assistants.store.getAssistant(id);
       try {
-        // An unset capability is off; the update needs `reminders` stated.
-        const capabilities = { reminders: false, ...current.capabilities, memory: true };
+        // Known boolean keys only (a stored legacy key would be refused); an unset
+        // capability is off, and the update needs `reminders` stated.
+        const capabilities = { reminders: false, memory: true };
+        for (const key of capabilityKeys)
+          if (typeof current.capabilities?.[key] === "boolean" && key !== "memory")
+            capabilities[key] = current.capabilities[key];
         await this.assistants.update(id, { capabilities }, current.revision);
       } catch (error) {
         if (error?.key !== "active") throw error;
@@ -64,30 +75,47 @@ export class DreamingService {
         agents: busy,
       });
     this.settings.save(next, revision);
-    // Saved first: a failed live apply is compiled by the Gateway's next start.
-    let pending = false;
+    this.pending = true;
     await this.assistants
-      .admit(async () => {
-        const client = this.assistants.runtime.client;
-        if (!client?.ready) return (pending = true);
-        await patchConfig(client, () => ({
-          patch: {
-            plugins: {
-              entries: { "memory-core": { config: { dreaming: dreamingSection(next) } } },
-            },
-          },
-          replacePaths: [dreamingPath],
-        }));
-      })
+      .admit(() => this.converge())
       .catch((error) => {
-        pending = true;
         // The error code only: no values.
         this.warn(
           `Dreaming could not be applied to the running Gateway (${
             error?.code || error?.key || error?.name || "ERROR"
-          }); it applies at the next start.`,
+          }); it is applied once the Gateway takes it.`,
         );
       });
-    return { ...this.get(), ...(pending ? { pending: true } : {}) };
+    return { ...this.get(), ...(this.pending ? { pending: true } : {}) };
+  }
+  /** The compiler's view at a Gateway start, which then holds every saved change. */
+  compiled() {
+    this.pending = false;
+    return this.settings.compiled();
+  }
+  /**
+   * Applies a pending change to the ready Gateway, under admission (the save, or the
+   * backup tick each minute): patched only where its dreaming section differs.
+   */
+  async converge() {
+    const client = this.assistants.runtime?.client;
+    if (!this.pending || !client?.ready) return;
+    const wanted = this.settings.compiled();
+    const section = dreamingSection(wanted);
+    await patchConfig(client, (config) =>
+      isDeepStrictEqual(
+        config.plugins?.entries?.["memory-core"]?.config?.dreaming,
+        section,
+      )
+        ? null
+        : {
+            patch: {
+              plugins: { entries: { "memory-core": { config: { dreaming: section } } } },
+            },
+            replacePaths: [dreamingPath],
+          },
+    );
+    // A save while this ran stays pending for the next tick.
+    if (isDeepStrictEqual(this.settings.compiled(), wanted)) this.pending = false;
   }
 }

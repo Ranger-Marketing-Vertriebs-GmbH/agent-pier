@@ -3886,14 +3886,19 @@ adopts it again later. The setting lives in `assistants/dreaming.sqlite`
 every phase at memory-core's defaults, deep included, and no `model` key, so each agent
 dreams with its own model and model account. A save reaches the running Gateway as a
 live `config.patch` of that path, which reschedules the job in place without a Gateway
-restart (a running turn ends normally); a Gateway that is not ready compiles it at its
-next start.
+restart (a running turn ends normally). A change the Gateway does not take (it is not
+ready, or it refuses the patch) stays pending: the one-minute `DreamingBackups` tick
+patches it, under admission, once the Gateway is ready, so it applies within a minute
+(only where the Gateway's dreaming section differs). A Gateway start compiles the saved
+setting and clears what was pending.
 
 - **Who dreams.** memory-core 2026.10.7 sweeps every agent configured in the runtime
   and has no per-agent scope (`memoryPolicy.excludeSessions` filters by channel, chat
   type or hook source only). So every agent dreams, temporary team members and agents
   with **Remember information** off included, each only over its own conversations,
-  into its own workspace, with its own model; nothing is written into `memory/lead/`.
+  into its own workspace, with its own model; nothing is written into `memory/lead/`,
+  and a temporary member's copy of its lead's memory leaves out the lead's
+  `memory/dreaming/` notes (their gist reaches the mirrored `MEMORY.md`).
   A shared agent dreams over all its chats (every user's and the owner's own) into its
   one shared memory, and its light-sleep notes can quote chat lines word for word. A
   sweep runs in its own `agent:main:cron:*` session: a busy agent's turn neither blocks
@@ -3911,6 +3916,10 @@ next start.
   later. While dreaming is on, switching memory off for a permanent agent, or creating
   an agent with memory off, is refused with `dreamingMemoryRequired`, and the agent's
   **Remember information** toggle is locked with a hint where to switch dreaming off.
+  A permanent agent whose memory is still off (one restored from the archive) can
+  save other changes; once its memory is on, it stays on. The bulk switch-on sends
+  only the known boolean capabilities with memory on, so a stored legacy key cannot
+  refuse it.
   New agents start with memory on, also while dreaming is off (`memory-rules.js`).
 - **Output.** Dream notes land in `memory/dreaming/{light,rem,deep}/YYYY-MM-DD.md` and
   show in the memory view like any other note. The Dream diary (`DREAMS.md` in the
@@ -3921,7 +3930,8 @@ next start.
   `memory_get`, `write`, `edit` and `apply_patch`, also through `file://` and
   percent-encoded spellings.
 - **`MEMORY.md` backups.** `DreamingBackups` (`dreaming-backups.js`) ticks once a
-  minute and, in the five minutes before the hour in the setting's zone (on a
+  minute (it starts with the agent services, or when maintenance ends if AgentPier
+  started in maintenance or recovery) and, in the five minutes before the hour in the setting's zone (on a
   spring-forward night the minutes before the jump), copies `MEMORY.md` of every agent
   compiled into the runtime to
   `assistants/memory-backups/<runtimeAgentId>/MEMORY-<UTC stamp>.md` (written to a

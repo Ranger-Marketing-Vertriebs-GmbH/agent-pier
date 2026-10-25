@@ -574,7 +574,7 @@ export function connectAssistantServices(graph) {
         },
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),
-        dreaming: graph.assistantDreamingSettings.compiled(),
+        dreaming: graph.assistantDreaming.compiled(),
       };
     },
     maintenance: () => assistants.maintenance,
