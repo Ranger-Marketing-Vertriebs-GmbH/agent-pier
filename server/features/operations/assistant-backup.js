@@ -79,9 +79,11 @@ const excludedFiles = new Set([
 // Caches of the Gateway's own trees, in any spelling (Chromium's "Cache", "Code
 // Cache", "GPUCache"); workspaces belong to the user and keep theirs.
 const volatileTree = /(^|\/)([^/]*cache|node_modules)(\/|$)/i;
-// Installed dependencies in the workspaces are left out, like in update snapshots;
-// the agent installs them again. Restores still accept them from older backups.
-const workspaceDependencies = /^workspaces\/(.*\/)?node_modules(\/|$)/;
+// Installed dependencies in the workspaces (folders, never a file of that name) are
+// left out, like in update snapshots; the agent installs them again. Restores still
+// accept them from older backups.
+const workspaceDependencies = (relative, stat) =>
+  stat.isDirectory() && /^workspaces\/(.*\/)?node_modules$/.test(relative);
 // What builds before the agent browser profiles excluded; restores stay accepting
 // everything they archived (restorable below).
 const legacyVolatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
@@ -122,7 +124,6 @@ const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
   !isRuntimeOnly(relative) &&
-  !workspaceDependencies.test(relative) &&
   (relative.split("/")[0] === "workspaces" ||
     shared(relative) ||
     !volatileTree.test(relative));
@@ -263,6 +264,7 @@ export async function captureAssistants({
     });
   async function entry(source, relative) {
     const stat = fs.lstatSync(source);
+    if (workspaceDependencies(relative, stat)) return;
     if (stat.isDirectory()) {
       for (const name of fs.readdirSync(source).sort()) {
         const next = `${relative ? `${relative}/` : ""}${name}`;

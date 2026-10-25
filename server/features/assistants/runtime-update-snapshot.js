@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { privateFolder } from "./runtime-paths.js";
+import { holdDependencies, returnDependencies } from "./runtime-update-dependencies.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import {
   configPath,
@@ -92,8 +93,8 @@ function internalLink(relative, target) {
   );
   return resolved.split("/")[0] === relative.split("/")[0];
 }
-// A copy-on-write clone where the file system has one (APFS, btrfs, XFS); a full
-// copy otherwise.
+// A copy-on-write clone where Node supports one (Linux btrfs/XFS reflinks); a full
+// copy otherwise, macOS included (libuv does not clone there).
 const copyFlags = fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE;
 async function copyFile(source, destination, mode) {
   await fsp.copyFile(source, destination, copyFlags);
@@ -106,13 +107,13 @@ async function copyEntry(source, destination, context, relative) {
     if (!owned(stat)) throw failed(relative);
     if (context.omitDependencies && isDependencyFolder(relative, stat))
       return context.omittedDependencies.push(relative);
-    context.progress?.(entrySize(stat));
     if (stat.isSymbolicLink()) {
       const target = await fsp.readlink(source);
       await fsp.symlink(target, destination);
       if (!internalLink(relative, target)) context.excludedLinks.push(relative);
     } else if (stat.isDirectory()) {
       await fsp.mkdir(destination, { mode: 0o700 });
+      context.progress?.(entrySize(stat));
       const names = (await fsp.readdir(source)).sort();
       // A database copy is self-contained; its journals are not copied separately.
       const databases = [];
@@ -136,6 +137,8 @@ async function copyEntry(source, destination, context, relative) {
     } else if (!stat.isFile()) context.skipped.push(relative);
     else if (!context.sealing) await copyFile(source, destination, stat.mode);
     else await sealEntry(source, destination, context, relative, stat);
+    // A file counts once it is copied; a folder once it exists (above).
+    if (!stat.isDirectory()) context.progress?.(entrySize(stat));
   } catch (error) {
     throw failed(relative, error);
   }
@@ -320,12 +323,13 @@ export async function createUpdateSnapshot(
   for (const name of Object.keys(ledgers.digests)) {
     const relative = `ledgers/${name}`;
     try {
-      onProgress?.(fs.statSync(path.join(paths.root, name)).size);
+      const size = fs.statSync(path.join(paths.root, name)).size;
       const sealed = await sealDatabase(
         path.join(paths.root, name),
         path.join(ledgerFolder, name),
         { ...context, aad: `${id}\0${relative}` },
       );
+      onProgress?.(size);
       if (sealed) context.sealed.push(relative);
     } catch (error) {
       throw failed(relative, error);
@@ -374,12 +378,14 @@ export async function restoreUpdateSnapshot(paths, directory, exclusions = []) {
   // Gateway state may migrate; AgentPier's frozen ledgers may not. Never replace
   // an open database or erase a newly recorded effect to make rollback succeed.
   const context = { sealing: false, excludedLinks: [], skipped: [] };
+  const held = await holdDependencies(paths, directory, manifest.omittedDependencies);
   for (const name of trees) {
     const live = await fsp.lstat(paths[name]).catch(() => null);
     if (live && (!live.isDirectory() || !owned(live))) throw failed(name);
     await fsp.rm(paths[name], { recursive: true, force: true });
     await copyEntry(path.join(payload, name), paths[name], context, name);
   }
+  await returnDependencies(paths, directory, held);
   const key = readBackupKey(paths.root, id);
   let withheld = false;
   for (const relative of manifest.sealed || []) {

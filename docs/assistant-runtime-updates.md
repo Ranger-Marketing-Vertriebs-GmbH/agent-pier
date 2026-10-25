@@ -52,19 +52,23 @@ ledgers under the assistant root. Gateway home/state files that start with the S
 database in a workspace, is copied byte for byte. Metadata records the previous and candidate runtimes,
 schema-sensitive ledger digests, each ledger table's highest row at the fence and
 snapshot integrity. Files use mode 0600 (owner execute bits are kept) and directories 0700. The snapshot runs on asynchronous file I/O and does not block other requests.
-Files are copied as copy-on-write clones where the file system supports them (APFS
-on macOS, btrfs or XFS with reflinks on Linux), otherwise as full copies. Every
-file is still flushed to disk, which costs a few milliseconds per file (measured on
-APFS: about 5 ms); a snapshot of many small files therefore remains bound by their
-number rather than their size.
+Files are copied with `COPYFILE_FICLONE`: a copy-on-write clone only where the
+platform supports it through Node (Linux btrfs or XFS reflinks); everywhere else,
+macOS included, each file is copied in full. Every file is flushed to disk, which
+costs a few milliseconds per file (measured on APFS: about 5 ms); a snapshot of
+many small files therefore remains bound by their number rather than their size.
 
 Installed dependencies are not part of the snapshot: every `node_modules` folder
 below `workspaces/`, at any depth, is left out with everything inside it and listed
 under `omittedDependencies` in the snapshot manifest. A Remotion project's
 dependencies, for example, can be several GB in hundreds of thousands of files.
-After a rollback these folders are absent from the restored workspaces; the agent
-installs the dependencies again (for example with `npm install`) before it uses the
-project. A symbolic link named `node_modules` is a link, not a folder, and is copied
+A rollback keeps the live ones: before it replaces the workspaces it moves each
+listed folder by rename into `backups/<id>/dependencies/`, and after the restore
+moves it back to the same place. A folder that cannot be moved (another file
+system, a missing parent after the restore) is deleted with the rest of the live
+tree, logged, and missing afterwards; the agent then installs the dependencies
+again (for example with `npm install`). A rollback repeated after a crash returns
+what an earlier attempt had moved aside. A symbolic link named `node_modules` is a link, not a folder, and is copied
 as one. `node_modules` folders below Gateway home and state are copied as before.
 While the snapshot runs, the update status shows its progress in bytes against the
 estimate of the free-space check ("Creating backup: 2.1 GB of 6 GB"); the estimate
