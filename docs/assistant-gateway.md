@@ -3454,13 +3454,23 @@ archived.`); the refusal comes before any run starts, and other refusals are not
   marks the chat deleted, so every route answers 404, closes its open views, forgets
   its cached messages, request texts, files, shared files, routine results, memory notes
   and queued message, and deletes its native session with `deleteTranscript: true` and
-  the `<session id>.jsonl.deleted.*` archive OpenClaw leaves in
-  `state/agents/<agent>/sessions/` (`server/features/assistants/chat-removal.js`).
-  OpenClaw keeps a compressed copy of that archive in its session database until its
-  own disk budget removes it. A Gateway that is away deletes it at its next start
+  the transcript archives OpenClaw keeps of it (`server/features/assistants/chat-removal.js`):
+  the `<session id>.jsonl.deleted.*` files in `state/agents/<agent>/sessions/`, and
+  the compressed copies in the agent's database (`session_transcript_archives` in
+  `state/agents/<agent>/agent/openclaw-agent.sqlite`, also those of an earlier reset
+  of the chat). OpenClaw 2026.10.7 removes those rows only under its disk budget or an
+  age rule and offers no call for one session, so AgentPier deletes exactly the rows of
+  the chat's session key or session id beside the running Gateway, in one short
+  write transaction with `secure_delete` (`transcript-archives.js`), and the files they
+  name. A purge that fails (database locked or unsafe) is logged with its code only and
+  retried like a missing delete. A Gateway that is away deletes it at its next start
   (`nativeDeletePending`). The session id that names the archive is recorded on the chat
-  (`nativeSessionId`) before the delete, and the mark stays until the archive is gone, so
-  a retry after a lost delete answer or a restart still removes it. Audited as `assistant.updated` with `details.kind:
+  (`nativeSessionId`) before the delete, and the mark stays until the archives are gone,
+  so a retry after a lost delete answer or a restart still removes them. Afterwards no
+  file, row or decoded archive below `assistants/` names the chat's text
+  (`tests/integration/assistant-chat-deletion-contract.test.js`); free pages of the
+  agent's database and its WAL may still hold bytes of rows OpenClaw deleted until
+  SQLite reuses them, and backups made before the deletion keep what they held. Audited as `assistant.updated` with `details.kind:
 "chat-deleted"`, never the title. The record keeps no title or last activity
   (cleared under `secure_delete`). A deleted user's chats go the same way. Whatever
   of a deleted chat a failed file removal left behind never serves to the owner. Its
