@@ -32,6 +32,7 @@ export const inboxCopy = {
     coding_start: "Coding task",
     memory_write: "Memory entry",
     member_grant: "Permission for a team member",
+    hook_proposal: "Hook proposal",
     gate: "Stage approval",
     decision: "Stage decision",
     claudeFolderTrust: "Trust workspace",

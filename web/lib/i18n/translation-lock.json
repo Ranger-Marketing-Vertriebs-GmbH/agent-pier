@@ -3224,6 +3224,7 @@
   "inbox:inboxCopy.kinds.decision": "de:dab18b74d1ec en:e1f530f4a5f2",
   "inbox:inboxCopy.kinds.exec": "de:c16965a6a06d en:8198215b51d2",
   "inbox:inboxCopy.kinds.gate": "de:74aaede11340 en:5910b0467cb3",
+  "inbox:inboxCopy.kinds.hook_proposal": "de:3f69f6e8eadd en:c015030fa651",
   "inbox:inboxCopy.kinds.member_grant": "de:9e1782db8835 en:ef11f7d02902",
   "inbox:inboxCopy.kinds.memory_write": "de:6c38375f9dd7 en:2eda9beaa01d",
   "inbox:inboxCopy.kinds.ssh": "de:bf1c0dcd551d en:a377d99a519d",

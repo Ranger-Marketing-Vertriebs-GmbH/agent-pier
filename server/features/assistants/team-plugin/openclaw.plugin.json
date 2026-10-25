@@ -30,7 +30,8 @@
       "agentpier_workspace",
       "agentpier_ssh",
       "agentpier_share_file",
-      "agentpier_goal"
+      "agentpier_goal",
+      "agentpier_hook"
     ]
   },
   "configSchema": {

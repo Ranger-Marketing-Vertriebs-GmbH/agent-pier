@@ -144,6 +144,36 @@ export const assistants = {
   hooks: {
     failed: (name) =>
       `Der Hook ${name} konnte nicht ausgeführt werden. Prüfe seine Ereignisse im Chat des Agenten.`,
+    proposalApproval: (agent, name, sender) =>
+      `Hook-Vorschlag wartet auf Freigabe: ${agent} möchte einen Hook ${name}, an den ${sender} Ereignisse sendet.`,
+    proposalName: (name, sender) => `Hook ${name} von ${sender}`,
+    proposalReason: "Begründung:",
+    proposalInstruction: "Anweisung für jedes Ereignis:",
+    proposalRights: (labels) => `Rechte: ${labels}`,
+    proposalNoRights: "Rechte: keine (nur der Ereignisbereich im Chat)",
+    proposalWarning:
+      "Jedes Ereignis weckt den Agenten unbeaufsichtigt, und sein Inhalt kann den Agenten dazu bringen, diese Rechte zu nutzen. Vor der Freigabe kannst du die Rechte in AgentPier ändern.",
+    proposalApprove: "Hook anlegen",
+    proposalSecret:
+      "Der Hook hat noch kein Geheimnis: Lege es auf der Seite des Hooks in AgentPier im Browser an. Telegram zeigt es nie.",
+    proposalStates: {
+      completed: "Hook angelegt",
+      declined: "Hook-Vorschlag abgelehnt",
+      expired: "Der Hook-Vorschlag ist abgelaufen",
+      failed:
+        "Hook nicht angelegt: Der Agent hat ein vorgeschlagenes Recht nicht mehr, oder Hooks sind für ihn aus",
+    },
+    rights: {
+      notify: "dich benachrichtigen",
+      telegram: "auch in Telegram",
+      research: "Webrecherche",
+      coding: "Coding-Aufgaben starten",
+      memory: "Gedächtnis schreiben",
+      mcp: "MCP-Server",
+      shell: (level) => `⚠ Shell (${level})`,
+      ssh: (count) => `⚠ SSH: ${count === 1 ? "1 Host" : `${count} Hosts`}`,
+      folders: (count) => `Projektordner: ${count}`,
+    },
   },
   teamResultNoText: (objective) =>
     `Team-Ergebnisse für ${objective}. Für die abgeschlossene Zusammenfassung ist kein Text verfügbar. Prüfe die Einzelberichte.`,
@@ -437,6 +467,8 @@ export const assistants = {
   invalid: "Ungültige Agenten-Eingabe.",
   hookRightExceeds:
     "Ein Hook darf nicht mehr als sein Agent: Dieses Recht hat der Agent nicht.",
+  hookOwnerOnly:
+    "Hooks können nur in einem Zug deiner eigenen Nachricht an den Agenten vorgeschlagen werden, nicht aus weitergeleiteten, geplanten oder Hook-Inhalten.",
   hookUnavailable:
     "Hooks gibt es nur für eigene Agenten und dauerhafte Teammitglieder, bei denen „Erinnerungen und Routinen erlauben“ eingeschaltet ist.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",

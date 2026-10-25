@@ -317,8 +317,8 @@ test(
     t.diagnostic(`member allow=${JSON.stringify(inherited)}`);
     for (const name of ["web_search", "web_fetch", "memory_search"])
       assert.ok(inherited.includes(name), `member ${name}`);
-    // Not granted by default; team tools, routines, memory writes and shell stay
-    // with the lead.
+    // Not granted by default; team tools, routines, hooks, memory writes and shell
+    // stay with the lead.
     for (const name of [
       "browser",
       "view_image",
@@ -326,6 +326,7 @@ test(
       "agentpier_reminder",
       "agentpier_team_propose",
       "agentpier_routine",
+      "agentpier_hook",
       "write",
       "exec",
     ])

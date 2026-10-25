@@ -30,6 +30,11 @@ import { TaskMemberGrants } from "./task-member-grants.js";
 import { workspaceCall, workspaceContext } from "./workspace-calls.js";
 import { AgentGithub } from "./agent-github.js";
 import { backfillSshCommands } from "./ssh-command-backfill.js";
+import {
+  advanceHookProposal,
+  decideHookProposal,
+  decisionKeys,
+} from "./agent-hook-proposals.js";
 const maxEventRetryMs = 300000;
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
@@ -224,7 +229,8 @@ export class AssistantWorkflows {
   }
   decideOnce(id, input, origin) {
     return this.a.admit(async () => {
-      exact(input, ["revision", "decision"]);
+      // The owner's edited rights of a hook proposal come with his decision.
+      exact(input, decisionKeys(this, id, input, origin));
       const coding = ["approve", "decline", "review"];
       if (![...coding, ...execDecisions].includes(input.decision))
         throw assistantProblem("invalid");
@@ -295,6 +301,8 @@ export class AssistantWorkflows {
         return this.project(this.ssh.sftp.approvals.decide(action, input.decision));
       if (action.payload.action === "member_grant")
         return this.project(this.a.teams.grants.decide(action, input.decision));
+      if (action.payload.action === "hook_proposal")
+        return this.project(decideHookProposal(this, action, input.decision, input));
       // Project grants do not apply to exec; the Gateway decides the request.
       if (exec) return this.project(await decideExec(this, action, input.decision));
       if (input.decision === "approve")
@@ -419,6 +427,7 @@ export class AssistantWorkflows {
     if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
     if (a.payload.action === "sftp") return this.ssh.sftp.approvals.advance(a);
     if (a.payload.action === "member_grant") return this.a.teams?.grants?.advance(a);
+    if (a.payload.action === "hook_proposal") return advanceHookProposal(this, a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
       return;
