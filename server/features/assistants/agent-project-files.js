@@ -169,7 +169,7 @@ export class AgentProjectFiles {
     if (!changing.has(input.action)) {
       const result =
         input.action === "files_list"
-          ? listFolder(root, at, options)
+          ? await listFolder(root, at, options)
           : input.action === "file_read"
             ? await readFile(root, at, {
                 ...options,

@@ -129,7 +129,7 @@ test("links may stay inside the folder but never lead out, into .git or the data
 
 test("file operations read, list, search, write and edit inside the root only", async (t) => {
   const h = host(t);
-  const listed = listFolder(h.project, undefined, h.options);
+  const listed = await listFolder(h.project, undefined, h.options);
   assert.ok(listed.entries.some((e) => e.name === "src" && e.kind === "directory"));
   const read = await readFile(h.project, "src/index.js", {
     ...h.options,
