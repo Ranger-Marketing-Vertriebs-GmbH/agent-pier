@@ -22,6 +22,7 @@ const services = {
     network: { enabled: false },
   }),
   sshAccesses: { list: () => [{ id: "a" }, { id: "b" }] },
+  secrets: { list: () => [{ id: "s" }] },
   repositories: { listCredentials: () => [{ id: "g" }] },
   users: { list: () => [{ id: "u1" }, { id: "u2" }, { id: "u3" }] },
   operations: {
@@ -50,6 +51,7 @@ test("the summary reports every row from local state", () => {
       mcp: { available: true, activeGrants: 2 },
       remote: { tailscale: true, network: false, restartRequired: null },
       ssh: { count: 2 },
+      secrets: { count: 1 },
       github: { count: 1 },
       users: { count: 3 },
     },
