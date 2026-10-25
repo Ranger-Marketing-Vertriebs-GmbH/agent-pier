@@ -66,6 +66,16 @@ export class HookStore {
       .run(JSON.stringify(next), id);
     return next;
   }
+  /** Sets bookkeeping fields without a new revision (no conflict for an open draft). */
+  flag(id, fields) {
+    const current = this.get(id);
+    if (!current) return null;
+    const next = { ...current, ...fields };
+    this.db
+      .prepare("UPDATE assistant_hooks SET body=? WHERE id=?")
+      .run(JSON.stringify(next), id);
+    return next;
+  }
   remove(id) {
     this.db.prepare("DELETE FROM assistant_hooks WHERE id=?").run(id);
   }

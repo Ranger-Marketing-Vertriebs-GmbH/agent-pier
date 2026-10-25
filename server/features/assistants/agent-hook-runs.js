@@ -6,6 +6,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { routineTimeoutSeconds } from "./native-routines.js";
 import { pairedChannel, telegramTarget } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
+import { hookReport } from "./agent-hook-reports.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 
 const prefix = "agentpier-hook:";
@@ -209,6 +210,7 @@ export class HookRuns {
       notified: { push: notify, telegram },
       completedAt: Date.now(),
     });
+    if (hook && !quiet && !event.test) this.report(hook, event, ok, text);
     if (notify)
       Promise.resolve()
         .then(() =>
@@ -224,6 +226,25 @@ export class HookRuns {
         .catch(() => {});
     await this.removeJob(event.jobId);
     this.assistants.changed({ conversationId: conversation?.id });
+  }
+  /** A permanent member's result reaches its lead (agent-hook-reports.js). */
+  report(hook, event, ok, text) {
+    try {
+      const teams = this.assistants.teams;
+      if (
+        hookReport(
+          { teams: teams?.store, assistants: this.assistants, hooks: this.hooks },
+          hook,
+          { ...event, status: ok ? "done" : "failed" },
+          text,
+        )
+      ) {
+        this.assistants.changed();
+        teams.requests?.advance().catch(() => {});
+      }
+    } catch (error) {
+      console.error("Hook report to the lead failed:", error?.message);
+    }
   }
   /** The reply, or a failure line, to the owner's paired chat; whether it was queued. */
   toTelegram(agent, event, hook, text, conversationId) {

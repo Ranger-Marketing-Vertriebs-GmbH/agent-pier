@@ -52,6 +52,8 @@ export const leadRequestCopy = {
   selfInitiated: "self-initiated",
   // Asked or delegated by one of the lead's routines; its tasks never write.
   routine: (name) => (name ? `Scheduled · ${name}` : "Scheduled"),
+  // A report of the member's hook of this name.
+  hook: (name) => `Hook ${name}`,
   showAll: "Show all",
   // An answer stored incomplete beyond the history limit.
   answerShortened: "Shortened – the whole text is in the member’s chat.",
