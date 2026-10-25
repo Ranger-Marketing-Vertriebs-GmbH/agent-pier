@@ -30,11 +30,15 @@ export const actions = new Set([
   "share_file",
   // A work goal in the owner's chat (work-goals.js); never a routine run.
   "goal",
+  // The agent's hook proposals for the owner (agent-hook-proposals.js); owner turns only.
+  "hook",
   ...memberActions,
 ]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
 export const bridgeTool = (action) =>
-  ["reminder", "routine", "workspace", "ssh", "share_file", "goal"].includes(action)
+  ["reminder", "routine", "workspace", "ssh", "share_file", "goal", "hook"].includes(
+    action,
+  )
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;
 // What a routine's own run session (no attempt) may call: SSH, shared files, project

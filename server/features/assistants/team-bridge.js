@@ -16,6 +16,7 @@ import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
+import { invokeHook } from "./agent-hook-proposals.js";
 import * as hooks from "./agent-hook-bridge.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
@@ -147,7 +148,7 @@ export class TeamBridge {
           record.action === "workspace" ||
           record.action === "share_file" ||
           memberActions.has(record.action) ||
-          (["reminder", "routine", "ssh", "goal"].includes(record.action) &&
+          (["reminder", "routine", "ssh", "goal", "hook"].includes(record.action) &&
             parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
         )) ||
@@ -470,6 +471,8 @@ export class TeamBridge {
       if (action === "share_file")
         return this.assistants.shares.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
+      if (action === "hook")
+        return invokeHook(this.assistants.routines?.hooks, invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
       if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"

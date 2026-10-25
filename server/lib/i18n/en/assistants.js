@@ -140,6 +140,36 @@ export const assistants = {
   hooks: {
     failed: (name) =>
       `The hook ${name} could not run. Check its events in the agent's chat.`,
+    proposalApproval: (agent, name, sender) =>
+      `Hook proposal awaiting approval: ${agent} wants a hook ${name} that ${sender} sends events to.`,
+    proposalName: (name, sender) => `Hook ${name} from ${sender}`,
+    proposalReason: "Reason:",
+    proposalInstruction: "Instruction for each event:",
+    proposalRights: (labels) => `Rights: ${labels}`,
+    proposalNoRights: "Rights: none (only the event area in the chat)",
+    proposalWarning:
+      "Every event wakes the agent unattended, and its content can steer the agent into using these rights. You can change the rights in AgentPier before approving.",
+    proposalApprove: "Create hook",
+    proposalSecret:
+      "The hook has no secret yet: create it on the hook's page in AgentPier in the browser. Telegram never shows it.",
+    proposalStates: {
+      completed: "Hook created",
+      declined: "Hook proposal declined",
+      expired: "The hook proposal expired",
+      failed:
+        "Hook not created: the agent no longer holds a proposed right, or hooks are off for it",
+    },
+    rights: {
+      notify: "notify you",
+      telegram: "also in Telegram",
+      research: "web research",
+      coding: "start coding tasks",
+      memory: "write memory",
+      mcp: "MCP servers",
+      shell: (level) => `⚠ shell (${level})`,
+      ssh: (count) => `⚠ SSH: ${count === 1 ? "1 host" : `${count} hosts`}`,
+      folders: (count) => `project folders: ${count}`,
+    },
   },
   teamResultNoText: (objective) =>
     `Team results for ${objective}. No text is available for the completed synthesis. Review the individual reports.`,
@@ -409,6 +439,8 @@ export const assistants = {
   invalid: "Invalid agent input.",
   hookRightExceeds:
     "A hook cannot hold more than its agent: the agent does not have this right.",
+  hookOwnerOnly:
+    "Hooks can only be proposed in a turn of your own message to the agent, not from forwarded, scheduled or hook content.",
   hookUnavailable:
     "Hooks are only available for your own agents and permanent team members with “Allow reminders and routines” switched on.",
   notFound: "Agent or conversation not found.",

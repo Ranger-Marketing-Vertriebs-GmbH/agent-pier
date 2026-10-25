@@ -95,6 +95,7 @@ export const lockedTools = [
   ...shellTools,
   "agentpier_ssh",
   "agentpier_goal",
+  "agentpier_hook",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -248,7 +249,12 @@ export function profileTools(
       ? memoryTools.filter((tool) => writeGuard || !guardedTools.includes(tool))
       : []),
     ...(nativeReady && capabilities.reminders
-      ? ["agentpier_reminder", ...(member ? [] : ["agentpier_routine"])]
+      ? [
+          "agentpier_reminder",
+          ...(member ? [] : ["agentpier_routine"]),
+          // Hook proposals: own agents and permanent members (agent-hook-proposals.js).
+          ...(goalAgent(assistant) ? ["agentpier_hook"] : []),
+        ]
       : []),
     // Temporary members use it only to request coding runs on the parent's grant.
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),

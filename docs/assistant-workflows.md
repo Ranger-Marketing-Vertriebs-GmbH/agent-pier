@@ -533,6 +533,24 @@ stay out.
 | **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                           |
 | **MCP**                   | The agent's MCP tools.                                                                                                                                                                                                                                                                 |
 
+**Proposals.** The agent can propose a hook itself with `agentpier_hook`
+(`agent-hook-proposals.js`, own agents and permanent members with **Allow reminders and
+routines** on), actions `propose` and `list`, but only in a turn of the owner's own
+message: forwarded, scheduled, routine, hook, member-result and continuation turns
+answer `HOOK_OWNER_ONLY`. `propose` names the hook, its sender, a reason, an optional
+instruction, the rights and the hourly limit; rights above what the agent holds answer
+`HOOK_RIGHT_EXCEEDS`. The proposal is a `hook_proposal` approval action: a card in the
+chat, the owner's paired Telegram chat (hook, sender, reason, instruction and the
+ticked rights, with **Create hook** and **Decline**) and the Inbox **Agents** tab. The
+owner may change the rights in the browser before approving; Telegram approves the
+proposed rights as they are. Approving checks the rights against the agent's live
+rights again: a right it lost, or hooks switched off, fail the proposal
+(`RIGHTS_CHANGED`) and nothing is created. An approved proposal creates the hook as the
+agent's (`createdBy: "assistant"`, audited with `actor: "assistant"`) without a secret,
+so the endpoint answers `401` until the owner creates the secret on the hook's page in
+the browser. Neither the agent nor Telegram ever sees a secret; `list` gives the agent
+its hooks with the rights they hold now and their addresses.
+
 ## Operations and qualification boundaries
 
 See [managed runtime updates](assistant-runtime-updates.md) for staging, activation,

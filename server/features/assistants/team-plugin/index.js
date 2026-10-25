@@ -35,7 +35,15 @@ export const toolTimeouts = {
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;
 // AgentPier's own tools; the team tools carry the agentpier_team_ prefix.
-const ownTools = ["reminder", "routine", "workspace", "ssh", "share_file", "goal"];
+const ownTools = [
+  "reminder",
+  "routine",
+  "workspace",
+  "ssh",
+  "share_file",
+  "goal",
+  "hook",
+];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
 const owner = {
