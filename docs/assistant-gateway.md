@@ -3496,6 +3496,8 @@ archived.`); the refusal comes before any run starts, and other refusals are not
   (cleared under `secure_delete`). A deleted user's chats go the same way. Whatever
   of a deleted chat a failed file removal left behind never serves to the owner. Its
   approvals stay its person's (`approval-audience.js`) and never list for the owner.
+  Once the session and its archives are gone, dreaming's copies of the chat are
+  forgotten with `openclaw memory forget` ([Dreaming](#dreaming)).
 - Archive and delete answer 409 `CHAT_BUSY` while a turn runs, a message waits or an
   approval waits in the chat, while an action still owes it a follow-up turn (an
   allowed SSH command whose call already returned, a team member's coding run, an
@@ -3924,7 +3926,13 @@ setting and clears what was pending.
 - **Output.** Dream notes land in `memory/dreaming/{light,rem,deep}/YYYY-MM-DD.md` and
   show in the memory view like any other note. The Dream diary (`DREAMS.md` in the
   workspace root) shows first in the owner's and the users' memory view, read-only.
-  The deep phase may rewrite `MEMORY.md`. The raw corpus `memory/.dreams/` (session
+  On a user's own agent the owner reaches them only under her **Owner may read chats**:
+  without it the owner-content guard (`owner-content-guard.js`, `agentContent` in
+  `owner-privacy.js`) answers 404 on every owner memory route of that agent (`GET`
+  `/memory`, `/memory?name=…`, `/memory/files`, `/memory/search`), dream notes and
+  diary included, while her `/api/me/agents/:id/memory` lists them; with it he reads
+  them in full, older entries included, so light-sleep notes may quote her chats from
+  before the opt-in (`tests/blackbox/owner-privacy-dreaming.test.js`). The deep phase may rewrite `MEMORY.md`. The raw corpus `memory/.dreams/` (session
   corpus, seen hashes, short-term entries) is never listed, read or returned by memory
   search, and the team plugin's `dreams-guard.js` refuses it to the agent's `read`,
   `memory_get`, `write`, `edit` and `apply_patch`, also through `file://` and
@@ -3951,8 +3959,12 @@ setting and clears what was pending.
   queue. A forget that
   fails (for example a 10 s wait for memory-core's workspace lock during a sweep), or
   that is lost because AgentPier stops before it runs, is logged without content and
-  not retried: that chat's corpus lines stay. OpenClaw also keeps an archived
-  transcript copy (`session_transcript_archives`); that is AGENTPIER-220.
+  not retried: that chat's corpus lines stay. The forget runs after the deletion has
+  purged OpenClaw's transcript archive (the `<session id>.jsonl.deleted.*` files and
+  the `session_transcript_archives` rows, `transcript-archives.js`, see Delete under
+  [Several chats per agent](#several-chats-per-agent)); a purge that fails is retried at the next Gateway
+  start, and the forget runs once it succeeds. A chat whose native session id
+  AgentPier never learned is purged by its session key but gets no forget.
 - **Resolved data directory.** On 2026.10.7 the sweep fails every workspace ("Canonical
   session reader continuation is no longer current") and writes no corpus or notes
   when the state directory's path runs through a symbolic link. The data directory

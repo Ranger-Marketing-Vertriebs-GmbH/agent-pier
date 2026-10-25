@@ -84,7 +84,9 @@ An agent for users is either:
   own with a shared agent (**Open my chat**).
 
 A user's memory view (own and shared agents) shows dreaming's notes like other notes
-and the **Dream diary** read-only; she cannot delete it.
+and the **Dream diary** read-only; she cannot delete it. On her own agent the owner
+sees neither, nor any other memory note, unless she switched on **Owner may read
+chats** ([Privacy](#privacy)).
 
 When the owner makes a shared agent one user's own agent, the files sent in
 everyone else's chats with it are deleted (their messages show them as unavailable),
@@ -142,7 +144,10 @@ every chat says so while it is on.
   when it arrives later: the reply, files the agent shares for it and images it
   generates. Switching it off and on again starts a new period.
 - Her own agent's memory, files and browser become readable in full, older entries
-  included, as long as it is on.
+  included, as long as it is on. That includes dreaming's notes and the **Dream
+  diary**, which can quote what she wrote in her chats, also before the switch was
+  turned on ([Dreaming](agents.md#dreaming)). Switched off, the owner's memory view,
+  reads and memory search of her own agent answer as if it had none.
 - What the owner may read he only reads: no composer, no chat actions.
 - The live steps of a running turn ([What the agent is doing](agents.md#what-the-agent-is-doing))
   follow the same rule: she sees them in her app for all her chats, he only for a turn
