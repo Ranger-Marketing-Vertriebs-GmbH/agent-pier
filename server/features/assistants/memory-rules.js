@@ -1,15 +1,17 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { dreamingCovered } from "./dreaming-service.js";
-import { webCapabilityKeys } from "./native-capabilities.js";
+import { memoryEnabled, webCapabilityKeys } from "./native-capabilities.js";
 import { lacksMemory } from "./proactivity-changes.js";
 
 /**
  * Why a save may not leave the agent without memory, as a message key, or null. While
- * dreaming is on every permanent agent keeps its memory (dreaming-service.js); check-ins
+ * dreaming is on every permanent agent keeps its memory (dreaming-service.js); one whose
+ * memory is still off (restored from the archive) may save other changes. Check-ins
  * need it as well (proactivity-changes.js).
  */
 export function memoryRequirement(current, patch, { dreaming }) {
-  if (dreaming && dreamingCovered(current) && patch.capabilities?.memory === false)
+  const off = patch.capabilities?.memory === false;
+  if (dreaming && dreamingCovered(current) && memoryEnabled(current) && off)
     return "dreamingMemoryRequired";
   return lacksMemory(current, patch) ? "heartbeatMemoryRequired" : null;
 }

@@ -346,6 +346,12 @@ test(
       30000,
       "the job at the new hour",
     );
+    // What DreamingService.converge compares with: the section exactly as patched.
+    const live = (await client.call("config.get", {})).config;
+    assert.deepEqual(
+      live.plugins.entries["memory-core"].config.dreaming,
+      dreamingSection(next),
+    );
     const done = await f.wait(runId);
     assert.equal(done.status, "ok", JSON.stringify(done));
     assert.equal(f.runtime.child, child, "the Gateway process was not replaced");

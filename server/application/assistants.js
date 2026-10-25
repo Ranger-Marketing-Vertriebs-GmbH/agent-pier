@@ -142,9 +142,6 @@ export function createAssistantFeature(services) {
       assistantPdfModel?.close();
     } catch {}
     assistantDreaming?.backups.stop();
-    try {
-      assistantDreamingSettings?.close();
-    } catch {}
     assistantMcpOAuth?.close();
     // The core store stays open for the central list; only a private one is closed.
     try {
@@ -152,6 +149,9 @@ export function createAssistantFeature(services) {
     } catch {}
     // No forget CLI outlives the switch-off (chat-removal.js).
     await assistants?.dreamingForgets;
+    try {
+      assistantDreamingSettings?.close();
+    } catch {}
     await assistants?.close().catch(() => {});
   };
   const create = () => {

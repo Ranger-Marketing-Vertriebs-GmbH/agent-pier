@@ -205,7 +205,8 @@ told it was not saved.
 dreaming on for all agents at once: **Dream at night**, the hour (default 03:00) and
 the time zone, which follows this device when you switch on (**Use my time zone**
 adopts it again later). The change applies at once, without restarting the agent
-service. Once a night each agent reviews its own conversations with its own model,
+service; if the agent service is starting or does not take it, it applies within a
+minute once it is ready. Once a night each agent reviews its own conversations with its own model,
 writes dream notes into its memory and may tidy `MEMORY.md`. Every agent dreams,
 temporary team members and agents with **Remember information** off included, but
 each only over its own chats and into its own memory. A shared agent dreams over all
@@ -217,6 +218,8 @@ word for word. A busy agent still dreams that night.
   them are working right now, dreaming stays off and the settings name them; save
   again when they are done. While dreaming is on, **Remember information** stays on
   for every permanent agent: the switch is locked and says where to turn dreaming off.
+  An agent restored from the archive with memory off can still save other settings;
+  once you switch its memory on, it stays on.
 - **Where it shows:** the notes appear under **Memory** like other notes
   (`memory/dreaming/light/`, `rem/` and `deep/`, one file per night), and the
   **Dream diary** (`DREAMS.md`) shows first, read-only, also in a user's memory view.
@@ -402,7 +405,8 @@ routines; they only ask each other and report to their lead
 
 Every temporary member has its own memory that it can write, always on. The lead's
 memory grant adds a read-only copy of the lead's memory beside it (in the member's
-`memory/lead/` folder); the member can search both but never writes the lead's. You
+`memory/lead/` folder), without the lead's dream notes (`memory/dreaming/`); the
+member can search both but never writes the lead's. You
 can read a member's own memory under **Capabilities → Own memory** in its settings.
 When a member is kept as a permanent agent, its own memory stays and the copy of the
 lead's is removed.

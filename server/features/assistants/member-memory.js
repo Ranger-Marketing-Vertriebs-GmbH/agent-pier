@@ -58,6 +58,8 @@ async function listNotes(root) {
     for (const entry of entries) {
       if (names.length >= maxNotes + rootNotes.length) return;
       const name = `${dir}/${entry.name}`;
+      // Dream notes would crowd out hand-written ones; their gist reaches MEMORY.md.
+      if (name === "memory/dreaming") continue;
       if (entry.isDirectory() && depth < 3) await walk(name, depth + 1);
       else if (entry.isFile() && noteName.test(name)) names.push(name);
     }

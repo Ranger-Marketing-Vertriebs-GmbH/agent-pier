@@ -7,6 +7,7 @@ import {
   DREAMING_MEMORY_CONFIRMATION_REQUIRED,
   DreamingService,
 } from "../../server/features/assistants/dreaming-service.js";
+import { DreamingBackups } from "../../server/features/assistants/dreaming-backups.js";
 import { shellService } from "../helpers/assistant-shell-service.js";
 
 const night = { enabled: true, hour: 3, timeZone: "Europe/Berlin" };
@@ -209,4 +210,96 @@ test("a stale revision or invalid input is refused before memory is raised", asy
     status: 400,
   });
   assert.equal(f.store.getAssistant(f.b.id).capabilities?.memory ?? false, false);
+});
+
+// The one-minute backup tick, wired as in assistant-graph.js.
+function ticking(f) {
+  f.service.dreaming = f.dreaming;
+  return new DreamingBackups(f.dreaming);
+}
+const gatewayDreaming = (f) =>
+  f.client.effective().plugins?.entries?.["memory-core"]?.config?.dreaming;
+
+test("a save while the Gateway is not ready reaches it at the next tick", async (t) => {
+  const f = dreaming(t);
+  const backups = ticking(f);
+  f.client.ready = false;
+  const saved = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  assert.equal(saved.pending, true);
+  await backups.run();
+  assert.deepEqual(dreamingPatches(f), [], "not while the Gateway is not ready");
+  f.client.ready = true;
+  await backups.run();
+  assert.equal(dreamingPatches(f).length, 1);
+  assert.deepEqual(gatewayDreaming(f), {
+    enabled: true,
+    frequency: "0 3 * * *",
+    timezone: "Europe/Berlin",
+    storage: { mode: "separate" },
+  });
+  assert.equal(f.dreaming.pending, false);
+  await backups.run();
+  assert.equal(dreamingPatches(f).length, 1, "applied once");
+});
+
+test("a switch-off the Gateway refused is applied at the next tick", async (t) => {
+  const f = dreaming(t);
+  const backups = ticking(f);
+  const on = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  f.client.answers["config.patch"] = Object.assign(new Error("refused"), {
+    code: "UNAVAILABLE",
+  });
+  const off = await f.dreaming.save({ ...night, enabled: false }, on.revision);
+  assert.equal(off.pending, true);
+  assert.equal(gatewayDreaming(f).enabled, true, "the Gateway still dreams");
+  await backups.run();
+  assert.equal(f.dreaming.pending, true, "still refused: kept for the next tick");
+  delete f.client.answers["config.patch"];
+  await backups.run();
+  // The double merges; OpenClaw replaces the path (replacePaths).
+  assert.equal(gatewayDreaming(f).enabled, false);
+  const last = dreamingPatches(f).at(-1);
+  assert.deepEqual(last.patch.plugins.entries["memory-core"].config.dreaming, {
+    enabled: false,
+  });
+  assert.deepEqual(last.replacePaths, ["plugins.entries.memory-core.config.dreaming"]);
+  assert.equal(f.dreaming.pending, false);
+  assert.equal(f.warnings.length, 1, "the tick retries without logging again");
+});
+
+test("a pending change the Gateway already holds is not patched again", async (t) => {
+  const f = dreaming(t);
+  const backups = ticking(f);
+  const on = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  f.client.ready = false;
+  await f.dreaming.save({ ...night, hour: 5 }, on.revision);
+  // A Gateway start compiles the saved setting: nothing is left pending.
+  assert.deepEqual(f.dreaming.compiled(), { ...night, hour: 5 });
+  assert.equal(f.dreaming.pending, false);
+  f.client.ready = true;
+  await backups.run();
+  assert.equal(dreamingPatches(f).length, 1, "only the switch-on was patched");
+});
+
+test("the raise sends known boolean capabilities only", async (t) => {
+  const f = dreaming(t);
+  const b = f.store.getAssistant(f.b.id);
+  const body = {
+    ...b,
+    capabilities: { memory: false, reminders: false, documents: "yes", legacy: true },
+    revision: b.revision + 1,
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=?,revision=? WHERE id=?")
+    .run(JSON.stringify(body), body.revision, b.id);
+  const sent = [];
+  const update = f.service.update.bind(f.service);
+  f.service.update = (id, patch, ...rest) => {
+    sent.push(patch.capabilities);
+    return update(id, patch, ...rest);
+  };
+  const saved = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  assert.equal(saved.enabled, true);
+  assert.deepEqual(sent, [{ memory: true, reminders: false }]);
+  assert.equal(hasMemory(f, f.b), true);
 });

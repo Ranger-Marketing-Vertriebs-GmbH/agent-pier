@@ -150,6 +150,8 @@ export class AssistantMaintenance {
     if (paths) ledgerFence(paths.root).open();
     this.s.assistants.maintenance = false;
     this.s.assistantChannels.resume();
+    // Not started when AgentPier booted into maintenance (startAssistantServices).
+    this.s.assistantDreaming?.backups.start();
     // The Gateway restarted from a fresh compile while readiness was absorbed here:
     // nothing an earlier apply recorded (skill lists included) describes it now.
     this.s.assistants.config?.reset?.();

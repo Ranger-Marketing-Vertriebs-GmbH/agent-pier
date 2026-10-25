@@ -138,3 +138,29 @@ test("users' agents remember by default", async (t) => {
     refusedForDreaming,
   );
 });
+
+test("an agent whose memory is still off may save other changes while dreaming is on", async (t) => {
+  const f = lock(t);
+  const off = f.store.updateAssistant(f.a.id, memoryOff, f.a.revision);
+  f.switchState.on = true;
+  // An unrelated change states memory as it is (off): not a switch-off.
+  const patch = { capabilities: { memory: false, reminders: true } };
+  assert.equal(memoryRequirement(off, patch, { dreaming: true }), null);
+  const saved = await f.service.update(f.a.id, patch, off.revision);
+  assert.equal(saved.capabilities.reminders, true);
+  assert.equal(saved.capabilities.memory, false);
+  // Turning memory on still works, and from then on it stays on.
+  const on = await f.service.update(
+    f.a.id,
+    { capabilities: { memory: true, reminders: true } },
+    saved.revision,
+  );
+  await assert.rejects(
+    f.service.update(
+      f.a.id,
+      { capabilities: { memory: false, reminders: true } },
+      on.revision,
+    ),
+    refusedForDreaming,
+  );
+});

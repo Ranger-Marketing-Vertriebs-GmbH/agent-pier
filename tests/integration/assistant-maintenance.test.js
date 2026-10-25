@@ -26,11 +26,14 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
     resets = 0;
   f.assistants.gatewayEvents = { ready: () => resyncs++ };
   f.assistants.config = { reset: () => resets++ };
+  let backupStarts = 0;
   const s = {
     ...f.services,
     assistantRuntime: f.assistants.runtime,
     assistantTeams: { store: { members: () => [], list: () => [] }, scheduler: {} },
     assistantReminders: { hasRunning: async () => false, webhook: { jobs: new Set() } },
+    // Not started when AgentPier booted into maintenance (startAssistantServices).
+    assistantDreaming: { backups: { start: () => backupStarts++ } },
   };
   const m = new AssistantMaintenance(s);
   await m.enter();
@@ -48,6 +51,7 @@ test("maintenance joins workers, blocks admissions, reports unresolved effects a
   assert.equal(resyncs, 1, "leaving maintenance resyncs Gateway events");
   // The restarted Gateway ran a fresh compile: recorded applies (skills) are stale.
   assert.equal(resets, 1);
+  assert.equal(backupStarts, 1, "leaving maintenance starts the dreaming backups");
 });
 
 function cronFixture(t) {

@@ -105,9 +105,10 @@ function inWindow(now, hour, timeZone) {
 }
 
 /**
- * A one-minute tick: while dreaming is on and the night's run is at most five minutes
- * away, it backs up MEMORY.md of every agent compiled into the runtime (all of them
- * dream) that has no copy from the last six hours. Each tick also removes the copies
+ * A one-minute tick. It first applies a dreaming change the running Gateway has not
+ * taken yet (DreamingService.converge). While dreaming is on and the night's run is at
+ * most five minutes away, it backs up MEMORY.md of every agent compiled into the
+ * runtime (all of them dream) that has no copy from the last six hours. Each tick also removes the copies
  * of agents whose workspace is gone (a deleted agent, an ended temporary member).
  */
 export class DreamingBackups {
@@ -126,7 +127,11 @@ export class DreamingBackups {
   // Under the admission gate: never while a restore or update replaces workspaces.
   // The time is read once admitted, so a tick that waited never acts on a stale one.
   async run(now) {
-    return this.assistants.admit(() => this.tick(now ?? this.clock()));
+    return this.assistants.admit(async () => {
+      // Retried each minute; the save already logged why it did not apply.
+      await this.assistants.dreaming?.converge().catch(() => {});
+      return this.tick(now ?? this.clock());
+    });
   }
   tick(now) {
     const paths = this.assistants.runtime?.paths;
