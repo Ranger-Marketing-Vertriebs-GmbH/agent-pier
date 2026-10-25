@@ -51,7 +51,9 @@ histories and private content, always encrypted (see "Sealed history"):
 - The agents' private content below `assistants/`: workspaces with the owner's
   chat attachments (`workspaces/<agent>/attachments/`, up to 1 GB per agent; the
   agent's Profile > Chat attachments > **Clear attachments** empties the folder),
-  files agents shared with you (`shares/<agent>/`), OpenClaw's transcripts and
+  the copies of each agent's `MEMORY.md` taken before dreaming
+  (`memory-backups/<runtime agent>/`, the last 7 per agent), files agents shared
+  with you (`shares/<agent>/`), OpenClaw's transcripts and
   session index (`state/agents/<agent>/sessions/`), its media (`state/media/`),
   its memory index (`state/memory/`), every other file below `state/` outside the
   allowlist above (such as `config-journal-fingerprint.key` and `migration/`), and
@@ -72,7 +74,8 @@ either copy travel only in the sealed sidecar, exactly as without this split.
   conversations, requests and attempts, cached messages, attachment and share
   indexes, queued messages, routine results and events, memory notes, hidden
   long-chat hints, action history, team records other than policy and settings, and Telegram inbox, outbox
-  and unknown senders. `web-search.sqlite` and `pdf-model.sqlite` hold only configuration.
+  and unknown senders. `web-search.sqlite`, `pdf-model.sqlite` and `dreaming.sqlite`
+  (the dreaming switch, hour and time zone) hold only configuration.
 - OpenClaw's databases below `state/` (the global `state/state/openclaw.sqlite`,
   each agent's `agents/<agent>/agent/openclaw-agent.sqlite` and any other) keep the
   rows of an allowlist only: `agent_databases`, `agent_provenance`,

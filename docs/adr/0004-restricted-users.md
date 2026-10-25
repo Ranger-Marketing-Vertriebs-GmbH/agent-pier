@@ -66,6 +66,12 @@ for every existing and future route, WebSocket and event stream. User guide:
 - A shared agent's memory is one: what one user tells it may surface in another user's
   chat. The shared notice says so, and the pre-compaction flush is refused on shared
   agents so a private chat's summary never lands in shared memory.
+  _Amended 2026-10-25 (AGENTPIER-215):_ the pre-compaction flush and the memory step
+  before **Summarise now** now write a shared agent's memory like a saved write, with
+  a "shared-write" note in the writing chat only, and OpenClaw dreaming, when the
+  owner switches it on, dreams over all its chats into that memory and may quote them
+  word for word. The shared notice says that chat content, also word for word, can be
+  carried into the shared memory that all its users and the owner read.
 - Agents for users still read the web, MCP output and project folders the owner
   released, so prompt injection can reach what those grant. Apart from local (stdio)
   MCP servers the owner binds to them after confirmation, which run on the host as the

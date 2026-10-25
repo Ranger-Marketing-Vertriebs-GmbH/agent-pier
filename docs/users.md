@@ -73,9 +73,18 @@ An agent for users is either:
   never restarts it.
 - a **shared agent** (Geteilter Agent): it serves several users. Each user has her own
   private chats with it, but its memory, profile (`USER.md`) and browser are shared
-  with everyone who uses it, and its chat says so. Files sent in a chat stay with
-  that chat: a turn in another person's chat cannot read or share them. The owner
-  keeps a chat of his own with a shared agent (**Open my chat**).
+  with everyone who uses it, and its chat says so: what is written in her chat, also
+  word for word, can be carried into the shared memory that all its users and the
+  owner read. The shared memory takes notes from every chat (the agent's own notes,
+  the last notes before a long chat is shortened, the memory step before **Summarise
+  now**) and, when the owner switches dreaming on, from the agent's nightly dreaming
+  over all its chats, whose notes can quote chat lines word for word
+  ([Dreaming](agents.md#dreaming)). Files sent in a chat stay with that chat: a turn
+  in another person's chat cannot read or share them. The owner keeps a chat of his
+  own with a shared agent (**Open my chat**).
+
+A user's memory view (own and shared agents) shows dreaming's notes like other notes
+and the **Dream diary** read-only; she cannot delete it.
 
 When the owner makes a shared agent one user's own agent, the files sent in
 everyone else's chats with it are deleted (their messages show them as unavailable),

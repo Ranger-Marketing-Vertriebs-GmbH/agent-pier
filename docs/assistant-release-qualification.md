@@ -539,9 +539,13 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
 - **Contract helpers.** The multi-chat contract finds the session maintenance
   functions by their export clause (2026.10.7 moved them to another chunk); the
   shell environment contract expects `Library/Caches/openclaw-<uid>` on 2026.10.7;
-  the work-goals contract recognises the event turn. The dreaming contract creates
-  its data directory under the resolved temporary directory (see the known upstream
-  behaviour below), and `GuardedRuntimeSupervisor` waits for the Gateway's OpenClaw
+  the work-goals contract recognises the event turn. The dreaming contracts
+  (`assistant-dreaming-contract.test.js`, `assistant-dreaming-scope-contract.test.js`)
+  create their data directory under the resolved temporary directory (see the known
+  upstream behaviour below) and now pin the shipped dreaming switch on 2026.10.7: each
+  agent's own chats into its own memory, temporary members and shared agents swept, a
+  forgotten chat kept out, a live hour change and a sweep during a running turn
+  ([memory qualification](assistant-memory-qualification.md#dreaming)), and `GuardedRuntimeSupervisor` waits for the Gateway's OpenClaw
   worker processes (not its exec commands) after a stop: OpenClaw's SQLite read children
   (`sqlite-readonly-location.worker.js`, also in 2026.10.3) exit only after the
   Gateway, once they see the IPC disconnect, and write Node's compile cache into
@@ -595,8 +599,10 @@ is unchanged since 2026.10.3. When the state directory's path runs through a
 symbolic link (on macOS `os.tmpdir()` is `/var/folders/…`, a link to
 `/private/var/folders/…`), 2026.10.7's dreaming sweep fails every workspace with
 "Canonical session reader continuation is no longer current" and writes no session
-corpus; 2026.10.3 passed the same contract there. Dreaming stays off in AgentPier,
-and no other native contract showed this error on the macOS runners.
+corpus; 2026.10.3 passed the same contract there. AgentPier's data directory must
+therefore not sit behind a symbolic link for dreaming to write anything
+([Dreaming](assistant-gateway.md#dreaming)); the scope contract pins this case, and
+no other native contract showed this error on the macOS runners.
 
 ### Native architectures (2026-10-19)
 

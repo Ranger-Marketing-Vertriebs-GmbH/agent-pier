@@ -69,11 +69,24 @@ cross-version migration, and other operating systems remain outside this contrac
 
 ## Dreaming
 
-`tests/integration/assistant-dreaming-contract.test.js` (variable
-`AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME`) covers automatic consolidation on the
-compiled native configuration. The compiled default schedules no dreaming sweep.
-Enabling dreaming through its documented setting schedules memory-core's sweep; a
-forced run ingests AgentPier conversations, including those of an agent without
-memory. This is the evidence for not offering a dreaming switch (see the
-[gateway guide](assistant-gateway.md#dreaming-is-not-offered)). Cross-conversation
-recall (transcript indexing) is not offered and has no contract here.
+Two contracts (variable `AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME`) pin memory-core's
+dreaming on OpenClaw 2026.10.7 with the compiled native configuration and the
+owner's switch on (see the [gateway guide](assistant-gateway.md#dreaming)):
+
+- `tests/integration/assistant-dreaming-contract.test.js`: the compiled default
+  schedules no sweep; switched on, a forced sweep takes each agent's own chats into
+  its own `memory/.dreams/` corpus and dream notes only; a run rewrites its ingestion
+  state wholesale, and a deleted chat, or one removed with `openclaw memory forget`,
+  stays out of later runs; an hour change applies live during a running turn without
+  a Gateway restart.
+- `tests/integration/assistant-dreaming-scope-contract.test.js`: no per-agent lever
+  keeps a temporary member out of the sweep; a shared agent dreams over every chat
+  while `memory_search` returns no raw corpus; a sweep during a running turn neither
+  blocks it nor opens agent sessions; the managed schedule fires without `cron.run`
+  under the hardened heartbeat; under a symlinked data directory the sweep writes no
+  corpus (macOS only).
+
+Not covered: the archived transcript copy OpenClaw keeps after a deletion
+(`session_transcript_archives`, AGENTPIER-220), and a `memory forget` that fails.
+Cross-conversation recall (transcript indexing) is not offered and has no contract
+here.
