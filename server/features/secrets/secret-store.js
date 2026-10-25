@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { privateDatabase } from "../../lib/private-database.js";
-import { problem } from "../../lib/storage.js";
+import { problem, readJSON } from "../../lib/storage.js";
 import { auditActor } from "../audit/audit-actor.js";
 
 const schema = `
@@ -14,6 +15,10 @@ const namePattern = /^[A-Z_][A-Z0-9_]{0,63}$/;
 export const MAX_SECRETS = 200;
 const MAX_DESCRIPTION = 200;
 const MAX_VALUE_BYTES = 8192;
+
+/** Secrets a restore left for the first start to add (secret-backup.js). */
+export const secretsRestoreFile = "secrets-restore.json";
+const identifier = /^[0-9a-f-]{36}$/;
 
 const fail = (message, status, code) => Object.assign(problem(message, status), { code });
 const invalid = (message) => fail(message, 400, "SECRET_INVALID");
@@ -46,6 +51,25 @@ function cleanValue(value) {
   return value;
 }
 
+/**
+ * A secret row of a sealed backup as `{ id, name, description, projectId, value }`;
+ * throws on anything the store would refuse.
+ */
+export function restoredSecret(row) {
+  if (!row || typeof row !== "object" || typeof row.id !== "string")
+    throw invalid(serverMessages.secrets.invalidValue);
+  if (!identifier.test(row.id)) throw invalid(serverMessages.secrets.invalidValue);
+  if (row.projectId !== null && typeof row.projectId !== "string")
+    throw invalid(serverMessages.secrets.invalidProject);
+  return {
+    id: row.id,
+    name: cleanName(row.name),
+    description: cleanDescription(row.description),
+    projectId: cleanProject(row.projectId),
+    value: cleanValue(row.value),
+  };
+}
+
 /** Secrets the owner delivers to agents and sessions; values leave only via `entries()`. */
 export class SecretStore {
   constructor({ dataDir, audit, clock = Date.now } = {}) {
@@ -54,6 +78,46 @@ export class SecretStore {
     this.listeners = new Set();
     this.db = privateDatabase(path.join(dataDir, "secrets"), "secrets.sqlite");
     this.db.exec(schema);
+    this.restoreFile = path.join(dataDir, "secrets", secretsRestoreFile);
+    this.importRestored();
+  }
+  close() {
+    this.db.close();
+  }
+  /**
+   * Adds the secrets a restore left behind with their ids; a secret whose id or name
+   * is already taken is skipped, so an interrupted import can run again.
+   */
+  importRestored() {
+    if (!fs.existsSync(this.restoreFile)) return;
+    let rows = [];
+    try {
+      rows = readJSON(this.restoreFile, null)?.secrets;
+    } catch {
+      rows = [];
+    }
+    const insert = this.db.prepare(
+      "INSERT OR IGNORE INTO secrets(id,name,description,project_id,value,updated_at) VALUES(?,?,?,?,?,?)",
+    );
+    const count = this.db.prepare("SELECT COUNT(*) AS n FROM secrets");
+    for (const entry of Array.isArray(rows) ? rows : []) {
+      let row;
+      try {
+        row = restoredSecret(entry);
+      } catch {
+        continue;
+      }
+      if (this.nameTaken(row.name) || count.get().n >= MAX_SECRETS) continue;
+      insert.run(
+        row.id,
+        row.name,
+        row.description,
+        row.projectId,
+        row.value,
+        this.clock(),
+      );
+    }
+    fs.rmSync(this.restoreFile, { force: true });
   }
   /** Calls `listener()` after every change; returns the unsubscribe function. */
   onChange(listener) {
