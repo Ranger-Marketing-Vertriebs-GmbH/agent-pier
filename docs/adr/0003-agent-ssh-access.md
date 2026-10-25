@@ -72,3 +72,17 @@ and needs an explicit choice:
   steered into granting or using SSH on the lead's `trusted` hosts. The ceiling, the
   owner's approval for later grants and the visible grant notes limit this; the
   residual risk above applies to members as well.
+
+## Amendment 2026-10-25: interactive shell hosts
+
+Some network devices close a connection that asks for a remote command and offer only
+an interactive console (AGENTPIER-236). An owner-only, per-host switch **Interactive
+shell (network devices)** makes `agentpier_ssh` `execute` (and `ssh_execute`) type the
+command into that console line by line after each prompt over `ssh -tt`, answer pager
+prompts and log out. Nothing else about agent SSH changes: the modes, approval cards
+(the approved text is exactly what is typed), the digest-only audit and the stored
+command are the same. The result has `interactive: true` and `exitCode: null`, since a
+console reports no exit status; the audit row records `interactive: true`. Prompt
+detection is a heuristic (see docs/ssh-access.md), so an agent judges success from the
+output. The switch is part of the host's connection revision, so changing it cancels
+pending approvals for that host.

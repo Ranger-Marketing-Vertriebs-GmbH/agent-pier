@@ -29,8 +29,10 @@ export default function SshAccessForm({
     password: "",
     remoteRoot: access?.remoteRoot || "",
     legacyAlgorithms: access?.legacyAlgorithms === true,
+    interactiveShell: access?.interactiveShell === true,
   });
-  const legacyHint = useId();
+  const legacyHint = useId(),
+    interactiveHint = useId();
   const sftp = draft.type === "sftp",
     usesKey = !sftp || draft.auth === "key",
     hasPassword = Boolean(access?.hasPassword) && draft.auth === "password";
@@ -104,10 +106,18 @@ export default function SshAccessForm({
         onSubmit={(event) => {
           event.preventDefault();
           if (!ready || busy) return;
-          const { type, auth, password, remoteRoot, keyId, legacyAlgorithms, ...base } =
-            draft;
+          const {
+            type,
+            auth,
+            password,
+            remoteRoot,
+            keyId,
+            legacyAlgorithms,
+            interactiveShell,
+            ...base
+          } = draft;
           const body = !sftp
-            ? { ...base, keyId, legacyAlgorithms }
+            ? { ...base, keyId, legacyAlgorithms, interactiveShell }
             : {
                 ...base,
                 auth,
@@ -202,6 +212,17 @@ export default function SshAccessForm({
                 />
                 <small id={legacyHint} className="ssh-legacy-warning">
                   {copy.legacyAlgorithmsHint}
+                </small>
+              </div>
+              <div className="ssh-field">
+                <Switch
+                  label={copy.interactiveShell}
+                  checked={draft.interactiveShell}
+                  onChange={(value) => change("interactiveShell", value)}
+                  aria-describedby={interactiveHint}
+                />
+                <small id={interactiveHint} className="ssh-action-hint">
+                  {copy.interactiveShellHint}
                 </small>
               </div>
             </>

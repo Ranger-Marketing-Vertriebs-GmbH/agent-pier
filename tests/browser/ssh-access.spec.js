@@ -211,8 +211,10 @@ test("legacy algorithms are an owner switch with a SHA-1 warning, saved per host
   const details = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: "Build server", exact: true }),
   });
-  await expect(details.getByText("Legacy algorithms (ssh-rsa)")).toBeVisible();
-  await expect(details.getByText("Off", { exact: true })).toBeVisible();
+  const legacy = details
+    .getByText("Legacy algorithms (ssh-rsa)", { exact: true })
+    .locator("xpath=following-sibling::dd[1]");
+  await expect(legacy).toHaveText("Off");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const toggle = dialog.getByRole("switch", { name: "Legacy algorithms (ssh-rsa)" });
@@ -225,7 +227,7 @@ test("legacy algorithms are an owner switch with a SHA-1 warning, saved per host
   const patch = state.calls.find((call) => call.method === "PATCH");
   expect(patch.body.legacyAlgorithms).toBe(true);
   expect(patch.body.host).toBe("build.example.test");
-  await expect(details.getByText("On", { exact: true })).toBeVisible();
+  await expect(legacy).toHaveText("On");
   await expect(
     details.getByText("This host accepts outdated RSA signatures with SHA-1 (ssh-rsa)", {
       exact: false,
@@ -237,5 +239,50 @@ test("legacy algorithms are an owner switch with a SHA-1 warning, saved per host
   await page.getByRole("radio", { name: "SFTP", exact: true }).click();
   await expect(
     page.getByRole("dialog").getByRole("switch", { name: "Legacy algorithms (ssh-rsa)" }),
+  ).toHaveCount(0);
+});
+
+test("interactive shell is an owner switch per host and the test reports a refused command", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.accesses = [state.access];
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/ssh");
+  await openAccess(page, "Build server");
+  const details = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "Build server", exact: true }),
+  });
+  const row = details.getByText("Interactive shell (network devices)", { exact: true });
+  await expect(row).toBeVisible();
+  await expect(row.locator("xpath=following-sibling::dd[1]")).toHaveText("Off");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const toggle = dialog.getByRole("switch", {
+    name: "Interactive shell (network devices)",
+  });
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toHaveAccessibleDescription(/answers pager prompts with a space/);
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await dialog.screenshot({ path: ".cache/ssh-interactive-shell-form.png" });
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  const patch = state.calls.find((call) => call.method === "PATCH");
+  expect(patch.body.interactiveShell).toBe(true);
+  expect(patch.body.legacyAlgorithms).toBe(false);
+  await expect(row.locator("xpath=following-sibling::dd[1]")).toHaveText("On");
+  // Test connection checks the sign-in; a device that does not know `true` passes.
+  state.testResult = { ok: true, commandRejected: true };
+  await details.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(details.getByRole("status")).toHaveText(
+    "Signed in successfully; the device rejected the test command true.",
+  );
+  await details.screenshot({ path: ".cache/ssh-interactive-shell-details.png" });
+  await page.getByRole("button", { name: "Add access", exact: true }).click();
+  await page.getByRole("radio", { name: "SFTP", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("switch", {
+      name: "Interactive shell (network devices)",
+    }),
   ).toHaveCount(0);
 });

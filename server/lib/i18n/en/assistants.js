@@ -63,6 +63,7 @@ export const assistants = {
   sshDeny: "Deny",
   sshStates: {
     completed: (code) => `SSH command finished · exit code ${code}`,
+    interactive: "SSH command finished in the interactive shell · no exit code",
     failed: "SSH command failed; review in AgentPier",
     declined: "SSH command denied",
     expired: "Approval expired; the command did not run",

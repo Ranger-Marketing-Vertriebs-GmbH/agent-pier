@@ -63,7 +63,7 @@ export const sshManagementTools = [
   ),
   tool(
     "ssh_test_host",
-    "Test authentication and the pinned identity of an effective project or explicitly assigned host by running true. Failure does not roll back local or remote keys.",
+    "Test authentication and the pinned identity of an effective project or explicitly assigned host. It signs in and runs true; only an SSH error (exit 255) fails, commandRejected: true means the device refused true after sign-in. An interactiveShell host passes once its console shows a prompt. Failure does not roll back local or remote keys.",
     { accessId: string },
     ["accessId"],
   ),

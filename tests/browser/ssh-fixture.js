@@ -135,7 +135,8 @@ export async function fixture(page) {
             "node '/fixture/ssh.mjs' --data-dir '/fixture/data' --session fixture-session --access ssh-one",
         })),
       };
-    } else if (method === "POST" && path.endsWith("/test")) result = { ok: true };
+    } else if (method === "POST" && path.endsWith("/test"))
+      result = state.testResult || { ok: true };
     else if (method === "POST") {
       const { password, ...fields } = body;
       const sftpPassword = body.type === "sftp" && body.auth === "password";

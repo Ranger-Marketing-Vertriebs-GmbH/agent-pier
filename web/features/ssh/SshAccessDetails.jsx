@@ -17,11 +17,11 @@ export default function SshAccessDetails({
   const [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [tested, setTested] = useState(false);
+    [tested, setTested] = useState(null);
   const run = async (fn) => {
     setBusy(true);
     setError("");
-    setTested(false);
+    setTested(null);
     try {
       await fn();
     } catch (err) {
@@ -57,6 +57,8 @@ export default function SshAccessDetails({
           <>
             <dt>{copy.legacyAlgorithms}</dt>
             <dd>{access.legacyAlgorithms ? copy.legacyOn : copy.legacyOff}</dd>
+            <dt>{copy.interactiveShell}</dt>
+            <dd>{access.interactiveShell ? copy.legacyOn : copy.legacyOff}</dd>
           </>
         )}
       </dl>
@@ -76,8 +78,9 @@ export default function SshAccessDetails({
           disabled={busy}
           onClick={() =>
             run(async () => {
-              await api(`/ssh-accesses/${encodeURIComponent(access.id)}/test`, "POST");
-              setTested(true);
+              setTested(
+                await api(`/ssh-accesses/${encodeURIComponent(access.id)}/test`, "POST"),
+              );
             })
           }
         >
@@ -87,7 +90,9 @@ export default function SshAccessDetails({
       <p className="ssh-action-hint">{sftp ? copy.sftpTestHint : copy.testHint}</p>
       {error && <p role="alert">{error}</p>}
       {busy && <p role="status">{copy.busy}</p>}
-      {tested && <p role="status">{copy.testOk}</p>}
+      {tested && (
+        <p role="status">{tested.commandRejected ? copy.testRejected : copy.testOk}</p>
+      )}
       <div className="ssh-detail-section">
         <h3>{sftp ? copy.signIn : copy.keyMode}</h3>
         {sftp && !usesKey && <p>{copy.signInPassword}</p>}

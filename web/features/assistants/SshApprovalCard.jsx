@@ -117,7 +117,9 @@ export default function SshApprovalCard({ action, decide, viewerId }) {
       )}
       {action.state === "completed" && (
         <p className="ssh-approval-result">
-          {card.exit(r.exitCode ?? r.signal)}
+          {r.interactive && r.exitCode == null && !r.signal
+            ? card.interactive
+            : card.exit(r.exitCode ?? r.signal)}
           {r.durationMs != null && ` · ${card.duration(sshSeconds(r.durationMs))}`}
           {r.timedOut && <span className="ssh-badge">{card.timedOut}</span>}
           {r.truncated && <span className="ssh-badge">{card.truncated}</span>}

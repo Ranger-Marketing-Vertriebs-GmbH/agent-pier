@@ -312,6 +312,7 @@
   "assistants.sshStates.declined": "de:8a4ee1007670 en:22779b61f74a",
   "assistants.sshStates.expired": "de:89e014625065 en:3112becb6ffe",
   "assistants.sshStates.failed": "de:40705e155828 en:10ebd697b619",
+  "assistants.sshStates.interactive": "de:a149b68a1eba en:80a5ad1a68b0",
   "assistants.sshStates.unknown": "de:1149a3543678 en:26e6dd063b34",
   "assistants.sshTarget": "de:0e71e701aff2 en:0e71e701aff2",
   "assistants.sshTimedOut": "de:407e1a8d1790 en:3dcd80f1b15f",

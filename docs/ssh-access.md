@@ -49,13 +49,27 @@ Ordinary API results and every MCP result contain public metadata only. **Downlo
 
 In the hosts section, enter a name, hostname/IP address, SSH port and username, then select a saved key. For file transfer choose **Type** → **SFTP** instead; [SFTP access](sftp-access.md) describes the password sign-in, the allowed remote folder and the transfer tools.
 
-Fetch the server's host key, compare the displayed SHA256 fingerprint with an independently trusted source such as the server console, and confirm it. Scanning alone does not authenticate a server. Save the host, copy the selected key's public key and install that public key for the intended user on the target system. **Test connection** explicitly authenticates and runs `true`; saving or assigning an access makes no remote connection.
+Fetch the server's host key, compare the displayed SHA256 fingerprint with an independently trusted source such as the server console, and confirm it. Scanning alone does not authenticate a server. Save the host, copy the selected key's public key and install that public key for the intended user on the target system. **Test connection** explicitly authenticates; saving or assigning an access makes no remote connection. See [Test connection](#test-connection) for what it checks.
 
 ### Legacy algorithms (ssh-rsa)
 
 Older network switches, routers and appliances may only accept RSA signatures with SHA-1 (`ssh-rsa`), which OpenSSH 8.8 and later disable. Such a host fails with "Permission denied (publickey,password)" although the key is installed. For these hosts only, turn on **Legacy algorithms (ssh-rsa)** (German: **Alte Algorithmen (ssh-rsa)**) in the host's add or **Edit** dialog. It is off by default; the details show its state and, while it is on, a warning that SHA-1 is outdated and meant only for old devices.
 
 When it is on, every OpenSSH connection to that host adds `-o PubkeyAcceptedAlgorithms=+ssh-rsa` and `-o HostKeyAlgorithms=+ssh-rsa`: **Test connection**, `ssh_test_host`, `ssh_execute` from coding CLIs, agents' SSH tool and the manual helper. Other hosts are unaffected, and no other SSH options can be added. Fetching the host key already scans RSA host keys. Only the owner can change the switch; agents and CLIs cannot set it when they register a host, but `ssh_list_hosts` and the agents' host list report `legacyAlgorithms: true` for such a host. Changing it changes the host's connection revision, so pending agent approvals for that host must be requested again. A project reassignment keeps it. SFTP hosts have no switch: their built-in client already accepts `ssh-rsa` from servers that offer nothing newer.
+
+### Interactive shell (network devices)
+
+Some switches and routers (for example TP-Link JetStream switches) accept the SSH sign-in but offer only an interactive console: `ssh host 'command'` ends with "Connection closed by remote host". For such hosts only, turn on **Interactive shell (network devices)** (German: **Interaktive Shell (Netzwerkgeräte)**) in the host's add or **Edit** dialog. It is off by default and the details show its state.
+
+When it is on, every command for that host runs through the console instead of as a remote command: agents' SSH tool, `ssh_execute` from coding CLIs and the manual helper with ` -- <remote command>`. AgentPier connects with the same pinned options plus `-tt` (and the [legacy algorithms](#legacy-algorithms-ssh-rsa) if that switch is on), waits for the first prompt, then types each line of the command and waits for the prompt again after each line. A command with several lines therefore sends several lines, for example `enable` and then `show running-config`. Pager prompts (`--More--`, `-- More --`, `<--- More --->`, `Press any key`, `Press SPACE`) are answered with a space. At the end AgentPier types `exit` and closes the connection.
+
+The result is the console text with terminal control sequences, redraws and pager prompts removed, line ends normalised and the echo of the typed lines dropped. It reports `interactive: true` and no exit code (`exitCode: null`); chat notes and approval cards show **Interactive shell · no exit code** instead. Only when the connection fails before the first prompt (for example a refused key) is OpenSSH's own status (255) reported, and nothing was typed. The timeout and the 64 KiB output limit apply as for other commands, and output is never written to disk. Approvals, the **With approval** and **Trusted** modes, the activity log and the stored command text are the same as for other commands: the approved text is exactly what is typed.
+
+Limits: the prompt is recognised by a line that ends in `>`, `#`, `$` or `]` (plus at most one space); a device that shows anything else, or a question such as `Password:`, is considered ready after 1.5 seconds without output. A command that pauses longer than that before printing more may be followed by the next line or `exit` too early; split such work into separate calls. Success or failure can only be judged from the output. The console is not a terminal emulator: full-screen programs do not work. Only the owner can change the switch; agents and CLIs cannot set it when they register a host, and `ssh_list_hosts` and the agents' host list report `interactiveShell: true`. Changing it changes the host's connection revision, so pending agent approvals for that host must be requested again. A project reassignment keeps it. SFTP hosts have no switch.
+
+### Test connection
+
+**Test connection** in the host details and `ssh_test_host` check that AgentPier can sign in with the pinned host key and the selected key; they do not check that the device knows a command. They run `true` after the sign-in. Only an OpenSSH error (exit status 255: network, host key or authentication) fails the test. Any other status passes: devices such as MikroTik RouterOS that do not know `true` report "Signed in successfully; the device rejected the test command true." in the settings and `commandRejected: true` from `ssh_test_host`. For a host in interactive shell mode the test opens the console, waits for its first prompt and logs out (`interactive: true`); it fails when no prompt appears within 20 seconds.
 
 For a Proxmox host, use an account with the permissions needed for the intended administration. AgentPier does not provision VMs simply because an access is assigned.
 
@@ -79,7 +93,7 @@ Generation, import and registration require a caller-generated `requestId`. Afte
 
 Select explicit accesses in the new-session dialog, or open **SSH accesses** in an existing running session. The dialog reports whether the tools are ready, still starting, or require **Reload & resume**. Existing CLI processes need [Reload & resume](session-reload.md) to acquire new tool schemas and startup hints while retaining their native conversation. Once updated, later project and explicit assignment changes take effect on the next call without another reload.
 
-The explicit connection command remains available as a manual fallback, including for shell sessions. Append ` -- <remote command>` to run a command, or invoke the helper alone for an interactive SSH shell. Native shell/network approvals may still apply.
+The explicit connection command remains available as a manual fallback, including for shell sessions. Append ` -- <remote command>` to run a command, or invoke the helper alone for an interactive SSH shell. For a host in [interactive shell](#interactive-shell-network-devices) mode the helper types the remote command into the device console and prints the console text. Native shell/network approvals may still apply.
 
 No remote command is automatically run when an access is assigned or a session is reloaded. Capabilities rotate for each CLI launch. Each call checks the current session and effective grants; MCP execution also checks revocation and connection revision periodically. An already-started manual SSH connection may continue after revocation. Stopping/removing a session clears its ephemeral assignments, while project resources remain. Reloading and restarting only the AgentPier web service preserve compatible session bindings and explicit assignments.
 
@@ -109,7 +123,8 @@ downloads, uploads and syncs on them with approvals as described in
 time; it cannot create, import, scan, test or download keys or hosts. AgentPier runs
 the command with the same pinned connection as sessions (`-F /dev/null`, only the
 pinned host key, no agent forwarding), with at most 16 KiB of command, 120 seconds and
-64 KiB of output. Removing a host here first revokes it from every agent and cancels
+64 KiB of output. On a host in [interactive shell](#interactive-shell-network-devices) mode each line
+of the command is typed into the device console and the result has no exit code. Removing a host here first revokes it from every agent and cancels
 its open approvals. Editing a host's address, port, user, key or pin stops running
 commands on it, and its open approvals can no longer run: allowing one marks it
 **Access changed**. The activity log records `ssh.executed` and `ssh.denied` with a

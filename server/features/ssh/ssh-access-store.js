@@ -27,6 +27,13 @@ import {
   usesLegacyAlgorithms,
 } from "./ssh-legacy-algorithms.js";
 import {
+  interactiveShellArgs,
+  interactiveShellValue,
+  usesInteractiveShell,
+} from "./ssh-interactive-shell.js";
+import { runInteractiveSsh } from "./ssh-interactive-run.js";
+import { testConnection } from "./ssh-connection-test.js";
+import {
   connectionRevision,
   isSftp,
   sftpFields,
@@ -36,7 +43,7 @@ import {
 } from "./sftp-host-access.js";
 
 export class SshAccessStore {
-  constructor({ dataDir, catalog, run = runOpenSsh }) {
+  constructor({ dataDir, catalog, run = runOpenSsh, runConsole = runInteractiveSsh }) {
     this.catalog = catalog;
     this.root = path.join(path.resolve(dataDir), "ssh");
     this.keys = path.join(this.root, "keys");
@@ -46,6 +53,7 @@ export class SshAccessStore {
     }
     this.file = path.join(this.root, "accesses.json");
     this.run = run;
+    this.runConsole = runConsole;
     this.updates = new Map();
     this.passwords = new SshPasswordStore({ root: this.root });
     this.keyStore = new SshKeyStore({
@@ -109,6 +117,7 @@ export class SshAccessStore {
     remoteRoot = null,
     credentialRevision,
     legacyAlgorithms,
+    interactiveShell,
   }) {
     const sftp = type === "sftp";
     const key = keyId ? this.projectKey(keyId, sftp) : null;
@@ -132,6 +141,7 @@ export class SshAccessStore {
       remoteRoot: sftp ? remoteRoot : null,
       hasPassword: sftp && auth === "password" && Boolean(credentialRevision),
       legacyAlgorithms: usesLegacyAlgorithms({ type, legacyAlgorithms }),
+      interactiveShell: usesInteractiveShell({ type, interactiveShell }),
       ...(key?.missing ? { keyMissing: true } : {}),
     };
   }
@@ -180,8 +190,10 @@ export class SshAccessStore {
       "password",
       "remoteRoot",
       "legacyAlgorithms",
+      "interactiveShell",
     ]);
     const legacy = legacyAlgorithmsValue(input.legacyAlgorithms);
+    const interactive = interactiveShellValue(input.interactiveShell);
     if (input.keyId !== undefined && input.privateKey !== undefined)
       throw problem(serverMessages.ssh.chooseOneKey);
     const sftp = sftpFields(this, input);
@@ -222,6 +234,7 @@ export class SshAccessStore {
           credentialRevision: randomUUID(),
         }),
         ...(legacy && { legacyAlgorithms: true }),
+        ...(interactive && { interactiveShell: true }),
       };
       if (sftp?.password !== undefined) {
         this.catalog.afterRollback(() => this.passwords.removeHost(id));
@@ -264,14 +277,17 @@ export class SshAccessStore {
       "password",
       "remoteRoot",
       "legacyAlgorithms",
+      "interactiveShell",
     ]);
     const legacy = legacyAlgorithmsValue(input.legacyAlgorithms);
+    const interactive = interactiveShellValue(input.interactiveShell);
     const {
       type,
       auth: _auth,
       remoteRoot: _root,
       hasPassword: _has,
       legacyAlgorithms: wasLegacy,
+      interactiveShell: wasInteractive,
       ...previous
     } = this.get(id);
     if (input.type !== undefined && input.type !== type)
@@ -301,6 +317,7 @@ export class SshAccessStore {
       hostKey,
       hostFingerprint: await fingerprint(hostKey, this.root, this.run),
       ...((legacy ?? wasLegacy) && { legacyAlgorithms: true }),
+      ...((interactive ?? wasInteractive) && { interactiveShell: true }),
     };
     // A concurrent deletion must not resurrect a deleted access.
     this.get(id);
@@ -344,6 +361,7 @@ export class SshAccessStore {
     );
     return {
       revision: connectionRevision(access),
+      ...(usesInteractiveShell(access) && { interactive: true }),
       cleanup: () => fs.rmSync(directory, { recursive: true, force: true }),
       command: "ssh",
       cwd: directory,
@@ -368,6 +386,7 @@ export class SshAccessStore {
           "UpdateHostKeys=no",
         ].flatMap((option) => ["-o", option]),
         ...legacyOptionArgs(access),
+        ...interactiveShellArgs(access),
         "-i",
         `../../identities/${access.keyId}/identity`,
         "-p",
@@ -424,14 +443,6 @@ export class SshAccessStore {
   }
   async test(id) {
     if (this.get(id).type === "sftp") return testSftp(this, id);
-    const { command, args, cwd, cleanup } = this.connection(id);
-    try {
-      await this.run(command, [...args, "true"], { ...processOptions, cwd });
-      return { ok: true };
-    } catch {
-      throw problem(serverMessages.ssh.connectionFailed, 502);
-    } finally {
-      cleanup();
-    }
+    return testConnection(this, id);
   }
 }
