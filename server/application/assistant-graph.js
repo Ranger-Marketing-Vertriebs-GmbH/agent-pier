@@ -18,6 +18,7 @@ import { TelegramSenders } from "../features/assistant-channels/telegram-senders
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
+import { DreamingSettings } from "../features/assistants/dreaming-settings.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
@@ -244,11 +245,14 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
+  const assistantDreamingSettings = (created.dreaming = new DreamingSettings({
+    dataDir,
+  }));
   const assistantPdfModel = (created.pdfModel = new PdfModelSettings({
     dataDir,
     models,
   }));
-  // The core store when AgentPier has one; it outlives the agent feature.
+  // The core store when there is one; it outlives the agent feature.
   const assistantMcpServers =
     host.mcpServers || (created.mcpServers = new McpServerStore({ dataDir }));
   const assistantChannels = (created.channels = new ChannelService({
@@ -272,13 +276,12 @@ export function constructAssistantGraph(host, created = {}) {
     notifications: host.notifications,
   });
   const assistantRoutines = new NativeRoutines({ reminders: assistantReminders });
-  // Reached as assistantReminders.heartbeats: it shares the reminder webhook.
+  // Reached as reminders.heartbeats (shares the webhook).
   new NativeHeartbeats({
     reminders: assistantReminders,
     notifications: host.notifications,
   });
-  // The workflow layer looks services up by name: assistant services from this graph,
-  // everything else (sessions, projects, configuration) from the application.
+  // The workflow layer looks services up by name: these here, the rest from the host.
   const scope = Object.assign(Object.create(host), {
     assistantRuntime,
     assistants,
@@ -288,6 +291,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantSpeech,
     assistantWebSearch,
     assistantPdfModel,
+    assistantDreamingSettings,
     assistantMcpServers,
     assistantChannels,
     assistantMemory,
@@ -325,12 +329,10 @@ export function constructAssistantGraph(host, created = {}) {
     isUpdating: () => scope.assistantUpdates.status().busy,
     pdfModel: () => assistantPdfModel.selection(),
   });
-  // A saved change that still needs a Gateway restart waits there until nothing is
-  // busy, or until the owner restarts at once.
+  // A saved change needing a Gateway restart waits until nothing is busy.
   assistants.pendingRestart = assistantProviderSynchronization.pending =
     new PendingRestart({ assistants, synchronization: assistantProviderSynchronization });
-  // The agents' own Telegram bots for other people; their changes restart the Gateway
-  // like web tool changes do.
+  // The agents' own Telegram bots for other people; changes restart the Gateway.
   const assistantTelegramSenders = new TelegramSenders({
     store: assistantChannels.nativeBots,
     assistants,
@@ -366,8 +368,7 @@ export function constructAssistantGraph(host, created = {}) {
     images: () => ({ ready: assistantModelAccounts.imageReady() }),
     pdfModel: assistantPdfModel,
   });
-  // The owner's advanced OpenClaw settings; a restart change reuses the web tools
-  // confirmation and its list of interrupted agents.
+  // The owner's advanced OpenClaw settings; restart changes reuse web tools' confirmation.
   const assistantAdvancedConfig = new AdvancedConfig({
     assistants,
     overrides: overrideStore(store),
@@ -536,11 +537,9 @@ export function connectAssistantServices(graph) {
         throw Object.assign(Error("Team plugin unavailable"), {
           code: "TEAM_PLUGIN_UNAVAILABLE",
         });
-      // Team members' MCP bindings follow their records before the start compiles
-      // them, so a member that ended while the Gateway was down holds none.
+      // Members' MCP bindings follow their records before the start compiles them.
       teams.mcp.sync();
-      // OAuth logouts that failed earlier are retried before the start compiles
-      // (the CLI needs no running Gateway).
+      // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
       return {
         directory: installed.teamPlugin.directory,
@@ -574,6 +573,7 @@ export function connectAssistantServices(graph) {
         },
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),
+        dreaming: graph.assistantDreamingSettings.compiled(),
       };
     },
     maintenance: () => assistants.maintenance,

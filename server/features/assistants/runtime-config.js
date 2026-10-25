@@ -7,6 +7,7 @@ import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
 import { applyShell, shellSections, withoutShell } from "./openclaw-config/shell.js";
+import { dreamingSection } from "./openclaw-config/dreaming.js";
 import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
   applyTelegram,
@@ -230,7 +231,7 @@ export function compileOpenClawConfig({
     config.plugins.allow.push("memory-core");
     config.plugins.entries["memory-core"] = {
       enabled: true,
-      config: { dreaming: { enabled: false } },
+      config: { dreaming: dreamingSection(teams.dreaming || {}) },
     };
     config.memory = {
       search: {
