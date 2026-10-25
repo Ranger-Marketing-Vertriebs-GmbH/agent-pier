@@ -92,7 +92,10 @@ the new server, and the notice disappears. AgentPier never ends a running sessio
 ends the old server once only finished AgentPier sessions remain on it (no live process
 in any of their windows or panes), after recording
 their exits and last screens. A session on it that AgentPier did not start keeps the old
-server running. See [architecture](architecture.md) for the details.
+server running. A session whose CLI has ended but that still has an extra window or
+pane with a live process, for example one the agent opened from its shell, shows as
+stopped in the list but still counts in the notice; **Stop session** ends it. See
+[architecture](architecture.md) for the details.
 
 ## API
 
