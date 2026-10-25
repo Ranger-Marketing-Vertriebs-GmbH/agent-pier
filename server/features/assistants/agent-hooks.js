@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { eventIdOf, HookEvents } from "./agent-hook-events.js";
 import { HookRuns, runSession } from "./agent-hook-runs.js";
 import { HookStore, newSecret } from "./agent-hook-store.js";
+import { payloadCut } from "./agent-hook-prompt.js";
 import {
   effectiveRights,
   hookDefaults,
@@ -318,6 +319,38 @@ export class AgentHooks {
     });
     if (status === 503) throw assistantProblem("unavailable", 503);
     return body;
+  }
+  /**
+   * One event of the hook for the event area: what came in (the payload as stored
+   * text, cut to 16 KiB; the client shows it as plain text) and what the run did.
+   */
+  eventDetail(assistantId, hookId, eventRowId) {
+    this.agent(assistantId);
+    this.owned(assistantId, hookId);
+    const event = this.events.get(eventRowId);
+    if (!event || event.hookId !== hookId || event.assistantId !== assistantId)
+      throw assistantProblem("notFound", 404);
+    const stored = this.events.payload(event.id);
+    const cut = stored === null ? null : payloadCut(stored);
+    const workflows = this.assistants.workflows;
+    const coding = (event.coding || []).flatMap((actionId) => {
+      const action = workflows.get(actionId);
+      if (!action || action.assistantId !== assistantId) return [];
+      const run = workflows.liveRun(action).run || action.run;
+      return [{ actionId, state: action.state, runUrl: run?.url ?? null }];
+    });
+    return {
+      receivedAt: new Date(event.receivedAt).toISOString(),
+      size: event.size,
+      contentType: event.contentType,
+      source: event.source,
+      payload: cut?.text ?? null,
+      payloadCut: !!cut?.omitted,
+      activity: event.activity || [],
+      coding,
+      notified: event.notified || null,
+      reply: event.reply ?? null,
+    };
   }
   /**
    * The hook event a native run session belongs to while it runs, with the rights it

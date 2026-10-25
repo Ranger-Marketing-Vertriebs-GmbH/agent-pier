@@ -231,7 +231,7 @@ test("delivered results are badged in the chat, uncommitted ones and failures ar
   assert.equal(f.routines.results.forConversation(f.channel.conversationId).length, 3);
 });
 
-test("the conversation history carries the routine badge and survives a lost Gateway", async (t) => {
+test("the conversation history moves the routine result to its event area, also without the Gateway", async (t) => {
   const f = routineFixture(t);
   const routine = await f.routines.create(f.id, f.input);
   const jobId = f.reminders.bindings.get(routine.id).nativeId;
@@ -263,12 +263,20 @@ test("the conversation history carries the routine badge and survives a lost Gat
     },
     routines: f.routines,
   };
+  const shown = (view) => [
+    view.messages.map((m) => m.text),
+    view.events.map((e) => [e.id, e.source, e.name, e.status, e.firstLine]),
+  ];
+  const expected = [
+    [],
+    [[`routine:${jobId}:1000`, "routine", "Meal plan", "done", "Lentil soup today."]],
+  ];
   const live = await conversationHistory(service, f.channel.conversationId);
-  assert.deepEqual(live.messages[0].scheduled, { name: "Meal plan" });
+  assert.deepEqual(shown(live), expected);
   service.runtime.client.ready = false;
   const cached = await conversationHistory(service, f.channel.conversationId);
   assert.equal(cached.stale, true);
-  assert.deepEqual(cached.messages[0].scheduled, { name: "Meal plan" });
+  assert.deepEqual(shown(cached), expected);
 });
 
 test("a routine run's exec approval is shown in its chat and offered in its Telegram chat", async (t) => {

@@ -3,11 +3,11 @@ import { assistantProblem } from "../../features/assistants/assistant-validation
 // Mount below the application owner authentication and CSRF middleware.
 export function assistantHookRoutes(services) {
   const hooks = () => services.assistantRoutines.hooks;
-  // The run service fills test and eventDetail later; until then they are unavailable.
+  // Without the hook service (no reminder runtime) every route is unavailable.
   const call = (name, ...args) => {
-    const method = hooks()?.[name];
-    if (typeof method !== "function") throw assistantProblem("unavailable", 503);
-    return method.apply(hooks(), args);
+    const service = hooks();
+    if (!service) throw assistantProblem("unavailable", 503);
+    return service[name](...args);
   };
   const router = Router(),
     base = "/assistants/:id/hooks",

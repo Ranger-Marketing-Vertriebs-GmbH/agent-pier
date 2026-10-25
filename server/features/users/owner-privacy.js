@@ -55,6 +55,10 @@ export function fromSince(history, since) {
     ...(Array.isArray(history.actions) && {
       actions: history.actions.filter((a) => keep(a.createdAt)),
     }),
+    // Routine and check-in results of her main chat (agent-event-area.js).
+    ...(Array.isArray(history.events) && {
+      events: history.events.filter((e) => keep(e.at)),
+    }),
     // A message queued before the opt-in stays hers, with its files.
     ...(history.queued && {
       queued: keep(history.queued.createdAt) ? history.queued : null,
