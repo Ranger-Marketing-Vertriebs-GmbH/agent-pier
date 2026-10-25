@@ -317,12 +317,18 @@ test(
     await f.dreaming(dreamingOn);
     await f.job();
 
-    // The hour change as DreamingService applies it, while a turn waits on its model.
+    // The hour change as DreamingService applies it, while a turn waits on its model
+    // longer than the client's 10 s call timeout. OpenClaw writes the change at once
+    // but answers config.patch only once it applied it, which waits for the running
+    // turn: the call times out (DreamingService marks the change pending), config.get
+    // already holds the new section (so DreamingService.converge clears it without a
+    // second patch), and the job moves once the turn has ended. The turn is neither
+    // interrupted nor is the Gateway restarted.
     let slowSeen = false;
     f.model.reply = (request) => {
       if (JSON.stringify(request.messages).includes("DREAMSLOW")) {
         slowSeen = true;
-        return { text: "Slow reply.", delayMs: 10000 };
+        return { text: "Slow reply.", delayMs: 20000 };
       }
       return { text: "A useful assistant reply." };
     };
@@ -330,14 +336,24 @@ test(
     const runId = await f.send(await f.open(fern), "Think slowly DREAMSLOW.");
     await f.until(() => slowSeen, 30000, "the slow turn's model call");
     const next = { enabled: true, hour: 4, timeZone: "Europe/Berlin" };
-    await patchConfig(client, () => ({
-      patch: {
-        plugins: {
-          entries: { "memory-core": { config: { dreaming: dreamingSection(next) } } },
+    await assert.rejects(
+      patchConfig(client, () => ({
+        patch: {
+          plugins: {
+            entries: { "memory-core": { config: { dreaming: dreamingSection(next) } } },
+          },
         },
-      },
-      replacePaths: ["plugins.entries.memory-core.config.dreaming"],
-    }));
+        replacePaths: ["plugins.entries.memory-core.config.dreaming"],
+      })),
+      { code: "TIMEOUT" },
+      "config.patch answers only after the running turn",
+    );
+    const written = (await client.call("config.get", {})).config;
+    assert.deepEqual(
+      written.plugins.entries["memory-core"].config.dreaming,
+      dreamingSection(next),
+      "the change is written before it is applied",
+    );
     const moved = await f.until(
       async () => {
         const jobs = await f.dreamingJobs();

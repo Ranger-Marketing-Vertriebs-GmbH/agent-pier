@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { contractTimeout } from "../helpers/contract-timeout.js";
@@ -247,10 +246,9 @@ test(
   },
 );
 
-const symlinked = fs.realpathSync(os.tmpdir()) !== path.resolve(os.tmpdir());
 test(
   "under a symlinked data directory the sweep writes no corpus",
-  { ...options, skip: !installed || !symlinked },
+  options,
   async (t) => {
     const f = await nativeFixture(t, { resolve: false });
     const agent = await f.create("Linked", memory, "orchid-model");
