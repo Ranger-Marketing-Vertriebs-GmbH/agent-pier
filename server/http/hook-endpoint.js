@@ -49,8 +49,9 @@ export function authorizeHookTransport(req, config) {
   throw problem("Hooks require the local, Tailscale or configured network host.", 403);
 }
 
-// The windows no flood may evict: the local machine and the shared tailnet window.
-const fixedKeys = new Set(["local", "tailscale"]);
+// The windows no flood may evict: the local machine's and the shared tailnet
+// window, for scans and per hook (one per stored hook at most).
+const fixed = (key) => /^(local|tailscale)(\|[0-9a-f-]{36})?$/.test(key);
 
 /**
  * Failed authentication per source key: `limit` failures in `windowMs` block it. A
@@ -106,7 +107,7 @@ export class AuthThrottle {
     }
     for (const key of this.failures.keys()) {
       if (this.failures.size < this.maxKeys) return;
-      if (!fixedKeys.has(key)) this.failures.delete(key);
+      if (!fixed(key)) this.failures.delete(key);
     }
   }
 }
@@ -114,7 +115,10 @@ export class AuthThrottle {
 // The throttle keys of a request's source. Tailscale Serve proxies every tailnet
 // device from loopback and a local process can forge X-Forwarded-For, so every
 // Tailscale-branch request also counts against one shared tailnet window: rotating
-// forged addresses never escapes it (as login.js does for sign-ins).
+// forged addresses never escapes it (as login.js does for sign-ins). Scans (404 of a
+// well-formed id) count against these keys; a wrong secret counts against the same
+// keys of that one hook only (`authKeys`), so a sender still using an old secret
+// after Regenerate secret blocks neither other hooks nor other sources.
 function sourceKeys(req, branch) {
   if (branch === "local") return ["local"];
   if (branch === "tailscale") {
@@ -125,6 +129,7 @@ function sourceKeys(req, branch) {
   }
   return [`network:${req.socket.remoteAddress}`];
 }
+const authKeys = (keys, hookId) => keys.map((key) => `${key}|${hookId}`);
 
 // The enabled hook of an eligible agent, else null (one 404 for every case).
 function liveHook(hooks, hookId) {
@@ -196,14 +201,18 @@ export function hookEndpoint(
       return reply(403, { error: "HOOK_FORBIDDEN" });
     }
     req.setTimeout(bodyTimeout, () => req.destroy());
+    const limited = (keys) => {
+      const wait = throttle.blocked(keys);
+      if (wait > 0)
+        reply(
+          429,
+          { error: "HOOK_RATE_LIMITED" },
+          { "Retry-After": String(Math.ceil(wait / 1000)) },
+        );
+      return wait > 0;
+    };
     const key = sourceKeys(req, branch);
-    const wait = throttle.blocked(key);
-    if (wait > 0)
-      return reply(
-        429,
-        { error: "HOOK_RATE_LIMITED" },
-        { "Retry-After": String(Math.ceil(wait / 1000)) },
-      );
+    if (limited(key)) return;
     const hooks = services.assistantRoutines?.hooks;
     const match = hookPath.exec(req.path);
     const { hook, live } = match ? liveHook(hooks, match[1]) : { hook: null };
@@ -215,13 +224,17 @@ export function hookEndpoint(
       if (match) throttle.fail(key);
       return refuse(404, "HOOK_NOT_FOUND", "not-found");
     }
+    // Checked before the secret: while a hook's window from this source is full,
+    // its right secret from there waits as well.
+    const hookKey = authKeys(key, hook.id);
+    if (limited(hookKey)) return;
     const authorization = req.headers.authorization;
     const supplied =
       typeof authorization === "string" && /^Bearer \S+$/i.test(authorization)
         ? authorization.slice(7)
         : null;
     if (!secretMatches(hook.secretHash, supplied)) {
-      throttle.fail(key);
+      throttle.fail(hookKey);
       return refuse(401, "HOOK_UNAUTHORIZED", "unauthorized");
     }
     const contentType = mediaType(req.headers["content-type"]);
