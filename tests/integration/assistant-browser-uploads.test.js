@@ -9,6 +9,8 @@ import { leadShareFixture } from "../helpers/lead-share-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { BrowserUploads } from "../../server/features/assistants/browser-upload-staging.js";
+import { AssistantEvents } from "../../server/features/assistants/assistant-events.js";
+import { browserUploadDone } from "../../server/features/assistants/agent-browser-uploads.js";
 
 const code = (key) => (error) => toolError(error).code === key;
 const capabilities = (f, id, on) => {
@@ -35,6 +37,7 @@ function stagingFor(t, f) {
   };
   for (const dir of Object.values(paths)) fs.mkdirSync(dir, { recursive: true });
   f.assistants.runtime = { ...f.assistants.runtime, paths };
+  fs.mkdirSync(path.join(base, "openclaw"), { mode: 0o700 });
   const uploadDir = path.join(base, "openclaw", "uploads");
   f.workflows.browserUploads.files = new BrowserUploads({
     tmp: paths.tmp,
@@ -106,15 +109,15 @@ test("an owner turn stages a file of a folder it may read and the upload is audi
   const record = f.audits.findLast((e) => e.details?.kind === "browser-upload");
   assert.equal(record.resourceId, f.id);
   assert.equal(record.projectId, f.folderProject.id);
-  assert.deepEqual(record.details, {
-    kind: "browser-upload",
-    browserUpload: "staged",
-    filePath: "out/episode.mp4",
-    bytes: 13,
-    site: "studio.youtube.com",
-  });
+  assert.equal(record.details.browserUpload, "staged");
+  assert.equal(record.details.filePath, "out/episode.mp4");
+  assert.equal(record.details.bytes, 13);
+  assert.equal(record.details.declaredSite, "studio.youtube.com");
+  assert.ok(record.details.sourceAttemptId);
+  const recorded = () => f.audits.filter((e) => e.details?.kind === "browser-upload");
 
-  // The browser tool guard admits the agent's own staged file and records the upload.
+  // The browser tool guard admits the agent's own staged file; only the finished
+  // upload is recorded.
   const bridge = bridgeFor(f);
   const agentId = f.store.getAssistant(f.id).runtimeAgentId;
   const upload = (paths) =>
@@ -123,10 +126,22 @@ test("an owner turn stages a file of a folder it may read and the upload is audi
     allow: true,
     profile: "agent-profile",
   });
-  assert.equal(
-    f.audits.findLast((e) => e.details?.kind === "browser-upload").details.browserUpload,
-    "browser",
-  );
+  assert.equal(recorded().length, 1);
+  const done = (paths, ok) =>
+    browserUploadDone(bridge, { agentId, sessionKey: "s", paths, ok });
+  done([staged.uploadPath], true);
+  done([staged.uploadPath], false);
+  // Paths the agent did not stage itself are never recorded as its uploads.
+  done([path.join(f.folder, "out", "episode.mp4")], true);
+  const [, uploaded, failed] = recorded();
+  assert.equal(recorded().length, 3);
+  assert.equal(uploaded.details.browserUpload, "uploaded");
+  assert.equal(uploaded.outcome, "success");
+  assert.equal(uploaded.details.filePath, "out/episode.mp4");
+  assert.equal(uploaded.details.declaredSite, "studio.youtube.com");
+  assert.equal(failed.details.browserUpload, "failed");
+  assert.equal(failed.outcome, "failure");
+  assert.throws(() => browserUploadDone(bridge, { agentId, paths: "x", ok: true }));
   // The project file itself, or a path elsewhere, is refused with a clear reason.
   assert.deepEqual(await upload([path.join(f.folder, "out", "episode.mp4")]), {
     allow: false,
@@ -178,10 +193,77 @@ test("a file of the agent's own workspace is staged, never its guarded entries",
   const record = f.audits.findLast((e) => e.details?.kind === "browser-upload");
   assert.equal(record.details.workspace, true);
   assert.equal(record.projectId, undefined);
+  // A chat upload of this agent (not shared: every chat is the owner's) is staged
+  // like any other file; prompt files and skills never are.
+  const upload = await f.call({ path: "attachments/owner.png" });
+  assert.equal(fs.readFileSync(upload.uploadPath, "utf8"), "private");
+  fs.writeFileSync(path.join(own, "AGENTS.md"), "rules");
+  fs.mkdirSync(path.join(own, "skills", "x"), { recursive: true });
+  fs.writeFileSync(path.join(own, "skills", "x", "SKILL.md"), "skill");
+  for (const p of ["AGENTS.md", "skills/x/SKILL.md", "attachments"])
+    await assert.rejects(f.call({ path: p }), code("PROJECT_PATH_REFUSED"));
+});
+
+test("a restricted user's agent stages only from folders its own grants allow", async (t) => {
+  const f = await setup(t);
+  const body = {
+    ...f.store.storedAssistant(f.id),
+    userAccess: { mode: "own", members: [{ userId: "u1", level: "chat" }], released: [] },
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+  const other = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agent-upload-")));
+  t.after(() => fs.rmSync(other, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(other, "secret.mp4"), "secret");
+  const foreign = await f.memory.register(other);
+  f.workflows.access.save(
+    f.id,
+    {
+      projectIds: [],
+      pipelineIds: [],
+      memoryWrite: false,
+      autonomous: false,
+      publish: false,
+      projectFiles: { [f.folderProject.id]: "read" },
+    },
+    f.workflows.access.get(f.id).revision,
+  );
+  const staged = await f.call({ projectId: f.folderProject.id, path: "out/episode.mp4" });
+  assert.equal(staged.bytes, 13);
   await assert.rejects(
-    f.call({ path: "attachments/owner.png" }),
+    f.call({ projectId: foreign.id, path: "secret.mp4" }),
+    code("PROJECT_NOT_GRANTED"),
+  );
+  await assert.rejects(
+    f.call({ projectId: f.folderProject.id, path: path.join(other, "secret.mp4") }),
     code("PROJECT_PATH_REFUSED"),
   );
+});
+
+test("files go at AgentPier's start and stop and the moment the browser goes", async (t) => {
+  const f = await setup(t);
+  f.grant({ [f.folderProject.id]: "read" });
+  const stage = () => f.call({ projectId: f.folderProject.id, path: "out/episode.mp4" });
+  const first = await stage();
+  const uploads = f.workflows.browserUploads;
+  // The agents' change events, as AssistantService.changed publishes them.
+  f.assistants.events = new AssistantEvents();
+  f.assistants.changed = () => f.assistants.events.publish({ type: "change" });
+  // A new start removes what was staged before it.
+  uploads.start();
+  t.after(() => uploads.close());
+  assert.equal(fs.existsSync(first.uploadPath), false);
+  // Switching the browser off ends the agent's files with that change, not a minute later.
+  const second = await stage();
+  capabilities(f, f.id, { browser: false });
+  f.assistants.changed();
+  assert.equal(fs.existsSync(second.uploadPath), false);
+  capabilities(f, f.id, { browser: true });
+  const third = await stage();
+  uploads.close();
+  assert.equal(fs.existsSync(third.uploadPath), false);
+  assert.equal(fs.existsSync(uploads.files.namespace()), false);
 });
 
 test("one agent's staged file never reaches another agent's browser", async (t) => {

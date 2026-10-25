@@ -167,7 +167,9 @@ const reasons = {
   UPLOAD_TOO_LARGE:
     "A file staged for a browser upload may be at most 8 GiB. Do not retry; tell the owner where the file is.",
   UPLOAD_NO_SPACE:
-    "There is not enough free disk space to stage this file for the browser. Do not retry now; tell the owner.",
+    "There is not enough free disk space, or AgentPier already holds the most staged browser uploads it keeps, to stage this file. Do not retry now; tell the owner.",
+  UPLOAD_TIMEOUT:
+    "Copying this file for the browser took too long and was cancelled; nothing was staged. Do not retry now; tell the owner where the file is.",
   STORAGE_FULL:
     "AgentPier's storage for this file is full. Do not retry; tell the owner.",
   STORAGE_UNSAFE:
@@ -248,6 +250,7 @@ const byKey = {
   browserUploadNoBrowser: "BROWSER_NOT_GRANTED",
   browserUploadTooLarge: "UPLOAD_TOO_LARGE",
   browserUploadSpace: "UPLOAD_NO_SPACE",
+  browserUploadSlow: "UPLOAD_TIMEOUT",
   attachmentStorageFull: "STORAGE_FULL",
   attachmentStorageUnsafe: "STORAGE_UNSAFE",
   goalOwnerTurn: "GOAL_OWNER_TURN",

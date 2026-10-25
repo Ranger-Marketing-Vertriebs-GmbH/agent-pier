@@ -58,6 +58,8 @@ export class AssistantWorkflows {
     // Once, before the first tick: SSH commands stored before redaction existed.
     backfillSshCommands(this);
     this.ssh.start().catch(() => {});
+    // Staged browser uploads of an earlier process go (agent-browser-uploads.js).
+    this.browserUploads.start();
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
     this.timer.unref();
   }

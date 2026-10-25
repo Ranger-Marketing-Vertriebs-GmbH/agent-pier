@@ -455,23 +455,25 @@ export function auditEvent(input) {
   }
   // An agent's change or image view in a project folder: the relative path and size,
   // never content.
-  // A file staged for an agent's browser and its upload (agent-browser-uploads.js)
-  // name the same: the relative path, size and the site the agent named.
+  // A file staged for an agent's browser and its finished upload
+  // (agent-browser-uploads.js) name the same: the relative path, size, the turn and
+  // the site the agent declared.
   const browserUpload = details.kind === "browser-upload";
   if (details.kind === "project-file" || browserUpload) {
     if (["create", "replace", "edit", "append"].includes(details.fileChange))
       event.details.fileChange = details.fileChange;
     // An image the agent viewed (image_view) is recorded like a change.
     if (details.fileView === "image") event.details.fileView = "image";
-    if (browserUpload && ["staged", "browser"].includes(details.browserUpload))
+    if (browserUpload && ["staged", "uploaded", "failed"].includes(details.browserUpload))
       event.details.browserUpload = details.browserUpload;
     if (browserUpload && details.workspace === true) event.details.workspace = true;
+    // The site the agent declared, never checked against the page.
     if (
       browserUpload &&
-      typeof details.site === "string" &&
-      /^[a-z0-9.-]{1,253}(:\d{1,5})?$/.test(details.site)
+      typeof details.declaredSite === "string" &&
+      /^[a-z0-9.-]{1,253}(:\d{1,5})?$/.test(details.declaredSite)
     )
-      event.details.site = details.site;
+      event.details.declaredSite = details.declaredSite;
     if (
       typeof details.filePath === "string" &&
       details.filePath.length <= 1024 &&

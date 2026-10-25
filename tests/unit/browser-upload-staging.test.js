@@ -8,6 +8,7 @@ import {
   BrowserUploads,
   openclawUploadDir,
   stagedName,
+  trusted,
   uploadLimits,
 } from "../../server/features/assistants/browser-upload-staging.js";
 
@@ -20,6 +21,8 @@ function fixture(t, { limits = uploadLimits, now = () => 1000 } = {}) {
   fs.writeFileSync(path.join(project, "episodes", "episode 1.mp4"), "video-bytes");
   fs.writeFileSync(path.join(project, ".git", "config"), "secret");
   fs.writeFileSync(path.join(base, "outside.txt"), "outside");
+  // OpenClaw's private temp root; AgentPier creates uploads/ below it.
+  fs.mkdirSync(path.join(base, "openclaw"), { mode: 0o700 });
   const uploadDir = path.join(base, "openclaw", "uploads");
   const dataRoot = path.join(base, "data", "assistants");
   fs.mkdirSync(dataRoot, { recursive: true });
@@ -83,7 +86,10 @@ test("the project read rules refuse links, .git, hard links, folders and escapes
   fs.mkdirSync(path.join(project, "attachments"));
   fs.writeFileSync(path.join(project, "attachments", "a.png"), "x");
   await refused("attachments/a.png", "projectPathRefused", {
-    guarded: (name) => name === "attachments",
+    admit: (relative) => {
+      if (relative.startsWith("attachments/"))
+        throw Object.assign(Error("refused"), { key: "projectPathRefused" });
+    },
   });
   if (process.platform !== "win32") {
     execFileSync("mkfifo", [path.join(project, "pipe")]);
@@ -148,15 +154,18 @@ test("the browser may upload only the calling agent's own staged files", async (
   assert.deepEqual(uploads.admit("agent-1", [path.join(base, "outside.txt")]), {
     reason: "uploadOutside",
   });
-  // OpenClaw's own folders keep OpenClaw's rules.
+  // OpenClaw's shared folders are no way around staging: any other file in its
+  // uploads folder, inbound media and media:// references are refused too.
+  const outside = { reason: "uploadOutside" };
   fs.writeFileSync(path.join(uploadDir, "own.pdf"), "x");
-  assert.deepEqual(uploads.admit("agent-1", ["own.pdf"]).used, []);
-  assert.deepEqual(uploads.admit("agent-1", ["media://inbound/a.png"]).used, []);
-  const inbound = path.join(base, "state", "media", "inbound");
+  assert.deepEqual(uploads.admit("agent-1", ["own.pdf"]), outside);
+  assert.deepEqual(uploads.admit("agent-1", ["media://inbound/a.png"]), outside);
+  assert.deepEqual(uploads.admit("agent-1", ["media/inbound/a.png"]), outside);
   assert.deepEqual(
-    uploads.admit("agent-1", [path.join(inbound, "a.png")], { inbound }).used,
-    [],
+    uploads.admit("agent-1", [path.join(base, "state", "media", "inbound", "a.png")]),
+    outside,
   );
+  assert.deepEqual(uploads.admit("agent-1", [own.path, "media://inbound/a"]), outside);
   assert.deepEqual(uploads.admit("agent-1", []), notStaged);
   assert.deepEqual(uploads.admit("agent-1", "x"), notStaged);
   assert.deepEqual(uploads.admit("agent-1", [own.path, 7]), notStaged);
@@ -190,16 +199,64 @@ test("staged files expire, stay bounded per agent and go with their agent", asyn
   assert.equal(uploads.entries.size, 0);
 });
 
-test("a new process removes what an earlier one left in its namespace", async (t) => {
+test("a new process removes what an earlier one left, and so does a clean stop", async (t) => {
   const { project, uploadDir, dataRoot, base, uploads } = fixture(t);
   const old = await uploads.stage("agent-1", source(project, "episodes/episode 1.mp4"));
   const next = new BrowserUploads({ tmp: base, dataRoot, uploadDir });
-  // Unknown to the new process: refused, then removed on its first stage.
+  // Unknown to the new process: refused, and removed when it starts.
   assert.deepEqual(next.admit("agent-1", [old.path]), { reason: "uploadNotStaged" });
-  const fresh = await next.stage("agent-1", source(project, "episodes/episode 1.mp4"));
+  next.clear();
   assert.equal(fs.existsSync(old.path), false);
-  assert.ok(fs.existsSync(fresh.path));
+  assert.equal(fs.existsSync(next.namespace()), false);
+  const fresh = await next.stage("agent-1", source(project, "episodes/episode 1.mp4"));
+  next.clear();
+  assert.equal(fs.existsSync(fresh.path), false);
+  assert.equal(next.entries.size, 0);
   assert.equal(next.namespace(), uploads.namespace());
+  // Below a folder others may write nothing is deleted or created.
+  const again = await uploads.stage("agent-1", source(project, "episodes/episode 1.mp4"));
+  fs.chmodSync(uploadDir, 0o777);
+  uploads.entries.clear();
+  uploads.clear();
+  assert.equal(fs.existsSync(again.path), true);
+  await assert.rejects(
+    uploads.stage("agent-1", source(project, "episodes/episode 1.mp4")),
+    { key: "unavailable" },
+  );
+});
+
+test("staging is one copy at a time within the per-agent and total caps", async (t) => {
+  const { project, uploads } = fixture(t, {
+    limits: { ...uploadLimits, perAgent: 1, totalBytes: 30 },
+  });
+  const stage = (id) => uploads.stage(id, source(project, "episodes/episode 1.mp4"));
+  // Parallel calls of one agent never hold more than its cap.
+  const results = await Promise.all([
+    stage("agent-1"),
+    stage("agent-1"),
+    stage("agent-1"),
+  ]);
+  assert.equal(uploads.entries.size, 1);
+  assert.equal(fs.existsSync(results[2].path), true);
+  assert.equal(
+    results.slice(0, 2).some((e) => fs.existsSync(e.path)),
+    false,
+  );
+  // 11 bytes each: a third agent's copy would pass the total of 30.
+  await stage("agent-2");
+  await assert.rejects(stage("agent-3"), { key: "browserUploadSpace" });
+  assert.equal(uploads.entries.size, 2);
+});
+
+test("a copy that outlives its time is cancelled and leaves nothing", async (t) => {
+  const { project, uploads } = fixture(t, { limits: { ...uploadLimits, copyMs: 1 } });
+  fs.writeFileSync(path.join(project, "big.bin"), Buffer.alloc(64 * 1024 * 1024));
+  await assert.rejects(uploads.stage("agent-1", source(project, "big.bin")), {
+    key: "browserUploadSlow",
+  });
+  assert.equal(uploads.entries.size, 0);
+  const own = path.join(uploads.namespace(), "agent-1");
+  assert.deepEqual(fs.existsSync(own) ? fs.readdirSync(own) : [], []);
 });
 
 test("the uploads folder is OpenClaw's: /tmp/openclaw when trusted, else below TMPDIR", (t) => {
@@ -211,10 +268,21 @@ test("the uploads folder is OpenClaw's: /tmp/openclaw when trusted, else below T
   const link = path.join(base, "linked");
   fs.symlinkSync(preferred, link);
   const uid = process.getuid?.();
-  assert.equal(
-    openclawUploadDir(path.join(base, "tmp"), link),
-    path.join(base, "tmp", uid === undefined ? "openclaw" : `openclaw-${uid}`, "uploads"),
+  const fallback = path.join(
+    base,
+    "tmp",
+    uid === undefined ? "openclaw" : `openclaw-${uid}`,
+    "uploads",
   );
+  assert.equal(openclawUploadDir(path.join(base, "tmp"), link), fallback);
+  // A folder its group or others may write is not OpenClaw's either (fs-safe).
+  fs.chmodSync(preferred, 0o770);
+  assert.equal(trusted(preferred), false);
+  assert.equal(openclawUploadDir(path.join(base, "tmp"), preferred), fallback);
+  // Only named, never created.
+  const missing = path.join(base, "missing");
+  openclawUploadDir(base, missing, { create: false });
+  assert.equal(fs.existsSync(missing), false);
 });
 
 test("the staged name is the file's own name, made safe", () => {

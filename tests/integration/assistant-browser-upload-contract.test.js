@@ -286,10 +286,22 @@ test(
         if (!title) await sleep(250);
       }
       assert.equal(title, "got:episode.mp4:13:episode-bytes");
-      const used = audits.filter((e) => e.details?.browserUpload === "browser");
+      // The plugin reports the finished upload (after_tool_call): one record, for the
+      // agent's own file only.
+      let used = [];
+      for (let n = 0; n < 20 && !used.length; n++) {
+        used = audits.filter((e) => e.details?.browserUpload === "uploaded");
+        if (!used.length) await sleep(250);
+      }
       assert.equal(used.length, 1);
       assert.equal(used[0].resourceId, agent.id);
       assert.equal(used[0].details.filePath, "episode.mp4");
+      assert.equal(audits.filter((e) => e.details?.browserUpload === "failed").length, 0);
+      // A clean stop removes every staged file.
+      const namespace = uploads.files.namespace();
+      uploads.close();
+      assert.equal(fs.existsSync(namespace), false);
+      assert.equal(fs.existsSync(foreign.path), false);
     } finally {
       target?.close();
       await browsers.stop(own);
