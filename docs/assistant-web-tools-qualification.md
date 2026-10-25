@@ -34,7 +34,8 @@ node --test --test-concurrency=1 \
   tests/integration/assistant-web-tools-contract.test.js \
   tests/integration/assistant-web-tools-compiled-contract.test.js \
   tests/integration/assistant-web-tools-live-contract.test.js \
-  tests/integration/assistant-browser-upload-contract.test.js
+  tests/integration/assistant-browser-upload-contract.test.js \
+  tests/integration/assistant-browser-window-contract.test.js
 ```
 
 The compiled contract reads the search plugins from the provisioned installation's
@@ -278,7 +279,13 @@ browser: {
   allowSystemProfileImport: false,
   headless: true,
   executablePath: "<detected Chromium-based browser>",
-  extraArgs: ["--use-mock-keychain"],
+  // Since AGENTPIER-240 also the anti-throttling flags (see "Visible window").
+  extraArgs: [
+    "--use-mock-keychain",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-background-timer-throttling",
+  ],
   profiles: {
     user: { driver: "openclaw", cdpPort: gatewayPort + 12 },
     chrome: { driver: "openclaw", cdpPort: gatewayPort + 13 },
@@ -396,6 +403,42 @@ staged file.
 Enabling the browser block itself live (a browser installed after the start) was not
 measured again. AgentPier keeps that case, a changed search provider or key and a
 changed PDF fallback model on the [pending restart](assistant-gateway.md#pending-restart).
+
+## Visible window
+
+`tests/integration/assistant-browser-window-contract.test.js` (AGENTPIER-240) starts
+one agent's **visible** browser through the real Gateway, the way the owner's
+**Start browser** in the live view does (`AgentBrowsers.ownerStart`), and checks the
+state AgentPier leaves it in. Unlike the other web tools contracts it opens a real
+window: on macOS it lands parked in the bottom-right corner of the screen, on a Linux
+runner without a display the contract starts a private Xvfb (the `native-contracts`
+job installs `xvfb` when the image lacks it). Use a browser app other than the one
+you work in (`AGENTPIER_TEST_BROWSER_PATH`, for example Playwright's Chrome for
+Testing), so its window never mixes with yours.
+
+- The window keeper parks the fresh launch's window: it stays `normal` (never
+  `minimized`), and parked it does not count as the owner's window.
+- Chrome runs with the three anti-throttling flags from `extraArgs`, read from the
+  process list (CDP returns the command line only with `--enable-automation`).
+- On a page of 400 rows (a link, a button, a field and text each), the page is
+  `visible`, renders at least 20 animation frames a second, 20 timers of 50 ms take
+  less than five seconds, and OpenClaw's `GET /snapshot` (`browser.request`)
+  answers in less than ten seconds, half of its browser client's 20-second budget.
+  The same holds after the keeper's CDP session, and with it its focus emulation,
+  is gone, as after an AgentPier restart.
+- **Stop browser** (`AgentBrowsers.ownerStop`) ends the browser: OpenClaw then
+  reports it not running.
+
+On 2026-10-25 it passed on macOS arm64 (Darwin 25.5) against the
+`2026.10.7-node26.12.1-darwin-arm64-lockaba8ef1b9a94` runtime with Playwright's
+Chrome for Testing 156: the cold start took about 11 s, the parked window got 42 to 45
+animation frames a second and snapshots answered in 50 to 250 ms, with and without the
+keeper. The first launch of a new profile showed that OpenClaw 2026.10.7 starts a
+bootstrap browser and ends it at once; the keeper now waits for the real one. A
+manual probe of the same Chrome showed why minimizing had to go: a minimized window
+without focus emulation reported `hidden`, painted no animation frames, and both
+`Accessibility.getFullAXTree` and `Page.captureScreenshot` hit a 20-second timeout,
+also with the anti-throttling flags.
 
 ## Boundaries
 

@@ -133,7 +133,7 @@ export function webToolsSections({ profiles, webTools, port, only }) {
       // OpenClaw uses the macOS keychain for a new profile it launches visibly, which
       // can prompt the owner; the mock keychain never does (ignored elsewhere).
       // extraArgs is global, so every profile keeps the same cookie protection.
-      extraArgs: ["--use-mock-keychain"],
+      extraArgs: ["--use-mock-keychain", ...antiThrottlingArgs],
       // The plugin adds implicit "user" (the signed-in Chrome) and "chrome"
       // (extension) profiles unless defined; both become isolated managed profiles.
       // CDP ports follow OpenClaw's range: first CDP port = gateway port + 11.
@@ -148,6 +148,18 @@ export function webToolsSections({ profiles, webTools, port, only }) {
   }
   return sections;
 }
+
+/**
+ * A visible agent browser is a normal window the owner rarely looks at, often behind
+ * others: without these Chromium treats it as occluded, lowers its renderer's priority
+ * and throttles its timers, and every snapshot or click then outlasts OpenClaw's
+ * 20-second browser budget (AGENTPIER-240). Harmless for a headless browser.
+ */
+export const antiThrottlingArgs = [
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
+  "--disable-background-timer-throttling",
+];
 
 /** Applies webToolsSections to a configuration whose plugins carry an allow list. */
 export function applyWebTools(config, sections) {

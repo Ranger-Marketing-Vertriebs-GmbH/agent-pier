@@ -2,7 +2,7 @@ export const assistantBrowserCopy = {
   group: "Browser des Agenten",
   visible: "Sichtbarer Browser",
   visibleDescription:
-    "Öffnet ein normales, minimiertes Browserfenster statt eines unsichtbaren. Viele Shops und Produktseiten blockieren unsichtbare Browser. Zum Anmelden öffnest du das Fenster über das Dock oder die Fensterliste.",
+    "Öffnet ein normales Browserfenster statt eines unsichtbaren und schiebt es in die untere rechte Bildschirmecke, aus dem Weg. Viele Shops und Produktseiten blockieren unsichtbare Browser. Zum Anmelden übernimmst du den Browser in seiner Live-Ansicht oder ziehst das Fenster aus der Ecke heraus.",
   noApp:
     "Für sichtbare Fenster braucht der Agent eine eigene Browser-App, nicht deinen Chrome. Installiere sie hier mit „Browser installieren“ oder selbst Brave oder Chromium; danach den Agentendienst neu starten.",
   noDisplay:
@@ -21,7 +21,8 @@ export const assistantBrowserCopy = {
   restartConfirm: "Neu starten",
   liveTitle: "Browser",
   liveOpen: "Live-Ansicht öffnen",
-  liveOpenDescription: "Zeigt das Fenster des Agenten-Browsers live, auch minimiert.",
+  liveOpenDescription:
+    "Zeigt das Fenster des Agenten-Browsers live, wo auch immer es auf dem Bildschirm liegt.",
   liveStatus: {
     connecting: "Verbinde …",
     live: "Live",
@@ -62,6 +63,7 @@ export const assistantBrowserCopy = {
   liveKeyboard: "Tastatureingabe für den Agenten-Browser",
   liveEscape: "Umschalt+Esc führt dich aus dem Browser zurück zu „Zurückgeben“.",
   liveStart: "Browser starten",
+  liveStop: "Browser beenden",
   liveTab: "Tab",
   liveFollow: "Dem Agenten folgen",
   liveNoImage: "Noch kein Bild. Es erscheint, sobald sich die Seite ändert.",

@@ -21,6 +21,8 @@ export const browserIdleCapMs = 60 * 60 * 1000;
 // A browser used this recently, or whose agent is at work, or a window the owner has
 // open, is never stopped to make room for another.
 export const browserBusyMs = 5 * 60 * 1000;
+// OpenClaw's own budget for a browser start is 15 s.
+const startTimeoutMs = 30000;
 const slotPattern = /^member(-visible)?-\d+$/;
 // Actions that read OpenClaw's state and never launch a browser (OpenClaw 2026.10.3).
 const nonLaunching = new Set(["status", "profiles", "stop", "doctor"]);
@@ -194,11 +196,11 @@ export class AgentBrowsers {
       : "noProfile";
   }
   /**
-   * A running browser someone watches stays tracked, so a visible one keeps
-   * rendering while minimized; an untracked one (after an AgentPier restart) is
-   * tracked again within the visible limit. Only a `full` viewer, watching since
-   * `since`, keeps it from the idle stop, and at most `idleCapMs` long: a chat's
-   * preview never does.
+   * A running browser someone watches stays tracked, so a visible one keeps its
+   * window keeper (focus emulation, the owner's windows); an untracked one (after an
+   * AgentPier restart) is tracked again within the visible limit. Only a `full`
+   * viewer, watching since `since`, keeps it from the idle stop, and at most
+   * `idleCapMs` long: a chat's preview never does.
    */
   watched(id, { full = false, since = this.now() } = {}) {
     const view = this.viewProfile(id);
@@ -221,12 +223,23 @@ export class AgentBrowsers {
     if (!name) throw assistantProblem("browserUnavailable", 409);
     const reason = await this.admit(name, this.profiles()[name], id);
     if (reason) throw assistantProblem("browserVisibleLimit", 409);
-    await this.runtime.client.request("browser.request", {
-      method: "POST",
-      path: "/start",
-      query: { profile: name },
-    });
+    // A cold launch takes about ten seconds, beyond the client's default budget.
+    await this.runtime.client.request(
+      "browser.request",
+      { method: "POST", path: "/start", query: { profile: name } },
+      { timeoutMs: startTimeoutMs },
+    );
     return { profile: name };
+  }
+  /**
+   * The owner stops the agent's browser from its live view (the profile it shows):
+   * its open tabs close, its profile stays, and the agent's next call starts it again.
+   */
+  async ownerStop(id) {
+    if (!this.ready()) throw assistantProblem("unavailable", 409);
+    const view = this.viewProfile(id);
+    if (!view) throw assistantProblem("invalid");
+    await this.stop(view.name);
   }
   /** The compiled profile `assistant` drives, assigning a member slot when needed. */
   profileOf(assistant) {

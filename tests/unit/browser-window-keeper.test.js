@@ -75,3 +75,91 @@ test("a CDP call the browser never answers fails within its timeout", options, (
     assert.equal(keeper.pending.size, 0);
   }),
 );
+
+// A browser over a fake socket: answers each CDP call from `reply` and records it.
+function fakeBrowser(keeper, reply) {
+  const sent = [];
+  keeper.ws = {
+    readyState: 1,
+    send: (data) => {
+      const msg = JSON.parse(data);
+      sent.push(msg);
+      queueMicrotask(() =>
+        keeper.message(JSON.stringify({ id: msg.id, result: reply(msg) || {} })),
+      );
+    },
+    close() {},
+  };
+  return sent;
+}
+
+test("a fresh launch's window is parked, never minimized", options, () =>
+  held(async () => {
+    let clock = 1000;
+    const keeper = new BrowserWindowKeeper(1, { now: () => clock });
+    keeper.launchedAt = clock;
+    // The window manager clamps the position into the screen's corner.
+    let bounds = { left: 22, top: 52, width: 1200, height: 900, windowState: "normal" };
+    const sent = fakeBrowser(keeper, (msg) => {
+      if (msg.method === "Target.attachToTarget") return { sessionId: "s" };
+      if (msg.method === "Browser.getWindowForTarget") return { windowId: 7 };
+      if (msg.method === "Browser.setWindowBounds" && "left" in msg.params.bounds)
+        bounds = { ...bounds, left: 1880, top: 949 };
+      if (msg.method === "Browser.getWindowBounds") return { bounds };
+    });
+    await keeper.page({ type: "page", targetId: "t1" });
+    const methods = sent.map((m) => m.method);
+    assert.ok(methods.includes("Emulation.setFocusEmulationEnabled"));
+    const sets = sent.filter((m) => m.method === "Browser.setWindowBounds");
+    assert.deepEqual(
+      sets.map((m) => m.params.bounds),
+      [{ windowState: "normal" }, { left: 100000, top: 100000 }],
+    );
+    assert.equal(
+      sent.some((m) => m.params?.bounds?.windowState === "minimized"),
+      false,
+    );
+    // Parked, the window is not the owner's; moved, maximized or resized it is.
+    assert.equal(await keeper.inUse(), false);
+    bounds = { ...bounds, left: 300, top: 200 };
+    assert.equal(await keeper.inUse(), true);
+    bounds = { ...bounds, windowState: "maximized" };
+    assert.equal(await keeper.inUse(), true);
+    bounds = { ...bounds, windowState: "minimized" };
+    assert.equal(await keeper.inUse(), false);
+    // A window opened after the launch window is left where it opened.
+    clock += 20000;
+    sent.length = 0;
+    await keeper.page({ type: "page", targetId: "t2" });
+    assert.equal(
+      sent.some((m) => m.method === "Browser.setWindowBounds"),
+      false,
+    );
+  }),
+);
+
+test(
+  "a fresh launch's bootstrap browser ending early waits for the real one",
+  options,
+  () =>
+    held(async () => {
+      let closed = 0;
+      const keeper = new BrowserWindowKeeper(1, { onClose: () => closed++ });
+      const starts = [];
+      keeper.start = async (options) => starts.push(options);
+      const first = { close() {} };
+      keeper.ws = first;
+      keeper.launchedAt = Date.now();
+      keeper.known.add(3);
+      keeper.lost(first);
+      assert.deepEqual(starts, [{ fresh: true }]);
+      assert.equal(closed, 0);
+      assert.equal(keeper.known.size, 0);
+      // Only once: the next end is the browser's.
+      const second = { close() {} };
+      keeper.ws = second;
+      keeper.lost(second);
+      assert.equal(closed, 1);
+      assert.equal(starts.length, 1);
+    }),
+);

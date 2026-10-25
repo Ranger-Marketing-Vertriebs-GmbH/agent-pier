@@ -279,7 +279,12 @@ test("the browser block uses only the isolated profile without JavaScript evalua
     allowSystemProfileImport: false,
     headless: true,
     executablePath: chrome,
-    extraArgs: ["--use-mock-keychain"],
+    extraArgs: [
+      "--use-mock-keychain",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+      "--disable-background-timer-throttling",
+    ],
     profiles: {
       user: { driver: "openclaw", cdpPort: port + 12 },
       chrome: { driver: "openclaw", cdpPort: port + 13 },

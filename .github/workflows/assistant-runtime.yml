@@ -137,6 +137,11 @@ jobs:
           fi
           echo "::error::No Google Chrome on this runner for the web tools contract."
           exit 1
+      # The browser window contract opens a visible agent browser; a Linux runner has
+      # no display, so the contract starts a private Xvfb of its own.
+      - name: Provide Xvfb for the browser window contract
+        if: runner.os == 'Linux'
+        run: command -v Xvfb >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
       # Simulated model endpoints, accounts and channels only: no secrets, so the
       # live provider test and the predecessor-runtime cross-version test skip.
       - name: Run the deterministic native contracts

@@ -96,6 +96,7 @@ export default function useBrowserStream(id, { preview = false, enabled = true }
     select: (targetId) => send({ type: "select", targetId }),
     follow: () => send({ type: "follow" }),
     start: () => send({ type: "start" }),
+    stop: () => send({ type: "stop" }),
     take: ({ move = false } = {}) =>
       send({ type: "take", ...(move ? { move: true } : {}) }),
     handBack: () => send({ type: "handBack" }),

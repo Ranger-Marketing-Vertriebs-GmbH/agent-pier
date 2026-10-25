@@ -2,7 +2,7 @@ export const assistantBrowserCopy = {
   group: "Agent browser",
   visible: "Visible browser",
   visibleDescription:
-    "Opens a regular, minimized browser window instead of an invisible one. Many shops and product pages block invisible browsers. To sign in, open the window from the Dock or the window list.",
+    "Opens a regular browser window instead of an invisible one and moves it to the bottom-right corner of the screen, out of your way. Many shops and product pages block invisible browsers. To sign in, take over the browser in its live view, or drag the window in from the corner.",
   noApp:
     "Visible windows need a browser app of the agent's own, not your Chrome. Install it here with “Install browser”, or install Brave or Chromium yourself, then restart the agent service.",
   noDisplay:
@@ -21,7 +21,8 @@ export const assistantBrowserCopy = {
   restartConfirm: "Restart",
   liveTitle: "Browser",
   liveOpen: "Open live view",
-  liveOpenDescription: "Shows the agent browser's window live, also while minimized.",
+  liveOpenDescription:
+    "Shows the agent browser's window live, wherever it is on the screen.",
   liveStatus: {
     connecting: "Connecting …",
     live: "Live",
@@ -59,6 +60,7 @@ export const assistantBrowserCopy = {
   liveKeyboard: "Keyboard input for the agent browser",
   liveEscape: "Shift+Escape takes you out of the browser back to “Hand back”.",
   liveStart: "Start browser",
+  liveStop: "Stop browser",
   liveTab: "Tab",
   liveFollow: "Follow the agent",
   liveNoImage: "No picture yet. It appears once the page changes.",

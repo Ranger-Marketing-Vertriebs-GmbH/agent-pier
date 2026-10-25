@@ -11,7 +11,7 @@ import "./agent-browser.css";
  * (UserBrowserPage.jsx) share it; the server decides who may watch and drive.
  * `takeover` takes over as soon as the picture is live; `onControl(mine)` reports it.
  * A view-only viewer (the owner on a user's own agent, under her opt-in) only watches:
- * no takeover, start, tab choice or follow.
+ * no takeover, start, stop, tab choice or follow.
  */
 export default function AgentBrowserView({
   assistant,
@@ -19,7 +19,7 @@ export default function AgentBrowserView({
   onControl,
   privacyNote,
 }) {
-  const { state, image, error, select, follow, start, take, handBack, input } =
+  const { state, image, error, select, follow, start, stop, take, handBack, input } =
     useBrowserStream(assistant.id);
   const status = state.status;
   const viewOnly = state.viewOnly === true;
@@ -37,6 +37,9 @@ export default function AgentBrowserView({
     onControl?.(mine);
   }, [onControl, mine]);
   const reason = status === "unavailable" && copy.liveReason[state.reason];
+  // Start where the browser is stopped, Stop wherever it runs (also while the
+  // picture does not come).
+  const runs = ["live", "connecting", "blocked"].includes(status);
   return (
     <div className="agent-browser-body">
       <div className="agent-browser-bar">
@@ -62,6 +65,11 @@ export default function AgentBrowserView({
         {!viewOnly && state.pinned && (
           <button type="button" className="button secondary compact" onClick={follow}>
             {copy.liveFollow}
+          </button>
+        )}
+        {!viewOnly && runs && (
+          <button type="button" className="button secondary compact" onClick={stop}>
+            {copy.liveStop}
           </button>
         )}
       </div>

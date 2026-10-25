@@ -93,15 +93,18 @@ it took it over from the lead.
   you gave it, when its model takes images; each such view is recorded in the
   activity log with the file's path and size.
 - **Agent browser** (while **Use a browser** is on): **Visible browser** opens a
-  regular, minimized window instead of a headless one, so shop and product pages that
-  block headless browsers work; open the window from the Dock or the window list to
-  sign in. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
+  regular window instead of a headless one, so shop and product pages that block
+  headless browsers work. AgentPier moves it to the bottom-right corner of the screen
+  (macOS leaves a small corner visible) instead of minimizing it, because a minimized
+  window stops rendering and the agent's snapshots and clicks time out; to sign in,
+  take over the browser in its live view or drag the window in from the corner. It needs a browser app of the agents' own, Brave, Chromium or Chrome for
   Testing, never the owner's Chrome, and on Linux a display. Without one,
   **Install browser** installs a managed Chrome for Testing with progress, then offers
   **Restart agent service**. **Open live view** (or the small preview in the chat header while
-  the browser runs) shows the browser live at `/agents/<id>/browser`, also while its
-  window is minimized, with its address and tabs; pick a tab or follow the agent, and
-  start a stopped browser there. Only the owner sees it, and no pictures are stored. **Take over** there
+  the browser runs) shows the browser live at `/agents/<id>/browser`, wherever its
+  window is, with its address and tabs; pick a tab or follow the agent, **Stop
+  browser** (its tabs close, its profile stays; the agent's next browser call starts it
+  again) and **Start browser** there. Only the owner sees it, and no pictures are stored. **Take over** there
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
   and **Hand back** (or ten minutes without input) gives it back; if the agent tried
   the browser meanwhile, a note in the chat lets it continue. Shift+Escape leaves the

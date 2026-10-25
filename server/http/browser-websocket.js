@@ -12,7 +12,7 @@ const backlog = 4 * 1024 * 1024;
 const inputBurst = 240,
   inputRate = 120;
 const inputTypes = new Set(["pointer", "wheel", "key", "text", "paste"]);
-const controls = new Set(["start", "take", "handBack"]);
+const controls = new Set(["start", "stop", "take", "handBack"]);
 // The view is still admitted, but now only to watch (or now to drive): the page
 // reconnects at once and gets the new rights.
 const accessChanged = 4000;
@@ -36,8 +36,8 @@ export function personalState(state, holder) {
  * The owner's live view of an agent's browser (browser-live-view.js):
  * /api/assistants/:id/browser-stream, behind the login and the origin check like the
  * chat stream. The server sends JSON state messages and binary frames; the viewer
- * sends small JSON commands (`select`, `follow`, `start`). Input for a takeover would
- * travel the same way.
+ * sends small JSON commands (`select`, `follow`, `start`, `stop`). Input for a
+ * takeover travels the same way.
  */
 export function attachBrowserWebSocket(
   server,
@@ -186,6 +186,7 @@ export function attachBrowserWebSocket(
         if (command?.type === "select") subscription.select(command.targetId);
         else if (command?.type === "follow") subscription.follow();
         else if (command?.type === "start") await subscription.start();
+        else if (command?.type === "stop") await subscription.stopBrowser();
         else if (command?.type === "take")
           subscription.take({ move: command.move === true });
         else if (command?.type === "handBack") subscription.handBack();
