@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { SecretStore } from "../../server/features/secrets/secret-store.js";
+import { DatabaseSync } from "node:sqlite";
+import {
+  SecretStore,
+  secretsRestoreFile,
+} from "../../server/features/secrets/secret-store.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
 
 function fixture() {
@@ -197,4 +201,14 @@ test("update accepts a partial body and keeps every absent field", () => {
   } finally {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+test("a failed open closes the database", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "secret-store-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  // A folder where the restore file belongs makes the import fail.
+  fs.mkdirSync(path.join(dataDir, "secrets", secretsRestoreFile), { recursive: true });
+  const close = t.mock.method(DatabaseSync.prototype, "close");
+  assert.throws(() => new SecretStore({ dataDir }));
+  assert.equal(close.mock.callCount(), 1);
 });

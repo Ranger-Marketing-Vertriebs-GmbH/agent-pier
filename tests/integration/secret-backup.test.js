@@ -3,20 +3,26 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
-import { decryptCredentials } from "../../server/features/operations/archive.js";
+import {
+  decryptCredentials,
+  encryptCredentials,
+} from "../../server/features/operations/archive.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { projectScope } from "../../server/features/memory/project-scope.js";
 import { SecretStore } from "../../server/features/secrets/secret-store.js";
 import {
+  captureSecrets,
   restoreSecrets,
   secretsMember,
+  secretsPresent,
   secretsOmission,
   secretsRestoreFile,
 } from "../../server/features/secrets/secret-backup.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
-import { archiveText, loadArchive } from "../helpers/backup-archive.js";
+import { archiveText, encodeArchiveV2, loadArchive } from "../helpers/backup-archive.js";
 
 const passphrase = "secret backup passphrase";
 const values = {
@@ -263,4 +269,72 @@ test("restore refuses crafted secret rows", async (t) => {
     assert.equal(fs.existsSync(path.join(stage, "secrets", secretsRestoreFile)), false);
   }
   assert.equal(restoreSecrets(fs.mkdtempSync(path.join(root, "empty-")), []), null);
+});
+
+test("restore refuses secrets outside the sealed member", async (t) => {
+  const { root, dataDir } = await setup(t);
+  const ordinary = loadArchive((await new Backup({ dataDir }).create({})).file);
+  const credentialed = loadArchive((await sealed(dataDir)).file);
+  const opened = await decryptCredentials(credentialed.credentials, passphrase);
+  const member = (name, content) => {
+    const bytes = Buffer.from(content);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    return { path: name, content: bytes.toString("base64"), sha256, mode: 0o600 };
+  };
+  const sealedJson = opened.find((entry) => entry.path === secretsMember);
+  const cases = {
+    publicJson: {
+      ...ordinary,
+      files: [...ordinary.files, { ...sealedJson, mode: 0o600 }],
+    },
+    publicDatabase: {
+      ...ordinary,
+      files: [...ordinary.files, member("secrets/secrets.sqlite", "SQLite format 3")],
+    },
+    sealedDatabase: {
+      ...credentialed,
+      credentials: await encryptCredentials(
+        [...opened, member("secrets/secrets.sqlite", "SQLite format 3")],
+        passphrase,
+      ),
+    },
+  };
+  for (const [name, archive] of Object.entries(cases)) {
+    const file = path.join(root, `${name}.tar.gz`);
+    fs.writeFileSync(file, encodeArchiveV2(archive));
+    const target = path.join(root, `target-${name}`);
+    await assert.rejects(
+      new Restore({ dataDir }).apply({
+        archive: file,
+        targetDataDir: target,
+        passphrase,
+      }),
+      { message: serverMessages.backups.unexpectedComponent },
+      name,
+    );
+    assert.equal(fs.existsSync(target), false, name);
+  }
+});
+
+test("secrets a restore left pending count as present", (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-sec-")));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, "secrets"), { mode: 0o700 });
+  const row = {
+    id: "00000000-0000-4000-8000-000000000001",
+    name: "PENDING_NAME",
+    description: "",
+    projectId: null,
+    value: values.API_TOKEN,
+  };
+  fs.writeFileSync(
+    path.join(root, "secrets", secretsRestoreFile),
+    JSON.stringify({ version: 1, secrets: [row] }),
+    { mode: 0o600 },
+  );
+  assert.equal(secretsPresent(root), true);
+  assert.deepEqual(
+    captureSecrets(root).secrets.map((entry) => entry.name),
+    ["PENDING_NAME"],
+  );
 });

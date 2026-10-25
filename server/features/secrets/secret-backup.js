@@ -21,8 +21,11 @@ export const secretsOmission =
 export { secretsRestoreFile };
 
 function openStore(dataDir) {
-  // Never creates a store: a data folder without one holds no secrets.
-  if (!fs.existsSync(path.join(dataDir, "secrets", "secrets.sqlite"))) return null;
+  // Never creates a store without a reason: no database and no pending restore file
+  // means no secrets. Opening imports the secrets a restore left pending.
+  const files = ["secrets.sqlite", secretsRestoreFile];
+  if (!files.some((name) => fs.existsSync(path.join(dataDir, "secrets", name))))
+    return null;
   return new SecretStore({ dataDir });
 }
 
