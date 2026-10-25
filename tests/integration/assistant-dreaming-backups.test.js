@@ -222,6 +222,86 @@ test("backups of a removed agent are deleted", async (t) => {
   assert.equal(f.backups(kept).length, 1);
 });
 
+test("a tick reads the clock once admitted", async (t) => {
+  const f = fixture(t);
+  const orchid = f.agent("Orchid");
+  f.compile(orchid);
+  let at = night(0, 1, 50);
+  // Admission was held until the run had begun: the queued tick acts at 02:58.
+  const assistants = {
+    ...f.assistants,
+    admit: (fn) => {
+      at = night(0, 1, 58);
+      return fn();
+    },
+  };
+  const clock = () => at;
+  await new DreamingBackups({ settings: f.settings, assistants, clock }).run();
+  assert.deepEqual(f.backups(orchid), ["MEMORY-20261101T015800000Z.md"]);
+});
+
+test("a missing workspaces root removes no backups", async (t) => {
+  const f = fixture(t);
+  const orchid = f.agent("Orchid");
+  f.compile(orchid);
+  const backups = new DreamingBackups({ settings: f.settings, assistants: f.assistants });
+  await backups.run(night(0));
+  fs.rmSync(f.paths.workspaces, { recursive: true });
+  await backups.run(night(0, 12, 0));
+  assert.equal(f.backups(orchid).length, 1);
+});
+
+test("a half-written copy is never a backup and is cleared", async (t) => {
+  const f = fixture(t);
+  const orchid = f.agent("Orchid");
+  f.compile(orchid);
+  fs.mkdirSync(f.folder(orchid), { recursive: true, mode: 0o700 });
+  // A crash during the copy before night 0's window.
+  fs.writeFileSync(
+    path.join(f.folder(orchid), "MEMORY-20261101T015500000Z.md.tmp"),
+    "Orch",
+  );
+  const backups = new DreamingBackups({ settings: f.settings, assistants: f.assistants });
+  await backups.run(night(0));
+  assert.deepEqual(f.backups(orchid), ["MEMORY-20261101T015700000Z.md"]);
+});
+
+test("the clock change nights take one backup each", async (t) => {
+  const f = fixture(t);
+  const orchid = f.agent("Orchid");
+  f.compile(orchid);
+  const backups = new DreamingBackups({ settings: f.settings, assistants: f.assistants });
+  // 2027-03-28 in Berlin: 02:00 CET jumps to 03:00 CEST, so 02:55-02:59 never
+  // happens; 01:57 CET (00:57Z) lies three minutes before 03:00.
+  await backups.run(new Date(Date.UTC(2027, 2, 28, 0, 52)));
+  assert.deepEqual(f.backups(orchid), [], "earlier than five minutes before");
+  await backups.run(new Date(Date.UTC(2027, 2, 28, 0, 57)));
+  assert.deepEqual(f.backups(orchid), ["MEMORY-20270328T005700000Z.md"]);
+  await backups.run(new Date(Date.UTC(2027, 2, 28, 1, 0)));
+  assert.equal(f.backups(orchid).length, 1, "not at the hour itself");
+  // 2027-10-31: 02:57 happens twice (CEST, then CET); the second takes no copy.
+  await backups.run(new Date(Date.UTC(2027, 9, 31, 0, 57)));
+  await backups.run(new Date(Date.UTC(2027, 9, 31, 1, 57)));
+  assert.deepEqual(f.backups(orchid).slice(1), ["MEMORY-20271031T005700000Z.md"]);
+});
+
+test("a chat deletion does not wait for the forget", async (t) => {
+  const done = path.join(
+    fs.realpathSync(os.tmpdir()),
+    `forget-slow-${process.pid}-${Date.now()}`,
+  );
+  t.after(() => fs.rmSync(done, { force: true }));
+  const f = deletion(
+    t,
+    `import fs from "node:fs";
+setTimeout(() => fs.writeFileSync(${JSON.stringify(done)}, "done"), 1500);`,
+  );
+  assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
+  assert.equal(fs.existsSync(done), false, "the forget is still running");
+  await f.assistants.dreamingForgets;
+  assert.equal(fs.existsSync(done), true);
+});
+
 /** A chat with a known native session, and a runtime whose CLI is `script`. */
 function deletion(t, script) {
   const f = fixture(t);
@@ -261,6 +341,7 @@ fs.writeFileSync(${JSON.stringify(record)}, JSON.stringify({ args: process.argv.
 console.log("{}");`,
   );
   assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
+  await f.assistants.dreamingForgets;
   assert.deepEqual(f.calls, ["sessions.delete"]);
   const seen = JSON.parse(fs.readFileSync(record, "utf8"));
   assert.deepEqual(seen.args, [
@@ -282,6 +363,7 @@ test("a failed forget does not fail the chat deletion", async (t) => {
   t.mock.method(console, "warn", (...args) => warnings.push(args.join(" ")));
   assert.equal(await deleteNativeSession(f.assistants, f.chat), true);
   assert.equal(f.store.storedConversation(f.chat.id).nativeDeletePending, false);
+  await f.assistants.dreamingForgets;
   assert.equal(warnings.length, 1);
   assert.doesNotMatch(warnings[0], /session-1|DREAMSECRET/);
 });

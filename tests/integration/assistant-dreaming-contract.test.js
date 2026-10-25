@@ -370,6 +370,7 @@ test(
       runtimeSessionKey: chat,
     });
     assert.equal(await deleteNativeSession(assistants, conversation), true);
+    await assistants.dreamingForgets;
     assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/);
     assert.match(f.corpus(fern), /DREAMFERN/, "another agent's corpus stays");
     await f.turn(orchid, "Tomatoes need water daily DREAMORCHIDTWO.");

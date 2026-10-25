@@ -167,11 +167,14 @@ export async function deleteNativeSession(assistants, conversation) {
     }
   }
   // Dreaming's copies of the chat go too, dreaming on or off: earlier nights may have
-  // read it. A failure is logged without content and leaves the deletion standing.
+  // read it. One after another in the background, never under admission; a failure
+  // is logged without content and leaves the deletion standing.
   if (sessionId && agent)
-    await forgetDreamingSession(assistants, agent, sessionId).catch(() =>
-      console.warn("AgentPier could not remove a deleted chat from dreaming."),
-    );
+    assistants.dreamingForgets = (assistants.dreamingForgets || Promise.resolve())
+      .then(() => forgetDreamingSession(assistants, agent, sessionId))
+      .catch(() =>
+        console.warn("AgentPier could not remove a deleted chat from dreaming."),
+      );
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
   return true;
