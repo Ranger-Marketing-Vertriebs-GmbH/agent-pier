@@ -8,9 +8,15 @@ import { memoryStep } from "./memory-write-policy.js";
  * included, is refused while the step runs (team-plugin/tool-guard.js stepCall).
  * In OpenClaw Code Mode the model sees only `exec` (a JavaScript cell, hook
  * `toolKind: "code_mode_exec"`) and `wait` (which resumes such a cell) and calls
- * every other tool from the cell; each of those nested calls meets this hook too, so
- * a cell admits exactly the tools above (codeModeControl). A shell `exec`, which
- * shares the name but carries no such kind, stays refused.
+ * every other tool from the cell. The step admits the cell (codeModeControl); each
+ * tool call from it meets this hook and the bridge's write guard on its own, so it
+ * reaches only the tools above. The cell's own JavaScript is not a tool call: it runs
+ * in OpenClaw's executor (Node `node:vm` by default, which OpenClaw says is no
+ * security boundary; QuickJS isolates more), and its `store()`/`load()` meet no hook.
+ * `wait` is admitted by name: the bridge cannot see whether a cell is open, and a
+ * resumed cell gains nothing a new cell would not have (its tool calls meet the same
+ * hook), an accepted residual risk. A shell `exec`, which shares the name but
+ * carries no such kind, stays refused.
  */
 export const memoryStepTools = ["memory_search", "memory_get", "read", "write", "edit"];
 const codeModeControl = ({ toolName, toolKind }) =>

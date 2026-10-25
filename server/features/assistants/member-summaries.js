@@ -50,7 +50,8 @@ export const ownerChatQuietMs = 60 * 60_000;
 /**
  * Whether the owner talks in the chat himself: a turn of a person (directOrigin: the
  * owner, his paired Telegram chat or a user) runs there or was sent within
- * ownerChatQuietMs, or a message of his is queued for it.
+ * ownerChatQuietMs, or a message of his is queued for it. A work-goal continuation
+ * is recorded as an owner turn (goal-turns.js) and counts as his.
  */
 export function ownerTalking({ assistants, teams }, conversationId, now = Date.now()) {
   const { ledger, queued } = assistants;

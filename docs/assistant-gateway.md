@@ -1108,7 +1108,8 @@ A lead reaches its own members without the owner relaying anything
   next lead request or delegated task reaches the chat (the send meets the summary and
   waits). Both chats get a note. While the owner talks in that chat himself
   (`ownerTalking`: a person's own turn, `directOrigin`, runs there or was accepted
-  within `ownerChatQuietMs` = 60 minutes, or a queued message of his waits for it) the
+  within `ownerChatQuietMs` = 60 minutes, or a queued message of his waits for it; a
+  work-goal continuation is recorded as `kind: "owner"` and counts too) the
   tool answers `owner` for both choices, which tells the lead to leave the chat to the
   owner and his **Summarise now**; a pending after-task summary is dropped at its next
   run, and `MemberLongChats.check` sends no hint (AGENTPIER-248).
@@ -1458,8 +1459,13 @@ was compacted and the plan was gone. Four rules close that gap:
   and every bridge action refuse the session's other tools. In OpenClaw Code Mode the
   model sees only `exec` and `wait`; the step hook (`stepPolicy`, `memory-step-tools.js`)
   admits an `exec` only with the host-set hook `toolKind: "code_mode_exec"` (a shell
-  `exec` carries none) and `wait`, and every tool the cell calls meets the same hook,
-  so the cell runs only the step's memory tools. The step is bound by the
+  `exec` carries none) and `wait`. Every tool call from the cell passes the step hook
+  and the bridge's write guard on its own, so it reaches only the step's memory tools.
+  The cell's own JavaScript is no tool call: it runs in OpenClaw's executor, by default
+  Node `node:vm` in a worker, which OpenClaw documents as no security boundary (its
+  QuickJS executor isolates more), and its `store()`/`load()` meet no hook. `wait` is
+  admitted by name because the bridge cannot see whether a cell is open; a resumed cell
+  gains nothing a new one would not, an accepted residual risk. The step is bound by the
   chat's own attempt, never reaches Telegram and is aborted like **Stop** after five
   minutes.
   OpenClaw's own pre-run flush during the step (`flushWrite`) may write the day note
