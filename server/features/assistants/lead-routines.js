@@ -1,4 +1,5 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
+import { reportedFailure } from "./routine-failures.js";
 import { personalCapabilities, personalEligible } from "./native-capabilities.js";
 import { exact, schedule } from "./reminder-input.js";
 import { namesMember, ownerProse, parseOwnerText } from "./lead-request-proof.js";
@@ -351,7 +352,7 @@ function publicRoutine(r, writes = r.writes === true) {
     mayWrite: writes,
     nextRunAtMs: r.nextRunAtMs ?? null,
     lastRunStatus: r.lastRunStatus ?? null,
-    // Why the last run failed: a reason and OpenClaw's redacted message.
-    lastFailure: r.lastFailure ?? null,
+    // Why the last run failed: the cause only, as in the lead's reports.
+    lastFailure: reportedFailure(r.lastFailure),
   };
 }

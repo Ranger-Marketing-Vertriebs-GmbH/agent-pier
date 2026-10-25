@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { requestKind } from "./lead-request-store.js";
-import { runFailure } from "./routine-failures.js";
+import { reportedFailure, runFailure } from "./routine-failures.js";
 import { mainConversation } from "./routine-targets.js";
 import { saveText, shortForm } from "./team-texts.js";
 
@@ -62,7 +62,7 @@ export function routineReport(lead, binding, event, text) {
       phase: ok ? "completed" : "failed",
       ...(ok
         ? { answer: short.text, ...(short.truncated ? { answerTruncated: true } : {}) }
-        : { diagnostic: "ROUTINE_FAILED", failure: runFailure(event) }),
+        : { diagnostic: "ROUTINE_FAILED", failure: reportedFailure(runFailure(event)) }),
       delivery: null,
       createdAt: now,
       startedAt: new Date(event.runAtMs).toISOString(),

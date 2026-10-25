@@ -5,6 +5,7 @@ import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
+import { agentFailure } from "./routine-failures.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 export const permanentReasons = {
   400: "INVALID",
@@ -199,6 +200,13 @@ export class NativeRoutines extends NativeReminders {
     const { reminders } = await super.list(id, scope);
     return { routines: reminders };
   }
+  /** The agent's tool list: OpenClaw's error text quoted as data (routine-failures.js). */
+  async listForAgent(id, userId) {
+    const { routines } = await this.list(id, { userId });
+    return {
+      routines: routines.map((r) => ({ ...r, lastFailure: agentFailure(r.lastFailure) })),
+    };
+  }
   /**
    * Whether this turn's person may switch "May write" with the agent's tool: only
    * where she may in the settings, which is the owner's own routines (the owner's
@@ -353,7 +361,7 @@ export class NativeRoutines extends NativeReminders {
       input?.action !== "list",
     );
     this.agent(id, true);
-    if (input.action === "list") return this.list(id, { userId });
+    if (input.action === "list") return this.listForAgent(id, userId);
     if (["update", "remove"].includes(input.action))
       boundTo(this.bindings, id, input.id, userId);
     if (["create", "update"].includes(input.action))
