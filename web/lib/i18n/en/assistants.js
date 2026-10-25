@@ -163,7 +163,10 @@ export const assistantCopy = {
   conversationDiagnostics: {
     SESSION_UNAVAILABLE:
       "This chat's session is not available in the agent service right now. New replies may be delayed; AgentPier retries automatically.",
+    AGENT_DEGRADED:
+      "This agent couldn't start in the agent service. Restart the agent service to bring it back.",
   },
+  restartAgentService: "Restart agent service",
   conversation: "Conversation",
   settingsTab: "Settings",
   messagePlaceholder: "Message your agent …",
@@ -398,6 +401,7 @@ export const assistantCopy = {
     cancelled: "Cancelled",
     compacting: "Summarising conversation",
     savingMemories: "Saving memories",
+    degraded: "Couldn't start",
   },
   // A run that shortens its long history first (server compactions.js).
   compaction: {

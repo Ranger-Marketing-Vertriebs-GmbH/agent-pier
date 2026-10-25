@@ -1,10 +1,14 @@
 import { assistantProblem } from "../assistant-validation.js";
+import { settledAdmission } from "../agent-admission.js";
 
 // Every live OpenClaw configuration write goes through here, so a concurrent change
 // surfaces as a conflict instead of being silently overwritten. OpenClaw 2026.9.8
 // rejects a stale base hash with the generic INVALID_REQUEST, so a changed hash
-// after the rejection is what identifies the conflict.
+// after the rejection is what identifies the conflict. A Gateway still admitting
+// agents in the background is never written to before it is done
+// (agent-admission.js).
 export async function patchConfig(client, build) {
+  await settledAdmission(client);
   const current = await client.call("config.get", {});
   const change = build(current.config || {});
   if (!change) return null;

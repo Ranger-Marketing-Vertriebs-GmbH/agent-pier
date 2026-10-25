@@ -53,6 +53,16 @@ export const sessionCreateTimeoutMs = 60000;
 // first agent on a slow Intel Mac took more than the default 10 s. Like a session, a
 // timed-out create leaves it unknown whether the agent exists.
 export const agentCreateTimeoutMs = 30000;
+// OpenClaw 2026.10.7 refuses a session of an agent whose database it has not
+// admitted with UNAVAILABLE and the refusal as `details` (agent-admission.js).
+const admissionCodes = /^agent-database-[a-z-]{1,60}$/;
+const admissionRefusal = (error) =>
+  error?.code === "UNAVAILABLE" &&
+  admissionCodes.test(error.details?.code) &&
+  typeof error.details.agentId === "string" &&
+  error.details.agentId.length <= 200
+    ? { admissionRefusal: { agentId: error.details.agentId, code: error.details.code } }
+    : {};
 // What GatewayClient.download may read: OpenClaw's managed outgoing media.
 const downloadPaths = ["/api/chat/media/outgoing/"];
 
@@ -126,7 +136,13 @@ export class GatewayClient extends EventEmitter {
                   answered: true,
                   // OpenClaw marks an answer that did nothing and may be repeated
                   // (sessions.create while its model catalog loads, 2026.10.3).
-                  ...(frame.error?.retryable === true ? { retryable: true } : {}),
+                  // An explicit false says it did nothing and repeating will not help.
+                  ...(typeof frame.error?.retryable === "boolean"
+                    ? { retryable: frame.error.retryable }
+                    : {}),
+                  // An agent the Gateway has not admitted (agent-admission.js): its id
+                  // and refusal code only, never the reason or the paths.
+                  ...admissionRefusal(frame.error),
                   // The Gateway's reason, only for callers that must tell one
                   // INVALID_REQUEST from another (a stale base hash); never
                   // logged or shown.

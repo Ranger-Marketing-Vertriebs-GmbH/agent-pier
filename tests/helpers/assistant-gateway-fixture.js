@@ -29,7 +29,7 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
       calls.push(req);
       if (req.method === "pending") return;
       const ok =
-        !["stale", "busy", "refused", "titleFailed"].includes(req.method) &&
+        !["stale", "busy", "refused", "titleFailed", "degraded"].includes(req.method) &&
         (req.method !== "connect" || req.params.auth?.token === token);
       const send = () =>
         ws.readyState === 1 &&
@@ -66,21 +66,38 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
                       {
                         error: { code: "UNAVAILABLE", message: "LLM_COMPLETION_TIMEOUT" },
                       }
-                    : req.method === "refused"
-                      ? // As OpenClaw's dispatcher answers an error a handler threw.
+                    : req.method === "degraded"
+                      ? // As 2026.10.7 refuses an agent it did not admit.
                         {
                           error: {
                             code: "UNAVAILABLE",
                             message:
-                              "SessionMutationFactsUnavailableError: Session access facts are unavailable; retry after session storage is ready. <- Error: /secret/path is locked",
+                              "Agent ap-1 startup preparation was superseded\nSessions remain unavailable.",
+                            details: {
+                              agentId: "ap-1",
+                              paths: ["/secret/agents/ap-1/agent/openclaw-agent.sqlite"],
+                              code: "agent-database-inspection-failed",
+                              reason: "Agent ap-1 startup preparation was superseded",
+                              repairHint: "Sessions remain unavailable.",
+                            },
+                            retryable: false,
                           },
                         }
-                      : {
-                          error: {
-                            code: "UNAUTHORIZED",
-                            message: "secret must not escape",
-                          },
-                        }),
+                      : req.method === "refused"
+                        ? // As OpenClaw's dispatcher answers an error a handler threw.
+                          {
+                            error: {
+                              code: "UNAVAILABLE",
+                              message:
+                                "SessionMutationFactsUnavailableError: Session access facts are unavailable; retry after session storage is ready. <- Error: /secret/path is locked",
+                            },
+                          }
+                        : {
+                            error: {
+                              code: "UNAUTHORIZED",
+                              message: "secret must not escape",
+                            },
+                          }),
           }),
         );
       if (req.method === "connect") setTimeout(send, delay);

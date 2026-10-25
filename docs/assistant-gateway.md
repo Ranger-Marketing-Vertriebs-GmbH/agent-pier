@@ -351,8 +351,10 @@ for the implementation and remaining native platform/version qualification.
 
 Agent activity is derived on every `GET /api/assistants` from the latest request per
 conversation, pending approvals and team state (`assistant-activity.js`); it is never
-stored. First match wins: an unreviewed `uncertain` or `interrupted` attempt, or a
-member in `uncertain` / `provisioning_uncertain`, needs **attention**; any pending
+stored. First match wins: an agent the running Gateway refused
+([degraded](#degraded-agents-agentpier-238)), an unreviewed `uncertain` or
+`interrupted` attempt, or a member in `uncertain` / `provisioning_uncertain`, needs
+**attention**; any pending
 approval (own actions, team coding requests, team proposals) means **waiting**; an
 unreviewed `pending` / `accepted` / `running` or unconfirmed attempt, a working or queued member, or an
 active own team means **working**; everything else, including a `failed` last attempt,
@@ -489,6 +491,48 @@ working ("Awaiting confirmation"). The chat shows the same calm note and offers 
 restart-and-acknowledge action only once the run has been quiet for two minutes,
 counted on the browser's clock from when the chat first saw the turn waiting or from
 its latest output.
+
+**Refused sends.** Only a definite answer that the Gateway ran nothing ends a turn
+at once: an agent it has not admitted (`admissionRefusal` in the answer, see below),
+`UNAVAILABLE` with an explicit `retryable: false`, or `INVALID_REQUEST`. The attempt
+becomes `failed` with `failure` `degraded`, `starting` or `refused`
+(`sendRefusal`, `conversation-turns.js`), and the chat says that the message was not
+delivered. A timeout, a lost connection or any other answer stays `uncertain`. The
+attempt evidence records the error code in both cases, and a refusal is logged with
+its code only, never the message text.
+
+### Degraded agents (AGENTPIER-238)
+
+After an unclean stop (a stale database lease), OpenClaw 2026.10.7 inspects and
+prepares some agent databases in the background once the Gateway answers.
+Meanwhile `agents.list` reports such an agent `status: "degraded"` with an
+`admissionRefusal` coded `agent-database-inspection-pending`. A runtime configuration
+change during that preparation (`config.patch`, `agents.create`, `agents.update`)
+supersedes it, and OpenClaw never retries it: the agent stays refused
+(`agent-database-inspection-failed`) for the Gateway's lifetime, and its
+`sessions.send`, `sessions.messages.subscribe` and history calls answer
+`UNAVAILABLE`.
+
+AgentPier therefore never writes the configuration while an agent is pending
+(`agent-admission.js`). Every writer (`patchConfig` in `live-patch.js` and
+`AssistantConfig.apply`) first waits, once per Gateway connection, until
+`agents.list` lists no pending agent, for at most 120 s; writes that arrive meanwhile
+share that wait and go out one after the other afterwards. Once the background
+admission is done, a write can no longer supersede it, so no further debounce is
+needed. A turn of a healthy agent that needs a configuration write after a start
+waits with it; on a busy host the admission has taken about 5 s.
+
+An agent still refused afterwards, or one whose call reported the refusal, is
+degraded until the Gateway restarts: the agent list marks it `degraded`, its activity
+needs **attention** with **Couldn't start**, and its chats show **This agent couldn't
+start in the agent service. Restart the agent service to bring it back.**
+(`AGENT_DEGRADED`, ahead of `SESSION_UNAVAILABLE`) with **Restart agent service**
+(the usual `POST /api/assistant-runtime/restart`, refused while turns are open). A new
+turn to it is refused with `503` (`agentDegraded`) before anything reaches the Gateway.
+AgentPier does not restart the Gateway on its own: the owner decides when to
+interrupt the other agents. A clean restart admits the agent again; the
+[native contract](../tests/integration/assistant-agent-admission-contract.test.js)
+checks both paths on the pinned runtime.
 
 Agents receive `session_status` plus the managed AgentPier tools their settings
 enable (team, memory, reminder, routine and coding tools; see the sections below).

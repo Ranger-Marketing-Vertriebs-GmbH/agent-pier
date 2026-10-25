@@ -520,7 +520,8 @@ test("a roster read during the native reload after profile creation is polled ag
     },
   });
   await config.apply(a.id);
-  assert.deepEqual(lists, [false, true, true]);
+  // The first read is the admission wait before any write (agent-admission.js).
+  assert.deepEqual(lists, [false, false, true, true]);
   assert.equal(store.getAssistant(a.id).effectiveRevision, 1);
 });
 
@@ -559,5 +560,6 @@ test("a lost Gateway connection during the roster wait fails at once", async (t)
     },
   });
   await assert.rejects(config.apply(a.id), { message: "closed" });
-  assert.equal(lists, 2);
+  // The admission wait, the roster check, the wait for the created agent.
+  assert.equal(lists, 3);
 });

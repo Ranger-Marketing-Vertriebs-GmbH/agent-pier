@@ -47,6 +47,15 @@ export const agentRunStepsCopy = {
   continueMessage: "Bitte mach dort weiter, wo du aufgehört hast.",
   timedOut:
     "Das Modell hat nicht rechtzeitig geantwortet. Prüfe, was der Agent schon erledigt hat, bevor du es erneut versuchst.",
+  // Der Agentendienst hat die Nachricht abgelehnt, bevor sie lief (Server sendRefusal).
+  refusedTurn: {
+    degraded:
+      "Dieser Agent konnte im Agentendienst nicht starten, die Nachricht wurde nicht zugestellt. Starte den Agentendienst neu, um ihn wiederherzustellen.",
+    starting:
+      "Dieser Agent startet im Agentendienst noch, die Nachricht wurde nicht zugestellt. Versuche es in einem Moment erneut.",
+    refused:
+      "Der Agentendienst hat die Nachricht abgelehnt, sie wurde nicht zugestellt. Versuche es erneut.",
+  },
   longChat:
     "Dieser Chat ist lang. Nach Pausen dauert die erste Antwort länger, und ältere Details gehen leichter unter.",
   summarise: "Jetzt zusammenfassen",

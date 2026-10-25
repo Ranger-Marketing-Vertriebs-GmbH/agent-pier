@@ -1162,5 +1162,9 @@ See [SECURITY.md](../SECURITY.md) for the reporting policy and the full trust mo
   could not be switched on or started.
 - An agent whose model connection was deleted shows a hint in its chat header; choose
   another connection on its **Profile** tab.
+- An agent marked **Couldn't start** could not start in the agent service, usually
+  after the service stopped uncleanly. Its chats say so and offer **Restart agent
+  service**, which brings it back; messages sent to it meanwhile are not delivered
+  (see [degraded agents](assistant-gateway.md#degraded-agents-agentpier-238)).
 - After a rollback to an older runtime, some features stay off until the qualified
   version runs again ([runtime updates](assistant-runtime-updates.md)).

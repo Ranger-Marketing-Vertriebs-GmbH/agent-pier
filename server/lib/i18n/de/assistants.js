@@ -440,6 +440,8 @@ export const assistants = {
   unavailable: "Der Agentendienst ist nicht bereit. Prüfe die Laufzeit-Einstellungen.",
   agentLoading:
     "Der Agentendienst hat den Agenten nicht rechtzeitig geladen. Versuche es in einem Moment erneut.",
+  agentDegraded:
+    "Dieser Agent konnte im Agentendienst nicht starten. Starte den Agentendienst neu, um ihn wiederherzustellen.",
   provider: "Dieser Provider-Zugang ist für Agenten nicht verfügbar.",
   uncertain:
     "Der Ausgang dieser Anfrage ist noch unklar. Prüfe den Verlauf vor einem neuen Versuch.",

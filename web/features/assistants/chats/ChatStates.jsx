@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import Icon from "../../../components/Icon.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.js";
+import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
+import { assistantApi } from "../assistant-api.js";
+import useAssistants from "../useAssistants.js";
 import "./agent-chats.css";
 
 /** The chat's title in its header; a tap opens the Chats sheet. */
@@ -44,6 +47,51 @@ export function ArchivedChatBanner({ onRestore }) {
         }}
       >
         {copy.restore}
+      </button>
+      <ErrorMessage error={error} />
+    </div>
+  );
+}
+
+/**
+ * Above a chat whose session the agent service cannot serve now (the server's
+ * conversation diagnostic). An agent it could not start (AGENT_DEGRADED) comes back
+ * with a restart of the agent service, offered where `canRestart` (not in a user's
+ * chat, which the owner only reads).
+ */
+export function ConversationFault({ diagnostic, canRestart }) {
+  const { refresh } = useAssistants();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const text = assistantCopy.conversationDiagnostics[diagnostic];
+  if (!text) return null;
+  if (diagnostic !== "AGENT_DEGRADED" || !canRestart)
+    return (
+      <p role="status" className="assistant-notice">
+        {text}
+      </p>
+    );
+  return (
+    <div className="agent-chat-banner" role="status">
+      <span>{text}</span>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError("");
+          try {
+            await assistantApi.operate("restart");
+            await refresh();
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {assistantCopy.restartAgentService}
       </button>
       <ErrorMessage error={error} />
     </div>

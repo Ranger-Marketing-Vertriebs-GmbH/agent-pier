@@ -411,6 +411,8 @@ export const assistants = {
   unavailable: "The agent service is not ready. Check runtime settings.",
   agentLoading:
     "The agent service did not load the agent in time. Try again in a moment.",
+  agentDegraded:
+    "This agent couldn't start in the agent service. Restart the agent service to bring it back.",
   provider: "This model connection is not available for agents.",
   uncertain:
     "The outcome of this request is still unknown. Check the history before trying again.",

@@ -7,6 +7,8 @@ function client(responses) {
   return {
     calls,
     async call(method, params) {
+      // A Gateway that admitted every agent (agent-admission.js).
+      if (method === "agents.list") return { agents: [] };
       calls.push([method, params]);
       const next = responses[method];
       if (next instanceof Error) throw next;

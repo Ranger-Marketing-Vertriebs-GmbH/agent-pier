@@ -19,6 +19,7 @@ import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
+import { settledAdmission } from "./agent-admission.js";
 import { agentCreateTimeoutMs } from "./gateway-client.js";
 import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
@@ -271,6 +272,8 @@ export class AssistantConfig {
         await patchConfig(this.client, () => ({
           patch: { models: { providers: { [lease.providerId]: lease.provider } } },
         }));
+      // agents.create and agents.update write the configuration (agent-admission.js).
+      await settledAdmission(this.client);
       const agents = await this.client.call("agents.list", {});
       if (!agents.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
         const created = await this.client.call(

@@ -27,8 +27,9 @@ const evidenceOf = (r) => {
     return {};
   }
 };
-// Why a failed turn ended, when AgentPier knows it.
-const failures = new Set(["timeout", "stalled"]);
+// Why a failed turn ended, when AgentPier knows it: its run timed out or stalled, or
+// the Gateway refused it before running it (conversation-turns.js sendRefusal).
+const failures = new Set(["timeout", "stalled", "degraded", "starting", "refused"]);
 // A send whose acknowledgement was lost (conversation-turns.js) leaves the attempt
 // uncertain but confirmable: the Gateway may still prove it runs the turn.
 const unconfirmedSend = (r) =>
@@ -43,7 +44,7 @@ const attemptRecord = (r) =>
     createdAt: r.created_at,
     ...(unconfirmedSend(r) ? { unconfirmed: true } : {}),
     // Why a failed turn ended, when AgentPier knows (run-reconciler.js,
-    // run-stall-guard.js): "timeout" or "stalled".
+    // run-stall-guard.js, conversation-turns.js): one of `failures`.
     ...(r.state === "failed" && failures.has(evidenceOf(r).failure)
       ? { failure: evidenceOf(r).failure }
       : {}),

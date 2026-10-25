@@ -5,6 +5,21 @@ import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 import { reopenRefusedChat } from "./native-chat-archive.js";
 import { memoryStep } from "./memory-write-policy.js";
+import { agentDegraded, noteRefusal, pendingAdmission } from "./agent-admission.js";
+
+/**
+ * Why the Gateway refused a turn before running it, or null when it may run it: an
+ * agent it has not admitted ("degraded", "starting"; agent-admission.js) or another
+ * answer that it did nothing ("refused"). Only such an answer is definite; a timeout
+ * or a lost connection leaves the outcome open (AGENTPIER-238).
+ */
+export function sendRefusal(error) {
+  if (!error?.answered) return null;
+  const refusal = error.admissionRefusal;
+  if (refusal) return refusal.code === pendingAdmission ? "starting" : "degraded";
+  if (error.code === "INVALID_REQUEST") return "refused";
+  return error.code === "UNAVAILABLE" && error.retryable === false ? "refused" : null;
+}
 
 function usersAgent(service, conversation) {
   try {
@@ -84,6 +99,10 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   )
     throw assistantProblem("active", 409);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
+  // An agent the running Gateway refused takes no turn until it restarts.
+  const { runtimeAgentId } = service.store.getAssistant(conversation.assistantId);
+  if (agentDegraded(service.runtime.client, runtimeAgentId))
+    throw assistantProblem("agentDegraded", 503);
   await service.config.apply(conversation.assistantId);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
   // Applied while the write guard was still missing: the turn runs read-only.
@@ -135,14 +154,22 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     });
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
   } catch (error) {
-    // A busy Gateway may run a turn whose acknowledgement timed out: its own
-    // evidence of the run confirms it later (run-confirmation.js). The send keeps the
-    // client's short timeout, so the admission lock is never held long.
-    service.ledger.transition(
-      attempt.id,
-      "uncertain",
-      error?.code === "TIMEOUT" ? { unconfirmed: "send", generation } : {},
-    );
+    noteRefusal(service.runtime.client, error);
+    const failure = sendRefusal(error);
+    const code = typeof error?.code === "string" ? error.code : "UNKNOWN";
+    // A refusal before any run ends the turn; its code is logged, never its text.
+    if (failure) {
+      console.warn(`Assistant Gateway refused a turn (${code}, ${failure}).`);
+      service.ledger.transition(attempt.id, "failed", { failure, code });
+    } else
+      // A busy Gateway may run a turn whose acknowledgement timed out: its own
+      // evidence of the run confirms it later (run-confirmation.js). The send keeps
+      // the client's short timeout, so the admission lock is never held long.
+      service.ledger.transition(
+        attempt.id,
+        "uncertain",
+        code === "TIMEOUT" ? { unconfirmed: "send", generation, code } : { code },
+      );
   } finally {
     sending.delete(attempt.id);
   }

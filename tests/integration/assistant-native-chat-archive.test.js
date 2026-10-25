@@ -207,11 +207,13 @@ test("a turn refused as archived is sent again only once", async (t) => {
     clientRequestId: "stuck",
     text: "Hello",
   });
-  assert.equal(attempt.state, "uncertain");
+  // Refused again before any run: the turn failed (conversation-turns.js sendRefusal).
+  assert.equal(attempt.state, "failed");
+  assert.equal(attempt.failure, "refused");
   assert.equal(sends, 2);
 });
 
-test("another refusal is not retried and leaves the turn uncertain", async (t) => {
+test("another refusal is not retried and fails the turn", async (t) => {
   const f = nativeChats(t);
   const chat = f.chat("open");
   const call = f.client.call;
@@ -227,7 +229,8 @@ test("another refusal is not retried and leaves the turn uncertain", async (t) =
     clientRequestId: "refused",
     text: "Hello",
   });
-  assert.equal(attempt.state, "uncertain");
+  assert.equal(attempt.state, "failed");
+  assert.equal(attempt.failure, "refused");
   // The open session is only pinned; the turn is not sent again.
   assert.equal(sends, 1);
   assert.equal(f.native.get("open").pinned, true);

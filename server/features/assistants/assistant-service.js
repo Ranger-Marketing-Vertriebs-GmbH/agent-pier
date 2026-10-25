@@ -39,6 +39,7 @@ import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
 import { AgentChats } from "./agent-chats.js";
 import { LongChats } from "./long-chats.js";
+import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
@@ -150,25 +151,22 @@ export class AssistantService {
     const teamData = this.teams?.list();
     // A user's own agent says whether the owner may read its content (her opt-in), so
     // his settings show it read-only or explain why not (owner-privacy.js).
-    const assistants = this.store
-      .listAssistants()
-      .map((a) => this.withMcp(a))
-      .map((a) =>
-        a.userAccess?.mode === "own"
-          ? { ...a, ownerReads: this.privacy?.agentContent?.(a) ?? true }
-          : a,
-      );
     // The owner's list: users' chats show only under their opt-in, and only from its
-    // since (owner-privacy.js).
-    const conversations = this.store
-      .listConversations()
-      .map((c) => (this.privacy?.view ? this.privacy.view(c) : c))
-      .filter(Boolean)
-      .map((c) =>
-        this.sessionFailures.has(c.id)
-          ? { ...c, diagnostic: this.sessionFailures.get(c.id).diagnostic }
-          : c,
-      );
+    // since (owner-privacy.js); agents the Gateway refused say so, and their chats.
+    const { assistants, conversations } = withAdmission(this, {
+      assistants: this.store
+        .listAssistants()
+        .map((a) => this.withMcp(a))
+        .map((a) =>
+          a.userAccess?.mode === "own"
+            ? { ...a, ownerReads: this.privacy?.agentContent?.(a) ?? true }
+            : a,
+        ),
+      conversations: this.store
+        .listConversations()
+        .map((c) => (this.privacy?.view ? this.privacy.view(c) : c))
+        .filter(Boolean),
+    });
     return {
       ...(teamData && {
         ...pick(teamData, ["teams", "members", "requests", "policies"]),

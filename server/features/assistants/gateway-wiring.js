@@ -2,6 +2,7 @@
 // events of the current connection (streamed replies, finished runs, generated
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
 import { confirmFromEvent } from "./run-confirmation.js";
+import { settledAdmission } from "./agent-admission.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
 export function runtimeStatusHandler(service) {
@@ -34,6 +35,12 @@ export function runtimeStatusHandler(service) {
       // A reconnect re-subscribes every session at once; a pass that started on
       // the previous connection must not absorb this one.
       service.sessionFailures.clear();
+      // Agents still admitted in the background, then those the Gateway refused,
+      // show in the list once known (agent-admission.js).
+      const client = service.runtime.client;
+      settledAdmission(client).then(
+        () => client === service.runtime.client && service.changed(),
+      );
       // The start compiled the store; a level a lost apply left pending is checked.
       service.shellChanges.retry({ force: true }).catch(() => {});
       (service.reconciling || Promise.resolve())

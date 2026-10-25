@@ -57,10 +57,23 @@ test("TCP open is not authenticated readiness and RPCs preserve correlation", as
       error.remoteCode === "LLM_COMPLETION_TIMEOUT" &&
       error.remoteMessage === undefined,
   );
+  // An agent the Gateway did not admit keeps its id, the refusal code and the
+  // explicit retryable: false; never the reason or the paths (AGENTPIER-238).
+  await assert.rejects(
+    client.call("degraded", {}),
+    (error) =>
+      error.code === "UNAVAILABLE" &&
+      error.answered === true &&
+      error.retryable === false &&
+      error.admissionRefusal.agentId === "ap-1" &&
+      error.admissionRefusal.code === "agent-database-inspection-failed" &&
+      Object.keys(error.admissionRefusal).length === 2 &&
+      !JSON.stringify({ ...error, message: error.message }).includes("secret"),
+  );
   for (const method of ["busy", "refused"])
     await assert.rejects(
       client.call(method, {}),
-      (error) => error.remoteCode === undefined,
+      (error) => error.remoteCode === undefined && error.admissionRefusal === undefined,
     );
   const waiting = client.call("pending", {});
   client.close();
