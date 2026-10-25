@@ -15,6 +15,8 @@ export function connectionRevision(row) {
   const fields = [host, port, username, keyId, hostKey];
   if (row.type === "sftp")
     fields.push(row.type, row.auth, row.remoteRoot, row.credentialRevision);
+  // Appended only when on, so hosts without legacy algorithms keep their digest.
+  else if (row.legacyAlgorithms === true) fields.push("legacy-algorithms:ssh-rsa");
   return createHash("sha256").update(JSON.stringify(fields)).digest("hex");
 }
 export const isSftp = (row) => row?.type === "sftp";
@@ -32,6 +34,9 @@ export function sftpFields(store, input) {
       throw problem(serverMessages.ssh.invalidAuth);
     return null;
   }
+  // The built-in SFTP client already accepts ssh-rsa from servers that need it.
+  if (input.legacyAlgorithms !== undefined)
+    throw problem(serverMessages.ssh.invalidAccessFields);
   if (!store.catalog) throw problem(serverMessages.ssh.managementRequired, 503);
   if (!sftpAuths.includes(input.auth)) throw problem(serverMessages.ssh.invalidAuth);
   const remoteRoot = remoteRootValue(input.remoteRoot);
@@ -48,6 +53,8 @@ export function sftpFields(store, input) {
 }
 
 export async function updateSftp(store, id, input, previous) {
+  if (input.legacyAlgorithms !== undefined)
+    throw problem(serverMessages.ssh.invalidAccessFields);
   const stored = store.row(id);
   const auth = input.auth ?? stored.auth;
   if (!sftpAuths.includes(auth)) throw problem(serverMessages.ssh.invalidAuth);

@@ -22,6 +22,11 @@ import { SshKeyStore } from "./ssh-key-store.js";
 import { SshPasswordStore } from "./ssh-password-store.js";
 import { sshProblem } from "./ssh-errors.js";
 import {
+  legacyAlgorithmsValue,
+  legacyOptionArgs,
+  usesLegacyAlgorithms,
+} from "./ssh-legacy-algorithms.js";
+import {
   connectionRevision,
   isSftp,
   sftpFields,
@@ -103,6 +108,7 @@ export class SshAccessStore {
     auth,
     remoteRoot = null,
     credentialRevision,
+    legacyAlgorithms,
   }) {
     const sftp = type === "sftp";
     const key = keyId ? this.projectKey(keyId, sftp) : null;
@@ -125,6 +131,7 @@ export class SshAccessStore {
       auth: sftp ? auth : "key",
       remoteRoot: sftp ? remoteRoot : null,
       hasPassword: sftp && auth === "password" && Boolean(credentialRevision),
+      legacyAlgorithms: usesLegacyAlgorithms({ type, legacyAlgorithms }),
       ...(key?.missing ? { keyMissing: true } : {}),
     };
   }
@@ -172,7 +179,9 @@ export class SshAccessStore {
       "auth",
       "password",
       "remoteRoot",
+      "legacyAlgorithms",
     ]);
+    const legacy = legacyAlgorithmsValue(input.legacyAlgorithms);
     if (input.keyId !== undefined && input.privateKey !== undefined)
       throw problem(serverMessages.ssh.chooseOneKey);
     const sftp = sftpFields(this, input);
@@ -212,6 +221,7 @@ export class SshAccessStore {
           remoteRoot: sftp.remoteRoot,
           credentialRevision: randomUUID(),
         }),
+        ...(legacy && { legacyAlgorithms: true }),
       };
       if (sftp?.password !== undefined) {
         this.catalog.afterRollback(() => this.passwords.removeHost(id));
@@ -253,12 +263,15 @@ export class SshAccessStore {
       "auth",
       "password",
       "remoteRoot",
+      "legacyAlgorithms",
     ]);
+    const legacy = legacyAlgorithmsValue(input.legacyAlgorithms);
     const {
       type,
       auth: _auth,
       remoteRoot: _root,
       hasPassword: _has,
+      legacyAlgorithms: wasLegacy,
       ...previous
     } = this.get(id);
     if (input.type !== undefined && input.type !== type)
@@ -287,6 +300,7 @@ export class SshAccessStore {
       name: input.name === undefined ? previous.name : nameValue(input.name),
       hostKey,
       hostFingerprint: await fingerprint(hostKey, this.root, this.run),
+      ...((legacy ?? wasLegacy) && { legacyAlgorithms: true }),
     };
     // A concurrent deletion must not resurrect a deleted access.
     this.get(id);
@@ -353,6 +367,7 @@ export class SshAccessStore {
           "ConnectionAttempts=1",
           "UpdateHostKeys=no",
         ].flatMap((option) => ["-o", option]),
+        ...legacyOptionArgs(access),
         "-i",
         `../../identities/${access.keyId}/identity`,
         "-p",

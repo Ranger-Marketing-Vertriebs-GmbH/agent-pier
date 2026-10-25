@@ -321,3 +321,9 @@
   color: var(--muted);
   font-size: var(--font-size-sm);
 }
+/* SHA-1 (ssh-rsa) stays a visible warning wherever a host uses it. */
+.ssh-legacy-warning,
+.ssh-card p.ssh-legacy-warning {
+  color: var(--warning);
+  font-size: var(--font-size-sm);
+}

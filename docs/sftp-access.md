@@ -25,6 +25,10 @@ type cannot be changed once the host is saved.
 5. Save, then use **Test connection**. It signs in and opens the remote folder; it
    changes nothing on the server.
 
+SFTP connections use a built-in client that also signs in to old servers that accept
+only `ssh-rsa` (RSA with SHA-1); SFTP hosts therefore have no
+[Legacy algorithms (ssh-rsa)](ssh-access.md#legacy-algorithms-ssh-rsa) switch.
+
 An SFTP host may share address and user with an SSH host. The host list shows an
 **SFTP** badge, the remote folder and a **Sign-in** column ("Password" or the key's
 name).

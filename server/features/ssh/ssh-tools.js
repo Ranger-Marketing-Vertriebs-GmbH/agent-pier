@@ -75,6 +75,7 @@ export class SshTools {
             hostFingerprint,
             type: rest.type === "sftp" ? "sftp" : "ssh",
             remoteRoot: rest.type === "sftp" ? (rest.remoteRoot ?? null) : null,
+            ...(rest.legacyAlgorithms ? { legacyAlgorithms: true } : {}),
             assignment: { project: inherited.has(id), explicit: explicit.has(id) },
           })),
       };
