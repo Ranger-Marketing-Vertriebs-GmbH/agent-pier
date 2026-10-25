@@ -24,6 +24,7 @@ export const settingsHubCopy = {
   remoteRestart: "Neustart nötig",
   remoteSub: "Von anderen Geräten erreichen",
   sshSub: "Schlüssel und Hosts",
+  secretsSub: "Token und URLs für Agenten und Coding-CLIs",
   githubSub: "Token für Klone und Pull Requests",
   usersSub: "Weitere Personen, die mit Agenten chatten",
   centralTitle: "Provider-Zugänge, MCP-Server",

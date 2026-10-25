@@ -39,6 +39,12 @@ export function accessRows(access) {
     },
     { id: "ssh", label: label("ssh"), sub: copy.sshSub, value: count(access?.ssh) },
     {
+      id: "secrets",
+      label: label("secrets"),
+      sub: copy.secretsSub,
+      value: count(access?.secrets),
+    },
+    {
       id: "github",
       label: label("github"),
       sub: copy.githubSub,

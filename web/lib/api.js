@@ -3,6 +3,7 @@ import { serverMessagesReady, serverProblemText } from "./server-messages.js";
 import { artifactCopy } from "./i18n/messages/artifacts.js";
 import { apiCopy as copy } from "./i18n/messages/components.js";
 import { memoryCopy } from "./i18n/messages/memory.js";
+import { secretsCopy } from "./i18n/messages/secrets.js";
 import { sshProjectCopy } from "./i18n/messages/ssh-projects.js";
 export async function apiError(response) {
   if (response.status === 401)
@@ -14,7 +15,9 @@ export async function apiError(response) {
       ? memoryCopy.discoveryError
       : sshProjectCopy.errors[data.code]
         ? sshProjectCopy.errors[data.code]
-        : artifactCopy.errors[data.code] ||
+        : // SECRET_INVALID has one text per field; the server's translated text stays.
+          secretsCopy.errors[data.code] ||
+          artifactCopy.errors[data.code] ||
           serverProblemText(data, copy.requestFailed(response.status)),
   );
   error.status = response.status;

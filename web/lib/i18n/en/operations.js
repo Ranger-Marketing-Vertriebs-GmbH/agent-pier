@@ -10,6 +10,7 @@ const sections = {
   mcp: "MCP & access",
   remote: "Remote access",
   ssh: "SSH accesses",
+  secrets: "Secrets",
   github: "GitHub connections",
   notifications: "App & notifications",
   diagnostics: "Diagnostics",
