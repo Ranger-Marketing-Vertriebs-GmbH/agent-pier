@@ -1,0 +1,15 @@
+/* The strips under an agent chat's header (ChatStrips.jsx). The wrapper takes no box
+   of its own, so each strip stays a direct row of the chat's column. */
+.assistant-chat-strips {
+  display: contents;
+}
+/* While the on-screen keyboard is open on a phone, the member context and the event
+   area step aside for the transcript; an event area the owner opened stays. What
+   waits for the owner (approvals, the work goal) always stays. */
+@media (max-width: 700px) {
+  .assistant-chat-strips[data-keyboard] .assistant-member-context,
+  .assistant-chat-strips[data-keyboard]
+    .agent-event-area:not(:has(> .agent-event-group[data-open])) {
+    display: none;
+  }
+}

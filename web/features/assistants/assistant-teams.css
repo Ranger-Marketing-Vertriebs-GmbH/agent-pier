@@ -146,9 +146,25 @@
   padding: 0 12px;
   font-weight: 600;
 }
+/* On phones the strip is one line: the role (or the way back) first, then the
+   assignment cut with an ellipsis; the whole line stays a touch target. */
 @media (max-width: 700px) {
   .assistant-member-context {
-    padding: 10px 12px 10px 14px;
+    padding: 0 12px 0 16px;
+  }
+  .assistant-member-back {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+  }
+  .assistant-member-origin {
+    flex: 0 1 auto;
+    max-width: 60%;
+  }
+  .assistant-member-assignment {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 

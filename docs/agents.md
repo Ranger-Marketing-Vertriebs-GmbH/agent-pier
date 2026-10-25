@@ -841,6 +841,12 @@ request or a shell command approval a run asks for stays a card in the conversat
 Reminders stay ordinary messages marked "Scheduled · <name>". Other chats have no event
 area.
 
+On a phone the **Events** strip is one slim row with the number of events, a dot for new
+ones and the **N failed** chip, and a team member's role strip is one line (role, then
+the assignment cut short). While you type with the on-screen keyboard open, both step
+aside for the transcript and come back when you leave the message field; an **Events**
+strip you opened stays.
+
 ## Hooks
 
 A hook lets monitoring and other systems wake an agent: it gets its own address, and

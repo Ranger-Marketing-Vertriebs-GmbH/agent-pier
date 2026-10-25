@@ -6,6 +6,7 @@ import CodeBlock from "../../components/CodeBlock.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { readRoute } from "../../app/routes.js";
+import useMobileLayout from "../../lib/useMobileLayout.js";
 import { formatBytes } from "../../lib/format-bytes.js";
 import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import { hookCopy } from "../../lib/i18n/messages/assistant-hooks.js";
@@ -205,10 +206,28 @@ function ResultBody({ event }) {
   );
 }
 
+// The phone's slim head: the bare count, and the unread events as a dot whose label
+// says how many are new (the desktop head writes "10 events · 10 new").
+function PhoneSummary({ view }) {
+  return (
+    <>
+      {view.count}
+      {view.unread > 0 && (
+        <StatusDot
+          tone="waiting"
+          className="agent-event-unread"
+          label={copy.unread(view.unread)}
+        />
+      )}
+    </>
+  );
+}
+
 /**
  * The main chat's event area under its header: routine, check-in and hook events in
  * one ActivityGroup ("Events"), shut by default, with the count of events that
- * arrived since this viewer last opened it. Each event is an ActivityRow.
+ * arrived since this viewer last opened it. Each event is an ActivityRow. On phones
+ * the head is one slim row without its own frame.
  */
 export default function AgentEventArea({
   assistantId,
@@ -216,6 +235,7 @@ export default function AgentEventArea({
   events,
   navigate,
 }) {
+  const phone = useMobileLayout();
   // Read once per chat: a switch to another chat reads that chat's mark.
   const [seen, setSeen] = useState(() => ({
     conversationId,
@@ -237,7 +257,7 @@ export default function AgentEventArea({
         className="agent-event-group"
         label={copy.title}
         icon="inbox"
-        detail={view.summary}
+        detail={phone ? <PhoneSummary view={view} /> : view.summary}
         running={view.running}
         failed={view.failed}
         data-unread={view.unread || undefined}

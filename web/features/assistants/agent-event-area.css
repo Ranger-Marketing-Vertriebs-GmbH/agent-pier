@@ -44,8 +44,21 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.agent-event-unread {
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+}
+/* On phones the area is one slim row: no padding or frame around the group's head,
+   which keeps its touch-target height and the strip's dividing line. */
 @media (max-width: 700px) {
   .agent-event-area {
-    padding: var(--space-2) 12px var(--space-2) 16px;
+    padding: 0 4px;
+  }
+  .agent-event-group {
+    border: 0;
+    background: none;
+  }
+  .agent-event-group > .activity-row-head {
+    padding-block: 0;
   }
 }
