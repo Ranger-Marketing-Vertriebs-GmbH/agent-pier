@@ -224,6 +224,48 @@ test("hook folders are capped at the hook's level", async (t) => {
   );
 });
 
+test("catalog lists coding projects only with the Coding tick", async (t) => {
+  const f = await setup(t);
+  // Scout: a coding project of its own and its lead's standing share of the folder
+  // project for coding and files.
+  f.workflows.access.save(
+    f.member.assistantId,
+    {
+      projectIds: [f.project.id],
+      pipelineIds: [f.pipeline.id],
+      memoryWrite: false,
+      autonomous: false,
+      publish: false,
+    },
+    f.workflows.access.get(f.member.assistantId).revision,
+  );
+  await f.share({
+    coding: [f.folderProject.id],
+    grants: { projects: { [f.folderProject.id]: "read" } },
+  });
+  const listing = (rights) =>
+    f.work(f.start(f.member.assistantId, f.memberChat.id, rights), {
+      action: "catalog",
+    });
+  const folders = { [f.folderProject.id]: "read" };
+  const without = await listing({ folders });
+  assert.deepEqual(
+    without.projects.map((p) => [p.id, p.folder?.access, p.sharedBy]),
+    [[f.folderProject.id, "read", undefined]],
+  );
+  assert.deepEqual(without.pipelines, []);
+  const full = await listing({ folders, coding: true });
+  assert.deepEqual(
+    full.projects.map((p) => p.id).sort(),
+    [f.project.id, f.folderProject.id].sort(),
+  );
+  assert.equal(full.projects.find((p) => p.id === f.folderProject.id).sharedBy, f.lead);
+  assert.deepEqual(
+    full.pipelines.map((p) => p.id),
+    [f.pipeline.id],
+  );
+});
+
 test("a folder revoked mid-run refuses the next write", async (t) => {
   const f = await setup(t);
   const run = f.start(f.lead, f.channel.conversationId, {
@@ -296,7 +338,8 @@ test("a hook run's rights end when its event settles", async (t) => {
   const run = f.start(f.lead, f.channel.conversationId, {
     folders: { [f.folderProject.id]: "write" },
   });
-  const inv = f.inv(run);
+  // The bridge's own re-check is left out, so hookContext itself must refuse.
+  const inv = { ...f.inv(run), assertCurrent() {} };
   f.events.patch(run.event.id, { status: "completed" });
   await assert.rejects(f.workflows.invoke(inv, { action: "catalog" }), { status: 403 });
 });
@@ -368,8 +411,11 @@ test("SSH from a hook runs only on its chosen hosts in mode routines", async (t)
     .find((a) => a.payload.action === "ssh" && a.payload.trusted);
   assert.equal(trusted.payload.originClass, "hook");
   assert.equal(trusted.origin.kind, "hook");
+  // f.audit keeps each record as auditEvent returns it (through the whitelist);
+  // running it through again keeps the class too.
   const executed = f.audit.find((e) => e.action === "ssh.executed");
   assert.equal(executed.details.originClass, "hook");
+  assert.equal(auditEvent(executed).details.originClass, "hook");
   // A host in mode routines the hook did not choose.
   assert.equal(
     await code(f.ssh({ action: "execute", accessId: otherHostId, command: "1" })),
