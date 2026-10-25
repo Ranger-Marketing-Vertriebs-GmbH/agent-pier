@@ -945,7 +945,9 @@ Every agent, team members included, can hand you a file from its own workspace w
 its `agentpier_share_file` tool, for example a report it wrote or a chart it drew. The
 file appears in the chat at once as the agent's message: images inline (select one to
 open it in the image viewer: close it with ×, Esc, a tap beside the image or a swipe
-down; pinch to zoom, download or share from there), videos and audio with the
+down while not zoomed; pinch or double tap to zoom where your fingers are, drag a zoomed
+image with one finger, on a computer double click, ctrl + scroll or pinch on the trackpad
+and drag with the mouse; download or share from there), videos and audio with the
 player inline (a full-screen video keeps its own Done button), every other file as a
 chip, with the agent's short caption. Every video, audio and file in the chat, your own
 attachments included, has a download button beside its name and size that saves the

@@ -132,6 +132,8 @@ Playwright discovers `tests/browser/*.spec.js`. `npm run test:e2e` starts a disp
 
 `terminal-viewport.spec.js` simulates mobile visual-viewport height and offset changes in Chromium and WebKit, verifies terminal row resizing and toolbar visibility, and checks cleanup when switching views or returning to desktop. `terminal-touch-scroll.spec.js` also covers native Chromium swipes and pinch zoom. These fixtures do not open a real device keyboard; use a phone to confirm browser-specific keyboard animation and focus behavior.
 
+`image-viewer-gestures.spec.js` drives the image viewer's pinch, one-finger pan, double tap and swipe-to-close with synthetic touch pointers at phone size, and double click, ctrl + wheel and mouse drag on desktop, in Chromium and WebKit. Neither engine's emulation replays a native iOS multi-finger gesture, so confirm Safari's gesture handling on an iPhone.
+
 `touch-input-size-views.spec.js` and `touch-input-size-forms.spec.js` open the main views, dialogs and forms at 390×844 with touch and fail with a list of every visible text-entry control under 16px (the size below which iOS Safari zooms on focus) or any view that scrolls sideways. Add a step there when a new form or dialog appears.
 
 `assistant-chat-composer-scroll.spec.js` types a wrapping draft into the agent and session chat composers and samples the transcript's distance from its bottom in every painted frame. It turns off CSS scroll anchoring, so Chromium fails like Safari (which has none) when a composer resize leaves the newest lines hidden.
