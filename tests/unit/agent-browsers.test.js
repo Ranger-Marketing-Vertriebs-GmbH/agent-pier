@@ -298,6 +298,39 @@ test("the tool guard pins the profile and fails closed", async () => {
   assert.deepEqual(sent, { agentId: "ap-a" });
 });
 
+test("the tool guard names an upload's files and explains a refused one", async () => {
+  const bodies = [];
+  const bridge = (reason) => async (_url, body) => {
+    bodies.push(body);
+    return {
+      ok: true,
+      json: async () =>
+        reason ? { allow: false, reason } : { allow: true, profile: "agent-a" },
+    };
+  };
+  const ctx = { agentId: "ap-a", sessionKey: "s" };
+  const upload = { action: "upload", paths: ["/tmp/openclaw/uploads/x.mp4"], ref: "e1" };
+  assert.deepEqual(await browserCall({ params: upload }, ctx, bridge()), {
+    params: { ...upload, profile: "agent-a", target: "host" },
+  });
+  assert.deepEqual(bodies.at(-1), {
+    agentId: "ap-a",
+    sessionKey: "s",
+    action: "upload",
+    paths: ["/tmp/openclaw/uploads/x.mp4"],
+  });
+  // Any spelling of upload names its files; without paths the list is empty.
+  await browserCall({ params: { action: " Upload " } }, ctx, bridge());
+  assert.deepEqual(bodies.at(-1).paths, []);
+  await browserCall({ params: { action: "open", paths: ["/x"] } }, ctx, bridge());
+  assert.equal("paths" in bodies.at(-1), false);
+  for (const reason of ["uploadNotStaged", "uploadOutside"]) {
+    const refused = await browserCall({ params: upload }, ctx, bridge(reason));
+    assert.equal(refused.block, true);
+    assert.match(refused.blockReason, /browser_upload_stage/);
+  }
+});
+
 test("calls that never launch a browser do not count as running", async (t) => {
   const f = fixture(t, [agent("a", { browserVisible: true })], { limit: 0 });
   for (const action of ["status", "profiles", " Status ", "doctor"])

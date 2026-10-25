@@ -32,6 +32,8 @@ export const toolTimeouts = {
   templates: 65000,
   propose: 95000,
 };
+// A file staged for the browser (up to 8 GiB) is copied before the call answers.
+export const browserStageTimeoutMs = 300000;
 // AgentPier's own tools; the team tools carry the agentpier_team_ prefix.
 const ownTools = ["reminder", "routine", "workspace", "ssh", "share_file", "goal"];
 const toolName = (action) =>
@@ -359,7 +361,9 @@ export default {
                 const result = await call(
                   "/invoke",
                   { ticket, action, input },
-                  toolTimeouts[action],
+                  action === "workspace" && input?.action === "browser_upload_stage"
+                    ? browserStageTimeoutMs
+                    : toolTimeouts[action],
                 );
                 // A project folder image (image_view) reaches the model as an image
                 // block, named by one line; never as base64 text.

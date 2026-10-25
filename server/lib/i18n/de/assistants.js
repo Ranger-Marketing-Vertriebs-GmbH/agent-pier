@@ -409,6 +409,12 @@ export const assistants = {
     "Agenten können nur normale Dateien aus ihrem eigenen Arbeitsbereich teilen, ohne symbolische oder harte Links.",
   shareTooLarge: "Geteilte Dateien sind auf 25 MB begrenzt.",
   shareEmpty: "Diese Datei ist leer.",
+  browserUploadNoBrowser:
+    "Dieser Agent darf keinen Browser nutzen, deshalb bereitet AgentPier keine Datei zum Hochladen vor.",
+  browserUploadTooLarge:
+    "Eine Datei zum Hochladen über den Browser darf höchstens 8 GiB groß sein.",
+  browserUploadSpace:
+    "Für diese Datei ist nicht genug freier Speicherplatz, um sie zum Hochladen vorzubereiten.",
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",

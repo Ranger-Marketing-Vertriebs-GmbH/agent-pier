@@ -385,6 +385,11 @@ export const assistants = {
     "Agents can only share regular files from their own workspace, without symbolic or hard links.",
   shareTooLarge: "Shared files are limited to 25 MB.",
   shareEmpty: "This file is empty.",
+  browserUploadNoBrowser:
+    "This agent may not use a browser, so AgentPier prepares no file for uploading.",
+  browserUploadTooLarge: "A file for a browser upload may be at most 8 GiB.",
+  browserUploadSpace:
+    "There is not enough free disk space to prepare this file for uploading.",
   invalid: "Invalid agent input.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",

@@ -223,6 +223,7 @@ export function auditEvent(input) {
       "member-edit",
       "member-promote",
       "project-file",
+      "browser-upload",
       "project-grants",
       "lead-share",
       "lead-routine",
@@ -454,11 +455,23 @@ export function auditEvent(input) {
   }
   // An agent's change or image view in a project folder: the relative path and size,
   // never content.
-  if (details.kind === "project-file") {
+  // A file staged for an agent's browser and its upload (agent-browser-uploads.js)
+  // name the same: the relative path, size and the site the agent named.
+  const browserUpload = details.kind === "browser-upload";
+  if (details.kind === "project-file" || browserUpload) {
     if (["create", "replace", "edit", "append"].includes(details.fileChange))
       event.details.fileChange = details.fileChange;
     // An image the agent viewed (image_view) is recorded like a change.
     if (details.fileView === "image") event.details.fileView = "image";
+    if (browserUpload && ["staged", "browser"].includes(details.browserUpload))
+      event.details.browserUpload = details.browserUpload;
+    if (browserUpload && details.workspace === true) event.details.workspace = true;
+    if (
+      browserUpload &&
+      typeof details.site === "string" &&
+      /^[a-z0-9.-]{1,253}(:\d{1,5})?$/.test(details.site)
+    )
+      event.details.site = details.site;
     if (
       typeof details.filePath === "string" &&
       details.filePath.length <= 1024 &&
