@@ -8,6 +8,7 @@ import {
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
 import { sftpAuditDetails } from "./audit-sftp-details.js";
+import { secretAuditDetails } from "./audit-secret-details.js";
 import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 import { MAX_QUEUE_CONCURRENCY } from "../pipelines/queue-policy.js";
 import { teamAuditDetails } from "./audit-team-details.js";
@@ -40,6 +41,7 @@ const resources = new Set([
   "ssh",
   // SFTP transfers and writes on an SSH catalog host (resourceType "ssh").
   "sftp",
+  "secret",
   "mcp",
   "account",
   "provider",
@@ -529,6 +531,7 @@ export function auditEvent(input) {
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);
   if (action.startsWith("sftp.")) sftpAuditDetails(details, event, auditId);
+  if (input.resourceType === "secret") secretAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }
