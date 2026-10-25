@@ -63,6 +63,22 @@ test("a hook run's prompt never stays in the transcript as a user message", () =
     text: 'This is the AgentPier hook "Zabbix" from "z", not a message from the owner.\n<<<AGENTPIER_HOOK_EVENT>>>\n<b>x</b>\n<<<END_AGENTPIER_HOOK_EVENT>>>',
   };
   assert.equal(areaResult(prompt), true);
+  // An envelope OpenClaw might put before it (a time stamp, a cron header) changes nothing.
+  assert.equal(
+    areaResult({
+      ...prompt,
+      text: `[cron:job-1 Hook Zabbix] Sat 2026-10-24 10:00\n${prompt.text}`,
+    }),
+    true,
+  );
+  // Without the closing marker it is no hook prompt.
+  assert.equal(
+    areaResult({
+      ...prompt,
+      text: prompt.text.replace("<<<END_AGENTPIER_HOOK_EVENT>>>", ""),
+    }),
+    false,
+  );
   // The owner quoting the opening words is still the owner's message.
   assert.equal(
     areaResult({ id: "q", role: "user", text: "This is the AgentPier hook text?" }),
