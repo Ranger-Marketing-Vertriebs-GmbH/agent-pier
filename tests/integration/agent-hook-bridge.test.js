@@ -12,7 +12,10 @@ import {
 import { eventArea } from "../../server/features/assistants/agent-event-area.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { workspaceId } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import {
+  classifyWrite,
+  workspaceId,
+} from "../../server/features/assistants/team-plugin/tool-guard.js";
 
 // The hook fixture with the agent's capabilities and shell level, its own workspace
 // on disk and a started tool bridge. `run(hook, id)` delivers one event and returns
@@ -229,6 +232,37 @@ test("memory writes need the Write memory tick and stay inside memory", async (t
     f.revision(),
   );
   assert.equal(f.write(writer.sessionKey, "MEMORY.md"), false);
+});
+
+test("a hook run never writes the agent's .agentpier secrets file", async (t) => {
+  const f = await setup(t, { memory: true });
+  const hook = makeHook(f, { name: "Writer", rights: { memory: true } });
+  const writer = await f.run(hook, "p1");
+  const workspace = path.join(f.dataDir, "workspaces", workspaceId(f.runtimeAgentId));
+  fs.mkdirSync(path.join(workspace, ".agentpier"));
+  fs.writeFileSync(path.join(workspace, ".agentpier", "secrets.env"), "A=1\n");
+  fs.mkdirSync(path.join(workspace, "memory"));
+  // A link from memory/ into the folder is never followed for a write.
+  fs.symlinkSync("../.agentpier/secrets.env", path.join(workspace, "memory", "leak.md"));
+  for (const file of [
+    ".agentpier/secrets.env",
+    ".AgentPier/secrets.env",
+    "./.agentpier/secrets.env",
+    "memory/../.agentpier/secrets.env",
+    "memory/leak.md",
+  ])
+    for (const tool of ["write", "edit"])
+      assert.equal(f.write(writer.sessionKey, file, tool), false, `${tool} ${file}`);
+  // The plugin refuses the folder before it asks the bridge, in every turn.
+  const roots = [path.join(f.dataDir, "workspaces")];
+  assert.deepEqual(
+    classifyWrite(
+      { path: ".agentpier/secrets.env" },
+      { roots, agentId: f.runtimeAgentId },
+    ),
+    { managed: true },
+  );
+  assert.equal(f.audits.filter((a) => a.details.kind === "native-write").length, 0);
 });
 
 test("exec in a hook run follows the hook's shell level", async (t) => {
