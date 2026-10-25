@@ -1,6 +1,5 @@
 import React from "react";
 import CodeBlock from "../../../components/CodeBlock.jsx";
-import CopyButton from "../../../components/CopyButton.jsx";
 import Modal from "../../../components/Modal.jsx";
 import { hookCopy as copy } from "../../../lib/i18n/messages/assistant-hooks.js";
 import { curlSample } from "./hook-fields.js";
@@ -16,12 +15,9 @@ export default function HookSecretDialog({ secret, address, onClose }) {
       close={onClose}
       className="agent-hook-secret"
       footer={
-        <>
-          <CopyButton text={secret} label={copy.copySecret} />
-          <button type="button" className="button primary" onClick={onClose}>
-            {copy.done}
-          </button>
-        </>
+        <button type="button" className="button primary" onClick={onClose}>
+          {copy.done}
+        </button>
       }
     >
       <p>{copy.secretOnce}</p>

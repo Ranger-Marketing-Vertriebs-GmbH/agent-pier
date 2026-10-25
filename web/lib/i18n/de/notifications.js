@@ -87,7 +87,7 @@ export const notificationCopy = {
     telegram: "Auch was Telegram schon zugestellt hat",
   },
   telegramSub:
-    "Check-ins und Ergebnisse von Routinen, die auch im gekoppelten Telegram-Chat des Agenten ankamen.",
+    "Check-ins und Ergebnisse von Routinen und Hooks, die auch im gekoppelten Telegram-Chat des Agenten ankamen.",
   systemNote:
     "Zustellprobleme, Telegram-Zugang, GitHub-Token und knapper Speicherplatz melden sich immer.",
   behaviourGroup: "Bündeln und Ruhe",

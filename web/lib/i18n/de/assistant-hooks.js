@@ -6,11 +6,11 @@ export const hookCopy = {
   empty: "Noch keine Hooks.",
   loading: "Hooks werden geladen …",
   unknownName: "Hook",
-  shared: "Für geteilte Agenten gibt es keine Hooks.",
+  shared: "Für geteilte Agenten und Agenten von Benutzern gibt es keine Hooks.",
   paused:
-    "Hooks sind pausiert, solange „Erinnerungen und Routinen erlauben“ ausgeschaltet ist. Löschen kannst du sie weiterhin.",
+    "Hooks sind inaktiv, solange „Erinnerungen und Routinen erlauben“ ausgeschaltet ist. Löschen kannst du sie weiterhin.",
   createTitle: "Hook hinzufügen",
-  name: "Hookname",
+  name: "Name des Hooks",
   sender: "Absender",
   senderHint:
     "Das System, das diesen Hook aufruft, zum Beispiel Uptime Kuma. Der Agent sieht diesen Namen.",
