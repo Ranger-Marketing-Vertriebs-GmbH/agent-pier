@@ -14,6 +14,7 @@ const files = [
   "member-tools.js",
   "chat-title.js",
   "tool-guard.js",
+  "dreams-guard.js",
   "patch-paths.js",
   "exec-processes.js",
   "background-commands.js",
