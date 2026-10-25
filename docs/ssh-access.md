@@ -51,6 +51,12 @@ In the hosts section, enter a name, hostname/IP address, SSH port and username, 
 
 Fetch the server's host key, compare the displayed SHA256 fingerprint with an independently trusted source such as the server console, and confirm it. Scanning alone does not authenticate a server. Save the host, copy the selected key's public key and install that public key for the intended user on the target system. **Test connection** explicitly authenticates and runs `true`; saving or assigning an access makes no remote connection.
 
+### Legacy algorithms (ssh-rsa)
+
+Older network switches, routers and appliances may only accept RSA signatures with SHA-1 (`ssh-rsa`), which OpenSSH 8.8 and later disable. Such a host fails with "Permission denied (publickey,password)" although the key is installed. For these hosts only, turn on **Legacy algorithms (ssh-rsa)** (German: **Alte Algorithmen (ssh-rsa)**) in the host's add or **Edit** dialog. It is off by default; the details show its state and, while it is on, a warning that SHA-1 is outdated and meant only for old devices.
+
+When it is on, every OpenSSH connection to that host adds `-o PubkeyAcceptedAlgorithms=+ssh-rsa` and `-o HostKeyAlgorithms=+ssh-rsa`: **Test connection**, `ssh_test_host`, `ssh_execute` from coding CLIs, agents' SSH tool and the manual helper. Other hosts are unaffected, and no other SSH options can be added. Fetching the host key already scans RSA host keys. Only the owner can change the switch; agents and CLIs cannot set it when they register a host, but `ssh_list_hosts` and the agents' host list report `legacyAlgorithms: true` for such a host. Changing it changes the host's connection revision, so pending agent approvals for that host must be requested again. A project reassignment keeps it. SFTP hosts have no switch: their built-in client already accepts `ssh-rsa` from servers that offer nothing newer.
+
 For a Proxmox host, use an account with the permissions needed for the intended administration. AgentPier does not provision VMs simply because an access is assigned.
 
 ## Provision from a coding session

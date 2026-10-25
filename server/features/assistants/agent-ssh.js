@@ -183,6 +183,7 @@ export class AgentSsh {
             hostFingerprint: h.hostFingerprint,
             type: h.type ?? "ssh",
             remoteRoot: h.remoteRoot ?? null,
+            ...(h.legacyAlgorithms ? { legacyAlgorithms: true } : {}),
             mode,
             usable,
             ...(usable

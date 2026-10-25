@@ -199,3 +199,43 @@ test("creation waits for the initial list so a delayed response cannot erase the
   }
   await expect(add).toBeEnabled();
 });
+
+test("legacy algorithms are an owner switch with a SHA-1 warning, saved per host", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.accesses = [state.access];
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/ssh");
+  await openAccess(page, "Build server");
+  const details = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "Build server", exact: true }),
+  });
+  await expect(details.getByText("Legacy algorithms (ssh-rsa)")).toBeVisible();
+  await expect(details.getByText("Off", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const toggle = dialog.getByRole("switch", { name: "Legacy algorithms (ssh-rsa)" });
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toHaveAccessibleDescription(/SHA-1 is outdated/);
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await page.screenshot({ path: ".cache/ssh-legacy-algorithms-form.png" });
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  const patch = state.calls.find((call) => call.method === "PATCH");
+  expect(patch.body.legacyAlgorithms).toBe(true);
+  expect(patch.body.host).toBe("build.example.test");
+  await expect(details.getByText("On", { exact: true })).toBeVisible();
+  await expect(
+    details.getByText("This host accepts outdated RSA signatures with SHA-1 (ssh-rsa)", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await page.screenshot({ path: ".cache/ssh-legacy-algorithms-details.png" });
+  // SFTP hosts use the built-in client and show no switch.
+  await page.getByRole("button", { name: "Add access", exact: true }).click();
+  await page.getByRole("radio", { name: "SFTP", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("switch", { name: "Legacy algorithms (ssh-rsa)" }),
+  ).toHaveCount(0);
+});

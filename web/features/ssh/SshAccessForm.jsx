@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import api from "../../lib/api.js";
 import Modal from "../../components/Modal.jsx";
 import Segmented from "../../components/Segmented.jsx";
+import Switch from "../../components/Switch.jsx";
 import SftpCredentialFields from "./SftpCredentialFields.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
@@ -27,7 +28,9 @@ export default function SshAccessForm({
     auth: access?.auth || "password",
     password: "",
     remoteRoot: access?.remoteRoot || "",
+    legacyAlgorithms: access?.legacyAlgorithms === true,
   });
+  const legacyHint = useId();
   const sftp = draft.type === "sftp",
     usesKey = !sftp || draft.auth === "key",
     hasPassword = Boolean(access?.hasPassword) && draft.auth === "password";
@@ -101,9 +104,10 @@ export default function SshAccessForm({
         onSubmit={(event) => {
           event.preventDefault();
           if (!ready || busy) return;
-          const { type, auth, password, remoteRoot, keyId, ...base } = draft;
+          const { type, auth, password, remoteRoot, keyId, legacyAlgorithms, ...base } =
+            draft;
           const body = !sftp
-            ? { ...base, keyId }
+            ? { ...base, keyId, legacyAlgorithms }
             : {
                 ...base,
                 auth,
@@ -187,7 +191,20 @@ export default function SshAccessForm({
               keySelect={keySelect}
             />
           ) : (
-            keySelect
+            <>
+              {keySelect}
+              <div className="ssh-field">
+                <Switch
+                  label={copy.legacyAlgorithms}
+                  checked={draft.legacyAlgorithms}
+                  onChange={(value) => change("legacyAlgorithms", value)}
+                  aria-describedby={legacyHint}
+                />
+                <small id={legacyHint} className="ssh-legacy-warning">
+                  {copy.legacyAlgorithmsHint}
+                </small>
+              </div>
+            </>
           )}
           <button
             className="button"

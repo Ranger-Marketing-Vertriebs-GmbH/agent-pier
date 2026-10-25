@@ -31,6 +31,13 @@ export const sshCopy = {
     "Optional absolute path, for example /srv/files. Agents cannot leave this folder.",
   remoteFolder: "Remote folder",
   noRemoteRoot: "Whole account",
+  legacyAlgorithms: "Legacy algorithms (ssh-rsa)",
+  legacyAlgorithmsHint:
+    "Allows RSA signatures with SHA-1 for this host only. SHA-1 is outdated; turn this on only for old devices that accept nothing else.",
+  legacyAlgorithmsWarning:
+    "This host accepts outdated RSA signatures with SHA-1 (ssh-rsa). Keep it only for old devices that accept nothing else.",
+  legacyOn: "On",
+  legacyOff: "Off",
   keyMissing: "The key of this host was deleted. Choose another key.",
   keyDeleted: "Key deleted",
   sftpTestHint:

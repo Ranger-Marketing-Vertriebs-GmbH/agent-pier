@@ -53,7 +53,16 @@ export default function SshAccessDetails({
             <dd>{access.remoteRoot || copy.noRemoteRoot}</dd>
           </>
         )}
+        {!sftp && (
+          <>
+            <dt>{copy.legacyAlgorithms}</dt>
+            <dd>{access.legacyAlgorithms ? copy.legacyOn : copy.legacyOff}</dd>
+          </>
+        )}
       </dl>
+      {!sftp && access.legacyAlgorithms && (
+        <p className="ssh-legacy-warning">{copy.legacyAlgorithmsWarning}</p>
+      )}
       <div className="ssh-actions">
         <button
           className="button"

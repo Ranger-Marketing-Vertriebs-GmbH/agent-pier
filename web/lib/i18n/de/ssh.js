@@ -31,6 +31,13 @@ export const sshCopy = {
     "Optionaler absoluter Pfad, zum Beispiel /srv/files. Agenten können diesen Ordner nicht verlassen.",
   remoteFolder: "Remote-Ordner",
   noRemoteRoot: "Gesamtes Konto",
+  legacyAlgorithms: "Alte Algorithmen (ssh-rsa)",
+  legacyAlgorithmsHint:
+    "Erlaubt RSA-Signaturen mit SHA-1 nur für diesen Host. SHA-1 ist veraltet; nur für alte Geräte einschalten, die nichts anderes akzeptieren.",
+  legacyAlgorithmsWarning:
+    "Dieser Host akzeptiert veraltete RSA-Signaturen mit SHA-1 (ssh-rsa). Nur für alte Geräte beibehalten, die nichts anderes akzeptieren.",
+  legacyOn: "Ein",
+  legacyOff: "Aus",
   keyMissing: "Der Schlüssel dieses Hosts wurde gelöscht. Wähle einen anderen Schlüssel.",
   keyDeleted: "Schlüssel gelöscht",
   sftpTestHint:
