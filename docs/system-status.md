@@ -107,7 +107,8 @@ longer be resumed, and its history is gone.
 
 **Installed dependencies.** Every folder named `node_modules` in the agent's
 workspace (`assistants/workspaces/<agent>`) goes; a link named `node_modules` and
-everything outside the workspace stay. The deletion is refused while the agent has a
+everything outside the workspace stay, and `.git` and `.agentpier` (the agent's secrets)
+are never searched. The deletion is refused while the agent has a
 turn in flight, a team task, a long-chat summary or an approved action running, and
 while any process of your user has its working folder inside the workspace (a
 background command, a dev server). Each entry is looked at and removed in its parent
