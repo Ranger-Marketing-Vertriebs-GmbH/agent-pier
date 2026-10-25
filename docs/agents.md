@@ -689,7 +689,7 @@ archived). Both chats get a note, the memory step above applies, and routines ca
 the tool. A permanent member's task chat is also the chat where you talk with it
 yourself, so the lead leaves it to you while you do: while a turn of yours runs or is
 queued there, or for 60 minutes after your last message in it (also from your paired
-Telegram chat), the lead gets no long-chat hint, the tool refuses with an answer that
+Telegram chat; a [work goal](#work-until-done) continuation in it counts as yours), the lead gets no long-chat hint, the tool refuses with an answer that
 the chat is yours to summarise, and a summary after the member's task that was waiting
 is dropped. You can still press **Summarise now** in that chat yourself.
 
@@ -969,8 +969,10 @@ the agent may write memory (**Remember information** is on and writing memory is
 safe; a shared agent writes its shared memory), AgentPier first runs a hidden memory
 step in that chat: the agent may search its memory and read files; it may write only its
 own `MEMORY.md` and `memory/` notes, and every other tool is refused (a model that
-runs in OpenClaw Code Mode may use its JavaScript cell, in which the same rule holds for
-every tool it calls). A write outside
+runs in OpenClaw Code Mode may run its JavaScript cell; every tool the cell calls is
+checked on its own by the same rule, while the cell's own code runs in OpenClaw's code
+executor, which with its default Node executor OpenClaw does not count as a security
+boundary). A write outside
 them shows **Memory not saved: before a summary, the agent may change only its own
 memory.** If the step fails or stalls, the chat offers no **Try again**. The chat shows **Saving memories
 before the summary …** (header: **Saving memories**) while it runs; the step ends after
