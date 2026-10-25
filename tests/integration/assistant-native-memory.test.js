@@ -187,3 +187,109 @@ test("a note folder swapped for a link around the open is never read", async (t)
   t.mock.restoreAll();
   assert.equal((await memory.read(f.id, "memory/topics/cats.md")).content, "Cat names");
 });
+async function dreamFixture(t) {
+  const f = fixture(t),
+    fs = await import("node:fs"),
+    os = await import("node:os"),
+    path = await import("node:path");
+  const workspaces = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "memory-workspaces-")),
+  );
+  t.after(() => fs.rmSync(workspaces, { recursive: true, force: true }));
+  const root = path.join(workspaces, f.id);
+  const put = (name, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), text);
+  };
+  return {
+    ...f,
+    fs,
+    path,
+    workspaces,
+    root,
+    put,
+    memory: new NativeMemory(f.assistants, { workspaces }),
+  };
+}
+test("dream notes and the Dream Diary show in the memory view", async (t) => {
+  const f = await dreamFixture(t);
+  f.put("memory/dreaming/light/2026-10-25.md", "light");
+  f.put("memory/dreaming/rem/2026-10-25.md", "rem");
+  f.put("DREAMS.md", "# Dream Diary");
+  f.put("memory/.dreams/session-corpus/2026-10-25.txt", "raw chat");
+  const { files } = await f.memory.files(f.id);
+  assert.equal(files[0].name, "DREAMS.md");
+  assert.equal(files[0].diary, true);
+  const names = files.map((x) => x.name);
+  assert.ok(names.includes("memory/dreaming/light/2026-10-25.md"));
+  assert.ok(names.includes("memory/dreaming/rem/2026-10-25.md"));
+  assert.ok(!names.some((n) => n.includes(".dreams")));
+  const diary = await f.memory.read(f.id, "DREAMS.md");
+  assert.equal(diary.readOnly, true);
+  assert.equal(diary.content, "# Dream Diary");
+  assert.equal(diary.missing, false);
+  assert.equal(
+    (await f.memory.read(f.id, "memory/dreaming/rem/2026-10-25.md")).readOnly,
+    true,
+  );
+  await assert.rejects(
+    f.memory.read(f.id, "memory/.dreams/session-corpus/2026-10-25.txt"),
+    {
+      status: 400,
+    },
+  );
+});
+test("the Dream Diary is listed without a memory folder and absent when missing", async (t) => {
+  const f = await dreamFixture(t);
+  f.put("DREAMS.md", "d");
+  assert.deepEqual(
+    (await f.memory.files(f.id)).files.map((x) => x.name),
+    ["DREAMS.md"],
+  );
+  f.fs.rmSync(f.path.join(f.root, "DREAMS.md"));
+  assert.deepEqual((await f.memory.files(f.id)).files, []);
+  await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 404 });
+});
+test("the Dream Diary cannot be written, deleted or reached through a link", async (t) => {
+  const f = await dreamFixture(t);
+  f.put("DREAMS.md", "# Dream Diary");
+  await assert.rejects(
+    f.memory.write(f.id, { name: "DREAMS.md", content: "x", expectedMissing: true }),
+    { status: 400 },
+  );
+  await assert.rejects(f.memory.remove(f.id, "DREAMS.md"), { status: 400 });
+  assert.equal(
+    f.fs.readFileSync(f.path.join(f.root, "DREAMS.md"), "utf8"),
+    "# Dream Diary",
+  );
+  f.fs.rmSync(f.path.join(f.root, "DREAMS.md"));
+  f.fs.writeFileSync(f.path.join(f.workspaces, "secret.md"), "outside");
+  f.fs.symlinkSync(
+    f.path.join(f.workspaces, "secret.md"),
+    f.path.join(f.root, "DREAMS.md"),
+  );
+  await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 400 });
+  assert.deepEqual((await f.memory.files(f.id)).files, []);
+});
+test("search drops results from the dreaming corpus", async (t) => {
+  const f = fixture(t);
+  const call = f.assistants.runtime.client.call;
+  f.assistants.runtime.client.call = async () => ({
+    ok: true,
+    output: {
+      details: {
+        results: [
+          "memory/.dreams/session-corpus/2026-10-25.txt",
+          "memory/./.dreams/x.txt",
+          "memory/dreaming/light/2026-10-25.md",
+        ].map((path) => ({ path, snippet: "s", startLine: 1, endLine: 2 })),
+      },
+    },
+  });
+  const { results } = await f.memory.search(f.id, "chat");
+  assert.deepEqual(
+    results.map((r) => r.path),
+    ["memory/dreaming/light/2026-10-25.md"],
+  );
+  void call;
+});

@@ -17,12 +17,16 @@ const projectFile = (file, name) => ({
 // memory/. The two root files are edited through the Gateway; notes under memory/
 // are the agent's own working layer and are shown read-only from its workspace.
 const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/;
+// OpenClaw's Dream Diary: a file in the workspace root, shown read-only.
+const diaryName = "DREAMS.md";
+// Dreaming's raw corpus; it is never listed, read or searched.
+const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
 const maxNotes = 200,
   maxNoteBytes = 262144;
 // The workspace and its memory/ folder must be real directories: a symbolic link
 // in their place would list or read notes from outside the agent's workspace.
-async function assertRealDirectories(root) {
-  for (const dir of [root, path.join(root, "memory")])
+async function assertRealDirectories(root, notes = true) {
+  for (const dir of notes ? [root, path.join(root, "memory")] : [root])
     if (!(await fs.lstat(dir)).isDirectory()) throw Error("link");
 }
 export class NativeMemory {
@@ -46,6 +50,19 @@ export class NativeMemory {
   async listNotes(id) {
     const root = this.root(id),
       files = [];
+    try {
+      await assertRealDirectories(root, false);
+      const stat = await fs.lstat(path.join(root, diaryName));
+      if (stat.isFile())
+        files.push({
+          name: diaryName,
+          size: stat.size,
+          modifiedAt: stat.mtime.toISOString(),
+          diary: true,
+        });
+    } catch (error) {
+      if (error.code !== "ENOENT") return { files };
+    }
     try {
       await assertRealDirectories(root);
     } catch {
@@ -72,18 +89,23 @@ export class NativeMemory {
       }
     };
     await walk("memory", 0);
-    files.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+    // The diary stays first; notes follow, newest first.
+    const diary = files.filter((f) => f.diary);
+    const notes = files.filter((f) => !f.diary);
+    notes.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+    files.splice(0, files.length, ...diary, ...notes);
     return { files };
   }
   async readNote(id, name) {
-    if (!noteName.test(name) || name.split("/").includes(".."))
+    const diary = name === diaryName;
+    if (!diary && (!noteName.test(name) || name.split("/").includes("..")))
       throw assistantProblem("invalid");
     const root = this.root(id),
       file = path.join(root, name);
     let handle;
     try {
       // Every component must be a real directory or file inside the workspace.
-      await assertRealDirectories(root);
+      await assertRealDirectories(root, !diary);
       const real = await fs.realpath(file);
       if (real !== path.join(await fs.realpath(root), name)) throw Error("link");
       // The open follows no link on the way (openInside), so a folder swapped for
@@ -154,7 +176,7 @@ export class NativeMemory {
     }
   }
   read(id, name) {
-    if (typeof name === "string" && name.startsWith("memory/"))
+    if (typeof name === "string" && (name.startsWith("memory/") || name === diaryName))
       return this.assistants.admit(() => this.readNote(id, name));
     return this.assistants.admit(async () => {
       if (!names.has(name)) throw assistantProblem("invalid");
@@ -213,7 +235,8 @@ export class NativeMemory {
             (r) =>
               typeof r.path === "string" &&
               !r.path.startsWith("/") &&
-              !r.path.includes(".."),
+              !r.path.includes("..") &&
+              !corpusFolder.test(path.posix.normalize(r.path.replaceAll("\\", "/"))),
           )
           .map((r) => ({
             path: r.path.slice(0, 256),

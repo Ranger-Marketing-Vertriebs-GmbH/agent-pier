@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
 import { execEvidence } from "./exec-processes.js";
+import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 export { patchPaths };
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
@@ -526,6 +527,10 @@ export function registerToolGuard(api) {
   });
   api.on("before_tool_call", (event, ctx) => attachmentCall(event, ctx, bridge, roots), {
     matcher: attachmentTools,
+    priority: 1000,
+  });
+  api.on("before_tool_call", (event) => dreamsCall(event), {
+    matcher: dreamsTools,
     priority: 1000,
   });
   api.on("before_tool_call", (event, ctx) => pdfCall(event, ctx, bridge), {
