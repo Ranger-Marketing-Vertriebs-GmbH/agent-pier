@@ -177,6 +177,21 @@ export class McpDirectory {
       );
     }
   }
+  /**
+   * The detail an earlier lookup left in the cache, or undefined: never asks the
+   * registry (connection-problems.js counts known updates without a request).
+   */
+  cachedDetail(name) {
+    const { enabled, baseUrl } = this.current();
+    if (!enabled || !isServerName(name)) return undefined;
+    const cached = this.cache.get(detailKey(baseUrl, name));
+    if (!cached || cached.error) return undefined;
+    try {
+      return normaliseDetail(cached.body);
+    } catch {
+      return undefined;
+    }
+  }
   async status() {
     const { enabled, baseUrl, host } = this.current();
     if (!enabled) return { enabled, host, reachable: false };

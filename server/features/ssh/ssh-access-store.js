@@ -33,6 +33,7 @@ import {
 } from "./ssh-interactive-shell.js";
 import { runInteractiveSsh } from "./ssh-interactive-run.js";
 import { testConnection } from "./ssh-connection-test.js";
+import { SshTestResults } from "./ssh-test-results.js";
 import {
   connectionRevision,
   isSftp,
@@ -56,6 +57,7 @@ export class SshAccessStore {
     this.runConsole = runConsole;
     this.updates = new Map();
     this.passwords = new SshPasswordStore({ root: this.root });
+    this.testResults = new SshTestResults({ root: this.root });
     this.keyStore = new SshKeyStore({
       root: this.root,
       catalog,
@@ -341,6 +343,7 @@ export class SshAccessStore {
     } else this.cleanupAccess(id);
   }
   cleanupAccess(id) {
+    this.testResults.forget(id);
     const directory = this.directory(id);
     fs.rmSync(path.join(directory, "known_hosts"), { force: true });
     if (fs.existsSync(directory) && !fs.readdirSync(directory).length)
@@ -441,8 +444,32 @@ export class SshAccessStore {
       throw problem(serverMessages.ssh.hostKeyScanFailed, 502);
     }
   }
+  /**
+   * Runs the connection test and keeps its outcome (ssh-test-results.js). Only a
+   * test that ran is kept: an unknown host or a refused type stays unrecorded.
+   */
   async test(id) {
-    if (this.get(id).type === "sftp") return testSftp(this, id);
-    return testConnection(this, id);
+    const access = this.get(id);
+    const revision = connectionRevision(this.row(id));
+    try {
+      const result =
+        access.type === "sftp"
+          ? await testSftp(this, id)
+          : await testConnection(this, id);
+      this.testResults.record(id, revision, result);
+      return result;
+    } catch (error) {
+      if (error?.testOutcome) this.testResults.record(id, revision, error.testOutcome);
+      throw error;
+    }
+  }
+  /** `accesses` (projections) with the last connection test of each, for the owner. */
+  withLastTests(accesses) {
+    const results = this.testResults.read();
+    const revisions = new Map(this.raw().map((row) => [row.id, connectionRevision(row)]));
+    return accesses.map((access) => ({
+      ...access,
+      lastTest: this.testResults.view(results, access.id, revisions.get(access.id)),
+    }));
   }
 }
