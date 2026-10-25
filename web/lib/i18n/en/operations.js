@@ -395,6 +395,9 @@ export const backupCopy = {
     "encrypted-user-passwords": "User passwords (encrypted)",
     "User passwords (the owner sets new ones after a restore)":
       "User passwords (you set new ones after a restore)",
+    "sealed-secrets": "Secrets for agents and sessions (encrypted)",
+    "Secrets (only in backups with a passphrase, then encrypted)":
+      "Secrets (only in backups with a passphrase, then encrypted)",
     "MCP server header and environment values and address tokens":
       "MCP server header and environment values and address tokens",
     "Files removed while the backup was written":

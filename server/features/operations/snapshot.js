@@ -23,6 +23,7 @@ import {
   usersMember,
 } from "../users/user-backup.js";
 import { captureSftpHosts, sftpHostsMember } from "../ssh/sftp-backup.js";
+import { captureSecrets, secretsMember } from "../secrets/secret-backup.js";
 
 export const omissions = [
   "File trash, file journals and transfer bytes",
@@ -209,6 +210,9 @@ export function capture({
         }),
       );
     if (sftpHosts) extraOmissions.push(...sftpHosts.omissions);
+    // Secret values travel only in the capsule; nothing else below secrets/ is archived.
+    const sealedSecrets = withCredentials ? captureSecrets(dataDir) : null;
+    if (sealedSecrets) credentials.push(fileMember(secretsMember, sealedSecrets));
     if (fs.existsSync(path.join(dataDir, "memory/memory.sqlite"))) {
       const startedAt = new Date().toISOString();
       files.push(
