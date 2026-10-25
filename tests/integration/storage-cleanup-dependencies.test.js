@@ -38,6 +38,9 @@ function workspace(t) {
   write(path.join(agent, "app", "node_modules", "left-pad", "node_modules", "x.js"));
   write(path.join(agent, "tools", "deep", "node_modules", "a", "b.js"), 16 * 1024);
   write(path.join(agent, "app", "src", "main.js"));
+  // The agent's secrets: never walked into, not even for a node_modules there.
+  write(path.join(agent, ".agentpier", "secrets.json"));
+  write(path.join(agent, ".agentpier", "node_modules", "x.js"));
   // A link named node_modules points outside: it is no folder of the workspace.
   fs.symlinkSync(path.join(outside, "node_modules"), path.join(agent, "node_modules"));
   // A link inside a real node_modules folder points outside: only the link goes.
@@ -68,6 +71,8 @@ test("deleting dependencies removes node_modules folders and nothing outside", a
   assert.equal(fs.existsSync(path.join(agent, "app", "node_modules")), false);
   assert.equal(fs.existsSync(path.join(agent, "tools", "deep", "node_modules")), false);
   assert.ok(fs.existsSync(path.join(agent, "app", "src", "main.js")), "source stays");
+  assert.ok(fs.existsSync(path.join(agent, ".agentpier", "secrets.json")));
+  assert.ok(fs.existsSync(path.join(agent, ".agentpier", "node_modules", "x.js")));
   assert.ok(fs.lstatSync(path.join(agent, "node_modules")).isSymbolicLink());
   assert.ok(fs.existsSync(path.join(outside, "keep.txt")));
   assert.ok(fs.existsSync(path.join(outside, "node_modules", "pkg", "index.js")));

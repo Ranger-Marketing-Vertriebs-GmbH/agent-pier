@@ -10,13 +10,15 @@ import { cleanupProblem } from "./cleanup-problem.js";
  * Installed dependencies in the agents' workspaces (assistants/workspaces/<agent>):
  * every folder named node_modules, at any depth. A link named node_modules is not a
  * folder of the workspace and stays; the walk never follows a link and never looks
- * inside a node_modules folder for another one. The agent installs what it needs
+ * inside a node_modules folder for another one, nor into `.git` or `.agentpier` (the agent's secrets). The agent installs what it needs
  * again (npm install). A folder is first renamed in its parent to
  * `.node_modules-deleting-<random>`, atomically, so the agent never sees a half
  * deleted node_modules; a deletion a restart interrupted is finished by the startup
  * sweep (sweepDependencies).
  */
 const DELETING = ".node_modules-deleting-";
+// Never walked into: Git's own data, and `.agentpier/`, which holds the agent's secrets.
+const KEPT = new Set([".git", ".agentpier"]);
 const agentId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const MAX_DEPTH = 12;
 const MAX_FOLDERS = 50_000;
@@ -34,7 +36,7 @@ export async function dependencyFolders(workspace) {
       if (!stat?.isDirectory()) continue;
       if (name === "node_modules") found.push({ parent: folder, name });
       else if (name.startsWith(DELETING)) continue;
-      else if (depth < MAX_DEPTH && name !== ".git" && ++folders < MAX_FOLDERS)
+      else if (depth < MAX_DEPTH && !KEPT.has(name) && ++folders < MAX_FOLDERS)
         await walk(path.join(folder, name), depth + 1);
     }
   };
@@ -134,7 +136,7 @@ export async function sweepDependencies(dataDir) {
         if (!stat?.isDirectory()) continue;
         if (name.startsWith(DELETING))
           await removeEntry(folder, name, (now) => now.isDirectory()).catch(() => {});
-        else if (name !== "node_modules" && name !== ".git" && depth < MAX_DEPTH)
+        else if (name !== "node_modules" && !KEPT.has(name) && depth < MAX_DEPTH)
           await walk(path.join(folder, name), depth + 1);
       }
     };
