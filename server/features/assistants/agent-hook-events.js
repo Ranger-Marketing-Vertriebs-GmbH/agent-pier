@@ -49,10 +49,11 @@ export class HookEvents {
       .get(hookId, eventId);
     return row ? JSON.parse(row.body) : null;
   }
+  /** The event of a native job; session keys may carry its id in another case. */
   byJob(jobId) {
     const row = this.db
       .prepare(
-        "SELECT body FROM assistant_hook_events WHERE json_extract(body,'$.jobId')=?",
+        "SELECT body FROM assistant_hook_events WHERE lower(json_extract(body,'$.jobId'))=lower(?)",
       )
       .get(jobId);
     return row ? JSON.parse(row.body) : null;

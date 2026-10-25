@@ -141,6 +141,10 @@ export const assistants = {
     "Ob diese Erinnerung angelegt wurde, ist unklar. Prüfe sie in den Agent-Einstellungen, bevor du es erneut versuchst.",
   reminderFailed:
     "Eine Erinnerung konnte nicht ausgeführt werden. Prüfe ihren Verlauf in den Agent-Einstellungen.",
+  hooks: {
+    failed: (name) =>
+      `Der Hook ${name} konnte nicht ausgeführt werden. Prüfe seine Ereignisse im Chat des Agenten.`,
+  },
   teamResultNoText: (objective) =>
     `Team-Ergebnisse für ${objective}. Für die abgeschlossene Zusammenfassung ist kein Text verfügbar. Prüfe die Einzelberichte.`,
   teamReportUnavailable:

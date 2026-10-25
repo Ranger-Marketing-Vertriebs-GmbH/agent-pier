@@ -53,9 +53,9 @@ self.agentPierNotificationCopy = {
       name: "Meldet sich",
     },
     "agent-routine": {
-      title: "AgentPier: Ergebnis einer Routine",
-      body: "Eine Routine oder Erinnerung hat in den Chat eines Agenten geschrieben.",
-      name: "Ergebnis einer Routine",
+      title: "AgentPier: Routine- oder Hook-Ergebnis",
+      body: "Eine Routine, Erinnerung oder ein Hook hat in den Chat eines Agenten geschrieben.",
+      name: "Routine- oder Hook-Ergebnis",
     },
     "telegram-revocation": {
       title: "AgentPier: Telegram-Zugang noch aktiv",

@@ -18,7 +18,11 @@ const languages = {
     signOut: "Abmelden",
     deviceSettings: /^Benachrichtigungseinstellungen für /,
     sheet: /^Benachrichtigungen auf /,
-    hers: ["Freigabe für einen Agenten", "Agent meldet sich", "Ergebnis einer Routine"],
+    hers: [
+      "Freigabe für einen Agenten",
+      "Agent meldet sich",
+      "Routine- oder Hook-Ergebnis",
+    ],
     owners: [/Session/, /Pipeline/, /CLI/, /GitHub/],
   },
   en: {
@@ -33,7 +37,7 @@ const languages = {
     signOut: "Sign out",
     deviceSettings: /^Notification settings for /,
     sheet: /^Notifications on /,
-    hers: ["Agent approval", "Agent check-in", "Routine result"],
+    hers: ["Agent approval", "Agent check-in", "Routine or hook result"],
     owners: [/Session/, /Pipeline/, /CLI/, /GitHub/],
   },
 };

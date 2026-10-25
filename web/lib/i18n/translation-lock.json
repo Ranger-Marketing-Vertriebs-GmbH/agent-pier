@@ -4143,7 +4143,7 @@
   "notifications:notificationCopy.eventGroups.waiting": "de:21cfb3bee270 en:9f760ab20739",
   "notifications:notificationCopy.events.agent-approval": "de:08f8e71d455d en:e20fb05b17a8",
   "notifications:notificationCopy.events.agent-checkin": "de:634e7c847ae2 en:ff8377e909f6",
-  "notifications:notificationCopy.events.agent-routine": "de:2748624924b0 en:8aea2bbca7d5",
+  "notifications:notificationCopy.events.agent-routine": "de:1bf1603506b3 en:66976c1c8f94",
   "notifications:notificationCopy.events.permission": "de:169da0928061 en:764b72c1b201",
   "notifications:notificationCopy.events.pipeline-completed": "de:af17f6331298 en:bcdd05b1717f",
   "notifications:notificationCopy.events.pipeline-failed": "de:049a44b36f34 en:1dc50fbeab72",
