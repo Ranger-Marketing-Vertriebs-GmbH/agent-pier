@@ -46,6 +46,7 @@ export function settingsSummary(services, now = Date.now()) {
     mcpAccess,
     effectiveConfig,
     sshAccesses,
+    secrets,
     repositories,
     operations,
     config,
@@ -77,6 +78,7 @@ export function settingsSummary(services, now = Date.now()) {
         );
       }),
       ssh: attempt(() => sshAccesses && { count: sshAccesses.list().length }),
+      secrets: attempt(() => secrets && { count: secrets.list().length }),
       github: attempt(
         () => repositories && { count: repositories.listCredentials().length },
       ),

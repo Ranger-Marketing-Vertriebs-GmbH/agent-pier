@@ -5,6 +5,8 @@ export const secrets = Object.freeze({
   invalidDescription: "Die Beschreibung darf höchstens 200 Zeichen lang sein.",
   invalidValue: "Ungültiger Wert. Erlaubt sind 1 bis 8192 Byte ohne Nullzeichen.",
   invalidProject: "Ungültiges Projekt für das Geheimnis.",
+  invalidBody:
+    "Ungültige Anfrage. Erlaubt sind nur Name, Beschreibung, Projekt und Wert.",
   nameTaken: "Ein Geheimnis mit diesem Namen existiert bereits.",
   limit: "Es sind höchstens 200 Geheimnisse möglich.",
   notFound: "Geheimnis nicht gefunden.",

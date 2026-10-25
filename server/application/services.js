@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ArtifactService } from "../features/artifacts/artifact-service.js";
 import { revokeSessionMcp } from "../features/mcp/session-capability.js";
+import { SecretStore } from "../features/secrets/secret-store.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
@@ -106,6 +107,7 @@ export async function createServices(config) {
     memory.close();
     throw error;
   }
+  const secrets = new SecretStore({ dataDir: config.dataDir, audit });
   const sshAccesses = sshManagement.store;
   const sshSessions = sshManagement.grants;
   const sshIntegration = new SshIntegration({
@@ -358,6 +360,7 @@ export async function createServices(config) {
     sshSessions,
     sshIntegration,
     sshManagement,
+    secrets,
     operationalWarnings,
     onError,
     requests,
