@@ -5,12 +5,13 @@ import { patchPaths } from "./patch-paths.js";
 import { execEvidence } from "./exec-processes.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 import {
+  fold,
   managedFolder,
   managedName,
   managedRefusal,
   reachesManaged,
 } from "./managed-folder.js";
-export { patchPaths };
+export { fold, patchPaths };
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
 export const bootstrapFiles = [
@@ -96,9 +97,6 @@ export function writeTargets(toolName, params) {
 }
 // Must stay below AgentPier's tolerance for a missing report after reconnecting.
 export const guardReportMs = 15000;
-// Approximates the case-insensitive, normalization-insensitive lookup of APFS:
-// "AGENTſ.md" (U+017F) and the Kelvin sign U+212A fold to ASCII here.
-export const fold = (name) => name.normalize("NFKC").toUpperCase().toLowerCase();
 const protectedNames = new Set(bootstrapFiles.map(fold));
 // The OpenClaw 2026.10.3 file tools repair model-corrupted paths after this hook runs
 // (agent-tools.before-tool-call.decision: XML arg_value suffix, Office extensions);

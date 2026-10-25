@@ -200,7 +200,16 @@ test("a file of the agent's own workspace is staged, never its guarded entries",
   fs.writeFileSync(path.join(own, "AGENTS.md"), "rules");
   fs.mkdirSync(path.join(own, "skills", "x"), { recursive: true });
   fs.writeFileSync(path.join(own, "skills", "x", "SKILL.md"), "skill");
-  for (const p of ["AGENTS.md", "skills/x/SKILL.md", "attachments"])
+  // Nor AgentPier's own files, the agent's secrets among them.
+  fs.mkdirSync(path.join(own, ".agentpier"), { recursive: true });
+  fs.writeFileSync(path.join(own, ".agentpier", "secrets.env"), "A='1'\n");
+  for (const p of [
+    "AGENTS.md",
+    "skills/x/SKILL.md",
+    "attachments",
+    ".agentpier/secrets.env",
+    ".AgentPier/secrets.env",
+  ])
     await assert.rejects(f.call({ path: p }), code("PROJECT_PATH_REFUSED"));
 });
 

@@ -50,11 +50,19 @@ test("no file tool changes .agentpier, not even in the owner's own turn", async 
     path.join(workspace, ".agentpier", "secrets.env"),
     path.join(workspace, "copy.env"),
   );
+  // Also a hard link of a file deeper in the folder.
+  fs.mkdirSync(path.join(workspace, ".agentpier", "keys"));
+  fs.writeFileSync(path.join(workspace, ".agentpier", "keys", "id"), "KEY");
+  fs.linkSync(
+    path.join(workspace, ".agentpier", "keys", "id"),
+    path.join(workspace, "id"),
+  );
   for (const target of [
     "config/secrets.env",
     "config/new.env",
     "env.txt",
     "copy.env",
+    "id",
     "dangling.txt",
     // Links that never resolve cannot be verified.
     "loop-a",
