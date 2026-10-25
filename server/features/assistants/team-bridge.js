@@ -120,7 +120,8 @@ export class TeamBridge {
         throw assistantProblem("invalid", 403);
       return record;
     }
-    // A command's completion run continues its owner turn (exec-continuation.js).
+    // A command's completion run continues the turn that started it
+    // (exec-continuation.js).
     if (record.continuation) return continuation.assertContinuation(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     if (!active.has(a.state) || a.reviewedAt) throw assistantProblem("invalid", 403);
@@ -250,7 +251,7 @@ export class TeamBridge {
   // Native write/edit calls are permitted only while the current turn is the owner's
   // own message, a lead's follow-up on its member's result (member-result-writes.js),
   // a routine's run (routineWrite), a memory step's own memory (memory-write-policy.js)
-  // or the completion run of a command such a direct turn started
+  // or the completion run of a command one of the first two started
   // (exec-continuation.js); forwarded, other scheduled, internal and member turns
   // never write, apart from an owner-proven task.
   toolPolicy(input) {

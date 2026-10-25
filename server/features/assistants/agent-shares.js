@@ -18,9 +18,15 @@ import { routineOrigin } from "./routine-targets.js";
  * A routine's run (no attempt; the bridge admits its run session as for SSH) shares
  * into the chat its routine commits to, and to the Telegram chat it delivers to.
  *
+ * The completion run of a background command (no attempt; exec-continuation.js
+ * proves it on every step) shares as the turn that started the command: into that
+ * turn's chat, and to Telegram when that turn came from the owner's paired chat.
+ *
  * With `projectId` the file comes from a granted project folder (AGENTPIER-123)
  * instead of the workspace, in the turns that may use project folders (the owner's
- * own, a task member's team turns): read access is enough, and the path is resolved
+ * own, a task member's team turns, a lead's follow-up on its member's result and the
+ * completion run of a command one of them started): read access is enough, and the
+ * path is resolved
  * like every folder read (project-paths.js: never .git, never AgentPier's data).
  */
 /**
@@ -86,7 +92,7 @@ export class AgentShares {
   // A file in a granted project folder, resolved inside it, then read like any share.
   async projectSource(invocation, projectId, requested) {
     const workflows = this.assistants.workflows;
-    if (!workflows?.folders || !invocation.attemptId)
+    if (!workflows?.folders || !(invocation.attemptId || invocation.continuation))
       throw assistantProblem("projectFolderNotGranted", 403);
     const ctx = workflows.context(invocation);
     const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId);
@@ -116,8 +122,10 @@ export class AgentShares {
         origin: routineOrigin(binding),
       };
     }
-    if (!invocation.attemptId) throw assistantProblem("invalid", 403);
-    const attempt = a.ledger.getAttempt(invocation.attemptId);
+    // A command's completion run continues the turn that started the command.
+    const attemptId = invocation.attemptId || invocation.continuation?.attemptId;
+    if (!attemptId) throw assistantProblem("invalid", 403);
+    const attempt = a.ledger.getAttempt(attemptId);
     const request = a.ledger.getRequest(attempt.requestId);
     return {
       conversation: a.store.getConversation(request.conversationId),

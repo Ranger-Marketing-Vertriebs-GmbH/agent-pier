@@ -189,8 +189,10 @@ runs can change an agent's memory, apart from the agent's own nightly dreaming
 from a lead agent cannot. When a background command the agent started for one of your
 messages (a long render, for example) finishes after its reply, the agent's follow-up
 on the result may still change files, memory and granted project folders like that
-message did: for up to two hours, and only until a newer message arrives in that chat.
-A command started for forwarded content, a reminder or a lead's task stays read-only,
+message did and [hand you files](#files-from-agents): for up to two hours, and only
+until a newer message arrives in that chat. The same holds for a command a lead agent
+started while handling its member's result. A command started for forwarded content,
+a reminder or a lead's task stays read-only,
 and the command's output never counts as your message. When a write is refused, the chat shows a quiet line such as
 **Memory not saved: only your own messages can change memory.** Right after the
 agent service starts, a message waits a few seconds until memory can be written; if
@@ -719,7 +721,9 @@ done: <title>** with a **Stop** button under the chat header.
   members' workspaces at every **Use team** level (at most 4 per turn, not counted
   against the 20 per hour), unless your message said not to change anything.
   When a member's result arrives during an open goal, the lead's turn handling it has
-  the same rights. A continuation never does what needs you:
+  the same rights. A background command started in a continuation keeps them when it
+  finishes: the follow-up on its result can still save files and hand you the result.
+  A continuation never does what needs you:
   approval cards still wait for you, **Go ahead** does not count, and it cannot switch
   on **May write** for routines, create reminders or routines, grant access or set a
   goal.
@@ -1004,7 +1008,14 @@ file explorer. It
 stays in the history, also while AgentPier is unreachable. When the turn came from your
 paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
-agent's chat and, when the routine also sends to Telegram, in its Telegram chat. Images an agent creates with
+agent's chat and, when the routine also sends to Telegram, in its Telegram chat. When a
+background command (a long render, for example) finishes after the agent's reply, its
+follow-up on the result can hand you the file itself: in that chat, and in Telegram
+when the message that started the command came from your paired Telegram chat. This
+holds for a command started for your own message, a work-goal continuation or a lead's
+follow-up on its member's result, for up to two hours and only until a newer message
+arrives in that chat; a command started for forwarded content, a reminder or a lead's
+task shares nothing. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
 the agent sharing them. There is no daily limit on created images; an agent uses reference
 images from the web only when it may also read web pages, and with several ChatGPT accounts any
@@ -1014,8 +1025,9 @@ signed-in one may be used for images.
   member's name; it reaches Telegram when the lead's turn the member works for came
   from Telegram.
 - Agents share only regular files of at most 25 MB from their own workspace, or from a
-  project folder you granted them (reading it is enough; in your own turns and a team
-  member's team turns), never through a symbolic or hard link and never from `.git`
+  project folder you granted them (reading it is enough; in your own turns, a team
+  member's team turns, a lead's follow-up on its member's result and the follow-up of
+  a background command one of them started), never through a symbolic or hard link and never from `.git`
   or AgentPier's own data. AgentPier keeps its own copy outside the workspace, so the
   agent cannot change or remove it.
 - Shared copies have their own storage beside your attachments: 1 GB or 2000 files per
