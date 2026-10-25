@@ -224,8 +224,10 @@ export class BrowserUploads {
     if (signal.aborted) throw assistantProblem("browserUploadSlow", 504);
     this.sweep();
     const target = projectTarget(root, raw, { protectedRoots });
-    if (!target.exists) throw missing();
+    // A guarded entry is refused whether or not it exists, so a refusal never
+    // depends on the file system's case sensitivity or reveals a missing file.
     admit?.(target.relative);
+    if (!target.exists) throw missing();
     let handle;
     try {
       handle = await openInside(target.real, O_RDONLY | O_NONBLOCK);

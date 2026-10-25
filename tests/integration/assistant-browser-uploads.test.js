@@ -209,6 +209,8 @@ test("a file of the agent's own workspace is staged, never its guarded entries",
     "attachments",
     ".agentpier/secrets.env",
     ".AgentPier/secrets.env",
+    // Refused before the file is looked up, also where it does not exist.
+    ".agentpier/missing.env",
   ])
     await assert.rejects(f.call({ path: p }), code("PROJECT_PATH_REFUSED"));
 });
