@@ -11,7 +11,8 @@ const account = (connectionId) => connectionId.startsWith("openclaw:");
  * call: the agent's own model when it accepts images, else the owner's fallback model
  * (pdf-model-settings.js) the running Gateway was started with
  * (AssistantProviderSynchronization.pdfFallback), else the agent's own text-only model,
- * which reads the PDF's text but not its page images. An agent's own `model` argument
+ * which reads the PDF's text but not its page images. An own model that takes images
+ * but is unusable right now refuses rather than falling back. An agent's own `model` argument
  * is never used. Refs are resolved like the start and a live apply resolve them, so
  * they name the providers the Gateway runs (assistant-models.js transport ids).
  */
@@ -61,7 +62,10 @@ export class PdfPolicy {
       return refuse("unavailable");
     if (!personalCapabilities(agent).readPdfs) return refuse("notGranted");
     const own = await this.ref(agent.model);
-    if (own && this.images(agent.model)) return { allow: true, model: own };
+    // An own model that takes images reads, or nothing does: while it is unusable the
+    // PDF waits rather than reaching the owner's fallback.
+    if (this.images(agent.model))
+      return own ? { allow: true, model: own } : refuse("unavailable");
     // A fallback saved since the start waits for its restart (web-tools-changes.js).
     const fallback = this.assistants.providerSynchronization?.pdfFallback;
     if (typeof fallback === "string" && fallback) return { allow: true, model: fallback };
