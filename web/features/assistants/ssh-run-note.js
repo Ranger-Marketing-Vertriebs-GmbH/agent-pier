@@ -6,7 +6,10 @@ export function sshOutcome(result = {}, diagnostic) {
   if (result.reason === "revoked" || diagnostic === "SSH_REVOKED") return "revoked";
   if (result.timedOut) return "timedOut";
   if (result.truncated) return "truncated";
-  return result.exitCode === 0 ? "done" : "exit";
+  // A console run (interactive shell) has no exit code.
+  return result.exitCode === 0 || (result.interactive && result.exitCode == null)
+    ? "done"
+    : "exit";
 }
 export const sshSeconds = (ms) => String(Math.round(ms / 100) / 10);
 export function sshOutcomeText(outcome, exitCode) {
@@ -40,10 +43,11 @@ export function sshRunView(note) {
     redacted: note.commandRedacted === true,
     tone: tones[outcome],
     status: typeof status === "function" ? status(note.exitCode ?? "?") : status,
-    exitCode: note.exitCode ?? (outcome === "done" ? 0 : null),
+    exitCode: note.exitCode ?? (outcome === "done" && !note.interactive ? 0 : null),
     duration:
       note.durationMs != null ? copy.note.seconds(sshSeconds(note.durationMs)) : null,
-    result: copy.note.results[outcome] ?? null,
+    result:
+      copy.note.results[outcome] ?? (note.interactive ? copy.note.interactive : null),
   };
 }
 /** One Work tab history line: host, outcome (or decision) and duration. */

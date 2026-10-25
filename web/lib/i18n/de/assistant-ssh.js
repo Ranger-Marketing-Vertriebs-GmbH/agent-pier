@@ -67,6 +67,7 @@ export const assistantSshCopy = {
     },
     removed: "Host entfernt",
     exit: (code) => `Exit-Code ${code}`,
+    interactive: "Interaktive Shell · kein Exit-Code",
     timedOut: "Zeitlimit erreicht",
     truncated: "Ausgabe gekürzt",
     duration: (seconds) => `${seconds} s`,
@@ -93,6 +94,8 @@ export const assistantSshCopy = {
       truncated: "Die Ausgabe war länger als das Limit und wurde abgeschnitten.",
       revoked: "Der Befehl wurde gestoppt, weil sich sein Zugang geändert hat.",
     },
+    interactive:
+      "Lief in der interaktiven Shell des Geräts, die keinen Exit-Code meldet. Prüfe die Ausgabe.",
     command: "Befehl",
     copy: "Befehl kopieren",
     exitCode: "Exit-Code",

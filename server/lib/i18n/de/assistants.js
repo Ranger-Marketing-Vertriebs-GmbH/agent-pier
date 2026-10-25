@@ -65,6 +65,7 @@ export const assistants = {
   sshDeny: "Ablehnen",
   sshStates: {
     completed: (code) => `SSH-Befehl beendet · Exit-Code ${code}`,
+    interactive: "SSH-Befehl in der interaktiven Shell beendet · kein Exit-Code",
     failed: "SSH-Befehl fehlgeschlagen; prüfe ihn in AgentPier",
     declined: "SSH-Befehl abgelehnt",
     expired: "Freigabe abgelaufen; der Befehl lief nicht",

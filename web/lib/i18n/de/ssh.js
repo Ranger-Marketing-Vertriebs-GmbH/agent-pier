@@ -36,6 +36,9 @@ export const sshCopy = {
     "Erlaubt RSA-Signaturen mit SHA-1 nur für diesen Host. SHA-1 ist veraltet; nur für alte Geräte einschalten, die nichts anderes akzeptieren.",
   legacyAlgorithmsWarning:
     "Dieser Host akzeptiert veraltete RSA-Signaturen mit SHA-1 (ssh-rsa). Nur für alte Geräte beibehalten, die nichts anderes akzeptieren.",
+  interactiveShell: "Interaktive Shell (Netzwerkgeräte)",
+  interactiveShellHint:
+    "Für Switches und Router, deren CLI die Verbindung bei einem Remote-Befehl schließt. AgentPier öffnet die Konsole, tippt jede Zeile eines Befehls nach der Eingabeaufforderung ein, beantwortet Aufforderungen zum Weiterblättern mit einem Leerzeichen und meldet sich ab. Die Ausgabe hat keinen Exit-Code.",
   legacyOn: "Ein",
   legacyOff: "Aus",
   keyMissing: "Der Schlüssel dieses Hosts wurde gelöscht. Wähle einen anderen Schlüssel.",
@@ -102,8 +105,10 @@ export const sshCopy = {
   copied: "Kopiert",
   copyFailed: "Kopieren fehlgeschlagen. Markiere und kopiere den Text manuell.",
   test: "Verbindung testen",
-  testHint: "Ein ausdrücklicher Test verbindet sich mit dem Server und führt true aus.",
+  testHint:
+    "Ein ausdrücklicher Test meldet sich an und führt true aus, bei einem Host mit interaktiver Shell wartet er auf die Eingabeaufforderung und meldet sich ab. Nur ein SSH-Fehler lässt ihn scheitern, nicht ein Gerät, das true nicht kennt.",
   testOk: "Verbindung erfolgreich",
+  testRejected: "Anmeldung erfolgreich; das Gerät hat den Testbefehl true abgelehnt.",
   busy: "Bitte warten …",
   saved: "Gespeichert",
   sessionSummary: "Wähle die Hosts, die dein Agent in dieser Session nutzen darf.",

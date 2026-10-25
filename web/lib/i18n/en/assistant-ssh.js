@@ -65,6 +65,7 @@ export const assistantSshCopy = {
     },
     removed: "Host removed",
     exit: (code) => `Exit code ${code}`,
+    interactive: "Interactive shell · no exit code",
     timedOut: "Timed out",
     truncated: "Output truncated",
     duration: (seconds) => `${seconds} s`,
@@ -91,6 +92,8 @@ export const assistantSshCopy = {
       truncated: "The output was longer than the limit and was cut off.",
       revoked: "The command was stopped because its access changed.",
     },
+    interactive:
+      "Ran in the device's interactive shell, which reports no exit code. Check the output.",
     command: "Command",
     copy: "Copy command",
     exitCode: "Exit code",

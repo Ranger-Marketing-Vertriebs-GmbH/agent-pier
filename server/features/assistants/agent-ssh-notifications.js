@@ -11,7 +11,9 @@ function outcome(a, m) {
   if (a.state !== "completed") return m.sshStates[a.state] || m.sshStates.unknown;
   const r = a.result || {};
   return [
-    m.sshStates.completed(r.exitCode ?? r.signal ?? "?"),
+    r.interactive && r.exitCode == null && !r.signal
+      ? m.sshStates.interactive
+      : m.sshStates.completed(r.exitCode ?? r.signal ?? "?"),
     ...(r.timedOut ? [m.sshTimedOut] : []),
     ...(r.truncated ? [m.sshTruncated] : []),
   ].join(" · ");

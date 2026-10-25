@@ -106,3 +106,14 @@ test("history rows and outcomes read as before, also in German", () => {
   assert.equal(sshRunView(note()).status, "Fertig");
   setLanguage("en");
 });
+
+test("a console run (interactive shell) is done without an exit code", () => {
+  setLanguage("en");
+  assert.equal(sshOutcome({ interactive: true, exitCode: null }), "done");
+  assert.equal(sshOutcome({ interactive: true, exitCode: 255 }), "exit");
+  assert.equal(sshOutcome({ exitCode: null }), "exit");
+  const view = sshRunView(note({ exitCode: undefined, interactive: true }));
+  assert.equal(view.status, "Done");
+  assert.equal(view.exitCode, null);
+  assert.match(view.result, /interactive shell, which reports no exit code/);
+});

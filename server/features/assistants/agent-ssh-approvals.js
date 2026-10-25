@@ -235,6 +235,7 @@ export class SshApprovals {
           timedOut: result.timedOut,
           truncated: result.truncated,
           durationMs: result.durationMs,
+          ...(result.interactive ? { interactive: true } : {}),
         },
         chatNotes: { result: { at: this.ssh.now(), state } },
       });

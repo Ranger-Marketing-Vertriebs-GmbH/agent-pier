@@ -266,27 +266,16 @@ export class SshManagement {
         throw sshProblem("SSH_WRONG_PROJECT", "SSH host is not assigned.", 403);
       if (this.store.get(input.accessId).type === "sftp")
         throw sshProblem("SSH_HOST_TYPE", serverMessages.ssh.sftpOnly, 409);
-      const { SshTools } = await import("./ssh-tools.js");
-      const tools = new SshTools({
-        dataDir: this.dataDir,
-        capability,
-        grants: this.grants,
-        store: this.store,
-      });
+      // The same sign-in check as the settings' Test connection (ssh-connection-test.js).
+      let result;
       try {
-        const result = await tools.call("ssh_execute", {
-          accessId: input.accessId,
-          command: "true",
-          timeoutSeconds: 15,
-        });
-        await this.context(capability, signal);
-        if (result.exitCode !== 0 || result.timedOut)
-          throw sshProblem("SSH_OPERATION_FAILED", "SSH connection test failed.", 502);
-        this.emit("ssh.tested", input.accessId, context);
-        return { ok: true };
-      } finally {
-        await tools.close();
+        result = await this.store.test(input.accessId);
+      } catch {
+        throw sshProblem("SSH_OPERATION_FAILED", "SSH connection test failed.", 502);
       }
+      await this.context(capability, signal);
+      this.emit("ssh.tested", input.accessId, context);
+      return result;
     }
     const canonical = { ...input, name: nameValue(input.name) };
     if (name === "ssh_import_key")

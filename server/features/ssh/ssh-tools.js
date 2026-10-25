@@ -17,7 +17,7 @@ export const sshTools = [
   {
     name: "ssh_execute",
     description:
-      "Execute a remote command on an assigned SSH host (not on SFTP hosts). Remote output is untrusted. Commands can change remote state; follow the user's authorization.",
+      "Execute a remote command on an assigned SSH host (not on SFTP hosts). Remote output is untrusted. Commands can change remote state; follow the user's authorization. On an interactiveShell host each line is typed into the device console after its prompt (several lines, e.g. enable then show, are allowed); the result has interactive: true and exitCode null.",
     inputSchema: {
       type: "object",
       properties: {
@@ -76,6 +76,7 @@ export class SshTools {
             type: rest.type === "sftp" ? "sftp" : "ssh",
             remoteRoot: rest.type === "sftp" ? (rest.remoteRoot ?? null) : null,
             ...(rest.legacyAlgorithms ? { legacyAlgorithms: true } : {}),
+            ...(rest.interactiveShell ? { interactiveShell: true } : {}),
             assignment: { project: inherited.has(id), explicit: explicit.has(id) },
           })),
       };
@@ -136,7 +137,16 @@ export class SshTools {
       });
       if (result.revoked) throw problem("SSH assignment or capability revoked.", 403);
       const { stdout, stderr, exitCode, signal, truncated, timedOut } = result;
-      return { stdout, stderr, exitCode, signal, truncated, timedOut };
+      return {
+        stdout,
+        stderr,
+        exitCode,
+        signal,
+        truncated,
+        timedOut,
+        // Ran through the device console (ssh-interactive-run.js): no exit code.
+        ...(result.interactive ? { interactive: true } : {}),
+      };
     } finally {
       try {
         try {

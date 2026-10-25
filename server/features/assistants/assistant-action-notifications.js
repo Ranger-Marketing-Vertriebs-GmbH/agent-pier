@@ -207,7 +207,7 @@ const sshOutcome = (r = {}, diagnostic) =>
       ? "timedOut"
       : r.truncated
         ? "truncated"
-        : r.exitCode === 0
+        : r.exitCode === 0 || (r.interactive && r.exitCode == null)
           ? "done"
           : "exit";
 function sshNotes(a) {
@@ -240,6 +240,7 @@ function sshNotes(a) {
         : Number.isInteger(r.exitCode)
           ? { exitCode: r.exitCode }
           : {}),
+      ...(r.interactive ? { interactive: true } : {}),
       durationMs: r.durationMs ?? null,
       timestamp: a.chatNotes.result.at,
       runId: null,

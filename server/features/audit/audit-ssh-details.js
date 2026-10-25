@@ -26,7 +26,7 @@ export function sshAuditDetails(details, event, auditId) {
     event.details.exitCode = details.exitCode;
   if (typeof details.signal === "string" && /^SIG[A-Z0-9]{1,10}$/.test(details.signal))
     event.details.signal = details.signal;
-  for (const key of ["timedOut", "truncated", "revoked"])
+  for (const key of ["timedOut", "truncated", "revoked", "interactive"])
     if (typeof details[key] === "boolean") event.details[key] = details[key];
   if (
     Number.isSafeInteger(details.durationMs) &&
