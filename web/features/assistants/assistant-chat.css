@@ -286,9 +286,27 @@
 }
 .assistant-composer-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   margin-left: -6px;
+}
+/* Microphone, "Send when done" and Stop/Send stay together and move to their own line,
+   right-aligned, when the row is too narrow; they never squeeze the field. */
+.assistant-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  max-width: 100%;
+  margin-left: auto;
+}
+.assistant-composer-actions > * {
+  margin-left: 0;
+}
+.assistant-composer-hint + .assistant-composer-actions {
+  margin-left: 0;
 }
 .assistant-options-toggle {
   display: grid;
@@ -364,12 +382,6 @@
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
-}
-.assistant-composer.member .assistant-composer-box {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 8px 8px 14px;
 }
 .assistant-options {
   position: absolute;

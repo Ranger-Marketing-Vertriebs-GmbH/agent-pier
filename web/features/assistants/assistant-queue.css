@@ -67,9 +67,3 @@
   font-size: 12px;
   font-weight: 600;
 }
-.assistant-composer.member .assistant-composer-box {
-  flex-wrap: wrap;
-}
-.assistant-composer.member .assistant-queued {
-  flex-basis: 100%;
-}
