@@ -109,6 +109,13 @@ it took it over from the lead.
   **Browser running** while it runs. Temporary team members get a browser profile
   that is discarded when they end. See "Browser isolation" in
   `docs/assistant-gateway.md`.
+- **Uploads with the browser** (while **Use a browser** is on): the agent can upload a
+  file from a project folder it may at least read, or from its own workspace, to a
+  website, for example a finished episode to YouTube Studio. AgentPier prepares a copy
+  for that agent's browser alone (up to 8 GiB, removed after six hours); files outside
+  those folders stay refused, and every upload is recorded in the activity log with the
+  agent, project, path, size and the website the agent named. See
+  [browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders).
 - **Shell access:** **Off**, **With approval** or **Full access**. With approval, the
   agent asks before every command that is not always allowed; the request appears in
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and
