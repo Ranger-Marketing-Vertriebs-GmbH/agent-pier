@@ -1269,8 +1269,9 @@ workspace notes. Native file tools stay within the workspace.
 
 The initial managed search uses OpenClaw's keyword provider `none`, requiring no
 embedding account. Transcript indexing and cross-conversation recall stay off,
-scheduled check-ins replace OpenClaw's own heartbeat, and dreaming stays off (see
-[Proactivity](#proactivity-check-ins-2026-10-12)).
+scheduled check-ins replace OpenClaw's own heartbeat (see
+[Proactivity](#proactivity-check-ins-2026-10-12)), and dreaming runs only when the owner
+switches it on ([Dreaming](#dreaming)).
 `skills.workshop.autonomous.mode` is explicitly `off`, so
 enabling cron does not also start OpenClaw's default weekly skill collection reviews.
 Explicit repository memory access is now described in [agent workflows](assistant-workflows.md).
@@ -1326,10 +1327,12 @@ was compacted and the plan was gone. Four rules close that gap:
   [Live steps and stalled turns](#live-steps-and-stalled-turns)) runs no OpenClaw
   flush, so AgentPier runs its own memory step first (`memory-step.js`): a hidden turn
   of context kind `memory-step` in the chat itself, for an agent that may write memory
-  and is not shared. `memoryStepWrite` admits only `write`/`edit` to the agent's own
-  `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy and every bridge
-  action refuse the session's other tools. The step is bound by the chat's own
-  attempt, never reaches Telegram and is aborted like **Stop** after five minutes.
+  (on a shared agent into its shared memory, see [Agents of restricted
+  users](#agents-of-restricted-users)). `memoryStepWrite` admits only `write`/`edit` to
+  the agent's own `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy
+  and every bridge action refuse the session's other tools. The step is bound by the
+  chat's own attempt, never reaches Telegram and is aborted like **Stop** after five
+  minutes.
   OpenClaw's own pre-run flush during the step (`flushWrite`) may write the day note
   like a direct turn's. The chat offers no **Try again** on a failed or stalled step
   and keeps showing that memories are saved while the step's outcome is uncertain.
@@ -3167,10 +3170,13 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   memory like the owner's own turn. Forwarded content does not. A shared agent has one
   memory for all its users. A saved write to its `MEMORY.md` or `memory/` leaves a
   "shared-write" note in the chat of the turn that wrote it, and only there. `USER.md`
-  stays the owner's. On a shared agent the pre-compaction flush is refused in every chat,
-  a user's or the owner's own (a "flush" note in that chat), and **Summarise now** runs
-  no memory step, so a summary of a private chat never reaches the memory that all its
-  users read.
+  stays the owner's. The pre-compaction flush and the memory step before **Summarise
+  now** write a shared agent's memory like a saved write, from a user's or the owner's
+  own chat or a routine's run, with the same "shared-write" note in the writing chat
+  only (a routine's: its chat); a forwarded turn's flush, or one of a user who left the
+  agent, is still refused. The shared-agent notice says that what is written in a chat,
+  also word for word, can be carried into the shared memory that all its users and the
+  owner read; [dreaming](#dreaming), when on, does the same over all its chats.
 
 ### Private chats of restricted users
 
@@ -3865,18 +3871,91 @@ calls.
 OpenClaw session tools (members run in their own sessions and report through the
 AgentPier bridge), and the team plugin contract passes with it.
 
-### Dreaming is not offered
+<a id="dreaming-is-not-offered"></a>
 
-OpenClaw's dreaming (`plugins.entries.memory-core.config.dreaming`) stays disabled
-and the agents runtime settings have no switch for it. The dreaming contract
-(`tests/integration/assistant-dreaming-contract.test.js`) shows why: once enabled on the
-pinned runtime, memory-core schedules one nightly sweep (`0 3 * * *`) over every
-configured agent workspace. AgentPier conversations count as interactive sessions,
-so it does process them, but it also copied the transcripts of an agent without the
-memory capability into that agent's `memory/.dreams/session-corpus` and wrote light
-and REM phase notes and a Dream Diary there. 2026.9.8 offers no per-agent scope
-(`memoryPolicy.excludeSessions` filters by channel, chat type or hook source only),
-so a switch limited to agents with memory cannot be built yet.
+### Dreaming
+
+OpenClaw's dreaming (memory-core's nightly sweep,
+`plugins.entries.memory-core.config.dreaming`) is one owner switch under **Settings ›
+Workspace › Agents › Agent service › Dreaming**: **Dream at night**, the hour (default
+03:00) and its time zone. Switching on adopts this device's zone; **Use my time zone**
+adopts it again later. The setting lives in `assistants/dreaming.sqlite`
+(`dreaming-settings.js`, `GET`/`PUT /api/assistant-dreaming`) and compiles
+(`openclaw-config/dreaming.js`) to
+`dreaming: { enabled, frequency: "0 <hour> * * *", timezone, storage: { mode: "separate" } }`:
+every phase at memory-core's defaults, deep included, and no `model` key, so each agent
+dreams with its own model and model account. A save reaches the running Gateway as a
+live `config.patch` of that path, which reschedules the job in place without a Gateway
+restart (a running turn ends normally); a Gateway that is not ready compiles it at its
+next start.
+
+- **Who dreams.** memory-core 2026.10.7 sweeps every agent configured in the runtime
+  and has no per-agent scope (`memoryPolicy.excludeSessions` filters by channel, chat
+  type or hook source only). So every agent dreams, temporary team members and agents
+  with **Remember information** off included, each only over its own conversations,
+  into its own workspace, with its own model; nothing is written into `memory/lead/`.
+  A shared agent dreams over all its chats (every user's and the owner's own) into its
+  one shared memory, and its light-sleep notes can quote chat lines word for word. A
+  sweep runs in its own `agent:main:cron:*` session: a busy agent's turn neither blocks
+  it nor is interrupted, so no night is skipped and AgentPier adds no busy or retry
+  logic. A promoted member joins from the next night.
+- **Memory on for permanent agents.** Permanent agents (personal agents, permanent
+  team members, users' own and shared agents; `dreamingCovered` in
+  `dreaming-service.js`) get their memory switched on and kept on. Switching dreaming
+  on while some of them have memory off answers 409
+  `ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED` with their names; the settings page
+  lists them in a confirmation (`kind: "dreamingMemory"`, see the
+  [settings pattern](settings-pattern.md)) and, once confirmed, turns memory on for each.
+  An agent that is busy cannot be changed: dreaming stays off, the answer is 409
+  `ASSISTANT_DREAMING_AGENTS_BUSY` naming the busy agents, and the owner saves again
+  later. While dreaming is on, switching memory off for a permanent agent, or creating
+  an agent with memory off, is refused with `dreamingMemoryRequired`, and the agent's
+  **Remember information** toggle is locked with a hint where to switch dreaming off.
+  New agents start with memory on, also while dreaming is off (`memory-rules.js`).
+- **Output.** Dream notes land in `memory/dreaming/{light,rem,deep}/YYYY-MM-DD.md` and
+  show in the memory view like any other note. The Dream diary (`DREAMS.md` in the
+  workspace root) shows first in the owner's and the users' memory view, read-only.
+  The deep phase may rewrite `MEMORY.md`. The raw corpus `memory/.dreams/` (session
+  corpus, seen hashes, short-term entries) is never listed, read or returned by memory
+  search, and the team plugin's `dreams-guard.js` refuses it to the agent's `read`,
+  `memory_get`, `write`, `edit` and `apply_patch`, also through `file://` and
+  percent-encoded spellings.
+- **`MEMORY.md` backups.** `DreamingBackups` (`dreaming-backups.js`) ticks once a
+  minute and, in the five minutes before the hour in the setting's zone (on a
+  spring-forward night the minutes before the jump), copies `MEMORY.md` of every agent
+  compiled into the runtime to
+  `assistants/memory-backups/<runtimeAgentId>/MEMORY-<UTC stamp>.md` (written to a
+  temporary file and renamed, mode 0600). An agent with a copy younger than six hours
+  is skipped, so a restart inside the window takes no second copy; the newest seven
+  copies are kept. A folder whose agent or workspace is gone is removed. The copies are
+  outside the workspace, so neither the memory view nor the agent's tools see them;
+  host backups seal them with history like `workspaces/` ([backups](backups.md)). To
+  restore, copy a backup back to the agent's `MEMORY.md` while the agent is idle.
+- **Deleted chats.** Deleting a chat runs
+  `openclaw memory forget --agent <runtimeAgentId> --session <sessionId>`
+  (`forgetDreamingSession`), dreaming on or off, since earlier nights may have read
+  the chat. It removes the session from the corpus, seen hashes and short-term
+  entries and keeps it out of later sweeps; notes
+  already distilled from it stay. The forgets run one after another in the background,
+  outside admission; maintenance (restore, update) and AgentPier's shutdown wait for the
+  queue. A forget that
+  fails (for example a 10 s wait for memory-core's workspace lock during a sweep), or
+  that is lost because AgentPier stops before it runs, is logged without content and
+  not retried: that chat's corpus lines stay. OpenClaw also keeps an archived
+  transcript copy (`session_transcript_archives`); that is AGENTPIER-220.
+- **Resolved data directory.** On 2026.10.7 the sweep fails every workspace ("Canonical
+  session reader continuation is no longer current") and writes no corpus or notes
+  when the state directory's path runs through a symbolic link. The data directory
+  must therefore not sit behind a symbolic link; `runtime-paths.js` does not resolve
+  it. Default data directories have no linked ancestor.
+
+The contracts pin this on 2026.10.7: `assistant-dreaming-contract.test.js` (each
+agent's own chats into its own memory only, ingestion state rewritten wholesale, a
+deleted or forgotten chat stays out, a live hour change during a turn) and
+`assistant-dreaming-scope-contract.test.js` (a temporary member is swept, a shared
+agent dreams over every chat while memory search returns no raw corpus, a sweep during
+a running turn, the managed schedule under the hardened heartbeat, no corpus under a
+symlinked data directory). See [memory qualification](assistant-memory-qualification.md#dreaming).
 
 ## Work goals (2026-10-24, AGENTPIER-208)
 
@@ -4169,11 +4248,12 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   turn, so `longChat` drops, and `chat.history` keeps the earlier messages and adds the
   usual compaction marker. `sessions.compact` itself runs no pre-compaction memory flush
   (that runs only before a turn, `agent-runner-memory`), so for an agent that may write
-  memory (`MemoryStep.eligible`: not shared, **Remember information** on, write guard
-  live) the request first runs the memory step (see the write guard above). The outer
-  job is registered at once, the request answers `{compacted: false, running: true}`
-  as soon as the step starts, and the history carries `compacting: "memory"` during the
-  step (the chat shows "Saving memories before the summary …" and "Saving memories" in
+  memory (`MemoryStep.eligible`: **Remember information** on and the write guard live; a
+  shared agent's step writes its shared memory) the request first runs the memory step
+  (see the write guard above). The outer job is registered at once, the request answers
+  `{compacted: false, running: true}` as soon as the step starts, and the history
+  carries `compacting: "memory"` during the step (the chat shows "Saving memories before
+  the summary …" and "Saving memories" in
   the header) and `true` during the summary. Any step result but a saved one (failed,
   refused, timed out, interrupted, or a summary that failed after it) still leads to
   the summary and sets the separate history field `memoryNotSaved: true` next to

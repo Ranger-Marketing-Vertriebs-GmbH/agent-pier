@@ -164,8 +164,9 @@ token, and changing or removing the speech key a bot uses. See "Pending restart"
 
 ### Memory
 
-An agent remembers only what it writes down: its conversation gets shortened
-(compacted) when it grows long, and older turns are cut. With **Remember
+New agents start with **Remember information** on; you can switch it off unless dreaming
+is on (below). An agent remembers only what it writes down: its conversation gets
+shortened (compacted) when it grows long, and older turns are cut. With **Remember
 information** on, AgentPier tells the agent to write durable facts and plans to
 `MEMORY.md` and day notes to `memory/YYYY-MM-DD.md` as soon as you share them, and
 never to say it saved something unless the write succeeded. Before a conversation
@@ -183,7 +184,8 @@ conversation**. Afterwards a quiet line such as **Earlier messages were summaris
 AgentPier; nothing is sent to the paired Telegram chat.
 
 Only your own messages (in the chat or the paired Telegram chat) and its routines'
-runs can change an agent's memory. Forwarded content, reminders, check-ins and tasks
+runs can change an agent's memory, apart from the agent's own nightly dreaming
+(below). Forwarded content, reminders, check-ins and tasks
 from a lead agent cannot. When a background command the agent started for one of your
 messages (a long render, for example) finishes after its reply, the agent's follow-up
 on the result may still change files, memory and granted project folders like that
@@ -196,6 +198,41 @@ it still cannot, the chat says the message ran read-only. **Memory** in the agen
 settings shows what was actually saved. Project knowledge that an agent proposes
 (**Work**) waits for your approval; when you decline it or it expires, the agent is
 told it was not saved.
+
+#### Dreaming
+
+**Settings › Workspace › Agents › Agent service › Dreaming** switches nightly
+dreaming on for all agents at once: **Dream at night**, the hour (default 03:00) and
+the time zone, which follows this device when you switch on (**Use my time zone**
+adopts it again later). The change applies at once, without restarting the agent
+service. Once a night each agent reviews its own conversations with its own model,
+writes dream notes into its memory and may tidy `MEMORY.md`. Every agent dreams,
+temporary team members and agents with **Remember information** off included, but
+each only over its own chats and into its own memory. A shared agent dreams over all
+its users' chats and your own into its shared memory, and its notes can quote them
+word for word. A busy agent still dreams that night.
+
+- **Switching on** lists the permanent agents that do not remember information yet
+  and, after you confirm, switches **Remember information** on for them. If some of
+  them are working right now, dreaming stays off and the settings name them; save
+  again when they are done. While dreaming is on, **Remember information** stays on
+  for every permanent agent: the switch is locked and says where to turn dreaming off.
+- **Where it shows:** the notes appear under **Memory** like other notes
+  (`memory/dreaming/light/`, `rem/` and `deep/`, one file per night), and the
+  **Dream diary** (`DREAMS.md`) shows first, read-only, also in a user's memory view.
+  Dreaming's raw copies of the chats (`memory/.dreams/`) are never shown, and the
+  agent's file tools cannot open them.
+- **Backups of `MEMORY.md`:** five minutes before the hour AgentPier copies each
+  agent's `MEMORY.md` to `assistants/memory-backups/<agent>/` in its data directory and
+  keeps the last 7. They never appear in the memory view; host backups keep them
+  encrypted like workspaces. To undo a night's rewrite, copy a backup back over the
+  agent's `MEMORY.md`.
+- **Deleting a chat** also removes it from dreaming's copies, so later nights no longer
+  read it; notes already written from it stay. If that removal fails, or AgentPier
+  stops before it runs, it is not tried again and the copies keep that chat.
+- The data directory must not sit behind a symbolic link, or dreaming writes nothing.
+
+Server details: [Dreaming](assistant-gateway.md#dreaming).
 
 ### Work
 
@@ -822,10 +859,10 @@ When a chat grows long (from 60 % of the model's context window, or 100,000 toke
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
 **Summarise now** has the agent service summarise the chat's history right away. When
-the agent may write memory (**Remember information** is on, writing memory is proven
-safe, and the agent is not shared), AgentPier first runs a hidden memory step in that
-chat: the agent may search its memory and read files; it may write only its own
-`MEMORY.md` and `memory/` notes, and every other tool is refused. A write outside
+the agent may write memory (**Remember information** is on and writing memory is proven
+safe; a shared agent writes its shared memory), AgentPier first runs a hidden memory
+step in that chat: the agent may search its memory and read files; it may write only its
+own `MEMORY.md` and `memory/` notes, and every other tool is refused. A write outside
 them shows **Memory not saved: before a summary, the agent may change only its own
 memory.** If the step fails or stalls, the chat offers no **Try again**. The chat shows **Saving memories
 before the summary …** (header: **Saving memories**) while it runs; the step ends after
@@ -841,8 +878,8 @@ chat says so once it is ready again, until you write your next message. If there
 left to summarise, or the agent service refuses, the chat says so. If the memory step
 failed, was refused or ran out of time, the summary still follows and the chat says
 **No memories were saved before the summary.**; if the chat is still busy after the
-step, the summary is refused and the chat says so next to that note. Shared agents
-get no memory step, and nothing of it is sent to Telegram. **Hide**
+step, the summary is refused and the chat says so next to that note. Nothing of the
+step is sent to Telegram. **Hide**
 puts the hint away for this chat; it comes back once the chat grew by half again or by
 50,000 tokens, whichever comes first, or once it is long again after its history was
 summarised.
@@ -996,7 +1033,10 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   user** (choose whether their own agents are archived or kept under your account;
   their private chats go unless you may read them).
 - An agent of users is **own** (one user) or **shared** (several users, each with their
-  own chats; memory, profile (USER.md) and browser are shared, and their chat says so).
+  own chats; memory, profile (USER.md) and browser are shared, and their chat says so:
+  what is written in any of its chats, also word for word, can be carried into the
+  shared memory that all its users and you read, by the agent's own notes, the memory
+  step before a summary and dreaming).
   Create one from **New agent** with **For** set to the person. On the agents page and
   in the sidebar they appear under **Agents of users**. You open your own chat with a
   shared agent (**Open my chat**), never a user's; a user's own agent opens its
