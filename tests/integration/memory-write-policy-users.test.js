@@ -215,6 +215,25 @@ test("a flush in the turn of a user who left the agent is refused", async (t) =>
   assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
 });
 
+test("a flush in a forwarded turn on a shared agent is refused", async (t) => {
+  const f = await usersFixture(t, shared);
+  await f.benTurn("ben", { kind: "user", userId: "ben" });
+  const ctx = await flushTurn(f, { kind: "user", userId: "anna", forwarded: true });
+  assert.equal(await f.call(today, { ctx }), false);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
+  assert.deepEqual(f.notes(f.other.id), []);
+});
+
+test("a flush in the turn of a user who left a shared agent is refused", async (t) => {
+  const f = await usersFixture(t, shared);
+  await f.benTurn("ben", { kind: "user", userId: "ben" });
+  const ctx = await flushTurn(f);
+  reassign(f, { ...shared, members: [shared.members[1]] });
+  assert.equal(await f.call(today, { ctx }), false);
+  assert.deepEqual(f.notes(f.channel.conversationId), ["flush"]);
+  assert.deepEqual(f.notes(f.other.id), []);
+});
+
 test("a user's routine writing a shared agent's memory leaves the note in its chat", async (t) => {
   const f = await usersFixture(t, shared);
   const body = {

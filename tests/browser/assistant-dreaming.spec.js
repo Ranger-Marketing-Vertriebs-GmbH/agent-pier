@@ -174,7 +174,7 @@ test("the Dream Diary opens read only", async ({ page }) => {
   );
   await page.goto(baseURL + settingsPath("capabilities", "memory"));
   const type = page.getByRole("combobox", { name: "Note type" });
-  await type.selectOption({ label: "Dream Diary" });
+  await type.selectOption({ label: "Dream diary" });
   const notes = page.getByRole("textbox", { name: "Notes" });
   await expect(notes).toHaveValue(/A calm night of sorting notes/);
   await expect(notes).toHaveAttribute("readonly", "");
