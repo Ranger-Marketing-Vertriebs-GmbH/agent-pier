@@ -150,6 +150,8 @@ export function createAssistantFeature(services) {
     try {
       if (assistantMcpServers !== services.mcpServers) assistantMcpServers?.close();
     } catch {}
+    // No forget CLI outlives the switch-off (chat-removal.js).
+    await assistants?.dreamingForgets;
     await assistants?.close().catch(() => {});
   };
   const create = () => {
