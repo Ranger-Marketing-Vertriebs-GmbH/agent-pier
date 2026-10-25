@@ -47,7 +47,7 @@ test(
     await f.dreaming(dreamingOn);
     const job = await f.job();
     assert.equal((await f.forceRun(job.id)).status, "ok");
-    await f.settle();
+    await f.settle({ files: [f.diary(lead), f.diary(fern), f.diary(task)] });
     assert.match(
       f.corpus(task),
       /DREAMTASK/,
@@ -80,17 +80,32 @@ test(
 
     // The only agent-scoped dreaming RPC memory-core registers is session backfill; it
     // stages candidates and diary entries, it is not the light/REM/deep sweep.
-    const preview = await f
-      .call("memory.sessionBackfill.preview", { agentId: lead.runtimeAgentId })
-      .catch((error) => ({ error: error.message }));
+    const preview = await f.call("memory.sessionBackfill.preview", {
+      agentId: lead.runtimeAgentId,
+    });
     t.diagnostic(`memory.sessionBackfill.preview(lead): ${JSON.stringify(preview)}`);
+    assert.deepEqual(Object.keys(preview).toSorted(), [
+      "candidates",
+      "days",
+      "perDay",
+      "staged",
+      "truncated",
+    ]);
     // Neither the sweep trigger nor any Gateway method takes an agent filter: the
     // managed job's turn runs on the default agent and sweeps every agents.entries
     // workspace (memory-core resolveMemoryDreamingWorkspaces).
-    const runs = (await f.call("cron.runs", { id: job.id, limit: 5 })).entries;
+    const runs = (await f.call("cron.runs", { id: job.id, limit: 5 })).entries.filter(
+      (r) => r.action === "finished",
+    );
     t.diagnostic(
       `dreaming run session keys: ${JSON.stringify(runs.map((r) => r.sessionKey))}`,
     );
+    assert.equal(runs.length, 2);
+    for (const run of runs)
+      assert.ok(
+        run.sessionKey.startsWith(`agent:main:cron:${job.id}:run:`),
+        run.sessionKey,
+      );
   },
 );
 
@@ -116,7 +131,7 @@ test(
     await f.dreaming(dreamingOn);
     const job = await f.job();
     assert.equal((await f.forceRun(job.id)).status, "ok");
-    await f.settle();
+    await f.settle({ files: [f.diary(shared)] });
     const corpus = f.corpus(shared);
     for (const marker of ["DREAMOWNER", "DREAMUSERA", "DREAMUSERB"])
       assert.match(corpus, new RegExp(marker));
@@ -185,7 +200,7 @@ test(
     assert.equal(run.status, "ok", JSON.stringify(run));
     const done = await f.wait(runId);
     assert.equal(done.status, "ok", JSON.stringify(done));
-    await f.settle();
+    await f.settle({ files: [f.diary(busy)] });
     assert.equal((await f.sessions(busy)).length, before.busy.length);
     assert.equal((await f.sessions(idle)).length, before.idle.length);
     assert.match(f.corpus(busy), /DREAMBUSY/);
@@ -212,7 +227,7 @@ test(
     const run = await f.finished(job.id, 0, 150000);
     t.diagnostic(`scheduled run (no cron.run): ${JSON.stringify(run)}`);
     assert.equal(run.status, "ok");
-    await f.settle();
+    await f.settle({ files: [f.diary(agent)] });
     assert.match(f.corpus(agent), /DREAMSCHEDULE/);
 
     const other = `0 ${(at.getUTCHours() + 5) % 24} * * *`;
