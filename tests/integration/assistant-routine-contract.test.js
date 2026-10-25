@@ -13,6 +13,7 @@ import { NativeRoutines } from "../../server/features/assistants/native-routines
 import {
   conversationHistory,
   conversationMessage,
+  publicMessages,
 } from "../../server/features/assistants/conversations.js";
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
@@ -319,13 +320,16 @@ test(
       runtime,
       routines,
     };
+    // The committed message is recognised as the routine's and leaves the
+    // transcript; the chat's event area lists the result once.
     const chat = await conversationHistory(service, conversation.id);
-    const result = chat.messages.find((m) => m.text.includes?.("ROUTINE_RESULT"));
-    assert.deepEqual(result?.scheduled, { name: "News digest" });
-    assert.equal(
-      chat.messages.filter((m) => m.role === "assistant" && m.scheduled).length,
-      1,
-      "shown once, from the conversation itself",
+    assert.ok(!chat.messages.some((m) => m.text?.includes?.("ROUTINE_RESULT")));
+    assert.deepEqual(
+      chat.events
+        .filter((e) => e.source === "routine")
+        .map((e) => [e.name, e.status, e.reply]),
+      [["News digest", "done", "ROUTINE_RESULT Three new items today."]],
+      "shown once, in the event area",
     );
     // A later chat turn knows what the routine said.
     offset = model.requests.length;
@@ -382,20 +386,28 @@ test(
     assert.equal(full?.text, digest);
     assert.ok(full.parts.length > 1);
     assert.equal(routines.results.forConversation(conversation.id).at(-1)?.text, digest);
-    // OpenClaw's history page cuts the digest at 8000 characters; the chat reads it
-    // on its own, shows it whole and still badges it.
+    // OpenClaw's history page cuts the digest at 8000 characters; the chat still
+    // recognises the cut message, keeps it out of the transcript and shows the
+    // whole digest in its event area.
     let shown;
     const shownDeadline = Date.now() + 30000;
+    let view;
     do {
-      shown = (await conversationHistory(service, conversation.id)).messages.find((m) =>
-        m.text?.startsWith?.("ROUTINE_SECOND"),
-      );
+      view = await conversationHistory(service, conversation.id);
+      shown = view.events.find((e) => e.reply?.startsWith("ROUTINE_SECOND"));
       if (!shown) await delay(250);
     } while (!shown && Date.now() < shownDeadline);
-    assert.equal(shown?.text, digest);
-    assert.deepEqual(shown.scheduled, { name: "News digest" });
+    assert.equal(shown?.reply, digest);
+    assert.ok(!view.messages.some((m) => m.text?.startsWith?.("ROUTINE_SECOND")));
+    assert.equal(shown.name, "News digest");
     // Read on its own, as a Telegram relay does, the same message is whole.
-    assert.equal(await conversationMessage(service, conversation.id, shown.id), digest);
+    const committed = publicMessages(await history()).find((m) =>
+      m.text?.startsWith?.("ROUTINE_SECOND"),
+    );
+    assert.equal(
+      await conversationMessage(service, conversation.id, committed?.id),
+      digest,
+    );
     const narrowed = offered(model.requests.slice(offset).find(isRoutine));
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), [
