@@ -500,7 +500,7 @@
   color: inherit;
 }
 .task-drawer::backdrop {
-  background: #0007;
+  background: var(--backdrop);
 }
 
 .chat-delivery-message {

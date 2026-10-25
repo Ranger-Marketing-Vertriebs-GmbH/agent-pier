@@ -35,7 +35,8 @@ semantic tokens then need no change. Alpha tints (`--accent-soft`, `--success-li
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `--surface-page`, `--panel`, `--surface-input`, `--surface-raised`                       | Page background, cards and rows, inputs, raised areas             |
 | `--sidebar-bg`, `--header-bg`, `--header-line`                                           | Shell regions                                                     |
-| `--popover-bg`, `--popover-raised`, `--scrim`                                            | Menus, popovers, dialog backdrop                                  |
+| `--popover-bg`, `--popover-raised`, `--scrim`                                            | Menus, popovers, the scrim behind the navigation drawer           |
+| `--backdrop`                                                                             | Opaque backdrop of every modal dialog, sheet and side panel       |
 | `--text`, `--text-row`, `--text-message`, `--text-menu`                                  | Body text, row labels, chat text, menu items                      |
 | `--muted`, `--text-meta`, `--text-group`, `--text-faint`, `--hint`                       | Secondary text, metadata, group labels, hints                     |
 | `--line`, `--divider`, `--divider-soft`                                                  | Borders and dividers                                              |
@@ -68,9 +69,9 @@ No text is smaller than 11px. Text-entry controls are 16px on phones and touch s
 | `--z-base` 1, `--z-sticky` 20, `--z-dropdown` 50, `--z-overlay` 80, `--z-toast` 90 | Stacking order; no other z-index values in new CSS |
 
 Native modal dialogs (`Modal`, `Sheet`, `SidePanel`, `ImageViewer`) use the browser's
-top layer and need no z-index. While one is open the page behind it does not scroll
-(`web/components/forms.css`), so a wheel or swipe never moves the page under the
-translucent backdrop.
+top layer and need no z-index. Their backdrop is the opaque `--backdrop`, so a page
+that keeps updating behind a dialog (session rows, status polls) never shows through,
+and while one is open the page behind it does not scroll (`web/components/forms.css`).
 
 ### Focus, touch and safe areas
 

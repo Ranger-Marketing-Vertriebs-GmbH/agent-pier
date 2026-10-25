@@ -6,6 +6,7 @@
    The app is dark only for now; the palette steps run from dark to light. */
 :root {
   /* Palette: neutrals, dark (01) to light (31). */
+  --neutral-00: #090a0e;
   --neutral-01: #101114;
   --neutral-02: #15161a;
   --neutral-03: #16171b;
@@ -78,6 +79,8 @@
   --popover-raised: var(--neutral-07);
   --popover-shadow: 0 18px 40px -12px #000;
   --scrim: #0b0c0e99;
+  /* Opaque: a page that updates behind a modal dialog must not show through it. */
+  --backdrop: var(--neutral-00);
   --accent-text: var(--orange-200);
   --accent-focus: #f49a5866;
   --button-secondary-bg: var(--neutral-08);
