@@ -1,6 +1,10 @@
 import { audienceOf } from "../assistants/reminder-audience.js";
 import { memberLevel } from "./user-access.js";
-import { deleteNativeSession, forgetChat } from "../assistants/chat-removal.js";
+import {
+  deleteNativeSession,
+  forgetChat,
+  markArchivePurges,
+} from "../assistants/chat-removal.js";
 
 /**
  * Everything of a deleted user's on the agents (UserAgents.releaseUser): her own
@@ -64,10 +68,12 @@ export function forgetUserBindings(services, userId) {
 /**
  * The native sessions of deleted users' chats, and of deleted chats, that a Gateway
  * away at the deletion kept (releaseUserData, chat-removal.js): deleted at the next
- * Gateway start. Never throws.
+ * Gateway start, after markArchivePurges has marked those deleted before AgentPier
+ * purged OpenClaw's transcript archives. Never throws.
  */
 export async function deleteReleasedSessions({ assistants }) {
   try {
+    markArchivePurges(assistants.store);
     for (const conversation of assistants.store.listConversations({ deleted: true }))
       if (conversation.nativeDeletePending)
         await deleteNativeSession(assistants, conversation);

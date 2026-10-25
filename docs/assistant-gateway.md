@@ -3454,23 +3454,38 @@ archived.`); the refusal comes before any run starts, and other refusals are not
   marks the chat deleted, so every route answers 404, closes its open views, forgets
   its cached messages, request texts, files, shared files, routine results, memory notes
   and queued message, and deletes its native session with `deleteTranscript: true` and
-  the transcript archives OpenClaw keeps of it (`server/features/assistants/chat-removal.js`):
-  the `<session id>.jsonl.deleted.*` files in `state/agents/<agent>/sessions/`, and
-  the compressed copies in the agent's database (`session_transcript_archives` in
-  `state/agents/<agent>/agent/openclaw-agent.sqlite`, also those of an earlier reset
-  of the chat). OpenClaw 2026.10.7 removes those rows only under its disk budget or an
-  age rule and offers no call for one session, so AgentPier deletes exactly the rows of
-  the chat's session key or session id beside the running Gateway, in one short
-  write transaction with `secure_delete` (`transcript-archives.js`), and the files they
-  name. A purge that fails (database locked or unsafe) is logged with its code only and
-  retried like a missing delete. A Gateway that is away deletes it at its next start
-  (`nativeDeletePending`). The session id that names the archive is recorded on the chat
-  (`nativeSessionId`) before the delete, and the mark stays until the archives are gone,
-  so a retry after a lost delete answer or a restart still removes them. Afterwards no
-  file, row or decoded archive below `assistants/` names the chat's text
-  (`tests/integration/assistant-chat-deletion-contract.test.js`); free pages of the
-  agent's database and its WAL may still hold bytes of rows OpenClaw deleted until
-  SQLite reuses them, and backups made before the deletion keep what they held. Audited as `assistant.updated` with `details.kind:
+  what OpenClaw keeps of it (`server/features/assistants/chat-removal.js`): the
+  `<session id>.jsonl.deleted.*` archive files in `state/agents/<agent>/sessions/`,
+  the compressed archive copies in the agent's database (`session_transcript_archives`
+  in `state/agents/<agent>/agent/openclaw-agent.sqlite`) and the session's Goal
+  receipts there (`session_goal_operations`, which quote a Goal's text). OpenClaw
+  2026.10.3 and 2026.10.7 remove archive rows only under their disk budget or an age
+  rule and offer no call for one session, so AgentPier deletes exactly the rows of the
+  chat's session key or session id beside the running Gateway (`transcript-archives.js`):
+  one short write transaction with `secure_delete`, a 250 ms lock wait, no checkpoint of
+  its own (`wal_autocheckpoint = 0`), and a connection that never creates a database.
+  The archive table and its columns are checked first; a missing table or other columns
+  fail the purge (`ARCHIVE_SCHEMA`) rather than report success. A failed purge (locked,
+  unsafe or drifted database) is logged with its code and SQLite's error code only, and
+  the chat keeps `nativeDeletePending`. A Gateway that is away, or a purge that failed,
+  is retried at the next Gateway start. The session id that names the archive is
+  recorded on the chat (`nativeSessionId`) before the delete, and the mark stays until
+  the archives are gone, so a retry after a lost delete answer or a restart still
+  removes them; a chat without a recorded id is purged by its session key, since
+  2026.10.7 answers `sessions.delete` for a deleted session with `deleted: false` and
+  `sessions.describe` with `session: null`. Chats deleted, and users' chats released,
+  before this purge existed are marked `nativeDeletePending` once
+  (`assistant_migrations` marker `transcript-archive-purge`), so the next start purges
+  their archives too. `tests/integration/assistant-chat-deletion-contract.test.js`
+  proves on 2026.10.7 that afterwards no file, row or decoded archive below
+  `assistants/` names the chat's text, for short chats (also one reset with
+  `sessions.reset`, which keeps the earlier window in the session and writes no
+  reset archive), an empty chat and a chat deleted before the purge; chats with Goals
+  and OpenClaw's cold storage (`session.maintenance.coldStorage`, off by default and
+  not set by AgentPier) are not covered by it. Free pages of the agent's database and
+  its WAL may still hold bytes of rows OpenClaw deleted, and old pages of the archive
+  just removed, until SQLite overwrites them; backups made before the deletion keep
+  what they held. Audited as `assistant.updated` with `details.kind:
 "chat-deleted"`, never the title. The record keeps no title or last activity
   (cleared under `secure_delete`). A deleted user's chats go the same way. Whatever
   of a deleted chat a failed file removal left behind never serves to the owner. Its
