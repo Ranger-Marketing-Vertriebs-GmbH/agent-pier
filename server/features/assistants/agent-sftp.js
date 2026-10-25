@@ -18,6 +18,7 @@ import {
   localContext,
 } from "./agent-sftp-local.js";
 import { sftpKind, sftpPermits } from "./agent-sftp-policy.js";
+import { unattended } from "./agent-ssh-origin.js";
 import { SftpApprovals } from "./agent-sftp-approvals.js";
 import { SftpRuns } from "./agent-sftp-runs.js";
 
@@ -68,15 +69,18 @@ export class AgentSftp {
     }
     const grant = this.w.access.sshGrant(caller.assistant.id, input.accessId);
     if (!grant) throw refuse("sshNotGranted");
+    // A hook run only on the hosts it chose, as it may use them now (AgentSsh).
+    this.ssh.assertHookHost(caller, cls, input, { sftp: true });
     const host = this.ssh.host(input.accessId);
     if (!host) throw refuse("sshHostUnavailable");
     if (host.type !== "sftp") throw refuse("sshHostType");
     const kind = sftpKind(input.action, input);
     const verdict = sftpPermits(grant.mode, cls, kind);
     if (verdict === "refuse") {
-      if (cls !== "routine") throw refuse("sshOriginRefused");
+      if (!unattended(cls)) throw refuse("sshOriginRefused");
       // The routine's result says so even if the model leaves it out.
-      this.w.a.routines?.noteRefusal?.(inv.sessionKey, "ssh_refused");
+      if (cls === "routine")
+        this.w.a.routines?.noteRefusal?.(inv.sessionKey, "ssh_refused");
       throw refuse(
         grant.mode === "routines" && kind === "delete"
           ? "sftpRoutineDelete"

@@ -45,6 +45,12 @@ test("sftpPermits covers every mode, class and kind", () => {
       trusted: { read: "refuse", write: "refuse", delete: "refuse" },
       routines: { read: "run", write: "run", delete: "refuse" },
     },
+    // A hook run follows the routine's rules: mode routines only, never a delete.
+    hook: {
+      approval: { read: "refuse", write: "refuse", delete: "refuse" },
+      trusted: { read: "refuse", write: "refuse", delete: "refuse" },
+      routines: { read: "run", write: "run", delete: "refuse" },
+    },
     refused: {
       approval: { read: "refuse", write: "refuse", delete: "refuse" },
       trusted: { read: "refuse", write: "refuse", delete: "refuse" },

@@ -64,3 +64,11 @@ test("permits follows the mode table", () => {
   });
   assert.equal(permits("always", "owner"), "refuse");
 });
+
+test("a hook run is the hook class and runs only on hosts in mode routines", () => {
+  assert.equal(cls({ context: { kind: "owner" }, hook: true }), "hook");
+  assert.equal(cls({ context: null, hook: true, routine: true }), "hook");
+  assert.equal(permits("routines", "hook"), "run");
+  assert.equal(permits("trusted", "hook"), "refuse");
+  assert.equal(permits("approval", "hook"), "refuse");
+});

@@ -6,7 +6,7 @@ import { runSshCommand } from "../ssh/ssh-run.js";
 import { consoleCommand } from "../ssh/ssh-interactive-shell.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { exact, sshFromLead } from "./assistant-access.js";
-import { permits, sshOrigin } from "./agent-ssh-origin.js";
+import { permits, sshOrigin, unattended } from "./agent-ssh-origin.js";
 import { commandDigest, commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
@@ -105,10 +105,25 @@ export class AgentSsh {
     } catch {}
     return { ...host, projectName };
   }
-  /** Who calls: the agent whose conversation the attempt (or routine run) belongs to. */
+  /**
+   * Who calls: the agent whose conversation the attempt (or routine or hook run)
+   * belongs to.
+   */
   caller(inv) {
     inv.assertCurrent();
     const a = this.w.a;
+    if (inv.hook) {
+      const conversation = inv.hook.conversation;
+      return {
+        assistant: a.store.getAssistant(conversation.assistantId),
+        conversationId: conversation.id,
+        attemptId: null,
+        origin: { kind: "hook", hookId: inv.hook.hook.id, eventId: inv.hook.event.id },
+        routine: false,
+        hook: true,
+        sessionKey: inv.sessionKey,
+      };
+    }
     if (inv.routine) {
       const conversation = inv.routine.conversation;
       return {
@@ -145,10 +160,28 @@ export class AgentSsh {
     return sshOrigin({
       context: caller.origin,
       routine: caller.routine,
+      hook: caller.hook === true,
       // A temporary member using its lead's grants is delegated like a permanent one.
       permanentMember: !!a.teamMemberId && (a.lifetime === "permanent" || sshFromLead(a)),
       inherited,
     }).class;
+  }
+  /**
+   * The hosts a hook run may use: the hook's choice capped by the agent's grants in
+   * mode "routines", re-resolved through AgentHooks.runOrigin on every call (never
+   * the ticket's copy), so a host the owner moved or unticked mid-run is refused.
+   */
+  hookHosts(caller) {
+    const run = this.w.a.routines?.hooks?.runOrigin(caller.assistant, caller.sessionKey);
+    return run?.event.id === caller.origin.eventId ? run.effective.sshHosts : [];
+  }
+  /** Refuses a hook run's call on a host outside its live choice. */
+  assertHookHost(caller, cls, input, { sftp = false } = {}) {
+    if (cls !== "hook" || this.hookHosts(caller).includes(input.accessId)) return;
+    throw this.refuse(caller, cls, input, "sshNotGranted", {
+      sftp,
+      ...(sftp ? { details: { operation: input.action } } : {}),
+    });
   }
   invoke(inv, input) {
     return Promise.resolve().then(() => {
@@ -169,6 +202,12 @@ export class AgentSsh {
     const listed = this.w.access.sshHosts();
     if (!listed) throw this.problem("sshHostUnavailable");
     const byId = new Map(listed.map((h) => [h.id, h]));
+    // A hook run sees only the hosts it may use now.
+    if (cls === "hook") {
+      const chosen = new Set(this.hookHosts(caller));
+      for (const accessId of byId.keys())
+        if (!chosen.has(accessId)) byId.delete(accessId);
+    }
     return {
       // Grants of removed hosts are left out; nothing names keys or other agents.
       hosts: this.w.access.get(id).sshAccesses.flatMap(({ accessId, mode }) => {
@@ -194,7 +233,7 @@ export class AgentSsh {
             usable,
             ...(usable
               ? {}
-              : { reason: cls === "routine" ? "ROUTINE_NOT_TRUSTED" : "ORIGIN_REFUSED" }),
+              : { reason: unattended(cls) ? "ROUTINE_NOT_TRUSTED" : "ORIGIN_REFUSED" }),
           },
         ];
       }),
@@ -214,6 +253,7 @@ export class AgentSsh {
     }
     const grant = this.w.access.sshGrant(caller.assistant.id, input.accessId);
     if (!grant) throw this.refuse(caller, cls, input, "sshNotGranted");
+    this.assertHookHost(caller, cls, input);
     const host = this.host(input.accessId);
     if (!host) throw this.refuse(caller, cls, input, "sshHostUnavailable");
     // An SFTP host has no shell; the file actions use it.
