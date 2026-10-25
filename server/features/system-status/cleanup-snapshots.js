@@ -57,14 +57,19 @@ export async function listSnapshots({ dataDir, updates, maintenance = false }) {
 
 /** Deletes one backup and its key; returns what was removed (never a path). */
 export async function deleteSnapshot({ dataDir, updates, maintenance = false }, id) {
-  if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id))
+  if (typeof id !== "string" || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id))
     throw cleanupProblem("notFound", 404);
   if (maintenance) throw cleanupProblem("updateRunning", 409);
   const paths = updates?.paths || filePaths(dataDir);
-  const size = await measureTree(path.join(paths.root, "backups", id));
+  // Only a backup found on disk names a path; the request's id only selects it.
+  const listed = (
+    updates ? updates.backups() : listBackups(paths, storedJournal(paths))
+  ).find((backup) => backup.id === id);
+  if (!listed) throw cleanupProblem("notFound", 404);
+  const size = await measureTree(path.join(paths.root, "backups", listed.id));
   if (updates) {
     try {
-      const removed = await updates.deleteBackup(id);
+      const removed = await updates.deleteBackup(listed.id);
       return { ...removed, bytes: size.bytes };
     } catch (error) {
       if (error.code === "UPDATE_BACKUP_NOT_FOUND") throw cleanupProblem("notFound", 404);
@@ -74,8 +79,8 @@ export async function deleteSnapshot({ dataDir, updates, maintenance = false }, 
   }
   const journal = storedJournal(paths);
   if (!settled(paths, journal)) throw cleanupProblem("updateRunning", 409);
-  const found = listBackups(paths, journal).find((backup) => backup.id === id);
+  const found = listBackups(paths, journal).find((backup) => backup.id === listed.id);
   if (!found) throw cleanupProblem("notFound", 404);
-  await removeBackup(paths, id);
+  await removeBackup(paths, found.id);
   return { ...found, bytes: size.bytes };
 }
