@@ -88,8 +88,10 @@ async function setAside(parent, name) {
 export async function deleteDependencies(dataDir, id, { busy, cwds }) {
   if (!agentId.test(id || "")) throw cleanupProblem("notFound", 404);
   const root = workspacesFolder(dataDir);
-  if (!(await entryStat(root, id))?.isDirectory()) throw cleanupProblem("notFound", 404);
-  const workspace = path.join(root, id);
+  // The workspace folder found on disk names the path; the request's id only selects it.
+  const name = (await workspaceIds(dataDir)).find((found) => found === id);
+  if (!name) throw cleanupProblem("notFound", 404);
+  const workspace = path.join(root, name);
   const idle = async () => {
     if (await busy()) return false;
     try {

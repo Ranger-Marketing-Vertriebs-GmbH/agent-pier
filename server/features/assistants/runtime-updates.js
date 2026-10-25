@@ -379,9 +379,10 @@ export class RuntimeUpdates {
     return this.exclusive(async () => {
       if (!terminal.has(this.journal.phase) || this.status().recoveryRequired)
         throw failure("UPDATE_RECOVERY_REQUIRED", 409);
+      // The id on disk, found by lookup, names the folder; never the caller's string.
       const found = this.backups().find((backup) => backup.id === id);
       if (!found) throw failure("UPDATE_BACKUP_NOT_FOUND", 404);
-      await removeBackup(this.paths, id);
+      await removeBackup(this.paths, found.id);
       return found;
     });
   }
