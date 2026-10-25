@@ -273,6 +273,10 @@ export const assistants = {
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keine SSH-Zugänge haben. Entferne die SSH-Zugänge oder trenne zuerst den Bot.",
   telegramSendersGithub:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen GitHub-Zugriff haben. Entferne den GitHub-Zugriff oder trenne zuerst den Bot.",
+  telegramSendersSecrets:
+    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keine Geheimnisse haben. Entferne die Geheimnisse oder trenne zuerst den Bot.",
+  secretUnavailable:
+    "Dieses Geheimnis gibt es nicht mehr. Lade die Seite neu und wähle erneut.",
   githubFromLead:
     "Ein auftragsgebundenes Team-Mitglied erhält GitHub nur von seinem leitenden Agenten.",
   githubProfileUnavailable:

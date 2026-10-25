@@ -40,6 +40,7 @@ import { stripOpenClawRows, stripPrivateRows } from "./private-tables.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { stagePath } from "./stage-path.js";
+import { agentSecretMember } from "../secrets/secret-format.js";
 
 /**
  * Host backups carry the assistant folder except what is installed, cached, derived
@@ -119,11 +120,15 @@ const restorable = (relative) => {
     (top === "workspaces" || !legacyVolatileTree.test(relative))
   );
 };
-/** What a capture archives publicly: never browser profiles, never caches. */
+/**
+ * What a capture archives: never browser profiles, never caches, never an agent's
+ * delivered secrets file (derived from the sealed secret store, agent-secrets.js).
+ */
 const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
   !isRuntimeOnly(relative) &&
+  !agentSecretMember.test(relative) &&
   (relative.split("/")[0] === "workspaces" ||
     shared(relative) ||
     !volatileTree.test(relative));

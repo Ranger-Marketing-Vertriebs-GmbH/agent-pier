@@ -8,6 +8,7 @@ import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
 import { refuseLockedAccess } from "../users/user-agent-lock.js";
 import { isUserAgent } from "../users/user-access.js";
+import * as secretGrants from "./agent-secret-grants.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -70,22 +71,29 @@ export class AssistantAccess {
     const row = this.db
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
-    return row
-      ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
-      : {
-          github: null,
-          revision: 0,
-          projectIds: [],
-          projectFiles: {},
-          pipelineIds: [],
-          memoryWrite: false,
-          autonomous: false,
-          publish: false,
-          accountIds: [],
-          connectionIds: [],
-          definitions: {},
-          sshAccesses: [],
-        };
+    return secretGrants.withLiveSecrets(
+      this.s,
+      row
+        ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
+        : {
+            github: null,
+            revision: 0,
+            projectIds: [],
+            projectFiles: {},
+            pipelineIds: [],
+            memoryWrite: false,
+            autonomous: false,
+            publish: false,
+            accountIds: [],
+            connectionIds: [],
+            definitions: {},
+            sshAccesses: [],
+          },
+    );
+  }
+  // Granted secrets that still exist (agent-secret-grants.js, agent-secrets.js).
+  secretIds(id) {
+    return this.get(id).secretIds;
   }
   definition(id) {
     const d = this.s.pipelineDefinitions,
@@ -164,6 +172,7 @@ export class AssistantAccess {
       "sshAccesses",
       "projectFiles",
       "github",
+      "secretIds",
     ]);
     // Coding, pipelines, SSH and GitHub stay locked for user agents (user-agent-lock.js).
     refuseLockedAccess(agent, input);
@@ -221,6 +230,10 @@ export class AssistantAccess {
         input.sshAccesses === undefined
           ? old.sshAccesses
           : this.sshList(id, input.sshAccesses),
+      secretIds:
+        input.secretIds === undefined
+          ? old.secretIds
+          : secretGrants.secretGrantList(this.s, id, input.secretIds),
       revision: revision + 1,
       approvalRevision: revision + 1,
       accountIds: [...accountIds],
@@ -268,7 +281,9 @@ export class AssistantAccess {
     this.auditSsh(id, before, next, "owner");
     this.auditProjects(id, before, next);
     this.auditGithub(id, before, next);
+    secretGrants.auditSecretGrants(this.s, id, before, next);
     this.s.assistants.changed();
+    this.afterSave?.(id);
     return {
       ...next,
       removedProjectIds: notes.removedProjectIds,

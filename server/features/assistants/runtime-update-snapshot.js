@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { privateFolder } from "./runtime-paths.js";
 import { holdDependencies, returnDependencies } from "./runtime-update-dependencies.js";
+import { agentSecretMember } from "../secrets/secret-format.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import {
   configPath,
@@ -126,6 +127,8 @@ async function copyEntry(source, destination, context, relative) {
       const skip = new Set(databases.flatMap((name) => journals.map((s) => name + s)));
       for (const name of names) {
         if (skip.has(name) || (!context.sealing && name.endsWith(sealedSuffix))) continue;
+        // A delivered secrets file is derived; the next sync writes it again.
+        if (context.sealing && agentSecretMember.test(join(relative, name))) continue;
         await copyEntry(
           path.join(source, name),
           path.join(destination, name),

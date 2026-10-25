@@ -219,6 +219,7 @@ export function auditEvent(input) {
       "ssh",
       "sftp",
       "ssh-grants",
+      "secret-grants",
       "project-rebind",
       "member-grant",
       "member-reminder",
@@ -531,7 +532,8 @@ export function auditEvent(input) {
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")
     sshAuditDetails(details, event, auditId);
   if (action.startsWith("sftp.")) sftpAuditDetails(details, event, auditId);
-  if (input.resourceType === "secret") secretAuditDetails(details, event);
+  if (input.resourceType === "secret" || details.kind === "secret-grants")
+    secretAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }
