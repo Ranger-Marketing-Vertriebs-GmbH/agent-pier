@@ -1,14 +1,21 @@
 /**
  * Watches one agent browser through its CDP port: `onClose` reports when it ends
  * (a stop, a crash, or no browser within `timeoutMs`). For a visible browser
- * (`windows`) it also keeps it out of the owner's way: it minimizes the windows a
- * fresh launch opens and keeps every page rendering while minimized. A minimized
- * Chromium window marks its pages hidden and stops painting them; focus emulation,
- * held by this CDP session, keeps them visible to the page and to OpenClaw's
- * screenshots and actions. Windows opened later (a login popup, a window the owner
- * restored) are left as they are. The CDP port is loopback-only and unauthenticated;
+ * (`windows`) it also keeps it out of the owner's way: it parks the windows a fresh
+ * launch opens in the bottom-right corner of the screen, where the system leaves only
+ * a corner of them visible (macOS keeps about 40 pixels on screen; a Wayland session
+ * ignores the position). It never minimizes them (AGENTPIER-240): Chromium treats a
+ * minimized window's pages as hidden and stops painting them, focus emulation only
+ * hides that from the page itself, and on a busy machine snapshots and clicks then
+ * outlasted OpenClaw's 20-second browser budget. A parked window stays a normal,
+ * visible window; the anti-throttling flags (openclaw-config/web-tools.js) keep it
+ * rendering at full rate while other windows cover it. Focus emulation, held by this
+ * CDP session, also tells the pages they have focus. Windows opened later (a login
+ * popup) are left as they are. The CDP port is loopback-only and unauthenticated;
  * only the AgentPier server, the Gateway's owner, connects here.
  */
+// Beyond any screen: the window manager clamps it to the bottom-right corner.
+export const parkedBounds = { left: 100000, top: 100000 };
 const launchWindowMs = 10000;
 // A CDP call that takes longer never holds a limit check or an idle sweep.
 const commandTimeoutMs = 2000;
@@ -27,11 +34,16 @@ export class BrowserWindowKeeper {
     this.closed = false;
     this.attached = new Set();
     this.known = new Set();
+    // Window id -> the bounds it got when parked, as the window manager placed it.
+    this.parked = new Map();
     this.pending = new Map();
     this.id = 0;
   }
-  /** Connects once the browser answers; resolves when it is watched or gave up. */
-  async start() {
+  /**
+   * Connects once the browser answers; resolves when it is watched or gave up.
+   * `fresh` treats the browser as a fresh launch even if it answers at once.
+   */
+  async start({ fresh = false } = {}) {
     const deadline = this.now() + this.timeoutMs;
     let version,
       polls = 0;
@@ -52,8 +64,8 @@ export class BrowserWindowKeeper {
       return false;
     }
     // Only a browser that came up while we waited is a fresh launch whose windows
-    // are minimized; one already running may hold windows the owner restored.
-    this.launchedAt = polls > 1 ? this.now() : null;
+    // are parked; one already running may hold windows the owner brought back.
+    this.launchedAt = polls > 1 || fresh ? this.now() : null;
     await this.connect(version.webSocketDebuggerUrl);
     return !this.closed;
   }
@@ -69,12 +81,16 @@ export class BrowserWindowKeeper {
     }
     if (first) this.onClose();
   }
-  /** Whether the owner has one of the browser's windows open (not minimized). */
+  /**
+   * Whether the owner has one of the browser's windows open: one that is not
+   * minimized and not where it was parked (moved, resized, maximized or full screen).
+   */
   async inUse() {
     for (const windowId of this.known) {
       try {
         const { bounds } = await this.send("Browser.getWindowBounds", { windowId });
-        if (bounds?.windowState && bounds.windowState !== "minimized") return true;
+        if (!bounds?.windowState || bounds.windowState === "minimized") continue;
+        if (!sameBounds(bounds, this.parked.get(windowId))) return true;
       } catch {
         /* Closed meanwhile. */
       }
@@ -96,17 +112,29 @@ export class BrowserWindowKeeper {
         resolve();
       };
       // Node reports a failed connection by an error alone, without close.
-      ws.onerror = () => {
-        this.finish();
-        resolve();
-      };
-      ws.onclose = () => {
-        for (const { reject } of this.pending.values()) reject(Error("closed"));
-        this.pending.clear();
-        this.finish();
+      ws.onerror = ws.onclose = () => {
+        this.lost(ws);
         resolve();
       };
     });
+  }
+  lost(ws) {
+    if (this.ws !== ws) return;
+    for (const { reject } of this.pending.values()) reject(Error("closed"));
+    this.pending.clear();
+    // OpenClaw's first launch of a new profile starts a bootstrap browser that it
+    // ends at once, then the real one (2026.10.7): an early end of a fresh launch
+    // waits once for the next browser on the port.
+    const early =
+      this.launchedAt != null && this.now() - this.launchedAt <= launchWindowMs;
+    if (!this.closed && early && !this.relaunched) {
+      this.relaunched = true;
+      this.ws = null;
+      for (const set of [this.attached, this.known, this.parked]) set.clear();
+      this.start({ fresh: true }).catch(() => {});
+      return;
+    }
+    this.finish();
   }
   /** One CDP call; a browser that does not answer within `timeoutMs` fails it. */
   send(method, params = {}, sessionId, timeoutMs = commandTimeoutMs) {
@@ -166,11 +194,16 @@ export class BrowserWindowKeeper {
       });
       if (this.known.has(windowId)) return;
       this.known.add(windowId);
-      if (this.launchedAt !== null && this.now() - this.launchedAt <= launchWindowMs)
-        await this.send("Browser.setWindowBounds", {
-          windowId,
-          bounds: { windowState: "minimized" },
-        });
+      if (this.launchedAt !== null && this.now() - this.launchedAt <= launchWindowMs) {
+        // A position applies to a normal window only (a restored profile may open
+        // maximized).
+        const set = (bounds) =>
+          this.send("Browser.setWindowBounds", { windowId, bounds });
+        await set({ windowState: "normal" });
+        await set(parkedBounds);
+        const { bounds } = await this.send("Browser.getWindowBounds", { windowId });
+        this.parked.set(windowId, bounds);
+      }
     } catch {
       /* The page closed meanwhile. */
     }
@@ -184,4 +217,12 @@ export class BrowserWindowKeeper {
       /* Already closed. */
     }
   }
+}
+
+function sameBounds(bounds, parked) {
+  return (
+    !!parked &&
+    bounds.windowState === "normal" &&
+    ["left", "top", "width", "height"].every((key) => bounds[key] === parked[key])
+  );
 }

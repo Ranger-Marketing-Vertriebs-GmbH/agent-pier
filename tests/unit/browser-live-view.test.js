@@ -249,6 +249,74 @@ test("an upstream socket that never opens is given up and retried", async () => 
   subscription.close();
 });
 
+test("an open socket that sends no frame is dropped and retried", async () => {
+  const f = fixture();
+  f.live.openMs = 5;
+  const subscription = f.live.subscribe("a", f.viewer().viewer);
+  await settle();
+  const [first] = f.gateway.sockets;
+  // Open, with the tab's metadata, but never a picture.
+  first.emit("open");
+  first.emit(
+    "message",
+    Buffer.from('{"type":"ready","url":"https://a.example/"}'),
+    false,
+  );
+  await settle();
+  await settle();
+  assert.equal(first.closed, true);
+  assert.ok(f.gateway.sockets.length >= 2);
+  assert.notEqual(f.live.streams.get("a").state.status, "live");
+  // A socket whose first frame arrives in time stays.
+  f.live.openMs = 60_000;
+  f.live.streams.get("a").wake();
+  await settle();
+  const last = f.gateway.sockets.at(-1);
+  last.emit("message", Buffer.from([0, 0, 0, 2, 123, 125, 255]), true);
+  await settle();
+  assert.equal(last.closed, false);
+  assert.equal(f.live.streams.get("a").state.status, "live");
+  assert.equal(f.live.streams.get("a").failures, 0);
+  subscription.close();
+});
+
+test("tries without a picture back off up to a cap; a frame resets it", async () => {
+  const f = fixture();
+  Object.assign(f.live, { retryMs: 100, maxRetryMs: 500 });
+  const subscription = f.live.subscribe("a", f.viewer().viewer);
+  await settle();
+  const stream = f.live.streams.get("a");
+  assert.deepEqual(
+    Array.from({ length: 5 }, () => stream.backoff()),
+    [100, 200, 400, 500, 500],
+  );
+  f.gateway.sockets
+    .at(-1)
+    .emit("message", Buffer.from([0, 0, 0, 2, 123, 125, 255]), true);
+  assert.equal(stream.failures, 0);
+  assert.equal(stream.backoff(), 100);
+  subscription.close();
+});
+
+test("the owner stops the agent's browser from the live view", async () => {
+  const f = fixture();
+  const stops = [];
+  f.live.browsers.ownerStop = async (id) => {
+    stops.push(id);
+    f.gateway.running = false;
+  };
+  const a = f.viewer();
+  const subscription = f.live.subscribe("a", a.viewer);
+  await settle();
+  const [ws] = f.gateway.sockets;
+  await subscription.stopBrowser();
+  await settle();
+  assert.deepEqual(stops, ["a"]);
+  assert.equal(ws.closed, true);
+  assert.equal(a.last().status, "stopped");
+  subscription.close();
+});
+
 test("only a full viewer counts as watching", async () => {
   const f = fixture();
   const calls = [];

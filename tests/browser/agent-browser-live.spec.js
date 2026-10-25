@@ -88,12 +88,13 @@ async function setup(
   commands.connects = 0;
   await page.routeWebSocket("**/api/assistants/home/browser-stream*", (ws) => {
     commands.connects++;
+    let current = status;
     const state = (control) =>
       ws.send(
         JSON.stringify({
           type: "state",
           state: {
-            status,
+            status: current,
             url: "https://shop.example/",
             title: "Shop",
             targetId: "t1",
@@ -110,6 +111,11 @@ async function setup(
       // The server's answer to a takeover and a hand-back.
       if (command.type === "take") state({ held: true, mine: true, warning: false });
       if (command.type === "handBack") state({ held: false, mine: false });
+      // The server stops the browser; the next refresh reports it stopped.
+      if (command.type === "stop") {
+        current = "stopped";
+        state({ held: false, mine: false });
+      }
     });
     state(control || { held: false, mine: false });
     if (status === "live") ws.send(frame());
@@ -159,6 +165,7 @@ for (const [label, use] of [
       await expect(page.getByRole("button", { name: /Take over/ })).toHaveCount(0);
       await expect(page.getByLabel("Tab")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Follow the agent" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Stop browser" })).toHaveCount(0);
       expect([...commands]).toEqual([]);
     });
 
@@ -167,6 +174,24 @@ for (const [label, use] of [
       await page.goto(baseURL + "/agents/home/browser");
       await expect(page.getByText("The browser is not running.").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Start browser" })).toHaveCount(0);
+    });
+
+    test("a running browser can be stopped from the live view", async ({ page }) => {
+      const commands = await setup(page);
+      await page.goto(baseURL + "/agents/home/browser");
+      await decoded(page.getByRole("img", { name: "Live view of Home's browser" }));
+      await page.getByRole("button", { name: "Stop browser" }).click();
+      await expect.poll(() => commands).toContainEqual({ type: "stop" });
+      await expect(page.getByText("The browser is not running.").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Start browser" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Stop browser" })).toHaveCount(0);
+    });
+
+    test("a browser without a picture yet can be stopped too", async ({ page }) => {
+      const commands = await setup(page, { status: "connecting" });
+      await page.goto(baseURL + "/agents/home/browser");
+      await page.getByRole("button", { name: "Stop browser" }).click();
+      await expect.poll(() => commands).toContainEqual({ type: "stop" });
     });
 
     test("a stopped browser can be started from the live view", async ({ page }) => {

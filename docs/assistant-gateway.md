@@ -1936,6 +1936,12 @@ always opened by the same app. The block:
   without `DISPLAY`/`WAYLAND_DISPLAY`, the profile stays headless and the setting
   says why. AgentPier passes `DISPLAY`, `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` to
   the Gateway when they are set; it provisions no Xvfb;
+- passes `--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding`
+  and `--disable-background-timer-throttling` through the global `extraArgs`
+  (`antiThrottlingArgs`, since AGENTPIER-240): a visible window the owner keeps
+  behind others would otherwise count as occluded, its renderer would lose priority
+  and its timers would be throttled, and every snapshot or click then outlasts
+  OpenClaw's 20-second browser budget. Headless browsers are unaffected;
 - passes `--use-mock-keychain` through the global `extraArgs`. OpenClaw otherwise
   uses the macOS keychain for a new profile it launches visibly, which can prompt the
   owner from the service context. The cookies of every profile are then encrypted with
@@ -1968,12 +1974,21 @@ limits:
   start drops it;
 - a browser unused for 15 minutes is stopped (`browser.request` `POST /stop`), unless
   the owner has one of its windows open; then it stops after an hour at the latest;
-- a visible browser starts minimized. A small CDP client of AgentPier's on the
-  profile's loopback port minimizes the windows a fresh launch opens and keeps
-  focus emulation on every page, so minimized pages keep rendering for screenshots,
-  clicks and typing. Windows opened later, such as a login popup or a window the owner
-  restored from the Dock, are left alone. The CDP port is loopback-only and
-  unauthenticated, like OpenClaw's own.
+- a visible browser starts parked, not minimized (since AGENTPIER-240). A small CDP
+  client of AgentPier's on the profile's loopback port (`browser-window-keeper.js`)
+  moves the windows a fresh launch opens to the bottom-right corner of the screen
+  (`Browser.setWindowBounds` far beyond the screen; macOS clamps it so about 40 pixels
+  stay visible, a Wayland session ignores the position) and keeps focus emulation on
+  every page. A minimized Chromium window marks its pages hidden and stops painting
+  them: on a loaded Mac with OpenClaw 2026.10.7, every snapshot of a minimized agent
+  window ran into the 20-second browser budget, and without focus emulation such a
+  page reports `hidden` and paints no frames at all. A parked window stays normal and visible, and the
+  anti-throttling flags keep it rendering at full rate while other windows cover it.
+  A window counts as the owner's (busy) once it is moved, resized, maximized or full
+  screen; parked or minimized it does not. Windows opened later, such as a login
+  popup, are left alone. OpenClaw's first launch of a new profile starts a bootstrap
+  browser it ends at once; the keeper then waits once for the real browser on the
+  same port. The CDP port is loopback-only and unauthenticated, like OpenClaw's own.
 
 Switching the browser on or off for an agent, or switching its window on or off,
 patches only that agent's profile into the running Gateway (`BrowserProfileSync`):
@@ -2094,14 +2109,22 @@ later takeover can send input the same way.
 - Without a pick the view follows the browser's selected tab and switches when the
   agent opens or closes one; the owner can pick a tab and **Follow the agent** again.
 - A stopped browser shows **Start browser**, which launches the agent's profile
-  within the visible-browser limit (`AgentBrowsers.ownerStart`). A watched browser
-  stays tracked, so the window keeper's focus emulation keeps a minimized window
-  delivering frames; an untracked running one (after an AgentPier restart) is tracked
-  again within the visible limit. Only the full live view keeps a browser from the
+  within the visible-browser limit (`AgentBrowsers.ownerStart`, with a 30-second
+  budget for a cold launch). A running one shows **Stop browser** (also while no
+  picture arrives), which stops the profile the view shows through the same path as
+  the idle stop (`AgentBrowsers.ownerStop`, `browser.request` `POST /stop`): its tabs
+  close, its profile stays, a takeover ends, and the agent's next browser call starts
+  it again. Like **Start browser** it is a live-view command of a viewer who may
+  drive, not an audited event; a view-only viewer gets neither. A watched browser
+  stays tracked, so the window keeper keeps its focus emulation; an untracked running
+  one (after an AgentPier restart) is tracked again within the visible limit. Only the full live view keeps a browser from the
   idle stop, for at most an hour; the chat header's preview never does, so an open
   chat cannot keep a browser running or block another agent's.
 - At most eight viewers watch one agent's browser (close code 1013 beyond). An
-  upstream socket that does not open within ten seconds is retried; a refresh asked
+  upstream socket that sends no first frame within ten seconds (one that does not
+  open, or one that opens but shows nothing, as after the agent restarted its
+  browser) is dropped and retried; tries without a picture back off from two seconds,
+  doubling up to 30 seconds, and the first frame resets the wait; a refresh asked
   for during another (a tab pick) runs right after it. The status line of a refused
   upgrade names its status (401 Unauthorized, 403 Forbidden). A login that ends
   closes the view with 1008, and the page then stops reconnecting. A view still
@@ -2112,7 +2135,7 @@ later takeover can send input the same way.
   forwards OpenClaw's binary frames unchanged (a four-byte header length, a JSON
   header, the JPEG); the chat header's preview asks for one frame a second
   (`?preview=1`). A viewer that cannot keep up loses frames instead of queuing them.
-  Viewers send `select`, `follow` and `start`; anything else, and any binary
+  Viewers send `select`, `follow`, `start` and `stop`; anything else, and any binary
   message, closes the socket.
 - Frames are never stored on disk or logged. The server keeps each stream's newest
   frame in memory and sends it to a viewer who joins, because the screencast sends a

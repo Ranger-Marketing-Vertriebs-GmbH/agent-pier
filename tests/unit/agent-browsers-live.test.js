@@ -116,6 +116,19 @@ test("ownerStart respects the visible limit and starts the agent's own profile",
   );
 });
 
+test("ownerStop stops the profile the live view shows and forgets it", async (t) => {
+  const f = fixture(t, [agent("a"), agent("lead"), member("m1", "lead")]);
+  await f.browsers.ownerStart("a");
+  assert.equal(f.browsers.running.has("agent-a"), true);
+  await f.browsers.ownerStop("a");
+  assert.deepEqual(f.stops(), ["agent-a"]);
+  assert.equal(f.browsers.running.has("agent-a"), false);
+  // A member without a slot has nothing to stop.
+  await assert.rejects(f.browsers.ownerStop("m1"), { key: "invalid" });
+  f.browsers.runtime.client.ready = false;
+  await assert.rejects(f.browsers.ownerStop("a"), { key: "unavailable" });
+});
+
 test("viewProfile never assigns a member slot", (t) => {
   const f = fixture(t, [agent("lead"), member("m1", "lead")]);
   assert.equal(f.browsers.viewProfile("m1"), null);

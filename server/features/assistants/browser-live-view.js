@@ -23,7 +23,7 @@ import {
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 // Viewers of one agent's browser at once (several tabs and devices of the owner).
 export const maxViewers = 8;
-// An upstream socket that has not opened by then is given up and retried.
+// An upstream socket without a first frame by then is given up and retried.
 const openTimeoutMs = 10000;
 // A user's turn holds a shared browser this long after its last browser call (the
 // hand-back lease); then the browser returns to the owner.
@@ -35,13 +35,15 @@ export class BrowserLiveView {
     runtime,
     pollMs = 3000,
     retryMs = 2000,
+    maxRetryMs = 30000,
     previewMs = 1000,
     now = Date.now,
     openMs = openTimeoutMs,
     cdpInput = defaultCdpInput,
     onHandBack,
   }) {
-    Object.assign(this, { browsers, runtime, pollMs, retryMs, previewMs, now, openMs });
+    Object.assign(this, { browsers, runtime, pollMs, retryMs, maxRetryMs, previewMs });
+    Object.assign(this, { now, openMs });
     Object.assign(this, { cdpInput, onHandBack, leaseMs, warnMs, graceMs });
     this.streams = new Map();
     // Whose turn drives each agent's browser: a user's id, or null for the owner.
@@ -161,6 +163,7 @@ export class BrowserLiveView {
       select: (targetId) => stream.select(targetId),
       follow: () => stream.select(null),
       start: () => stream.start(),
+      stopBrowser: () => stream.stopBrowser(),
       take: ({ move = false } = {}) => stream.takeover.take(owner(), { move }),
       handBack: () => stream.takeover.handBack(owner()),
       input: (command) => stream.takeover.input(owner(), command),
@@ -270,7 +273,7 @@ class LiveStream {
         this.takeover.release("browserStopped");
         return this.set({ status: "stopped", tabs: [], url: "", title: "", reason: "" });
       }
-      // Watching keeps it tracked (a visible browser keeps rendering minimized);
+      // Watching keeps it tracked (a visible browser keeps its window keeper);
       // only a full viewer keeps it from the idle stop, a chat's preview never.
       this.live.browsers.watched(this.id, {
         full: this.watchingSince != null,
@@ -332,30 +335,41 @@ class LiveStream {
       url: ticket.url || "",
       reason: "",
     });
-    let opened = false;
-    const opening = setTimeout(() => {
-      if (!opened && this.upstream === ws) {
+    // The open budget lasts until the first frame: a socket that opens but sends no
+    // picture (a browser that just restarted) is dropped and retried, backing off.
+    let framed = false;
+    const watchdog = setTimeout(() => {
+      if (!framed && this.upstream === ws) {
         this.disconnect();
-        this.schedule(this.live.retryMs);
+        this.schedule(this.backoff());
       }
     }, this.live.openMs);
-    opening.unref?.();
-    ws.on("open", () => (opened = true));
+    watchdog.unref?.();
     ws.on("message", (data, binary) => {
-      opened = true;
+      if (binary && !framed) {
+        framed = true;
+        this.failures = 0;
+        clearTimeout(watchdog);
+      }
       this.message(ws, data, binary);
     });
     ws.on("error", () => {});
     ws.on("close", (code) => {
-      clearTimeout(opening);
+      clearTimeout(watchdog);
       if (this.upstream !== ws) return;
       this.upstream = null;
       this.frame = null;
       // 4003: the page's address is blocked; 4004: the tab closed; else retried.
       if (code === 4003) this.set({ status: "blocked", reason: "navigation" });
       else this.set({ status: "connecting" });
-      this.schedule(code === 4004 ? 0 : this.live.retryMs);
+      this.schedule(code === 4004 ? 0 : framed ? this.live.retryMs : this.backoff());
     });
+  }
+  /** The wait before the next try after one without a picture: doubling, capped. */
+  backoff() {
+    this.failures = (this.failures || 0) + 1;
+    const { retryMs, maxRetryMs } = this.live;
+    return Math.min(retryMs * 2 ** (this.failures - 1), maxRetryMs);
   }
   message(ws, data, binary) {
     if (this.upstream !== ws) return;
@@ -399,6 +413,12 @@ class LiveStream {
   }
   async start() {
     await this.live.browsers.ownerStart(this.id);
+    this.wake();
+  }
+  /** Stops the agent's browser; the refresh then reports it stopped. */
+  async stopBrowser() {
+    this.disconnect();
+    await this.live.browsers.ownerStop(this.id);
     this.wake();
   }
   disconnect() {

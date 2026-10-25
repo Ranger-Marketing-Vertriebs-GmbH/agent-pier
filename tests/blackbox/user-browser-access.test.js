@@ -200,12 +200,16 @@ test("under the opt-in the owner watches a user's own agent's browser, never dri
     const message = JSON.parse(String(data));
     if (message.type === "error") errors.push(message.code);
   });
-  for (const type of ["take", "start", "handBack", "key"])
-    socket.send(JSON.stringify({ type, key: "a" }));
-  for (let i = 0; i < 100 && errors.length < 4; i++)
+  // Stopping the browser is driving it too.
+  const types = ["take", "start", "stop", "handBack", "key"];
+  for (const type of types) socket.send(JSON.stringify({ type, key: "a" }));
+  for (let i = 0; i < 100 && errors.length < types.length; i++)
     await new Promise((resolve) => setTimeout(resolve, 20));
   socket.terminate();
-  assert.deepEqual(errors, ["VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY", "VIEW_ONLY"]);
+  assert.deepEqual(
+    errors,
+    types.map(() => "VIEW_ONLY"),
+  );
 });
 
 // The first state message a new view of `endpoint` gets.

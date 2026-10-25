@@ -77,7 +77,14 @@ test("every agent with the browser gets its own persistent profile and CDP port"
   assert.equal(browser.allowSystemProfileImport, false);
   assert.equal(browser.ssrfPolicy, undefined);
   assert.equal(browser.noSandbox, undefined);
-  assert.deepEqual(browser.extraArgs, ["--use-mock-keychain"]);
+  // The mock keychain stays; the anti-throttling flags keep a visible window that
+  // other windows cover rendering at full rate (AGENTPIER-240).
+  assert.deepEqual(browser.extraArgs, [
+    "--use-mock-keychain",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-background-timer-throttling",
+  ]);
   assert.equal(browser.executablePath, brave);
   for (const profile of Object.values(browser.profiles))
     assert.equal(profile.driver, "openclaw");
