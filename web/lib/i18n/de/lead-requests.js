@@ -56,6 +56,8 @@ export const leadRequestCopy = {
   selfInitiated: "selbst gestartet",
   // Eine Routine des Leads hat sie gestellt; ihre Aufgaben dürfen nie schreiben.
   routine: (name) => (name ? `Geplant · ${name}` : "Geplant"),
+  // A report of the member's hook of this name.
+  hook: (name) => `Hook ${name}`,
   showAll: "Alles anzeigen",
   // An answer stored incomplete beyond the history limit.
   answerShortened: "Gekürzt – der vollständige Text steht im Chat des Mitglieds.",

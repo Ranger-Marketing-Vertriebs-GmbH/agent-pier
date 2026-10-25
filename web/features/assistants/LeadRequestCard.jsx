@@ -69,6 +69,9 @@ export default function LeadRequestCard({
         {r.memberRoutine !== undefined && (
           <span className="lead-request-access">{copy.routine(r.memberRoutine)}</span>
         )}
+        {r.memberHook !== undefined && (
+          <span className="lead-request-access">{copy.hook(r.memberHook)}</span>
+        )}
         <small>{requestState(r)}</small>
       </div>
       <p className="assistant-approval-task">

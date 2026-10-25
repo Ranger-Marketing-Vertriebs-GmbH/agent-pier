@@ -532,6 +532,8 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.origin?.kind === "member-routine"
       ? { memberRoutine: textOr(r.origin.name) }
       : {}),
+    // A report of the member's hook of this name (the payload is never in it).
+    ...(r.origin?.kind === "member-hook" ? { memberHook: textOr(r.origin.name) } : {}),
     // A member's own report: a result or a problem, maybe from its routine.
     ...(r.origin?.kind === "member-report"
       ? {

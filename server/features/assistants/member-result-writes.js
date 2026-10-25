@@ -16,6 +16,8 @@ export function resultTurn(assistants, requestId, attemptId) {
     const teams = assistants.teams?.store;
     const r = typeof requestId === "string" ? teams?.find(requestId) : null;
     if (!r || r.kind !== requestKind) return null;
+    // A hook report is handled read-only: its payload never gains write rights.
+    if (r.origin?.kind === "member-hook") return null;
     const request = assistants.ledger.getRequest(
       assistants.ledger.getAttempt(attemptId).requestId,
     );
