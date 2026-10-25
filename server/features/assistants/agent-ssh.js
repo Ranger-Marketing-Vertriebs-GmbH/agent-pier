@@ -130,7 +130,8 @@ export class AgentSsh {
         assistant: a.store.getAssistant(conversation.assistantId),
         conversationId: conversation.id,
         attemptId: null,
-        origin: null,
+        // Names the routine, so its rows join that run in the event area.
+        origin: { kind: "routine", bindingId: inv.routine.binding.id },
         routine: true,
       };
     }

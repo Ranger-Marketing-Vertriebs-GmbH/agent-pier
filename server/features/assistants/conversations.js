@@ -13,6 +13,7 @@ import { withRoutineResults } from "./routine-results.js";
 import { areaResult, eventArea } from "./agent-event-area.js";
 import { withMemoryNotes } from "./memory-notes.js";
 import { peerNotes } from "./peer-notes.js";
+import { routineMemoryNote, unattendedRemote } from "./routine-run-notes.js";
 import { turnKind } from "./goal-turns.js";
 import { historyTextLimit } from "./history-text.js";
 import { cachedWindow } from "./assistant-store.js";
@@ -316,7 +317,10 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         ).filter((m) => !areaResult(m)),
         // Members' requests to each other join the lead's chat alike (peer-notes.js).
         [
-          ...(service.memoryNotes?.forConversation(id) || []),
+          // A routine run's own note shows with that run (routine-run-notes.js).
+          ...(service.memoryNotes?.forConversation(id) || []).filter(
+            (n) => !routineMemoryNote(n),
+          ),
           ...peerNotes(service, id),
           ...(service.teams?.goals?.notes(id) ?? []),
         ],
@@ -403,11 +407,14 @@ function summarising(service, conversation, requests) {
 }
 const pageStart = (nextBefore, messages) =>
   nextBefore && messages.length ? messages[0].timestamp : -Infinity;
-// Coding and SSH run notes join the page they fall into. A page reaches from its first
+// Coding and SSH run notes join the page they fall into; a routine's or a hook's
+// SSH and SFTP runs show in the event area instead (routine-run-notes.js). A page reaches from its first
 // message (or the very start when no earlier page exists) to the present; the
 // client keeps the newer copy of a note that an older page repeats.
 function withRunNotes(service, conversation, messages, nextBefore) {
-  const actions = service.workflows?.store.list(conversation.assistantId) || [];
+  const actions = (service.workflows?.store.list(conversation.assistantId) || []).filter(
+    (a) => !unattendedRemote(a),
+  );
   const from = nextBefore && messages.length ? messages[0].timestamp : -Infinity;
   const notes = actionNotes(actions, conversation.id).filter((n) => n.timestamp >= from);
   if (!notes.length) return messages;

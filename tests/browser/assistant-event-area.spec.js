@@ -202,3 +202,114 @@ test("event area screenshots", async ({ page }, info) => {
   await expect(row.locator("pre.activity-row-code")).toBeVisible();
   await page.screenshot({ path: info.outputPath("e-events-hook-open.png") });
 });
+
+// AGENTPIER-246: a routine run's SSH rows wait inside its event row; the transcript
+// keeps only the conversation, and a pending approval card stays actionable there.
+const sshNote = {
+  id: "ssh-run:s9",
+  role: "event",
+  event: "ssh-run",
+  hostName: "proxmox-2",
+  commandPreview: "qm guest exec 109 -- uptime",
+  command: "qm guest exec 109 -- uptime",
+  outcome: "done",
+  exitCode: 0,
+  durationMs: 1200,
+  timestamp: now - 240_000,
+  runId: null,
+};
+const approval = {
+  id: "a1",
+  revision: 1,
+  assistantId: "home",
+  conversationId: "dinner",
+  state: "awaiting_approval",
+  createdAt: new Date(now).toISOString(),
+  expiresAt: new Date(now + 600_000).toISOString(),
+  payload: {
+    action: "ssh",
+    accessId: "11111111-1111-4111-8111-111111111111",
+    hostName: "opnsense",
+    host: "opnsense.invalid",
+    port: 22,
+    username: "root",
+    hostFingerprint: "SHA256:abcdefghijklmnopqrstuvwxyz0123456789",
+    projectId: null,
+    projectName: null,
+    command: "uptime",
+    timeoutSeconds: 30,
+    originClass: "owner",
+  },
+};
+
+async function routineSshSetup(page) {
+  const state = await chatFixture(page, {
+    actions: [approval],
+    history: {
+      messages: [
+        { id: "question", role: "user", text: "Watch proxmox-2, please." },
+        { id: "answer", role: "assistant", text: "I will check it every few minutes." },
+      ],
+      requests: [],
+      events: [
+        {
+          id: "routine:zabbix",
+          source: "routine",
+          name: "Zabbix check",
+          at: now - 230_000,
+          status: "done",
+          firstLine: "VM 109 is healthy.",
+          reply: "VM 109 is healthy.",
+          runNotes: [sshNote],
+        },
+      ],
+      stale: false,
+    },
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  return state;
+}
+
+test("a routine run's SSH row shows only inside its shut event row", async ({ page }) => {
+  await routineSshSetup(page);
+  const transcript = page.locator(".assistant-transcript");
+  await expect(transcript.locator(".assistant-message")).toHaveCount(2);
+  await expect(transcript.locator(".ssh-run-note")).toHaveCount(0);
+  await expect(transcript).not.toContainText("qm guest exec");
+  await expect(groupHead(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(group(page).locator(".ssh-run-note")).toBeHidden();
+
+  await groupHead(page).click();
+  const row = group(page).locator('.agent-event-row[data-event-source="routine"]');
+  await row.locator("> .activity-row-head").click();
+  const did = row.locator(".agent-event-did");
+  await expect(did.getByRole("heading", { name: "What the agent did" })).toBeVisible();
+  const note = did.locator(".ssh-run-note");
+  await expect(note.locator(".activity-row-label")).toHaveText("SSH on proxmox-2");
+  await expect(note.locator(".activity-row-detail")).toContainText("qm guest exec 109");
+  await expect(row.locator(".agent-event-reply")).toContainText("VM 109 is healthy.");
+  // The transcript is unchanged by opening the area.
+  await expect(transcript.locator(".ssh-run-note")).toHaveCount(0);
+});
+
+test("a pending approval card stays actionable beside the event area", async ({
+  page,
+}) => {
+  await routineSshSetup(page);
+  const card = page.getByRole("article", { name: "SSH command" });
+  await expect(card).toBeVisible();
+  await expect(group(page).getByRole("article", { name: "SSH command" })).toHaveCount(0);
+  const allow = card.getByRole("button", { name: "Allow once on opnsense" });
+  await expect(allow).toBeEnabled();
+});
+
+test("routine SSH screenshot", async ({ page }, info) => {
+  test.skip(!process.env.EVENT_AREA_SHOTS, "Screenshots are taken on request.");
+  await routineSshSetup(page);
+  await page.screenshot({ path: info.outputPath("f-routine-ssh-shut.png") });
+  await groupHead(page).click();
+  const row = group(page).locator('.agent-event-row[data-event-source="routine"]');
+  await row.locator("> .activity-row-head").click();
+  await expect(row.locator(".ssh-run-note")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("g-routine-ssh-open.png") });
+});

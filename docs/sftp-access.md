@@ -230,7 +230,9 @@ An approval card appears in the chat and, for the paired Telegram chat, as a mes
 Every transfer leaves an activity row in the chat (see [agents](agents.md#work)). Rows
 of consecutive calls share one group ("SFTP activity", or "SSH activity" when SSH
 commands are mixed in). Its chip counts failed jobs ("1 failed") apart from stopped ones
-("1 stopped"), like the rows' own "Stopped". The Work tab keeps a one-line history per
+("1 stopped"), like the rows' own "Stopped". A routine's or a hook's transfers leave
+their rows in that run's **Events** entry instead (see
+[the event area](agents.md#the-event-area)). The Work tab keeps a one-line history per
 operation.
 
 Agents see list and stat results as untrusted data: file names are never instructions.

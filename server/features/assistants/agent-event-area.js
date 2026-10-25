@@ -1,5 +1,6 @@
 import { hookMarkers } from "./agent-hook-prompt.js";
 import { mainConversation } from "./routine-targets.js";
+import { routineRunNotes } from "./routine-run-notes.js";
 
 // The event area of an agent's main chat: what routines, check-ins and hooks did,
 // kept out of the transcript. Routine and check-in rows come from RoutineResults,
@@ -55,7 +56,7 @@ export function firstLine(text) {
   return chars.length <= lineLimit ? line : `${chars.slice(0, lineLimit - 1).join("")}…`;
 }
 
-function routineRow(r) {
+function routineRow(r, runNotes = []) {
   const ok = r.status === "ok";
   return {
     id: `routine:${r.id}`,
@@ -66,6 +67,8 @@ function routineRow(r) {
     firstLine: ok ? firstLine(r.text) : "",
     ...(ok && r.text ? { reply: r.text } : {}),
     ...(r.notes?.length ? { notes: r.notes } : {}),
+    // Its SSH runs, SFTP jobs and memory note, as the transcript showed them.
+    ...(runNotes.length ? { runNotes } : {}),
   };
 }
 
@@ -104,9 +107,16 @@ function isMain(service, conversation) {
  */
 export function eventArea(service, conversation) {
   if (!conversation || !isMain(service, conversation)) return [];
-  const results = (service.routines?.results.forConversation(conversation.id) || [])
-    .filter((r) => !r.kind || r.kind === "heartbeat")
-    .map(routineRow);
+  const all = (service.routines?.results.forConversation(conversation.id) || []).filter(
+    (r) => !r.kind || r.kind === "heartbeat",
+  );
+  const runNotes = routineRunNotes({
+    results: all,
+    actions: service.workflows?.store?.list(conversation.assistantId) || [],
+    memoryNotes: service.memoryNotes?.forConversation(conversation.id) || [],
+    conversationId: conversation.id,
+  });
+  const results = all.map((r) => routineRow(r, runNotes.get(r.id)));
   const hooks = service.routines?.hooks;
   const owners = typeof conversation.userId !== "string";
   const events =
