@@ -198,6 +198,18 @@ test("the evidence is validated and judged by the attempt's run", () => {
     [evidence({ completion: { runId: "w1", ids: null, at: 2000 } }), "PROCESSES"],
     [evidence({ processes: [] }), "PROCESS"],
     [evidence({ processes: [{ id: "brisk-orbit", runId: "x" }] }), "PROCESS"],
+    // A new process sharing its eight-character prefix with an earlier turn's ended
+    // one (OpenClaw's slugs are unique only among live processes).
+    [
+      evidence({
+        processes: [
+          { id: "oceanic-willow", runId: "earlier" },
+          { id: "oceanic-atlas", runId: "a1" },
+        ],
+        completion: { runId: "w1", ids: ["oceanic-"], at: 2000 },
+      }),
+      "PROCESS",
+    ],
     // One completion that batches an earlier turn's process with this turn's.
     [
       evidence({
