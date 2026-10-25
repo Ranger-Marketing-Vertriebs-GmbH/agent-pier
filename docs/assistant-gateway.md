@@ -1515,7 +1515,8 @@ was compacted and the plan was gone. Four rules close that gap:
   `sourceAttemptId`. `agentpier_workspace` follows the same rule for project-folder
   file actions only. Folder changes are audited the same way. `agentpier_share_file`
   follows the same rule with the share's own file checks (workspace or granted
-  folder, 25 MiB, link-safe open) and is audited as every share. Coding requests,
+  folder, 25 MiB, link-safe open); its `assistant.sent` event adds
+  `via: "exec-completion"` and `sourceAttemptId`. Coding requests,
   project memory, SSH, team tools, grants and routines are refused, and the
   command's output never proves an owner request.
   On 2026.10.7 `chat.history` also returns the completion's user entry, which
@@ -4525,8 +4526,9 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
 serves it in a turn with an active attempt, in a bound routine's run session (as
 for SSH) and in a proven completion run of a background command (see **Command
 completions**: the plugin sends the call's run and the Gateway's exec record, and the
-share acts as the turn that started the command, into its chat and, for a `telegram`
-turn, to that Telegram chat; AGENTPIER-237), never in a sender bot's session, and routes it to `AgentShares`
+share acts as the turn that started the command (the owner's own, a work-goal
+continuation or a lead's `member-result` follow-up), into its chat and, for a
+`telegram` turn whose chat is still paired, to that Telegram chat; AGENTPIER-237), never in a sender bot's session, and routes it to `AgentShares`
 (`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses. Its
 result tells the agent who sees the file now: the owner, or in a user's chat the
 person who asked, never the owner.
@@ -4535,8 +4537,8 @@ person who asked, never the owner.
   roots come from `shareRoots()` (`agent-share-source.js`): the agent's own
   workspace, which must not itself be a link. With `projectId` the root is a granted
   project folder instead (AGENTPIER-123): only in the turns that may use project
-  folders (`AssistantWorkflows.context`: the owner's own, a task member's team
-  turns, a lead's `member-result` follow-up on its own grants, the completion run of
+  folders (`AssistantWorkflows.context`: the owner's own, a work-goal continuation,
+  a task member's team turns, a lead's `member-result` follow-up on its own grants, the completion run of
   a command one of them started, never a routine), read access suffices
   (`AgentProjectFiles.shareRoot`), the path is first resolved with `projectTarget`
   (never `.git`, links out of the folder or AgentPier's data directory; links that

@@ -249,10 +249,10 @@ export class TeamBridge {
     );
   }
   // Native write/edit calls are permitted only while the current turn is the owner's
-  // own message, a lead's follow-up on its member's result (member-result-writes.js),
-  // a routine's run (routineWrite), a memory step's own memory (memory-write-policy.js)
-  // or the completion run of a command one of the first two started
-  // (exec-continuation.js); forwarded, other scheduled, internal and member turns
+  // own message (a work-goal continuation counts as one), a lead's follow-up on its
+  // member's result (member-result-writes.js), a routine's run (routineWrite), a
+  // memory step's own memory (memory-write-policy.js) or the completion run of a
+  // command one of the first two started (exec-continuation.js); forwarded, other scheduled, internal and member turns
   // never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (

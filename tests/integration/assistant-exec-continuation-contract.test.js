@@ -466,7 +466,14 @@ test(
     assert.equal(shareCall().bound, true, "the completion's share call is bound");
     assert.deepEqual(
       shares.filter((e) => e.action === "assistant.sent").map((e) => e.details),
-      [{ kind: "share", channel: "tool" }],
+      [
+        {
+          kind: "share",
+          channel: "tool",
+          via: "exec-completion",
+          sourceAttemptId: shareTurn.attempt.id,
+        },
+      ],
     );
 
     // 6. A blocked exec call leaves nothing open: the next completion is credited.
