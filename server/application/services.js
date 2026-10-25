@@ -3,6 +3,7 @@ import path from "node:path";
 import { ArtifactService } from "../features/artifacts/artifact-service.js";
 import { revokeSessionMcp } from "../features/mcp/session-capability.js";
 import { SecretStore } from "../features/secrets/secret-store.js";
+import { SessionSecrets } from "../features/secrets/session-secrets.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
@@ -116,7 +117,7 @@ export async function createServices(config) {
     accesses: sshAccesses,
     onProject: (binding) => sshManagement.registerProject(binding),
   });
-  let artifacts;
+  let artifacts, sessionSecrets;
   const sessions = new SessionManager({
     onRemoving: (session) => artifacts?.retireSession(session.id),
     dataDir: config.dataDir,
@@ -124,12 +125,23 @@ export async function createServices(config) {
       revokeSessionMcp(config.dataDir, session.id);
       await agentbus?.revoke(session.id);
       sshSessions.discard(session.id);
+      sessionSecrets?.discard(session.id);
       await sshIntegration.discard(session.id);
       await requests?.discard(session.id);
       if (session.memory?.enabled) await memoryIntegration.discard(session.id);
     },
   });
   await sessions.ready;
+  // Coding sessions' secrets files follow every secret change, coalesced, and are
+  // rewritten once at start.
+  sessionSecrets = new SessionSecrets({
+    dataDir: config.dataDir,
+    store: secrets,
+    sessions,
+  });
+  const refreshSessionSecrets = () => sessionSecrets.refresh().catch(() => {});
+  secrets.onChange(refreshSessionSecrets);
+  refreshSessionSecrets();
   const files = createFileServices({ config, sessions, mutationBarrier });
   const repositories = new RepositoryStore(config);
   // Each listed project's origin remote, read live from its folder.
@@ -334,6 +346,7 @@ export async function createServices(config) {
     dataDir: config.dataDir,
     memory,
     sshManagement,
+    secrets,
     artifacts,
     sessions,
     audit,
@@ -361,6 +374,7 @@ export async function createServices(config) {
     sshIntegration,
     sshManagement,
     secrets,
+    sessionSecrets,
     operationalWarnings,
     onError,
     requests,

@@ -1,5 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { SecretStore } from "../../server/features/secrets/secret-store.js";
+import { SessionSecrets } from "../../server/features/secrets/session-secrets.js";
+import { SECRETS_FILE_ENV } from "../../server/features/secrets/secrets-hint.js";
 import { createReloadLifecycle } from "../../server/application/session-reload-lifecycle.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
@@ -331,4 +337,31 @@ test("a reload reuses the permission arguments stored at launch, once", async ()
     legacy.launch.args.some((arg) => arg.startsWith("approval_policy=")),
     false,
   );
+});
+
+test("a reloaded session keeps its secrets file, variable and grant", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "reload-secrets-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new SecretStore({ dataDir });
+  t.after(() => store.close());
+  const kept = store.create({ name: "KEPT", value: "kept-value" }, { kind: "owner" });
+  const gone = store.create({ name: "GONE", value: "gone-value" }, { kind: "owner" });
+  const f = fixture();
+  f.session.secrets = { projectId: "P", assignedIds: [kept.id, gone.id] };
+  store.remove(gone.id, { kind: "owner" });
+  f.services.sessionSecrets = new SessionSecrets({ dataDir, store, sessions: {} });
+  let final;
+  f.services.nonoSandbox.prepare = async ({ launch }) => (final = launch);
+  const plan = await f.prepareReload(f.session, "native-exact");
+  await f.restartReload(f.session, plan);
+  const file = f.services.sessionSecrets.file("session");
+  assert.equal(final.env[SECRETS_FILE_ENV], file);
+  // The project comes from the reloaded launch (here: its folder), not the record.
+  assert.deepEqual(final.secrets.assignedIds, [kept.id]);
+  assert.equal(typeof final.secrets.projectId, "string");
+  assert.ok(
+    final.sandboxGrants.some((g) => g.access === "read" && g.path === path.dirname(file)),
+  );
+  assert.equal(fs.readFileSync(file, "utf8").includes("KEPT='kept-value'"), true);
+  assert.equal(JSON.stringify(final).includes("kept-value"), false);
 });

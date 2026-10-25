@@ -8,5 +8,7 @@ export const secrets = Object.freeze({
   invalidBody: "Invalid request. Only name, description, project and value are allowed.",
   nameTaken: "A secret with this name already exists.",
   limit: "At most 200 secrets are possible.",
+  invalidSessionSelection:
+    "Invalid secret selection. A session can receive at most 50 different secrets.",
   notFound: "Secret not found.",
 });

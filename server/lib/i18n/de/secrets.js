@@ -9,5 +9,7 @@ export const secrets = Object.freeze({
     "Ungültige Anfrage. Erlaubt sind nur Name, Beschreibung, Projekt und Wert.",
   nameTaken: "Ein Geheimnis mit diesem Namen existiert bereits.",
   limit: "Es sind höchstens 200 Geheimnisse möglich.",
+  invalidSessionSelection:
+    "Ungültige Geheimnisauswahl. Eine Session kann höchstens 50 verschiedene Geheimnisse erhalten.",
   notFound: "Geheimnis nicht gefunden.",
 });

@@ -1340,6 +1340,7 @@
   "secrets.invalidDescription": "de:0cb46948b36c en:906bb71b02fc",
   "secrets.invalidName": "de:d4d121ad6aec en:9360d75ecd26",
   "secrets.invalidProject": "de:fb8f3e4a1e79 en:ab3aa18bd12d",
+  "secrets.invalidSessionSelection": "de:111e4c4b768a en:ec8d5ebabb3b",
   "secrets.invalidValue": "de:b6013884ec00 en:5c4e6aa8f077",
   "secrets.limit": "de:06d82d423ebb en:91e418e8bdf0",
   "secrets.nameTaken": "de:f2786771753d en:9d114d54949d",

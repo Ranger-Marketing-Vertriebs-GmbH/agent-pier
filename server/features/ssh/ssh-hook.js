@@ -1,4 +1,5 @@
 import { isMainModule } from "../../lib/is-main-module.js";
+import { SECRETS_FILE_ENV, secretsHint } from "../secrets/secrets-hint.js";
 
 // Set at launch when the session can reach an SFTP host (ssh-integration.js).
 export const SFTP_HINT_ENV = "AGENTPIER_SSH_SFTP";
@@ -22,9 +23,12 @@ function sftpReminder(prefix) {
 // Discovery only: authorization and all ssh access belong to the broker.
 export function sshReminder(
   prefix = "",
-  { sftp = process.env[SFTP_HINT_ENV] === "1" } = {},
+  {
+    sftp = process.env[SFTP_HINT_ENV] === "1",
+    secretsFile = process.env[SECRETS_FILE_ENV],
+  } = {},
 ) {
-  return `Project SSH tools are available, including projects with no saved hosts. Discover keys with ${prefix}ssh_list_keys and hosts with ${prefix}ssh_list_hosts. Generate a managed key or import an existing local key by sourcePath; retrieve its public key. Bootstrap only through existing authorized SSH access or a provider workflow, preserving existing authorized keys and selecting the intended remote user. Verify host identity through an independent trusted source before ssh_register_host, then ssh_test_host. A scan is unverified; ask for a trusted fingerprint when none is available. Reuse request IDs after uncertain outcomes. Share only public metadata in chat; private-key download is available in the AgentPier UI. Do not automatically provision or connect.${sftp ? sftpReminder(prefix) : ""}`;
+  return `Project SSH tools are available, including projects with no saved hosts. Discover keys with ${prefix}ssh_list_keys and hosts with ${prefix}ssh_list_hosts. Generate a managed key or import an existing local key by sourcePath; retrieve its public key. Bootstrap only through existing authorized SSH access or a provider workflow, preserving existing authorized keys and selecting the intended remote user. Verify host identity through an independent trusted source before ssh_register_host, then ssh_test_host. A scan is unverified; ask for a trusted fingerprint when none is available. Reuse request IDs after uncertain outcomes. Share only public metadata in chat; private-key download is available in the AgentPier UI. Do not automatically provision or connect.${sftp ? sftpReminder(prefix) : ""}${secretsHint(secretsFile)}`;
 }
 
 function emitReminder() {
