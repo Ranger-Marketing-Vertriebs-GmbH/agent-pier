@@ -5,6 +5,7 @@ import {
   effectiveRights,
   hookDefaults,
   hookEligible,
+  keptRightsInput,
   rightsInput,
   shellChoices,
 } from "./agent-hook-rights.js";
@@ -125,7 +126,7 @@ export class AgentHooks {
     };
   }
   /** Checked values of the submitted fields (all of them on create). */
-  fields(input, keys, agent, create) {
+  fields(input, keys, agent, create, stored) {
     exact(input, keys);
     const values = {};
     if (create || "name" in input) values.name = textValue(input.name, 100);
@@ -133,7 +134,9 @@ export class AgentHooks {
     if (create || "instruction" in input)
       values.instruction = textValue(input.instruction ?? "", 4096, true);
     if (create || "rights" in input)
-      values.rights = rightsInput(input.rights ?? {}, this.ceiling(agent));
+      values.rights = stored
+        ? keptRightsInput(input.rights, this.ceiling(agent), stored.rights)
+        : rightsInput(input.rights ?? {}, this.ceiling(agent));
     if (create || "hourlyLimit" in input)
       values.hourlyLimit = hourlyLimit(input.hourlyLimit ?? defaultHourlyLimit);
     if ("enabled" in input) {
@@ -168,7 +171,7 @@ export class AgentHooks {
     const agent = this.eligible(assistantId);
     const before = this.owned(assistantId, hookId);
     if (!Number.isSafeInteger(input?.revision)) throw assistantProblem("invalid");
-    const values = this.fields(input, updateKeys, agent, false);
+    const values = this.fields(input, updateKeys, agent, false, before);
     const hook = this.store.patch(hookId, values, input.revision);
     let change = "update";
     if (before.enabled !== hook.enabled) change = hook.enabled ? "enable" : "pause";

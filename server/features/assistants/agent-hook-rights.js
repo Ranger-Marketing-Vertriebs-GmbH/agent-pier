@@ -89,6 +89,30 @@ export function rightsInput(input, ceiling) {
   return rights;
 }
 
+/**
+ * The rights of an edited hook: what it already holds stays accepted even after the
+ * agent lost it (runs are capped live by effectiveRights); only a raise above the
+ * live ceiling is refused.
+ */
+export function keptRightsInput(input, ceiling, stored) {
+  const folders = { ...ceiling.folders };
+  for (const [project, level] of Object.entries(stored.folders))
+    if (folderLevels.indexOf(level) > folderLevels.indexOf(folders[project]))
+      folders[project] = level;
+  const widened = {
+    ...ceiling,
+    sshHosts: [...new Set([...ceiling.sshHosts, ...stored.sshHosts])],
+    folders,
+  };
+  for (const key of tickKeys) widened[key] = ceiling[key] === true || stored[key];
+  // The shell has no ordering a ceiling could widen: an unchanged level is kept.
+  const keepShell = plain(input) && "shell" in input && input.shell === stored.shell;
+  const { shell, ...rest } = keepShell ? input : {};
+  const rights = rightsInput(keepShell ? rest : input, widened);
+  if (keepShell) rights.shell = shell;
+  return rights;
+}
+
 function effectiveShell(saved, level) {
   if (saved === level) return saved;
   // Stored "full" on an agent now at "approval" runs with approval; stored

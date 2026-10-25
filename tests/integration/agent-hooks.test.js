@@ -203,6 +203,96 @@ test("a stale revision conflicts and a rights increase above the ceiling is refu
   assert.equal(f.hooks.store.get(hook.id).revision, updated.revision);
 });
 
+test("an unchanged stored right survives a lowered ceiling on update", async (t) => {
+  const f = hookFixture(t);
+  f.grants.access = {
+    projectIds: ["p1"],
+    sshAccesses: [
+      { accessId: "h1", mode: "routines" },
+      { accessId: "h2", mode: "routines" },
+    ],
+  };
+  f.grants.hosts = [{ id: "h1" }, { id: "h2" }];
+  f.grants.folders = { p1: "write", p2: "read" };
+  const rights = {
+    telegram: true,
+    coding: true,
+    sshHosts: ["h1"],
+    folders: { p1: "write" },
+  };
+  const { hook } = await f.hooks.create(f.id, { ...base, rights });
+  // The agent loses every right the hook holds.
+  f.service.store.disconnect(f.channel.id, f.channel.revision);
+  f.grants.access = {
+    projectIds: [],
+    sshAccesses: [{ accessId: "h2", mode: "routines" }],
+  };
+  f.grants.folders = { p1: "read", p2: "read" };
+  const updated = await f.hooks.update(f.id, hook.id, {
+    revision: hook.revision,
+    name: "Zabbix prod",
+    rights,
+  });
+  assert.equal(updated.rights.coding, true);
+  assert.deepEqual(updated.rights.sshHosts, ["h1"]);
+  assert.deepEqual(updated.rights.folders, { p1: "write" });
+  assert.equal(updated.rights.telegram, true);
+  // Nothing above the live rights runs.
+  assert.equal(updated.effective.coding, false);
+  assert.equal(updated.effective.telegram, false);
+  assert.deepEqual(updated.effective.sshHosts, []);
+  assert.deepEqual(updated.effective.folders, { p1: "read" });
+  // A raise above the live ceiling is still refused, also beside kept rights.
+  for (const raise of [
+    { memory: true },
+    { sshHosts: ["h1", "h3"] },
+    { folders: { p1: "write", p2: "write" } },
+    { shell: "full" },
+  ])
+    assert.throws(
+      () =>
+        f.hooks.update(f.id, hook.id, {
+          revision: updated.revision,
+          rights: { ...rights, ...raise },
+        }),
+      { status: 400, key: "hookRightExceeds" },
+      JSON.stringify(raise),
+    );
+  // Dropping a kept right is final: it cannot be raised again without the agent.
+  const lowered = await f.hooks.update(f.id, hook.id, {
+    revision: updated.revision,
+    rights: { ...rights, coding: false },
+  });
+  assert.throws(
+    () => f.hooks.update(f.id, hook.id, { revision: lowered.revision, rights }),
+    { status: 400, key: "hookRightExceeds" },
+  );
+});
+
+test("an unchanged stored shell level survives an agent shell change", async (t) => {
+  const f = hookFixture(t);
+  const { hook } = await f.hooks.create(f.id, base);
+  // Stored as if saved while the agent ran with approval.
+  f.hooks.store.patch(hook.id, {
+    rights: { ...f.hooks.store.get(hook.id).rights, shell: "approval" },
+  });
+  const stored = f.hooks.store.get(hook.id);
+  const updated = await f.hooks.update(f.id, hook.id, {
+    revision: stored.revision,
+    rights: { shell: "approval" },
+  });
+  assert.equal(updated.rights.shell, "approval");
+  assert.equal(updated.effective.shell, "off");
+  assert.throws(
+    () =>
+      f.hooks.update(f.id, hook.id, {
+        revision: updated.revision,
+        rights: { shell: "full" },
+      }),
+    { status: 400, key: "hookRightExceeds" },
+  );
+});
+
 test("pausing and enabling a hook are audited as such", async (t) => {
   const f = hookFixture(t);
   const { hook } = await f.hooks.create(f.id, base);
