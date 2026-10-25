@@ -12,6 +12,7 @@ import {
   ExecApprovals,
   execOperationKey,
 } from "../../server/features/assistants/exec-approvals.js";
+import { decideExec } from "../../server/features/assistants/exec-decisions.js";
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -144,6 +145,36 @@ test("a request becomes an action awaiting approval in the session's conversatio
   assert.deepEqual(f.logged, []);
   // An owner origin has no Telegram target.
   assert.equal(f.queued.length, 0);
+});
+
+test("a hook run's request offers no Always allow, also not on the server", async (t) => {
+  const f = fixture(t);
+  // attribute() marks a hook run's request once-only (agent-hooks runOrigin).
+  const telegram = { kind: "telegram", channelId: "c", chatId: "1", userId: "2" };
+  const attribute = f.exec.attribute.bind(f.exec);
+  f.exec.attribute = (request) => ({
+    ...attribute(request),
+    origin: telegram,
+    onceOnly: true,
+  });
+  f.client.emit("exec.approval.requested", request(f.agent));
+  await settle();
+  const [action] = f.w.store.list();
+  assert.equal(action.state, "awaiting_approval");
+  assert.equal(action.payload.onceOnly, true);
+  assert.equal("onceOnly" in action, false);
+  // The Telegram card offers Allow once and Deny only (the web card reads the same
+  // payload flag, ExecApprovalCard.jsx).
+  const [notice] = f.queued;
+  assert.deepEqual(
+    notice.actions.map((a) => a.decision),
+    ["allow-once", "deny"],
+  );
+  await assert.rejects(decideExec(f.w, action, "allow-always"), { status: 400 });
+  assert.equal(
+    f.client.calls.some((c) => c.method === "exec.approval.resolve"),
+    false,
+  );
 });
 
 test("withheld allow-always is recorded, and a Telegram run targets its chat", async (t) => {

@@ -263,10 +263,12 @@ test("a hook run's exec approval asks in the agent's main chat", async (t) => {
     "p1",
   );
   const request = (sessionKey) => ({ agentId: f.runtimeAgentId, sessionKey });
+  // A hook run's card never offers "Always allow" (R58).
   assert.deepEqual(approvals.attribute(request(plain.sessionKey)), {
     assistantId: f.id,
     conversationId: main.id,
     origin: { kind: "owner" },
+    onceOnly: true,
   });
   const hook = makeHook(f, {
     name: "Telegram",
@@ -282,6 +284,7 @@ test("a hook run's exec approval asks in the agent's main chat", async (t) => {
       chatId: f.channel.chatId,
       userId: f.channel.userId,
     },
+    onceOnly: true,
   });
   // The pairing gone: the live telegram right is gone, the approval asks in the web.
   f.service.store.disconnect(f.channel.id, f.service.store.get(f.channel.id).revision);

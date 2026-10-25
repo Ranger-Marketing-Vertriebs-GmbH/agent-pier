@@ -96,7 +96,8 @@ export class ExecApprovals {
       };
     }
     // A hook's run asks in the agent's main chat, and in its paired Telegram chat
-    // while the hook may also send there (Also send to Telegram).
+    // while the hook may also send there (Also send to Telegram). It offers no
+    // "Always allow": an event must not make a command permanent for owner turns.
     const hook = a.routines?.hooks?.runOrigin(assistant, sessionKey);
     if (hook) {
       const channel =
@@ -107,6 +108,7 @@ export class ExecApprovals {
         origin: channel
           ? { kind: "telegram", ...telegramTarget(channel) }
           : { kind: "owner" },
+        onceOnly: true,
       };
     }
     const conversation =
@@ -204,19 +206,20 @@ export class ExecApprovals {
     let action;
     try {
       if (store.byKey(key)) return;
-      const owner = this.attribute(p.request);
+      const { onceOnly = false, ...owner } = this.attribute(p.request);
       if (owner.reason) return this.deny(id, p.request, owner.reason);
       const expiresAt = Number.isSafeInteger(p.expiresAtMs)
         ? p.expiresAtMs
         : this.now() + defaultExpiryMs;
-      // A task member's request offers no "Always allow" (exec-decisions.js).
+      // A task member's or a hook run's request offers no "Always allow"
+      // (exec-decisions.js).
       const agent = this.w.a.store.getAssistant(owner.assistantId);
-      const member = temporaryMember(agent);
+      const once = onceOnly || temporaryMember(agent);
       action = store.reserve({
         ...owner,
         payload: {
           ...this.payload(id, p.request, expiresAt, agent),
-          ...(member ? { onceOnly: true } : {}),
+          ...(once ? { onceOnly: true } : {}),
         },
         key,
         state: "awaiting_approval",

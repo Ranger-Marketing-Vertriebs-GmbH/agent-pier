@@ -97,10 +97,12 @@ export async function decideExec(w, action, decision, log = (l) => console.warn(
   )
     throw assistantProblem("conflict", 409);
   // A task member never gets a lasting allowlist entry: its shell is its lead's,
-  // granted for one task, and "Always allow" would outlive it (and a promotion).
+  // granted for one task, and "Always allow" would outlive it (and a promotion). A
+  // card marked once-only (a hook run's) never allows always either.
   if (
     decision === "allow-always" &&
-    temporaryMember(w.a.store.getAssistant(action.assistantId))
+    (action.payload?.onceOnly === true ||
+      temporaryMember(w.a.store.getAssistant(action.assistantId)))
   )
     throw assistantProblem("invalid");
   const { approvalId } = action.payload;
