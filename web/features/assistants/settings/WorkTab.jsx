@@ -21,6 +21,7 @@ import { assistantWorkflowCopy as wf } from "../../../lib/i18n/messages/assistan
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
+import { assistantSecretsCopy as secretsCopy } from "../../../lib/i18n/messages/assistant-secrets.js";
 import useAssistants from "../useAssistants.js";
 import {
   agentRoute,
@@ -45,6 +46,7 @@ import ProjectGrantPage from "./ProjectGrantPage.jsx";
 import GithubGrantPage from "./GithubGrantPage.jsx";
 import { githubChoice } from "./agent-github-fields.js";
 import SshGrantPage from "./SshGrantPage.jsx";
+import SecretGrantPage from "./SecretGrantPage.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
 import LeadSharesGroup from "./LeadSharesGroup.jsx";
 import LockedNotice from "./LockedNotice.jsx";
@@ -56,6 +58,7 @@ const conflictLabels = {
   pipelineIds: () => wf.pipelines,
   sshAccesses: () => sshCopy.row,
   github: () => githubCopy.row,
+  secretIds: () => secretsCopy.row,
   memoryWrite: () => wf.memoryWrite,
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
@@ -67,13 +70,14 @@ const conflictLabels = {
 };
 
 // Work pages an agent of users never has (user-agent-lock.js).
-const lockedPages = ["ssh", "github", "pipelines"];
+const lockedPages = ["ssh", "github", "pipelines", "secrets"];
 
-// `sshHosts` is null when the SSH catalog could not be read (never "no hosts").
+// `sshHosts` and `secrets` are null when their catalog could not be read (never "none").
 const catalogOf = (list) => ({
   projects: list.projects || [],
   pipelines: list.pipelines || [],
   sshHosts: list.sshHosts ?? null,
+  secrets: list.secrets ?? null,
   // Token profiles and the managed MCP server (server agent-github.js).
   github: list.github ?? { profiles: [], server: null },
 });
@@ -201,6 +205,21 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
           grants={draft.values.sshAccesses}
           disabled={!policy || draft.saving}
           onChange={(next) => draft.set("sshAccesses", next)}
+          onRetry={retryCatalog}
+          onBack={back}
+          navigate={navigate}
+        />
+        {bar}
+      </>
+    );
+  if (page === "secrets")
+    return (
+      <>
+        <SecretGrantPage
+          secrets={catalog ? catalog.secrets : loadError ? null : undefined}
+          selected={draft.values.secretIds}
+          disabled={!policy || draft.saving}
+          onChange={(next) => draft.set("secretIds", next)}
           onRetry={retryCatalog}
           onBack={back}
           navigate={navigate}
@@ -356,6 +375,16 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
                 disabled={!catalog}
                 {...link("github")}
               />
+              <ListRow
+                label={secretsCopy.row}
+                value={(() => {
+                  if (!catalog?.secrets) return unknownValue;
+                  const count = grantCount(values.secretIds, catalog.secrets);
+                  return count ? secretsCopy.summary(count) : secretsCopy.none;
+                })()}
+                disabled={!catalog}
+                {...link("secrets")}
+              />
               {permissionKeys.map((key) => (
                 <ToggleRow
                   key={key}
@@ -374,7 +403,9 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
           />
         </ListCard>
         {userAgent && (
-          <LockedNotice items={["pipelines", "ssh", "github", "coding", "teams"]} />
+          <LockedNotice
+            items={["pipelines", "ssh", "github", "secrets", "coding", "teams"]}
+          />
         )}
       </section>
       {assistant.teamMemberId && assistant.lifetime === "permanent" && (

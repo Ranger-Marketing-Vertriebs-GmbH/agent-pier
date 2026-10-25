@@ -229,6 +229,8 @@ export async function fixture(page, { account, session } = {}) {
     if (path === "/api/pipeline-profiles")
       return route.fulfill({ json: { profiles: [] } });
     if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
+    // The new-session dialog lists secrets once some exist.
+    if (path === "/api/secrets") return route.fulfill({ json: { secrets: [] } });
     if (path === "/api/sandbox-profiles")
       return route.fulfill({ json: { available: false, profiles: [] } });
     if (path.startsWith("/api/provider-connections")) {

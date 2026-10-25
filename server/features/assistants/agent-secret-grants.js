@@ -13,6 +13,25 @@ function knownSecrets(services) {
     return null;
   }
 }
+/**
+ * The secrets the owner's Work tab offers: public fields with the owning project's
+ * name, never a value; null while the store is missing or unreadable.
+ */
+export function secretCatalog(services, projectNames) {
+  try {
+    const list = services.secrets?.list();
+    if (!list) return null;
+    return list.map(({ id, name, description, projectId }) => ({
+      id,
+      name,
+      description: description || "",
+      projectId: projectId ?? null,
+      projectName: (projectId && projectNames.get(projectId)) || null,
+    }));
+  } catch {
+    return null;
+  }
+}
 const storedList = (ids) => (Array.isArray(ids) ? ids : []);
 
 /**

@@ -91,6 +91,7 @@ export async function pipelinesFixture(page) {
         home: "/fixture",
       };
     else if (path === "/ssh-accesses") result = { accesses: [] };
+    else if (path === "/secrets") result = { secrets: [] };
     else if (path === "/sandbox-profiles") result = { available: false, profiles: [] };
     else if (path === "/provider-connections")
       result = { connections: state.connections };
