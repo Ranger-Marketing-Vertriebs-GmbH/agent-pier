@@ -4,6 +4,7 @@ import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
+import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
 import { assistantApi } from "../assistant-api.js";
 import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
@@ -11,9 +12,9 @@ import ConflictNotice from "./ConflictNotice.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 
 /**
- * The agent's two root notes (editable, saved against the loaded hash) and its own
- * notes under memory/ (read only), plus a search over all of them. `readOnly` (a
- * user's own agent under her opt-in) shows every note read only.
+ * The agent's two root notes (editable, saved against the loaded hash), its Dream
+ * Diary and its own notes under memory/ (read only), plus a search over all of them.
+ * `readOnly` (a user's own agent under her opt-in) shows every note read only.
  */
 export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
   const copy = assistantCopy.personal;
@@ -49,7 +50,10 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
       active = false;
     };
   }, [assistantId, name, reload]);
-  const readOnly = locked || Boolean(file?.readOnly);
+  const diaries = notes.filter((note) => note.diary);
+  const agentNotes = notes.filter((note) => !note.diary);
+  const diary = diaries.some((note) => note.name === name);
+  const readOnly = locked || diary || Boolean(file?.readOnly);
   const savable = Boolean(file) && !readOnly && Boolean(file.missing || file.hash);
   const draft = useTabDraft({ server: { content: file?.content ?? "" } });
   const steps = savable
@@ -110,9 +114,14 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           >
             <option value="MEMORY.md">{copy.facts}</option>
             <option value="USER.md">{copy.preferences}</option>
-            {notes.length > 0 && (
+            {diaries.map((note) => (
+              <option key={note.name} value={note.name}>
+                {dreamingCopy.diary}
+              </option>
+            ))}
+            {agentNotes.length > 0 && (
               <optgroup label={copy.agentNotes}>
-                {notes.map((note) => (
+                {agentNotes.map((note) => (
                   <option key={note.name} value={note.name}>
                     {note.name}
                   </option>
@@ -133,7 +142,11 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           />
         </label>
       </div>
-      {readOnly && !locked && <p className="assistant-note">{copy.agentNotesHint}</p>}
+      {diary ? (
+        <p className="assistant-note">{dreamingCopy.diaryHint}</p>
+      ) : (
+        readOnly && !locked && <p className="assistant-note">{copy.agentNotesHint}</p>
+      )}
       <div className="assistant-actions">
         {!readOnly && (
           <button
@@ -157,7 +170,7 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           {copy.reload}
         </button>
       </div>
-      {!locked && <p className="assistant-note">{copy.clearHint}</p>}
+      {!locked && !diary && <p className="assistant-note">{copy.clearHint}</p>}
       <form className="list-card agent-fields" onSubmit={search}>
         <label className="agent-field">
           {copy.searchMemory}

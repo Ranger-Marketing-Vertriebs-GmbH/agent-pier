@@ -162,6 +162,16 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (method === "GET" && /^\/api\/assistants\/[^/]+\/actions$/.test(path))
       return route.fulfill({ json: { actions: [] } });
+    if (method === "GET" && path === "/api/assistant-dreaming")
+      return route.fulfill({
+        json: {
+          revision: 1,
+          enabled: false,
+          hour: 3,
+          timeZone: "UTC",
+          withoutMemory: [],
+        },
+      });
     if (path === "/api/assistants")
       return route.fulfill({
         json: {

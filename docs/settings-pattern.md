@@ -109,7 +109,10 @@ const steps = [
   `draft.confirmation = { kind: "shell" | "fullShell" | "stdio" | "restart", flags, data, confirm(), cancel() }`.
   Render it in a `Sheet`; `confirm()` repeats the same step with the flags
   (`confirmShell`, `confirmFull`, `confirmStdio`, `confirmRestart`), `cancel()` stops
-  without an error. A step may map its own errors with `confirmation(error)`.
+  without an error. A step may map its own errors with `confirmation(error)`: the
+  dreaming step (`dreamingStep`) maps `ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED`
+  to `kind: "dreamingMemory"` (flag `confirmMemory`, `data.agents` lists the permanent
+  agents whose memory is switched on).
 - **Errors.** The chain stops at the first error. `draft.outcome` holds the error, the
   failed step and `partial` (labels of saved steps); the bar shows "Partially saved: …"
   and the tab stays dirty. A confirmation cancelled after an earlier step saved also
