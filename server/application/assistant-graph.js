@@ -20,6 +20,7 @@ import { WebSearchSettings } from "../features/assistants/web-search-settings.js
 import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { DreamingSettings } from "../features/assistants/dreaming-settings.js";
 import { DreamingService } from "../features/assistants/dreaming-service.js";
+import { DreamingBackups } from "../features/assistants/dreaming-backups.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
@@ -244,13 +245,12 @@ export function constructAssistantGraph(host, created = {}) {
     dataDir,
     connections: providerConnections,
   }));
-  const assistantDreamingSettings = (created.dreaming = new DreamingSettings({
-    dataDir,
-  }));
+  const assistantDreamingSettings = new DreamingSettings({ dataDir });
   const assistantDreaming = (assistants.dreaming = new DreamingService({
-    settings: assistantDreamingSettings,
+    settings: (created.dreaming = assistantDreamingSettings),
     assistants,
   }));
+  assistantDreaming.backups = new DreamingBackups(assistantDreaming);
   const assistantPdfModel = (created.pdfModel = new PdfModelSettings({
     dataDir,
     models,

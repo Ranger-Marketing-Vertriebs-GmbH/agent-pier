@@ -1,9 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { deletedTranscripts } from "../../server/features/assistants/chat-removal.js";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import {
+  deletedTranscripts,
+  deleteNativeSession,
+} from "../../server/features/assistants/chat-removal.js";
+import { dreamingSection } from "../../server/features/assistants/openclaw-config/dreaming.js";
+import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
   changed,
@@ -296,5 +301,86 @@ test(
       [false, false],
       "a forgotten chat stays out of later runs",
     );
+  },
+);
+
+test(
+  "an hour change applies live during a turn, and a deleted chat leaves dreaming",
+  { skip: !installed, timeout: contractTimeout(420000) },
+  async (t) => {
+    const f = await nativeFixture(t);
+    const memory = { memory: true, reminders: false };
+    const orchid = await f.create("Orchid", memory, "orchid-model");
+    const fern = await f.create("Fern", memory, "fern-model");
+    const chat = await f.turn(orchid, "I water the orchids every Sunday DREAMORCHID.");
+    await f.turn(fern, "I water the ferns every Monday DREAMFERN.");
+    await f.dreaming(dreamingOn);
+    await f.job();
+
+    // The hour change as DreamingService applies it, while a turn waits on its model.
+    let slowSeen = false;
+    f.model.reply = (request) => {
+      if (JSON.stringify(request.messages).includes("DREAMSLOW")) {
+        slowSeen = true;
+        return { text: "Slow reply.", delayMs: 10000 };
+      }
+      return { text: "A useful assistant reply." };
+    };
+    const { child, client, generation } = f.runtime;
+    const runId = await f.send(await f.open(fern), "Think slowly DREAMSLOW.");
+    await f.until(() => slowSeen, 30000, "the slow turn's model call");
+    const next = { enabled: true, hour: 4, timeZone: "Europe/Berlin" };
+    await patchConfig(client, () => ({
+      patch: {
+        plugins: {
+          entries: { "memory-core": { config: { dreaming: dreamingSection(next) } } },
+        },
+      },
+      replacePaths: ["plugins.entries.memory-core.config.dreaming"],
+    }));
+    const moved = await f.until(
+      async () => {
+        const jobs = await f.dreamingJobs();
+        return jobs.length === 1 && jobs[0].schedule.expr === "0 4 * * *" && jobs[0];
+      },
+      30000,
+      "the job at the new hour",
+    );
+    const done = await f.wait(runId);
+    assert.equal(done.status, "ok", JSON.stringify(done));
+    assert.equal(f.runtime.child, child, "the Gateway process was not replaced");
+    assert.equal(f.runtime.client, client, "the Gateway connection was not replaced");
+    assert.equal(f.runtime.generation, generation);
+    assert.equal(client.ready, true);
+    t.diagnostic(`live hour change: pid=${child.pid} job=${JSON.stringify(moved)}`);
+
+    assert.equal((await f.forceRun(moved.id)).status, "ok");
+    await f.settle({ files: [f.diary(orchid), f.diary(fern)] });
+    assert.match(f.corpus(orchid), /DREAMORCHID/);
+    assert.match(f.corpus(fern), /DREAMFERN/);
+
+    // Deleted as AgentPier deletes a chat: the session, its archive, then dreaming.
+    const assistants = {
+      runtime: f.runtime,
+      store: f.store,
+      ledger: { forgetTexts() {} },
+    };
+    const conversation = f.store.saveConversation({
+      assistantId: orchid.id,
+      runtimeSessionKey: chat,
+    });
+    assert.equal(await deleteNativeSession(assistants, conversation), true);
+    assert.doesNotMatch(f.corpus(orchid), /DREAMORCHID/);
+    assert.match(f.corpus(fern), /DREAMFERN/, "another agent's corpus stays");
+    await f.turn(orchid, "Tomatoes need water daily DREAMORCHIDTWO.");
+    assert.equal((await f.forceRun(moved.id)).status, "ok");
+    await f.settle();
+    assert.match(f.corpus(orchid), /DREAMORCHIDTWO/);
+    assert.doesNotMatch(
+      f.corpus(orchid).replaceAll("DREAMORCHIDTWO", ""),
+      /DREAMORCHID/,
+      "the deleted chat stays out of later runs",
+    );
+    assert.match(f.corpus(fern), /DREAMFERN/);
   },
 );

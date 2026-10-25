@@ -23,6 +23,7 @@ import {
 const privateFiles = [
   "assistants/workspaces/home/MEMORY.md",
   "assistants/workspaces/home/attachments/photo.png",
+  "assistants/memory-backups/ap-home/MEMORY-20261025T015500000Z.md",
   "assistants/shares/home/20261017-101500-1a2b3c4d-report.pdf",
   "assistants/state/agents/home/sessions/s1.jsonl",
   "assistants/state/media/inbound/voice.ogg",

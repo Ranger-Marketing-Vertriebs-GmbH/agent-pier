@@ -83,7 +83,7 @@
     "tests/integration/assistant-mcp-oauth-contract.test.js": 224,
     "tests/integration/assistant-mcp-oauth-compiled-contract.test.js": 195,
     "tests/integration/assistant-heartbeat-contract.test.js": 28,
-    "tests/integration/assistant-dreaming-contract.test.js": 60,
+    "tests/integration/assistant-dreaming-contract.test.js": 110,
     "tests/integration/assistant-dreaming-scope-contract.test.js": 150,
     "tests/integration/assistant-telegram-senders-contract.test.js": 168,
     "tests/integration/assistant-telegram-senders-live-contract.test.js": 52,

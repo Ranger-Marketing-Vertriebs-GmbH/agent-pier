@@ -5,6 +5,7 @@ import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
 import { purgeTranscriptArchives } from "./transcript-archives.js";
+import { forgetDreamingSession } from "./dreaming-backups.js";
 
 /**
  * Archive, restore and delete of an agent chat (AGENTPIER-181). Archive state lives
@@ -124,8 +125,9 @@ export async function forgetChat(assistants, conversation) {
  * on the chat before the delete, so a retry after a delete whose answer was lost, or
  * after a restart, still finds the archive once the session is gone. The mark goes
  * once the session and its archives are; a history read that ran across the
- * deletion may have cached the chat again, so it is forgotten once more. Returns
- * whether the session is gone.
+ * deletion may have cached the chat again, so it is forgotten once more. Dreaming's
+ * copies are forgotten with the runtime's `memory forget`. Returns whether the
+ * session is gone.
  */
 export async function deleteNativeSession(assistants, conversation) {
   const client = assistants.runtime.client;
@@ -164,6 +166,12 @@ export async function deleteNativeSession(assistants, conversation) {
       if (deletedTranscripts(state, agent.runtimeAgentId, sessionId).length) return false;
     }
   }
+  // Dreaming's copies of the chat go too, dreaming on or off: earlier nights may have
+  // read it. A failure is logged without content and leaves the deletion standing.
+  if (sessionId && agent)
+    await forgetDreamingSession(assistants, agent, sessionId).catch(() =>
+      console.warn("AgentPier could not remove a deleted chat from dreaming."),
+    );
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
   return true;
