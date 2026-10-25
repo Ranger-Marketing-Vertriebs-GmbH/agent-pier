@@ -99,7 +99,7 @@ async function routeAll(page) {
         status: 409,
         json: { error: "The agent is working or a command runs in its workspace." },
       });
-    return route.fulfill({ json: { removed: 20, bytes: 2 * GB, skipped: 0 } });
+    return route.fulfill({ json: { removed: 3, bytes: 0.5 * GB, skipped: 2 } });
   });
   return calls;
 }
@@ -191,6 +191,11 @@ test.describe("in English", () => {
     if (shots) await page.screenshot({ path: `${shots}/transcripts-confirm.png` });
     await confirm.getByRole("button", { name: en.cleanup.transcripts.confirm }).click();
     await expect(confirm).toHaveCount(0);
+    await expect(
+      dialog.getByText(
+        "Deleted. 512 MB freed. 2 entries stayed: they changed meanwhile or are in use.",
+      ),
+    ).toBeVisible();
     expect(calls.deleted).toEqual([
       {
         method: "POST",

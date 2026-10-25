@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { applicationFixture } from "../helpers/application.js";
+import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { signedInUser } from "../helpers/users.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -16,7 +16,10 @@ function write(file, days = 0) {
 }
 
 test("cleanup routes list, delete, audit without paths and stay owner-only", async (t) => {
-  const f = await applicationFixture(t, { storageCleanup: { cwds: async () => [] } });
+  const f = await applicationFixture(t, {
+    ...enabledAssistants,
+    storageCleanup: { cwds: async () => [] },
+  });
   const account = f.application.accounts.create({ name: "Work", tool: "claude" });
   const project = path.join(f.dataDir, "profiles", account.id, "claude", "projects", "p");
   const old = randomUUID();
@@ -87,8 +90,13 @@ test("cleanup routes list, delete, audit without paths and stay owner-only", asy
 
   const audit = await json("/api/audit?action=storage.deleted");
   const events = audit.body.events;
-  assert.equal(events.length, 3);
-  const areas = Object.fromEntries(events.map((e) => [e.details.area, e]));
+  assert.equal(events.length, 4);
+  // The refused age is audited too: its area and code, nothing else.
+  const refusal = events.find((e) => e.outcome === "failure");
+  assert.deepEqual(refusal.details, { area: "transcripts", code: "invalidAge" });
+  const areas = Object.fromEntries(
+    events.filter((e) => e.outcome === "success").map((e) => [e.details.area, e]),
+  );
   assert.equal(areas.transcripts.resourceId, account.id);
   assert.equal(areas.transcripts.details.olderThanDays, 90);
   assert.equal(areas.transcripts.details.removed, 1);

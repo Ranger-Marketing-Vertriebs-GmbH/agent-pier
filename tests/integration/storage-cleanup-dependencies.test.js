@@ -10,7 +10,11 @@ import {
 } from "../../server/features/system-status/cleanup-dependencies.js";
 import { removeEntry } from "../../server/features/system-status/safe-tree.js";
 import { anyInside } from "../../server/features/system-status/workspace-processes.js";
-import { agentWorking } from "../../server/features/system-status/storage-cleanup.js";
+import {
+  agentWorking,
+  StorageCleanup,
+} from "../../server/features/system-status/storage-cleanup.js";
+import { sweepDependencies } from "../../server/features/system-status/cleanup-dependencies.js";
 
 function temporary(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-deps-")));
@@ -110,9 +114,8 @@ test("a folder swapped for a link is never deleted through", async (t) => {
   const parent = path.join(agent, "tools");
   fs.renameSync(path.join(parent, "deep"), path.join(parent, "moved"));
   fs.symlinkSync(outside, path.join(parent, "deep"));
-  await assert.rejects(removeEntry(path.join(parent, "deep"), "node_modules"), {
-    code: "ELOOP",
-  });
+  // The linked folder holds nothing of the workspace: nothing is deleted through it.
+  assert.equal(await removeEntry(path.join(parent, "deep"), "node_modules"), false);
   assert.ok(fs.existsSync(path.join(outside, "node_modules", "pkg", "index.js")));
   // An entry refused by its check stays.
   assert.equal(await removeEntry(parent, "moved", () => false), false);
@@ -153,4 +156,76 @@ test("an agent with a pending turn, team task or running action counts as workin
   assert.equal(agentWorking(action, "agent-1"), true);
   const broken = services({ longChats: { runningFor: () => assert.fail("x") } });
   assert.equal(agentWorking(broken, "agent-1"), true, "doubt counts as working");
+});
+
+test("each folder is set aside atomically and a busy agent stops the rest", async (t) => {
+  const { dataDir, agent } = workspace(t);
+  let checks = 0;
+  const result = await deleteDependencies(dataDir, "agent-1", {
+    busy: async () => ++checks > 1,
+    cwds: async () => [],
+  });
+  assert.equal(result.removed, 1);
+  assert.equal(result.skipped, 1, "the agent started working before the second");
+  const left = (await dependencyFolders(agent)).length;
+  assert.equal(left, 1);
+  const names = fs
+    .readdirSync(path.join(agent, "app"))
+    .concat(fs.readdirSync(path.join(agent, "tools", "deep")));
+  assert.ok(!names.some((name) => name.startsWith(".node_modules-deleting-")));
+});
+
+test("the startup sweep finishes deletions a restart interrupted", async (t) => {
+  const { dataDir, agent, outside } = workspace(t);
+  const aside = path.join(agent, "app", ".node_modules-deleting-0123456789abcdef");
+  fs.renameSync(path.join(agent, "app", "node_modules"), aside);
+  fs.symlinkSync(outside, path.join(agent, ".node_modules-deleting-link"));
+  await sweepDependencies(dataDir);
+  assert.equal(fs.existsSync(aside), false);
+  assert.ok(
+    fs.lstatSync(path.join(agent, ".node_modules-deleting-link")).isSymbolicLink(),
+  );
+  assert.ok(fs.existsSync(path.join(outside, "keep.txt")));
+  assert.ok(fs.existsSync(path.join(agent, "tools", "deep", "node_modules")));
+});
+
+test("the owner never sees or changes the dependencies of a user's agent", async (t) => {
+  const { dataDir, agent } = workspace(t);
+  const events = [];
+  const agents = {
+    "agent-1": { id: "agent-1", name: "Anna's agent", userAccess: { mode: "own" } },
+  };
+  const services = {
+    assistants: {
+      store: {
+        getAssistant: (id) => {
+          if (agents[id]) return agents[id];
+          throw Object.assign(Error("gone"), { status: 404 });
+        },
+      },
+    },
+  };
+  const cleanup = new StorageCleanup({
+    dataDir,
+    services,
+    audit: { append: (event) => events.push(event) },
+    cwds: async () => [],
+  });
+  assert.deepEqual((await cleanup.dependencies()).agents, []);
+  await assert.rejects(cleanup.deleteDependencies("agent-1"), { status: 404 });
+  assert.ok(fs.existsSync(path.join(agent, "app", "node_modules")));
+  assert.deepEqual(
+    events.map((e) => [e.outcome, e.resourceId, e.details.area, e.details.code]),
+    [["failure", "agent-1", "dependencies", "notFound"]],
+  );
+  // Agents off: whose workspace it is cannot be told, so none is offered.
+  const off = new StorageCleanup({ dataDir, services: {}, cwds: async () => [] });
+  assert.deepEqual((await off.dependencies()).agents, []);
+  // A removed agent's leftover workspace is the owner's to clean.
+  delete agents["agent-1"];
+  const listed = (await cleanup.dependencies()).agents;
+  assert.deepEqual(
+    listed.map((a) => [a.id, a.name]),
+    [["agent-1", ""]],
+  );
 });

@@ -66,7 +66,9 @@ when you open it with **Clean up …**, never with the five-second refresh. Ever
 deletion asks first in a confirmation that names what goes away and how much space it
 frees; only the owner can run it, one cleanup at a time, and the **Activity log**
 records it as `storage.deleted` with the area, the number of entries removed or skipped
-and the bytes freed, never a path, a name or any content.
+and the bytes freed, never a path, a name or any content. A refused or failed cleanup
+is recorded as well, with its area and the refusal's code. The result names how much
+was freed and how many entries stayed because they changed meanwhile or were in use.
 
 | Cleanup                          | What it lists                                                                                | What may go                                                                                                                                            |
 | -------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -85,7 +87,8 @@ of its provider choices (`profiles/<id>/<tool>` and
 
 - Claude Code: `projects/<folder>/<session id>.jsonl`, together with the session's
   folder beside it (subagent transcripts and tool results). The prompt history
-  (`history.jsonl`) and every other file stay.
+  (`history.jsonl`), the project's `memory/` folder, `file-history/`, `todos/`,
+  `session-env/` and every other file stay.
 - Codex: `sessions/YYYY/MM/DD/rollout-*.jsonl` and `archived_sessions/rollout-*.jsonl`.
   Codex also indexes its threads in its own SQLite databases (`state_*.sqlite`,
   `thread_history_*.sqlite`), whose layout changes with Codex releases; AgentPier never
@@ -97,7 +100,8 @@ A transcript goes only when it and its session folder were last changed before t
 chosen age and no stored AgentPier session, chat binding, native-session record, pipeline run or
 AgentBus record names its id. Sessions in the **Sessions** list, running or stopped,
 therefore keep theirs and can be resumed; a running session's transcript is also
-always newer than the cutoff. If one of those records cannot be read, nothing is
+always newer than the cutoff. The records are read again for each profile and every
+few seconds during a deletion. If one of those records cannot be read, nothing is
 deleted. Each file is checked again just before it goes. A deleted session can no
 longer be resumed, and its history is gone.
 
@@ -108,7 +112,13 @@ turn in flight, a team task, a long-chat summary or an approved action running, 
 while any process of your user has its working folder inside the workspace (a
 background command, a dev server). Each entry is looked at and removed in its parent
 folder as opened, never through a link (`project-open.js`), so a folder swapped for a
-link cannot redirect the deletion. The agent installs its dependencies again when a
+link cannot redirect the deletion. Each folder is first renamed in its parent to
+`.node_modules-deleting-<random>` in one step, so the agent never finds a half-deleted
+`node_modules`, and is then deleted; the checks above run again before each folder,
+and a folder found busy stays. A deletion a restart interrupted is finished when
+AgentPier starts. Agents that serve restricted [users](users.md) are not listed and
+their workspaces are refused like their chats; with agents turned off no workspace is
+offered, because whose it is cannot be told. The agent installs its dependencies again when a
 project needs them.
 
 Host backups (`operations/backups`) are deleted under **Settings › Operations ›

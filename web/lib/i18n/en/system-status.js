@@ -71,6 +71,11 @@ export const systemStatusCopy = {
     measuring: "Measuring what can be deleted …",
     atLeast: (size) => `at least ${size}`,
     freed: (size) => `Deleted. ${size} freed.`,
+    none: "Nothing was deleted.",
+    skipped: (count) =>
+      count === 1
+        ? "1 entry stayed: it changed meanwhile or is in use."
+        : `${count} entries stayed: they changed meanwhile or are in use.`,
     snapshots: {
       title: "Update backups",
       sub: "The agents' state and runtime from before each runtime update",

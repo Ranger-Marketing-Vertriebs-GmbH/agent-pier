@@ -201,3 +201,39 @@ test("links are never followed and unreadable records refuse the cleanup", async
     { status: 409 },
   );
 });
+
+test("AgentBus records, memory folders and other Claude data are protected", async (t) => {
+  const { dataDir, account, project, home } = claudeFixture(t);
+  const peer = randomUUID();
+  write(path.join(project, `${peer}.jsonl`), { days: 400 });
+  write(path.join(dataDir, "agentbus", "projects", "p1", "peers", "k.json"), {
+    text: JSON.stringify({ providerSessionId: peer }),
+  });
+  const kept = [
+    path.join(project, "memory", "MEMORY.md"),
+    path.join(home, "file-history", randomUUID(), "a.txt"),
+    path.join(home, "todos", `${randomUUID()}-agent.json`),
+    path.join(home, "session-env", randomUUID(), "env"),
+    path.join(dataDir, "memory", "project.sqlite"),
+  ];
+  for (const file of kept) write(file, { days: 400 });
+  await deleteTranscripts(dataDir, account, 30, { now });
+  assert.ok(fs.existsSync(path.join(project, `${peer}.jsonl`)), "an AgentBus peer stays");
+  for (const file of kept) assert.ok(fs.existsSync(file), `${file} stays`);
+});
+
+test("a linked projects or sessions folder is skipped, not an error", async (t) => {
+  const root = temporary(t);
+  const dataDir = path.join(root, "data");
+  const outside = path.join(root, "outside");
+  const victim = write(path.join(outside, "p", `${randomUUID()}.jsonl`), { days: 400 });
+  for (const tool of ["claude", "codex"]) {
+    const account = { id: randomUUID(), tool, kind: "managed" };
+    const home = path.join(dataDir, "profiles", account.id, tool);
+    fs.mkdirSync(home, { recursive: true });
+    fs.symlinkSync(outside, path.join(home, tool === "claude" ? "projects" : "sessions"));
+    const result = await deleteTranscripts(dataDir, account, 30, { now });
+    assert.equal(result.removed, 0);
+  }
+  assert.ok(fs.existsSync(victim));
+});

@@ -44,7 +44,12 @@ export function useCleanup(path) {
       onConfirm={async () => {
         const result = await api(pending.path, pending.method, pending.payload);
         setPending(null);
-        setFreed(Number.isFinite(result?.bytes) ? result.bytes : 0);
+        const count = (value) => (Number.isSafeInteger(value) && value > 0 ? value : 0);
+        setFreed({
+          removed: count(result?.removed),
+          skipped: count(result?.skipped),
+          bytes: Number.isFinite(result?.bytes) ? result.bytes : 0,
+        });
         await load();
       }}
     >
@@ -61,7 +66,14 @@ export function useCleanup(path) {
       <ErrorMessage error={state.error?.message} />
       {freed !== null && (
         <p className="hint" role="status">
-          {copy.cleanup.freed(statusBytes(freed))}
+          {[
+            freed.removed
+              ? copy.cleanup.freed(statusBytes(freed.bytes))
+              : copy.cleanup.none,
+            freed.skipped ? copy.cleanup.skipped(freed.skipped) : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         </p>
       )}
       {dialog}
