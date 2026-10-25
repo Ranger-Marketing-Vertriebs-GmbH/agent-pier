@@ -144,3 +144,73 @@ test("the run's tool steps are kept as activity without arguments", async (t) =>
     false,
   );
 });
+
+test("a stale job the Gateway still runs is swept at most once a minute", async (t) => {
+  const f = hookFixture(t);
+  const hook = makeHook(f);
+  const timers = [];
+  f.hooks.runs.later = (run, ms) => {
+    timers.push({ run, ms });
+    return timers.length;
+  };
+  const now = f.hooks.events.now;
+  f.hooks.events.now = () => Date.now() - 20 * 60000;
+  await f.hooks.deliver(hook, body('{"id":"stuck"}'));
+  f.hooks.events.now = now;
+  const stuck = event(f, hook, "stuck");
+  f.jobs.get(stuck.jobId).state = { runningAtMs: Date.now() };
+  await f.hooks.runs.reconcile();
+  assert.equal(f.hooks.events.get(stuck.id).status, "running");
+  assert.equal(timers.at(-1).ms, 60000);
+});
+
+test("a hook deleted while its completion is read settles without a result or notice", async (t) => {
+  const f = hookFixture(t);
+  const hook = makeHook(f, { rights: { telegram: true } });
+  await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  const running = event(f, hook, "p1");
+  // settle() waits for the result text; the owner deletes the hook meanwhile.
+  const completing = f.hooks.runs.complete(running.id, done(running.jobId));
+  f.hooks.remove(f.id, hook.id);
+  await completing;
+  await settle();
+  const tomb = f.hooks.events.get(running.id);
+  assert.equal(tomb.status, "failed");
+  assert.equal(tomb.hookDeleted, true);
+  assert.equal(f.pushes.length, 0);
+  assert.equal(f.jobs.has(running.jobId), false);
+  const conversation = f.reminders.mainConversation(f.id);
+  assert.deepEqual(f.reminders.results.forConversation(conversation.id), []);
+});
+
+test("a hook paused between the endpoint and the start runs nothing", async (t) => {
+  const f = hookFixture(t);
+  const hook = makeHook(f);
+  // The endpoint read the hook enabled; the owner pauses it before the start.
+  f.hooks.update(f.id, hook.id, { revision: hook.revision, enabled: false });
+  const answer = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.equal(answer.status, 503);
+  assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 0);
+  assert.equal(event(f, hook, "p1"), null);
+});
+
+test("Gateway frames of other cron sessions or a deleted agent are ignored", async (t) => {
+  const f = hookFixture(t);
+  const hook = makeHook(f);
+  await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  const running = event(f, hook, "p1");
+  const frame = (sessionKey) => ({
+    runId: "r1",
+    sessionKey,
+    stream: "item",
+    data: { kind: "tool", itemId: "i1", name: "exec", phase: "start" },
+  });
+  f.hooks.runs.observe(frame(`agent:${f.runtimeAgentId}:cron:routine-job:run:r1`));
+  assert.deepEqual(f.hooks.runs.steps.list(), []);
+  f.store.getAssistant = () => {
+    throw Object.assign(new Error("gone"), { status: 404 });
+  };
+  const sessionKey = `agent:${f.runtimeAgentId}:cron:${running.jobId}:run:r1`;
+  assert.doesNotThrow(() => f.hooks.runs.observe(frame(sessionKey)));
+  assert.deepEqual(f.hooks.runs.steps.list(), []);
+});
