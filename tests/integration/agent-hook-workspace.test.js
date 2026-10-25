@@ -480,3 +480,43 @@ test("SFTP from a hook follows the same host choice and never deletes", async (t
     "SSH_NOT_GRANTED",
   );
 });
+
+test("a hook's console commands reach only its chosen interactive hosts", async (t) => {
+  const f = await sshSetup(t);
+  // Both SSH hosts are console-only switches behind the fake device.
+  const device = new URL("../fixtures/fake-network-device.mjs", import.meta.url);
+  const connection = f.catalog.connection.bind(f.catalog);
+  for (const id of [hostId, otherHostId]) f.catalog.rows.get(id).interactiveShell = true;
+  f.catalog.connection = (id) => ({
+    ...connection(id),
+    ...([hostId, otherHostId].includes(id)
+      ? { args: [device.pathname], interactive: true }
+      : {}),
+  });
+  const ran = await f.ssh({
+    action: "execute",
+    accessId: hostId,
+    command: "show version",
+  });
+  assert.equal(ran.status, "completed");
+  assert.equal(ran.interactive, true);
+  assert.match(ran.stdout, /FakeSwitch OS/);
+  // In mode routines but not chosen by the hook: refused before the console opens.
+  assert.equal(
+    await code(
+      f.ssh({ action: "execute", accessId: otherHostId, command: "show version" }),
+    ),
+    "SSH_NOT_GRANTED",
+  );
+  // Unticked mid-run: the next console command of the same run is refused too.
+  f.hooks.get(f.run.hook.id).rights.sshHosts = [sftpHostId];
+  assert.equal(
+    await code(f.ssh({ action: "execute", accessId: hostId, command: "show version" })),
+    "SSH_NOT_GRANTED",
+  );
+  const executed = f.audit.filter((e) => e.action === "ssh.executed");
+  assert.deepEqual(
+    executed.map((e) => [e.details.accessId, e.details.interactive]),
+    [[hostId, true]],
+  );
+});
