@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Verbindung Vollansicht</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0;background:#101114}
+a{color:#ffc99d}a:hover{color:#f49a58}
+.eb{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#92949d}
+.gl{display:flex;align-items:center;gap:8px;margin:22px 0 8px;padding:0 4px}
+.gl h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#92949d}
+.gla{margin-left:auto;border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:13px;color:#ffc99d;text-decoration:none}
+.lc{display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid #28292d;border-radius:12px;background:#232428}
+.lr{display:flex;align-items:center;gap:12px;min-height:50px;padding:0 12px 0 14px;background:#16171b;color:#e8e8ec;flex-wrap:wrap}
+.lt{display:grid;gap:2px;min-width:0;padding:11px 0;flex:1 1 180px}
+.ll{font-size:15px;line-height:1.4}
+.ls{font-size:12px;color:#92949d}
+.sw{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:38px;height:22px;margin:0;border-radius:11px;background:#3a3b3f;cursor:pointer}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#92949d}
+.sw:checked{background:#f49a58}.sw:checked::after{background:#242529;transform:translateX(16px)}
+.btn{height:43px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:7px;font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer;text-decoration:none}
+.bp{background:#f49a58;color:#242529}
+.bs{background:#202125;border-color:#323337;color:#dcdde1}
+.bd{background:transparent;border-color:#6b3a37;color:#f0a39d}
+.bsm{height:34px;padding:0 12px}
+.seg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;padding:4px;border:1px solid #404145;border-radius:7px;background:#141519}
+.seg span{display:flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:5px;color:#97989c;font-size:11px;font-weight:500;white-space:nowrap}
+.seg .on{background:#2c2d31;color:#ffc99d}
+.sel{height:36px;padding:0 10px;border-radius:7px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:13px}
+.inp{height:36px;padding:0 12px;border-radius:8px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:13px;box-sizing:border-box}
+.mono{font-family:ui-monospace,Menlo,monospace}
+.av{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:#1f2024;border:1px solid #323337;color:#cfd0d4;flex:none}
+.hint{font-size:12px;color:#92949d;line-height:1.5;margin:8px 4px 0}
+pre{margin:0;padding:10px 12px;border-radius:8px;background:#0b0c0e;border:1px solid #28292d;font:11px/1.55 ui-monospace,Menlo,monospace;color:#cfd0d4;white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+</helmet>
+<div style="min-height: 1240px; background: #101114; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif; display: flex; flex-wrap: wrap">
+<div style="flex: 0 1 280px; min-width: 0">
+<dc-import name="RSidebar" active="connections" menu-open="{{ false }}" hint-size="280px,1040px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+<div class="eb"><a href="RVerbindungen.dc.html" style="color: #92949d; text-decoration: none">Verbindungen</a> / SSH/SFTP / prod-db-01</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<div style="display: grid; gap: 4px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em">prod-db-01</h1>
+<span style="font-size: 13px; color: #f0a39d; display: flex; align-items: center; gap: 6px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #e5796b"></span>Test fehlgeschlagen · gestern 21:14</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="btn bs">Verbindung testen</button></div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; flex: 1">
+<section style="flex: 999 1 480px; min-width: 0; max-width: 760px; padding-bottom: 24px">
+<div class="gl" style="margin-top: 0"><h3>Verbindung</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Name</span></div><input class="inp" type="text" value="prod-db-01" aria-label="Name" style="width: 260px"></div>
+<div class="lr"><div class="lt"><span class="ll">Typ</span></div><div class="seg"><span class="on">SSH</span><span>SFTP</span></div></div>
+<div class="lr"><div class="lt"><span class="ll">Projekt</span><span class="ls">Global = für alle Projekte sichtbar</span></div><select class="sel" aria-label="Projekt"><option>Global</option><option>[api-server]</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">Host · Port</span></div><input class="inp mono" type="text" value="10.0.4.11" aria-label="Host" style="width: 180px"><input class="inp mono" type="text" value="22" aria-label="Port" style="width: 70px"></div>
+<div class="lr"><div class="lt"><span class="ll">Benutzer</span></div><input class="inp mono" type="text" value="deploy" aria-label="Benutzer" style="width: 260px"></div>
+<div class="lr"><div class="lt"><span class="ll">Entfernter Ordner</span><span class="ls">nur SFTP</span></div><input class="inp mono" type="text" placeholder="/srv/data" aria-label="Entfernter Ordner" style="width: 260px"></div>
+</div>
+<div class="gl"><h3>Anmeldung</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Art</span></div><div class="seg"><span class="on">Schlüssel</span><span>Passwort</span></div></div>
+<div class="lr"><div class="lt"><span class="ll">Schlüssel</span><span class="ls mono">SHA256:9a1e…c42f</span></div><select class="sel" aria-label="Schlüssel"><option>[ed25519] deploy</option></select><button type="button" class="btn bs bsm">Öffentlichen Schlüssel kopieren</button></div>
+</div>
+<div class="gl"><h3>Sicherheit</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Hostschlüssel</span><span class="ls mono">fixiert · SHA256:4f9c…a21e</span></div><button type="button" class="btn bs bsm">Hostschlüssel abrufen</button></div>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Interaktive Shell</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Alte Algorithmen (ssh-rsa)</span><span class="ls">nur für alte Server</span></div><input class="sw" type="checkbox"></label>
+</div>
+<div class="gl"><h3>Benutzt von · 4</h3></div>
+<div class="lc">
+<div class="lr"><span class="av">O</span><div class="lt"><span class="ll">Ops-Wache</span><span class="ls">Agent</span></div><select class="sel" aria-label="Modus Ops-Wache"><option>Mit Freigabe</option><option>Vertraut</option><option>Vertraut inkl. Routinen</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><span class="av">R</span><div class="lt"><span class="ll">Rechercheur</span><span class="ls">Agent</span></div><select class="sel" aria-label="Modus Rechercheur"><option>Vertraut</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><span class="av">H</span><div class="lt"><span class="ll">Hook „Monitoring-Alarm“</span><span class="ls">von Ops-Wache</span></div><a class="gla" href="RAgent.dc.html">Hook öffnen</a></div>
+<div class="lr"><span class="av">S</span><div class="lt"><span class="ll">Coding-Sessions</span><span class="ls">beim Start oder im Session-Kopf gewählt · 1 aktiv</span></div></div>
+<label class="lr" style="background: #141519; cursor: text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" placeholder="Agent hinzufügen …" aria-label="Agent hinzufügen" style="flex: 1; height: 48px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"></label>
+</div>
+<div class="gl"><h3>Verwalten</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Aktivität</span><span class="ls">Aufrufe, Freigaben und Änderungen dieses Zugangs</span></div><a class="gla" href="REinstellungen.dc.html">Im Aktivitätsprotokoll</a></div>
+<div class="lr"><div class="lt"><span class="ll">Projektressourcen neu zuweisen</span><span class="ls">Zugänge und Schlüssel von einem Projekt zum anderen</span></div><button type="button" class="btn bs bsm">Neu zuweisen</button></div>
+<div class="lr"><div class="lt"><span class="ll">Zugang löschen</span><span class="ls">2 Agenten und 1 Hook verlieren den Zugriff</span></div><button type="button" class="btn bd bsm">Löschen</button></div>
+</div>
+</section>
+
+<aside style="flex: 1 1 260px; max-width: 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="border: 1px solid #6b3a37; border-radius: 12px; background: #2a1b1a; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div class="eb" style="color: #f0a39d">Letzter Test</div>
+<pre>$ ssh -p 22 deploy@10.0.4.11
+deploy@10.0.4.11: Permission denied (publickey).</pre>
+<span style="font-size: 13px; color: #cfd0d4; line-height: 1.5">Der Host nimmt den Schlüssel nicht an. Öffentlichen Schlüssel in <span class="mono">~/.ssh/authorized_keys</span> von <span class="mono">deploy</span> eintragen, dann erneut testen.</span>
+<button type="button" class="btn bp bsm">Erneut testen</button>
+</div>
+<div style="border: 1px solid #28292d; border-radius: 12px; background: #16171b; padding: 16px; font-size: 12px; color: #a2a3a7; line-height: 1.55">
+<div class="eb" style="margin-bottom: 6px">Wie heute</div>
+Alle Felder des bisherigen Formulars unter Einstellungen › SSH-Zugänge. Neu sind nur „Benutzt von“ mit Freigeben und Entziehen sowie der Testkasten.
+</div>
+</aside>
+</div>
+<div style="position: sticky; bottom: 0; margin: 0 -40px; border-top: 1px solid #28292d; background: #15161a; padding: 10px 40px 14px; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1; font-size: 11px; color: #92949d">Ungespeicherte Änderung: Port · Änderungen gelten für alle, die den Zugang nutzen</span>
+<button type="button" class="btn bs" style="height: 40px">Verwerfen</button><button type="button" class="btn bp" style="height: 40px">Speichern</button>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

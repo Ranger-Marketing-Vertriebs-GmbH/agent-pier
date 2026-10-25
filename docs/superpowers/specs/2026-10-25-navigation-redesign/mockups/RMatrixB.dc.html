@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Abdeckung Rest und Umleitungen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+table{border-collapse:collapse;width:100%;font-size:12px;line-height:1.4}
+th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#92949d;padding:6px 8px;border-bottom:1px solid #303137}
+td{padding:6px 8px;border-bottom:1px solid #24252a;vertical-align:top;color:#cfd0d4}
+td.o{color:#92949d;width:26%}
+td.n{color:#e8e8ec;width:30%}
+td.c{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#cfd0d4}
+.sec{font-size:13px;font-weight:600;color:#ffc99d;margin:18px 0 4px}
+.tg{display:inline-block;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.li{display:flex;gap:10px;font-size:12px;line-height:1.5;color:#cfd0d4;padding:6px 0;border-bottom:1px solid #24252a}
+.li b{color:#e8e8ec;font-weight:600}
+.k{flex:none;width:20px;color:#f49a58;font-weight:700}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 1900px; box-sizing: border-box; padding: 48px 56px; background: #101114; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif">
+<div style="font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #92949d">Abdeckung · Teil 2</div>
+<h1 style="margin: 8px 0 6px; font-size: 30px; font-weight: 700; letter-spacing: -.02em">Verbindungen, Coding, Einstellungen und alte Links</h1>
+<p style="margin: 0 0 8px; font-size: 14px; color: #a2a3a7; max-width: 980px; line-height: 1.5">Alle alten Adressen leiten weiter und behalten ihre Parameter. Was an zwei Stellen einstellbar ist, bleibt an beiden Stellen dieselbe Einstellung.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px">
+<div>
+<sc-for list="{{secs}}" as="s" hint-placeholder-count="3">
+<div>
+<div class="sec">{{s.title}}</div>
+<table>
+<thead><tr><th>Heute</th><th>Funktionen</th><th>Neu</th></tr></thead>
+<tbody>
+<sc-for list="{{s.rows}}" as="r" hint-placeholder-count="4">
+<tr><td class="o">{{r.o}}</td><td>{{r.f}}</td><td class="n">{{r.n}}<span class="tg" style="{{r.ts}}">{{r.t}}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</sc-for>
+</div>
+<div>
+<div class="sec">Umleitungen (alte Adresse → neue)</div>
+<table>
+<thead><tr><th>Alt</th><th>Neu</th></tr></thead>
+<tbody>
+<sc-for list="{{redirects}}" as="x" hint-placeholder-count="6">
+<tr><td class="c">{{x.a}}</td><td class="c" style="color: #e8e8ec">{{x.b}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+<p style="font-size: 12px; color: #92949d; line-height: 1.5; margin: 8px 0 0">returnTo und Zurück-Pfeile funktionieren weiter. Feste Links (Aktivitätsprotokoll → MCP, Session-SSH-Dialog → SSH) zeigen auf die neuen Pfade. Rücksprung ist künftig auch aus Verbindungen, Coding und Laufzeit möglich.</p>
+
+<div class="sec">An zwei Stellen, eine Einstellung</div>
+<sc-for list="{{dual}}" as="d" hint-placeholder-count="5">
+<div class="li"><span class="k">⇄</span><span><b>{{d.a}}</b> · {{d.b}}</span></div>
+</sc-for>
+
+<div class="sec">Bewusste Änderungen im Verhalten · bestätigt</div>
+<sc-for list="{{changes}}" as="c" hint-placeholder-count="6">
+<div class="li"><span class="k">{{c.k}}</span><span><b>{{c.a}}</b> {{c.b}}</span></div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+renderVals() {
+const T = { g: ['gleich', { background: '#1c2a22', color: '#7dd6a5' }], v: ['verlegt', { background: '#30261c', color: '#ffc99d' }], n: ['neu', { background: '#1f2a3a', color: '#8fb4e8' }] };
+const r = (o, f, n, t) => ({ o, f, n, t: T[t][0], ts: T[t][1] });
+const secs = [
+{ title: 'Verbindungen', rows: [
+r('Accounts › Modell-Zugänge', 'Provider-Zugang: Anbieter, Key, Endpunkt (Ollama, llama.cpp), Test, CLIs und Routen, Adapter-Optionen, Modelltabelle, löschen, Benutzt von, kompatible CLIs', 'Verbindungen › Modelle', 'v'),
+r('Accounts › ChatGPT für Agenten', 'Gerätecode-Anmeldung, prüfen, abmelden, Offline-Hinweis', 'Verbindungen › Modelle', 'v'),
+r('Accounts › Dienste für Agenten', 'Spracherkennung (Deepgram, Modell, Sprache, sofort senden), Websuche, PDF-Ersatzmodell', 'Verbindungen › Dienste', 'v'),
+r('Accounts › MCP-Server', 'Liste, Gefunden in CLIs, OAuth-Rückmeldung, Assistent (Quelle bis Fertig), Übersicht, Paket, Status je CLI, Codex-Anmeldung, Entfernen', 'Verbindungen › MCP-Server', 'v'),
+r('Einstellungen › Zugriff › SSH-Zugänge', 'Zugänge und Schlüssel, Suche, Projektfilter, Formulare, testen, Hostschlüssel, neu zuweisen', 'Verbindungen › SSH/SFTP', 'v'),
+r('Einstellungen › Zugriff › Geheimnisse', 'Anlegen, Projekt oder global, Wert ersetzen, löschen', 'Verbindungen › Geheimnisse', 'v'),
+r('Einstellungen › Zugriff › GitHub-Zugänge', 'Tokenprofile, prüfen, Enterprise-Host, Commit-Identität, Standard für Agenten', 'Verbindungen › GitHub', 'v'),
+r('–', '„Benutzt von“ mit Freigeben/Entziehen bei SSH, Geheimnissen, GitHub', 'Verbindungen, je Eintrag', 'n')
+]},
+{ title: 'Coding', rows: [
+r('Accounts › Native CLI-Accounts', 'Anmelden (Login-Terminal), Standard, Name, Tool, Key, alte Provider-Bindung, Benutzt von, löschen', 'Coding › CLIs › Accounts', 'v'),
+r('Erweiterungen', 'Profile, Skills (Upload/GitHub, Prüfung), Plugins (Katalog, npm), Marketplaces, Import-Banner, MCP-Verweis', 'Coding › CLIs › Erweiterungen', 'v'),
+r('Einstellungen › Zugriff › MCP', 'CLI verbinden, Befehle je CLI, Zustimmung (?authorization), Verbundene Clients, widerrufen', 'Coding › CLIs › AgentPier als MCP', 'v'),
+r('Übersicht › Werkzeuge', 'CLI installieren/aktualisieren, Chromium entfernen, gh → GitHub', 'bleibt + Coding › CLIs › Installation', 'n'),
+r('Projekte, Pipelines', 'alle Tabs inkl. Projekt › Agenten, Läufe, Definitionen, Profile, Prüfung, Warteschlange', 'unverändert', 'g'),
+r('Sessions', 'Kopf, LaunchDialog, SSH-Dialog, Account-Wechsel, AgentPier-Tools', 'unverändert; „verwalten“ → Verbindungen', 'g')
+]},
+{ title: 'Einstellungen & Rest', rows: [
+r('Arbeitsbereich', 'Sprache, Arbeitsverzeichnis, Fortsetzen, MCP-Verzeichnis', 'Einstellungen › Allgemein', 'g'),
+r('Arbeitsbereich › App & Benachrichtigungen', 'App, Gerät, Test, Geräte, Detailstufe, Ereignisse, Ruhezeiten', 'Einstellungen › App & Benachrichtigungen', 'g'),
+r('Zugriff › Fernzugriff, Benutzer', 'Lokal, Tailscale, Netzwerk; Benutzer anlegen, Konto, Agenten, löschen', 'Einstellungen › Fernzugriff, Benutzer', 'v'),
+r('Betrieb', 'Diagnose, Sicherungen, Updates, Aktivitätsprotokoll, Komponenten', 'Einstellungen › Betrieb', 'g'),
+r('Systemstatus-Dialog', 'Verlauf, Prozesse, Datenbereiche, Aufräumen', 'bleibt + Betrieb › Speicher', 'n'),
+r('Menü', 'Übersicht, Artifacts, Projekte, Dateien, Pipelines, Host-Status, Remote öffnen, Abmelden', 'bleibt Popover, zwei Gruppen: Arbeiten (Übersicht, Projekte, Pipelines, Dateien, Artifacts) und Einrichten (Agenten, CLIs, Verbindungen, Einstellungen) mit Hinweisen; Host-Status, Remote öffnen (gleiche Bedingung), Abmelden', 'g'),
+r('Agent › Arbeit › SSH/Projekte/… Unterseiten', 'Suche und Auswahl langer Listen', 'Agent › Zugriffe: Feld unter jeder Gruppe, tippen, anhaken, hinzufügen; „Alle anzeigen“ öffnet die volle Liste', 'v'),
+r('Eingang, Dateien, Artifacts, Viewer', 'Tabs, Deep-Links, Papierkorb, Anheften', 'unverändert', 'g')
+]}
+];
+const redirects = [
+{ a: '/settings/assistants', b: '/agents/runtime' },
+{ a: '/settings/assistants-advanced', b: '/agents/runtime#advanced' },
+{ a: '/accounts?section=models|services|mcp-servers&item&step', b: '/connections/<section>?item&step' },
+{ a: '/accounts?section=cli&item', b: '/coding/clis/accounts?item' },
+{ a: '/settings/ssh · /secrets · /github', b: '/connections/ssh · /secrets · /github' },
+{ a: '/settings/mcp?cli&page&authorization', b: '/coding/clis/mcp?… (alle Parameter)' },
+{ a: '/settings?tab=access', b: '/connections' },
+{ a: '/settings/remote · /settings/users?user', b: 'bleiben' },
+{ a: '/extensions[/:profil]?tab=agents · /plugins', b: '/coding/clis/extensions[/:profil]?tab=subagents' },
+{ a: '/agents/:id/settings?tab=profile', b: '?tab=identity' },
+{ a: '?tab=work&page=projects|pipelines|ssh|github|secrets', b: '?tab=access&page=…' },
+{ a: '?tab=work&team=<id>', b: '?tab=team&team=<id>' },
+{ a: '?tab=work&page=actions', b: '?tab=overview&page=actions' },
+{ a: '?tab=routines[&page=hook&hook]', b: '?tab=automation[&page=hook&hook]' },
+{ a: '?tab=telegram[&page=telegram-…]', b: '?tab=channels[&page=telegram-…]' },
+{ a: '/agents?new=1&user&template&revision', b: 'unverändert' }
+];
+const dual = [
+{ a: 'Projektzugriff', b: 'Agent › Zugriffe › Projekte und Projekt › Agenten (und „Ordner hinzufügen“)' },
+{ a: 'MCP-Bindung', b: 'Agent › Zugriffe › MCP-Server und Verbindungen › MCP › Wer darf ihn nutzen' },
+{ a: 'SSH, Geheimnisse, GitHub', b: 'Agent › Zugriffe und neu: Verbindungen › Benutzt von' },
+{ a: 'Benutzer-Stufen', b: 'Einstellungen › Benutzer und Agent › Zugriffe › Wer diesen Agenten nutzt' },
+{ a: 'Gedächtnis ↔ Träumen', b: 'Agent › Fähigkeiten zeigt die Sperre und verlinkt Agenten › Laufzeit' },
+{ a: 'Websuche, PDF, Sprache', b: 'global unter Verbindungen › Dienste, je Agent als Schalter' }
+];
+const changes = [
+{ k: '1', a: '„Agenten“ bleibt in der Navigation, auch wenn ausgeschaltet,', b: 'und bietet „Agenten aktivieren“ an. Bisher verschwand der Eintrag.' },
+{ k: '2', a: 'Der Assistent legt Agent, Freigaben und Routine zusammen an.', b: 'Scheitert ein Teilschritt, bleibt der Agent bestehen und zeigt offene Schritte.' },
+{ k: '3', a: 'Erweiterte Agentendienst-Werte stehen inline', b: 'statt auf einer eigenen Unterseite.' },
+{ k: '4', a: 'Neu: Duplizieren, Teams aller Agenten, Speicher-Zeile, ⌘K-Suche.', b: '' },
+{ k: '5', a: 'Der Einstellungs-Tab „Zugriff“ entfällt;', b: 'seine Seiten verteilen sich auf Verbindungen, Coding und Einstellungen.' },
+{ k: '6', a: '„Agenten“ unter Erweiterungen heißt jetzt „Subagents“.', b: 'Die Suche findet auch die alten Namen.' }
+];
+return { secs, redirects, dual, changes };
+}
+}
+</script>
+</body>
+</html>

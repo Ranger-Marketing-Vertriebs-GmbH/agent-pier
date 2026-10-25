@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Agent-Einstellungen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@800&amp;display=swap">
+<style>
+body{margin:0;background:#101114}
+a{color:#ffc99d}a:hover{color:#f49a58}
+.eb{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#92949d}
+.gl{display:flex;align-items:center;gap:8px;margin:22px 0 8px;padding:0 4px}
+.gl h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#92949d}
+.gla{margin-left:auto;border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:13px;color:#ffc99d;text-decoration:none}
+.lc{display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid #28292d;border-radius:12px;background:#232428}
+.lr{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px 0 14px;background:#16171b;color:#e8e8ec;flex-wrap:wrap}
+.lt{display:grid;gap:2px;min-width:0;padding:11px 0;flex:1 1 200px}
+.ll{font-size:15px;line-height:1.4}
+.ls{font-size:12px;color:#92949d}
+.lv{margin-left:auto;font-size:13px;color:#92949d;white-space:nowrap}
+.pl{padding:3px 9px;border:1px solid #f49a5833;border-radius:999px;background:#30261c;font-size:12px;color:#ffc99d;white-space:nowrap}
+.pn{padding:3px 9px;border:1px solid #303137;border-radius:999px;background:#1c1d21;font-size:12px;color:#b9babe;white-space:nowrap}
+.cv{flex:none;color:#6f7075}
+.sw{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:38px;height:22px;margin:0;border-radius:11px;background:#3a3b3f;cursor:pointer}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#92949d}
+.sw:checked{background:#f49a58}.sw:checked::after{background:#242529;transform:translateX(16px)}
+.cb{width:18px;height:18px;accent-color:#f49a58;flex:none;margin:0}
+.btn{height:43px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 17px;border-radius:7px;font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer;text-decoration:none}
+.bp{background:#f49a58;color:#242529}.bp:hover{background:#ffc99d;color:#242529}
+.bs{background:#202125;border-color:#323337;color:#dcdde1}.bs:hover{color:#dcdde1}
+.bd{background:transparent;border-color:#6b3a37;color:#f0a39d}
+.bsm{height:34px;padding:0 12px}
+.seg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;padding:4px;border:1px solid #404145;border-radius:7px;background:#141519}
+.seg span{display:flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:5px;color:#97989c;font-size:11px;font-weight:500;white-space:nowrap}
+.seg .on{background:#2c2d31;color:#ffc99d}
+.ut{display:flex;gap:28px;height:40px;border-bottom:1px solid #28292d;overflow-x:auto}
+.ut button{flex:none;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;font:inherit;font-size:13px;color:#a2a3a7;cursor:pointer;white-space:nowrap}
+.ut small{font-size:11px;color:#6f7075}
+.sel{height:36px;padding:0 10px;border-radius:7px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:13px}
+.fl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#a2a3a7}
+.inp{height:44px;padding:0 12px;border-radius:8px;border:1px solid #323337;background:#101114;color:#e8e8ec;font:inherit;font-size:14px;box-sizing:border-box;width:100%}
+.hint{font-size:12px;color:#92949d;line-height:1.5;margin:8px 4px 0}
+.was{font-size:11px;color:#86b88e;white-space:nowrap}
+.lock{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid #2e2924;border-radius:12px;background:#1b1a19;font-size:13px;color:#cfd0d4;line-height:1.45}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.bdg{font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid #37383c;color:#a2a3a7;white-space:nowrap}
+</style>
+</helmet>
+<div style="min-height: 1640px; background: #101114; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif; display: flex; flex-wrap: wrap">
+<div style="flex: 0 1 280px; min-width: 0">
+<dc-import name="RSidebar" active="agents" menu-open="{{ false }}" hint-size="280px,1040px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<a href="RAgenten.dc.html" class="eb" style="text-decoration: none; color: #92949d">← Agenten</a>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<div style="display: flex; gap: 14px; align-items: center">
+<span style="width: 44px; height: 44px; border-radius: 10px; background: #30261c; border: 1px solid #4a3a2a; color: #ffc99d; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px">R</span>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em">Rechercheur</h1>
+<span style="font-size: 13px; color: #a2a3a7; display: flex; align-items: center; gap: 6px"><span class="dot" style="background: #f49a58"></span>{{kindLine}}</span>
+</div>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<a class="btn bs" href="#">Chat öffnen</a>
+<button type="button" class="btn bs" aria-label="Weitere Aktionen: Duplizieren, Archivieren">⋯</button>
+</div>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: center; padding: 10px 14px; border: 1px solid #f49a5833; border-radius: 10px; background: #30261c; font-size: 13px; color: #ffc99d; flex-wrap: wrap">Eine gespeicherte Änderung gilt erst nach einem Neustart des Agentendienstes.<button type="button" class="gla">Jetzt neu starten</button></div>
+
+<div class="ut" role="tablist" aria-label="Agent-Einstellungen">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="7">
+<button type="button" role="tab" aria-selected="{{t.sel}}" style="{{t.style}}" onClick="{{t.go}}">{{t.label}}<small>{{t.count}}</small></button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; flex: 1">
+<section style="flex: 999 1 480px; min-width: 0; max-width: 760px; padding-bottom: 24px">
+
+<sc-if value="{{tOverview}}" hint-placeholder-val="{{ true }}">
+<div>
+<div class="lc">
+<div class="lr" style="background: #1d1a17"><span class="dot" style="background: #f49a58"></span><div class="lt"><span class="ll">Wartet auf deine Freigabe · 2</span><span class="ls">Shell-Befehl · Speicheränderung im Projektwissen</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="lr"><div class="lt"><span class="ll">Aktionen und Coding-Aufträge</span><span class="ls">Verlauf mit Freigeben, Ablehnen, Stoppen, Ergebnis prüfen</span></div><span class="lv">18</span><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+<p class="hint"><span class="was">bisher Arbeit › Aktionen</span></p>
+<div class="gl"><h3>Auf einen Blick</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Identität</span><span class="ls">[Modell A] über [Verbindung A] · aus Vorlage</span></div><button type="button" class="gla" onClick="{{goIdentity}}">Ändern</button></div>
+<div class="lr"><div class="lt"><span class="ll">Fähigkeiten</span><span class="ls">Gedächtnis · Web · PDF · Browser · Shell mit Freigabe · 3 Skills</span></div><button type="button" class="gla" onClick="{{goCaps}}">Ändern</button></div>
+<div class="lr"><div class="lt"><span class="ll">Zugriffe</span><span class="ls">2 Projekte · 1 MCP · 1 SSH · GitHub Lesen</span></div><button type="button" class="gla" onClick="{{goAccess}}">Ändern</button></div>
+<div class="lr"><div class="lt"><span class="ll">Team</span><span class="ls">Selbstständig · 1 aktives Team</span></div><button type="button" class="gla" onClick="{{goTeam}}">Ändern</button></div>
+<div class="lr"><div class="lt"><span class="ll">Automatisierung &amp; Kanäle</span><span class="ls">2 Routinen · 1 Hook · Telegram verbunden</span></div><button type="button" class="gla" onClick="{{goAuto}}">Ändern</button></div>
+</div>
+<div class="gl"><h3>Chat-Anhänge</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Belegt</span><span class="ls">[GRÖSSE] in 42 Dateien</span></div><button type="button" class="btn bd bsm">Anhänge leeren</button></div>
+</div>
+<sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl"><h3>Team-Mitglied</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Temporär im Team „Recherche“</span><span class="ls">Anweisungen seit Erstellung unverändert · Verlauf</span></div><button type="button" class="btn bs bsm">Als dauerhaften Agenten behalten</button><button type="button" class="btn bd bsm">Mitglied stoppen</button></div>
+</div>
+</div>
+</sc-if>
+<div class="gl"><h3>Verwalten</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Duplizieren</span><span class="ls">Neuer Agent mit diesen Fähigkeiten und Zugriffen</span></div><a class="btn bs bsm" href="RNeu.dc.html">Duplizieren</a></div>
+<div class="lr"><div class="lt"><span class="ll">Archivieren</span><span class="ls">Chat und Gedächtnis bleiben, wiederherstellbar</span></div><button type="button" class="btn bd bsm">Archivieren</button></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{tIdentity}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<label class="fl">Name<input class="inp" type="text" value="Rechercheur"></label>
+<label class="fl">Anweisungen<textarea class="inp" rows="7" style="height: auto; padding: 12px; resize: vertical; line-height: 1.5">Du recherchierst Themen gründlich, nennst Quellen und fasst knapp zusammen.</textarea></label>
+<div class="lc">
+<sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}"><label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Dem Modell des leitenden Agenten folgen</span></div><input class="sw" type="checkbox" checked></label></sc-if>
+<div class="lr"><div class="lt"><span class="ll">Provider-Zugang</span></div><select class="sel" aria-label="Provider-Zugang"><option>[Verbindung A]</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">Modell</span><span class="ls">oder eigene Modell-ID</span></div><button type="button" class="gla" style="margin: 0">Modelle aktualisieren</button><select class="sel" aria-label="Modell"><option>[Modell A]</option></select></div>
+<a class="lr" href="RVerbindungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">Zugänge verwalten</span><span class="ls">Verbindungen › Modelle</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Vorlage [Rolle: Research Analyst]</span><span class="ls">agency-agents · [Revision] · MIT · 1 Prüfhinweis</span></div></div>
+<div class="lr"><div class="lt"><span class="ll">Von der Teamleitung erstellt</span><span class="ls">Nur bei Mitgliedern, deren Anweisungen ein Modell schrieb</span></div><button type="button" class="btn bs bsm">Als geprüft markieren</button></div>
+<div class="lr"><div class="lt"><span class="ll">Revision</span></div><span class="lv">r14 · vor 2 Tagen</span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{tCaps}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl" style="margin-top: 0"><h3>Gedächtnis &amp; Erinnerungen</h3></div>
+<div class="lc">
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Informationen merken</span><span class="ls">Gesperrt, solange Träumen eingeschaltet ist</span></div><input class="sw" type="checkbox" checked disabled></label>
+<div class="lr"><div class="lt"><span class="ll">Gespeicherte Notizen</span><span class="ls">MEMORY.md, USER.md, Traumtagebuch · durchsuchen und bearbeiten</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Erinnerungen und Routinen erlauben</span></div><input class="sw" type="checkbox" checked></label>
+</div>
+<div class="gl"><h3>Web &amp; Dokumente</h3></div>
+<div class="lc">
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Im Web suchen</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Webseiten lesen</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Bilder lesen</span><span class="ls">PNG, JPEG, GIF, WebP bis 6 MiB, wird protokolliert</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">PDFs lesen</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Bilder erstellen</span><span class="ls">über ein ChatGPT-Konto</span></div><input class="sw" type="checkbox"></label>
+<a class="lr" href="RVerbindungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">Suchanbieter · DuckDuckGo</span><span class="ls">Verbindungen › Dienste</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+<a class="lr" href="RVerbindungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">PDF-Ersatzmodell · keins</span><span class="ls">Verbindungen › Dienste</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<div class="gl"><h3>Browser</h3></div>
+<div class="lc">
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Einen Browser nutzen</span><span class="ls">Darf auch Dateien aus freigegebenen Ordnern hochladen</span></div><input class="sw" type="checkbox" checked></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Sichtbarer Browser</span><span class="ls">Fenster unten rechts statt headless</span></div><input class="sw" type="checkbox"></label>
+<div class="lr"><div class="lt"><span class="ll">Browser läuft</span><span class="ls">Chrome for Testing · verwaltet</span></div><button type="button" class="btn bs bsm">Live-Ansicht öffnen</button><button type="button" class="btn bd bsm">Profil zurücksetzen</button></div>
+</div>
+<div class="gl"><h3>Shell</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Shell-Zugriff</span></div><div class="seg"><span>Aus</span><span class="on">Mit Freigabe</span><span>Voller Zugriff</span></div></div>
+<div class="lr"><div class="lt"><span class="ll">Immer erlaubte Befehle</span></div><span class="lv">7</span><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+<div class="gl"><h3>Skills</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Mitgelieferte Skills</span><span class="ls">Suchen, filtern: Eingeschaltet, Bereit, Etwas fehlt</span></div><span class="lv">3 an</span><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+<p class="hint">MCP-Server stehen jetzt unter Zugriffe. <span class="was">bisher Fähigkeiten › MCP-Server</span></p>
+</div>
+</sc-if>
+
+<sc-if value="{{tAccess}}" hint-placeholder-val="{{ false }}">
+<div>
+<sc-if value="{{isUserAgent}}" hint-placeholder-val="{{ false }}">
+<div class="lock" style="margin-bottom: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffc99d" stroke-width="1.8" aria-hidden="true" style="flex: none; margin-top: 1px"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span>Agent eines Benutzers: nur Projektordner sind möglich. Pipelines, SSH, GitHub, Geheimnisse und Coding bleiben gesperrt.</span></div>
+</sc-if>
+<p class="hint" style="margin: 0 4px">Alles, worauf der Agent zugreifen darf. Angelegt wird unter Verbindungen, hinzugefügt direkt in der Gruppe: tippen, anhaken, hinzufügen. <span class="was">bisher Arbeit + Fähigkeiten › MCP</span></p>
+<div class="gl"><h3>Projekte · 2</h3><span class="ls" style="margin-left: auto">gleiche Einstellung wie Projekt › Agenten</span></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Projekt Notizen]</span><span class="ls">Darf Coding-Sessions starten</span></div><select class="sel" aria-label="Ordnerzugriff Notizen"><option>Lesen und schreiben</option><option>Lesen</option><option>Keiner</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><div class="lt"><span class="ll">[Projekt Website]</span><span class="ls">Nur Coding, kein direkter Ordnerzugriff</span></div><select class="sel" aria-label="Ordnerzugriff Website"><option>Keiner</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<label class="lr" style="background: #141519; cursor: text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" placeholder="Projekt hinzufügen …" aria-label="Projekt hinzufügen" style="flex: 1; height: 46px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Vorschläge zum Ändern von Projektwissen erlauben</span></div><input class="sw" type="checkbox" checked></label>
+</div>
+<div class="gl"><h3>SSH/SFTP · 12</h3><span class="ls" style="margin-left: auto">von 64</span></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">prod-web-01</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">deploy@10.0.4.21 · Global</span></div><select class="sel" aria-label="Modus prod-web-01"><option>Mit Freigabe</option><option>Vertraut</option><option>Vertraut inkl. Routinen</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><div class="lt"><span class="ll">backup-nas</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">admin@nas.lan · SFTP</span></div><select class="sel" aria-label="Modus backup-nas"><option>Vertraut</option></select><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><div class="lt"><span class="ll" style="color: #a2a3a7">10 weitere</span></div><button type="button" class="gla">Alle anzeigen</button></div>
+<div class="lr" style="background: #141519; box-shadow: inset 0 0 0 1px #f49a58"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" value="prod" aria-label="SSH-Zugang hinzufügen" style="flex: 1; height: 46px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"><span class="ls">9 Treffer</span></div>
+<div class="lr" style="opacity: .55"><input class="cb" type="checkbox" checked disabled aria-label="prod-web-01"><div class="lt"><span class="ll">prod-web-01</span></div><span class="ls" style="color: #7dd6a5">hat er schon</span></div>
+<div class="lr" style="background: #1d1a17"><input class="cb" type="checkbox" checked aria-label="prod-web-02"><div class="lt"><span class="ll">prod-web-02</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">deploy@10.0.4.22 · Global</span></div></div>
+<div class="lr" style="background: #1d1a17"><input class="cb" type="checkbox" checked aria-label="prod-db-02"><div class="lt"><span class="ll">prod-db-02</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">deploy@10.0.4.12 · Global</span></div></div>
+<div class="lr" style="background: #1d1a17"><input class="cb" type="checkbox" checked aria-label="prod-api-01"><div class="lt"><span class="ll">prod-api-01</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">ops@10.1.0.5 · [api-server]</span></div></div>
+<div class="lr"><input class="cb" type="checkbox" aria-label="prod-logs"><div class="lt"><span class="ll">prod-logs</span><span class="ls" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px">logs@10.1.0.9 · SFTP</span></div></div>
+<div class="lr" style="background: #15161a"><span class="ls">Modus</span><select class="sel" aria-label="Modus für neue"><option>Mit Freigabe</option><option>Vertraut</option></select><span style="flex: 1"></span><button type="button" class="btn bs bsm">Abbrechen</button><button type="button" class="btn bp bsm">3 hinzufügen</button></div>
+</div>
+<div class="gl"><h3>MCP-Server · 6</h3><span class="ls" style="margin-left: auto">von 38</span></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Kalender]</span><span class="ls">OAuth angemeldet · auch von Claude Code, Codex genutzt</span></div><a class="gla" href="RVerbindungen.dc.html">Öffnen</a><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><div class="lt"><span class="ll">[Tickets]</span><span class="ls" style="color: #e8b765">Anmeldung abgelaufen</span></div><a class="gla" href="RVerbindungen.dc.html">Anmelden</a><button type="button" class="btn bd bsm">Entziehen</button></div>
+<div class="lr"><div class="lt"><span class="ll" style="color: #a2a3a7">4 weitere</span></div><button type="button" class="gla">Alle anzeigen</button></div>
+<label class="lr" style="background: #141519; cursor: text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" placeholder="MCP-Server hinzufügen …" aria-label="MCP-Server hinzufügen" style="flex: 1; height: 46px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"></label>
+</div>
+<div class="gl"><h3>Pipelines · 1</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Software-Fabrik]</span></div><button type="button" class="btn bd bsm">Entziehen</button></div>
+<label class="lr" style="background: #141519; cursor: text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" placeholder="Pipeline hinzufügen …" aria-label="Pipeline hinzufügen" style="flex: 1; height: 46px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Ausgewählte Pipelines ohne zusätzliche Freigabe starten</span></div><input class="sw" type="checkbox"></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Pull Requests veröffentlichen erlauben</span></div><input class="sw" type="checkbox"></label>
+</div>
+<div class="gl"><h3>GitHub · Geheimnisse</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">GitHub</span><span class="ls">Tokenprofil [Standard für Agenten]</span></div><select class="sel" aria-label="GitHub-Zugriff"><option>Lesen</option><option>Lesen und schreiben</option><option>Kein Zugriff</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">Geheimnis · [API-Token]</span><span class="ls">als Datei · global</span></div><button type="button" class="btn bd bsm">Entziehen</button></div>
+<label class="lr" style="background: #141519; cursor: text"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92949d" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><input type="text" placeholder="Geheimnis hinzufügen …" aria-label="Geheimnis hinzufügen" style="flex: 1; height: 46px; border: 0; background: transparent; color: #e8e8ec; font: inherit; font-size: 14px; outline: none"></label>
+</div>
+<sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl"><h3>Vom leitenden Agenten gewährt</h3></div>
+<div class="lc"><div class="lr"><div class="lt"><span class="ll">[Projekt Notizen] · Lesen</span><span class="ls">geteilt von Rechercheur</span></div><button type="button" class="btn bd bsm">Widerrufen</button></div></div>
+</div>
+</sc-if>
+<div class="gl"><h3>Wer diesen Agenten nutzt</h3><span class="was" style="margin-left: auto">bisher Profil</span></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Benutzer]</span><span class="ls">Benutzer dieses Agenten</span></div><div class="seg"><span class="on">Nur chatten</span><span>Personalisieren</span><span>Erweitert</span></div><button type="button" class="btn bs bsm" aria-label="Benutzer entfernen">Entfernen</button></div>
+<div class="lr"><div class="lt"><span class="ll">Freigegebene Fähigkeiten</span><span class="ls">Erinnerungen · Telegram · Gedächtnis · Browser</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{tTeam}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl" style="margin-top: 0"><h3>Team nutzen</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Team nutzen</span></div><div class="seg"><span>Auf Anfrage</span><span>Vorschlagen</span><span class="on">Selbstständig</span></div></div>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Teams ohne erneute Rückfrage erlauben</span></div><input class="sw" type="checkbox"></label>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Team-Mitglieder dürfen Shell und SSH nutzen</span></div><input class="sw" type="checkbox"></label>
+<div class="lr"><div class="lt"><span class="ll">Maximale Teamgröße</span></div><input class="inp" type="number" value="4" aria-label="Maximale Teamgröße" style="width: 80px; height: 36px"></div>
+<div class="lr"><div class="lt"><span class="ll">Laufzeit pro Mitglied (Minuten)</span></div><input class="inp" type="number" value="30" aria-label="Laufzeit pro Mitglied" style="width: 80px; height: 36px"></div>
+</div>
+<div class="gl"><h3>Mit Mitgliedern geteilt</h3></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Projekt Notizen] → Faktencheck</span><span class="ls">Lesen · auch Routinen, die der Lead anlegt, berichten zurück</span></div><button type="button" class="btn bd bsm">Teilen beenden</button></div>
+</div>
+<div class="gl"><h3>Teams</h3><div class="seg" style="margin-left: auto"><span class="on">Aktiv</span><span>Archiviert</span></div></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Recherche</span><span class="ls">Dauerhaft: Faktencheck · Temporär: 2 · 1 Coding-Anfrage</span></div><button type="button" class="btn bs bsm">Im Chat zeigen</button><button type="button" class="btn bd bsm">Team stoppen</button></div>
+<div class="lr"><div class="lt"><span class="ll">Mitglieder-Anfrage</span><span class="ls">Faktencheck möchte [Projekt Notizen] lesen</span></div><button type="button" class="btn bs bsm">Ablehnen</button><button type="button" class="btn bp bsm">Erlauben</button></div>
+</div>
+<p class="hint">Alle Teams aller Agenten: Agenten › Teams.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{tAuto}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl" style="margin-top: 0"><h3>Von sich aus handeln</h3></div>
+<div class="lc">
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Sich von selbst melden</span><span class="ls">Verursacht Modellkosten pro Check-in</span></div><input class="sw" type="checkbox" checked></label>
+<div class="lr"><div class="lt"><span class="ll">Wie oft</span></div><select class="sel" aria-label="Wie oft"><option>Alle 2 Std.</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">Aktiv von / bis</span><span class="ls">Meine Zeitzone verwenden</span></div><span class="lv" style="margin: 0">08:00 – 20:00</span></div>
+<label class="lr" style="cursor: pointer"><div class="lt"><span class="ll">Auch an Telegram senden</span></div><input class="sw" type="checkbox" checked></label>
+</div>
+<div class="gl"><h3>Erinnerungen</h3><button type="button" class="gla">+ Erinnerung</button></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Release-Notizen prüfen</span><span class="ls">Einmalig · Do 16:00 · Telegram</span></div><button type="button" class="btn bs bsm">Pausieren</button><button type="button" class="btn bs bsm" aria-label="Verlauf">Verlauf</button></div>
+</div>
+<div class="gl"><h3>Routinen</h3><button type="button" class="gla">+ Routine</button></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Täglicher Überblick</span><span class="ls">Täglich 08:30 · darf schreiben · zuletzt erfolgreich</span></div><button type="button" class="btn bs bsm">Einmal ausführen</button><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="lr"><div class="lt"><span class="ll">Nach Coding-Lauf zusammenfassen</span><span class="ls">Bei Ereignis: Verknüpfter Coding-Lauf abgeschlossen</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+<div class="gl"><h3>Hooks</h3><button type="button" class="gla">+ Hook</button></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">Monitoring-Alarm</span><span class="ls">Absender [Monitoring] · 6 Weckrufe/Std. · Shell mit Freigabe</span></div><span class="bdg">An</span><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+</div>
+<p class="hint">Hook-Detail: Anweisung, Rechte pro Lauf, SSH-Hosts, Ordner, Adressen, Geheimnis erzeugen, Testereignis. <span class="was">bisher Routinen &amp; Check-ins</span></p>
+</div>
+</sc-if>
+
+<sc-if value="{{tChannels}}" hint-placeholder-val="{{ false }}">
+<div>
+<div class="gl" style="margin-top: 0"><h3>Telegram</h3></div>
+<div class="lc">
+<div class="lr"><span class="dot" style="background: #7dd6a5"></span><div class="lt"><span class="ll">@[bot_name] verbunden</span><span class="ls">Privater Chat gekoppelt</span></div><button type="button" class="btn bs bsm">Pausieren</button><button type="button" class="btn bd bsm">Bot trennen</button></div>
+<div class="lr"><div class="lt"><span class="ll">Sprache der Telegram-Hinweise</span></div><select class="sel" aria-label="Sprache"><option>Deutsch</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">AgentPier-Adresse für Links</span></div><select class="sel" aria-label="Adresse"><option>Tailscale</option></select></div>
+<div class="lr"><div class="lt"><span class="ll">Telegram-Aktivität</span><span class="ls">Erneut versuchen, ohne Versand bestätigen</span></div><span class="lv">alles zugestellt</span><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="lr"><div class="lt"><span class="ll">Verbindung</span><span class="ls">Diagnose, neuer Kopplungscode, Bot-Token ersetzen</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></div>
+<a class="lr" href="RVerbindungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">Spracherkennung · Deepgram</span><span class="ls">Verbindungen › Dienste</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<div class="gl"><h3>Telegram für andere Personen</h3><button type="button" class="gla">+ Person</button></div>
+<div class="lc">
+<div class="lr"><div class="lt"><span class="ll">[Name] · ID [123]</span><span class="ls">Eigener Bot-Token · Sprachnachrichten erlaubt</span></div><button type="button" class="btn bs bsm">Entfernen</button></div>
+</div>
+<div class="gl"><h3>Benachrichtigungen</h3></div>
+<div class="lc">
+<a class="lr" href="REinstellungen.dc.html" style="text-decoration: none"><div class="lt"><span class="ll">Push auf deinen Geräten</span><span class="ls">Einstellungen › App &amp; Benachrichtigungen</span></div><svg class="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<p class="hint">Weitere Kanäle passen später als eigene Gruppe hierher.</p>
+</div>
+</sc-if>
+</section>
+
+<aside style="flex: 1 1 260px; max-width: 300px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="border: 1px solid #28292d; border-radius: 12px; background: #16171b; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div class="eb">Agentendienst</div>
+<div style="font-size: 13px; color: #cfd0d4; display: flex; align-items: center; gap: 6px"><span class="dot" style="background: #7dd6a5"></span>läuft · synchronisiert</div>
+<a href="RAgenten.dc.html" style="font-size: 13px">Agenten › Laufzeit</a>
+</div>
+<div style="border: 1px solid #28292d; border-radius: 12px; background: #16171b; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #a2a3a7; line-height: 1.6">
+<div class="eb">Tabs alt → neu</div>
+<span>Profil → <b style="color: #e8e8ec">Identität</b></span>
+<span>Fähigkeiten ohne MCP → <b style="color: #e8e8ec">Fähigkeiten</b></span>
+<span>Arbeit (Projekte, SSH …) + MCP + Benutzer → <b style="color: #e8e8ec">Zugriffe</b></span>
+<span>Arbeit › Team, Teams → <b style="color: #e8e8ec">Team</b></span>
+<span>Arbeit › Aktionen, Anhänge → <b style="color: #e8e8ec">Überblick</b></span>
+<span>Routinen &amp; Check-ins → <b style="color: #e8e8ec">Automatisierung</b></span>
+<span>Telegram → <b style="color: #e8e8ec">Kanäle</b></span>
+</div>
+</aside>
+</div>
+<div style="position: sticky; bottom: 0; margin: 0 -40px; border-top: 1px solid #28292d; background: #15161a; padding: 10px 40px 14px; display: flex; align-items: center; gap: 12px">
+<span style="flex: 1; font-size: 11px; color: #92949d">Gilt ab der nächsten Nachricht · jeder Tab speichert für sich</span>
+<button type="button" class="btn bs" style="height: 40px">Verwerfen</button><button type="button" class="btn bp" style="height: 40px">Agent speichern</button>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"kind":{"editor":"enum","options":["Eigener Agent","Agent eines Benutzers","Temporäres Mitglied"],"default":"Eigener Agent"},"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { tab: 'access' };
+}
+renderVals() {
+const kind = this.props.kind ?? 'Eigener Agent';
+const isMember = kind === 'Temporäres Mitglied';
+const isUserAgent = kind === 'Agent eines Benutzers';
+let defs = [['overview', 'Überblick', '2'], ['identity', 'Identität', ''], ['caps', 'Fähigkeiten', ''], ['access', 'Zugriffe', '7'], ['team', 'Team', '1'], ['auto', 'Automatisierung', '4'], ['channels', 'Kanäle', '']];
+if (isMember) defs = defs.filter((d) => ['overview', 'identity', 'caps', 'access'].includes(d[0]));
+if (isUserAgent) defs = defs.filter((d) => d[0] !== 'team');
+let tab = this.state.tab ?? 'access';
+if (!defs.some((d) => d[0] === tab)) tab = defs[0][0];
+const tabs = defs.map(([id, label, count]) => ({
+label, count,
+sel: id === tab ? 'true' : 'false',
+style: id === tab ? { fontWeight: 600, color: '#ffc99d', boxShadow: 'inset 0 -2px 0 #f49a58' } : {},
+go: () => this.setState({ tab: id })
+}));
+const go = (id) => () => this.setState({ tab: id });
+return {
+tabs, isMember, isUserAgent,
+kindLine: isMember ? 'Temporäres Mitglied von Rechercheur · folgt dem Modell des Leads' : isUserAgent ? 'Geteilter Agent · 2 Benutzer · [Modell A]' : 'Arbeitet · [Modell A] · Lead von Team „Recherche“',
+tOverview: tab === 'overview', tIdentity: tab === 'identity', tCaps: tab === 'caps', tAccess: tab === 'access', tTeam: tab === 'team', tAuto: tab === 'auto', tChannels: tab === 'channels',
+goIdentity: go('identity'), goCaps: go('caps'), goAccess: go('access'), goTeam: go('team'), goAuto: go('auto')
+};
+}
+}
+</script>
+</body>
+</html>

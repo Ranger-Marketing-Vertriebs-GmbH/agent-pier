@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Leer- und Sonderzustände</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.cell{display:flex;flex-direction:column;gap:10px;min-width:0}
+.lbl{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.lbl b{font-size:15px;font-weight:600;color:#e8e8ec}
+.lbl span{font-size:12px;color:#92949d}
+.fr{height:340px;box-sizing:border-box;border:1px solid #28292d;border-radius:12px;background:#101114;padding:20px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.ctr{align-items:center;justify-content:center;text-align:center}
+.ic{width:44px;height:44px;border-radius:12px;border:1px solid #323337;background:#1b1c20;display:flex;align-items:center;justify-content:center;color:#ffc99d}
+.t{margin:0;font-size:17px;font-weight:600;color:#e8e8ec}
+.p{margin:0;font-size:13px;line-height:1.5;color:#a2a3a7;max-width:320px}
+.btn{height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border-radius:7px;font:inherit;font-size:12px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer}
+.bp{background:#f49a58;color:#242529}
+.bs{background:#202125;border-color:#323337;color:#dcdde1}
+.bd{background:transparent;border-color:#6b3a37;color:#f0a39d}
+.lc{display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid #28292d;border-radius:12px;background:#232428;width:100%}
+.lr{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;background:#16171b;color:#e8e8ec;font-size:13px;text-align:left}
+.ls{font-size:12px;color:#92949d}
+.ok{flex:none;width:18px;height:18px;border-radius:50%;background:#7dd6a51a;color:#7dd6a5;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.wr{flex:none;width:18px;height:18px;border-radius:50%;background:#e8b7651a;color:#e8b765;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.er{flex:none;width:18px;height:18px;border-radius:50%;background:#e5796b1a;color:#e5796b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.ban{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.45}
+.bw{border:1px solid #f49a5833;background:#30261c;color:#ffc99d}
+.be{border:1px solid #6b3a37;background:#2a1b1a;color:#f0a39d}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:11px}
+pre{margin:0;padding:10px 12px;border-radius:8px;background:#0b0c0e;border:1px solid #28292d;font:11px/1.5 ui-monospace,Menlo,monospace;color:#f0a39d;white-space:pre-wrap}
+.bar{height:6px;border-radius:3px;background:#24252a;overflow:hidden;width:100%}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 1420px; box-sizing: border-box; padding: 48px 56px; background: #0b0c0e; color: #e8e8ec; font-family: 'DM Sans', -apple-system, sans-serif; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #92949d">Leer- und Sonderzustände</div>
+<h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.02em">Wenn noch nichts da ist oder etwas klemmt</h1>
+<p style="margin: 0; font-size: 14px; color: #a2a3a7; max-width: 980px; line-height: 1.5">Regel für alle: sagen, was los ist, und die nächste Aktion direkt anbieten, statt in einen anderen Bereich zu schicken. Fehlertexte kommen aus dem Server und bleiben aufklappbar.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 28px">
+
+<div class="cell">
+<div class="lbl"><b>Agenten aus</b><span>Agenten-Hub · Menü zeigt „Agenten · aus“</span></div>
+<div class="fr ctr">
+<span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="3.2"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0"></path><circle cx="17" cy="8" r="2.4"></circle></svg></span>
+<h3 class="t">Agenten sind ausgeschaltet</h3>
+<p class="p">Dauerhafte Agenten mit eigenem Chat, Gedächtnis und Werkzeugen. Beim Einschalten lädt AgentPier die gepinnte Runtime in sein Datenverzeichnis, nichts wird global installiert.</p>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bp">Agenten aktivieren</button><button type="button" class="btn bs">Was ändert sich?</button></div>
+<span class="ls">Solange aus: keine Agenten in der Leiste, keine Hintergrundarbeit.</span>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Aktivierung läuft</b><span>gleiche Stelle, ersetzt den Knopf</span></div>
+<div class="fr">
+<h3 class="t">Agenten werden eingerichtet</h3>
+<div class="bar"><div style="width: 62%; height: 100%; background: #f49a58"></div></div>
+<div class="lc">
+<div class="lr"><span class="ok">✓</span><span style="flex: 1">Node.js geladen</span></div>
+<div class="lr"><span class="wr">…</span><span style="flex: 1">OpenClaw [VERSION] wird geladen</span><span class="ls">62 %</span></div>
+<div class="lr"><span class="ls" style="width: 18px; text-align: center">3</span><span style="flex: 1; color: #a2a3a7">Agentendienst starten</span></div>
+</div>
+<p class="p">Du kannst die Seite verlassen; der Fortschritt steht auch im Menü bei „Agenten“.</p>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Noch kein Agent</b><span>Agenten-Hub · Alle Agenten</span></div>
+<div class="fr">
+<h3 class="t">Lege deinen ersten Agenten an</h3>
+<div class="lc">
+<div class="lr"><span class="ok">✓</span><span style="flex: 1">Agentendienst läuft</span></div>
+<div class="lr"><span class="wr">!</span><span style="flex: 1">Noch kein Modell-Zugang</span><button type="button" class="btn bs" style="height: 32px">Modell verbinden</button></div>
+<div class="lr"><span class="wr">!</span><span style="flex: 1">Websuche nicht eingerichtet</span><span class="ls">optional</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<button type="button" class="btn bp" style="height: 56px; flex-direction: column; gap: 2px">Leer<span style="font-weight: 400; font-size: 11px">selbst festlegen</span></button>
+<button type="button" class="btn bs" style="height: 56px; flex-direction: column; gap: 2px">Aus Vorlage<span style="font-weight: 400; font-size: 11px">142 Rollen</span></button>
+<button type="button" class="btn bs" style="height: 56px; flex-direction: column; gap: 2px">Für Benutzer<span style="font-weight: 400; font-size: 11px">nur Chat</span></button>
+</div>
+<span class="ls">Der Assistent prüft die Voraussetzungen und bietet „Modell verbinden“ erneut an.</span>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Keine Einträge</b><span>Verbindungen · SSH/SFTP leer</span></div>
+<div class="fr ctr">
+<span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"></rect><path d="m8 10 2.5 2L8 14M13 14h3"></path></svg></span>
+<h3 class="t">Noch keine SSH- oder SFTP-Zugänge</h3>
+<p class="p">Zugänge mit fixiertem Hostschlüssel, die du Agenten, Hooks und Sessions freigeben kannst.</p>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bp">Zugang hinzufügen</button><button type="button" class="btn bs">SSH-Schlüssel hinzufügen</button></div>
+<span class="ls">Gleiches Muster für MCP-Server (mit „In CLIs gefunden“), Geheimnisse und GitHub.</span>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Keine Treffer</b><span>lange Liste mit Suche und Filter</span></div>
+<div class="fr">
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="ls" style="border: 1px solid #f49a58; border-radius: 8px; padding: 8px 12px; color: #e8e8ec; flex: 1">prd</span></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span style="font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid #f49a5866; background: #30261c; color: #ffc99d">Projekt: [api-server] ×</span><span style="font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid #f49a5866; background: #30261c; color: #ffc99d">Status: Fehler ×</span></div>
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center">
+<h3 class="t">Keine Treffer für „prd“</h3>
+<p class="p">2 Filter aktiv. Ohne Filter gäbe es 0 Treffer für „prd“, aber 9 für „prod“.</p>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bs">Filter zurücksetzen</button><button type="button" class="btn bs">Nach „prod“ suchen</button></div>
+</div>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Agentendienst gestoppt</b><span>Hub, Agent-Chat, Seitenleiste</span></div>
+<div class="fr">
+<div class="ban be"><span class="er">!</span><span style="flex: 1">Der Agentendienst läuft nicht. Agenten antworten nicht, Routinen und Hooks warten.</span></div>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bp">Dienst starten</button><button type="button" class="btn bs">Diagnose</button><button type="button" class="btn bs">Details</button></div>
+<div class="lc">
+<div class="lr" style="opacity: .5"><span style="width: 28px; height: 28px; border-radius: 7px; background: #30261c; border: 1px solid #4a3a2a; color: #ffc99d; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">R</span><span style="flex: 1">Rechercheur</span><span class="ls">offline</span></div>
+<div class="lr" style="opacity: .5"><span style="width: 28px; height: 28px; border-radius: 7px; background: #1f2024; border: 1px solid #323337; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">O</span><span style="flex: 1">Ops-Wache</span><span class="ls">offline</span></div>
+</div>
+<span class="ls">Seitenleiste: Agenten gedimmt mit „offline“, Gruppenkopf mit Warnpunkt.</span>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Test fehlgeschlagen</b><span>Verbindungen · SSH-Detail</span></div>
+<div class="fr">
+<div class="ban be"><span class="er">!</span><span style="flex: 1">prod-db-01: Anmeldung abgelehnt (gestern 21:14)</span></div>
+<pre>deploy@10.0.4.11: Permission denied (publickey).</pre>
+<div class="lc">
+<div class="lr"><span style="flex: 1">Liegt der öffentliche Schlüssel [ed25519] auf dem Host?</span><button type="button" class="btn bs" style="height: 32px">Schlüssel kopieren</button></div>
+<div class="lr"><span style="flex: 1">Betroffen: Ops-Wache, Rechercheur</span></div>
+</div>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bp">Erneut testen</button><button type="button" class="btn bs">Bearbeiten</button></div>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Hostschlüssel geändert</b><span>SSH · sicherheitsrelevant</span></div>
+<div class="fr">
+<div class="ban be"><span class="er">!</span><span style="flex: 1">Der Host meldet einen anderen Schlüssel als fixiert. Verbindungen sind gesperrt, bis du entscheidest.</span></div>
+<div class="lc">
+<div class="lr"><span class="ls" style="width: 70px">Fixiert</span><span class="mono" style="flex: 1">SHA256:4f9c…a21e</span></div>
+<div class="lr"><span class="ls" style="width: 70px">Jetzt</span><span class="mono" style="flex: 1; color: #f0a39d">SHA256:b07d…913c</span></div>
+</div>
+<p class="p" style="max-width: none">Nur übernehmen, wenn du weißt, warum er sich geändert hat (z. B. Neuinstallation).</p>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bd">Neuen Schlüssel übernehmen</button><button type="button" class="btn bs">Gesperrt lassen</button></div>
+</div>
+</div>
+
+<div class="cell">
+<div class="lbl"><b>Anlegen nur teilweise geklappt</b><span>Assistent · letzter Schritt</span></div>
+<div class="fr">
+<div class="ban bw"><span class="wr">!</span><span style="flex: 1">Rechercheur ist angelegt. 1 von 4 Schritten hat nicht geklappt.</span></div>
+<div class="lc">
+<div class="lr"><span class="ok">✓</span><span style="flex: 1">Agent angelegt</span></div>
+<div class="lr"><span class="ok">✓</span><span style="flex: 1">1 Projekt, 1 MCP-Server freigegeben</span></div>
+<div class="lr"><span class="er">✕</span><span style="flex: 1; display: grid"><span>Telegram verbinden</span><span class="ls">Bot-Token ungültig</span></span><button type="button" class="btn bs" style="height: 32px">Erneut</button></div>
+<div class="lr"><span class="ok">✓</span><span style="flex: 1">Routine „Täglicher Überblick“</span></div>
+</div>
+<div style="display: flex; gap: 8px"><button type="button" class="btn bp">Chat öffnen</button><button type="button" class="btn bs">Später unter Kanäle</button></div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 32px; flex-wrap: wrap; border-top: 1px solid #28292d; padding-top: 20px; font-size: 13px; color: #a2a3a7; line-height: 1.5">
+<span style="flex: 1 1 300px"><b style="color: #e8e8ec">Bleiben wie heute:</b> Offline-Hinweis bei verlorener Verbindung, Sperrhinweise bei Agenten von Benutzern und temporären Mitgliedern, „Bereits erledigt“ im Eingang.</span>
+<span style="flex: 1 1 300px"><b style="color: #e8e8ec">MCP-Anmeldung abgelaufen:</b> gleiches Muster wie „Test fehlgeschlagen“ mit „Neu anmelden“; betroffene Agenten zeigen den Hinweis unter Zugriffe.</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1420}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
