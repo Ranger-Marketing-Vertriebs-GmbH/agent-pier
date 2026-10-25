@@ -113,7 +113,11 @@ export function eventArea(service, conversation) {
     owners && hooks
       ? hooks.events
           .forAssistant(conversation.assistantId, { limit: areaLimit })
-          .map((event) => hookRow(event, hooks.store.get(event.hookId)))
+          // A deleted hook's tombstones (HookEvents.forget) are not shown.
+          .flatMap((event) => {
+            const hook = hooks.store.get(event.hookId);
+            return hook ? [hookRow(event, hook)] : [];
+          })
       : [];
   return [...results, ...events].sort((a, b) => b.at - a.at).slice(0, areaLimit);
 }

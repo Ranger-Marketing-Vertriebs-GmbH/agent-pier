@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   HookEvents,
   eventIdOf,
+  hookEventQueries,
 } from "../../server/features/assistants/agent-hook-events.js";
 
 const day = 86400000;
@@ -106,6 +107,62 @@ test("forAssistant lists newest first without payload; payload, remove and forge
   assert.equal(events.get(a.id), null);
   events.forget("h1");
   assert.equal(events.get(b.id), null);
+});
+
+test("forget keeps a running event as a tombstone without its dedup key or payload", () => {
+  const running = events.admit(hook, input("r")).event;
+  events.patch(running.id, { status: "running", jobId: "JobR" });
+  const pending = events.admit(hook, input("p")).event;
+  const done = events.admit(hook, input("d")).event;
+  events.patch(done.id, { status: "done", jobId: "jobD" });
+  const other = events.admit({ ...hook, id: "h2" }, input("r")).event;
+  events.forget("h1");
+  assert.equal(events.get(pending.id), null);
+  assert.equal(events.get(done.id), null);
+  assert.equal(events.byJob("jobD"), null);
+  const tomb = events.byJob("jobr");
+  assert.equal(tomb.id, running.id);
+  assert.equal(tomb.status, "failed");
+  assert.equal(tomb.hookDeleted, true);
+  assert.equal(events.payload(running.id), null);
+  assert.equal(events.find("h1", "r"), null);
+  assert.deepEqual(events.unsettled(), [events.get(other.id)]);
+  // Tombstones of a deleted hook age out with the retention of every hook.
+  clock += 30 * day + 1;
+  events.expire();
+  assert.equal(events.get(running.id), null);
+  assert.equal(events.get(other.id), null);
+});
+
+test("hot lookups use indexes, also on a table of an earlier build", () => {
+  const old = new DatabaseSync(":memory:");
+  old.exec(
+    "CREATE TABLE assistant_hook_events (id TEXT PRIMARY KEY, hook_id TEXT NOT NULL, assistant_id TEXT NOT NULL, event_id TEXT NOT NULL, received_at INTEGER NOT NULL, body TEXT NOT NULL, payload TEXT, UNIQUE(hook_id, event_id))",
+  );
+  old.exec(
+    `INSERT INTO assistant_hook_events VALUES ('x','h1','a1','e1',1,'{"id":"x","status":"running","jobId":"J1"}',NULL)`,
+  );
+  const reopened = new HookEvents(old, { now: () => clock });
+  assert.equal(reopened.byJob("j1").id, "x");
+  assert.equal(reopened.unsettled()[0].id, "x");
+  const plan = (sql, ...args) =>
+    old
+      .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...args)
+      .map((row) => row.detail)
+      .join(" | ");
+  assert.match(
+    plan(hookEventQueries.byJob, "j1"),
+    /USING INDEX assistant_hook_events_job/,
+  );
+  assert.match(
+    plan(hookEventQueries.unsettled),
+    /USING INDEX assistant_hook_events_unsettled/,
+  );
+  assert.match(
+    plan(hookEventQueries.count("!= 'throttled'"), "h1", 0),
+    /USING INDEX assistant_hook_events_hook \(hook_id=\? AND received_at>\?\)/,
+  );
 });
 
 test("retention keeps 30 days of receipts and the newest 200 payloads", () => {

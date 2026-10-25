@@ -425,7 +425,7 @@ test("a test event runs through the same pipeline with its own event id", async 
   await assert.rejects(f.hooks.test(f.id, hook.id), { status: 409 });
 });
 
-test("deleting a hook removes the jobs of its running events", async (t) => {
+test("deleting a hook removes the jobs of its running events and keeps a tombstone", async (t) => {
   const f = hookFixture(t);
   const hook = makeHook(f);
   await f.hooks.deliver(hook, body('{"id":"p1"}'));
@@ -433,5 +433,6 @@ test("deleting a hook removes the jobs of its running events", async (t) => {
   f.hooks.remove(f.id, hook.id);
   await settle();
   assert.equal(f.jobs.has(running.jobId), false);
-  assert.equal(f.hooks.events.get(running.id), null);
+  assert.equal(f.hooks.events.get(running.id).status, "failed");
+  assert.equal(f.hooks.events.payload(running.id), null);
 });
