@@ -86,7 +86,9 @@ owner's switch on (see the [gateway guide](assistant-gateway.md#dreaming)):
   under the hardened heartbeat; under a symlinked data directory the sweep writes no
   corpus (macOS only).
 
-Not covered: the archived transcript copy OpenClaw keeps after a deletion
-(`session_transcript_archives`, AGENTPIER-220), and a `memory forget` that fails.
+The archived transcript copy OpenClaw keeps after a deletion
+(`session_transcript_archives` and the `.jsonl.deleted.*` files) is purged before the
+forget runs; `assistant-chat-deletion-contract.test.js` covers that purge. Not
+covered: a `memory forget` that fails or is lost, which is not retried.
 Cross-conversation recall (transcript indexing) is not offered and has no contract
 here.

@@ -223,6 +223,9 @@ word for word. A busy agent still dreams that night.
 - **Where it shows:** the notes appear under **Memory** like other notes
   (`memory/dreaming/light/`, `rem/` and `deep/`, one file per night), and the
   **Dream diary** (`DREAMS.md`) shows first, read-only, also in a user's memory view.
+  On a user's own agent you see them only while she has switched on **Owner may
+  read chats**, like the rest of its memory; then in full, including notes that quote
+  her chats from before she switched it on ([Privacy](users.md#privacy)).
   Dreaming's raw copies of the chats (`memory/.dreams/`) are never shown, and the
   agent's file tools cannot open them.
 - **Backups of `MEMORY.md`:** five minutes before the hour AgentPier copies each
@@ -230,9 +233,10 @@ word for word. A busy agent still dreams that night.
   keeps the last 7. They never appear in the memory view; host backups keep them
   encrypted like workspaces. To undo a night's rewrite, copy a backup back over the
   agent's `MEMORY.md`.
-- **Deleting a chat** also removes it from dreaming's copies, so later nights no longer
-  read it; notes already written from it stay. If that removal fails, or AgentPier
-  stops before it runs, it is not tried again and the copies keep that chat.
+- **Deleting a chat** removes OpenClaw's archived copy of its transcript and then
+  removes it from dreaming's copies, so later nights no longer read it; notes already
+  written from it stay. If the removal from dreaming's copies fails, or AgentPier
+  stops before it runs, it is not tried again and those copies keep that chat.
 - The data directory must not sit behind a symbolic link, or dreaming writes nothing.
 
 Server details: [Dreaming](assistant-gateway.md#dreaming).
