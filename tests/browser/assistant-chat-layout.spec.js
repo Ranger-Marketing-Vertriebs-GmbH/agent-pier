@@ -537,7 +537,7 @@ test.describe("team member composer", () => {
   };
   const memberChat = baseURL + "/agents/worker/chats/dinner";
 
-  test("one row with only the files option, no hint and the member placeholder", async ({
+  test("the main chat's layout with only the files option, no hint and the member placeholder", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -555,10 +555,10 @@ test.describe("team member composer", () => {
       await input.boundingBox(),
       await page.getByRole("button", { name: "Send", exact: true }).boundingBox(),
     ];
-    expect(Math.abs(f.y + f.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
-    expect(Math.abs(f.y + f.height / 2 - (o.y + o.height / 2))).toBeLessThan(6);
-    expect(f.x).toBeGreaterThan(o.x + o.width - 2);
-    expect(b.x).toBeGreaterThan(f.x + f.width - 2);
+    // The field has its own line; the options toggle and Send share the one below.
+    expect(o.y).toBeGreaterThan(f.y + f.height - 2);
+    expect(Math.abs(o.y + o.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
+    expect(b.x).toBeGreaterThan(o.x + o.width - 2);
     await options.click();
     await expect(page.locator(".assistant-options-row")).toHaveCount(1);
     await expect(

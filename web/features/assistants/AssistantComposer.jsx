@@ -163,10 +163,7 @@ export default function AssistantComposer({
     </button>
   );
   return (
-    <form
-      className={`assistant-composer${member ? " member" : ""}`}
-      onSubmit={submitWithFiles}
-    >
+    <form className="assistant-composer" onSubmit={submitWithFiles}>
       <ChatScrollToBottom active output={output} stick={stick} scroll={scroll} />
       <ComposerOptions
         id={optionsId}
@@ -202,7 +199,6 @@ export default function AssistantComposer({
           onTakeBack={onTakeBack}
         />
         <AgentAttachmentTray attachments={attachments} />
-        {member && toggle}
         <label className="sr-only" htmlFor="assistant-message">
           {copy.message}
         </label>
@@ -244,31 +240,25 @@ export default function AssistantComposer({
             if (mention.enabled) mention.sync();
           }}
         />
-        {member ? (
-          <>
-            {mic}
-            {later}
-            {submit}
-          </>
-        ) : (
-          <div className="assistant-composer-row">
-            {toggle}
-            {teamAllowed && (
-              <button
-                type="button"
-                className="assistant-team-chip"
-                onClick={() => allowTeam(false)}
-              >
-                <Icon name="users" size={13} strokeWidth="1.8" />
-                {copy.team.allowedChip}
-              </button>
-            )}
-            {!mobile && <span className="assistant-composer-hint">{hint}</span>}
+        <div className="assistant-composer-row">
+          {toggle}
+          {teamAllowed && !member && (
+            <button
+              type="button"
+              className="assistant-team-chip"
+              onClick={() => allowTeam(false)}
+            >
+              <Icon name="users" size={13} strokeWidth="1.8" />
+              {copy.team.allowedChip}
+            </button>
+          )}
+          {!mobile && <span className="assistant-composer-hint">{hint}</span>}
+          <div className="assistant-composer-actions">
             {mic}
             {later}
             {submit}
           </div>
-        )}
+        </div>
       </div>
     </form>
   );
