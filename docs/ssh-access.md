@@ -61,7 +61,7 @@ For a Proxmox host, use an account with the permissions needed for the intended 
 
 ## Provision from a coding session
 
-Codex, Claude Code and OpenCode receive the `agentpier_ssh` MCP integration independently of the AgentBus setting, including when the project has no hosts yet. The startup SSH hint composes with existing Memory, AgentBus and user hooks. Login sessions and headless pipeline sessions do not receive this integration; shell sessions have the manual helper without a model hint.
+Codex, Claude Code and OpenCode receive the `agentpier_ssh` MCP integration independently of the AgentBus setting, including when the project has no hosts yet. The startup SSH hint composes with existing Memory, AgentBus and user hooks. When the session has a secrets file, the same startup hint also names it ([Secrets](secrets.md#coding-sessions)). Login sessions and headless pipeline sessions do not receive this integration; shell sessions have the manual helper without a model hint.
 
 The provisioning sequence is:
 

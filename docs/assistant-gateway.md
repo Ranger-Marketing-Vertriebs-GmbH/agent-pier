@@ -285,7 +285,8 @@ for the implementation and remaining native platform/version qualification.
   or deletes anything below it in any turn, the owner's included; the refusal reads `Files in .agentpier are managed by AgentPier.` The
   check folds case like the bootstrap check and follows symbolic links and hard links
   into the folder (`team-plugin/managed-folder.js`). The agent may still `read` the
-  file. AgentPier's own transfers keep away from the folder as well: an SFTP download
+  file; OpenClaw 2026.10.7 masks the values as `***` in that result, so the agent loads
+  them through the shell. AgentPier's own transfers keep away from the folder as well: an SFTP download
   never writes there, an SFTP upload or a browser upload never reads from it, and
   `agentpier_share_file` refuses its files. Shell commands are not covered: an agent
   with a shell can change or delete the file, and AgentPier writes it again before

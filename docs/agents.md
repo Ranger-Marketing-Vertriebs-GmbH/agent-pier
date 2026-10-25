@@ -243,6 +243,10 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
 
 ### Work
 
+- **Secrets:** under **Work → Secrets**, pick the secrets this agent receives (up to
+  50). It finds them in `.agentpier/secrets.env` in its workspace and can read their
+  values. The file is rewritten before every turn and file tools cannot change it, but
+  shell access can ([secrets](secrets.md)).
 - **Projects and coding tasks:** **Allowed projects**, **Allowed pipelines**, whether
   the agent may propose project memory updates, start selected coding pipelines
   without another approval, and publish pull requests. **Actions and coding tasks**
@@ -1054,7 +1058,7 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   or chat actions.
 - Their **Capabilities** and **Work** tabs show "Locked for agents of users: they
   cannot run programs on this computer." instead of shell, the visible browser window
-  (their browser runs headless), SSH, GitHub, pipelines, coding and teams. Their
+  (their browser runs headless), SSH, secrets, GitHub, pipelines, coding and teams. Their
   **Telegram** tab shows **Telegram for other people** as locked; on a user's own agent
   it offers no bot of yours either and says its user connects its bot in their app.
   **Work › Projects**, a project's **Agents** section and **Add folder** offer
@@ -1079,6 +1083,8 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
 - Agents run as your operating-system user. **Shell access** works with your logins,
   files and keys and is not sandboxed; the optional [nono sandbox](sandbox.md) applies
   to CLI sessions only.
+- Secrets you grant an agent are readable by it, and a shell can also change the file
+  that holds them. Grant tokens with the fewest rights needed ([secrets](secrets.md)).
 - Local (stdio) MCP servers run commands on the host; AgentPier asks before you bind
   one.
 - A bot for other people lets them use what the agent remembers and its web tools and

@@ -153,6 +153,7 @@ scrypt-derived key):
 - The restricted users' password salts and hashes (`users/credentials.json`).
 - SFTP hosts that sign in with a password, together with their passwords (see "SFTP
   hosts in backups").
+- Secrets for agents and sessions (see "Secrets in backups").
 
 The agents' own browser profiles (`assistants/state/browser/agent-<id>/user-data`)
 hold their logins and cookies. They are archived only with **Include encrypted
@@ -198,6 +199,16 @@ password are the exception, because their password cannot be recreated from a ke
   browser profiles keep 2.0 to 2.2 from restoring a backup that holds them (see "Sealed
   history"). Ordinary backups, and credential backups without password SFTP hosts,
   still restore on older releases.
+
+## Secrets in backups
+
+Secrets (see [Secrets](secrets.md)) are credentials, so they follow the same rule as password SFTP hosts:
+
+- An ordinary backup and a backup without **Include encrypted credentials** leave them out. When secrets exist, the plan and manifest list "Secrets (only in backups with a passphrase, then encrypted)".
+- With **Include encrypted credentials**, the plan lists the component `sealed-secrets`, shown as "Secrets for agents and sessions (encrypted)". The secrets travel only in the passphrase capsule as `secrets/secrets.json`.
+- The delivered files (`.agentpier/secrets.env` in agent workspaces and the session files) are never backed up; AgentPier writes them again after a restore.
+- A restore keeps the secret ids, so agents' grants work again. It maps projects; a secret whose project the restore did not map becomes global. It skips names that already exist. The restore report holds `secrets: { restored, withoutProject }`.
+- **Older releases cannot restore such a backup.** A credential backup that holds secrets requires AgentPier 2.7.0 or newer. AgentPier 2.6.x and older reject it with "Unexpected backup component.", because the capsule member is unknown to them. Ordinary backups, and credential backups without secrets, still restore on older releases.
 
 ## CLI profile allowlists
 
