@@ -3,41 +3,37 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 // The secrets one agent may hold (docs/secrets.md).
 export const maxAgentSecrets = 50;
 
-// Ids the secret store (secret-store.js) still knows; none while it is unavailable.
+// Names by id of the secrets the store (secret-store.js) still knows, read without
+// values; null while the store is missing or unreadable.
 function knownSecrets(services) {
   try {
-    return new Map((services.secrets?.list() || []).map((s) => [s.id, s.name]));
+    const names = services.secrets?.names();
+    return names ? new Map(names.map((s) => [s.id, s.name])) : null;
   } catch {
-    return new Map();
+    return null;
   }
 }
-// The ids the agent's stored policy names, deleted secrets included.
-function storedSecretIds(services, id) {
-  const row = services.assistants.store.db
-    .prepare(
-      "SELECT json_extract(body,'$.secretIds') AS ids FROM assistant_access WHERE assistant_id=?",
-    )
-    .get(id);
-  const ids = row?.ids ? JSON.parse(row.ids) : [];
-  return Array.isArray(ids) ? ids : [];
-}
+const storedList = (ids) => (Array.isArray(ids) ? ids : []);
 
-/** The policy as read: `secretIds` holds only secrets that still exist. */
+/**
+ * The policy as read: `secretIds` holds only secrets that still exist. While the
+ * store cannot be read the stored ids stay, so a save that leaves them out keeps
+ * them instead of writing an empty list.
+ */
 export function withLiveSecrets(services, policy) {
   const known = knownSecrets(services);
-  return {
-    ...policy,
-    secretIds: (policy.secretIds || []).filter((id) => known.has(id)),
-  };
+  const ids = storedList(policy.secretIds);
+  return { ...policy, secretIds: known ? ids.filter((id) => known.has(id)) : ids };
 }
 
 /**
  * A replaced secret grant list: known secret ids, unique and sorted. An id the
- * agent held whose secret was deleted since is dropped instead of refused, so a
- * stale list never blocks the owner's save; any other unknown id is a 409. An
- * agent with its own bot for other people never gets one (telegram-senders.js).
+ * agent held (`stored`, its policy as written) whose secret was deleted since is
+ * dropped instead of refused, so a stale list never blocks the owner's save; any
+ * other unknown id is a 409, and an unreadable store a 503. An agent with its own
+ * bot for other people never gets one (telegram-senders.js).
  */
-export function secretGrantList(services, id, value) {
+export function secretGrantList(services, id, value, stored = []) {
   if (
     !Array.isArray(value) ||
     value.length > maxAgentSecrets ||
@@ -47,10 +43,12 @@ export function secretGrantList(services, id, value) {
   for (const entry of value) textValue(entry, 100);
   if (!value.length) return [];
   const known = knownSecrets(services);
-  const stored = new Set(storedSecretIds(services, id));
+  // An unreadable store cannot tell a deleted secret from a granted one.
+  if (!known) throw assistantProblem("unavailable", 503);
+  const held = new Set(storedList(stored));
   const list = value.filter((entry) => {
     if (known.has(entry)) return true;
-    if (stored.has(entry)) return false;
+    if (held.has(entry)) return false;
     throw assistantProblem("secretUnavailable", 409);
   });
   if (list.length && services.assistantTelegramSenders?.connected(id))
@@ -62,7 +60,7 @@ export function secretGrantList(services, id, value) {
 export function auditSecretGrants(services, id, before, after) {
   const from = new Set(before?.secretIds || []);
   const to = new Set(after?.secretIds || []);
-  const known = knownSecrets(services);
+  const known = knownSecrets(services) || new Map();
   const names = (ids) =>
     ids
       .map((s) => known.get(s))

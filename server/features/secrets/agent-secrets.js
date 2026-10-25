@@ -10,10 +10,12 @@ const safeId = (id) =>
 /**
  * Delivers each agent's granted secrets (assistant-access.js `secretIds`) as
  * `<workspace>/.agentpier/secrets.env` (secret-format.js) and removes the file once
- * nothing is granted, the agent is no longer eligible or a secret is gone. A sync
- * runs after every grant save, every secret change, at start and before each turn,
- * so a file the agent deleted or edited with its shell is back by its next turn.
- * Syncs run one at a time, so an older state never overwrites a newer one.
+ * nothing is granted, the agent is no longer eligible or a secret is gone. Every
+ * agent syncs after each secret change and each change to the agents (grant saves,
+ * archiving, a user agent switch, a bot for other people) and at start; an agent
+ * also syncs before each of its turns, so a file it deleted or edited with its
+ * shell is back by its next turn. Syncs run one at a time, so an older state never
+ * overwrites a newer one.
  */
 export class AgentSecrets {
   constructor({ store, access, assistants, workspaces }) {
@@ -61,6 +63,19 @@ export class AgentSecrets {
     if (!workspace?.isDirectory()) return "unchanged";
     return writeSecretFile(this.file(agentId), entries);
   }
+  /**
+   * `syncAll` after the syncs queued now; calls while it waits share it, so a burst
+   * of changes costs one pass.
+   */
+  refresh() {
+    this.refreshing ??= this.queue
+      .catch(() => {})
+      .then(() => {
+        this.refreshing = null;
+        return this.syncAll();
+      });
+    return this.refreshing;
+  }
   /** Every agent's file; one failing agent never stops the others. */
   async syncAll() {
     let agents = [];
@@ -77,9 +92,10 @@ export class AgentSecrets {
 }
 
 /**
- * Connects the delivery to a constructed assistant graph: secret changes and grant
- * saves sync at once, and each turn syncs first (assistant-config.js). Returns the
- * instance, or null without a secret store; `close()` stops listening.
+ * Connects the delivery to a constructed assistant graph: secret changes and agent
+ * changes (AssistantService.changed) refresh every file at once, and each turn
+ * syncs first (assistant-config.js). Returns the instance, or null without a
+ * secret store; `close()` stops listening.
  */
 export function connectAgentSecrets(store, graph) {
   const { assistants, assistantWorkflows, assistantRuntime } = graph;
@@ -91,12 +107,11 @@ export function connectAgentSecrets(store, graph) {
     workspaces: assistantRuntime.paths.workspaces,
   });
   const quietly = (promise) => promise.catch(() => {});
-  const unsubscribe = store.onChange(() => quietly(agentSecrets.syncAll()));
-  assistantWorkflows.access.afterSave = (id) => quietly(agentSecrets.sync(id));
+  const refresh = () => quietly(agentSecrets.refresh());
+  const unsubscribe = [store.onChange(refresh), assistants.events.subscribe(refresh)];
   assistants.config.syncSecrets = (id) => agentSecrets.sync(id);
   agentSecrets.close = () => {
-    unsubscribe();
-    delete assistantWorkflows.access.afterSave;
+    for (const stop of unsubscribe) stop();
     delete assistants.config.syncSecrets;
   };
   return agentSecrets;

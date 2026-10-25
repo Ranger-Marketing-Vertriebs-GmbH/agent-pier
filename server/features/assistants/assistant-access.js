@@ -8,7 +8,8 @@ import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
 import { refuseLockedAccess } from "../users/user-agent-lock.js";
 import { isUserAgent } from "../users/user-access.js";
-import * as secretGrants from "./agent-secret-grants.js";
+import { secretGrantList, withLiveSecrets } from "./agent-secret-grants.js";
+import { auditAccessSave, auditSshGrants } from "./assistant-access-audit.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -66,30 +67,32 @@ export class AssistantAccess {
       throw assistantProblem("invalid", 403);
     return a;
   }
+  /** The policy as read: granted secrets that were deleted since drop out. */
   get(id) {
+    return withLiveSecrets(this.s, this.stored(id));
+  }
+  // The policy as written, deleted secrets' ids included.
+  stored(id) {
     this.s.assistants.store.getAssistant(id);
     const row = this.db
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
-    return secretGrants.withLiveSecrets(
-      this.s,
-      row
-        ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
-        : {
-            github: null,
-            revision: 0,
-            projectIds: [],
-            projectFiles: {},
-            pipelineIds: [],
-            memoryWrite: false,
-            autonomous: false,
-            publish: false,
-            accountIds: [],
-            connectionIds: [],
-            definitions: {},
-            sshAccesses: [],
-          },
-    );
+    return row
+      ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
+      : {
+          github: null,
+          revision: 0,
+          projectIds: [],
+          projectFiles: {},
+          pipelineIds: [],
+          memoryWrite: false,
+          autonomous: false,
+          publish: false,
+          accountIds: [],
+          connectionIds: [],
+          definitions: {},
+          sshAccesses: [],
+        };
   }
   // Granted secrets that still exist (agent-secret-grants.js, agent-secrets.js).
   secretIds(id) {
@@ -233,7 +236,7 @@ export class AssistantAccess {
       secretIds:
         input.secretIds === undefined
           ? old.secretIds
-          : secretGrants.secretGrantList(this.s, id, input.secretIds),
+          : secretGrantList(this.s, id, input.secretIds, this.stored(id).secretIds),
       revision: revision + 1,
       approvalRevision: revision + 1,
       accountIds: [...accountIds],
@@ -278,12 +281,8 @@ export class AssistantAccess {
     const before = this.get(id);
     const notes = {};
     const next = this.write(id, this.prepare(id, input, revision, notes));
-    this.auditSsh(id, before, next, "owner");
-    this.auditProjects(id, before, next);
-    this.auditGithub(id, before, next);
-    secretGrants.auditSecretGrants(this.s, id, before, next);
+    this.auditSaved(id, before, next);
     this.s.assistants.changed();
-    this.afterSave?.(id);
     return {
       ...next,
       removedProjectIds: notes.removedProjectIds,
@@ -325,29 +324,6 @@ export class AssistantAccess {
     if (access && this.s.assistantTelegramSenders?.connected(id))
       throw assistantProblem("telegramSendersGithub", 409);
     return access;
-  }
-  /** One record per GitHub access change: the profile id and levels, never a token. */
-  auditGithub(id, before, after) {
-    const from = before?.github || null,
-      to = after?.github || null;
-    if (from?.credentialId === to?.credentialId && from?.level === to?.level) return;
-    try {
-      this.s.audit?.append({
-        action: "assistant.updated",
-        resourceType: "assistant",
-        resourceId: id,
-        source: "user",
-        outcome: "success",
-        details: {
-          kind: "github-access",
-          githubFrom: from?.level || "none",
-          githubTo: to?.level || "none",
-          ...((to || from) && { credentialId: (to || from).credentialId }),
-        },
-      });
-    } catch (error) {
-      console.error("Agent GitHub access audit failed:", error?.message);
-    }
   }
   // The SSH catalog's hosts, or null while it cannot be read (never "no hosts").
   sshHosts() {
@@ -490,73 +466,13 @@ export class AssistantAccess {
     }
     return changed;
   }
-  /**
-   * One `assistant.updated` record per change of project grants or folder levels,
-   * from the Work tab or the project's Agents section alike: project ids and levels.
-   */
-  auditProjects(id, before, after) {
-    const from = new Set(before?.projectIds || []);
-    const to = new Set(after?.projectIds || []);
-    const added = [...to].filter((p) => !from.has(p)).sort();
-    const removed = [...from].filter((p) => !to.has(p)).sort();
-    const levels = (policy, p) => policy?.projectFiles?.[p] || "none";
-    // A user agent's folders live in projectFiles alone (its projectIds stay empty).
-    const folders = (policy) => Object.keys(policy?.projectFiles || {});
-    const folderChanged = [
-      ...new Set([...from, ...to, ...folders(before), ...folders(after)]),
-    ]
-      .sort()
-      .filter((p) => levels(before, p) !== levels(after, p))
-      .map((p) => ({ projectId: p, from: levels(before, p), to: levels(after, p) }));
-    if (!added.length && !removed.length && !folderChanged.length) return;
-    try {
-      this.s.audit?.append({
-        action: "assistant.updated",
-        resourceType: "assistant",
-        resourceId: id,
-        source: "user",
-        outcome: "success",
-        details: {
-          kind: "project-grants",
-          revision: after.revision,
-          added,
-          removed,
-          folderChanged,
-        },
-      });
-    } catch (error) {
-      console.error("Agent project grant audit failed:", error?.message);
-    }
-  }
-  /** One `assistant.updated` record per grant change: ids and modes, never more. */
+  // Kept as methods: SSH revocations and SFTP "always allow" audit through these.
   auditSsh(id, before, after, reason) {
-    const from = new Map((before?.sshAccesses || []).map((g) => [g.accessId, g.mode]));
-    const to = new Map((after?.sshAccesses || []).map((g) => [g.accessId, g.mode]));
-    const added = [...to.keys()].filter((k) => !from.has(k));
-    const removed = [...from.keys()].filter((k) => !to.has(k));
-    const modeChanged = [...to]
-      .filter(([k, mode]) => from.has(k) && from.get(k) !== mode)
-      .map(([accessId, mode]) => ({ accessId, from: from.get(accessId), to: mode }));
-    if (!added.length && !removed.length && !modeChanged.length) return;
-    try {
-      this.s.audit?.append({
-        action: "assistant.updated",
-        resourceType: "assistant",
-        resourceId: id,
-        source: "user",
-        outcome: "success",
-        details: {
-          kind: "ssh-grants",
-          revision: after.revision,
-          added,
-          removed,
-          modeChanged,
-          reason,
-        },
-      });
-    } catch (error) {
-      console.error("Agent SSH grant audit failed:", error?.message);
-    }
+    auditSshGrants(this.s, id, before, after, reason);
+  }
+  /** The records of an owner save (assistant-access-audit.js; assistant-work.js). */
+  auditSaved(id, before, after) {
+    auditAccessSave(this.s, id, before, after);
   }
   authorize(id, projectId, pipelineId, revision) {
     this.eligible(id);
