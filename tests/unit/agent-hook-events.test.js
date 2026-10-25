@@ -48,6 +48,37 @@ test("eventIdOf ignores non-scalar ids", () => {
   );
 });
 
+test("eventIdOf never takes a sender id in the tombstones' failed-start: space", () => {
+  for (const id of ["failed-start:x", " FAILED-START:evt ", "Failed-Start:"]) {
+    assert.match(
+      eventIdOf({ headers: { "idempotency-key": id }, text: "a" }),
+      /^sha256:/,
+    );
+    assert.match(eventIdOf({ headers: { "x-event-id": id }, text: "a" }), /^sha256:/);
+    assert.match(eventIdOf({ text: "a", json: { eventId: id } }), /^sha256:/);
+    assert.match(eventIdOf({ text: "a", json: { id } }), /^sha256:/);
+  }
+  // A reserved header falls through to a usable body id.
+  assert.equal(
+    eventIdOf({
+      headers: { "x-event-id": "failed-start:1" },
+      text: "{}",
+      json: { id: "ok" },
+    }),
+    "ok",
+  );
+});
+
+test("forget keeps tombstones by their flag, whatever their dedup key", () => {
+  const failed = events.admit(hook, input("f")).event;
+  events.patch(failed.id, { jobId: "jobF" });
+  events.tombstone(failed.id);
+  const plain = events.admit(hook, input("failed-start:legacy")).event;
+  events.forget("h1");
+  assert.equal(events.get(failed.id).startFailed, true);
+  assert.equal(events.get(plain.id), null);
+});
+
 test("admit is atomic per event id", () => {
   const first = events.admit(hook, input("e1")),
     again = events.admit(hook, input("e1"));
