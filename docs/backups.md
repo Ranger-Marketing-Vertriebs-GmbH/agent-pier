@@ -207,8 +207,23 @@ Secrets (see [Secrets](secrets.md)) are credentials, so they follow the same rul
 - An ordinary backup and a backup without **Include encrypted credentials** leave them out. When secrets exist, the plan and manifest list "Secrets (only in backups with a passphrase, then encrypted)".
 - With **Include encrypted credentials**, the plan lists the component `sealed-secrets`, shown as "Secrets for agents and sessions (encrypted)". The secrets travel only in the passphrase capsule as `secrets/secrets.json`.
 - The delivered files (`.agentpier/secrets.env` in agent workspaces and the session files) are never backed up; AgentPier writes them again after a restore.
-- A restore keeps the secret ids, so agents' grants work again. It maps projects; a secret whose project the restore did not map becomes global. It skips names that already exist. The restore report holds `secrets: { restored, withoutProject }`.
-- **Older releases cannot restore such a backup.** A credential backup that holds secrets requires AgentPier 2.7.0 or newer. AgentPier 2.6.x and older reject it with "Unexpected backup component.", because the capsule member is unknown to them. Ordinary backups, and credential backups without secrets, still restore on older releases.
+- A restore keeps the secret ids, so agents' grants work again. It maps projects; a
+  secret whose project the restore did not map becomes global, so only grants apply.
+  The secrets join the store when the restored data directory starts for the first
+  time: the restore writes them to `secrets/secrets-restore.json`, and the first start
+  imports and removes that file. A name that already exists there is skipped, and
+  nothing is imported beyond the limit of 200 secrets. The restore report holds
+  `secrets: { restored, withoutProject }`. `restored` counts the secrets in the
+  backup, including any that the import skips later because their name exists;
+  `withoutProject` counts those that became global. The Operations page does not show
+  the report field.
+- **Older releases cannot restore such a backup.** A credential backup that holds
+  secrets can only be restored on AgentPier 2.7.0 or newer. AgentPier 2.6.x and older
+  reject it with "Unerwarteter Backup-Bestandteil." (in English: "Unexpected backup
+  component."), because the capsule member is unknown to them, just as the browser
+  profiles keep 2.0 to 2.2 from restoring a backup that holds them (see "Sealed
+  history"). Ordinary backups, and credential backups without secrets, still restore
+  on older releases.
 
 ## CLI profile allowlists
 
