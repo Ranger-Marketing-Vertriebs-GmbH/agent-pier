@@ -9,6 +9,7 @@ import {
   estimateSnapshotSize,
   restoreUpdateSnapshot,
 } from "../../server/features/assistants/runtime-update-snapshot.js";
+import { holdDependencies } from "../../server/features/assistants/runtime-update-dependencies.js";
 import { RuntimeUpdates } from "../../server/features/assistants/runtime-updates.js";
 import {
   captureAssistants,
@@ -40,6 +41,8 @@ function fixture(t) {
   write("video/node_modules/remotion/node_modules/nested/index.js", "nested");
   write("video/packages/player/node_modules/react/index.js", "react");
   write("node_modules/top/index.js", "top-level");
+  // A file named node_modules is no dependency folder: it is copied.
+  write("video/docs/node_modules", "a note");
   fs.symlinkSync("../src/index.tsx", path.join(paths.workspaces, "video/bin/entry"));
   // A link named node_modules is a link, not installed dependencies: it stays.
   fs.symlinkSync("../video/src", path.join(paths.workspaces, "video/src/node_modules"));
@@ -48,12 +51,20 @@ function fixture(t) {
   return { dataDir, paths, backup, payload: path.join(backup, "payload") };
 }
 
-test("update snapshots leave installed dependencies out and restore without them", async (t) => {
+const live = (paths, relative) => path.join(paths.workspaces, relative);
+const read = (paths, relative) => fs.readFileSync(live(paths, relative), "utf8");
+
+test("update snapshots leave installed dependencies out and a rollback keeps them", async (t) => {
   const { paths, backup, payload } = fixture(t);
   const estimate = await estimateSnapshotSize(paths);
   let reported = 0;
+  const rendered = path.join(payload, "workspaces/video/out/render.mp4");
   const manifest = await createUpdateSnapshot(paths, backup, metadata, {
-    onProgress: (bytes) => (reported += bytes),
+    onProgress: (bytes) => {
+      // A file's bytes are reported once it is copied.
+      if (bytes === large) assert.equal(fs.statSync(rendered).size, large);
+      reported += bytes;
+    },
   });
   assert.deepEqual(manifest.omittedDependencies, [
     "workspaces/node_modules",
@@ -67,6 +78,7 @@ test("update snapshots leave installed dependencies out and restore without them
   assert.equal(fs.readlinkSync(copied("video/src/node_modules")), "../video/src");
   assert.equal(fs.statSync(copied("video/bin/render.sh")).mode & 0o777, 0o700);
   assert.equal(fs.statSync(copied("video/out/render.mp4")).size, large);
+  assert.equal(fs.readFileSync(copied("video/docs/node_modules"), "utf8"), "a note");
   // Progress counts exactly what the estimate counted, dependencies excluded.
   assert.equal(reported, estimate);
   assert.ok(estimate > large && estimate < large + 64 * 1024, `${estimate}`);
@@ -74,14 +86,51 @@ test("update snapshots leave installed dependencies out and restore without them
   fs.writeFileSync(path.join(paths.workspaces, "video/src/index.tsx"), "changed");
   const restored = await restoreUpdateSnapshot(paths, backup);
   assert.deepEqual(restored.omittedDependencies, manifest.omittedDependencies);
-  const live = (relative) => path.join(paths.workspaces, relative);
-  assert.equal(fs.readFileSync(live("video/src/index.tsx"), "utf8"), "export {}");
-  assert.equal(fs.readFileSync(live("video/bin/entry"), "utf8"), "export {}");
-  assert.equal(fs.lstatSync(live("video/src/node_modules")).isSymbolicLink(), true);
-  assert.deepEqual(fs.readFileSync(live("video/out/render.mp4")), Buffer.alloc(large, 1));
-  // The agent installs its dependencies again after a rollback.
-  assert.equal(fs.existsSync(live("video/node_modules")), false);
-  assert.equal(fs.existsSync(live("node_modules")), false);
+  assert.equal(read(paths, "video/src/index.tsx"), "export {}");
+  assert.equal(read(paths, "video/bin/entry"), "export {}");
+  assert.equal(
+    fs.lstatSync(live(paths, "video/src/node_modules")).isSymbolicLink(),
+    true,
+  );
+  assert.deepEqual(
+    fs.readFileSync(live(paths, "video/out/render.mp4")),
+    Buffer.alloc(large, 1),
+  );
+  // The live dependencies were moved aside and back, nested ones included.
+  assert.equal(read(paths, "video/node_modules/remotion/index.js"), "module.exports = 1");
+  assert.equal(
+    read(paths, "video/node_modules/remotion/node_modules/nested/index.js"),
+    "nested",
+  );
+  assert.equal(read(paths, "video/packages/player/node_modules/react/index.js"), "react");
+  assert.equal(read(paths, "node_modules/top/index.js"), "top-level");
+  assert.equal(fs.existsSync(path.join(backup, "dependencies")), false);
+});
+
+test("a rollback that cannot move dependencies aside restores without them", async (t) => {
+  const { paths, backup } = fixture(t);
+  await createUpdateSnapshot(paths, backup, metadata);
+  // The holding folder cannot be created: every move fails.
+  fs.writeFileSync(path.join(backup, "dependencies"), "blocked");
+  const logged = t.mock.method(console, "error", () => {});
+  await restoreUpdateSnapshot(paths, backup);
+  assert.equal(fs.existsSync(live(paths, "video/node_modules")), false);
+  assert.equal(fs.existsSync(live(paths, "node_modules")), false);
+  assert.equal(read(paths, "video/src/index.tsx"), "export {}");
+  assert.equal(logged.mock.callCount(), 3);
+  assert.match(logged.mock.calls[0].arguments[0], /workspaces\/node_modules/);
+});
+
+test("a repeated rollback returns dependencies an interrupted one moved aside", async (t) => {
+  const { paths, backup } = fixture(t);
+  const manifest = await createUpdateSnapshot(paths, backup, metadata);
+  // The first attempt moved them, then the process ended before the restore.
+  await holdDependencies(paths, backup, manifest.omittedDependencies);
+  assert.equal(fs.existsSync(live(paths, "video/node_modules")), false);
+  await restoreUpdateSnapshot(paths, backup);
+  assert.equal(read(paths, "video/node_modules/remotion/index.js"), "module.exports = 1");
+  assert.equal(read(paths, "node_modules/top/index.js"), "top-level");
+  assert.equal(fs.existsSync(path.join(backup, "dependencies")), false);
 });
 
 test("the update status reports snapshot progress against the estimate", async (t) => {
@@ -140,8 +189,9 @@ test("host backups leave installed dependencies in workspaces out", async (t) =>
   const names = result.files.map((member) => member.path);
   assert.ok(names.includes("assistants/workspaces/video/src/index.tsx"));
   assert.ok(names.includes("assistants/workspaces/video/out/render.mp4"));
+  assert.ok(names.includes("assistants/workspaces/video/docs/node_modules"));
   assert.equal(
-    names.some((name) => name.includes("/node_modules/")),
+    names.some((name) => /\/node_modules\//.test(name)),
     false,
     names.join("\n"),
   );
