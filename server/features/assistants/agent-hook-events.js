@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 const hour = 3600000;
 const retention = 30 * 24 * hour;
 const keptPayloads = 200;
+// The dedup key of an event whose run failed to start (HookEvents.tombstone).
+const failedStart = "failed-start:";
 
 const printable = (value) =>
   typeof value === "string" &&
@@ -135,6 +137,28 @@ export class HookEvents {
     const current = this.get(id);
     if (!current) throw new Error(`Unknown hook event ${id}`);
     return this.write({ ...current, ...fields, id: current.id });
+  }
+  /**
+   * An event whose start failed after its job existed: kept as a failed row with its
+   * job id, so a run the Gateway may still have started stays a hook session without
+   * rights (agent-hook-bridge.js). Its dedup key moves aside, so the sender's retry
+   * is admitted fresh; like any event it counts toward the hourly limit (it may have
+   * woken the agent) and ages out with the hook's other events.
+   */
+  tombstone(id) {
+    const current = this.get(id);
+    if (!current) return;
+    const event = {
+      ...current,
+      status: "failed",
+      startFailed: true,
+      completedAt: this.now(),
+    };
+    this.db
+      .prepare(
+        "UPDATE assistant_hook_events SET event_id=?, body=?, payload=NULL WHERE id=?",
+      )
+      .run(`${failedStart}${id}`, JSON.stringify(event), id);
   }
   remove(id) {
     this.db.prepare("DELETE FROM assistant_hook_events WHERE id=?").run(id);
