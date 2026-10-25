@@ -121,6 +121,8 @@ export const assistants = {
     "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.",
   dreamingMemoryConfirm:
     "Träumen braucht Gedächtnis: Diese Agenten merken sich noch nichts. Bestätige, um es für alle einzuschalten.",
+  dreamingMemoryRequired:
+    "Solange Träumen eingeschaltet ist, behalten alle dauerhaften Agenten ihr Gedächtnis. Schalte Träumen unter Einstellungen › Arbeitsbereich › Agenten › Agentendienst aus, um es hier auszuschalten.",
   dreamingAgentsBusy:
     "Diese Agenten arbeiten gerade. Versuche es erneut, wenn sie fertig sind.",
   heartbeatPrefix: "Check-in:",

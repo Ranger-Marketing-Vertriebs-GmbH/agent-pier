@@ -119,6 +119,8 @@ export const assistants = {
     "Check-ins need memory. Switch on “Remember information” first, or switch check-ins off with it.",
   dreamingMemoryConfirm:
     "Dreaming needs memory: these agents do not remember information yet. Confirm to switch it on for all of them.",
+  dreamingMemoryRequired:
+    "While dreaming is on, every permanent agent keeps its memory. Switch dreaming off under Settings › Workspace › Agents › Agent service to turn it off here.",
   dreamingAgentsBusy: "These agents are working right now. Try again when they are done.",
   heartbeatPrefix: "Check-in:",
   reminderChannelRequired:

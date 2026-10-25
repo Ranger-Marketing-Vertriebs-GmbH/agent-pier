@@ -204,8 +204,9 @@ test("a setting switched on after the proposal grants nothing to that team", (t)
 });
 
 test("permanent and ended members inherit nothing", (t) => {
+  // A permanent member keeps only its own memory, on from the start.
   const permanent = fixture(t, { lifetime: "permanent" });
-  assert.deepEqual(personalCapabilities(permanent.agent()), OFF);
+  assert.deepEqual(personalCapabilities(permanent.agent()), { ...OFF, memory: true });
   assert.equal("inherited" in permanent.agent(), false);
   const f = fixture(t);
   const done = f.teams.setPhase(f.member.id, "queued", { phase: "completed" });

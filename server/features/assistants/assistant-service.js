@@ -20,7 +20,7 @@ import { CompletionRuns } from "./exec-continuation.js";
 import { MemoryNotes } from "./memory-notes.js";
 import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
-import { webCapabilityKeys } from "./native-capabilities.js";
+import { memoryRequirement, newCapabilities } from "./memory-rules.js";
 import { assertWired } from "./service-wiring.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { ownerApproval } from "../users/approval-audience.js";
@@ -41,11 +41,7 @@ import { AgentChats } from "./agent-chats.js";
 import { LongChats } from "./long-chats.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
-import {
-  auditProactivity,
-  lacksMemory,
-  proactivityChange,
-} from "./proactivity-changes.js";
+import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -211,17 +207,14 @@ export class AssistantService {
       if (input.skills?.length) throw assistantProblem("invalid");
       const lease = await this.models.resolve(input.model || {});
       lease.release();
-      // Web capabilities need the Gateway sections an update can apply with the
-      // owner's confirmation; a new agent starts with them off.
-      const capabilities = input.capabilities && { ...input.capabilities };
-      for (const key of webCapabilityKeys)
-        if (capabilities && key in capabilities) capabilities[key] = false;
+      // Memory on by default, web capabilities off (memory-rules.js).
+      const capabilities = newCapabilities(input, this.dreaming?.enabled());
       // Check-ins are switched on in the saved agent (its settings), not at creation.
       const heartbeat = input.heartbeat && { ...input.heartbeat, enabled: false };
       const record = this.store.createAssistant(
         {
           ...input,
-          ...(capabilities && { capabilities }),
+          capabilities,
           ...(heartbeat && { heartbeat }),
         },
         (origin || userAccess) && {
@@ -331,10 +324,12 @@ export class AssistantService {
         const lease = await this.models.resolve(patch.model);
         lease.release();
       }
-      // Check-ins need memory; refused before any change. They run in the main
-      // chat, which the job opens when the agent has none yet.
-      if (lacksMemory(current, patch))
-        throw assistantProblem("heartbeatMemoryRequired", 409);
+      // Check-ins need memory, and so does a permanent agent while dreaming is on;
+      // refused before any change. Check-ins run in the main chat, which the job
+      // opens when the agent has none yet.
+      const dreaming = this.dreaming?.enabled();
+      const memoryKey = memoryRequirement(current, patch, { dreaming });
+      if (memoryKey) throw assistantProblem(memoryKey, 409);
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);

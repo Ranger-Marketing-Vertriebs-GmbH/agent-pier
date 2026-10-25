@@ -93,6 +93,10 @@ export class AssistantStore {
       parentAssistantId: parent,
       lifetime,
       serviceGrants: [],
+      // A permanent member remembers from the start, like any new permanent agent.
+      ...(lifetime === "permanent" && {
+        capabilities: { memory: true, reminders: false },
+      }),
     };
     this.db
       .prepare("INSERT INTO assistants VALUES (?,?,?)")

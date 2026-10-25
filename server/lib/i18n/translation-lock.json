@@ -125,6 +125,7 @@
   "assistants.disabled": "de:dc1291f0a661 en:7a84564b7c71",
   "assistants.dreamingAgentsBusy": "de:99fab7bbbcef en:2351564c6bb5",
   "assistants.dreamingMemoryConfirm": "de:c37cdc0f7951 en:ac34fd1eb745",
+  "assistants.dreamingMemoryRequired": "de:379fe7f74397 en:d00c8eda0b94",
   "assistants.execAgent": "de:71c55d6bb9a4 en:71c55d6bb9a4",
   "assistants.execAllowAlways": "de:edfad6272dab en:977618bd8bc7",
   "assistants.execAllowAlwaysOnce": "de:a50c464aac42 en:56c7a3a187a5",
