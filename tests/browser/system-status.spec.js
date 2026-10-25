@@ -120,3 +120,51 @@ for (const [name, answer] of [
     await expect(page.getByRole("region", { name: "System status" })).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
+
+// AGENTPIER-245: the start page moved behind the open details and showed through the
+// backdrop. The dialog stays the same node across polls and the page behind stays still.
+for (const [name, viewport] of [
+  ["desktop", { width: 1440, height: 700 }],
+  ["phone", { width: 390, height: 844 }],
+]) {
+  test(`the open details stay put and keep the start page still (${name})`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(45_000);
+    await page.setViewportSize(viewport);
+    const calls = await routeStatus(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /System status/ }).click();
+    const dialog = page.getByRole("dialog", { name: "System status" });
+    await expect(dialog.getByText("15 GB in total")).toBeVisible();
+    const pageTop = await page.evaluate(() => {
+      window.__statusDialog = document.querySelector("dialog");
+      return document.documentElement.scrollTop;
+    });
+    const look = await dialog.evaluate((node) => ({
+      background: getComputedStyle(node).backgroundColor,
+      backdrop: getComputedStyle(node, "::backdrop").backgroundColor,
+    }));
+    expect(look.background).toBe("rgb(27, 28, 32)");
+    const alpha = Number(look.backdrop.match(/rgba\(.*,\s*([\d.]+)\)/)?.[1] ?? 1);
+    expect(alpha).toBeGreaterThanOrEqual(0.6);
+    // Wheel past the end of the dialog, then over the backdrop beside or above it.
+    const box = await dialog.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let step = 0; step < 8; step++) await page.mouse.wheel(0, 600);
+    await page.mouse.move(Math.max(4, box.x / 2), Math.max(4, box.y / 2));
+    for (let step = 0; step < 4; step++) await page.mouse.wheel(0, 600);
+    const polled = calls.details;
+    await expect
+      .poll(() => calls.details, { timeout: 15_000 })
+      .toBeGreaterThan(polled + 1);
+    expect(
+      await page.evaluate(() => ({
+        same: document.querySelector("dialog") === window.__statusDialog,
+        open: window.__statusDialog.open,
+        pageTop: document.documentElement.scrollTop,
+      })),
+    ).toEqual({ same: true, open: true, pageTop });
+    await page.screenshot({ path: testInfo.outputPath(`details-scrolled-${name}.png`) });
+  });
+}
