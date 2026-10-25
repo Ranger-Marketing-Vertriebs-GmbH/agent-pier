@@ -1,6 +1,6 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
-import { directTurn } from "./memory-write-policy.js";
+import { directOwnerTurn } from "./goal-turns.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { pairedTelegram } from "./team-coding.js";
 import { actionPath, fenced } from "./action-text.js";
@@ -29,7 +29,9 @@ function ownerTurn(hooks, inv) {
     conversation = a.store.getConversation(request.conversationId),
     agent = a.store.getAssistant(conversation.assistantId),
     origin = a.teams.store.context(request.id);
-  if (!directTurn(origin, agent)) throw ownerOnly();
+  // The owner's own message (web or Telegram), never a goal continuation, which
+  // AgentPier sends on his behalf, nor forwarded content.
+  if (!directOwnerTurn(origin)) throw ownerOnly();
   return { agent: hooks.eligible(agent.id), conversation, origin };
 }
 
