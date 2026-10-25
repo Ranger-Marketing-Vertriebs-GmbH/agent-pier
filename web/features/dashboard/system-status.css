@@ -111,6 +111,16 @@
   display: block;
   color: var(--warning);
 }
+.legacy-tmux-notice ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.legacy-tmux-notice li {
+  overflow-wrap: anywhere;
+}
+.sidebar-legacy-tmux {
+  margin: 4px 8px 8px;
+}
 .system-status-details {
   display: grid;
   gap: 24px;

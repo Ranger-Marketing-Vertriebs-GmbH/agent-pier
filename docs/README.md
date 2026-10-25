@@ -49,7 +49,7 @@ _(German)_ are not translated yet.
 | [Login](login.md) _(German)_                       | Workspace user, sessions and recovery                                                   |
 | [Backups](backups.md)                              | What a backup holds, its format and restoring it                                        |
 | [Operations and portability](operations.md)        | Storage, restore, moving hosts, release packages and installer                          |
-| [System status](system-status.md)                  | Disk, CPU and RAM on the start page, AgentPier's share and the low-disk warning         |
+| [System status](system-status.md)                  | Disk, CPU and RAM on the start page, AgentPier's share, low-disk and old-tmux notices   |
 | [Stable and Preview releases](release-channels.md) | Update channels and release candidates                                                  |
 | [CLI updates](cli-updates.md)                      | Installing and updating the coding CLIs                                                 |
 | [Installer distribution](homebrew-maintenance.md)  | Maintaining the installer release and Homebrew tap                                      |

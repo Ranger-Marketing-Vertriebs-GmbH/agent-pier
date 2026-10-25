@@ -66,34 +66,48 @@ export function ownedSocket(
   }
 }
 
-/**
- * Whether a tmux server answers on the socket. tmux leaves its socket file behind when
- * its server exits (kill-server, last session gone, or a crash), so only an answer
- * proves a live server. A client hands its environment to the server: give it PATH only.
- * A probe that times out counts as an answer: a dead socket refuses at once, so only a
- * live but slow server can stall, and its sessions must not be left behind.
- */
-export function tmuxServerAnswers(socket, { tmuxPath = "tmux", spawn = spawnSync } = {}) {
-  const result = spawn(tmuxPath, ["-S", socket, "list-sessions", "-F", "#{session_id}"], {
-    env: process.env.PATH ? { PATH: process.env.PATH } : {},
-    stdio: "ignore",
-    timeout: 2000,
-  });
-  return result.status === 0 || result.error?.code === "ETIMEDOUT";
+/** Ids with a live pane under either name form, from `name|dead` lines. */
+function liveSessionIds(output) {
+  return [...pickSessionNames(parseSessionLines(output))]
+    .filter(([, entry]) => !entry.dead)
+    .map(([id]) => id);
 }
 
 /**
- * All sessions of a data directory share one tmux server, so the socket is chosen once,
- * at startup: the legacy socket while its server answers, i.e. the server an earlier
- * release started keeps running across the update with its sessions, and new sessions
- * join it under the new name; otherwise the produced socket, where tmux starts a fresh
+ * Whether the tmux server on the socket runs a live pane of an AgentPier session.
+ * tmux leaves its socket file behind when its server exits, and `exit-empty off` keeps
+ * a server running with no session or only dead panes, so neither proves a session.
+ * A client hands its environment to the server: give it PATH only. A probe that times
+ * out counts as a session: a dead socket refuses at once, so only a live but slow
+ * server can stall, and its sessions must not be left behind.
+ */
+export function runsLiveSession(socket, { tmuxPath = "tmux", spawn = spawnSync } = {}) {
+  const result = spawn(
+    tmuxPath,
+    ["-S", socket, "list-sessions", "-F", "#{session_name}|#{pane_dead}"],
+    {
+      env: process.env.PATH ? { PATH: process.env.PATH } : {},
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 2000,
+    },
+  );
+  if (result.error?.code === "ETIMEDOUT") return true;
+  return result.status === 0 && liveSessionIds(result.stdout).length > 0;
+}
+
+/**
+ * All sessions of a data directory share one tmux server, chosen at startup: the
+ * legacy socket while its server runs a live AgentPier session, i.e. the server an
+ * earlier release started keeps running across the update with its sessions, and new
+ * sessions join it under the new name until none of them is left (see
+ * legacy-tmux-server.js); otherwise the produced socket, where tmux starts a fresh
  * server even over a stale socket file.
  */
 export function chooseTmuxSocket(dataDir, options = {}) {
   const { produced, legacy } = tmuxSocketPaths(dataDir);
   const live =
-    ownedSocket(legacy, options) &&
-    (options.answers || tmuxServerAnswers)(legacy, options);
+    ownedSocket(legacy, options) && (options.inUse || runsLiveSession)(legacy, options);
   return live ? legacy : produced;
 }
 

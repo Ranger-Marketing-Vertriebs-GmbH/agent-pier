@@ -5,6 +5,7 @@ import { detectUtilities } from "../../features/accounts/account-store.js";
 import { toolBinDirectories } from "../../features/tools/tool-paths.js";
 import { chromiumUtility } from "../../features/tools/chromium-installer.js";
 import { SessionProjects } from "../../features/sessions/session-projects.js";
+import { legacyTmuxSessions } from "../../features/sessions/legacy-tmux-server.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
 import { isManagedInstall, withCliVersions } from "../../features/tools/cli-version.js";
 export function workspaceRoutes(services) {
@@ -52,6 +53,8 @@ export function workspaceRoutes(services) {
       providerConnections: services.providerConnections.list(),
       sessions: await projects.enrich(await activity.enrich(await sessions.list())),
       inbox: await inboxSummary(),
+      // Sessions still on the tmux server of a release from before the rename.
+      legacyTmux: { sessions: await legacyTmuxSessions(sessions).catch(() => []) },
       // With registered push devices, open pages report what they show (quiet while
       // visible, server/features/notifications/push-presence.js).
       pushDevices: services.notifications?.deviceCount?.() ?? 0,
