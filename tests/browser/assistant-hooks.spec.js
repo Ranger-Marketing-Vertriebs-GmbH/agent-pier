@@ -183,17 +183,16 @@ test("creating a hook reveals its secret and curl sample once", async ({ page })
   await expect(page.getByText("Network mode is off")).toBeVisible();
 });
 
-test("a right the agent lacks is disabled with its reason and kept on save", async ({
-  page,
-}) => {
+test("a right the agent lost shows its reason and is kept on save", async ({ page }) => {
   // Research was saved before the agent lost web access (R30).
   const state = await setup(page, {
     hooks: [hookView({ name: "Uptime", sender: "Kuma", rights: { research: true } })],
   });
   await page.goto(baseURL + detailPath);
   const research = page.getByRole("switch", { name: "Research" });
-  await expect(research).toBeDisabled();
+  // Stored on, so it may still be switched off; a right never held cannot go on.
   await expect(research).toBeChecked();
+  await expect(research).toBeEnabled();
   await expect(
     page.getByText("The agent has neither web search nor web pages."),
   ).toBeVisible();
@@ -210,6 +209,34 @@ test("a right the agent lacks is disabled with its reason and kept on save", asy
     rights: { research: true, memory: true, folders: { "project-1": "read" } },
   });
   await expect(page.getByRole("heading", { name: "Uptime checks" })).toBeVisible();
+});
+
+test("a stale right can be switched off and saved, then stays off", async ({ page }) => {
+  const state = await setup(page, {
+    hooks: [
+      hookView({
+        name: "Uptime",
+        sender: "Kuma",
+        rights: { research: true, sshHosts: ["ssh-gone"] },
+      }),
+    ],
+  });
+  await page.goto(baseURL + detailPath);
+  const research = page.getByRole("switch", { name: "Research" });
+  await research.uncheck();
+  await expect(research).toBeDisabled();
+  await expect(
+    page.getByText("The agent has neither web search nor web pages."),
+  ).toBeVisible();
+  const gone = page.getByRole("checkbox", { name: "ssh-gone" });
+  await expect(gone).toBeEnabled();
+  await gone.uncheck();
+  await expect(gone).toBeDisabled();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => state.patches.length).toBe(1);
+  expect(state.patches[0].rights).toMatchObject({ research: false, sshHosts: [] });
+  await expect(research).toBeDisabled();
+  await expect(research).not.toBeChecked();
 });
 
 test("regenerating a secret asks first and a test event shows its status", async ({

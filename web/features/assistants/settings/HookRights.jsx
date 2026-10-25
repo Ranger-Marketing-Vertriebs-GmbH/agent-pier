@@ -6,23 +6,16 @@ import Segmented from "../../../components/Segmented.jsx";
 import { hookCopy as copy } from "../../../lib/i18n/messages/assistant-hooks.js";
 import { assistantShellCopy as shellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { setFolderLevel, toggleId } from "./agent-settings-fields.js";
-import { hookTicks } from "./hook-fields.js";
+import { hookTicks, tickLock } from "./hook-fields.js";
 
 const union = (a, b) => [...new Set([...a, ...b])];
 const nameOf = (items, id) => items?.find((item) => item.id === id)?.name || id;
 
-// Why a tick cannot be switched on; null when the agent holds the right.
-function tickReason(key, ceiling, values) {
-  if (key === "notify") return null;
-  if (ceiling[key] !== true) return copy.missing[key];
-  if (key === "telegram" && !values.notify) return copy.telegramNeedsNotify;
-  return null;
-}
-
 /**
  * A hook's rights, each capped by what the agent holds now (`hook.ceiling`). A right
- * the agent has lost since keeps its saved value but shows disabled with the reason,
- * so saving other fields sends it back unchanged.
+ * the agent has lost since keeps its saved value and shows the reason; saving other
+ * fields sends it back unchanged. It can be switched off or lowered (never raised),
+ * and once off it is disabled like any other unavailable right.
  */
 export default function HookRights({ hook, values, set, disabled, catalog }) {
   const ticksId = useId(),
@@ -33,22 +26,32 @@ export default function HookRights({ hook, values, set, disabled, catalog }) {
   const shellOptions = union(hook.shellChoices, [values.shell]);
   const shellChanged =
     values.shell === hook.rights.shell && hook.effective.shell !== hook.rights.shell;
-  const hosts = union(ceiling.sshHosts, values.sshHosts);
-  const folders = union(Object.keys(ceiling.folders), Object.keys(values.folders));
+  // Saved rows stay listed after they are switched off, disabled with their reason.
+  const hosts = union(ceiling.sshHosts, [...hook.rights.sshHosts, ...values.sshHosts]);
+  const folders = union(Object.keys(ceiling.folders), [
+    ...Object.keys(hook.rights.folders),
+    ...Object.keys(values.folders),
+  ]);
   return (
     <>
       <section aria-labelledby={ticksId}>
         <GroupLabel id={ticksId}>{copy.rights}</GroupLabel>
         <ListCard labelledBy={ticksId}>
           {hookTicks.map((key) => {
-            const reason = tickReason(key, ceiling, values);
+            const { reason, locked } = tickLock(key, ceiling, values);
             return (
               <ToggleRow
                 key={key}
                 label={copy.ticks[key]}
-                sub={reason || copy.tickHints[key]}
+                sub={
+                  reason === "missing"
+                    ? copy.missing[key]
+                    : reason
+                      ? copy.telegramNeedsNotify
+                      : copy.tickHints[key]
+                }
                 checked={values[key] === true}
-                disabled={disabled || Boolean(reason)}
+                disabled={disabled || locked}
                 onChange={(next) => set(key, next)}
               />
             );
@@ -90,7 +93,7 @@ export default function HookRights({ hook, values, set, disabled, catalog }) {
                 label={nameOf(catalog?.sshHosts, host)}
                 sub={gone ? copy.sshGone : undefined}
                 checked={values.sshHosts.includes(host)}
-                disabled={disabled || gone}
+                disabled={disabled || (gone && !values.sshHosts.includes(host))}
                 onChange={(on) => set("sshHosts", toggleId(values.sshHosts, host, on))}
               />
             );
@@ -122,7 +125,7 @@ export default function HookRights({ hook, values, set, disabled, catalog }) {
                   value,
                   label: copy.folderLevels[value],
                 }))}
-                disabled={disabled || !allowed}
+                disabled={disabled || (!allowed && level === "none")}
                 onChange={(next) =>
                   set("folders", setFolderLevel(values.folders, project, next))
                 }
