@@ -6,8 +6,15 @@ import { memoryStep } from "./memory-write-policy.js";
  * memory search and read, file reads, and write and edit, which the write guard
  * limits to the agent's own memory (memoryStepWrite). Every other tool, a future one
  * included, is refused while the step runs (team-plugin/tool-guard.js stepCall).
+ * In OpenClaw Code Mode the model sees only `exec` (a JavaScript cell, hook
+ * `toolKind: "code_mode_exec"`) and `wait` (which resumes such a cell) and calls
+ * every other tool from the cell; each of those nested calls meets this hook too, so
+ * a cell admits exactly the tools above (codeModeControl). A shell `exec`, which
+ * shares the name but carries no such kind, stays refused.
  */
 export const memoryStepTools = ["memory_search", "memory_get", "read", "write", "edit"];
+const codeModeControl = ({ toolName, toolKind }) =>
+  (toolName === "exec" && toolKind === "code_mode_exec") || toolName === "wait";
 const running = new Set(["pending", "accepted", "running"]);
 
 // The turns a call may belong to: its session's, or without a session every active
@@ -52,7 +59,7 @@ export function memoryStepSession(bridge, input) {
  * `reason: "memoryStep"`, or while the bridge closes (`reason: "unavailable"`).
  */
 export function stepPolicy(bridge, input) {
-  const keys = ["agentId", "sessionKey", "toolName", "runId"];
+  const keys = ["agentId", "sessionKey", "toolName", "runId", "toolKind"];
   if (
     !input ||
     typeof input !== "object" ||
@@ -60,11 +67,15 @@ export function stepPolicy(bridge, input) {
   )
     throw assistantProblem("invalid");
   for (const k of ["agentId", "toolName"]) textValue(input[k], 4096);
-  for (const k of ["sessionKey", "runId"])
-    if (k in input) textValue(input[k], k === "runId" ? 512 : 4096);
+  for (const k of ["sessionKey", "runId", "toolKind"])
+    if (k in input) textValue(input[k], k === "sessionKey" ? 4096 : 512);
   // A closing bridge confirms nothing; the plugin names only a step's own refusal.
   if (bridge.closed) return { allow: false, reason: "unavailable" };
-  if (memoryStepTools.includes(input.toolName) || !memoryStepSession(bridge, input))
+  if (
+    memoryStepTools.includes(input.toolName) ||
+    codeModeControl(input) ||
+    !memoryStepSession(bridge, input)
+  )
     return { allow: true };
   return { allow: false, reason: "memoryStep" };
 }

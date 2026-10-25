@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { lead, until } from "../helpers/lead-request-service-fixture.js";
+import { ownerChatQuietMs } from "../../server/features/assistants/member-summaries.js";
 
 // A lead whose permanent member's task chat reports `tokens` of a 200,000-token
 // window (OpenClaw 2026.10.3 `chat.history` sessionInfo), per session key.
@@ -34,11 +35,12 @@ async function longChat(t) {
 test("a settled turn in a long task chat tells the lead once per size", async (t) => {
   const f = await longChat(t);
   f.size(130000);
-  // The owner's turn in the member's chat ends as the Gateway reports it.
-  const sent = await f.assistants.send(f.taskChat.id, {
-    clientRequestId: "owner-turn",
-    text: "Go on",
-  });
+  // A task turn in the member's chat ends as the Gateway reports it.
+  const sent = await f.assistants.send(
+    f.taskChat.id,
+    { clientRequestId: "task-turn", text: "Go on" },
+    { kind: "team-member" },
+  );
   f.runs.set(sent.attempt.id, { ...f.runs.get(sent.attempt.id), status: "ok" });
   await f.assistants.reconcile();
   const [hint] = await until(() => f.hints().length && f.hints(), "the lead hint");
@@ -69,6 +71,25 @@ test("a settled turn in a long task chat tells the lead once per size", async (t
   assert.equal(f.hints().length, 2);
   assert.match(f.hints()[1].text, /180,000 tokens/);
   assert.equal(f.long.told(f.taskChat.id), 180000);
+});
+
+// AGENTPIER-248: the lead could not summarise a chat the owner talks in himself.
+test("no hint while the owner talks with the member in its chat", async (t) => {
+  const f = await longChat(t);
+  f.size(130000);
+  const sent = await f.assistants.send(f.taskChat.id, {
+    clientRequestId: "owner-turn",
+    text: "Go on",
+  });
+  f.runs.set(sent.attempt.id, { ...f.runs.get(sent.attempt.id), status: "ok" });
+  await f.assistants.reconcile();
+  await f.long.check(f.taskChat.id);
+  assert.equal(f.hints().length, 0);
+  assert.equal(f.long.told(f.taskChat.id), null);
+  // An hour after his last message the lead hears of the long chat.
+  f.long.now = () => Date.now() + ownerChatQuietMs + 60_000;
+  await f.long.check(f.taskChat.id);
+  assert.equal(f.hints().length, 1);
 });
 
 test("a smaller chat grows by half before the lead hears again", async (t) => {

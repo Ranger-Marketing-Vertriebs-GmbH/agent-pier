@@ -7,6 +7,7 @@ import {
   routineActions,
 } from "../../server/features/assistants/team-bridge-actions.js";
 import { grantNotes } from "../../server/features/assistants/member-grant-notes.js";
+import { ownerChatQuietMs } from "../../server/features/assistants/member-summaries.js";
 
 const deferred = () => {
   let resolve;
@@ -51,13 +52,14 @@ async function setup(t, { memory = true } = {}) {
   };
   const member = f.service.store.member(f.permanent.id);
   const taskChat = f.store.getConversation(member.conversationId);
-  // A turn of the member's own task chat that has not ended.
-  const memberTurn = () => {
+  // A turn of the member's own task chat that has not ended: its task's (by
+  // default) or the owner's own (`kind: "owner"`), with further context fields.
+  const memberTurn = (kind = "team-member", more = {}) => {
     const request = f.assistants.ledger.accept(taskChat.id, {
       clientRequestId: crypto.randomUUID(),
       text: "Work",
     });
-    f.service.store.recordContext(request.id, { kind: "owner" });
+    f.service.store.recordContext(request.id, { kind, ...more });
     return f.assistants.ledger.recordAttempt(request.id);
   };
   const summarise = (when, inv = f.turn(), memberId = member.id) =>
@@ -166,7 +168,7 @@ test("after_task on an idle member summarises at once", async (t) => {
   // A chat busy with other work keeps it for later.
   f.compactions[0].release();
   await until(() => !f.long.compacting(f.taskChat.id), "the summary's end");
-  f.assistants.queued = new Map([[f.taskChat.id, { state: "queued" }]]);
+  f.memberTurn();
   assert.equal((await f.summarise("after_task")).status, "queued");
   assert.equal(f.service.memberSummaries.pending(f.member.id), true);
 });
@@ -360,4 +362,73 @@ test("the bridge serves the tool to a lead, also in its long-chat hint turn", as
   // The member is idle: its task is over, so the summary runs now.
   assert.equal(result.status, "summarising");
   assert.equal(f.steps.length, 1);
+});
+
+// AGENTPIER-248: a permanent member's task chat is its main chat, where the owner may
+// talk with it himself; the lead leaves that chat alone.
+const later = (f, ms) => (f.service.memberSummaries.now = () => Date.now() + ms);
+
+test("the lead may not summarise a chat the owner wrote in within the hour", async (t) => {
+  const f = await setup(t);
+  f.complete(f.memberTurn("owner").id);
+  for (const when of ["now", "after_task"]) {
+    const result = await f.summarise(when);
+    assert.equal(result.status, "owner", when);
+    assert.match(result.detail, /Summarise now/);
+  }
+  assert.equal(f.steps.length, 0);
+  assert.equal(f.long.compacting(f.taskChat.id), false);
+  assert.equal(f.service.memberSummaries.pending(f.member.id), false);
+  assert.equal(f.reserved.length, 0);
+});
+
+test("the owner's Telegram message counts as his own, a forwarded one does not", async (t) => {
+  const f = await setup(t, { memory: false });
+  f.complete(f.memberTurn("telegram", { forwarded: true }).id);
+  f.complete(f.memberTurn("lead-request").id);
+  assert.equal((await f.summarise("now")).status, "summarising");
+  (await until(() => f.compactions[0], "the compaction")).release();
+  await until(() => !f.long.compacting(f.taskChat.id), "the summary's end");
+  f.complete(f.memberTurn("telegram").id);
+  assert.equal((await f.summarise("now")).status, "owner");
+});
+
+test("an hour after the owner's last message the lead may summarise again", async (t) => {
+  const f = await setup(t);
+  f.complete(f.memberTurn("owner").id);
+  later(f, ownerChatQuietMs - 60_000);
+  assert.equal((await f.summarise("now")).status, "owner");
+  later(f, ownerChatQuietMs + 60_000);
+  assert.equal((await f.summarise("now")).status, "summarising");
+  assert.equal(f.steps.length, 1);
+});
+
+test("the owner's running or queued turn keeps the lead out of the chat", async (t) => {
+  const f = await setup(t);
+  later(f, ownerChatQuietMs + 60_000);
+  // A long owner turn still runs past the hour.
+  const running = f.memberTurn("owner");
+  assert.equal((await f.summarise("after_task")).status, "owner");
+  f.complete(running.id);
+  // A message the owner queued for the chat.
+  f.assistants.queued.put(f.taskChat.id, {
+    text: "And then?",
+    teamAllowed: false,
+    attachments: [],
+  });
+  assert.equal((await f.summarise("now")).status, "owner");
+  f.assistants.queued.take(f.taskChat.id);
+  assert.equal((await f.summarise("now")).status, "summarising");
+});
+
+test("a pending summary is dropped once the owner talks in the chat", async (t) => {
+  const f = await setup(t, { memory: false });
+  const work = f.memberTurn();
+  assert.equal((await f.summarise("after_task")).status, "queued");
+  f.complete(work.id);
+  f.complete(f.memberTurn("owner").id);
+  await f.service.reconcile();
+  assert.equal(f.service.memberSummaries.pending(f.member.id), false);
+  assert.equal(f.compactions.length, 0);
+  assert.equal(f.long.compacting(f.taskChat.id), false);
 });
