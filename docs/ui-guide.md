@@ -68,7 +68,9 @@ No text is smaller than 11px. Text-entry controls are 16px on phones and touch s
 | `--z-base` 1, `--z-sticky` 20, `--z-dropdown` 50, `--z-overlay` 80, `--z-toast` 90 | Stacking order; no other z-index values in new CSS |
 
 Native modal dialogs (`Modal`, `Sheet`, `SidePanel`, `ImageViewer`) use the browser's
-top layer and need no z-index.
+top layer and need no z-index. While one is open the page behind it does not scroll
+(`web/components/forms.css`), so a wheel or swipe never moves the page under the
+translucent backdrop.
 
 ### Focus, touch and safe areas
 

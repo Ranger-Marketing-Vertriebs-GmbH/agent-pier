@@ -8,6 +8,14 @@ dialog {
   box-shadow: 0 30px 100px #0009;
   max-height: calc(100dvh - 36px);
   overflow: auto;
+  /* Scrolling past either end of a long dialog stops there instead of moving the page. */
+  overscroll-behavior: contain;
+}
+/* The page behind an open modal dialog stays still: a wheel or swipe over the dialog
+   or its backdrop would otherwise scroll it, and the moving page shows through the
+   translucent backdrop as flicker (AGENTPIER-245). */
+:root:has(dialog:modal) {
+  overflow: hidden;
 }
 dialog::backdrop {
   background: #090a0ec9;
