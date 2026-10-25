@@ -61,7 +61,7 @@ for (const [name, viewport] of [
       table.getByRole("rowheader", { name: /Fix the login flow/ }),
     ).toContainText("Claude Code");
     await expect(dialog.getByRole("img", { name: "CPU: currently 39%" })).toBeVisible();
-    await expect(dialog.getByText("CLI profiles")).toBeVisible();
+    await expect(dialog.getByText("CLI profiles", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Agent attachments")).toBeVisible();
     await expect(dialog.getByText("15 GB in total")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`details-${name}.png`) });

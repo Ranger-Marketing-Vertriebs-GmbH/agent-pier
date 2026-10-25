@@ -2,6 +2,7 @@ import React from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
 import Modal from "../../components/Modal.jsx";
 import useSystemStatus from "./useSystemStatus.js";
+import StorageCleanup from "./StorageCleanup.jsx";
 import { DiskWarning, SystemMeter } from "./SystemMeter.jsx";
 import {
   clampPercent,
@@ -223,6 +224,7 @@ export default function SystemStatusDialog({ close }) {
                   </ul>
                 </>
               )}
+              <StorageCleanup />
             </section>
           </>
         )}

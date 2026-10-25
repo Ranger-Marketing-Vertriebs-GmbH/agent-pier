@@ -69,7 +69,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [Wiederherstellung auf dem Handy](docs/mobile-recovery.md)).
 - **Betrieb:** Sicherungen, Updates über die Kanäle Stable und Preview, ein
   Aktivitätsprotokoll und ein Systemstatus auf der Startseite mit Speicher, CPU und
-  RAM, dem Anteil von AgentPier und einer Warnung bei knappem Speicherplatz
+  RAM, dem Anteil von AgentPier, einer Warnung bei knappem Speicherplatz und dem
+  Aufräumen alter Update-Sicherungen, Verläufe und Agenten-Abhängigkeiten
   ([Sicherungen](docs/backups.md), [Release-Kanäle](docs/release-channels.md),
   [Systemstatus](docs/system-status.md)).
 

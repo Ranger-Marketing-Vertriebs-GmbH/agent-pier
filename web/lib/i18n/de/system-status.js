@@ -65,5 +65,78 @@ export const systemStatusCopy = {
     logs: "Protokolle",
     other: "Sonstiges",
   },
+  cleanup: {
+    heading: "Speicher freigeben",
+    open: "Aufräumen …",
+    measuring: "Es wird gemessen, was gelöscht werden kann …",
+    atLeast: (size) => `mindestens ${size}`,
+    freed: (size) => `Gelöscht. ${size} freigegeben.`,
+    snapshots: {
+      title: "Update-Sicherungen",
+      sub: "Zustand und Laufzeit der Agenten vor jedem Laufzeit-Update",
+      label: "Gespeicherte Update-Sicherungen",
+      empty: "Es ist keine Update-Sicherung gespeichert.",
+      versions: (from, to) => `Update ${from} → ${to}`,
+      unknownVersions: "Update der Agenten-Laufzeit",
+      recovery: "Ein unfertiges Update braucht sie noch",
+      blocked:
+        "Ein Update der Agenten-Laufzeit läuft oder braucht seine Sicherungen. Lösche Sicherungen, wenn es fertig ist.",
+      deleteLabel: (date) => `Update-Sicherung vom ${date} löschen`,
+      confirmTitle: (date) => `Update-Sicherung vom ${date} löschen?`,
+      confirmBody: (size) => `Das gibt ${size} frei.`,
+      confirmWarning: (version) =>
+        version
+          ? `Der Weg zurück zur vorherigen Agenten-Laufzeit (${version}) entfällt: AgentPier kann Zustand und Laufzeit der Agenten von vor diesem Update nicht mehr wiederherstellen.`
+          : "Der Weg zurück zur vorherigen Agenten-Laufzeit entfällt: AgentPier kann Zustand und Laufzeit der Agenten von vor diesem Update nicht mehr wiederherstellen.",
+      confirm: "Sicherung löschen",
+    },
+    transcripts: {
+      title: "Verläufe in CLI-Profilen",
+      sub: "Gespräche beendeter Sessions von Claude Code und Codex",
+      label: "Verläufe nach CLI-Profil",
+      age: "Zuletzt geändert vor mehr als",
+      days: (days) => `${days} Tagen`,
+      empty: "In AgentPier ist kein Claude-Code- oder Codex-Profil eingerichtet.",
+      summary: (count, size) =>
+        count === 1 ? `1 Verlauf · ${size}` : `${count} Verläufe · ${size}`,
+      none: "Nichts so Altes",
+      kept: (count) =>
+        count === 1
+          ? "1 weiterer bleibt: AgentPier listet seine Session noch"
+          : `${count} weitere bleiben: AgentPier listet ihre Sessions noch`,
+      deleteLabel: (name) => `Alte Verläufe von ${name} löschen`,
+      confirmTitle: (name, days) =>
+        `Verläufe von „${name}“ löschen, die älter als ${days} Tage sind?`,
+      confirmBody: (count, size, days) =>
+        count === 1
+          ? `Das löscht 1 Verlauf einer beendeten Session, zuletzt vor mehr als ${days} Tagen geändert, und gibt ${size} frei.`
+          : `Das löscht ${count} Verläufe beendeter Sessions, zuletzt vor mehr als ${days} Tagen geändert, und gibt ${size} frei.`,
+      confirmWarning:
+        "Diese Sessions lassen sich nicht mehr fortsetzen und ihr Verlauf ist weg. Verläufe von Sessions, die AgentPier noch listet, laufend oder gestoppt, bleiben.",
+      codexNote:
+        "Codex verzeichnet seine Threads zusätzlich in eigenen Datenbanken. AgentPier lässt sie unverändert, daher listet Codex diese Threads womöglich weiter, ohne ihren Verlauf.",
+      confirm: "Verläufe löschen",
+    },
+    dependencies: {
+      title: "Installierte Abhängigkeiten der Agenten",
+      sub: "node_modules-Ordner in den Arbeitsbereichen der Agenten",
+      label: "Installierte Abhängigkeiten nach Agent",
+      empty: "Kein Arbeitsbereich eines Agenten enthält installierte Abhängigkeiten.",
+      folders: (count) =>
+        count === 1 ? "1 node_modules-Ordner" : `${count} node_modules-Ordner`,
+      working:
+        "Der Agent arbeitet gerade. Lösche seine Abhängigkeiten, wenn er fertig ist.",
+      removedAgent: "Entfernter Agent",
+      deleteLabel: (name) => `Installierte Abhängigkeiten von ${name} löschen`,
+      confirmTitle: (name) => `Installierte Abhängigkeiten von „${name}“ löschen?`,
+      confirmBody: (count, size) =>
+        count === 1
+          ? `Das löscht 1 node_modules-Ordner im Arbeitsbereich des Agenten und gibt ${size} frei.`
+          : `Das löscht ${count} node_modules-Ordner im Arbeitsbereich des Agenten und gibt ${size} frei.`,
+      confirmWarning:
+        "Die eigenen Dateien des Agenten bleiben. Er installiert die Abhängigkeiten wieder, wenn ein Projekt sie braucht (npm install); das kostet Zeit und braucht eine Netzwerkverbindung.",
+      confirm: "Abhängigkeiten löschen",
+    },
+  },
   cpuNote: "CPU-Anteile beziehen sich auf den ganzen Computer, alle Kerne zusammen.",
 };

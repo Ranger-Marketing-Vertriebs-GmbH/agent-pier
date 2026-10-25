@@ -42,18 +42,18 @@ _(German)_ are not translated yet.
 
 ## Operate
 
-| Guide                                              | What it covers                                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [Installation on macOS](installation.md)           | Installer, service, updates and [upgrading from 1.x](installation.md#upgrading-from-1x) |
-| [Linux](linux.md) _(German)_                       | Installation and service on Linux                                                       |
-| [Remote access](remote-access.md) _(German)_       | Tailscale Serve and network mode                                                        |
-| [Login](login.md) _(German)_                       | Workspace user, sessions and recovery                                                   |
-| [Backups](backups.md)                              | What a backup holds, its format and restoring it                                        |
-| [Operations and portability](operations.md)        | Storage, restore, moving hosts, release packages and installer                          |
-| [System status](system-status.md)                  | Disk, CPU and RAM on the start page, AgentPier's share, low-disk and old-tmux notices   |
-| [Stable and Preview releases](release-channels.md) | Update channels and release candidates                                                  |
-| [CLI updates](cli-updates.md)                      | Installing and updating the coding CLIs                                                 |
-| [Installer distribution](homebrew-maintenance.md)  | Maintaining the installer release and Homebrew tap                                      |
+| Guide                                              | What it covers                                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Installation on macOS](installation.md)           | Installer, service, updates and [upgrading from 1.x](installation.md#upgrading-from-1x)         |
+| [Linux](linux.md) _(German)_                       | Installation and service on Linux                                                               |
+| [Remote access](remote-access.md) _(German)_       | Tailscale Serve and network mode                                                                |
+| [Login](login.md) _(German)_                       | Workspace user, sessions and recovery                                                           |
+| [Backups](backups.md)                              | What a backup holds, its format and restoring it                                                |
+| [Operations and portability](operations.md)        | Storage, restore, moving hosts, release packages and installer                                  |
+| [System status](system-status.md)                  | Disk, CPU and RAM on the start page, AgentPier's share, cleanups, low-disk and old-tmux notices |
+| [Stable and Preview releases](release-channels.md) | Update channels and release candidates                                                          |
+| [CLI updates](cli-updates.md)                      | Installing and updating the coding CLIs                                                         |
+| [Installer distribution](homebrew-maintenance.md)  | Maintaining the installer release and Homebrew tap                                              |
 
 ## Design
 

@@ -59,6 +59,64 @@ entries or two minutes; a partial result says so. Sizes are allocated disk block
 
 The response names only these areas, never a path.
 
+## Free up space
+
+Below the areas, **Free up space** offers three cleanups. Each list is measured only
+when you open it with **Clean up …**, never with the five-second refresh. Every
+deletion asks first in a confirmation that names what goes away and how much space it
+frees; only the owner can run it, one cleanup at a time, and the **Activity log**
+records it as `storage.deleted` with the area, the number of entries removed or skipped
+and the bytes freed, never a path, a name or any content.
+
+| Cleanup                          | What it lists                                                                                | What may go                                                                                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Update backups**               | Each agent runtime update backup with its date, size and update (`2026.10.3 → 2026.10.7`)    | One backup and its key. Refused while an update, a rollback or a recovery runs or may still need a backup; the backup of an unresolved recovery stays. |
+| **Transcripts in CLI profiles**  | Per Claude Code and Codex profile: transcripts last changed more than 30, 90 or 180 days ago | Those transcripts, except every session AgentPier still knows.                                                                                         |
+| **Installed agent dependencies** | Per agent: the `node_modules` folders in its workspace and their size                        | Every `node_modules` folder of that workspace while the agent is idle.                                                                                 |
+
+**Update backups.** Deleting one removes the backup and its key the way
+[retention](assistant-runtime-updates.md) does. The way back to the agent runtime from
+before that update goes away: AgentPier can no longer restore the agents' state and
+runtime from before it.
+
+**Transcripts.** AgentPier looks in each managed profile's own CLI folder and in those
+of its provider choices (`profiles/<id>/<tool>` and
+`profiles/<id>/providers/<provider>/<tool>`):
+
+- Claude Code: `projects/<folder>/<session id>.jsonl`, together with the session's
+  folder beside it (subagent transcripts and tool results). The prompt history
+  (`history.jsonl`) and every other file stay.
+- Codex: `sessions/YYYY/MM/DD/rollout-*.jsonl` and `archived_sessions/rollout-*.jsonl`.
+  Codex also indexes its threads in its own SQLite databases (`state_*.sqlite`,
+  `thread_history_*.sqlite`), whose layout changes with Codex releases; AgentPier never
+  writes them, so Codex may still list a deleted thread without its history.
+- OpenCode keeps its sessions in its own database and is not offered.
+- Local profiles use the CLI's folder in your home folder and are not offered either.
+
+A transcript goes only when it and its session folder were last changed before the
+chosen age and no stored AgentPier session, chat binding, native-session record, pipeline run or
+AgentBus record names its id. Sessions in the **Sessions** list, running or stopped,
+therefore keep theirs and can be resumed; a running session's transcript is also
+always newer than the cutoff. If one of those records cannot be read, nothing is
+deleted. Each file is checked again just before it goes. A deleted session can no
+longer be resumed, and its history is gone.
+
+**Installed dependencies.** Every folder named `node_modules` in the agent's
+workspace (`assistants/workspaces/<agent>`) goes; a link named `node_modules` and
+everything outside the workspace stay. The deletion is refused while the agent has a
+turn in flight, a team task, a long-chat summary or an approved action running, and
+while any process of your user has its working folder inside the workspace (a
+background command, a dev server). Each entry is looked at and removed in its parent
+folder as opened, never through a link (`project-open.js`), so a folder swapped for a
+link cannot redirect the deletion. The agent installs its dependencies again when a
+project needs them.
+
+Host backups (`operations/backups`) are deleted under **Settings › Operations ›
+Backups** instead ([backups](backups.md)).
+
+After a cleanup the data directory is measured again the next time the details are
+open.
+
 ## Refresh and cost
 
 The start page and the details ask for new figures every five seconds while the page is
@@ -103,3 +161,9 @@ stopped in the list but still counts in the notice; **Stop session** ends it. Se
 server (`legacyTmux.sessions`, id and name only), and
 `GET /api/system-status/details` adds processes, history and data areas. Both require
 the workspace login like every other `/api` route.
+
+The cleanups live under `/api/system-status/cleanup` and are owner-only:
+`GET update-backups` and `DELETE update-backups/<id>`, `GET transcripts` and
+`POST transcripts/<profile>` with `{ "olderThanDays": 30 | 90 | 180 }`, and
+`GET dependencies` and `DELETE dependencies/<agent>`. A deletion answers with the
+number of entries removed and skipped and the bytes freed.

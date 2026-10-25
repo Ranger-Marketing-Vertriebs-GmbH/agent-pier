@@ -1,0 +1,21 @@
+/* System status › Data directory › Free up space (StorageCleanup.jsx). */
+.system-cleanup {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.system-cleanup h4 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.system-cleanup-group,
+.system-cleanup-panel {
+  display: grid;
+  gap: 10px;
+}
+.system-cleanup-panel[hidden] {
+  display: none;
+}
+.system-cleanup-panel .hint {
+  margin: 0;
+}

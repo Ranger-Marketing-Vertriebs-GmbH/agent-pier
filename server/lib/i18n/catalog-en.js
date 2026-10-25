@@ -40,6 +40,7 @@ import { providers } from "./en/providers.js";
 import { notifications } from "./en/notifications.js";
 import { audit } from "./en/audit.js";
 import { users } from "./en/users.js";
+import { storageCleanup } from "./en/storage-cleanup.js";
 
 // English counterpart of catalog-de.js with identical keys.
 export const englishServerMessages = Object.freeze({
@@ -65,6 +66,7 @@ export const englishServerMessages = Object.freeze({
   notifications,
   audit,
   users,
+  storageCleanup,
   accounts,
   agentbus,
   artifacts,

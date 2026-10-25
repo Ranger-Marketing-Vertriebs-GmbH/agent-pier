@@ -93,6 +93,8 @@ import { repositoriesRoutes } from "./http/routes/repositories.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
 import { SystemStatus } from "./features/system-status/system-status.js";
 import { systemStatusRoutes } from "./http/routes/system-status.js";
+import { StorageCleanup } from "./features/system-status/storage-cleanup.js";
+import { storageCleanupRoutes } from "./http/routes/storage-cleanup.js";
 import { extensionsRoutes } from "./http/routes/extensions.js";
 import { pluginsRoutes } from "./http/routes/plugins.js";
 import { chatRoutes } from "./http/routes/chat.js";
@@ -223,6 +225,12 @@ export async function createApplication(config) {
       console.error(
         `AgentPier could not read the system status: ${error?.code || "unknown error"}`,
       ),
+  });
+  services.storageCleanup = new StorageCleanup({
+    dataDir: config.dataDir,
+    services,
+    audit: services.audit,
+    ...config.storageCleanup,
   });
   // One listener for both monitors keeps the server below the listener warning limit.
   server.once("listening", () => {
@@ -365,6 +373,7 @@ export async function createApplication(config) {
   mount(settingsSummaryRoutes(services));
   mount(dictationRoutes(services));
   mount(systemStatusRoutes(services));
+  mount(storageCleanupRoutes(services));
   mount(usersRoutes(services));
   mount(meAccountRoutes(services));
   mount(meAgentRoutes(services));
