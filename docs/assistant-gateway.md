@@ -1943,39 +1943,55 @@ whose cookies are encrypted only with Chromium's fixed mock key.
 
 ### Browser uploads
 
-OpenClaw 2026.10.7's browser `upload` action (and the file chooser hooks behind it)
+OpenClaw 2026.10.7's browser `upload` action (and the file chooser hook behind it)
 accepts only files below its own uploads folder (`<openclaw tmp>/uploads`,
 `resolveUploadPaths` in its browser `paths` module) or a direct child of its inbound
-media folder. Its tmp root is `/tmp/openclaw` when that is a trusted folder of the
-service user, otherwise `openclaw-<uid>` below the Gateway's `TMPDIR`
-(`assistants/tmp`); the uploads folder is fixed, with no configuration key that could
-point it at a project. Project folders and the agent's workspace are therefore
-refused by OpenClaw itself, and AgentPier stages files instead
+media folder. Its tmp root is `/tmp/openclaw` when that is a directory of the service
+user that neither its group nor others may write, otherwise `openclaw-<uid>` below the
+Gateway's `TMPDIR` (`assistants/tmp`); the uploads folder is fixed, with no
+configuration key that could point it at a project. Project folders and the agent's
+workspace are therefore refused by OpenClaw itself, and AgentPier stages files instead
 ([browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders)):
 
 - `agentpier_workspace` `browser_upload_stage` resolves and opens the file with the
-  project read rules and copies it through the opened descriptor into
+  project read rules and copies its bytes from that opened descriptor into
   `<uploads>/agentpier-<hash of the data directory>/<agent id>/<random>/<file name>`
   (folders `0700`, the file `0600`; `browser-upload-staging.js`). Hard links are no
   option, since a project file with a second link is refused by every read, and a
-  link or a copy by path could follow a folder swapped after the check. The copy asks
-  for a reflink (`COPYFILE_FICLONE`), which Linux file systems such as btrfs or XFS
-  clone without copying the data; on macOS Node offers no clone through a
-  descriptor, so the bytes are copied (about 2 GB/s on Apple silicon SSDs). Each file
-  is at most 8 GiB and a copy leaves at least 1 GiB free.
+  link or a copy by path could follow a folder swapped after the check. It is always
+  a real copy: the uploads folder usually sits on another file system than the
+  project (on Linux often a tmpfs, which holds the copy in memory).
+- Disk use is bounded: one copy runs at a time for all agents, at most 8 GiB per
+  file, three files per agent (a fourth replaces the oldest once it is copied) and
+  16 GiB for all agents together. A copy must leave 1 GiB free on the uploads folder's
+  file system, and on a tmpfs also 1 GiB of free memory. A copy still waiting or
+  running after 270 seconds (the agent's call waits 300) is cancelled and leaves
+  nothing (`UPLOAD_TIMEOUT`).
 - The team plugin's browser guard sends an `upload` call's `paths` along with
-  `/browser-policy`, and AgentPier admits a file of any `agentpier-*` folder only when
-  the calling agent staged it and it is still staged (also by its real path, a link
-  to it or another spelling of the folder). Other paths inside OpenClaw's uploads and
-  inbound media folders keep OpenClaw's own rules; any other path is refused before
-  OpenClaw sees it, with a reason that names `browser_upload_stage`.
-- A staged file is removed after six hours, when its agent stages a fourth one (the
-  oldest goes), when the agent is archived or loses **Use a browser** (a temporary
-  member that ended too; checked every minute) and when AgentPier starts again. The
-  browser reads the file while the website uploads it, so an upload still running
-  when its file goes fails; stage it again.
+  `/browser-policy`, and AgentPier lets the call through only when every path names
+  a file the calling agent staged itself and that is still staged (also by its real
+  path, a link to it or another spelling of the folder). Everything else is refused
+  before OpenClaw sees it, with a reason that names `browser_upload_stage`: another
+  agent's staged file, any other file of OpenClaw's shared uploads or inbound media
+  folders, `media://` references and paths anywhere else. A chat attachment is
+  uploaded by staging it from the agent's own `attachments/` folder (on a shared
+  agent only one sent in that chat).
+- The plugin reports each upload's outcome after the call (`after_tool_call`,
+  `/browser-upload`); AgentPier then records it for the agent's staged files as
+  `uploaded` or `failed`.
+- Staged files go when AgentPier starts and when it stops cleanly (only below
+  trusted folders of the service user), after six hours, and as soon as the agent is
+  archived, removed or loses **Use a browser** (a temporary member that ended too):
+  every change of the agents, and a check each minute, sweeps them. The browser reads
+  the file while the website uploads it, so an upload still running when its file
+  goes fails; stage it again.
 - Pages on loopback or private addresses stay closed to uploads as to navigation
   (OpenClaw's SSRF policy covers the page an upload goes to).
+
+An agent with the browser uploads what it may read without asking: a page it visits
+could try to talk it into uploading a file from its folders, and the audit record is
+the control for that. An agent with shell access runs as the owner and can bypass all
+of this.
 
 The `browser`, `mcp`, `secrets`, `env`, `plugins` and `tools` paths are locked
 against configuration overrides; the compiler rewrites the browser block on each

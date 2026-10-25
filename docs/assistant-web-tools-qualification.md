@@ -387,8 +387,9 @@ page of the agent's browser with a file input over CDP (OpenClaw keeps local tes
 servers closed to the agent's browser), and calls the browser tool's `upload` with
 `element`. The other agent's staged file and the project file named directly are
 refused by the tool guard with their reasons; the agent's own staged file is accepted
-by OpenClaw and reaches the page with its name, size and content, and that upload is
-audited once.
+by OpenClaw and reaches the page with its name, size and content. The plugin's
+outcome report records that upload once as `uploaded`, and a clean stop removes every
+staged file.
 Enabling the browser block itself live (a browser installed after the start) was not
 measured again. AgentPier keeps that case, a changed search provider or key and a
 changed PDF model on the [pending restart](assistant-gateway.md#pending-restart).
