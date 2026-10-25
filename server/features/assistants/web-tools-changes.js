@@ -15,7 +15,7 @@ import { usedCapabilities } from "./native-capabilities.js";
  */
 export class WebToolsChanges {
   // `images()` is `{ ready }`: whether a ChatGPT account can create images now.
-  // `pdfModel` is the owner's PDF model choice (pdf-model-settings.js).
+  // `pdfModel` is the owner's optional PDF fallback (pdf-model-settings.js).
   constructor({
     assistants,
     webSearch,

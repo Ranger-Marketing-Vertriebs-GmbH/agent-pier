@@ -16,8 +16,8 @@ export const capabilityTools = {
   webFetch: ["web_fetch"],
   browser: ["browser"],
   documents: ["view_image"],
-  // OpenClaw reads a PDF with one global model (agents.defaults.pdfModel; an agent
-  // entry cannot name its own), which the owner picks (pdf-model-settings.js).
+  // OpenClaw reads a PDF with the global agents.defaults.pdfModel (an agent entry
+  // cannot name its own); the tool guard names each call's model (pdf-policy.js).
   readPdfs: ["pdf"],
   // OpenClaw's image_generate through the ChatGPT account (gpt-image-2); its results
   // reach the owner as shared files (generated-images.js).
@@ -38,7 +38,7 @@ export const guardedTools = ["write", "edit"];
 // Tools offered only while the plugin's tool guard is proven: the guarded writes, the
 // browser, whose calls the guard pins to the agent's own profile, image creation,
 // whose calls it checks and audits (image-policy.js), and PDF reading, whose calls it
-// keeps on workspace files and the owner's PDF model (tool-guard.js pdfCall).
+// keeps on workspace files and the model AgentPier names (tool-guard.js pdfCall).
 export const guardGatedTools = [...guardedTools, "browser", "image_generate", "pdf"];
 const guardGatedCapabilities = ["browser", "createImages", "readPdfs"];
 export const writeGuardRuntimes = ["2026.9.8", "2026.9.9", "2026.10.3", "2026.10.7"];

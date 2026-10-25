@@ -287,6 +287,12 @@ export class TeamBridge {
       return { allow: false, reason: "unavailable" };
     return this.assistants.imagePolicy.check(input);
   }
+  // Every pdf call reads with the model AgentPier names for its agent (pdf-policy.js).
+  pdfPolicy(input) {
+    if (this.closed || !this.assistants.pdfPolicy)
+      return { allow: false, reason: "unavailable" };
+    return this.assistants.pdfPolicy.check(input);
+  }
   // Every browser call drives the calling agent's own profile (agent-browsers.js).
   async browserPolicy(input) {
     if (this.closed || !this.assistants.browsers)
@@ -519,6 +525,7 @@ export class TeamBridge {
           "/browser-policy",
           "/browser-upload",
           "/image-policy",
+          "/pdf-policy",
           "/attachment-policy",
           "/guard",
         ].includes(req.url)
@@ -556,11 +563,13 @@ export class TeamBridge {
                 ? this.closed || browserUploadDone(this, input)
                 : req.url === "/image-policy"
                   ? this.imagePolicy(input)
-                  : req.url === "/attachment-policy"
-                    ? this.attachmentPolicy(input)
-                    : req.url === "/guard"
-                      ? this.registerGuard(input)
-                      : this.invoke(input));
+                  : req.url === "/pdf-policy"
+                    ? this.pdfPolicy(input)
+                    : req.url === "/attachment-policy"
+                      ? this.attachmentPolicy(input)
+                      : req.url === "/guard"
+                        ? this.registerGuard(input)
+                        : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

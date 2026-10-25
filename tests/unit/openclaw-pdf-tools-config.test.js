@@ -76,7 +76,7 @@ test("reading PDFs is a capability of its own, off by default", () => {
   assert.ok(images.includes("view_image"));
   assert.equal(images.includes("pdf"), false);
   assert.ok(profileTools(reader, true, true, true, { readPdfs: true }).includes("pdf"));
-  // Without the owner's PDF model the tool is withheld, as for a missing browser.
+  // Without PDF extraction in the runtime the tool is withheld, as for a missing browser.
   for (const available of [{ readPdfs: false }, {}])
     assert.equal(
       profileTools(reader, true, true, true, available).includes("pdf"),
@@ -93,9 +93,11 @@ test("reading PDFs is a capability of its own, off by default", () => {
   assert.ok(profileTools(member, true, true, true, { readPdfs: true }).includes("pdf"));
 });
 
-test("a chosen PDF model makes the capability available", () => {
+test("reading PDFs needs PDF extraction, not a PDF model", () => {
   assert.equal(webToolsAvailability(webTools(chosen)).readPdfs, true);
-  assert.equal(webToolsAvailability(webTools({ ready: false })).readPdfs, false);
+  // Agents read with their own model; the owner's fallback is optional.
+  assert.equal(webToolsAvailability(webTools({ ready: false })).readPdfs, true);
+  assert.equal(webToolsAvailability(webTools(undefined)).readPdfs, true);
   assert.equal(webToolsAvailability({}).readPdfs, false);
   // A runtime without OpenClaw's PDF extraction plugin (a rollback) cannot read PDFs.
   assert.equal(webToolsAvailability(webTools(chosen, false)).readPdfs, false);
@@ -129,23 +131,25 @@ test("an agent that reads PDFs compiles pdf and the model ids, never a model", (
     assert.equal(config.agents.entries[id].tools.allow.includes("pdf"), false);
 });
 
-test("without a model neither is compiled; with one, before any agent reads PDFs", () => {
+test("pdf is compiled before any agent reads PDFs, with or without a fallback", () => {
   const unused = compile([plain], webTools(chosen));
   assert.ok(unused.tools.allow.includes("pdf"));
   assert.ok(unused.plugins.allow.includes("document-extract"));
   assert.equal(unused.agents.entries["ap-a2"].tools.allow.includes("pdf"), false);
-  for (const [profiles, pdf] of [
-    [[reader], { ready: false }],
-    [[reader], undefined],
-  ]) {
-    const config = compile(profiles, webTools(pdf));
-    assert.equal(config.tools.allow.includes("pdf"), false);
-    assert.equal(config.plugins.allow.includes("document-extract"), false);
-    assert.equal(
-      webToolsSections({ profiles, webTools: webTools(pdf), port: 0 }).pdf,
-      undefined,
+  for (const pdf of [{ ready: false }, undefined]) {
+    const config = compile([reader], webTools(pdf));
+    assert.ok(config.tools.allow.includes("pdf"));
+    assert.ok(config.plugins.allow.includes("document-extract"));
+    // No fallback ids: the provider preparation compiles a placeholder.
+    assert.deepEqual(
+      webToolsSections({ profiles: [reader], webTools: webTools(pdf), port: 0 }).pdf,
+      {},
     );
   }
+  // Without PDF extraction nothing of it is compiled.
+  const old = compile([reader], webTools(chosen, false));
+  assert.equal(old.tools.allow.includes("pdf"), false);
+  assert.equal(old.plugins.allow.includes("document-extract"), false);
   // A PDF model an earlier start or a restored file holds does not survive.
   const stale = compile([plain], webTools({ ready: false }), { pdfModel: "x/old" });
   assert.equal(stale.agents.defaults.pdfModel, undefined);
@@ -172,15 +176,59 @@ test("another PDF model changes only the PDF section's signature", () => {
   );
 });
 
-test("the tool guard keeps pdf calls on workspace files and the owner's model", () => {
-  const call = (params) => pdfCall({ toolName: "pdf", params });
-  assert.equal(call({ pdf: "attachments/report.pdf" }), undefined);
-  assert.equal(call({ pdfs: ["a.pdf", "docs/b.pdf"], prompt: "Compare" }), undefined);
-  assert.equal(call({ pdf: "a.pdf", pages: "1-3" }), undefined);
-  const model = { block: true, blockReason: pdfRefusals.model };
-  assert.deepEqual(call({ pdf: "a.pdf", model: "openai/gpt-5.4-mini" }), model);
-  assert.deepEqual(call({ pdf: "a.pdf", model: "" }), model);
+test("the tool guard keeps pdf calls on workspace files and names their model", async () => {
+  const asked = [];
+  const bridge = (answer) => async (endpoint, body) => {
+    asked.push({ endpoint, body });
+    return answer === null
+      ? { ok: false, json: async () => ({}) }
+      : { ok: true, json: async () => answer };
+  };
+  const ctx = { agentId: "ap-a1", sessionKey: "agent:ap-a1:main" };
+  const own = bridge({ allow: true, model: "ap-c1-x/vision-1" });
+  const call = (params, answer = own) =>
+    pdfCall({ toolName: "pdf", params }, ctx, answer);
+  assert.deepEqual(await call({ pdf: "attachments/report.pdf" }), {
+    params: { pdf: "attachments/report.pdf", model: "ap-c1-x/vision-1" },
+  });
+  assert.deepEqual(asked.at(-1), {
+    endpoint: "/pdf-policy",
+    body: { agentId: "ap-a1", sessionKey: "agent:ap-a1:main" },
+  });
+  assert.deepEqual(await call({ pdfs: ["a.pdf", "docs/b.pdf"], prompt: "Compare" }), {
+    params: {
+      pdfs: ["a.pdf", "docs/b.pdf"],
+      prompt: "Compare",
+      model: "ap-c1-x/vision-1",
+    },
+  });
+  // A model the agent names is replaced, never used.
+  for (const model of ["openai/gpt-5.4-mini", "", 7])
+    assert.equal((await call({ pdf: "a.pdf", model })).params.model, "ap-c1-x/vision-1");
+  // Fails closed: no answer, a refusal or an answer without a model.
+  const unavailable = { block: true, blockReason: pdfRefusals.unavailable };
+  assert.deepEqual(await call({ pdf: "a.pdf" }, bridge(null)), unavailable);
+  assert.deepEqual(
+    await call({ pdf: "a.pdf" }, async () => {
+      throw Error("down");
+    }),
+    unavailable,
+  );
+  assert.deepEqual(await call({ pdf: "a.pdf" }, bridge({ allow: true })), unavailable);
+  assert.deepEqual(
+    await call({ pdf: "a.pdf" }, bridge({ allow: true, model: "" })),
+    unavailable,
+  );
+  assert.deepEqual(
+    await call({ pdf: "a.pdf" }, bridge({ allow: false, reason: "notGranted" })),
+    { block: true, blockReason: pdfRefusals.notGranted },
+  );
+  assert.deepEqual(
+    await call({ pdf: "a.pdf" }, bridge({ allow: false, reason: "constructor" })),
+    unavailable,
+  );
   const reference = { block: true, blockReason: pdfRefusals.reference };
+  const before = asked.length;
   for (const params of [
     { pdf: "https://example.com/a.pdf" },
     { pdf: " HTTP://example.com/a.pdf" },
@@ -190,5 +238,7 @@ test("the tool guard keeps pdf calls on workspace files and the owner's model", 
     { pdfs: "a.pdf" },
     { pdfs: [null] },
   ])
-    assert.deepEqual(call(params), reference);
+    assert.deepEqual(await call(params), reference);
+  // A refused reference never reaches AgentPier.
+  assert.equal(asked.length, before);
 });

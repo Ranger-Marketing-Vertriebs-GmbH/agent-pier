@@ -93,7 +93,6 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
     createImages: images === false ? copy.imagesUnavailable : "",
-    readPdfs: pdf && !pdf.ready ? (pdfCopy.unavailable[pdf.reason] ?? "") : "",
   };
   const provider = search?.provider
     ? (settingsCopy.searchProviders[search.provider] ?? search.provider)

@@ -82,11 +82,12 @@ it took it over from the lead.
   without one the switch is disabled and says so). The search provider is set once
   under **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
   Perplexity through OpenRouter). **Read PDFs** reads PDF files in the agent's
-  workspace with one PDF model for all agents, chosen under
-  **Accounts → Services for agents → PDF reading** from the model connections and
-  ChatGPT accounts. A model without image input reads the text of PDFs but not
-  scanned pages or pages without text; the PDF reading page says so. Until a usable
-  model is chosen the switch is disabled and says why. **Read images** also lets the
+  workspace with the agent's own model when it accepts images, scanned pages
+  included. For agents whose model does not, an optional fallback model reads them,
+  chosen under **Accounts → Services for agents → PDF reading** from the model
+  connections and ChatGPT accounts; without one, such an agent reads only the text of
+  PDFs, not scanned pages or pages without text. PDFs never go to any other model.
+  **Read images** also lets the
   agent look at PNG, JPEG, GIF and WebP files (up to 6 MiB) in the project folders
   you gave it, when its model takes images; each such view is recorded in the
   activity log with the file's path and size.
@@ -148,7 +149,7 @@ it took it over from the lead.
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent
-service: another web search provider or key, another PDF model, a browser installed
+service: another web search provider or key, another PDF fallback model, a browser installed
 after the service started, a changed model connection that agents use, and a new
 Telegram bot for an agent. AgentPier saves such a change at once and shows
 **Agent service restart pending**, with what it is for and what it waits for. The

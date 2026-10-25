@@ -1680,14 +1680,14 @@ what their lead grants them (see [Team member grants](#team-member-grants-2026-1
 The tools exist only in team mode (native teams), where AgentPier compiles them into
 the Gateway's startup configuration.
 
-| Switch             | Grants           | What it does                                                                                                                                       |
-| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                            |
-| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                    |
-| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                     |
-| **Read images**    | `view_image`     | Looks at images in the workspace, and with `image_view` in granted project folders; needs a model that accepts images                              |
-| **Read PDFs**      | `pdf`            | Reads workspace PDFs with the PDF model chosen under **Accounts → Services for agents → PDF reading** (see [PDF reading](#pdf-reading-2026-10-19)) |
-| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))      |
+| Switch             | Grants           | What it does                                                                                                                                                                                                         |
+| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                                                                                              |
+| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                                                                                      |
+| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                                                                                       |
+| **Read images**    | `view_image`     | Looks at images in the workspace, and with `image_view` in granted project folders; needs a model that accepts images                                                                                                |
+| **Read PDFs**      | `pdf`            | Reads workspace PDFs with the agent's own model, or the optional fallback under **Accounts → Services for agents → PDF reading** when that model does not accept images (see [PDF reading](#pdf-reading-2026-10-19)) |
+| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))                                                                        |
 
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
@@ -1695,41 +1695,57 @@ external content, and the switches do not grant any other tool.
 ### PDF reading (2026-10-19)
 
 **Read PDFs** (`readPdfs`, off by default, also grantable to task members within their
-lead's own switch) offers OpenClaw's `pdf` tool. OpenClaw 2026.10.3 takes the model
-that reads a PDF only from the global `agents.defaults.pdfModel`: an agent entry with
-its own `pdfModel` (or `imageModel`) is rejected as an unrecognized key, and without
-an explicit model the tool picks the first image-capable provider it finds, which need
-not be the agent's own. AgentPier therefore keeps one owner setting:
-**Accounts → Services for agents → PDF reading** chooses a model connection (OpenRouter,
-a custom endpoint or a ChatGPT account) and one of its models. Only ids are stored
-(`assistants/pdf-model.sqlite`); the key stays with the model connection. Any model
-of a usable connection can be chosen. Pages with little text reach a model that
-accepts images as rendered page images; a text-only model gets the extracted text
-only (OpenClaw drops the images), so it cannot read scanned pages or pages without
-text, and a PDF without any extractable text fails. The PDF reading page shows that
-note for a model without image input.
+lead's own switch) offers OpenClaw's `pdf` tool. Since AGENTPIER-218 an agent reads
+PDFs with its own model when that model accepts images. OpenClaw 2026.10.7 still takes
+the model that reads a PDF only from the global `agents.defaults.pdfModel`: an agent
+entry with its own `pdfModel` (or `imageModel`) is rejected as an unrecognized key, and
+without an explicit model the tool picks the first image-capable provider it finds
+among all configured ones (the agent's own model comes last), which need not be the
+agent's own. AgentPier therefore never lets the tool choose:
 
-- The switch is effective only while that model is usable (`PdfModelSettings`: the
-  connection exists and is available, or the ChatGPT account is signed in; image
-  input does not matter) and the runtime bundles OpenClaw's `document-extract`
-  plugin. Otherwise the switch is disabled and names the reason (no model chosen, the
-  connection is gone or unusable); an agent that has it on keeps the setting but is
-  not granted `pdf`.
-- A start whose agents read PDFs adds `pdf` to the global `tools.allow` and
-  `document-extract` to `plugins.allow` (without it the tool refuses every PDF a
-  non-native model reads). `AssistantProviderSynchronization.prepare` then writes
-  `agents.defaults.pdfModel` as `{ primary, fallbacks: [] }` with the connection's
-  provider entry, like an agent's own model; if the model cannot be resolved it
-  withdraws `pdf` instead. `agents.defaults.pdfModel` is compiler-owned and locked for
-  advanced settings.
-- Like image creation, `pdf` waits for the proven tool guard. The guard refuses a
-  `model` argument (the agent cannot pick another configured model) and any
-  reference with a scheme (`http(s)`, `file:`, `media:`): PDFs come from the
-  agent's workspace (`tools.fs.workspaceOnly`), never from the web.
-- A start compiles `pdf` with the chosen model before any agent reads PDFs, so
-  switching it on for an agent applies live. Choosing another model while an agent
-  reads PDFs needs a [pending restart](#pending-restart). Editing or deleting the PDF
-  model's connection counts as a change for every agent that reads PDFs.
+- **The global model is always explicit.** A start that offers `pdf` writes
+  `agents.defaults.pdfModel` as `{ primary, fallbacks: [] }`
+  (`AssistantProviderSynchronization.preparePdf`): the owner's optional fallback model
+  with its provider entry, or the placeholder `agentpier-unavailable/blocked`, which
+  names no configured provider. An explicit model turns OpenClaw's own choice off; the
+  placeholder fails with `Unknown model` and no other model is tried.
+  `agents.defaults.pdfModel` is compiler-owned and locked for advanced settings.
+- **The tool guard names each call's model.** The team plugin's `before_tool_call`
+  hook (`pdfCall` in `team-plugin/tool-guard.js`) asks the bridge (`/pdf-policy`,
+  `PdfPolicy` in `pdf-policy.js`) and sets `model` on every call: the agent's own
+  model when it accepts images (`AssistantModels.imageInput`, the same facts its
+  compiled provider declares), otherwise the fallback the running Gateway was started
+  with, otherwise the agent's own text-only model. A `model` the agent passes is
+  replaced. OpenClaw then reads with exactly that model and no fallbacks. Without an
+  answer (an agent that may not read PDFs, an unknown agent, an unusable model, the
+  bridge away) the call is refused. The reference is resolved like the agent's live
+  apply, so it names the provider the Gateway runs; an agent's model change applies
+  to its PDFs with the same live apply.
+- **Fallback:** **Accounts → Services for agents → PDF reading** optionally chooses a
+  fallback model connection (OpenRouter, a custom endpoint or a ChatGPT account) and
+  one of its models for agents whose own model does not accept images. Only ids are
+  stored (`assistants/pdf-model.sqlite`); the key stays with the model connection.
+  Choosing, changing or removing it while an agent reads PDFs needs a
+  [pending restart](#pending-restart); until then the started fallback stays in use.
+  Editing or deleting the fallback's connection counts as a change for every agent
+  that reads PDFs.
+- **Text only:** pages with little text reach a model that accepts images as rendered
+  page images. A text-only model (an agent's own without a fallback, or a text-only
+  fallback) gets the extracted text only (OpenClaw drops the images), so it cannot
+  read scanned pages or pages without text, and a PDF without any extractable text
+  fails. The PDF reading page says so for a text-only fallback.
+- The switch is effective while the runtime bundles OpenClaw's `document-extract`
+  plugin; it no longer needs a fallback. A start adds `pdf` to the global
+  `tools.allow` and `document-extract` to `plugins.allow` (without it the tool refuses
+  every PDF a non-native model reads). Like image creation, `pdf` waits for the proven
+  tool guard, so switching it on for an agent applies live.
+- The guard also refuses any reference with a scheme (`http(s)`, `file:`, `media:`):
+  PDFs come from the agent's workspace (`tools.fs.workspaceOnly`), never from the web.
+- The native contract `assistant-pdf-own-model-contract.test.js` pins this on the
+  pinned runtime: the guard's model reads (page images for an image model, text only
+  for a text-only one) while the agent names another, the placeholder reaches no
+  configured model (an image-capable decoy provider included), a refused call reaches
+  none either, and a started fallback reads for the text-only agent.
 
 ### Image generation (2026-10-18)
 
@@ -2151,7 +2167,7 @@ block or a search plugin live. Since AGENTPIER-202 a start therefore compiles ev
 web section the runtime can serve, whether an agent uses it yet or not: the global
 tool allow list (an upper bound; each agent's entry names its own tools),
 `tools.web`, the browser block with its member slots, the search plugin, PDF
-extraction with the PDF model, and the image model. Switching web search, web
+extraction with the PDF fallback or its placeholder, and the image model. Switching web search, web
 pages, the browser, its visible window, PDFs or images for one agent changes only
 its entry and its own `browser.profiles.<agent>` entry, which apply live
 (`BrowserProfileSync`, verified in the
@@ -2162,7 +2178,8 @@ compiles, or what the Gateway holds. Additions and other changes leave a pending
 restart:
 
 - a used capability's global section: another search provider or key, another PDF
-  model while an agent reads PDFs, a browser installed or removed after the start;
+  fallback model while an agent reads PDFs, a browser installed or removed after the
+  start;
 - a model connection agents use: another endpoint, name or other non-key setting;
 - an agent's own Telegram bot: connecting one, a person added, a first speech key.
 
@@ -2222,8 +2239,9 @@ the next Gateway start.
 - **Runtime without the bundled plugins** (an installation not yet updated, or a
   rollback target): web search is unavailable until the staged update is activated.
 - **Documents:** OpenClaw offers `view_image` only for models that accept images.
-  **Read images** grants `view_image` only; PDFs need **Read PDFs** and a chosen PDF
-  model (see [PDF reading](#pdf-reading-2026-10-19) and the
+  **Read images** grants `view_image` only; PDFs need **Read PDFs**, which reads with
+  the agent's own model or the optional PDF fallback (see
+  [PDF reading](#pdf-reading-2026-10-19) and the
   [web tools qualification](assistant-web-tools-qualification.md)). `view_image`
   stays in the agent's workspace (`tools.fs.workspaceOnly`); images in a granted
   project folder are shown through `agentpier_workspace` `image_view`, which needs
