@@ -11,8 +11,11 @@ import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import { hookCopy } from "../../lib/i18n/messages/assistant-hooks.js";
 import { agentRunStepsCopy as stepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 import { assistantWorkflowCopy as workflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
+import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
 import { toolName } from "./AgentRunState.jsx";
 import RouteLink from "./RouteLink.jsx";
+import SftpRunNote from "./SftpRunNote.jsx";
+import SshRunNote from "./SshRunNote.jsx";
 import { hookApi } from "./settings/hook-api.js";
 import {
   eventAreaView,
@@ -160,7 +163,29 @@ function EventReply({ text }) {
   );
 }
 
-// A routine's or check-in's body: its time, readable notes, then its reply.
+// What a routine's run did: its SSH runs and SFTP jobs as the chat's own activity
+// rows, and its memory note (server routine-run-notes.js).
+function RunNotes({ notes }) {
+  const headingId = useId();
+  return (
+    <section className="agent-event-did" aria-labelledby={headingId}>
+      <h4 id={headingId}>{copy.did}</h4>
+      {notes.map((note) =>
+        note.event === "ssh-run" ? (
+          <SshRunNote key={note.id} note={note} />
+        ) : note.event === "sftp-run" ? (
+          <SftpRunNote key={note.id} note={note} />
+        ) : (
+          <p key={note.id} className="activity-row-note">
+            {memoryNoteCopy.reasons[note.reason] || memoryNoteCopy.unknown}
+          </p>
+        ),
+      )}
+    </section>
+  );
+}
+
+// A routine's or check-in's body: its time, readable notes, what it did, its reply.
 function ResultBody({ event }) {
   const notes = noteTexts(event.notes);
   return (
@@ -174,6 +199,7 @@ function ResultBody({ event }) {
           {note}
         </p>
       ))}
+      {event.runNotes?.length > 0 && <RunNotes notes={event.runNotes} />}
       {event.reply && <EventReply text={event.reply} />}
     </>
   );

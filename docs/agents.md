@@ -305,7 +305,9 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   (passwords, tokens and keys in flags, headers, URLs and variables) as `•••` and say
   "Secrets hidden"; this is best effort. An approval shows the exact command until you
   decide and it has run. AgentPier keeps the newest 500 trusted runs per agent.
-  **Trusted incl. routines** also runs in the agent's routines.
+  **Trusted incl. routines** also runs in the agent's routines. A routine's or a hook's
+  runs leave their rows in that run's entry of the **Events** area, not in the chat
+  (see [the event area](#the-event-area)).
 - **SFTP hosts** appear in the same list, marked **SFTP**, with the same modes (see
   [SFTP access](sftp-access.md)). The agent lists and downloads without asking. With
   **With approval**, every change on the server (upload, new folder, rename, sync up)
@@ -320,7 +322,8 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   granted project folder; prompt files such as `AGENTS.md` and `SOUL.md`, `skills/`,
   `.agents/` and `attachments/` are never transferred, and a folder download needs a
   subfolder. Every transfer leaves a live activity row (progress, then counts, size and
-  duration); consecutive calls share one group, "SFTP activity".
+  duration); consecutive calls share one group, "SFTP activity". A routine's or a
+  hook's transfers show in its **Events** entry instead.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
 - **Team:** **Use team** (**On request**, **Suggest** or **Autonomous**; see
@@ -828,8 +831,15 @@ its name (a hook's with its sender), the reply's first line, duplicates, and **R
 **Done**, **Failed**, **Throttled** or **Silent**. Opening a hook's row shows **What came
 in** as plain text (never formatted), when it arrived, its size and sender, **What the
 agent did** (its tool steps, coding runs with **Open run**, SSH and SFTP runs, the
-notices it sent) and the whole reply. Reminders stay ordinary messages marked
-"Scheduled · <name>". Other chats have no event area.
+notices it sent) and the whole reply. Opening a routine's row shows its time, **What
+the agent did** (the SSH and SFTP rows of that run, opened like the chat's own, and a
+note about a shared-memory write) and the whole reply. These rows never appear in the
+conversation itself; a run that ended silently has no row, and the agent's **Actions
+and coding tasks** still list its commands. Neither a routine nor a hook ever waits for
+an SSH or SFTP approval, so nothing that needs your decision moves here: a coding
+request or a shell command approval a run asks for stays a card in the conversation.
+Reminders stay ordinary messages marked "Scheduled · <name>". Other chats have no event
+area.
 
 ## Hooks
 

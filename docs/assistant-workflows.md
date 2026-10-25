@@ -383,7 +383,10 @@ Telegram chat also writes into; `sessionTarget: "current"`, as check-ins do), so
 interrupts a running turn. OpenClaw commits the result into that conversation once no
 turn runs there: the AgentPier chat shows it as a row of its **Events** area (the
 `events` of the main chat's history, `web/features/assistants/AgentEventArea.jsx`)
-rather than as a message, a later turn can refer to it, and an `agent-routine` push
+rather than as a message, together with the SSH and SFTP rows and the memory note of
+that run (`runNotes`, `server/features/assistants/routine-run-notes.js`: an action
+row names its routine as `origin: { kind: "routine", bindingId }` and joins the result
+whose run covers it, from `runAtMs` to the record; a hook's rows stay with its event), a later turn can refer to it, and an `agent-routine` push
 notice opens the chat. With
 **Also send to Telegram** on, the result also goes to the paired Telegram chat, split
 into several messages when it is long. OpenClaw's completion
