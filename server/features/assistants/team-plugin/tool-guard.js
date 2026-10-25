@@ -326,6 +326,26 @@ export async function browserCall(event, ctx, bridge) {
     };
   return { params: { ...event.params, profile: policy.profile, target: "host" } };
 }
+/**
+ * Reports a browser upload's outcome (after_tool_call) to AgentPier, which records it
+ * for the agent's own staged files (agent-browser-uploads.js). Best effort.
+ */
+export async function browserUploaded(event, ctx, bridge) {
+  const action = event?.params?.action;
+  if (event?.toolName !== "browser" || typeof action !== "string") return;
+  if (action.trim().toLowerCase() !== "upload" || !Array.isArray(event.params.paths))
+    return;
+  const failed =
+    !!event.error ||
+    // OpenClaw's tool error, also as the text of a result's content.
+    /\\*"status\\*"\s*:\s*\\*"error/.test(JSON.stringify(event.result ?? null));
+  await bridge("/browser-upload", {
+    agentId: ctx?.agentId,
+    ...(typeof ctx?.sessionKey === "string" && { sessionKey: ctx.sessionKey }),
+    paths: event.params.paths.map(String).slice(0, 20),
+    ok: !failed,
+  }).catch(() => null);
+}
 // Why an image_generate call was refused (image-policy.js), for the model.
 export const imageRefusals = {
   // Neutral: on an agent of users the person in the chat is not the owner.
@@ -484,6 +504,7 @@ export function registerToolGuard(api) {
     matcher: ["browser"],
     priority: 1000,
   });
+  api.on("after_tool_call", (event, ctx) => browserUploaded(event, ctx, bridge));
   api.on("before_tool_call", (event, ctx) => imageCall(event, ctx, bridge), {
     matcher: ["image_generate"],
     priority: 1000,

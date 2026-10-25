@@ -389,7 +389,8 @@ export const assistants = {
     "This agent may not use a browser, so AgentPier prepares no file for uploading.",
   browserUploadTooLarge: "A file for a browser upload may be at most 8 GiB.",
   browserUploadSpace:
-    "There is not enough free disk space to prepare this file for uploading.",
+    "There is not enough free disk space, or AgentPier already holds as many prepared browser uploads as allowed.",
+  browserUploadSlow: "Copying this file for the browser took too long and was cancelled.",
   invalid: "Invalid agent input.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",

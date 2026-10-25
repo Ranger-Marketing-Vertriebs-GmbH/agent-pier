@@ -414,7 +414,9 @@ export const assistants = {
   browserUploadTooLarge:
     "Eine Datei zum Hochladen über den Browser darf höchstens 8 GiB groß sein.",
   browserUploadSpace:
-    "Für diese Datei ist nicht genug freier Speicherplatz, um sie zum Hochladen vorzubereiten.",
+    "Für diese Datei ist nicht genug freier Speicherplatz, oder AgentPier hält bereits so viele vorbereitete Browser-Uploads wie erlaubt.",
+  browserUploadSlow:
+    "Das Kopieren dieser Datei für den Browser hat zu lange gedauert und wurde abgebrochen.",
   invalid: "Ungültige Agenten-Eingabe.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",

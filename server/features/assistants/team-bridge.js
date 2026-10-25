@@ -20,6 +20,7 @@ import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
 import { agentPerson } from "./reminder-audience.js";
 import { attachmentsAllowed } from "./attachment-access.js";
+import { browserUploadDone } from "./agent-browser-uploads.js";
 import {
   actions,
   bridgeTool,
@@ -516,6 +517,7 @@ export class TeamBridge {
           "/tool-policy",
           "/step-policy",
           "/browser-policy",
+          "/browser-upload",
           "/image-policy",
           "/attachment-policy",
           "/guard",
@@ -550,13 +552,15 @@ export class TeamBridge {
             ? stepPolicy(this, input)
             : req.url === "/browser-policy"
               ? this.browserPolicy(input)
-              : req.url === "/image-policy"
-                ? this.imagePolicy(input)
-                : req.url === "/attachment-policy"
-                  ? this.attachmentPolicy(input)
-                  : req.url === "/guard"
-                    ? this.registerGuard(input)
-                    : this.invoke(input));
+              : req.url === "/browser-upload"
+                ? this.closed || browserUploadDone(this, input)
+                : req.url === "/image-policy"
+                  ? this.imagePolicy(input)
+                  : req.url === "/attachment-policy"
+                    ? this.attachmentPolicy(input)
+                    : req.url === "/guard"
+                      ? this.registerGuard(input)
+                      : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

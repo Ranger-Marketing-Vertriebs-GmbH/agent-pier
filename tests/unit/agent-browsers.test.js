@@ -8,6 +8,7 @@ import { browserProfileMap } from "../../server/features/assistants/openclaw-con
 import {
   browserCall,
   browserRefusals,
+  browserUploaded,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
 
 const visibleApp = {
@@ -458,4 +459,49 @@ test("two first calls for the same profile at the limit evict nothing extra", as
   ]);
   assert.equal(f.stops().length, 1);
   assert.equal([...f.browsers.running.values()].filter((e) => !e.headless).length, 3);
+});
+
+test("the plugin reports each browser upload's outcome, nothing else", async () => {
+  const sent = [];
+  const bridge = async (url, body) => {
+    sent.push({ url, body });
+    return { ok: true };
+  };
+  const ctx = { agentId: "ap-a", sessionKey: "s" };
+  const params = { action: "upload", paths: ["/tmp/openclaw/uploads/x.mp4"] };
+  await browserUploaded(
+    { toolName: "browser", params, result: { ok: true } },
+    ctx,
+    bridge,
+  );
+  await browserUploaded({ toolName: "browser", params, error: "denied" }, ctx, bridge);
+  await browserUploaded(
+    {
+      toolName: "browser",
+      params,
+      result: { content: [{ type: "text", text: '{ "status": "error" }' }] },
+    },
+    ctx,
+    bridge,
+  );
+  await browserUploaded({ toolName: "browser", params: { action: "open" } }, ctx, bridge);
+  await browserUploaded({ toolName: "exec", params }, ctx, bridge);
+  assert.deepEqual(
+    sent.map(({ url, body }) => [url, body.ok]),
+    [
+      ["/browser-upload", true],
+      ["/browser-upload", false],
+      ["/browser-upload", false],
+    ],
+  );
+  assert.deepEqual(sent[0].body, {
+    agentId: "ap-a",
+    sessionKey: "s",
+    paths: ["/tmp/openclaw/uploads/x.mp4"],
+    ok: true,
+  });
+  // A bridge that is down never breaks the agent's turn.
+  await browserUploaded({ toolName: "browser", params }, ctx, async () => {
+    throw Error("down");
+  });
 });

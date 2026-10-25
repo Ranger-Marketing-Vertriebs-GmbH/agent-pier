@@ -1,26 +1,31 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { pipeline } from "node:stream/promises";
 import { createHash, randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
 import { openInside } from "./project-open.js";
 
-// What one staged file may be, how many one agent holds at once, how long one stays
-// and how much free space a copy leaves behind.
+// What one staged file may be, how many one agent holds at once, how much all agents
+// hold together, how long one stays, how much free space (and, on a tmpfs, memory) a
+// copy leaves behind and how long one copy may take: the plugin's call waits 300 s.
 export const uploadLimits = {
   maxBytes: 8 * 1024 ** 3,
   perAgent: 3,
+  totalBytes: 16 * 1024 ** 3,
   ttlMs: 6 * 60 * 60 * 1000,
   reserveBytes: 1024 ** 3,
+  copyMs: 270000,
 };
-const { O_RDONLY, O_NONBLOCK, COPYFILE_EXCL, COPYFILE_FICLONE } = fs.constants;
+const { O_RDONLY, O_NONBLOCK } = fs.constants;
+const TMPFS_MAGIC = 0x01021994;
 const unsuitable = () => assistantProblem("projectFileUnsuitable", 400);
 const missing = () => assistantProblem("notFound", 404);
+const noSpace = () => assistantProblem("browserUploadSpace", 507);
 const darwin = process.platform === "darwin";
 // Case-insensitive volumes (macOS) name one folder in any case.
 const fold = (value) => (darwin ? value.toLowerCase() : value);
-const inside = (parent, child) =>
-  fold(child) === fold(parent) || fold(child).startsWith(fold(parent) + path.sep);
 const real = (value) => {
   try {
     return fs.realpathSync.native(value);
@@ -29,40 +34,46 @@ const real = (value) => {
   }
 };
 
-// A temp folder OpenClaw trusts: a real directory of this user (fs-safe
-// resolveSecureTempRoot also tightens its mode before using it).
-function trusted(directory) {
+/**
+ * A temp folder OpenClaw trusts (fs-safe resolveSecureTempRoot isSecureDirForUser): a
+ * real directory of this user that neither its group nor others may write.
+ */
+export function trusted(directory) {
   try {
     const stat = fs.lstatSync(directory);
     return (
       stat.isDirectory() &&
       !stat.isSymbolicLink() &&
-      (!process.getuid || stat.uid === process.getuid())
+      (!process.getuid || stat.uid === process.getuid()) &&
+      (stat.mode & 0o022) === 0
     );
   } catch {
     return false;
   }
 }
 
+const fallbackDir = (tmp) => {
+  const uid = process.getuid?.();
+  return path.join(tmp, uid === undefined ? "openclaw" : `openclaw-${uid}`);
+};
 /**
  * The uploads directory OpenClaw's browser takes files from (OpenClaw 2026.10.7
  * extensions/browser paths.ts DEFAULT_UPLOAD_DIR): `<tmp>/uploads` below
  * /tmp/openclaw when that is a trusted folder of this user or can be created,
  * otherwise below `<TMPDIR>/openclaw-<uid>`, with the Gateway's TMPDIR (`tmp`).
- * Spelled as OpenClaw spells it: its check is lexical below that root.
+ * Spelled as OpenClaw spells it: its check is lexical below that root. `create`
+ * false only names it, without creating /tmp/openclaw.
  */
-export function openclawUploadDir(tmp, preferred = "/tmp/openclaw") {
-  let base = preferred;
-  if (!trusted(preferred)) {
+export function openclawUploadDir(
+  tmp,
+  preferred = "/tmp/openclaw",
+  { create = true } = {},
+) {
+  if (!trusted(preferred) && create)
     try {
       fs.mkdirSync(preferred, { mode: 0o700 });
     } catch {}
-    if (!trusted(preferred)) {
-      const uid = process.getuid?.();
-      base = path.join(tmp, uid === undefined ? "openclaw" : `openclaw-${uid}`);
-    }
-  }
-  return path.join(base, "uploads");
+  return path.join(trusted(preferred) ? preferred : fallbackDir(tmp), "uploads");
 }
 
 // The name the website sees: the file's own name, without separators or controls,
@@ -77,7 +88,7 @@ export function stagedName(relative) {
 }
 
 // A path the browser tool names, as OpenClaw reads it (normalizeUploadPathSource):
-// without a `MEDIA:` prefix; a media:// reference is OpenClaw's inbound media.
+// without a `MEDIA:` prefix; null for a media:// reference.
 const uploadSource = (raw) => {
   const trimmed = String(raw).trim();
   if (/^media:\/\//i.test(trimmed)) return null;
@@ -90,16 +101,17 @@ const uploadSource = (raw) => {
  * directory, so a file of a granted project folder or of the agent's workspace is
  * copied there through the descriptor that was checked like every project read
  * (project-paths.js, project-open.js): no link on the way, no second hard link, a
- * regular file within `maxBytes`. The copy is a reflink where the file system
- * clones through a descriptor (Linux btrfs or XFS) and a plain copy otherwise; a
- * clone by path could follow a folder swapped for a link after the check.
+ * regular file within `maxBytes`. A link or a copy by path could follow a folder
+ * swapped for a link after the check.
  *
  * Each agent stages below its own folder of this data directory's namespace
- * (`<uploads>/agentpier-<hash>/<agent>/<random>/<name>`), and the tool guard lets
- * a browser call upload from that namespace only what the calling agent staged
- * itself (`admit`). A staged file goes after `ttlMs`, when the agent stages more
- * than `perAgent`, when `keep` says its agent ended (a temporary member, an
- * archived agent, one without the browser) and when AgentPier starts again.
+ * (`<uploads>/agentpier-<hash>/<agent>/<random>/<name>`), one copy at a time for
+ * all agents, so the per-agent count, the total and the free space are checked with
+ * nothing else in flight. The tool guard lets a browser upload name only files the
+ * calling agent staged itself (`admit`). A staged file goes after `ttlMs`, when the
+ * agent stages more than `perAgent`, when `keep` says its agent ended (a temporary
+ * member, an archived agent, one without the browser) and when AgentPier starts or
+ * stops (`clear`).
  */
 export class BrowserUploads {
   constructor({
@@ -111,9 +123,9 @@ export class BrowserUploads {
   }) {
     Object.assign(this, { tmp, dataRoot, fixedDir: uploadDir, now, limits });
     this.entries = new Map();
-    this.cleared = false;
     // Staging order: the newest files stay, also within one clock tick.
     this.sequence = 0;
+    this.queue = Promise.resolve();
   }
   get uploadDir() {
     return this.fixedDir || openclawUploadDir(this.tmp);
@@ -126,34 +138,67 @@ export class BrowserUploads {
       .slice(0, 16);
     return path.join(uploadDir, `agentpier-${key}`);
   }
-  // Leftovers of an earlier AgentPier process: nothing admits them any more.
-  prepare() {
+  /**
+   * Removes every staged file of this data directory, also what an earlier process
+   * left: in each folder OpenClaw may use, only below trusted folders of this user.
+   */
+  clear() {
+    for (const entry of [...this.entries.values()]) this.remove(entry);
+    const dirs = this.fixedDir
+      ? [this.fixedDir]
+      : [
+          openclawUploadDir(this.tmp, undefined, { create: false }),
+          path.join(fallbackDir(this.tmp), "uploads"),
+        ];
+    for (const uploadDir of new Set(dirs)) {
+      const namespace = this.namespace(uploadDir);
+      if (
+        trusted(path.dirname(uploadDir)) &&
+        trusted(uploadDir) &&
+        fs.existsSync(namespace) &&
+        trusted(namespace)
+      )
+        fs.rmSync(namespace, { recursive: true, force: true });
+    }
+  }
+  // The agent's folder, created only below trusted folders of this user.
+  ownFolder(assistantId) {
     const uploadDir = this.uploadDir;
     const namespace = this.namespace(uploadDir);
-    if (!this.cleared) {
-      fs.rmSync(namespace, { recursive: true, force: true });
-      this.cleared = true;
-    }
-    fs.mkdirSync(namespace, { recursive: true, mode: 0o700 });
-    if (!trusted(namespace) || !trusted(path.dirname(namespace)))
+    if (!trusted(path.dirname(uploadDir))) throw assistantProblem("unavailable", 503);
+    fs.mkdirSync(uploadDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(namespace, { mode: 0o700, recursive: true });
+    if (!trusted(uploadDir) || !trusted(namespace))
       throw assistantProblem("unavailable", 503);
-    return { uploadDir, namespace };
+    const own = path.join(namespace, agentFolder(assistantId));
+    fs.mkdirSync(own, { mode: 0o700, recursive: true });
+    if (!trusted(own)) throw assistantProblem("unavailable", 503);
+    return { uploadDir, own };
   }
   /**
    * Copies the file `raw` below `root` (a granted folder or the workspace, with its
-   * `protectedRoots` and `guarded` workspace entries) for agent `assistantId`.
-   * Returns the staged entry; `meta` (projectId, site) travels with it for the audit.
+   * `protectedRoots`; `admit(relative)` may refuse it by its path) for agent
+   * `assistantId`. Returns the staged entry; `meta` (projectId, declaredSite) travels
+   * with it for the audit. One copy runs at a time; a call still waiting or copying
+   * after `copyMs` is cancelled and leaves nothing behind.
    */
-  async stage(
+  stage(assistantId, spec, meta = {}) {
+    const signal = AbortSignal.timeout(this.limits.copyMs);
+    const run = this.queue.then(() => this.copy(assistantId, spec, meta, signal));
+    this.queue = run.catch(() => {});
+    return run;
+  }
+  async copy(
     assistantId,
-    { root, raw, protectedRoots = [], guarded = null },
-    meta = {},
+    { root, raw, protectedRoots = [], admit = null },
+    meta,
+    signal,
   ) {
+    if (signal.aborted) throw assistantProblem("browserUploadSlow", 504);
     this.sweep();
     const target = projectTarget(root, raw, { protectedRoots });
     if (!target.exists) throw missing();
-    if (guarded && target.relative && guarded(target.relative.split("/")[0]))
-      throw assistantProblem("projectPathRefused", 403);
+    admit?.(target.relative);
     let handle;
     try {
       handle = await openInside(target.real, O_RDONLY | O_NONBLOCK);
@@ -167,20 +212,33 @@ export class BrowserUploads {
       if (!stat.isFile() || stat.nlink > 1) throw unsuitable();
       if (stat.size > this.limits.maxBytes)
         throw assistantProblem("browserUploadTooLarge", 413);
-      const { uploadDir, namespace } = this.prepare();
-      const own = path.join(namespace, agentFolder(assistantId));
-      fs.mkdirSync(own, { recursive: true, mode: 0o700 });
+      // The agent's oldest files make room for this one once it is copied; all
+      // agents share the total.
+      const leaving = new Set(this.oldest(assistantId, this.limits.perAgent - 1));
+      const held = [...this.entries.values()]
+        .filter((e) => !leaving.has(e))
+        .reduce((sum, e) => sum + e.bytes, 0);
+      if (held + stat.size > this.limits.totalBytes) throw noSpace();
+      const { uploadDir, own } = this.ownFolder(assistantId);
       const space = fs.statfsSync(own);
       if (space.bavail * space.bsize < stat.size + this.limits.reserveBytes)
-        throw assistantProblem("browserUploadSpace", 507);
+        throw noSpace();
+      // A tmpfs holds its files in memory.
+      if (
+        space.type === TMPFS_MAGIC &&
+        os.freemem() < stat.size + this.limits.reserveBytes
+      )
+        throw noSpace();
       const id = randomBytes(16).toString("hex");
       dir = path.join(own, id);
       fs.mkdirSync(dir, { mode: 0o700 });
       const file = path.join(dir, stagedName(target.relative || raw));
-      // The checked descriptor, reopened by its own name: never the path again.
-      const source = darwin ? `/dev/fd/${handle.fd}` : `/proc/self/fd/${handle.fd}`;
-      await fs.promises.copyFile(source, file, COPYFILE_EXCL | COPYFILE_FICLONE);
-      fs.chmodSync(file, 0o600);
+      // The checked descriptor itself, never the path again.
+      await pipeline(
+        handle.createReadStream({ start: 0, autoClose: false }),
+        fs.createWriteStream(file, { flags: "wx", mode: 0o600 }),
+        { signal },
+      );
       const copied = fs.lstatSync(file);
       if (!copied.isFile() || copied.size !== stat.size) throw unsuitable();
       const entry = {
@@ -197,81 +255,93 @@ export class BrowserUploads {
         sequence: ++this.sequence,
         ...meta,
       };
+      for (const old of leaving) this.remove(old);
       this.entries.set(id, entry);
       dir = null;
-      this.trim(assistantId);
       return entry;
     } catch (error) {
-      if (error?.code === "ENOSPC") throw assistantProblem("browserUploadSpace", 507);
+      if (error?.code === "ENOSPC") throw noSpace();
+      if (signal.aborted) throw assistantProblem("browserUploadSlow", 504);
       throw error;
     } finally {
       await handle.close();
       if (dir) fs.rmSync(dir, { recursive: true, force: true });
     }
   }
-  // The agent keeps its newest `perAgent` files.
-  trim(assistantId) {
-    const own = [...this.entries.values()]
+  // The agent's files beyond its newest `keep`.
+  oldest(assistantId, keep) {
+    return [...this.entries.values()]
       .filter((e) => e.assistantId === assistantId)
-      .sort((a, b) => b.sequence - a.sequence);
-    for (const entry of own.slice(this.limits.perAgent)) this.remove(entry);
+      .sort((a, b) => b.sequence - a.sequence)
+      .slice(Math.max(0, keep));
   }
   remove(entry) {
     this.entries.delete(entry.id);
     fs.rmSync(entry.dir, { recursive: true, force: true });
   }
-  /** Expired files, and those of agents `keep` no longer keeps. */
+  /** Expired files, and every file of agents `keep` no longer keeps. */
   sweep(keep = () => true) {
-    for (const entry of [...this.entries.values()])
-      if (entry.expiresAt <= this.now() || !keep(entry.assistantId)) this.remove(entry);
+    for (const entry of [...this.entries.values()]) {
+      if (!this.entries.has(entry.id)) continue;
+      if (!keep(entry.assistantId)) this.release(entry.assistantId);
+      else if (entry.expiresAt <= this.now()) this.remove(entry);
+    }
   }
   /** Every file of one agent, for example a temporary member that ended. */
   release(assistantId) {
     for (const entry of [...this.entries.values()])
       if (entry.assistantId === assistantId) this.remove(entry);
   }
+  /** The staged entries of agent `assistantId` that `paths` name; others are skipped. */
+  owned(assistantId, paths) {
+    if (!Array.isArray(paths)) return [];
+    const byIdentity = new Map([...this.entries.values()].map((e) => [e.identity, e]));
+    return paths.flatMap((raw) => {
+      const entry = typeof raw === "string" && this.lookup(raw, byIdentity);
+      return entry && entry.assistantId === assistantId ? [entry] : [];
+    });
+  }
+  // The staged entry a path names: by the file it reaches, or null.
+  lookup(raw, byIdentity) {
+    const source = uploadSource(raw);
+    if (!source) return null;
+    try {
+      const stat = fs.statSync(path.resolve(this.uploadDir, source));
+      return byIdentity.get(`${stat.dev}:${stat.ino}`) ?? null;
+    } catch {
+      return null;
+    }
+  }
   /**
-   * Whether a browser upload of agent `assistantId` may name `paths`: a file
-   * AgentPier staged anywhere (of any data directory) only when this agent staged
-   * it here and it is still there, and an absolute path only inside OpenClaw's own
-   * folders (`inbound`, its inbound media), where OpenClaw's own rules apply.
-   * Returns `{ used }`, the staged entries named, or `{ reason }`.
+   * Whether a browser upload of agent `assistantId` may name `paths`: only files
+   * this agent staged here that are still there. Another agent's staged file or
+   * anything in an AgentPier namespace is `uploadNotStaged`; every other path,
+   * also OpenClaw's shared uploads and inbound media folders and media://
+   * references, `uploadOutside`. Returns `{ used }`, the staged entries, or `{ reason }`.
    */
-  admit(assistantId, paths, { inbound = null } = {}) {
+  admit(assistantId, paths) {
     this.sweep();
     if (!Array.isArray(paths) || !paths.length || paths.length > 20)
       return { reason: "uploadNotStaged" };
     const uploadDir = this.uploadDir;
-    const roots = [uploadDir, real(uploadDir)].filter(Boolean);
-    const spaces = roots.map((root) => path.join(root, "agentpier-"));
+    const spaces = [uploadDir, real(uploadDir)]
+      .filter(Boolean)
+      .map((root) => fold(path.join(root, "agentpier-")));
     const byIdentity = new Map([...this.entries.values()].map((e) => [e.identity, e]));
     const used = [];
     for (const raw of paths) {
       if (typeof raw !== "string" || raw.length > 4096 || raw.includes("\0"))
         return { reason: "uploadNotStaged" };
-      const source = uploadSource(raw);
-      if (source === null) continue;
-      const absolute = path.resolve(uploadDir, source);
-      const resolved = real(absolute);
-      const names = [absolute, resolved].filter(Boolean);
-      let identity = null;
-      try {
-        const stat = fs.statSync(absolute);
-        identity = `${stat.dev}:${stat.ino}`;
-      } catch {}
-      const staged = identity && byIdentity.get(identity);
-      const ours = names.some((n) => spaces.some((s) => fold(n).startsWith(fold(s))));
-      if (staged || ours) {
-        if (!staged || staged.assistantId !== assistantId)
-          return { reason: "uploadNotStaged" };
+      const staged = this.lookup(raw, byIdentity);
+      if (staged?.assistantId === assistantId) {
         used.push(staged);
         continue;
       }
-      const allowed = [...roots, ...(inbound ? [inbound, real(inbound)] : [])].filter(
-        Boolean,
-      );
-      if (!names.some((n) => allowed.some((root) => inside(root, n))))
-        return { reason: "uploadOutside" };
+      const source = uploadSource(raw);
+      const absolute = source === null ? null : path.resolve(uploadDir, source);
+      const names = absolute ? [absolute, real(absolute)].filter(Boolean) : [];
+      const ours = names.some((n) => spaces.some((s) => fold(n).startsWith(s)));
+      return { reason: staged || ours ? "uploadNotStaged" : "uploadOutside" };
     }
     return { used };
   }
