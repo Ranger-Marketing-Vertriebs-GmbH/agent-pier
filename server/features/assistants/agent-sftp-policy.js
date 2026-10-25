@@ -1,8 +1,8 @@
-import { sshModes } from "./agent-ssh-origin.js";
+import { sshModes, unattended } from "./agent-ssh-origin.js";
 
 // What an agent's SFTP action may do on its grant (spec "Decisions by the owner"):
 // reads never ask, writes ask unless the owner trusts the host, deletes always ask,
-// routines never delete. Pure, like agent-ssh-origin.js.
+// routines and hooks never delete. Pure, like agent-ssh-origin.js.
 const kinds = ["read", "write", "delete"];
 const reads = new Set(["list", "stat", "download"]);
 const writes = new Set(["upload", "mkdir", "rename"]);
@@ -24,8 +24,7 @@ export function sftpKind(action, input = {}) {
 /** `run` without a card, `card` for an owner approval, or `refuse`. */
 export function sftpPermits(mode, cls, kind) {
   if (!sshModes.includes(mode) || !kinds.includes(kind)) return "refuse";
-  if (cls === "routine")
-    return mode === "routines" && kind !== "delete" ? "run" : "refuse";
+  if (unattended(cls)) return mode === "routines" && kind !== "delete" ? "run" : "refuse";
   if (!["owner", "delegated"].includes(cls)) return "refuse";
   if (kind === "read") return "run";
   if (kind === "delete") return "card";

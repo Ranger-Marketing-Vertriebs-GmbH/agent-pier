@@ -89,9 +89,12 @@ export class AgentProjectFiles {
    * The levels that apply to a workspace call (AssistantWorkflows.context): a task
    * member's grant; a lead's task with the member's own levels (changing files only
    * when the task may write) and what the lead shares for it; a sibling's request or
-   * the owner's own turn with the agent's own levels and its lead's standing shares.
+   * the owner's own turn with the agent's own levels and its lead's standing shares;
+   * a hook run with the hook's folders at min(hook, agent) level, resolved live
+   * (agent-hook-workspace.js).
    */
   levels(ctx) {
+    if (ctx.hook) return { ...ctx.hook.folders };
     if (ctx.requestedBy) return this.memberLevels(ctx.requestedBy);
     // A sibling's request (peer-requests.js): the member's own levels and standing
     // shares, or only the standing shares when the lead started it; read-only
@@ -271,6 +274,10 @@ export class AgentProjectFiles {
           ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
           // A routine run names its routine (the binding) as the origin.
           ...(ctx.routine ? { origin: "routine", routineId: ctx.routine.bindingId } : {}),
+          // A hook run names its hook and event (audit-hook-details.js).
+          ...(ctx.hook
+            ? { via: "hook", hookId: ctx.hook.hookId, hookEventId: ctx.hook.eventId }
+            : {}),
           // A lead's follow-up on its member's result names that request.
           ...(ctx.memberResult
             ? { via: "member-result", leadRequestId: ctx.memberResult.requestId }

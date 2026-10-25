@@ -36,6 +36,8 @@ export function agentLocalRoot(w, ctx, { projectId, write = false } = {}) {
   if (projectId === undefined) {
     const workspaces = w.a.attachments?.config?.workspaces;
     if (!workspaces) throw assistantProblem("unavailable", 503);
+    // A hook run never writes the agent's workspace (only its memory, natively).
+    if (write && ctx.hook) throw assistantProblem("sftpWorkspaceRefused", 403);
     if (write) guard();
     const root = path.join(workspaces, ctx.assistantId);
     fs.mkdirSync(root, { recursive: true, mode: 0o700 });

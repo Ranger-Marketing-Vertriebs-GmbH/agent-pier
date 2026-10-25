@@ -11,6 +11,11 @@ import { isUserAgent } from "../users/user-access.js";
 import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
 import { continuedTurn } from "./exec-continuation.js";
+import {
+  hookActionAllowed,
+  hookContext,
+  recordHookCoding,
+} from "./agent-hook-workspace.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 // What a task from the member's lead reaches: the member's own folders and coding
@@ -32,10 +37,12 @@ const routineRefused = new Set(["coding_cancel"]);
  * on its member's result (`memberResult`: the lead's own folders and projects, never
  * shares, and coding requests always wait for the owner) or the completion run of a
  * command such a turn started (`execContinuation`, exec-continuation.js: its
- * project folders only). Every other turn is refused.
+ * project folders only) or a hook run (`hook`, agent-hook-workspace.js). Every other
+ * turn is refused.
  */
 export function workspaceContext(w, inv) {
   inv.assertCurrent();
+  if (!inv.attemptId && inv.hook) return hookContext(w, inv);
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
   if (!inv.attemptId && inv.continuation) return continuationContext(w, inv);
   const attempt = w.a.ledger.getAttempt(inv.attemptId);
@@ -257,6 +264,9 @@ export async function workspaceCall(w, inv, input) {
     !["catalog", "browser_upload_stage"].includes(input.action)
   )
     throw assistantProblem("invalid", 403);
+  // A hook run reaches what its ticks allow, nothing else (agent-hook-workspace.js).
+  if (ctx.hook && !hookActionAllowed(ctx, input.action))
+    throw assistantProblem("invalid", 403);
   // Project folders are the member's own grant (agent-project-files.js).
   if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
   // A file for the agent's own browser, from the same folders or its workspace
@@ -327,27 +337,26 @@ export async function workspaceCall(w, inv, input) {
   )
     throw assistantProblem("invalid");
   inv.assertCurrent();
-  const { leadRequest: task, routine, memberResult, ...stored } = ctx;
+  const { leadRequest: task, routine, hook, memberResult, ...stored } = ctx;
   const action = w.store.reserve({
     ...stored,
     payload,
     accessRevision: approvalRevision(p),
-    key: `${routine?.key || inv.attemptId}:${inv.toolCallId}`,
+    key: `${hook?.key || routine?.key || inv.attemptId}:${inv.toolCallId}`,
     // A member's request, every request on a lead's share and every request in a
     // lead's or sibling's task waits for the owner, whatever the standing permission
-    // says.
+    // says. A hook's Coding tick starts its request on the agent's own project.
     state:
       input.action === "coding_start" &&
-      p.autonomous &&
-      !ctx.requestedBy &&
       !inherited &&
-      !routine &&
-      !task &&
-      !ctx.memberResult
+      (hook
+        ? hook.coding
+        : p.autonomous && !ctx.requestedBy && !routine && !task && !ctx.memberResult)
         ? "approved"
         : "awaiting_approval",
     ...(inherited ? { inherited } : {}),
     ...(routine ? { routineId: routine.bindingId } : {}),
+    ...(hook ? { hookId: hook.hookId, hookEventId: hook.eventId } : {}),
     // Requested in a follow-up on a member's result: always the owner's approval.
     ...(memberResult ? { via: "member-result", resultOf: memberResult.requestId } : {}),
     // A task's request waits in the lead's chat too (assistant-action-store.js delegated).
@@ -363,6 +372,7 @@ export async function workspaceCall(w, inv, input) {
       ? { pipelineName: w.s.pipelineDefinitions.getPipeline(input.pipelineId).name }
       : {}),
   });
+  if (hook && input.action === "coding_start") recordHookCoding(w, ctx, action);
   if (action.state === "awaiting_approval") notifyAction(w, action, "approval");
   w.a.changed();
   return w.project(action);

@@ -509,6 +509,30 @@ reply, the tool steps the run made (tool name and state from the Gateway's `agen
 frames, never arguments or output) and what was notified. The main chat's results
 record names it with `kind: "hook"`.
 
+**Rights per tick.** A hook holds only what the owner ticks, never more than the agent
+holds: every tick is capped by the agent's live rights on every event and, for
+folders, coding and SSH, again on every tool call of the run
+(`agent-hook-workspace.js`, `AgentSsh.hookHosts`). Folders, coding projects and SSH
+hosts are the agent's own grants plus, for a permanent member, its lead's standing
+shares (never a task's share). A right the agent loses mid-run is gone on the next
+call; the settings show the tick disabled with its reason. The run's origin class is
+`hook`, never `owner`: project memory, the action list, cancelling a coding run,
+browser uploads, owner-only switches, reminder, routine and hook tools and team tools
+stay out.
+
+| Tick                      | What a hook run gets                                                                                                                                                                                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Always                    | `session_status`, `memory_search`, `memory_get`; the workspace `catalog` when folders or coding are ticked.                                                                                                                                                                            |
+| **Notify**                | A push notice with the result (see Notify above).                                                                                                                                                                                                                                      |
+| **Also send to Telegram** | The result in the paired Telegram chat as well.                                                                                                                                                                                                                                        |
+| **Research**              | `web_search` and `web_fetch`, whichever the agent has; never `browser`.                                                                                                                                                                                                                |
+| **Coding**                | `coding_start`, `coding_status`, `coding_artifacts`. A request on the agent's own project starts as `approved` without a card; one on a lead's share waits for the owner as always. The action carries `hookId` and `hookEventId`, and the event lists it. `coding_cancel` is refused. |
+| **Shell**                 | Off or the agent's own level (With approval or Full; OpenClaw sets exec per agent). Only while the event runs.                                                                                                                                                                         |
+| **SSH hosts**             | `agentpier_ssh` on the chosen hosts that the agent holds in mode **Trusted incl. routines** (SSH commands and SFTP); other hosts answer `SSH_NOT_GRANTED`, an SFTP delete is refused, and nothing waits for a card.                                                                    |
+| **Folders**               | The chosen project folders at min(hook, agent) level; changes need the tool guard like every agent write and are audited with `via: "hook"`, `hookId` and `hookEventId`. An SFTP transfer never writes the agent's workspace.                                                          |
+| **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                           |
+| **MCP**                   | The agent's MCP tools.                                                                                                                                                                                                                                                                 |
+
 ## Operations and qualification boundaries
 
 See [managed runtime updates](assistant-runtime-updates.md) for staging, activation,
