@@ -36,6 +36,14 @@ export class HookRuns {
     this.steps = new RunSteps();
     // Events whose completion is being handled (a webhook retry may overlap it).
     this.completing = new Set();
+    // The next sweep for events still unsettled after a reconcile (an interrupted
+    // run whose completion may never come); replaced by each reconcile.
+    this.sweep = null;
+    this.later = (run, ms) => setTimeout(run, ms).unref();
+  }
+  /** The clock event times are kept in. */
+  now() {
+    return this.hooks.events.now();
   }
   get client() {
     return this.assistants.runtime.client;
@@ -109,6 +117,8 @@ export class HookRuns {
         await this.removeJob(job.id);
         throw assistantProblem("unavailable", 503);
       }
+      // A completion that never comes is settled by the sweep.
+      if (!this.sweep) this.schedule();
       return events.get(event.id);
     });
   }
@@ -144,7 +154,14 @@ export class HookRuns {
   async settle(event, completion) {
     const { events, store } = this.hooks;
     const hook = store.get(event.hookId);
-    const agent = this.assistants.store.getAssistant(event.assistantId);
+    let agent;
+    try {
+      agent = this.assistants.store.getAssistant(event.assistantId);
+    } catch {
+      // The agent is gone: nothing to tell anyone, but the event and job settle.
+      this.fail(event);
+      return this.removeJob(event.jobId);
+    }
     const ok = completion.status === "ok";
     const summary = typeof completion.summary === "string" ? completion.summary : "";
     if (ok) textValue(summary, 65536, true);
@@ -283,8 +300,8 @@ export class HookRuns {
       );
       let changed = false;
       for (const event of events.unsettled()) {
-        if (Date.now() - event.receivedAt < staleMs || live.has(event.id)) continue;
-        events.patch(event.id, { status: "failed", completedAt: Date.now() });
+        if (this.now() - event.receivedAt < staleMs || live.has(event.id)) continue;
+        this.fail(event);
         changed = true;
       }
       for (const job of jobs) {
@@ -296,6 +313,34 @@ export class HookRuns {
         await this.removeJob(job.id);
       }
       if (changed) this.assistants.changed();
+      this.schedule();
+    });
+  }
+  /**
+   * Sweeps again once the oldest event still unsettled can be stale: a run that a
+   * restart interrupted is younger than the window at the ready that follows it.
+   */
+  schedule() {
+    clearTimeout(this.sweep);
+    this.sweep = null;
+    const oldest = this.hooks.events.unsettled()[0];
+    if (!oldest) return;
+    const wait = Math.max(1000, oldest.receivedAt + staleMs - this.now() + 1000);
+    this.sweep = this.later(() => {
+      this.sweep = null;
+      this.reconcile().catch(() => {});
+    }, wait);
+  }
+  close() {
+    clearTimeout(this.sweep);
+    this.sweep = null;
+  }
+  /** Settles an event whose completion never came; its observed steps are kept. */
+  fail(event) {
+    this.hooks.events.patch(event.id, {
+      status: "failed",
+      completedAt: Date.now(),
+      activity: event.jobId ? this.activity(event) : [],
     });
   }
   /** A deleted hook: the jobs of its unsettled events (read before they are forgotten). */
