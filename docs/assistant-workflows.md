@@ -125,14 +125,17 @@ view is audited with its path and size, like a change.
   `PROJECT_FILE_UNSUITABLE`, never in a file outside the folder. Folder listings and
   the folders search walks are read in the folder as opened (`inFolder`): on Linux
   through the opened folder's descriptor (`/proc/self/fd/<fd>`), so a swap never
-  lists outside names or sizes; on macOS the folder is opened again before and after reading
-  and a changed folder (device and inode) is refused, which narrows but does not
-  close the race (a swap that is undone before that check stays unseen; contents
-  are never read through it). Creating missing folders and the final rename of a
-  write stay path-based on both platforms (Node has no `mkdirat` or `renameat`). The
-  rename names the temporary file and the target in the same folder in one call, so
-  a swap makes it fail; a folder created through a swapped link is an empty folder
-  outside, and the temporary file below it is then refused.
+  lists outside names or sizes; on macOS the folder is opened again before and
+  after reading and a changed folder (device and inode) is refused, which narrows
+  but does not close the race (a swap that is undone before that check stays
+  unseen; contents are never read through it). On Linux without a readable
+  `/proc`, listings are refused and search finds nothing, rather than reading
+  unchecked (fail closed). Creating missing folders and the final rename of a write
+  stay path-based: macOS has no race-free primitive for them; on Linux
+  `/proc/self/fd` would work as well but is not used, since a swap there can only
+  make the rename fail (it names the temporary file and the target in the same
+  folder in one call) or create an empty folder outside, below which the temporary
+  file is then refused.
 - **Audit:** each change is one `assistant.updated` record (`kind: "project-file"`)
   with the project, the relative path, `fileChange` (`create`, `replace`, `edit` or
   `append`), the size in bytes and, for a member, its member ID; never the content.

@@ -142,11 +142,13 @@ ran). Finished jobs stay readable for an hour.
   the entry is used and once more afterwards, and a changed folder (device and inode)
   is refused (`SFTP_PATH_REFUSED`). That only narrows the race: a swap in the instant
   between the last check and the delete itself can still remove a file of the same
-  name outside. The final rename of a download and creating missing folders stay
-  path-based on both platforms (Node has no `renameat` or `mkdirat`). The rename names
-  the temporary file and its destination in the same folder in one call, so a swap
-  makes it fail instead of moving data out; a folder created through a swapped link
-  is an empty folder outside, and the file below it is then refused.
+  name outside. On Linux without a readable `/proc`, the walk and deletes are
+  refused rather than unchecked (fail closed). The final rename of a download and
+  creating missing folders stay path-based: macOS has no race-free primitive for
+  them; on Linux `/proc/self/fd` would work as well but is not used, since a swap
+  there can only make the rename fail (it names the temporary file and its
+  destination in the same folder in one call) or create an empty folder outside,
+  below which the file is then refused.
 - **Guarded workspace entries:** in the agent workspace, prompt files such as
   `AGENTS.md` and `SOUL.md`, `skills/`, `.agents/` and `attachments/` are never
   transferred, in either direction. A folder download or sync down needs a named

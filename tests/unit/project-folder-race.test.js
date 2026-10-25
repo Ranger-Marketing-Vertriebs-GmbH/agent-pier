@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { listFolder } from "../../server/features/assistants/project-files.js";
+import {
+  listFolder,
+  searchFolder,
+} from "../../server/features/assistants/project-files.js";
 import { inFolder } from "../../server/features/assistants/project-open.js";
 import {
   localRoot,
@@ -141,11 +144,10 @@ test("listing and deleting without a swap still work", async (t) => {
 test("inFolder refuses a folder that already is a link and a name with a slash", async (t) => {
   const f = fixture(t);
   fs.symlinkSync(f.outside, path.join(f.root, "link"));
-  // A link as the last name: macOS says ELOOP, Linux ENOTDIR (O_DIRECTORY|O_NOFOLLOW).
   let acted = false;
   await assert.rejects(
     inFolder(path.join(f.root, "link"), async () => (acted = true)),
-    (error) => ["ELOOP", "ENOTDIR"].includes(error.code),
+    { code: "ELOOP" },
   );
   assert.equal(acted, false);
   await assert.rejects(
@@ -153,3 +155,53 @@ test("inFolder refuses a folder that already is a link and a name with a slash",
     { code: "ELOOP" },
   );
 });
+
+// The swap lands between the checks and the open of the folder itself: macOS refuses
+// the link in the open (ELOOP), Linux reports ENOTDIR for O_DIRECTORY|O_NOFOLLOW,
+// which inFolder names a link as well. Both end in SFTP_PATH_REFUSED.
+test("an SFTP delete refuses a parent swapped for a link right before its open", async (t) => {
+  const f = fixture(t);
+  const target = localRoot({ root: f.root, raw: "", write: true });
+  const restore = swapOn(t, f, "open", { match: (file) => file === f.sub });
+  const outcome = await settle(removeLocal(target, "sub/notes.txt"));
+  assert.equal(restore(), true);
+  assert.ok(refused(outcome.error), String(outcome.error));
+  assert.ok(fs.existsSync(path.join(f.outside, "notes.txt")));
+  assert.ok(fs.existsSync(path.join(f.sub, "notes.txt")));
+});
+
+test("an SFTP walk refuses a subfolder swapped for a link right before its open", async (t) => {
+  const f = fixture(t);
+  const target = localRoot({ root: f.root, raw: "" });
+  const restore = swapOn(t, f, "open", { match: (file) => file === f.sub });
+  const outcome = await settle(walkLocal(target));
+  assert.equal(restore(), true);
+  assert.ok(refused(outcome.error), String(outcome.error));
+});
+
+test("search never reads a folder swapped for a link after it was queued", async (t) => {
+  const f = fixture(t);
+  const listed = [];
+  const restore = swapOn(t, f, "readdir", {
+    match: (folder) => listed.push(folder) === 2,
+  });
+  const { matches } = await searchFolder(f.root, "", "secret");
+  assert.equal(restore(), true);
+  assert.deepEqual(matches, []);
+  // Linux reads the folder through its descriptor, never by the swapped path.
+  if (linux) assert.ok(listed[1].startsWith("/proc/self/fd/"), listed[1]);
+});
+
+test(
+  "without /proc a Linux listing and SFTP walk are refused rather than unchecked",
+  { skip: !linux && "macOS checks in the open itself" },
+  async (t) => {
+    const f = fixture(t);
+    t.mock.method(fs, "readlinkSync", () => {
+      throw Object.assign(new Error("no proc"), { code: "ENOENT" });
+    });
+    await assert.rejects(listFolder(f.root, "sub"), { key: "projectFileUnsuitable" });
+    await assert.rejects(walkLocal(localRoot({ root: f.root, raw: "" })), refused);
+    assert.deepEqual((await searchFolder(f.root, "", "inside")).matches, []);
+  },
+);
