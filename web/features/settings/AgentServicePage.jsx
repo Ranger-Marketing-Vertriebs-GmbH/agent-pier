@@ -39,7 +39,7 @@ const dreamingServer = (dreaming) => ({
 // dreaming (one draft).
 export default function AgentServicePage({ frame, diagnostic }) {
   const { teamSettings, refresh } = useAssistants();
-  const { dreaming, refresh: refreshDreaming } = useDreaming();
+  const { dreaming, error: dreamingError, refresh: refreshDreaming } = useDreaming();
   const draft = useTabDraft({
     server: {
       hostMaxConcurrent: teamSettings?.hostMaxConcurrent ?? "",
@@ -111,6 +111,7 @@ export default function AgentServicePage({ frame, diagnostic }) {
       }
     >
       <ErrorMessage error={diagnostic} />
+      <ErrorMessage error={dreamingError} />
       <AssistantRuntimeSettings />
       <GroupLabel id="agent-service-team" hint={teamCopy.concurrentHint}>
         {teamCopy.settings}
@@ -130,7 +131,7 @@ export default function AgentServicePage({ frame, diagnostic }) {
         values={draft.values}
         set={draft.set}
         disabled={!dreaming || draft.saving}
-        error={draft.outcome?.error}
+        savedZone={draft.base.dreamingTimeZone}
       />
       <GroupLabel id="agent-service-advanced">{assistantAdvancedCopy.title}</GroupLabel>
       <ListCard labelledBy="agent-service-advanced">

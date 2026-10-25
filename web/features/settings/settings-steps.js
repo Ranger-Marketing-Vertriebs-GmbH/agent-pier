@@ -1,4 +1,5 @@
 import api from "../../lib/api.js";
+import { assistantDreamingCopy } from "../../lib/i18n/messages/assistant-dreaming.js";
 
 // Save-chain steps of the settings page (see docs/settings-pattern.md). Each step
 // owns its draft keys, so a retry after a partial save skips finished steps.
@@ -122,10 +123,12 @@ export const hostCapacityStep = ({ label, save, refresh }) =>
   );
 
 const dreamingConfirmation = "ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED";
+const dreamingBusy = "ASSISTANT_DREAMING_AGENTS_BUSY";
 
 /**
  * PUT /assistant-dreaming with the draft's base revision. Switching on while permanent
- * agents lack memory asks to confirm turning it on for the agents the server names.
+ * agents lack memory asks to confirm turning it on for the agents the server names;
+ * agents busy right now are named in the error.
  */
 export const dreamingStep = ({ label, save, refresh }) =>
   labelled(
@@ -134,13 +137,22 @@ export const dreamingStep = ({ label, save, refresh }) =>
       keys: ["dreamingEnabled", "dreamingHour", "dreamingTimeZone"],
       resource: "dreaming",
       run: async ({ values, revision, confirmations }) => {
-        const result = await save({
-          enabled: values.dreamingEnabled,
-          hour: values.dreamingHour,
-          timeZone: values.dreamingTimeZone,
-          revision,
-          ...confirmations,
-        });
+        let result;
+        try {
+          result = await save({
+            enabled: values.dreamingEnabled,
+            hour: values.dreamingHour,
+            timeZone: values.dreamingTimeZone,
+            revision,
+            ...confirmations,
+          });
+        } catch (error) {
+          if (error?.code === dreamingBusy && error.agents?.length)
+            error.message = assistantDreamingCopy.busy(
+              error.agents.map((agent) => agent.name).join(", "),
+            );
+          throw error;
+        }
         try {
           await refresh?.();
         } catch {}

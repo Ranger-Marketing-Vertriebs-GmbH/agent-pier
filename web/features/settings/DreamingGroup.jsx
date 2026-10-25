@@ -1,6 +1,5 @@
 import React, { useId } from "react";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
-import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import { SelectRow, ToggleRow } from "../../components/ListRow.jsx";
@@ -13,21 +12,16 @@ const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
   value: String(hour),
   label: assistantProactivityCopy.hour(hour),
 }));
-const busyCode = "ASSISTANT_DREAMING_AGENTS_BUSY";
 
 /**
  * The owner's dreaming switch with the hour of the nightly sweep and its time zone.
- * Switching on in the draft adopts this device's zone. `error` is the last save's
- * error: busy agents are named here.
+ * Switching on in the draft adopts this device's zone; switching off again restores
+ * the saved one (`savedZone`), so the draft is clean again.
  */
-export default function DreamingGroup({ values, set, disabled, error }) {
+export default function DreamingGroup({ values, set, disabled, savedZone }) {
   const id = useId();
   const zone = browserTimeZone();
   const on = values.dreamingEnabled === true;
-  const busy =
-    error?.code === busyCode && error.agents?.length
-      ? copy.busy(error.agents.map((agent) => agent.name).join(", "))
-      : "";
   return (
     <section id="agent-service-dreaming" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.title}</GroupLabel>
@@ -39,7 +33,7 @@ export default function DreamingGroup({ values, set, disabled, error }) {
           disabled={disabled}
           onChange={(next) => {
             set("dreamingEnabled", next);
-            if (next) set("dreamingTimeZone", zone);
+            set("dreamingTimeZone", next ? zone : savedZone);
           }}
         />
         {on && (
@@ -67,7 +61,6 @@ export default function DreamingGroup({ values, set, disabled, error }) {
           </>
         )}
       </ListCard>
-      <ErrorMessage error={busy} />
     </section>
   );
 }

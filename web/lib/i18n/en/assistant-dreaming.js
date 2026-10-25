@@ -8,10 +8,12 @@ export const assistantDreamingCopy = {
   adoptZone: (zone) => `Use my time zone (${zone})`,
   confirmTitle: "Turn memory on for these agents?",
   confirmBody: (count) =>
-    `Dreaming needs memory. ${count} permanent agents do not remember information yet; it will be switched on for all of them.`,
+    count === 1
+      ? "Dreaming needs memory. 1 permanent agent does not remember information yet; it will be switched on for it."
+      : `Dreaming needs memory. ${count} permanent agents do not remember information yet; it will be switched on for all of them.`,
   confirmAction: "Turn on memory and dreaming",
   busy: (names) =>
-    `Dreaming stays off: ${names} are working right now, so their memory could not be switched on. Save again when they are done.`,
+    `Dreaming stays off: memory could not be switched on for agents that are working right now (${names}). Save again when they are done.`,
   memoryLocked:
     "Dreaming is on: every permanent agent keeps its memory. Switch it off under Settings › Workspace › Agents › Agent service › Dreaming.",
   diary: "Dream Diary",

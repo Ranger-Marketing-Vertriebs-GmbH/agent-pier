@@ -8,10 +8,12 @@ export const assistantDreamingCopy = {
   adoptZone: (zone) => `Meine Zeitzone verwenden (${zone})`,
   confirmTitle: "Gedächtnis für diese Agenten einschalten?",
   confirmBody: (count) =>
-    `Träumen braucht Gedächtnis. ${count} dauerhafte Agenten merken sich noch keine Informationen; es wird für alle eingeschaltet.`,
+    count === 1
+      ? "Träumen braucht Gedächtnis. 1 dauerhafter Agent merkt sich noch keine Informationen; es wird für ihn eingeschaltet."
+      : `Träumen braucht Gedächtnis. ${count} dauerhafte Agenten merken sich noch keine Informationen; es wird für alle eingeschaltet.`,
   confirmAction: "Gedächtnis und Träumen einschalten",
   busy: (names) =>
-    `Träumen bleibt aus: ${names} arbeiten gerade, daher ließ sich ihr Gedächtnis nicht einschalten. Speichere erneut, wenn sie fertig sind.`,
+    `Träumen bleibt aus: Für gerade arbeitende Agenten ließ sich das Gedächtnis nicht einschalten (${names}). Speichere erneut, wenn sie fertig sind.`,
   memoryLocked:
     "Träumen ist eingeschaltet: Jeder dauerhafte Agent behält sein Gedächtnis. Schalte es unter Einstellungen › Arbeitsbereich › Agenten › Agentendienst › Träumen aus.",
   diary: "Traumtagebuch",

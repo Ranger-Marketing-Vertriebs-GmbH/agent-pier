@@ -64,3 +64,24 @@ test("the dreaming step saves its keys and asks to confirm memory", async () => 
     null,
   );
 });
+
+test("the dreaming step names busy agents in its error", async () => {
+  const busy = Object.assign(new Error("server text"), {
+    code: "ASSISTANT_DREAMING_AGENTS_BUSY",
+    agents: [
+      { id: "f", name: "Fern" },
+      { id: "o", name: "Olli" },
+    ],
+  });
+  const step = dreamingStep({
+    label: "Dreaming",
+    save: async () => {
+      throw busy;
+    },
+  });
+  await assert.rejects(
+    step.run({ values: {}, revision: 1, confirmations: {} }),
+    (error) =>
+      error === busy && /\(Fern, Olli\)/.test(error.message) && error.code === busy.code,
+  );
+});
