@@ -57,6 +57,16 @@ test("an e-mail address never reaches the bootstrap", () => {
   assert.match(text, /the model "qwen3:4b"\. /);
 });
 
+test("an agent with secrets learns where its file is, never names or values", () => {
+  assert.doesNotMatch(assistantBootstrap(assistant, {}), /secrets\.env/);
+  const text = assistantBootstrap(assistant, {}, { secrets: true });
+  const lines = text.split("\n").filter((line) => line.includes("secrets.env"));
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /`\.agentpier\/secrets\.env`/);
+  assert.match(lines[0], /`set -a; \. \.agentpier\/secrets\.env; set \+a`/);
+  assert.match(lines[0], /Never print, log, commit or paste their values\./);
+});
+
 const memoryOn = { ...assistant, capabilities: { memory: true } };
 
 test("memory on: the bootstrap says the conversation is not memory and where to write", () => {

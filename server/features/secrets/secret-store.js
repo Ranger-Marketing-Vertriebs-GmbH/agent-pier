@@ -137,16 +137,22 @@ export class SecretStore {
         // One failing subscriber must not hide the change from the others.
       }
   }
+  // The change is committed: a failing audit must not keep it from the delivered
+  // files (changed), so it is logged with its code only.
   record(action, row, actor, changed) {
-    this.audit?.append({
-      action,
-      resourceType: "secret",
-      resourceId: row.id,
-      source: "user",
-      outcome: "success",
-      ...auditActor(actor),
-      details: { name: row.name, ...(changed ? { changed } : {}) },
-    });
+    try {
+      this.audit?.append({
+        action,
+        resourceType: "secret",
+        resourceId: row.id,
+        source: "user",
+        outcome: "success",
+        ...auditActor(actor),
+        details: { name: row.name, ...(changed ? { changed } : {}) },
+      });
+    } catch (error) {
+      console.error("Secret audit failed:", error?.code || "error");
+    }
   }
   publicSecret(row) {
     return {

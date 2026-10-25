@@ -124,9 +124,14 @@ const imageGuidance = (userAgent) =>
     `- AgentPier hands every generated image to ${userAgent ? "the person who asked for it" : "the owner"} in this chat, and to Telegram when the request came from there. Do not share it again with agentpier_share_file.`,
   ].join("\n");
 
+// The agent's granted secrets file (agent-secrets.js); names and values stay out.
+const secretsGuidance =
+  "- Secrets the owner granted you are in `.agentpier/secrets.env` in your workspace. When a task needs them, load them in the same shell command with `set -a; . .agentpier/secrets.env; set +a`. Never print, log, commit or paste their values.";
+
 // `memoryWritable` false: the agent's write and edit tools are withheld (no live
 // write guard, AssistantConfig.applyOnce). `team`: a lead's members and team usage
-// level (team-guidance.js), only while its team tools are offered.
+// level (team-guidance.js), only while its team tools are offered. `secrets`: the
+// agent receives at least one secret (AgentSecrets.entries).
 export function assistantBootstrap(
   assistant,
   display = {},
@@ -136,6 +141,7 @@ export function assistantBootstrap(
     github = null,
     images = false,
     team = null,
+    secrets = false,
   } = {},
 ) {
   const model = shareable(display.model) || shareable(assistant.model?.modelId);
@@ -150,6 +156,7 @@ export function assistantBootstrap(
     ...(identity ? [identity] : []),
     "- Internal identifiers (agent, session, provider or connection IDs) and operator or command-line instructions (for example `openclaw …` commands) are for AgentPier only. The user cannot run them: never suggest such commands or repeat such identifiers. When a tool reports an internal maintenance step, tell the user that the feature is temporarily unavailable instead.",
     labelGuidance,
+    ...(secrets ? [secretsGuidance] : []),
   ].join("\n");
   const task = inheritsFromLead(assistant);
   const lead = !assistant.teamMemberId && !assistant.archivedAt && teamGuidance(team);

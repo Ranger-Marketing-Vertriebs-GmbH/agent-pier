@@ -247,7 +247,8 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
 ### Work
 
 - **Secrets:** under **Work → Secrets**, pick the secrets this agent receives (up to
-  50). It finds them in `.agentpier/secrets.env` in its workspace and can read their
+  50). They are delivered as `.agentpier/secrets.env` in its workspace, and its
+  AgentPier instructions name that file and how to load it, so it can read their
   values. The file is rewritten before every turn and file tools cannot change it, but
   shell access can ([secrets](secrets.md)).
 - **Projects and coding tasks:** **Allowed projects**, **Allowed pipelines**, whether

@@ -70,7 +70,8 @@ export class SessionSecrets {
    * pipeline sessions, whose launch is returned unchanged. Every eligible session
    * gets its folder, the variable naming the file, the read grant and its binding,
    * also with no secrets yet, so project secrets added later reach it; the file
-   * itself exists only while it has entries.
+   * itself exists only while it has entries, and the start hint only when it has
+   * entries at launch.
    */
   async prepare({ id, account, cwd, launch, purpose, headless, secretIds } = {}) {
     if (purpose === "login" || headless || !tools.includes(account?.tool)) return launch;
@@ -90,14 +91,16 @@ export class SessionSecrets {
       throw Object.assign(new Error("Unsafe secret folder."), {
         code: "SECRET_UNSAFE_PATH",
       });
-    await writeSecretFile(this.file(id), this.entries({ projectId, assignedIds }));
+    const entries = this.entries({ projectId, assignedIds });
+    await writeSecretFile(this.file(id), entries);
     const env = { ...launch.env, [SECRETS_FILE_ENV]: this.file(id) };
     const args = [...(launch.args || [])];
     const grants = [{ access: "read", path: folder }];
     delete env[SSH_HINT_ENV];
-    // A session without the SSH tools has no start hook yet: the same discovery
-    // hook is registered and names only the secrets file (ssh-hook.js).
-    if (account.tool !== "shell" && launch.sshTools?.enabled !== true) {
+    // A session without the SSH tools has no start hook yet: while it has secrets,
+    // the same discovery hook is registered and names only the secrets file
+    // (ssh-hook.js). Prepare runs again on a reload, so a later secret gets it then.
+    if (entries.length && account.tool !== "shell" && launch.sshTools?.enabled !== true) {
       env[SSH_HINT_ENV] = "0";
       let plugin = folder;
       if (account.tool === "claude") {

@@ -9,7 +9,7 @@ In **Settings → Access → Secrets**, select a secret to open its details alon
 - **Name**: capital letters, digits and underscores, starting with a letter or an underscore, up to 64 characters, for example `ZABBIX_TOKEN`. Names are unique across all secrets.
 - **Description**: up to 200 characters.
 - **Project**: **Global** or one project. Coding sessions in a project receive its project secrets automatically. A global secret reaches only the agents and sessions you assign it to.
-- **Value**: 1 to 8192 bytes of UTF-8 text without NUL characters. After saving, the page shows **Value saved** with **Replace value** and **Keep saved value**. The value is never shown again.
+- **Value**: 1 to 8192 bytes of UTF-8 text without NUL characters, entered on one line; multi-line values are not supported in the UI yet. After saving, the page shows **Value saved** with **Replace value** and **Keep saved value**. The value is never shown again.
 
 You can keep up to 200 secrets. **Delete** asks for confirmation; agents and sessions lose the secret at once. Switching to another secret with unsaved changes asks first. The page warns that agents and sessions that receive a secret can read its value, so use tokens with the fewest rights the task needs.
 
@@ -17,7 +17,7 @@ Managing secrets is an owner operation. The API (`/api/secrets`) never returns v
 
 ## Agents
 
-Open **Agents → Settings → Work → Secrets** and select the secrets this agent receives, up to 50 per agent. The agent finds them in `.agentpier/secrets.env` in its workspace.
+Open **Agents → Settings → Work → Secrets** and select the secrets this agent receives, up to 50 per agent. AgentPier delivers them as `.agentpier/secrets.env` in its workspace. While at least one secret reaches the agent, its AgentPier instructions (`AGENTS.md`) name this file, tell it to load it in the same shell command with `set -a; . .agentpier/secrets.env; set +a`, and never to print, log, commit or paste the values. The instructions contain no secret names or values, and the line disappears once nothing is granted. A grant change reaches the instructions before the agent's next turn.
 
 - The file has the line `# Managed by AgentPier. Do not edit; changes are overwritten.` followed by one line per secret, sorted by name: `NAME='value'`, with every `'` in a value written as `'\''`. It has mode 0600 and can be loaded by a POSIX shell without expansion.
 - AgentPier rewrites the file at once when a value, a selection or a grant changes, and again before every turn. A deleted secret or a revoked grant disappears from the file immediately. The file is removed when nothing is granted, or when the agent is archived or becomes an agent of a user.
@@ -47,7 +47,7 @@ The file contains:
 
 Choose secrets only when you launch a session. A login session refuses the choice, and launches from a task profile have no picker. After launch, the file follows changes to project secrets and values at once and is removed when the session stops or is removed. A project rebind after `git init` moves the project secrets along ([SSH accesses](ssh-access.md#git-initialization-in-a-session-folder)).
 
-Claude Code and Codex receive a startup hint through a SessionStart hook, OpenCode through a plugin. It names the file and the command `set -a; . '<path>'; set +a`. Shell sessions get only the environment variable. The hint is shown only when the file exists at session start. A project secret added to a session that had none appears in the hint after [Reload & resume](session-reload.md); the file itself is updated immediately.
+Claude Code and Codex receive a startup hint through a SessionStart hook, OpenCode through a plugin. It names the file and the command `set -a; . '<path>'; set +a`. Shell sessions get only the environment variable. The hint is shown only when the file has secrets at session start; a session without its own SSH tools gets the hook only then. A project secret added to a session that had none appears in the hint after [Reload & resume](session-reload.md); the file itself is updated immediately.
 
 ## Trust model
 
@@ -65,6 +65,7 @@ Ordinary backups leave secrets out. A backup with a passphrase and **Include enc
 
 ## Not included yet
 
+- Multi-line values such as PEM keys in the UI. The value field takes one line; the API and the delivered file support multi-line values.
 - A per-webhook **Secrets** switch, once webhooks (AGENTPIER-216) are available.
 - Changing a running session's explicitly chosen secrets. Project secrets already follow changes live.
 - A secrets picker for launches from a task profile.

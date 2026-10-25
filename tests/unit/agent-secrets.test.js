@@ -220,13 +220,17 @@ test("the connected delivery follows secret changes and grant saves at once", as
   await waitFor(() => f.exists() && /^S1='one'$/m.test(f.read()));
   f.secrets.update(s1.id, { value: "two" }, owner);
   await waitFor(() => /^S1='two'$/m.test(f.read()));
+  const agent = f.store.getAssistant(f.id);
+  assert.equal(config.secretsGranted(agent), true, "the bootstrap names the file");
   f.grantSecrets([]);
   await waitFor(() => !f.exists());
+  assert.equal(config.secretsGranted(agent), false, "nothing granted");
   f.grantSecrets([s1.id]);
   await waitFor(() => f.exists());
   assert.equal(typeof config.syncSecrets, "function");
   agentSecrets.close();
   assert.equal(config.syncSecrets, undefined);
+  assert.equal(config.secretsGranted, undefined);
   f.secrets.update(s1.id, { value: "three" }, owner);
   await new Promise((resolve) => setImmediate(resolve));
   await agentSecrets.queue.catch(() => {});
