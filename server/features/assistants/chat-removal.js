@@ -4,12 +4,13 @@ import { RoutineResults } from "./routine-results.js";
 import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
+import { purgeTranscriptArchives } from "./transcript-archives.js";
 
 /**
  * Archive, restore and delete of an agent chat (AGENTPIER-181). Archive state lives
  * in AgentPier: an archived chat leaves the list, stays readable and takes no turn
  * until it is restored. Delete removes the chat, its native session and transcript
- * archive, and everything AgentPier kept of it. The person's main chat, where
+ * archives, and everything AgentPier kept of it. The person's main chat, where
  * reminders, routines, check-ins and Telegram deliver, is never archived or deleted,
  * and neither is a chat while a turn runs or a message waits in it.
  */
@@ -117,11 +118,12 @@ export async function forgetChat(assistants, conversation) {
 }
 
 /**
- * Deletes a chat's native session with its transcript, then the transcript archive
- * OpenClaw keeps in the agent's sessions folder. The session's id names that archive;
- * it is recorded on the chat before the delete, so a retry after a delete whose answer
- * was lost, or after a restart, still finds the archive once the session is gone. The
- * mark goes once the session and its archive are; a history read that ran across the
+ * Deletes a chat's native session with its transcript, then the transcript archives
+ * OpenClaw keeps of it: the rows in the agent's database and the files in its sessions
+ * folder (transcript-archives.js). The session's id names the archive; it is recorded
+ * on the chat before the delete, so a retry after a delete whose answer was lost, or
+ * after a restart, still finds the archive once the session is gone. The mark goes
+ * once the session and its archives are; a history read that ran across the
  * deletion may have cached the chat again, so it is forgotten once more. Returns
  * whether the session is gone.
  */
@@ -140,10 +142,22 @@ export async function deleteNativeSession(assistants, conversation) {
   }
   const agent = agentOf(assistants, conversation.assistantId);
   const state = assistants.runtime.paths?.state;
-  if (sessionId && agent && state) {
-    for (const file of deletedTranscripts(state, agent.runtimeAgentId, sessionId))
-      fs.rmSync(file, { force: true });
-    if (deletedTranscripts(state, agent.runtimeAgentId, sessionId).length) return false;
+  if (agent && state) {
+    try {
+      purgeTranscriptArchives(state, agent.runtimeAgentId, {
+        sessionKey: conversation.runtimeSessionKey,
+        sessionId,
+      });
+    } catch (error) {
+      // Never the path or a row: the code alone. The mark stays for the next try.
+      console.error("Transcript archive purge failed:", error?.code ?? error?.name);
+      return false;
+    }
+    if (sessionId) {
+      for (const file of deletedTranscripts(state, agent.runtimeAgentId, sessionId))
+        fs.rmSync(file, { force: true });
+      if (deletedTranscripts(state, agent.runtimeAgentId, sessionId).length) return false;
+    }
   }
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
