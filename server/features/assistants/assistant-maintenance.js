@@ -67,6 +67,8 @@ export class AssistantMaintenance {
         a.workflows?.running,
         this.s.assistantTeams?.scheduler.running,
         ...(this.s.assistantReminders?.webhook.jobs || []),
+        // Queued dreaming forgets write workspaces and state (chat-removal.js).
+        a.dreamingForgets,
       ].filter(Boolean),
     );
     await this.s.assistantChannels.queue?.catch(() => {});

@@ -190,3 +190,17 @@ test("validation skips a deleted user's chats whose native sessions are gone", a
   await m.validate();
   assert.deepEqual(described, ["agent:a:kept"]);
 });
+
+test("quiescing waits for the queued dreaming forgets", async () => {
+  let forgotten = false;
+  // A forget queued by a chat deletion (chat-removal.js), still running.
+  const dreamingForgets = new Promise((resolve) => setTimeout(resolve, 200)).then(() => {
+    forgotten = true;
+  });
+  const m = new AssistantMaintenance({
+    assistants: { dreamingForgets },
+    assistantChannels: {},
+  });
+  await m.quiesce();
+  assert.equal(forgotten, true);
+});
