@@ -334,6 +334,27 @@ for the implementation and remaining native platform/version qualification.
   A routine run reads them and changes them only when the owner marked that routine
   **May write**. A browser upload from them goes through a copy AgentPier stages for
   that agent's browser alone ([browser uploads](#browser-uploads)).
+- **The hook endpoint is a machine path.** `POST /hooks/<hookId>`
+  ([agent hooks](assistant-workflows.md#agent-hooks)) is served on AgentPier's own
+  port, mounted after the MCP machine path and before `authorizeRequest`, with its
+  own transport check (`authorizeHookTransport` in `server/http/hook-endpoint.js`).
+  It accepts three host branches: loopback on the local host without proxy markers,
+  the Tailscale Serve host (no Tailscale identity required, tagged nodes send none)
+  and, only while network mode is on, a network-mode host without `Tailscale-*`
+  headers. It refuses (403) any `Tailscale-Funnel-Request`, `Origin` or
+  `Sec-Fetch-Site` header, so neither Funnel nor a browser page reaches it, and any
+  `token` query parameter. The sender authenticates with
+  `Authorization: Bearer <secret>`; AgentPier stores only the secret's SHA-256 and
+  compares digests in constant time. Ten failed attempts (401, or 404 for a
+  well-formed hook ID) from one source in ten minutes answer
+  `429 HOOK_RATE_LIMITED` with `Retry-After` until the window ends; the source is
+  `local`, the first `X-Forwarded-For` entry on the Tailscale branch, or the socket
+  address in network mode. Unknown, disabled and ineligible hooks answer the same
+  `404 HOOK_NOT_FOUND`. Bodies are JSON or `text/plain` (else `415`), at most
+  64 KiB (else `413`), and must arrive within 15 s; only the event-ID headers reach
+  the delivery, and the audit records hook, outcome, branch, size and (once
+  delivered) the event ID, never payload, headers or secret. A `503` (runtime not ready) carries
+  `Retry-After: 30`.
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.

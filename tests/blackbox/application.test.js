@@ -296,3 +296,23 @@ test("a sandboxed session's public record carries its sandbox profile and surviv
     await fixture.request(`/api/sessions/${session.id}`, { method: "DELETE" });
   }
 });
+
+test("the hook endpoint answers machine senders before the browser boundary", async (t) => {
+  const fixture = await applicationFixture(t);
+  // authorizeRequest would refuse a Bearer header and a missing Origin with 403.
+  const unknown = await fetch(
+    `${fixture.url}/hooks/00000000-0000-4000-8000-000000000000`,
+    {
+      method: "POST",
+      headers: { authorization: "Bearer aph_x", "content-type": "application/json" },
+      body: "{}",
+    },
+  );
+  assert.equal(unknown.status, 404);
+  assert.deepEqual(await unknown.json(), { error: "HOOK_NOT_FOUND" });
+  const browser = await fetch(
+    `${fixture.url}/hooks/00000000-0000-4000-8000-000000000000`,
+    { method: "POST", headers: { origin: fixture.url }, body: "{}" },
+  );
+  assert.equal(browser.status, 403);
+});

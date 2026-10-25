@@ -455,6 +455,15 @@ An agent hook is an incoming webhook that wakes a goal agent for each event a
 third-party system (monitoring, CI, a home automation) sends. AgentPier serves the
 endpoint itself; OpenClaw's own hooks stay off.
 
+**Endpoint.** A sender posts JSON or `text/plain` (at most 64 KiB) to
+`POST /hooks/<hookId>` with `Authorization: Bearer <secret>`. The answer is
+`202 { eventId, status: "accepted" }` once the event is recorded, `200` for
+`duplicate` or `throttled`, `401` for a wrong secret, one `404` for unknown or paused
+hooks, `413`/`415`/`400` for a body that does not fit, `429` after repeated failed
+attempts and `503` with `Retry-After: 30` while the runtime is not ready. Transport,
+secret and throttle are described under
+[security boundaries](assistant-gateway.md#security-boundaries).
+
 **Waking.** Each accepted event gets one native cron job of its own
 (`agent-hook-runs.js`): created disabled with the event-routine dummy schedule and
 `declarationKey: "agentpier-hook:<event>"`, forced at once with `cron.run`

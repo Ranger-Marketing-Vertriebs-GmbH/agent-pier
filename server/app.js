@@ -68,6 +68,7 @@ import { directoryResolver } from "./lib/directories.js";
 import { detectTools } from "./features/accounts/account-store.js";
 import { toolBinDirectories } from "./features/tools/tool-paths.js";
 import { authorizeRequest, securityHeaders } from "./http/security.js";
+import { hookEndpoint } from "./http/hook-endpoint.js";
 import { mcpOAuthCallbackRoutes } from "./http/routes/mcp-oauth.js";
 import { mcpCliOAuthCallbackRoutes } from "./http/routes/mcp-cli-oauth.js";
 import { createCodexMcpLogins } from "./application/codex-mcp-logins.js";
@@ -264,6 +265,8 @@ export async function createApplication(config) {
     }
     return services.mcpTransport.router(req, res, next);
   });
+  // Agent hooks: machine senders with a per-hook secret, own transport check.
+  app.use(hookEndpoint(services, effective));
   app.use((req, res, next) => {
     try {
       authorizeRequest(req, effective());
