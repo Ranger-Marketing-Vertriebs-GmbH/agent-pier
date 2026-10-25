@@ -122,6 +122,16 @@ export const galleryCopy = {
     deleteNow: "Jetzt löschen",
     activateNow: "Jetzt aktivieren",
   },
+  addPicker: {
+    sshCard: "SSH-Zugänge des Beispielagenten",
+    sshType: "SSH-Zugang",
+    mcpCard: "MCP-Server des Beispielagenten",
+    mcpType: "MCP-Server",
+    global: "Global",
+    approval: "Mit Freigabe",
+    trusted: "Vertraut",
+    routines: "Vertraut inkl. Routinen",
+  },
   saveStates: {
     label: "Zustand der Speicherleiste",
     hidden: "Ausgeblendet",

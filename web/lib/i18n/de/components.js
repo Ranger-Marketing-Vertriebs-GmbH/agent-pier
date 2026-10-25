@@ -24,3 +24,18 @@ export const copyButtonCopy = {
   copied: "Kopiert",
   failed: "Kopieren fehlgeschlagen. Markiere den Text und kopiere ihn manuell.",
 };
+export const addPickerCopy = {
+  placeholder: (type) => `${type} hinzufügen …`,
+  fieldLabel: (type) => `${type} hinzufügen`,
+  listLabel: (type) => `${type}: Auswahl`,
+  matches: (count) => `${count} Treffer`,
+  noMatches: "Keine Treffer",
+  searching: "Suche …",
+  searchFailed:
+    "Die Suche ist fehlgeschlagen. Ändere die Eingabe, um es erneut zu versuchen.",
+  alreadyGranted: "hat er schon",
+  more: (count) => `${count} weitere – Suche verfeinern`,
+  mode: "Modus",
+  modeLabel: "Modus für neue Einträge",
+  add: (count) => (count > 0 ? `${count} hinzufügen` : "Hinzufügen"),
+};

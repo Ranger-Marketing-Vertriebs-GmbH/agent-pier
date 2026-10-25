@@ -121,6 +121,16 @@ export const galleryCopy = {
     deleteNow: "Delete now",
     activateNow: "Activate now",
   },
+  addPicker: {
+    sshCard: "SSH accesses of the sample agent",
+    sshType: "SSH access",
+    mcpCard: "MCP servers of the sample agent",
+    mcpType: "MCP server",
+    global: "Global",
+    approval: "With approval",
+    trusted: "Trusted",
+    routines: "Trusted incl. routines",
+  },
   saveStates: {
     label: "Save bar state",
     hidden: "Hidden",

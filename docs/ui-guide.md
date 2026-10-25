@@ -125,12 +125,43 @@ instead of building a one-off in a feature.
 | `Segment`, `Segmented`                              | A choice between two to four short values. `Segmented` is the settings look. Not for page navigation (use `UnderlineTabs`).                                                                                                 | Native radios in a `radiogroup`.                                                     | `web/components/Segment.jsx`        |
 | `AnchoredSelect`                                    | A select whose options open anchored below it, optionally with search (`searchLabel`). Use for long or searchable option lists.                                                                                             | A native `select` with a listbox; keyboard and typeahead work.                       | `web/components/AnchoredSelect.jsx` |
 | `SearchSelect`                                      | A searchable picker with a trigger button and optional footer, for remote option lists.                                                                                                                                     | Combobox with listbox.                                                               | `web/components/SearchSelect.jsx`   |
+| `AddPicker`                                         | The inline add field: the last row of a list card that grants several items from a long list (see [Adding from long lists](#adding-from-long-lists)). Not for picking one value (use `AnchoredSelect` or `SearchSelect`).   | ARIA 1.2 combobox with a multi-select listbox; arrows, Space, Enter, Escape.         | `web/components/AddPicker.jsx`      |
 | `LanguageSelect`                                    | The language choice (login and general settings).                                                                                                                                                                           | Labelled native select.                                                              | `web/components/LanguageSelect.jsx` |
 | `Switch`                                            | A labelled binary setting outside a list card (`role="switch"`); `ToggleRow` is its row form.                                                                                                                               | The label names the switch; the whole label is the target.                           | `web/components/Switch.jsx`         |
 | `Checkbox`                                          | A labelled option of an action or one choice among several; `CheckboxRow` and `CheckRow` are the row forms.                                                                                                                 | The label names the box; the whole label is the target.                              | `web/components/Checkbox.jsx`       |
 | `PermissionList`                                    | Granted capabilities with check marks.                                                                                                                                                                                      | A labelled list.                                                                     | `web/components/PermissionList.jsx` |
 | `AsyncForm`                                         | A dialog form with Cancel and a primary (or danger) submit, busy state and error.                                                                                                                                           | Errors render through `ErrorMessage` (`role="alert"`).                               | `web/components/AsyncForm.jsx`      |
 | `Pagination`, `usePagination`                       | Pages of 20 for long client-side lists.                                                                                                                                                                                     | A labelled `nav`; the page number is a polite live region.                           | `web/components/Pagination.jsx`     |
+
+#### Adding from long lists
+
+`AddPicker` is the last row of a list card: a plus icon and a field "<Typ> hinzufügen …"
+/ "Add <type> …" (`typeLabel` is the type in the current language, lower case in
+English: "SSH access", "MCP server"). Typing filters `candidates`
+(`{ id, name, sub, group }`: `sub` is the monospace line such as a host, package or
+path, `group` a project or group label) by every word, or calls an async
+`search(query, { signal })` after 250 ms for lists the server searches (keep its
+identity stable; it returns items or `{ items, total }`). The field shows "n Treffer" /
+"n matches".
+
+- The attached listbox checks several rows at once. Ids in `granted` (or candidates
+  with `granted: true`) stay visible but disabled with "hat er schon" / "already
+  granted"; `grantedLabel` words it for other owners.
+- `modes` (`{ value, label }`, optional) adds a **Modus** select (`AnchoredSelect`)
+  that applies to all new items, such as the SSH mode or the folder level; each item
+  stays changeable after adding.
+- The footer has **Abbrechen** and the primary "n hinzufügen" / "Add n".
+  `onAdd(items, mode)` writes into the caller's draft; the save bar saves as usual.
+- At most `limit` rows (50) render; the rest is counted as "n weitere – Suche
+  verfeinern", so lists of 500 and more stay fast.
+- Keyboard: arrows open the list and move through it (skipping granted rows), Space
+  toggles the active row, Home/End jump, Enter adds the checked rows (or the active
+  one), Escape closes the list and keeps the focus in the field; a second Escape clears
+  it. Clicking elsewhere closes an untouched list; checked rows keep it open. Rows are
+  44px on phones and touch screens.
+
+The filter, selection and keyboard rules live in `web/components/add-picker.js`
+(`tests/unit/add-picker.test.js`).
 
 ### Buttons and icons
 

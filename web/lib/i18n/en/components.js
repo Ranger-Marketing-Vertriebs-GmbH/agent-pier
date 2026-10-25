@@ -24,3 +24,17 @@ export const copyButtonCopy = {
   copied: "Copied",
   failed: "Copy failed. Select the text and copy it manually.",
 };
+export const addPickerCopy = {
+  placeholder: (type) => `Add ${type} …`,
+  fieldLabel: (type) => `Add ${type}`,
+  listLabel: (type) => `${type}: options`,
+  matches: (count) => (count === 1 ? "1 match" : `${count} matches`),
+  noMatches: "No matches",
+  searching: "Searching …",
+  searchFailed: "The search failed. Change the text to try again.",
+  alreadyGranted: "already granted",
+  more: (count) => `${count} more – refine the search`,
+  mode: "Mode",
+  modeLabel: "Mode for new items",
+  add: (count) => (count > 0 ? `Add ${count}` : "Add"),
+};

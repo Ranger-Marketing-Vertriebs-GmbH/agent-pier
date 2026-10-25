@@ -47,3 +47,34 @@ export function sampleDraft(state) {
     reload: noop,
   };
 }
+
+/** 600 synthetic SSH accesses for AddPicker: prod/stage/dev × web/db/api/logs × 50. */
+export function sshHosts() {
+  const projects = { prod: copy.addPicker.global, stage: "api-server", dev: "shop" };
+  return Object.entries(projects).flatMap(([env, project], envIndex) =>
+    ["web", "db", "api", "logs"].flatMap((role, roleIndex) =>
+      Array.from({ length: 50 }, (_, index) => {
+        const name = `${env}-${role}-${String(index + 1).padStart(2, "0")}`;
+        return {
+          id: name,
+          name,
+          sub: `deploy@10.${envIndex}.${roleIndex}.${index + 1}`,
+          group: project,
+        };
+      }),
+    ),
+  );
+}
+
+/** MCP servers for the AddPicker search sample. */
+export const mcpServers = () =>
+  [
+    "github",
+    "filesystem",
+    "fetch",
+    "postgres",
+    "sqlite",
+    "slack",
+    "sentry",
+    "linear",
+  ].map((name) => ({ id: name, name, sub: `@modelcontextprotocol/server-${name}` }));
