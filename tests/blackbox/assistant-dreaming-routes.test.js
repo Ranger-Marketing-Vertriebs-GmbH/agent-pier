@@ -9,7 +9,10 @@ import {
 } from "../helpers/application.js";
 import { assistantRoutes } from "../../server/http/routes/assistants.js";
 import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
-import { DREAMING_MEMORY_CONFIRMATION_REQUIRED } from "../../server/features/assistants/dreaming-service.js";
+import {
+  DREAMING_AGENTS_BUSY,
+  DREAMING_MEMORY_CONFIRMATION_REQUIRED,
+} from "../../server/features/assistants/dreaming-service.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("the dreaming API is owner-only and starts switched off", async (t) => {
@@ -44,7 +47,10 @@ test("a 409 naming agents carries them and its code", async (t) => {
         async save(input, revision) {
           calls.push([input, revision]);
           if (input.hour === 4)
-            throw Object.assign(assistantProblem("dreamingAgentsBusy", 409), { agents });
+            throw Object.assign(assistantProblem("dreamingAgentsBusy", 409), {
+              code: DREAMING_AGENTS_BUSY,
+              agents,
+            });
           if (input.confirmMemory !== true)
             throw Object.assign(assistantProblem("dreamingMemoryConfirm", 409), {
               code: DREAMING_MEMORY_CONFIRMATION_REQUIRED,
@@ -82,6 +88,7 @@ test("a 409 naming agents carries them and its code", async (t) => {
   const busy = await put({ ...input, hour: 4, confirmMemory: true, revision: 1 });
   assert.equal(busy.status, 409);
   assert.deepEqual(await busy.json(), {
+    code: DREAMING_AGENTS_BUSY,
     error: serverMessages.assistants.dreamingAgentsBusy,
     agents,
     messageKey: "assistants.dreamingAgentsBusy",

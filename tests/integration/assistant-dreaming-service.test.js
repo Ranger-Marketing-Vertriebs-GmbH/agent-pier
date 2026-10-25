@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
 import {
+  DREAMING_AGENTS_BUSY,
   DREAMING_MEMORY_CONFIRMATION_REQUIRED,
   DreamingService,
 } from "../../server/features/assistants/dreaming-service.js";
@@ -12,11 +13,14 @@ const night = { enabled: true, hour: 3, timeZone: "Europe/Berlin" };
 const dreamingPatches = (f) =>
   f.client.patches.filter((p) => p.patch.plugins?.entries?.["memory-core"]);
 
-// A has memory, B has none, T is a temporary member of A without memory of its own,
-// C is archived without memory.
-function dreaming(t) {
-  const f = shellService(t, ["A", "B", "C"]);
-  const [a, b, c] = f.agents;
+// A has memory, B (and D, when named) has none, T is a temporary member of A without
+// memory of its own, C is archived without memory. Agents are raised in `names` order.
+function dreaming(t, names = ["A", "B", "C"]) {
+  const f = shellService(t, names);
+  const by = Object.fromEntries(
+    f.agents.map((agent) => [agent.name.toLowerCase(), agent]),
+  );
+  const { a, c } = by;
   f.store.updateAssistant(
     a.id,
     { capabilities: { memory: true, reminders: false } },
@@ -39,9 +43,16 @@ function dreaming(t) {
     .run(JSON.stringify({ ...archived, revision: 2 }), 2, c.id);
   const settings = new DreamingSettings({ dataDir: f.dataDir });
   t.after(() => settings.close());
-  const service = new DreamingService({ settings, assistants: f.service });
-  return { ...f, a, b, c, member, settings, dreaming: service };
+  const warnings = [];
+  const service = new DreamingService({
+    settings,
+    assistants: f.service,
+    warn: (line) => warnings.push(line),
+  });
+  return { ...f, ...by, member, settings, dreaming: service, warnings };
 }
+const hasMemory = (f, agent) =>
+  f.store.getAssistant(agent.id).capabilities?.memory === true;
 
 test("switching on asks first and names the agents without memory", async (t) => {
   const f = dreaming(t);
@@ -83,8 +94,8 @@ test("the confirmation turns memory on and then dreaming", async (t) => {
   ]);
 });
 
-test("a busy agent keeps dreaming off and is named", async (t) => {
-  const f = dreaming(t);
+test("a busy agent keeps dreaming off and is named; the others keep memory", async (t) => {
+  const f = dreaming(t, ["A", "B", "C", "D"]);
   const chat = f.store.saveConversation({
     assistantId: f.b.id,
     runtimeSessionKey: "b-chat",
@@ -93,28 +104,56 @@ test("a busy agent keeps dreaming off and is named", async (t) => {
     clientRequestId: crypto.randomUUID(),
     text: "Working",
   });
-  f.service.ledger.recordAttempt(request.id);
+  const attempt = f.service.ledger.recordAttempt(request.id);
   await assert.rejects(f.dreaming.save({ ...night, confirmMemory: true }, 1), (error) => {
     assert.equal(error.status, 409);
     assert.equal(error.key, "dreamingAgentsBusy");
+    assert.equal(error.code, DREAMING_AGENTS_BUSY);
     assert.deepEqual(error.agents, [{ id: f.b.id, name: "B" }]);
     return true;
   });
   assert.equal(f.settings.get().enabled, false);
-  assert.equal(f.store.getAssistant(f.b.id).capabilities?.memory ?? false, false);
+  assert.equal(hasMemory(f, f.b), false);
+  assert.equal(hasMemory(f, f.d), true, "D was raised although B was busy");
   assert.deepEqual(dreamingPatches(f), []);
+  // Once B is done, the retry raises B only and switches dreaming on.
+  f.service.ledger.transition(attempt.id, "completed");
+  const saved = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  assert.equal(saved.enabled, true);
+  assert.equal(hasMemory(f, f.b), true);
+  assert.equal(dreamingPatches(f).length, 1);
 });
 
 test("an error other than busy propagates and leaves dreaming off", async (t) => {
-  const f = dreaming(t);
+  const f = dreaming(t, ["A", "D", "B", "C"]);
   const refused = Object.assign(new Error("boom"), { key: "invalid", status: 400 });
   const update = f.service.update.bind(f.service);
+  const raised = [];
   f.service.update = async (id, ...rest) => {
+    raised.push(id);
     if (id === f.b.id) throw refused;
     return update(id, ...rest);
   };
   await assert.rejects(f.dreaming.save({ ...night, confirmMemory: true }, 1), refused);
+  assert.deepEqual(raised, [f.d.id, f.b.id], "D is raised before B");
+  assert.equal(hasMemory(f, f.d), true, "D keeps memory");
   assert.equal(f.settings.get().enabled, false);
+  assert.deepEqual(dreamingPatches(f), []);
+});
+
+test("a failed live apply keeps the setting, reports pending and logs the code", async (t) => {
+  const f = dreaming(t);
+  const on = await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  f.client.answers["config.patch"] = Object.assign(new Error("secret-value"), {
+    code: "UNAVAILABLE",
+  });
+  const saved = await f.dreaming.save({ ...night, hour: 6 }, on.revision);
+  assert.equal(saved.hour, 6);
+  assert.equal(saved.pending, true);
+  assert.equal(f.settings.get().hour, 6);
+  assert.equal(f.warnings.length, 1);
+  assert.match(f.warnings[0], /UNAVAILABLE/);
+  assert.doesNotMatch(f.warnings[0], /secret-value/);
 });
 
 test("changing the hour while on patches once and needs no confirmation", async (t) => {
