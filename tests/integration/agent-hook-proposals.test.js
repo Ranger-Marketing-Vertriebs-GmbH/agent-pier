@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { workflowFixture } from "../helpers/assistant-workflow-fixture.js";
+import { leadShareFixture } from "../helpers/lead-share-fixture.js";
+import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
 import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
@@ -373,4 +375,65 @@ test("agentpier_hook is compiled for own agents and permanent members, never for
   assert.equal(bridgeTool("hook"), "agentpier_hook");
   assert.ok(nativeTools.includes("agentpier_hook"));
   assert.ok(lockedTools.includes("agentpier_hook"));
+});
+
+test("a permanent member proposes a hook through the bridge in the owner's own turn", async (t) => {
+  const f = await leadShareFixture(t);
+  const id = f.member.assistantId;
+  const stored = f.store.storedAssistant(id);
+  f.store.db.prepare("UPDATE assistants SET body=? WHERE id=?").run(
+    JSON.stringify({
+      ...stored,
+      capabilities: { ...stored.capabilities, reminders: true },
+    }),
+    id,
+  );
+  f.assistants.config = { ...f.assistants.config, mcpTools: () => [] };
+  const reminders = new NativeReminders({
+    assistants: f.assistants,
+    channels: f.service,
+    dataDir: f.dataDir,
+    notifications: { notify: async () => {} },
+  });
+  t.after(() => reminders.close());
+  const routines = new NativeRoutines({ reminders });
+  f.assistants.routines = routines;
+  const hooks = new AgentHooks({
+    reminders,
+    routines,
+    notifications: { notify: async () => {} },
+    addresses: (hookId) => ({ local: `http://127.0.0.1:4380/hooks/${hookId}` }),
+  });
+  t.after(() => hooks.runs.close());
+  f.assistants.runtime.generation = 1;
+  const bridge = new TeamBridge({ assistants: f.assistants, teams: {} });
+  await bridge.start();
+  t.after(() => bridge.close());
+  const agentId = f.store.getAssistant(id).runtimeAgentId;
+  const call = (input) => {
+    const { ticket } = bridge.prepare({
+      agentId,
+      sessionKey: f.memberChat.runtimeSessionKey,
+      toolCallId: randomUUID(),
+      action: "hook",
+    });
+    return bridge.invoke({ ticket, action: "hook", input });
+  };
+  // The owner's own message in the member's chat.
+  const owner = await f.turn(f.memberChat.id);
+  const result = await call({ ...proposal, rights: {} });
+  assert.equal(result.status, "approval_requested");
+  const action = f.workflows.store.get(result.proposalId);
+  assert.equal(action.assistantId, id);
+  assert.equal(action.conversationId, f.memberChat.id);
+  assert.equal(action.attemptId, owner.attemptId);
+  assert.equal(action.payload.name, "Zabbix");
+  assert.deepEqual((await call({ action: "list" })).hooks, []);
+  f.assistants.ledger.transition(owner.attemptId, "completed");
+  // A forwarded message in that chat is no owner turn.
+  await f.turn(f.memberChat.id, { kind: "owner", forwarded: true });
+  await assert.rejects(call(proposal), (error) => {
+    assert.equal(toolError(error).code, "HOOK_OWNER_ONLY");
+    return true;
+  });
 });

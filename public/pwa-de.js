@@ -85,6 +85,7 @@ self.agentPierNotificationCopy = {
     coding: "Coding-Auftrag",
     memory: "Gedächtniseintrag",
     grant: "Berechtigung für ein Mitglied",
+    hook: "Hook-Vorschlag",
     team: "Team-Vorschlag",
   },
   tools: {

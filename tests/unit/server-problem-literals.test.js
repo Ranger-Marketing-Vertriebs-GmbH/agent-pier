@@ -19,6 +19,16 @@ const untranslated = new Map(
       "Cross-site MCP requests are not allowed.",
       "Artifact session access is unavailable.",
     ],
+    // The agent hook endpoint answers senders with machine codes only (HOOK_FORBIDDEN);
+    // its transport refusals never reach a browser.
+    "server/http/hook-endpoint.js": [
+      "Hooks are not reachable through Tailscale Funnel.",
+      "Hooks do not accept browser requests.",
+      "Hook secrets are accepted only in the Authorization header.",
+      "Proxy requests require the configured remote host.",
+      "Hooks require the local, Tailscale or configured network host.",
+      "The hook body timed out.",
+    ],
     // MCP tool errors return to the coding agent through JSON-RPC.
     "server/features/mcp/session-capability.js": [
       "Invalid AgentPier session capability.",
