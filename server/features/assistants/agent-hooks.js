@@ -259,6 +259,18 @@ export class AgentHooks {
     }
     return answer(202, "accepted", event);
   }
+  /**
+   * A delivery the endpoint refused before `deliver` (unauthorized, not-found,
+   * too-large, invalid): hook, outcome, branch and bytes read, nothing else.
+   */
+  refused(hook, { outcome, branch, size }) {
+    this.audit(
+      "assistant.updated",
+      hook,
+      { kind: "hook-delivery", outcome, branch, size },
+      "failure",
+    );
+  }
   /** The one push notice of an hour in which the hook went over its limit. */
   throttled(hook) {
     const conversation = mainConversation(this.assistants.store, hook.assistantId);
