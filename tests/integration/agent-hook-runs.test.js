@@ -165,16 +165,58 @@ test("a failed cron.add answers 503 and lets the retry run", async (t) => {
   assert.equal(f.calls.filter((c) => c.method === "cron.run").length, 1);
 });
 
-test("a run OpenClaw refuses fails the event and removes its job", async (t) => {
+test("a run OpenClaw refuses is a failed start: 503, no row, no job, retry runs", async (t) => {
   const f = hookFixture(t);
   const hook = makeHook(f);
   const call = f.assistants.runtime.client.call;
-  f.assistants.runtime.client.call = async (method, input) =>
-    method === "cron.run" ? { ok: true, ran: false } : call(method, input);
+  let refusing = true;
+  f.assistants.runtime.client.call = async (method, input) => {
+    if (method === "cron.run" && refusing) {
+      refusing = false;
+      return { ok: true, ran: false };
+    }
+    return call(method, input);
+  };
+  const r = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.deepEqual(r, { status: 503, body: { eventId: "p1", status: "unavailable" } });
+  assert.equal(event(f, hook, "p1"), null);
+  assert.equal(f.jobs.size, 0);
+  assert.equal(deliveries(f).at(-1).details.outcome, "unavailable");
+  const retry = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.equal(retry.status, 202);
+  assert.equal(event(f, hook, "p1").status, "running");
+});
+
+test("the agent's configuration is applied before the job is created", async (t) => {
+  const f = hookFixture(t);
+  const hook = makeHook(f);
+  const order = [];
+  const call = f.assistants.runtime.client.call;
+  f.assistants.runtime.client.call = async (method, input) => {
+    order.push(method);
+    return call(method, input);
+  };
+  let failing = true;
+  f.assistants.config = {
+    apply: async (id) => {
+      order.push(`apply:${id}`);
+      if (failing) {
+        failing = false;
+        throw new Error("apply failed");
+      }
+    },
+  };
+  const failed = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.equal(failed.status, 503);
+  assert.equal(event(f, hook, "p1"), null);
+  assert.equal(order.includes("cron.add"), false);
+  order.length = 0;
   const r = await f.hooks.deliver(hook, body('{"id":"p1"}'));
   assert.equal(r.status, 202);
-  assert.equal(event(f, hook, "p1").status, "failed");
-  assert.equal(f.jobs.size, 0);
+  assert.deepEqual(
+    order.filter((m) => m !== "cron.list"),
+    [`apply:${f.id}`, "cron.add", "cron.run"],
+  );
 });
 
 test("a completion records a hook result, notifies only with Notify and removes the job", async (t) => {

@@ -40,13 +40,18 @@ export class HookRuns {
   get client() {
     return this.assistants.runtime.client;
   }
-  /** Creates and forces the event's job; throws when it could not be started. */
+  /**
+   * Creates and forces the event's job; throws when it could not be started (config
+   * apply, cron.add or cron.run failed, or OpenClaw refused the run).
+   */
   start(hook, event) {
     return this.assistants.admit(async () => {
       const { events } = this.hooks;
       const agent = this.assistants.store.getAssistant(hook.assistantId);
       if (!hookEligible(agent)) throw assistantProblem("unavailable", 503);
       this.assistants.requireReady();
+      // The agent's live tools and shell level are current before its run starts.
+      await this.assistants.config.apply(agent.id);
       const ceiling = this.hooks.ceiling(agent);
       const effective = effectiveRights(hook.rights, ceiling);
       const connection = await this.reminders.start();
@@ -99,9 +104,10 @@ export class HookRuns {
         await this.removeJob(job.id);
         throw error;
       }
+      // A refused run is a failed start: the sender's retry must run.
       if (ran?.ran === false) {
         await this.removeJob(job.id);
-        return events.patch(event.id, { status: "failed", completedAt: Date.now() });
+        throw assistantProblem("unavailable", 503);
       }
       return events.get(event.id);
     });
