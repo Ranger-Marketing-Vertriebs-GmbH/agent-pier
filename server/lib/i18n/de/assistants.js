@@ -119,6 +119,10 @@ export const assistants = {
 
   heartbeatMemoryRequired:
     "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.",
+  dreamingMemoryConfirm:
+    "Träumen braucht Gedächtnis: Diese Agenten merken sich noch nichts. Bestätige, um es für alle einzuschalten.",
+  dreamingAgentsBusy:
+    "Diese Agenten arbeiten gerade. Versuche es erneut, wenn sie fertig sind.",
   heartbeatPrefix: "Check-in:",
   reminderChannelRequired:
     "Um auch an Telegram zu senden, verbinde zuerst einen Telegram-Chat mit diesem Agenten.",

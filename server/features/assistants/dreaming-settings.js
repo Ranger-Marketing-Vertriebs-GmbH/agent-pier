@@ -29,7 +29,8 @@ export class DreamingSettings {
     const { enabled, hour, timeZone } = this.get();
     return { enabled, hour, timeZone };
   }
-  save(input, revision) {
+  /** Refuses an invalid setting (400) or a stale revision (409) without saving. */
+  check(input, revision) {
     const { enabled, hour, timeZone } = input || {};
     if (
       typeof enabled !== "boolean" ||
@@ -40,6 +41,11 @@ export class DreamingSettings {
       !Number.isInteger(revision)
     )
       throw assistantProblem("invalid");
+    if (revision !== this.get().revision) throw assistantProblem("conflict", 409);
+    return { enabled, hour, timeZone };
+  }
+  save(input, revision) {
+    const { enabled, hour, timeZone } = this.check(input, revision);
     const changed = this.db
       .prepare(
         "UPDATE settings SET revision=revision+1,enabled=?,hour=?,time_zone=? WHERE id=1 AND revision=?",

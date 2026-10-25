@@ -19,6 +19,7 @@ import { stdioAgents } from "../features/assistants/openclaw-config/telegram-sen
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { DreamingSettings } from "../features/assistants/dreaming-settings.js";
+import { DreamingService } from "../features/assistants/dreaming-service.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
 import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
@@ -168,8 +169,7 @@ export function constructAssistantGraph(host, created = {}) {
   ));
   // Agency agents as templates for new agents and team members (agency-templates.js).
   assistants.templates = host.agencyTemplates || null;
-  // What the owner may read of his users' chats (users/owner-privacy.js).
-  // Read lazily: the agent services may exist before the user store does.
+  // What the owner may read of users' chats, read lazily (users/owner-privacy.js).
   assistants.privacy = {
     visible: (c) => host.ownerPrivacy?.visible(c) ?? true,
     view: (c) => (host.ownerPrivacy ? host.ownerPrivacy.view(c) : c),
@@ -190,8 +190,7 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,
     runtime: assistantRuntime,
-    // An agent with a run in progress keeps its browser when another needs room;
-    // an attempt whose request or chat cannot be read does not count.
+    // A running agent keeps its browser; an unreadable attempt does not count.
     busy: (id) =>
       assistants.ledger.pending().some((attempt) => {
         try {
@@ -248,6 +247,10 @@ export function constructAssistantGraph(host, created = {}) {
   const assistantDreamingSettings = (created.dreaming = new DreamingSettings({
     dataDir,
   }));
+  const assistantDreaming = (assistants.dreaming = new DreamingService({
+    settings: assistantDreamingSettings,
+    assistants,
+  }));
   const assistantPdfModel = (created.pdfModel = new PdfModelSettings({
     dataDir,
     models,
@@ -292,6 +295,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantWebSearch,
     assistantPdfModel,
     assistantDreamingSettings,
+    assistantDreaming,
     assistantMcpServers,
     assistantChannels,
     assistantMemory,
@@ -340,8 +344,7 @@ export function constructAssistantGraph(host, created = {}) {
     synchronization: assistantProviderSynchronization,
     audit,
     notifications: host.notifications,
-    // Never throws: an unreadable MCP store binds no agent (its start compiles none).
-    // An agent with GitHub access counts as well (agent-github.js).
+    // Never throws (an unreadable store binds none); GitHub access counts too.
     stdioAgents: () => {
       let agents = new Set();
       try {
@@ -504,8 +507,7 @@ export function connectAssistantServices(graph) {
     // Its GitHub access, named in its instructions, and its shell's GitHub folder.
     github: (assistant) => workflows.github.describe(assistant),
     githubShellPath: (assistant) => workflows.github.shellPath(assistant),
-    // A lead's members and team usage level, named in its instructions while its
-    // team tools are offered.
+    // A lead's members and team usage level while its team tools are offered.
     teamRoster: (assistant) =>
       bridge.status().ready ? teams.requests.roster(assistant.id) : null,
   });
@@ -517,8 +519,7 @@ export function connectAssistantServices(graph) {
   if (workflows.s.githubMcp)
     workflows.s.githubMcp.onReady = () =>
       assistants.admit(() => workflows.github.refresh()).catch(() => {});
-  // A guard report, and leaving maintenance with a live guard, re-applies the agents
-  // the Gateway start compiled without write and edit (AGENTPIER-80).
+  // A guard report or leaving maintenance re-applies write and edit (AGENTPIER-80).
   const guardReapply = new WriteGuardReapply({
     assistants,
     live: () => bridge.guardLive(),
@@ -580,8 +581,7 @@ export function connectAssistantServices(graph) {
     beforeSpawn: () => synchronization.prepare(),
     afterReady: async () => {
       await synchronization.pauseBlocked();
-      // A change made while this Gateway started, or an apply that failed before it,
-      // converges now. Not awaited: a start may itself run under admission.
+      // Changes since this start converge; not awaited (a start may run admitted).
       mcpChanges.ready();
       // A bot or person removed while this Gateway started is removed now.
       telegramSenders.ready();
