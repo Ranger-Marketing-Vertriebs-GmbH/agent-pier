@@ -449,6 +449,54 @@ owner marked it **May write** or the lead's team usage is **Autonomous**; the le
 tool cannot set either. The routine ends when the lead or member is archived or the
 member leaves the lead (see the [Gateway guide](assistant-gateway.md#lead-routines-on-permanent-members-2026-10-19-agentpier-175)).
 
+### Agent hooks
+
+An agent hook is an incoming webhook that wakes a goal agent for each event a
+third-party system (monitoring, CI, a home automation) sends. AgentPier serves the
+endpoint itself; OpenClaw's own hooks stay off.
+
+**Waking.** Each accepted event gets one native cron job of its own
+(`agent-hook-runs.js`): created disabled with the event-routine dummy schedule and
+`declarationKey: "agentpier-hook:<event>"`, forced at once with `cron.run`
+(`mode: "force"`), and removed after its completion webhook
+(`/hook-complete/<event>` on the reminder webhook). No job is shared between events or
+changed afterwards. The run is a `current` job on the agent's main chat with full
+context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAllow`
+holds only what the hook's ticks switch on, capped by what the agent holds at that
+moment (`agent-hook-rights.js`); memory search and `session_status` are always there.
+When the job cannot be created the event is forgotten and the endpoint answers 503, so
+the sender's retry runs. On every Gateway start AgentPier fails events whose
+completion was lost (unsettled for 15 minutes without a running job) and removes hook
+jobs whose event is gone or settled.
+
+**Prompt.** The run's message (`agent-hook-prompt.js`) begins with
+`This is the AgentPier hook "<name>" from "<sender>", not a message from the owner.`
+and calls the event untrusted data, then adds the owner's instruction for the hook
+and the event between the fixed markers `<<<AGENTPIER_HOOK_EVENT>>>` and
+`<<<END_AGENTPIER_HOOK_EVENT>>>`. JSON is re-indented, any `<<<` inside becomes
+`‹‹‹` so the event cannot close the frame, and more than 16 KiB is cut with a
+`[cut: N more bytes]` line. A test event from the settings says so in the prompt.
+
+**Deduplication and limit.** An event is identified by its `Idempotency-Key` or
+`X-Event-Id` header, else its top-level `eventId` or `id`, else the SHA-256 of the
+body, per hook. A repeat answers `duplicate` (also while the runtime is not ready)
+and never wakes the agent again. Wake-ups count per hook over a rolling hour (default
+20); an event over the limit is kept as `throttled` without a run, and the first
+throttled event of an hour sends one push notice.
+
+**Notify.** With **Notify** on, a result sends an `agent-routine` push notice
+("Routine or hook result") that opens the agent's chat and, with **Also send to
+Telegram**, goes to the owner's paired Telegram chat (outbox kind `hook`, sent only
+while the hook is still enabled, its agent eligible, its Telegram right live and the
+chat the same). A failed run sends a short failure line there instead of a reply. A
+reply of exactly `NO_REPLY` (or nothing) is silent: no notice at all. Without Notify a
+result shows only in the agent's event area.
+
+**Results.** The event keeps its status (`done`, `failed`, `throttled`, silent), the
+reply, the tool steps the run made (tool name and state from the Gateway's `agent`
+frames, never arguments or output) and what was notified. The main chat's results
+record names it with `kind: "hook"`.
+
 ## Operations and qualification boundaries
 
 See [managed runtime updates](assistant-runtime-updates.md) for staging, activation,

@@ -258,7 +258,8 @@ export class TelegramOutbox {
     if (
       (entry.kind === "reminder" && !c.assistants.reminders?.acceptsDelivery(entry)) ||
       (entry.kind === "heartbeat" &&
-        !c.assistants.reminders?.heartbeats?.acceptsDelivery(entry))
+        !c.assistants.reminders?.heartbeats?.acceptsDelivery(entry)) ||
+      (entry.kind === "hook" && !c.assistants.routines?.hooks?.acceptsDelivery(entry))
     ) {
       c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
       return;

@@ -46,7 +46,7 @@ Restricted users register their own devices in their own app. Each device belong
 one person: a user's device gets notices only about her own agents and chats (her
 reminders, routines, check-ins and approvals), never the owner's or system notices,
 and the owner's device list never shows hers. Her device's **Settings** offer only
-those events (**Agent approval**, **Agent check-in**, **Routine result** and **Also what
+those events (**Agent approval**, **Agent check-in**, **Routine or hook result** and **Also what
 Telegram delivered**). Quiet hours and "quiet while visible" count per person.
 
 Signing out of a browser unregisters it for the person who signs out and closes her
@@ -93,20 +93,20 @@ the agent's main chat.
 
 **Events** chooses which events notify this device:
 
-| Group           | Event                                              | Default | When                                                                                                                                   |
-| --------------- | -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Waiting for you | Question from a CLI                                | On      | A session waits for your answer                                                                                                        |
-|                 | Approval for a CLI                                 | On      | A session waits for your decision                                                                                                      |
-|                 | Session waiting in the terminal                    | On      | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds          |
-|                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                       |
-|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task, a memory entry or a team member's permission, or proposes a team |
-| Finished        | Response ready                                     | On      | A session finished its reply                                                                                                           |
-|                 | Session ended                                      | On      | A session stopped                                                                                                                      |
-|                 | Pipeline completed                                 | Off     | A pipeline run completed                                                                                                               |
-|                 | Pipeline failed                                    | On      | A pipeline run failed (a cancelled run does not notify)                                                                                |
-| Agents          | Agent check-in                                     | On      | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                               |
-|                 | Routine result                                     | On      | A [routine or reminder](agents.md#routines-reminders-and-check-ins) wrote in an agent's chat; opens that chat                          |
-|                 | Also what Telegram delivered                       | Off     | Check-ins and routine results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them       |
+| Group           | Event                                              | Default | When                                                                                                                                                                 |
+| --------------- | -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Waiting for you | Question from a CLI                                | On      | A session waits for your answer                                                                                                                                      |
+|                 | Approval for a CLI                                 | On      | A session waits for your decision                                                                                                                                    |
+|                 | Session waiting in the terminal                    | On      | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds                                        |
+|                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                                                     |
+|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task, a memory entry or a team member's permission, or proposes a team                               |
+| Finished        | Response ready                                     | On      | A session finished its reply                                                                                                                                         |
+|                 | Session ended                                      | On      | A session stopped                                                                                                                                                    |
+|                 | Pipeline completed                                 | Off     | A pipeline run completed                                                                                                                                             |
+|                 | Pipeline failed                                    | On      | A pipeline run failed (a cancelled run does not notify)                                                                                                              |
+| Agents          | Agent check-in                                     | On      | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                                                             |
+|                 | Routine or hook result                             | On      | A [routine or reminder](agents.md#routines-reminders-and-check-ins) or an [agent hook](assistant-workflows.md#agent-hooks) wrote in an agent's chat; opens that chat |
+|                 | Also what Telegram delivered                       | Off     | Check-ins and routine results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them                                     |
 
 A coding CLI's own activity reports (Claude Code's hooks, the Codex app-server proxy
 and the OpenCode plugin) trigger these session events at once instead of at the next

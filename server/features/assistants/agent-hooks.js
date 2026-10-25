@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { HookEvents } from "./agent-hook-events.js";
+import { eventIdOf, HookEvents } from "./agent-hook-events.js";
+import { HookRuns, runSession } from "./agent-hook-runs.js";
 import { HookStore, newSecret } from "./agent-hook-store.js";
 import {
   effectiveRights,
@@ -13,7 +15,13 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { goalAgent } from "./goal-turns.js";
 import { personalCapabilities, personalShell } from "./native-capabilities.js";
-import { pairedChannel } from "./routine-targets.js";
+import {
+  mainConversation,
+  pairedChannel,
+  sameTelegram,
+  telegramTarget,
+} from "./routine-targets.js";
+import { agentName } from "./reminder-audience.js";
 
 const defaultHourlyLimit = 20;
 const createKeys = ["name", "sender", "instruction", "rights", "hourlyLimit"];
@@ -43,9 +51,13 @@ export class AgentHooks {
     this.assistants = reminders.assistants;
     this.store = new HookStore(this.assistants.store.db);
     this.events = new HookEvents(this.assistants.store.db);
-    // Set by the run service; until then nothing runs to cancel.
-    this.runs = null;
+    this.runs = new HookRuns(this);
     routines.hooks = this;
+    // Completions arrive on the reminder webhook's second route.
+    reminders.webhook.receiveHook = (id, event) => this.runs.complete(id, event);
+    const hub = this.assistants.gatewayEvents;
+    hub?.on("agent", (payload) => this.runs.observe(payload));
+    hub?.onReady(() => this.runs.reconcile());
   }
   /** A goal agent: hooks are listed and removed even while reminders are off. */
   agent(assistantId) {
@@ -197,14 +209,136 @@ export class AgentHooks {
     this.agent(assistantId);
     const hook = this.owned(assistantId, hookId);
     this.store.remove(hookId);
+    // Cancelling reads the running events first; reconcile removes what is left.
+    this.runs.cancel(hookId).catch(() => {});
     this.events.forget(hookId);
-    try {
-      Promise.resolve(this.runs?.cancel(hookId)).catch(() => {});
-    } catch {
-      /* Cancelling is best-effort: reconcile removes what is left. */
-    }
     this.audit("assistant.updated", hook, { change: "delete" });
     return { removed: true };
+  }
+  /**
+   * One incoming event of an enabled hook on an eligible agent (the endpoint checked
+   * both): a repeat answers `duplicate` even while the runtime is down, a not-ready
+   * runtime records nothing, an event over the hourly limit is kept `throttled`, and
+   * a fresh one wakes the agent. A failed start forgets the event, so the sender's
+   * retry runs. Every outcome is audited, never the payload or headers.
+   */
+  async deliver(hook, { text, json, contentType, size, headers, source }) {
+    const eventId = eventIdOf({ headers, text, json });
+    const answer = (status, outcome, event) => {
+      this.audit(
+        "assistant.updated",
+        hook,
+        {
+          kind: "hook-delivery",
+          eventKey: eventId,
+          outcome,
+          branch: source,
+          size,
+          ...(event && { hookEventId: event.id }),
+        },
+        status === 503 ? "failure" : "success",
+      );
+      return { status, body: { eventId, status: outcome } };
+    };
+    const input = { eventId, payload: text, size, contentType, source };
+    if (this.events.find(hook.id, eventId))
+      return answer(200, "duplicate", this.events.admit(hook, input).event);
+    if (!this.assistants.runtime.client?.ready) return answer(503, "unavailable");
+    const admitted = this.events.admit(hook, { ...input, test: source === "test" });
+    const { event } = admitted;
+    if (admitted.outcome === "duplicate") return answer(200, "duplicate", event);
+    if (admitted.outcome === "throttled") {
+      if (admitted.firstThrottled) this.throttled(hook);
+      return answer(200, "throttled", event);
+    }
+    try {
+      await this.runs.start(hook, event);
+    } catch {
+      this.events.remove(event.id);
+      return answer(503, "unavailable");
+    }
+    return answer(202, "accepted", event);
+  }
+  /** The one push notice of an hour in which the hook went over its limit. */
+  throttled(hook) {
+    const conversation = mainConversation(this.assistants.store, hook.assistantId);
+    Promise.resolve()
+      .then(() =>
+        this.notifications?.notify({
+          kind: "agent-routine",
+          assistantId: hook.assistantId,
+          ...(conversation && { conversationId: conversation.id }),
+          eventId: `hook-throttled-${randomUUID()}`,
+          label: agentName(this.assistants, hook.assistantId),
+        }),
+      )
+      .catch(() => {});
+  }
+  /** The owner's test event: a fixed sample through the same pipeline. */
+  async test(assistantId, hookId) {
+    const agent = this.agent(assistantId);
+    const hook = this.owned(assistantId, hookId);
+    if (!hook.enabled || !hookEligible(agent)) throw unavailable(409);
+    const json = {
+      test: true,
+      message: "Test event from AgentPier",
+      sentAt: new Date().toISOString(),
+    };
+    const text = JSON.stringify(json);
+    const { status, body } = await this.deliver(hook, {
+      text,
+      json,
+      contentType: "application/json",
+      size: Buffer.byteLength(text),
+      headers: { "idempotency-key": `test-${randomUUID()}` },
+      source: "test",
+    });
+    if (status === 503) throw assistantProblem("unavailable", 503);
+    return body;
+  }
+  /**
+   * The hook event a native run session belongs to while it runs, with the rights it
+   * holds now; null for any other session, a settled event or a paused hook.
+   */
+  runOrigin(agent, sessionKey) {
+    const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
+    if (!match || match[1].toLowerCase() !== agent?.runtimeAgentId?.toLowerCase())
+      return null;
+    const event = this.events.byJob(match[2]);
+    if (event?.status !== "running" || event.assistantId !== agent.id) return null;
+    const hook = this.store.get(event.hookId);
+    if (!hook?.enabled || !hookEligible(agent)) return null;
+    const conversation = mainConversation(this.assistants.store, agent.id);
+    if (!conversation) return null;
+    const ceiling = this.ceiling(agent);
+    return {
+      hook,
+      event,
+      conversation,
+      effective: effectiveRights(hook.rights, ceiling),
+      ceiling,
+    };
+  }
+  /** Telegram outbox entries of hook results: only while the hook still sends there. */
+  acceptsDelivery(entry) {
+    const event = this.events.get(entry.source?.hookEventId);
+    const hook = event && this.store.get(event.hookId);
+    if (!hook?.enabled) return false;
+    let agent;
+    try {
+      agent = this.assistants.store.getAssistant(hook.assistantId);
+    } catch {
+      return false;
+    }
+    if (!hookEligible(agent)) return false;
+    const effective = effectiveRights(hook.rights, this.ceiling(agent));
+    const channel = pairedChannel(this.routines.channels, agent.id);
+    return (
+      effective.notify &&
+      effective.telegram &&
+      !!channel &&
+      sameTelegram({ telegram: telegramTarget(channel) }, entry)
+    );
   }
   /** Owner changes ("hook") and deliveries ("hook-delivery"); never throws. */
   audit(action, hook, details, outcome = "success") {

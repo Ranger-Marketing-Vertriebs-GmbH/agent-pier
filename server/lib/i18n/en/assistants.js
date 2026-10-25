@@ -137,6 +137,10 @@ export const assistants = {
   reminderReviewRequired:
     "It is unclear whether this reminder was created. Review it in the agent settings before trying again.",
   reminderFailed: "A reminder could not run. Check its history in Agent Settings.",
+  hooks: {
+    failed: (name) =>
+      `The hook ${name} could not run. Check its events in the agent's chat.`,
+  },
   teamResultNoText: (objective) =>
     `Team results for ${objective}. No text is available for the completed synthesis. Review the individual reports.`,
   teamReportUnavailable:

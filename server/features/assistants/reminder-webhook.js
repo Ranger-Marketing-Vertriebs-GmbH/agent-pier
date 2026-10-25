@@ -7,6 +7,8 @@ export class ReminderWebhook {
   constructor({ dataDir, receive }) {
     this.file = path.join(dataDir, "assistants", "reminder-webhook.json");
     this.receive = receive;
+    // Set by the hook service; until then its route answers 404.
+    this.receiveHook = null;
     this.jobs = new Set();
   }
   start() {
@@ -51,8 +53,11 @@ export class ReminderWebhook {
         expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected))
         throw assistantProblem("invalid", 401);
-      const match = /^\/complete\/([a-f0-9-]{36})$/.exec(req.url || "");
-      if (req.method !== "POST" || !match) throw assistantProblem("invalid", 404);
+      // A hook event's run completes on its own route (agent-hook-runs.js).
+      const match = /^\/(hook-)?complete\/([a-f0-9-]{36})$/.exec(req.url || "");
+      const receive = match?.[1] ? this.receiveHook : this.receive;
+      if (req.method !== "POST" || !match || !receive)
+        throw assistantProblem("invalid", 404);
       let size = 0;
       const chunks = [];
       for await (const chunk of req) {
@@ -66,7 +71,7 @@ export class ReminderWebhook {
       } catch {
         throw assistantProblem("invalid");
       }
-      await this.receive(match[1], event);
+      await receive(match[2], event);
       res.writeHead(204).end();
     } catch (error) {
       res
