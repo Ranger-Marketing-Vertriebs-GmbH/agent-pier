@@ -14,7 +14,12 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
-import { deleteNativeSession } from "../../server/features/assistants/chat-removal.js";
+import {
+  deleteNativeSession,
+  deletedTranscripts,
+  markArchivePurges,
+} from "../../server/features/assistants/chat-removal.js";
+import { deleteReleasedSessions } from "../../server/features/users/user-release.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 // A deleted chat's text is gone from the pinned runtime (AGENTPIER-220): after
@@ -217,8 +222,7 @@ test(
       );
       assert.equal(result.status, "ok", JSON.stringify(result));
     };
-    const marker = `MARK${randomUUID().replaceAll("-", "").toUpperCase()}`;
-    const kept = `MARK${randomUUID().replaceAll("-", "").toUpperCase()}`;
+    const mark = () => `MARK${randomUUID().replaceAll("-", "").toUpperCase()}`;
     const open = async (label) => {
       const created = await createGatewaySession(client, {
         agentId: a.runtimeAgentId,
@@ -230,47 +234,113 @@ test(
         runtimeSessionKey: created.key,
       });
     };
-    const doomed = await open("doomed");
-    const other = await open("other");
-    await turn(doomed.runtimeSessionKey, `Remember ${marker} please`);
-    await turn(other.runtimeSessionKey, `Remember ${kept} please`);
-    assert.ok(markerHits(runtime.paths.root, Buffer.from(marker)).hits.length > 0);
-
-    // AgentPier's own delete (chat-removal.js) against a minimal service. Right after
-    // sessions.delete, OpenClaw holds the archive row this change removes.
-    const archived = [];
-    const spy = {
-      get ready() {
-        return client.ready;
-      },
-      call: async (method, params, options) => {
-        const result = await client.call(method, params, options);
-        if (method === "sessions.delete")
-          archived.push(...markerHits(runtime.paths.root, Buffer.from(marker)).hits);
-        return result;
-      },
+    const found = (marker) => markerHits(runtime.paths.root, Buffer.from(marker));
+    const agentDb = path.join(
+      runtime.paths.state,
+      "agents",
+      a.runtimeAgentId,
+      "agent",
+      "openclaw-agent.sqlite",
+    );
+    const archiveRows = () => {
+      const db = new DatabaseSync(agentDb, { readOnly: true });
+      try {
+        return db
+          .prepare("SELECT session_key, reason FROM session_transcript_archives")
+          .all()
+          .map((row) => ({ ...row }));
+      } finally {
+        db.close();
+      }
     };
+    // AgentPier's own delete (chat-removal.js) against a minimal service.
     const assistants = {
-      runtime: { client: spy, paths: runtime.paths },
+      runtime: { client, paths: runtime.paths },
       store,
       ledger: { forgetTexts() {} },
     };
+
+    // An empty chat on an agent that never archived: OpenClaw creates the archive
+    // table on the delete, so a database without it means drift (ARCHIVE_SCHEMA).
+    const blank = await open("blank");
+    assert.equal(await deleteNativeSession(assistants, blank), true);
+    t.diagnostic(JSON.stringify({ blankArchives: archiveRows() }));
+
+    const doomed = await open("doomed");
+    const other = await open("other");
+    const [early, late, kept] = [mark(), mark(), mark()];
+    await turn(doomed.runtimeSessionKey, `Remember ${early} please`);
+    // sessions.reset keeps the key and starts a fresh window; 2026.10.7 keeps the
+    // earlier rows in the session itself and writes no reset archive for it.
+    await client.call("sessions.reset", { key: doomed.runtimeSessionKey });
+    await turn(doomed.runtimeSessionKey, `Remember ${late} please`);
+    await turn(other.runtimeSessionKey, `Remember ${kept} please`);
+    assert.deepEqual(archiveRows(), []);
+    assert.ok(found(early).hits.length > 0);
+    assert.ok(found(late).hits.length > 0);
+
     assert.equal(
       await deleteNativeSession(assistants, store.getConversation(doomed.id)),
       true,
     );
-    t.diagnostic(JSON.stringify({ archived }));
-    assert.ok(
-      archived.some((hit) => hit.endsWith("session_transcript_archives.archive_blob")),
-      JSON.stringify(archived),
-    );
-    const { hits, residue } = markerHits(runtime.paths.root, Buffer.from(marker));
-    // Not a copy any reader serves: bytes of rows OpenClaw deleted without secure_delete.
-    t.diagnostic(JSON.stringify({ residue }));
-    assert.deepEqual(hits, []);
+    for (const marker of [early, late]) {
+      const { hits, residue } = found(marker);
+      // Not a copy any reader serves: bytes of rows deleted without secure_delete,
+      // and the archive's old pages in the WAL, until SQLite overwrites them.
+      t.diagnostic(JSON.stringify({ residue }));
+      assert.deepEqual(hits, []);
+    }
     assert.equal(store.storedConversation(doomed.id).nativeDeletePending, false);
+
+    // A chat deleted before this purge existed (its archive row stayed, its mark went)
+    // is marked again once and purged by the next start's pass.
+    const legacy = await open("legacy");
+    const old = mark();
+    await turn(legacy.runtimeSessionKey, `Remember ${old} please`);
+    const sessionId = (
+      await client.call("sessions.describe", { key: legacy.runtimeSessionKey })
+    ).session.sessionId;
+    const answer = await client.call("sessions.delete", {
+      key: legacy.runtimeSessionKey,
+      deleteTranscript: true,
+    });
+    for (const file of deletedTranscripts(
+      runtime.paths.state,
+      a.runtimeAgentId,
+      sessionId,
+    ))
+      fs.rmSync(file);
+    store.updateConversation(legacy.id, {
+      deletedAt: new Date().toISOString(),
+      nativeDeletePending: false,
+    });
+    assert.equal(answer.deleted, true);
+    assert.ok(
+      found(old).hits.some((hit) =>
+        hit.endsWith("session_transcript_archives.archive_blob"),
+      ),
+    );
+    // Deleting the missing session again answers ok, without deleting anything.
+    const again = await client.call("sessions.delete", {
+      key: legacy.runtimeSessionKey,
+      deleteTranscript: true,
+    });
+    t.diagnostic(JSON.stringify({ again }));
+    // Nor does it describe it: a chat deleted before AgentPier recorded the session id
+    // is purged by its session key alone.
+    assert.equal(
+      (await client.call("sessions.describe", { key: legacy.runtimeSessionKey })).session,
+      null,
+    );
+    assert.equal(again.deleted, false);
+    assert.ok(markArchivePurges(store) >= 1);
+    assert.equal(markArchivePurges(store), 0);
+    await deleteReleasedSessions({ assistants });
+    assert.deepEqual(found(old).hits, []);
+    assert.equal(store.storedConversation(legacy.id).nativeDeletePending, false);
+
     // The other chat keeps its text, and the Gateway keeps serving it.
-    assert.ok(markerHits(runtime.paths.root, Buffer.from(kept)).hits.length > 0);
+    assert.ok(found(kept).hits.length > 0);
     await turn(other.runtimeSessionKey, `Again ${kept}`);
     const history = await client.call("chat.history", {
       sessionKey: other.runtimeSessionKey,

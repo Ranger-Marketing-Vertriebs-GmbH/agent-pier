@@ -149,8 +149,13 @@ export async function deleteNativeSession(assistants, conversation) {
         sessionId,
       });
     } catch (error) {
-      // Never the path or a row: the code alone. The mark stays for the next try.
-      console.error("Transcript archive purge failed:", error?.code ?? error?.name);
+      // Never a path or a row: SQLite's code and fixed text at most. The mark stays,
+      // and the next Gateway start tries again (deleteReleasedSessions).
+      console.error(
+        "Transcript archive purge failed:",
+        error?.code ?? error?.name,
+        ...(error?.errcode === undefined ? [] : [error.errcode, error.errstr]),
+      );
       return false;
     }
     if (sessionId) {
@@ -162,6 +167,48 @@ export async function deleteNativeSession(assistants, conversation) {
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
   return true;
+}
+
+export const archivePurgeMarker = "transcript-archive-purge";
+
+/**
+ * Once: chats deleted, and released users' chats, before AgentPier removed OpenClaw's
+ * archive rows (AGENTPIER-220; 2026.10.3 kept them too) are marked
+ * `nativeDeletePending` again, so the next pass of deleteReleasedSessions deletes
+ * their session (gone already: 2026.10.7 answers `deleted: false`) and purges their
+ * archives. Returns how many it marked.
+ */
+export function markArchivePurges(store) {
+  const { db } = store;
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS assistant_migrations(name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
+  );
+  if (
+    db.prepare("SELECT 1 FROM assistant_migrations WHERE name=?").get(archivePurgeMarker)
+  )
+    return 0;
+  let marked = 0;
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const c of store.listConversations({ deleted: true }))
+      if (
+        (c.deletedAt || c.userReleased) &&
+        c.runtimeSessionKey &&
+        !c.nativeDeletePending
+      ) {
+        store.updateConversation(c.id, { nativeDeletePending: true });
+        marked++;
+      }
+    db.prepare("INSERT INTO assistant_migrations VALUES(?,?)").run(
+      archivePurgeMarker,
+      new Date().toISOString(),
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return marked;
 }
 
 // The native session's id: the one recorded on the chat, else described and recorded

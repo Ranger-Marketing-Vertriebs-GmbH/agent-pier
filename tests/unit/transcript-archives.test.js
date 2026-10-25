@@ -5,14 +5,21 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { purgeTranscriptArchives } from "../../server/features/assistants/transcript-archives.js";
-import { deleteNativeSession } from "../../server/features/assistants/chat-removal.js";
+import {
+  deleteNativeSession,
+  markArchivePurges,
+} from "../../server/features/assistants/chat-removal.js";
+import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 
 // OpenClaw 2026.10.7's archive table (openclaw-agent-schema), trimmed to what matters.
 const schema = `CREATE TABLE session_transcript_archives (
   session_id TEXT NOT NULL, generation TEXT NOT NULL, session_key TEXT NOT NULL,
   reason TEXT NOT NULL, encoding TEXT NOT NULL, archive_blob BLOB NOT NULL,
   archive_name TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, published_at INTEGER,
-  PRIMARY KEY (session_id, generation)) STRICT;`;
+  PRIMARY KEY (session_id, generation)) STRICT;
+CREATE TABLE session_goal_operations (session_key TEXT NOT NULL, operation_id TEXT NOT NULL,
+  session_id TEXT NOT NULL, request_fingerprint TEXT NOT NULL, result_json TEXT NOT NULL,
+  expires_at INTEGER NOT NULL, PRIMARY KEY (session_key, operation_id)) STRICT;`;
 
 function agentState(t, rows = []) {
   const state = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "archives-"));
@@ -32,13 +39,18 @@ function agentState(t, rows = []) {
     const name = `${sessionId}.jsonl.${reason}.2026-10-25T07-00-00.000Z.g1.zst`;
     insert.run(sessionId, "g1", sessionKey, reason, Buffer.from("text"), name);
     fs.writeFileSync(path.join(sessions, name), "text");
+    db.prepare("INSERT INTO session_goal_operations VALUES (?,?,?,'f','{}',1)").run(
+      sessionKey,
+      `op-${sessionId}`,
+      sessionId,
+    );
   }
   db.close();
-  const left = () => {
+  const left = (table = "session_transcript_archives") => {
     const read = new DatabaseSync(file, { readOnly: true });
     try {
       return read
-        .prepare("SELECT session_id FROM session_transcript_archives ORDER BY 1")
+        .prepare(`SELECT session_id FROM ${table} ORDER BY 1`)
         .all()
         .map((row) => row.session_id);
     } finally {
@@ -62,6 +74,7 @@ test("purges the archive rows and files of one session and leaves others", (t) =
     sessionId: "s-new",
   });
   assert.deepEqual(s.left(), ["s-other"]);
+  assert.deepEqual(s.left("session_goal_operations"), ["s-other"]);
   assert.deepEqual(s.files(), ["s-other.jsonl.deleted.2026-10-25T07-00-00.000Z.g1.zst"]);
 });
 
@@ -74,13 +87,39 @@ test("matches the recorded session id when the key differs", (t) => {
   assert.deepEqual(s.left(), []);
 });
 
-test("an agent without a database or archive table has nothing to purge", (t) => {
+test("an agent without a database has nothing to purge, and none is created", (t) => {
   const s = agentState(t);
-  const bare = new DatabaseSync(s.file);
-  bare.exec("DROP TABLE session_transcript_archives");
-  bare.close();
-  purgeTranscriptArchives(s.state, "ap-1", { sessionKey: "k", sessionId: null });
-  purgeTranscriptArchives(s.state, "ap-missing", { sessionKey: "k", sessionId: null });
+  purgeTranscriptArchives(s.state, "ap-missing", { sessionKey: "k" });
+  assert.ok(!fs.existsSync(path.join(s.state, "agents", "ap-missing")));
+});
+
+test("schema drift fails closed", (t) => {
+  for (const sql of [
+    "DROP TABLE session_transcript_archives",
+    "ALTER TABLE session_transcript_archives RENAME COLUMN session_key TO key",
+    "ALTER TABLE session_goal_operations RENAME COLUMN session_key TO key",
+  ]) {
+    const s = agentState(t, [["s-1", "agent:ap-1:dashboard:a", "deleted"]]);
+    const db = new DatabaseSync(s.file);
+    db.exec(sql);
+    db.close();
+    assert.throws(
+      () =>
+        purgeTranscriptArchives(s.state, "ap-1", {
+          sessionKey: "agent:ap-1:dashboard:a",
+          sessionId: "s-1",
+        }),
+      { code: "ARCHIVE_SCHEMA" },
+      sql,
+    );
+  }
+  // Goal receipts are optional: OpenClaw makes their table on first use.
+  const s = agentState(t, [["s-1", "agent:ap-1:dashboard:a", "deleted"]]);
+  const db = new DatabaseSync(s.file);
+  db.exec("DROP TABLE session_goal_operations");
+  db.close();
+  purgeTranscriptArchives(s.state, "ap-1", { sessionKey: "agent:ap-1:dashboard:a" });
+  assert.deepEqual(s.left(), []);
 });
 
 test("a database another writer holds fails the purge", (t) => {
@@ -142,4 +181,40 @@ test("an agent database that is a link is refused", (t) => {
     () => purgeTranscriptArchives(s.state, "ap-1", { sessionKey: "k", sessionId: null }),
     { code: "ARCHIVE_DB_UNSAFE" },
   );
+});
+
+test("chats deleted before the purge are marked for it once", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "marks-"));
+  const store = new AssistantStore({ dataDir });
+  t.after(() => {
+    store.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+  const a = store.createAssistant({
+    name: "A",
+    instructions: "",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const chat = (key, fields) => {
+    const c = store.saveConversation({ assistantId: a.id, runtimeSessionKey: key });
+    store.updateConversation(c.id, fields);
+    return c.id;
+  };
+  const deleted = chat("k-deleted", {
+    deletedAt: "2026-10-01",
+    nativeDeletePending: false,
+  });
+  const released = chat("k-released", { userReleased: true, nativeDeletePending: false });
+  const live = chat("k-live", {});
+  const optIn = chat("k-opt-in", { deletedUser: true });
+  assert.equal(markArchivePurges(store), 2);
+  const pending = (id) => store.storedConversation(id).nativeDeletePending;
+  assert.equal(pending(deleted), true);
+  assert.equal(pending(released), true);
+  assert.equal(pending(live), undefined);
+  assert.equal(pending(optIn), undefined);
+  // Once: a later start marks nothing again.
+  store.updateConversation(deleted, { nativeDeletePending: false });
+  assert.equal(markArchivePurges(store), 0);
+  assert.equal(pending(deleted), false);
 });
