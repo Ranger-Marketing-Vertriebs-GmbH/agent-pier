@@ -104,7 +104,8 @@ it took it over from the lead.
   the browser runs) shows the browser live at `/agents/<id>/browser`, wherever its
   window is, with its address and tabs; pick a tab or follow the agent, **Stop
   browser** (its tabs close, its profile stays; the agent's next browser call starts it
-  again) and **Start browser** there. Only the owner sees it, and no pictures are stored. **Take over** there
+  again; it asks first while the agent uses the browser or someone controls it) and
+  **Start browser** there. Only the owner sees it, and no pictures are stored. **Take over** there
   (or beside the chat preview) to sign in or solve a check yourself: the agent waits,
   and **Hand back** (or ten minutes without input) gives it back; if the agent tried
   the browser meanwhile, a note in the chat lets it continue. Shift+Escape leaves the

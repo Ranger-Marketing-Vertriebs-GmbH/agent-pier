@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
-import { BrowserWindowKeeper } from "../../server/features/assistants/browser-window-keeper.js";
+import {
+  BrowserWindowKeeper,
+  parkPosition,
+} from "../../server/features/assistants/browser-window-keeper.js";
 
 // The keeper never holds the process open (its timers are unref'd); each test holds
 // it while it waits, and a timeout ends a test that never settles instead of a run
@@ -93,50 +96,79 @@ function fakeBrowser(keeper, reply) {
   return sent;
 }
 
-test("a fresh launch's window is parked, never minimized", options, () =>
-  held(async () => {
-    let clock = 1000;
-    const keeper = new BrowserWindowKeeper(1, { now: () => clock });
-    keeper.launchedAt = clock;
-    // The window manager clamps the position into the screen's corner.
-    let bounds = { left: 22, top: 52, width: 1200, height: 900, windowState: "normal" };
-    const sent = fakeBrowser(keeper, (msg) => {
-      if (msg.method === "Target.attachToTarget") return { sessionId: "s" };
-      if (msg.method === "Browser.getWindowForTarget") return { windowId: 7 };
-      if (msg.method === "Browser.setWindowBounds" && "left" in msg.params.bounds)
-        bounds = { ...bounds, left: 1880, top: 949 };
-      if (msg.method === "Browser.getWindowBounds") return { bounds };
-    });
-    await keeper.page({ type: "page", targetId: "t1" });
-    const methods = sent.map((m) => m.method);
-    assert.ok(methods.includes("Emulation.setFocusEmulationEnabled"));
-    const sets = sent.filter((m) => m.method === "Browser.setWindowBounds");
-    assert.deepEqual(
-      sets.map((m) => m.params.bounds),
-      [{ windowState: "normal" }, { left: 100000, top: 100000 }],
-    );
-    assert.equal(
-      sent.some((m) => m.params?.bounds?.windowState === "minimized"),
-      false,
-    );
-    // Parked, the window is not the owner's; moved, maximized or resized it is.
-    assert.equal(await keeper.inUse(), false);
-    bounds = { ...bounds, left: 300, top: 200 };
-    assert.equal(await keeper.inUse(), true);
-    bounds = { ...bounds, windowState: "maximized" };
-    assert.equal(await keeper.inUse(), true);
-    bounds = { ...bounds, windowState: "minimized" };
-    assert.equal(await keeper.inUse(), false);
-    // A window opened after the launch window is left where it opened.
-    clock += 20000;
-    sent.length = 0;
-    await keeper.page({ type: "page", targetId: "t2" });
-    assert.equal(
-      sent.some((m) => m.method === "Browser.setWindowBounds"),
-      false,
-    );
-  }),
+test(
+  "a fresh launch's window is parked in its screen's corner, never minimized",
+  options,
+  () =>
+    held(async () => {
+      let clock = 1000;
+      const keeper = new BrowserWindowKeeper(1, { now: () => clock, settleMs: 0 });
+      keeper.launchedAt = clock;
+      // A second display to the right of the first: the window opened there.
+      const screen = {
+        availLeft: 1920,
+        availTop: 25,
+        availWidth: 2560,
+        availHeight: 1415,
+      };
+      const windows = {
+        7: { left: 2000, top: 60, width: 1200, height: 900, windowState: "normal" },
+        8: { left: 100, top: 100, width: 500, height: 600, windowState: "normal" },
+      };
+      const sent = fakeBrowser(keeper, (msg) => {
+        if (msg.method === "Target.attachToTarget")
+          return { sessionId: msg.params.targetId };
+        if (msg.method === "Runtime.evaluate") return { result: { value: screen } };
+        if (msg.method === "Browser.getWindowForTarget")
+          return { windowId: msg.params.targetId === "t1" ? 7 : 8 };
+        const { windowId } = msg.params;
+        if (msg.method === "Browser.setWindowBounds")
+          Object.assign(windows[windowId], msg.params.bounds);
+        if (msg.method === "Browser.getWindowBounds")
+          return { bounds: windows[windowId] };
+      });
+      await keeper.page({ type: "page", targetId: "t1" });
+      const methods = sent.map((m) => m.method);
+      assert.ok(methods.includes("Emulation.setFocusEmulationEnabled"));
+      const sets = sent.filter((m) => m.method === "Browser.setWindowBounds");
+      assert.deepEqual(
+        sets.map((m) => m.params.bounds),
+        [{ windowState: "normal" }, { left: 1920 + 2560 - 40, top: 25 + 1415 - 40 }],
+      );
+      assert.equal(
+        sent.some((m) => m.params?.bounds?.windowState === "minimized"),
+        false,
+      );
+      // Parked, the window is not the owner's; moved, maximized or resized it is.
+      assert.equal(await keeper.inUse(), false);
+      windows[7] = { ...windows[7], left: 300, top: 200 };
+      assert.equal(await keeper.inUse(), true);
+      windows[7] = { ...windows[7], windowState: "maximized" };
+      assert.equal(await keeper.inUse(), true);
+      windows[7] = { ...windows[7], windowState: "minimized" };
+      assert.equal(await keeper.inUse(), false);
+      // A window opened after the launch window stays where it opened and counts as
+      // the owner's only once the owner changes it.
+      clock += 20000;
+      sent.length = 0;
+      await keeper.page({ type: "page", targetId: "t2" });
+      assert.equal(
+        sent.some((m) => m.method === "Browser.setWindowBounds"),
+        false,
+      );
+      assert.equal(await keeper.inUse(), false);
+      windows[8] = { ...windows[8], width: 900 };
+      assert.equal(await keeper.inUse(), true);
+    }),
 );
+
+test("without the screen's size a window is parked beyond every screen", () => {
+  assert.deepEqual(parkPosition(null), { left: 100000, top: 100000 });
+  assert.deepEqual(
+    parkPosition({ availLeft: 0, availTop: 30, availWidth: 1920, availHeight: 960 }),
+    { left: 1880, top: 950 },
+  );
+});
 
 test(
   "a fresh launch's bootstrap browser ending early waits for the real one",

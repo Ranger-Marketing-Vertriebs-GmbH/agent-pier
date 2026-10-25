@@ -239,7 +239,13 @@ export class AgentBrowsers {
     if (!this.ready()) throw assistantProblem("unavailable", 409);
     const view = this.viewProfile(id);
     if (!view) throw assistantProblem("invalid");
-    await this.stop(view.name);
+    // Unlike the idle stop, a failure reaches the owner and the browser stays tracked.
+    await this.runtime.client.request("browser.request", {
+      method: "POST",
+      path: "/stop",
+      query: { profile: view.name },
+    });
+    this.release(view.name);
   }
   /** The compiled profile `assistant` drives, assigning a member slot when needed. */
   profileOf(assistant) {
@@ -282,8 +288,11 @@ export class AgentBrowsers {
     }
     const idle = [];
     for (const [name, e] of visible.sort((a, b) => a[1].lastUse - b[1].lastUse)) {
-      if (this.now() - e.lastUse < this.busyMs || this.busy(e.assistantId)) continue;
-      if (await e.keeper?.inUse?.().catch(() => false)) continue;
+      const unused = this.now() - e.lastUse;
+      if (unused < this.busyMs || this.busy(e.assistantId)) continue;
+      // An open window holds its browser at most `idleCapMs` long, as in the sweep.
+      if (unused < this.idleCapMs && (await e.keeper?.inUse?.().catch(() => false)))
+        continue;
       idle.push(name);
     }
     // Recounted after the awaits: another call may have taken or freed a place, or

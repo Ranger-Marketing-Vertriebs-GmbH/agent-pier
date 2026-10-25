@@ -1965,7 +1965,8 @@ limits:
 - at most three visible agent browsers run at once. A fourth stops the least recently
   used one that is not busy; a browser is busy while it was used in the last five
   minutes, while its agent has a run in progress, or while the owner has one of its
-  windows open. With all three busy the call is refused with a message the agent
+  windows open (at most an hour after its last use, as for the idle stop). With all
+  three busy the call is refused with a message the agent
   passes on. Only calls that can launch a browser count: `status`, `profiles`,
   `doctor` and `stop` never start one;
 - AgentPier watches each browser it saw launched on its CDP port. A browser that
@@ -1976,17 +1977,20 @@ limits:
   the owner has one of its windows open; then it stops after an hour at the latest;
 - a visible browser starts parked, not minimized (since AGENTPIER-240). A small CDP
   client of AgentPier's on the profile's loopback port (`browser-window-keeper.js`)
-  moves the windows a fresh launch opens to the bottom-right corner of the screen
-  (`Browser.setWindowBounds` far beyond the screen; macOS clamps it so about 40 pixels
-  stay visible, a Wayland session ignores the position) and keeps focus emulation on
-  every page. A minimized Chromium window marks its pages hidden and stops painting
+  moves the windows a fresh launch opens to the bottom-right corner of the screen they
+  are on, read from the page's `screen.avail*`, with 40 pixels left visible
+  (`Browser.setWindowBounds`; without the screen's size far beyond every screen,
+  where the window manager clamps it; a Wayland session ignores the position) and
+  keeps focus emulation on every page. A minimized Chromium window marks its pages hidden and stops painting
   them: on a loaded Mac with OpenClaw 2026.10.7, every snapshot of a minimized agent
   window ran into the 20-second browser budget, and without focus emulation such a
   page reports `hidden` and paints no frames at all. A parked window stays normal and visible, and the
   anti-throttling flags keep it rendering at full rate while other windows cover it.
-  A window counts as the owner's (busy) once it is moved, resized, maximized or full
-  screen; parked or minimized it does not. Windows opened later, such as a login
-  popup, are left alone. OpenClaw's first launch of a new profile starts a bootstrap
+  The keeper records each window's bounds once placed (after a short settle): a
+  parked one, a later one such as a login popup (left where it opened), and those of
+  a browser that was already running. A window counts as the owner's (busy) only once
+  it differs from that record (moved, resized, maximized or full screen); minimized
+  it does not. OpenClaw's first launch of a new profile starts a bootstrap
   browser it ends at once; the keeper then waits once for the real browser on the
   same port. The CDP port is loopback-only and unauthenticated, like OpenClaw's own.
 
@@ -2114,7 +2118,10 @@ later takeover can send input the same way.
   picture arrives), which stops the profile the view shows through the same path as
   the idle stop (`AgentBrowsers.ownerStop`, `browser.request` `POST /stop`): its tabs
   close, its profile stays, a takeover ends, and the agent's next browser call starts
-  it again. Like **Start browser** it is a live-view command of a viewer who may
+  it again. While a turn used the browser within the hold (`busy` in the view's
+  state) or someone holds control, the view asks first (**Stop the browser?**). A
+  stop the Gateway refuses is reported ("The browser could not be stopped. It keeps
+  running.") and the browser stays tracked. Like **Start browser** it is a live-view command of a viewer who may
   drive, not an audited event; a view-only viewer gets neither. A watched browser
   stays tracked, so the window keeper keeps its focus emulation; an untracked running
   one (after an AgentPier restart) is tracked again within the visible limit. Only the full live view keeps a browser from the
@@ -2124,7 +2131,10 @@ later takeover can send input the same way.
   upstream socket that sends no first frame within ten seconds (one that does not
   open, or one that opens but shows nothing, as after the agent restarted its
   browser) is dropped and retried; tries without a picture back off from two seconds,
-  doubling up to 30 seconds, and the first frame resets the wait; a refresh asked
+  doubling up to 30 seconds, and the first frame resets the wait. A new ticket is
+  minted only once the old upstream socket closed (at most a second): OpenClaw shares
+  one screencast per tab and restarts it, with a first frame, only after its last
+  viewer left, so a static page would otherwise stay blank; a refresh asked
   for during another (a tab pick) runs right after it. The status line of a refused
   upgrade names its status (401 Unauthorized, 403 Forbidden). A login that ends
   closes the view with 1008, and the page then stops reconnecting. A view still

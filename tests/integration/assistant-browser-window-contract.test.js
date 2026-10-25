@@ -212,8 +212,8 @@ test(
     await browsers.ownerStart(agent.id);
     t.diagnostic(`start ${Date.now() - started}ms`);
     const keeper = browsers.running.get(own).keeper;
-    for (let n = 0; n < 80 && !keeper.parked.size; n++) await sleep(250);
-    assert.equal(keeper.parked.size, 1, "the fresh launch's window is parked");
+    for (let n = 0; n < 80 && !keeper.placed.size; n++) await sleep(250);
+    assert.equal(keeper.placed.size, 1, "the fresh launch's window is parked");
     page = await pageClient(entry.cdpPort);
     const { windowId } = await page.send("Browser.getWindowForTarget", {
       targetId: page.id,
@@ -221,6 +221,12 @@ test(
     const { bounds } = await page.send("Browser.getWindowBounds", { windowId });
     t.diagnostic(`window ${JSON.stringify(bounds)}`);
     assert.equal(bounds.windowState, "normal");
+    // In the bottom-right corner of its own screen, a corner of it left visible.
+    const screen = await page.evaluate(
+      "({ right: screen.availLeft + screen.availWidth, bottom: screen.availTop + screen.availHeight })",
+    );
+    assert.ok(bounds.left >= screen.right - 60 && bounds.left < screen.right, "left");
+    assert.ok(bounds.top >= screen.bottom - 60 && bounds.top < screen.bottom, "top");
     // Parked, the window is not the owner's: it counts as idle for the limits.
     assert.equal(await keeper.inUse(), false);
     assert.equal(await page.evaluate(heavyPage), 400);

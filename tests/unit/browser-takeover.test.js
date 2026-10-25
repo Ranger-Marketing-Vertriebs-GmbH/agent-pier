@@ -42,7 +42,9 @@ function fixture() {
       return { wsPath: "/w", targetId: body.targetId || gateway.tabs.at(-1).targetId };
     },
     openStream: () => {
-      const ws = Object.assign(new EventEmitter(), { close() {} });
+      // Closing ends the socket, as the Gateway's does.
+      const ws = new EventEmitter();
+      ws.close = () => ws.emit("close", 1000);
       gateway.sockets.push(ws);
       return ws;
     },

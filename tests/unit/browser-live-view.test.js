@@ -42,6 +42,7 @@ function fixture({
       ws.closed = false;
       ws.close = () => {
         ws.closed = true;
+        ws.emit("close", 1000);
       };
       gateway.sockets.push(ws);
       return ws;
@@ -314,6 +315,56 @@ test("the owner stops the agent's browser from the live view", async () => {
   assert.deepEqual(stops, ["a"]);
   assert.equal(ws.closed, true);
   assert.equal(a.last().status, "stopped");
+  subscription.close();
+});
+
+test("a failed stop is reported and the browser stays", async () => {
+  const f = fixture();
+  f.live.browsers.ownerStop = async () => {
+    throw Error("timeout");
+  };
+  const a = f.viewer();
+  const subscription = f.live.subscribe("a", a.viewer);
+  await settle();
+  const [ws] = f.gateway.sockets;
+  await assert.rejects(subscription.stopBrowser(), { code: "STOP_FAILED" });
+  await settle();
+  assert.equal(ws.closed, false);
+  assert.notEqual(a.last().status, "stopped");
+  subscription.close();
+});
+
+test("the view says when a turn uses the browser", async () => {
+  const f = fixture();
+  const a = f.viewer();
+  const subscription = f.live.subscribe("a", a.viewer);
+  await settle();
+  assert.equal(a.last().busy, false);
+  f.live.setDriver("a", null);
+  f.live.streams.get("a").set({});
+  assert.equal(a.last().busy, true);
+  f.tick(f.live.driverMs);
+  f.live.streams.get("a").set({});
+  assert.equal(a.last().busy, false);
+  subscription.close();
+});
+
+test("a new ticket waits until the old socket closed, so the capture restarts", async () => {
+  const f = fixture();
+  f.live.closeWaitMs = 60_000;
+  const subscription = f.live.subscribe("a", f.viewer().viewer);
+  await settle();
+  const [first] = f.gateway.sockets;
+  // The Gateway has not closed the old socket yet.
+  first.close = () => (first.closed = true);
+  const stream = f.live.streams.get("a");
+  const tickets = f.gateway.tickets.length;
+  const connecting = stream.connect();
+  await settle();
+  assert.equal(f.gateway.tickets.length, tickets);
+  first.emit("close", 1000);
+  await connecting;
+  assert.equal(f.gateway.tickets.length, tickets + 1);
   subscription.close();
 });
 

@@ -36,6 +36,7 @@ export class BrowserLiveView {
     pollMs = 3000,
     retryMs = 2000,
     maxRetryMs = 30000,
+    closeWaitMs = 1000,
     previewMs = 1000,
     now = Date.now,
     openMs = openTimeoutMs,
@@ -43,7 +44,7 @@ export class BrowserLiveView {
     onHandBack,
   }) {
     Object.assign(this, { browsers, runtime, pollMs, retryMs, maxRetryMs, previewMs });
-    Object.assign(this, { now, openMs });
+    Object.assign(this, { now, openMs, closeWaitMs });
     Object.assign(this, { cdpInput, onHandBack, leaseMs, warnMs, graceMs });
     this.streams = new Map();
     // Whose turn drives each agent's browser: a user's id, or null for the owner.
@@ -209,10 +210,13 @@ class LiveStream {
     );
   }
   snapshot() {
+    const last = this.live.lastUse.get(this.id);
     return {
       ...this.state,
       tabs: [...this.state.tabs],
       pinned: !!this.pinned,
+      // A turn used the browser within the hold: stopping it now interrupts the agent.
+      busy: last !== undefined && this.live.now() - last < this.live.driverMs,
       control: this.takeover.snapshot(),
     };
   }
@@ -321,6 +325,10 @@ class LiveStream {
   }
   async connect(targetId) {
     this.disconnect();
+    // OpenClaw shares one screencast per tab and starts it afresh, with a first
+    // frame, only once its last viewer left: a ticket minted before the old socket
+    // closed would join the old capture and show a static page nothing.
+    await this.closing;
     if (this.stopped || !this.viewers.size) return;
     const ticket = await this.request("POST", "/screencast", {
       ...screencastOptions,
@@ -415,18 +423,39 @@ class LiveStream {
     await this.live.browsers.ownerStart(this.id);
     this.wake();
   }
-  /** Stops the agent's browser; the refresh then reports it stopped. */
+  /**
+   * Stops the agent's browser; the refresh then reports it stopped. A failed stop
+   * leaves it running and is reported to the viewer.
+   */
   async stopBrowser() {
+    try {
+      await this.live.browsers.ownerStop(this.id);
+    } catch (error) {
+      this.wake();
+      throw Object.assign(Error("The browser could not be stopped."), {
+        code: "STOP_FAILED",
+        cause: error,
+      });
+    }
     this.disconnect();
-    await this.live.browsers.ownerStop(this.id);
     this.wake();
   }
   disconnect() {
     const ws = this.upstream;
     this.upstream = null;
     this.frame = null;
+    if (!ws) return;
+    // Settles once the upstream closed, or after `closeWaitMs` at most.
+    this.closing = new Promise((resolve) => {
+      const timer = setTimeout(resolve, this.live.closeWaitMs);
+      timer.unref?.();
+      ws.once?.("close", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
     try {
-      ws?.close();
+      ws.close();
     } catch {
       /* Already closed. */
     }
