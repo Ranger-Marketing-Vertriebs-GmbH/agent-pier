@@ -48,6 +48,10 @@ test("the worker words each detail level in the owner's language", () => {
     render({ v: 2, kind: "agent-approval", subject: "ssh", label: "Mira" }, en),
     { title: "Mira · SSH command", body: "An agent is waiting for your decision." },
   );
+  assert.equal(
+    render({ v: 2, kind: "agent-approval", subject: "hook", label: "Mira" }, de).title,
+    "Mira · Hook-Vorschlag",
+  );
   assert.deepEqual(render({ v: 2, kind: "pipeline-failed", stage: "Tests" }, de), {
     title: "AgentPier: Pipeline fehlgeschlagen",
     body: "Öffne AgentPier, um zu sehen, was fehlschlug.\nTests",

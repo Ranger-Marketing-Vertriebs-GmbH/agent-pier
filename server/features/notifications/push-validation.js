@@ -76,7 +76,15 @@ export const pushKinds = [
   "test",
 ];
 export const inboxItemTypes = ["question", "approval", "gate", "action", "team"];
-export const approvalSubjects = ["exec", "ssh", "coding", "memory", "grant", "team"];
+export const approvalSubjects = [
+  "exec",
+  "ssh",
+  "coding",
+  "memory",
+  "grant",
+  "hook",
+  "team",
+];
 
 /** The identifiers of an event; any other field of the input is dropped. */
 export function pushPayload(input) {

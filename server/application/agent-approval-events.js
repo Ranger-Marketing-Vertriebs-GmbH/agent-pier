@@ -8,14 +8,16 @@ const subjects = {
   coding_start: "coding",
   memory_write: "memory",
   member_grant: "grant",
+  hook_proposal: "hook",
 };
 
 /**
  * The `agent-approval` push: an agent's shell or SSH command, coding task, memory
- * entry or member permission waiting for approval, and a lead's team proposal. It
- * reads the same stores as the inbox (server/features/inbox/inbox-sources.js) on the
- * operations poll, so every path that makes an agent wait is covered. What already
- * waits when AgentPier starts never notifies late; Telegram keeps its own messages.
+ * entry, member permission or hook proposal waiting for approval, and a lead's team
+ * proposal. It reads the same stores as the inbox (server/features/inbox/
+ * inbox-sources.js) on the operations poll, so every path that makes an agent wait is
+ * covered. What already waits when AgentPier starts never notifies late; Telegram keeps
+ * its own messages.
  */
 export class AgentApprovalEvents {
   constructor({ services, notifications, onError = () => {}, now = Date.now }) {

@@ -113,6 +113,39 @@ test("agent approvals and team proposals notify once, from the poll after startu
   assert.equal(notifications.sent.at(-1).assistantId, "ghost");
 });
 
+test("a waiting hook proposal sends the agent-approval push without its content", async () => {
+  const notifications = fakeNotifications();
+  const assistants = fakeAssistants();
+  const events = new AgentApprovalEvents({ services: { assistants }, notifications });
+  await events.poll();
+  assistants.actions.push({
+    id: "hook-one",
+    assistantId: "mira",
+    conversationId: "chat-main",
+    payload: {
+      action: "hook_proposal",
+      approval: true,
+      name: "Zabbix",
+      sender: "zabbix01",
+      reason: "Disk alarms",
+    },
+  });
+  await events.poll();
+  await events.poll();
+  assert.deepEqual(notifications.sent, [
+    {
+      kind: "agent-approval",
+      eventId: "agent-action-hook-one",
+      subject: "hook",
+      assistantId: "mira",
+      conversationId: "chat-main",
+      label: "Mira",
+      inbox: { type: "action", id: "hook-one" },
+    },
+  ]);
+  assert.doesNotMatch(JSON.stringify(notifications.sent), /Zabbix|zabbix01|Disk/);
+});
+
 test("native requests, waits and runs name their session or pipeline", async (t) => {
   const notifications = fakeNotifications();
   const session = {

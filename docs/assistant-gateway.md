@@ -4132,6 +4132,23 @@ audited with source `user` only when the owner's stop control
 (`POST /api/assistant-attempts/:id/cancel`) cancelled it, otherwise `system`. Continuations and goal notes are not sent to Telegram, and goals never block
 saving agent settings between turns.
 
+## Hook proposals (2026-10-25, AGENTPIER-216)
+
+`agentpier_hook` (actions `propose` and `list`) is compiled next to `agentpier_routine`
+into the entries of own agents and permanent members with **Allow reminders and
+routines** on (`goalAgent` in `profileTools`). It is locked for user agents and never in
+a routine's or a hook run's `toolsAllow` (`routineTools`, `hookTools`). The bridge
+serves it only in a turn with an active attempt, never in a routine, hook or command
+completion session, and `invokeHook` (`agent-hook-proposals.js`) admits only a direct
+owner turn (`directTurn`); forwarded, scheduled, member-result, memory-step and
+lead-request turns answer `HOOK_OWNER_ONLY`, an agent that may not hold hooks
+`HOOK_UNAVAILABLE`. `propose` validates name, sender, reason, instruction, rights and
+hourly limit as the owner's own create does and reserves a `hook_proposal` approval
+action; the hook is created only when the owner approves, without a secret. `list`
+returns each hook's id, name, sender, state, the rights it holds now and its
+addresses. The agent never receives a secret or its hash. See
+[agent hooks](assistant-workflows.md#agent-hooks).
+
 ## Live agent chat feed
 
 `/api/assistant-conversations/<id>/stream?cursor=<cursor>` is a WebSocket behind the
