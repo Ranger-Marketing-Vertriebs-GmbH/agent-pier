@@ -52,15 +52,16 @@ export const changed = (before, after) =>
 /**
  * A compiled native team Gateway (memory-core) with fixture agents on one model
  * double; each agent may run on its own model id so a dreaming call is attributable.
- * The data directory is resolved (`resolve: false` keeps os.tmpdir() as given, which
- * on macOS sits behind the /var -> /private/var symlink).
+ * The data directory is resolved; `resolve: false` reaches it through a symbolic link
+ * of its own, on every platform (as macOS's /var -> /private/var would).
  */
 export async function nativeFixture(t, { resolve = true } = {}) {
   assert.ok(path.isAbsolute(installed));
-  const base = os.tmpdir();
-  const dataDir = fs.mkdtempSync(
-    path.join(resolve ? fs.realpathSync(base) : base, "assistant-dreaming-contract-"),
+  const real = fs.mkdtempSync(
+    path.join(fs.realpathSync(os.tmpdir()), "assistant-dreaming-contract-"),
   );
+  const dataDir = resolve ? real : `${real}-link`;
+  if (!resolve) fs.symlinkSync(real, dataDir, "dir");
   const descriptor = {
     version: runtimeManifest.version,
     nodePath: path.join(installed, "node/bin/node"),
@@ -77,7 +78,8 @@ export async function nativeFixture(t, { resolve = true } = {}) {
       await model.close();
       await bridge.close();
     } finally {
-      fs.rmSync(dataDir, { recursive: true, force: true });
+      if (!resolve) fs.rmSync(dataDir, { force: true });
+      fs.rmSync(real, { recursive: true, force: true });
     }
   });
   const plugin = provisionTeamPlugin({

@@ -3888,7 +3888,10 @@ adopts it again later. The setting lives in `assistants/dreaming.sqlite`
 every phase at memory-core's defaults, deep included, and no `model` key, so each agent
 dreams with its own model and model account. A save reaches the running Gateway as a
 live `config.patch` of that path, which reschedules the job in place without a Gateway
-restart (a running turn ends normally). A change the Gateway does not take (it is not
+restart (a running turn ends normally). OpenClaw writes the change at once but answers
+the patch only after it applied it, and it applies it only once running turns have
+ended; a turn longer than the 10 s call timeout therefore leaves the save pending
+until then. A change the Gateway does not take (it is not
 ready, or it refuses the patch) stays pending: the one-minute `DreamingBackups` tick
 patches it, under admission, once the Gateway is ready, so it applies within a minute
 (only where the Gateway's dreaming section differs). A Gateway start compiles the saved
