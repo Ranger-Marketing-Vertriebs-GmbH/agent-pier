@@ -12,5 +12,7 @@ export const assistantSecretsCopy = {
   loading: "Loading secrets …",
   loadError: "Secrets could not be loaded.",
   global: "Global",
+  telegramSenders:
+    "This agent has its own Telegram bot for other people, so it cannot receive secrets.",
   project: (name) => `Project: ${name}`,
 };

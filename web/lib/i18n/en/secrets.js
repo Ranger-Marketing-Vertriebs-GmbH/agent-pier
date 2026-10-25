@@ -23,9 +23,8 @@ export const secretsCopy = {
   saving: "Saving …",
   deleteTitle: (name) => `Delete secret '${name}'?`,
   deleteBody: "Agents and sessions lose this secret at once.",
-  launchProject: "Project",
   launchHint:
-    "The session finds its secrets in a file outside the checkout and can read their values. Secrets of the session's project always come with it.",
+    "Secrets of the session's own project are always included. The session finds its secrets in a file outside the checkout and can read their values.",
   launchSummary: (count) => `${count} ${count === 1 ? "secret" : "secrets"}`,
   errors: {
     SECRET_NAME_TAKEN: "A secret with this name already exists.",

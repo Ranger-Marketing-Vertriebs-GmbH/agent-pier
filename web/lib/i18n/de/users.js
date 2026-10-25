@@ -31,7 +31,7 @@ export const usersCopy = {
   ownerMayReadSince: (date) => `An seit ${date}`,
   agents: "Agenten",
   agentsHint:
-    "Für Agenten von Benutzern immer gesperrt: Shell, SSH, Git/GitHub, Coding und Teams. Projektordner und MCP-Server gibst du pro Agent frei.",
+    "Für Agenten von Benutzern immer gesperrt: Shell, SSH, Git/GitHub, Geheimnisse, Coding und Teams. Projektordner und MCP-Server gibst du pro Agent frei.",
   noAgents: "Noch keine Agenten für diese Person.",
   own: "Eigener Agent",
   shared: "Geteilter Agent",

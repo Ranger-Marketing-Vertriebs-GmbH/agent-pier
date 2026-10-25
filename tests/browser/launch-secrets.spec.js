@@ -29,36 +29,39 @@ async function openExtensions(page, cwd) {
 const start = (page) =>
   dialog(page).getByRole("button", { name: "Start session", exact: true }).click();
 
-test("a global secret is chosen for the session and sent as secretIds", async ({
+test("every secret is an optional choice with its owner, sent as secretIds", async ({
   page,
 }) => {
   const state = await launchFixture(page);
   await openExtensions(page, "/work/app/server");
   const secrets = dialog(page).getByRole("group", { name: "Secrets" });
-  // The project's own secret comes with the session and cannot be unticked.
-  const own = secrets.getByRole("checkbox", { name: "DATABASE_URL" });
-  await expect(own).toBeChecked();
-  await expect(own).toBeDisabled();
-  await expect(secrets).toContainText("Project");
+  await expect(dialog(page).getByText(/own project are always included/)).toBeVisible();
+  // No project guess: a project's secret is offered like any other, with its owner.
+  const project = secrets.getByRole("checkbox", { name: "DATABASE_URL" });
+  await expect(project).toBeEnabled();
+  await expect(project).not.toBeChecked();
+  await expect(secrets.getByText("Agent app", { exact: true })).toBeVisible();
+  await expect(secrets.getByText("Global", { exact: true })).toBeVisible();
   const global = secrets.getByRole("checkbox", { name: "GITHUB_TOKEN" });
-  await expect(global).not.toBeChecked();
   await global.check();
+  await project.check();
   await start(page);
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
-  expect(state.launches[0].secretIds).toEqual(["secret-github"]);
+  expect(state.launches[0].secretIds).toEqual(["secret-github", "secret-db"]);
   await expect(global).toBeChecked();
 });
 
-test("another project's secret can be chosen, and none is sent unchosen", async ({
+test("unchosen secrets send nothing, and an unreadable project list shows ids", async ({
   page,
 }) => {
   const state = await launchFixture(page);
+  await page.route("**/api/ssh-projects", (route) =>
+    route.fulfill({ status: 500, json: { error: "Projects failed" } }),
+  );
   await openExtensions(page, "/work/docs");
   const secrets = dialog(page).getByRole("group", { name: "Secrets" });
-  const other = secrets.getByRole("checkbox", { name: "DATABASE_URL" });
-  await expect(other).toBeEnabled();
-  await expect(other).not.toBeChecked();
-  await expect(secrets).toContainText("Agent app");
+  await expect(secrets.getByRole("checkbox", { name: "DATABASE_URL" })).toBeEnabled();
+  await expect(secrets.getByText("project-app", { exact: true })).toBeVisible();
   await start(page);
   await expect(page.getByRole("alert")).toContainText("Launch rejected");
   expect("secretIds" in state.launches[0]).toBe(false);

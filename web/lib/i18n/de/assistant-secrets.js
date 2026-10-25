@@ -12,5 +12,7 @@ export const assistantSecretsCopy = {
   loading: "Geheimnisse werden geladen …",
   loadError: "Geheimnisse konnten nicht geladen werden.",
   global: "Global",
+  telegramSenders:
+    "Dieser Agent hat einen eigenen Telegram-Bot für andere Personen und kann deshalb keine Geheimnisse erhalten.",
   project: (name) => `Projekt: ${name}`,
 };

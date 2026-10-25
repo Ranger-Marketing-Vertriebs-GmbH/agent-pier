@@ -219,6 +219,7 @@ export default function WorkTab({ assistant, page: asked, go, navigate, focusTea
           secrets={catalog ? catalog.secrets : loadError ? null : undefined}
           selected={draft.values.secretIds}
           disabled={!policy || draft.saving}
+          locked={Boolean(assistant.telegramSenders)}
           onChange={(next) => draft.set("secretIds", next)}
           onRetry={retryCatalog}
           onBack={back}
