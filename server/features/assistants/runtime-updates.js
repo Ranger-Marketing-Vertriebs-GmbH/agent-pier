@@ -79,6 +79,7 @@ export class RuntimeUpdates {
       };
     }
     this.busy = false;
+    this.progress = null;
   }
   status() {
     const selected = readJSON(this.selection, null);
@@ -98,6 +99,14 @@ export class RuntimeUpdates {
       blockers: this.journal.blockers || [],
       diagnostic: this.journal.diagnostic || null,
       diagnosticPath: this.journal.diagnosticPath || null,
+      // Bytes copied so far against the pre-check's estimate, while this process copies.
+      snapshotProgress:
+        this.journal.phase === "snapshotting" && this.progress
+          ? {
+              copiedBytes: Math.min(this.progress.copiedBytes, this.progress.totalBytes),
+              totalBytes: this.progress.totalBytes,
+            }
+          : null,
       recoveryRequired:
         (!terminal.has(this.journal.phase) && this.journal.phase !== "staging") ||
         !!this.maintenance.recoveryState?.(),
@@ -154,10 +163,8 @@ export class RuntimeUpdates {
       if (!candidate || !previous || sameRuntime(candidate, previous))
         throw failure("UPDATE_NOT_STAGED", 409);
       // Refuse before maintenance or any copy when the backup cannot fit twice over.
-      if (
-        (await this.freeSpace(this.paths.root)) <
-        2 * (await estimateSnapshotSize(this.paths))
-      ) {
+      const estimate = await estimateSnapshotSize(this.paths);
+      if ((await this.freeSpace(this.paths.root)) < 2 * estimate) {
         this.persist(this.journal.phase, { diagnostic: "INSUFFICIENT_SPACE" });
         throw failure("INSUFFICIENT_SPACE", 507);
       }
@@ -193,11 +200,17 @@ export class RuntimeUpdates {
           privateFolder(path.join(this.paths.root, "backups")),
           id,
         );
-        await createUpdateSnapshot(this.paths, backup, {
-          previous,
-          candidate,
-          createdAt: Date.now(),
-        });
+        this.progress = { copiedBytes: 0, totalBytes: estimate };
+        try {
+          await createUpdateSnapshot(
+            this.paths,
+            backup,
+            { previous, candidate, createdAt: Date.now() },
+            { onProgress: (bytes) => (this.progress.copiedBytes += bytes) },
+          );
+        } finally {
+          this.progress = null;
+        }
         this.persist("activating", { backup: id });
         durablePrivate(this.selection, candidate);
         // A new OpenClaw version migrates its stopped state (runtime-doctor.js); a

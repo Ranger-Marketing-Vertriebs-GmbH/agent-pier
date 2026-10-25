@@ -77,8 +77,11 @@ const excludedFiles = new Set([
   "runtime-maintenance.json",
 ]);
 // Caches of the Gateway's own trees, in any spelling (Chromium's "Cache", "Code
-// Cache", "GPUCache"); workspaces belong to the user and stay complete.
+// Cache", "GPUCache"); workspaces belong to the user and keep theirs.
 const volatileTree = /(^|\/)([^/]*cache|node_modules)(\/|$)/i;
+// Installed dependencies in the workspaces are left out, like in update snapshots;
+// the agent installs them again. Restores still accept them from older backups.
+const workspaceDependencies = /^workspaces\/(.*\/)?node_modules(\/|$)/;
 // What builds before the agent browser profiles excluded; restores stay accepting
 // everything they archived (restorable below).
 const legacyVolatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
@@ -119,6 +122,7 @@ const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
   !isRuntimeOnly(relative) &&
+  !workspaceDependencies.test(relative) &&
   (relative.split("/")[0] === "workspaces" ||
     shared(relative) ||
     !volatileTree.test(relative));

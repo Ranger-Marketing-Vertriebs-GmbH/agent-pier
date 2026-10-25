@@ -52,6 +52,23 @@ ledgers under the assistant root. Gateway home/state files that start with the S
 database in a workspace, is copied byte for byte. Metadata records the previous and candidate runtimes,
 schema-sensitive ledger digests, each ledger table's highest row at the fence and
 snapshot integrity. Files use mode 0600 (owner execute bits are kept) and directories 0700. The snapshot runs on asynchronous file I/O and does not block other requests.
+Files are copied as copy-on-write clones where the file system supports them (APFS
+on macOS, btrfs or XFS with reflinks on Linux), otherwise as full copies. Every
+file is still flushed to disk, which costs a few milliseconds per file (measured on
+APFS: about 5 ms); a snapshot of many small files therefore remains bound by their
+number rather than their size.
+
+Installed dependencies are not part of the snapshot: every `node_modules` folder
+below `workspaces/`, at any depth, is left out with everything inside it and listed
+under `omittedDependencies` in the snapshot manifest. A Remotion project's
+dependencies, for example, can be several GB in hundreds of thousands of files.
+After a rollback these folders are absent from the restored workspaces; the agent
+installs the dependencies again (for example with `npm install`) before it uses the
+project. A symbolic link named `node_modules` is a link, not a folder, and is copied
+as one. `node_modules` folders below Gateway home and state are copied as before.
+While the snapshot runs, the update status shows its progress in bytes against the
+estimate of the free-space check ("Creating backup: 2.1 GB of 6 GB"); the estimate
+leaves out the same folders.
 
 Real workspaces contain links. Symbolic links are copied as links and never followed.
 A relative link that stays inside its tree is part of the integrity digest; absolute
@@ -92,7 +109,8 @@ Host backups (Settings → Operations → Backups) include `assistants/` except 
 `npm-cache/`, `tmp/`, `backups/`, `tls/`, `backup-keys/`, `state.update-captures/`
 (Doctor's plain pre-repair capture, should one survive a crash), the Gateway ownership
 record, the reminder webhook secret and the host-bound runtime state (`runtime.json`,
-`candidate.json`, `update.json`, `runtime-maintenance.json`). A host backup is refused
+`candidate.json`, `update.json`, `runtime-maintenance.json`), and, as in update
+snapshots, every `node_modules` folder below `workspaces/`. A host backup is refused
 with 409 while a runtime update or provider change is running; update or maintenance
 state left behind without one (a crash, a failed recovery, a dormant install) skips
 the agent data with a declared omission instead. The agents' private content

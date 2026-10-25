@@ -47,6 +47,7 @@ export const assistantCopy = {
       SNAPSHOT_FAILED:
         "The backup could not include the file shown below. The previous version remains active.",
     },
+    snapshotProgress: (copied, total) => `Creating backup: ${copied} of ${total}`,
     upToDate: "The qualified version is already active.",
     affected: (count, members = 0) =>
       `${count} ${count === 1 ? "agent" : "agents"} affected${members ? ` (+${members} team ${members === 1 ? "member" : "members"})` : ""}`,

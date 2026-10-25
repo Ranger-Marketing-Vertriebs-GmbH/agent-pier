@@ -55,7 +55,10 @@ histories and private content, always encrypted (see "Sealed history"):
   session index (`state/agents/<agent>/sessions/`), its media (`state/media/`),
   its memory index (`state/memory/`), every other file below `state/` outside the
   allowlist above (such as `config-journal-fingerprint.key` and `migration/`), and
-  the full copies of the agent databases.
+  the full copies of the agent databases. Installed dependencies in the
+  workspaces (every `node_modules` folder below `workspaces/`, at any depth) are
+  left out, as in runtime update snapshots; after a restore the agent installs
+  them again. Restores still accept them from older backups.
 
 #### Agent databases
 

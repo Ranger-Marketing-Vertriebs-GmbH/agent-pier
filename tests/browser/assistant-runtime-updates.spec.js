@@ -109,6 +109,17 @@ test("update status makes active work and recovery blockers visible", async ({
   state.status.phase = "draining";
   await expect(page.getByText("Draining work", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate update" })).toBeDisabled();
+  state.status.phase = "snapshotting";
+  state.status.snapshotProgress = {
+    copiedBytes: Math.round(2.1 * 1024 ** 3),
+    totalBytes: 6 * 1024 ** 3,
+  };
+  await expect(
+    page.getByText("Creating backup: 2.1 GB of 6 GB", { exact: true }),
+  ).toBeVisible();
+  // Without progress (another process copies) the phase alone is shown.
+  state.status.snapshotProgress = null;
+  await expect(page.getByText("Creating backup", { exact: true })).toBeVisible();
 });
 test("an installation already on the qualified version cannot stage it again", async ({
   page,

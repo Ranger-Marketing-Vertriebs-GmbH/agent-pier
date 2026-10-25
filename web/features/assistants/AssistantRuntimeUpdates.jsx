@@ -1,11 +1,26 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
 import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { locale } from "../../lib/i18n/index.js";
+import { formatBytes } from "../../lib/format-bytes.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import usePolling from "./usePolling.js";
 
 const endpoint = "/assistant-runtime/updates";
+const byteCount = (value) => Number.isSafeInteger(value) && value >= 0;
+const validProgress = (progress) =>
+  progress == null ||
+  (typeof progress === "object" &&
+    byteCount(progress.copiedBytes) &&
+    byteCount(progress.totalBytes));
+function phaseText({ phase, snapshotProgress: progress }) {
+  if (phase !== "snapshotting" || !progress) return copy.updates.phases[phase];
+  return copy.updates.snapshotProgress(
+    formatBytes(progress.copiedBytes, locale),
+    formatBytes(progress.totalBytes, locale),
+  );
+}
 async function loadStatus(signal) {
   const status = await api(endpoint, "GET", undefined, signal);
   if (
@@ -25,7 +40,8 @@ async function loadStatus(signal) {
     ) ||
     (status.updateAvailable !== undefined &&
       typeof status.updateAvailable !== "boolean") ||
-    (status.diagnosticPath != null && typeof status.diagnosticPath !== "string")
+    (status.diagnosticPath != null && typeof status.diagnosticPath !== "string") ||
+    !validProgress(status.snapshotProgress)
   )
     throw Error(apiCopy.requestFailed(503));
   return status;
@@ -82,7 +98,7 @@ export default function AssistantRuntimeUpdates({ onChange }) {
             </div>
             <div>
               <dt>{copy.updates.phase}</dt>
-              <dd>{copy.updates.phases[status.phase]}</dd>
+              <dd>{phaseText(status)}</dd>
             </div>
           </dl>
           <p>

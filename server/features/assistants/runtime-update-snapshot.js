@@ -27,6 +27,14 @@ const trees = ["home", "state", "workspaces"];
 // including user databases, are copied byte for byte.
 const sealedTrees = new Set(["home", "state"]);
 const sqliteHeader = Buffer.from("SQLite format 3\0");
+// Installed dependencies in the agents' workspaces stay out of the snapshot: they are
+// often most of its files, and the agent installs them again after a rollback.
+const isDependencyFolder = (relative, stat) =>
+  stat.isDirectory() &&
+  relative.startsWith("workspaces/") &&
+  path.posix.basename(relative) === "node_modules";
+// Entries count like estimateSnapshotSize: a file by its size, anything else 4 KiB.
+const entrySize = (stat) => (stat.isFile() ? stat.size : 4096);
 async function isSqlite(file) {
   const stat = await fsp.lstat(file);
   if (!stat.isFile()) return false;
@@ -84,8 +92,11 @@ function internalLink(relative, target) {
   );
   return resolved.split("/")[0] === relative.split("/")[0];
 }
+// A copy-on-write clone where the file system has one (APFS, btrfs, XFS); a full
+// copy otherwise.
+const copyFlags = fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE;
 async function copyFile(source, destination, mode) {
-  await fsp.copyFile(source, destination, fs.constants.COPYFILE_EXCL);
+  await fsp.copyFile(source, destination, copyFlags);
   await fsp.chmod(destination, (mode & 0o700) | 0o600);
   await syncAsync(destination);
 }
@@ -93,6 +104,9 @@ async function copyEntry(source, destination, context, relative) {
   try {
     const stat = await fsp.lstat(source);
     if (!owned(stat)) throw failed(relative);
+    if (context.omitDependencies && isDependencyFolder(relative, stat))
+      return context.omittedDependencies.push(relative);
+    context.progress?.(entrySize(stat));
     if (stat.isSymbolicLink()) {
       const target = await fsp.readlink(source);
       await fsp.symlink(target, destination);
@@ -262,20 +276,27 @@ function ledgerState(root, exclusions = [], fence = null) {
 /** Bytes a snapshot of the current trees and ledgers will occupy, at most. */
 export async function estimateSnapshotSize(paths) {
   let total = 0;
-  async function visit(file) {
+  async function visit(file, relative) {
     const stat = await fsp.lstat(file).catch(() => null);
-    if (!stat) return;
-    total += stat.isFile() ? stat.size : 4096;
+    if (!stat || isDependencyFolder(relative, stat)) return;
+    total += entrySize(stat);
     if (stat.isDirectory())
-      for (const name of await fsp.readdir(file)) await visit(path.join(file, name));
+      for (const name of await fsp.readdir(file))
+        await visit(path.join(file, name), join(relative, name));
   }
-  for (const name of trees) await visit(paths[name]);
+  for (const name of trees) await visit(paths[name], name);
   for (const name of fs.readdirSync(paths.root).filter((n) => n.endsWith(".sqlite")))
     for (const suffix of ["", ...journals])
-      await visit(path.join(paths.root, name + suffix));
+      await visit(path.join(paths.root, name + suffix), `ledgers/${name}${suffix}`);
   return total;
 }
-export async function createUpdateSnapshot(paths, directory, metadata) {
+/** `onProgress(bytes)` reports each copied entry in estimateSnapshotSize's units. */
+export async function createUpdateSnapshot(
+  paths,
+  directory,
+  metadata,
+  { onProgress } = {},
+) {
   privateFolder(directory);
   const payload = privateFolder(path.join(directory, "payload"));
   const id = path.basename(directory);
@@ -288,6 +309,9 @@ export async function createUpdateSnapshot(paths, directory, metadata) {
     excludedLinks: [],
     skipped: [],
     sealed: [],
+    omitDependencies: true,
+    omittedDependencies: [],
+    progress: onProgress,
   };
   const ledgers = ledgerState(paths.root);
   for (const name of trees)
@@ -296,6 +320,7 @@ export async function createUpdateSnapshot(paths, directory, metadata) {
   for (const name of Object.keys(ledgers.digests)) {
     const relative = `ledgers/${name}`;
     try {
+      onProgress?.(fs.statSync(path.join(paths.root, name)).size);
       const sealed = await sealDatabase(
         path.join(paths.root, name),
         path.join(ledgerFolder, name),
@@ -316,6 +341,7 @@ export async function createUpdateSnapshot(paths, directory, metadata) {
     excludedLinks: context.excludedLinks.sort(),
     skipped: context.skipped.sort(),
     sealed: context.sealed.sort(),
+    omittedDependencies: context.omittedDependencies.sort(),
   };
   manifest.digest = await digestTree(payload, new Set(manifest.excludedLinks));
   durablePrivate(path.join(directory, "snapshot.json"), manifest);

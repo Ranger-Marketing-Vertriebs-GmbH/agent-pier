@@ -1761,6 +1761,7 @@
   "assistants:assistantCopy.updates.phases.staging": "de:2c61e4471120 en:a8e7ac92a116",
   "assistants:assistantCopy.updates.phases.validating": "de:66cbd8f9aba0 en:5a1a167e3d90",
   "assistants:assistantCopy.updates.recover": "de:2b567518d2fb en:662faf15ad98",
+  "assistants:assistantCopy.updates.snapshotProgress": "de:03422d8ba2f6 en:64c3efa0ecb8",
   "assistants:assistantCopy.updates.stage": "de:068e88e5d67a en:9e944b540dfe",
   "assistants:assistantCopy.updates.target": "de:7b28e835ec20 en:2acb4eb2a004",
   "assistants:assistantCopy.updates.title": "de:cc680215bcdf en:1c067ad90865",

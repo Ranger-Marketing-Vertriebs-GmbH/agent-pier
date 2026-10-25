@@ -28,12 +28,12 @@ const metadata = { previous: { version: "old" }, candidate: { version: "new" } }
 test("snapshot copies real workspace links without following them", async (t) => {
   const { paths, backup, payload } = fixture(t);
   const project = path.join(paths.workspaces, "project");
-  fs.mkdirSync(path.join(project, "node_modules", "pkg", "bin"), { recursive: true });
-  fs.mkdirSync(path.join(project, "node_modules", ".bin"));
-  fs.writeFileSync(path.join(project, "node_modules", "pkg", "bin", "cli.js"), "cli", {
+  fs.mkdirSync(path.join(project, "tools", "pkg", "bin"), { recursive: true });
+  fs.mkdirSync(path.join(project, "tools", ".bin"));
+  fs.writeFileSync(path.join(project, "tools", "pkg", "bin", "cli.js"), "cli", {
     mode: 0o700,
   });
-  fs.symlinkSync("../pkg/bin/cli.js", path.join(project, "node_modules", ".bin", "cli"));
+  fs.symlinkSync("../pkg/bin/cli.js", path.join(project, "tools", ".bin", "cli"));
   fs.writeFileSync(path.join(project, "README.md"), "readme");
   fs.linkSync(path.join(project, "README.md"), path.join(project, "hard.md"));
   fs.symlinkSync("project/README.md", path.join(paths.workspaces, "readme-link"));
@@ -43,21 +43,12 @@ test("snapshot copies real workspace links without following them", async (t) =>
 
   const manifest = await createUpdateSnapshot(paths, backup, metadata);
   const copied = (...parts) => path.join(payload, "workspaces", ...parts);
-  assert.equal(
-    fs.lstatSync(copied("project/node_modules/.bin/cli")).isSymbolicLink(),
-    true,
-  );
-  assert.equal(
-    fs.readlinkSync(copied("project/node_modules/.bin/cli")),
-    "../pkg/bin/cli.js",
-  );
+  assert.equal(fs.lstatSync(copied("project/tools/.bin/cli")).isSymbolicLink(), true);
+  assert.equal(fs.readlinkSync(copied("project/tools/.bin/cli")), "../pkg/bin/cli.js");
   assert.equal(fs.readlinkSync(copied("absolute")), "/etc/hosts");
   assert.equal(fs.readlinkSync(copied("escaping")), "../../outside");
   assert.equal(fs.readFileSync(copied("project/hard.md"), "utf8"), "readme");
-  assert.equal(
-    fs.statSync(copied("project/node_modules/pkg/bin/cli.js")).mode & 0o777,
-    0o700,
-  );
+  assert.equal(fs.statSync(copied("project/tools/pkg/bin/cli.js")).mode & 0o777, 0o700);
   assert.equal(fs.existsSync(copied("pipe")), false);
   assert.deepEqual(manifest.excludedLinks, [
     "workspaces/absolute",
@@ -78,7 +69,7 @@ test("snapshot copies real workspace links without following them", async (t) =>
   fs.rmSync(paths.workspaces, { recursive: true });
   await restoreUpdateSnapshot(paths, backup);
   assert.equal(
-    fs.readlinkSync(path.join(paths.workspaces, "project/node_modules/.bin/cli")),
+    fs.readlinkSync(path.join(paths.workspaces, "project/tools/.bin/cli")),
     "../pkg/bin/cli.js",
   );
   assert.equal(
