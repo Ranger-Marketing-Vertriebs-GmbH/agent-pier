@@ -23,16 +23,20 @@ const printable = (value) =>
   value.trim().length <= 200 &&
   !/[\u0000-\u001f\u007f]/.test(value.trim());
 
+// A usable sender id: printable and not in the tombstones' reserved key space.
+const usable = (value) =>
+  printable(value) && !value.trim().toLowerCase().startsWith(failedStart);
+
 /** The sender's own event id, else the SHA-256 of the body. */
 export function eventIdOf({ headers = {}, text = "", json } = {}) {
   for (const name of ["idempotency-key", "x-event-id"]) {
     const value = headers[name];
-    if (printable(value)) return value.trim();
+    if (usable(value)) return value.trim();
   }
   if (json && typeof json === "object" && !Array.isArray(json)) {
     for (const key of ["eventId", "id"]) {
       const value = json[key];
-      if (printable(value)) return value.trim();
+      if (usable(value)) return value.trim();
       if (Number.isSafeInteger(value)) return String(value);
     }
   }
@@ -186,7 +190,7 @@ export class HookEvents {
         this.tombstone(event.id, { hookDeleted: true });
     this.db
       .prepare(
-        `DELETE FROM assistant_hook_events WHERE hook_id=? AND event_id NOT LIKE '${failedStart}%'`,
+        "DELETE FROM assistant_hook_events WHERE hook_id=? AND NOT (json_extract(body,'$.startFailed') IS 1 OR json_extract(body,'$.hookDeleted') IS 1)",
       )
       .run(hookId);
   }
