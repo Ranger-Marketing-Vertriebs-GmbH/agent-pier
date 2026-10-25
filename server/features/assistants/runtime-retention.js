@@ -21,7 +21,9 @@ export function markBackupSuccessful(paths, id) {
     if (!["EEXIST", "ENOENT"].includes(error.code)) throw error;
   }
 }
-async function removeBackup(paths, id) {
+/** Removes one update backup with its key, as retention does. */
+export async function removeBackup(paths, id) {
+  if (!backupId.test(id || "")) throw Error("Invalid snapshot identity.");
   destroyBackupKey(paths.root, id);
   await fsp.rm(path.join(paths.root, "backups", id), { recursive: true, force: true });
 }
@@ -42,6 +44,48 @@ export async function pruneBackups(paths, journal) {
   }
   successful.sort((a, b) => (b.marker > a.marker ? 1 : b.marker < a.marker ? -1 : 0));
   for (const { id } of successful.slice(keepSuccessful)) await removeBackup(paths, id);
+}
+/**
+ * The update backups on disk, newest first: the runtimes before and after the
+ * update, when it was taken and committed, and whether an unresolved update may
+ * still restore it (`recovery`). Never a path or content.
+ */
+export function listBackups(paths, journal) {
+  const folder = path.join(paths.root, "backups");
+  const unresolved = !terminalPhases.has(journal?.phase) ? journal?.backup : null;
+  const backups = [];
+  for (const id of list(folder)) {
+    if (!backupId.test(id)) continue;
+    const directory = path.join(folder, id);
+    let stat;
+    try {
+      stat = fs.lstatSync(directory);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    let manifest = null;
+    try {
+      manifest = readJSON(path.join(directory, "snapshot.json"), null);
+    } catch {
+      /* A damaged manifest still names the backup, without versions. */
+    }
+    const marker = committedAt(path.join(directory, "committed"));
+    const version = (value) =>
+      typeof value?.version === "string" ? value.version.slice(0, 64) : null;
+    backups.push({
+      id,
+      createdAt: Number.isFinite(manifest?.createdAt)
+        ? new Date(manifest.createdAt).toISOString()
+        : stat.mtime.toISOString(),
+      previousVersion: version(manifest?.previous),
+      targetVersion: version(manifest?.candidate),
+      committedAt:
+        marker === null ? null : new Date(Number(marker / 1_000_000n)).toISOString(),
+      recovery: id === unresolved,
+    });
+  }
+  return backups.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 function committedAt(file) {
   try {

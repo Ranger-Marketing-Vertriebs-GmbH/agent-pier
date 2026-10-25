@@ -13,6 +13,7 @@ import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 import { MAX_QUEUE_CONCURRENCY } from "../pipelines/queue-policy.js";
 import { teamAuditDetails } from "./audit-team-details.js";
 import { hookAuditDetails } from "./audit-hook-details.js";
+import { storageAuditDetails } from "./audit-storage-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 const memberGrantKeys = new Set([
   "memory",
@@ -68,6 +69,8 @@ const resources = new Set([
   "speech",
   // Restricted users' accounts (audit-actor.js).
   "user",
+  // Data directory cleanups in System status (audit-storage-details.js).
+  "storage",
 ]);
 const verbs = new Set([
   "revoked",
@@ -541,6 +544,7 @@ export function auditEvent(input) {
   if (action.startsWith("sftp.")) sftpAuditDetails(details, event, auditId);
   if (input.resourceType === "secret" || details.kind === "secret-grants")
     secretAuditDetails(details, event);
+  if (input.resourceType === "storage") storageAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

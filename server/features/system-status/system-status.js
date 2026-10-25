@@ -200,6 +200,10 @@ export class SystemStatus {
         : { state: "pending" },
     };
   }
+  /** After a cleanup: the next view measures again and shows the old sizes meanwhile. */
+  staleAreas() {
+    if (this.areas) this.areas = { ...this.areas, computedAt: new Date(0).toISOString() };
+  }
   refreshAreas() {
     if (this.closed || this.areasRun) return;
     const age = this.areas ? this.now() - Date.parse(this.areas.computedAt) : Infinity;

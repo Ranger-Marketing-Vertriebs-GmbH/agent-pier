@@ -21,7 +21,9 @@ import {
 } from "./runtime-doctor.js";
 import {
   applyRetention,
+  listBackups,
   markBackupSuccessful,
+  removeBackup,
   terminalPhases as terminal,
 } from "./runtime-retention.js";
 
@@ -362,6 +364,25 @@ export class RuntimeUpdates {
         await this.retain();
       } else await this.rollback();
       return this.status();
+    });
+  }
+  /** The update backups with what each may still be needed for (runtime-retention.js). */
+  backups() {
+    return listBackups(this.paths, this.journal);
+  }
+  /**
+   * Deletes one update backup and its key the way retention does, on the owner's
+   * request (System status). Refused while an update or a recovery may still need a
+   * backup: during any update phase, a pending rollback or an unresolved recovery.
+   */
+  deleteBackup(id) {
+    return this.exclusive(async () => {
+      if (!terminal.has(this.journal.phase) || this.status().recoveryRequired)
+        throw failure("UPDATE_RECOVERY_REQUIRED", 409);
+      const found = this.backups().find((backup) => backup.id === id);
+      if (!found) throw failure("UPDATE_BACKUP_NOT_FOUND", 404);
+      await removeBackup(this.paths, id);
+      return found;
     });
   }
   // Retention never decides whether an update succeeded; a cleanup failure is retried

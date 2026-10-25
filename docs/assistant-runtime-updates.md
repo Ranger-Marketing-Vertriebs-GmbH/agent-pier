@@ -153,7 +153,11 @@ runtime again on first start.
 Activation checks free space first: it needs twice the estimated snapshot size and
 is refused with `INSUFFICIENT_SPACE` before maintenance or any copy. Retention keeps
 the two newest successful backups and the backup of an unresolved recovery, and
-removes all others with their keys. After an update completes or rolls back, it also
+removes all others with their keys. The owner can also delete a backup by hand under
+**System status › Data directory › Free up space › Update backups**, which lists each
+backup with its date, size and update; it is removed with its key the same way, and is
+refused while an update phase, a pending rollback or an unresolved recovery may still
+need a backup ([system status](system-status.md#free-up-space)). After an update completes or rolls back, it also
 deletes installed runtimes that neither the selection, the candidate nor an unresolved
 rollback target uses. Startup removes all abandoned snapshot work files and, under the installation
 lock, installation stages older than one hour; a successful installation clears

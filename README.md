@@ -61,8 +61,9 @@ and agents that work as a team.
 - **Phone-first:** install as an app, push notifications, and delivery and upload
   recovery ([notifications](docs/notifications.md), [mobile recovery](docs/mobile-recovery.md)).
 - **Operations:** backups, updates with Stable and Preview channels, an activity log,
-  and a system status on the start page with disk, CPU and RAM, AgentPier's own share
-  and a low-disk warning ([backups](docs/backups.md),
+  and a system status on the start page with disk, CPU and RAM, AgentPier's own share,
+  a low-disk warning and cleanups for old update backups, transcripts and agent
+  dependencies ([backups](docs/backups.md),
   [release channels](docs/release-channels.md), [system status](docs/system-status.md)).
 
 ## Requirements
