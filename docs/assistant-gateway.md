@@ -4140,8 +4140,8 @@ routines** on (`goalAgent` in `profileTools`). It is locked for user agents and 
 a routine's or a hook run's `toolsAllow` (`routineTools`, `hookTools`). The bridge
 serves it only in a turn with an active attempt, never in a routine, hook or command
 completion session, and `invokeHook` (`agent-hook-proposals.js`) admits only a direct
-owner turn (`directTurn`); forwarded, scheduled, member-result, memory-step and
-lead-request turns answer `HOOK_OWNER_ONLY`, an agent that may not hold hooks
+owner turn (`directOwnerTurn`); forwarded, scheduled, member-result, memory-step,
+lead-request and goal continuation turns answer `HOOK_OWNER_ONLY`, an agent that may not hold hooks
 `HOOK_UNAVAILABLE`. `propose` validates name, sender, reason, instruction, rights and
 hourly limit as the owner's own create does and reserves a `hook_proposal` approval
 action; the hook is created only when the owner approves, without a secret. `list`

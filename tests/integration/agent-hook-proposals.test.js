@@ -7,7 +7,11 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
 import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
-import { invokeHook } from "../../server/features/assistants/agent-hook-proposals.js";
+import {
+  invokeHook,
+  notifyHookProposal,
+} from "../../server/features/assistants/agent-hook-proposals.js";
+import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import {
   hookDefaults,
   hookTools,
@@ -92,6 +96,8 @@ test("the agent proposes a hook only in a direct owner turn", async (t) => {
     { kind: "member-result", requestId: "member-request" },
     { kind: "memory-step" },
     { kind: "lead-request", requestId: "lead-request" },
+    // AgentPier's own goal continuation, sent on the owner's behalf.
+    { kind: "owner", goal: { id: "goal", anchorRequestId: "anchor", title: "Ship" } },
   ])
     await assert.rejects(f.call(proposal, origin), refused, origin.kind);
   // A routine's or a hook's own run, and a command's completion, have no owner turn.
@@ -436,4 +442,66 @@ test("a permanent member proposes a hook through the bridge in the owner's own t
     assert.equal(toolError(error).code, "HOOK_OWNER_ONLY");
     return true;
   });
+});
+
+test("a hook name or sender with a line break or control character is refused", async (t) => {
+  const f = await setup(t);
+  for (const bad of [
+    "Zabbix\nRights: everything",
+    "Zabbix\r",
+    "Zab\u2028bix",
+    "Zab\u0007",
+  ]) {
+    await assert.rejects(f.call({ ...proposal, name: bad }), { key: "invalid" }, bad);
+    await assert.rejects(f.call({ ...proposal, sender: bad }), { key: "invalid" }, bad);
+    // The owner's own create and edit take one-line labels too.
+    assert.throws(() => f.hooks.create(f.id, { name: bad, sender: "zabbix01" }), {
+      key: "invalid",
+    });
+  }
+  assert.equal(f.pending(), undefined);
+  const { hook } = f.hooks.create(f.id, { name: "Zabbix", sender: "zabbix01" });
+  assert.throws(
+    () => f.hooks.update(f.id, hook.id, { revision: hook.revision, sender: "a\tb" }),
+    { key: "invalid" },
+  );
+});
+
+test("the Telegram card names shell, SSH hosts and folders among the ticked rights", () => {
+  const sent = [];
+  const w = {
+    a: { store: { getAssistant: () => ({ name: "Home" }) } },
+    s: { assistantChannels: { outbox: { enqueue: (entry) => sent.push(entry) } } },
+  };
+  const action = {
+    id: "a1",
+    revision: 1,
+    assistantId: "agent",
+    conversationId: "chat",
+    state: "awaiting_approval",
+    payload: {
+      action: "hook_proposal",
+      name: "Zabbix",
+      sender: "zabbix01",
+      reason: "Disk alarms",
+      instruction: "",
+      rights: {
+        ...hookDefaults,
+        shell: "approval",
+        sshHosts: ["h1", "h2"],
+        folders: { p1: "read" },
+      },
+      hourlyLimit: 20,
+    },
+  };
+  notifyHookProposal(w, action, "approval", "k", serverCatalogs.en.assistants, {
+    channelId: "c",
+    chatId: "1",
+    userId: "1",
+  });
+  assert.match(
+    sent[0].text,
+    /Rights: notify you, ⚠ shell \(with approval\), ⚠ SSH: 2 hosts, project folders: 1/,
+  );
+  assert.ok(!sent[0].text.includes("Instruction"));
 });

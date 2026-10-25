@@ -33,6 +33,14 @@ const raised = (rights) =>
     (key) => !isDeepStrictEqual(rights[key], hookDefaults[key]),
   );
 
+// A one-line label (name, sender): no line breaks or control characters, so text
+// the agent proposes cannot fake another line of the owner's approval card.
+function label(value) {
+  const text = textValue(value, 100);
+  if (/[\p{Cc}\u2028\u2029]/u.test(text)) throw assistantProblem("invalid");
+  return text;
+}
+
 function hourlyLimit(value) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 200)
     throw assistantProblem("invalid");
@@ -141,8 +149,8 @@ export class AgentHooks {
   fields(input, keys, agent, create, stored) {
     exact(input, keys);
     const values = {};
-    if (create || "name" in input) values.name = textValue(input.name, 100);
-    if (create || "sender" in input) values.sender = textValue(input.sender, 100);
+    if (create || "name" in input) values.name = label(input.name);
+    if (create || "sender" in input) values.sender = label(input.sender);
     if (create || "instruction" in input)
       values.instruction = textValue(input.instruction ?? "", 4096, true);
     if (create || "rights" in input)
