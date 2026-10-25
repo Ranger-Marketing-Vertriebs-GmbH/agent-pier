@@ -6,6 +6,18 @@ export const hookTicks = ["notify", "telegram", "research", "coding", "memory", 
 const rightKeys = [...hookTicks, "shell", "sshHosts", "folders"];
 const plainKeys = ["name", "sender", "instruction", "hourlyLimit", "enabled"];
 
+/**
+ * Why a tick cannot be switched on ("missing": the agent lacks the right,
+ * "needsNotify": Telegram without Notify) and whether it is locked. A stored tick
+ * the agent no longer allows stays switchable off: lowering is always allowed.
+ */
+export function tickLock(key, ceiling, values) {
+  let reason = null;
+  if (key !== "notify" && ceiling[key] !== true) reason = "missing";
+  else if (key === "telegram" && !values.notify) reason = "needsNotify";
+  return { reason, locked: Boolean(reason) && values[key] !== true };
+}
+
 /** A hook as draft values of its detail page: one key per field, rights flattened. */
 export function hookDraft(hook) {
   const rights = hook.rights;

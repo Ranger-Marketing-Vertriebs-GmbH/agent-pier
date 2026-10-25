@@ -6,6 +6,7 @@ import {
   hookDraft,
   hookPatch,
   hookState,
+  tickLock,
 } from "../../web/features/assistants/settings/hook-fields.js";
 
 const hook = {
@@ -107,4 +108,30 @@ test("hookState names why a hook does not wake its agent", () => {
   assert.equal(hookState({ ...hook, secretSet: false }), "noSecret");
   assert.equal(hookState({ ...hook, enabled: false, active: false }), "paused");
   assert.equal(hookState({ ...hook, active: false }), "inactive");
+});
+
+test("tickLock lets a stale right be switched off but never on", () => {
+  const ceiling = { telegram: true, research: false };
+  // Research stored on after the agent lost web access: shown with its reason, still
+  // switchable off (lowering is always allowed); once off it is locked.
+  assert.deepEqual(tickLock("research", ceiling, { research: true }), {
+    reason: "missing",
+    locked: false,
+  });
+  assert.deepEqual(tickLock("research", ceiling, { research: false }), {
+    reason: "missing",
+    locked: true,
+  });
+  assert.deepEqual(tickLock("telegram", ceiling, { notify: false, telegram: false }), {
+    reason: "needsNotify",
+    locked: true,
+  });
+  assert.deepEqual(tickLock("telegram", ceiling, { notify: true, telegram: false }), {
+    reason: null,
+    locked: false,
+  });
+  assert.deepEqual(tickLock("notify", ceiling, { notify: false }), {
+    reason: null,
+    locked: false,
+  });
 });

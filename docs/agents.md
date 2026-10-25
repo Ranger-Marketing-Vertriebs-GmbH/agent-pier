@@ -837,7 +837,7 @@ unknown one); the list stays, so you can still delete them.
   **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
   agent holds: a switch the agent lacks is shown disabled with the reason, and a right
   the agent loses later keeps its saved value but no longer applies until the agent has
-  it again. **Wake-ups per hour** (20 by default) limits the runs; later events in the
+  it again; you can still switch it off or lower it, and then it stays disabled. **Wake-ups per hour** (20 by default) limits the runs; later events in the
   same hour are recorded without waking the agent, and the first one sends a push
   notice. **Enabled** pauses or resumes the hook.
 - **Addresses** lists the hook's address on this computer, through Tailscale and in
