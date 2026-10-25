@@ -92,3 +92,16 @@ export function clampRights(rights, ticks, ceiling, shellChoices) {
     folders,
   };
 }
+
+/** Whether a proposal asks for more than the agent holds now (see clampRights). */
+export function exceedsCeiling(rights, ceiling, shellChoices) {
+  const capped = clampRights(rights, {}, ceiling, shellChoices);
+  return (
+    hookTicks.some((key) => capped[key] !== (rights[key] === true)) ||
+    capped.shell !== (rights.shell || "off") ||
+    capped.sshHosts.length !== (rights.sshHosts || []).length ||
+    Object.entries(rights.folders || {}).some(
+      ([project, level]) => capped.folders[project] !== level,
+    )
+  );
+}

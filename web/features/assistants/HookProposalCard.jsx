@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Checkbox from "../../components/Checkbox.jsx";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
 import PermissionList from "../../components/PermissionList.jsx";
 import { hookCopy } from "../../lib/i18n/messages/assistant-hooks.js";
 import { assistantShellCopy as shellCopy } from "../../lib/i18n/messages/assistant-shell.js";
@@ -7,7 +8,12 @@ import { assistantWorkflowCopy as workflowCopy } from "../../lib/i18n/messages/a
 import { routePath } from "../../app/routes.js";
 import RouteLink from "./RouteLink.jsx";
 import { hookApi } from "./settings/hook-api.js";
-import { clampRights, hookTicks, tickLock } from "./settings/hook-fields.js";
+import {
+  clampRights,
+  exceedsCeiling,
+  hookTicks,
+  tickLock,
+} from "./settings/hook-fields.js";
 
 const copy = hookCopy.proposal;
 
@@ -56,15 +62,18 @@ export function HookCreatedNote({ action, navigate }) {
 
 /**
  * An agent's hook proposal waiting for the owner: name, sender, reason and the
- * rights it asks for. The owner may switch ticks off, or on where the agent holds
- * the right now (the ceiling of hookApi.list), before **Approve**; edited rights
- * are capped by that ceiling. `onDecide(decision, rights?)` returns the decided
- * action, or null.
+ * rights it grants. The owner may switch ticks off, or on where the agent holds
+ * the right now (the ceiling of hookApi.list), before **Approve**. The list shows
+ * the rights capped by that ceiling, and an edited or capped set is what the
+ * approval sends; a proposal above it says so. Without the ceiling the card offers
+ * the proposal as it is. `onDecide(decision, rights?)` returns the decided action,
+ * or null.
  */
 export default function HookProposalCard({ action, onDecide }) {
   const p = action.payload;
   const [busy, setBusy] = useState(false);
   const [limits, setLimits] = useState(null);
+  const [limitsFailed, setLimitsFailed] = useState(false);
   const [ticks, setTicks] = useState(() =>
     Object.fromEntries(hookTicks.map((key) => [key, p.rights[key] === true])),
   );
@@ -72,22 +81,24 @@ export default function HookProposalCard({ action, onDecide }) {
     let live = true;
     hookApi.list(action.assistantId).then(
       (list) => live && setLimits(list),
-      () => {},
+      () => live && setLimitsFailed(true),
     );
     return () => {
       live = false;
     };
   }, [action.assistantId]);
   const edited = hookTicks.some((key) => ticks[key] !== (p.rights[key] === true));
-  const rights = { ...p.rights, ...ticks };
+  const exceeds =
+    Boolean(limits) && exceedsCeiling(p.rights, limits.ceiling, limits.shellChoices);
+  const rights = limits
+    ? clampRights(p.rights, ticks, limits.ceiling, limits.shellChoices)
+    : { ...p.rights, ...ticks };
   async function decide(decision) {
     setBusy(true);
     try {
       await onDecide(
         decision,
-        decision === "approve" && edited && limits
-          ? clampRights(p.rights, ticks, limits.ceiling, limits.shellChoices)
-          : undefined,
+        decision === "approve" && limits && (edited || exceeds) ? rights : undefined,
       );
     } finally {
       setBusy(false);
@@ -113,16 +124,22 @@ export default function HookProposalCard({ action, onDecide }) {
       ) : (
         <p className="assistant-note">{copy.noRights}</p>
       )}
+      {exceeds && (
+        <p className="assistant-note" data-hook-proposal-capped="">
+          {copy.capped}
+        </p>
+      )}
+      {limitsFailed && <ErrorMessage error={copy.ceilingFailed} />}
       {limits && (
         <fieldset className="check-list">
           <legend>{copy.adjust}</legend>
           {hookTicks.map((key) => {
-            const { locked } = tickLock(key, limits.ceiling, ticks);
+            const { locked } = tickLock(key, limits.ceiling, rights);
             return (
               <Checkbox
                 key={key}
                 label={hookCopy.ticks[key]}
-                checked={ticks[key]}
+                checked={rights[key] === true}
                 disabled={busy || locked}
                 onChange={(on) =>
                   setTicks((current) => ({

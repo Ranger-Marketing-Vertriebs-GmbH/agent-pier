@@ -391,11 +391,13 @@ webhook carries at most 2,000 characters of the result (its run `summary`, cut w
 "…"); for a cut summary AgentPier reads the whole reply from the job's session
 (`chat.history` on `agent:<agent>:cron:<job>`, accepted only while that session is
 still the reported run and the reply begins with the summary), otherwise the summary
-is all there is. Reminders and check-ins are completed the same way. The chat shows
-a longer result whole like any other long message (see the agent chat history in
-`assistant-gateway.md`) and still carries its badge; Telegram gets it whole. A
-failed run shows as a quiet line in the chat; a result that OpenClaw
-could not commit is still shown there from AgentPier's own record. On every Gateway
+is all there is. Reminders and check-ins are completed the same way. A longer
+routine or check-in result opens whole in its **Events** row; a reminder's shows whole
+like any other long message (see the agent chat history in `assistant-gateway.md`)
+and keeps its "Scheduled · <name>" badge; Telegram gets it whole. A failed routine or
+check-in run is a **Failed** row of the Events area (a failed reminder a quiet line in
+the chat); a result that OpenClaw could not commit is still shown from AgentPier's own
+record. On every Gateway
 start AgentPier migrates existing routine jobs to these settings in place
 (`NativeRoutines.reconcile`), including jobs that ran isolated because their agent
 had no conversation then; reminders keep their tool-less isolated jobs. A routine
@@ -547,9 +549,11 @@ instruction, the rights and the hourly limit; rights above what the agent holds 
 chat, the owner's paired Telegram chat (hook, sender, reason, instruction and the
 ticked rights, with **Create hook** and **Decline**) and the Inbox **Agents** tab. The
 owner may change the rights in the browser before approving (`HookProposalCard.jsx`:
-ticks on only where the ceiling of `GET /api/assistants/:id/hooks` allows, and an
-edited set capped to that ceiling is sent as `rights` with the approve decision; an
-unedited approval sends none); Telegram approves the proposed rights as they are.
+ticks on only where the ceiling of `GET /api/assistants/:id/hooks` allows; the card
+lists the rights capped to that ceiling, says when the proposal asks for more, and
+sends an edited or capped set as `rights` with the approve decision; an unedited
+approval within the ceiling, or one whose ceiling could not be loaded, sends none);
+Telegram approves the proposed rights as they are.
 After approval the chat links to the hook's page
 (`?tab=routines&page=hook&hook=<id>`) for its secret, and **Work → Actions and coding
 tasks** lists the proposal with the hook name and outcome. Approving checks the rights against the agent's live

@@ -96,6 +96,19 @@ test("the first line is the reply's first non-empty line, at most 160 characters
   assert.equal(firstLine("x".repeat(160)), "x".repeat(160));
 });
 
+test("the first line drops simple Markdown markers and stays plain text", () => {
+  assert.equal(
+    firstLine("## **Disk** on `nas` is __95%__ full"),
+    "Disk on nas is 95% full",
+  );
+  assert.equal(firstLine("\n- first item\n- second"), "first item");
+  assert.equal(firstLine("* starred item"), "starred item");
+  assert.equal(firstLine("> quoted"), "quoted");
+  // A line of markers alone gives way to the next line with text.
+  assert.equal(firstLine("---\n**\nReal text"), "Real text");
+  assert.equal(firstLine("a - b # c"), "a - b # c");
+});
+
 test("the event area merges results and hook events newest first, at most 50", () => {
   const conversation = { id: "c", assistantId: "a", channel: "agentpier", main: true };
   const results = [

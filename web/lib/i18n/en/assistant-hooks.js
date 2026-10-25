@@ -142,6 +142,10 @@ export const hookCopy = {
     noRights: "No extra rights",
     adjust: "Rights to grant",
     approve: "Approve hook",
+    capped:
+      "The agent no longer holds every right it asked for. Approving grants only the rights listed.",
+    ceilingFailed:
+      "The agent's current rights could not be loaded. Approving grants the proposed rights if it still holds them.",
     shellRight: (level) => `Shell: ${level}`,
     sshRight: (count) => (count === 1 ? "1 SSH host" : `${count} SSH hosts`),
     folderRight: (count) => (count === 1 ? "1 folder" : `${count} folders`),

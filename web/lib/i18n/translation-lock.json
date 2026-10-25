@@ -702,6 +702,8 @@
   "assistant-hooks:hookCopy.places.tailscale": "de:88d90e2eef33 en:88d90e2eef33",
   "assistant-hooks:hookCopy.proposal.adjust": "de:59b676dbe59d en:43c2f3505ddc",
   "assistant-hooks:hookCopy.proposal.approve": "de:36c248e37741 en:50984ca9decf",
+  "assistant-hooks:hookCopy.proposal.capped": "de:c76d8521c9cb en:d2db5a42be7a",
+  "assistant-hooks:hookCopy.proposal.ceilingFailed": "de:2f707078ab8f en:9ec339da5c71",
   "assistant-hooks:hookCopy.proposal.created": "de:db1b5e5027d8 en:f63235ac5397",
   "assistant-hooks:hookCopy.proposal.diagnostics.HOOK_UNAVAILABLE": "de:33d915d798f8 en:db5ee6ac6575",
   "assistant-hooks:hookCopy.proposal.diagnostics.RIGHTS_CHANGED": "de:eb5baf84d270 en:8c8ea91671aa",

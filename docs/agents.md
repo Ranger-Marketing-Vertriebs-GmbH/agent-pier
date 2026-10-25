@@ -871,9 +871,10 @@ instructions in it.
 
 An agent can also propose a hook when you ask for one in your own message. The
 proposal waits as a **Hook proposal** card in its chat (and in the Inbox) with the
-name, sender, reason and the rights it asks for; under **Rights to grant** you can
+name, sender, reason and the rights it would get; under **Rights to grant** you can
 switch rights off, or on where the agent holds them now, before **Approve hook** or
-**Decline action**. After approval the chat links to the hook's settings ("Show the
+**Decline action**. A right the agent no longer holds is left out, and the card says
+so. After approval the chat links to the hook's settings ("Show the
 secret in the hook's settings"), where **Create secret** makes its first secret.
 **Work → Actions and coding tasks** lists each proposal with its outcome.
 

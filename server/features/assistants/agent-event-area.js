@@ -35,12 +35,21 @@ export function areaResult(message) {
   return hookPrompt(message);
 }
 
-/** The first non-empty line of a reply, at most 160 characters. */
+// A line without simple Markdown markers: emphasis, inline code, and a leading
+// heading, list or quote marker. The area shows it as plain text.
+const plain = (line) =>
+  line
+    .replace(/^(?:#{1,6}|[-*+]|>)\s+/, "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/^[-*_\s]+$/, "")
+    .trim();
+
+/** The first non-empty line of a reply as plain text, at most 160 characters. */
 export function firstLine(text) {
   const line =
     String(text ?? "")
       .split(/\r\n?|\n/)
-      .map((l) => l.trim())
+      .map((l) => plain(l.trim()))
       .find(Boolean) ?? "";
   const chars = Array.from(line);
   return chars.length <= lineLimit ? line : `${chars.slice(0, lineLimit - 1).join("")}…`;

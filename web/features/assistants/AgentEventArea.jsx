@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import ActivityGroup from "../../components/ActivityGroup.jsx";
 import ActivityRow from "../../components/ActivityRow.jsx";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
@@ -46,6 +46,7 @@ function Fact({ term, children }) {
 
 // What a hook event's run did: its tool steps, coding and SSH/SFTP runs, notices.
 function EventActivity({ detail, navigate }) {
+  const headingId = useId();
   const notices = [
     detail.notified?.push && copy.pushSent,
     detail.notified?.telegram && copy.telegramSent,
@@ -56,8 +57,8 @@ function EventActivity({ detail, navigate }) {
     !detail.remote.length &&
     !notices.length;
   return (
-    <section className="agent-event-did" aria-label={copy.did}>
-      <h4>{copy.did}</h4>
+    <section className="agent-event-did" aria-labelledby={headingId}>
+      <h4 id={headingId}>{copy.did}</h4>
       {empty && <p className="activity-row-note">{copy.nothingDone}</p>}
       <ul>
         {detail.activity.map((step, index) => (
@@ -101,6 +102,7 @@ function EventActivity({ detail, navigate }) {
 // A hook event's body, loaded when its row opens: the payload as plain text (never
 // Markdown), its facts, what the agent did and its full reply.
 function HookEventBody({ assistantId, event, navigate }) {
+  const incomingId = useId();
   const [state, setState] = useState({ detail: null, error: "" });
   useEffect(() => {
     let live = true;
@@ -118,13 +120,13 @@ function HookEventBody({ assistantId, event, navigate }) {
   const reply = detail.reply ?? event.reply;
   return (
     <>
-      <h4>{copy.incoming}</h4>
+      <h4 id={incomingId}>{copy.incoming}</h4>
       {detail.payload === null ? (
         <p className="activity-row-note">{copy.noPayload}</p>
       ) : (
         <CodeBlock
           className="activity-row-code"
-          aria-label={copy.incoming}
+          aria-labelledby={incomingId}
           copyText={detail.payload}
           copyLabel={copy.copyPayload}
         >
@@ -147,9 +149,10 @@ function HookEventBody({ assistantId, event, navigate }) {
 }
 
 function EventReply({ text }) {
+  const headingId = useId();
   return (
-    <section className="agent-event-reply" aria-label={copy.reply}>
-      <h4>{copy.reply}</h4>
+    <section className="agent-event-reply" aria-labelledby={headingId}>
+      <h4 id={headingId}>{copy.reply}</h4>
       <div className="message-content">
         <ChatMarkdown>{text}</ChatMarkdown>
       </div>
@@ -187,15 +190,20 @@ export default function AgentEventArea({
   events,
   navigate,
 }) {
-  const [seenAt, setSeenAt] = useState(() => readSeenAt(conversationId));
-  useEffect(() => setSeenAt(readSeenAt(conversationId)), [conversationId]);
+  // Read once per chat: a switch to another chat reads that chat's mark.
+  const [seen, setSeen] = useState(() => ({
+    conversationId,
+    at: readSeenAt(conversationId),
+  }));
+  const seenAt =
+    seen.conversationId === conversationId ? seen.at : readSeenAt(conversationId);
   if (!events?.length) return null;
   const view = eventAreaView(events, seenAt);
   const opened = (open) => {
     if (!open) return;
     const at = Math.max(Date.now(), ...events.map((event) => event.at));
     storeSeenAt(conversationId, at);
-    setSeenAt(at);
+    setSeen({ conversationId, at });
   };
   return (
     <div className="agent-event-area">
