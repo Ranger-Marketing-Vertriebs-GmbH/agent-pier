@@ -219,8 +219,8 @@ the same `item` and `step`) and saves with the usual save bar.
   → `{ access, team, removedProjectIds }`; one transaction, both revisions are preconditions.
   Granted projects that no longer exist are dropped and listed in `removedProjectIds`;
   `PUT /api/assistants/:id/access` returns the saved policy with the same field.
-- `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github }, operations: { diagnostics, backups, updates } }`;
-  local state only, every part `null` when unknown. `remote` is
+- `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github, secrets }, operations: { diagnostics, backups, updates } }`;
+  local state only, every part `null` when unknown. `secrets` is `{ count }`. `remote` is
   `{ tailscale, network, restartRequired }` (a saved network change not yet running).
 - `GET /api/accounts/usage` — per provider connection, ChatGPT account, MCP server, web
   search, speech and native CLI account: `{ agents: [{ id, name, kind, via }], sessions, pipelineProfiles, clis: [{ tool, route }] }`.
