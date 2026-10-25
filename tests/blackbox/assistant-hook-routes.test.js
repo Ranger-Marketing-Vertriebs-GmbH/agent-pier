@@ -111,6 +111,33 @@ test("owner hook routes answer unavailable for upstream errors without their tex
   assert.equal((await send("/h", "DELETE")).status, 404);
 });
 
+test("owner hook routes keep the reason of a hook refusal", async (t) => {
+  const { send } = await serve(t, {
+    create: () => {
+      throw assistantProblem("hookUnavailable", 403);
+    },
+    update: () => {
+      throw assistantProblem("hookRightExceeds", 400);
+    },
+    test: () => {
+      throw assistantProblem("hookUnavailable", 409);
+    },
+  });
+  const message = async (response) => [response.status, (await response.json()).error];
+  assert.deepEqual(await message(await send("", "POST", {})), [
+    403,
+    assistantProblem("hookUnavailable").message,
+  ]);
+  assert.deepEqual(await message(await send("/h", "PATCH", {})), [
+    400,
+    assistantProblem("hookRightExceeds").message,
+  ]);
+  assert.deepEqual(await message(await send("/h/test", "POST", {})), [
+    409,
+    assistantProblem("hookUnavailable").message,
+  ]);
+});
+
 test("owner hook routes answer 503 without the hook service", async (t) => {
   const { send } = await serve(t, undefined);
   assert.equal((await send("")).status, 503);

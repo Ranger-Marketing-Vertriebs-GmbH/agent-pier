@@ -3,10 +3,13 @@ import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
+import { hookCopy } from "../../../lib/i18n/messages/assistant-hooks.js";
 import { assistantProactivityCopy as proactivity } from "../../../lib/i18n/messages/assistant-proactivity.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { usersCopy } from "../../../lib/i18n/messages/users.js";
 import useAssistants from "../useAssistants.js";
+import HookPage from "./HookPage.jsx";
+import HooksGroup from "./HooksGroup.jsx";
 import RemindersGroup from "./RemindersGroup.jsx";
 import RoutinesGroup from "./RoutinesGroup.jsx";
 import { routinesServer } from "./agent-settings-fields.js";
@@ -29,9 +32,10 @@ const conflictLabels = {
 /**
  * Routines & check-ins: everything the agent does on a schedule. Results go to the
  * agent's chat with a push notification; with a paired Telegram chat each item can
- * go there too. Check-ins are the tab's draft; reminders and routines apply at once.
+ * go there too. Check-ins are the tab's draft; reminders, routines and hooks apply at
+ * once. A hook's detail (`page === "hook"`) is a subpage with its own draft.
  */
-export default function RoutinesTab({ assistant }) {
+export default function RoutinesTab({ assistant, page, go, navigate, hookId }) {
   const { refresh } = useAssistants();
   const { channel } = useTelegramChannel(assistant.id);
   const paired = Boolean(channel?.enabled && channel?.chatId);
@@ -46,6 +50,7 @@ export default function RoutinesTab({ assistant }) {
     return result;
   };
   const save = async () => after(await draft.save(steps));
+  const back = () => go("routines");
   const overwrite = async () => after(await draft.overwrite(steps));
   const sheet = useAgentDraftGuard({
     draft,
@@ -54,6 +59,14 @@ export default function RoutinesTab({ assistant }) {
     label,
     save,
   });
+  if (page === "hook")
+    return (
+      <>
+        <HookPage assistant={assistant} hookId={hookId} onBack={back} />
+        <UnsavedChangesSheet {...sheet} />
+      </>
+    );
+  const shared = assistant.userAccess?.mode === "shared";
   return (
     <section id="agent-routines-tab">
       <ConflictNotice draft={draft} labels={conflictLabels} />
@@ -70,13 +83,26 @@ export default function RoutinesTab({ assistant }) {
             ? usersCopy.ownRoutinesChatOnly
             : usersCopy.ownRoutines}
         </p>
-      ) : assistant.capabilities?.reminders ? (
-        <>
-          <RemindersGroup assistantId={assistant.id} paired={paired} />
-          <RoutinesGroup assistantId={assistant.id} paired={paired} />
-        </>
       ) : (
-        <p className="assistant-note">{settingsCopy.remindersNeedCapability}</p>
+        <>
+          {assistant.capabilities?.reminders ? (
+            <>
+              <RemindersGroup assistantId={assistant.id} paired={paired} />
+              <RoutinesGroup assistantId={assistant.id} paired={paired} />
+            </>
+          ) : (
+            <p className="assistant-note">{settingsCopy.remindersNeedCapability}</p>
+          )}
+          {shared ? (
+            <p className="assistant-note">{hookCopy.shared}</p>
+          ) : (
+            <HooksGroup
+              assistantId={assistant.id}
+              paused={!assistant.capabilities?.reminders}
+              navigate={navigate}
+            />
+          )}
+        </>
       )}
       <SaveBar
         draft={draft}

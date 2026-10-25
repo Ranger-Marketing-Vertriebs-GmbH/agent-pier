@@ -9,7 +9,9 @@ import {
 import {
   agentSettingsLocation,
   agentTeamRoute,
+  readAgentSettingsQuery,
 } from "../../web/features/assistants/settings-routes.js";
+import { agentRoute } from "../../web/features/assistants/settings/agent-settings-fields.js";
 import {
   defaultExtensionTab,
   extensionTabs,
@@ -78,6 +80,38 @@ test("a team link from the chat focuses that team in the Work tab only", () => {
   assert.equal(
     routePath({ ...agent, agentTab: "profile", agentTeam: "team-1" }),
     "/agents/home/settings",
+  );
+});
+
+test("a hook's detail is a routines subpage that keeps a valid hook id", () => {
+  const id = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
+  assert.deepEqual(agentSettingsLocation({ agentPage: "hook" }), {
+    tab: "routines",
+    page: "hook",
+  });
+  const hook = { ...agent, agentTab: "routines", agentPage: "hook", agentHook: id };
+  assert.deepEqual(readAgentSettingsQuery(`?page=hook&hook=${id}`), {
+    agentTab: "routines",
+    agentPage: "hook",
+    agentHook: id,
+  });
+  assert.deepEqual(agentRoute("home", "routines", "hook", id), hook);
+  assert.equal(
+    routePath(hook),
+    `/agents/home/settings?tab=routines&page=hook&hook=${id}`,
+  );
+  assert.deepEqual(read(routePath(hook)), hook);
+  // A malformed id, or one outside the hook page, is dropped.
+  assert.deepEqual(readAgentSettingsQuery("?page=hook&hook=..%2Fx"), {
+    agentTab: "routines",
+    agentPage: "hook",
+  });
+  assert.deepEqual(readAgentSettingsQuery(`?tab=routines&hook=${id}`), {
+    agentTab: "routines",
+  });
+  assert.equal(
+    routePath({ ...agent, agentTab: "routines", agentHook: id }),
+    "/agents/home/settings?tab=routines",
   );
 });
 

@@ -336,8 +336,9 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
 
 ### Routines & check-ins
 
-**Acting on its own** (check-ins), **Reminders** and **Routines**; see
-[routines, reminders and check-ins](#routines-reminders-and-check-ins).
+**Acting on its own** (check-ins), **Reminders**, **Routines** and **Hooks**; see
+[routines, reminders and check-ins](#routines-reminders-and-check-ins) and
+[hooks](#hooks).
 
 ### Telegram
 
@@ -814,6 +815,44 @@ or proposing a team sends an **Agent approval** push notification as well.
   hours, and write only when something needs your attention. A check-in is marked
   "Check-in" in the chat. It needs **Remember information**. Each check-in costs a model
   run.
+
+## Hooks
+
+A hook lets monitoring and other systems wake an agent: it gets its own address, and
+every request to it with the hook's secret starts a run of the agent in its main chat.
+Manage hooks under **Routines & check-ins → Hooks**. They exist for your own agents and
+permanent members with **Allow reminders and routines** switched on, not for shared
+agents. While that switch is off every hook is paused (its address answers like an
+unknown one); the list stays, so you can still delete them.
+
+- **+ Add** asks for a name and the **Sender** (the system that calls it, for example
+  Uptime Kuma; the agent sees this name). **Create hook** shows the secret once,
+  with a sample `curl` request. Copy it then: AgentPier keeps only a fingerprint and
+  never shows it again.
+- A hook's row opens its details: the name, sender and an **Instruction** (what the
+  agent should do with an event), and **What a run may use**: **Notify** (a push notice
+  with the result), **Also send to Telegram**, **Research** (web search and web pages),
+  **Coding CLI**, **Write memory** and **MCP servers**, the **Shell** (off or the agent's
+  own level), the **SSH hosts** set to **Trusted incl. routines** and each project
+  **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
+  agent holds: a switch the agent lacks is shown disabled with the reason, and a right
+  the agent loses later keeps its saved value but no longer applies until the agent has
+  it again. **Wake-ups per hour** (20 by default) limits the runs; later events in the
+  same hour are recorded without waking the agent, and the first one sends a push
+  notice. **Enabled** pauses or resumes the hook.
+- **Addresses** lists the hook's address on this computer, through Tailscale and in
+  network mode, each with a copy button, and says when Tailscale or network mode is off.
+- **Regenerate secret** (after a confirmation) replaces the secret; the old one stops
+  working at once. A hook the agent proposed and you accepted has no secret yet:
+  **Create secret** makes the first one. **Send test event** sends a sample event
+  through the same path and shows whether it was accepted; it counts toward the hourly
+  limit. **Delete hook** removes the hook and its recorded events.
+
+A sender calls `POST /hooks/<id>` with `Authorization: Bearer <secret>` and a JSON or
+plain-text body of at most 64 KiB. An `Idempotency-Key` or `X-Event-Id` header, or an
+`eventId` or `id` field, names the event; a repeat of the same event never wakes the
+agent again. The agent treats the event as untrusted data and does not follow
+instructions in it.
 
 ## Dictation
 

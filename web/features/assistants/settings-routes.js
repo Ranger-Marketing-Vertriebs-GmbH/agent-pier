@@ -11,6 +11,7 @@ export const agentPages = {
   ssh: "work",
   github: "work",
   secrets: "work",
+  hook: "routines",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };
@@ -32,6 +33,11 @@ const teamPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const focusTeam = (tab, page, value) =>
   tab === "work" && !page && teamPattern.test(value ?? "") ? value : "";
 
+// The hook a routines subpage shows (`page=hook&hook=<uuid>`).
+const hookPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const focusHook = (page, value) =>
+  page === "hook" && hookPattern.test(value ?? "") ? value : "";
+
 /** Route fields from the query; defaults are left out so plain links stay equal. */
 export function readAgentSettingsQuery(search) {
   const query = new URLSearchParams(search);
@@ -40,10 +46,12 @@ export function readAgentSettingsQuery(search) {
     agentPage: query.get("page"),
   });
   const team = focusTeam(tab, page, query.get("team"));
+  const hook = focusHook(page, query.get("hook"));
   return {
     ...(tab !== "profile" ? { agentTab: tab } : {}),
     ...(page ? { agentPage: page } : {}),
     ...(team ? { agentTeam: team } : {}),
+    ...(hook ? { agentHook: hook } : {}),
   };
 }
 
@@ -54,6 +62,8 @@ export function agentSettingsQuery(route) {
   if (page) query.set("page", page);
   const team = focusTeam(tab, page, route.agentTeam);
   if (team) query.set("team", team);
+  const hook = focusHook(page, route.agentHook);
+  if (hook) query.set("hook", hook);
   return query.size ? `?${query}` : "";
 }
 

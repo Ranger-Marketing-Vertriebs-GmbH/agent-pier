@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
+const hookReasons = ["hookUnavailable", "hookRightExceeds"];
 // Mount below the application owner authentication and CSRF middleware.
 export function assistantHookRoutes(services) {
   const hooks = () => services.assistantRoutines.hooks;
@@ -38,9 +39,12 @@ export function assistantHookRoutes(services) {
     ),
   );
   router.use(base, (error, _req, _res, next) => {
-    const key = { 400: "invalid", 403: "invalid", 404: "notFound", 409: "conflict" }[
-      error.status
-    ];
+    // A hook refusal keeps its reason: the settings show why (paused, right missing).
+    const key = hookReasons.includes(error.key)
+      ? error.key
+      : { 400: "invalid", 403: "invalid", 404: "notFound", 409: "conflict" }[
+          error.status
+        ];
     next(assistantProblem(key || "unavailable", key ? error.status : 503));
   });
   return router;
