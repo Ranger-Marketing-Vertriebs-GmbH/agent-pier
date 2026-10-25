@@ -144,6 +144,10 @@ export const hookCopy = {
     noRights: "Keine zusätzlichen Rechte",
     adjust: "Zu gewährende Rechte",
     approve: "Hook genehmigen",
+    capped:
+      "Der Agent hat nicht mehr jedes Recht, um das er gebeten hat. Die Genehmigung gewährt nur die aufgeführten Rechte.",
+    ceilingFailed:
+      "Die aktuellen Rechte des Agenten konnten nicht geladen werden. Die Genehmigung gewährt die vorgeschlagenen Rechte, falls er sie noch hat.",
     shellRight: (level) => `Shell: ${level}`,
     sshRight: (count) => (count === 1 ? "1 SSH-Host" : `${count} SSH-Hosts`),
     folderRight: (count) => (count === 1 ? "1 Ordner" : `${count} Ordner`),

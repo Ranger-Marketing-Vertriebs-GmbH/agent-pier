@@ -49,7 +49,10 @@ const words = {
   en: {
     title: "Hook proposal",
     reason: "Reason: You asked me to watch the NAS disks.",
-    rights: ["Notify", "Research", "1 SSH host"],
+    rights: ["Notify", "1 SSH host"],
+    edited: ["Notify", "Write memory", "1 SSH host"],
+    capped:
+      "The agent no longer holds every right it asked for. Approving grants only the rights listed.",
     memory: "Write memory",
     research: "Research",
     approve: "Approve hook",
@@ -59,7 +62,10 @@ const words = {
   de: {
     title: "Hook-Vorschlag",
     reason: "Grund: You asked me to watch the NAS disks.",
-    rights: ["Benachrichtigen", "Recherche", "1 SSH-Host"],
+    rights: ["Benachrichtigen", "1 SSH-Host"],
+    edited: ["Benachrichtigen", "Gedächtnis schreiben", "1 SSH-Host"],
+    capped:
+      "Der Agent hat nicht mehr jedes Recht, um das er gebeten hat. Die Genehmigung gewährt nur die aufgeführten Rechte.",
     memory: "Gedächtnis schreiben",
     research: "Recherche",
     approve: "Hook genehmigen",
@@ -68,8 +74,8 @@ const words = {
   },
 };
 
-async function setup(page, language) {
-  const state = await chatFixture(page, { language, actions: [proposal()] });
+async function setup(page, language, action = proposal()) {
+  const state = await chatFixture(page, { language, actions: [action] });
   const decisions = [];
   await page.route(/\/api\/assistants\/home\/hooks$/, (route) =>
     route.fulfill({ json: { hooks: [], ceiling, shellChoices: ["off", "approval"] } }),
@@ -97,14 +103,17 @@ for (const language of ["en", "de"])
       "Zabbix · Zabbix server",
     );
     await expect(card.locator(".assistant-approval-task")).toHaveText(t.reason);
+    // Research is above what the agent holds now: the list leaves it out and says why.
     await expect(card.locator(".permission-list li")).toHaveText(t.rights);
-    // Memory is within the agent's rights; research is not, so it can only go off.
+    await expect(card.locator("[data-hook-proposal-capped]")).toHaveText(t.capped);
     const memory = card.getByRole("checkbox", { name: t.memory });
     const research = card.getByRole("checkbox", { name: t.research });
     await expect(memory).toBeEnabled();
-    await expect(research).toBeChecked();
+    await expect(research).not.toBeChecked();
+    await expect(research).toBeDisabled();
     await expect(card.getByRole("checkbox", { name: /Telegram/ })).toBeDisabled();
     await memory.check();
+    await expect(card.locator(".permission-list li")).toHaveText(t.edited);
     await card.getByRole("button", { name: t.approve }).click();
     await expect.poll(() => decisions.length).toBe(1);
     expect(decisions[0]).toEqual({
@@ -136,11 +145,46 @@ for (const language of ["en", "de"])
     );
   });
 
-test("an unedited approval sends no rights", async ({ page }) => {
-  const decisions = await setup(page, "en");
+test("an unedited approval within the agent's rights sends no rights", async ({
+  page,
+}) => {
+  const within = proposal();
+  within.payload.rights = { ...within.payload.rights, research: false };
+  const decisions = await setup(page, "en", within);
+  await expect(page.locator("[data-hook-proposal-capped]")).toHaveCount(0);
   await page.getByRole("button", { name: "Approve hook" }).click();
   await expect.poll(() => decisions.length).toBe(1);
   expect(decisions[0]).toEqual({ revision: 3, decision: "approve" });
+});
+
+test("an unedited approval above the agent's rights sends the capped rights", async ({
+  page,
+}) => {
+  const decisions = await setup(page, "en");
+  await page.getByRole("button", { name: "Approve hook" }).click();
+  await expect.poll(() => decisions.length).toBe(1);
+  expect(decisions[0].rights).toMatchObject({ notify: true, research: false });
+});
+
+test("a ceiling that cannot be loaded is said and the proposal stays approvable", async ({
+  page,
+}) => {
+  await chatFixture(page, { actions: [proposal()] });
+  await page.route(/\/api\/assistants\/home\/hooks$/, (route) =>
+    route.fulfill({ status: 500, json: { error: "boom" } }),
+  );
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const card = page.locator("[data-hook-proposal]");
+  await expect(card.locator(".error")).toContainText(
+    "The agent's current rights could not be loaded.",
+  );
+  await expect(card.getByRole("checkbox")).toHaveCount(0);
+  await expect(card.locator(".permission-list li")).toHaveText([
+    "Notify",
+    "Research",
+    "1 SSH host",
+  ]);
+  await expect(card.getByRole("button", { name: "Approve hook" })).toBeEnabled();
 });
 
 test("hook proposal card screenshot", async ({ page }, info) => {

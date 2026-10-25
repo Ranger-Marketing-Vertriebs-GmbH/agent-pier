@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clampRights,
+  exceedsCeiling,
   curlSample,
   hookAddress,
   hookDraft,
@@ -181,4 +182,38 @@ test("clampRights caps a proposal's edited ticks to the agent's ceiling", () => 
       .shell,
     "approval",
   );
+});
+
+test("exceedsCeiling tells whether a proposal asks for more than the agent holds", () => {
+  const ceiling = {
+    telegram: false,
+    research: true,
+    coding: false,
+    memory: false,
+    mcp: false,
+    shell: "approval",
+    sshHosts: ["nas"],
+    folders: { web: "read" },
+  };
+  const within = {
+    notify: true,
+    telegram: false,
+    research: true,
+    coding: false,
+    memory: false,
+    mcp: false,
+    shell: "approval",
+    sshHosts: ["nas"],
+    folders: { web: "read" },
+  };
+  const choices = ["off", "approval"];
+  assert.equal(exceedsCeiling(within, ceiling, choices), false);
+  for (const above of [
+    { coding: true },
+    { shell: "full" },
+    { sshHosts: ["nas", "gone"] },
+    { folders: { web: "write" } },
+    { folders: { web: "read", lost: "read" } },
+  ])
+    assert.equal(exceedsCeiling({ ...within, ...above }, ceiling, choices), true);
 });

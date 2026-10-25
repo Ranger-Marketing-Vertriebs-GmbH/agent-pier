@@ -17,7 +17,7 @@ const events = [
     at: now - 60_000,
     status: "done",
     duplicates: 2,
-    firstLine: "Disk on **nas** is 95% full.",
+    firstLine: "Disk on nas is 95% full.",
     reply,
     hookId,
     eventId: "e1",

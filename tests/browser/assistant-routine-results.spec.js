@@ -33,7 +33,7 @@ const events = [
     name: "AI News Update",
     at: timestamp,
     status: "done",
-    firstLine: "**AI news, October 14**",
+    firstLine: "AI news, October 14",
     reply: digest,
   },
 ];
@@ -131,7 +131,7 @@ for (const [name, viewport] of [
         const result = rows.filter({ hasText: "AI News Update" });
         await expect(result.locator(".status-chip")).toHaveText(words.done);
         await expect(result.locator(".activity-row-detail")).toHaveText(
-          "**AI news, October 14**",
+          "AI news, October 14",
         );
         await result.locator(".activity-row-head").click();
         // The full reply renders as the agent's Markdown.
