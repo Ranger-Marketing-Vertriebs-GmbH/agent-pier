@@ -16,6 +16,7 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
         mcp: { available: true, activeGrants: 2 },
         remote: { tailscale: true, network: false },
         ssh: { count: 3 },
+        secrets: { count: 2 },
         github: { count: 1 },
       },
       operations: {

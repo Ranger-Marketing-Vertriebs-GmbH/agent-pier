@@ -1,0 +1,30 @@
+export const secretsCopy = {
+  title: "Geheimnisse",
+  notice:
+    "Agenten und Sessions, die ein Geheimnis erhalten, können seinen Wert lesen. Nutze Token mit den geringsten Rechten, die die Aufgabe braucht.",
+  add: "Neues Geheimnis",
+  loading: "Geheimnisse werden geladen …",
+  empty: "Noch keine Geheimnisse.",
+  choose: "Wähle ein Geheimnis oder lege ein neues an.",
+  back: "Alle Geheimnisse",
+  name: "Name",
+  nameHint: "Großbuchstaben, Ziffern und Unterstriche, z. B. ZABBIX_TOKEN.",
+  description: "Beschreibung",
+  project: "Projekt",
+  projectHint:
+    "Coding-Sessions im Projekt erhalten ein Projektgeheimnis automatisch. Ein globales Geheimnis erhalten nur die Agenten und Sessions, denen du es zuweist.",
+  global: "Global",
+  unavailableProject: (id) => `Nicht verfügbares Projekt · ${id}`,
+  value: "Wert",
+  valueSaved: "Wert gespeichert",
+  replaceValue: "Wert ersetzen",
+  valueHint: "Nach dem Speichern wird der Wert nie wieder angezeigt.",
+  saving: "Wird gespeichert …",
+  deleteTitle: (name) => `Geheimnis '${name}' löschen?`,
+  deleteBody: "Agenten und Sessions verlieren dieses Geheimnis sofort.",
+  errors: {
+    SECRET_NAME_TAKEN: "Ein Geheimnis mit diesem Namen existiert bereits.",
+    SECRET_LIMIT: "Es sind höchstens 200 Geheimnisse möglich.",
+    SECRET_NOT_FOUND: "Dieses Geheimnis existiert nicht mehr. Lade die Seite neu.",
+  },
+};

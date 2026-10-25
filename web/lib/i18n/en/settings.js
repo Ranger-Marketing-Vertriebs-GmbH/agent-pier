@@ -24,6 +24,7 @@ export const settingsHubCopy = {
   remoteRestart: "Restart required",
   remoteSub: "Reach AgentPier from other devices",
   sshSub: "Keys and hosts",
+  secretsSub: "Tokens and URLs for agents and coding CLIs",
   githubSub: "Tokens for clones and pull requests",
   usersSub: "Other people who chat with agents",
   centralTitle: "Provider access, MCP servers",

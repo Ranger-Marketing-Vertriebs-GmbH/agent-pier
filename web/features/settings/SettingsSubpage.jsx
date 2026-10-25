@@ -10,6 +10,7 @@ const pages = {
   mcp: lazy(() => import("../mcp/McpSettings.jsx")),
   remote: lazy(() => import("../remote/RemoteSettings.jsx")),
   ssh: lazy(() => import("../ssh/SshSettings.jsx")),
+  secrets: lazy(() => import("../secrets/SecretsSettings.jsx")),
   github: lazy(() => import("./GithubAccessPage.jsx")),
   notifications: lazy(() => import("../notifications/NotificationsPage.jsx")),
   diagnostics: lazy(() => import("../operations/DiagnosticsPage.jsx")),
@@ -18,7 +19,7 @@ const pages = {
   users: lazy(() => import("../users/UsersPage.jsx")),
 };
 // A list next to its details and a wide table need more than the 720px column.
-const wideSections = new Set(["ssh", "audit"]);
+const wideSections = new Set(["ssh", "secrets", "audit"]);
 // The former OperationsPage sections keep the `.operations-page` scope of
 // operations.css (heading sizes, `overflow-wrap: anywhere` on long paths and hashes).
 const operationsSections = new Set(["diagnostics", "backups", "audit"]);

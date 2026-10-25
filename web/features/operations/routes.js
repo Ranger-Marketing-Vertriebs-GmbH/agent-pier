@@ -10,6 +10,7 @@ export const sections = new Set([
   "mcp",
   "remote",
   "ssh",
+  "secrets",
   "github",
   // Restricted users and their agents (Settings › Access › Users).
   "users",
@@ -20,7 +21,7 @@ export const settingsTabs = ["workspace", "access", "operations"];
 // The settings sections each tab lists; "general" is also the root of every tab.
 export const settingsSectionGroups = {
   workspace: ["general", "notifications", "assistants"],
-  access: ["mcp", "remote", "ssh", "github", "users"],
+  access: ["mcp", "remote", "ssh", "secrets", "github", "users"],
   operations: ["diagnostics", "backups", "updates", "audit", "components"],
 };
 export const settingsTabOf = (section) =>
