@@ -72,6 +72,14 @@ export const ownerContentRoutes = {
   "POST /api/assistants/:id/routines/:routineId/events": "agent",
   "POST /api/assistants/:id/routines/:routineId/review": "agent",
   "GET /api/assistants/:id/routines/:routineId/runs": "agent",
+  // Hooks carry event payloads and the one-time secret reveal.
+  "GET /api/assistants/:id/hooks": "agent",
+  "POST /api/assistants/:id/hooks": "agent",
+  "PATCH /api/assistants/:id/hooks/:hookId": "agent",
+  "DELETE /api/assistants/:id/hooks/:hookId": "agent",
+  "POST /api/assistants/:id/hooks/:hookId/secret": "agent",
+  "POST /api/assistants/:id/hooks/:hookId/test": "agent",
+  "GET /api/assistants/:id/hooks/:hookId/events/:eventId": "agent",
   // Approvals show the tool calls a turn asked for, and their results.
   "GET /api/assistants/:id/actions": "agent",
   "POST /api/assistants/:id/actions/:actionId/cancel": "agent",

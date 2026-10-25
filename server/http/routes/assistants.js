@@ -1,6 +1,7 @@
 import { assistantWorkflowRoutes } from "./assistant-workflows.js";
 import { assistantRuntimeUpdateRoutes } from "./assistant-runtime-updates.js";
 import { assistantRoutineRoutes } from "./assistant-routines.js";
+import { assistantHookRoutes } from "./assistant-hooks.js";
 import { assistantTeamRoutes } from "./assistant-teams.js";
 import { assistantWorkRoutes } from "./assistant-work.js";
 import { assistantProjectAccessRoutes } from "./assistant-project-access.js";
@@ -101,6 +102,7 @@ function activeAssistantRoutes(services) {
   });
   router.use(assistantCapabilityRoutes(services));
   router.use(assistantRoutineRoutes(services));
+  router.use(assistantHookRoutes(services));
   router.use(assistantWorkflowRoutes(services));
   router.use(assistantRuntimeUpdateRoutes(services));
   router.use(assistantChannelRoutes(services));
