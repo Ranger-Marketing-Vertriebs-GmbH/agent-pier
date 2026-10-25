@@ -84,7 +84,16 @@ test("SSH hosts keep the plain SSH request", async ({ page }) => {
     (call) => call.method === "POST" && call.path === "/api/ssh-accesses",
   );
   expect(Object.keys(post.body).sort()).toEqual(
-    ["hostKey", "host", "keyId", "name", "port", "projectId", "username"].sort(),
+    [
+      "hostKey",
+      "host",
+      "keyId",
+      "legacyAlgorithms",
+      "name",
+      "port",
+      "projectId",
+      "username",
+    ].sort(),
   );
 });
 
