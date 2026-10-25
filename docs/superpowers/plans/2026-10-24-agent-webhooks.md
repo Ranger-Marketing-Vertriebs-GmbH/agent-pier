@@ -32,6 +32,7 @@
 - DE + EN copy with matching keys for every UI and Telegram text; run `npm run i18n:confirm -- <catalogs>` and commit the lock files (`web/lib/i18n/translation-lock.json`, `server/lib/i18n/translation-lock.json`).
 - UI from `docs/ui-guide.md` primitives only; no new hex colours, no font below 11px, only `web/lib/breakpoints.js` breakpoints.
 - Tests use isolated data directories and never the default tmux server.
+- Test bodies shown as comments or `{}` in this plan are specifications, not code: every committed test asserts the behaviour its name states; an empty or comment-only test is a review defect.
 - Commits: `feat:`/`fix:`/`chore:`/`docs:`/`test:` prefixes, English, trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -76,6 +77,7 @@
 | `server/features/assistants/agent-hook-prompt.js` (new)                                                                          | Pure: run prompt with bounded, framed payload                              |
 | `server/features/assistants/agent-hook-runs.js` (new)                                                                            | Start, complete, observe, reconcile one-shot jobs                          |
 | `server/features/assistants/agent-hook-bridge.js` (new)                                                                          | Bridge helpers: prepare/valid for hook runs, writes, locked tools          |
+| `server/features/assistants/routine-run-origin.js` (new)                                                                         | `routineRun`/`routineWrite` moved out of `team-bridge.js` (line budget)    |
 | `server/features/assistants/agent-hook-workspace.js` (new)                                                                       | Workspace context and action rules of a hook run                           |
 | `server/features/assistants/agent-hook-proposals.js` (new)                                                                       | `agentpier_hook` tool, `hook_proposal` actions, Telegram card              |
 | `server/features/assistants/agent-hook-reports.js` (new)                                                                         | Lead reports of permanent members' hook results                            |
@@ -239,7 +241,7 @@ test("hookTools builds toolsAllow from ticks only", () => {
   - `eventIdOf({ headers, text, json }): string` — header `idempotency-key` or `x-event-id` (trimmed, 1–200 printable chars), else `json.eventId`/`json.id` when a string (1–200) or safe integer, else `sha256:<hex of text>`.
   - `class HookEvents(db, { now = Date.now })` — table `assistant_hook_events (id TEXT PRIMARY KEY, hook_id TEXT NOT NULL, assistant_id TEXT NOT NULL, event_id TEXT NOT NULL, received_at INTEGER NOT NULL, body TEXT NOT NULL, payload TEXT, UNIQUE(hook_id, event_id))`.
   - `admit(hook, { eventId, payload, size, contentType, source, test }): { event: HookEvent, outcome: "fresh"|"duplicate"|"throttled", firstThrottled: boolean }` — one `BEGIN IMMEDIATE` transaction: existing row → `duplicates + 1`, outcome `duplicate`; else count rows of this hook with `received_at > now-3600000` and status ≠ `throttled` ≥ `hook.hourlyLimit` → insert `throttled`; else insert `pending`. Calls `prune(hook.id)`.
-  - `get(id)`, `byJob(jobId)`, `patch(id, fields): HookEvent`, `remove(id)`, `forget(hookId)`, `forAssistant(assistantId, { limit = 50 }): HookEvent[]` (newest first, without payload), `payload(id): string|null`, `prune(hookId)`.
+  - `get(id)`, `find(hookId, eventId): HookEvent|null` (read-only dedup lookup, used by `deliver` before the readiness check), `byJob(jobId)` (any status), `unsettled(): HookEvent[]` (all `pending`/`running` rows, for reconcile and `cancel`), `patch(id, fields): HookEvent`, `remove(id)`, `forget(hookId)`, `forAssistant(assistantId, { limit = 50 }): HookEvent[]` (newest first, without payload), `payload(id): string|null`, `prune(hookId)`. Row `id` is `randomUUID()` (the completion route matches a UUID).
   - `type HookEvent = { id, hookId, assistantId, eventId, receivedAt, size, contentType, source: "local"|"tailscale"|"network"|"test", status: "pending"|"running"|"done"|"failed"|"throttled", duplicates, jobId?, sessionKey?, reply?, silent?, activity?: Step[], coding?: string[], notified?: { push: boolean, telegram: boolean }, completedAt?, test? }`
 
 - [ ] **Step 1: Write the failing tests**
@@ -322,16 +324,17 @@ test("retention keeps 30 days of receipts and the newest 200 payloads", () => {
   - `attachWakeups({ reminders, routines, host }): void` — `new NativeHeartbeats({ reminders, notifications: host.notifications })` and `new AgentHooks({ reminders, routines, notifications: host.notifications, addresses: (id) => hookAddresses({ config: host.effectiveConfig?.(), networkUrls: host.networkState?.urls || [] }, id) })`.
   - `hookAddresses({ config, networkUrls }, hookId): { local: string, tailscale: string|null, network: string[] }` — `http://127.0.0.1:<port>/hooks/<id>`, `<remoteUrl origin>/hooks/<id>` when `config.remoteUrl`, each network URL + `/hooks/<id>` when `config.network?.enabled`.
   - `class AgentHooks` — sets `routines.hooks = this`; holds `store: HookStore`, `events: HookEvents`, `runs` (Task 5).
-    - `list(assistantId): { hooks: HookView[] }`
+    - `list(assistantId): { hooks: HookView[], ceiling: Ceiling, shellChoices: string[] }` (the ceiling is needed before any hook exists, e.g. by `HookProposalCard`)
     - `create(assistantId, input, { actor = "owner", proposalId } = {}): { hook: HookView, secret?: string }` — input keys `name` (1–100), `sender` (1–100), `instruction` (0–4096), `rights`, `hourlyLimit` (integer 1–200, default 20); `secret` only for `actor: "owner"`.
     - `update(assistantId, hookId, input): HookView` — input `revision` plus any of `name, sender, instruction, rights, hourlyLimit, enabled`.
     - `secret(assistantId, hookId, { revision }): { hook: HookView, secret: string }` — creates or regenerates; the old hash is replaced at once.
     - `remove(assistantId, hookId): { removed: true }` — forgets events; `runs.cancel(hookId)` best-effort.
     - `ceiling(agent): Ceiling` — live: `research`/`webSearch`/`webFetch` from `personalCapabilities`; `coding` = `workflows.access.get(id).projectIds.length > 0`; `shell` = `personalShell`; `sshHosts` = grants with `mode === "routines"` of hosts still listed by `workflows.access.sshHosts()`; `folders` = `workflows.folders.ownAndShared(id)` (own grants plus the lead's standing shares); `memory` = `capabilities.memory`; `mcp` = `(assistants.config.mcpTools?.(agent) || []).length > 0`; `telegram` = a paired owner chat (`pairedChannel`).
-    - `owned(assistantId, hookId): Hook` — 404 for another agent's hook; `eligible(assistantId)` throws 403 `invalid` unless `hookEligible`.
+    - `owned(assistantId, hookId): Hook` — 404 for another agent's hook; `eligible(assistantId)` throws `assistantProblem("hookUnavailable", 403)` unless `hookEligible` (the browser shows its message; `test` on a paused or inactive hook throws the same key with 409).
+    - `hookEligible` is `goalAgent(agent) && personalCapabilities(agent).reminders` (goalAgent already excludes every user agent, shared ones included; no separate `isShared` check).
     - `audit(action, hook, details, outcome = "success")` — `assistants.audit.append({ action, resourceType: "assistant", resourceId: hook.assistantId, source, outcome, details: { kind, hookId, ... } })`; errors are logged, never thrown.
   - `type HookView = { id, name, sender, instruction, rights, effective, ceiling, shellChoices, hourlyLimit, enabled, active, secretSet, secretSetAt, revision, createdAt, createdBy, addresses, lastEvent: { status, receivedAt }|null }` — never `secretHash`.
-  - `hookAuditDetails(details, event, auditId)` — keeps `hookId`, `hookEventId`, `eventKey` (event ID ≤ 200 printable chars or `sha256:<hex>`), `outcome` ∈ `["accepted","duplicate","throttled","unauthorized","not-found","too-large","invalid","unavailable"]`, `branch` ∈ `["local","tailscale","network","test"]`, `size` (safe integer), `change` ∈ `["create","update","secret","delete","enable","pause"]`, `rights` (keys only), `via: "hook"`, `actor` ∈ `["owner","assistant"]`.
+  - `hookAuditDetails(details, event, auditId)` — keeps `hookId`, `hookEventId`, `eventKey` (event ID ≤ 200 printable chars or `sha256:<hex>`), `outcome` ∈ `["accepted","duplicate","throttled","unauthorized","not-found","too-large","invalid","unavailable"]`, `branch` ∈ `["local","tailscale","network","test"]`, `size` (safe integer), `change` ∈ `["create","update","secret","delete","enable","pause"]`, `rights` (only the keys whose value differs from `hookDefaults`, so a default hook audits `[]`), `via: "hook"`, `actor` ∈ `["owner","assistant"]`. `audit-schema.js` calls it for every `resourceType: "assistant"` event (not only kinds `hook`/`hook-delivery`), so `native-write` and `project-file` entries of a hook run keep `via`, `hookId`, `hookEventId`. `audit()` adds `actor` only for `"assistant"`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -417,7 +420,7 @@ test("the graph reaches the service as assistantRoutines.hooks", async (t) => {
 **Files:**
 
 - Create: `server/features/assistants/agent-hook-prompt.js`, `server/features/assistants/agent-hook-runs.js`
-- Modify: `server/features/assistants/reminder-webhook.js` (route `/hook-complete/<uuid>` → `this.receiveHook`, 404 while unset), `server/features/assistants/agent-hooks.js` (`deliver`, `test`, `runOrigin`), `server/lib/i18n/{de,en}/assistants.js` (`hooks.failed(name)`: the Telegram line for a failed run, like `reminderFailed`), `web/lib/i18n/{de,en}/notifications.js` (`agent-routine` label "Routine or hook result" / "Routine- oder Hook-Ergebnis"), `docs/assistant-workflows.md` (new section "Agent hooks": waking, prompt, dedup, limit, notify, results)
+- Modify: `server/features/assistants/reminder-webhook.js` (route `/hook-complete/<uuid>` → `this.receiveHook`, 404 while unset), `server/features/assistants/agent-hooks.js` (`deliver`, `test`, `runOrigin`), `server/lib/i18n/{de,en}/assistants.js` (`hooks.failed(name)`: the Telegram line for a failed run, like `reminderFailed`), `web/lib/i18n/{de,en}/notifications.js` (`agent-routine` label "Routine or hook result" / "Routine- oder Hook-Ergebnis"), `public/pwa-{de,en}.js` (`agent-routine` title, body and name of the push notice itself: hand-written, not in the translation lock; keep both files' keys equal, `tests/unit/pwa-render.test.js`), `server/features/assistant-channels/telegram-outbox.js` (entries of kind `"hook"` are sent only while `assistants.routines?.hooks?.acceptsDelivery(entry)`; otherwise `reviewed`, like `reminder`/`heartbeat`), `docs/assistant-workflows.md` (new section "Agent hooks": waking, prompt, dedup, limit, notify, results)
 - Test: `tests/unit/agent-hook-prompt.test.js`, `tests/integration/agent-hook-runs.test.js`
 
 **Interfaces:**
@@ -425,15 +428,15 @@ test("the graph reaches the service as assistantRoutines.hooks", async (t) => {
 - Consumes: Tasks 1–3; `reminders.webhook.start()` connection; `reminders.results.record`; `cronResultText`; `deliverableChannel`, `pairedChannel`, `telegramTarget` (`routine-targets.js`); `notifications.notify`; `assistants.gatewayEvents.on("agent", …)`, `.onReady(…)`; `RunSteps` (`run-steps.js`).
 - Produces:
   - `hookPrompt({ hook, payloadText, contentType, test }): string`, `promptPayloadLimit = 16384`, `hookMarkers = { start: "<<<AGENTPIER_HOOK_EVENT>>>", end: "<<<END_AGENTPIER_HOOK_EVENT>>>" }`. Lines: the fixed first sentence (Global Constraints) with `JSON.stringify` of name and sender; for a test event `This is a test event the owner sent from AgentPier.`; when `instruction` is set, `The owner's instruction for this hook:` + instruction; `Use only the rights of this hook. Reply with what you found and did; reply with exactly NO_REPLY when nothing needs the owner.`; start marker; framed payload; end marker.
-  - `AgentHooks.deliver(hook, { text, json, contentType, size, headers, source }): Promise<{ status: 202|200|503, body: { eventId, status } }>` — order: `runtime.client?.ready` false → 503 (nothing recorded, checked after dedup lookup so a duplicate still answers 200); `events.admit`; duplicate → 200 `duplicate`; throttled → 200 `throttled` (+ one push when `firstThrottled`); fresh → `runs.start`; start failure → `events.remove`, 503; else 202 `accepted`. Audits every outcome (`kind: "hook-delivery"`).
+  - `AgentHooks.deliver(hook, { text, json, contentType, size, headers, source }): Promise<{ status: 202|200|503, body: { eventId, status } }>` — order: `events.find(hook.id, eventId)` → existing row answers 200 `duplicate` (and counts it through `admit`); `runtime.client?.ready` false → 503 (nothing recorded); `events.admit`; duplicate → 200 `duplicate`; throttled → 200 `throttled` (+ one push when `firstThrottled`); fresh → `runs.start`; start failure → `events.remove`, 503; else 202 `accepted`. Audits every outcome (`kind: "hook-delivery"`).
   - `AgentHooks.test(assistantId, hookId): Promise<{ eventId, status }>` — body `{"test":true,"message":"Test event from AgentPier","sentAt":"<ISO>"}`, event ID `test-<uuid>`, source `test`.
   - `AgentHooks.runOrigin(agent, sessionKey): { hook, event, conversation, effective, ceiling } | null` — `agent:<runtimeAgentId>:cron:<jobId>(:run:<id>)` → `events.byJob(jobId)` with status `running`, its hook `enabled`, `hookEligible(agent)`, main conversation present; `effective = effectiveRights(hook.rights, ceiling(agent))`.
   - `class HookRuns(hooks)`:
     - `start(hook, event): Promise<HookEvent>` — `cron.add({ name: "Hook <name>", declarationKey: "agentpier-hook:<event.id>", agentId, enabled: false, deleteAfterRun: false, schedule: { kind: "cron", expr: "0 0 1 1 *", tz: "UTC" }, wakeMode: "now", failureAlert: false, sessionTarget: "current", sessionKey: <main chat runtimeSessionKey>, payload: { kind: "agentTurn", message: hookPrompt(…), timeoutSeconds: 300, lightContext: false, toolsAllow: hookTools(effective, ceiling) }, delivery: { mode: "announce", completionDestination: { mode: "webhook", to: "<url>/hook-complete/<event.id>" } } })`, then `cron.run({ id, mode: "force" })`; `enqueued: true` → status `running` with `jobId`; `ran: false` → `failed` and `cron.remove`.
-    - `complete(eventRowId, completion): Promise<void>` — ignores unknown rows and `jobId` mismatch (403 like `NativeReminders.complete`); text via `cronResultText`; records `results.record({ id: "<jobId>:<runAtMs>", conversationId, bindingId: hook.id, kind: "hook", name: hook.name, runAtMs, at, status, text, committed: deliveryStatus === "delivered" })`; `NO_REPLY`/empty → `silent: true`, no notice; with effective `notify`: push `{ kind: "agent-routine", assistantId, conversationId, eventId: "hook-<event.id>", label: <agent name> }` and, with `telegram` and a deliverable paired chat, an outbox entry `{ key: "hook:<event.id>", kind: "reminder", source: { assistantId, ...target, hookEventId }, text }`; stores `reply`, `activity` (from the observed steps of `event.sessionKey`), `notified`, `completedAt`, status `done`/`failed`; then `cron.remove`; `assistants.changed({ conversationId })`.
+    - `complete(eventRowId, completion): Promise<void>` — ignores unknown rows and `jobId` mismatch (403 like `NativeReminders.complete`); text via `cronResultText`; records `results.record({ id: "<jobId>:<runAtMs>", conversationId, bindingId: hook.id, kind: "hook", name: hook.name, runAtMs, at, status, text, committed: deliveryStatus === "delivered" })`; `NO_REPLY`/empty → `silent: true`, no notice; with effective `notify`: push `{ kind: "agent-routine", assistantId, conversationId, eventId: "hook-<event.id>", label: <agent name> }` and, with `telegram` and a deliverable paired chat, an outbox entry `{ key: "hook:<event.id>", kind: "hook", source: { assistantId, ...target, hookEventId }, text }` (kind `reminder` would be dropped: the outbox checks `reminders.acceptsDelivery` by `source.reminderBindingId`); `AgentHooks.acceptsDelivery(entry)` = hook still enabled and eligible, effective `telegram` still on, same paired chat (`sameTelegram`-style check); stores `reply`, `activity` (from the observed steps of `event.sessionKey`), `notified`, `completedAt`, status `done`/`failed`; then `cron.remove`; `assistants.changed({ conversationId })`.
     - A failed run (status `error`) with effective `notify` and `telegram` sends `m.hooks.failed(name)` (localized) instead of a reply; without Notify it only shows in the event area.
     - `observe(payload)` — feeds `{ event: "agent", payload }` into a private `RunSteps` only for sessions of running hook events; records `sessionKey` on the event.
-    - `reconcile(): Promise<void>` — on every Gateway ready: `cron.list` all jobs; remove `agentpier-hook:` jobs whose event is missing or settled and that are not running (`state.runningAtMs`); events `pending`/`running` older than 15 minutes without a live job → `failed`.
+    - `reconcile(): Promise<void>` — on every Gateway ready: all jobs through `reminders.jobs(null)` (its paging and `includeDisabled`; do not re-implement `cron.list` paging); remove `agentpier-hook:` jobs whose event is missing or settled and that are not running (`state.runningAtMs`); events `pending`/`running` older than 15 minutes without a live job → `failed`.
     - `cancel(hookId)` — removes the jobs of that hook's running events.
 
 - [ ] **Step 1: Write the failing tests**
@@ -511,7 +514,7 @@ test("the run's tool steps are kept as activity without arguments", async (t) =>
 - [ ] **Step 3: Implement**; register `gatewayEvents.on("agent", (p) => this.runs.observe(p))` and `gatewayEvents.onReady(() => this.runs.reconcile())` in the `AgentHooks` constructor (guarded when the hub is absent).
 - [ ] **Step 4: Run** both files plus `node --test tests/integration/assistant-native-reminders.test.js tests/integration/assistant-native-routine-runs.test.js` → PASS.
 - [ ] **Step 5: Docs** — add "Agent hooks" to `docs/assistant-workflows.md` under "Native routines and events": one job per event, prompt framing, dedup and limit, Notify, results.
-- [ ] **Step 6: Confirm copy** — `npm run i18n:confirm -- notifications assistants.hooks`.
+- [ ] **Step 6: Confirm copy** — `npm run i18n:confirm -- notifications assistants.hooks`; run `node --test tests/unit/pwa-render.test.js`.
 - [ ] **Step 7: Commit** — `feat: wake an agent for each accepted hook event`
 
 ### Task 6: Public endpoint
@@ -573,19 +576,20 @@ test("every delivery outcome is audited without payload, headers or secret", asy
 
 **Files:**
 
-- Create: `server/features/assistants/agent-hook-bridge.js`
-- Modify: `server/features/assistants/team-bridge.js` (prepare, valid, invoke, writeAllowed, toolPolicy; keep ≤ 600), `server/features/assistants/exec-approvals.js` (`attribute`: hook runs ask in the main chat, Telegram when effective `telegram`)
+- Create: `server/features/assistants/agent-hook-bridge.js`, `server/features/assistants/routine-run-origin.js` (moved, unchanged: the bodies of `TeamBridge.routineWrite` and `routineRun` as `routineWrite(bridge, input)` / `routineRun(bridge, input)`; the two methods stay as one-line delegates, so existing callers and tests keep working)
+- Modify: `server/features/assistants/team-bridge.js` (588 lines today: first the move above, then prepare, valid, invoke, writeAllowed, toolPolicy; Task 9 adds two more lines; keep ≤ 600), `server/features/assistants/exec-approvals.js` (`attribute`: hook runs ask in the main chat, Telegram when effective `telegram`)
 - Test: `tests/integration/agent-hook-bridge.test.js`
 
 **Interfaces:**
 
-- Consumes: `AgentHooks.runOrigin` (Task 5), `isMemory` (`lead-request-writes.js`).
+- Consumes: `AgentHooks.runOrigin` (Task 5), `events.byJob` (Task 2), `ownMemoryTarget` (`lead-request-writes.js`, as `memoryStepWrite` in `memory-write-policy.js` uses it).
 - Produces:
   - `hookActions = new Set(["workspace", "ssh"])`
   - `hookRun(bridge, { agentId, sessionKey }): HookOrigin|null` — agent by runtime id → `assistants.routines?.hooks?.runOrigin`.
   - `assertHookRecord(bridge, record): record` — re-resolves on every call; same event id and `hookActions.has(record.action)`, else 403.
-  - `hookWrite(bridge, input): boolean` — a hook run session: effective `memory`, `personalCapabilities(agent).memory`, and `isMemory(input.path)`; audits allowed writes `{ kind: "native-write", via: "hook", hookId, hookEventId, tool, filePath }`.
-  - `hookLockedTool(bridge, input): boolean|null` — null outside hook sessions; inside: `session_status` true, `exec`/`process` only when effective `shell !== "off"`, other locked tools false.
+  - `hookWrite(bridge, input): boolean` — a hook run session: effective `memory`, `personalCapabilities(agent).memory`, not shared, and `ownMemoryTarget(root, agent.runtimeAgentId, input.path)` (resolves `..`, repaired spellings and links; plain `isMemory` would admit `memory/../notes.md`); audits allowed writes `{ kind: "native-write", via: "hook", hookId, hookEventId, tool, filePath }`.
+  - `hookSession(bridge, input): HookEvent|null` — the event whose `jobId` matches the cron session, whatever its status (also after it settled and its job was removed).
+  - `hookLockedTool(bridge, input): boolean|null` — null when `hookSession` finds nothing; for a hook session: `session_status` true; `exec`/`process` only while `runOrigin` resolves (event running) and effective `shell !== "off"`; everything else false. A settled event's session (an exec completion turn) therefore gets no shell; `writeAllowed` likewise returns false for any `hookSession` without a live `runOrigin`, before `routineWrite` and the continuation path.
   - Invocation field `hook: HookOrigin|null` (`TeamBridge.invoke`), consumed by Task 8.
 
 - [ ] **Step 1: Write the failing tests**
@@ -600,7 +604,7 @@ test("hook origin ends when the event settles", async () => {
 });
 test("memory writes need the Write memory tick and stay inside memory", () => {
   // tick off → toolPolicy({ toolName: "write", path: "MEMORY.md" }).allow false
-  // tick on → "MEMORY.md" true, "memory/2026-10-24.md" true, "notes.md" false, "../x" false
+  // tick on → "MEMORY.md" true, "memory/2026-10-24.md" true, "notes.md" false, "../x" false, "memory/../notes.md" false
 });
 test("exec in a hook run follows the hook's shell level", () => {
   /* shell off → toolPolicy exec allow false; full → true */
@@ -614,7 +618,7 @@ test("a routine run is unaffected", () => {
 ```
 
 - [ ] **Step 2: Run** — `node --test tests/integration/agent-hook-bridge.test.js` → FAIL.
-- [ ] **Step 3: Implement**; in `TeamBridge.prepare` resolve `hookRun` first when no attempt matches and `hookActions.has(action)`; in `valid` return `assertHookRecord(this, record)` for `record.hook`; in `writeAllowed` (no matches) return `hookWrite` when `hookRun` resolves, before `routineWrite`; in `toolPolicy`'s locked-tool branch `const hook = hookLockedTool(this, input); if (hook !== null) return { allow: hook };`.
+- [ ] **Step 3: Implement**; in `TeamBridge.prepare` resolve `hookRun` first when no attempt matches and `hookActions.has(action)`; in `valid` return `assertHookRecord(this, record)` for `record.hook`; in `writeAllowed` (no matches) return `hookWrite` when `hookSession` resolves (false when its event is settled), before `routineWrite`; in `toolPolicy`'s locked-tool branch `const hook = hookLockedTool(this, input); if (hook !== null) return { allow: hook };`.
 - [ ] **Step 4: Run** it plus `node --test tests/integration/assistant-native-routine-runs.test.js tests/integration/assistant-exec-approvals.test.js tests/integration/assistant-team-bridge.test.js` → PASS; `wc -l server/features/assistants/team-bridge.js` ≤ 600.
 - [ ] **Step 5: Commit** — `feat: resolve the hook origin in the tool bridge`
 
@@ -623,18 +627,18 @@ test("a routine run is unaffected", () => {
 **Files:**
 
 - Create: `server/features/assistants/agent-hook-workspace.js`
-- Modify: `server/features/assistants/workspace-calls.js`, `server/features/assistants/agent-project-files.js` (`levels`, audit `via: "hook"`, `hookId`), `server/features/assistants/agent-ssh.js` (`caller`, `classify`, host filter), `server/features/assistants/agent-ssh-origin.js` (`hook` class), `server/features/assistants/agent-sftp-policy.js` (treat `hook` like `routine`), `server/features/audit/audit-ssh-details.js` (`originClass` `hook`), `docs/assistant-workflows.md` (rights per tick)
-- Test: `tests/integration/agent-hook-workspace.test.js`, `tests/unit/agent-ssh-origin.test.js` (extend; also `tests/integration/agent-ssh-origin.test.js` if it pins the class list)
+- Modify: `server/features/assistants/workspace-calls.js`, `server/features/assistants/agent-project-files.js` (`levels`, audit `via: "hook"`, `hookId`), `server/features/assistants/agent-ssh.js` (`caller`, `classify`, host filter), `server/features/assistants/agent-ssh-origin.js` (`hook` class), `server/features/assistants/agent-sftp-policy.js` (treat `hook` like `routine`), `server/features/assistants/agent-sftp.js` (the same per-hook host filter as SSH before `sftpPermits`), `server/features/audit/audit-ssh-details.js` (`originClass` `hook`), `docs/assistant-workflows.md` (rights per tick)
+- Test: `tests/integration/agent-hook-workspace.test.js`, `tests/unit/agent-ssh-origin.test.js` (extend; there is no integration test of that module)
 
 **Interfaces:**
 
 - Consumes: `invocation.hook` (Task 7).
 - Produces:
   - `hookContext(w, inv): Ctx` — re-resolves `runOrigin`; returns `{ assistantId, conversationId, attemptId: null, origin: { kind: "hook", hookId, eventId }, hook: { hookId, eventId, name, coding, folders, key: "hook:<eventId>" } }` with effective values.
-  - `hookActionAllowed(ctx, action): boolean` — `catalog` always; file actions when `folders` is non-empty; `coding_start`, `coding_status`, `coding_artifacts` when `coding`; everything else (incl. `coding_cancel`, `memory_*`, `actions`) false.
-  - In `workspaceCall`: hook calls authorize like an owner turn (own grant, then the lead's standing share; never a task share); `coding_start` is reserved `approved` when `ctx.hook.coding`, with `hookId`, `hookEventId` on the action and key `hook:<eventId>:<toolCallId>`; the event's `coding` list gets the action id.
+  - `hookActionAllowed(ctx, action): boolean` — `catalog` always; file actions when `folders` is non-empty; `coding_start`, `coding_status`, `coding_artifacts` when `coding`; everything else (incl. `coding_cancel`, `memory_*`, `actions`, `browser_upload_stage`) false.
+  - In `workspaceCall`: hook calls authorize like an owner turn (own grant, then the lead's standing share; never a task share); `coding_start` is reserved `approved` when `ctx.hook.coding` and the project is the agent's own grant (`!inherited`); a request on a lead's share keeps today's rule and waits for the owner. `hookId`, `hookEventId` go on the action (destructure `hook` out of `ctx` like `routine`, never store the whole object), key `hook:<eventId>:<toolCallId>`; the event's `coding` list gets the action id.
   - `AgentProjectFiles.levels(ctx)` returns `ctx.hook.folders` for hook calls.
-  - `sshOrigin({ …, hook })` → `{ class: "hook" }`; `permits(mode, "hook")` → `run` only for `routines`; `AgentSsh.execute`/`hosts` refuse hosts outside `inv.hook.effective.sshHosts` with `sshNotGranted`.
+  - `sshOrigin({ …, hook })` → `{ class: "hook" }`; `permits(mode, "hook")` → `run` only for `routines`; `AgentSsh.execute`/`hosts` and `AgentSftp` refuse hosts outside the live effective `sshHosts` (re-resolved through `runOrigin` on every call, never the ticket-time `inv.hook.effective`) with `sshNotGranted`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -658,6 +662,8 @@ test("project memory and owner-only actions are refused in a hook run", async ()
 test("SSH from a hook runs only on its chosen hosts in mode routines", async () => {
   /* host h1 in hook+routines → run; h2 routines not chosen → refused; h1 moved to trusted → refused */
 });
+test("SFTP from a hook follows the same host choice and never deletes", async () => {});
+test("a coding request on a lead's share still waits for the owner", async () => {});
 ```
 
 `agent-ssh-origin.test.js`: `permits("routines","hook") === "run"`, `permits("trusted","hook") === "refuse"`, `permits("approval","hook") === "refuse"`.
@@ -673,7 +679,7 @@ test("SSH from a hook runs only on its chosen hosts in mode routines", async () 
 **Files:**
 
 - Create: `server/features/assistants/agent-hook-proposals.js`
-- Modify: `server/features/assistants/team-plugin/workflow-tools.js` (definition `hook`), `server/features/assistants/team-plugin/index.js` (`ownTools` adds `"hook"`), `server/features/assistants/team-plugin/openclaw.plugin.json` and `server/features/assistants/runtime-config.js` (tool name `agentpier_hook`), `server/features/assistants/native-capabilities.js` (`profileTools`: `agentpier_hook` with `agentpier_routine` for `goalAgent` agents that are not shared; never in `routineTools`), `server/features/assistants/team-bridge.js` (dispatch `hook`; permanent members allowed like `routine`), `server/features/assistants/assistant-workflows.js` (`decideOnce` and `advance` dispatch `hook_proposal`), `server/features/assistants/assistant-action-notifications.js` (dispatch to `notifyHookProposal`), `server/features/inbox/inbox-items.js` (`actionTitle`: hook name), `server/lib/i18n/{de,en}/assistants.js` (`hooks.proposal*` Telegram copy), `docs/inbox.md`, `docs/assistant-workflows.md`
+- Modify: `server/features/assistants/team-plugin/workflow-tools.js` (definition `hook`), `server/features/assistants/team-plugin/index.js` (`ownTools` adds `"hook"`), `server/features/assistants/team-plugin/openclaw.plugin.json` and `server/features/assistants/runtime-config.js` (tool name `agentpier_hook`), `server/features/assistants/native-capabilities.js` (`profileTools`: `agentpier_hook` with `agentpier_routine` for `goalAgent` agents that are not shared; never in `routineTools`), `server/features/assistants/team-bridge-actions.js` (`"hook"` in `actions` and in `bridgeTool`'s own-tool list; never in `routineActions`), `server/features/assistants/team-bridge.js` (dispatch `hook`; permanent members allowed like `routine` in `valid`), `server/features/assistants/tool-errors.js` (`hookOwnerOnly: "HOOK_OWNER_ONLY"`), `server/features/assistants/assistant-workflows.js` (`decideOnce` and `advance` dispatch `hook_proposal`), `server/features/assistants/assistant-action-notifications.js` (dispatch to `notifyHookProposal`), `server/features/inbox/inbox-items.js` (`actionTitle`: hook name), `server/lib/i18n/{de,en}/assistants.js` (`hooks.proposal*` Telegram copy and the problem `hookOwnerOnly`), `web/lib/i18n/{de,en}/inbox.js` (`kinds.hook_proposal`: "Hook proposal" / "Hook-Vorschlag"), `docs/inbox.md`, `docs/assistant-workflows.md`
 - Test: `tests/integration/agent-hook-proposals.test.js`; update `tests/unit/openclaw-config-characterization.test.js` and `tests/integration/assistant-web-tools-compiled-contract.test.js` expectations for the new tool name
 
 **Interfaces:**
@@ -705,7 +711,7 @@ test("agentpier_hook is compiled for own agents and permanent members, never for
 - [ ] **Step 3: Implement**; the owner decides through the existing `POST /api/assistant-actions/:id/decision`; `AssistantWorkflows.decideOnce` accepts an extra `rights` key only for a `hook_proposal` action decided with `origin.kind === "owner"`, and dispatches `hook_proposal` to `decideHookProposal` before the coding path (decisions `approve`/`decline`).
 - [ ] **Step 4: Run** it plus `node --test tests/unit/openclaw-config-characterization.test.js tests/unit/openclaw-web-tools-config.test.js tests/unit/inbox-items.test.js tests/integration/assistant-member-inheritance.test.js` → PASS.
 - [ ] **Step 5: Docs** — `docs/inbox.md` (Agents tab lists hook proposals), `docs/assistant-workflows.md` (proposals).
-- [ ] **Step 6: Confirm copy** — `npm run i18n:confirm -- assistants.hooks assistants.hookOwnerOnly`.
+- [ ] **Step 6: Confirm copy** — `npm run i18n:confirm -- assistants.hooks assistants.hookOwnerOnly inbox`.
 - [ ] **Step 7: Commit** — `feat: let an agent propose a hook for the owner's approval`
 
 ### Task 10: Lead reports for permanent members
@@ -713,14 +719,14 @@ test("agentpier_hook is compiled for own agents and permanent members, never for
 **Files:**
 
 - Create: `server/features/assistants/agent-hook-reports.js`
-- Modify: `server/features/assistants/agent-hook-runs.js` (call after recording), `server/features/assistants/lead-request-store.js` (`origin.kind === "member-hook"` → `memberHook: name`), `web/features/assistants/LeadRequestCard.jsx` (label), `web/lib/i18n/{de,en}/lead-requests.js` (`hook(name)` "Hook {name}" / "Hook {name}")
+- Modify: `server/features/assistants/agent-hook-runs.js` (call after recording), `server/features/assistants/lead-request-store.js` (`origin.kind === "member-hook"` → `memberHook: name`), `server/features/assistants/member-result-writes.js` (`resultTurn` returns null for a request whose `origin.kind === "member-hook"`: the lead handles a hook report read-only, so untrusted payload never reaches the lead's write rights through its member's reply), `web/features/assistants/LeadRequestCard.jsx` (label), `web/lib/i18n/{de,en}/lead-requests.js` (`hook(name)` "Hook {name}" / "Hook {name}")
 - Test: `tests/integration/agent-hook-reports.test.js`
 
 **Interfaces:**
 
-- Produces `hookReport({ teams, assistants }, hook, event, text): boolean` — for a permanent member only: inserts a settled `report` lead request like `routineReport` with `origin: { kind: "member-hook", hookId, name }`, `text: "Hook <name> from <sender>"` (never the payload), key `lead-hook-report:<event.id>`; a failed run is reported once until the hook succeeds again (flag on the hook record `leadReportFailing`); silent results are never reported.
+- Produces `hookReport({ teams, assistants }, hook, event, text): boolean` — for a permanent member only: inserts a settled `report` lead request like `routineReport` with `origin: { kind: "member-hook", hookId, name }`, `text: "Hook <name> from <sender>"` (never the payload), key `lead-hook-report:<event.id>`; a failed run is reported once until the hook succeeds again (flag `leadReportFailing` on the hook record, written without bumping `revision`, so the owner's open settings draft does not conflict); silent results are never reported.
 
-- [ ] **Step 1: Write the failing tests** — member hook result → one report in the lead's main chat with `memberHook: "Zabbix"`; replayed completion → no second report; own agent → no report; payload text never appears in the report record.
+- [ ] **Step 1: Write the failing tests** — member hook result → one report in the lead's main chat with `memberHook: "Zabbix"`; replayed completion → no second report; own agent → no report; payload text never appears in the report record; the lead's follow-up turn on a hook report cannot write (`resultTurn` null) while one on a routine report still can.
 - [ ] **Step 2: Run** — `node --test tests/integration/agent-hook-reports.test.js` → FAIL.
 - [ ] **Step 3: Implement**.
 - [ ] **Step 4: Run** it plus `node --test tests/integration/assistant-lead-routine-reports.test.js tests/integration/assistant-lead-routines.test.js` → PASS.
@@ -732,14 +738,14 @@ test("agentpier_hook is compiled for own agents and permanent members, never for
 **Files:**
 
 - Create: `server/features/assistants/agent-event-area.js`
-- Modify: `server/features/assistants/conversations.js` (split, `events` field), `server/http/routes/assistant-hooks.js` (event detail), `server/features/assistants/agent-hooks.js` (`eventDetail`)
+- Modify: `server/features/assistants/conversations.js` (split, `events` field), `server/features/assistants/agent-hooks.js` (`eventDetail`; the route already exists from Task 4)
 - Test: `tests/unit/agent-event-area.test.js`, `tests/integration/assistant-conversations.test.js` (extend)
 
 **Interfaces:**
 
 - Produces:
   - `areaResult(message): boolean` — true for `scheduled` messages whose `scheduled.kind !== "reminder"` and `routine-failed` events whose `kind !== "reminder"`.
-  - `eventArea(service, conversation): AreaEvent[]` — `[]` unless it is the owner's or a user's main chat; routine and check-in results from `results.forConversation` plus hook events of that agent (`events.forAssistant`), newest first, at most 50.
+  - `eventArea(service, conversation): AreaEvent[]` — `[]` unless it is the owner's or a user's main chat; routine and check-in results from `results.forConversation` (no `kind` → `routine`, `kind: "heartbeat"` → `checkin`; `kind: "hook"` records are skipped there, they only mark the transcript) plus hook events of that agent (`events.forAssistant`, the one source of hook rows), newest first, at most 50.
   - `type AreaEvent = { id, source: "routine"|"checkin"|"hook", name, sender?, at, status: "running"|"done"|"failed"|"throttled"|"silent", duplicates?, firstLine, reply?, notes?, hookId?, eventId?, test? }` — `firstLine` ≤ 160 chars of the reply's first non-empty line.
   - Conversation view: `messages` without `areaResult` entries; new `events: AreaEvent[]`.
   - `AgentHooks.eventDetail(assistantId, hookId, eventRowId): { receivedAt, size, contentType, source, payload: string|null, payloadCut: boolean, activity, coding: [{ actionId, state, runUrl }], notified, reply }` — payload cut to 16 KiB, never rendered server-side.
@@ -777,8 +783,8 @@ test("the event detail returns the payload cut to 16 KiB as text", async () => {
 **Files:**
 
 - Create: `web/features/assistants/settings/HooksGroup.jsx`, `HookPage.jsx`, `HookSecretDialog.jsx`, `hook-api.js`, `hook-fields.js`; `web/lib/i18n/{de,en}/assistant-hooks.js`, `web/lib/i18n/messages/assistant-hooks.js`
-- Modify: `web/features/assistants/settings/RoutinesTab.jsx` (Hooks group after Routines; eligibility note for shared agents), `web/features/assistants/settings-routes.js` (page `hook` on tab `routines`, query `hook=<uuid>`), `web/features/assistants/settings/AgentSettingsPage.jsx` (render `HookPage` for `page === "hook"`), `README.md`, `README.de.md`, `docs/agents.md` (Hooks in **Routines & check-ins**)
-- Test: `tests/browser/assistant-hooks.spec.js`, `tests/unit/agent-settings-routes.test.js` (new: the `hook` page)
+- Modify: `web/features/assistants/settings/RoutinesTab.jsx` (Hooks group after Routines; eligibility note for shared agents; renders `HookPage` instead of the tab's content for `page === "hook"`, as `WorkTab.jsx` does for its subpages: subpages render inside their tab panel, not in `AgentSettingsPage.jsx`), `web/features/assistants/settings-routes.js` (page `hook` on tab `routines`; route field `agentHook` read from and written to query `hook=<uuid>`, like `agentTeam`), `web/features/assistants/settings/agent-settings-fields.js` (`agentRoute(assistantId, tab, page, hook)` carries `agentHook`), `README.md`, `README.de.md`, `docs/agents.md` (Hooks in **Routines & check-ins**)
+- Test: `tests/browser/assistant-hooks.spec.js`, `tests/unit/settings-routes.test.js` (extend: the `hook` page), `tests/property/routes.test.js` (round trip keeps `agentHook`)
 
 **Interfaces:**
 
@@ -789,7 +795,7 @@ test("the event detail returns the payload cut to 16 KiB as text", async () => {
   - UI: `GroupLabel` "Hooks" with "+ Add" → `Modal` with `AsyncForm` (name, sender) → `HookSecretDialog`; `ListCard` of `ListRow`s (name, sender · status, chevron to detail). `HookPage` (`SubpageHeader`, `useTabDraft` + `SaveBar`): name, sender, instruction (textarea), `ToggleRow`s for Notify, Also send to Telegram, Research, Coding CLI, Write memory, MCP servers — each `disabled` with a sub line naming the missing agent right; `Segmented` shell choice from `shellChoices`; `CheckboxRow` per SSH host in mode routines; `SelectRow` per folder (None / Read / Read and write, capped); `NumberRow` hourly limit; `ToggleRow` Enabled; addresses with `CopyButton` and a line when Tailscale or network mode is off; actions **Create secret**/**Regenerate secret** (`ConfirmDialog` for regenerate: the old secret stops working), **Send test event**, **Delete** (`ConfirmDialog`, destructive). `HookSecretDialog`: `Modal` with the secret in `CodeBlock`, `CopyButton`, a sample `curl -X POST -H "Authorization: Bearer <secret>" -H "Content-Type: application/json" -d '{"id":"1","message":"test"}' <address>`, and the note that it is shown only once.
 
 - [ ] **Step 1: Write the failing tests** — unit: `agentSettingsLocation({ agentPage: "hook" })` → tab `routines`; `readAgentSettingsQuery("?page=hook&hook=<uuid>")` keeps the id, drops a malformed one. Browser (English, fulfilled API like `assistant-routines.spec.js`): create a hook → the dialog shows the secret and curl sample; closing it and reopening the detail never shows it again; a tick without the agent's right is disabled with its reason; **Regenerate secret** asks to confirm; **Send test event** shows the accepted status; German labels render for the same flow.
-- [ ] **Step 2: Run** — `node --test tests/unit/agent-settings-routes.test.js && npx playwright test tests/browser/assistant-hooks.spec.js --project=desktop` → FAIL.
+- [ ] **Step 2: Run** — `node --test tests/unit/settings-routes.test.js tests/property/routes.test.js && npx playwright test tests/browser/assistant-hooks.spec.js --project=desktop` → FAIL.
 - [ ] **Step 3: Implement** with primitives only (`docs/ui-guide.md`).
 - [ ] **Step 4: Run** the same commands plus `node --test tests/unit/ui-guide-rules.test.js tests/unit/i18n-catalogs.test.js tests/unit/i18n-translation-lock.test.js` → PASS.
 - [ ] **Step 5: Docs** — README pair feature line ("hooks that let monitoring and other systems wake an agent"), `docs/agents.md` section with the UI path **Routines & check-ins → Hooks**.
@@ -801,7 +807,7 @@ test("the event detail returns the payload cut to 16 KiB as text", async () => {
 **Files:**
 
 - Create: `web/features/assistants/AgentEventArea.jsx`, `web/features/assistants/ChatStrips.jsx`, `web/features/assistants/HookProposalCard.jsx`, `web/features/assistants/event-area.js`
-- Modify: `web/features/assistants/AssistantChat.jsx` (replace `AssistantApprovalStrip` + `WorkGoalLine` with `ChatStrips`; must not grow), `web/features/assistants/AssistantActionApprovals.jsx` (render `HookProposalCard` for `hook_proposal`), `web/lib/i18n/{de,en}/assistant-hooks.js`, `tests/browser/assistant-routine-results.spec.js` (results now in the area), `docs/ui-guide.md` (ActivityGroup row: the chat's "Events" group), `docs/agents.md`, `docs/assistant-workflows.md` and `docs/assistant-gateway.md` (replace the chat's "Scheduled · <name>" badge description for routines and check-ins; keep Work → Teams marks)
+- Modify: `web/features/assistants/AssistantChat.jsx` (replace `AssistantApprovalStrip` + `WorkGoalLine` with `ChatStrips`; must not grow), `web/features/assistants/AssistantActionApprovals.jsx` (render `HookProposalCard` for `hook_proposal`), `web/features/assistants/settings/ActionHistory.jsx` (a `hook_proposal` row with the hook name and outcome; today every unknown action falls through to the memory card), `web/lib/i18n/{de,en}/assistant-hooks.js`, `tests/browser/assistant-routine-results.spec.js` (results now in the area), `docs/ui-guide.md` (ActivityGroup row: the chat's "Events" group), `docs/agents.md`, `docs/assistant-workflows.md` and `docs/assistant-gateway.md` (replace the chat's "Scheduled · <name>" badge description for routines and check-ins; keep Work → Teams marks)
 - Test: `tests/unit/event-area.test.js`, `tests/browser/assistant-event-area.spec.js`, `tests/browser/assistant-hook-proposal.spec.js`
 
 **Interfaces:**
@@ -811,7 +817,7 @@ test("the event detail returns the payload cut to 16 KiB as text", async () => {
   - `eventAreaView(events, seenAt): { count, summary, running, failed, unread }` and `eventRowView(event): { icon, label, detail, status, tone }` — pure; label = name (hook: "name · sender"), detail = `firstLine`, chip: Running / Done / Failed / Throttled / Silent, plus "N duplicates".
   - `AgentEventArea({ assistantId, conversationId, events })` — renders nothing for no events; one `ActivityGroup` (label "Events", icon `bell` or the closest existing `Icon` name), shut by default; rows are `ActivityRow`s whose body loads the detail on open: "What came in" as plain text in `CodeBlock` (`className="activity-row-code"`, never Markdown), `.activity-row-facts` (received, size, sender, duplicates), "What the agent did" (activity steps, coding links via `RouteLink`, notifications sent), and the full reply through `ChatMarkdown`; opening the group stores `seenAt` in `localStorage` (try/catch).
   - `ChatStrips({ entry, output, history, conversationId, assistant, onStopped })`.
-  - `HookProposalCard({ action, onDecide })` — name, sender, reason, rights list (`PermissionList`), editable ticks within the ceiling before **Approve**, **Decline**; after approval a link to the hook's settings page ("Show the secret in the hook's settings").
+  - `HookProposalCard({ action, onDecide })` — name, sender, reason, rights list (`PermissionList`), editable ticks within the ceiling (from `hookApi.list(assistantId).ceiling`) before **Approve**, **Decline**; after approval a link to the hook's settings page ("Show the secret in the hook's settings").
 
 - [ ] **Step 1: Write the failing tests** — unit: unread counts events newer than `seenAt`; a throttled event gets the neutral tone and "Throttled"; duplicates appear in the detail. Browser (English and German): a chat with a routine result and a hook event shows them only in the shut "Events" group, not as messages; opening a hook row shows the payload `<b>x</b>` as literal text (no `b` element), the steps and the reply; a reminder result stays a message; the proposal card approves with an edited tick and links to settings.
 - [ ] **Step 2: Run** — `node --test tests/unit/event-area.test.js && npx playwright test tests/browser/assistant-event-area.spec.js tests/browser/assistant-hook-proposal.spec.js tests/browser/assistant-routine-results.spec.js --project=desktop` → FAIL.
@@ -826,14 +832,14 @@ test("the event detail returns the payload cut to 16 KiB as text", async () => {
 **Files:**
 
 - Create: `tests/integration/assistant-hook-contract.test.js`
-- Modify: `scripts/assistant-contract-shards.json` (add the file), `docs/assistant-gateway.md` (qualification line for hook runs on 2026.10.7)
+- Modify: `scripts/assistant-contract-shards.json` (add the file to `files` and a duration weight like `assistant-routine-contract.test.js`'s), `docs/assistant-gateway.md` (qualification line for hook runs on 2026.10.7)
 - Test: the new file (skips without `AGENTPIER_ASSISTANT_ROUTINE_RUNTIME`, like `assistant-routine-contract.test.js`)
 
 **Interfaces:**
 
 - Consumes: the real Gateway, `AgentHooks`, `TeamBridge`, fixture model of `assistant-routine-contract.test.js`.
 
-- [ ] **Step 1: Write the contract test** — with a real 2026.10.7 runtime and the fixture model: a delivery creates the disabled job, `cron.run force` enqueues it, the run's tool calls arrive with `agent:<agent>:cron:<job>:run:<id>` (asserted against `runOrigin`), `toolsAllow` intersected with the agent's tools leaves no `agentpier_routine`/`agentpier_hook`, the completion webhook arrives at `/hook-complete/<id>` with `deliveryStatus: "delivered"`, the reply appears once in `chat.history` of the main chat, the job is gone after completion, and `hooks` is absent from the compiled `openclaw.json`.
+- [ ] **Step 1: Write the contract test** — with a real 2026.10.7 runtime and the fixture model: a delivery creates the disabled job, `cron.run force` enqueues it, the run's tool calls arrive with `agent:<agent>:cron:<job>:run:<id>` (asserted against `runOrigin`), `toolsAllow` intersected with the agent's tools leaves no `agentpier_routine`/`agentpier_hook`, the completion webhook arrives at `/hook-complete/<id>` with `deliveryStatus: "delivered"`, the reply appears once in `chat.history` of the main chat, the hook prompt and its payload never appear as a visible message in `conversationHistory` of the main chat (if OpenClaw shows the cron prompt as a user message, hide it in Task 11's split and record that), the tool set of an `exec` completion turn after the event settled is recorded (no shell through `hookLockedTool`), the job is gone after completion, and `hooks` is absent from the compiled `openclaw.json`.
 - [ ] **Step 2: Run** — `AGENTPIER_ASSISTANT_ROUTINE_RUNTIME=<installed 2026.10.7 app dir> node --test tests/integration/assistant-hook-contract.test.js` → PASS (fix the implementation, not the contract, if a shape differs; record any measured difference in the Builder decisions of the PR description).
 - [ ] **Step 3: Docs** — the qualification line.
 - [ ] **Step 4: Commit** — `test: qualify agent hook runs on OpenClaw 2026.10.7`
