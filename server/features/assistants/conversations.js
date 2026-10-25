@@ -10,6 +10,7 @@ import {
   withSharedFiles,
 } from "./attachment-history.js";
 import { withRoutineResults } from "./routine-results.js";
+import { areaResult, eventArea } from "./agent-event-area.js";
 import { withMemoryNotes } from "./memory-notes.js";
 import { peerNotes } from "./peer-notes.js";
 import { turnKind } from "./goal-turns.js";
@@ -296,6 +297,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       requestsWithSources(visible.requests, contexts),
       contexts,
     ),
+    // Routine, check-in and hook results show in the chat's event area instead.
     messages: withSharedFiles(
       withMemoryNotes(
         withRoutineResults(
@@ -311,7 +313,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
           ),
           service.routines?.results.forConversation(id) || [],
           { from: pageStart(nextBefore, messages) },
-        ),
+        ).filter((m) => !areaResult(m)),
         // Members' requests to each other join the lead's chat alike (peer-notes.js).
         [
           ...(service.memoryNotes?.forConversation(id) || []),
@@ -323,6 +325,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       service.attachments?.sharedFor?.(id) || [],
       { from: pageStart(nextBefore, messages) },
     ),
+    events: eventArea(service, conversation),
     queued: queuedView(service, id),
     nextBefore,
     stale,

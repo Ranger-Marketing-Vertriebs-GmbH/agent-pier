@@ -111,8 +111,9 @@ test("owner hook routes answer unavailable for upstream errors without their tex
   assert.equal((await send("/h", "DELETE")).status, 404);
 });
 
-test("owner hook routes answer 503 while test and event detail are not provided", async (t) => {
-  const { send } = await serve(t, {});
+test("owner hook routes answer 503 without the hook service", async (t) => {
+  const { send } = await serve(t, undefined);
+  assert.equal((await send("")).status, 503);
   assert.equal((await send("/h/test", "POST", {})).status, 503);
   assert.equal((await send("/h/events/e")).status, 503);
 });

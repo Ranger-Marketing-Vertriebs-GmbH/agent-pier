@@ -21,14 +21,22 @@ function readable(text, contentType) {
   }
 }
 
-/** At most `promptPayloadLimit` UTF-8 bytes, cut on a character boundary. */
-function bounded(text) {
+/**
+ * The text cut to at most `promptPayloadLimit` UTF-8 bytes on a character boundary,
+ * and how many bytes were left out (0 when it fits).
+ */
+export function payloadCut(text) {
   const bytes = Buffer.from(text, "utf8");
-  if (bytes.length <= promptPayloadLimit) return text;
+  if (bytes.length <= promptPayloadLimit) return { text, omitted: 0 };
   let end = promptPayloadLimit;
   // A continuation byte (10xxxxxx) belongs to the character before it.
   while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
-  return `${bytes.subarray(0, end).toString("utf8")}\n[cut: ${bytes.length - end} more bytes]`;
+  return { text: bytes.subarray(0, end).toString("utf8"), omitted: bytes.length - end };
+}
+
+function bounded(text) {
+  const cut = payloadCut(text);
+  return cut.omitted ? `${cut.text}\n[cut: ${cut.omitted} more bytes]` : text;
 }
 
 /** The run's message: who sent it, what the owner asked, then the framed event. */
