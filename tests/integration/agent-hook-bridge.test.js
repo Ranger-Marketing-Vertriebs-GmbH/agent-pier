@@ -9,6 +9,7 @@ import {
   hookFixture,
   makeHook,
 } from "../helpers/agent-hook-fixture.js";
+import { eventArea } from "../../server/features/assistants/agent-event-area.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { workspaceId } from "../../server/features/assistants/team-plugin/tool-guard.js";
@@ -126,6 +127,29 @@ test("hook origin ends when the event settles", async (t) => {
   assert.equal(f.policy(running.sessionKey, "exec"), false);
   assert.equal(f.policy(running.sessionKey, "process"), false);
   assert.equal(f.policy(running.sessionKey, "session_status"), true);
+});
+
+test("a hook deleted while its event runs leaves its session without rights", async (t) => {
+  const f = await setup(t, { memory: true, shell: "full" });
+  const hook = makeHook(f, { rights: { memory: true, shell: "full" } });
+  const running = await f.run(hook, "p1");
+  assert.equal(f.policy(running.sessionKey, "exec"), true);
+  const main = f.reminders.mainConversation(f.id);
+  const hookRows = () =>
+    eventArea(f.assistants, main).filter((row) => row.source === "hook");
+  assert.equal(hookRows().length, 1);
+  f.hooks.remove(f.id, hook.id);
+  // Deleting is at least as strong as pausing: no shell, writes or bridge tools,
+  // also not the owner agent's own shell through the fallback policy.
+  assert.equal(f.policy(running.sessionKey, "exec"), false);
+  assert.equal(f.policy(running.sessionKey, "process"), false);
+  assert.equal(f.write(running.sessionKey, "MEMORY.md"), false);
+  assert.equal(f.write(running.sessionKey, "notes.md"), false);
+  for (const action of ["workspace", "ssh"])
+    assert.throws(() => f.prepare(running.sessionKey, action), refused, action);
+  assert.equal(f.policy(running.sessionKey, "session_status"), true);
+  // The tombstone is not shown in the event area.
+  assert.deepEqual(hookRows(), []);
 });
 
 test("a run whose start failed after its job existed gets no hook rights", async (t) => {

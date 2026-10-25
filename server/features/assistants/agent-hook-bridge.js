@@ -86,9 +86,13 @@ export function hookWrite(bridge, input) {
  * live shell level is not Off; nothing else.
  */
 export function hookLockedTool(bridge, input) {
-  if (!hookSession(bridge, input)) return null;
+  // One event lookup per call: the session's event is handed to runOrigin.
+  const event = hookSession(bridge, input);
+  if (!event) return null;
   if (input.toolName === "session_status") return true;
-  if (!shellTools.includes(input.toolName)) return false;
-  const origin = hookRun(bridge, input);
+  if (!shellTools.includes(input.toolName) || event.status !== "running") return false;
+  const agent = bridge.agentOf(input.agentId);
+  const origin =
+    agent && bridge.assistants.routines.hooks.runOrigin(agent, input.sessionKey, event);
   return !!origin && origin.effective.shell !== "off";
 }

@@ -214,7 +214,10 @@ export class AgentHooks {
     this.audit("assistant.updated", hook, { change: "secret" });
     return { hook: this.shown(hook, agent), secret: fresh.secret };
   }
-  /** Deletes the hook with its events; a running event's job is cancelled best-effort. */
+  /**
+   * Deletes the hook with its events; a running event's job is cancelled best-effort
+   * and its row stays as a tombstone, so its session keeps no rights (forget).
+   */
   remove(assistantId, hookId) {
     this.agent(assistantId);
     const hook = this.owned(assistantId, hookId);
@@ -354,13 +357,15 @@ export class AgentHooks {
   }
   /**
    * The hook event a native run session belongs to while it runs, with the rights it
-   * holds now; null for any other session, a settled event or a paused hook.
+   * holds now; null for any other session, a settled event or a paused or deleted
+   * hook.
    */
-  runOrigin(agent, sessionKey) {
+  runOrigin(agent, sessionKey, found) {
     const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
     if (!match || match[1].toLowerCase() !== agent?.runtimeAgentId?.toLowerCase())
       return null;
-    const event = this.events.byJob(match[2]);
+    // `found`: the session's event a caller already looked up (hookLockedTool).
+    const event = found ?? this.events.byJob(match[2]);
     if (event?.status !== "running" || event.assistantId !== agent.id) return null;
     const hook = this.store.get(event.hookId);
     if (!hook?.enabled || !hookEligible(agent)) return null;

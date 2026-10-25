@@ -5,6 +5,17 @@ const retention = 30 * 24 * hour;
 const keptPayloads = 200;
 // The dedup key of an event whose run failed to start (HookEvents.tombstone).
 const failedStart = "failed-start:";
+const unsettledStatus = "json_extract(body,'$.status') IN ('pending','running')";
+const jobKey = "lower(json_extract(body,'$.jobId'))";
+// The hot lookups, each served by an index (byJob on every tool call and Gateway
+// frame of a cron session, unsettled on every start and sweep, the hourly count on
+// every admit). The expressions must match the index definitions exactly.
+export const hookEventQueries = Object.freeze({
+  byJob: `SELECT body FROM assistant_hook_events WHERE ${jobKey}=lower(?)`,
+  unsettled: `SELECT body FROM assistant_hook_events WHERE ${unsettledStatus} ORDER BY received_at, rowid`,
+  count: (status) =>
+    `SELECT COUNT(*) AS n FROM assistant_hook_events WHERE hook_id=? AND received_at>? AND json_extract(body,'$.status') ${status}`,
+});
 
 const printable = (value) =>
   typeof value === "string" &&
@@ -38,6 +49,16 @@ export class HookEvents {
     db.exec(
       "CREATE INDEX IF NOT EXISTS assistant_hook_events_assistant ON assistant_hook_events(assistant_id, received_at)",
     );
+    // Tables of earlier builds gain these on open.
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS assistant_hook_events_job ON assistant_hook_events(${jobKey})`,
+    );
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS assistant_hook_events_unsettled ON assistant_hook_events(received_at) WHERE ${unsettledStatus}`,
+    );
+    db.exec(
+      "CREATE INDEX IF NOT EXISTS assistant_hook_events_hook ON assistant_hook_events(hook_id, received_at)",
+    );
   }
   get(id) {
     const row = this.db
@@ -53,18 +74,13 @@ export class HookEvents {
   }
   /** The event of a native job; session keys may carry its id in another case. */
   byJob(jobId) {
-    const row = this.db
-      .prepare(
-        "SELECT body FROM assistant_hook_events WHERE lower(json_extract(body,'$.jobId'))=lower(?)",
-      )
-      .get(jobId);
+    if (typeof jobId !== "string" || !jobId) return null;
+    const row = this.db.prepare(hookEventQueries.byJob).get(jobId);
     return row ? JSON.parse(row.body) : null;
   }
   unsettled() {
     return this.db
-      .prepare(
-        "SELECT body FROM assistant_hook_events WHERE json_extract(body,'$.status') IN ('pending','running') ORDER BY received_at, rowid",
-      )
+      .prepare(hookEventQueries.unsettled)
       .all()
       .map((row) => JSON.parse(row.body));
   }
@@ -80,11 +96,7 @@ export class HookEvents {
       } else {
         const since = at - hour;
         const count = (status) =>
-          this.db
-            .prepare(
-              `SELECT COUNT(*) AS n FROM assistant_hook_events WHERE hook_id=? AND received_at>? AND json_extract(body,'$.status') ${status}`,
-            )
-            .get(hook.id, since).n;
+          this.db.prepare(hookEventQueries.count(status)).get(hook.id, since).n;
         const throttled = count("!= 'throttled'") >= hook.hourlyLimit;
         const firstThrottled = throttled && count("= 'throttled'") === 0;
         const event = {
@@ -145,13 +157,13 @@ export class HookEvents {
    * is admitted fresh; like any event it counts toward the hourly limit (it may have
    * woken the agent) and ages out with the hook's other events.
    */
-  tombstone(id) {
+  tombstone(id, reason = { startFailed: true }) {
     const current = this.get(id);
     if (!current) return;
     const event = {
       ...current,
+      ...reason,
       status: "failed",
-      startFailed: true,
       completedAt: this.now(),
     };
     this.db
@@ -163,8 +175,26 @@ export class HookEvents {
   remove(id) {
     this.db.prepare("DELETE FROM assistant_hook_events WHERE id=?").run(id);
   }
+  /**
+   * A deleted hook's events. A run still unsettled with a job becomes a tombstone
+   * without rights (`hookDeleted`), so its session stays a hook session
+   * (agent-hook-bridge.js); tombstones age out with `expire`. Every other row goes.
+   */
   forget(hookId) {
-    this.db.prepare("DELETE FROM assistant_hook_events WHERE hook_id=?").run(hookId);
+    for (const event of this.unsettled())
+      if (event.hookId === hookId && event.jobId)
+        this.tombstone(event.id, { hookDeleted: true });
+    this.db
+      .prepare(
+        `DELETE FROM assistant_hook_events WHERE hook_id=? AND event_id NOT LIKE '${failedStart}%'`,
+      )
+      .run(hookId);
+  }
+  /** Rows of every hook past retention (deleted hooks no longer admit and prune). */
+  expire() {
+    this.db
+      .prepare("DELETE FROM assistant_hook_events WHERE received_at<?")
+      .run(this.now() - retention);
   }
   forAssistant(assistantId, { limit = 50 } = {}) {
     return this.db
