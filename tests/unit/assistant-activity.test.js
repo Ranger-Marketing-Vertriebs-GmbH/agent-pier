@@ -190,3 +190,13 @@ test("archived agents are omitted and archived members are ignored", () => {
   assert.equal(result.gone, undefined);
   assert.equal(result.m.state, "idle");
 });
+
+test("an agent the running Gateway refused needs attention before anything else", () => {
+  const entry = derive({
+    assistants: [agent("home", { degraded: true })],
+    latest: [row("c", "running")],
+  }).home;
+  assert.equal(entry.state, "attention");
+  assert.equal(entry.reason, "degraded");
+  assert.equal(entry.label, "status.degraded");
+});

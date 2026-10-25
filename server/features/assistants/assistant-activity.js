@@ -31,7 +31,10 @@ function attemptStates(conversations, latest) {
   return states;
 }
 
-function classify({ attempts, member, pendingApprovals, team }) {
+function classify({ degraded, attempts, member, pendingApprovals, team }) {
+  // The running Gateway refused the agent (agent-admission.js): it takes no turn.
+  if (degraded)
+    return { state: "attention", reason: "degraded", label: "status.degraded" };
   const attention = attempts.find((s) => attentionAttempts.has(s));
   if (attention)
     return { state: "attention", reason: "attempt", label: `status.${attention}` };
@@ -98,6 +101,7 @@ export function assistantActivity({
     const pendingApprovals = counts.own + counts.team + proposals + reviews;
     result[assistant.id] = {
       ...classify({
+        degraded: assistant.degraded === true,
         attempts: attempts.get(assistant.id) ?? [],
         member: memberOf.get(assistant.id),
         pendingApprovals,

@@ -167,7 +167,10 @@ export const assistantCopy = {
   conversationDiagnostics: {
     SESSION_UNAVAILABLE:
       "Die Session dieses Chats ist im Agentendienst gerade nicht verfügbar. Neue Antworten können sich verzögern; AgentPier versucht es automatisch erneut.",
+    AGENT_DEGRADED:
+      "Dieser Agent konnte im Agentendienst nicht starten. Starte den Agentendienst neu, um ihn wiederherzustellen.",
   },
+  restartAgentService: "Agentendienst neu starten",
   conversation: "Unterhaltung",
   settingsTab: "Einstellungen",
   messagePlaceholder: "Nachricht an deinen Agenten …",
@@ -411,6 +414,7 @@ export const assistantCopy = {
     cancelled: "Abgebrochen",
     compacting: "Fasst Verlauf zusammen",
     savingMemories: "Speichert Erinnerungen",
+    degraded: "Konnte nicht starten",
   },
   // Ein Lauf, der zuerst seinen langen Verlauf kürzt (Server compactions.js).
   compaction: {

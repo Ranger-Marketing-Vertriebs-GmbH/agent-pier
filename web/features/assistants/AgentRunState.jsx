@@ -157,7 +157,7 @@ export default function AgentRunState({
       )}
       {failure && (
         <div className="assistant-notice assistant-run-failure" data-failure={failure}>
-          <p>{copy.timedOut}</p>
+          <p>{copy.refusedTurn[failure] || copy.timedOut}</p>
           {onRetry && (
             <div className="assistant-run-actions">
               <button

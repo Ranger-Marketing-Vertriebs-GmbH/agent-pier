@@ -47,6 +47,14 @@ export const agentRunStepsCopy = {
   continueMessage: "Please continue where you stopped.",
   timedOut:
     "The model did not answer in time. Check what the agent already did before you try again.",
+  // The agent service refused the message before running it (server sendRefusal).
+  refusedTurn: {
+    degraded:
+      "This agent couldn't start in the agent service, so the message was not delivered. Restart the agent service to bring it back.",
+    starting:
+      "This agent is still starting in the agent service, so the message was not delivered. Try again in a moment.",
+    refused: "The agent service refused the message, so it was not delivered. Try again.",
+  },
   longChat:
     "This chat is long. After a pause the first reply takes longer, and older details are easier to miss.",
   summarise: "Summarise now",

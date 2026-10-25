@@ -8,6 +8,7 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
 import { keepChatOpen } from "./native-chat-archive.js";
+import { noteRefusal } from "./agent-admission.js";
 
 const sessionRetryMs = 60000;
 
@@ -140,9 +141,11 @@ async function pass(service) {
         await client.call("sessions.messages.subscribe", { key: c.runtimeSessionKey });
         service.subscribed.add(c.id);
         service.sessionFailures.delete(c.id);
-      } catch {
+      } catch (error) {
         // A dropped connection is not a session fault; the reconnect resubscribes.
         if (service.runtime.client !== client || !client.ready) break;
+        // An agent the Gateway refused shows as such (agent-admission.js).
+        noteRefusal(client, error);
         service.subscribed.delete(c.id);
         service.sessionFailures.set(c.id, {
           diagnostic: "SESSION_UNAVAILABLE",

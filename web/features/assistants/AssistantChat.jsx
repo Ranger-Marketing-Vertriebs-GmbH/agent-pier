@@ -45,7 +45,11 @@ import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
-import { ArchivedChatBanner, ReadOnlyComposer } from "./chats/ChatStates.jsx";
+import {
+  ArchivedChatBanner,
+  ConversationFault,
+  ReadOnlyComposer,
+} from "./chats/ChatStates.jsx";
 import { sameTurn } from "./same-turn.js";
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
@@ -71,7 +75,6 @@ export default function AssistantChat({
     refresh: reloadList,
   } = useAssistants();
   const record = conversations.find((c) => c.id === conversationId);
-  const conversationFault = copy.conversationDiagnostics[record?.diagnostic];
   // An archived chat is read-only until restored (AGENTPIER-181).
   const archived = Boolean(record?.archivedAt);
   // A user's chat, and every chat of her own agent, is hers: the owner reads it under
@@ -432,11 +435,7 @@ export default function AssistantChat({
             }}
           />
         )}
-        {conversationFault && (
-          <p role="status" className="assistant-notice">
-            {conversationFault}
-          </p>
-        )}
+        <ConversationFault diagnostic={record?.diagnostic} canRestart={!userChat} />
         {history.stale && (
           <p role="status" className="assistant-notice">
             {copy.stale}
