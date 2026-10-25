@@ -57,7 +57,11 @@ function fixture(t, profiles) {
         return { wsPath: "/browser/screencast?token=x", targetId: "t1" };
       return {};
     },
-    openStream: () => Object.assign(new EventEmitter(), { close() {} }),
+    openStream: () => {
+      const ws = new EventEmitter();
+      ws.close = () => ws.emit("close", 1000);
+      return ws;
+    },
   };
   const runtime = {
     paths: { state },
@@ -123,6 +127,15 @@ test("ownerStop stops the profile the live view shows and forgets it", async (t)
   await f.browsers.ownerStop("a");
   assert.deepEqual(f.stops(), ["agent-a"]);
   assert.equal(f.browsers.running.has("agent-a"), false);
+  // A stop the Gateway refuses reaches the owner, and the browser stays tracked.
+  await f.browsers.ownerStart("a");
+  const request = f.browsers.runtime.client.request;
+  f.browsers.runtime.client.request = async () => {
+    throw Error("timeout");
+  };
+  await assert.rejects(f.browsers.ownerStop("a"), /timeout/);
+  assert.equal(f.browsers.running.has("agent-a"), true);
+  f.browsers.runtime.client.request = request;
   // A member without a slot has nothing to stop.
   await assert.rejects(f.browsers.ownerStop("m1"), { key: "invalid" });
   f.browsers.runtime.client.ready = false;

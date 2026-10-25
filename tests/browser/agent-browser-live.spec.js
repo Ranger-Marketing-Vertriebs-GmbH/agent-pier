@@ -41,7 +41,14 @@ const tabs = [
 
 async function setup(
   page,
-  { status = "live", refuse = false, control, viewOnly = false } = {},
+  {
+    status = "live",
+    refuse = false,
+    control,
+    viewOnly = false,
+    busy = false,
+    stopFails = false,
+  } = {},
 ) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -100,6 +107,7 @@ async function setup(
             targetId: "t1",
             tabs,
             control,
+            busy,
             // A view-only viewer sees a pinned tab but cannot follow the agent.
             ...(viewOnly ? { viewOnly, pinned: true } : {}),
           },
@@ -112,7 +120,9 @@ async function setup(
       if (command.type === "take") state({ held: true, mine: true, warning: false });
       if (command.type === "handBack") state({ held: false, mine: false });
       // The server stops the browser; the next refresh reports it stopped.
-      if (command.type === "stop") {
+      if (command.type === "stop" && stopFails)
+        ws.send(JSON.stringify({ type: "error", code: "STOP_FAILED" }));
+      else if (command.type === "stop") {
         current = "stopped";
         state({ held: false, mine: false });
       }
@@ -185,6 +195,33 @@ for (const [label, use] of [
       await expect(page.getByText("The browser is not running.").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Start browser" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Stop browser" })).toHaveCount(0);
+    });
+
+    test("stopping a browser a turn uses asks first", async ({ page }) => {
+      const commands = await setup(page, { busy: true });
+      await page.goto(baseURL + "/agents/home/browser");
+      await decoded(page.getByRole("img", { name: "Live view of Home's browser" }));
+      await page.getByRole("button", { name: "Stop browser" }).click();
+      const dialog = page.getByRole("dialog", { name: "Stop the browser?" });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      expect(commands.some((c) => c.type === "stop")).toBe(false);
+      await page.getByRole("button", { name: "Stop browser" }).click();
+      await dialog.getByRole("button", { name: "Stop browser" }).click();
+      await expect.poll(() => commands).toContainEqual({ type: "stop" });
+      await expect(page.getByText("The browser is not running.").first()).toBeVisible();
+    });
+
+    test("a failed stop says so and the browser stays", async ({ page }) => {
+      const commands = await setup(page, { stopFails: true });
+      await page.goto(baseURL + "/agents/home/browser");
+      await decoded(page.getByRole("img", { name: "Live view of Home's browser" }));
+      await page.getByRole("button", { name: "Stop browser" }).click();
+      await expect.poll(() => commands).toContainEqual({ type: "stop" });
+      await expect(page.getByRole("alert")).toHaveText(
+        "The browser could not be stopped. It keeps running.",
+      );
+      await expect(page.getByRole("button", { name: "Stop browser" })).toBeVisible();
     });
 
     test("a browser without a picture yet can be stopped too", async ({ page }) => {

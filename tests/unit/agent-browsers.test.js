@@ -382,6 +382,28 @@ test("a working agent or an open window is never stopped for another", async (t)
   assert.deepEqual(f.stops(), ["agent-c"]);
 });
 
+test("a window left open beyond the idle cap no longer blocks a new browser", async (t) => {
+  const ids = ["a", "b", "c"];
+  const f = fixture(
+    t,
+    [...ids, "d"].map((id) => agent(id, { browserVisible: true })),
+  );
+  for (const id of ids) await f.browsers.policy({ agentId: `ap-${id}`, action: "open" });
+  for (const keeper of f.keepers) keeper.open = true;
+  f.tick(10 * 60_000);
+  assert.equal(
+    (await f.browsers.policy({ agentId: "ap-d", action: "open" })).allow,
+    false,
+  );
+  // After an hour unused, an open window holds its browser no longer.
+  f.tick(60 * 60_000);
+  assert.equal(
+    (await f.browsers.policy({ agentId: "ap-d", action: "open" })).allow,
+    true,
+  );
+  assert.deepEqual(f.stops(), ["agent-a"]);
+});
+
 test("concurrent launches never pass the visible limit", async (t) => {
   const ids = ["a", "b", "c", "d", "e"];
   const f = fixture(

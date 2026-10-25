@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import BrowserScreen from "./BrowserScreen.jsx";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 import useBrowserStream from "./useBrowserStream.js";
 import "./agent-browser.css";
@@ -40,6 +41,9 @@ export default function AgentBrowserView({
   // Start where the browser is stopped, Stop wherever it runs (also while the
   // picture does not come).
   const runs = ["live", "connecting", "blocked"].includes(status);
+  // Stopping interrupts a turn that uses the browser or a takeover: asked first.
+  const [confirmStop, setConfirmStop] = useState(false);
+  const askStop = () => (state.busy || control.held ? setConfirmStop(true) : stop());
   return (
     <div className="agent-browser-body">
       <div className="agent-browser-bar">
@@ -68,9 +72,22 @@ export default function AgentBrowserView({
           </button>
         )}
         {!viewOnly && runs && (
-          <button type="button" className="button secondary compact" onClick={stop}>
+          <button type="button" className="button secondary compact" onClick={askStop}>
             {copy.liveStop}
           </button>
+        )}
+        {confirmStop && (
+          <ConfirmDialog
+            title={copy.liveStopTitle}
+            body={copy.liveStopBody}
+            confirmLabel={copy.liveStop}
+            focusCancel
+            onCancel={() => setConfirmStop(false)}
+            onConfirm={() => {
+              setConfirmStop(false);
+              stop();
+            }}
+          />
         )}
       </div>
       {viewOnly && (
