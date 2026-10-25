@@ -48,34 +48,33 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page).toHaveURL(/\/settings\?tab=operations$/);
     });
 
-    test("access rows show counts and link the central accounts", async ({ page }) => {
-      await operationsFixture(page);
-      await page.goto(baseURL + "/settings?tab=access");
-      await expect(settingsRow(page, t("MCP & Zugriffe", "MCP & access"))).toContainText(
-        t("2 verbundene Clients", "2 connected clients"),
-      );
-      await expect(settingsRow(page, t("Fernzugriff", "Remote access"))).toContainText(
-        "Tailscale",
-      );
-      await expect(settingsRow(page, t("SSH-Zugänge", "SSH accesses"))).toContainText(
-        "3",
-      );
-      const github = settingsRow(page, t("GitHub-Zugänge", "GitHub connections"));
-      await expect(github).toContainText("1");
-      await expect(
-        page.getByRole("link", {
-          name: new RegExp(
-            t("Provider-Zugänge, MCP-Server", "Provider access, MCP servers"),
-          ),
-        }),
-      ).toHaveAttribute("href", "/accounts?returnTo=%2Fsettings%3Ftab%3Daccess");
-      await github.click();
-      await expect(page).toHaveURL(/\/settings\/github$/);
-    });
-
-    test("unknown summary parts show a dash while a real zero stays zero", async ({
+    test("the former Access tab leads to Zugänge and its pages to their new places", async ({
       page,
     }) => {
+      // Settings › Zugriff moved (handoff §4.2): the tab opens Zugänge, SSH, secrets
+      // and GitHub are Zugänge categories, MCP access is in Coding.
+      // The tab itself is covered by the history test below and the Accounts specs.
+      await operationsFixture(page);
+      await page.goto(baseURL + "/settings/github");
+      await expect(page).toHaveURL(/\/connections\?section=github$/);
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: t("GitHub-Zugänge", "GitHub connections"),
+        }),
+      ).toBeVisible();
+      await page.goto(baseURL + "/settings/remote");
+      await expect(page).toHaveURL(/\/settings\/remote$/);
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: t("Fernzugriff", "Remote access"),
+          exact: true,
+        }),
+      ).toBeVisible();
+    });
+
+    test("unknown operations summary parts show a dash", async ({ page }) => {
       const state = await operationsFixture(page);
       state.summary = {
         access: {
@@ -86,19 +85,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         },
         operations: null,
       };
-      await page.goto(baseURL + "/settings?tab=access");
-      await expect(settingsRow(page, t("MCP & Zugriffe", "MCP & access"))).toContainText(
-        "—",
-      );
-      await expect(settingsRow(page, t("Fernzugriff", "Remote access"))).toContainText(
-        t("Lokal", "Local"),
-      );
-      await expect(settingsRow(page, t("SSH-Zugänge", "SSH accesses"))).toContainText(
-        "—",
-      );
-      await expect(
-        settingsRow(page, t("GitHub-Zugänge", "GitHub connections")),
-      ).toContainText("0");
+      await page.goto(baseURL + "/settings");
       await page.route("**/api/settings/summary", (route) =>
         route.fulfill({ status: 500, json: { error: "Summary down" } }),
       );
@@ -123,8 +110,9 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page.goto(baseURL + "/settings");
       const workspace = page.getByRole("tab", { name: t("Arbeitsbereich", "Workspace") });
       await expect(workspace).toHaveAttribute("aria-selected", "true");
+      // The Access tab moved to Zugänge; history leads back to the settings tab.
       await page.getByRole("tab", { name: t("Zugriff", "Access") }).click();
-      await expect(page).toHaveURL(/\/settings\?tab=access$/);
+      await expect(page).toHaveURL(/\/connections$/);
       await page.goBack();
       await expect(page).toHaveURL(/\/settings$/);
       await expect(workspace).toHaveAttribute("aria-selected", "true");

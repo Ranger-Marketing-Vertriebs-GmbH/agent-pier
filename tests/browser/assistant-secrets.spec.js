@@ -65,7 +65,7 @@ test("without secrets the page links to the secrets settings", async ({ page }) 
   await page.goto(baseURL + settingsPath("work", "secrets"));
   await expect(page.getByText("There are no secrets yet.")).toBeVisible();
   await page.getByRole("button", { name: "Set up secrets" }).click();
-  await expect(page).toHaveURL(/\/settings\/secrets\?/);
+  await expect(page).toHaveURL(/\/connections\?section=secrets&returnTo=/);
 });
 
 test("an unreadable secrets catalog shows an error with retry", async ({ page }) => {

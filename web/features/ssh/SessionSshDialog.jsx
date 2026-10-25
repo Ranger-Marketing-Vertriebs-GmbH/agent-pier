@@ -10,6 +10,7 @@ import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./ssh.css";
+import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js";
 const toolTones = {
   ready: "ok",
   starting: "pending",
@@ -191,7 +192,10 @@ export default function SessionSshDialog({ session, close, openReload }) {
           )}
         </>
       )}
-      <a className="ssh-dialog-manage" href="/settings/ssh">
+      <a
+        className="ssh-dialog-manage"
+        href={connectionsRoutePath(connectionsRoute("ssh"))}
+      >
         {data?.inheritedIds?.length ? projectCopy.manageProject : copy.manage}
       </a>
     </Modal>

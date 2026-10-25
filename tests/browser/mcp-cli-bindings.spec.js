@@ -414,7 +414,7 @@ test("an adoption failure reads in English from its message key", async ({ page 
 test("the section reports when nothing else is found", async ({ page }) => {
   await setup(page);
   await page.goto(baseURL + "/accounts?section=mcp-servers");
-  await expect(page).toHaveURL(/\/accounts\?section=mcp-servers$/);
+  await expect(page).toHaveURL(/\/connections\?section=mcp-servers$/);
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("Nothing else found in the CLIs.")).toBeVisible();

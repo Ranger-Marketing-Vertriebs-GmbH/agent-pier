@@ -1,4 +1,5 @@
 import { settingsTabOf, settingsTabs } from "../operations/routes.js";
+import { screenOf } from "../../app/route-screens.js";
 
 // The settings page has tab roots (/settings, /settings?tab=…) and one subpage per
 // section (/settings/<section>); these build and compare their routes.
@@ -44,7 +45,8 @@ export function mergeSettingsRoute(route, changes) {
 export const staysOn =
   (section, tab = "workspace") =>
   (request) => {
-    const next = request?.next;
+    // Moved sections (Zugänge, Coding, agents Runtime) compare as their settings page.
+    const next = screenOf(request?.next);
     if (next?.view !== "settings") return false;
     const location = settingsLocation(next);
     return (

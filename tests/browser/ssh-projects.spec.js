@@ -171,7 +171,7 @@ test("inherited project accesses are visibly managed by the project and cannot b
   await expect(page.getByText("Project managed", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Manage project accesses" }),
-  ).toHaveAttribute("href", "/settings/ssh");
+  ).toHaveAttribute("href", "/connections?section=ssh");
 });
 
 test("failed project metadata can be retried without leaving creation disabled", async ({

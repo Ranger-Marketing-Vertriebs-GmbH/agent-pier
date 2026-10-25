@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { settingsRow } from "../helpers/settings.js";
 import { secretsFixture } from "./secrets-fixture.js";
 
 test.beforeEach(async ({ page }) => {
@@ -12,15 +11,10 @@ const item = (page, name) =>
   list(page).getByRole("button", { name: new RegExp(`^${name}\\b`) });
 const writes = (state) => state.calls.filter((call) => call.method !== "GET");
 
-test("the access tab lists secrets with their count", async ({ page }) => {
-  const state = await secretsFixture(page);
-  state.base.summary.access.secrets = { count: 2 };
-  await page.goto(baseURL + "/settings?tab=access");
-  const row = settingsRow(page, "Secrets");
-  await expect(row).toContainText("Tokens and URLs for agents and coding CLIs");
-  await expect(row).toContainText("2");
-  await row.click();
-  await expect(page).toHaveURL(/\/settings\/secrets$/);
+test("the old secrets address opens the secrets list in Zugänge", async ({ page }) => {
+  await secretsFixture(page);
+  await page.goto(baseURL + "/settings/secrets");
+  await expect(page).toHaveURL(/\/connections\?section=secrets$/);
   await expect(page.getByRole("heading", { name: "Secrets", exact: true })).toBeVisible();
   await expect(
     page.getByText(

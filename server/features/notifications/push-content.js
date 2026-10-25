@@ -97,7 +97,7 @@ const segment = (value) => encodeURIComponent(value);
 export function pushLink(event) {
   if (event.inbox)
     return `/inbox/${segment(event.inbox.type)}/${segment(event.inbox.id)}`;
-  if (event.kind === "github-token") return "/settings/github";
+  if (event.kind === "github-token") return "/connections?section=github";
   if (event.kind === "disk-space") return "/";
   if (event.kind === "test") return "/settings/notifications";
   if (event.kind === "telegram-revocation")

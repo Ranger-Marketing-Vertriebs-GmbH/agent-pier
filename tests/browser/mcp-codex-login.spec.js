@@ -230,7 +230,7 @@ test("the callback's result names the account and the server", async ({ page }) 
       "The Codex account Work is logged in to search. New sessions of this account can use its tools.",
     ),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(page).toHaveURL(/\/connections$/);
 });
 
 test("without managed accounts the area says so", async ({ page }) => {

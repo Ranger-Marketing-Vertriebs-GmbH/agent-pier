@@ -16,6 +16,7 @@ import SettingsStep from "./SettingsStep.jsx";
 import SourceStep from "./SourceStep.jsx";
 import StepIndicator from "./StepIndicator.jsx";
 import useWizardGuard from "./useWizardGuard.js";
+import { screenOf } from "../../../app/route-screens.js";
 import {
   fallbackStep,
   initialWizard,
@@ -92,10 +93,12 @@ export default function McpWizard({
   };
   const guard = useWizardGuard({
     dirty: isDirty(state) || waiting,
-    stays: (request) =>
-      request.next?.view === "accounts" &&
-      request.next.section === "mcp-servers" &&
-      request.next.item === "new",
+    stays: (request) => {
+      const next = screenOf(request.next);
+      return (
+        next?.view === "accounts" && next.section === "mcp-servers" && next.item === "new"
+      );
+    },
   });
   const close = () =>
     navigate(server ? itemRoute("mcp-servers", server.id) : itemRoute("mcp-servers"));

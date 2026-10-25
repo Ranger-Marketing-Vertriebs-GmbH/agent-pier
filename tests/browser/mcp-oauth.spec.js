@@ -270,7 +270,7 @@ for (const [label, use] of [
       await page.goto(baseURL + "/accounts?oauth=connected&server=s1");
       const banner = panel.getByRole("status").filter({ hasText: "Logged in to docs" });
       await expect(banner).toHaveText(/Agents bound to it can use its tools/);
-      await expect(page).toHaveURL(baseURL + "/accounts");
+      await expect(page).toHaveURL(baseURL + "/connections");
       await panel.getByRole("button", { name: "Dismiss" }).click();
       await expect(banner).toHaveCount(0);
       await openAccountItem(page, "docs");
@@ -308,7 +308,7 @@ for (const [label, use] of [
       ).toContainText(
         "OAuth logins cannot start from the address you opened AgentPier with.",
       );
-      expect(page.url()).toContain(baseURL + "/accounts");
+      expect(page.url()).toContain(baseURL + "/connections");
       state.refusal = "loopback-redirect";
       await login.click();
       await expect(item.getByRole("alert")).toContainText(
@@ -337,7 +337,7 @@ for (const [label, use] of [
       await login.click();
       await expect(login).toHaveText("Opening login …");
       await expect(login).toBeDisabled();
-      expect(page.url()).toContain(baseURL + "/accounts");
+      expect(page.url()).toContain(baseURL + "/connections");
       await expect(item.getByText(/cannot start from the address/)).toHaveCount(0);
       state.status.s1 = { oauthStatus: "login-required" };
       await page.evaluate(() =>
@@ -360,7 +360,7 @@ for (const [label, use] of [
       await expect(panel.getByRole("alert")).toHaveText(
         `The login to docs failed. The provider rejected the redirect address ${baseURL}/api/mcp-servers/oauth/callback.Dismiss`,
       );
-      await expect(page).toHaveURL(baseURL + "/accounts");
+      await expect(page).toHaveURL(baseURL + "/connections");
       await page.goto(baseURL + "/accounts?oauth=error&server=s1&reason=access_denied");
       await expect(panel.getByRole("alert")).toContainText(
         "The login to docs failed. Access was denied at the provider.",

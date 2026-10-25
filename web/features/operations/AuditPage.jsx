@@ -5,6 +5,7 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
+import { codingRoute, codingRoutePath } from "../coding/routes.js";
 /** Who acted: a user by name, the owner, MCP or the system. */
 function auditActor(event) {
   if (event.actorUserId)
@@ -143,7 +144,7 @@ export default function AuditPage({ route, navigate }) {
           )}
           {event.details?.grantId && (
             <p>
-              <a href="/settings/mcp">{copy.manageMcpAccess}</a>
+              <a href={codingRoutePath(codingRoute("mcp"))}>{copy.manageMcpAccess}</a>
             </p>
           )}
           {Object.keys(event.details || {}).length > 0 && (

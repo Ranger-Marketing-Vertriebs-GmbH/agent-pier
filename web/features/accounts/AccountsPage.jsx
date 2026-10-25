@@ -25,6 +25,7 @@ import useAccountAuthStates from "./useAccountAuthStates.js";
 import useAccountUsage from "./useAccountUsage.js";
 import useAccountsData from "./useAccountsData.js";
 import useNarrowViewport from "./useNarrowViewport.js";
+import { screenOf } from "../../app/route-screens.js";
 import "./accounts-page.css";
 
 const ids = (list) => (list || []).map((item) => item.id);
@@ -60,7 +61,7 @@ export default function AccountsPage({
   const navigate = useCallback(
     (next, replace) =>
       onNavigate(
-        returnTo && next?.view === "accounts" && !next.returnTo
+        returnTo && screenOf(next)?.view === "accounts" && !next.returnTo
           ? { ...next, returnTo }
           : next,
         replace,

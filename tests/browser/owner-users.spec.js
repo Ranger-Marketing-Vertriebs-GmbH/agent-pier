@@ -108,8 +108,8 @@ for (const [language, copy] of Object.entries(languages))
   test.describe(language, () => {
     test("owner creates, disables and deletes a user", async ({ page }) => {
       const state = await setup(page, language);
-      await page.goto(baseURL + "/settings?tab=access");
-      await page.getByRole("link", { name: new RegExp(copy.users) }).click();
+      // Settings › Zugriff moved to Zugänge; the users page keeps its address.
+      await page.goto(baseURL + "/settings/users");
       await expect(page).toHaveURL(/\/settings\/users$/);
       await expect(page.getByText(copy.empty)).toBeVisible();
       await page.getByRole("button", { name: copy.add }).click();

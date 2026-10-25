@@ -22,10 +22,10 @@ const agent = { view: "agents", assistantId: "home", agentSettings: true };
 
 test("settings tabs follow the section and keep tab roots addressable", () => {
   assert.equal(read("/settings").settingsTab, "workspace");
-  assert.equal(read("/settings?tab=access").settingsTab, "access");
-  assert.equal(read("/settings?tab=access").settingsSection, "general");
-  assert.equal(routePath(read("/settings?tab=access")), "/settings?tab=access");
+  // The Access tab moved to Zugänge; its sections live there and in Coding.
+  assert.deepEqual(read("/settings?tab=access"), { view: "connections" });
   assert.equal(routePath(read("/settings?tab=workspace")), "/settings");
+  assert.equal(read("/settings?tab=operations").settingsTab, "operations");
   assert.equal(read("/settings?tab=bogus").settingsTab, "workspace");
   assert.equal(read("/settings/diagnostics").settingsTab, "operations");
   const contradicted = read("/settings/diagnostics?tab=access");
@@ -38,19 +38,22 @@ test("settings tabs follow the section and keep tab roots addressable", () => {
 
 test("agent settings tabs and subpages have their own addresses", () => {
   assert.deepEqual(read("/agents/home/settings"), agent);
-  assert.deepEqual(read("/agents/home/settings?tab=work"), {
+  assert.deepEqual(read("/agents/home/settings?tab=access"), {
     ...agent,
-    agentTab: "work",
+    agentTab: "access",
   });
   assert.equal(
-    routePath(read("/agents/home/settings?tab=work")),
-    "/agents/home/settings?tab=work",
+    routePath(read("/agents/home/settings?tab=access")),
+    "/agents/home/settings?tab=access",
   );
   const memory = { ...agent, agentTab: "capabilities", agentPage: "memory" };
   assert.deepEqual(read("/agents/home/settings?page=memory"), memory);
   assert.deepEqual(read("/agents/home/settings?tab=work&page=memory"), memory);
   assert.equal(routePath(memory), "/agents/home/settings?tab=capabilities&page=memory");
-  assert.deepEqual(read("/agents/home/settings?tab=profile"), agent);
+  assert.deepEqual(read("/agents/home/settings?tab=identity"), {
+    ...agent,
+    agentTab: "identity",
+  });
   assert.deepEqual(read("/agents/home/settings?tab=nope&page=nope"), agent);
   assert.deepEqual(agentSettingsLocation(agent), { tab: "profile", page: "" });
   assert.deepEqual(
@@ -62,103 +65,107 @@ test("agent settings tabs and subpages have their own addresses", () => {
   );
 });
 
-test("a team link from the chat focuses that team in the Work tab only", () => {
+test("a team link from the chat focuses that team in the Team tab only", () => {
   const focused = agentTeamRoute("home", "team-1");
-  assert.equal(routePath(focused), "/agents/home/settings?tab=work&team=team-1");
+  assert.equal(routePath(focused), "/agents/home/settings?tab=team&team=team-1");
   assert.deepEqual(read(routePath(focused)), focused);
+  // Today's page shows teams in the Work tab.
+  assert.equal(agentSettingsLocation(focused).tab, "work");
   // Elsewhere, on a subpage or with an invalid id, the focus is dropped.
   assert.deepEqual(read("/agents/home/settings?team=team-1"), agent);
-  assert.deepEqual(read("/agents/home/settings?tab=work&page=actions&team=team-1"), {
+  assert.deepEqual(read("/agents/home/settings?tab=team&page=actions&team=team-1"), {
     ...agent,
-    agentTab: "work",
+    agentTab: "overview",
     agentPage: "actions",
   });
-  assert.deepEqual(read("/agents/home/settings?tab=work&team=..%2Fx"), {
+  assert.deepEqual(read("/agents/home/settings?tab=team&team=..%2Fx"), {
     ...agent,
-    agentTab: "work",
+    agentTab: "team",
   });
   assert.equal(
     routePath({ ...agent, agentTab: "profile", agentTeam: "team-1" }),
-    "/agents/home/settings",
+    "/agents/home/settings?tab=identity",
   );
 });
 
-test("a hook's detail is a routines subpage that keeps a valid hook id", () => {
+test("a hook's detail is an automation subpage that keeps a valid hook id", () => {
   const id = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
   assert.deepEqual(agentSettingsLocation({ agentPage: "hook" }), {
     tab: "routines",
     page: "hook",
   });
-  const hook = { ...agent, agentTab: "routines", agentPage: "hook", agentHook: id };
+  const hook = { ...agent, agentTab: "automation", agentPage: "hook", agentHook: id };
   assert.deepEqual(readAgentSettingsQuery(`?page=hook&hook=${id}`), {
-    agentTab: "routines",
+    agentTab: "automation",
     agentPage: "hook",
     agentHook: id,
   });
-  assert.deepEqual(agentRoute("home", "routines", "hook", id), hook);
+  // Today's page builds the routines tab; its address is the automation tab.
+  const built = agentRoute("home", "routines", "hook", id);
   assert.equal(
-    routePath(hook),
-    `/agents/home/settings?tab=routines&page=hook&hook=${id}`,
+    routePath(built),
+    `/agents/home/settings?tab=automation&page=hook&hook=${id}`,
   );
-  assert.deepEqual(read(routePath(hook)), hook);
+  assert.deepEqual(read(routePath(built)), hook);
   // A malformed id, or one outside the hook page, is dropped.
   assert.deepEqual(readAgentSettingsQuery("?page=hook&hook=..%2Fx"), {
-    agentTab: "routines",
+    agentTab: "automation",
     agentPage: "hook",
   });
-  assert.deepEqual(readAgentSettingsQuery(`?tab=routines&hook=${id}`), {
-    agentTab: "routines",
+  assert.deepEqual(readAgentSettingsQuery(`?tab=automation&hook=${id}`), {
+    agentTab: "automation",
   });
   assert.equal(
     routePath({ ...agent, agentTab: "routines", agentHook: id }),
-    "/agents/home/settings?tab=routines",
+    "/agents/home/settings?tab=automation",
   );
 });
 
-test("accounts subpages keep section and item and old links keep working", () => {
-  const item = { view: "accounts", section: "models", item: "conn-1" };
+test("connection subpages keep section and item and old Accounts links keep working", () => {
+  const item = { view: "connections", section: "models", item: "conn-1" };
+  assert.deepEqual(read("/connections?section=models&item=conn-1"), item);
   assert.deepEqual(read("/accounts?section=models&item=conn-1"), item);
-  assert.equal(routePath(item), "/accounts?section=models&item=conn-1");
+  assert.equal(routePath(item), "/connections?section=models&item=conn-1");
   assert.deepEqual(read("/accounts?section=cli&item=new"), {
-    view: "accounts",
-    section: "cli",
+    view: "coding",
+    codingTab: "accounts",
     item: "new",
   });
   const chatgpt = `openclaw:${"a".repeat(64)}`;
-  const linked = read(`/accounts?section=models&item=${encodeURIComponent(chatgpt)}`);
+  const linked = read(`/connections?section=models&item=${encodeURIComponent(chatgpt)}`);
   assert.equal(linked.item, chatgpt);
   assert.deepEqual(read(routePath(linked)), linked);
-  assert.deepEqual(read("/accounts?item=conn-1"), { view: "accounts" });
+  assert.deepEqual(read("/connections?item=conn-1"), { view: "connections" });
   assert.deepEqual(read("/accounts?section=cli&item=..%2Fx"), {
-    view: "accounts",
-    section: "cli",
+    view: "coding",
+    codingTab: "accounts",
   });
   const oauth = read("/accounts?section=mcp-servers&oauth=connected&server=s1");
   assert.deepEqual(oauth, {
-    view: "accounts",
+    view: "connections",
     section: "mcp-servers",
     mcpOAuth: { result: "connected", serverId: "s1" },
   });
-  assert.equal(routePath(oauth), "/accounts?section=mcp-servers");
+  assert.equal(routePath(oauth), "/connections?section=mcp-servers");
 });
 
 test("the extensions default tab has one definition", () => {
   assert.ok(extensionTabs.includes(defaultExtensionTab));
-  assert.equal(read("/extensions/p1").extensionTab, defaultExtensionTab);
+  assert.equal(read("/coding/clis/extensions/p1").extensionTab, defaultExtensionTab);
   assert.equal(read("/extensions/p1?tab=bogus").extensionTab, defaultExtensionTab);
   assert.equal(
     routePath({ view: "extensions", profileId: "p1", extensionTab: defaultExtensionTab }),
-    "/extensions/p1",
+    "/coding/clis/extensions/p1",
   );
 });
 
 test("a settings section change carries the tab of its section", () => {
-  const stale = read("/settings?tab=access");
+  const stale = read("/settings?tab=operations");
   const moved = { ...stale, settingsSection: "diagnostics", settingsTab: "operations" };
   assert.equal(routePath(moved), "/settings/diagnostics");
   assert.equal(
     routePath({ ...stale, settingsSection: "mcp", settingsTab: settingsTabOf("mcp") }),
-    "/settings/mcp",
+    "/coding/clis?tab=mcp",
   );
 });
 

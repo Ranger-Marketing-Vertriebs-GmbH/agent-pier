@@ -109,7 +109,7 @@ test("phones ask before Back leaves a changed subpage", async ({ page }) => {
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("dialog", { name: "Save changes?" })).toBeVisible();
   await page.getByRole("button", { name: "Discard" }).click();
-  await expect(page).toHaveURL(`${baseURL}/accounts?section=models`);
+  await expect(page).toHaveURL(`${baseURL}/connections?section=models`);
   await expect(accountRow(page, "Agent router")).toBeVisible();
 });
 

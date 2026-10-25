@@ -118,7 +118,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
   await expect(panel.getByRole("button", { name: "Connect ChatGPT" })).toBeDisabled();
   await expect(
     panel.getByRole("link", { name: "Agent service settings" }),
-  ).toHaveAttribute("href", /^\/settings\/assistants\?returnTo=%2Faccounts%3F/);
+  ).toHaveAttribute("href", /^\/agents\?tab=runtime&returnTo=%2Fconnections%3F/);
   state.accounts = [{ id: "openclaw:test", name: "Personal ChatGPT", available: true }];
   let saved;
   await page.route("**/api/assistants", async (route) => {

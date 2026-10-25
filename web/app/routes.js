@@ -10,12 +10,22 @@ import {
   agentSettingsQuery,
   readAgentSettingsQuery,
 } from "../features/assistants/settings-routes.js";
-import { accountsQuery, readAccountsQuery } from "../features/accounts/routes.js";
-import { defaultExtensionTab, readExtensionTab } from "../features/extensions/routes.js";
+import { readAccountsQuery } from "../features/accounts/routes.js";
+import { readExtensionTab } from "../features/extensions/routes.js";
 import { readMcpOAuthResult } from "../features/mcp-servers/oauth-result.js";
 import { appPathParts, returnParam, withoutReturnParam } from "./return-to.js";
 import { artifactsRoutePath, readArtifactsQuery } from "../features/artifacts/routes.js";
 import { inboxRoutePath, readInboxRoute } from "../features/inbox/routes.js";
+import {
+  connectionsRoutePath,
+  readConnectionsQuery,
+} from "../features/connections/routes.js";
+import { codingRoutePath, readCodingRoute } from "../features/coding/routes.js";
+import { agentsHubQuery, readAgentsHubQuery } from "../features/assistants/hub-routes.js";
+import { canonicalRoute, movedRoute } from "./route-redirects.js";
+import { screenRoute } from "./route-screens.js";
+export { canonicalRoute } from "./route-redirects.js";
+export { screenRoute } from "./route-screens.js";
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export function readRoute(location) {
   let pathname;
@@ -53,7 +63,15 @@ export function readRoute(location) {
     };
   if (pathname === "/agents") {
     const query = new URLSearchParams(location.search);
-    if (query.get("new") !== "1") return { view: "agents" };
+    if (query.get("new") !== "1") {
+      // The hub's tabs; Runtime (the former agent service settings) honours returnTo.
+      const hub = readAgentsHubQuery(location.search);
+      return {
+        view: "agents",
+        ...hub,
+        ...(hub.agentsTab === "runtime" ? readReturnTo(location.search) : {}),
+      };
+    }
     // "Add agent for this person" from Settings › Users.
     const forUser = query.get("user");
     if (forUser && idPattern.test(forUser))
@@ -88,8 +106,21 @@ export function readRoute(location) {
               }
             : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
     };
-  if (pathname === "/accounts")
+  if (pathname === "/connections")
     return {
+      view: "connections",
+      ...readConnectionsQuery(location.search),
+      ...readReturnTo(location.search),
+      ...readMcpOAuthResult(location.search),
+    };
+  const coding = readCodingRoute(pathname, location.search);
+  if (coding)
+    return ["accounts", "mcp"].includes(coding.codingTab)
+      ? { ...coding, ...readReturnTo(location.search) }
+      : coding;
+  // The former Accounts page: its sections moved to Zugänge and Coding.
+  if (pathname === "/accounts")
+    return movedRoute({
       view: "accounts",
       // A subpage (`section`, optional `item`); `section=mcp-servers` alone opens the
       // central MCP list, as linked from the CLI extensions page.
@@ -97,7 +128,7 @@ export function readRoute(location) {
       ...readReturnTo(location.search),
       // An MCP OAuth login's result; the address drops it (see routePath).
       ...readMcpOAuthResult(location.search),
-    };
+    });
   const inbox = readInboxRoute(pathname, location.search);
   if (inbox) return inbox;
   if (pathname === "/repositories") return projectsRoute();
@@ -111,7 +142,7 @@ export function readRoute(location) {
   const settingsRoute = readSettingsRoute(pathname, location.search);
   if (settingsRoute)
     return settingsRoute.view === "settings"
-      ? { ...settingsRoute, ...readReturnTo(location.search) }
+      ? canonicalRoute({ ...settingsRoute, ...readReturnTo(location.search) })
       : settingsRoute;
   const pipelineRoute = readPipelineRoute(pathname, location.search);
   if (pipelineRoute) return pipelineRoute;
@@ -156,12 +187,12 @@ export function readRoute(location) {
   }
   const profile = /^\/(extensions|plugins)(?:\/([^/]+))?$/.exec(pathname);
   if (profile && (!profile[2] || idPattern.test(profile[2])))
-    return {
+    return movedRoute({
       view: "extensions",
       profileId: profile[2] || "",
       extensionTab:
         profile[1] === "plugins" ? "plugins" : readExtensionTab(location.search),
-    };
+    });
   const session = /^\/sessions\/([^/]+)(?:\/(chat|reader|terminal|files))?$/.exec(
     pathname,
   );
@@ -177,12 +208,16 @@ export function readRoute(location) {
   };
 }
 // Pages a cross-link may return to, and pages that honour a `returnTo`. The Artifacts
-// page is opened from a session's artifact panel and returns only to sessions.
+// page is opened from a session's artifact panel and returns only to sessions. Both
+// name the page that renders a route (`screenRoute`): Zugänge and Coding act as the
+// Accounts and settings pages they come from, the agents hub's Runtime tab as the
+// agent service settings.
 const returnOrigins = new Set(["agents", "settings", "extensions", "accounts"]);
 const returnTargets = new Set(["settings", "accounts", "artifacts"]);
 const artifactReturnOrigins = new Set(["workspace"]);
 const originsFor = (view) =>
   view === "artifacts" ? artifactReturnOrigins : returnOrigins;
+const screenView = (route) => screenRoute(route).view;
 
 // How many origins a chain of cross-links remembers beyond the first: Agent settings →
 // Deepgram (Accounts) → Agent service settings leads back to Deepgram, and from
@@ -195,8 +230,8 @@ function parseOrigin(value, depth, origins = returnOrigins) {
   const parts = appPathParts(value);
   if (!parts) return null;
   const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
-  if (!origins.has(origin.view)) return null;
-  if (depth > 0 && returnTargets.has(origin.view)) {
+  if (!origins.has(screenView(origin))) return null;
+  if (depth > 0 && returnTargets.has(screenView(origin))) {
     const inner = parseOrigin(
       new URLSearchParams(parts.search).get(returnParam),
       depth - 1,
@@ -231,23 +266,27 @@ export function returnRoute(route) {
  * target carries `returnTo`, so its back arrow leads to exactly this page.
  */
 export function crossLinkRoute(target, origin) {
-  if (!origin || !returnTargets.has(target.view) || target.view === origin.view)
-    return target;
+  if (!origin) return target;
+  const view = screenView(target);
+  if (!returnTargets.has(view) || view === screenView(origin)) return target;
+  const moved = canonicalRoute(target);
   const { returnTo } = readReturnTo(
     `?${new URLSearchParams({ returnTo: routePath(origin) })}`,
-    target.view,
+    moved.view,
   );
-  return returnTo ? { ...target, returnTo } : target;
+  return returnTo ? { ...moved, returnTo } : target;
 }
 
 function withReturnTo(path, route) {
-  if (!route.returnTo || !returnTargets.has(route.view)) return path;
+  if (!route.returnTo || !returnTargets.has(screenView(route))) return path;
   const query = new URLSearchParams({ [returnParam]: route.returnTo });
   return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 }
 
+/** The address of a route; a moved page's route gets the address of its new place. */
 export function routePath(route) {
-  return withReturnTo(basePath(route), route);
+  const target = canonicalRoute(route);
+  return withReturnTo(basePath(target), target);
 }
 
 function basePath(route) {
@@ -271,7 +310,7 @@ function basePath(route) {
                     ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`
                     : ""
                 }`
-              : "/agents";
+              : `/agents${agentsHubQuery(route)}`;
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "projects") return projectsRoutePath(route);
@@ -279,13 +318,8 @@ function basePath(route) {
     return route.sessionId
       ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? explorerQuery(route) : ""}`
       : "/";
-  if (route.view === "accounts") return `/accounts${accountsQuery(route)}`;
-  if (route.view === "extensions") {
-    const query = new URLSearchParams();
-    if (route.extensionTab && route.extensionTab !== defaultExtensionTab)
-      query.set("tab", route.extensionTab);
-    return `/extensions${route.profileId ? `/${encodeURIComponent(route.profileId)}` : ""}${query.size ? `?${query}` : ""}`;
-  }
+  if (route.view === "connections") return connectionsRoutePath(route);
+  if (route.view === "coding") return codingRoutePath(route);
   return `/${route.view}`;
 }
 export function defaultSessionMode(session, mobile) {

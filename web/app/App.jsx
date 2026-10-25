@@ -11,7 +11,7 @@ import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import SavePrompt from "../components/SavePrompt.jsx";
-import { defaultSessionMode } from "./routes.js";
+import { defaultSessionMode, screenRoute } from "./routes.js";
 import { CrossLinkOrigin } from "./cross-link.js";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
@@ -101,13 +101,25 @@ function Application() {
     setMobileNav(true);
   }, []);
   const fileNavigationGuard = useFileNavigationGuard();
-  const { route, view, selected, navigate, select, activeSession, page, missing } =
-    useWorkspaceNavigation({
-      state,
-      ready,
-      setMobileNav,
-      setModal,
-    });
+  const {
+    route: address,
+    selected,
+    navigate,
+    select,
+    activeSession,
+    page,
+    missing,
+    extensionProfileId,
+  } = useWorkspaceNavigation({
+    state,
+    ready,
+    setMobileNav,
+    setModal,
+  });
+  // The page that shows the address: new areas render today's pages until they have
+  // their own (route-screens.js); cross-links keep the address as their origin.
+  const route = screenRoute(address);
+  const view = route.view;
   const created = async (session) => {
     await refresh();
     setModal(null);
@@ -185,7 +197,7 @@ function Application() {
             <button onClick={() => refresh().catch(() => {})}>{commonCopy.retry}</button>
           </div>
         )}
-        <CrossLinkOrigin.Provider value={route}>
+        <CrossLinkOrigin.Provider value={address}>
           <Suspense
             fallback={
               <p className="loading" role="status">
@@ -281,7 +293,9 @@ function Application() {
                 shared={state.sharedCliExtensions}
                 accounts={state.accounts}
                 request={api}
-                profileId={route.profileId}
+                profileId={
+                  route.profileId || (address.view === "agents" ? extensionProfileId : "")
+                }
                 extensionTab={route.extensionTab}
                 onNavigate={navigate}
                 openNavigation={openNavigation}

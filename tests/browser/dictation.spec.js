@@ -155,7 +155,7 @@ test("without a key the microphone explains itself and links to the setup", asyn
   await expect(page.getByText("Voice input needs a Deepgram key.")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Set up speech recognition" }),
-  ).toHaveAttribute("href", "/accounts?section=services&item=speech");
+  ).toHaveAttribute("href", "/connections?section=services&item=speech");
   await page.getByRole("button", { name: "Close hint" }).click();
   await expect(page.getByText("Voice input needs a Deepgram key.")).toBeHidden();
   expect(opened).toBe(0);

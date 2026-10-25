@@ -82,7 +82,7 @@ test("the owner changes and resets advanced settings from the agent service", as
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(baseURL + "/settings/assistants");
   await page.getByRole("link", { name: /Advanced settings/ }).click();
-  await expect(page).toHaveURL(/\/settings\/assistants-advanced$/);
+  await expect(page).toHaveURL(/\/agents\?tab=runtime&section=advanced$/);
   await expect(
     page.getByRole("heading", { name: "Advanced", exact: true }),
   ).toBeVisible();
@@ -200,7 +200,7 @@ test("German on a phone: own labels, no sideways scroll, back to the agent servi
   );
   expect(overflow).toBeLessThanOrEqual(0);
   await page.getByRole("button", { name: "Zurück zu Agentendienst" }).click();
-  await expect(page).toHaveURL(/\/settings\/assistants$/);
+  await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
 });
 
 test("an unapproved runtime keeps every setting read-only", async ({ page }) => {

@@ -22,10 +22,10 @@ test("assistant deep links retain selected chat and settings with server documen
     assert.equal(routePath(expected), pathname);
     assert.ok(appDocumentPath.test(pathname));
   }
-  assert.equal(
-    readRoute({ pathname: "/settings/assistants" }).settingsSection,
-    "assistants",
-  );
+  assert.deepEqual(readRoute({ pathname: "/settings/assistants" }), {
+    view: "agents",
+    agentsTab: "runtime",
+  });
   assert.equal(readRoute({ pathname: "/agents/../../private" }).view, "missing");
 });
 test("the new-agent flow has its own address", () => {

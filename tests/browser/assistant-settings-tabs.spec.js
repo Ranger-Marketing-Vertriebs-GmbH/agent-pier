@@ -25,7 +25,7 @@ test("deep links select their tab and junk falls back to the profile", async ({
   await expect(page).toHaveURL(/\/agents\/home\/settings$/);
   await expect(agentTab(page, "Profile")).toHaveAttribute("aria-selected", "true");
   await agentTab(page, "Telegram").click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=telegram$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });
 
 test("a task-bound member has two tabs and other tabs normalise without asking", async ({
@@ -59,7 +59,7 @@ test("switching tabs with unsaved changes asks first", async ({ page }) => {
   await name(page).fill("Home 3");
   await agentTab(page, "Work").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
-  await expect(page).toHaveURL(/tab=work$/);
+  await expect(page).toHaveURL(/tab=overview$/);
   await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 3");
 });
 
@@ -229,7 +229,7 @@ test("waiting approvals lead to the full action history", async ({ page }) => {
   });
   await page.goto(baseURL + settingsPath("work"));
   await page.getByRole("button", { name: /Waiting for your approval · 1/ }).click();
-  await expect(page).toHaveURL(/tab=work&page=actions$/);
+  await expect(page).toHaveURL(/tab=overview&page=actions$/);
   const history = page.getByRole("region", { name: "Actions and coding tasks" });
   await expect(history.getByText("Fix the bug")).toBeVisible();
   await expect(history.getByRole("button", { name: "Approve action" })).toBeVisible();
@@ -243,7 +243,7 @@ test("without Telegram check-ins are offered on their own tab", async ({ page })
   await expect(page.getByLabel("Telegram bot token")).toBeVisible();
   await expect(page.getByRole("switch", { name: "Check in on its own" })).toHaveCount(0);
   await agentTab(page, "Routines & check-ins").click();
-  await expect(page).toHaveURL(/tab=routines$/);
+  await expect(page).toHaveURL(/tab=automation$/);
   const checkIn = page.getByRole("switch", { name: "Check in on its own" });
   await expect(checkIn).toBeEnabled();
   await checkIn.check();
@@ -273,7 +273,7 @@ test("Telegram activity and connection details open as subpages", async ({ page 
     "1 needs your decision",
   );
   await panel.getByRole("link", { name: /^Telegram activity/ }).click();
-  await expect(page).toHaveURL(/tab=telegram&page=telegram-activity$/);
+  await expect(page).toHaveURL(/tab=channels&page=telegram-activity$/);
   await expect(panel.getByText("One")).toBeVisible();
   await page.getByRole("button", { name: "Back to Telegram" }).click();
   await panel.getByRole("link", { name: /^Connection/ }).click();

@@ -33,7 +33,9 @@ test("mobile consent requires explicit resources and excludes publication by def
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await mcpFixture(page);
+  // The server's consent address moved to Coding › AgentPier als MCP (AC-RT-3).
   await page.goto(baseURL + "/settings/mcp?authorization=auth-one");
+  await expect(page).toHaveURL(/\/coding\/clis\?tab=mcp&authorization=auth-one$/);
   await expect(
     page.getByRole("heading", { name: "Zugriff freigeben", exact: true }),
   ).toBeVisible();

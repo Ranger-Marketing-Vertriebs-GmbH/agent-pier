@@ -111,7 +111,7 @@ test("the header note is a disclosure with the stored-locally text", async ({ pa
 test("an unknown item returns to its group once", async ({ page }) => {
   await setup(page);
   await page.goto(baseURL + "/accounts?section=models&item=gone");
-  await expect(page).toHaveURL(`${baseURL}/accounts?section=models`);
+  await expect(page).toHaveURL(`${baseURL}/connections?section=models`);
   await expect(accountRow(page, "Shared router")).toBeVisible();
 });
 

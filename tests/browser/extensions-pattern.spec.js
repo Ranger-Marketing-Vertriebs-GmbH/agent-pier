@@ -16,7 +16,7 @@ test("legacy MCP links open Skills and the reference row counts central servers"
 }) => {
   const fixture = await extensionsPageFixture(page, { holdUsage: true });
   await page.goto(`${base}/extensions/local-codex?tab=mcp`);
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(page.getByRole("tab")).toHaveText([
     /^Skills/,
     /^Plugins/,
@@ -34,7 +34,7 @@ test("legacy MCP links open Skills and the reference row counts central servers"
   await profileColumn(page)
     .getByRole("button", { name: /Claude Code/ })
     .click();
-  await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
   await expect(mcpLink(page)).toContainText("2 für Claude Code");
   await openTab(page, "Plugins");
   await expect(mcpLink(page)).toBeVisible();
@@ -43,7 +43,7 @@ test("legacy MCP links open Skills and the reference row counts central servers"
   await openTab(page, "Skills");
   await mcpLink(page).click();
   await expect(page).toHaveURL(
-    /\/accounts\?section=mcp-servers&returnTo=%2Fextensions%2Fmanaged-claude$/,
+    /\/connections\?section=mcp-servers&returnTo=%2Fcoding%2Fclis%2Fextensions%2Fmanaged-claude$/,
   );
   expect(fixture.writes).toEqual([]);
 });
@@ -53,13 +53,13 @@ test("old and junk extension addresses normalise once to one canonical address",
 }) => {
   await extensionsPageFixture(page);
   for (const [from, to] of [
-    ["/plugins/local-codex", /\/extensions\/local-codex\?tab=plugins$/],
-    ["/extensions/local-codex?tab=skills", /\/extensions\/local-codex$/],
-    ["/extensions/local-codex?tab=bogus", /\/extensions\/local-codex$/],
-    ["/extensions/local-codex?tab=agents", /\/extensions\/local-codex$/],
+    ["/plugins/local-codex", /\/coding\/clis\/extensions\/local-codex\?tab=plugins$/],
+    ["/extensions/local-codex?tab=skills", /\/coding\/clis\/extensions\/local-codex$/],
+    ["/extensions/local-codex?tab=bogus", /\/coding\/clis\/extensions\/local-codex$/],
+    ["/extensions/local-codex?tab=agents", /\/coding\/clis\/extensions\/local-codex$/],
     [
       "/extensions/local-codex?tab=marketplaces",
-      /\/extensions\/local-codex\?tab=marketplaces$/,
+      /\/coding\/clis\/extensions\/local-codex\?tab=marketplaces$/,
     ],
   ]) {
     await page.goto(base + from);
@@ -68,7 +68,7 @@ test("old and junk extension addresses normalise once to one canonical address",
   // Normalisation replaces the entry instead of stacking a new one.
   const before = await page.evaluate(() => history.length);
   await page.goto(`${base}/extensions/local-codex?tab=mcp`);
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   expect(await page.evaluate(() => history.length)).toBe(before + 1);
 });
 
@@ -122,9 +122,9 @@ test("extensions never show a save bar or ask to save on tab, profile or history
   await profileColumn(page)
     .getByRole("button", { name: /Claude Code/ })
     .click();
-  await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/extensions\/local-codex$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(sheet).toHaveCount(0);
   await expect(bar).toHaveCount(0);
   await page.reload();
@@ -342,7 +342,7 @@ test("phones: sidebar button, profile sheet, plugin detail and a locked switcher
   await expect(sheet).toContainText("/fixture/.codex/config.toml");
   await profiles.filter({ hasText: "Claude Arbeit" }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page).toHaveURL(/\/extensions\/managed-claude$/);
+  await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
   await expect(
     page.getByRole("button", { name: "Skill installieren", exact: true }),
   ).toHaveCount(1);
