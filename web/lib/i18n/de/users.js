@@ -85,6 +85,7 @@ export const usersCopy = {
     coding: "Coding",
     teams: "Teams",
     sessions: "Zugriff auf seine anderen Chats (Session-Tools)",
+    secrets: "Geheimnisse",
     visibleBrowser: "Sichtbares Browserfenster",
   },
   access: "Benutzer dieses Agenten",

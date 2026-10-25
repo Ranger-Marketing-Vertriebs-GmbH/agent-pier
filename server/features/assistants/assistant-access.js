@@ -8,7 +8,11 @@ import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
 import { refuseLockedAccess } from "../users/user-agent-lock.js";
 import { isUserAgent } from "../users/user-access.js";
-import { secretGrantList, withLiveSecrets } from "./agent-secret-grants.js";
+import {
+  secretCatalog,
+  secretGrantList,
+  withLiveSecrets,
+} from "./agent-secret-grants.js";
 import { auditAccessSave, auditSshGrants } from "./assistant-access-audit.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
@@ -133,6 +137,7 @@ export class AssistantAccess {
             projectName: (projectId && names.get(projectId)) || null,
           }),
         ),
+      secrets: secretCatalog(this.s, names),
     };
   }
   /**

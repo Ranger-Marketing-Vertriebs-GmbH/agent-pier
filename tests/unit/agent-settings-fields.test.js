@@ -317,6 +317,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     pipelineIds: [],
     sshAccesses: [],
     github: null,
+    secretIds: [],
     memoryWrite: true,
     autonomous: false,
     publish: false,
@@ -387,6 +388,15 @@ test("work drafts send only the half that changed, each with its revision", () =
   );
   assert.equal(workServer(null, { usage: "onRequest" }).teamUsage, "onRequest");
   assert.equal(workServer(null, { usage: "always" }).teamUsage, "suggest");
+});
+
+test("secret grants are sorted and sent only when they changed", () => {
+  const base = workServer({ revision: 2, projectIds: [], secretIds: ["s2", "s1"] }, null);
+  assert.deepEqual(base.secretIds, ["s1", "s2"]);
+  const body = (values, changed) =>
+    workBody({ values, changed, revisions: { access: 2 }, withTeam: false }).access;
+  assert.equal("secretIds" in body({ ...base, publish: true }, ["publish"]), false);
+  assert.deepEqual(body({ ...base, secretIds: ["s1"] }, ["secretIds"]).secretIds, ["s1"]);
 });
 
 test("team numbers must be whole numbers within the server's limits", () => {

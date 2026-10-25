@@ -182,3 +182,38 @@ test("reading grants never reads secret values", async (t) => {
   assert.ok(statements.length > 0);
   for (const sql of statements) assert.doesNotMatch(sql, /\*|value/, sql);
 });
+
+test("the workspace catalog lists secrets without values, or null while unreadable", async (t) => {
+  const f = await fixture(t);
+  const own = f.secrets.create(
+    { name: "HA_TOKEN", description: "Home", projectId: f.project.id, value: "ha-v" },
+    owner,
+  );
+  const global = f.secret("ZABBIX_URL");
+  assert.deepEqual(f.workflows.access.catalog().secrets, [
+    {
+      id: own.id,
+      name: "HA_TOKEN",
+      description: "Home",
+      projectId: f.project.id,
+      projectName: f.project.name,
+    },
+    {
+      id: global.id,
+      name: "ZABBIX_URL",
+      description: "",
+      projectId: null,
+      projectName: null,
+    },
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(f.workflows.access.catalog()),
+    /ha-v|zabbix_url-value/,
+  );
+  f.secrets.list = () => {
+    throw new Error("locked");
+  };
+  assert.equal(f.workflows.access.catalog().secrets, null);
+  delete f.services.secrets;
+  assert.equal(f.workflows.access.catalog().secrets, null);
+});

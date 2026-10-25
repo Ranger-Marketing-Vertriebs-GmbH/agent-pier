@@ -4,6 +4,8 @@ import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
 import LaunchSshChoices from "../ssh/LaunchSshChoices.jsx";
+import LaunchSecretChoices from "../secrets/LaunchSecretChoices.jsx";
+import { secretsCopy } from "../../lib/i18n/messages/secrets.js";
 import useLaunchAccess from "./useLaunchAccess.js";
 import LaunchAccessFields from "./LaunchAccessFields.jsx";
 import CliVersionNotice from "../tools/CliVersionNotice.jsx";
@@ -106,6 +108,8 @@ export default function LaunchDialog({
     [busEnabled, setBusEnabled] = useState(true),
     [agentpierTools, setAgentpierTools] = useState(true),
     [sshAccessIds, setSshAccessIds] = useState([]),
+    // Secrets beyond the launch project's own; a task-profile launch takes none.
+    [secretIds, setSecretIds] = useState([]),
     [refused, setRefused] = useState(null);
   const selectedTool = access.tool;
   const coding = selectedTool !== "shell";
@@ -151,6 +155,7 @@ export default function LaunchDialog({
                 launchMode,
                 agentbus: coding && busEnabled,
                 sshAccessIds,
+                ...(secretIds.length ? { secretIds } : {}),
                 agentpierTools: coding ? agentpierTools : false,
                 ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
@@ -385,6 +390,9 @@ export default function LaunchDialog({
                           ]
                         : []),
                       copy.sshSummary(sshAccessIds.length),
+                      ...(!profileId && secretIds.length
+                        ? [secretsCopy.launchSummary(secretIds.length)]
+                        : []),
                     ].join(" · ")}
                   </small>
                 </span>
@@ -414,6 +422,13 @@ export default function LaunchDialog({
                   change={setSshAccessIds}
                   sftp={coding}
                 />
+                {!profileId && (
+                  <LaunchSecretChoices
+                    cwd={cwd}
+                    selected={secretIds}
+                    change={setSecretIds}
+                  />
+                )}
               </div>
             </details>
           </AsyncForm>

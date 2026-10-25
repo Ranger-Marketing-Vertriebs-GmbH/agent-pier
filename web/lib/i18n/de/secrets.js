@@ -23,6 +23,10 @@ export const secretsCopy = {
   saving: "Wird gespeichert …",
   deleteTitle: (name) => `Geheimnis '${name}' löschen?`,
   deleteBody: "Agenten und Sessions verlieren dieses Geheimnis sofort.",
+  launchProject: "Projekt",
+  launchHint:
+    "Die Session findet ihre Geheimnisse in einer Datei außerhalb des Checkouts und kann ihre Werte lesen. Geheimnisse des Projekts der Session kommen immer mit.",
+  launchSummary: (count) => `${count} ${count === 1 ? "Geheimnis" : "Geheimnisse"}`,
   errors: {
     SECRET_NAME_TAKEN: "Ein Geheimnis mit diesem Namen existiert bereits.",
     SECRET_LIMIT: "Es sind höchstens 200 Geheimnisse möglich.",

@@ -51,6 +51,7 @@ export const accessKeys = [
   "pipelineIds",
   "sshAccesses",
   "github",
+  "secretIds",
   ...permissionKeys,
 ];
 // Direct folder access per granted project (server assistant-access.js projectFiles).
@@ -75,6 +76,7 @@ const pageTabs = {
   pipelines: "work",
   ssh: "work",
   github: "work",
+  secrets: "work",
   "telegram-activity": "telegram",
   "telegram-connection": "telegram",
 };
@@ -265,6 +267,8 @@ export const workServer = (policy, team) => ({
   github: policy?.github
     ? { credentialId: policy.github.credentialId, level: policy.github.level }
     : null,
+  // Secrets the agent receives in .agentpier/secrets.env (server agent-secret-grants.js).
+  secretIds: sortedIds(policy?.secretIds),
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
@@ -295,7 +299,10 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
       revision: revisions.access,
       ...Object.fromEntries(
         accessKeys
-          .filter((key) => !["sshAccesses", "projectFiles", "github"].includes(key))
+          .filter(
+            (key) =>
+              !["sshAccesses", "projectFiles", "github", "secretIds"].includes(key),
+          )
           .map((key) => [key, values[key]]),
       ),
       // Folder levels likewise go only when changed; the server keeps absent ones
@@ -303,6 +310,8 @@ export function workBody({ values, changed, revisions, withTeam, sshHostIds = nu
       ...(changed.includes("projectFiles") && { projectFiles: values.projectFiles }),
       // Only when changed: a stored access to a removed profile never fails a save.
       ...(changed.includes("github") && { github: values.github }),
+      // Likewise only when changed: an unreadable secrets store never fails a save.
+      ...(changed.includes("secretIds") && { secretIds: values.secretIds }),
       // Only changed grants are sent (the server keeps absent ones), so an unreadable
       // SSH catalog cannot fail other saves. Grants of removed hosts drop on save; an
       // unreadable catalog drops nothing.

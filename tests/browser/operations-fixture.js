@@ -156,6 +156,7 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
         : { deliveryId, status: "handed-off" };
     } else if (path.endsWith("/chat")) result = chat;
     else if (path === "/pipeline-profiles") result = { profiles: [] };
+    else if (path === "/secrets") result = { secrets: [] };
     else if (path === "/sandbox-profiles") result = { available: false, profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
