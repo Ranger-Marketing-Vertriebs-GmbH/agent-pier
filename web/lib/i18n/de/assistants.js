@@ -51,6 +51,7 @@ export const assistantCopy = {
       SNAPSHOT_FAILED:
         "Die Datensicherung konnte die unten genannte Datei nicht aufnehmen. Die vorherige Version bleibt aktiv.",
     },
+    snapshotProgress: (copied, total) => `Datensicherung läuft: ${copied} von ${total}`,
     upToDate: "Die geprüfte Version ist bereits aktiv.",
     affected: (count, members = 0) =>
       `${count} ${count === 1 ? "Agent" : "Agenten"} betroffen${members ? ` (+${members} ${members === 1 ? "Teammitglied" : "Teammitglieder"})` : ""}`,
