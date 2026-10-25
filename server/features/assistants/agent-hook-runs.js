@@ -19,6 +19,7 @@ const silent = (text) => !text?.trim() || text.trim() === "NO_REPLY";
 // A run times out after five minutes; an event unsettled for three times that lost
 // its completion (AgentPier or the Gateway restarted).
 const staleMs = 15 * 60000;
+const sweepFloorMs = 60000;
 const unsettled = (event) => ["pending", "running"].includes(event?.status);
 
 /**
@@ -53,11 +54,14 @@ export class HookRuns {
    * Creates and forces the event's job; throws when it could not be started (config
    * apply, cron.add or cron.run failed, or OpenClaw refused the run).
    */
-  start(hook, event) {
+  start(admitted, event) {
     return this.assistants.admit(async () => {
       const { events } = this.hooks;
-      const agent = this.assistants.store.getAssistant(hook.assistantId);
-      if (!hookEligible(agent)) throw assistantProblem("unavailable", 503);
+      // Paused, deleted or no longer eligible since the endpoint checked: no run.
+      const hook = this.hooks.store.get(admitted.id);
+      const agent = this.assistants.store.getAssistant(admitted.assistantId);
+      if (!hook?.enabled || !hookEligible(agent))
+        throw assistantProblem("unavailable", 503);
       this.assistants.requireReady();
       // The agent's live tools and shell level are current before its run starts.
       await this.assistants.config.apply(agent.id);
@@ -154,7 +158,6 @@ export class HookRuns {
   /** Records the run's result on its event, notifies and removes its job. */
   async settle(event, completion) {
     const { events, store } = this.hooks;
-    const hook = store.get(event.hookId);
     let agent;
     try {
       agent = this.assistants.store.getAssistant(event.assistantId);
@@ -173,6 +176,10 @@ export class HookRuns {
           event: { ...completion, summary },
         })
       : null;
+    // The hook deleted meanwhile: its event is a tombstone (HookEvents.forget) and
+    // settles as it is, without a result or notice.
+    if (events.get(event.id)?.status !== "running") return this.removeJob(event.jobId);
+    const hook = store.get(event.hookId);
     const quiet = ok && silent(text);
     // What the hook may do now: paused or lost rights since it started notify nobody.
     const effective =
@@ -292,12 +299,18 @@ export class HookRuns {
     if (payload?.stream !== "item") return;
     const job = jobOf(payload.sessionKey);
     if (!job) return;
+    // An indexed lookup; any other cron session (routines) ends here.
     const event = this.hooks.events.byJob(job);
     if (event?.status !== "running") return;
-    const agent = this.assistants.store.getAssistant(event.assistantId);
+    let agent;
+    try {
+      agent = this.assistants.store.getAssistant(event.assistantId);
+    } catch {
+      return;
+    }
     if (
       runSession.exec(payload.sessionKey)[1].toLowerCase() !==
-      agent.runtimeAgentId?.toLowerCase()
+      agent?.runtimeAgentId?.toLowerCase()
     )
       return;
     if (event.sessionKey !== payload.sessionKey)
@@ -333,20 +346,23 @@ export class HookRuns {
           continue;
         await this.removeJob(job.id);
       }
+      // Tombstones of deleted hooks age out here (live hooks prune on admit).
+      events.expire();
       if (changed) this.assistants.changed();
       this.schedule();
     });
   }
   /**
    * Sweeps again once the oldest event still unsettled can be stale: a run that a
-   * restart interrupted is younger than the window at the ready that follows it.
+   * restart interrupted is younger than the window at the ready that follows it. At
+   * most once a minute: a job the Gateway still reports running is not stale.
    */
   schedule() {
     clearTimeout(this.sweep);
     this.sweep = null;
     const oldest = this.hooks.events.unsettled()[0];
     if (!oldest) return;
-    const wait = Math.max(1000, oldest.receivedAt + staleMs - this.now() + 1000);
+    const wait = Math.max(sweepFloorMs, oldest.receivedAt + staleMs - this.now() + 1000);
     this.sweep = this.later(() => {
       this.sweep = null;
       this.reconcile().catch(() => {});
