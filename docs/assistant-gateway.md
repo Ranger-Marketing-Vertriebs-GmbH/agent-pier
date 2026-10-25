@@ -344,12 +344,15 @@ for the implementation and remaining native platform/version qualification.
   headers. It refuses (403) any `Tailscale-Funnel-Request`, `Origin` or
   `Sec-Fetch-Site` header, so neither Funnel nor a browser page reaches it, and any
   `token` query parameter. The sender authenticates with
-  `Authorization: Bearer <secret>`; AgentPier stores only the secret's SHA-256 and
+  `Authorization: Bearer <secret>` (scheme in any case); AgentPier stores only the secret's SHA-256 and
   compares digests in constant time. Ten failed attempts (401, or 404 for a
   well-formed hook ID) from one source in ten minutes answer
   `429 HOOK_RATE_LIMITED` with `Retry-After` until the window ends; the source is
   `local`, the first `X-Forwarded-For` entry on the Tailscale branch, or the socket
-  address in network mode. Unknown, disabled and ineligible hooks answer the same
+  address in network mode. Every Tailscale-branch failure also counts against one
+  shared tailnet window, because a local process can forge `X-Forwarded-For`; at
+  most 1000 windows are kept, and the least recently failed one is evicted first
+  (never the local or shared tailnet window). Unknown, disabled and ineligible hooks answer the same
   `404 HOOK_NOT_FOUND`. Bodies are JSON or `text/plain` (else `415`), at most
   64 KiB (else `413`), and must arrive within 15 s; only the event-ID headers reach
   the delivery, and the audit records hook, outcome, branch, size and (once

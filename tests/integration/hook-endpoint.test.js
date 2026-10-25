@@ -11,7 +11,7 @@ const networkHost = "192.168.1.20:4380";
 
 // The middleware inside a real HTTP server, a hook with its one-time secret, and
 // `post` for requests from loopback with any Host and headers.
-async function endpoint(t, { network = false } = {}) {
+async function endpoint(t, { network = false, throttle } = {}) {
   const f = hookFixture(t);
   const { hook, secret } = f.hooks.create(f.id, { name: "Zabbix", sender: "zabbix01" });
   const config = {
@@ -21,7 +21,7 @@ async function endpoint(t, { network = false } = {}) {
     networkHosts: new Set([networkHost]),
   };
   const app = express();
-  app.use(hookEndpoint({ assistantRoutines: f.routines }, () => config));
+  app.use(hookEndpoint({ assistantRoutines: f.routines }, () => config, { throttle }));
   app.use((req, res) => res.status(418).json({ next: true }));
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -36,11 +36,12 @@ async function endpoint(t, { network = false } = {}) {
       auth = `Bearer ${secret}`,
       type = "application/json",
       host = local,
+      chunked = false,
     } = options;
     const payload = Buffer.isBuffer(data) ? data : Buffer.from(data);
     const all = { host, "content-type": type, ...headers };
     if (auth) all.authorization = auth;
-    if (method === "POST") all["content-length"] = payload.length;
+    if (method === "POST" && !chunked) all["content-length"] = payload.length;
     return new Promise((resolve, reject) => {
       const req = http.request(
         { host: "127.0.0.1", port: config.port, path, method, headers: all },
@@ -59,7 +60,10 @@ async function endpoint(t, { network = false } = {}) {
         },
       );
       req.on("error", reject);
-      req.end(method === "POST" ? payload : undefined);
+      if (chunked)
+        for (let at = 0; at < payload.length; at += 8192)
+          req.write(payload.subarray(at, at + 8192));
+      req.end(method === "POST" && !chunked ? payload : undefined);
     });
   };
   return { f, hook, secret, post, config, local };
@@ -215,6 +219,62 @@ test("a wrong secret answers 401 and repeated failures are throttled per source"
   assert.equal(f.calls.length, 0);
 });
 
+test("a hook without a secret answers 401 and the Bearer scheme ignores case", async (t) => {
+  const { f, post, secret } = await endpoint(t);
+  assert.equal((await post({}, { auth: `bearer ${secret}` })).status, 202);
+  const { hook } = f.hooks.create(
+    f.id,
+    { name: "Proposed", sender: "ci" },
+    { actor: "assistant" },
+  );
+  assert.equal(f.hooks.store.get(hook.id).secretHash, null);
+  for (const auth of [null, "Bearer aph_anything", `Bearer ${secret}`]) {
+    const r = await post({}, { path: `/hooks/${hook.id}`, auth });
+    assert.equal(r.status, 401);
+    assert.deepEqual(r.body, { error: "HOOK_UNAUTHORIZED" });
+  }
+});
+
+test("rotating X-Forwarded-For values share one tailnet window and a capped map", async (t) => {
+  const throttle = new AuthThrottle({ maxKeys: 5 });
+  const { f, post } = await endpoint(t, { throttle });
+  for (let i = 0; i < 10; i += 1) {
+    const r = await post(
+      { "x-forwarded-for": `100.64.0.${i}` },
+      { host: remoteHost, auth: "Bearer aph_wrong" },
+    );
+    assert.equal(r.status, 401);
+    assert.ok(throttle.failures.size <= 5, String(throttle.failures.size));
+  }
+  const fresh = await post({ "x-forwarded-for": "100.64.1.1" }, { host: remoteHost });
+  assert.equal(fresh.status, 429);
+  assert.ok(Number(fresh.headers["retry-after"]) > 0);
+  assert.ok(throttle.failures.has("tailscale"));
+  // The local machine keeps its own window.
+  assert.equal((await post()).status, 202);
+  assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 1);
+});
+
+test("the auth throttle evicts the least recently failed key, never a fixed one", () => {
+  let now = 0;
+  const throttle = new AuthThrottle({ now: () => now, limit: 3, maxKeys: 3 });
+  throttle.fail("local");
+  throttle.fail(["tailscale:a", "tailscale"]);
+  for (let i = 0; i < 50; i += 1) {
+    now += 1;
+    throttle.fail(`network:${i}`);
+    assert.ok(throttle.failures.size <= 3);
+  }
+  assert.ok(throttle.failures.has("local"));
+  assert.ok(throttle.failures.has("tailscale"));
+  assert.ok(throttle.failures.has("network:49"));
+  assert.ok(!throttle.failures.has("tailscale:a"));
+  // Each key keeps at most `limit` failures.
+  for (let i = 0; i < 20; i += 1) throttle.fail("local");
+  assert.equal(throttle.failures.get("local").length, 3);
+  assert.ok(throttle.blocked(["local"]) > 0);
+});
+
 test("the auth throttle frees a source when its window ends", () => {
   let now = 1000;
   const throttle = new AuthThrottle({ now: () => now, limit: 2, windowMs: 100 });
@@ -235,7 +295,17 @@ test("bodies over 64 KiB answer 413 and unsupported types 415", async (t) => {
   const big = await post({}, { data: Buffer.alloc(65537, "a"), type: "text/plain" });
   assert.equal(big.status, 413);
   assert.deepEqual(big.body, { error: "HOOK_TOO_LARGE" });
-  const exact = await post({}, { data: Buffer.alloc(65536, "a"), type: "text/plain" });
+  // Without Content-Length the streamed body is counted as it arrives.
+  const streamed = await post(
+    {},
+    { data: Buffer.alloc(65537, "b"), type: "text/plain", chunked: true },
+  );
+  assert.equal(streamed.status, 413);
+  assert.deepEqual(streamed.body, { error: "HOOK_TOO_LARGE" });
+  const exact = await post(
+    {},
+    { data: Buffer.alloc(65536, "a"), type: "text/plain", chunked: true },
+  );
   assert.equal(exact.status, 202);
   const xml = await post({}, { data: "<a/>", type: "application/xml" });
   assert.equal(xml.status, 415);

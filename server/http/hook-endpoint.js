@@ -49,43 +49,81 @@ export function authorizeHookTransport(req, config) {
   throw problem("Hooks require the local, Tailscale or configured network host.", 403);
 }
 
-/** Failed authentication per source key: `limit` failures in `windowMs` block it. */
+// The windows no flood may evict: the local machine and the shared tailnet window.
+const fixedKeys = new Set(["local", "tailscale"]);
+
+/**
+ * Failed authentication per source key: `limit` failures in `windowMs` block it. A
+ * request counts against every key of its source (`keys` may be one or a list). At
+ * most `maxKeys` windows are kept: expired ones are pruned at most once per
+ * `pruneMs`, then the least recently failed key is evicted, never a fixed one.
+ */
 export class AuthThrottle {
-  constructor({ now = Date.now, limit = 10, windowMs = 600000 } = {}) {
-    Object.assign(this, { now, limit, windowMs });
+  constructor({
+    now = Date.now,
+    limit = 10,
+    windowMs = 600000,
+    maxKeys = 1000,
+    pruneMs = 60000,
+  } = {}) {
+    Object.assign(this, { now, limit, windowMs, maxKeys, pruneMs });
     this.failures = new Map();
+    this.prunedAt = -Infinity;
   }
   recent(key) {
     const since = this.now() - this.windowMs;
     const kept = (this.failures.get(key) || []).filter((at) => at > since);
-    if (kept.length) this.failures.set(key, kept);
-    else this.failures.delete(key);
+    if (!kept.length) this.failures.delete(key);
     return kept;
   }
-  /** Milliseconds until the key may try again; 0 when it is free. */
-  blocked(key) {
-    const kept = this.recent(key);
-    if (kept.length < this.limit) return 0;
-    return kept[kept.length - this.limit] + this.windowMs - this.now();
+  /** Milliseconds until the source may try again; 0 when it is free. */
+  blocked(keys) {
+    let wait = 0;
+    for (const key of [keys].flat()) {
+      const kept = this.recent(key);
+      if (kept.length >= this.limit)
+        wait = Math.max(
+          wait,
+          kept[kept.length - this.limit] + this.windowMs - this.now(),
+        );
+    }
+    return wait;
   }
-  fail(key) {
-    // Bounded memory: forget sources whose window ended once many are tracked.
-    if (this.failures.size > 1000)
-      for (const other of [...this.failures.keys()]) this.recent(other);
-    this.failures.set(key, [...this.recent(key), this.now()]);
+  fail(keys) {
+    for (const key of [keys].flat()) {
+      // Only the last `limit` failures decide; re-inserting keeps the map in
+      // least-recently-failed order.
+      const kept = [...this.recent(key), this.now()].slice(-this.limit);
+      this.failures.delete(key);
+      if (this.failures.size >= this.maxKeys) this.makeRoom();
+      this.failures.set(key, kept);
+    }
+  }
+  makeRoom() {
+    if (this.now() - this.prunedAt >= this.pruneMs) {
+      this.prunedAt = this.now();
+      for (const key of [...this.failures.keys()]) this.recent(key);
+    }
+    for (const key of this.failures.keys()) {
+      if (this.failures.size < this.maxKeys) return;
+      if (!fixedKeys.has(key)) this.failures.delete(key);
+    }
   }
 }
 
-// The throttle key of a request's source on its branch.
-function sourceKey(req, branch) {
-  if (branch === "local") return "local";
+// The throttle keys of a request's source. Tailscale Serve proxies every tailnet
+// device from loopback and a local process can forge X-Forwarded-For, so every
+// Tailscale-branch request also counts against one shared tailnet window: rotating
+// forged addresses never escapes it (as login.js does for sign-ins).
+function sourceKeys(req, branch) {
+  if (branch === "local") return ["local"];
   if (branch === "tailscale") {
     const forwarded = String(req.headers["x-forwarded-for"] || "")
       .split(",")[0]
       .trim();
-    return `tailscale:${forwarded || "unknown"}`;
+    return [`tailscale:${forwarded || "unknown"}`, "tailscale"];
   }
-  return `network:${req.socket.remoteAddress}`;
+  return [`network:${req.socket.remoteAddress}`];
 }
 
 // The enabled hook of an eligible agent, else null (one 404 for every case).
@@ -158,7 +196,7 @@ export function hookEndpoint(
       return reply(403, { error: "HOOK_FORBIDDEN" });
     }
     req.setTimeout(bodyTimeout, () => req.destroy());
-    const key = sourceKey(req, branch);
+    const key = sourceKeys(req, branch);
     const wait = throttle.blocked(key);
     if (wait > 0)
       return reply(
@@ -179,7 +217,7 @@ export function hookEndpoint(
     }
     const authorization = req.headers.authorization;
     const supplied =
-      typeof authorization === "string" && /^Bearer \S+$/.test(authorization)
+      typeof authorization === "string" && /^Bearer \S+$/i.test(authorization)
         ? authorization.slice(7)
         : null;
     if (!secretMatches(hook.secretHash, supplied)) {
@@ -189,6 +227,10 @@ export function hookEndpoint(
     const contentType = mediaType(req.headers["content-type"]);
     if (contentType !== "application/json" && contentType !== "text/plain")
       return refuse(415, "HOOK_UNSUPPORTED_TYPE", "invalid");
+    // A declared body over the cap is refused before it is read.
+    const declared = Number(req.headers["content-length"]);
+    if (Number.isSafeInteger(declared) && declared > maxBody)
+      return refuse(413, "HOOK_TOO_LARGE", "too-large", declared);
     let body;
     try {
       body = await readBody(req);
