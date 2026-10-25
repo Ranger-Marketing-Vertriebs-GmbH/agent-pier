@@ -7,6 +7,8 @@ import {
 } from "../../server/features/ssh/ssh-interactive-run.js";
 import {
   consoleText,
+  consoleTrace,
+  consoleTraceLimit,
   lastLine,
   pagerPattern,
   promptPattern,
@@ -219,4 +221,61 @@ test("a status line in brackets is not taken for a prompt", async () => {
     timing: { idleMs: 1000, settleMs: 60 },
   });
   assert.match(result.stdout, /\[OK\]\nSwitch>\nFakeSwitch OS 1.0/);
+});
+
+// A raw-mode CLI like a TP-Link JetStream switch: only CR is Enter, a lone CR echo.
+test("a CR-only console runs show commands and enable after Enter as CR", async () => {
+  const shown = await run("show system-info", { flags: ["--cr-only"] });
+  assert.equal(
+    shown.stdout,
+    "Welcome to FakeSwitch\n\nCore-Switch>\n" +
+      " System Description - JetStream 48-Port Gigabit L2+ Managed Switch\n" +
+      " Device Name        - Core-Switch\n\nCore-Switch>\nConnection closed.\n",
+  );
+  assert.equal(shown.signal, null);
+  assert.equal(shown.consoleTrace, undefined);
+  const enabled = await run("enable\nshow system-info\nexit", { flags: ["--cr-only"] });
+  assert.match(
+    enabled.stdout,
+    /^Welcome to FakeSwitch\n\nCore-Switch>\nCore-Switch#\n System Description - JetStream.*\n Device Name {8}- Core-Switch\n\nCore-Switch#\nCore-Switch>\nConnection closed\.\n$/,
+  );
+  assert.ok(!/show system-info|enable|\r/.test(enabled.stdout));
+});
+
+test("the prompt redrawn after a lone CR paces the run, not the idle time", async () => {
+  const started = Date.now();
+  const result = await run("enable\nshow system-info", {
+    flags: ["--cr-only"],
+    timing: { idleMs: 5000, settleMs: 60 },
+  });
+  assert.match(result.stdout, /Core-Switch#\n System Description/);
+  assert.ok(Date.now() - started < 4000, "prompts, not the idle time, paced the run");
+});
+
+test("a run that shows only prompts carries the escaped raw console", async () => {
+  const result = await run("enable", { flags: ["--cr-only"] });
+  assert.equal(
+    result.stdout,
+    "Welcome to FakeSwitch\n\nCore-Switch>\nCore-Switch#\nCore-Switch>\n",
+  );
+  assert.equal(
+    result.consoleTrace,
+    "\\r\\n\nWelcome to \\x1b[32mFakeSwitch\\x1b[0m\\r\\n\n\\r\\n\nCore-Switch>\n" +
+      '[typed "enable\\r"]\nenable\\rCore-Switch#\n' +
+      '[typed "exit\\r"]\nexit\\r\\n\nCore-Switch>',
+  );
+  // Output other than prompts needs no trace; neither does the sign-in test ("").
+  assert.equal((await run("enable\nshow version")).consoleTrace, undefined);
+  assert.equal((await run("")).consoleTrace, undefined);
+});
+
+test("a console trace is bounded and cut at character boundaries", () => {
+  const trace = consoleTrace(["€".repeat(3000), "ä\x1b".repeat(2000)], () => "x", "\r");
+  assert.ok(Buffer.byteLength(trace) <= consoleTraceLimit);
+  assert.ok(!trace.includes("\uFFFD"));
+  assert.match(trace, /^€+\n\[… trace shortened …\]\n(?:ä\\x1b)+$/);
+  assert.equal(
+    consoleTrace(["a\\b\t\b\x00\x7f"], () => "", "\r"),
+    "a\\\\b\\t\\b\\x00\\x7f",
+  );
 });

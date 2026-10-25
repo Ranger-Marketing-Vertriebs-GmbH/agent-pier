@@ -43,6 +43,8 @@ try {
       });
       process.stdout.write(result.stdout);
       process.stderr.write(result.stderr);
+      if (result.consoleTrace)
+        process.stderr.write(`Console trace (raw, escaped):\n${result.consoleTrace}\n`);
       process.exitCode = result.exitCode ?? (result.timedOut || result.signal ? 1 : 0);
     } else
       await new Promise((resolve) => {
