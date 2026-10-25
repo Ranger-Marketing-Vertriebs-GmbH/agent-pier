@@ -112,9 +112,12 @@ it took it over from the lead.
 - **Uploads with the browser** (while **Use a browser** is on): the agent can upload a
   file from a project folder it may at least read, or from its own workspace, to a
   website, for example a finished episode to YouTube Studio. AgentPier prepares a copy
-  for that agent's browser alone (up to 8 GiB, removed after six hours); files outside
-  those folders stay refused, and every upload is recorded in the activity log with the
-  agent, project, path, size and the website the agent named. See
+  for that agent's browser alone (up to 8 GiB, removed after six hours, when AgentPier
+  restarts or when the agent loses the browser); files outside those folders stay
+  refused, and every upload is recorded in the activity log with the agent, project,
+  path, size and the website the agent says it uploads to. The agent uploads without
+  asking you, so a page could try to talk it into uploading a file it may read: switch
+  on the browser only for agents whose folders you would share that way. See
   [browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders).
 - **Shell access:** **Off**, **With approval** or **Full access**. With approval, the
   agent asks before every command that is not always allowed; the request appears in
