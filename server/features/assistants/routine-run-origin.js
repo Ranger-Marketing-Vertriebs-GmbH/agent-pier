@@ -1,11 +1,6 @@
 import { personalCapabilities } from "./native-capabilities.js";
 import { isLeadRoutine } from "./lead-routines.js";
 
-const agentOf = (bridge, runtimeAgentId) =>
-  bridge.assistants.store
-    .listAssistants()
-    .find((a) => a.runtimeAgentId === runtimeAgentId);
-
 // A routine is standing work its owner configured for this agent: its run may
 // change the agent's own workspace like an owner turn. This origin is only the
 // run session of a bound, enabled routine of the calling agent with memory and
@@ -13,7 +8,7 @@ const agentOf = (bridge, runtimeAgentId) =>
 // grants nothing to delegated tasks by itself: only a routine the owner marked
 // "May write" starts tasks that may write (lead-request-store.js).
 export function routineWrite(bridge, input) {
-  const agent = agentOf(bridge, input.agentId);
+  const agent = bridge.agentOf(input.agentId);
   if (!agent || agent.archivedAt) return false;
   const capabilities = personalCapabilities(agent);
   if (!capabilities.memory || !capabilities.reminders) return false;
@@ -27,7 +22,7 @@ export function routineWrite(bridge, input) {
 
 // The run session of a bound, enabled routine of a personal agent with routines on.
 export function routineRun(bridge, input) {
-  const agent = agentOf(bridge, input.agentId);
+  const agent = bridge.agentOf(input.agentId);
   if (
     !agent ||
     agent.archivedAt ||

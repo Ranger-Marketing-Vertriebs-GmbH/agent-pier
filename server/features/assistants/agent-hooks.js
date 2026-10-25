@@ -254,7 +254,10 @@ export class AgentHooks {
     try {
       await this.runs.start(hook, event);
     } catch {
-      this.events.remove(event.id);
+      // A start that failed once its job existed may still run: its session keeps a
+      // hook event without rights (HookEvents.tombstone); the retry runs afresh.
+      if (this.events.get(event.id)?.jobId) this.events.tombstone(event.id);
+      else this.events.remove(event.id);
       return answer(503, "unavailable");
     }
     return answer(202, "accepted", event);

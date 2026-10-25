@@ -122,7 +122,7 @@ test("a failed cron.add answers 503 and lets the retry run", async (t) => {
   assert.equal(f.calls.filter((c) => c.method === "cron.run").length, 1);
 });
 
-test("a run OpenClaw refuses is a failed start: 503, no row, no job, retry runs", async (t) => {
+test("a run OpenClaw refuses is a failed start: 503, a failed tombstone, no job, retry runs", async (t) => {
   const f = hookFixture(t);
   const hook = makeHook(f);
   const call = f.assistants.runtime.client.call;
@@ -136,12 +136,20 @@ test("a run OpenClaw refuses is a failed start: 503, no row, no job, retry runs"
   };
   const r = await f.hooks.deliver(hook, body('{"id":"p1"}'));
   assert.deepEqual(r, { status: 503, body: { eventId: "p1", status: "unavailable" } });
+  // No duplicate key is left, but the row stays failed with its job id.
   assert.equal(event(f, hook, "p1"), null);
+  const [tombstone] = f.hooks.events.forAssistant(f.id);
+  assert.equal(tombstone.status, "failed");
+  assert.equal(tombstone.startFailed, true);
+  assert.equal(tombstone.jobId, "job-0");
+  assert.equal(f.hooks.events.payload(tombstone.id), null);
   assert.equal(f.jobs.size, 0);
   assert.equal(deliveries(f).at(-1).details.outcome, "unavailable");
   const retry = await f.hooks.deliver(hook, body('{"id":"p1"}'));
-  assert.equal(retry.status, 202);
+  assert.deepEqual(retry, { status: 202, body: { eventId: "p1", status: "accepted" } });
   assert.equal(event(f, hook, "p1").status, "running");
+  assert.notEqual(event(f, hook, "p1").id, tombstone.id);
+  assert.equal(f.hooks.events.get(tombstone.id).status, "failed");
 });
 
 test("the agent's configuration is applied before the job is created", async (t) => {

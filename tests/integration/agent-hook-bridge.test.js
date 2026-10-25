@@ -128,6 +128,42 @@ test("hook origin ends when the event settles", async (t) => {
   assert.equal(f.policy(running.sessionKey, "session_status"), true);
 });
 
+test("a run whose start failed after its job existed gets no hook rights", async (t) => {
+  const f = await setup(t, { memory: true, shell: "full" });
+  const hook = makeHook(f, { rights: { memory: true, shell: "full" } });
+  const call = f.assistants.runtime.client.call;
+  let failing = true;
+  // The Gateway may have started the run when its cron.run answer is lost.
+  f.assistants.runtime.client.call = async (method, input) => {
+    if (method === "cron.run" && failing) {
+      failing = false;
+      throw Object.assign(new Error("Gateway lost"), { code: "UNAVAILABLE" });
+    }
+    return call(method, input);
+  };
+  const first = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.equal(first.status, 503);
+  const [orphan] = f.hooks.events.forAssistant(f.id);
+  assert.equal(orphan.status, "failed");
+  const sessionKey = `agent:${f.runtimeAgentId}:cron:${orphan.jobId}:run:r1`;
+  assert.equal(f.policy(sessionKey, "exec"), false);
+  assert.equal(f.policy(sessionKey, "process"), false);
+  assert.throws(() => f.prepare(sessionKey, "workspace"), refused);
+  assert.throws(() => f.prepare(sessionKey, "ssh"), refused);
+  assert.equal(f.write(sessionKey, "MEMORY.md"), false);
+  assert.equal(f.write(sessionKey, "notes.md"), false);
+  // The sender's retry is admitted afresh and runs with the hook's rights. (Gateway
+  // job ids are unique; the fixture's cron store numbers them by count.)
+  f.jobs.set("placeholder", {});
+  const retry = await f.hooks.deliver(hook, body('{"id":"p1"}'));
+  assert.deepEqual(retry, { status: 202, body: { eventId: "p1", status: "accepted" } });
+  const running = event(f, hook, "p1");
+  assert.notEqual(running.jobId, orphan.jobId);
+  const live = `agent:${f.runtimeAgentId}:cron:${running.jobId}:run:r1`;
+  assert.equal(f.policy(live, "exec"), true);
+  assert.equal(f.policy(sessionKey, "exec"), false);
+});
+
 test("memory writes need the Write memory tick and stay inside memory", async (t) => {
   const f = await setup(t, { memory: true });
   const plain = await f.run(makeHook(f, { name: "Plain" }), "p1");
@@ -138,6 +174,8 @@ test("memory writes need the Write memory tick and stay inside memory", async (t
   assert.equal(f.write(writer.sessionKey, "MEMORY.md"), true);
   assert.equal(f.write(writer.sessionKey, "memory/2026-10-24.md"), true);
   assert.equal(f.write(writer.sessionKey, "memory/2026-10-24.md", "edit"), true);
+  // apply_patch is not among a hook run's tools.
+  assert.equal(f.write(writer.sessionKey, "MEMORY.md", "apply_patch"), false);
   for (const file of [
     "notes.md",
     "../x",
