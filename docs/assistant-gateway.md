@@ -358,6 +358,21 @@ for the implementation and remaining native platform/version qualification.
   the delivery, and the audit records hook, outcome, branch, size and (once
   delivered) the event ID, never payload, headers or secret. A `503` (runtime not ready) carries
   `Retry-After: 30`.
+- **Hook runs are qualified on OpenClaw 2026.10.7.** The native contract
+  `tests/integration/assistant-hook-contract.test.js` (opt-in with
+  `AGENTPIER_ASSISTANT_ROUTINE_RUNTIME`) delivers an event to the pinned Gateway: the
+  disabled job is created and forced, the run's tool calls carry
+  `agent:<agent>:cron:<job>:run:<id>` and resolve to the event through
+  `AgentHooks.runOrigin`, the run is offered `toolsAllow` intersected with the agent's
+  tools (OpenClaw adds `apply_patch` beside `write`; the write guard refuses it in a
+  hook run) and never scheduling, hook or team tools, the completion arrives on
+  `/hook-complete/<event>` with `deliveryStatus: "delivered"`, the reply appears once
+  in the main chat's `chat.history`, the job is removed and `openclaw.json` holds no
+  `hooks`. OpenClaw keeps the hook prompt out of the main chat's transcript (only the
+  reply is committed), and AgentPier's chat view never shows the prompt or payload. A
+  background command the run started exits after the event settled without
+  starting a completion turn: the cron run session keeps no transcript, and the
+  bridge would refuse any shell call of such a turn (`hookLockedTool`).
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.
