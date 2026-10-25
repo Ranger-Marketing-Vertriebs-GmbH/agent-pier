@@ -77,11 +77,12 @@ test("a failed run is reported once until the routine works again; silence stays
   f.idle();
   await f.service.reconcile();
   assert.match(followUps(f)[0].text, /failed; later failures are not reported/);
-  // The lead learns why, to pass it on: the cause and OpenClaw's message.
+  // The lead learns why, to pass it on: the cause only, never the provider's text.
   assert.match(
     followUps(f)[0].text,
-    /"failure":\{"reason":"gateway-restart","message":"cron: job interrupted by gateway restart"\}/,
+    /"failure":\{"reason":"gateway-restart","summary":"The Gateway restarted during the run\."\}/,
   );
+  assert.doesNotMatch(followUps(f)[0].text, /cron: job interrupted/);
 });
 
 test("a lead routine's run writes only with the owner's switch or an autonomous lead", async (t) => {

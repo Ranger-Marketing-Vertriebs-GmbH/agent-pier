@@ -413,11 +413,16 @@ the completion webhook's `error`. `routine-failures.js` maps it to a stable reas
 before a restarted Gateway settled, `gateway-stopped` for "… because owner is
 unavailable", `agent-unavailable`, `timeout`, `model`, `delivery`, `other`) and keeps
 OpenClaw's message as the detail, redacted with `server/lib/secret-redaction.js` plus
-URL query values and bearer tokens, and cut to 500 characters. The routine list
-(settings and the agent's `agentpier_routine` list, also a lead's
-`agentpier_team_member_routine` list) carries it as `lastFailure`, the run history as
-`failure` per entry, the chat's failure line as `failure`, and a lead's failure
-report as `failure`. The settings translate the reason; the message stays in
+URL query values, bearer tokens, cookies, Google API keys, unquoted `key: value`
+secrets and home paths (`/Users/<name>` and `/home/<name>` become `~`), and cut to
+500 characters. OpenClaw's own deadlines and Gateway messages decide first, then its
+failover reason, then the message's words (a provider HTTP status wins over a
+mentioned timeout). The settings' routine list carries it as `lastFailure`, the run
+history as `failure` per entry and the chat's failure line as `failure`. The agent's
+`agentpier_routine` list adds an English `summary` and quotes the message on one
+line as runtime error text that is data, not instructions. A lead (its
+`agentpier_team_member_routine` list and its failure report) gets only the reason
+and the summary, never the provider's text. The settings translate the reason; the message stays in
 OpenClaw's language. A run's result summary is never part of the history.
 `tests/integration/assistant-routine-failure-contract.test.js` interrupts a run with
 a Gateway restart and refuses one at the model endpoint on the pinned runtime.
