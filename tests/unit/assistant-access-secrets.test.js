@@ -149,3 +149,36 @@ test("a bot for other people is refused for an agent holding secrets", async (t)
   f.save({ secretIds: [] });
   assert.equal(senders.eligible(f.id).id, f.id);
 });
+
+test("an unreadable secret store keeps the stored grants", async (t) => {
+  const f = await fixture(t);
+  const a = f.secret("ALPHA");
+  f.save({ secretIds: [a.id] });
+  const names = f.secrets.names;
+  f.secrets.names = () => {
+    throw Error("database is locked");
+  };
+  assert.deepEqual(f.workflows.access.get(f.id).secretIds, [a.id]);
+  // A save that leaves the grants out keeps them; one that names any is refused.
+  assert.deepEqual(f.save({ memoryWrite: false }).secretIds, [a.id]);
+  assert.throws(() => f.save({ secretIds: [a.id] }), { status: 503 });
+  assert.deepEqual(f.save({ secretIds: [] }).secretIds, []);
+  f.secrets.names = names;
+  f.save({ secretIds: [a.id] });
+  delete f.services.secrets;
+  assert.deepEqual(f.save({ memoryWrite: true }).secretIds, [a.id]);
+});
+
+test("reading grants never reads secret values", async (t) => {
+  const f = await fixture(t);
+  const a = f.secret("ALPHA");
+  f.save({ secretIds: [a.id] });
+  const prepare = f.secrets.db.prepare.bind(f.secrets.db);
+  const statements = [];
+  f.secrets.db.prepare = (sql) => statements.push(sql) && prepare(sql);
+  f.workflows.access.get(f.id);
+  f.save({ secretIds: [a.id] });
+  f.secrets.list();
+  assert.ok(statements.length > 0);
+  for (const sql of statements) assert.doesNotMatch(sql, /\*|value/, sql);
+});

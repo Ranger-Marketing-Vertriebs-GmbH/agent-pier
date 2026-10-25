@@ -9,6 +9,7 @@ import {
   connectAgentSecrets,
 } from "../../server/features/secrets/agent-secrets.js";
 import { writeSecretFile } from "../../server/features/secrets/secret-format.js";
+import { AssistantEvents } from "../../server/features/assistants/assistant-events.js";
 
 const owner = { kind: "owner" };
 const emptyPolicy = {
@@ -198,28 +199,72 @@ test("a symlinked secrets file is replaced, its target left alone", async (t) =>
   assert.equal(fs.statSync(target).mode & 0o777, 0o644);
 });
 
-test("the connected delivery follows secret changes and grant saves at once", async (t) => {
-  const f = await fixture(t);
+// The production wiring: AssistantService.changed publishes on its events.
+function connected(f) {
   const config = {};
+  const events = new AssistantEvents();
+  f.assistants.changed = () => events.publish({ type: "change" });
   const agentSecrets = connectAgentSecrets(f.secrets, {
-    assistants: { store: f.store, config },
+    assistants: { store: f.store, config, events },
     assistantWorkflows: f.workflows,
     assistantRuntime: { paths: { workspaces: f.workspaces } },
   });
-  const settled = () => agentSecrets.queue.catch(() => {});
+  return { config, agentSecrets };
+}
+
+test("the connected delivery follows secret changes and grant saves at once", async (t) => {
+  const f = await fixture(t);
+  const { config, agentSecrets } = connected(f);
   const s1 = f.secrets.create({ name: "S1", value: "one" }, owner);
   f.grantSecrets([s1.id]);
-  await settled();
-  assert.match(f.read(), /^S1='one'$/m);
+  await waitFor(() => f.exists() && /^S1='one'$/m.test(f.read()));
   f.secrets.update(s1.id, { value: "two" }, owner);
   await waitFor(() => /^S1='two'$/m.test(f.read()));
+  f.grantSecrets([]);
+  await waitFor(() => !f.exists());
+  f.grantSecrets([s1.id]);
+  await waitFor(() => f.exists());
   assert.equal(typeof config.syncSecrets, "function");
   agentSecrets.close();
   assert.equal(config.syncSecrets, undefined);
-  assert.equal(f.workflows.access.afterSave, undefined);
   f.secrets.update(s1.id, { value: "three" }, owner);
   await new Promise((resolve) => setImmediate(resolve));
-  await settled();
+  await agentSecrets.queue.catch(() => {});
   assert.match(f.read(), /^S1='two'$/m);
   assert.equal(connectAgentSecrets(null, {}), null);
+});
+
+test("archiving an agent or making it a user agent removes its file at once", async (t) => {
+  const f = await fixture(t);
+  connected(f);
+  const s1 = f.secrets.create({ name: "S1", value: "one" }, owner);
+  const member = f.member({ lifetime: "permanent", name: "Scout" });
+  f.workspace(member.id);
+  f.grantSecrets([s1.id]);
+  f.grantSecrets([s1.id], member.id);
+  await waitFor(() => f.exists() && f.exists(member.id));
+  // Archiving goes through the team store, then announces the change.
+  f.store.db
+    .prepare(
+      "UPDATE assistants SET body=json_set(body,'$.archivedAt','2026-10-16T00:00:00.000Z') WHERE id=?",
+    )
+    .run(member.id);
+  f.assistants.changed();
+  await waitFor(() => !f.exists(member.id));
+  f.store.changeUserAgent(f.id, {
+    userAccess: { mode: "own", members: [{ userId: "u1", level: "chat" }], released: [] },
+  });
+  f.assistants.changed();
+  await waitFor(() => !f.exists());
+});
+
+test("a burst of changes shares one pass", async (t) => {
+  const f = await fixture(t);
+  const passes = [];
+  const syncAll = f.agentSecrets.syncAll.bind(f.agentSecrets);
+  f.agentSecrets.syncAll = () => passes.push(1) && syncAll();
+  await Promise.all([f.agentSecrets.refresh(), f.agentSecrets.refresh()]);
+  assert.equal(passes.length, 1);
+  await f.agentSecrets.refresh();
+  assert.equal(passes.length, 2);
 });

@@ -36,9 +36,7 @@ export function saveWork({ assistants, access, teams }, id, body) {
     return { access: next || access.get(id), team };
   });
   if (before) {
-    access.auditSsh(id, before, result.access, "owner");
-    access.auditProjects(id, before, result.access);
-    access.auditGithub?.(id, before, result.access);
+    access.auditSaved(id, before, result.access);
   }
   assistants.changed();
   // Gaining the first or losing the last grant changes the agent's tool list.

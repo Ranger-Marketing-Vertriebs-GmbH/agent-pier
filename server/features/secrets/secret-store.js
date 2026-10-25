@@ -103,9 +103,18 @@ export class SecretStore {
   }
   list() {
     return this.db
-      .prepare("SELECT * FROM secrets ORDER BY name")
+      .prepare(
+        "SELECT id,name,description,project_id,updated_at FROM secrets ORDER BY name",
+      )
       .all()
       .map((row) => this.publicSecret(row));
+  }
+  /** `{ id, name }` of every secret, sorted by name; never reads a value. */
+  names() {
+    return this.db
+      .prepare("SELECT id,name FROM secrets ORDER BY name")
+      .all()
+      .map(({ id, name }) => ({ id, name }));
   }
   get(id) {
     return this.publicSecret(this.row(id));
