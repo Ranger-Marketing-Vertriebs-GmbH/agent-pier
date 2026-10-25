@@ -280,6 +280,17 @@ for the implementation and remaining native platform/version qualification.
   (see [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
   is not a gate: OpenClaw reads the empty list AgentPier writes as "every bundled
   skill allowed".
+- **`.agentpier/` is managed by AgentPier.** The folder holds the agent's granted
+  secrets (`.agentpier/secrets.env`). No native file tool writes, edits, adds, moves
+  or deletes anything below it in any turn, the owner's included; the refusal reads `Files in .agentpier are managed by AgentPier.` The
+  check folds case like the bootstrap check and follows symbolic links and hard links
+  into the folder (`team-plugin/managed-folder.js`). The agent may still `read` the
+  file. AgentPier's own transfers keep away from the folder as well: an SFTP download
+  never writes there, an SFTP upload or a browser upload never reads from it, and
+  `agentpier_share_file` refuses its files. Shell commands are not covered: an agent
+  with a shell can change or delete the file, and AgentPier writes it again before
+  the agent's next turn. Proven on 2026.10.7 by
+  `assistant-secrets-guard-contract.test.js`.
 - **Every file tool is guarded.** The guard's hook matches `write`, `edit` and
   `apply_patch`, every file-changing tool of OpenClaw's fs section. OpenClaw grants
   `apply_patch` wherever `write` is allowed, and hook matchers compare exact tool

@@ -4,6 +4,12 @@ import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
 import { execEvidence } from "./exec-processes.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
+import {
+  managedFolder,
+  managedName,
+  managedRefusal,
+  reachesManaged,
+} from "./managed-folder.js";
 export { patchPaths };
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
@@ -163,15 +169,16 @@ function protectedName(relative) {
 }
 /**
  * Whether a top-level workspace entry is one native file tools never write (a
- * bootstrap file, a skill folder, a name a fold could turn into one) or reach only
- * through the attachment policy (attachments/). AgentPier's own transfers into and
- * out of a workspace (agent-sftp-local.js) keep away from all of them.
+ * bootstrap file, a skill folder, .agentpier/, a name a fold could turn into one) or
+ * reach only through the attachment policy (attachments/). AgentPier's own transfers
+ * into and out of a workspace (agent-sftp-local.js) keep away from all of them.
  */
 export const guardedWorkspaceEntry = (name) =>
   !plainRootName.test(name) ||
   protectedNames.has(fold(name)) ||
   protectedFolders.has(fold(name)) ||
-  fold(name) === "attachments";
+  fold(name) === "attachments" ||
+  fold(name) === managedFolder;
 // Identity of every on-disk bootstrap file, so links and case variants are caught.
 function protectedTargets(workspace) {
   const ids = new Set();
@@ -192,6 +199,7 @@ export function classifyWrite(params, { roots = [], agentId } = {}) {
   const targets = values.flatMap(repairs).map((v) => relativeTarget(v, roots, ownId));
   if (targets.some((t) => !t)) return { outside: true };
   if (targets.some(protectedName)) return { bootstrap: true };
+  if (targets.some(managedName)) return { managed: true };
   let workspace;
   try {
     workspace = fs.realpathSync(path.join(roots[0], ownId));
@@ -199,6 +207,8 @@ export function classifyWrite(params, { roots = [], agentId } = {}) {
     // No workspace yet: nothing on disk can alias a bootstrap file.
     return { path: targets[0] };
   }
+  if (targets.some((target) => reachesManaged(workspace, target)))
+    return { managed: true };
   const ids = protectedTargets(workspace);
   for (const target of targets)
     try {
@@ -483,6 +493,7 @@ export function registerToolGuard(api) {
         return deny("Writes are limited to this agent's workspace.");
       if (targets.some((target) => target.bootstrap))
         return deny("Agent instruction files are managed by AgentPier.");
+      if (targets.some((target) => target.managed)) return deny(managedRefusal);
       if (!ctx?.sessionKey) return deny("This turn is not authorized to change files.");
       // The bridge alone knows whether the current turn came directly from the owner;
       // every path of a patch must be allowed.
