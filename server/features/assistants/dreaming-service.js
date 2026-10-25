@@ -5,6 +5,7 @@ import { patchConfig } from "./openclaw-config/live-patch.js";
 
 export const DREAMING_MEMORY_CONFIRMATION_REQUIRED =
   "ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED";
+export const DREAMING_AGENTS_BUSY = "ASSISTANT_DREAMING_AGENTS_BUSY";
 /**
  * The permanent agents whose memory AgentPier switches on and keeps on while dreaming
  * is on. Temporary members dream as well (memory-core sweeps every runtime agent), but
@@ -20,8 +21,8 @@ const named = ({ id, name }) => ({ id, name });
  * running Gateway live, or its next start when it is not ready.
  */
 export class DreamingService {
-  constructor({ settings, assistants }) {
-    Object.assign(this, { settings, assistants });
+  constructor({ settings, assistants, warn = console.warn }) {
+    Object.assign(this, { settings, assistants, warn });
   }
   uncovered() {
     return this.assistants.store
@@ -58,7 +59,10 @@ export class DreamingService {
       }
     }
     if (busy.length)
-      throw Object.assign(assistantProblem("dreamingAgentsBusy", 409), { agents: busy });
+      throw Object.assign(assistantProblem("dreamingAgentsBusy", 409), {
+        code: DREAMING_AGENTS_BUSY,
+        agents: busy,
+      });
     this.settings.save(next, revision);
     // Saved first: a failed live apply is compiled by the Gateway's next start.
     let pending = false;
@@ -75,7 +79,15 @@ export class DreamingService {
           replacePaths: [dreamingPath],
         }));
       })
-      .catch(() => (pending = true));
+      .catch((error) => {
+        pending = true;
+        // The error code only: no values.
+        this.warn(
+          `Dreaming could not be applied to the running Gateway (${
+            error?.code || error?.key || error?.name || "ERROR"
+          }); it applies at the next start.`,
+        );
+      });
     return { ...this.get(), ...(pending ? { pending: true } : {}) };
   }
 }
