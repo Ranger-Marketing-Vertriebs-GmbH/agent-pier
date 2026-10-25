@@ -261,7 +261,7 @@ Disable your Tailscale exposure separately, using the port you actually configur
 tailscale serve --https=8443 off
 ```
 
-Do not use `tailscale serve reset` if other exposures exist. Remove the project directory and profile data only if they are no longer needed. Old installations under the former name may use `dev.tuiui.server.plist`; stop such a service explicitly before switching so that two web services do not compete for the same port.
+Do not use `tailscale serve reset` if other exposures exist. Remove the project directory and profile data only if they are no longer needed.
 
 <a id="remove-old-versions"></a>
 

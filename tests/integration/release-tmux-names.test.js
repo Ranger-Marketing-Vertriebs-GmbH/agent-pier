@@ -17,7 +17,7 @@ const platform = `${process.platform}-${process.arch}`;
 /**
  * An installation that runs a release producing `agentpier-<id>` sessions, beside
  * installed releases from before (no `tmuxNames`) and from step 1 of the rename
- * (understands both forms, still produces `tuiui-<id>`).
+ * (understands both forms, still produces the former session names).
  */
 async function installation(t) {
   const temp = await fs.realpath(
@@ -42,9 +42,9 @@ async function installation(t) {
     );
   };
   await install("2.4.0");
-  await install("2.4.1", { tmuxNames: ["tuiui"] });
-  await install("2.5.0", { tmuxNames: ["tuiui", "agentpier"] });
-  await install("2.6.0", { tmuxNames: ["agentpier", "tuiui"] });
+  await install("2.4.1", { tmuxNames: ["former"] });
+  await install("2.5.0", { tmuxNames: ["former", "agentpier"] });
+  await install("2.6.0", { tmuxNames: ["agentpier"] });
   await fs.symlink("releases/2.6.0", path.join(root, "current"));
   const releases = new Releases({ dataDir, installRoot: root, smoke: async () => {} });
   return { root, dataDir, releases };
@@ -105,12 +105,12 @@ test("the release list shows a release without agentpier names as not rollbackab
 });
 
 test("the tmux name check reads only the manifest", () => {
-  for (const tmuxNames of [undefined, null, "agentpier", [], ["tuiui"], ["AgentPier"]])
+  for (const tmuxNames of [undefined, null, "agentpier", [], ["former"], ["AgentPier"]])
     assert.throws(() => requireTmuxNames({ tmuxNames }), {
       message: serverMessages.releases.tmuxNamesUnsupported,
       code: TMUX_NAMES_UNSUPPORTED,
     });
-  requireTmuxNames({ tmuxNames: ["tuiui", "agentpier"] });
+  requireTmuxNames({ tmuxNames: ["former", "agentpier"] });
   for (const catalog of Object.values(serverCatalogs))
     assert.match(catalog.releases.tmuxNamesUnsupported, /agentpier/);
 });

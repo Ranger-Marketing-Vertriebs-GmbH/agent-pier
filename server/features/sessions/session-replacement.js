@@ -92,7 +92,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "new-session",
       "-d",
       "-s",
-      manager.newSessionName(id),
+      manager.sessionName(id),
       "-c",
       session.cwd,
       "-x",

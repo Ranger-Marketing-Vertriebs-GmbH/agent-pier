@@ -20,12 +20,12 @@ The following is historical verification from earlier feature batches.
 
 # AgentPier — Prüfstand 2026-09-06
 
-Der aktuelle Stand läuft **nur als lokaler Test-Webdienst** auf `http://127.0.0.1:4380`. Der irrtümlich auf dem MacBook eingerichtete LaunchAgent `dev.tuiui.server` und seine einzelne Tailscale-Serve-Freigabe wurden entfernt. Kein AgentPier-Autostart wurde installiert. Die vorhandenen Claude- und Codex-Sitzungen wurden nicht bedient oder beendet. Die spätere Einrichtung ist für [Mac mini](../installation.md) und [Linux](../linux.md) dokumentiert.
+Der aktuelle Stand läuft **nur als lokaler Test-Webdienst** auf `http://127.0.0.1:4380`. Der irrtümlich auf dem MacBook eingerichtete LaunchAgent des früheren Dienstes und seine einzelne Tailscale-Serve-Freigabe wurden entfernt. Kein AgentPier-Autostart wurde installiert. Die vorhandenen Claude- und Codex-Sitzungen wurden nicht bedient oder beendet. Die spätere Einrichtung ist für [Mac mini](../installation.md) und [Linux](../linux.md) dokumentiert.
 
 ## Ausgeführt
 
 - `npm test`: **200/200** bestanden.
-- `TUIUI_TEST_URL=http://127.0.0.1:4380 npm run test:e2e`: **87/87** bestanden.
+- `AGENTPIER_TEST_URL=http://127.0.0.1:4380 npm run test:e2e`: **87/87** bestanden.
 - `npm run build`: erfolgreich; getrennte Terminal-Komponente, keine Warnung wegen zu großer Chunks.
 - `git diff --check`: sauber.
 

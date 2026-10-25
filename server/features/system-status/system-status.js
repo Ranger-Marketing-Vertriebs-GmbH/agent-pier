@@ -1,5 +1,5 @@
 import os from "node:os";
-import { parseSessionLines, pickSessionNames } from "../sessions/tmux-naming.js";
+import { parseSessionLines, sessionIdFromName } from "../sessions/tmux-naming.js";
 import { cpuBusy, cpuTimes, diskStats, memoryStats } from "./host-stats.js";
 import { processTrees, readProcessTable, treeUsage } from "./process-stats.js";
 import { measureDataAreas } from "./data-areas.js";
@@ -20,10 +20,11 @@ export async function sessionPanes(sessions) {
   } catch {
     return []; // No tmux server means no running session.
   }
-  // Either name form counts; a live pane wins over a dead one under the other name.
   const panes = new Map();
-  for (const [id, entry] of pickSessionNames(parseSessionLines(output))) {
+  for (const entry of parseSessionLines(output)) {
+    const id = sessionIdFromName(entry.name);
     const pid = entry.rest[0];
+    if (!id || panes.has(id)) continue;
     if (panes.size >= MAX_SESSIONS) break;
     if (/^\d+$/.test(pid ?? "")) panes.set(id, { pid: Number(pid) });
   }

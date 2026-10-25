@@ -12,7 +12,7 @@ test("the startup window starts with the pane process, not the tmux session", as
   t.after(() => child.kill());
   const sessionCreated = Math.floor(Date.now() / 1000) - 3600;
   const manager = {
-    target: (id) => `tuiui-${id}`,
+    target: (id) => `agentpier-${id}`,
     tmux: async () => `%1|${child.pid}|${sessionCreated}|0|0|120|35|0\n> `,
   };
   const snapshot = await chatInputSnapshot(manager, {

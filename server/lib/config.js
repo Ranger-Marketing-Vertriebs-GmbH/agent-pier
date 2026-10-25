@@ -12,9 +12,7 @@ export const projectDir = path.resolve(
 );
 export function loadConfig() {
   const dataDir = path.resolve(
-    process.env.AGENTPIER_DATA_DIR ||
-      process.env.TUIUI_DATA_DIR ||
-      path.join(projectDir, ".data"),
+    process.env.AGENTPIER_DATA_DIR || path.join(projectDir, ".data"),
   );
   const saved = readJSON(path.join(dataDir, "config.json"), {});
   const network = normalizeNetworkConfig(saved.network);
@@ -22,9 +20,7 @@ export function loadConfig() {
     dataDir,
     home: os.homedir(),
     files: { limits: readFileLimits(saved.files?.limits) },
-    port: Number(
-      process.env.AGENTPIER_PORT || process.env.TUIUI_PORT || saved.port || 4380,
-    ),
+    port: Number(process.env.AGENTPIER_PORT || saved.port || 4380),
     remoteUrl: saved.remoteUrl || null,
     ownerLogin: saved.ownerLogin || null,
     network,
@@ -33,7 +29,7 @@ export function loadConfig() {
       ...pipelinePorts(saved.pipelines),
     },
     devOrigins:
-      (process.env.AGENTPIER_DEV || process.env.TUIUI_DEV) === "1"
+      process.env.AGENTPIER_DEV === "1"
         ? ["http://127.0.0.1:5173", "http://localhost:5173"]
         : [],
   };

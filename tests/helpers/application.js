@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createApplication } from "../../server/app.js";
-import { tmuxSocketPaths } from "../../server/features/sessions/tmux-naming.js";
+import { tmuxSocketPath } from "../../server/features/sessions/tmux-naming.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 
 const execute = promisify(execFile);
@@ -59,7 +59,7 @@ export async function applicationFixture(t, overrides = {}) {
   let listOwnedSessions;
   let url;
   let disposed = false;
-  const expectedSocket = tmuxSocketPaths(dataDir).produced;
+  const expectedSocket = tmuxSocketPath(dataDir);
 
   async function start() {
     application = await createApplication({ ...configuration, dataDir, home, port: 0 });
