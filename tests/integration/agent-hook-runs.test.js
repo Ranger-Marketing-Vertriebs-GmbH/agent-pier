@@ -1,59 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { routineFixture } from "../helpers/native-routines-fixture.js";
-import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
 import { ReminderWebhook } from "../../server/features/assistants/reminder-webhook.js";
-import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { auditEvent } from "../../server/features/audit/audit-schema.js";
-
-// routineFixture (an agent with reminders on, a paired Telegram chat in German and
-// an in-memory cron store), a workflows stub without grants, and the hook service
-// with a Gateway event hub. `f.pushes` collects push notices, `f.audits` the audit
-// events as the log keeps them.
-function hookFixture(t) {
-  const f = routineFixture(t);
-  const audits = [];
-  f.assistants.audit = { append: (event) => audits.push(auditEvent(event)) };
-  f.assistants.workflows = {
-    access: { get: () => ({ projectIds: [], sshAccesses: [] }), sshHosts: () => [] },
-    folders: { ownAndShared: () => ({}) },
-  };
-  f.assistants.gatewayEvents = new GatewayEventHub();
-  f.assistants.routines = f.routines;
-  const hooks = new AgentHooks({
-    reminders: f.reminders,
-    routines: f.routines,
-    notifications: { notify: async (input) => f.pushes.push(input) },
-    addresses: (id) => ({ local: `http://127.0.0.1:4380/hooks/${id}` }),
-  });
-  const agent = f.store.getAssistant(f.id);
-  return { ...f, hooks, audits, runtimeAgentId: agent.runtimeAgentId };
-}
-// A stored hook (deliver takes the stored record, as the endpoint reads it).
-function makeHook(f, input = {}) {
-  const { hook } = f.hooks.create(f.id, { name: "Zabbix", sender: "zabbix01", ...input });
-  return f.hooks.store.get(hook.id);
-}
-const body = (text, extra = {}) => ({
-  text,
-  json: JSON.parse(text),
-  contentType: "application/json",
-  size: Buffer.byteLength(text),
-  headers: {},
-  source: "local",
-  ...extra,
-});
-const settle = () => new Promise((resolve) => setImmediate(resolve));
-const event = (f, hook, eventId) => f.hooks.events.find(hook.id, eventId);
-const done = (job, extra = {}) => ({
-  jobId: job,
-  runAtMs: 1000,
-  status: "ok",
-  summary: "Disk on db1 is full; I found the log that grew.",
-  deliveryStatus: "delivered",
-  ...extra,
-});
-const deliveries = (f) => f.audits.filter((a) => a.details.kind === "hook-delivery");
+import { routineFixture } from "../helpers/native-routines-fixture.js";
+import {
+  body,
+  deliveries,
+  done,
+  event,
+  hookFixture,
+  makeHook,
+  settle,
+} from "../helpers/agent-hook-fixture.js";
 
 test("a fresh delivery starts one disabled job and forces its run", async (t) => {
   const f = hookFixture(t);
@@ -412,81 +369,6 @@ test("the first throttled event in an hour sends one push", async (t) => {
   assert.equal(f.pushes[0].kind, "agent-routine");
   assert.match(f.pushes[0].eventId, /^hook-throttled-/);
   assert.equal(f.pushes[0].assistantId, f.id);
-});
-
-test("reconcile settles stale events and removes orphaned hook jobs", async (t) => {
-  const f = hookFixture(t);
-  const hook = makeHook(f);
-  // Received 16 minutes ago; its job is gone with a Gateway restart.
-  const now = f.hooks.events.now;
-  f.hooks.events.now = () => Date.now() - 16 * 60000;
-  await f.hooks.deliver(hook, body('{"id":"stale"}'));
-  f.hooks.events.now = now;
-  const stale = event(f, hook, "stale");
-  f.jobs.delete(stale.jobId);
-  // A fresh event keeps its job.
-  await f.hooks.deliver(hook, body('{"id":"fresh"}'));
-  const fresh = event(f, hook, "fresh");
-  const orphan = (id, state = {}) =>
-    f.jobs.set(id, { id, declarationKey: `agentpier-hook:${id}-event`, state });
-  orphan("orphan-idle");
-  orphan("orphan-running", { runningAtMs: Date.now() });
-  f.jobs.set("own", { id: "own", declarationKey: "agentpier-reminder:x", state: {} });
-
-  await f.hooks.runs.reconcile();
-  assert.equal(f.hooks.events.get(stale.id).status, "failed");
-  assert.equal(f.hooks.events.get(fresh.id).status, "running");
-  assert.deepEqual(
-    [...f.jobs.keys()].sort(),
-    [fresh.jobId, "orphan-running", "own"].sort(),
-  );
-  const listed = f.calls.filter((c) => c.method === "cron.list").at(-1).input;
-  assert.equal(listed.includeDisabled, true);
-  assert.equal("agentId" in listed, false);
-
-  // Registered on the hub: every Gateway ready reconciles.
-  orphan("orphan-later");
-  f.assistants.gatewayEvents.ready();
-  await settle();
-  await settle();
-  assert.equal(f.jobs.has("orphan-later"), false);
-});
-
-test("the run's tool steps are kept as activity without arguments", async (t) => {
-  const f = hookFixture(t);
-  const hook = makeHook(f);
-  await f.hooks.deliver(hook, body('{"id":"p1"}'));
-  const running = event(f, hook, "p1");
-  const sessionKey = `agent:${f.runtimeAgentId}:cron:${running.jobId}:run:r1`;
-  const frame = (phase, extra = {}) => ({
-    runId: "r1",
-    sessionKey,
-    stream: "item",
-    data: {
-      kind: "tool",
-      itemId: "i1",
-      name: "web_search",
-      phase,
-      meta: "query=db1 disk token=abc",
-      ...extra,
-    },
-  });
-  // Through the Gateway hub, as the agent service forwards `agent` frames.
-  const emit = (payload) =>
-    f.assistants.gatewayEvents.handlers.get("agent").forEach((h) => h(payload));
-  emit(frame("start"));
-  emit(frame("end", { status: "completed" }));
-  // Another session's tool steps are not this event's.
-  emit({ ...frame("start", { itemId: "i2", name: "exec" }), sessionKey: "agent:x:main" });
-  assert.equal(f.hooks.events.get(running.id).sessionKey, sessionKey);
-  await f.hooks.runs.complete(running.id, done(running.jobId));
-  assert.deepEqual(f.hooks.events.get(running.id).activity, [
-    { tool: "web_search", state: "done", label: "" },
-  ]);
-  assert.equal(
-    JSON.stringify(f.hooks.events.get(running.id)).includes("db1 disk"),
-    false,
-  );
 });
 
 test("runOrigin names the running hook event of a run session with live rights", async (t) => {

@@ -469,7 +469,8 @@ When the configuration cannot be applied, the job cannot be created or OpenClaw
 refuses the run, the event and any job are removed and the endpoint answers 503, so
 the sender's retry runs. On every Gateway start AgentPier fails events whose
 completion was lost (unsettled for 15 minutes without a running job) and removes hook
-jobs whose event is gone or settled.
+jobs whose event is gone or settled. While events are unsettled it sweeps again once
+the oldest of them reaches 15 minutes, so a run a restart interrupted settles too.
 
 **Prompt.** The run's message (`agent-hook-prompt.js`) begins with
 `This is the AgentPier hook "<name>" from "<sender>", not a message from the owner.`
