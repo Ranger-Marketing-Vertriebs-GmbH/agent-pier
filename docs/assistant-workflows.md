@@ -464,7 +464,9 @@ changed afterwards. The run is a `current` job on the agent's main chat with ful
 context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAllow`
 holds only what the hook's ticks switch on, capped by what the agent holds at that
 moment (`agent-hook-rights.js`); memory search and `session_status` are always there.
-When the job cannot be created the event is forgotten and the endpoint answers 503, so
+The agent's configuration is applied first, so its live tools and shell level hold.
+When the configuration cannot be applied, the job cannot be created or OpenClaw
+refuses the run, the event and any job are removed and the endpoint answers 503, so
 the sender's retry runs. On every Gateway start AgentPier fails events whose
 completion was lost (unsettled for 15 minutes without a running job) and removes hook
 jobs whose event is gone or settled.
