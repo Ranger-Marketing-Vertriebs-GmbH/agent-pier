@@ -189,7 +189,11 @@ for (const [name, size, touch] of [
       await emit(page, { type: "delta", conversationId: "dinner", text: long(20) });
       await expect(page.getByText("Streaming line 19")).toBeAttached();
       await expect.poll(() => gap(page)).toBeLessThan(5);
-      await transcript(page).evaluate((e) => (e.scrollTop = 0));
+      // The reader's wheel turn: a scroll without one would not let go of the end.
+      await transcript(page).evaluate((e) => {
+        e.dispatchEvent(new WheelEvent("wheel", { deltaY: -100, bubbles: true }));
+        e.scrollTop = 0;
+      });
       await expect(page.getByRole("button", { name: "Jump to latest" })).toBeVisible();
       await emit(page, { type: "delta", conversationId: "dinner", text: long(40) });
       await expect(page.getByText("Streaming line 39")).toBeAttached();

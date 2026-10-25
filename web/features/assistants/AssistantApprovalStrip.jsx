@@ -6,7 +6,7 @@ import { scrollToChild } from "./transcript-scroll.js";
 
 // Under the header while anything waits for the owner (handoff 2c). The count comes
 // from the server's activity; the jump target is the first pending card rendered.
-export default function AssistantApprovalStrip({ count, output }) {
+export default function AssistantApprovalStrip({ count, output, stick }) {
   const [target, setTarget] = useState(false);
   const update = useCallback(
     () => setTarget(Boolean(output.current?.querySelector("[data-pending]"))),
@@ -35,6 +35,8 @@ export default function AssistantApprovalStrip({ count, output }) {
       disabled={!target}
       onClick={() => {
         const element = output.current;
+        // The chat stops following its end, which would scroll the card away again.
+        if (stick) stick.current = false;
         scrollToChild(element, element?.querySelector("[data-pending]"));
       }}
     >
