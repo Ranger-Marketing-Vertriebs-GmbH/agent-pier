@@ -20,9 +20,9 @@ export const userAppCopy = Object.freeze({
   settingsOf: (name) => `Settings of ${name}`,
   sharedTitle: "Shared agent:",
   sharedBody:
-    "Your chat is private, but what it remembers, its profile (USER.md) and its browser are shared with everyone who uses it.",
+    "Your chat is private, but what it remembers, its profile (USER.md) and its browser are shared with everyone who uses it. What you write here, also word for word, can be carried into its shared memory, which all its users and the owner can read.",
   sharedBodyRead:
-    "Others who use it do not see your chat, but what it remembers, its profile (USER.md) and its browser are shared with everyone who uses it.",
+    "Others who use it do not see your chat, but what it remembers, its profile (USER.md) and its browser are shared with everyone who uses it. What you write here, also word for word, can be carried into its shared memory, which all its users and the owner can read.",
   ownerReads: (date) =>
     `The owner can read your chats since ${date}. He sees your own agent's memory, files and browser in full, older entries included.`,
   private: "Private: only you see this chat.",

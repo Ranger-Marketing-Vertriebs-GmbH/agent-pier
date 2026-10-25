@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { userAgent, userAppFixture, userChat } from "../helpers/user-app-fixture.js";
 
+// Set AGENTPIER_SHOTS_DIR to a directory to keep a screenshot of the shared notice.
+const shots = process.env.AGENTPIER_SHOTS_DIR;
+
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
 const family = userAgent({
@@ -18,6 +21,8 @@ const languages = {
     shared: "Geteilter Agent:",
     sharedBody: /Was er sich merkt, sein Profil \(USER\.md\) und sein Browser/,
     sharedBadge: "Geteilt",
+    sharedMemory:
+      "Was du hier schreibst, kann auch wörtlich in sein geteiltes Gedächtnis übernommen werden, das alle seine Nutzer und der Besitzer lesen können.",
     sharedBodyRead: /Andere, die ihn nutzen, sehen deinen Chat nicht\./,
     reads: /Der Besitzer kann deine Chats seit .+ lesen\./,
     private: "Privat: Nur du siehst diesen Chat.",
@@ -29,6 +34,8 @@ const languages = {
     shared: "Shared agent:",
     sharedBody: /what it remembers, its profile \(USER\.md\) and its browser/,
     sharedBadge: "Shared",
+    sharedMemory:
+      "What you write here, also word for word, can be carried into its shared memory, which all its users and the owner can read.",
     sharedBodyRead: /Others who use it do not see your chat,/,
     reads: /The owner can read your chats since .+\./,
     private: "Private: only you see this chat.",
@@ -69,6 +76,10 @@ for (const [language, copy] of Object.entries(languages)) {
       await row.click();
       await expect(page.getByText(copy.shared)).toBeVisible();
       await expect(page.getByText(copy.sharedBody)).toBeVisible();
+      // What she writes there may reach the shared memory, also word for word.
+      await expect(page.getByText(copy.sharedBody)).toContainText(copy.sharedMemory);
+      if (shots && language === "en")
+        await page.screenshot({ path: `${shots}/shared-agent-notice.png` });
       // Her chat is private there too, said once in the shared notice.
       await expect(page.getByText(copy.private)).toHaveCount(0);
       expect(state.foreign).toEqual([]);
@@ -86,6 +97,7 @@ for (const [language, copy] of Object.entries(languages)) {
       await page.goto(baseURL + "/agents/family/chats/family-main");
       await expect(page.getByText(copy.reads)).toBeVisible();
       await expect(page.getByText(copy.sharedBodyRead)).toBeVisible();
+      await expect(page.getByText(copy.sharedBodyRead)).toContainText(copy.sharedMemory);
       await expect(page.getByText(copy.sharedBody)).toHaveCount(1);
       await expect(
         page.getByText(/Dein Chat ist privat|Your chat is private/),

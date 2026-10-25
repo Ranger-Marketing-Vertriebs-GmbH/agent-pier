@@ -9,8 +9,8 @@ const sessionKey = `agent:${agentId}:internal-session-effects:${run}-21a903bbd73
 const [today] = flushDates(Date.now());
 
 // A bridge whose one reported flush interrupts a turn of `parent` with `origin`.
-function bridge(parent, origin) {
-  const attempt = { id: run, runtimeRunId: run };
+function bridge(parent, origin, noted = []) {
+  const attempt = { id: run, runtimeRunId: run, requestId: "request" };
   return {
     now: () => Date.now(),
     warn: () => {},
@@ -19,7 +19,9 @@ function bridge(parent, origin) {
         active: () => [{ sessionKey: "member-session", runId: run }],
         pin: () => true,
       },
+      ledger: { getRequest: () => ({ conversationId: "chat" }) },
     },
+    noteShared: (key, conversationId) => noted.push([key, conversationId]),
     bound: () => [attempt],
     turn: () => ({ attempt, parent, origin, current: true }),
     routineWrite: () => false,
@@ -44,10 +46,14 @@ test("a permanent agent's delegated turn still never flushes", () => {
   assert.equal(flushWrite(bridge(permanent, { kind: "owner" }), input), true);
 });
 
-test("a memory step takes OpenClaw's flush on its own agent, never on a shared one", () => {
+test("a memory step takes OpenClaw's flush on its own agent and on a shared one", () => {
+  const noted = [];
   const own = { runtimeAgentId: agentId };
-  assert.equal(flushWrite(bridge(own, { kind: "memory-step" }), input), true);
+  assert.equal(flushWrite(bridge(own, { kind: "memory-step" }, noted), input), true);
+  assert.deepEqual(noted, [], "an own agent's flush leaves no note");
   const shared = { runtimeAgentId: agentId, userAccess: { mode: "shared" } };
-  assert.equal(flushWrite(bridge(shared, { kind: "memory-step" }), input), false);
+  assert.equal(flushWrite(bridge(shared, { kind: "memory-step" }, noted), input), true);
+  // The shared memory takes it like a saved write, noted in the flushing chat.
+  assert.deepEqual(noted, [[`${run}:shared-write`, "chat"]]);
   assert.equal(flushWrite(bridge(own, { kind: "routine" }), input), false);
 });

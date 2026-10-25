@@ -56,9 +56,10 @@ test("the step runs only where the agent may write its own memory", () => {
   assert.equal(eligibleFor({ ...own, capabilities: {} }), false);
   // The write guard is not proven.
   assert.equal(eligibleFor(own, false), false);
+  // A shared agent keeps memories from every chat in its shared memory.
   assert.equal(
     eligibleFor({ ...own, userAccess: { mode: "shared", members: [], released: [] } }),
-    false,
+    true,
   );
   assert.equal(eligibleFor({ ...own, archivedAt: "2026-10-23T00:00:00Z" }), false);
   // A temporary member runs with its lead's capabilities.
