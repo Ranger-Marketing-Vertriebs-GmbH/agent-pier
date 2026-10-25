@@ -236,3 +236,46 @@ test("an unusable new socket folder keeps the old server", async (t) => {
     /could not prepare the new tmux socket folder/,
   );
 });
+
+for (const layout of ["window", "split"])
+  test(`a live ${layout} beside a dead active pane keeps the old server`, async (t) => {
+    const { dataDir, sockets, manager } = await legacyServer(t, [["multi", "Multi"]]);
+    // An agent opens a second pane from its shell, then its own CLI exits.
+    await manager.tmux(
+      layout === "window"
+        ? ["new-window", "-d", "-t", "=agentpier-multi:", "sleep 60"]
+        : ["split-window", "-d", "-t", "=agentpier-multi:0.0", "sleep 60"],
+    );
+    await manager.tmux(["respawn-pane", "-k", "-t", "=agentpier-multi:0.0", "true"]);
+    await eventually(
+      async () =>
+        (await manager.tmux(["list-sessions", "-F", "#{pane_dead}"])).trim() === "1",
+      "the active pane to die",
+    );
+    assert.deepEqual(await legacyTmuxSessions(manager), [{ id: "multi", name: "Multi" }]);
+    await manager.create(shell("next", "Next", dataDir));
+    assert.equal(manager.socketPath, sockets.legacy, "a live pane is never ended");
+    assert.deepEqual(await names(sockets.legacy), ["agentpier-multi", "agentpier-next"]);
+    assert.deepEqual(byId(await legacyTmuxSessions(manager)), [
+      { id: "multi", name: "Multi" },
+      { id: "next", name: "Next" },
+    ]);
+  });
+
+test("an unreadable session record is skipped and keeps the old server", async (t) => {
+  const { dataDir, sockets, manager } = await legacyServer(t, [
+    ["alpha", "Alpha"],
+    ["broken", "Broken"],
+  ]);
+  await writeFile(path.join(dataDir, "sessions", "broken.json"), "{not json");
+  const logged = quietly(t);
+  assert.deepEqual(await legacyTmuxSessions(manager), [{ id: "alpha", name: "Alpha" }]);
+  assert.match(
+    String(logged.mock.calls[0].arguments[0]),
+    /could not read a stored session/,
+  );
+  await manager.stop("alpha");
+  // Without its record "broken" counts as not AgentPier's: its server stays.
+  await manager.create(shell("next", "Next", dataDir));
+  assert.equal(manager.socketPath, sockets.legacy);
+});

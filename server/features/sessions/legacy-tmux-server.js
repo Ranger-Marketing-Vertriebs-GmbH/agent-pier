@@ -1,9 +1,13 @@
-import { chmod, lstat, mkdir } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import { tmuxServerGone } from "./tmux-server-identity.js";
-import { parseSessionLines, sessionIdFromName } from "./tmux-naming.js";
+import {
+  ALL_PANES,
+  SESSION_NAMES,
+  sessionIdFromName,
+  sessionsWithLivePanes,
+} from "./tmux-naming.js";
 import { diagnostic, scanSessionNames } from "./session-names.js";
-import { listSessions } from "./session-list.js";
 
 // A tmux server started by a release from before the rename runs on the legacy socket
 // (see tmux-naming.js). AgentPier keeps using it while one of its sessions runs there
@@ -24,6 +28,23 @@ export async function privateDirectory(directory) {
 const onLegacyServer = (manager) =>
   !!manager?.tmuxSockets && manager.socketPath === manager.tmuxSockets.legacy;
 
+/** Every readable stored session by id; an unreadable record is skipped with a trace. */
+async function storedSessions(manager) {
+  const stored = new Map();
+  for (const file of await readdir(manager.directory)) {
+    const id = /^([a-zA-Z0-9][a-zA-Z0-9_-]{0,79})\.json$/.exec(file)?.[1];
+    if (!id) continue;
+    try {
+      const session = await manager.metadata(id);
+      if (session && typeof session === "object") stored.set(id, session);
+    } catch (error) {
+      // Removed meanwhile, or one corrupt record: it counts as no AgentPier session.
+      if (error.status !== 404) diagnostic("could not read a stored session", error);
+    }
+  }
+  return stored;
+}
+
 /**
  * The legacy server's sessions, split into AgentPier's (a session name with a stored
  * record: id -> live) and every other one; null when not on it, and an empty result
@@ -31,26 +52,33 @@ const onLegacyServer = (manager) =>
  */
 async function legacyServerSessions(manager) {
   if (!onLegacyServer(manager)) return null;
-  let output;
+  let names;
   try {
-    output = await manager.tmux(["list-sessions", "-F", "#{session_name}|#{pane_dead}"]);
+    names = String(await manager.tmux(SESSION_NAMES))
+      .split("\n")
+      .map((name) => name.trim())
+      .filter(Boolean);
   } catch (error) {
     if (tmuxServerGone(error.message)) return { gone: true, ours: new Map(), other: 0 };
     throw error;
   }
-  const stored = new Map(
-    (await listSessions(manager, (id) => manager.metadata(id))).map((session) => [
-      session.id,
-      session,
-    ]),
-  );
+  // Any live pane keeps a session live, not just its active one. list-panes -a fails
+  // on a server without sessions, so it is asked only when there are some.
+  const live = names.length
+    ? sessionsWithLivePanes(await manager.tmux(ALL_PANES))
+    : new Set();
+  const stored = await storedSessions(manager);
   const ours = new Map();
   let other = 0;
-  for (const { name, dead } of parseSessionLines(output)) {
+  for (const name of names) {
     const id = sessionIdFromName(name);
     if (!id || !stored.has(id)) other++;
-    // Either name form of one id: a live pane wins.
-    else ours.set(id, { live: !dead || !!ours.get(id)?.live, session: stored.get(id) });
+    // Either name form of one id: a live pane under either keeps it live.
+    else
+      ours.set(id, {
+        live: live.has(name) || !!ours.get(id)?.live,
+        session: stored.get(id),
+      });
   }
   return { gone: false, ours, other, stored };
 }

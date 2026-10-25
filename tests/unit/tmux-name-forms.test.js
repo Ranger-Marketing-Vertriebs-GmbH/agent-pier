@@ -139,7 +139,12 @@ test("the socket choice prefers a live agentpier server, then any legacy server"
     error: Object.assign(new Error(), { code: "ETIMEDOUT" }),
   };
   const spawn = (_tmux, args) =>
-    args[1] === legacy ? timedOut : { status: 0, stdout: "agentpier-one|0\n" };
+    args[1] === legacy
+      ? timedOut
+      : {
+          status: 0,
+          stdout: args[2] === "list-sessions" ? "agentpier-one\n" : "agentpier-one|0\n",
+        };
   assert.equal(chooseTmuxSocket(dataDir, { spawn }), produced);
   assert.equal(
     chooseTmuxSocket(dataDir, {
@@ -157,21 +162,36 @@ test("the socket choice prefers a live agentpier server, then any legacy server"
   assert.equal(choose({ legacy: "live" }, { lstat: foreign, uid: 501 }), produced);
 });
 
-test("a probe tells a running server from a live AgentPier pane; a timeout is both", () => {
-  const probe = (result) => probeTmuxServer("/tmp/x.sock", { spawn: () => result });
+test("a probe tells a running server from any live AgentPier pane; a timeout is both", () => {
+  const timedOut = {
+    status: null,
+    error: Object.assign(new Error(), { code: "ETIMEDOUT" }),
+  };
+  // `panes` answers list-panes -a; a string stands for a successful answer.
+  const probe = (sessions, panes) =>
+    probeTmuxServer("/tmp/x.sock", {
+      spawn: (_tmux, args) => {
+        const answer = args[2] === "list-sessions" ? sessions : panes;
+        return typeof answer === "string" ? { status: 0, stdout: answer } : answer;
+      },
+    });
   const yes = { answers: true, live: true };
   const idle = { answers: true, live: false };
   const none = { answers: false, live: false };
-  assert.deepEqual(probe({ status: 0, stdout: "agentpier-one|0\n" }), yes);
-  assert.deepEqual(probe({ status: 0, stdout: "tuiui-one|0\n" }), yes);
-  assert.deepEqual(
-    probe({ status: null, error: Object.assign(new Error(), { code: "ETIMEDOUT" }) }),
-    yes,
-  );
+  assert.deepEqual(probe("agentpier-one\n", "agentpier-one|0\n"), yes);
+  assert.deepEqual(probe("tuiui-one\n", "tuiui-one|0\n"), yes);
+  // A dead active pane beside a live window or split still runs a process.
+  assert.deepEqual(probe("agentpier-one\n", "agentpier-one|1\nagentpier-one|0\n"), yes);
+  assert.deepEqual(probe(timedOut), yes);
+  assert.deepEqual(probe("agentpier-one\n", timedOut), yes);
+  assert.deepEqual(probe("agentpier-one\n", { status: 1 }), yes, "unclear: keep it");
   // exit-empty off keeps a server without sessions or with dead panes only running.
-  assert.deepEqual(probe({ status: 0, stdout: "" }), idle);
-  assert.deepEqual(probe({ status: 0, stdout: "agentpier-one|1\ntuiui-two|1\n" }), idle);
-  assert.deepEqual(probe({ status: 0, stdout: "boot|0\n" }), idle, "not AgentPier's");
+  assert.deepEqual(probe("", { status: 1 }), idle, "list-panes -a fails when empty");
+  assert.deepEqual(
+    probe("agentpier-one\ntuiui-two\n", "agentpier-one|1\ntuiui-two|1\n"),
+    idle,
+  );
+  assert.deepEqual(probe("boot\n", "boot|0\n"), idle, "not AgentPier's");
   assert.deepEqual(probe({ status: 1, stdout: "" }), none);
   assert.deepEqual(
     probe({ status: null, error: Object.assign(new Error(), { code: "ENOENT" }) }),
