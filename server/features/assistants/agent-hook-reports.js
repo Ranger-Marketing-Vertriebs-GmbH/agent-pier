@@ -37,9 +37,6 @@ export function hookReport({ teams, assistants, hooks }, hook, event, text) {
       .get(key)
   )
     return false;
-  // The flag follows the outcome; the owner's open settings draft keeps its revision.
-  if (ok !== !hook.leadReportFailing)
-    hooks.store.flag(hook.id, { leadReportFailing: !ok });
   const id = randomUUID(),
     now = new Date().toISOString();
   const short = ok ? shortForm(String(text || "").trim()) : null;
@@ -73,5 +70,9 @@ export function hookReport({ teams, assistants, hooks }, hook, event, text) {
     },
     key,
   );
+  // The flag follows the outcome once the report exists (a failed insert reports the
+  // next failure); the owner's open settings draft keeps its revision.
+  if (ok !== !hook.leadReportFailing)
+    hooks.store.flag(hook.id, { leadReportFailing: !ok });
   return true;
 }

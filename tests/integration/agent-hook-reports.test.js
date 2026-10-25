@@ -142,6 +142,25 @@ test("a failed hook run is reported once until it succeeds again; silence stays 
   );
 });
 
+test("a failure whose report could not be stored is reported on the next failure", async (t) => {
+  const f = await setup(t);
+  const teams = f.assistants.teams.store;
+  const insert = teams.insert.bind(teams);
+  teams.insert = () => {
+    throw new Error("disk full");
+  };
+  await f.complete({ status: "error", summary: undefined });
+  assert.equal(f.reports().length, 0);
+  assert.notEqual(f.stored().leadReportFailing, true);
+  teams.insert = insert;
+  await f.complete({ status: "error", summary: undefined });
+  assert.deepEqual(
+    f.reports().map((r) => r.phase),
+    ["failed"],
+  );
+  assert.equal(f.stored().leadReportFailing, true);
+});
+
 test("the lead's follow-up turn on a hook report cannot write, on a routine report it can", async (t) => {
   const f = await setup(t);
   // One follow-up is delivered at a time: each report is handed over and checked.
