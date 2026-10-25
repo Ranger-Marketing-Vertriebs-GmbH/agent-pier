@@ -16,6 +16,7 @@ import { repositories } from "./en/repositories.js";
 import { requestCopy } from "./en/requests.js";
 import { sessions } from "./en/sessions.js";
 import { settings } from "./en/settings.js";
+import { secrets } from "./en/secrets.js";
 import { ssh } from "./en/ssh.js";
 import { tools } from "./en/tools.js";
 import { sessionInput } from "./en/session-input.js";
@@ -75,6 +76,7 @@ export const englishServerMessages = Object.freeze({
   plugins,
   repositories,
   sessions,
+  secrets,
   settings,
   ssh,
   tools,

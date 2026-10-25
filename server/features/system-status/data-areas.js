@@ -11,6 +11,7 @@ export const AREAS = [
   "agentAttachments",
   "agentShares",
   "agentWorkspaces",
+  "secrets",
   "logs",
   "other",
 ];
@@ -20,6 +21,7 @@ const top = {
   toolchains: "tools",
   "mcp-packages": "tools",
   "chat-attachments": "chatAttachments",
+  secrets: "secrets",
   "server.log": "logs",
   "server-error.log": "logs",
 };

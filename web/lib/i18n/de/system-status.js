@@ -61,6 +61,7 @@ export const systemStatusCopy = {
     agentAttachments: "Agenten-Anhänge",
     agentShares: "Agenten-Freigaben",
     agentWorkspaces: "Agenten-Arbeitsbereiche",
+    secrets: "Geheimnisse",
     logs: "Protokolle",
     other: "Sonstiges",
   },

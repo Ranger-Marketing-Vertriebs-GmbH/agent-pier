@@ -5613,6 +5613,7 @@
   "system-status:systemStatusCopy.areas.other": "de:9f3d5f8d94cf en:f97e9da0e3b8",
   "system-status:systemStatusCopy.areas.profiles": "de:18b6d05b9706 en:9f42348dd540",
   "system-status:systemStatusCopy.areas.runtimes": "de:ab2ea394fc1f en:aeff6e2cfd84",
+  "system-status:systemStatusCopy.areas.secrets": "de:65949dc736fc en:d8707d411d99",
   "system-status:systemStatusCopy.areas.tools": "de:0f54954557a4 en:4e432034afc7",
   "system-status:systemStatusCopy.cpu": "de:db9a4c7d4c19 en:db9a4c7d4c19",
   "system-status:systemStatusCopy.cpuNote": "de:c78a628c018b en:769599c1573b",

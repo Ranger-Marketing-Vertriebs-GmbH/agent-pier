@@ -61,6 +61,7 @@ export const systemStatusCopy = {
     agentAttachments: "Agent attachments",
     agentShares: "Agent shares",
     agentWorkspaces: "Agent workspaces",
+    secrets: "Secrets",
     logs: "Logs",
     other: "Other",
   },

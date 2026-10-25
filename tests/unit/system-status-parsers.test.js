@@ -182,6 +182,7 @@ test("data directory paths map to their areas", () => {
   assert.equal(area("assistants/assistants.sqlite"), "other");
   assert.equal(area("assistants/backups"), "backups");
   assert.equal(area("assistants/shares"), "agentShares");
+  assert.equal(area("secrets/secrets.sqlite"), "secrets");
   assert.equal(area("assistants/runtimes"), "runtimes");
   assert.equal(area("assistants/logs"), "logs");
   assert.equal(area("assistants/workspaces", true), null);
