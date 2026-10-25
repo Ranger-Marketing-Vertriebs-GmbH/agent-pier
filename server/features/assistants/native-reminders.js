@@ -5,6 +5,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import { cronResultText } from "./cron-result-text.js";
 import { RoutineResults } from "./routine-results.js";
+import { lastRunFailure, runEntry, runFailure } from "./routine-failures.js";
 import {
   deliverableChannel,
   mainConversation,
@@ -125,6 +126,8 @@ export class NativeReminders {
       nextRunAtMs: job?.state?.nextRunAtMs ?? null,
       lastRunStatus: job?.state?.lastRunStatus ?? null,
       lastDeliveryStatus: job?.state?.lastDeliveryStatus ?? null,
+      // Why the last run failed (routine-failures.js), for the owner and the agent.
+      lastFailure: lastRunFailure(job?.state),
       deliveryState: delivery?.state || null,
       reviewRequired: !job && unconfirmed(binding) && !this.creating.has(binding.id),
     };
@@ -403,14 +406,7 @@ export class NativeReminders {
         id: binding.nativeId,
         limit: 20,
       });
-      return {
-        entries: (result.entries || []).map((r) => ({
-          runAtMs: r.runAtMs,
-          status: r.status,
-          completionStatus: r.completionStatus,
-          deliveryStatus: r.deliveryStatus,
-        })),
-      };
+      return { entries: (result.entries || []).map(runEntry) };
     });
   }
   /** Telegram outbox entries: only while the binding still delivers to that chat. */
@@ -541,6 +537,7 @@ export class NativeReminders {
         committed: kind !== "reminder" && event.deliveryStatus === "delivered",
       }),
       ...(notes.length ? { notes } : {}),
+      ...(!ok && { failure: runFailure(event) }),
     });
     return { conversation, fresh };
   }

@@ -271,3 +271,10 @@
 .agent-user-access .users-agent .segmented {
   margin: 0 var(--space-4);
 }
+/* A routine's failures and run history (RoutineRuns.jsx): activity rows that shrink
+   to the detail's width, their label cut with an ellipsis. */
+.routine-runs {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}

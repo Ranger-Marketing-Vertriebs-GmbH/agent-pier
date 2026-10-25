@@ -58,4 +58,26 @@ export const routineCopy = {
   createdBy: (lead) => (lead ? `Angelegt von ${lead}` : "Angelegt vom leitenden Agenten"),
   leadHint: (lead) =>
     `${lead || "Der leitende Agent"} hat diese Routine angelegt. Ihre Ergebnisse gehen auch an ${lead || "den leitenden Agenten"}. Sie liest nur, solange du „Darf schreiben“ nicht einschaltest oder der leitende Agent sein Team nicht selbstständig nutzt.`,
+  // Warum ein Lauf fehlschlug (Server routine-failures.js); OpenClaws Meldung ist das Detail.
+  failures: {
+    "gateway-restart": "Das Gateway wurde während des Laufs neu gestartet.",
+    "gateway-stopped": "Das Gateway wurde während des Laufs beendet.",
+    "agent-unavailable": "Der Agent war nicht verfügbar.",
+    timeout: "Der Lauf hat zu lange gedauert und wurde abgebrochen.",
+    model: "Der Modellanbieter hat einen Fehler gemeldet.",
+    delivery: "Das Ergebnis konnte nicht zugestellt werden.",
+    other: "Der Lauf ist fehlgeschlagen.",
+  },
+  lastRunFailed: "Letzter Lauf fehlgeschlagen",
+  failedInARow: (count) => `${count} Läufe in Folge fehlgeschlagen`,
+  failureMessage: "Fehlermeldung",
+  copyFailure: "Fehlermeldung kopieren",
+  noFailureMessage: "OpenClaw hat keine Fehlermeldung gemeldet.",
+  runAt: "Zeitpunkt",
+  duration: "Dauer",
+  seconds: (value) => `${value} s`,
+  history: "Laufverlauf",
+  hideHistory: "Laufverlauf ausblenden",
+  noRuns: "Noch keine Läufe.",
+  runOk: "Abgeschlossen",
 };

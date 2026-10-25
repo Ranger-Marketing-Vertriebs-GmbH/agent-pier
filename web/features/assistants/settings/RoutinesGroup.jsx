@@ -9,6 +9,7 @@ import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { routineCopy as copy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { routineApi } from "../routine-api.js";
+import RoutineRuns from "./RoutineRuns.jsx";
 
 function scheduleLabel(trigger) {
   if (trigger?.kind === "event")
@@ -280,6 +281,11 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                           {copy.createdBy(item.createdBy.leadName)}
                         </span>
                       )}
+                      {item.lastFailure && (
+                        <span className="agent-sub-part" data-routine-last-failed>
+                          {copy.lastRunFailed}
+                        </span>
+                      )}
                       {item.nextRunAtMs && (
                         <span className="agent-sub-part">
                           {copy.nextRun(formatTimestamp(item.nextRunAtMs))}
@@ -425,6 +431,7 @@ export default function RoutinesGroup({ assistantId, paired = false }) {
                       {copy.remove}
                     </button>
                   </div>
+                  <RoutineRuns assistantId={assistantId} item={item} busy={busy} />
                 </div>
               )}
             </React.Fragment>
