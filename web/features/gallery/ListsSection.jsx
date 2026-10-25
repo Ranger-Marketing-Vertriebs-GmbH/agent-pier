@@ -5,6 +5,7 @@ import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import PermissionList from "../../components/PermissionList.jsx";
 import ReferenceRow from "../../components/ReferenceRow.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
+import AddPickerSpecimens from "./AddPickerSpecimens.jsx";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
 import { noop } from "./gallery-fixtures.js";
 
@@ -44,6 +45,7 @@ export default function ListsSection() {
           <ListRow label={s.disabledCard} sub={s.sub} />
         </ListCard>
       </Specimen>
+      <AddPickerSpecimens />
       <Specimen label="ReferenceRow" wide>
         <ReferenceRow title={s.reference} onOpen={noop} />
         <ReferenceRow
