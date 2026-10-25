@@ -69,6 +69,8 @@ export class SessionManager {
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
     await scanSessionNames(this);
+    // A CLI that ended while AgentPier was stopped may have left the old server drained.
+    await leaveDrainedLegacyServer(this);
   }
   /**
    * Adopts `tuiui-<id>` for a running session when its pane is in one of `states`:

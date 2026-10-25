@@ -15,7 +15,7 @@ import {
   SESSION_PREFIX,
   ownedSocket,
   sessionIdFromName,
-  runsLiveSession,
+  probeTmuxServer,
   tmuxSocketPaths,
 } from "../../server/features/sessions/tmux-naming.js";
 import { sessionPanes } from "../../server/features/system-status/system-status.js";
@@ -77,7 +77,7 @@ test("current and legacy tmux session names resolve to the same id", () => {
     assert.equal(sessionIdFromName(name), null, name);
 });
 
-test("the legacy socket stays in use while its server runs a session, else the agentpier one", async (t) => {
+test("the socket choice prefers a live agentpier server, then any legacy server", async (t) => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "agentpier-socket-choice-"));
   const { produced, legacy } = tmuxSocketPaths(dataDir);
   const servers = [];
@@ -94,79 +94,88 @@ test("the legacy socket stays in use while its server runs a session, else the a
     await new Promise((resolve) => server.listen(socket, resolve));
   };
   const asked = [];
-  const answering =
-    (...sockets) =>
-    (socket) => {
-      asked.push(socket);
-      return sockets.includes(socket);
-    };
+  // Each socket answers as given: "live", "answers" (no live AgentPier pane) or nothing.
+  const probing = (states) => (socket) => {
+    asked.push(socket);
+    const state = states[socket === produced ? "produced" : "legacy"];
+    return { answers: !!state, live: state === "live" };
+  };
+  const choose = (states, options = {}) =>
+    chooseTmuxSocket(dataDir, { probe: probing(states), ...options });
   assert.match(produced, /^\/tmp\/agentpier-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
   assert.match(legacy, /^\/tmp\/tuiui-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
-  assert.equal(
-    chooseTmuxSocket(dataDir, { inUse: answering(produced, legacy) }),
-    produced,
-  );
-  assert.deepEqual(asked, [], "no legacy socket file: nothing is asked");
+  assert.equal(choose({ produced: "live", legacy: "live" }), produced);
+  assert.deepEqual(asked, [], "no socket file: nothing is asked");
   // A regular file in place of a socket is never ours, so it is never asked.
   mkdirSync(path.dirname(legacy), { mode: 0o700 });
   writeFileSync(legacy, "");
-  assert.equal(chooseTmuxSocket(dataDir, { inUse: answering(legacy) }), produced);
+  assert.equal(choose({ legacy: "live" }), produced);
   assert.deepEqual(asked, []);
   rmSync(legacy);
   await listen(legacy);
   await listen(produced);
   assert.equal(
-    chooseTmuxSocket(dataDir, { inUse: answering(legacy) }),
+    choose({ legacy: "live" }),
     legacy,
     "sessions from before the update keep their server",
   );
   assert.equal(
-    chooseTmuxSocket(dataDir, { inUse: answering(produced, legacy) }),
+    choose({ legacy: "answers" }),
     legacy,
-    "both live: the legacy server keeps its sessions",
+    "a drained legacy server is taken, so startup can end it",
   );
   assert.equal(
-    chooseTmuxSocket(dataDir, { inUse: answering(produced) }),
-    produced,
-    "a stale legacy socket file is not used",
+    choose({ produced: "answers", legacy: "answers" }),
+    legacy,
+    "an agentpier server without a live session does not win",
   );
-  assert.equal(chooseTmuxSocket(dataDir, { inUse: answering() }), produced, "none live");
+  // A probe that times out counts as live; the agentpier side still wins.
+  assert.equal(choose({ produced: "live", legacy: "live" }), produced, "both live");
+  assert.equal(choose({ produced: "live" }), produced, "a stale legacy socket file");
+  assert.equal(choose({}), produced, "none answers");
+  // A real probe whose legacy side times out never wins over a live agentpier session.
+  const timedOut = {
+    status: null,
+    error: Object.assign(new Error(), { code: "ETIMEDOUT" }),
+  };
+  const spawn = (_tmux, args) =>
+    args[1] === legacy ? timedOut : { status: 0, stdout: "agentpier-one|0\n" };
+  assert.equal(chooseTmuxSocket(dataDir, { spawn }), produced);
+  assert.equal(
+    chooseTmuxSocket(dataDir, {
+      spawn: (_tmux, args) => (args[1] === legacy ? timedOut : { status: 1 }),
+    }),
+    legacy,
+    "a slow legacy server keeps its sessions",
+  );
   // Someone else's socket is not ours either.
   const foreign = (file) => {
     const stat = lstatSync(file);
     return Object.assign(Object.create(Object.getPrototypeOf(stat)), stat, { uid: 0 });
   };
   assert.equal(ownedSocket(legacy, { lstat: foreign, uid: 501 }), false);
-  assert.equal(
-    chooseTmuxSocket(dataDir, {
-      lstat: foreign,
-      uid: 501,
-      inUse: answering(legacy),
-    }),
-    produced,
-  );
+  assert.equal(choose({ legacy: "live" }, { lstat: foreign, uid: 501 }), produced);
 });
 
-test("only a live AgentPier pane or a probe that times out keeps the legacy server", () => {
-  const probe = (result) => runsLiveSession("/tmp/x.sock", { spawn: () => result });
-  assert.equal(probe({ status: 0, stdout: "agentpier-one|0\n" }), true);
-  assert.equal(probe({ status: 0, stdout: "tuiui-one|0\n" }), true);
-  assert.equal(
+test("a probe tells a running server from a live AgentPier pane; a timeout is both", () => {
+  const probe = (result) => probeTmuxServer("/tmp/x.sock", { spawn: () => result });
+  const yes = { answers: true, live: true };
+  const idle = { answers: true, live: false };
+  const none = { answers: false, live: false };
+  assert.deepEqual(probe({ status: 0, stdout: "agentpier-one|0\n" }), yes);
+  assert.deepEqual(probe({ status: 0, stdout: "tuiui-one|0\n" }), yes);
+  assert.deepEqual(
     probe({ status: null, error: Object.assign(new Error(), { code: "ETIMEDOUT" }) }),
-    true,
+    yes,
   );
   // exit-empty off keeps a server without sessions or with dead panes only running.
-  assert.equal(probe({ status: 0, stdout: "" }), false);
-  assert.equal(probe({ status: 0, stdout: "agentpier-one|1\ntuiui-two|1\n" }), false);
-  assert.equal(
-    probe({ status: 0, stdout: "boot|0\n" }),
-    false,
-    "not an AgentPier session",
-  );
-  assert.equal(probe({ status: 1, stdout: "" }), false);
-  assert.equal(
+  assert.deepEqual(probe({ status: 0, stdout: "" }), idle);
+  assert.deepEqual(probe({ status: 0, stdout: "agentpier-one|1\ntuiui-two|1\n" }), idle);
+  assert.deepEqual(probe({ status: 0, stdout: "boot|0\n" }), idle, "not AgentPier's");
+  assert.deepEqual(probe({ status: 1, stdout: "" }), none);
+  assert.deepEqual(
     probe({ status: null, error: Object.assign(new Error(), { code: "ENOENT" }) }),
-    false,
+    none,
   );
 });
 

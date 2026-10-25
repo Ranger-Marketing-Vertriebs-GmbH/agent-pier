@@ -191,7 +191,7 @@ for (const socket of ["legacy", "produced"])
     assert.equal((await manager.get(id)).status, "stopped");
   });
 
-test("startup keeps the legacy socket only while its server runs a live session", async (t) => {
+test("startup prefers a live agentpier server, then any legacy server", async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "agentpier-socket-liveness-"));
   const { produced, legacy } = tmuxSocketPaths(dataDir);
   t.after(async () => {
@@ -217,22 +217,32 @@ test("startup keeps the legacy socket only while its server runs a live session"
   };
   const stop = (socket) => exec(tmuxPath, ["-S", socket, "kill-server"]);
   const choose = () => chooseTmuxSocket(dataDir, { tmuxPath });
-  // A server without a live AgentPier session holds nothing to keep it for.
+  // Any legacy server is taken, so that startup can end it once it is drained.
   await serve(legacy, "other");
-  assert.equal(choose(), produced, "another program's session only");
-  await exec(tmuxPath, ["-S", legacy, "set-option", "-g", "remain-on-exit", "on"]);
-  await exec(tmuxPath, ["-S", legacy, "new-session", "-d", "-s", "tuiui-gone", "true"]);
-  await paneDead(legacy, "tuiui-gone");
-  assert.equal(choose(), produced, "a dead pane only");
+  assert.equal(choose(), legacy, "another program's session only");
+  await serve(produced, "agentpier-idle");
+  await exec(tmuxPath, ["-S", produced, "set-option", "-g", "remain-on-exit", "on"]);
+  await exec(tmuxPath, [
+    "-S",
+    produced,
+    "respawn-pane",
+    "-k",
+    "-t",
+    "=agentpier-idle:0.0",
+    "true",
+  ]);
+  await paneDead(produced, "agentpier-idle");
+  assert.equal(choose(), legacy, "an agentpier server without a live session");
+  await stop(produced);
+  await serve(produced);
+  assert.equal(choose(), produced, "a live agentpier session wins");
+  await stop(produced);
   await stop(legacy);
   await serve(legacy);
   assert.equal(choose(), legacy, "the server from before the update keeps running");
-  await serve(produced);
-  assert.equal(choose(), legacy, "both live: the legacy server keeps its sessions");
   await stop(legacy);
   assert.ok(ownedSocket(legacy), "tmux leaves its socket file behind");
   assert.equal(choose(), produced, "a stale legacy file is not used");
-  await stop(produced);
   assert.equal(choose(), produced, "none live");
 });
 
