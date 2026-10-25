@@ -28,6 +28,7 @@ const codexName =
 // What AgentPier keeps about its sessions; every id named there stays protected.
 const SOURCES = ["sessions", "chat", "native-sessions", "agentbus"];
 const MAX_SOURCE_FILES = 100_000;
+const REFRESH_MS = 2000;
 const MAX_SOURCE_BYTES = 4 * 1024 ** 3;
 
 // Adds every id in a file, read in chunks; an id split between two chunks still counts.
@@ -193,14 +194,22 @@ export async function deleteTranscripts(
 ) {
   if (!CUTOFF_DAYS.includes(days)) throw cleanupProblem("invalidAge");
   if (!TOOLS.includes(account?.tool)) throw cleanupProblem("profileUnsupported", 409);
-  const ids = await protectedIds(dataDir, records);
   const before = now - days * DAY;
-  const { items } = await profileTranscripts(dataDir, account, ids, now);
+  const { items } = await profileTranscripts(dataDir, account, new Set(), now);
+  // Read after the scan and again every few seconds: a session AgentPier records
+  // while a long deletion runs is protected from then on.
+  const ids = await protectedIds(dataDir, records);
+  let checkedAt = Date.now();
   let removed = 0,
     bytes = 0,
     skipped = 0;
   for (const item of items) {
-    if (item.newestMs >= before || ids.has(item.id)) continue;
+    if (item.newestMs >= before) continue;
+    if (Date.now() - checkedAt > REFRESH_MS) {
+      for (const id of await protectedIds(dataDir, records)) ids.add(id);
+      checkedAt = Date.now();
+    }
+    if (ids.has(item.id)) continue;
     try {
       const gone = await removeEntry(
         item.folder,

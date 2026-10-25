@@ -3,4 +3,4 @@ import { problem } from "../../lib/storage.js";
 
 /** A cleanup refusal with its browser-visible message (storage-cleanup catalogs). */
 export const cleanupProblem = (key, status = 400) =>
-  problem(serverMessages.storageCleanup[key], status);
+  Object.assign(problem(serverMessages.storageCleanup[key], status), { code: key });

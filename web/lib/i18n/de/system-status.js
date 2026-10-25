@@ -71,6 +71,11 @@ export const systemStatusCopy = {
     measuring: "Es wird gemessen, was gelöscht werden kann …",
     atLeast: (size) => `mindestens ${size}`,
     freed: (size) => `Gelöscht. ${size} freigegeben.`,
+    none: "Es wurde nichts gelöscht.",
+    skipped: (count) =>
+      count === 1
+        ? "1 Eintrag ist geblieben: Er hat sich inzwischen geändert oder wird benutzt."
+        : `${count} Einträge sind geblieben: Sie haben sich inzwischen geändert oder werden benutzt.`,
     snapshots: {
       title: "Update-Sicherungen",
       sub: "Zustand und Laufzeit der Agenten vor jedem Laufzeit-Update",

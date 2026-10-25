@@ -9,12 +9,16 @@ import {
 import {
   deleteDependencies,
   measureDependencies,
+  sweepDependencies,
   workspaceIds,
 } from "./cleanup-dependencies.js";
+import { isUserAgent } from "../users/user-access.js";
 import { processCwds } from "./workspace-processes.js";
 import { cleanupProblem } from "./cleanup-problem.js";
 
 const TOOLS = ["claude", "codex"];
+const safeId = (id) =>
+  typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(id) ? id : undefined;
 const busyTeam = ["completed", "failed", "cancelled"];
 const busyAction = ["approved", "executing", "unknown", "running"];
 
@@ -68,14 +72,29 @@ export class StorageCleanup {
   maintenance() {
     return !!this.services.assistants?.maintenance;
   }
-  async exclusive(operation) {
-    if (this.running) throw cleanupProblem("busy", 409);
+  /** Startup: finishes node_modules deletions a restart interrupted. */
+  start() {
+    return sweepDependencies(this.dataDir).catch(() => {});
+  }
+  /**
+   * Runs one deletion at a time. A refused or failed one is audited too, with its
+   * area and the refusal's code, never its message or a path.
+   */
+  async exclusive({ area, resourceId, principal }, operation) {
+    const failed = (error) => {
+      const code = /^[A-Za-z]{1,40}$/.test(error?.code || "") ? error.code : "error";
+      this.record(principal, resourceId, { area, code }, "failure");
+      return error;
+    };
+    if (this.running) throw failed(cleanupProblem("busy", 409));
     this.running = operation();
     try {
       const result = await this.running;
       // The data directory sizes are measured again on the next view.
       this.services.systemStatus?.staleAreas?.();
       return result;
+    } catch (error) {
+      throw failed(error);
     } finally {
       this.running = null;
     }
@@ -103,7 +122,8 @@ export class StorageCleanup {
     });
   }
   deleteSnapshot(id, principal) {
-    return this.exclusive(async () => {
+    const scope = { area: "update-backup", resourceId: safeId(id), principal };
+    return this.exclusive(scope, async () => {
       const removed = await deleteSnapshot(
         {
           dataDir: this.dataDir,
@@ -137,9 +157,10 @@ export class StorageCleanup {
     return store ? [JSON.stringify(store.all())] : [];
   }
   async transcripts() {
-    const ids = await protectedIds(this.dataDir, () => this.records());
     const profiles = [];
     for (const account of this.profiles()) {
+      // Read again for each profile, so a long listing never counts on old records.
+      const ids = await protectedIds(this.dataDir, () => this.records());
       const { cutoffs } = await profileTranscripts(
         this.dataDir,
         account,
@@ -156,7 +177,8 @@ export class StorageCleanup {
     return { profiles };
   }
   deleteTranscripts(id, days, principal) {
-    return this.exclusive(async () => {
+    const scope = { area: "transcripts", resourceId: safeId(id), principal };
+    return this.exclusive(scope, async () => {
       const account = this.profile(id);
       const result = await deleteTranscripts(this.dataDir, account, days, {
         now: this.now(),
@@ -171,20 +193,30 @@ export class StorageCleanup {
       return { ...result, databasesKept: account.tool === "codex" };
     });
   }
-  agentName(id) {
+  /**
+   * The owner's agent behind a workspace: its name, "" for a removed agent, or null
+   * for an agent that serves restricted users (the owner never changes their agents'
+   * content) or when that cannot be told (agents off or unreadable).
+   */
+  ownerAgent(id) {
+    const store = this.services.assistants?.store;
+    if (!store) return null;
     try {
-      return this.services.assistants?.store.getAssistant?.(id)?.name || "";
-    } catch {
-      return "";
+      const agent = store.getAssistant(id);
+      return isUserAgent(agent) ? null : { name: agent.name || "" };
+    } catch (error) {
+      return error?.status === 404 ? { name: "" } : null;
     }
   }
   async dependencies() {
     const agents = [];
     for (const id of await workspaceIds(this.dataDir)) {
+      const owner = this.ownerAgent(id);
+      if (!owner) continue;
       const { folders, bytes, partial } = await measureDependencies(this.dataDir, id);
       agents.push({
         id,
-        name: this.agentName(id),
+        name: owner.name,
         folders: folders.length,
         bytes,
         partial,
@@ -194,7 +226,10 @@ export class StorageCleanup {
     return { agents: agents.sort((a, b) => b.bytes - a.bytes) };
   }
   deleteDependencies(id, principal) {
-    return this.exclusive(async () => {
+    const scope = { area: "dependencies", resourceId: safeId(id), principal };
+    return this.exclusive(scope, async () => {
+      // A user's agent is not there for the owner, as with her chats.
+      if (!this.ownerAgent(id)) throw cleanupProblem("notFound", 404);
       const result = await deleteDependencies(this.dataDir, id, {
         busy: async () => agentWorking(this.services, id),
         cwds: this.cwds,

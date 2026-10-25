@@ -236,6 +236,8 @@ export async function createApplication(config) {
   server.once("listening", () => {
     services.githubTokenMonitor.start();
     services.systemStatus.start();
+    // Finishes node_modules deletions a restart interrupted (cleanup-dependencies.js).
+    services.storageCleanup.start();
   });
   server.once("listening", () =>
     stageToolchainsInBackground({ dataDir: config.dataDir }),

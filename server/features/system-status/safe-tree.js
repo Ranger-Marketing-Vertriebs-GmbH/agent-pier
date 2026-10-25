@@ -19,7 +19,8 @@ export async function entryStat(folder, name) {
   try {
     return await inFolder(folder, async (at) => fsp.lstat(await at(name)));
   } catch (error) {
-    if (error.code === "ENOENT") return null;
+    // A folder on the way that is (or became) a link holds nothing of ours.
+    if (["ENOENT", "ENOTDIR", "ELOOP"].includes(error.code)) return null;
     throw error;
   }
 }
@@ -29,7 +30,7 @@ export async function folderNames(folder) {
   try {
     return await inFolder(folder, async (at) => fsp.readdir(await at()));
   } catch (error) {
-    if (error.code === "ENOENT" || error.code === "ENOTDIR") return [];
+    if (["ENOENT", "ENOTDIR", "ELOOP"].includes(error.code)) return [];
     throw error;
   }
 }
