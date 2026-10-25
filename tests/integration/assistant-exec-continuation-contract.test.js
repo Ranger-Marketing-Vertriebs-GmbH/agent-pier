@@ -8,6 +8,7 @@ import { contractTimeout } from "../helpers/contract-timeout.js";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
+import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
 import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
 import { completedProcesses } from "../../server/features/assistants/team-plugin/exec-processes.js";
@@ -22,7 +23,8 @@ import {
 // AGENTPIER-185 against the pinned Gateway: an owner turn starts a background exec
 // and ends; when the command exits, OpenClaw's completion run in the same session
 // writes with that turn's rights (exec-continuation.js). The same completion after a
-// newer forwarded request, or outside the window, stays refused. This pins what the
+// newer forwarded request, or outside the window, stays refused; its workspace and
+// share calls are bound to the turn. This pins what the
 // implementation assumes of OpenClaw: the completion's raw transcript entry
 // (`sessions.get`: provenance, the owner turn's idempotency key, the background
 // exec's `sessionId` and the completion's process list), how its run is marked
@@ -91,12 +93,19 @@ test(
           ? { text: "Saved." }
           : note === "workspace"
             ? { tool: { name: "agentpier_workspace", arguments: { action: "catalog" } } }
-            : {
-                tool: {
-                  name: "write",
-                  arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
-                },
-              };
+            : note === "share"
+              ? {
+                  tool: {
+                    name: "agentpier_share_file",
+                    arguments: { path: "render.txt" },
+                  },
+                }
+              : {
+                  tool: {
+                    name: "write",
+                    arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
+                  },
+                };
       const asked = JSON.stringify(lastUser(request)[0]);
       const steps = lastUser(request).filter((m) => m.role === "tool").length;
       // "List" runs a foreground command; "foreign" starts another background one.
@@ -436,6 +445,29 @@ test(
     assert.notEqual(prepared[0].runId, fifth.runId);
     assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
+
+    // 5b. Its agentpier_share_file call names its run the same way and hands the
+    // owner the file in the turn's chat (AGENTPIER-237).
+    const shares = [];
+    f.assistants.audit = { append: (event) => shares.push(event) };
+    f.assistants.shares = new AgentShares({ assistants: f.assistants });
+    fs.mkdirSync(path.join(f.workspaces, id), { recursive: true });
+    fs.writeFileSync(path.join(f.workspaces, id, "render.txt"), "RENDERED\n");
+    const shareTurn = await ownerTurn("Render one to share.");
+    note = "share";
+    const shareCall = () => prepared.find((p) => p.action === "share_file");
+    const shareDeadline = Date.now() + contractTimeout(60000);
+    while (!(shareCall() && ended(shareCall().runId)) && Date.now() < shareDeadline)
+      await delay(200);
+    t.diagnostic(`share prepare=${JSON.stringify(shareCall())}`);
+    assert.ok(shareCall(), "the completion run called agentpier_share_file");
+    assert.notEqual(shareCall().runId, shareTurn.runId);
+    assert.equal(shareCall().exec.completion.runId, shareCall().runId);
+    assert.equal(shareCall().bound, true, "the completion's share call is bound");
+    assert.deepEqual(
+      shares.filter((e) => e.action === "assistant.sent").map((e) => e.details),
+      [{ kind: "share", channel: "tool" }],
+    );
 
     // 6. A blocked exec call leaves nothing open: the next completion is credited.
     blockExec = true;

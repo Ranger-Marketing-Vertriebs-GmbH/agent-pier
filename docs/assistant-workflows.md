@@ -300,7 +300,9 @@ actions keep their approvals: while an approval card (shell, SSH or SFTP, coding
 the goal's nudge waits too, and the agent's follow-up after a late approval (for example an
 `ssh-result`) is not a new owner message. A continuation's SSH origin is `owner`, so
 Trusted SSH and SFTP hosts work as in the owner's own turn; routines and reminders stay
-excluded.
+excluded. When a background command started in a continuation (or in the lead's follow-up
+on its member's result) finishes, the follow-up on its result can still save files and
+hand the owner the result with `agentpier_share_file`.
 
 ## Native routines and events
 

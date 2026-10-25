@@ -11,13 +11,16 @@
 //   `ctx.trigger: "event"` (which the team plugin records with the completion as
 //   `internal`) and the transcript entry's provenance tell it apart.
 // Both write the completion's user entry with the input provenance
-// `{ kind: "internal_system", sourceTool: "exec" }`. Its writes continue the owner
-// turn that started the command, with that turn's limits, only when AgentPier proves
-// all of this (continuationSource, processRefusal, provenSource):
+// `{ kind: "internal_system", sourceTool: "exec" }`. Its writes, project folder file
+// actions and shared files (agentpier_share_file) continue the turn that started the
+// command, with that turn's limits, only when AgentPier proves all of this
+// (continuationSource, processRefusal, provenSource):
 // - the session is a chat of the calling agent, which is active and no temporary
 //   task member;
-// - the chat's latest ledger request is a completed direct turn (directTurn, read
-//   live: a restricted user who lost the agent gets nothing) at most
+// - the chat's latest ledger request is a completed turn that continues the owner's
+//   own work (continuedTurn: a direct turn, read live so a restricted user who lost
+//   the agent gets nothing, a work-goal continuation, which is recorded as one, or a
+//   lead's follow-up on its member's result, member-result-writes.js) at most
 //   `continuationWindowMs` ago, and no newer request exists;
 // - the call names its run (the write hook's `runId`; a workspace call the run of
 //   its tool call), it is not that turn's run, and either the Gateway's agent events
@@ -37,17 +40,35 @@
 //   poll or an unreadable list refuses.
 // The command's output stays data: it never proves an owner request, unlocks SSH,
 // grants, routines or other owner-only switches, and project folders take only file
-// actions (workspace-calls.js). Each write is audited with `via: "exec-completion"`.
+// actions (workspace-calls.js). A shared file goes to the source turn's chat, and to
+// Telegram only when that turn came from the owner's paired chat (agent-shares.js).
+// Each write is audited with `via: "exec-completion"`.
 import { directTurn } from "./memory-write-policy.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { isMemory } from "./lead-request-writes.js";
 import { isShared } from "../users/user-access.js";
 import { isDeepStrictEqual } from "node:util";
 import { completedProcesses } from "./team-plugin/exec-processes.js";
+import { resultTurn } from "./member-result-writes.js";
 
 /** How long after the owner turn its command's completion may still write. */
 export const continuationWindowMs = 2 * 3600000;
 const maxRuns = 64;
+/** The bridge actions a completion run is bound for (TeamBridge.prepare). */
+export const continuationActions = new Set(["workspace", "share_file"]);
+
+/**
+ * Whether a completed turn's command completion may continue it: a direct turn of
+ * this agent (a goal continuation is recorded as the owner's), or a lead's follow-up
+ * on its member's result, which the owner decided acts like the lead's own work.
+ */
+export function continuedTurn(assistants, origin, agent, attemptId) {
+  if (directTurn(origin, agent)) return true;
+  return (
+    origin?.kind === "member-result" &&
+    !!resultTurn(assistants, origin.requestId, attemptId)
+  );
+}
 
 /**
  * The live completion runs, by session: those the Gateway's agent events mark as
@@ -163,7 +184,8 @@ export function continuationSource(bridge, input) {
     const attempt = request && ledger.attemptFor(request.id);
     if (attempt?.state !== "completed" || attempt.reviewedAt)
       return refuse(bridge, input, "REQUEST");
-    if (!directTurn(bridge.teams?.store?.context?.(request.id), agent))
+    const origin = bridge.teams?.store?.context?.(request.id);
+    if (!continuedTurn(bridge.assistants, origin, agent, attempt.id))
       return refuse(bridge, input, "ORIGIN");
     const age = bridge.now() - Date.parse(attempt.createdAt);
     if (!(age >= 0 && age <= continuationWindowMs))
@@ -378,9 +400,9 @@ function write(bridge, input, source) {
   return true;
 }
 
-/** A workspace ticket's binding for such a run, or null (TeamBridge.prepare). */
+/** A workspace or share ticket's binding for such a run, or null (TeamBridge.prepare). */
 export function continuationBinding(bridge, input) {
-  if (input.action !== "workspace") return null;
+  if (!continuationActions.has(input.action)) return null;
   return then(
     provenSource(bridge, input),
     (source) => source && { attemptId: source.attempt.id, runId: source.runId },
@@ -395,7 +417,7 @@ export function assertContinuation(bridge, record) {
     { verify: false },
   );
   if (
-    record.action !== "workspace" ||
+    !continuationActions.has(record.action) ||
     source?.attempt.id !== record.continuation.attemptId
   )
     throw assistantProblem("invalid", 403);

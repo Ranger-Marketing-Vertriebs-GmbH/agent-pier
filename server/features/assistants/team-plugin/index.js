@@ -344,10 +344,11 @@ export default {
                   return response.json();
                 };
                 context.assertInvocationCurrent();
-                // A workspace call of a command completion names its run and the
-                // Gateway's record of the session (exec-continuation.js).
-                const runId =
-                  action === "workspace" ? callRun(context.sessionKey, toolCallId) : null;
+                // A workspace or share call of a command completion names its run
+                // and the Gateway's record of the session (exec-continuation.js).
+                const runId = ["workspace", "share_file"].includes(action)
+                  ? callRun(context.sessionKey, toolCallId)
+                  : null;
                 const { ticket } = await call("/prepare", {
                   agentId: context.agentId,
                   sessionKey: context.sessionKey,

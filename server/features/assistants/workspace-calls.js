@@ -10,6 +10,7 @@ import { resultTurn } from "./member-result-writes.js";
 import { isUserAgent } from "../users/user-access.js";
 import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
+import { continuedTurn } from "./exec-continuation.js";
 
 const workspaceKeys = Object.keys(workflowDefinitions.workspace.parameters.properties);
 // What a task from the member's lead reaches: the member's own folders and coding
@@ -30,7 +31,7 @@ const routineRefused = new Set(["coding_cancel"]);
  * a task the member's lead delegated to it (leadRequestContext) or a lead's follow-up
  * on its member's result (`memberResult`: the lead's own folders and projects, never
  * shares, and coding requests always wait for the owner) or the completion run of a
- * command such a direct turn started (`execContinuation`, exec-continuation.js: its
+ * command such a turn started (`execContinuation`, exec-continuation.js: its
  * project folders only). Every other turn is refused.
  */
 export function workspaceContext(w, inv) {
@@ -66,20 +67,26 @@ export function workspaceContext(w, inv) {
 
 /**
  * A command's completion run (TeamBridge.prepare, re-proven on every step): the
- * direct turn that started it, re-checked live like that turn's own calls.
+ * turn that started it (exec-continuation.js continuedTurn), re-checked live like
+ * that turn's own calls. A lead's follow-up on its member's result keeps the lead's
+ * own access only, as in that turn.
  */
 function continuationContext(w, inv) {
   const attempt = w.a.ledger.getAttempt(inv.continuation.attemptId);
   const req = w.a.ledger.getRequest(attempt.requestId),
     chat = w.a.store.getConversation(req.conversationId);
   const origin = w.a.teams.store.context(req.id);
-  if (!directTurn(origin, w.access.eligible(chat.assistantId)))
+  const agent = w.access.eligible(chat.assistantId);
+  if (!continuedTurn(w.a, origin, agent, attempt.id))
     throw assistantProblem("invalid", 403);
   return {
     assistantId: chat.assistantId,
     conversationId: chat.id,
     attemptId: attempt.id,
     origin,
+    ...(origin.kind === "member-result"
+      ? { memberResult: { requestId: origin.requestId } }
+      : {}),
     execContinuation: { attemptId: attempt.id },
   };
 }

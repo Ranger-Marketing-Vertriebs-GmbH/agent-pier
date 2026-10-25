@@ -210,8 +210,8 @@ export function turnDetails(ctx) {
     ...(ctx.attemptId ? { sourceAttemptId: ctx.attemptId } : {}),
     ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
     ...(ctx.routine ? { routineId: ctx.routine.bindingId } : {}),
-    ...(ctx.execContinuation ? { via: "exec-completion" } : {}),
     ...(ctx.memberResult ? { via: "member-result" } : {}),
+    ...(ctx.execContinuation ? { via: "exec-completion" } : {}),
     ...(ctx.leadRequest
       ? { leadAssistantId: ctx.leadRequest.leadId, leadRequestId: ctx.leadRequest.id }
       : {}),

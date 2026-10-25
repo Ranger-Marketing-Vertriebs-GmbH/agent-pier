@@ -376,8 +376,8 @@ test("project folders follow the same rule, for file actions only", async (t) =>
     await assert.rejects(call({ action, pipelineId: f.pipeline.id, task: "x" }), {
       status: 403,
     });
-  // Command output never reaches SSH, shared files or the team.
-  for (const action of ["ssh", "share_file", "delegate", "ask", "grant", "routine"])
+  // Command output never reaches SSH or the team (shared files: the shares test).
+  for (const action of ["ssh", "delegate", "ask", "grant", "routine"])
     assert.throws(() => prepare(action), { status: 403 }, action);
   // A call without a run is never bound.
   assert.throws(
