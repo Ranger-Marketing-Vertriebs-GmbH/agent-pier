@@ -106,7 +106,7 @@ the agent's main chat.
 |                 | Pipeline failed                                    | On      | A pipeline run failed (a cancelled run does not notify)                                                                                                              |
 | Agents          | Agent check-in                                     | On      | An agent [checked in](agents.md#routines-reminders-and-check-ins) with something for you; opens its chat                                                             |
 |                 | Routine or hook result                             | On      | A [routine or reminder](agents.md#routines-reminders-and-check-ins) or an [agent hook](assistant-workflows.md#agent-hooks) wrote in an agent's chat; opens that chat |
-|                 | Also what Telegram delivered                       | Off     | Check-ins and routine results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them                                     |
+|                 | Also what Telegram delivered                       | Off     | Check-ins, routine and hook results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them                               |
 
 A coding CLI's own activity reports (Claude Code's hooks, the Codex app-server proxy
 and the OpenCode plugin) trigger these session events at once instead of at the next

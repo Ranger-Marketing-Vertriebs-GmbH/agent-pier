@@ -837,8 +837,9 @@ A hook lets monitoring and other systems wake an agent: it gets its own address,
 every request to it with the hook's secret starts a run of the agent in its main chat.
 Manage hooks under **Routines & check-ins → Hooks**. They exist for your own agents and
 permanent members with **Allow reminders and routines** switched on, not for shared
-agents. While that switch is off every hook is paused (its address answers like an
-unknown one); the list stays, so you can still delete them.
+agents. While that switch is off every hook is inactive (its address answers like an
+unknown one); the list stays, so you can still delete them. **Paused** means a hook's
+own **Enabled** switch is off.
 
 - **+ Add** asks for a name and the **Sender** (the system that calls it, for example
   Uptime Kuma; the agent sees this name). **Create hook** shows the secret once,
@@ -852,22 +853,28 @@ unknown one); the list stays, so you can still delete them.
   **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
   agent holds: a switch the agent lacks is shown disabled with the reason, and a right
   the agent loses later keeps its saved value but no longer applies until the agent has
-  it again; you can still switch it off or lower it, and then it stays disabled. **Wake-ups per hour** (20 by default) limits the runs; later events in the
-  same hour are recorded without waking the agent, and the first one sends a push
-  notice. **Enabled** pauses or resumes the hook.
+  it again; you can still switch it off or lower it, and then it stays disabled.
+  **Wake-ups per hour** (20 by default) limits the runs; later events in the same hour
+  are recorded without waking the agent, and the first one sends a push notice.
+  **Enabled** pauses or resumes the hook. A shell command a hook run asks for offers
+  only **Allow once** and **Deny**, never **Always allow**, so an event cannot make a
+  command permanent for your own chats.
 - **Addresses** lists the hook's address on this computer, through Tailscale and in
   network mode, each with a copy button, and says when Tailscale or network mode is off.
 - **Regenerate secret** (after a confirmation) replaces the secret; the old one stops
   working at once. A hook the agent proposed and you accepted has no secret yet:
   **Create secret** makes the first one. **Send test event** sends a sample event
   through the same path and shows whether it was accepted; it counts toward the hourly
-  limit. **Delete hook** removes the hook and its recorded events.
+  limit. **Delete hook** removes the hook and its recorded events; a run still in
+  progress keeps no rights.
 
 A sender calls `POST /hooks/<id>` with `Authorization: Bearer <secret>` and a JSON or
 plain-text body of at most 64 KiB. An `Idempotency-Key` or `X-Event-Id` header, or an
 `eventId` or `id` field, names the event; a repeat of the same event never wakes the
-agent again. The agent treats the event as untrusted data and does not follow
-instructions in it.
+agent again. Send an `Idempotency-Key` or `X-Event-Id` header, or make `id` unique per
+event: a top-level `id` that names an object (a host or a device, not the event)
+makes every later event of that object a repeat for 30 days. The agent treats the
+event as untrusted data and does not follow instructions in it.
 
 An agent can also propose a hook when you ask for one in your own message. The
 proposal waits as a **Hook proposal** card in its chat (and in the Inbox) with the

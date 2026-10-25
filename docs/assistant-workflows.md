@@ -478,12 +478,18 @@ context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAl
 holds only what the hook's ticks switch on, capped by what the agent holds at that
 moment (`agent-hook-rights.js`); memory search and `session_status` are always there.
 The agent's configuration is applied first, so its live tools and shell level hold.
-When the configuration cannot be applied, the job cannot be created or OpenClaw
-refuses the run, the event and any job are removed and the endpoint answers 503, so
-the sender's retry runs. On every Gateway start AgentPier fails events whose
-completion was lost (unsettled for 15 minutes without a running job) and removes hook
-jobs whose event is gone or settled. While events are unsettled it sweeps again once
-the oldest of them reaches 15 minutes, so a run a restart interrupted settles too.
+When the hook was paused or deleted after the endpoint checked it, the configuration
+cannot be applied, the job cannot be created or OpenClaw refuses the run, the endpoint
+answers 503 and any job is removed, so the sender's retry runs. An event without a job
+is removed; one whose job existed stays as a **Failed** row in the event area with its
+dedup key moved aside (the Gateway may still have started that run, and its session
+keeps no rights). On every Gateway start AgentPier fails events whose completion was
+lost (unsettled for 15 minutes without a running job), removes hook jobs whose event is
+gone or settled, and drops event rows older than 30 days. While events are unsettled it
+sweeps again once the oldest of them reaches 15 minutes, at most once a minute, so a
+run a restart interrupted settles too. Deleting a hook removes its events; a running
+one stays as a failed row without payload, hidden from the event area, so its session
+keeps no rights for the rest of the run.
 
 **Prompt.** The run's message (`agent-hook-prompt.js`) begins with
 `This is the AgentPier hook "<name>" from "<sender>", not a message from the owner.`
@@ -496,7 +502,10 @@ and the event between the fixed markers `<<<AGENTPIER_HOOK_EVENT>>>` and
 **Deduplication and limit.** An event is identified by its `Idempotency-Key` or
 `X-Event-Id` header, else its top-level `eventId` or `id`, else the SHA-256 of the
 body, per hook. A repeat answers `duplicate` (also while the runtime is not ready)
-and never wakes the agent again. Wake-ups count per hook over a rolling hour (default
+and never wakes the agent again. A top-level `id` that names an object rather than the
+event (a host, a device) makes every later event of that object a duplicate for the
+30-day retention, so senders should send `Idempotency-Key` or `X-Event-Id`, or an `id`
+unique per event. Wake-ups count per hook over a rolling hour (default
 20); an event over the limit is kept as `throttled` without a run, and the first
 throttled event of an hour sends one push notice.
 
@@ -533,7 +542,7 @@ stay out.
 | **Also send to Telegram** | The result in the paired Telegram chat as well.                                                                                                                                                                                                                                        |
 | **Research**              | `web_search` and `web_fetch`, whichever the agent has; never `browser`.                                                                                                                                                                                                                |
 | **Coding**                | `coding_start`, `coding_status`, `coding_artifacts`. A request on the agent's own project starts as `approved` without a card; one on a lead's share waits for the owner as always. The action carries `hookId` and `hookEventId`, and the event lists it. `coding_cancel` is refused. |
-| **Shell**                 | Off or the agent's own level (With approval or Full; OpenClaw sets exec per agent). Only while the event runs.                                                                                                                                                                         |
+| **Shell**                 | Off or the agent's own level (With approval or Full; OpenClaw sets exec per agent). Only while the event runs. Its approval cards offer no **Always allow** (refused on the server too).                                                                                               |
 | **SSH hosts**             | `agentpier_ssh` on the chosen hosts that the agent holds in mode **Trusted incl. routines** (SSH commands and SFTP); other hosts answer `SSH_NOT_GRANTED`, an SFTP delete is refused, and nothing waits for a card.                                                                    |
 | **Folders**               | The chosen project folders at min(hook, agent) level; changes need the tool guard like every agent write and are audited with `via: "hook"`, `hookId` and `hookEventId`. An SFTP transfer never writes the agent's workspace.                                                          |
 | **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                           |
