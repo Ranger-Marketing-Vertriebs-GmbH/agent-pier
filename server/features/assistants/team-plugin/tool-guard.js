@@ -290,6 +290,12 @@ export const browserRefusals = {
     "A user of this agent is using this browser right now (for example to sign in or solve a check). Wait until it is handed back; you will get a message then. Do not retry the browser meanwhile.",
   visibleLimit:
     "Three visible agent browsers are already in use. Try again in a minute or ask the owner.",
+  // A browser upload of a file AgentPier did not stage for this agent
+  // (agent-browser-uploads.js).
+  uploadNotStaged:
+    "Upload only a file AgentPier staged for you: call agentpier_workspace with action browser_upload_stage (path, and projectId for a project folder) and pass the uploadPath it returns unchanged. A staged file expires after six hours; stage it again then.",
+  uploadOutside:
+    "Your browser cannot upload this file from where it is. Call agentpier_workspace with action browser_upload_stage for a file in your own workspace or in a project folder you may read, then pass the uploadPath it returns. Files outside those folders cannot be uploaded.",
 };
 /**
  * Pins every browser call to the calling agent's own profile on the Gateway host;
@@ -305,6 +311,10 @@ export async function browserCall(event, ctx, bridge) {
       // The calling turn: its person may watch and take over the browser.
       ...(typeof ctx?.sessionKey === "string" && { sessionKey: ctx.sessionKey }),
       ...(action && { action }),
+      // An upload names its files, which AgentPier checks (agent-browser-uploads.js).
+      ...(action?.trim().toLowerCase() === "upload" && {
+        paths: Array.isArray(event.params.paths) ? event.params.paths.map(String) : [],
+      }),
     },
     ctx?.abortSignal,
   ).catch(() => null);

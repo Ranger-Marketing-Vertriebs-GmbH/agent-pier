@@ -149,3 +149,12 @@ test("the bootstrap gives the German UI label of every setting tools name", asyn
     assert.ok(text.includes(`"${en}" is "${de}"`), en);
   }
 });
+
+test("an agent with the browser learns to stage a file before uploading it", () => {
+  const off = assistantBootstrap(assistant, {});
+  assert.doesNotMatch(off, /## Browser uploads/);
+  const text = assistantBootstrap({ ...assistant, capabilities: { browser: true } }, {});
+  assert.match(text, /## Browser uploads/);
+  assert.match(text, /agentpier_workspace with action browser_upload_stage/);
+  assert.match(text, /Pass the uploadPath it returns unchanged/);
+});

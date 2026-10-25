@@ -162,6 +162,12 @@ const reasons = {
   SHARE_TOO_LARGE:
     "Shared files are limited to 25 MB. Compress or split the file, or tell the owner where it is.",
   SHARE_EMPTY: "This file is empty; there is nothing to share.",
+  BROWSER_NOT_GRANTED:
+    "You may not use a browser, so AgentPier stages no file for one. Do not retry; ask the owner (or your lead) to switch on the browser for you.",
+  UPLOAD_TOO_LARGE:
+    "A file staged for a browser upload may be at most 8 GiB. Do not retry; tell the owner where the file is.",
+  UPLOAD_NO_SPACE:
+    "There is not enough free disk space to stage this file for the browser. Do not retry now; tell the owner.",
   STORAGE_FULL:
     "AgentPier's storage for this file is full. Do not retry; tell the owner.",
   STORAGE_UNSAFE:
@@ -239,6 +245,9 @@ const byKey = {
   shareOutside: "SHARE_OUTSIDE",
   shareTooLarge: "SHARE_TOO_LARGE",
   shareEmpty: "SHARE_EMPTY",
+  browserUploadNoBrowser: "BROWSER_NOT_GRANTED",
+  browserUploadTooLarge: "UPLOAD_TOO_LARGE",
+  browserUploadSpace: "UPLOAD_NO_SPACE",
   attachmentStorageFull: "STORAGE_FULL",
   attachmentStorageUnsafe: "STORAGE_UNSAFE",
   goalOwnerTurn: "GOAL_OWNER_TURN",

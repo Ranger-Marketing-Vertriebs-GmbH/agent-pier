@@ -24,6 +24,7 @@ import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 import { sftpDecisions } from "./agent-sftp-approvals.js";
 import { sftpTelegramApprovable } from "./agent-sftp-notifications.js";
 import { AgentProjectFiles } from "./agent-project-files.js";
+import { AgentBrowserUploads } from "./agent-browser-uploads.js";
 import { LeadShares } from "./lead-shares.js";
 import { TaskMemberGrants } from "./task-member-grants.js";
 import { workspaceCall, workspaceContext } from "./workspace-calls.js";
@@ -45,6 +46,7 @@ export class AssistantWorkflows {
     this.ssh = new AgentSsh(this);
     this.forget = new AssistantMemoryForget(this);
     this.folders = new AgentProjectFiles(this);
+    this.browserUploads = new AgentBrowserUploads(this);
     this.shares = new LeadShares(this);
     this.memberGrants = new TaskMemberGrants(this);
     this.github = new AgentGithub(this);
@@ -561,6 +563,7 @@ export class AssistantWorkflows {
   async close() {
     this.closed = true;
     this.forget.close();
+    this.browserUploads.close();
     clearInterval(this.timer);
     this.exec.close();
     this.ssh.close();

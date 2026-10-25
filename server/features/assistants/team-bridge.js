@@ -290,7 +290,20 @@ export class TeamBridge {
   async browserPolicy(input) {
     if (this.closed || !this.assistants.browsers)
       return { allow: false, reason: "unavailable" };
-    const policy = await this.assistants.browsers.policy(input);
+    // An upload's files are checked apart (agent-browser-uploads.js).
+    const { paths, ...call } = input && typeof input === "object" ? input : {};
+    const policy = await this.assistants.browsers.policy(paths ? call : input);
+    const upload =
+      String(call.action ?? "")
+        .trim()
+        .toLowerCase() === "upload";
+    if (policy.allow && (upload || paths !== undefined)) {
+      const uploads = this.assistants.workflows?.browserUploads;
+      const reason = uploads
+        ? uploads.admit({ agentId: call.agentId, paths: paths ?? [] })
+        : "unavailable";
+      if (reason) return { allow: false, reason };
+    }
     if (policy.allow) this.noteDriver(input);
     return policy;
   }

@@ -247,11 +247,14 @@ export async function workspaceCall(w, inv, input) {
   if (
     ctx.execContinuation &&
     !fileActions.has(input.action) &&
-    input.action !== "catalog"
+    !["catalog", "browser_upload_stage"].includes(input.action)
   )
     throw assistantProblem("invalid", 403);
   // Project folders are the member's own grant (agent-project-files.js).
   if (fileActions.has(input.action)) return w.folders.invoke(ctx, input);
+  // A file for the agent's own browser, from the same folders or its workspace
+  // (agent-browser-uploads.js).
+  if (input.action === "browser_upload_stage") return w.browserUploads.stage(ctx, input);
   // A user agent reaches only its folders: no coding, no project memory.
   if (input.action !== "catalog" && isUserAgent(w.a.store.getAssistant(ctx.assistantId)))
     throw userAgentLocked();
