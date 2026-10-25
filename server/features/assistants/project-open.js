@@ -64,9 +64,29 @@ export function openInsideSync(file, flags, mode) {
   throw escaped();
 }
 
+// Whether `file` is a link now; only to name a failed open, never to allow one.
+function isLink(file) {
+  try {
+    return fs.lstatSync(file).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+// Opens a folder without following any link. Linux reports a link at the last name
+// as ENOTDIR (O_DIRECTORY with O_NOFOLLOW); it is refused as ELOOP, as on macOS.
+async function openFolder(folder) {
+  try {
+    return await openInside(folder, O_RDONLY | O_DIRECTORY);
+  } catch (error) {
+    if (error.code === "ENOTDIR" && isLink(folder)) throw escaped();
+    throw error;
+  }
+}
+
 // The folder's identity (dev/ino), opened again without following any link.
 async function folderIdentity(folder) {
-  const handle = await openInside(folder, O_RDONLY | O_DIRECTORY);
+  const handle = await openFolder(folder);
   try {
     return await handle.stat();
   } finally {
@@ -86,10 +106,11 @@ async function folderIdentity(folder) {
  *   folder (dev/ino); after `act` the folder is checked once more. A swap seen by
  *   either check is refused (ELOOP). This narrows the race to the instant between
  *   the last check and the call using the path; it does not close it.
+ * A folder that is a link when opened is refused (ELOOP) on both platforms.
  * `folder` must be a real path, `name` a single entry name.
  */
 export async function inFolder(folder, act) {
-  const handle = await openInside(folder, O_RDONLY | O_DIRECTORY);
+  const handle = await openFolder(folder);
   const entry = (base, name) => {
     if (name.includes("/") || name === "." || name === "..") throw escaped();
     return name ? path.join(base, name) : base;
