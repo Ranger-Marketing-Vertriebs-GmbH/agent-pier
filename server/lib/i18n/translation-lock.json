@@ -298,6 +298,7 @@
   "assistants.sshApproval": "de:11662838d3b0 en:d79086a83a2a",
   "assistants.sshApprovalLimit": "de:92ba6b8fd7b4 en:eda54ee52acf",
   "assistants.sshBusy": "de:5e4eecdec2b6 en:793ee05f3832",
+  "assistants.sshConsoleControl": "de:2dfbfd21f4ec en:bf0bd5e46846",
   "assistants.sshDeny": "de:7be75ced7162 en:05a2d7332eb9",
   "assistants.sshHostType": "de:fc688b6f91a7 en:dc619484f895",
   "assistants.sshHostUnavailable": "de:2ef4eaec9737 en:d95c509de117",

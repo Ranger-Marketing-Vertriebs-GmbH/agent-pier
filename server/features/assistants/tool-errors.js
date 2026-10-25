@@ -88,6 +88,8 @@ const reasons = {
     "The SSH access changed or the turn ended while the command waited or ran; it was stopped. Do not retry without the owner.",
   SSH_HOST_TYPE:
     "This host does not take this action: an SFTP host takes only the file actions (list, stat, download, upload, sync, mkdir, rename, delete), an SSH host only execute. Check the type in action hosts.",
+  SSH_CONSOLE_CONTROL:
+    "This host runs commands in its interactive console: send plain lines separated by line breaks, without tabs, carriage returns, escape or other control characters.",
   SFTP_ROUTINE_DELETE:
     "Routines never delete files on SFTP hosts, also not with a sync that deletes extra files. Do not retry; say in the routine's result what you would delete, so the owner can do it.",
   SFTP_APPROVAL_LIMIT:
@@ -224,6 +226,7 @@ const byKey = {
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
   sshHostType: "SSH_HOST_TYPE",
+  sshConsoleControl: "SSH_CONSOLE_CONTROL",
   sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
   sftpWorkspaceRefused: "SFTP_WORKSPACE_REFUSED",
   sftpApprovalLimit: "SFTP_APPROVAL_LIMIT",

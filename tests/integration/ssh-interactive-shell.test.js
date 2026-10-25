@@ -5,6 +5,7 @@ import { conversationHistory } from "../../server/features/assistants/conversati
 import { agentSshFixture, hostId, waitFor } from "../helpers/agent-ssh-fixture.js";
 import { sshManagementFixture } from "../helpers/ssh-management.js";
 import { SshTools } from "../../server/features/ssh/ssh-tools.js";
+import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 const device = fileURLToPath(
   new URL("../fixtures/fake-network-device.mjs", import.meta.url),
@@ -56,6 +57,23 @@ test("an approved command runs through the console of an interactive host", asyn
   assert.equal(executed.details.authorizedBy, "approval");
   assert.equal(executed.details.interactive, true);
   assert.equal(JSON.stringify(f.audit).includes("FakeSwitch"), false);
+});
+
+test("control characters for a console host are refused before any card", async (t) => {
+  const f = await agentSshFixture(t);
+  consoleHost(f);
+  f.grant([{ accessId: hostId, mode: "approval" }]);
+  for (const command of ["show\tversion", "conf t\rend", "show\x1b[A", "x\x03"]) {
+    const error = await f.execute(f.ownTurn(), command).catch((e) => e);
+    assert.equal(toolError(error).code, "SSH_CONSOLE_CONTROL", JSON.stringify(command));
+  }
+  assert.equal(
+    f.workflows.store.list(f.id).filter((a) => a.payload.action === "ssh").length,
+    0,
+  );
+  const denied = f.audit.filter((e) => e.action === "ssh.denied");
+  assert.equal(denied.length, 4);
+  assert.equal(denied[0].details.code, "SSH_CONSOLE_CONTROL");
 });
 
 test("a trusted console run leaves a done note without an exit code", async (t) => {
@@ -133,6 +151,10 @@ test("only the owner switches the console mode; MCP lists it and tests sign-in",
   t.after(() => tools.close());
   const listed = await tools.call("ssh_list_hosts", {});
   assert.equal(listed.hosts.find((h) => h.accessId === host.id).interactiveShell, true);
+  await assert.rejects(
+    tools.call("ssh_execute", { accessId: host.id, command: "show\tversion" }),
+    { code: "SSH_CONSOLE_CONTROL", status: 400 },
+  );
   // The console test opens the shell, waits for the prompt and logs out.
   const consoles = [];
   store.runConsole = (connection, command) => {

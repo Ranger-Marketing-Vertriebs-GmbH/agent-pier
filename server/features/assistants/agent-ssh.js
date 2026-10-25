@@ -3,6 +3,7 @@ import path from "node:path";
 import { privateDirectory } from "../../lib/storage.js";
 import { acquireExecutionLock } from "../ssh/ssh-execution-lock.js";
 import { runSshCommand } from "../ssh/ssh-run.js";
+import { consoleCommand } from "../ssh/ssh-interactive-shell.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { exact, sshFromLead } from "./assistant-access.js";
 import { permits, sshOrigin } from "./agent-ssh-origin.js";
@@ -31,6 +32,7 @@ const statuses = {
   sshApprovalLimit: 429,
   sshRevoked: 403,
   sshHostType: 409,
+  sshConsoleControl: 400,
   sftpRoutineDelete: 403,
   sftpApprovalLimit: 429,
 };
@@ -43,6 +45,7 @@ const codes = {
   sshApprovalLimit: "SSH_APPROVAL_LIMIT",
   sshRevoked: "SSH_REVOKED",
   sshHostType: "SSH_HOST_TYPE",
+  sshConsoleControl: "SSH_CONSOLE_CONTROL",
   sftpRoutineDelete: "SFTP_ROUTINE_DELETE",
   sftpApprovalLimit: "SFTP_APPROVAL_LIMIT",
 };
@@ -215,6 +218,10 @@ export class AgentSsh {
     if (!host) throw this.refuse(caller, cls, input, "sshHostUnavailable");
     // An SFTP host has no shell; the file actions use it.
     if (host.type === "sftp") throw this.refuse(caller, cls, input, "sshHostType");
+    // A console types the command: control characters would make it differ from
+    // what the card shows (ssh-interactive-shell.js), so it is refused before a card.
+    if (host.interactiveShell && consoleCommand(input.command) === null)
+      throw this.refuse(caller, cls, input, "sshConsoleControl");
     const verdict = permits(grant.mode, cls);
     if (verdict === "refuse") {
       // The routine's result says so even if the model leaves it out.

@@ -68,6 +68,7 @@ const untranslated = new Map(
       "Unknown SSH tool.",
       "Invalid SSH command or timeout.",
       "SSH assignment or capability revoked.",
+      "This host runs commands in its interactive console: send plain lines without control characters.",
     ],
     // The shared runner: session MCP returns it to the coding agent, AgentSsh maps it
     // to the SSH_HOST_UNAVAILABLE tool code.
@@ -136,6 +137,7 @@ const untranslated = new Map(
     // SSH command helper for coding agents; agents always read English.
     "server/ssh.mjs": [
       "Usage: ssh.mjs --data-dir DIR --session ID --access ID [-- remote command]",
+      "Interactive shell hosts take only plain lines, no control characters.",
       "SSH access changed. Please try again.",
     ],
   }),

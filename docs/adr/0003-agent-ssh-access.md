@@ -80,7 +80,7 @@ an interactive console (AGENTPIER-236). An owner-only, per-host switch **Interac
 shell (network devices)** makes `agentpier_ssh` `execute` (and `ssh_execute`) type the
 command into that console line by line after each prompt over `ssh -tt`, answer pager
 prompts and log out. Nothing else about agent SSH changes: the modes, approval cards
-(the approved text is exactly what is typed), the digest-only audit and the stored
+(the approved text is what is typed: its lines one by one, then `exit` only at a prompt; control characters other than line breaks are refused before a card), the digest-only audit and the stored
 command are the same. The result has `interactive: true` and `exitCode: null`, since a
 console reports no exit status; the audit row records `interactive: true`. Prompt
 detection is a heuristic (see docs/ssh-access.md), so an agent judges success from the

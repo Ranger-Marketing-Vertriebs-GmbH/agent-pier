@@ -31,7 +31,8 @@ export function commandLines(command) {
  * (docs/ssh-access.md): the connection (OpenSSH with `-tt`, no remote command)
  * opens the device's shell; after its first prompt each line of the command is
  * typed, and the next line waits for the prompt (or `idleMs` of silence) again.
- * Pager prompts get a space. Then `exit` is typed and the connection closed.
+ * Pager prompts get a space. Then `exit` is typed if the console shows a prompt,
+ * and the connection is closed.
  * The result has the same shape as runSshCommand's: `stdout` is the console text
  * without control sequences or the echoed lines, `exitCode` is null (a console
  * reports none) unless the connection failed before the first prompt, and
@@ -59,6 +60,7 @@ export function runInteractiveSsh(connection, command, options) {
       started = false,
       exiting = false,
       closedByUs = false,
+      atPrompt = false,
       pagerFrom = 0,
       timer = null;
     const budget = (chunk) => {
@@ -76,24 +78,28 @@ export function runInteractiveSsh(connection, command, options) {
       clearTimeout(timer);
       timer = setTimeout(ready, ms);
     };
-    // The console waits for input: type the next line, `exit`, or hang up.
+    const hangUp = () => {
+      closedByUs = true;
+      child.stdin.end();
+      child.kill("SIGTERM");
+    };
+    // The console waits for input: type the next line, `exit`, or hang up. `exit`
+    // is typed only at a recognised prompt, never as the answer to a question
+    // (`[confirm]`, a file name) the last line left open.
     function ready() {
       timer = null;
-      if (exiting) {
-        closedByUs = true;
-        child.stdin.end();
-        child.kill("SIGTERM");
-        return;
-      }
+      if (exiting) return hangUp();
       started = true;
       const sent = segments.length - 1;
       if (sent < lines.length) type(`${lines[sent]}\n`);
+      else if (!atPrompt) return hangUp();
       else {
         type("exit\n");
         exiting = true;
       }
       segments.push("");
       pagerFrom = 0;
+      atPrompt = false;
       wait(timing.idleMs);
     }
     child.stdout.on("data", (chunk) => {
@@ -102,14 +108,15 @@ export function runInteractiveSsh(connection, command, options) {
       if (truncated) return;
       const current = segments[step];
       const line = lastLine(current.slice(pagerFrom));
+      atPrompt = false;
       if (pagerPattern.test(line)) {
         type(" ");
         pagerFrom = current.length;
         return wait(timing.idleMs);
       }
       // After a line was typed, its echo ends with a line break before any prompt.
-      const prompt = promptPattern.test(line) && (step === 0 || /\n/.test(current));
-      wait(prompt ? timing.settleMs : timing.idleMs);
+      atPrompt = promptPattern.test(line) && (step === 0 || /\n/.test(current));
+      wait(atPrompt ? timing.settleMs : timing.idleMs);
     });
     child.stderr.on("data", (chunk) => {
       stderr += err.write(budget(chunk));

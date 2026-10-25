@@ -276,6 +276,8 @@ export const assistants = {
   sshRevoked: "The SSH access changed; the command was stopped.",
   sshHostType:
     "This access does not fit the action: SFTP accesses take only file actions, SSH accesses only commands.",
+  sshConsoleControl:
+    "This host runs commands in its interactive console; a command may contain only plain lines, no control characters.",
   sftpApprovalLimit:
     "Three file operations of this agent already wait for your approval.",
   sftpRoutineDelete: "Routines may never delete files on SFTP accesses.",

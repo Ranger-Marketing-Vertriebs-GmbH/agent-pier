@@ -7,24 +7,40 @@
 // two-byte ESC sequences.
 const escapes =
   /\x1b\[[0-?]*[ -/]*[@-~]|\x9b[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[()*+][0-9A-Za-z]|\x1b[@-Z\\-_]|\x1b./g;
-// A pager waiting for a key: "--More--", "-- More --", "<--- More --->",
-// "Press any key to continue", "Press SPACE for more".
-export const pagerPattern =
-  /<-+\s*More\s*-+>|-+\s*More\s*-+|Press\s+any\s+key[^\n]*|Press\s+SPACE[^\n]*/i;
-const pagerAll = new RegExp(pagerPattern.source, "gi");
+// A pager waiting for a key, as the whole line: "--More--", "-- More --",
+// "<--- More --->", "Press any key to continue", "Press SPACE for more". Text that
+// merely contains "more" (a hostname, an option) is no pager.
+const pagerText =
+  /<-+\s*More\s*-+>|-+\s*More\s*-+|Press\s+any\s+key\b.*|Press\s+SPACE\b.*/i;
+export const pagerPattern = new RegExp(`^\\s*(?:${pagerText.source})\\s*$`, "i");
+// A pager marker the device left in front of the next page's first line.
+const pagerPrefix = /^\s*(?:<-+\s*More\s*-+>|-{2,}\s*More\s*-{2,})\s*/i;
 // A shell or device prompt: a line ending in >, #, $ or ], then at most one space.
-export const promptPattern = /[>#$\]] ?$/;
+// A bracketed status word in capitals ("[OK]", "[DONE]") is output, not a prompt.
+const promptEnd = /[>#$\]] ?$/;
+// A question that ends in its answer hint ("Proceed? [confirm]") is no prompt either.
+const statusLine = /^\s*\[[A-Z ]+\]\s*$/;
+const questionLine = /\?\s*\[[^\]]*\] ?$|\[(?:confirm|yes\/no|y\/n)\] ?$/i;
+export const promptPattern = {
+  test: (line) =>
+    promptEnd.test(line) && !statusLine.test(line) && !questionLine.test(line),
+};
 
-/** The line as a terminal shows it: the last redraw after CR, backspaces applied. */
+/**
+ * The line as a terminal shows it: CR returns to the start and later characters
+ * overwrite earlier ones (`% Error\rOK` shows `OKrror`), a backspace moves one
+ * column left; other control characters are dropped.
+ */
 function visibleLine(line) {
-  const redraws = line.split("\r");
-  const shown = redraws.findLast((part) => /\S/.test(part.replace(/[\b]/g, ""))) ?? "";
-  const kept = [];
-  for (const character of shown) {
-    if (character === "\b") kept.pop();
-    else kept.push(character);
+  const cells = [];
+  let column = 0;
+  for (const character of line) {
+    if (character === "\r") column = 0;
+    else if (character === "\b") column = Math.max(0, column - 1);
+    else if (/[\x00-\x08\x0b-\x1f\x7f]/.test(character)) continue;
+    else cells[column++] = character;
   }
-  return kept.join("").replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
+  return Array.from(cells, (cell) => cell ?? " ").join("");
 }
 
 /** Plain console text: no control sequences, LF line ends, no pager prompts. */
@@ -33,7 +49,10 @@ export function consoleText(raw) {
     .replace(escapes, "")
     .replace(/\r+\n/g, "\n")
     .split("\n")
-    .map((line) => visibleLine(line).replace(pagerAll, "").trimEnd())
+    .map((line) => {
+      const shown = visibleLine(line);
+      return (pagerPattern.test(shown) ? "" : shown.replace(pagerPrefix, "")).trimEnd();
+    })
     .join("\n");
 }
 

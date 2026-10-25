@@ -36,6 +36,8 @@ test("console text drops escape sequences, redraws, backspaces and pager prompts
   assert.equal(consoleText("a\r\nb\r\r\nc\n"), "a\nb\nc\n");
   assert.equal(consoleText("loading...\rdone      "), "done");
   assert.equal(consoleText("ab\bc"), "ac");
+  // CR returns to the start and overwrites, as a terminal shows it.
+  assert.equal(consoleText("% Error in line\rOK"), "OKError in line");
   assert.equal(
     consoleText("--More--\b\b\b\b\b\b\b\b        \b\b\b\b\b\b\b\bport 21"),
     "port 21",
@@ -60,10 +62,30 @@ test("prompts and pagers are recognised by the end of the last line", () => {
     "[x]",
   ])
     assert.ok(promptPattern.test(prompt), prompt);
-  for (const line of ["Password:", "Uptime 3 days", "Switch#  ", ""])
+  for (const line of [
+    "Password:",
+    "Uptime 3 days",
+    "Switch#  ",
+    "",
+    "[OK]",
+    "Proceed with reload? [confirm]",
+    "Destination filename [startup-config]? ",
+  ])
     assert.ok(!promptPattern.test(line), line);
   for (const pager of ["--More--", " -- More -- ", "<--- More --->", "Press SPACE"])
     assert.ok(pagerPattern.test(pager), pager);
+  // Text that merely mentions "more" is output, not a pager.
+  for (const line of [
+    "more.example.test>",
+    "Press any key",
+    "show more-details",
+    "--more-output",
+  ])
+    assert.equal(pagerPattern.test(line) && !/^Press/.test(line), false, line);
+  assert.equal(
+    consoleText("host more.example.test\n--more-output enabled\n-- More --port 2"),
+    "host more.example.test\n--more-output enabled\nport 2",
+  );
 });
 
 test("only the echo of the sent line is dropped", () => {
@@ -181,4 +203,20 @@ test("runSshCommand hands interactive connections to the console runner", async 
   assert.equal(refused.exitCode, 255);
   assert.equal(refused.interactive, undefined);
   assert.match(refused.stderr, /Connection closed by remote host/);
+});
+
+test("exit is typed only at a prompt, never as the answer to a question", async () => {
+  for (const command of ["reload", "copy"]) {
+    const result = await run(command);
+    assert.equal(result.signal, null, command);
+    assert.ok(!/answered/.test(result.stdout), command);
+    assert.match(result.stdout, /\[confirm\]|\[startup-config\]\?/, command);
+  }
+});
+
+test("a status line in brackets is not taken for a prompt", async () => {
+  const result = await run("status\nshow version", {
+    timing: { idleMs: 1000, settleMs: 60 },
+  });
+  assert.match(result.stdout, /\[OK\]\nSwitch>\nFakeSwitch OS 1.0/);
 });

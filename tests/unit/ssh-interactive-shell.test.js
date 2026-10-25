@@ -9,7 +9,10 @@ import { SshAccessStore } from "../../server/features/ssh/ssh-access-store.js";
 import { runOpenSsh } from "../../server/features/ssh/ssh-keys.js";
 import { connectionRevision } from "../../server/features/ssh/sftp-host-access.js";
 import { runInteractiveSsh } from "../../server/features/ssh/ssh-interactive-run.js";
-import { interactiveShellArgs } from "../../server/features/ssh/ssh-interactive-shell.js";
+import {
+  consoleCommand,
+  interactiveShellArgs,
+} from "../../server/features/ssh/ssh-interactive-shell.js";
 
 const device = fileURLToPath(
   new URL("../fixtures/fake-network-device.mjs", import.meta.url),
@@ -60,7 +63,12 @@ const argsOf = (store, id) => {
 };
 
 test("the switch is off by default and adds -tt only for an opted-in SSH host", async (t) => {
-  assert.deepEqual(interactiveShellArgs({ interactiveShell: true }), ["-tt"]);
+  // `-e none`: a typed `~.` line is never an OpenSSH escape that ends the session.
+  assert.deepEqual(interactiveShellArgs({ interactiveShell: true }), [
+    "-tt",
+    "-e",
+    "none",
+  ]);
   assert.deepEqual(interactiveShellArgs({ interactiveShell: "true" }), []);
   assert.deepEqual(interactiveShellArgs({ type: "sftp", interactiveShell: true }), []);
   const { store, input, dataDir } = fixture(t);
@@ -161,4 +169,24 @@ test("Test connection of an interactive host waits for the prompt and logs out",
   assert.ok(consoles[0].connection.args.includes("-tt"));
   state.flags = ["--fail"];
   await assert.rejects(store.test(access.id), { status: 502 });
+});
+
+test("console commands are plain lines; other control characters are refused", () => {
+  assert.equal(consoleCommand("enable\r\nshow version\n"), "enable\nshow version\n");
+  assert.equal(consoleCommand("~.\n~B"), "~.\n~B");
+  for (const bad of ["a\rb", "a\tb", "a\x7f", "\x1b[A", "\x03", "\x15", "\x17", "x\r"])
+    assert.equal(consoleCommand(bad), null, JSON.stringify(bad));
+});
+
+test("system OpenSSH takes -tt and turns the escape character off", async (t) => {
+  const { store, input } = fixture(t);
+  const access = await store.create({ ...input, interactiveShell: true });
+  const { args, cwd, cleanup } = store.connection(access.id);
+  try {
+    const output = execFileSync("ssh", ["-G", ...args], { cwd, encoding: "utf8" });
+    assert.match(output, /^escapechar none$/m);
+    assert.match(output, /^requesttty force$/m);
+  } finally {
+    cleanup();
+  }
 });
