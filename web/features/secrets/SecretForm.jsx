@@ -1,8 +1,11 @@
-import React, { useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import UnsavedChangesSheet from "../../components/UnsavedChangesSheet.jsx";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { sameValue } from "../../lib/settings/draft-state.js";
+import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
 import { secretsCopy as copy } from "../../lib/i18n/messages/secrets.js";
 
 /**
@@ -28,22 +31,38 @@ function Field({ label, hint, children }) {
  * One secret's detail. A saved value is never fetched: an existing secret shows
  * "Value saved", and only Replace value reveals an empty field whose content is sent.
  */
-export default function SecretForm({ secret, projects, saved, removed }) {
-  const [draft, setDraft] = useState({
+export default function SecretForm({ secret, projects, focusHeading, saved, removed }) {
+  const base = {
     name: secret?.name || "",
     description: secret?.description || "",
     projectId: secret?.projectId || "",
-  });
+  };
+  const [draft, setDraft] = useState(base);
   const [value, setValue] = useState("");
   const [replacing, setReplacing] = useState(!secret);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const heading = useRef(null);
+  const valueInput = useRef(null);
+  const replaceButton = useRef(null);
+  // The control that replaces the one just clicked, focused once it is rendered.
+  const focusNext = useRef(null);
+  useEffect(() => {
+    if (focusHeading) heading.current?.focus();
+  }, [focusHeading]);
+  useEffect(() => {
+    focusNext.current?.current?.focus();
+    focusNext.current = null;
+  }, [replacing]);
   const change = (field) => (event) =>
     setDraft((current) => ({ ...current, [field]: event.target.value }));
-  const submit = async (event) => {
-    event.preventDefault();
-    if (busy) return;
+  const changed = Object.keys(base).filter((key) => !sameValue(draft[key], base[key]));
+  const changeCount = changed.length + (value ? 1 : 0);
+  const busyRef = useRef(false);
+  const save = async () => {
+    if (busyRef.current) return { status: "busy" };
+    busyRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -59,17 +78,55 @@ export default function SecretForm({ secret, projects, saved, removed }) {
       setValue("");
       setReplacing(false);
       saved(result);
+      return { status: "saved" };
     } catch (err) {
       setError(err.message);
+      return { status: "failed" };
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
+  const sheet = useUnsavedChangesGuard({
+    draft: {
+      dirty: changeCount > 0,
+      changeCount,
+      confirmation: null,
+      reset: () => {
+        setDraft(base);
+        setValue("");
+        setReplacing(!secret);
+      },
+    },
+    tab: secret ? secret.name : copy.add,
+    save,
+    stays: () => false,
+  });
+  const showReplace = () => {
+    focusNext.current = valueInput;
+    setReplacing(true);
+  };
+  const keepValue = () => {
+    focusNext.current = replaceButton;
+    setValue("");
+    setReplacing(false);
+  };
   return (
     <article className="secret-detail">
-      <h2>{secret ? secret.name : copy.add}</h2>
-      <form className="secret-form" onSubmit={submit}>
-        <fieldset disabled={busy}>
+      <h2 ref={heading} tabIndex={-1}>
+        {secret ? secret.name : copy.add}
+      </h2>
+      {/* Controls stay enabled while saving so the focused one keeps its focus;
+          a second submit is ignored instead. */}
+      <form
+        className="secret-form"
+        aria-busy={busy}
+        onSubmit={(event) => {
+          event.preventDefault();
+          save();
+        }}
+      >
+        <div className="secret-fields">
           <Field label={copy.name} hint={copy.nameHint}>
             {(field) => (
               <input
@@ -108,32 +165,49 @@ export default function SecretForm({ secret, projects, saved, removed }) {
             )}
           </Field>
           {replacing ? (
-            <Field label={copy.value} hint={copy.valueHint}>
-              {(field) => (
-                <input
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  {...field}
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                />
+            <div className="secret-replace">
+              <Field label={copy.value} hint={copy.valueHint}>
+                {(field) => (
+                  <input
+                    ref={valueInput}
+                    type="password"
+                    required
+                    // Not a login: keep browsers and password managers from saving it.
+                    name="secret-content"
+                    autoComplete="new-password"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    {...field}
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                  />
+                )}
+              </Field>
+              {secret && (
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={keepValue}
+                >
+                  {copy.keepValue}
+                </button>
               )}
-            </Field>
+            </div>
           ) : (
             <div className="secret-value">
               <span>{copy.value}</span>
               <p>{copy.valueSaved}</p>
               <button
+                ref={replaceButton}
                 type="button"
                 className="button secondary compact"
-                onClick={() => setReplacing(true)}
+                onClick={showReplace}
               >
                 {copy.replaceValue}
               </button>
             </div>
           )}
-        </fieldset>
+        </div>
         <ErrorMessage error={error} />
         {busy && <p role="status">{copy.saving}</p>}
         <div className="secret-actions">
@@ -147,7 +221,7 @@ export default function SecretForm({ secret, projects, saved, removed }) {
               {commonCopy.delete}
             </button>
           )}
-          <button type="submit" className="button primary" disabled={busy}>
+          <button type="submit" className="button primary" aria-disabled={busy}>
             {commonCopy.save}
           </button>
         </div>
@@ -166,6 +240,7 @@ export default function SecretForm({ secret, projects, saved, removed }) {
           }}
         />
       )}
+      <UnsavedChangesSheet {...sheet} />
     </article>
   );
 }

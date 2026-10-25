@@ -18,6 +18,7 @@ export const secretsCopy = {
   value: "Value",
   valueSaved: "Value saved",
   replaceValue: "Replace value",
+  keepValue: "Keep saved value",
   valueHint: "The value is never shown again after saving.",
   saving: "Saving …",
   deleteTitle: (name) => `Delete secret '${name}'?`,

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import ListDetail from "../../components/ListDetail.jsx";
 import api from "../../lib/api.js";
+import { requestNavigation } from "../../lib/navigation-guard.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { secretsCopy as copy } from "../../lib/i18n/messages/secrets.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
@@ -19,6 +20,18 @@ export default function SecretsSettings() {
   const [revision, setRevision] = useState(0);
   // "" shows the list (and the hint on desktop), "new" the empty form.
   const [selectedId, setSelectedId] = useState("");
+  // A just created secret's form mounts anew; its heading takes the focus.
+  const [createdId, setCreatedId] = useState("");
+  const addButton = useRef(null);
+  // Switching secrets asks the open form's unsaved-changes guard first.
+  const select = (id) =>
+    requestNavigation({
+      reason: "application",
+      commit: () => {
+        setCreatedId("");
+        setSelectedId(id);
+      },
+    });
   useEffect(() => {
     const controller = new AbortController();
     setError("");
@@ -63,8 +76,9 @@ export default function SecretsSettings() {
         <button
           type="button"
           className="button primary"
+          ref={addButton}
           disabled={!secrets}
-          onClick={() => setSelectedId("new")}
+          onClick={() => select("new")}
         >
           <Icon name="plus" />
           {copy.add}
@@ -91,7 +105,7 @@ export default function SecretsSettings() {
           count={items.length}
           items={items}
           selectedId={detailId}
-          onSelect={setSelectedId}
+          onSelect={select}
           mobileBackLabel={copy.back}
           renderItem={(secret) => (
             <span className="secrets-item">
@@ -106,7 +120,9 @@ export default function SecretsSettings() {
                 key={detailId}
                 secret={selected || null}
                 projects={owners}
+                focusHeading={detailId === createdId}
                 saved={(result) => {
+                  if (!selected) setCreatedId(result.id);
                   setSecrets((current) => [
                     ...current.filter((secret) => secret.id !== result.id),
                     result,
@@ -116,6 +132,8 @@ export default function SecretsSettings() {
                 removed={(id) => {
                   setSecrets((current) => current.filter((secret) => secret.id !== id));
                   setSelectedId("");
+                  // The dialog's opener is gone; the add button keeps the focus.
+                  requestAnimationFrame(() => addButton.current?.focus());
                 }}
               />
             ) : (

@@ -5278,6 +5278,7 @@
   "secrets:secretsCopy.errors.SECRET_NAME_TAKEN": "de:f2786771753d en:9d114d54949d",
   "secrets:secretsCopy.errors.SECRET_NOT_FOUND": "de:c82415f35e23 en:083f13736d06",
   "secrets:secretsCopy.global": "de:a258b30f88c3 en:a258b30f88c3",
+  "secrets:secretsCopy.keepValue": "de:f587650c980c en:884e111c1950",
   "secrets:secretsCopy.loading": "de:2165806ab443 en:f24490401263",
   "secrets:secretsCopy.name": "de:dcd1d5223f73 en:dcd1d5223f73",
   "secrets:secretsCopy.nameHint": "de:b5c0a0470ffe en:b9ae20e00e7e",
