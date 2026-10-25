@@ -108,7 +108,7 @@ export default function LaunchDialog({
     [busEnabled, setBusEnabled] = useState(true),
     [agentpierTools, setAgentpierTools] = useState(true),
     [sshAccessIds, setSshAccessIds] = useState([]),
-    // Secrets beyond the launch project's own; a task-profile launch takes none.
+    // Secrets beyond the session project's own; a task-profile launch takes none.
     [secretIds, setSecretIds] = useState([]),
     [refused, setRefused] = useState(null);
   const selectedTool = access.tool;
@@ -423,11 +423,7 @@ export default function LaunchDialog({
                   sftp={coding}
                 />
                 {!profileId && (
-                  <LaunchSecretChoices
-                    cwd={cwd}
-                    selected={secretIds}
-                    change={setSecretIds}
-                  />
+                  <LaunchSecretChoices selected={secretIds} change={setSecretIds} />
                 )}
               </div>
             </details>

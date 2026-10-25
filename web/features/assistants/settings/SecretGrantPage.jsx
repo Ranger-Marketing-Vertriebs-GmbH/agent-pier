@@ -1,5 +1,6 @@
 import React, { useId, useState } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
+import Icon from "../../../components/Icon.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import { CheckboxRow } from "../../../components/ListRow.jsx";
 import { useCrossLink } from "../../../app/cross-link.js";
@@ -13,11 +14,13 @@ import "./ssh-grant-page.css";
 /**
  * The secrets this agent receives in `.agentpier/secrets.env`; part of the Work draft.
  * `secrets` is undefined while loading and null when the catalog could not be read.
+ * `locked`: an agent with its own Telegram bot for other people gets none.
  */
 export default function SecretGrantPage({
   secrets,
   selected,
   disabled,
+  locked = false,
   onChange,
   onRetry,
   onBack,
@@ -38,6 +41,12 @@ export default function SecretGrantPage({
     <section className="agent-subpage" aria-label={copy.title}>
       <SubpageHeader title={copy.title} tab="work" onBack={onBack} />
       <p className="assistant-note">{copy.intro}</p>
+      {locked && (
+        <p className="agent-locked-notice" role="note">
+          <Icon name="shield" size={16} />
+          <span>{copy.telegramSenders}</span>
+        </p>
+      )}
       {secrets === null && (
         <div className="ssh-grant-state">
           <ErrorMessage error={copy.loadError} />
@@ -90,7 +99,7 @@ export default function SecretGrantPage({
                   .filter(Boolean)
                   .join(" · ")}
                 checked={selected.includes(s.id)}
-                disabled={disabled}
+                disabled={disabled || (locked && !selected.includes(s.id))}
                 onChange={(on) => onChange(toggleId(selected, s.id, on))}
               />
             ))}

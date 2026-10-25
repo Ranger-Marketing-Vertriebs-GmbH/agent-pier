@@ -93,3 +93,14 @@ test("an agent of users has no secrets and names the lock", async ({ page }) => 
   await expect(row(page)).toHaveCount(0);
   await expect(page.getByLabel("GITHUB_TOKEN", { exact: true })).toHaveCount(0);
 });
+
+test("an agent with a Telegram bot for other people is told up front", async ({
+  page,
+}) => {
+  await setup(page, { catalog: catalog(), assistant: { telegramSenders: true } });
+  await page.goto(baseURL + settingsPath("work", "secrets"));
+  await expect(page.getByRole("note")).toContainText(
+    "This agent has its own Telegram bot for other people, so it cannot receive secrets.",
+  );
+  await expect(page.getByLabel("GITHUB_TOKEN", { exact: true })).toBeDisabled();
+});
