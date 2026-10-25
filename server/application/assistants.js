@@ -71,12 +71,21 @@ export function createAssistantServices(options) {
   }
 }
 export function startAssistantServices(
-  { config, assistants, assistantUpdates, assistantRuntime, assistantChannels },
+  {
+    config,
+    assistants,
+    assistantUpdates,
+    assistantRuntime,
+    assistantChannels,
+    assistantDreaming,
+  },
   { stageInBackground = stageRuntimeInBackground } = {},
 ) {
   if (!assistants) return;
   if (assistants.maintenance || assistantUpdates?.status().recoveryRequired) return;
   assistantChannels.start();
+  // MEMORY.md copies before each night's dreaming run (dreaming-backups.js).
+  assistantDreaming?.backups.start();
   if (readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled)
     assistantRuntime.start().catch(() => {});
   // After an AgentPier update, the runtime it ships is prepared without blocking start.
@@ -119,6 +128,7 @@ export function createAssistantFeature(services) {
       assistantWebSearch,
       assistantPdfModel,
       assistantDreamingSettings,
+      assistantDreaming,
       assistantMcpServers,
       assistantMcpOAuth,
     } = services;
@@ -131,6 +141,7 @@ export function createAssistantFeature(services) {
     try {
       assistantPdfModel?.close();
     } catch {}
+    assistantDreaming?.backups.stop();
     try {
       assistantDreamingSettings?.close();
     } catch {}
