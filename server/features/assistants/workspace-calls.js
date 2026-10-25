@@ -221,10 +221,13 @@ function authorizeCall(w, ctx, projectId, pipelineId) {
 /** The catalog: own projects and pipelines, and what the lead shares (`sharedBy`). */
 function catalog(w, ctx) {
   const scope = shareScope(ctx);
-  const own = sharesOnly(ctx)
-    ? { projectIds: [], pipelineIds: [], projectFiles: {} }
-    : w.access.get(ctx.assistantId);
-  const shared = w.shares.codingProjects(ctx.assistantId, scope);
+  // A hook run without Coding sees only its folders: no projects, pipelines or shares.
+  const noCoding = !!ctx.hook && !ctx.hook.coding;
+  const own =
+    sharesOnly(ctx) || noCoding
+      ? { projectIds: [], pipelineIds: [], projectFiles: {} }
+      : w.access.get(ctx.assistantId);
+  const shared = noCoding ? [] : w.shares.codingProjects(ctx.assistantId, scope);
   const levels = w.folders.levels(ctx);
   const all = w.access.catalog();
   const folders = new Map(w.folders.describe(levels).map((f) => [f.projectId, f]));

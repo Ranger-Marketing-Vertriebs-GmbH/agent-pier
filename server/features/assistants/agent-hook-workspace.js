@@ -43,6 +43,7 @@ export function hookActionAllowed(ctx, action) {
 export function recordHookCoding(w, ctx, action) {
   try {
     const events = w.a.routines?.hooks?.events;
+    // get and patch stay synchronous: no other write can slip in between.
     const event = events?.get(ctx.hook.eventId);
     if (!event) return;
     const coding = [...(event.coding || [])];
