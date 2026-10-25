@@ -8,7 +8,7 @@ import { partFiles, tree } from "../helpers/sftp-transfer-fixture.js";
 
 // The agent's workspace as the local side keeps away from what the native tool
 // guard protects there (team-plugin/tool-guard.js guardedWorkspaceEntry).
-test("downloads never write the workspace's prompt files, skills or attachments", async (t) => {
+test("downloads never write the workspace's prompt files, skills, attachments or .agentpier", async (t) => {
   const f = await setup(t);
   f.access([{ accessId: sftpHostId, mode: "trusted" }]);
   f.file(f.workspace, "AGENTS.md", "own instructions");
@@ -29,6 +29,8 @@ test("downloads never write the workspace's prompt files, skills or attachments"
     { action: "download", remotePath: "/repo/site", localPath: ".agents/site" },
     { action: "download", remotePath: "/repo/site", localPath: "attachments/site" },
     { action: "download", remotePath: "/repo/site", localPath: "Ägents/site" },
+    { action: "download", remotePath: "/repo/site", localPath: ".agentpier/site" },
+    { action: "download", remotePath: "/repo/site", localPath: ".AgentPier/site" },
   ])
     assert.equal(await refused(input), "SFTP_WORKSPACE_REFUSED", JSON.stringify(input));
   // A link to a guarded folder is checked where it leads.
@@ -66,7 +68,7 @@ test("downloads never write the workspace's prompt files, skills or attachments"
   );
 });
 
-test("uploads never read the workspace's prompt files, skills or attachments", async (t) => {
+test("uploads never read the workspace's prompt files, skills, attachments or .agentpier", async (t) => {
   const f = await setup(t);
   f.access([{ accessId: sftpHostId, mode: "trusted" }]);
   f.file(f.workspace, "AGENTS.md", "instructions");
@@ -74,6 +76,7 @@ test("uploads never read the workspace's prompt files, skills or attachments", a
   f.file(f.workspace, "skills/x/SKILL.md", "skill");
   f.file(f.workspace, ".agents/x.md", "agent");
   f.file(f.workspace, "attachments/other-chat.pdf", "someone else's upload");
+  f.file(f.workspace, ".agentpier/secrets.env", "TOKEN='secret'");
   f.file(f.workspace, "site/index.html", "page");
   // An upload of the whole workspace leaves every guarded entry out.
   for (const input of [
@@ -96,6 +99,8 @@ test("uploads never read the workspace's prompt files, skills or attachments", a
     "attachments/other-chat.pdf",
     "AGENTS.md",
     "skills",
+    ".agentpier",
+    ".agentpier/secrets.env",
   ])
     assert.equal(
       await code(

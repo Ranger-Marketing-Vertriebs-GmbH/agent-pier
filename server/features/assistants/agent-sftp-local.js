@@ -19,9 +19,9 @@ export const localContext = (ctx) =>
  * needs read and write, in a routine the owner's "May write" for project folders,
  * and the proven tool guard of the running Gateway like every agent write. In the
  * workspace a transfer keeps away from what the native tool guard protects there
- * (guardedWorkspaceEntry: prompt files, skills/, .agents/, attachments/): the
- * predicate travels as the local rules' `guarded` and is asked by name for every
- * entry walked, read or written (an upload of the workspace skips them), and
+ * (guardedWorkspaceEntry: prompt files, skills/, .agents/, attachments/,
+ * .agentpier/): the predicate travels as the local rules' `guarded` and is asked by
+ * name for every entry walked, read or written (an upload of the workspace skips them), and
  * `assertWorkspaceTarget` refuses a local side inside one. AgentPier's data
  * directory holds the workspace, so it is no protected root there; links out of
  * the workspace are still refused. `ctx` is the turn's workspaceContext, or the

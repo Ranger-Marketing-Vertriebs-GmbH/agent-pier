@@ -155,3 +155,21 @@ test("a folder swapped for a link between the checks and the open is refused", a
     "shareOutside",
   );
 });
+
+test("AgentPier's own files in .agentpier are never shared", async (t) => {
+  const { root, roots } = workspace(t);
+  fs.mkdirSync(path.join(root, ".agentpier"));
+  fs.writeFileSync(path.join(root, ".agentpier", "secrets.env"), "A='1'\n");
+  for (const target of [
+    ".agentpier/secrets.env",
+    "./.agentpier/secrets.env",
+    "reports/../.agentpier/secrets.env",
+    ".AgentPier/secrets.env",
+    path.join(root, ".agentpier", "secrets.env"),
+  ])
+    await assert.rejects(
+      readShareSource(roots, target),
+      { status: 403, key: "shareOutside" },
+      target,
+    );
+});

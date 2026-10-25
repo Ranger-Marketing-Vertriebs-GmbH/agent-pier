@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
 import { openInside } from "./project-open.js";
+import { managedName } from "./team-plugin/managed-folder.js";
 
 // What an agent may hand the owner with agentpier_share_file. Telegram takes photos
 // up to 10 MB and documents up to 50 MB; the chat route serves what the store holds.
@@ -91,8 +92,10 @@ export async function readShareSource(
   }
   if (!candidates.length) throw assistantProblem("shareOutside", 403);
   const { real: realRoot, expected } = candidates[0];
-  admit(inside(realRoot, expected));
   const parts = inside(realRoot, expected).split(path.sep);
+  // AgentPier's own files (the agent's secrets) are never shared.
+  if (managedName(parts.join("/"))) throw assistantProblem("shareOutside", 403);
+  admit(inside(realRoot, expected));
   // A link anywhere on the way (even one back into the workspace) is refused.
   await walk(realRoot, parts.slice(0, -1));
   const leaf = await fs.lstat(expected).catch((error) => {

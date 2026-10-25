@@ -18,6 +18,7 @@ const files = [
   "patch-paths.js",
   "exec-processes.js",
   "background-commands.js",
+  "managed-folder.js",
   "openclaw.plugin.json",
   "package.json",
 ];
