@@ -311,7 +311,7 @@ dialog.sheet {
   background: #1b1c20;
 }
 dialog.sheet::backdrop {
-  background: #08090db3;
+  background: var(--backdrop);
 }
 .sheet-title {
   margin-bottom: 8px;

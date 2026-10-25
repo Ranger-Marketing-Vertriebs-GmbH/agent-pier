@@ -17,8 +17,7 @@
   flex-direction: column;
 }
 .side-panel::backdrop {
-  background: #090a0ec9;
-  backdrop-filter: blur(5px);
+  background: var(--backdrop);
 }
 .side-panel-heading {
   padding: 23px 25px 14px;

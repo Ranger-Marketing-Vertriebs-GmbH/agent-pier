@@ -121,18 +121,39 @@ for (const [name, answer] of [
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
-// AGENTPIER-245: the start page moved behind the open details and showed through the
-// backdrop. The dialog stays the same node across polls and the page behind stays still.
+// AGENTPIER-245: the start page showed through the open details. The dialog stays the
+// same node across polls, its backdrop is opaque, and the page behind neither scrolls
+// nor shows its updates (sessions here change on every workspace poll).
+async function routeChangingSessions(page) {
+  let round = 0;
+  await page.route("**/api/state", async (route) => {
+    const response = await route.fetch();
+    const json = await response.json();
+    round++;
+    json.sessions = Array.from({ length: 2 + (round % 3) }, (_, index) => ({
+      id: `s${index}`,
+      name: round % 2 ? `Fix the login flow ${index}` : `Review the API docs ${index}`,
+      tool: "claude",
+      cwd: `/work/s${index}`,
+      status: "running",
+      activity: { state: (round + index) % 2 ? "working" : "waiting", label: "Busy" },
+    }));
+    await route.fulfill({ response, json });
+  });
+  return () => round;
+}
+
 for (const [name, viewport] of [
   ["desktop", { width: 1440, height: 700 }],
   ["phone", { width: 390, height: 844 }],
 ]) {
-  test(`the open details stay put and keep the start page still (${name})`, async ({
+  test(`the open details stay put and hide the changing start page (${name})`, async ({
     page,
   }, testInfo) => {
     test.setTimeout(45_000);
     await page.setViewportSize(viewport);
     const calls = await routeStatus(page);
+    const rounds = await routeChangingSessions(page);
     await page.goto("/");
     await page.getByRole("button", { name: /System status/ }).click();
     const dialog = page.getByRole("dialog", { name: "System status" });
@@ -141,23 +162,35 @@ for (const [name, viewport] of [
       window.__statusDialog = document.querySelector("dialog");
       return document.documentElement.scrollTop;
     });
-    const look = await dialog.evaluate((node) => ({
-      background: getComputedStyle(node).backgroundColor,
-      backdrop: getComputedStyle(node, "::backdrop").backgroundColor,
-    }));
-    expect(look.background).toBe("rgb(27, 28, 32)");
-    const alpha = Number(look.backdrop.match(/rgba\(.*,\s*([\d.]+)\)/)?.[1] ?? 1);
-    expect(alpha).toBeGreaterThanOrEqual(0.6);
+    expect(
+      await dialog.evaluate((node) => [
+        getComputedStyle(node).backgroundColor,
+        getComputedStyle(node, "::backdrop").backgroundColor,
+      ]),
+    ).toEqual(["rgb(27, 28, 32)", "rgb(9, 10, 14)"]);
     // Wheel past the end of the dialog, then over the backdrop beside or above it.
     const box = await dialog.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     for (let step = 0; step < 8; step++) await page.mouse.wheel(0, 600);
     await page.mouse.move(Math.max(4, box.x / 2), Math.max(4, box.y / 2));
     for (let step = 0; step < 4; step++) await page.mouse.wheel(0, 600);
+    // The backdrop beside (desktop) or above (phone) the dialog, over several polls.
+    const clip =
+      name === "desktop"
+        ? { x: 0, y: 0, width: Math.floor(box.x) - 8, height: viewport.height }
+        : { x: 0, y: 0, width: viewport.width, height: Math.floor(box.y) - 8 };
+    const first = await page.screenshot({ clip });
     const polled = calls.details;
+    const changed = rounds();
+    for (let shot = 0; shot < 6; shot++) {
+      await page.waitForTimeout(1_000);
+      expect((await page.screenshot({ clip })).equals(first)).toBe(true);
+    }
     await expect
       .poll(() => calls.details, { timeout: 15_000 })
       .toBeGreaterThan(polled + 1);
+    expect(rounds()).toBeGreaterThan(changed + 1);
+    expect((await page.screenshot({ clip })).equals(first)).toBe(true);
     expect(
       await page.evaluate(() => ({
         same: document.querySelector("dialog") === window.__statusDialog,
@@ -165,6 +198,6 @@ for (const [name, viewport] of [
         pageTop: document.documentElement.scrollTop,
       })),
     ).toEqual({ same: true, open: true, pageTop });
-    await page.screenshot({ path: testInfo.outputPath(`details-scrolled-${name}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`details-open-${name}.png`) });
   });
 }

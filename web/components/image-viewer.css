@@ -17,7 +17,7 @@
   flex-direction: column;
 }
 .image-viewer::backdrop {
-  background: #07080bcc;
+  background: var(--backdrop);
 }
 .image-viewer-bar {
   display: flex;
