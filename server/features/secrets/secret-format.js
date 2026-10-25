@@ -5,6 +5,13 @@ import path from "node:path";
 export const SECRET_HEADER =
   "# Managed by AgentPier. Do not edit; changes are overwritten.";
 
+/**
+ * An agent's delivered file below assistants/ (agent-secrets.js), or a temporary of
+ * it (writeSecretFile); never backed up.
+ */
+export const agentSecretMember =
+  /^workspaces\/[^/]+\/\.agentpier\/secrets\.env(\.\d+\.[0-9a-f]+\.tmp)?$/;
+
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 
 /** The shell-sourceable file for the entries: `NAME='value'`, sorted by name. */
@@ -38,6 +45,31 @@ async function privateFolder(folder) {
 }
 
 /**
+ * True when `file` is a regular file (never followed through a link) holding `text`;
+ * its mode is then set to 0600. A link, a folder or other content is replaced.
+ */
+async function unchangedFile(file, text) {
+  let handle;
+  try {
+    handle = await fs.promises.open(
+      file,
+      fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
+    );
+  } catch (error) {
+    if (["ENOENT", "ELOOP", "EISDIR", "EMLINK"].includes(error.code)) return false;
+    throw error;
+  }
+  try {
+    if (!(await handle.stat()).isFile()) return false;
+    if ((await handle.readFile("utf8")) !== text) return false;
+    await handle.chmod(0o600);
+    return true;
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
  * Writes the entries to `file` (0600, atomic) or removes it when there are none.
  * Resolves "written", "removed" or "unchanged" (identical content, or nothing to remove).
  */
@@ -56,14 +88,7 @@ export async function writeSecretFile(file, entries) {
     return (await unlinkQuietly(file)) ? "removed" : "unchanged";
   }
   await privateFolder(path.dirname(file));
-  try {
-    if ((await fs.promises.readFile(file, "utf8")) === text) {
-      await fs.promises.chmod(file, 0o600);
-      return "unchanged";
-    }
-  } catch (error) {
-    if (error.code !== "ENOENT" && error.code !== "EISDIR") throw error;
-  }
+  if (await unchangedFile(file, text)) return "unchanged";
   const tmp = `${file}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     await fs.promises.writeFile(tmp, text, { flag: "wx", mode: 0o600 });

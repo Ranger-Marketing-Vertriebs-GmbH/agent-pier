@@ -47,8 +47,8 @@ export function refuseLockedSettings(agent, patch = {}) {
 const filled = (value) => Array.isArray(value) && value.length > 0;
 /**
  * An access policy (assistant-access.js): a user agent holds no coding grants, no
- * pipelines, no SSH hosts, no GitHub access and no project memory rights. Folders
- * (projectFiles) stay the owner's choice.
+ * pipelines, no SSH hosts, no GitHub access, no secrets and no project memory
+ * rights. Folders (projectFiles) stay the owner's choice.
  */
 export function refuseLockedAccess(agent, input = {}) {
   if (!isUserAgent(agent)) return;
@@ -56,6 +56,7 @@ export function refuseLockedAccess(agent, input = {}) {
     filled(input.projectIds) ||
     filled(input.pipelineIds) ||
     filled(input.sshAccesses) ||
+    filled(input.secretIds) ||
     (input.github !== undefined && input.github !== null) ||
     input.memoryWrite === true ||
     input.autonomous === true ||

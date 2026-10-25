@@ -1,4 +1,5 @@
-// Agent secret audit details (secret-store.js): the name and which fields changed.
+// Agent secret audit details (secret-store.js): the name and which fields changed;
+// an agent's grant change (agent-secret-grants.js): the names added and removed.
 // Never a value or a description.
 const names = /^[A-Z_][A-Z0-9_]{0,63}$/;
 const fields = ["name", "description", "project", "value"];
@@ -8,4 +9,9 @@ export function secretAuditDetails(details, event) {
     event.details.name = details.name;
   if (Array.isArray(details.changed))
     event.details.changed = fields.filter((field) => details.changed.includes(field));
+  for (const key of ["added", "removed"])
+    if (Array.isArray(details[key]))
+      event.details[key] = details[key]
+        .filter((name) => typeof name === "string" && names.test(name))
+        .slice(0, 50);
 }

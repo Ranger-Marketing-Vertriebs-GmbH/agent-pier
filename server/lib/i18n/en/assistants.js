@@ -262,6 +262,9 @@ export const assistants = {
     "An agent with its own Telegram bot for other people must not have SSH accesses. Remove the SSH accesses or disconnect the bot first.",
   telegramSendersGithub:
     "An agent with its own Telegram bot for other people cannot have GitHub access. Remove the GitHub access or disconnect the bot first.",
+  telegramSendersSecrets:
+    "An agent with its own Telegram bot for other people cannot have secrets. Remove the secrets or disconnect the bot first.",
+  secretUnavailable: "This secret no longer exists. Reload the page and choose again.",
   githubFromLead: "A task-bound team member gets GitHub only from its lead agent.",
   githubProfileUnavailable:
     "This GitHub token profile no longer exists. Choose another one under Settings › Access › GitHub connections.",

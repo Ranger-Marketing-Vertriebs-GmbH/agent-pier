@@ -144,6 +144,13 @@ export class AssistantConfig {
     if (inheritsFromLead(assistant))
       await mirrorLeadMemory(this.workspaces, assistant, enabled).catch(() => {});
   }
+  // The agent's granted secrets file, rewritten before each turn so a deleted or
+  // edited copy is back (agent-secrets.js); a failure never fails the turn.
+  async deliverSecrets(assistant) {
+    await Promise.resolve()
+      .then(() => this.syncSecrets?.(assistant.id))
+      .catch(() => {});
+  }
   apply(id) {
     const task = this.queue.catch(() => {}).then(() => this.applyOnce(id));
     this.queue = task;
@@ -245,6 +252,7 @@ export class AssistantConfig {
         assistant.effectiveRevision === assistant.revision
       ) {
         await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
+        await this.deliverSecrets(assistant);
         if (nativeReady) await this.browserProfiles?.sync();
         await this.verifyBootstrap(assistant, bootstrap);
         this.onApplied?.(id);
@@ -278,6 +286,7 @@ export class AssistantConfig {
       // Profile creation commits before the Gateway's runtime roster reloads.
       await waitForAgentInRoster(this.client, assistant.runtimeAgentId, this.roster);
       await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
+      await this.deliverSecrets(assistant);
       // The Gateway's own view decides as well: a name it resolves to any other
       // source than the bundled skill is never compiled.
       if (skills.length) {

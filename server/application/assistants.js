@@ -12,6 +12,7 @@ import { connectAssistantServices, constructAssistantGraph } from "./assistant-g
 import { recoverAssistantServices } from "./assistant-recovery.js";
 import { stageRuntimeInBackground } from "../features/assistants/runtime-provisioning.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
+import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 
 /** Every service the assistant subsystem contributes; all are null while it is dormant. */
 export const assistantServiceNames = [
@@ -38,6 +39,8 @@ export const assistantServiceNames = [
   "assistantMcpChanges",
   "assistantMcpOAuth",
   "assistantTelegramSenders",
+  // Granted secrets delivered to agent workspaces (agent-secrets.js).
+  "assistantAgentSecrets",
 ];
 
 /**
@@ -48,6 +51,7 @@ export function createAssistantServices(options) {
   const created = {};
   try {
     const graph = connectAssistantServices(constructAssistantGraph(options, created));
+    graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one
@@ -78,11 +82,14 @@ export function startAssistantServices(
     assistantRuntime,
     assistantChannels,
     assistantDreaming,
+    assistantAgentSecrets,
   },
   { stageInBackground = stageRuntimeInBackground } = {},
 ) {
   if (!assistants) return;
   if (assistants.maintenance || assistantUpdates?.status().recoveryRequired) return;
+  // Files follow the stored grants and secrets from the start (agent-secrets.js).
+  assistantAgentSecrets?.syncAll().catch(() => {});
   assistantChannels.start();
   // MEMORY.md copies before each night's dreaming run (dreaming-backups.js).
   assistantDreaming?.backups.start();
@@ -131,8 +138,10 @@ export function createAssistantFeature(services) {
       assistantDreaming,
       assistantMcpServers,
       assistantMcpOAuth,
+      assistantAgentSecrets,
     } = services;
     recovered = false;
+    assistantAgentSecrets?.close();
     for (const name of assistantServiceNames) services[name] = null;
     await assistantChannels?.close().catch(() => {});
     try {
