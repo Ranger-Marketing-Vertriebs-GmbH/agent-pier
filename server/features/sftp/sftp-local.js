@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { projectTarget } from "../assistants/project-paths.js";
-import { openInside } from "../assistants/project-open.js";
+import { inFolder, openInside } from "../assistants/project-open.js";
 import { fold } from "../assistants/team-plugin/tool-guard.js";
 import { sftpProblem } from "./sftp-errors.js";
 import { defaultExcludes, excluded, isPartFile, partName } from "./sftp-excludes.js";
@@ -97,6 +97,16 @@ export function caseInsensitiveTarget(target) {
   return true;
 }
 
+// inFolder with a folder swapped for a link refused as SFTP_PATH_REFUSED.
+async function insideFolder(folder, act) {
+  try {
+    return await inFolder(folder, act);
+  } catch (error) {
+    if (error.code === "ELOOP") throw refused();
+    throw error;
+  }
+}
+
 function scanGuard(limits) {
   const started = Date.now();
   let scanned = 0;
@@ -119,6 +129,8 @@ const entryOf = (relative, stat) => ({
  * skipped; `.git`, leftover `.agentpier-part-` files, excludes and protected roots are
  * left out. A target file lists itself under its name. `dirs` lists the walked folders
  * and `kept` those holding something left out (never empty after a sync's deletes).
+ * Each folder is read as opened (inFolder), so a folder swapped for a link during the
+ * walk lists nothing from outside on Linux and is refused on macOS when it is seen.
  */
 export async function walkLocal(
   target,
@@ -149,44 +161,47 @@ export async function walkLocal(
   while (pending.length) {
     const relative = pending.pop();
     const directory = path.join(target.real, relative);
-    for (const name of await fs.promises.readdir(directory)) {
-      tick();
-      if (isPartFile(name)) {
+    await insideFolder(directory, async (at) => {
+      const base = await at();
+      for (const name of await fs.promises.readdir(base)) {
+        tick();
+        if (isPartFile(name)) {
+          keep(relative);
+          continue;
+        }
+        // The server side refuses these names; count them instead of failing later.
+        if (unsafeName.test(name)) {
+          skipped.unsafe++;
+          keep(relative);
+          continue;
+        }
+        const child = relative ? `${relative}/${name}` : name;
+        const full = path.join(directory, name);
+        if (
+          fold(name) === ".git" ||
+          excluded(child, excludes) ||
+          guarded.some((root) => inside(root, full)) ||
+          guardedParts(target, [...prefix, ...child.split("/")])
+        ) {
+          keep(relative);
+          continue;
+        }
+        const info = await lstatOrNull(path.join(base, name));
+        if (!info) continue;
+        if (info.isDirectory()) {
+          dirs.push(child);
+          pending.push(child);
+          continue;
+        }
+        if (info.isFile() && info.nlink === 1) {
+          entries.push(entryOf(child, info));
+          continue;
+        }
         keep(relative);
-        continue;
+        if (info.isSymbolicLink() || info.isFile()) skipped.links++;
+        else skipped.special++;
       }
-      // The server side refuses these names; count them instead of failing later.
-      if (unsafeName.test(name)) {
-        skipped.unsafe++;
-        keep(relative);
-        continue;
-      }
-      const child = relative ? `${relative}/${name}` : name;
-      const full = path.join(directory, name);
-      if (
-        fold(name) === ".git" ||
-        excluded(child, excludes) ||
-        guarded.some((root) => inside(root, full)) ||
-        guardedParts(target, [...prefix, ...child.split("/")])
-      ) {
-        keep(relative);
-        continue;
-      }
-      const info = await lstatOrNull(full);
-      if (!info) continue;
-      if (info.isDirectory()) {
-        dirs.push(child);
-        pending.push(child);
-        continue;
-      }
-      if (info.isFile() && info.nlink === 1) {
-        entries.push(entryOf(child, info));
-        continue;
-      }
-      keep(relative);
-      if (info.isSymbolicLink() || info.isFile()) skipped.links++;
-      else skipped.special++;
-    }
+    });
   }
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   dirs.sort();
@@ -303,8 +318,11 @@ export async function writeLocal(target, relative, readable, { mtimeMs, signal }
 /**
  * Removes the file (or, with `directory`, the empty folder) `relative` below a
  * writable target: the rules are checked again and no link may sit on the way or be
- * the entry itself, so a delete never reaches outside the target. With `expect`
- * the file must still have that size and mtime (else `SFTP_PLAN_CHANGED`).
+ * the entry itself, so a delete never reaches outside the target. The entry is
+ * looked at and removed in its parent folder as opened (inFolder): race-free on
+ * Linux, on macOS refused when the folder changed before or after (narrowed only).
+ * With `expect` the file must still have that size and mtime (else
+ * `SFTP_PLAN_CHANGED`).
  */
 export async function removeLocal(
   target,
@@ -319,12 +337,16 @@ export async function removeLocal(
   const expected = path.join(target.root, ...parts);
   const resolved = projectTarget(target.root, parts.join("/"), target.rules);
   if (resolved.real !== expected || !resolved.exists) throw refused();
-  const stat = await fs.promises.lstat(expected);
-  if (directory ? !stat.isDirectory() : !stat.isFile()) throw conflict();
-  if (expect && (stat.size !== expect.size || stat.mtimeMs !== expect.mtimeMs))
-    throw sftpProblem("SFTP_PLAN_CHANGED");
-  if (directory) await fs.promises.rmdir(expected);
-  else await fs.promises.unlink(expected);
+  const name = path.basename(expected);
+  await insideFolder(path.dirname(expected), async (at) => {
+    const stat = await fs.promises.lstat(await at(name));
+    if (directory ? !stat.isDirectory() : !stat.isFile()) throw conflict();
+    if (expect && (stat.size !== expect.size || stat.mtimeMs !== expect.mtimeMs))
+      throw sftpProblem("SFTP_PLAN_CHANGED");
+    const entry = await at(name);
+    if (directory) await fs.promises.rmdir(entry);
+    else await fs.promises.unlink(entry);
+  });
 }
 
 /** The target's parent folder with the same rules (for a target that is a file). */

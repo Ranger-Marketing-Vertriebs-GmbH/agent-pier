@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
-import { openInside, openInsideSync } from "./project-open.js";
+import { inFolder, openInside, openInsideSync } from "./project-open.js";
 import { fold } from "./team-plugin/tool-guard.js";
 import {
   INLINE_IMAGE_TYPES,
@@ -97,36 +97,51 @@ function decodeStrict(bytes) {
   }
 }
 
-/** A directory listing: names, kinds and file sizes, sorted, capped. */
-export function listFolder(root, raw, options) {
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+const kindOf = (entry) =>
+  entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : entry.isSymbolicLink()
+        ? "link"
+        : "other";
+
+/**
+ * A directory listing: names, kinds and file sizes, sorted, capped. The folder is read
+ * as opened (inFolder), so a folder swapped for a link after the path check lists
+ * nothing from outside on Linux and is refused on macOS when it is seen.
+ */
+export async function listFolder(root, raw, options) {
   const target = projectTarget(root, raw, options);
   if (!target.exists) throw missing();
   let entries;
   try {
-    entries = fs.readdirSync(target.real, { withFileTypes: true });
+    entries = await inFolder(target.real, async (at) => {
+      const base = await at();
+      const found = (await fs.promises.readdir(base, { withFileTypes: true })).sort(
+        byName,
+      );
+      const shown = [];
+      for (const entry of found.slice(0, fileLimits.listEntries)) {
+        const kind = kindOf(entry);
+        let size;
+        if (kind === "file")
+          try {
+            size = (await fs.promises.lstat(path.join(base, entry.name))).size;
+          } catch {}
+        shown.push({ name: entry.name, kind, ...(size !== undefined ? { size } : {}) });
+      }
+      return { shown, truncated: found.length > fileLimits.listEntries };
+    });
   } catch (error) {
-    if (error.code === "ENOTDIR") throw unsuitable();
+    if (error.code === "ENOTDIR" || error.code === "ELOOP") throw unsuitable();
     throw missing();
   }
-  entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return {
     path: target.relative || ".",
-    entries: entries.slice(0, fileLimits.listEntries).map((entry) => {
-      const kind = entry.isDirectory()
-        ? "directory"
-        : entry.isFile()
-          ? "file"
-          : entry.isSymbolicLink()
-            ? "link"
-            : "other";
-      let size;
-      if (kind === "file")
-        try {
-          size = fs.lstatSync(path.join(target.real, entry.name)).size;
-        } catch {}
-      return { name: entry.name, kind, ...(size !== undefined ? { size } : {}) };
-    }),
-    truncated: entries.length > fileLimits.listEntries,
+    entries: entries.shown,
+    truncated: entries.truncated,
   };
 }
 
@@ -416,11 +431,14 @@ export async function searchFolder(root, raw, query, options = {}) {
     const folder = queue.shift();
     let entries;
     try {
-      entries = await fs.promises.readdir(folder, { withFileTypes: true });
+      // Read as opened, never through a folder swapped for a link (inFolder).
+      entries = await inFolder(folder, async (at) =>
+        fs.promises.readdir(await at(), { withFileTypes: true }),
+      );
     } catch {
       continue;
     }
-    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    entries.sort(byName);
     for (const entry of entries) {
       const full = path.join(folder, entry.name);
       if (entry.isDirectory()) {

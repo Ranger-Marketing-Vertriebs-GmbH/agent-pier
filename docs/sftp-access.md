@@ -134,10 +134,19 @@ ran). Finished jobs stay readable for an hour.
   folder and AgentPier's protected roots are refused. Files to upload and the
   temporary files of a download are opened without following any link, so a parent
   folder swapped for a link after the checks is refused (`SFTP_PATH_REFUSED`). The
-  local walk, deletes, the final rename and creating missing folders stay path-based
-  (Node has no `openat`, `renameat` or `unlinkat`) and are best effort: a process
-  that can change the folder could still follow a folder swapped for a link in that
-  instant.
+  local walk and local deletes work in the folder as opened, the same way
+  (`inFolder` in `project-open.js`): on Linux they name entries through the opened
+  folder's descriptor (`/proc/self/fd/<fd>/<name>`), so a folder swapped for a link
+  afterwards never makes a delete remove, or the walk list, anything outside. macOS
+  has no such path (Node has no `unlinkat`): the folder is opened again right before
+  the entry is used and once more afterwards, and a changed folder (device and inode)
+  is refused (`SFTP_PATH_REFUSED`). That only narrows the race: a swap in the instant
+  between the last check and the delete itself can still remove a file of the same
+  name outside. The final rename of a download and creating missing folders stay
+  path-based on both platforms (Node has no `renameat` or `mkdirat`). The rename names
+  the temporary file and its destination in the same folder in one call, so a swap
+  makes it fail instead of moving data out; a folder created through a swapped link
+  is an empty folder outside, and the file below it is then refused.
 - **Guarded workspace entries:** in the agent workspace, prompt files such as
   `AGENTS.md` and `SOUL.md`, `skills/`, `.agents/` and `attachments/` are never
   transferred, in either direction. A folder download or sync down needs a named
