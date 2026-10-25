@@ -3,6 +3,9 @@ import { SECRETS_FILE_ENV, secretsHint } from "../secrets/secrets-hint.js";
 
 // Set at launch when the session can reach an SFTP host (ssh-integration.js).
 export const SFTP_HINT_ENV = "AGENTPIER_SSH_SFTP";
+// "0" when the hook was registered for the secrets hint alone, in a session without
+// the SSH tools (session-secrets.js): the hook then names only the secrets file.
+export const SSH_HINT_ENV = "AGENTPIER_SSH_HINT";
 
 function sftpReminder(prefix) {
   const tools = [
@@ -31,12 +34,20 @@ export function sshReminder(
   return `Project SSH tools are available, including projects with no saved hosts. Discover keys with ${prefix}ssh_list_keys and hosts with ${prefix}ssh_list_hosts. Generate a managed key or import an existing local key by sourcePath; retrieve its public key. Bootstrap only through existing authorized SSH access or a provider workflow, preserving existing authorized keys and selecting the intended remote user. Verify host identity through an independent trusted source before ssh_register_host, then ssh_test_host. A scan is unverified; ask for a trusted fingerprint when none is available. Reuse request IDs after uncertain outcomes. Share only public metadata in chat; private-key download is available in the AgentPier UI. Do not automatically provision or connect.${sftp ? sftpReminder(prefix) : ""}${secretsHint(secretsFile)}`;
 }
 
+/** The start hint of this session: SSH discovery, or only the secrets hint. */
+export function startReminder(prefix = "") {
+  if (process.env[SSH_HINT_ENV] === "0") return secretsHint().trimStart();
+  return sshReminder(prefix);
+}
+
 function emitReminder() {
+  const reminder = startReminder();
+  if (!reminder) return;
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "SessionStart",
-        additionalContext: sshReminder(),
+        additionalContext: reminder,
       },
     }) + "\n",
   );

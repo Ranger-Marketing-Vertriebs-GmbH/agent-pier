@@ -11,5 +11,6 @@ export const secrets = Object.freeze({
   limit: "Es sind höchstens 200 Geheimnisse möglich.",
   invalidSessionSelection:
     "Ungültige Geheimnisauswahl. Eine Session kann höchstens 50 verschiedene Geheimnisse erhalten.",
+  loginSessionsUnsupported: "Geheimnisse sind für Login-Sessions nicht verfügbar.",
   notFound: "Geheimnis nicht gefunden.",
 });

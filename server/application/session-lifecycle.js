@@ -98,6 +98,8 @@ export function createSessionLifecycle(services) {
     const secretIds = services.sessionSecrets?.validate(body.secretIds);
     if (login && sshIds?.length)
       throw problem(serverMessages.ssh.loginSessionsUnsupported);
+    if (login && secretIds?.length)
+      throw problem(serverMessages.secrets.loginSessionsUnsupported);
     if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
       throw problem(serverMessages.sessions.invalidSandboxProfile);
     if (body.nonoProfile && login)
@@ -280,6 +282,8 @@ export function createSessionLifecycle(services) {
         ...(login ? { purpose: "login" } : {}),
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
+      // A secret change while the launch ran reached no file yet; this catches it up.
+      await services.sessionSecrets?.sync(session).catch(() => {});
     } catch (error) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);

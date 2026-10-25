@@ -141,7 +141,6 @@ export async function createServices(config) {
   });
   const refreshSessionSecrets = () => sessionSecrets.refresh().catch(() => {});
   secrets.onChange(refreshSessionSecrets);
-  refreshSessionSecrets();
   const files = createFileServices({ config, sessions, mutationBarrier });
   const repositories = new RepositoryStore(config);
   // Each listed project's origin remote, read live from its folder.
@@ -347,6 +346,7 @@ export async function createServices(config) {
     memory,
     sshManagement,
     secrets,
+    sessionSecrets,
     artifacts,
     sessions,
     audit,
@@ -446,5 +446,8 @@ export async function createServices(config) {
         compiled.startsWith(path.join(config.dataDir, "clis") + path.sep))
     );
   };
+  // Listing sessions reconciles stopped ones through onStopped, whose cleanup needs
+  // every service above, so the first rewrite of the secrets files waits until here.
+  refreshSessionSecrets();
   return services;
 }
