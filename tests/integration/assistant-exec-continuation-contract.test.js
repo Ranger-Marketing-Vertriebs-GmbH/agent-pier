@@ -278,6 +278,25 @@ test(
       }
       assert.fail("no completion run wrote within a minute");
     };
+    // OpenClaw's slugs are unique only among live processes and a completion names
+    // only the first eight characters, so a new process may share its prefix with an
+    // ended one of an earlier turn: the proof then refuses by design (PROCESS, see
+    // exec-continuation-processes). A step that must be credited retries with a new
+    // turn once that happened.
+    const collided = (exec) =>
+      !!exec?.completion?.ids?.some(
+        (id) =>
+          new Set(
+            exec.processes.filter((p) => p.id.slice(0, 8) === id).map((p) => p.runId),
+          ).size > 1,
+      );
+    const credited = async (step) => {
+      for (let attempt = 1; ; attempt++) {
+        const result = await step();
+        if (attempt === 3 || !collided(result.exec)) return result;
+        t.diagnostic(`prefix collision, retrying=${JSON.stringify(result.exec)}`);
+      }
+    };
 
     // 1. The owner turn starts the command and ends before it exits.
     const owner = await ownerTurn("Render the video in the background.");
@@ -433,11 +452,15 @@ test(
 
     // 5. A completion run's agentpier_workspace call names its run (the plugin maps
     // the tool call to the run of its before_tool_call) and is bound to the turn.
-    const fifth = await ownerTurn("Render a fifth one.");
     note = "workspace";
-    const deadline = Date.now() + contractTimeout(60000);
-    while (!(prepared.length && ended(prepared[0].runId)) && Date.now() < deadline)
-      await delay(200);
+    const fifth = await credited(async () => {
+      prepared.length = 0;
+      const turn = await ownerTurn("Render a fifth one.");
+      const deadline = Date.now() + contractTimeout(60000);
+      while (!(prepared.length && ended(prepared[0].runId)) && Date.now() < deadline)
+        await delay(200);
+      return { ...turn, exec: prepared[0]?.exec };
+    });
     t.diagnostic(`workspace prepare=${JSON.stringify(prepared[0])}`);
     assert.equal(prepared[0]?.action, "workspace");
     assert.ok(ended(prepared[0].runId), "the workspace completion run ended");
@@ -477,28 +500,33 @@ test(
     );
 
     // 6. A blocked exec call leaves nothing open: the next completion is credited.
-    blockExec = true;
-    await ownerTurn("BLOCKONE render.");
-    assert.equal(blockExec, false, "the exec call was blocked");
     note = "after-blocked";
-    from = decisions.length;
-    const unblocked = await completion(from);
+    const unblocked = await credited(async () => {
+      blockExec = true;
+      await ownerTurn("BLOCKONE render.");
+      assert.equal(blockExec, false, "the exec call was blocked");
+      from = decisions.length;
+      return completion(from);
+    });
     t.diagnostic(`blocked evidence=${JSON.stringify(unblocked.exec)}`);
     assert.equal(unblocked.allow, true);
 
     // 7. A shell that exits at once while its child runs on: its pid is gone, the
     // exec session lives until the output closes, and its completion is credited.
-    await ownerTurn("DETACH render.");
-    const detached = (
-      await runtime.client.call("sessions.get", { key: session.key }, long)
-    ).messages.findLast(
-      (m) => m.toolName === "exec" && m.details?.status === "running",
-    ).details;
-    await delay(1000);
-    assert.throws(() => process.kill(detached.pid, 0), { code: "ESRCH" });
     note = "after-detach";
-    from = decisions.length;
-    const afterDetach = await completion(from);
+    let detached;
+    const afterDetach = await credited(async () => {
+      await ownerTurn("DETACH render.");
+      detached = (
+        await runtime.client.call("sessions.get", { key: session.key }, long)
+      ).messages.findLast(
+        (m) => m.toolName === "exec" && m.details?.status === "running",
+      ).details;
+      await delay(1000);
+      assert.throws(() => process.kill(detached.pid, 0), { code: "ESRCH" });
+      from = decisions.length;
+      return completion(from);
+    });
     t.diagnostic(`detached evidence=${JSON.stringify(afterDetach.exec)}`);
     assert.equal(afterDetach.exec.completion.ids[0], detached.sessionId.slice(0, 8));
     assert.equal(afterDetach.allow, true);
