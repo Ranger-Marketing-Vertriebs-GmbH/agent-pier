@@ -1961,12 +1961,14 @@ workspace are therefore refused by OpenClaw itself, and AgentPier stages files i
   link or a copy by path could follow a folder swapped after the check. It is always
   a real copy: the uploads folder usually sits on another file system than the
   project (on Linux often a tmpfs, which holds the copy in memory).
-- Disk use is bounded: one copy runs at a time for all agents, at most 8 GiB per
-  file, three files per agent (a fourth replaces the oldest once it is copied) and
-  16 GiB for all agents together. A copy must leave 1 GiB free on the uploads folder's
-  file system, and on a tmpfs also 1 GiB of free memory. A copy still waiting or
-  running after 270 seconds (the agent's call waits 300) is cancelled and leaves
-  nothing (`UPLOAD_TIMEOUT`).
+- Disk use is bounded: one copy runs at a time per agent, at most 8 GiB per file,
+  three files per agent (a fourth replaces the oldest once it is copied) and 16 GiB
+  for all agents together. A copy must leave 1 GiB free on the uploads folder's file
+  system, and on a tmpfs also 1 GiB of free memory; the bytes other agents are still
+  copying count as used until their copy ends. A copy still waiting for the agent's
+  earlier one or still running after 270 seconds (the agent's call waits 300) is
+  cancelled, answers at once and leaves nothing (`UPLOAD_TIMEOUT`), also when its
+  read hangs; other agents' copies never wait for it.
 - The team plugin's browser guard sends an `upload` call's `paths` along with
   `/browser-policy`, and AgentPier lets the call through only when every path names
   a file the calling agent staged itself and that is still staged (also by its real
