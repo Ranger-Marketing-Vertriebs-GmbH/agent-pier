@@ -18,6 +18,7 @@ export const secretsCopy = {
   value: "Wert",
   valueSaved: "Wert gespeichert",
   replaceValue: "Wert ersetzen",
+  keepValue: "Gespeicherten Wert behalten",
   valueHint: "Nach dem Speichern wird der Wert nie wieder angezeigt.",
   saving: "Wird gespeichert …",
   deleteTitle: (name) => `Geheimnis '${name}' löschen?`,
