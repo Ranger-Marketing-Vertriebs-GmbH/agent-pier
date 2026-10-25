@@ -95,6 +95,7 @@ export function createSessionLifecycle(services) {
     if (body.agentbus !== undefined && typeof body.agentbus !== "boolean")
       throw problem(serverMessages.sessions.invalidAgentBusSelection);
     const sshIds = sshSessions?.validate(body.sshAccessIds);
+    const secretIds = services.sessionSecrets?.validate(body.secretIds);
     if (login && sshIds?.length)
       throw problem(serverMessages.ssh.loginSessionsUnsupported);
     if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
@@ -115,7 +116,7 @@ export function createSessionLifecycle(services) {
         release = providerConnections.acquire(resolved.selection.providerConnectionId);
       const unreserve = await reserve(resolved.account, login);
       try {
-        return await launchResolved(body, login, trusted, resolved, sshIds);
+        return await launchResolved(body, login, trusted, resolved, sshIds, secretIds);
       } finally {
         unreserve();
       }
@@ -124,7 +125,14 @@ export function createSessionLifecycle(services) {
       releaseAccount();
     }
   }
-  async function launchResolved(body, login, trusted, { account, selection }, sshIds) {
+  async function launchResolved(
+    body,
+    login,
+    trusted,
+    { account, selection },
+    sshIds,
+    secretIds,
+  ) {
     const nativeModelId = nativeModelFor(body, account, { login });
     trusted.validateAccount?.(account);
     const cwd = await directory(
@@ -211,17 +219,29 @@ export function createSessionLifecycle(services) {
             sshAccessIds: sshIds,
           })
         : memoryLaunch;
-      const mcpLaunch = services.sessionMcp
-        ? await services.sessionMcp.prepare({
+      // The session's secrets file, outside the checkout; the launch names its path.
+      const secretLaunch = services.sessionSecrets
+        ? await services.sessionSecrets.prepare({
             id,
             account,
             cwd,
             launch: sshLaunch,
             purpose: login ? "login" : undefined,
+            headless: trusted.pipeline?.headless,
+            secretIds,
+          })
+        : sshLaunch;
+      const mcpLaunch = services.sessionMcp
+        ? await services.sessionMcp.prepare({
+            id,
+            account,
+            cwd,
+            launch: secretLaunch,
+            purpose: login ? "login" : undefined,
             pipeline: trusted.pipeline,
             selection: body.agentpierTools,
           })
-        : sshLaunch;
+        : secretLaunch;
       const prepared = await bindings.prepare({
         id,
         account,
@@ -263,6 +283,7 @@ export function createSessionLifecycle(services) {
     } catch (error) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);
+      services.sessionSecrets?.discard(id);
       if (session) {
         await sessions.stop(id).catch(() => {});
         await sessions.remove(id).catch(() => {});

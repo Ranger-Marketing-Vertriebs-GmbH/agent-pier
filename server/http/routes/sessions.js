@@ -55,6 +55,7 @@ export function sessionsRoutes(services) {
     await sessions.remove(req.params.id);
     services.sessionMcp?.discard(req.params.id);
     sshSessions?.discard(req.params.id);
+    services.sessionSecrets?.discard(req.params.id);
     await services.sshIntegration?.discard(req.params.id);
     await chatDelivery.discard(req.params.id);
     await chatAttachments.discard(req.params.id, directory);

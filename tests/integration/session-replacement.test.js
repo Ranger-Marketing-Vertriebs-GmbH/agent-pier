@@ -47,6 +47,7 @@ test("replacement preserves identity and scoped metadata without normal stop cle
       'printf "ALLOW_HOOKS?\\n"; read -r answer; printf "HOOKS_%s\\n" "$answer"; sleep 120',
     ],
     sshTools: { enabled: true, generation: "new" },
+    secrets: { projectId: "P", assignedIds: [] },
   }));
   assert.equal(result.id, session.id);
   assert.equal(result.createdAt, session.createdAt);
@@ -54,6 +55,7 @@ test("replacement preserves identity and scoped metadata without normal stop cle
   assert.equal(result.nativeModelId, "chosen-model");
   assert.equal(result.restartGeneration, 1);
   assert.equal(result.sshTools.generation, "new");
+  assert.deepEqual(result.secrets, { projectId: "P", assignedIds: [] });
   assert.equal(stopped, 0);
   await assert.rejects(manager.input(session.id, "must-not-replay", true), reloading);
   await assert.rejects(

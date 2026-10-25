@@ -116,6 +116,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "nativeBinding",
       "nativeRequests",
       "sshTools",
+      "secrets",
       "agentpierTools",
       "nativeModelId",
     ])

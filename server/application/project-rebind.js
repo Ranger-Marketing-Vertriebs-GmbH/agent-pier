@@ -6,7 +6,8 @@ import { gitInitRebind, sameFolder } from "../features/memory/project-rebind.js"
  * Keeps a running session's project when its plain folder became the root of its
  * own Git work tree. The plain-directory project moves to the Git identity: memory
  * entries and session capabilities, SSH keys, hosts and receipts, artifact records,
- * pipeline verification steps, queue settings and queue items, and the SSH project binding of every session launched
+ * pipeline verification steps, queue settings and queue items, secrets, and the SSH and
+ * secrets project binding of every session launched
  * in that folder. Agent grants and unstarted approvals of the older project are dropped,
  * never moved. The Git identity must not own memory or SSH access of its own (for
  * example after an older `.git` was restored), so no session ever gains another
@@ -17,6 +18,7 @@ export class ProjectRebind {
     dataDir,
     memory,
     sshManagement,
+    secrets = null,
     artifacts,
     sessions,
     audit,
@@ -26,6 +28,7 @@ export class ProjectRebind {
       dataDir,
       memory,
       sshManagement,
+      secrets,
       artifacts,
       sessions,
       audit,
@@ -121,7 +124,9 @@ export class ProjectRebind {
     this.definitions?.moveVerification(fromId, scope.id);
     this.runQueue?.moveProject(fromId, scope.id);
     this.revokeAssistants(fromId, scope.id);
-    if (await this.rebindSessions(fromId, scope, launch)) this.incomplete.delete(fromId);
+    const rebound = await this.rebindSessions(fromId, scope, launch);
+    this.moveSecrets(fromId, scope.id);
+    if (rebound) this.incomplete.delete(fromId);
     return scope;
   }
   /**
@@ -159,12 +164,21 @@ export class ProjectRebind {
       this.definitions?.moveVerification(fromId, scope.id);
       this.runQueue?.moveProject(fromId, scope.id);
       this.revokeAssistants(fromId, scope.id);
-      if (await this.rebindSessions(fromId, scope, null)) {
+      const rebound = await this.rebindSessions(fromId, scope, null);
+      this.moveSecrets(fromId, scope.id);
+      if (rebound) {
         this.incomplete.delete(fromId);
         this.memory.finishMerge(fromId);
       }
       return scope;
     });
+  }
+  /**
+   * After the session bindings, so the secrets files rewritten on the change already
+   * see the sessions in the new project.
+   */
+  moveSecrets(fromId, toId) {
+    this.secrets?.moveProject(fromId, toId);
   }
   /**
    * Agent grants do not follow a project to its new row; the older id leaves them, so
@@ -219,7 +233,10 @@ export class ProjectRebind {
     // Without a launch folder (an owner-requested merge) every binding moves.
     const ssh =
       binding?.projectId === fromId && (!launch || sameFolder(binding.launch, launch));
-    if (!memory && !ssh) return;
+    // The secrets binding follows the SSH one it was taken from (session-secrets.js).
+    const secrets = session.secrets?.projectId === fromId && (ssh || !binding);
+    if (!memory && !ssh && !secrets) return;
+    if (secrets) session.secrets.projectId = scope.id;
     if (ssh) {
       const { id: projectId, name, cwd, kind, identity } = scope;
       session.sshTools.project = {

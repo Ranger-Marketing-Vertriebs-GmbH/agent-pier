@@ -183,6 +183,15 @@ export function createReloadLifecycle(services) {
               // binding it creates there.
               sshAccessIds: services.sshSessions?.assigned(session) || [],
             });
+          // The same secrets file, variable and grant as the first launch: its
+          // project's secrets and those assigned at launch that still exist.
+          if (services.sessionSecrets)
+            launch = await services.sessionSecrets.prepare({
+              ...input(),
+              purpose: session.purpose,
+              headless: session.pipeline?.headless,
+              secretIds: services.sessionSecrets.assigned(session),
+            });
           if (services.sessionMcp)
             launch = await services.sessionMcp.prepare({
               ...input(),

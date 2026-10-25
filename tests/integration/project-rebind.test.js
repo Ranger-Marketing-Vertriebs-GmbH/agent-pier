@@ -180,3 +180,29 @@ test("a current-project grant follows the project to its rebound identity", asyn
   const toId = (await projectScope(s.cwd)).id;
   assert.deepEqual(await projects(), [{ id: toId, name: "plain-project", kind: "git" }]);
 });
+
+test("git init moves the project's secrets and the session's secrets binding", async (t) => {
+  const f = await applicationFixture(t);
+  const s = await projectSession(t, f);
+  const { secrets, sessionSecrets } = f.application;
+  const secret = secrets.create(
+    { name: "TOKEN", projectId: s.fromId, value: "v" },
+    { kind: "owner" },
+  );
+  const launch = await sessionSecrets.prepare({
+    id: s.session.id,
+    account: { tool: "codex" },
+    launch: { env: {}, sshTools: (await s.record()).sshTools },
+  });
+  await f.application.sessions.save({ ...(await s.record()), secrets: launch.secrets });
+  gitInit(s.cwd);
+  const toId = (await projectScope(s.cwd)).id;
+  assert.equal((await s.ssh("ssh_list_keys")).total, 0);
+  assert.equal(secrets.get(secret.id).projectId, toId);
+  assert.equal((await s.record()).secrets.projectId, toId);
+  await sessionSecrets.syncAll();
+  assert.match(
+    await fs.readFile(sessionSecrets.file(s.session.id), "utf8"),
+    /^TOKEN='v'$/m,
+  );
+});

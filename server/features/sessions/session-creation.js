@@ -10,6 +10,18 @@ import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 
+/** The secrets binding a session keeps (session-secrets.js): ids only, never values. */
+function sessionSecretsRecord({ projectId, assignedIds }) {
+  if (
+    (projectId !== null && (typeof projectId !== "string" || projectId.length > 120)) ||
+    !Array.isArray(assignedIds) ||
+    assignedIds.length > 50 ||
+    assignedIds.some((id) => typeof id !== "string" || id.length > 100)
+  )
+    throw failure(serverMessages.sessions.invalidOptions);
+  return { projectId, assignedIds: [...assignedIds] };
+}
+
 /**
  * Validates a session creation request, then persists the launch description the
  * spawned process reads (`${id}.launch.json`, the `terminal-launcher.js` boundary)
@@ -171,6 +183,8 @@ export async function buildSessionLaunch(manager, options) {
       ...options.sshTools,
       enabled: options.sshTools.enabled === true,
     };
+  if (options.secrets && options.purpose !== "login" && !pipeline?.headless)
+    session.secrets = sessionSecretsRecord(options.secrets);
   const eligible = tool !== "shell" && options.purpose !== "login";
   if (options.access && eligible)
     session.access = Object.fromEntries(
