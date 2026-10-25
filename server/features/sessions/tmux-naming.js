@@ -66,32 +66,50 @@ export function ownedSocket(
   }
 }
 
+/** `list-sessions -F` names a session; `list-panes -a -F` lists each of its panes. */
+export const SESSION_NAMES = ["list-sessions", "-F", "#{session_name}"];
+export const ALL_PANES = ["list-panes", "-a", "-F", "#{session_name}|#{pane_dead}"];
+
+/**
+ * The names of the sessions with at least one live pane, from `ALL_PANES` output. A
+ * session's `#{pane_dead}` alone describes only its active pane: an agent may have
+ * opened another window or split that still runs.
+ */
+export function sessionsWithLivePanes(output) {
+  return new Set(
+    parseSessionLines(output)
+      .filter((pane) => !pane.dead)
+      .map((pane) => pane.name),
+  );
+}
+
 /**
  * Asks the tmux server on the socket for its sessions: `answers` when a server runs
- * there (tmux leaves its socket file behind when its server exits), `live` when one of
- * them is an AgentPier session with a live pane (`exit-empty off` keeps a server
- * running without sessions or with dead panes only). A client hands its environment to
- * the server: give it PATH only. A probe that times out counts as both: a dead socket
- * refuses at once, so only a live but slow server can stall, and its sessions must not
- * be left behind.
+ * there (tmux leaves its socket file behind when its server exits), `live` when an
+ * AgentPier session has any live pane (`exit-empty off` keeps a server running without
+ * sessions or with dead panes only). A client hands its environment to the server: give
+ * it PATH only. A probe that times out counts as both: a dead socket refuses at once,
+ * so only a live but slow server can stall, and its sessions must not be left behind.
  */
 export function probeTmuxServer(socket, { tmuxPath = "tmux", spawn = spawnSync } = {}) {
-  const result = spawn(
-    tmuxPath,
-    ["-S", socket, "list-sessions", "-F", "#{session_name}|#{pane_dead}"],
-    {
+  const run = (args) =>
+    spawn(tmuxPath, ["-S", socket, ...args], {
       env: process.env.PATH ? { PATH: process.env.PATH } : {},
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 2000,
-    },
-  );
-  if (result.error?.code === "ETIMEDOUT") return { answers: true, live: true };
-  if (result.status !== 0) return { answers: false, live: false };
-  const live = [...pickSessionNames(parseSessionLines(result.stdout)).values()].some(
-    (entry) => !entry.dead,
-  );
-  return { answers: true, live };
+    });
+  const timedOut = (result) => result.error?.code === "ETIMEDOUT";
+  const sessions = run(SESSION_NAMES);
+  if (timedOut(sessions)) return { answers: true, live: true };
+  if (sessions.status !== 0) return { answers: false, live: false };
+  const ours = String(sessions.stdout).split("\n").filter(sessionIdFromName);
+  // list-panes -a fails on a server without sessions; nothing can be live there.
+  if (!ours.length) return { answers: true, live: false };
+  const panes = run(ALL_PANES);
+  if (timedOut(panes) || panes.status !== 0) return { answers: true, live: true };
+  const live = sessionsWithLivePanes(panes.stdout);
+  return { answers: true, live: ours.some((name) => live.has(name)) };
 }
 
 /**
