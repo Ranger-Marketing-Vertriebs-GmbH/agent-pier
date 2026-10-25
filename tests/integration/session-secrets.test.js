@@ -86,3 +86,36 @@ test("an unknown assigned secret refuses the launch before a session exists", as
   assert.equal(response.status, 409);
   assert.equal((await f.application.sessions.list()).length, 0);
 });
+
+test("a login session refuses assigned secrets", async (t) => {
+  const f = await applicationFixture(t);
+  recordingCli(f);
+  const global = f.application.secrets.create({ name: "G", value: "g" }, owner);
+  await assert.rejects(
+    f.application.launch({ accountId: "local-codex", secretIds: [global.id] }, true),
+    { status: 400 },
+  );
+  assert.equal((await f.application.sessions.list()).length, 0);
+});
+
+test("a secret saved while the launch runs is in the file once it returns", async (t) => {
+  const f = await applicationFixture(t);
+  recordingCli(f);
+  const { projectId } = await createSshProjectBinding(f.project);
+  const { sessions, secrets, sessionSecrets } = f.application;
+  const create = sessions.create.bind(sessions);
+  sessions.create = async (options) => {
+    secrets.create({ name: "DURING", projectId, value: "during" }, owner);
+    return create(options);
+  };
+  const response = await f.request("/api/sessions", {
+    method: "POST",
+    body: { accountId: "local-codex", cwd: f.project, agentbus: false },
+  });
+  assert.equal(response.status, 201, await response.clone().text());
+  const session = await response.json();
+  assert.match(
+    fs.readFileSync(sessionSecrets.file(session.id), "utf8"),
+    /^DURING='during'$/m,
+  );
+});

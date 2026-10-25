@@ -10,5 +10,6 @@ export const secrets = Object.freeze({
   limit: "At most 200 secrets are possible.",
   invalidSessionSelection:
     "Invalid secret selection. A session can receive at most 50 different secrets.",
+  loginSessionsUnsupported: "Secrets are not available for sign-in sessions.",
   notFound: "Secret not found.",
 });

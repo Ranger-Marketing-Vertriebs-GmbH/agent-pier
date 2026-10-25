@@ -19,6 +19,7 @@ export class ProjectRebind {
     memory,
     sshManagement,
     secrets = null,
+    sessionSecrets = null,
     artifacts,
     sessions,
     audit,
@@ -29,6 +30,7 @@ export class ProjectRebind {
       memory,
       sshManagement,
       secrets,
+      sessionSecrets,
       artifacts,
       sessions,
       audit,
@@ -250,5 +252,7 @@ export class ProjectRebind {
     }
     if (memory) session.memory.projectId = scope.id;
     await this.sessions.save(session);
+    // A session rebound on a retry sees no secret change: its file catches up here.
+    if (secrets) this.sessionSecrets?.refresh().catch(() => {});
   }
 }

@@ -7,6 +7,7 @@ import { SecretStore } from "../../server/features/secrets/secret-store.js";
 import { SessionSecrets } from "../../server/features/secrets/session-secrets.js";
 import { createSshProjectBinding } from "../../server/features/ssh/ssh-project-scope.js";
 import { SECRETS_FILE_ENV } from "../../server/features/secrets/secrets-hint.js";
+import { SSH_HINT_ENV } from "../../server/features/ssh/ssh-hook.js";
 
 const owner = { kind: "owner" };
 
@@ -83,7 +84,7 @@ test("shell, codex and opencode sessions are eligible as well", async (t) => {
   }
 });
 
-test("login, headless pipeline and secret-less sessions get no file and no variable", async (t) => {
+test("login and headless pipeline sessions get no folder and no variable", async (t) => {
   const f = fixture(t);
   const global = f.store.create({ name: "GLOBAL", value: "g" }, owner);
   f.store.create({ name: "TOKEN", projectId: "P", value: "v" }, owner);
@@ -94,13 +95,70 @@ test("login, headless pipeline and secret-less sessions get no file and no varia
     const before = f.launchIn("P");
     const launch = await f.prepare({ ...input, launch: before });
     assert.equal(launch, before);
-    assert.equal(fs.existsSync(f.sessionSecrets.file("session-one")), false);
+    assert.equal(
+      fs.existsSync(path.dirname(f.sessionSecrets.file("session-one"))),
+      false,
+    );
   }
+});
+
+test("a session without secrets still gets its folder, variable, grant and binding", async (t) => {
+  const f = fixture(t);
   const launch = await f.prepare({ launch: f.launchIn("EMPTY") });
-  assert.equal(launch.env[SECRETS_FILE_ENV], undefined);
-  assert.equal(launch.sandboxGrants, undefined);
-  assert.equal(launch.secrets, null);
-  assert.equal(fs.existsSync(f.sessionSecrets.file("session-one")), false);
+  const file = f.sessionSecrets.file("session-one");
+  assert.equal(launch.env[SECRETS_FILE_ENV], file);
+  assert.deepEqual(launch.sandboxGrants, [{ access: "read", path: path.dirname(file) }]);
+  assert.deepEqual(launch.secrets, { projectId: "EMPTY", assignedIds: [] });
+  assert.equal(fs.statSync(path.dirname(file)).mode & 0o777, 0o700);
+  assert.equal(fs.existsSync(file), false);
+});
+
+test("a secret added after launch reaches a session that started with none", async (t) => {
+  const f = fixture(t);
+  f.launched(await f.prepare({ launch: f.launchIn("EMPTY") }));
+  f.store.create({ name: "LATE", projectId: "EMPTY", value: "late" }, owner);
+  await f.sessionSecrets.syncAll();
+  assert.match(f.read(), /^LATE='late'$/m);
+});
+
+test("a sandboxed CLI without SSH tools gets the start hook for the secrets hint", async (t) => {
+  const f = fixture(t);
+  for (const tool of ["claude", "codex", "opencode"]) {
+    const id = `hint-${tool}`;
+    const launch = await f.prepare({
+      id,
+      account: { id: "a", tool },
+      launch: { command: "/bin/sh", args: [], env: {}, sshTools: undefined },
+    });
+    const folder = path.dirname(f.sessionSecrets.file(id));
+    assert.equal(launch.env[SSH_HINT_ENV], "0", tool);
+    assert.ok(launch.sandboxGrants.some((g) => g.path === process.execPath));
+    if (tool === "claude") {
+      const plugin = path.join(folder, "plugin");
+      assert.deepEqual(launch.args, ["--plugin-dir", plugin]);
+      const hooks = JSON.parse(
+        fs.readFileSync(path.join(plugin, "hooks", "hooks.json"), "utf8"),
+      );
+      assert.match(hooks.hooks.SessionStart[0].hooks[0].command, /ssh-hook\.js/);
+      assert.ok(fs.existsSync(path.join(plugin, ".claude-plugin", "plugin.json")));
+    } else if (tool === "codex")
+      assert.ok(launch.args.some((arg) => arg.startsWith("hooks.SessionStart=")));
+    else
+      assert.match(
+        JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT).plugin[0],
+        /ssh-opencode\.js$/,
+      );
+  }
+  const ssh = await f.prepare({ id: "with-ssh" });
+  assert.equal(ssh.env[SSH_HINT_ENV], undefined);
+  assert.deepEqual(ssh.args, []);
+  const shell = await f.prepare({
+    id: "shell",
+    account: { id: "local-shell", tool: "shell" },
+    launch: { command: "/bin/sh", args: [], env: {}, sshTools: { enabled: false } },
+  });
+  assert.equal(shell.env[SSH_HINT_ENV], undefined);
+  assert.deepEqual(shell.args, []);
 });
 
 test("a session without an SSH project binding resolves its project from the folder", async (t) => {
@@ -175,6 +233,20 @@ test("stopped, discarded and other sessions are never written", async (t) => {
   await f.sessionSecrets.syncAll();
   assert.equal(fs.existsSync(path.dirname(f.sessionSecrets.file("session-one"))), false);
   assert.doesNotThrow(() => f.sessionSecrets.discard("../escape"));
+});
+
+test("a discard during a running sync never brings the folder back", async (t) => {
+  const f = fixture(t);
+  f.store.create({ name: "TOKEN", projectId: "P", value: "v" }, owner);
+  f.launched(await f.prepare());
+  const entries = f.store.projectEntries.bind(f.store);
+  f.store.projectEntries = (projectId) => {
+    // The session stops between the sync's start and its write.
+    f.sessionSecrets.discard("session-one");
+    return entries(projectId);
+  };
+  assert.equal(await f.sessionSecrets.syncAll(), undefined);
+  assert.equal(fs.existsSync(path.dirname(f.sessionSecrets.file("session-one"))), false);
 });
 
 test("moving a project re-points its secrets to the new project", async (t) => {

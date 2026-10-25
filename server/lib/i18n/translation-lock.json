@@ -1345,6 +1345,7 @@
   "secrets.invalidSessionSelection": "de:111e4c4b768a en:ec8d5ebabb3b",
   "secrets.invalidValue": "de:b6013884ec00 en:5c4e6aa8f077",
   "secrets.limit": "de:06d82d423ebb en:91e418e8bdf0",
+  "secrets.loginSessionsUnsupported": "de:ec0778ac6259 en:402e26011897",
   "secrets.nameTaken": "de:f2786771753d en:9d114d54949d",
   "secrets.notFound": "de:ed840d1fea19 en:93d111e43ce2",
   "sessionInput.alreadyAttempted": "de:099c712e6657 en:72de42edae93",

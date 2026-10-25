@@ -69,11 +69,29 @@ async function unchangedFile(file, text) {
   }
 }
 
+/** True for an existing real folder; a link or another file type is refused. */
+async function existingFolder(folder) {
+  let info;
+  try {
+    info = await fs.promises.lstat(folder);
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+  if (info.isSymbolicLink() || !info.isDirectory())
+    throw Object.assign(new Error("Unsafe secret folder."), {
+      code: "SECRET_UNSAFE_PATH",
+    });
+  return true;
+}
+
 /**
  * Writes the entries to `file` (0600, atomic) or removes it when there are none.
  * Resolves "written", "removed" or "unchanged" (identical content, or nothing to remove).
+ * With `create: false` a missing folder is never created: the write resolves
+ * "unchanged", also when the folder disappears while it runs.
  */
-export async function writeSecretFile(file, entries) {
+export async function writeSecretFile(file, entries, { create = true } = {}) {
   const text = secretEnvFile(entries);
   if (!text) {
     try {
@@ -87,7 +105,8 @@ export async function writeSecretFile(file, entries) {
     }
     return (await unlinkQuietly(file)) ? "removed" : "unchanged";
   }
-  await privateFolder(path.dirname(file));
+  if (create) await privateFolder(path.dirname(file));
+  else if (!(await existingFolder(path.dirname(file)))) return "unchanged";
   if (await unchangedFile(file, text)) return "unchanged";
   const tmp = `${file}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
@@ -95,6 +114,7 @@ export async function writeSecretFile(file, entries) {
     await fs.promises.rename(tmp, file);
   } catch (error) {
     await unlinkQuietly(tmp).catch(() => {});
+    if (!create && error.code === "ENOENT") return "unchanged";
     throw error;
   }
   return "written";
