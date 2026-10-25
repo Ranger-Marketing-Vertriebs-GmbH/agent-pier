@@ -78,3 +78,37 @@ test("the step policy gives the reason the hook names", () => {
     reason: "unavailable",
   });
 });
+
+// OpenClaw Code Mode shows the model only `exec` (a JavaScript cell) and `wait`; the
+// cell's nested tool calls each meet the step hook (AGENTPIER-248).
+test("a memory step runs Code Mode cells, whose nested calls the hook checks", async () => {
+  const cell = { toolName: "exec", toolKind: "code_mode_exec", params: { code: "1" } };
+  const step = transport(answer({ allow: true }));
+  await stepCall(cell, ctx, step);
+  assert.deepEqual(step.asked[0].body, {
+    ...ctx,
+    toolName: "exec",
+    toolKind: "code_mode_exec",
+  });
+  const bridge = {
+    closed: false,
+    bound: () => [{ id: "a1", requestId: "q1", state: "running" }],
+    teams: { store: { context: () => ({ kind: "memory-step" }) } },
+    assistants: { ledger: { attemptForRun: () => null } },
+  };
+  const input = { agentId: "ap-a1", sessionKey: ctx.sessionKey };
+  const policy = (more) => stepPolicy(bridge, { ...input, ...more });
+  assert.deepEqual(policy({ toolName: "exec", toolKind: "code_mode_exec" }), {
+    allow: true,
+  });
+  assert.deepEqual(policy({ toolName: "wait" }), { allow: true });
+  assert.deepEqual(policy({ toolName: "write" }), { allow: true });
+  // A shell exec shares the name but not the kind; other tools stay refused.
+  for (const more of [
+    { toolName: "exec" },
+    { toolName: "exec", toolKind: "shell" },
+    { toolName: "web_fetch" },
+  ])
+    assert.deepEqual(policy(more), { allow: false, reason: "memoryStep" });
+  assert.throws(() => policy({ toolName: "exec", toolKind: 1 }), { status: 400 });
+});

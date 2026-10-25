@@ -2,6 +2,7 @@ import { longContext } from "./conversations.js";
 import { memberLongChatText } from "./lead-request-text.js";
 import { reappearsAt } from "./long-chats.js";
 import { editableMember } from "./member-reach.js";
+import { ownerTalking } from "./member-summaries.js";
 import { mainConversation } from "./routine-targets.js";
 
 /**
@@ -21,7 +22,9 @@ const delivery = { attempts: 5, baseMs: 2000, maxMs: 120000 };
  * data) and decides whether to have it summarised. It hears again only once the chat
  * grew as a hidden hint must (long-chats.js reappearsAt), or after a summary made it
  * smaller. Further chats the owner opened with the member, agents that are no member,
- * archived members and members whose summary after their task is pending get none.
+ * archived members and members whose summary after their task is pending get none,
+ * nor does a chat the owner talks in himself (member-summaries.js ownerTalking): the
+ * lead could not summarise it.
  */
 export class MemberLongChats {
   constructor({ teams, assistants }) {
@@ -64,6 +67,7 @@ export class MemberLongChats {
   async check(conversationId) {
     const a = this.assistants;
     if (!this.memberOf(conversationId)) return;
+    if (ownerTalking(this, conversationId, this.now())) return;
     const client = a.runtime.client;
     if (!client?.ready || a.maintenance || a.recovering || a.closed) return;
     const conversation = a.store.getConversation(conversationId);

@@ -1106,7 +1106,12 @@ A lead reaches its own members without the owner relaying anything
   it stores `summaryAfterTask` on the member's team record (survives restarts, cleared
   on archive) and `TeamService.reconcile` starts it once the member is idle, before the
   next lead request or delegated task reaches the chat (the send meets the summary and
-  waits). Both chats get a note.
+  waits). Both chats get a note. While the owner talks in that chat himself
+  (`ownerTalking`: a person's own turn, `directOrigin`, runs there or was accepted
+  within `ownerChatQuietMs` = 60 minutes, or a queued message of his waits for it) the
+  tool answers `owner` for both choices, which tells the lead to leave the chat to the
+  owner and his **Summarise now**; a pending after-task summary is dropped at its next
+  run, and `MemberLongChats.check` sends no hint (AGENTPIER-248).
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
   temporary for archive (checked again inside the archiving transaction). By the
@@ -1450,7 +1455,11 @@ was compacted and the plan was gone. Four rules close that gap:
   (on a shared agent into its shared memory, see [Agents of restricted
   users](#agents-of-restricted-users)). `memoryStepWrite` admits only `write`/`edit` to
   the agent's own `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy
-  and every bridge action refuse the session's other tools. The step is bound by the
+  and every bridge action refuse the session's other tools. In OpenClaw Code Mode the
+  model sees only `exec` and `wait`; the step hook (`stepPolicy`, `memory-step-tools.js`)
+  admits an `exec` only with the host-set hook `toolKind: "code_mode_exec"` (a shell
+  `exec` carries none) and `wait`, and every tool the cell calls meets the same hook,
+  so the cell runs only the step's memory tools. The step is bound by the
   chat's own attempt, never reaches Telegram and is aborted like **Stop** after five
   minutes.
   OpenClaw's own pre-run flush during the step (`flushWrite`) may write the day note

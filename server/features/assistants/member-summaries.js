@@ -1,6 +1,7 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { editableMember, leadsMember } from "./member-reach.js";
+import { directOrigin } from "./memory-write-policy.js";
 
 const choices = ["now", "after_task"];
 // How long `now` waits for a summary without a memory step to report an end at once
@@ -15,6 +16,8 @@ const details = {
   busy: 'The member is busy. Call again with when "after_task" to summarise its chat once it finished its current task.',
   already: "The member's chat is being summarised already.",
   nothing: "The member's chat has nothing to summarise.",
+  owner:
+    "The owner is talking with this member in its chat himself. Leave summarising this chat to him; he can use Summarise now in that chat. Nothing was summarised or queued.",
 };
 const answer = (status, member) => ({
   status,
@@ -38,6 +41,34 @@ const settleWithin = (job, ms) => {
 };
 
 /**
+ * How long after the owner's own last message in a member's chat its lead may not
+ * summarise that chat (AGENTPIER-248): a permanent member's task chat is its main
+ * chat, where the owner may talk with it directly.
+ */
+export const ownerChatQuietMs = 60 * 60_000;
+
+/**
+ * Whether the owner talks in the chat himself: a turn of a person (directOrigin: the
+ * owner, his paired Telegram chat or a user) runs there or was sent within
+ * ownerChatQuietMs, or a message of his is queued for it.
+ */
+export function ownerTalking({ assistants, teams }, conversationId, now = Date.now()) {
+  const { ledger, queued } = assistants;
+  if (queued?.get(conversationId)) return true;
+  const own = (request) => directOrigin(teams.context(request.id));
+  const since = new Date(now - ownerChatQuietMs).toISOString();
+  if (ledger.requestsSince(conversationId, since).some(own)) return true;
+  return ledger.pending().some((attempt) => {
+    try {
+      const request = ledger.getRequest(attempt.requestId);
+      return request.conversationId === conversationId && own(request);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * A lead's summary of its own member's task chat (agentpier_team_member_summarise,
  * AGENTPIER-194): `now` runs Summarise now with its memory step (long-chats.js) at
  * once and is refused as busy while the member works; `after_task` keeps one pending
@@ -47,12 +78,18 @@ const settleWithin = (job, ms) => {
  * idle already summarises at once. Any summary that starts in that chat, the owner's too,
  * takes the pending one's place; an archived or removed member drops it. The member's
  * task chat (`member.conversationId`) is the only chat it acts on. Both chats note
- * who asked and when; the summary itself shows in the member's chat as usual.
+ * who asked and when; the summary itself shows in the member's chat as usual. While
+ * the owner talks in that chat himself (ownerTalking) the lead's summary is refused
+ * (`owner`) and a pending one is dropped: that chat is his to summarise.
  */
 export class MemberSummaries {
   constructor({ teams, assistants, hints }) {
     Object.assign(this, { teams, assistants, hints });
     this.timing = { ...summaryTiming };
+    this.now = () => Date.now();
+  }
+  ownerTalking(member) {
+    return ownerTalking(this, member.conversationId, this.now());
   }
   /** Whether a summary after the member's task is pending. */
   pending(memberId) {
@@ -78,6 +115,7 @@ export class MemberSummaries {
       input.memberId,
     );
     if (!member.conversationId) return answer("nothing", member);
+    if (this.ownerTalking(member)) return answer("owner", member);
     const long = this.assistants.longChats;
     if (!long) throw assistantProblem("unavailable", 503);
     if (long.compacting(member.conversationId)) return answer("already", member);
@@ -169,7 +207,7 @@ export class MemberSummaries {
     return !!this.assistants.longChats?.compacting(member.conversationId);
   }
   async run(member) {
-    if (!this.reachable(member)) return this.drop(member);
+    if (!this.reachable(member) || this.ownerTalking(member)) return this.drop(member);
     if (this.teams.activeMember(member)) return;
     if (!this.assistants.runtime.client?.ready) return;
     const status = await this.start(member);

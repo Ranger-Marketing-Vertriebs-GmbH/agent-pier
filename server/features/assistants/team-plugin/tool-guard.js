@@ -76,6 +76,8 @@ export async function stepCall(event, ctx, bridge) {
       ...(typeof ctx?.sessionKey === "string" ? { sessionKey: ctx.sessionKey } : {}),
       ...(typeof ctx?.runId === "string" ? { runId: ctx.runId } : {}),
       toolName: event?.toolName,
+      // OpenClaw's host-set discriminator of a Code Mode cell (`code_mode_exec`).
+      ...(typeof event?.toolKind === "string" ? { toolKind: event.toolKind } : {}),
     },
     ctx?.abortSignal,
   ).catch(() => null);
