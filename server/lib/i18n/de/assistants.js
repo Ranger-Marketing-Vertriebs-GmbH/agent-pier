@@ -433,6 +433,8 @@ export const assistants = {
   invalid: "Ungültige Agenten-Eingabe.",
   hookRightExceeds:
     "Ein Hook darf nicht mehr als sein Agent: Dieses Recht hat der Agent nicht.",
+  hookUnavailable:
+    "Hooks gibt es nur für eigene Agenten und dauerhafte Teammitglieder, bei denen „Erinnerungen und Routinen erlauben“ eingeschaltet ist.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
   capacity:

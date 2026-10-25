@@ -405,6 +405,8 @@ export const assistants = {
   invalid: "Invalid agent input.",
   hookRightExceeds:
     "A hook cannot hold more than its agent: the agent does not have this right.",
+  hookUnavailable:
+    "Hooks are only available for your own agents and permanent team members with “Allow reminders and routines” switched on.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
   capacity: "The team size exceeds this host's capacity. Choose a smaller value.",
