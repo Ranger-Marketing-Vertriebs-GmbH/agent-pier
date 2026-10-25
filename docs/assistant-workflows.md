@@ -162,8 +162,9 @@ owner asked for needs no further approval.
   never AgentPier's data), and the file must be a regular file without a second hard
   link, opened without following any link (`project-open.js`), at most 8 GiB
   (`UPLOAD_TOO_LARGE`). AgentPier copies it from that opened descriptor, one copy at a
-  time, within three files per agent and 16 GiB for all agents, leaving 1 GiB free
-  (`UPLOAD_NO_SPACE`); a copy over 270 seconds is cancelled (`UPLOAD_TIMEOUT`). See
+  time per agent, within three files per agent and 16 GiB for all agents (copies in
+  progress included), leaving 1 GiB free (`UPLOAD_NO_SPACE`); a copy over 270 seconds
+  is cancelled (`UPLOAD_TIMEOUT`). See
   [browser uploads](assistant-gateway.md#browser-uploads) for where the copy goes and
   how long it stays.
 - **Only the agent's own files:** the browser tool guard lets an `upload` name only

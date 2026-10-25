@@ -105,9 +105,10 @@ const uploadSource = (raw) => {
  * swapped for a link after the check.
  *
  * Each agent stages below its own folder of this data directory's namespace
- * (`<uploads>/agentpier-<hash>/<agent>/<random>/<name>`), one copy at a time for
- * all agents, so the per-agent count, the total and the free space are checked with
- * nothing else in flight. The tool guard lets a browser upload name only files the
+ * (`<uploads>/agentpier-<hash>/<agent>/<random>/<name>`), one copy at a time per
+ * agent, so its count is checked with none of its own copies in flight; the bytes
+ * other agents are still copying are reserved against the total and the free space
+ * until their copy ends or times out. The tool guard lets a browser upload name only files the
  * calling agent staged itself (`admit`). A staged file goes after `ttlMs`, when the
  * agent stages more than `perAgent`, when `keep` says its agent ended (a temporary
  * member, an archived agent, one without the browser) and when AgentPier starts or
@@ -125,7 +126,12 @@ export class BrowserUploads {
     this.entries = new Map();
     // Staging order: the newest files stay, also within one clock tick.
     this.sequence = 0;
-    this.queue = Promise.resolve();
+    // One copy at a time per agent; bytes being copied count against every agent's
+    // total and free space until their copy ends.
+    this.queues = new Map();
+    this.inflight = 0;
+    // The checked descriptor's bytes; tests put a slow source here.
+    this.reader = (handle) => handle.createReadStream({ start: 0, autoClose: false });
   }
   get uploadDir() {
     return this.fixedDir || openclawUploadDir(this.tmp);
@@ -179,14 +185,35 @@ export class BrowserUploads {
    * Copies the file `raw` below `root` (a granted folder or the workspace, with its
    * `protectedRoots`; `admit(relative)` may refuse it by its path) for agent
    * `assistantId`. Returns the staged entry; `meta` (projectId, declaredSite) travels
-   * with it for the audit. One copy runs at a time; a call still waiting or copying
-   * after `copyMs` is cancelled and leaves nothing behind.
+   * with it for the audit. One copy of an agent runs at a time; a call still waiting
+   * for its agent's earlier copy or copying after `copyMs` is cancelled, answers at
+   * once and leaves nothing behind, also when a read hangs: the agent's next call and
+   * every other agent's calls go on.
    */
   stage(assistantId, spec, meta = {}) {
-    const signal = AbortSignal.timeout(this.limits.copyMs);
-    const run = this.queue.then(() => this.copy(assistantId, spec, meta, signal));
-    this.queue = run.catch(() => {});
-    return run;
+    // A timer of its own (AbortSignal.timeout's does not keep the process waiting),
+    // cleared once the call settles.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.limits.copyMs);
+    const { signal } = controller;
+    const timedOut = new Promise((_resolve, reject) =>
+      signal.addEventListener(
+        "abort",
+        () => reject(assistantProblem("browserUploadSlow", 504)),
+        { once: true },
+      ),
+    );
+    timedOut.catch(() => {});
+    const previous = this.queues.get(assistantId) ?? Promise.resolve();
+    const run = previous.then(() => this.copy(assistantId, spec, meta, signal));
+    const settled = Promise.race([run, timedOut]);
+    const tail = settled.catch(() => {}).finally(() => clearTimeout(timer));
+    this.queues.set(assistantId, tail);
+    tail.then(() => {
+      if (this.queues.get(assistantId) === tail) this.queues.delete(assistantId);
+    });
+    run.catch(() => {});
+    return settled;
   }
   async copy(
     assistantId,
@@ -207,6 +234,12 @@ export class BrowserUploads {
       throw unsuitable();
     }
     let dir = null;
+    let reserved = 0;
+    const release = () => {
+      this.inflight -= reserved;
+      reserved = 0;
+    };
+    signal.addEventListener("abort", release, { once: true });
     try {
       const stat = await handle.stat();
       if (!stat.isFile() || stat.nlink > 1) throw unsuitable();
@@ -218,24 +251,24 @@ export class BrowserUploads {
       const held = [...this.entries.values()]
         .filter((e) => !leaving.has(e))
         .reduce((sum, e) => sum + e.bytes, 0);
-      if (held + stat.size > this.limits.totalBytes) throw noSpace();
+      if (signal.aborted) throw assistantProblem("browserUploadSlow", 504);
+      if (held + this.inflight + stat.size > this.limits.totalBytes) throw noSpace();
       const { uploadDir, own } = this.ownFolder(assistantId);
       const space = fs.statfsSync(own);
-      if (space.bavail * space.bsize < stat.size + this.limits.reserveBytes)
-        throw noSpace();
+      // Other agents' copies still to land count as used.
+      const needed = stat.size + this.limits.reserveBytes + this.inflight;
+      if (space.bavail * space.bsize < needed) throw noSpace();
       // A tmpfs holds its files in memory.
-      if (
-        space.type === TMPFS_MAGIC &&
-        os.freemem() < stat.size + this.limits.reserveBytes
-      )
-        throw noSpace();
+      if (space.type === TMPFS_MAGIC && os.freemem() < needed) throw noSpace();
+      reserved = stat.size;
+      this.inflight += reserved;
       const id = randomBytes(16).toString("hex");
       dir = path.join(own, id);
       fs.mkdirSync(dir, { mode: 0o700 });
       const file = path.join(dir, stagedName(target.relative || raw));
       // The checked descriptor itself, never the path again.
       await pipeline(
-        handle.createReadStream({ start: 0, autoClose: false }),
+        this.reader(handle),
         fs.createWriteStream(file, { flags: "wx", mode: 0o600 }),
         { signal },
       );
@@ -264,8 +297,10 @@ export class BrowserUploads {
       if (signal.aborted) throw assistantProblem("browserUploadSlow", 504);
       throw error;
     } finally {
-      await handle.close();
+      release();
+      signal.removeEventListener("abort", release);
       if (dir) fs.rmSync(dir, { recursive: true, force: true });
+      await handle.close();
     }
   }
   // The agent's files beyond its newest `keep`.

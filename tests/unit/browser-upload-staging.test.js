@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { Readable } from "node:stream";
 import {
   BrowserUploads,
   openclawUploadDir,
@@ -248,15 +249,73 @@ test("staging is one copy at a time within the per-agent and total caps", async 
   assert.equal(uploads.entries.size, 2);
 });
 
-test("a copy that outlives its time is cancelled and leaves nothing", async (t) => {
-  const { project, uploads } = fixture(t, { limits: { ...uploadLimits, copyMs: 1 } });
-  fs.writeFileSync(path.join(project, "big.bin"), Buffer.alloc(64 * 1024 * 1024));
-  await assert.rejects(uploads.stage("agent-1", source(project, "big.bin")), {
-    key: "browserUploadSlow",
-  });
-  assert.equal(uploads.entries.size, 0);
+// A source that hands over `bytes` of the file and then stalls, as a hung read would,
+// for the first copy only; later copies read the file normally.
+function stallFirst(uploads, bytes = 4) {
+  let calls = 0;
+  const normal = uploads.reader;
+  uploads.reader = (handle) => {
+    if (calls++) return normal(handle);
+    return new Readable({
+      read() {
+        if (this.sent) return;
+        this.sent = true;
+        this.push(Buffer.from("video-bytes").subarray(0, bytes));
+      },
+    });
+  };
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("a copy stalled halfway is cancelled, leaves nothing and frees its agent", async (t) => {
+  const { project, uploads } = fixture(t, { limits: { ...uploadLimits, copyMs: 300 } });
+  stallFirst(uploads);
+  const stage = () => uploads.stage("agent-1", source(project, "episodes/episode 1.mp4"));
+  const stalled = stage();
+  stalled.catch(() => {});
   const own = path.join(uploads.namespace(), "agent-1");
-  assert.deepEqual(fs.existsSync(own) ? fs.readdirSync(own) : [], []);
+  // Halfway: the partial copy exists and its bytes are reserved.
+  let partial = [];
+  for (let n = 0; n < 40 && !partial.length; n++) {
+    await sleep(10);
+    partial = fs.existsSync(own) ? fs.readdirSync(own) : [];
+  }
+  assert.equal(partial.length, 1);
+  assert.equal(fs.readdirSync(path.join(own, partial[0])).length, 1);
+  assert.equal(uploads.inflight, 11);
+  // A call queued behind it (with its own, later time limit) waits for its turn.
+  await sleep(100);
+  const queued = stage();
+  await assert.rejects(stalled, { key: "browserUploadSlow" });
+  const next = await queued;
+  assert.equal(fs.readFileSync(next.path, "utf8"), "video-bytes");
+  assert.deepEqual(fs.readdirSync(own), [path.basename(next.dir)]);
+  assert.equal(uploads.inflight, 0);
+  assert.equal(uploads.entries.size, 1);
+  // And the agent's next upload after that.
+  const after = await stage();
+  assert.equal(fs.readFileSync(after.path, "utf8"), "video-bytes");
+});
+
+test("one agent's stalled copy holds only its own bytes, never other agents", async (t) => {
+  const { project, uploads } = fixture(t, {
+    limits: { ...uploadLimits, copyMs: 300, totalBytes: 30 },
+  });
+  stallFirst(uploads);
+  const stage = (id) => uploads.stage(id, source(project, "episodes/episode 1.mp4"));
+  const stalled = stage("agent-1");
+  stalled.catch(() => {});
+  while (!uploads.inflight) await sleep(5);
+  // Another agent copies at once, its bytes counted with the stalled ones (11 + 11).
+  const started = Date.now();
+  const other = await stage("agent-2");
+  assert.ok(Date.now() - started < 200, "not queued behind the stalled copy");
+  assert.equal(fs.readFileSync(other.path, "utf8"), "video-bytes");
+  // 11 held + 11 in flight + 11 would pass the total of 30.
+  await assert.rejects(stage("agent-3"), { key: "browserUploadSpace" });
+  await assert.rejects(stalled, { key: "browserUploadSlow" });
+  assert.equal(uploads.inflight, 0);
+  assert.equal(fs.readFileSync((await stage("agent-3")).path, "utf8"), "video-bytes");
 });
 
 test("the uploads folder is OpenClaw's: /tmp/openclaw when trusted, else below TMPDIR", (t) => {
