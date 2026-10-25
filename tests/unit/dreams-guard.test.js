@@ -31,6 +31,9 @@ test("an agent's file tools never reach its dreaming corpus", async () => {
       `/w/a1/${corpus}`,
       "memory\\.dreams\\x",
       "memory/.DREAMS",
+      "file:///w/a1/memory/%2Edreams/x",
+      "file:///w/a1/memory/%2edreams/x",
+      "file:///w/a1/%6Demory/.dreams/x",
     ])
       for (const key of ["path", "file_path", "filePath"])
         assert.equal((await run(tool, { [key]: path }))?.block, true, `${tool} ${path}`);

@@ -273,7 +273,6 @@ test("the Dream Diary cannot be written, deleted or reached through a link", asy
 });
 test("search drops results from the dreaming corpus", async (t) => {
   const f = fixture(t);
-  const call = f.assistants.runtime.client.call;
   f.assistants.runtime.client.call = async () => ({
     ok: true,
     output: {
@@ -291,5 +290,4 @@ test("search drops results from the dreaming corpus", async (t) => {
     results.map((r) => r.path),
     ["memory/dreaming/light/2026-10-25.md"],
   );
-  void call;
 });
