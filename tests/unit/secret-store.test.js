@@ -185,3 +185,16 @@ test("the store works without an audit sink", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("update accepts a partial body and keeps every absent field", () => {
+  const { dataDir, store } = fixture();
+  try {
+    const made = store.create({ name: "A", description: "d", value: "v" });
+    const updated = store.update(made.id, { description: "e" });
+    assert.equal(updated.name, "A");
+    assert.equal(updated.description, "e");
+    assert.deepEqual(store.entries([made.id]), [{ name: "A", value: "v" }]);
+  } finally {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

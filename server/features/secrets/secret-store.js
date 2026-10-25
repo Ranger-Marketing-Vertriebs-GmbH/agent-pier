@@ -138,7 +138,7 @@ export class SecretStore {
   }
   update(id, input, actor) {
     const old = this.row(id);
-    const name = cleanName(input?.name);
+    const name = input?.name === undefined ? old.name : cleanName(input.name);
     const description =
       input?.description === undefined
         ? old.description
