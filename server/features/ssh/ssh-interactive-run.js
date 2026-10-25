@@ -3,6 +3,7 @@ import { StringDecoder } from "node:string_decoder";
 import { decodeOutput, sshCannotStart, sshOutputLimit, superviseSsh } from "./ssh-run.js";
 import {
   consoleText,
+  consoleTrace,
   lastLine,
   pagerPattern,
   promptPattern,
@@ -15,6 +16,10 @@ import {
  * recognised prompt confirms it.
  */
 export const interactiveTiming = { idleMs: 1500, settleMs: 250 };
+
+// Enter as a terminal sends it: raw-mode device CLIs (TP-Link, many switches) take
+// only CR, and a Unix shell's pseudo-terminal turns it into LF (ICRNL).
+const enter = "\r";
 
 const notStarted =
   "Interactive shell: the connection ended before the device showed a prompt; no command was sent.";
@@ -31,12 +36,14 @@ export function commandLines(command) {
  * (docs/ssh-access.md): the connection (OpenSSH with `-tt`, no remote command)
  * opens the device's shell; after its first prompt each line of the command is
  * typed, and the next line waits for the prompt (or `idleMs` of silence) again.
- * Pager prompts get a space. Then `exit` is typed if the console shows a prompt,
- * and the connection is closed.
+ * Pager prompts get a space. Enter is CR. Then `exit` is typed if the console
+ * shows a prompt, and the connection is closed.
  * The result has the same shape as runSshCommand's: `stdout` is the console text
  * without control sequences or the echoed lines, `exitCode` is null (a console
  * reports none) unless the connection failed before the first prompt, and
- * `interactive: true` marks the mode. Nothing is written to disk.
+ * `interactive: true` marks the mode. When the typed lines produced no text but
+ * prompts, `consoleTrace` carries the escaped raw console (ssh-console-text.js) to
+ * diagnose the device. Nothing is written to disk.
  */
 export function runInteractiveSsh(connection, command, options) {
   const { onSpawn = () => {}, timing = interactiveTiming } = options;
@@ -91,10 +98,10 @@ export function runInteractiveSsh(connection, command, options) {
       if (exiting) return hangUp();
       started = true;
       const sent = segments.length - 1;
-      if (sent < lines.length) type(`${lines[sent]}\n`);
+      if (sent < lines.length) type(`${lines[sent]}${enter}`);
       else if (!atPrompt) return hangUp();
       else {
-        type("exit\n");
+        type(`exit${enter}`);
         exiting = true;
       }
       segments.push("");
@@ -114,8 +121,9 @@ export function runInteractiveSsh(connection, command, options) {
         pagerFrom = current.length;
         return wait(timing.idleMs);
       }
-      // After a line was typed, its echo ends with a line break before any prompt.
-      atPrompt = promptPattern.test(line) && (step === 0 || /\n/.test(current));
+      // After a line was typed, its echo ends with Enter (CR or LF) before any
+      // prompt; a device may redraw the prompt after a lone CR on the same line.
+      atPrompt = promptPattern.test(line) && (step === 0 || /[\r\n]/.test(current));
       wait(atPrompt ? timing.settleMs : timing.idleMs);
     });
     child.stderr.on("data", (chunk) => {
@@ -132,10 +140,16 @@ export function runInteractiveSsh(connection, command, options) {
       watch.stop();
       segments[segments.length - 1] += out.end();
       stderr += err.end();
-      let text = "";
+      let text = "",
+        answered = false;
       segments.forEach((segment, index) => {
         const sent = index === 0 ? "" : (lines[index - 1] ?? "exit");
         const part = withoutEcho(consoleText(segment), sent);
+        if (
+          index &&
+          part.split("\n").some((row) => row.trim() && !promptPattern.test(row))
+        )
+          answered = true;
         if (!part) return;
         text +=
           (text && !text.endsWith("\n") && !part.startsWith("\n") ? "\n" : "") + part;
@@ -162,6 +176,16 @@ export function runInteractiveSsh(connection, command, options) {
         durationMs: Date.now() - began,
         interactive: true,
         started,
+        // Typed lines that drew nothing but prompts: show the device's raw console.
+        ...(started &&
+          lines.length &&
+          !answered && {
+            consoleTrace: consoleTrace(
+              segments,
+              (index) => lines[index] ?? "exit",
+              enter,
+            ),
+          }),
       });
     });
   });

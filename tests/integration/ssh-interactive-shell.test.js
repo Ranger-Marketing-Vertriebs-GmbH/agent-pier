@@ -13,12 +13,12 @@ const device = fileURLToPath(
 const owner = { kind: "owner", channel: "ui" };
 
 /** The fixture's first host as a console-only switch behind the fake device. */
-function consoleHost(f) {
+function consoleHost(f, ...flags) {
   f.catalog.rows.get(hostId).interactiveShell = true;
   const connection = f.catalog.connection.bind(f.catalog);
   f.catalog.connection = (id) => ({
     ...connection(id),
-    ...(id === hostId ? { args: [device], interactive: true } : {}),
+    ...(id === hostId ? { args: [device, ...flags], interactive: true } : {}),
   });
 }
 
@@ -88,6 +88,19 @@ test("a trusted console run leaves a done note without an exit code", async (t) 
   assert.equal(note.outcome, "done");
   assert.equal(note.interactive, true);
   assert.equal("exitCode" in note, false);
+});
+
+test("a CR-only console answers enable and show; only prompts add a trace", async (t) => {
+  const f = await agentSshFixture(t);
+  consoleHost(f, "--cr-only");
+  f.grant([{ accessId: hostId, mode: "trusted" }]);
+  const shown = await f.execute(f.ownTurn(), "enable\nshow system-info");
+  assert.match(shown.stdout, /Core-Switch#\n System Description - JetStream/);
+  assert.equal("consoleTrace" in shown, false);
+  const prompts = await f.execute(f.ownTurn(), "enable");
+  assert.match(prompts.consoleTrace, /\[typed "enable\\r"\]\nenable\\rCore-Switch#/);
+  // Like the output, the trace reaches only the caller: never the audit log.
+  assert.equal(JSON.stringify(f.audit).includes("Core-Switch"), false);
 });
 
 test("only the owner switches the console mode; MCP lists it and tests sign-in", async (t) => {

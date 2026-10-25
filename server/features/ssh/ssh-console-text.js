@@ -75,3 +75,37 @@ export function withoutEcho(text, sent) {
   if (first !== -1 && lines[first].trimEnd().endsWith(echo)) lines.splice(first, 1);
   return lines.join("\n");
 }
+
+/** Bytes a console trace may take (docs/ssh-access.md, "Interactive shell"). */
+export const consoleTraceLimit = 4096;
+
+const escapedControl = (character) =>
+  ({ "\\": "\\\\", "\r": "\\r", "\n": "\\n\n", "\t": "\\t", "\b": "\\b" })[character] ??
+  `\\x${character.codePointAt(0).toString(16).padStart(2, "0")}`;
+const escapeRaw = (text) => text.replace(/[\\\x00-\x1f\x7f-\x9f]/g, escapedControl);
+
+/**
+ * What the console really sent, for an agent to diagnose a device that answers
+ * nothing but prompts: each raw segment with control characters made visible
+ * (`\r`, `\x1b`; `\n` also breaks the line) and `[typed "…"]` between them. At
+ * most `consoleTraceLimit` bytes; a longer trace keeps its beginning and end.
+ */
+export function consoleTrace(segments, typed, enter) {
+  const trace = segments
+    .map((segment, index) =>
+      index
+        ? `[typed "${escapeRaw(typed(index - 1) + enter)}"]\n${escapeRaw(segment)}`
+        : escapeRaw(segment),
+    )
+    .join("\n");
+  if (Buffer.byteLength(trace) <= consoleTraceLimit) return trace;
+  const cut = "\n[… trace shortened …]\n";
+  const half = Math.floor((consoleTraceLimit - Buffer.byteLength(cut)) / 2);
+  const bytes = Buffer.from(trace);
+  // Cut at character boundaries: never inside a UTF-8 sequence.
+  let end = half,
+    start = bytes.length - half;
+  while ((bytes[end] & 0xc0) === 0x80) end--;
+  while ((bytes[start] & 0xc0) === 0x80) start++;
+  return `${bytes.subarray(0, end)}${cut}${bytes.subarray(start)}`;
+}
