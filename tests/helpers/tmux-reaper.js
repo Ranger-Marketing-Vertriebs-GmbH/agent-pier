@@ -23,7 +23,9 @@ SessionManager.prototype.initialize = function trackedInitialize(...args) {
     directory.startsWith(`${temporaryRoot}${path.sep}`) ||
     directory.startsWith(`${os.tmpdir()}${path.sep}`)
   )
-    owned.set(this.socketPath, this.tmuxPath);
+    // A manager on the legacy socket moves to the produced one once it drains.
+    for (const socketPath of new Set([this.socketPath, this.tmuxSockets?.produced]))
+      if (socketPath) owned.set(socketPath, this.tmuxPath);
   return initialize.apply(this, args);
 };
 

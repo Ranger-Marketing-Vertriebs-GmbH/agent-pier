@@ -14,6 +14,7 @@ import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup from "./SidebarGroup.jsx";
 import SessionRow from "./SessionRow.jsx";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
+import LegacyTmuxNotice from "../features/dashboard/LegacyTmuxNotice.jsx";
 export default function Sidebar({
   mobileNav,
   navigate,
@@ -105,6 +106,7 @@ export default function Sidebar({
           defaultOpen
           activeKey={selected}
         >
+          <LegacyTmuxNotice status={state.legacyTmux} className="sidebar-legacy-tmux" />
           <div className="session-list">
             {sessions.length ? (
               sessions.map((s) => (

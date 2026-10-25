@@ -12,6 +12,7 @@ import {
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 import { reloadedProvider } from "./provider-configuration.js";
 import { readTmuxServer } from "./tmux-server-identity.js";
+import { leaveDrainedLegacyServer } from "./legacy-tmux-server.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 
@@ -88,6 +89,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       await manager.save(session);
     }
     // Never restore launch input, event streams or delivery payloads.
+    await leaveDrainedLegacyServer(manager);
     await manager.tmux([
       "new-session",
       "-d",

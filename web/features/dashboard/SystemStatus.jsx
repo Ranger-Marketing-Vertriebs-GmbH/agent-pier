@@ -4,6 +4,7 @@ import Icon from "../../components/Icon.jsx";
 import useSystemStatus from "./useSystemStatus.js";
 import { diskUsedPercent, statusBytes, statusPercent } from "./system-status-format.js";
 import { DiskWarning, SystemMeter } from "./SystemMeter.jsx";
+import LegacyTmuxNotice from "./LegacyTmuxNotice.jsx";
 
 const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
 
@@ -16,6 +17,7 @@ export default function SystemStatus() {
   return (
     <section className="system-status" aria-label={copy.title}>
       <DiskWarning status={data} />
+      <LegacyTmuxNotice status={data?.legacyTmux} />
       <button
         type="button"
         className="system-status-row"

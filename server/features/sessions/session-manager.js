@@ -20,10 +20,12 @@ import {
   ALTERNATE_SESSION_PREFIX,
   chooseTmuxSocket,
   SESSION_PREFIX,
+  tmuxSocketPaths,
 } from "./tmux-naming.js";
+import { leaveDrainedLegacyServer, privateDirectory } from "./legacy-tmux-server.js";
 import { alternatePaneState, scanSessionNames } from "./session-names.js";
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pty from "node-pty";
@@ -40,6 +42,7 @@ export class SessionManager {
     if (typeof dataDir !== "string" || !path.isAbsolute(dataDir))
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
+    this.tmuxSockets = tmuxSocketPaths(dataDir);
     this.socketPath = chooseTmuxSocket(dataDir, { tmuxPath });
     // Ids whose session runs as `tuiui-<id>`, started by an earlier release.
     this.alternateSessions = new Set();
@@ -56,13 +59,8 @@ export class SessionManager {
     this.ready = this.initialize();
   }
   async initialize() {
-    for (const directory of [this.directory, path.dirname(this.socketPath)]) {
-      await mkdir(directory, { recursive: true, mode: 0o700 });
-      const info = await lstat(directory);
-      if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
-        throw new Error("Unsafe terminal storage directory");
-      await chmod(directory, 0o700);
-    }
+    for (const directory of [this.directory, path.dirname(this.socketPath)])
+      await privateDirectory(directory);
     await privateWrite(
       this.directory,
       "tmux.conf",
@@ -267,6 +265,7 @@ export class SessionManager {
         // Execute the launcher directly: an old tmux daemon may retain a deleted
         // release cwd, which makes an intermediate shell emit getcwd errors.
         // Arguments and credentials stay in the private, one-use payload.
+        await leaveDrainedLegacyServer(this);
         await this.tmux([
           "new-session",
           "-d",

@@ -1,5 +1,6 @@
 import os from "node:os";
 import { parseSessionLines, pickSessionNames } from "../sessions/tmux-naming.js";
+import { legacyTmuxSessions } from "../sessions/legacy-tmux-server.js";
 import { cpuBusy, cpuTimes, diskStats, memoryStats } from "./host-stats.js";
 import { processTrees, readProcessTable, treeUsage } from "./process-stats.js";
 import { measureDataAreas } from "./data-areas.js";
@@ -103,6 +104,8 @@ export class SystemStatus {
     disk = () => diskStats(dataDir),
     processes = (options) => readProcessTable(options),
     panes = () => sessionPanes(sessions),
+    // Sessions still on the tmux server of a release from before the rename.
+    legacySessions = () => legacyTmuxSessions(sessions),
     measureAreas = (stopped) => measureDataAreas(dataDir, { stopped }),
     serverPid = process.pid,
     onError = () => {},
@@ -122,6 +125,7 @@ export class SystemStatus {
       disk,
       processes,
       panes,
+      legacySessions,
       measureAreas,
       serverPid,
       onError,
@@ -229,10 +233,17 @@ export class SystemStatus {
     const cpu = cpuBusy(this.cpuReading.times, times);
     const sampledAt = this.now();
     this.cpuReading = { at: sampledAt, times };
-    const [memory, disk, panes] = await Promise.all([
+    const [memory, disk, panes, legacyTmux] = await Promise.all([
       this.memory(),
       this.disk(),
       this.panes(),
+      // Optional information: a failed read reports no session there.
+      Promise.resolve()
+        .then(() => this.legacySessions())
+        .catch((error) => {
+          this.onError(error);
+          return [];
+        }),
     ]);
     const gateway = this.gatewayPid();
     const roots = [
@@ -319,6 +330,7 @@ export class SystemStatus {
         disk: { ...disk, freePercent: freePercent(disk) },
         agentPier,
         warning: { diskLow, thresholdPercent: WARN_BELOW_PERCENT },
+        legacyTmux: { sessions: legacyTmux },
       },
     };
     return this.latest;

@@ -78,8 +78,22 @@ that [receive notifications](notifications.md). The warning clears when at least
 free again; a disk that hovers around the threshold does not notify again, and neither
 does a restart during the same low-space episode.
 
+## Sessions on the old tmux server
+
+AgentPier was formerly called "tuiui". A tmux server that a release from before the
+rename started keeps running across updates, and AgentPier keeps using it while one of
+its sessions runs there, so no session is lost. Until then, the start page above the
+**System status** row and the **Sessions** list in the sidebar show a notice such as
+**2 sessions still run on the old tmux server** with the text "Stop these sessions when
+convenient; AgentPier then starts new sessions on the new server." and the names of
+those sessions. Stop them whenever it suits you (**Stop session**); new sessions join
+the old server until the last one there has stopped. The next session then starts on
+the new server, and the notice disappears. AgentPier never ends these sessions or the
+old server itself. See [architecture](architecture.md) for the details.
+
 ## API
 
-`GET /api/system-status` returns the bars and the warning, and
+`GET /api/system-status` returns the bars, the warning and the sessions on the old tmux
+server (`legacyTmux.sessions`, id and name only), and
 `GET /api/system-status/details` adds processes, history and data areas. Both require
 the workspace login like every other `/api` route.

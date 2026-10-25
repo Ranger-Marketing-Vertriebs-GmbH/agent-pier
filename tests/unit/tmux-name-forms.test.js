@@ -15,7 +15,7 @@ import {
   SESSION_PREFIX,
   ownedSocket,
   sessionIdFromName,
-  tmuxServerAnswers,
+  runsLiveSession,
   tmuxSocketPaths,
 } from "../../server/features/sessions/tmux-naming.js";
 import { sessionPanes } from "../../server/features/system-status/system-status.js";
@@ -77,7 +77,7 @@ test("current and legacy tmux session names resolve to the same id", () => {
     assert.equal(sessionIdFromName(name), null, name);
 });
 
-test("the legacy socket stays in use while its server answers, else the agentpier one", async (t) => {
+test("the legacy socket stays in use while its server runs a session, else the agentpier one", async (t) => {
   const dataDir = mkdtempSync(path.join(tmpdir(), "agentpier-socket-choice-"));
   const { produced, legacy } = tmuxSocketPaths(dataDir);
   const servers = [];
@@ -103,38 +103,34 @@ test("the legacy socket stays in use while its server answers, else the agentpie
   assert.match(produced, /^\/tmp\/agentpier-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
   assert.match(legacy, /^\/tmp\/tuiui-[^/]+-[0-9a-f]{24}\/tmux\.sock$/);
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(produced, legacy) }),
+    chooseTmuxSocket(dataDir, { inUse: answering(produced, legacy) }),
     produced,
   );
   assert.deepEqual(asked, [], "no legacy socket file: nothing is asked");
   // A regular file in place of a socket is never ours, so it is never asked.
   mkdirSync(path.dirname(legacy), { mode: 0o700 });
   writeFileSync(legacy, "");
-  assert.equal(chooseTmuxSocket(dataDir, { answers: answering(legacy) }), produced);
+  assert.equal(chooseTmuxSocket(dataDir, { inUse: answering(legacy) }), produced);
   assert.deepEqual(asked, []);
   rmSync(legacy);
   await listen(legacy);
   await listen(produced);
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(legacy) }),
+    chooseTmuxSocket(dataDir, { inUse: answering(legacy) }),
     legacy,
     "sessions from before the update keep their server",
   );
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(produced, legacy) }),
+    chooseTmuxSocket(dataDir, { inUse: answering(produced, legacy) }),
     legacy,
     "both live: the legacy server keeps its sessions",
   );
   assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering(produced) }),
+    chooseTmuxSocket(dataDir, { inUse: answering(produced) }),
     produced,
     "a stale legacy socket file is not used",
   );
-  assert.equal(
-    chooseTmuxSocket(dataDir, { answers: answering() }),
-    produced,
-    "none live",
-  );
+  assert.equal(chooseTmuxSocket(dataDir, { inUse: answering() }), produced, "none live");
   // Someone else's socket is not ours either.
   const foreign = (file) => {
     const stat = lstatSync(file);
@@ -145,20 +141,29 @@ test("the legacy socket stays in use while its server answers, else the agentpie
     chooseTmuxSocket(dataDir, {
       lstat: foreign,
       uid: 501,
-      answers: answering(legacy),
+      inUse: answering(legacy),
     }),
     produced,
   );
 });
 
-test("a probe that times out counts as a live server; a refused or failed one does not", () => {
-  const probe = (result) => tmuxServerAnswers("/tmp/x.sock", { spawn: () => result });
-  assert.equal(probe({ status: 0 }), true);
+test("only a live AgentPier pane or a probe that times out keeps the legacy server", () => {
+  const probe = (result) => runsLiveSession("/tmp/x.sock", { spawn: () => result });
+  assert.equal(probe({ status: 0, stdout: "agentpier-one|0\n" }), true);
+  assert.equal(probe({ status: 0, stdout: "tuiui-one|0\n" }), true);
   assert.equal(
     probe({ status: null, error: Object.assign(new Error(), { code: "ETIMEDOUT" }) }),
     true,
   );
-  assert.equal(probe({ status: 1 }), false);
+  // exit-empty off keeps a server without sessions or with dead panes only running.
+  assert.equal(probe({ status: 0, stdout: "" }), false);
+  assert.equal(probe({ status: 0, stdout: "agentpier-one|1\ntuiui-two|1\n" }), false);
+  assert.equal(
+    probe({ status: 0, stdout: "boot|0\n" }),
+    false,
+    "not an AgentPier session",
+  );
+  assert.equal(probe({ status: 1, stdout: "" }), false);
   assert.equal(
     probe({ status: null, error: Object.assign(new Error(), { code: "ENOENT" }) }),
     false,
