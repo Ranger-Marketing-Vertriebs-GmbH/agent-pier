@@ -15,12 +15,40 @@ import SubpageHeader from "./SubpageHeader.jsx";
 import MemberGrantApprovalCard from "../MemberGrantApprovalCard.jsx";
 import MemberGrantNote from "../MemberGrantNote.jsx";
 import { grantNote } from "../member-grants.js";
+import HookProposalCard from "../HookProposalCard.jsx";
+import { hookCopy } from "../../../lib/i18n/messages/assistant-hooks.js";
 
-const decide = (action, decision) =>
+const decide = (action, decision, extra = {}) =>
   api(`/assistant-actions/${encodeURIComponent(action.id)}/decision`, "POST", {
+    ...extra,
     revision: action.revision,
     decision,
   });
+
+// An agent's hook proposal: the owner's card while it waits, then the hook's name,
+// sender and outcome (why it failed, when it did).
+function HookProposalRow({ action: a, act }) {
+  if (a.state === "awaiting_approval")
+    return (
+      <HookProposalCard
+        action={a}
+        onDecide={(decision, rights) =>
+          act(() => decide(a, decision, rights ? { rights } : {}))
+        }
+      />
+    );
+  const diagnostic = hookCopy.proposal.diagnostics[a.diagnostic];
+  return (
+    <article className="assistant-card assistant-reminder-row" data-hook-proposal-row="">
+      <h3>{hookCopy.proposal.history(a.payload.name)}</h3>
+      <p>
+        {hookCopy.sender}: {a.payload.sender}
+      </p>
+      <p>{copy.states[a.state]}</p>
+      {diagnostic && <p className="assistant-note">{diagnostic}</p>}
+    </article>
+  );
+}
 
 // A shell command takes the Gateway's decisions (allow-once, allow-always, deny):
 // waiting, it is the chat's card; decided, it shows the command and its outcome.
@@ -102,6 +130,8 @@ function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "sftp")
     return <SftpCard action={a} act={act} assistantId={assistantId} />;
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
+  if (a.payload.action === "hook_proposal")
+    return <HookProposalRow action={a} act={act} />;
   // A lead's edit of a member, or a member's reminder on its lead: its chat line.
   if (
     ["member_update", "member_reminder", "member_promote", "member_summarise"].includes(

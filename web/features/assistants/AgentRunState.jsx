@@ -7,7 +7,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { stalledMinutes, useNow } from "./run-steps.js";
 
 const tones = { running: "working", done: "ok", failed: "error" };
-const toolName = (step) => copy.tools[step.tool] || copy.tool(step.tool || "?");
+export const toolName = (step) => copy.tools[step.tool] || copy.tool(step.tool || "?");
 const stepName = (step) => (step.kind === "thinking" ? copy.thinking : toolName(step));
 
 // What the turn does now: the running tool with its title, or the phase. An exec

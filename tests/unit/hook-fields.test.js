@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  clampRights,
   curlSample,
   hookAddress,
   hookDraft,
@@ -134,4 +135,50 @@ test("tickLock lets a stale right be switched off but never on", () => {
     reason: null,
     locked: false,
   });
+});
+
+test("clampRights caps a proposal's edited ticks to the agent's ceiling", () => {
+  const ceiling = {
+    telegram: true,
+    research: false,
+    coding: true,
+    memory: true,
+    mcp: false,
+    shell: "approval",
+    sshHosts: ["nas"],
+    folders: { web: "read", api: "write" },
+  };
+  const proposed = {
+    notify: true,
+    telegram: true,
+    research: true,
+    coding: false,
+    memory: false,
+    mcp: true,
+    shell: "full",
+    sshHosts: ["nas", "gone"],
+    folders: { web: "write", api: "read", lost: "read" },
+  };
+  assert.deepEqual(
+    clampRights(proposed, { coding: true, mcp: true }, ceiling, ["off", "approval"]),
+    {
+      notify: true,
+      telegram: true,
+      research: false,
+      coding: true,
+      memory: false,
+      mcp: false,
+      shell: "off",
+      sshHosts: ["nas"],
+      folders: { web: "read", api: "read" },
+    },
+  );
+  // Telegram goes with Notify.
+  const quiet = clampRights(proposed, { notify: false }, ceiling, ["off", "approval"]);
+  assert.equal(quiet.telegram, false);
+  assert.equal(
+    clampRights({ ...proposed, shell: "approval" }, {}, ceiling, ["off", "approval"])
+      .shell,
+    "approval",
+  );
 });

@@ -26,6 +26,7 @@ const languages = {
     sharedBodyRead: /Andere, die ihn nutzen, sehen deinen Chat nicht\./,
     reads: /Der Besitzer kann deine Chats seit .+ lesen\./,
     private: "Privat: Nur du siehst diesen Chat.",
+    events: "Ereignisse",
   },
   en: {
     greeting: "Hello Anna",
@@ -39,6 +40,7 @@ const languages = {
     sharedBodyRead: /Others who use it do not see your chat,/,
     reads: /The owner can read your chats since .+\./,
     private: "Private: only you see this chat.",
+    events: "Events",
   },
 };
 
@@ -112,6 +114,32 @@ for (const [language, copy] of Object.entries(languages)) {
       await page.goto(baseURL + "/agents/lotta/chats/main");
       await expect(page.getByText(copy.reads)).toBeVisible();
       await expect(page.getByText(copy.private)).toHaveCount(0);
+    });
+
+    test("her routine results wait in the Events group", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        areaEvents: {
+          main: [
+            {
+              id: "routine:r1",
+              source: "routine",
+              name: "Homework plan",
+              at: Date.now(),
+              status: "done",
+              firstLine: "Maths on Monday",
+              reply: "Maths on **Monday**",
+            },
+          ],
+        },
+      });
+      await page.goto(baseURL + "/agents/lotta/chats/main");
+      const head = page.locator(".agent-event-group > .activity-row-head");
+      await expect(head.locator(".activity-row-label")).toHaveText(copy.events);
+      await head.click();
+      const row = page.locator(".agent-event-row");
+      await row.locator(".activity-row-head").click();
+      await expect(row.locator(".agent-event-reply strong")).toHaveText("Monday");
     });
 
     test("no owner navigation is reachable", async ({ page }) => {

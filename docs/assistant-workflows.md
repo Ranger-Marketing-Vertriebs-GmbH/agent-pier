@@ -381,8 +381,10 @@ Each run has full context (`lightContext: false`, 300 s timeout) and runs detach
 from the agent's main chat (the person's main AgentPier conversation, which a paired
 Telegram chat also writes into; `sessionTarget: "current"`, as check-ins do), so it never
 interrupts a running turn. OpenClaw commits the result into that conversation once no
-turn runs there: the AgentPier chat shows it with a "Scheduled · <routine>" badge, a
-later turn can refer to it, and an `agent-routine` push notice opens the chat. With
+turn runs there: the AgentPier chat shows it as a row of its **Events** area (the
+`events` of the main chat's history, `web/features/assistants/AgentEventArea.jsx`)
+rather than as a message, a later turn can refer to it, and an `agent-routine` push
+notice opens the chat. With
 **Also send to Telegram** on, the result also goes to the paired Telegram chat, split
 into several messages when it is long. OpenClaw's completion
 webhook carries at most 2,000 characters of the result (its run `summary`, cut with
@@ -544,8 +546,13 @@ instruction, the rights and the hourly limit; rights above what the agent holds 
 `HOOK_RIGHT_EXCEEDS`. The proposal is a `hook_proposal` approval action: a card in the
 chat, the owner's paired Telegram chat (hook, sender, reason, instruction and the
 ticked rights, with **Create hook** and **Decline**) and the Inbox **Agents** tab. The
-owner may change the rights in the browser before approving; Telegram approves the
-proposed rights as they are. Approving checks the rights against the agent's live
+owner may change the rights in the browser before approving (`HookProposalCard.jsx`:
+ticks on only where the ceiling of `GET /api/assistants/:id/hooks` allows, and an
+edited set capped to that ceiling is sent as `rights` with the approve decision; an
+unedited approval sends none); Telegram approves the proposed rights as they are.
+After approval the chat links to the hook's page
+(`?tab=routines&page=hook&hook=<id>`) for its secret, and **Work → Actions and coding
+tasks** lists the proposal with the hook name and outcome. Approving checks the rights against the agent's live
 rights again: a right it lost fails the proposal with `RIGHTS_CHANGED`, hooks switched
 off for the agent with `HOOK_UNAVAILABLE`, and nothing is created. An approved proposal creates the hook as the
 agent's (`createdBy: "assistant"`, audited with `actor: "assistant"`) without a secret,

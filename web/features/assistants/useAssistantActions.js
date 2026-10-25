@@ -58,21 +58,26 @@ export default function useAssistantActions(assistantId, pushed = null) {
     restartKey: load,
   });
   const decide = useCallback(
-    async (a, decision) => {
+    // `extra` carries the owner's edited rights of a hook proposal; the decided
+    // action is returned (null when the decision failed).
+    async (a, decision, extra = {}) => {
       setError("");
       try {
-        await api(`/assistant-actions/${encodeURIComponent(a.id)}/decision`, "POST", {
-          revision: a.revision,
-          decision,
-        });
+        const decided = await api(
+          `/assistant-actions/${encodeURIComponent(a.id)}/decision`,
+          "POST",
+          { ...extra, revision: a.revision, decision },
+        );
         // The feed pushes the decided action's new state; until then it stays hidden.
         if (liveRef.current) hide(a);
         else await load();
+        return decided;
       } catch (e) {
         setError(e.message);
         // A decided or expired request (409) leaves the list instead of waiting for the poll.
         if (e.status === 409 && !liveRef.current) await load();
       }
+      return null;
     },
     [load, hide],
   );

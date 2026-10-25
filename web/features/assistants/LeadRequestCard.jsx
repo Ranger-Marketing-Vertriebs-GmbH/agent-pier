@@ -9,9 +9,11 @@ const open = new Set(["queued", "dispatching", "running", "uncertain"]);
 const titleOf = (r) =>
   r.fromName
     ? copy.peerTitle(r.type, r.fromName, r.memberName)
-    : r.reportKind
-      ? copy.reportTitle(r.reportKind, r.memberName)
-      : copy.title(r.type, r.memberName);
+    : r.memberHook !== undefined
+      ? copy.hookTitle(r.memberName)
+      : r.reportKind
+        ? copy.reportTitle(r.reportKind, r.memberName)
+        : copy.title(r.type, r.memberName);
 /** The state label; a finished question reads "Answered", a finished task "Done". */
 export const requestState = (r) =>
   r.phase === "completed" && r.type === "question"

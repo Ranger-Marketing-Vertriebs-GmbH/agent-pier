@@ -410,6 +410,17 @@ test("a task one of the lead's routines delegated is marked with the routine", a
   await expect(chips).toHaveText(["read-only", "Scheduled · Morning check"]);
 });
 
+test("a member's hook report is titled as a hook report", async ({ page }) => {
+  const chips = await oneRequest(
+    page,
+    request("report-1", { type: "report", memberHook: "Zabbix" }),
+  );
+  await expect(chips).toHaveText(["Hook Zabbix"]);
+  await expect(
+    page.locator(".lead-request-card .assistant-approval-head strong"),
+  ).toHaveText("Hook report from Scout");
+});
+
 // Learning handed Head Writer a task and reported a problem; the lead's chat holds
 // only quiet notes of the exchange and the report's internal turn.
 test("the lead sees its members' exchanges and reports", async ({ page }) => {
