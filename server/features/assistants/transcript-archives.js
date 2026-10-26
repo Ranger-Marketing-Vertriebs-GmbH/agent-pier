@@ -97,6 +97,30 @@ function sessionRows(file, { sessionKey, sessionId, busyMs }, remove) {
   }
 }
 
+/**
+ * The session ids OpenClaw archived under `sessionKey` (a reset keeps the key and
+ * starts a new id; a deleted session's id stays only here), read before the purge
+ * removes them. Sorted; none without a database or archive table.
+ */
+export function archivedSessionIds(stateDir, runtimeAgentId, sessionKey, busyMs = 250) {
+  if (typeof sessionKey !== "string" || !sessionKey) return [];
+  const file = agentDatabase(stateDir, runtimeAgentId);
+  if (!file) return [];
+  const db = open(file, true, busyMs);
+  try {
+    if (!hasTable(db, archiveTable, archiveColumns, false)) return [];
+    return db
+      .prepare(
+        `SELECT DISTINCT session_id FROM ${archiveTable} WHERE session_key = ? ORDER BY 1`,
+      )
+      .all(sessionKey)
+      .map((row) => row.session_id)
+      .filter((id) => typeof id === "string" && id);
+  } finally {
+    db.close();
+  }
+}
+
 const files = (folder, names) =>
   names.filter((name) => archiveName.test(name)).map((name) => path.join(folder, name));
 

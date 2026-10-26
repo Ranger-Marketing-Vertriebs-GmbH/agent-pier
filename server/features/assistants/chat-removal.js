@@ -4,7 +4,7 @@ import { RoutineResults } from "./routine-results.js";
 import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
-import { purgeTranscriptArchives } from "./transcript-archives.js";
+import { archivedSessionIds, purgeTranscriptArchives } from "./transcript-archives.js";
 import { forgetDreamingSession } from "./dreaming-backups.js";
 
 /**
@@ -144,7 +144,21 @@ export async function deleteNativeSession(assistants, conversation) {
   }
   const agent = agentOf(assistants, conversation.assistantId);
   const state = assistants.runtime.paths?.state;
+  // Every id the chat's key had: the live one and those its archives still name (a
+  // reset's earlier ids, or the only id left when the Gateway no longer knows the
+  // session). Read before the purge removes them; dreaming forgets each.
+  const sessionIds = new Set(sessionId ? [sessionId] : []);
   if (agent && state) {
+    try {
+      for (const id of archivedSessionIds(
+        state,
+        agent.runtimeAgentId,
+        conversation.runtimeSessionKey,
+      ))
+        sessionIds.add(id);
+    } catch {
+      // The purge below meets the same database and reports it.
+    }
     try {
       purgeTranscriptArchives(state, agent.runtimeAgentId, {
         sessionKey: conversation.runtimeSessionKey,
@@ -169,9 +183,9 @@ export async function deleteNativeSession(assistants, conversation) {
   // Dreaming's copies of the chat go too, dreaming on or off: earlier nights may have
   // read it. One after another in the background, never under admission; a failure
   // is logged without content and leaves the deletion standing.
-  if (sessionId && agent)
+  if (sessionIds.size && agent)
     assistants.dreamingForgets = (assistants.dreamingForgets || Promise.resolve())
-      .then(() => forgetDreamingSession(assistants, agent, sessionId))
+      .then(() => forgetDreamingSession(assistants, agent, [...sessionIds]))
       .catch(() =>
         console.warn("AgentPier could not remove a deleted chat from dreaming."),
       );

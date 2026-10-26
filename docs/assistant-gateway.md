@@ -4144,9 +4144,12 @@ setting and clears what was pending.
   host backups seal them with history like `workspaces/` ([backups](backups.md)). To
   restore, copy a backup back to the agent's `MEMORY.md` while the agent is idle.
 - **Deleted chats.** Deleting a chat runs
-  `openclaw memory forget --agent <runtimeAgentId> --session <sessionId>`
+  `openclaw memory forget --agent <runtimeAgentId> --session <sessionId> …`
   (`forgetDreamingSession`), dreaming on or off, since earlier nights may have read
-  the chat. It removes the session from the corpus, seen hashes and short-term
+  the chat. It names every session id the chat's key had: the live one and those
+  OpenClaw's transcript archives still record for the key (`archivedSessionIds` in
+  `transcript-archives.js`, read before the purge removes them), so a reset's earlier
+  ids go too. It removes the session from the corpus, seen hashes and short-term
   entries and keeps it out of later sweeps; notes
   already distilled from it stay. The forgets run one after another in the background,
   outside admission; maintenance (restore, update) and AgentPier's shutdown wait for the
@@ -4158,7 +4161,10 @@ setting and clears what was pending.
   the `session_transcript_archives` rows, `transcript-archives.js`, see Delete under
   [Several chats per agent](#several-chats-per-agent)); a purge that fails is retried at the next Gateway
   start, and the forget runs once it succeeds. A chat whose native session id
-  AgentPier never learned is purged by its session key but gets no forget.
+  AgentPier never learned is forgotten by the ids its archives name; only when the
+  Gateway knows no session for the key and no archive names one is there no id to
+  forget (`memory forget --session <key>` resolves a key only against live sessions
+  and archives too, and would record the key literally).
 - **Resolved data directory.** On 2026.10.7 the sweep fails every workspace ("Canonical
   session reader continuation is no longer current") and writes no corpus or notes
   when the state directory's path runs through a symbolic link. The data directory
