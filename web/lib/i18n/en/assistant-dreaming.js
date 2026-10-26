@@ -19,4 +19,6 @@ export const assistantDreamingCopy = {
   diary: "Dream diary",
   diaryHint: "Written by the agent's nightly dreaming. Read only.",
   moreNotes: (count) => (count === 1 ? "Load 1 more note" : `Load ${count} more notes`),
+  diaryTruncated: (size) =>
+    `The dream diary is ${size}. Only its newest entries are shown here; older ones are cut off.`,
 };

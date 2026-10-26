@@ -227,3 +227,43 @@ test("the memory view loads older notes page by page", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Load 1 more note" })).toHaveCount(0);
   expect(offsets).toEqual([0, 2]);
 });
+
+test("a dream diary past the read limit says that older entries are cut off", async ({
+  page,
+}) => {
+  await setup(page, {
+    enabled: true,
+    memoryOn: true,
+    memory: {
+      "DREAMS.md": {
+        name: "DREAMS.md",
+        content: "---\n\n*Last night*\n\nA calm night of sorting notes.",
+        hash: "d2",
+        readOnly: true,
+        truncated: true,
+        size: 3145728,
+      },
+    },
+  });
+  await page.route("**/api/assistants/home/memory/files", (route) =>
+    route.fulfill({
+      json: {
+        files: [{ name: "DREAMS.md", diary: true, size: 3145728 }],
+        total: 0,
+        nextOffset: null,
+      },
+    }),
+  );
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await page.getByRole("combobox", { name: "Note type" }).selectOption({
+    label: "Dream diary",
+  });
+  await expect(page.getByRole("textbox", { name: "Notes" })).toHaveValue(
+    /A calm night of sorting notes/,
+  );
+  await expect(
+    page.getByText(
+      "The dream diary is 3 MB. Only its newest entries are shown here; older ones are cut off.",
+    ),
+  ).toBeVisible();
+});

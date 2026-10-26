@@ -90,3 +90,45 @@ test("a page offset must be a whole number within bounds", async (t) => {
     nextOffset: null,
   });
 });
+
+// OpenClaw appends each night's entry at the end of the diary section, so a Dream
+// diary past the read limit (256 KiB) shows its newest part, from an entry on.
+test("a Dream diary past the read limit shows its newest entries", async (t) => {
+  const f = fixture(t);
+  const entry = (i) =>
+    `---\n\n*Night ${i}*\n\n${"Ä calm night of sorting notes. ".repeat(40)}\n`;
+  const entries = Array.from({ length: 300 }, (_, i) => entry(i));
+  const diary = `# Dream Diary\n\n<!-- openclaw:dreaming:diary:start -->\n${entries.join("\n")}<!-- openclaw:dreaming:diary:end -->\n`;
+  assert.ok(Buffer.byteLength(diary) > 262144);
+  f.put("DREAMS.md", diary, 1);
+  const read = await f.memory.read(f.id, "DREAMS.md");
+  assert.equal(read.truncated, true);
+  assert.equal(read.size, Buffer.byteLength(diary));
+  assert.equal(read.readOnly, true);
+  assert.ok(Buffer.byteLength(read.content) <= 262144);
+  assert.ok(read.content.startsWith("---\n\n*Night "), read.content.slice(0, 40));
+  assert.ok(read.content.endsWith("<!-- openclaw:dreaming:diary:end -->\n"));
+  assert.ok(read.content.includes("*Night 299*"));
+  assert.ok(!read.content.includes("*Night 0*"));
+  assert.ok(!read.content.includes("�"));
+  assert.ok(diary.endsWith(read.content));
+  // A diary within the limit reads whole, and no other note is cut.
+  f.put("DREAMS.md", "# Dream Diary\n", 2);
+  const small = await f.memory.read(f.id, "DREAMS.md");
+  assert.equal(small.content, "# Dream Diary\n");
+  assert.equal(small.truncated, undefined);
+  f.put("memory/big.md", "x".repeat(262145), 3);
+  await assert.rejects(f.memory.read(f.id, "memory/big.md"), { status: 400 });
+});
+
+test("an oversized diary without entry breaks starts after a line break", async (t) => {
+  const f = fixture(t);
+  const diary = Array.from({ length: 30000 }, (_, i) => `line ${i} ü`).join("\n");
+  assert.ok(Buffer.byteLength(diary) > 262144);
+  f.put("DREAMS.md", diary, 1);
+  const read = await f.memory.read(f.id, "DREAMS.md");
+  assert.equal(read.truncated, true);
+  assert.match(read.content, /^line \d+ ü\n/);
+  assert.ok(read.content.endsWith("line 29999 ü"));
+  assert.ok(diary.endsWith(read.content));
+});
