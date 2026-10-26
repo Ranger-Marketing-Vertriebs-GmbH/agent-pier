@@ -25,6 +25,7 @@ const variables = [
   "TUIUI_DATA_DIR",
   "AGENTPIER_PORT",
   "TUIUI_PORT",
+  "AGENTPIER_PORT_COUNT",
   "AGENTPIER_DEV",
   "TUIUI_DEV",
 ];

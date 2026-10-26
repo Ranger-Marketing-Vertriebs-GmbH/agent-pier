@@ -28,6 +28,12 @@ export const scripts = Object.freeze({
   serviceFileMustBeRegular: "Die Dienstdatei darf kein Symlink oder Verzeichnis sein.",
   absoluteXdgConfigRequired: "XDG_CONFIG_HOME muss ein absoluter Pfad sein.",
   invalidServerPort: "AGENTPIER_PORT muss zwischen 1024 und 65535 liegen.",
+  invalidPortCount: "AGENTPIER_PORT_COUNT muss eine ganze Zahl ab 1 sein.",
+  portCountWithoutPort: "AGENTPIER_PORT_COUNT ist gesetzt, AGENTPIER_PORT aber nicht.",
+  devPortBlockTooSmall: (count) =>
+    `npm run dev braucht zwei Ports aus dem Block, er hat nur ${count} (AGENTPIER_PORT_COUNT=${count}). Stattdessen npm run build && npm start verwenden.`,
+  devPortOutOfRange: (port) =>
+    `Der Vite-Port ${port} liegt über 65535; AGENTPIER_PORT muss kleiner sein.`,
   serviceUsage: "Verwendung: service.mjs install|status|stop",
   webServiceStopped: "Webdienst gestoppt. Terminal-Sessions laufen in tmux weiter.",
   tailscaleUrlMissing: "Tailscale URL fehlt.",

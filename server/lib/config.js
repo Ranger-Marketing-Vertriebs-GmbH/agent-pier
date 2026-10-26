@@ -6,6 +6,7 @@ import { readFileLimits } from "../features/files/file-limits.js";
 import { normalizeNetworkConfig } from "./network-config.js";
 import { pipelineTiming } from "../features/pipelines/pipeline-timing.js";
 import { pipelinePorts } from "../features/pipelines/run-ports.js";
+import { devOrigins } from "./dev-ports.js";
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
@@ -32,9 +33,8 @@ export function loadConfig() {
       ...pipelineTiming(saved.pipelines),
       ...pipelinePorts(saved.pipelines),
     },
+    // Exactly the origin vite.config.js serves on, derived from the same variables.
     devOrigins:
-      (process.env.AGENTPIER_DEV || process.env.TUIUI_DEV) === "1"
-        ? ["http://127.0.0.1:5173", "http://localhost:5173"]
-        : [],
+      (process.env.AGENTPIER_DEV || process.env.TUIUI_DEV) === "1" ? devOrigins() : [],
   };
 }
