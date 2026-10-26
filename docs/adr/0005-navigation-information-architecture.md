@@ -34,9 +34,9 @@ Organise by object, not by technology. The owner decided:
    new agent; CLIs and extensions and new session). _Amended 2026-10-26:_ the orange
    **New** button under the brand was removed, because the group heads' "+" already
    create sessions and agents. The Agents group shows once the agent list has loaded,
-   even without agents, so its "+" stays reachable. The compact **+ New** menu remains
-   where no group-head icons are: the phone header (the drawer hides them) and the
-   collapsed sidebar.
+   even without agents, so its "+" stays reachable. The phone drawer now shows the group
+   heads' icon buttons too, as 44px tap targets. The compact **+ New** menu remains in
+   the phone header and on the collapsed sidebar.
 3. **Menu content in two groups with status hints:** **Work** (Overview, Projects,
    Pipelines, Files, Artifacts) and **Set up** (Agents, CLIs and extensions,
    Connections, Settings). Hints come only from data the app already has or reads once

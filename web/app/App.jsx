@@ -127,11 +127,14 @@ function Application() {
     select(session);
   };
   const close = () => setModal(null);
-  const launch = (tool) =>
+  // The dialog opens over a closed drawer, as navigating from the drawer closes it.
+  const launch = (tool) => {
+    setMobileNav(false);
     setModal({
       type: "launch",
       tool,
     });
+  };
   const update = (tool) => setModal({ type: "update", tool });
   const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];

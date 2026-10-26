@@ -312,11 +312,12 @@ The information architecture is recorded in
   areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
   (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs
   and extensions** (`/coding/clis`) and **New session**. These "+" buttons are the
-  expanded sidebar's only way to create; it has no **New** button. Once the agent list
-  has loaded, the Agents group shows even without agents, with a hint and its "+". The
-  compact **+ New** menu (`web/app/SidebarNewMenu.jsx`: **Session**, and **Agent** while
-  agents are on) stays where no group heads are: the phone header and the floating bar
-  of a collapsed sidebar. While the agent service is stopped, agent rows are dimmed with
+  sidebar's only way to create; it has no **New** button. The phone drawer shows the
+  same icon buttons at `--touch-target` size, and each closes the drawer. Once the
+  agent list has loaded, the Agents group shows even without agents, with a hint and
+  its "+". The compact **+ New** menu (`web/app/SidebarNewMenu.jsx`: **Session**, and
+  **Agent** while agents are on) stays in the phone header and the floating bar of a
+  collapsed sidebar. While the agent service is stopped, agent rows are dimmed with
   "offline".
 - **Menu popover** (`web/app/SidebarMenu.jsx`, model in `web/app/sidebar-menu-model.js`):
   the only place for areas, in two groups. **Work**: Overview, Projects, Pipelines, Files,

@@ -94,15 +94,99 @@ test.describe("the expanded sidebar", () => {
     await sessionsPlus(page).click();
     await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
   });
+});
 
-  test("the phone drawer has no New menu either", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await fixture(page);
-    await agentsOn(page);
+// The phone drawer has no New menu either; its group heads keep their icon buttons
+// (agents page or CLIs, then "+"), each a full tap target that closes the drawer.
+test.describe("the phone drawer", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const drawer = (page) => page.locator(".sidebar");
+  const head = (page, group) => page.locator(`.${group}-group .sidebar-group-actions`);
+  async function openDrawer(page) {
     await page.goto("/");
     await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(sidebar(page)).toHaveClass(/open/);
-    await expect(sidebar(page).locator(".new-menu")).toHaveCount(0);
+    await expect(drawer(page)).toHaveClass(/open/);
+  }
+  async function closesDrawer(page) {
+    await expect(drawer(page)).not.toHaveClass(/open/);
+  }
+  const controls = [
+    ["sessions", "button", "New session"],
+    ["sessions", "link", "CLIs and extensions"],
+    ["assistant-chats", "link", "New agent"],
+    ["assistant-chats", "link", "Manage all agents"],
+  ];
+
+  test("shows the group icons as tap targets and no New menu", async ({ page }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await openDrawer(page);
+    await expect(drawer(page).locator(".new-menu")).toHaveCount(0);
+    // With no agents yet the Agents group is there with its icons too.
+    await expect(page.locator(".assistant-chats-group")).toContainText(
+      "Create your first agent to start a conversation.",
+    );
+    for (const [group, role, name] of controls) {
+      const control = head(page, group).getByRole(role, { name, exact: true });
+      await expect(control, name).toBeVisible();
+      const box = await control.boundingBox();
+      expect(Math.min(box.width, box.height), name).toBeGreaterThanOrEqual(44);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+  });
+
+  test("the Sessions + opens the launch dialog over a closed drawer", async ({
+    page,
+  }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await openDrawer(page);
+    await head(page, "sessions").getByRole("button", { name: "New session" }).click();
+    await closesDrawer(page);
+    await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
+  });
+
+  test("the Sessions CLIs icon opens Coding", async ({ page }) => {
+    await fixture(page);
+    await openDrawer(page);
+    await head(page, "sessions")
+      .getByRole("link", { name: "CLIs and extensions" })
+      .click();
+    await closesDrawer(page);
+    await expect(page).toHaveURL(/\/coding\/clis$/);
+  });
+
+  test("the Agents + opens the new agent wizard", async ({ page }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await openDrawer(page);
+    await head(page, "assistant-chats").getByRole("link", { name: "New agent" }).click();
+    await closesDrawer(page);
+    await expect(page).toHaveURL(/\/agents\?new=1$/);
+    await expect(
+      page.getByRole("heading", { name: "New agent", level: 1 }),
+    ).toBeVisible();
+  });
+
+  test("the Agents grid icon opens the agents page", async ({ page }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await openDrawer(page);
+    await head(page, "assistant-chats")
+      .getByRole("link", { name: "Manage all agents" })
+      .click();
+    await closesDrawer(page);
+    await expect(page).toHaveURL(/\/agents$/);
+  });
+
+  test("with agents off, the drawer keeps the Sessions icons", async ({ page }) => {
+    await fixture(page);
+    await openDrawer(page);
+    await expect(page.locator(".assistant-chats-group")).toHaveCount(0);
+    await head(page, "sessions").getByRole("button", { name: "New session" }).click();
+    await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
   });
 });
 

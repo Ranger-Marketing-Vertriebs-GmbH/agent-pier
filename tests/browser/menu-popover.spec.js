@@ -361,14 +361,14 @@ test.describe("phone drawer", () => {
     await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
     const drawer = page.locator(".sidebar");
     await expect(drawer).toHaveClass(/open/);
-    // Brand + Menü, Eingang, Agenten, Sessions; no search, head icons or "+ Neu" in the
-    // drawer (the phone header keeps its "+").
+    // Brand + Menü, Eingang, Agenten, Sessions; no search or "+ Neu" in the drawer (the
+    // phone header keeps its "+"), but the group heads keep their icon buttons.
     await expect(drawer.locator(".brand")).toBeVisible();
     await expect(drawer.locator(".assistant-chats-group")).toBeVisible();
     await expect(trigger(page)).toBeVisible();
     await expect(drawer.locator(".sidebar-head .sidebar-search")).toBeHidden();
     await expect(drawer.locator(".sidebar-collapse")).toBeHidden();
-    await expect(drawer.locator(".sidebar-group-actions").first()).toBeHidden();
+    await expect(drawer.locator(".sidebar-group-actions").first()).toBeVisible();
     const order = await drawer
       .locator(".brand, .sidebar-inbox, .assistant-chats-group, .sessions-group")
       .evaluateAll((nodes) =>
