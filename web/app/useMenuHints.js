@@ -1,0 +1,76 @@
+import { useEffect, useState } from "react";
+import api from "../lib/api.js";
+import useAssistants, { idleAssistants } from "../features/assistants/useAssistants.js";
+import useAssistantFeature, {
+  FEATURE_CHECK_FAILED,
+} from "../features/assistants/useAssistantFeature.js";
+import {
+  agentsHint,
+  clisHint,
+  connectionsHint,
+  pipelinesHint,
+  projectsHint,
+  settingsHint,
+} from "./sidebar-menu-model.js";
+
+// Read once each time the menu opens, never polled. A failed read is null: no hint.
+const read = (path, signal) => api(path, "GET", undefined, signal).catch(() => null);
+const total = (listing) =>
+  listing && Number.isSafeInteger(listing.total) ? listing.total : null;
+
+async function loadSources(agentsEnabled, signal) {
+  const [decisions, failed, running, problems, summary, updates] = await Promise.all([
+    read("/pipeline-runs?status=awaiting-human&page=1", signal),
+    read("/pipeline-runs?status=failed&page=1", signal),
+    read("/pipeline-runs?status=running&page=1", signal),
+    read("/connections/problems", signal),
+    read("/settings/summary", signal),
+    agentsEnabled ? read("/assistant-runtime/updates", signal) : null,
+  ]);
+  return {
+    decisions: total(decisions),
+    failed: total(failed),
+    running: total(running),
+    problems,
+    summary,
+    updates,
+  };
+}
+
+/** The hint of every menu entry, by entry id (null: no hint). */
+export default function useMenuHints(open, state, ready) {
+  const feature = useAssistantFeature();
+  const assistants = useAssistants();
+  const [sources, setSources] = useState(null);
+  const agentsEnabled = feature.enabled;
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    loadSources(agentsEnabled, controller.signal).then((next) => {
+      if (!controller.signal.aborted) setSources(next);
+    });
+    return () => controller.abort();
+  }, [open, agentsEnabled]);
+  // The agents host publishes the runtime once loaded; before that it is unknown.
+  const runtime = assistants === idleAssistants ? null : assistants.runtime;
+  return {
+    projects: projectsHint({ decisions: sources?.decisions, failed: sources?.failed }),
+    pipelines: pipelinesHint(sources?.running),
+    agents: agentsHint({
+      feature: {
+        loading: feature.loading,
+        enabled: feature.enabled,
+        unknown: feature.error === FEATURE_CHECK_FAILED,
+      },
+      runtime,
+      updates: agentsEnabled ? sources?.updates : null,
+    }),
+    clis: clisHint({ ready, tools: state.tools, utilities: state.utilities }),
+    connections: connectionsHint({
+      problems: sources?.problems,
+      agentsEnabled,
+      cliAccountIds: (state.accounts || []).map((account) => account.id),
+    }),
+    settings: settingsHint(sources?.summary),
+  };
+}

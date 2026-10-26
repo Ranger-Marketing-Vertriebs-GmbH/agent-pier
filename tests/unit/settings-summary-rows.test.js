@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { setLanguage } from "../../web/lib/i18n/index.js";
+import { routePath } from "../../web/app/routes.js";
 import {
-  accessRows,
+  movedRows,
   operationsRows,
+  storageRow,
 } from "../../web/features/settings/settings-summary-rows.js";
 
 const byId = (rows) => Object.fromEntries(rows.map((row) => [row.id, row]));
@@ -12,9 +14,10 @@ const reset = (t) => t.after(() => setLanguage("de", { persist: false }));
 test("unknown summary parts stay unknown and a real zero stays zero", (t) => {
   reset(t);
   setLanguage("de", { persist: false });
-  const access = byId(accessRows(undefined));
-  for (const id of ["mcp", "remote", "ssh", "secrets", "github", "users"])
-    assert.equal(access[id].value, null, id);
+  const moved = byId(movedRows(undefined));
+  assert.equal(moved.mcp.value, null);
+  assert.equal(moved.agents.value, undefined);
+  assert.equal(moved.connections.value, undefined);
   const operations = byId(
     operationsRows({ diagnostics: null, backups: null, updates: null }),
   );
@@ -23,59 +26,55 @@ test("unknown summary parts stay unknown and a real zero stays zero", (t) => {
   assert.equal(operations.updates.value, null);
   assert.equal(operations.audit.value, undefined);
   assert.equal(operations.audit.sub, "Besitzer, Benutzer, System, MCP");
-  assert.equal(byId(accessRows({ github: { count: 0 } })).github.value, 0);
+  assert.equal(
+    byId(movedRows({ mcp: { available: true, activeGrants: 0 } })).mcp.value,
+    "0 verbundene Clients",
+  );
   assert.equal(
     byId(operationsRows({ backups: { count: 0, lastAt: null } })).backups.value,
     0,
   );
+  assert.equal(storageRow(null).value, null);
+  assert.equal(storageRow({ disk: {} }).value, null);
 });
 
-test("access rows describe MCP clients and how AgentPier is reachable", (t) => {
+test("the moved group links the new places and counts MCP clients", (t) => {
   reset(t);
   setLanguage("de", { persist: false });
-  const rows = byId(
-    accessRows({
-      mcp: { available: true, activeGrants: 1 },
-      remote: { tailscale: true, network: true },
-      ssh: { count: 3 },
-      github: { count: 2 },
-    }),
-  );
-  assert.equal(rows.mcp.label, "MCP & Zugriffe");
-  assert.equal(rows.mcp.value, "1 verbundener Client");
-  assert.deepEqual(rows.remote.status, { tone: "ok", text: "Tailscale · Netzwerk" });
-  assert.equal(rows.ssh.value, 3);
-  assert.equal(rows.github.value, 2);
-  assert.equal(byId(accessRows({ users: { count: 2 } })).users.value, 2);
-  const secrets = byId(accessRows({ secrets: { count: 0 } })).secrets;
+  const rows = movedRows({ mcp: { available: true, activeGrants: 1 } });
   assert.deepEqual(
-    [secrets.label, secrets.sub, secrets.value],
-    ["Geheimnisse", "Token und URLs für Agenten und Coding-CLIs", 0],
+    rows.map((row) => [row.id, routePath(row.route)]),
+    [
+      ["agents", "/agents?tab=runtime"],
+      ["connections", "/connections"],
+      ["mcp", "/coding/clis?tab=mcp"],
+    ],
   );
+  const byKey = byId(rows);
+  assert.equal(byKey.agents.sub, "Jetzt unter Agenten › Laufzeit");
+  assert.equal(byKey.connections.sub, "Jetzt unter Zugänge");
+  assert.equal(byKey.mcp.value, "1 verbundener Client");
   assert.deepEqual(
-    accessRows({}).map((row) => row.id),
-    ["mcp", "remote", "ssh", "secrets", "github", "users"],
-  );
-  assert.equal(byId(accessRows({})).users.label, "Benutzer");
-  assert.deepEqual(
-    byId(accessRows({ mcp: { available: false, activeGrants: 0 } })).mcp.status,
+    byId(movedRows({ mcp: { available: false, activeGrants: 0 } })).mcp.status,
     { tone: "warn", text: "Nicht verfügbar" },
-  );
-  assert.equal(
-    byId(accessRows({ remote: { tailscale: false, network: false } })).remote.value,
-    "Lokal",
-  );
-  assert.deepEqual(
-    byId(
-      accessRows({ remote: { tailscale: true, network: false, restartRequired: true } }),
-    ).remote.status,
-    { tone: "warn", text: "Neustart nötig" },
   );
   setLanguage("en", { persist: false });
   assert.equal(
-    byId(accessRows({ mcp: { available: true, activeGrants: 2 } })).mcp.value,
+    byId(movedRows({ mcp: { available: true, activeGrants: 2 } })).mcp.value,
     "2 connected clients",
   );
+  assert.equal(byId(movedRows({})).connections.sub, "Now under Connections");
+});
+
+test("the storage row shows the free disk space", (t) => {
+  reset(t);
+  setLanguage("de", { persist: false });
+  const row = storageRow({ disk: { freeBytes: 5 * 1024 ** 3, totalBytes: 10 } });
+  assert.equal(row.label, "Speicher");
+  assert.match(row.value, /^5\sGB frei$/);
+  setLanguage("en", { persist: false });
+  assert.equal(storageRow(null).label, "Storage");
+  assert.match(storageRow({ disk: { freeBytes: 1024 ** 3 } }).value, /^1\sGB free$/);
 });
 
 test("operations rows rank failures over warnings and flag a newer version", (t) => {

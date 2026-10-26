@@ -145,7 +145,7 @@ for (const outcome of ["success", "failure"]) {
     await expect.poll(() => requests).toBe(1);
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await navigateTo(page, "Accounts");
+    await navigateTo(page, "Zugänge");
     await navigateTo(page, "Projekte");
     try {
       await openCloneDialog(page);

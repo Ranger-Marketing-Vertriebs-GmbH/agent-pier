@@ -80,7 +80,7 @@ const properNouns = [
   /\b(Telegram|Deepgram|GitHub|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
   /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519|Unicode|KiB|MiB|GiB)\b/g,
   // Page names and the editor's Save As command.
-  /\b(in|under) (Accounts|Artifacts|Connections|Settings)\b/g,
+  /\b(in|under) (Accounts|Agents|Artifacts|Connections|Settings)\b/g,
   /Save As/g,
 ];
 test("English labels use sentence case", async () => {

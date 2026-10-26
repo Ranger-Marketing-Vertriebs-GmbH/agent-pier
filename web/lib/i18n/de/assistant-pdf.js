@@ -1,7 +1,7 @@
 export const assistantPdfCopy = {
   enable: "PDFs lesen",
   description:
-    "Liest PDF-Dateien in seinem Arbeitsordner mit seinem eigenen Modell, samt Seitenbildern, wenn dieses Modell Bilder annimmt. Sonst liest sie das PDF-Ersatzmodell aus Accounts; ohne eines wird nur ihr Text gelesen.",
+    "Liest PDF-Dateien in seinem Arbeitsordner mit seinem eigenen Modell, samt Seitenbildern, wenn dieses Modell Bilder annimmt. Sonst liest sie das PDF-Ersatzmodell aus Zugänge; ohne eines wird nur ihr Text gelesen.",
   reference: (name) => `PDF-Ersatzmodell · ${name}`,
   notSet: "Nicht gewählt",
   title: "PDF-Lesen",

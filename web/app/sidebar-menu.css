@@ -61,6 +61,47 @@
   background: var(--nav-selected);
   color: var(--accent-text);
 }
+/* Status hint at an entry (handoff §5.1): attention in the accent tint, information
+   neutral. */
+.sidebar-menu-entry {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-menu-hint {
+  margin-left: auto;
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  background: var(--pill-bg);
+  color: var(--pill-text);
+}
+.sidebar-menu-hint.warn {
+  background: var(--surface-accent);
+  color: var(--accent-text);
+}
+/* Phones: the first row opens the search, styled as a search field. */
+.sidebar-menu-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  margin: 2px 2px 4px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-input);
+  color: var(--muted);
+  font-size: var(--font-size-base);
+  text-align: left;
+}
+.sidebar-menu-group {
+  display: flex;
+  flex-direction: column;
+}
 .sidebar-menu-label {
   padding: 12px 12px 4px;
   font-size: var(--font-size-xs);
@@ -93,12 +134,16 @@
   .sidebar-menu-button {
     height: 36px;
   }
+  /* The full drawer width below its head. */
   .sidebar-menu-popover {
     top: 58px;
+    left: 10px;
     right: 10px;
+    width: auto;
     max-height: calc(100% - 68px);
   }
   .sidebar-menu-popover .nav-item {
-    min-height: 40px;
+    min-height: var(--touch-target);
+    font-size: var(--font-size-base);
   }
 }

@@ -16,18 +16,22 @@ export const settingsPageCopy = {
 export const settingsHubCopy = {
   backTo: (tab) => `Back to ${tab}`,
   subpageOf: (tab) => `Settings · ${tab}`,
-  appGroup: "App",
-  mcpSub: "Connect a coding CLI to AgentPier",
   mcpClients: (count) =>
     count === 1 ? "1 connected client" : `${count} connected clients`,
   mcpUnavailable: "Not available",
-  remoteRestart: "Restart required",
-  remoteSub: "Reach AgentPier from other devices",
-  sshSub: "Keys and hosts",
-  secretsSub: "Tokens and URLs for agents and coding CLIs",
-  githubSub: "Tokens for clones and pull requests",
-  usersSub: "Other people who chat with agents",
-  centralTitle: "Provider access, MCP servers",
+  // The "Moved" group of the General tab (for two releases).
+  movedGroup: "Moved",
+  movedHint:
+    "These entries stay here for two releases, so familiar paths still lead somewhere.",
+  movedAgents: "Agent service, updates, dreaming, advanced",
+  movedAgentsSub: "Now under Agents › Runtime",
+  movedConnections: "SSH accesses, secrets, GitHub connections, model access",
+  movedConnectionsSub: "Now under Connections",
+  movedMcp: "MCP & access (AgentPier for CLIs)",
+  movedMcpSub: "Now under CLIs and extensions › AgentPier as MCP",
+  storageSub:
+    "System status and clean-up: update backups, histories, agents' dependencies",
+  storageFree: (size) => `${size} free`,
   diagnosticsOk: "OK",
   diagnosticsFailed: (count) => (count === 1 ? "1 failure" : `${count} failures`),
   diagnosticsWarnings: (count) => (count === 1 ? "1 warning" : `${count} warnings`),

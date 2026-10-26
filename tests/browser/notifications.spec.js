@@ -7,9 +7,10 @@ test("notifications require explicit permission and successful persistence befor
   const state = await notifications(page);
   state.failSave = true;
   await page.goto(baseURL + "/settings/notifications");
+  // App & Benachrichtigungen is a settings tab at this address.
   await expect(
-    page.getByRole("heading", { name: "App & Benachrichtigungen", exact: true }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "App & Benachrichtigungen", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   expect(await page.evaluate(() => window.__pushFixture.permissionCalls)).toBe(0);
   await page.getByRole("switch", { name: "Benachrichtigungen", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Fixture persistence failed");

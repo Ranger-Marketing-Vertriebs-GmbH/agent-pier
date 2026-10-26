@@ -10,7 +10,7 @@ export const dictationCopy = Object.freeze({
   close: "Close hint",
   reasons: {
     agentsOff:
-      "Voice input uses the agents' speech recognition. Turn on agents and add a Deepgram key under Accounts › Services for agents › Speech recognition.",
+      "Voice input uses the agents' speech recognition. Turn on agents and add a Deepgram key under Connections › Services for agents › Speech recognition.",
     notConfigured: "Voice input needs a Deepgram key.",
     insecure:
       "Microphone access needs a secure connection. Open AgentPier over HTTPS, for example through Tailscale, or on localhost.",
@@ -22,7 +22,7 @@ export const dictationCopy = Object.freeze({
     noMicrophone: "No microphone was found.",
     rateLimited: "Too many dictations in a short time. Try again in a few minutes.",
     busy: "Too many dictations are running. Try again shortly.",
-    auth: "Deepgram rejected the key. Check it under Accounts › Services for agents › Speech recognition.",
+    auth: "Deepgram rejected the key. Check it under Connections › Services for agents › Speech recognition.",
     quota: "The Deepgram account has no credit left.",
     upstreamBusy: "Deepgram is busy. Try again shortly.",
     rejected: "Deepgram refused the audio stream.",

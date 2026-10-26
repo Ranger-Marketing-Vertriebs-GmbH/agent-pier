@@ -1,13 +1,24 @@
-import { settingsTabOf, settingsTabs } from "../operations/routes.js";
+import {
+  defaultSettingsTab,
+  readSettingsTab,
+  settingsTabOf,
+  settingsTabSections,
+  settingsTabs,
+} from "../operations/routes.js";
 import { screenOf } from "../../app/route-screens.js";
 
-// The settings page has tab roots (/settings, /settings?tab=…) and one subpage per
-// section (/settings/<section>); these build and compare their routes.
-export const tabRoot = (tab) => ({
-  view: "settings",
-  settingsSection: "general",
-  settingsTab: settingsTabs.includes(tab) ? tab : "workspace",
-});
+// The settings page has tab roots (/settings, /settings?tab=operations), tabs that are
+// one section at its own address (/settings/notifications, /users, /remote) and one
+// subpage per further section (/settings/<section>); these build and compare routes.
+export const tabRoot = (tab) => {
+  const id = readSettingsTab(tab);
+  if (Object.hasOwn(settingsTabSections, id)) return subpage(settingsTabSections[id]);
+  return {
+    view: "settings",
+    settingsSection: "general",
+    settingsTab: settingsTabs.includes(id) ? id : defaultSettingsTab,
+  };
+};
 
 export const subpage = (section) => ({
   view: "settings",
@@ -15,13 +26,19 @@ export const subpage = (section) => ({
   settingsTab: settingsTabOf(section),
 });
 
+/** Whether `section` is the content of its tab (App, Benutzer, Fernzugriff). */
+export const isTabSection = (section) =>
+  Object.values(settingsTabSections).includes(section);
+
 /** `{ section, tab }` of a settings route; a real section decides its tab. */
 export function settingsLocation(route) {
   const section = route?.settingsSection || "general";
   if (section !== "general") return { section, tab: settingsTabOf(section) };
   return {
     section,
-    tab: settingsTabs.includes(route?.settingsTab) ? route.settingsTab : "workspace",
+    tab: settingsTabs.includes(route?.settingsTab)
+      ? route.settingsTab
+      : defaultSettingsTab,
   };
 }
 
@@ -43,7 +60,7 @@ export function mergeSettingsRoute(route, changes) {
 
 /** For useUnsavedChangesGuard: navigations that keep this draft on screen. */
 export const staysOn =
-  (section, tab = "workspace") =>
+  (section, tab = defaultSettingsTab) =>
   (request) => {
     // Moved sections (Zugänge, Coding, agents Runtime) compare as their settings page.
     const next = screenOf(request?.next);

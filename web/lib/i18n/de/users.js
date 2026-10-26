@@ -1,4 +1,4 @@
-// The owner's Settings › Access › Users: restricted users, their agents and levels.
+// The owner's Settings › Users: restricted users, their agents and levels.
 export const usersCopy = {
   intro:
     "Weitere Personen, die mit Agenten chatten. Sie sehen keine Sessions, Pipelines oder Systemeinstellungen.",
@@ -65,7 +65,7 @@ export const usersCopy = {
     "Für Agenten von Benutzern gesperrt: Sie können keine Programme auf diesem Rechner ausführen.",
   lockedList: (list) => `Gesperrt: ${list}.`,
   ownPrivate:
-    "Privat für seinen Benutzer: Notizen und Browser erscheinen hier nur, solange „Besitzer darf Chats lesen“ für diese Person an ist (Einstellungen › Zugriff › Benutzer).",
+    "Privat für seinen Benutzer: Notizen und Browser erscheinen hier nur, solange „Besitzer darf Chats lesen“ für diese Person an ist (Einstellungen › Benutzer).",
   ownReadOnly:
     "Gehört seinem Benutzer: Du kannst Notizen lesen und den Browser ansehen, aber nichts ändern.",
   ownRoutines: "Erinnerungen und Routinen verwaltet sein Benutzer in seiner App.",

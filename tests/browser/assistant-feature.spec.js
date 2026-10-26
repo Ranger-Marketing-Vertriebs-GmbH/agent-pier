@@ -85,6 +85,8 @@ async function featureFixture(
 
 const agentsNav = (page) =>
   page.locator("#sidebar-menu").getByRole("button", { name: "Agents", exact: true });
+// "Agents" stays in the menu while agents are off and then says so (AC-NAV-4).
+const agentsOff = (page) => agentsNav(page).locator(".sidebar-menu-hint");
 const hasAssistantCss = (page) =>
   page.evaluate(() =>
     [...document.styleSheets].some((sheet) => {
@@ -107,7 +109,7 @@ test("disabled agents make one request and render no assistant UI", async ({ pag
   await page.waitForTimeout(500);
   expect(requests).toEqual(["GET /api/assistant-feature"]);
   await openMenu(page);
-  await expect(agentsNav(page)).toHaveCount(0);
+  await expect(agentsOff(page)).toHaveText("off");
   await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
   expect(await hasAssistantCss(page)).toBe(false);
   await page.goto(baseURL + "/settings/assistants");
@@ -136,7 +138,7 @@ test("settings switch enables agents and shows navigation after artifacts", asyn
   await expect.poll(() => feature.enabled).toBe(true);
   const menu = await openMenu(page);
   const labels = await menu
-    .locator(".nav-item")
+    .locator(".nav-item .sidebar-menu-entry")
     .evaluateAll((items) => items.map((item) => item.textContent.trim()));
   expect(labels.indexOf("Agents")).toBeGreaterThan(labels.indexOf("Artifacts"));
   await expect(page.getByRole("button", { name: "Agent chats" })).toBeVisible();
@@ -208,10 +210,11 @@ test("the workspace renders without waiting for a slow feature check", async ({
   ).toBeVisible({
     timeout: 1500,
   });
-  await expect(agentsNav(page)).toHaveCount(0);
-  await expect(agentsNav(page)).toBeVisible({
-    timeout: 6000,
-  });
+  // Unknown while the check runs: the entry shows, but never as off.
+  await expect(agentsNav(page)).toBeVisible();
+  await expect(agentsOff(page)).toHaveCount(0);
+  await page.waitForTimeout(3500);
+  await expect(agentsOff(page)).toHaveCount(0);
 });
 
 test("toggling agents keeps local application state", async ({ page }) => {
@@ -238,7 +241,7 @@ test("switching agents off removes navigation and closes the event stream", asyn
   await page.getByRole("switch", { name: "Enable agents" }).click();
   await saveSettings(page);
   await openMenu(page);
-  await expect(agentsNav(page)).toHaveCount(0);
+  await expect(agentsOff(page)).toHaveText("off");
   await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
   expect(
     await page.evaluate(() => window.__streams.map((stream) => stream.readyState)),
@@ -254,5 +257,6 @@ test("a rejected switch change reports the problem and stays off", async ({ page
   await expect(page.getByRole("alert")).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(toggle).not.toBeChecked();
-  await expect(agentsNav(page)).toHaveCount(0);
+  await openMenu(page);
+  await expect(agentsOff(page)).toHaveText("off");
 });

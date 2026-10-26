@@ -95,7 +95,7 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
   await page.getByRole("tab", { name: /^Skills/ }).click();
   await expect(
     page.getByRole("link", { name: /^MCP servers · — for Codex/ }),
-  ).toContainText("Managed centrally in Accounts");
+  ).toContainText("Managed centrally in Connections");
   await page.getByRole("tab", { name: /^Subagents/ }).click();
   await expect(
     page.getByText("Installed subagents apply to all accounts using this CLI."),

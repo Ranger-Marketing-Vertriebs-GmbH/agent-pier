@@ -73,8 +73,8 @@ export const mcpServerCopy = {
   agentTitle: "MCP servers",
   agentDescription:
     "Choose which central MCP servers this agent can use. A change applies to the running agent service without a restart.",
-  agentNone: "No MCP servers are set up yet. Add them under Accounts.",
-  agentOpenAccounts: "Open accounts",
+  agentNone: "No MCP servers are set up yet. Add them under Connections.",
+  agentOpenAccounts: "Open connections",
   agentSaved: "MCP servers saved.",
   pendingNotice: "Saved — will be applied to running agents shortly.",
   temporaryTitle: "MCP servers",

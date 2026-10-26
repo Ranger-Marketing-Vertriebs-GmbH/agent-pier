@@ -85,5 +85,5 @@ export const mcpOAuthCopy = {
       "OAuth logins need HTTPS or the AgentPier host itself. Open AgentPier through Tailscale (HTTPS) or directly on the AgentPier host.",
     unknown: "The login could not be completed. Please try again.",
   },
-  agentLoginHint: "Log in to OAuth servers under Accounts › MCP servers.",
+  agentLoginHint: "Log in to OAuth servers under Connections › MCP servers.",
 };

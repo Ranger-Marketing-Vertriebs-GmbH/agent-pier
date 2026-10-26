@@ -93,5 +93,5 @@ export const mcpOAuthCopy = {
       "OAuth-Anmeldungen brauchen HTTPS oder den AgentPier-Rechner selbst. Öffne AgentPier über Tailscale (HTTPS) oder direkt auf dem AgentPier-Rechner.",
     unknown: "Die Anmeldung ließ sich nicht abschließen. Bitte erneut versuchen.",
   },
-  agentLoginHint: "Melde OAuth-Server unter Accounts › MCP-Server an.",
+  agentLoginHint: "Melde OAuth-Server unter Zugänge › MCP-Server an.",
 };

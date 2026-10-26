@@ -20,5 +20,5 @@ export const http = Object.freeze({
   tailscaleIdentityRequired: "This access needs a Tailscale sign-in from the tailnet.",
   originRequired: "Request origin is missing.",
   networkHostNotAllowed:
-    "Network access is off or this host is not approved. Check Settings › Access › Remote access.",
+    "Network access is off or this host is not approved. Check Settings › Remote access.",
 });

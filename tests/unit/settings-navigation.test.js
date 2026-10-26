@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readRoute, routePath } from "../../web/app/routes.js";
 import {
+  isTabSection,
   mergeSettingsRoute,
   settingsLocation,
   staysOn,
@@ -12,14 +13,25 @@ import {
 const read = (address) => readRoute(new URL(address, "http://localhost"));
 
 test("tab roots and subpages have stable addresses", () => {
+  assert.equal(routePath(tabRoot("general")), "/settings");
+  // The former Arbeitsbereich tab is Allgemein; the Access tab moved to Zugänge and
+  // has no settings tab any more.
   assert.equal(routePath(tabRoot("workspace")), "/settings");
-  // The Access tab moved to Zugänge.
-  assert.equal(routePath(tabRoot("access")), "/connections");
+  assert.equal(routePath(tabRoot("access")), "/settings");
   assert.equal(routePath(tabRoot("operations")), "/settings?tab=operations");
   assert.equal(routePath(tabRoot("bogus")), "/settings");
+  // App, Benutzer and Fernzugriff are one section each, at its own address.
+  assert.equal(routePath(tabRoot("app")), "/settings/notifications");
+  assert.equal(routePath(tabRoot("users")), "/settings/users");
+  assert.equal(routePath(tabRoot("remote")), "/settings/remote");
   assert.equal(routePath(subpage("diagnostics")), "/settings/diagnostics");
-  assert.equal(subpage("assistants").settingsTab, "workspace");
-  assert.equal(subpage("github").settingsTab, "access");
+  assert.equal(subpage("assistants").settingsTab, "general");
+  assert.equal(subpage("github").settingsTab, "general");
+  assert.equal(subpage("notifications").settingsTab, "app");
+  assert.equal(subpage("users").settingsTab, "users");
+  assert.equal(subpage("remote").settingsTab, "remote");
+  assert.equal(isTabSection("users"), true);
+  assert.equal(isTabSection("updates"), false);
   assert.deepEqual(settingsLocation(read("/settings?tab=operations")), {
     section: "general",
     tab: "operations",
@@ -30,7 +42,11 @@ test("tab roots and subpages have stable addresses", () => {
   });
   assert.deepEqual(settingsLocation({ view: "settings" }), {
     section: "general",
-    tab: "workspace",
+    tab: "general",
+  });
+  assert.deepEqual(settingsLocation(read("/settings?tab=users")), {
+    section: "users",
+    tab: "users",
   });
 });
 
@@ -46,15 +62,17 @@ test("subpage navigation keeps the tab of the resulting section", () => {
   );
   assert.equal(
     mergeSettingsRoute(subpage("mcp"), { settingsSection: "general" }).settingsTab,
-    "access",
+    "general",
   );
 });
 
 test("a draft stays on screen only for its own section and tab", () => {
-  const workspace = staysOn("general", "workspace");
-  assert.equal(workspace({ next: tabRoot("workspace") }), true);
+  const workspace = staysOn("general", "general");
+  assert.equal(workspace({ next: tabRoot("general") }), true);
   assert.equal(workspace({ next: { view: "settings" } }), true);
-  assert.equal(workspace({ next: tabRoot("access") }), false);
+  assert.equal(workspace({ next: tabRoot("operations") }), false);
+  assert.equal(workspace({ next: tabRoot("users") }), false);
+  assert.equal(workspace({ next: read("/settings?tab=access") }), false);
   assert.equal(workspace({ next: subpage("assistants") }), false);
   assert.equal(workspace({ next: { view: "projects" } }), false);
   assert.equal(workspace({}), false);

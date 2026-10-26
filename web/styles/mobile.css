@@ -36,8 +36,11 @@
   .sidebar.open {
     transform: translateX(0);
   }
+  /* The drawer keeps its look: search sits in the menu, group heads have no icons. */
   .sidebar-collapse,
-  .sidebar-float {
+  .sidebar-float,
+  .sidebar-head .sidebar-search,
+  .sidebar-group-actions {
     display: none;
   }
   .nav-backdrop.visible {

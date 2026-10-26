@@ -122,12 +122,10 @@ test("directory editing waits for initial settings and later refresh preserves d
   releaseInitial();
   await loaded;
   await openMenu(page);
-  await expect(
-    page
-      .locator("#sidebar-menu")
-      .getByRole("button", { name: "Accounts", exact: true })
-      .locator(".count"),
-  ).toHaveText("1");
+  // The loaded state shows in the menu: the host is reachable.
+  await expect(page.locator("#sidebar-menu .host-status")).toContainText(
+    "Auf deinem Rechner",
+  );
   await expect(directory).toBeEnabled();
   await expect(directory).toHaveValue("/fixture/initial-home");
   await directory.fill("/fixture/my-unsaved-directory");

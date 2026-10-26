@@ -76,7 +76,7 @@ export const assistantCopy = {
     createImagesDescription:
       "Erstellt und bearbeitet Bilder mit deinem ChatGPT-Konto (gpt-image-2) und gibt sie dir im Chat.",
     imagesUnavailable:
-      "Verbinde unter Accounts › ChatGPT für Agenten ein ChatGPT-Konto, um Bilder zu erstellen.",
+      "Verbinde unter Zugänge › Modell-Zugänge ein ChatGPT-Konto, um Bilder zu erstellen.",
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:
@@ -305,7 +305,7 @@ export const assistantCopy = {
     "Die ChatGPT-Modellliste konnte nicht geladen werden. Gib eine Modell-ID ein oder versuche es später erneut.",
   chooseConnection: "Zugang auswählen",
   connections: "Zugänge verwalten",
-  noConnections: "Verbinde unter Accounts ChatGPT oder OpenRouter, um zu starten.",
+  noConnections: "Verbinde unter Zugänge ChatGPT oder OpenRouter, um zu starten.",
   save: "Agent speichern",
   settings: "Agenten-Einstellungen",
   connectionUse: {

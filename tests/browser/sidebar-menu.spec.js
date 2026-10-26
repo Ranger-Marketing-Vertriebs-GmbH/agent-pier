@@ -16,7 +16,7 @@ test("the menu keeps the landmark, opens, and closes on Escape with focus restor
   await trigger(page).click();
   await expect(trigger(page)).toHaveAttribute("aria-expanded", "true");
   await expect(popover(page).getByRole("button", { name: "Übersicht" })).toBeFocused();
-  for (const name of ["Artifacts", "Projekte", "Dateien", "Pipelines", "Accounts"])
+  for (const name of ["Artifacts", "Projekte", "Dateien", "Pipelines", "Zugänge"])
     await expect(popover(page).getByRole("button", { name, exact: true })).toBeVisible();
   await expect(popover(page).locator(".host-status")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -141,7 +141,7 @@ test("group headers stay pinned while the list scrolls", async ({ page }) => {
     await route.fulfill({ response, json });
   });
   await page.goto(baseURL);
-  const header = page.locator(".sessions-group > .sidebar-group-toggle");
+  const header = page.locator(".sessions-group > .sidebar-group-head");
   // Scroll only once the long list is rendered; WebKit may still be laying it out.
   await expect(page.getByText("Session 29")).toBeAttached();
   const scroller = page.locator(".sidebar-scroll");

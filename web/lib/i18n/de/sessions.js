@@ -81,7 +81,7 @@ export const sessionReloadCopy = {
   targetAccount: "Zielaccount",
   chooseAccount: "Account auswählen …",
   noAccounts:
-    "Lege unter Accounts einen weiteren Account für diese CLI an und melde ihn zuerst an.",
+    "Lege unter CLIs & Erweiterungen › Accounts einen weiteren Account für diese CLI an und melde ihn zuerst an.",
 
   openTerminal: "Terminal öffnen",
   terminalHint:

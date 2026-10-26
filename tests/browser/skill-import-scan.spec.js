@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
-import { navigateTo } from "../helpers/navigation.js";
+import { openExtensions } from "../helpers/navigation.js";
 import { expectNoHorizontalOverflow, openTab } from "../helpers/extensions.js";
 
 test.use({ locale: "en-GB" });
@@ -117,7 +117,7 @@ async function fixture(page, verdict) {
 
 async function checkSkill(page) {
   await page.goto(base);
-  await navigateTo(page, "Extensions");
+  await openExtensions(page);
   await openTab(page, "Skills");
   await page.getByRole("button", { name: "Install skill", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Install skill" });

@@ -112,8 +112,5 @@ test("the network-access error names the current settings path in both languages
     [de.networkHostNotAllowed, webDe],
     [en.networkHostNotAllowed, webEn],
   ])
-    assert.ok(
-      message.includes(`${web.title} › ${web.groups.access} › ${web.sections.remote}`),
-      message,
-    );
+    assert.ok(message.includes(`${web.title} › ${web.groups.remote}`), message);
 });

@@ -200,7 +200,7 @@ test("host capacity overwrite uses the newer revision and leaving asks first", a
   ).toEqual([4]);
   await expect(page.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
   await capacity.fill("8");
-  const back = page.getByRole("button", { name: "Back to Workspace", exact: true });
+  const back = page.getByRole("button", { name: "Back to General", exact: true });
   await back.click();
   const sheet = page.getByRole("dialog", { name: "Save changes?" });
   await expect(sheet).toContainText("1 change in Agent service is not saved yet.");

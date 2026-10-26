@@ -1,4 +1,4 @@
-// The owner's Settings › Access › Users: restricted users, their agents and levels.
+// The owner's Settings › Users: restricted users, their agents and levels.
 export const usersCopy = {
   intro:
     "Other people who chat with agents. They see no sessions, pipelines or system settings.",
@@ -64,7 +64,7 @@ export const usersCopy = {
   locked: "Locked for agents of users: they cannot run programs on this computer.",
   lockedList: (list) => `Locked: ${list}.`,
   ownPrivate:
-    "Private to its user: its notes and browser show here only while Owner may read chats is on for this person (Settings › Access › Users).",
+    "Private to its user: its notes and browser show here only while Owner may read chats is on for this person (Settings › Users).",
   ownReadOnly:
     "Its user's: you can read its notes and watch its browser, but not change them.",
   ownRoutines: "Its user manages its reminders and routines in their app.",

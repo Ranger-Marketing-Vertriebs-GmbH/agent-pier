@@ -31,7 +31,7 @@ test("legacy MCP links open Skills and the reference row counts central servers"
   await expect(mcpLink(page)).toContainText("— für Codex");
   fixture.releaseUsage();
   await expect(mcpLink(page)).toContainText("1 für Codex");
-  await expect(mcpLink(page)).toContainText("Zentral unter Accounts");
+  await expect(mcpLink(page)).toContainText("Zentral unter Zugänge");
   await profileColumn(page)
     .getByRole("button", { name: /Claude Code/ })
     .click();
@@ -425,7 +425,7 @@ test.describe("in English", () => {
     await openTab(page, "Skills");
     await expect(
       page.getByRole("link", { name: /^MCP servers · 2 for Claude Code/ }),
-    ).toContainText("Managed centrally in Accounts");
+    ).toContainText("Managed centrally in Connections");
     await expectNoHorizontalOverflow(page);
   });
 });

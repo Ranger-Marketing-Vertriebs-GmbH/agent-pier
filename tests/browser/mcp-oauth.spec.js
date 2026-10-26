@@ -451,7 +451,7 @@ for (const [label, use] of [
       await expect(agent.locator('[data-access-grant="s1"]')).toContainText("docs");
       await expect(agent.getByText("Status unknown", { exact: true })).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toBeVisible();
-      await expect(agent).toContainText("Log in to OAuth servers under Accounts");
+      await expect(agent).toContainText("Log in to OAuth servers under Connections");
       if (label === "phone") await fits(page);
       // Saving the bindings reads the statuses again; a save needs a change.
       await agent.getByRole("button", { name: "Revoke tracker" }).click();
@@ -466,7 +466,7 @@ for (const [label, use] of [
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(agent.getByText("MCP servers saved.")).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toHaveCount(2);
-      await expect(agent).not.toContainText("Log in to OAuth servers under Accounts");
+      await expect(agent).not.toContainText("Log in to OAuth servers under Connections");
     });
   });
 }

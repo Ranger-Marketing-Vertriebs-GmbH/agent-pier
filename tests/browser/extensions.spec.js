@@ -1,4 +1,4 @@
-import { navigateTo } from "../helpers/navigation.js";
+import { openExtensions } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import {
@@ -127,7 +127,7 @@ async function open(page) {
   await page.goto(base);
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
 }
 test("the MCP reference row points to the central MCP server list", async ({ page }) => {
   const { writes } = await fixture(page);
@@ -150,7 +150,7 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
   expect(Math.round(tabRow.x)).toBe(Math.round(tabFrame.x));
   expect(Math.round(tabRow.y)).toBe(Math.round(tabFrame.y));
   const reference = page.getByRole("link", { name: /^MCP-Server · 1 für Claude Code/ });
-  await expect(reference).toContainText("Zentral unter Accounts");
+  await expect(reference).toContainText("Zentral unter Zugänge");
   await expect(
     page.getByRole("button", { name: "MCP-Server hinzufügen", exact: true }),
   ).toHaveCount(0);
