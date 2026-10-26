@@ -1,11 +1,7 @@
 import http from "node:http";
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import {
-  inheritsFromLead,
-  personalCapabilities,
-  writeGuardRuntimes,
-} from "./native-capabilities.js";
+import { writeGuardRuntimes } from "./native-capabilities.js";
 import { toolError } from "./tool-errors.js";
 import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
@@ -29,16 +25,13 @@ import { toolPolicy, toolPolicyRoutes } from "./bridge-tool-policies.js";
 import {
   actions,
   bridgeTool,
+  inheritedAction,
   memberActions,
+  peerActions,
+  personalActions,
   routineActions,
 } from "./team-bridge-actions.js";
 const active = new Set(["pending", "accepted", "running"]);
-// What a temporary member reaches through its lead: reminders (created on the lead)
-// and SSH on the lead's grants, each only while it inherits them right now.
-const inheritedAction = (a, action) =>
-  inheritsFromLead(a) &&
-  ((action === "reminder" && personalCapabilities(a).reminders) ||
-    (action === "ssh" && a.inherited.ssh === true));
 const leavingReady = new Set([
   "reconnecting",
   "stopping",
@@ -56,16 +49,6 @@ export function runtimeStatus(runtime, assistants, bridge) {
     ? { ...state, diagnostic: "WRITE_GUARD_PENDING" }
     : state;
 }
-const peerActions = new Set(["peers", "peer_ask", "peer_delegate"]);
-// A permanent member's own tools, as an own agent's.
-const personalActions = new Set([
-  "reminder",
-  "routine",
-  "ssh",
-  "goal",
-  "hook",
-  "ssh_access",
-]);
 
 export class TeamBridge {
   constructor({ assistants, teams, generation = () => 1, now = Date.now }) {
