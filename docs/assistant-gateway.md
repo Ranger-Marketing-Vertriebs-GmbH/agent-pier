@@ -290,8 +290,10 @@ for the implementation and remaining native platform/version qualification.
   with a shell can change or delete the file, and AgentPier writes it again before
   the agent's next turn. Proven on 2026.10.7 by
   `assistant-secrets-guard-contract.test.js`. A hook run without the hook's
-  **Secrets** switch runs while the file is removed, including against its shell
-  ([agent hooks](assistant-workflows.md#agent-hooks)).
+  **Secrets** switch never reads the file: with a shell, coding or MCP it runs while
+  the file is removed; otherwise `team-plugin/secrets-guard.js` refuses its file-tool
+  reads below `.agentpier/` (every spelling, `file:` URLs and links included), and
+  only its session's ([agent hooks](assistant-workflows.md#agent-hooks)).
 - **Every file tool is guarded.** The guard's hook matches `write`, `edit` and
   `apply_patch`, every file-changing tool of OpenClaw's fs section. OpenClaw grants
   `apply_patch` wherever `write` is allowed, and hook matchers compare exact tool

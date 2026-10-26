@@ -42,7 +42,7 @@ export const hookCopy = {
     memory: "Writes the agent's memory notes.",
     mcp: "Uses the agent's MCP servers.",
     secrets:
-      "Reads the agent's secrets file. Off: the file is withheld while a run works, from the agent's other chats too.",
+      "Reads the agent's secrets file. Off: a run never reads it; with Shell, Coding CLI or MCP servers, the file is withheld from all the agent's chats while the run works.",
   },
   missing: {
     telegram: "The agent has no paired Telegram chat.",

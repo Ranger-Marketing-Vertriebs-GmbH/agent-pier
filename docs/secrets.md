@@ -25,7 +25,7 @@ In the agent's settings, open **Access › Secrets** and add the secrets this ag
 - The agent's file tools (`write`, `edit`, `apply_patch`) refuse any change below `.agentpier/` in every turn, the owner's included, with "Files in .agentpier are managed by AgentPier." Agent SFTP transfers, browser uploads and file shares refuse that folder as well ([details](assistant-gateway.md#security-boundaries)).
 - **The shell is not covered.** Agents run as your operating-system user without a sandbox, so an agent with a shell can read and change any of your files, including this one. AgentPier writes the file again before the agent's next turn.
 - Workspace backups leave `.agentpier/secrets.env` out; see [Backups](backups.md#secrets-in-backups).
-- **Hook runs** read the file only when the hook's **Secrets** switch is on (off by default). While a run of a hook without it works, AgentPier removes the file and gives it back once the run's event has settled; the agent's other chats have no secrets meanwhile ([agent hooks](assistant-workflows.md#agent-hooks)).
+- **Hook runs** read the file only when the hook's **Secrets** switch is on (off by default). A run without it that has a shell, a coding CLI or MCP servers runs while AgentPier has removed the file, which comes back once the run's event has settled; the agent's other chats have no secrets meanwhile, and a command the run left running in the background can read the file once it is back. Any other run without it keeps the file in place for the agent's other chats, and its own file-tool reads of `.agentpier/` are refused ([agent hooks](assistant-workflows.md#agent-hooks)).
 
 ### Who receives secrets
 

@@ -42,7 +42,7 @@ export const hookCopy = {
     memory: "Schreibt die Gedächtnisnotizen des Agenten.",
     mcp: "Nutzt die MCP-Server des Agenten.",
     secrets:
-      "Liest die Geheimnisse-Datei des Agenten. Aus: Solange ein Lauf arbeitet, wird die Datei zurückgehalten, auch in den anderen Chats des Agenten.",
+      "Liest die Geheimnisse-Datei des Agenten. Aus: Ein Lauf liest sie nie; mit Shell, Coding-CLI oder MCP-Servern wird sie allen Chats des Agenten vorenthalten, solange der Lauf arbeitet.",
   },
   missing: {
     telegram: "Der Agent hat keinen gekoppelten Telegram-Chat.",

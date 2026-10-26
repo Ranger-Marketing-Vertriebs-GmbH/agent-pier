@@ -12,6 +12,7 @@ import {
 import { eventArea } from "../../server/features/assistants/agent-event-area.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
+import { toolPolicy } from "../../server/features/assistants/bridge-tool-policies.js";
 import {
   classifyWrite,
   workspaceId,
@@ -349,4 +350,15 @@ test("a routine run is unaffected", async (t) => {
   assert.equal(f.write(sessionKey, "memory/2026-10-24.md"), true);
   assert.equal(f.policy(sessionKey, "exec"), true);
   assert.equal(f.policy(sessionKey, "sessions_list"), true);
+});
+
+test("the bridge refuses a hook run's reads of the secrets folder, not other chats'", async (t) => {
+  const f = await setup(t);
+  const running = await f.run(makeHook(f), "p1");
+  const ask = (sessionKey) =>
+    toolPolicy(f.bridge, "/secrets-policy", { agentId: f.runtimeAgentId, sessionKey });
+  assert.deepEqual(ask(running.sessionKey), { allow: false });
+  assert.deepEqual(ask(`agent:${f.runtimeAgentId}:main`), { allow: true });
+  await f.bridge.close();
+  assert.equal(ask(`agent:${f.runtimeAgentId}:main`).allow, false);
 });

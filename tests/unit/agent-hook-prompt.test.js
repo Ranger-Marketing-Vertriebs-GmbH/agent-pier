@@ -104,3 +104,11 @@ test("hookPrompt keeps invalid JSON and replacement characters as text", () => {
   });
   assert.equal(framed(p), '{"a": \ufffd');
 });
+
+test("hookPrompt says when the run has none of the agent's secrets", () => {
+  const closed = hookPrompt({ hook, payloadText: "x", secretsClosed: true });
+  const line =
+    "The agent's secrets are not available in this run: do not try to read or load them.";
+  assert.ok(closed.split(hookMarkers.start)[0].includes(line));
+  assert.equal(hookPrompt({ hook, payloadText: "x" }).includes(line), false);
+});
