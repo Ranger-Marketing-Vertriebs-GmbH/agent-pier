@@ -21,8 +21,17 @@ const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/
 const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
 const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
-const maxNotes = 200,
+// The memory view lists notes newest first in pages of `pageSize` (AGENTPIER-234:
+// dreaming adds three a night). A folder is read up to `maxNotes`; beyond, the oldest
+// stay out of the view, though the agent still has them.
+const pageSize = 200,
+  maxNotes = 10000,
   maxNoteBytes = 262144;
+/** A page offset from a query string: a whole number, else NaN (refused as invalid). */
+export function memoryOffset(value) {
+  if (value === undefined) return 0;
+  return typeof value === "string" && /^\d{1,6}$/.test(value) ? Number(value) : NaN;
+}
 // The workspace and its memory/ folder must be real directories: a symbolic link
 // in their place would list or read notes from outside the agent's workspace.
 async function assertRealDirectories(root, notes = true) {
@@ -44,12 +53,28 @@ export class NativeMemory {
   // Notes under memory/ are read from disk, yet they follow the same admission
   // gate as the root notes: no reads while agents are closed, recovering or in
   // maintenance, when a restore or update may be replacing the workspace.
-  files(id) {
-    return this.assistants.admit(() => this.listNotes(id));
+  // `offset` pages through the notes (`nextOffset` is the next page's, null on the
+  // last); the Dream Diary heads the first page.
+  files(id, { offset = 0 } = {}) {
+    return this.assistants.admit(() => this.listNotes(id, offset));
   }
-  async listNotes(id) {
+  async listNotes(id, offset = 0) {
+    if (!Number.isInteger(offset) || offset < 0 || offset > maxNotes)
+      throw assistantProblem("invalid");
     const root = this.root(id),
       files = [];
+    const page = (notes = []) => {
+      // Newest first; notes of the same instant by name, so pages never overlap.
+      notes.sort(
+        (a, b) => b.modifiedAt.localeCompare(a.modifiedAt) || (a.name < b.name ? -1 : 1),
+      );
+      const next = offset + pageSize;
+      return {
+        files: [...(offset ? [] : files), ...notes.slice(offset, next)],
+        total: notes.length,
+        nextOffset: next < notes.length ? next : null,
+      };
+    };
     try {
       await assertRealDirectories(root, false);
       const stat = await fs.lstat(path.join(root, diaryName));
@@ -61,13 +86,14 @@ export class NativeMemory {
           diary: true,
         });
     } catch (error) {
-      if (error.code !== "ENOENT") return { files };
+      if (error.code !== "ENOENT") return page();
     }
     try {
       await assertRealDirectories(root);
     } catch {
-      return { files };
+      return page();
     }
+    const notes = [];
     const walk = async (dir, depth) => {
       let entries;
       try {
@@ -76,7 +102,7 @@ export class NativeMemory {
         return;
       }
       for (const entry of entries) {
-        if (files.length >= maxNotes) return;
+        if (notes.length >= maxNotes) return;
         const name = `${dir}/${entry.name}`;
         // Symbolic links are skipped: a note never leaves the agent's workspace.
         // A task member's copy of its lead's memory is not its own (member-memory.js).
@@ -84,17 +110,12 @@ export class NativeMemory {
         if (entry.isDirectory() && depth < 3) await walk(name, depth + 1);
         else if (entry.isFile() && noteName.test(name)) {
           const stat = await fs.lstat(path.join(root, name));
-          files.push({ name, size: stat.size, modifiedAt: stat.mtime.toISOString() });
+          notes.push({ name, size: stat.size, modifiedAt: stat.mtime.toISOString() });
         }
       }
     };
     await walk("memory", 0);
-    // The diary stays first; notes follow, newest first.
-    const diary = files.filter((f) => f.diary);
-    const notes = files.filter((f) => !f.diary);
-    notes.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
-    files.splice(0, files.length, ...diary, ...notes);
-    return { files };
+    return page(notes);
   }
   async readNote(id, name) {
     const diary = name === diaryName;

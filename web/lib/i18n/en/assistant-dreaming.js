@@ -18,4 +18,5 @@ export const assistantDreamingCopy = {
     "Dreaming is on: every permanent agent keeps its memory. Switch it off under Agents › Runtime › Dreaming.",
   diary: "Dream diary",
   diaryHint: "Written by the agent's nightly dreaming. Read only.",
+  moreNotes: (count) => (count === 1 ? "Load 1 more note" : `Load ${count} more notes`),
 };

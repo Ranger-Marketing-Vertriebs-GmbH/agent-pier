@@ -3405,7 +3405,8 @@ answers the unknown-route 404.
   are compiled in advance, so her switch needs no Gateway restart; a Gateway started
   before the release still needs one, which stays the owner's decision: her change
   answers 409 `USER_AGENT_RESTART_NEEDED` and is not saved.
-- `GET /me/agents/:id/memory` and `/memory/:name` read the notes; deleting a note
+- `GET /me/agents/:id/memory` and `/memory/:name` read the notes (the list pages like
+  the owner's `/memory/files`, see [Dreaming](#dreaming)); deleting a note
   (`DELETE /me/agents/:id/memory/:name`) needs **Personalize** on her own agent.
 - Reminders and routines (`/me/agents/:id/reminders|routines`) belong to the person
   whose chat created them (`server/features/assistants/reminder-audience.js`): a
@@ -4109,6 +4110,12 @@ setting and clears what was pending.
 - **Output.** Dream notes land in `memory/dreaming/{light,rem,deep}/YYYY-MM-DD.md` and
   show in the memory view like any other note. The Dream diary (`DREAMS.md` in the
   workspace root) shows first in the owner's and the users' memory view, read-only.
+  Three notes a night pass 200 within weeks, so the note list (`GET
+/assistants/:id/memory/files`, `GET /me/agents/:id/memory`) pages:
+  `?offset=` (a whole number, default 0) returns the next 200 notes newest first (same
+  instant: by name) with `total` and `nextOffset` (null on the last page), the diary
+  heading the first page only. A folder is read up to 10,000 notes. The memory view
+  shows **Load N more notes** while notes are left.
   On a user's own agent the owner reaches them only under her **Owner may read chats**:
   without it the owner-content guard (`owner-content-guard.js`, `agentContent` in
   `owner-privacy.js`) answers 404 on every owner memory route of that agent (`GET`

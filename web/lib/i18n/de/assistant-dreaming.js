@@ -18,4 +18,6 @@ export const assistantDreamingCopy = {
     "Träumen ist eingeschaltet: Jeder dauerhafte Agent behält sein Gedächtnis. Schalte es unter Agenten › Laufzeit › Träumen aus.",
   diary: "Traumtagebuch",
   diaryHint: "Vom nächtlichen Träumen des Agenten geschrieben. Nur lesbar.",
+  moreNotes: (count) =>
+    count === 1 ? "1 weitere Notiz laden" : `${count} weitere Notizen laden`,
 };

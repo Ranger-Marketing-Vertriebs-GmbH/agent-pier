@@ -2,6 +2,7 @@ import { Router } from "express";
 import { settingsPatch, settingsView } from "../../features/users/user-agent-settings.js";
 import { isShared } from "../../features/users/user-access.js";
 import { userProblem } from "../../features/users/user-errors.js";
+import { memoryOffset } from "../../features/assistants/native-memory.js";
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -47,7 +48,11 @@ export function meAgentSettingsRoutes({ assistants, assistantMemory, userScope, 
     res.json(settingsView(saved, level));
   });
   router.get("/me/agents/:id/memory", async (req, res) =>
-    res.json(await assistantMemory.files(mine(req).agent.id)),
+    res.json(
+      await assistantMemory.files(mine(req).agent.id, {
+        offset: memoryOffset(req.query.offset),
+      }),
+    ),
   );
   router.get("/me/agents/:id/memory/:name", async (req, res) =>
     res.json(await assistantMemory.read(mine(req).agent.id, req.params.name)),

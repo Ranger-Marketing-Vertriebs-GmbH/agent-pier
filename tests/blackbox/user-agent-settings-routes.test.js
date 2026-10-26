@@ -149,3 +149,41 @@ test("memory deletion follows level and ownership", async (t) => {
   );
   assert.equal(refused.status, 403);
 });
+
+test("her memory view pages through notes by offset", async (t) => {
+  const { f } = await chatFixture(t);
+  const { agent, request } = await ownAgent(f, "personalize");
+  const folder = path.join(
+    f.application.assistants.config.workspaces,
+    agent.id,
+    "memory",
+  );
+  fs.mkdirSync(folder, { recursive: true });
+  for (const [name, minute] of [
+    ["old.md", 1],
+    ["new.md", 2],
+  ]) {
+    fs.writeFileSync(path.join(folder, name), name);
+    const time = new Date(Date.UTC(2026, 9, 1, 0, minute));
+    fs.utimesSync(path.join(folder, name), time, time);
+  }
+  const page = async (query) =>
+    (await request(`/api/me/agents/${agent.id}/memory${query}`)).json();
+  const first = await page("");
+  assert.deepEqual(
+    first.files.map((file) => file.name),
+    ["memory/new.md", "memory/old.md"],
+  );
+  assert.equal(first.total, 2);
+  assert.equal(first.nextOffset, null);
+  assert.deepEqual(
+    (await page("?offset=1")).files.map((file) => file.name),
+    ["memory/old.md"],
+  );
+  for (const query of ["?offset=-1", "?offset=x", "?offset=1&offset=2"])
+    assert.equal(
+      (await request(`/api/me/agents/${agent.id}/memory${query}`)).status,
+      400,
+      query,
+    );
+});

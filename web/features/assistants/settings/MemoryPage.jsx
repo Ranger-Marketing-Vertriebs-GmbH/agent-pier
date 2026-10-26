@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
@@ -8,6 +8,7 @@ import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/message
 import { assistantApi } from "../assistant-api.js";
 import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
+import useMemoryNotes from "./useMemoryNotes.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 
@@ -21,23 +22,18 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
   const assistantId = assistant.id;
   const [name, setName] = useState("MEMORY.md"),
     [file, setFile] = useState(null),
-    [notes, setNotes] = useState([]),
     [nextName, setNextName] = useState(null);
   const [query, setQuery] = useState(""),
     [results, setResults] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [reload, setReload] = useState(0);
-  useEffect(() => {
-    let active = true;
-    assistantApi
-      .memoryFiles(assistantId)
-      .then((next) => active && setNotes(Array.isArray(next?.files) ? next.files : []))
-      .catch(() => active && setNotes([]));
-    return () => {
-      active = false;
-    };
-  }, [assistantId, reload]);
+  const fetchNotes = useCallback(
+    (offset) => assistantApi.memoryFiles(assistantId, offset),
+    [assistantId],
+  );
+  const listing = useMemoryNotes(fetchNotes, reload);
+  const notes = listing.notes || [];
   useEffect(() => {
     let active = true;
     setFile(null);
@@ -130,6 +126,18 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
             )}
           </select>
         </label>
+        {listing.nextCount > 0 && (
+          <div className="agent-field">
+            <button
+              type="button"
+              className="button secondary compact"
+              disabled={listing.loading}
+              onClick={listing.loadMore}
+            >
+              {dreamingCopy.moreNotes(listing.nextCount)}
+            </button>
+          </div>
+        )}
         <label className="agent-field">
           {copy.notes}
           <textarea
