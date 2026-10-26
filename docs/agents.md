@@ -1016,7 +1016,8 @@ own **Enabled** switch is off.
   the agent loses later keeps its saved value but no longer applies until the agent has
   it again; you can still switch it off or lower it, and then it stays disabled.
   **Wake-ups per hour** (20 by default) limits the runs; later events in the same hour
-  are recorded without waking the agent, and the first one sends a push notice.
+  are recorded without waking the agent, and the first one sends a **Hook limit
+  reached** push notice.
   With **Secrets** off, AgentPier takes the agent's secrets file away before the run
   starts and puts it back once the run's event has settled, so a run cannot read it,
   not even with its shell. Your own chats with that agent have no secrets while such

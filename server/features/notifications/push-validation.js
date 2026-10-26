@@ -65,8 +65,10 @@ export const pushKinds = [
   // entry, a member permission or a team proposal.
   "agent-approval",
   "agent-checkin",
-  // A routine or reminder result in an agent's main chat.
+  // A routine, reminder or hook result in an agent's main chat.
   "agent-routine",
+  // A hook went over its hourly limit: further events wake nobody this hour.
+  "agent-hook-throttled",
   // An agent's own Telegram bot still runs after the owner revoked it.
   "telegram-revocation",
   // A saved GitHub token was rejected, expired or expires soon.
@@ -86,6 +88,14 @@ export const approvalSubjects = [
   "team",
 ];
 
+// Kinds about one agent; a notice opens its chat when it names one.
+const agentKinds = [
+  "agent-checkin",
+  "agent-routine",
+  "agent-hook-throttled",
+  "agent-approval",
+];
+
 /** The identifiers of an event; any other field of the input is dropped. */
 export function pushPayload(input) {
   if (!pushKinds.includes(input?.kind)) throw problem("Invalid notification kind.");
@@ -93,7 +103,7 @@ export function pushPayload(input) {
   if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
   } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
-  else if (["agent-checkin", "agent-routine", "agent-approval"].includes(input.kind)) {
+  else if (agentKinds.includes(input.kind)) {
     payload.assistantId = pushId(input.assistantId);
     // The chat it was written to; the notice opens it.
     if (input.conversationId !== undefined)

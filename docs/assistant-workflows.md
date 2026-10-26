@@ -510,7 +510,10 @@ event (a host, a device) makes every later event of that object a duplicate for 
 30-day retention, so senders should send `Idempotency-Key` or `X-Event-Id`, or an `id`
 unique per event. Wake-ups count per hook over a rolling hour (default
 20); an event over the limit is kept as `throttled` without a run, and the first
-throttled event of an hour sends one push notice.
+throttled event of an hour sends one `agent-hook-throttled` push notice ("Hook limit
+reached", its own switch in the device's notification settings; a device that had
+**Routine or hook result** off before keeps it off), which opens the agent's main
+chat. Nothing is written to the chat for it.
 
 **Notify.** With **Notify** on, a result sends an `agent-routine` push notice
 ("Routine or hook result") that opens the agent's chat and, with **Also send to

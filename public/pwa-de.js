@@ -57,6 +57,11 @@ self.agentPierNotificationCopy = {
       body: "Eine Routine, Erinnerung oder ein Hook hat in den Chat eines Agenten geschrieben.",
       name: "Routine- oder Hook-Ergebnis",
     },
+    "agent-hook-throttled": {
+      title: "AgentPier: Hook-Limit erreicht",
+      body: "Ein Hook hat in dieser Stunde mehr Ereignisse erhalten, als er seinen Agenten wecken darf. Weitere Ereignisse werden nur aufgezeichnet.",
+      name: "Hook-Limit erreicht",
+    },
     "telegram-revocation": {
       title: "AgentPier: Telegram-Zugang noch aktiv",
       body: "Ein entfernter Bot oder eine entfernte Person ließ sich nicht stoppen. Starte den Agentendienst neu.",

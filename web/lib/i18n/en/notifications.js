@@ -82,6 +82,7 @@ export const notificationCopy = {
     "pipeline-failed": "Pipeline failed",
     "agent-checkin": "Agent check-in",
     "agent-routine": "Routine or hook result",
+    "agent-hook-throttled": "Hook limit reached",
     telegram: "Also what Telegram delivered",
   },
   telegramSub:

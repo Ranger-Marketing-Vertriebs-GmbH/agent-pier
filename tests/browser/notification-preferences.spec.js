@@ -57,6 +57,8 @@ for (const size of ["desktop", "phone"])
     await dialog.getByRole("radio", { name: "With preview" }).check();
     await dialog.getByRole("checkbox", { name: "Session ended" }).uncheck();
     await dialog.getByRole("checkbox", { name: "Pipeline completed" }).check();
+    // A hook's throttle notice has its own switch beside routine results.
+    await dialog.getByRole("checkbox", { name: "Hook limit reached" }).setChecked(false);
     await dialog
       .getByRole("switch", { name: "Group by session, agent or run" })
       .uncheck();
@@ -87,6 +89,7 @@ for (const size of ["desktop", "phone"])
       "session-ended": false,
       "pipeline-completed": true,
       "pipeline-failed": true,
+      "agent-hook-throttled": false,
     });
     // Opening again shows what was saved; Cancel changes nothing.
     await page

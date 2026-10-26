@@ -312,13 +312,16 @@ export class AgentHooks {
       "failure",
     );
   }
-  /** The one push notice of an hour in which the hook went over its limit. */
+  /**
+   * The one push notice of an hour in which the hook went over its limit: its own
+   * kind, since nothing was written to the chat.
+   */
   throttled(hook) {
     const conversation = mainConversation(this.assistants.store, hook.assistantId);
     Promise.resolve()
       .then(() =>
         this.notifications?.notify({
-          kind: "agent-routine",
+          kind: "agent-hook-throttled",
           assistantId: hook.assistantId,
           ...(conversation && { conversationId: conversation.id }),
           eventId: `hook-throttled-${randomUUID()}`,

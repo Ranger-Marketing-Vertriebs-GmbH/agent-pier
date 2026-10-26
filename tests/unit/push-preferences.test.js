@@ -41,6 +41,28 @@ test("new and older devices start at the event type only with the default events
   assert.equal(migrated.events["pipeline-ended"], undefined);
 });
 
+test("a hook's throttle notice is its own event and starts as the routine switch", () => {
+  assert.equal(pushEventDefaults["agent-hook-throttled"], true);
+  const now = Date.UTC(2026, 9, 26, 12);
+  const preferences = normalizePreferences({});
+  const event = { kind: "agent-hook-throttled", assistantId: "a1" };
+  assert.equal(wantsEvent(preferences, event, now), true);
+  // A device that switched routine results off before the split keeps quiet.
+  const older = normalizePreferences({ events: { "agent-routine": false } });
+  assert.equal(older.events["agent-hook-throttled"], false);
+  assert.equal(wantsEvent(older, event, now), false);
+  // Once chosen on its own, each switch is independent.
+  const split = updatePreferences(older, { events: { "agent-hook-throttled": true } });
+  assert.equal(split.events["agent-routine"], false);
+  assert.equal(wantsEvent(split, event, now), true);
+  assert.equal(
+    normalizePreferences({
+      events: { "agent-routine": false, "agent-hook-throttled": true },
+    }).events["agent-hook-throttled"],
+    true,
+  );
+});
+
 test("a change accepts only known fields with valid values", () => {
   const next = updatePreferences(undefined, {
     level: "preview",
