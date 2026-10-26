@@ -51,7 +51,8 @@
     "tests/integration/assistant-work-goals-contract.test.js",
     "tests/integration/assistant-secrets-guard-contract.test.js",
     "tests/integration/assistant-agent-admission-contract.test.js",
-    "tests/integration/assistant-memory-step-code-mode-contract.test.js"
+    "tests/integration/assistant-memory-step-code-mode-contract.test.js",
+    "tests/integration/assistant-ssh-runtime-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -105,6 +106,7 @@
     "tests/integration/assistant-work-goals-contract.test.js": 30,
     "tests/integration/assistant-secrets-guard-contract.test.js": 15,
     "tests/integration/assistant-agent-admission-contract.test.js": 105,
-    "tests/integration/assistant-memory-step-code-mode-contract.test.js": 25
+    "tests/integration/assistant-memory-step-code-mode-contract.test.js": 25,
+    "tests/integration/assistant-ssh-runtime-contract.test.js": 40
   }
 }
