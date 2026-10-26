@@ -10,7 +10,7 @@ import { agent, wizardSetup, withAgents } from "./mcp-wizard-fixture.js";
 
 // A lead ("Home") granted its task-bound member Scout a project folder, an MCP
 // server, shell and SSH, and Scout may request coding runs through Home
-// (AGENTPIER-154): the owner sees each grant in Scout's Capabilities tab, the
+// (AGENTPIER-154): the owner sees each grant in Scout's Access tab, the
 // project's Agents section and the MCP overview, marked as a task-bound member's,
 // and revokes it there; coding through the lead is listed without Revoke.
 const phone = { width: 390, height: 844 };
@@ -138,7 +138,7 @@ for (const [language, label, viewport] of cases) {
     if (viewport) test.use({ viewport });
     const w = words[language];
 
-    test("a task member's Capabilities tab lists its lead's grants and the owner revokes one", async ({
+    test("a task member's Access tab lists its lead's grants and the owner revokes one", async ({
       page,
     }) => {
       await fixture(page);
@@ -185,7 +185,7 @@ for (const [language, label, viewport] of cases) {
         else return route.fallback();
         await route.fulfill({ json: body });
       });
-      await page.goto(baseURL + settingsPath("capabilities", undefined, "scout"));
+      await page.goto(baseURL + settingsPath("access", undefined, "scout"));
       const group = page.locator("#agent-lead-shares");
       await expect(group.getByRole("heading", { name: w.title })).toBeVisible();
       for (const sub of [w.folderSub, w.serverSub, w.shellSub, w.codingSub])

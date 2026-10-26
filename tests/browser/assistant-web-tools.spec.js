@@ -228,7 +228,7 @@ for (const [label, use] of [
       await expect(page.getByText("Available after saving the agent")).toHaveCount(7);
       await expect(page.getByLabel("Remember information")).toBeEnabled();
       await page.getByLabel("Remember information").check();
-      await agentTab(page, "Profile").click();
+      await agentTab(page, "Identity").click();
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");

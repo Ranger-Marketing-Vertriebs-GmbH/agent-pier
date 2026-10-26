@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
+import ListCard from "../../../components/ListCard.jsx";
+import ListRow from "../../../components/ListRow.jsx";
+import { routePath } from "../../../app/routes.js";
+import { memberGrantCopy as grantCopy } from "../../../lib/i18n/messages/assistant-member-grants.js";
 import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
-import { sameValue } from "../../../lib/settings/draft-state.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantSkillsCopy } from "../../../lib/i18n/messages/assistant-skills.js";
-import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
-import TemporaryMcpServers from "../../mcp-servers/TemporaryMcpServers.jsx";
 import useAssistants from "../useAssistants.js";
-import { capabilityServer, isPersonal } from "./agent-settings-fields.js";
+import { agentRoute, capabilityServer, isPersonal } from "./agent-settings-fields.js";
 import { capabilityStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
@@ -18,10 +19,7 @@ import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import { assistantBrowserCopy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { assistantPdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
-import McpGroup from "./McpGroup.jsx";
 import BrowserGroup from "./BrowserGroup.jsx";
-import GrantedCapabilities from "./GrantedCapabilities.jsx";
-import LeadSharesGroup from "./LeadSharesGroup.jsx";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
@@ -41,13 +39,15 @@ const conflictLabels = {
   readPdfs: () => assistantPdfCopy.enable,
   createImages: () => copy.personal.enableCreateImages,
   shell: () => assistantShellCopy.title,
-  mcpServers: () => mcpServerCopy.agentTitle,
   skills: () => assistantSkillsCopy.title,
 };
 
-/** Capabilities: memory, web, shell, skills and MCP servers in one draft and one PATCH. */
+/**
+ * Capabilities: memory, web, browser, shell and skills in one draft and one PATCH.
+ * MCP servers and a member's grants from its lead live in the Access tab.
+ */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
-  const { refresh, runtime, members = [], models = [] } = useAssistants();
+  const { refresh, runtime, models = [] } = useAssistants();
   // Images come from a signed-in ChatGPT account (server model-accounts.js).
   // Its last known status counts, as on the server, also while the service is away.
   const images = models.some(
@@ -62,33 +62,12 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   });
   const label = settingsCopy.tabs.capabilities;
   const steps = [capabilityStep({ assistant, label })];
-  const [notice, setNotice] = useState(""),
-    [mcpReload, setMcpReload] = useState(0);
-  useEffect(() => {
-    if (draft.dirty) setNotice("");
-  }, [draft.dirty]);
-  const after = async (result, mcpChanged) => {
-    if (result.status === "saved") {
-      if (mcpChanged) setMcpReload((n) => n + 1);
-      if (mcpChanged)
-        setNotice(
-          result.results.assistant?.pending
-            ? mcpServerCopy.pendingNotice
-            : mcpServerCopy.agentSaved,
-        );
-      await refresh();
-    }
+  const after = async (result) => {
+    if (result.status === "saved") await refresh();
     return result;
   };
-  const mcpChanged = () => !sameValue(draft.values.mcpServers, draft.base.mcpServers);
-  const save = async () => {
-    const changed = mcpChanged();
-    return after(await draft.save(steps), changed);
-  };
-  const overwrite = async () => {
-    const changed = mcpChanged();
-    return after(await draft.overwrite(steps), changed);
-  };
+  const save = async () => after(await draft.save(steps));
+  const overwrite = async () => after(await draft.overwrite(steps));
   const sheet = useAgentDraftGuard({
     draft,
     assistantId: assistant.id,
@@ -96,7 +75,6 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
     label,
     save,
   });
-  const member = members.find((m) => m.assistantId === assistant.id);
   // A save started from a subpage (the unsaved sheet) may ask to confirm, too.
   const sheets = (
     <>
@@ -135,16 +113,17 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   return (
     <>
       <ConflictNotice draft={draft} labels={conflictLabels} />
+      {/* A task member's own memory, beside the copy of its lead's (memory/lead/). */}
       {!personal && assistant.inherited && (
-        <GrantedCapabilities
-          inherited={assistant.inherited}
-          member={member}
-          assistantId={assistant.id}
-          go={go}
-        />
+        <ListCard label={grantCopy.ownMemory}>
+          <ListRow
+            label={grantCopy.ownMemory}
+            sub={grantCopy.ownMemoryHint}
+            href={routePath(agentRoute(assistant.id, "capabilities", "memory"))}
+            onClick={() => go("capabilities", "memory")}
+          />
+        </ListCard>
       )}
-      {/* A task-bound member has no Work tab: its lead's grants with Revoke. */}
-      {!personal && assistant.inherited && <LeadSharesGroup assistant={assistant} />}
       <OwnContentNotice own={own} />
       {personal && (
         <MemoryGroup
@@ -180,16 +159,6 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       {shellEligible(assistant) && (
         <SkillsGroup assistant={assistant} draft={draft} go={go} />
       )}
-      {personal && Array.isArray(assistant.mcpServers) && (
-        <McpGroup
-          assistant={assistant}
-          draft={draft}
-          notice={notice}
-          reloadKey={mcpReload}
-          navigate={navigate}
-        />
-      )}
-      {!personal && member && <TemporaryMcpServers servers={member.mcpServers} />}
       {saveBar}
       {sheets}
     </>

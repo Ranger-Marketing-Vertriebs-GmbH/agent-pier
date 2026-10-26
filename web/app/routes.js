@@ -76,6 +76,10 @@ export function readRoute(location) {
     const forUser = query.get("user");
     if (forUser && idPattern.test(forUser))
       return { view: "agents", creating: true, forUser };
+    // "Duplicate" from an agent's settings: the agent the new one starts from.
+    const duplicate = query.get("duplicate");
+    if (duplicate && idPattern.test(duplicate))
+      return { view: "agents", creating: true, duplicate };
     // "Create agent" from an Agency entry: the template and its pinned revision.
     const template = query.get("template"),
       revision = query.get("revision");
@@ -305,6 +309,10 @@ function basePath(route) {
             : route.creating
               ? `/agents?new=1${
                   route.forUser ? `&${new URLSearchParams({ user: route.forUser })}` : ""
+                }${
+                  route.duplicate
+                    ? `&${new URLSearchParams({ duplicate: route.duplicate })}`
+                    : ""
                 }${
                   route.template
                     ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`

@@ -30,7 +30,7 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   await expect.poll(() => state.updates.length).toBe(1);
   expect(state.updates[0].capabilities.memory).toBe(true);
   expect(state.updates[0].capabilities).not.toHaveProperty("recall");
-  await agentTab(page, "Routines & check-ins").click();
+  await agentTab(page, "Automation").click();
   await expect(heartbeat).toBeEnabled();
   await expect(proactivity).toContainText("you get a push notification");
   await heartbeat.check();
@@ -55,7 +55,7 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   await proactivity.getByLabel("How often").selectOption("1h");
   await expect(proactivity).toContainText("About 12 extra model runs per day");
   await proactivity.screenshot({ path: ".cache/assistant-proactivity-desktop-en.png" });
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => state.updates.length).toBe(2);
   expect(state.updates[1].heartbeat).toEqual({
     enabled: true,
@@ -81,7 +81,7 @@ test("switching memory off also switches check-ins off", async ({ page }) => {
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   expect(state.updates[0].heartbeat.enabled).toBe(false);
-  await agentTab(page, "Routines & check-ins").click();
+  await agentTab(page, "Automation").click();
   await expect(
     section(page).getByRole("switch", { name: "Check in on its own" }),
   ).toBeDisabled();
@@ -169,7 +169,7 @@ test("a refused check-in keeps the form and shows why", async ({ page }) => {
   await page.goto(baseURL + settingsPath("routines"));
   const heartbeat = section(page).getByRole("switch", { name: "Check in on its own" });
   await heartbeat.check();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(page.getByText(message).first()).toBeVisible();
   await expect(heartbeat).toBeChecked();
@@ -191,7 +191,7 @@ test("a refused check-in without memory shows the German reason", async ({ page 
   });
   await heartbeat.check();
   await saveBar(page, "Ungespeicherte Änderungen")
-    .getByRole("button", { name: "Speichern", exact: true })
+    .getByRole("button", { name: "Agent speichern", exact: true })
     .click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(page.getByText(message).first()).toBeVisible();

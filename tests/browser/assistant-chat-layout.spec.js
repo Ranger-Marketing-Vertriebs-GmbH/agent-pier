@@ -28,8 +28,9 @@ test.describe("agent chat header", () => {
     expect(Math.round((await header.boundingBox()).height)).toBe(56);
     await header.getByRole("button", { name: "Agent settings", exact: true }).click();
     await expect(page).toHaveURL(/\/agents\/home\/settings$/);
-    await expect(page.locator(".assistant-header-sub")).toHaveText("Settings");
-    await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+    // Settings keep the status line and offer the chat in their own header.
+    await expect(header.locator(".assistant-header-status")).toContainText("Ready");
+    await header.getByRole("button", { name: "Open chat", exact: true }).click();
     await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner$/);
   });
 
@@ -85,7 +86,7 @@ test.describe("agent chat header", () => {
       models: [{ id: "other", name: "Other", available: true }],
     });
     await page.goto(baseURL + "/agents/home/settings");
-    await expect(page.locator(".assistant-header-status")).toHaveText(
+    await expect(page.locator(".assistant-header-status")).toContainText(
       "Provider connection missing",
     );
     await expect(page.locator(".assistant-notice").first()).toContainText(
@@ -97,7 +98,7 @@ test.describe("agent chat header", () => {
       .click();
     await expect(page.locator(".sidebar")).toHaveClass(/\bopen\b/);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+    await page.getByRole("button", { name: "Back to agents", exact: true }).click();
     await expect(page).toHaveURL(/\/agents$/);
   });
 

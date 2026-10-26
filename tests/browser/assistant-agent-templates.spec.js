@@ -209,7 +209,7 @@ for (const [label, viewport] of Object.entries(viewports))
       await fits(page);
     });
 
-    test("the profile names the template an agent came from", async ({ page }) => {
+    test("the identity tab names the template an agent came from", async ({ page }) => {
       const {
         verdict: _v,
         findings: _f,
@@ -219,7 +219,7 @@ for (const [label, viewport] of Object.entries(viewports))
       await setup(page, {
         assistants: [home({ template: { ...record, verdict: "ok" } })],
       });
-      await page.goto(baseURL + settingsPath());
+      await page.goto(baseURL + settingsPath("identity"));
       await expect(page.locator(".agent-template-note")).toContainText(
         "Template: Frontend Developer (Agency agents)",
       );
@@ -243,7 +243,7 @@ for (const [label, viewport] of Object.entries(viewports))
         },
       ];
       await teamListFixture(page, { teams: records.teams });
-      await page.goto(baseURL + settingsPath("work"));
+      await page.goto(baseURL + settingsPath("team"));
       const member = page.locator(".assistant-team-template");
       await expect(member).toContainText("Template: Content Creator (Agency agents)");
       await expect(member).toContainText(

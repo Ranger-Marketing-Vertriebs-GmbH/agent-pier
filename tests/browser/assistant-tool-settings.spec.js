@@ -13,7 +13,7 @@ const unpaired = () => connectedChannel({ enabled: false, chatId: null });
 const copy = {
   en: {
     tools: ["Search the web", "Read web pages", "Use a browser", "Read images"],
-    tab: "Routines & check-ins",
+    tab: "Automation",
     heartbeat: "Check in on its own",
     telegram: "Also send to Telegram",
     save: "Save agent",
@@ -22,7 +22,7 @@ const copy = {
   },
   de: {
     tools: ["Im Web suchen", "Webseiten lesen", "Einen Browser nutzen", "Bilder lesen"],
-    tab: "Routinen & Check-ins",
+    tab: "Automatisierung",
     heartbeat: "Sich von selbst melden",
     telegram: "Auch an Telegram senden",
     save: "Agent speichern",
@@ -99,7 +99,7 @@ test("pairing the chat offers check-ins in Telegram too", async ({ page }) => {
   state.channel = connectedChannel();
   await expect(telegram).toBeChecked();
   await telegram.uncheck();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.assistants[0].revision).toBe(2);
   expect(state.updates.at(-1).heartbeat).toMatchObject({
     enabled: true,
@@ -116,7 +116,7 @@ test("a refused save shows its reason in the save bar and keeps the draft", asyn
   const heartbeat = proactivity(page).getByRole("switch", { name: copy.en.heartbeat });
   await heartbeat.check();
   const bar = saveBar(page);
-  await bar.getByRole("button", { name: "Save", exact: true }).click();
+  await bar.getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   await expect(bar.getByRole("alert")).toContainText(copy.en.refusal);
   await expect(bar.getByRole("alert")).toBeInViewport();

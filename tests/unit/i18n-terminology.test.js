@@ -80,7 +80,7 @@ const properNouns = [
   /\b(Telegram|Deepgram|GitHub|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
   /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519|Unicode|KiB|MiB|GiB)\b/g,
   // Page names and the editor's Save As command.
-  /\b(in|under) (Accounts|Artifacts|Settings)\b/g,
+  /\b(in|under) (Accounts|Artifacts|Connections|Settings)\b/g,
   /Save As/g,
 ];
 test("English labels use sentence case", async () => {
@@ -90,9 +90,10 @@ test("English labels use sentence case", async () => {
     if (words.length < 2 || words.length > 6 || /[.:?!]\s|[.?!]$/.test(text)) continue;
     let rest = text;
     for (const noun of properNouns) rest = rest.replace(noun, "x");
-    // A separator such as "·", "—" or "/" starts a new label part.
+    // A separator such as "·", "—", "/" or a navigation path's "›" starts a new label
+    // part (each part of a path is a page name).
     const capitalised = rest
-      .split(/\s[·—/]\s|^[^\p{L}_]+/u)
+      .split(/\s[·—/›]\s|^[^\p{L}_]+/u)
       .flatMap((part) => part.trim().split(/\s+/).slice(1))
       .filter((word) => /^[A-Z][a-z]/.test(word));
     if (capitalised.length) titleCase.push(`${where}: ${JSON.stringify(text)}`);

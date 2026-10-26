@@ -3,7 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 
-// Settings › Work › Team: "Use team" chooses how the lead involves its members.
+// Agent settings › Team: "Use team" chooses how the lead involves its members.
 const viewports = {
   phone: { width: 390, height: 844 },
   desktop: { width: 1440, height: 1000 },
@@ -24,7 +24,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
     }) => {
       // A policy saved before the level existed reads as the default.
       const state = await setup(page);
-      await page.goto(baseURL + settingsPath("work"));
+      await page.goto(baseURL + settingsPath("team"));
       const group = usage(page);
       await expect(group.getByRole("radio", { name: "Suggest" })).toBeChecked();
       await expect(page.locator("#agent-team")).toContainText(
@@ -41,7 +41,9 @@ for (const [label, viewport] of Object.entries(viewports)) {
         await page.locator("#agent-team").evaluate((e) => e.scrollIntoView());
         await page.screenshot({ path: `${shots}/team-usage-${label}-en.png` });
       }
-      await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+      await saveBar(page)
+        .getByRole("button", { name: "Save agent", exact: true })
+        .click();
       await expect.poll(() => state.work.length).toBe(1);
       expect(state.work[0]).toEqual({
         team: {
@@ -69,7 +71,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
           },
         },
       });
-      await page.goto(baseURL + settingsPath("work"));
+      await page.goto(baseURL + settingsPath("team"));
       await expect(usage(page).getByRole("radio", { name: "On request" })).toBeChecked();
       await expect(page.locator("#agent-team")).toContainText("only when you ask it to");
       // Arrow keys move between the levels like any radio group.

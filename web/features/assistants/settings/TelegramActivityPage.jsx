@@ -26,7 +26,7 @@ export default function TelegramActivityPage({ assistant, telegram, onBack, navi
     );
   return (
     <>
-      <SubpageHeader title={copy.activity} tab="telegram" onBack={onBack} />
+      <SubpageHeader title={copy.activity} tab="channels" onBack={onBack} />
       <ErrorMessage error={telegram.error} />
       {!visible.length && <p className="assistant-note">{settingsCopy.noActivity}</p>}
       <div className="assistant-channel-inputs">

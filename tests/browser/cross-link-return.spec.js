@@ -9,8 +9,9 @@ import { navigateTo } from "../helpers/navigation.js";
 // opened any other way it keeps its hierarchical back.
 const copy = {
   en: {
-    profile: "Profile",
-    telegram: "Telegram",
+    identity: "Identity",
+    overview: "Overview",
+    channels: "Channels",
     connections: /^Manage connections/,
     runtime: "Agent service settings",
     speech: /^Speech recognition · Deepgram/,
@@ -19,8 +20,9 @@ const copy = {
     menu: "Open navigation",
   },
   de: {
-    profile: "Profil",
-    telegram: "Telegram",
+    identity: "Identität",
+    overview: "Überblick",
+    channels: "Kanäle",
     connections: /^Zugänge verwalten/,
     runtime: "Agentendienst-Einstellungen",
     speech: /^Spracherkennung · Deepgram/,
@@ -47,10 +49,10 @@ for (const [language, text] of Object.entries(copy))
     test.describe(`cross-link back (${language}, ${size})`, () => {
       test.use({ viewport });
 
-      test("Profile → Accounts returns to the agent's Profile tab", async ({ page }) => {
+      test("Identity → Zugänge returns to the agent's Identity tab", async ({ page }) => {
         await setup(page, { language });
         await page.setViewportSize({ width: viewport.width, height: 600 });
-        await page.goto(baseURL + settingsPath());
+        await page.goto(baseURL + settingsPath("identity"));
         const link = page.getByRole("link", { name: text.connections });
         await link.scrollIntoViewIfNeeded();
         const offset = await scrollOffset(page);
@@ -59,8 +61,8 @@ for (const [language, text] of Object.entries(copy))
         // The origin survives a reload of the target page.
         await page.reload();
         await back(page, text.backToAgent).click();
-        await expect(page).toHaveURL(/\/agents\/home\/settings$/);
-        await expect(agentTab(page, text.profile)).toHaveAttribute(
+        await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
+        await expect(agentTab(page, text.identity)).toHaveAttribute(
           "aria-selected",
           "true",
         );
@@ -75,13 +77,13 @@ for (const [language, text] of Object.entries(copy))
         await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=/);
         await back(page, text.backToAgent).click();
         await expect(page).toHaveURL(/\/agents\/home\/settings$/);
-        await expect(agentTab(page, text.profile)).toHaveAttribute(
+        await expect(agentTab(page, text.overview)).toHaveAttribute(
           "aria-selected",
           "true",
         );
       });
 
-      test("Telegram → Deepgram returns to the Telegram tab", async ({ page }) => {
+      test("Channels → Deepgram returns to the Channels tab", async ({ page }) => {
         await setup(page, { language });
         await page.goto(baseURL + settingsPath("telegram"));
         await page.getByRole("link", { name: text.speech }).click();
@@ -90,7 +92,7 @@ for (const [language, text] of Object.entries(copy))
         );
         await back(page, text.backToAgent).click();
         await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
-        await expect(agentTab(page, text.telegram)).toHaveAttribute(
+        await expect(agentTab(page, text.channels)).toHaveAttribute(
           "aria-selected",
           "true",
         );
@@ -144,7 +146,7 @@ test.describe("cross-links on phones", () => {
     page,
   }) => {
     await setup(page);
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     await page.getByRole("link", { name: copy.en.connections }).click();
     await expect(back(page, copy.en.backToAgent)).toBeVisible();
     await openAccountItem(page, "ChatGPT for agents");
@@ -153,7 +155,7 @@ test.describe("cross-links on phones", () => {
     await back(page, "Back").click();
     await expect(page).toHaveURL(/\/connections\?section=models&returnTo=/);
     await back(page, copy.en.backToAgent).click();
-    await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   });
 
   test("a hub reached later keeps the menu", async ({ page }) => {

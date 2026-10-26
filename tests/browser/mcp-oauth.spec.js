@@ -445,18 +445,24 @@ for (const [label, use] of [
       await expect(panel.getByRole("status").filter({ hasText: /^Saved/ })).toHaveText(
         "Saved \u2014 will be applied to running agents shortly. Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
       );
-      await page.goto(baseURL + settingsPath("capabilities"));
-      const agent = page.getByRole("region", { name: "MCP servers" });
-      await expect(agent.getByLabel(/docs/)).toBeChecked();
+      // The agent's MCP servers moved to its Access tab.
+      await page.goto(baseURL + settingsPath("access"));
+      const agent = page.locator("#agent-mcp");
+      await expect(agent.locator('[data-access-grant="s1"]')).toContainText("docs");
       await expect(agent.getByText("Status unknown", { exact: true })).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toBeVisible();
       await expect(agent).toContainText("Log in to OAuth servers under Accounts");
       if (label === "phone") await fits(page);
       // Saving the bindings reads the statuses again; a save needs a change.
-      await agent.getByLabel(/tracker/).uncheck();
+      await agent.getByRole("button", { name: "Revoke tracker" }).click();
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(agent.getByText("MCP servers saved.")).toBeVisible();
-      await agent.getByLabel(/tracker/).check();
+      await page.getByRole("combobox", { name: "Add MCP server" }).click();
+      await page
+        .getByRole("listbox", { name: "MCP server: options" })
+        .getByRole("option", { name: /tracker/ })
+        .click();
+      await page.getByRole("button", { name: "Add 1" }).click();
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(agent.getByText("MCP servers saved.")).toBeVisible();
       await expect(agent.getByText("Connected", { exact: true })).toHaveCount(2);

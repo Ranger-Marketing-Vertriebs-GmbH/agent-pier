@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { readRoute, routePath } from "../../web/app/routes.js";
+import { canonicalRoute, readRoute, routePath } from "../../web/app/routes.js";
 import { readExplorerRoute, explorerQuery } from "../../web/features/files/routes.js";
-import { agentPages, agentTabs } from "../../web/features/assistants/settings-routes.js";
+import {
+  agentPages,
+  agentTabs,
+  legacyAgentTabs,
+} from "../../web/features/assistants/settings-routes.js";
 import { extensionTabs } from "../../web/features/extensions/routes.js";
 import { accountSections } from "../../web/features/accounts/routes.js";
 import { settingsTabs } from "../../web/features/operations/routes.js";
@@ -17,10 +21,9 @@ test("generated public session and profile routes round-trip without changing id
       const route = { view: "workspace", sessionId: id, mode };
       assert.deepEqual(parse(routePath(route)), route);
       for (const extensionTab of extensionTabs) {
-        assert.deepEqual(
-          parse(routePath({ view: "extensions", profileId: id, extensionTab })),
-          { view: "extensions", profileId: id, extensionTab },
-        );
+        // Extensions moved to Coding › CLIs and extensions; old routes land there.
+        const extensions = { view: "extensions", profileId: id, extensionTab };
+        assert.deepEqual(parse(routePath(extensions)), canonicalRoute(extensions));
       }
       assert.deepEqual(parse(`/sessions/${id}/reader`), {
         ...route,
@@ -144,7 +147,7 @@ test("generated settings, agent and accounts addresses round-trip and normalise 
   check(
     fc.property(
       publicId,
-      fc.constantFrom(...agentTabs, "junk", ""),
+      fc.constantFrom(...agentTabs, ...legacyAgentTabs, "junk", ""),
       fc.constantFrom(...Object.keys(agentPages), "junk", ""),
       fc.constantFrom(...accountSections, "junk", ""),
       fc.constantFrom(...settingsTabs, "junk"),

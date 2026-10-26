@@ -174,7 +174,7 @@ test("fits a phone screen", async ({ page }) => {
   const section = page.getByRole("region", { name: "Telegram for other people" });
   await section.scrollIntoViewIfNeeded();
   await expect(section.getByText("Status: running")).toBeVisible();
-  await expect(agentTab(page, "Telegram")).toHaveAttribute("aria-selected", "true");
+  await expect(agentTab(page, "Channels")).toHaveAttribute("aria-selected", "true");
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
@@ -224,9 +224,12 @@ test("an agent with its own bot binds remote MCP servers only", async ({ page })
       ],
     }),
   );
-  await page.goto(baseURL + settingsPath("capabilities"));
-  await expect(page.getByRole("checkbox", { name: /Files/ })).toBeDisabled();
-  await expect(page.getByRole("checkbox", { name: /Lookup/ })).toBeEnabled();
+  await page.goto(baseURL + settingsPath("access"));
+  // The inline add field offers remote servers only.
+  await page.getByRole("combobox", { name: "Add MCP server" }).click();
+  const options = page.getByRole("listbox", { name: "MCP server: options" });
+  await expect(options.getByRole("option", { name: /Files/ })).toHaveCount(0);
+  await expect(options.getByRole("option", { name: /Lookup/ })).toBeVisible();
   await expect(
     page.getByText("so it cannot use stdio servers: they run commands on this computer."),
   ).toBeVisible();

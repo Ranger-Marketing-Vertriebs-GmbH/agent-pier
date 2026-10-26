@@ -1,5 +1,5 @@
 import { sameValue } from "../../../lib/settings/draft-state.js";
-import { agentSettingsLocation } from "../settings-routes.js";
+import { agentPages, agentSettingsLocation } from "../settings-routes.js";
 import { heartbeatForm } from "../heartbeat.js";
 import { shellEligible, shellLevel } from "../shell-level.js";
 
@@ -25,9 +25,10 @@ export const capabilityFormKeys = [
   ...capabilityKeys,
   "browserVisible",
   "shell",
-  "mcpServers",
   "skills",
 ];
+// MCP servers are granted in the Access tab, saved with the agent's PATCH.
+export const mcpKeys = ["mcpServers"];
 export const profileKeys = [
   "name",
   "instructions",
@@ -67,39 +68,41 @@ export const teamKeys = [
   "runTimeoutMinutes",
 ];
 
-const pageTabs = {
-  memory: "capabilities",
-  allowlist: "capabilities",
-  skills: "capabilities",
-  actions: "work",
-  projects: "work",
-  pipelines: "work",
-  ssh: "work",
-  github: "work",
-  secrets: "work",
-  hook: "routines",
-  "telegram-activity": "telegram",
-  "telegram-connection": "telegram",
-};
-
 export const isPersonal = (assistant) =>
   !assistant?.teamMemberId || assistant.lifetime === "permanent";
 
-export const visibleAgentTabs = (assistant) =>
-  isPersonal(assistant)
-    ? ["profile", "capabilities", "work", "routines", "telegram"]
-    : ["profile", "capabilities"];
+/**
+ * The tabs an agent has (handoff 5.4): a temporary member only Overview, Identity,
+ * Capabilities and Access (its lead's grants, read only); permanent members and
+ * agents of users have no Team tab.
+ */
+export function visibleAgentTabs(assistant) {
+  if (!isPersonal(assistant)) return ["overview", "identity", "capabilities", "access"];
+  const team = !assistant?.teamMemberId && !assistant?.userAccess;
+  return [
+    "overview",
+    "identity",
+    "capabilities",
+    "access",
+    ...(team ? ["team"] : []),
+    "automation",
+    "channels",
+  ];
+}
 
 /** Whether the agent has this subpage; Telegram subpages also need a channel (tab). */
 export function agentPageAllowed(assistant, page) {
   if (!page) return true;
-  if (!pageTabs[page]) return false;
+  if (!agentPages[page]) return false;
   // A task member's own memory is always on; the owner can read it (AGENTPIER-119).
   if (page === "memory")
     return isPersonal(assistant)
       ? assistant.capabilities?.memory === true
       : !!assistant.inherited && !assistant.archivedAt;
   if (!isPersonal(assistant)) return false;
+  // An agent of users never has these grants (user-agent-lock.js).
+  if (assistant.userAccess && ["ssh", "github", "pipelines", "secrets"].includes(page))
+    return false;
   if (page === "allowlist" || page === "skills") return shellEligible(assistant);
   return true;
 }
@@ -108,17 +111,17 @@ export function agentPageAllowed(assistant, page) {
 export function resolveAgentLocation(assistant, route) {
   const wanted = agentSettingsLocation(route);
   const tabs = visibleAgentTabs(assistant);
-  const tab = tabs.includes(wanted.tab) ? wanted.tab : "profile";
+  const tab = tabs.includes(wanted.tab) ? wanted.tab : "overview";
   const page =
     tab === wanted.tab && agentPageAllowed(assistant, wanted.page) ? wanted.page : "";
   return { tab, page, tabs, normalized: tab !== wanted.tab || page !== wanted.page };
 }
 
-export const agentRoute = (assistantId, tab = "profile", page = "", hook = "") => ({
+export const agentRoute = (assistantId, tab = "overview", page = "", hook = "") => ({
   view: "agents",
   assistantId,
   agentSettings: true,
-  ...(tab !== "profile" || page ? { agentTab: tab } : {}),
+  ...(tab !== "overview" || page ? { agentTab: tab } : {}),
   ...(page ? { agentPage: page } : {}),
   ...(page && hook ? { agentHook: hook } : {}),
 });
@@ -196,7 +199,6 @@ export const capabilityServer = (assistant) => ({
   ...pick(assistant?.capabilities, capabilityKeys),
   browserVisible: assistant?.browserVisible === true,
   shell: shellLevel(assistant),
-  mcpServers: sortedIds(assistant?.mcpServers),
   skills: sortedIds(assistant?.skills),
 });
 
@@ -216,7 +218,6 @@ export function capabilityPatch({ values, base, assistant }) {
     patch.browserVisible = values.browserVisible;
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
-  if (changed("mcpServers")) patch.mcpServers = values.mcpServers;
   if (shellEligible(assistant) && changed("skills")) patch.skills = values.skills;
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
@@ -260,7 +261,8 @@ export function channelPatch({ values, base }) {
   return patch;
 }
 
-export const workServer = (policy, team) => ({
+/** The Access tab's share of the work record: grants and permissions. */
+export const accessServer = (policy) => ({
   projectIds: sortedIds(policy?.projectIds),
   projectFiles: sortedLevels(policy?.projectFiles),
   pipelineIds: sortedIds(policy?.pipelineIds),
@@ -274,11 +276,18 @@ export const workServer = (policy, team) => ({
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
+});
+/** The Team tab's share: the lead's team policy. */
+export const teamServer = (team) => ({
   teamUsage: teamUsageLevels.includes(team?.usage) ? team.usage : "suggest",
   teamAutonomous: team?.autonomous === true,
   memberShellSsh: team?.memberShellSsh === true,
   maxMembers: team?.maxMembers ?? "",
   runTimeoutMinutes: team?.runTimeoutMinutes ?? "",
+});
+export const workServer = (policy, team) => ({
+  ...accessServer(policy),
+  ...teamServer(team),
 });
 
 // The team policy limits the server enforces (team-policy.js).
@@ -293,10 +302,21 @@ export const invalidTeamKeys = (values) =>
     })
     .map(([key]) => key);
 
-/** The PUT /assistants/:id/work body: only the halves with changes, each with its revision. */
-export function workBody({ values, changed, revisions, withTeam, sshHostIds = null }) {
+/**
+ * The PUT /assistants/:id/work body: only the halves with changes, each with its
+ * revision. The server keeps a half the body leaves out (assistant-work.js), so the
+ * Access tab sends `access` alone and the Team tab `team` alone.
+ */
+export function workBody({
+  values,
+  changed,
+  revisions,
+  withAccess = true,
+  withTeam,
+  sshHostIds = null,
+}) {
   const body = {};
-  if (accessKeys.some((key) => changed.includes(key)))
+  if (withAccess && accessKeys.some((key) => changed.includes(key)))
     body.access = {
       revision: revisions.access,
       ...Object.fromEntries(

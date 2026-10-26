@@ -15,7 +15,7 @@ export default function TelegramConnectionPage({ telegram, onBack }) {
     <>
       <SubpageHeader
         title={settingsCopy.connectionPage}
-        tab="telegram"
+        tab="channels"
         onBack={onBack}
         hint={copy.description}
       />

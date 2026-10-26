@@ -148,7 +148,7 @@ test.describe("agent chat handoff measurements", () => {
         },
       ],
     });
-    await page.goto(baseURL + "/agents/home/settings?tab=work");
+    await page.goto(baseURL + "/agents/home/settings?tab=team");
     const card = page.locator(".assistant-team-card");
     const chevron = card.locator(":scope > summary .assistant-team-chevron");
     await expect(chevron).toHaveText("›");

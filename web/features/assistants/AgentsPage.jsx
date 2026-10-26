@@ -132,7 +132,8 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
         assistant={assistant}
         route={route}
         navigate={navigate}
-        onBack={() => back(assistant)}
+        onBack={() => navigate({ view: "agents" })}
+        onOpenChat={() => open(assistant)}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
         error={error || loadError}

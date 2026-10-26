@@ -4,7 +4,8 @@ import usePolling from "../usePolling.js";
 import { pendingCount } from "./agent-settings-fields.js";
 
 // Every action of the agent (coding tasks, project memory changes), polled while the
-// Work tab is open; slow responses never overlap (usePolling).
+// Overview tab is open; slow responses never overlap (usePolling). Without an id
+// (a temporary member, which has no actions) nothing is read.
 export default function useActionHistory(assistantId) {
   const [actions, setActions] = useState(null),
     [error, setError] = useState(""),
@@ -20,7 +21,7 @@ export default function useActionHistory(assistantId) {
       }
     },
     3000,
-    { restartKey: assistantId },
+    { restartKey: assistantId, enabled: Boolean(assistantId) },
   );
   const act = useCallback(
     async (operation) => {

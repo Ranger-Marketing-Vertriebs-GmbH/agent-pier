@@ -25,6 +25,8 @@ export default function AssistantHeader({
   member,
   compacting = false,
   subtitle,
+  backLabel,
+  actions,
 }) {
   const { runtime, models, activity = {} } = useAssistants();
   const status = headerStatus({
@@ -61,7 +63,7 @@ export default function AssistantHeader({
           <button
             type="button"
             className="assistant-header-icon"
-            aria-label={copy.backToChat}
+            aria-label={backLabel || copy.backToChat}
             onClick={onBack}
           >
             <Icon name="back" />
@@ -87,7 +89,8 @@ export default function AssistantHeader({
               </span>
             )}
           </div>
-          {settings && !missing ? (
+          {/* Agent settings carry their own actions and show the status line. */}
+          {settings && !missing && !actions ? (
             <p className="assistant-header-sub">{subtitle || copy.settingsTab}</p>
           ) : (
             <p className={`assistant-header-status ${status.tone}`}>
@@ -97,7 +100,7 @@ export default function AssistantHeader({
                 className="assistant-header-dot"
               />
               <span className="assistant-header-label">{status.label}</span>
-              {!settings && detail && (
+              {(!settings || actions) && detail && (
                 <span className="assistant-header-detail">· {detail}</span>
               )}
             </p>
@@ -106,6 +109,7 @@ export default function AssistantHeader({
         {!settings && assistant.browserRunning && (
           <BrowserPreview assistant={assistant} navigate={navigate} />
         )}
+        {actions}
         {!settings && (
           <button
             type="button"

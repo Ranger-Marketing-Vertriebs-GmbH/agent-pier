@@ -107,7 +107,7 @@ test("a dropped image stays in its chat's composer across agents and settings, t
     "What is in this picture?",
   );
   await page.getByRole("button", { name: "Agent settings", exact: true }).click();
-  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+  await page.getByRole("button", { name: "Open chat", exact: true }).click();
   await expect(tray(page).getByText("photo.png")).toBeVisible();
   expect(state.deleted).toEqual([]);
   await expect.poll(() => state.kept.filter((id) => id === "file-1").length).toBe(2);
@@ -126,7 +126,7 @@ for (const [language, words] of Object.entries({
     remove: "Remove photo.png",
     send: "Send",
     settings: "Agent settings",
-    back: "Back to conversation",
+    back: "Open chat",
   },
   de: {
     list: "Anhänge",
@@ -134,7 +134,7 @@ for (const [language, words] of Object.entries({
     remove: "photo.png entfernen",
     send: "Senden",
     settings: "Agenten-Einstellungen",
-    back: "Zurück zur Unterhaltung",
+    back: "Chat öffnen",
   },
 }))
   test(`${language}: a kept file that expired meanwhile says so and can be removed`, async ({

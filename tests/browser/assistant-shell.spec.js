@@ -240,7 +240,7 @@ for (const [label, use] of [
       });
       await page.goto(baseURL + settingsPath("capabilities"));
       await expect(shell(page)).toContainText(
-        "Task-bound team members get shell access only when their lead agent allows it under Work, and at most at the lead's level.",
+        "Task-bound team members get shell access only when their lead agent allows it under Team, and at most at the lead's level.",
       );
       for (const name of [/^Off/, /^With approval/, /^Full access/])
         await expect(shell(page).getByRole("radio", { name })).toBeDisabled();

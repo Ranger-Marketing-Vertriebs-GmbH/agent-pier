@@ -349,19 +349,19 @@ test("Telegram links use the browser address, which the owner can change", async
   await expect(
     panel.getByText("Ignored messages: 2 from other private chats, 1 from groups."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Back to Telegram" }).click();
+  await page.getByRole("button", { name: "Back to Channels" }).click();
   await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(panel.getByText(/Deepgram balance or quota is exhausted/)).toBeVisible();
   await expect(panel.getByText('{"err_msg":"Insufficient credits"}')).toBeVisible();
-  await page.getByRole("button", { name: "Back to Telegram" }).click();
+  await page.getByRole("button", { name: "Back to Channels" }).click();
   const address = panel.getByLabel("AgentPier address for links");
   await expect(address).toHaveValue(origin);
   await address.fill("https://pier.example");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => state.patched?.appUrl).toBe("https://pier.example");
   await expect(address).toHaveValue("https://pier.example");
   await panel.getByLabel("Language of Telegram notices").selectOption("de");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => state.patched?.language).toBe("de");
   expect(state.patched.appUrl).toBeUndefined();
 });

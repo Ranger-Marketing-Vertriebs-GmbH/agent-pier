@@ -64,7 +64,7 @@ for (const [label, viewport] of [
       });
     });
 
-test("German copy appears on the card and the Work row", async ({ page }) => {
+test("German copy appears on the card and the Access group", async ({ page }) => {
   await setup(page, { actions: [sshAction("a1")] });
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "de"));
   await openChat(page);
@@ -72,8 +72,15 @@ test("German copy appears on the card and the Work row", async ({ page }) => {
     page.getByRole("button", { name: "Einmal erlauben auf opnsense" }),
   ).toBeVisible();
   await setupAssistantSettings(page, { language: "de", catalog: catalog() });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(page.getByRole("link", { name: /^SSH-Zugänge/ })).toContainText("Keine");
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(
+    page
+      .locator("#agent-access-ssh")
+      .getByRole("heading", { name: /^SSH\/SFTP · 0 von / }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "SSH/SFTP-Zugang hinzufügen" }),
+  ).toBeVisible();
 });
 
 test("the card and the modes work with the keyboard alone", async ({

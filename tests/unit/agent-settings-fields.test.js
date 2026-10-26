@@ -23,6 +23,8 @@ import {
   visibleAgentTabs,
   workBody,
   workServer,
+  accessServer,
+  teamServer,
 } from "../../web/features/assistants/settings/agent-settings-fields.js";
 
 const agent = (extra = {}) => ({
@@ -42,30 +44,52 @@ const settings = (extra = {}) => ({
   ...extra,
 });
 
-test("personal agents get five tabs, task-bound members two", () => {
-  const personal = ["profile", "capabilities", "work", "routines", "telegram"];
-  assert.deepEqual(visibleAgentTabs(agent()), personal);
+const seven = [
+  "overview",
+  "identity",
+  "capabilities",
+  "access",
+  "team",
+  "automation",
+  "channels",
+];
+
+test("agents get seven tabs; members and agents of users fewer (AC-AS-4)", () => {
+  assert.deepEqual(visibleAgentTabs(agent()), seven);
+  const withoutTeam = seven.filter((tab) => tab !== "team");
   assert.deepEqual(
     visibleAgentTabs(agent({ teamMemberId: "m", lifetime: "permanent" })),
-    personal,
+    withoutTeam,
+  );
+  assert.deepEqual(
+    visibleAgentTabs(agent({ userAccess: { mode: "own", members: [] } })),
+    withoutTeam,
   );
   assert.deepEqual(visibleAgentTabs(agent({ teamMemberId: "m", lifetime: "task" })), [
-    "profile",
+    "overview",
+    "identity",
     "capabilities",
+    "access",
   ]);
 });
 
 test("locations the agent cannot show normalise to a valid tab", () => {
   assert.deepEqual(resolveAgentLocation(agent(), settings({ agentTab: "work" })), {
-    tab: "work",
+    tab: "overview",
     page: "",
-    tabs: ["profile", "capabilities", "work", "routines", "telegram"],
+    tabs: seven,
     normalized: false,
   });
   const member = agent({ teamMemberId: "m", lifetime: "task" });
   const hidden = resolveAgentLocation(member, settings({ agentTab: "telegram" }));
-  assert.equal(hidden.tab, "profile");
+  assert.equal(hidden.tab, "overview");
   assert.equal(hidden.normalized, true);
+  const userAgent = agent({ userAccess: { mode: "shared", members: [] } });
+  const team = resolveAgentLocation(userAgent, settings({ agentTab: "team" }));
+  assert.deepEqual([team.tab, team.normalized], ["overview", true]);
+  // A member has no actions or grant subpages of its own.
+  const actions = resolveAgentLocation(member, settings({ agentPage: "actions" }));
+  assert.deepEqual([actions.tab, actions.page], ["overview", ""]);
   const noMemory = agent({ capabilities: { memory: false } });
   const memory = resolveAgentLocation(
     noMemory,
@@ -83,9 +107,49 @@ test("locations the agent cannot show normalise to a valid tab", () => {
   assert.equal(allowlist.page, "");
 });
 
+test("every old tab and page deep link lands on its new tab (AC-AS-1)", () => {
+  const cases = [
+    [{ agentTab: "profile" }, "identity", ""],
+    [{ agentTab: "work" }, "overview", ""],
+    [{ agentTab: "work", agentPage: "actions" }, "overview", "actions"],
+    [{ agentTab: "work", agentTeam: "team-1" }, "team", ""],
+    ...["projects", "pipelines", "ssh", "github", "secrets"].map((page) => [
+      { agentTab: "work", agentPage: page },
+      "access",
+      page,
+    ]),
+    ...["memory", "allowlist", "skills"].map((page) => [
+      { agentTab: "capabilities", agentPage: page },
+      "capabilities",
+      page,
+    ]),
+    [{ agentTab: "routines" }, "automation", ""],
+    [{ agentTab: "routines", agentPage: "hook" }, "automation", "hook"],
+    [{ agentTab: "telegram" }, "channels", ""],
+    [
+      { agentTab: "telegram", agentPage: "telegram-activity" },
+      "channels",
+      "telegram-activity",
+    ],
+    [
+      { agentTab: "telegram", agentPage: "telegram-connection" },
+      "channels",
+      "telegram-connection",
+    ],
+  ];
+  for (const [fields, tab, page] of cases) {
+    const location = resolveAgentLocation(agent(), settings(fields));
+    assert.deepEqual([location.tab, location.page], [tab, page], JSON.stringify(fields));
+  }
+});
+
 test("agent routes leave the default tab out and carry a subpage's tab", () => {
   assert.deepEqual(agentRoute("home"), settings());
-  assert.deepEqual(agentRoute("home", "work"), settings({ agentTab: "work" }));
+  assert.deepEqual(agentRoute("home", "access"), settings({ agentTab: "access" }));
+  assert.deepEqual(
+    agentRoute("home", "overview", "actions"),
+    settings({ agentTab: "overview", agentPage: "actions" }),
+  );
   assert.deepEqual(
     agentRoute("home", "capabilities", "memory"),
     settings({ agentTab: "capabilities", agentPage: "memory" }),
@@ -93,14 +157,17 @@ test("agent routes leave the default tab out and carry a subpage's tab", () => {
 });
 
 test("a draft stays only for navigations within its own tab", () => {
-  const stays = staysOnAgentTab("home", "work");
+  const stays = staysOnAgentTab("home", "access");
   assert.equal(
-    stays({ next: settings({ agentTab: "work", agentPage: "projects" }) }),
+    stays({ next: settings({ agentTab: "access", agentPage: "projects" }) }),
     true,
   );
-  assert.equal(stays({ next: settings({ agentTab: "telegram" }) }), false);
+  // An old link into the same content counts as the same tab.
+  assert.equal(stays({ next: settings({ agentTab: "work", agentPage: "ssh" }) }), true);
+  assert.equal(stays({ next: settings({ agentTab: "team" }) }), false);
+  assert.equal(stays({ next: settings({ agentTab: "channels" }) }), false);
   assert.equal(
-    stays({ next: { ...settings({ agentTab: "work" }), assistantId: "other" } }),
+    stays({ next: { ...settings({ agentTab: "access" }), assistantId: "other" } }),
     false,
   );
   assert.equal(
@@ -168,7 +235,6 @@ test("capability drafts flatten switches and send only what changed", () => {
     createImages: false,
     browserVisible: false,
     shell: "off",
-    mcpServers: ["a", "b"],
     skills: [],
   });
   // The visible browser window is sent on its own, and never for a member.
@@ -193,11 +259,11 @@ test("capability drafts flatten switches and send only what changed", () => {
   );
   assert.deepEqual(
     capabilityPatch({
-      values: { ...base, shell: "approval", mcpServers: ["a"] },
+      values: { ...base, shell: "approval" },
       base,
       assistant,
     }),
-    { shell: "approval", mcpServers: ["a"] },
+    { shell: "approval" },
   );
   // Skills are sent sorted, and only when they changed.
   assert.deepEqual(
@@ -388,6 +454,31 @@ test("work drafts send only the half that changed, each with its revision", () =
   );
   assert.equal(workServer(null, { usage: "onRequest" }).teamUsage, "onRequest");
   assert.equal(workServer(null, { usage: "always" }).teamUsage, "suggest");
+});
+
+test("the Access and Team tabs each send only their own half of the work record", () => {
+  const policy = { revision: 4, projectIds: ["p1"], pipelineIds: [], memoryWrite: true };
+  const team = { revision: 7, maxMembers: 4, runTimeoutMinutes: 30 };
+  assert.deepEqual(workServer(policy, team), {
+    ...accessServer(policy),
+    ...teamServer(team),
+  });
+  assert.equal("maxMembers" in accessServer(policy), false);
+  assert.equal("projectIds" in teamServer(team), false);
+  const values = { ...workServer(policy, team), publish: true, maxMembers: 6 };
+  const changed = ["publish", "maxMembers"];
+  const revisions = { access: 4, team: 7 };
+  // The Team tab never sends the access half, so grants saved elsewhere stay.
+  assert.deepEqual(
+    Object.keys(
+      workBody({ values, changed, revisions, withAccess: false, withTeam: true }),
+    ),
+    ["team"],
+  );
+  assert.deepEqual(
+    Object.keys(workBody({ values, changed, revisions, withTeam: false })),
+    ["access"],
+  );
 });
 
 test("secret grants are sorted and sent only when they changed", () => {

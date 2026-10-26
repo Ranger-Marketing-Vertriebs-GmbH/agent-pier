@@ -23,21 +23,24 @@ const catalog = (secrets = [database, github]) => ({
   sshHosts: [],
   secrets,
 });
-const row = (page) => page.getByRole("link", { name: /^Secrets/ });
-const save = (page) => saveBar(page).getByRole("button", { name: "Save", exact: true });
+const group = (page) => page.locator("#agent-access-secrets");
+const heading = (page) => group(page).getByRole("heading", { name: /^Secrets · / });
+const save = (page) =>
+  saveBar(page).getByRole("button", { name: "Save agent", exact: true });
 
-test("secrets are picked and saved with the Work tab", async ({ page }) => {
+test("secrets are picked and saved with the Access tab", async ({ page }) => {
   const state = await setup(page, { catalog: catalog() });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(row(page)).toContainText("None");
-  await row(page).click();
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(heading(page)).toHaveText("Secrets · 0 of 2");
+  await page.goto(baseURL + settingsPath("access", "secrets"));
   await expect(page.getByText(/\.agentpier\/secrets\.env/)).toBeVisible();
   await expect(page.getByText(/can read their values/)).toBeVisible();
   await expect(page.getByText("Read-only token · Global")).toBeVisible();
   await expect(page.getByText("Project: Agent app")).toBeVisible();
   await page.getByLabel("GITHUB_TOKEN", { exact: true }).check();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await expect(row(page)).toContainText("1 secret");
+  await page.getByRole("button", { name: "Back to Access" }).click();
+  await expect(heading(page)).toHaveText("Secrets · 1 of 2");
+  await expect(group(page).getByText("GITHUB_TOKEN", { exact: true })).toBeVisible();
   await save(page).click();
   await expect.poll(() => state.work.length).toBe(1);
   expect(state.work[0].access.secretIds).toEqual(["secret-github"]);
@@ -50,8 +53,8 @@ test("a saved grant is shown and an unchanged list is not sent", async ({ page }
   });
   await page.goto(baseURL + settingsPath("work", "secrets"));
   await expect(page.getByLabel("DATABASE_URL", { exact: true })).toBeChecked();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await expect(row(page)).toContainText("1 secret");
+  await page.getByRole("button", { name: "Back to Access" }).click();
+  await expect(heading(page)).toHaveText("Secrets · 1 of 2");
   await page
     .getByRole("switch", { name: /Allow proposals to update project memory/ })
     .check();
@@ -90,7 +93,7 @@ test("an agent of users has no secrets and names the lock", async ({ page }) => 
   });
   await page.goto(baseURL + settingsPath("work", "secrets"));
   await expect(page.getByRole("note")).toContainText(/Locked: .*Secrets/);
-  await expect(row(page)).toHaveCount(0);
+  await expect(group(page)).toHaveCount(0);
   await expect(page.getByLabel("GITHUB_TOKEN", { exact: true })).toHaveCount(0);
 });
 

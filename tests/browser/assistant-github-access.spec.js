@@ -5,7 +5,7 @@ import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 
 // The Work tab gives an agent GitHub through a token profile (AGENTPIER-129).
-test("English Work tab grants GitHub with the default profile, warns on missing scopes and removes it", async ({
+test("English Access tab grants GitHub with the default profile, warns on missing scopes and removes it", async ({
   page,
 }) => {
   await fixture(page);
@@ -96,7 +96,7 @@ test("English Work tab grants GitHub with the default profile, warns on missing 
     else return route.fallback();
     await route.fulfill({ json: body });
   });
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath("access"));
   await expect(page.getByRole("link", { name: /^GitHub\s*No access/ })).toBeVisible();
   await page.getByRole("link", { name: /^GitHub/ }).click();
   await expect(
@@ -125,22 +125,22 @@ test("English Work tab grants GitHub with the default profile, warns on missing 
     page.getByText("The GitHub MCP server is being installed …"),
   ).toBeVisible();
   expect(installs).toBe(1);
-  await page.getByRole("button", { name: "Back to Work" }).click();
+  await page.getByRole("button", { name: "Back to Access" }).click();
   await expect(
     page.getByRole("link", { name: /^GitHub\s*Read and write · Company/ }),
   ).toBeVisible();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => saves.length).toBe(1);
   expect(saves[0].github).toEqual({ credentialId: "work", level: "write" });
   // Saving something else sends no GitHub access; "No access" removes it.
   await page.getByLabel("Allow selected pipelines to publish pull requests").check();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => saves.length).toBe(2);
   expect("github" in saves[1]).toBe(false);
   await page.getByRole("link", { name: /^GitHub/ }).click();
   await page.getByLabel("No access", { exact: true }).check();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Back to Access" }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => saves.length).toBe(3);
   expect(saves[2].github).toBe(null);
 });

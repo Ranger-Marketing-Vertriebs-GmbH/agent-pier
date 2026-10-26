@@ -17,7 +17,7 @@ const name = (page) => page.getByRole("textbox", { name: "Name", exact: true });
 
 test("a profile changed elsewhere can be reloaded", async ({ page }) => {
   const state = await setup(page, { saveFailures: [conflict] });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await name(page).fill("Mine");
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText(
@@ -33,7 +33,7 @@ test("a profile changed elsewhere can be overwritten with the newer revision", a
   page,
 }) => {
   const state = await setup(page, { saveFailures: [conflict], applyUpdates: true });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await name(page).fill("Mine");
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(
@@ -56,7 +56,7 @@ test("the profile bar shows the apply note and saves name, instructions and mode
   page,
 }) => {
   const state = await setup(page, { applyUpdates: true });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await expect(saveBar(page)).toHaveCount(0);
   await name(page).fill("Home 2");
   await expect(saveBar(page)).toContainText("Applies before the next message.");
@@ -71,7 +71,7 @@ test("the profile bar shows the apply note and saves name, instructions and mode
   await expect(saveBar(page)).toHaveCount(0);
 });
 
-test("the Capabilities tab saves switches and MCP servers in one request", async ({
+test("Capabilities saves its switches; MCP servers are granted and saved in Access", async ({
   page,
 }) => {
   const state = await setup(page, {
@@ -81,19 +81,23 @@ test("the Capabilities tab saves switches and MCP servers in one request", async
   });
   await page.goto(baseURL + settingsPath("capabilities"));
   await page.getByRole("switch", { name: "Remember information" }).check();
-  await page.getByLabel("docs").check();
   await expect(saveBar(page)).toBeVisible();
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
-  expect(state.updates[0]).toMatchObject({
-    revision: 1,
-    capabilities: { memory: true },
-    mcpServers: ["docs"],
-  });
+  expect(state.updates[0]).toMatchObject({ revision: 1, capabilities: { memory: true } });
   expect(state.updates[0]).not.toHaveProperty("shell");
-  await expect(
-    page.getByRole("region", { name: "MCP servers" }).getByRole("status"),
-  ).toHaveText("MCP servers saved.");
+  expect(state.updates[0]).not.toHaveProperty("mcpServers");
+  await expect(saveBar(page)).toHaveCount(0);
+  await page.goto(baseURL + settingsPath("access"));
+  await page.getByRole("combobox", { name: "Add MCP server" }).click();
+  await page.getByRole("option", { name: /docs/ }).click();
+  await page.getByRole("button", { name: "Add 1" }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.updates.length).toBe(2);
+  expect(state.updates[1]).toEqual({ mcpServers: ["docs"], revision: 2 });
+  await expect(page.locator("#agent-mcp").getByRole("status")).toHaveText(
+    "MCP servers saved.",
+  );
   await expect(saveBar(page)).toHaveCount(0);
 });
 
@@ -105,34 +109,33 @@ test("a task-bound member sees granted MCP servers read-only and the shell reaso
   });
   await page.goto(baseURL + settingsPath("capabilities"));
   await expect(page.locator("#agent-shell")).toContainText(
-    "Task-bound team members get shell access only when their lead agent allows it under Work, and at most at the lead's level.",
+    "Task-bound team members get shell access only when their lead agent allows it under Team, and at most at the lead's level.",
   );
   await expect(page.getByRole("switch", { name: "Remember information" })).toHaveCount(0);
   await expect(saveBar(page)).toHaveCount(0);
 });
 
-test("the Work tab saves grants and team policy in one request, then only what changed", async ({
+test("Access saves grants and Team saves the team policy, each its own half", async ({
   page,
 }) => {
   const state = await setup(page, {
     catalog: {
       projects: [
-        { id: "p1", name: "Demo" },
-        { id: "p2", name: "Other" },
+        { id: "p1", name: "Demo", path: "/demo" },
+        { id: "p2", name: "Other", path: "/other" },
       ],
       pipelines: [{ id: "b1", name: "Build" }],
     },
   });
-  await page.goto(baseURL + settingsPath("work"));
-  const projects = page.getByRole("link", { name: /^Allowed projects/ });
-  await expect(projects).toContainText("0 of 2");
-  await projects.click();
-  await page.getByLabel("Demo", { exact: true }).check();
+  await page.goto(baseURL + settingsPath("access"));
+  const projects = page.locator("#agent-access-projects");
+  await expect(projects).toContainText("Projects · 0 of 2");
+  await page.getByRole("combobox", { name: "Add Project" }).click();
+  await page.getByRole("option", { name: /Demo/ }).click();
+  await page.getByRole("button", { name: "Add 1" }).click();
   await expect(unsavedSheet(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await expect(projects).toContainText("1 of 2");
-  await page.getByRole("spinbutton", { name: "Maximum team size" }).fill("6");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(projects).toContainText("Projects · 1 of 2");
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.work.length).toBe(1);
   expect(state.work[0]).toEqual({
     access: {
@@ -143,6 +146,13 @@ test("the Work tab saves grants and team policy in one request, then only what c
       autonomous: false,
       publish: false,
     },
+  });
+  await expect(saveBar(page)).toHaveCount(0);
+  await page.getByRole("tab", { name: "Team", exact: true }).click();
+  await page.getByRole("spinbutton", { name: "Maximum team size" }).fill("6");
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.work.length).toBe(2);
+  expect(state.work[1]).toEqual({
     team: {
       revision: 1,
       usage: "suggest",
@@ -154,9 +164,9 @@ test("the Work tab saves grants and team policy in one request, then only what c
   });
   await expect(saveBar(page)).toHaveCount(0);
   await page.getByRole("spinbutton", { name: "Member time limit (minutes)" }).fill("45");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect.poll(() => state.work.length).toBe(2);
-  expect(state.work[1]).toEqual({
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.work.length).toBe(3);
+  expect(state.work[2]).toEqual({
     team: {
       revision: 2,
       usage: "suggest",
@@ -178,14 +188,14 @@ test("a Telegram save that fails at the channel keeps the edit and retries it", 
     channelFailures: [{ status: 500, error: "Telegram is unavailable" }],
   });
   await page.goto(baseURL + settingsPath("telegram"));
-  // Check-ins moved to Routines & check-ins; this tab saves only the channel.
+  // Check-ins live under Automation; this tab saves only the channel.
   await expect(page.getByRole("switch", { name: "Check in on its own" })).toHaveCount(0);
   await page.getByLabel("Language of Telegram notices").selectOption("de");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText("Telegram is unavailable");
   expect(state.updates).toHaveLength(0);
   expect(state.channelPatches).toEqual([{ language: "de", revision: 1 }]);
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.channelPatches.length).toBe(2);
   expect(state.updates).toHaveLength(0);
   await expect(saveBar(page)).toHaveCount(0);
@@ -200,7 +210,7 @@ test("a channel changed elsewhere keeps the edit and can be overwritten", async 
   state.channel = { ...state.channel, enabled: false, revision: 2 };
   await expect(page.getByRole("button", { name: "Resume Telegram" })).toBeVisible();
   await expect(page.getByLabel("Language of Telegram notices")).toHaveValue("de");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText(
     "Changed elsewhere in the meantime.",
   );

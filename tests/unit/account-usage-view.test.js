@@ -55,21 +55,25 @@ test("row values never show a made-up zero", () => {
 
 test("agents open the settings tab that uses the entry", () => {
   const base = { view: "agents", assistantId: "home", agentSettings: true };
-  assert.deepEqual(agentRoute(home), base);
+  assert.deepEqual(agentRoute({ ...home, via: undefined }), base);
   assert.deepEqual(agentRoute({ ...home, via: "capability" }), {
     ...base,
     agentTab: "capabilities",
   });
+  assert.deepEqual(agentRoute({ ...home, via: "model" }), {
+    ...base,
+    agentTab: "identity",
+  });
   assert.deepEqual(agentRoute({ ...home, via: "binding" }), {
     ...base,
-    agentTab: "capabilities",
+    agentTab: "access",
   });
   assert.deepEqual(agentRoute({ ...home, via: "pipelines" }), {
     ...base,
-    agentTab: "work",
+    agentTab: "access",
   });
   assert.deepEqual(agentRoute({ ...home, via: "channel" }), {
     ...base,
-    agentTab: "telegram",
+    agentTab: "channels",
   });
 });

@@ -63,8 +63,13 @@ test("English project grants and exact action approvals link existing coding run
       body = {
         projects: [{ id: "project", name: "Demo project" }],
         pipelines: [{ id: "pipeline", name: "Build" }],
+        sshHosts: [],
+        secrets: [],
       };
     else if (url.pathname.endsWith("/shell-allowlist")) body = { entries: [] };
+    else if (url.pathname.endsWith("/attachment-usage"))
+      body = { files: 0, bytes: 0, maxFiles: 1000, maxBytes: 1073741824 };
+    else if (url.pathname === "/api/assistant-channels") body = { channels: [] };
     else if (url.pathname.endsWith("/work") && method === "PUT") {
       const input = route.request().postDataJSON();
       if (input.access) policy = { ...input.access, revision: 1 };
@@ -106,17 +111,23 @@ test("English project grants and exact action approvals link existing coding run
     else return route.fallback();
     await route.fulfill({ json: body });
   });
-  await page.goto(baseURL + settingsPath("work"));
-  await page.getByRole("link", { name: /^Allowed projects/ }).click();
-  await page.getByLabel("Demo project", { exact: true }).check();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await page.getByRole("link", { name: /^Allowed pipelines/ }).click();
-  await page.getByLabel("Build", { exact: true }).check();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await page.getByLabel("Allow proposals to update project memory").check();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  // Projects and pipelines are added in the Access tab's inline add fields.
+  await page.goto(baseURL + settingsPath("access"));
+  await page.getByRole("combobox", { name: "Add Project" }).click();
+  await page.getByRole("option", { name: /Demo project/ }).click();
+  await page.getByRole("button", { name: "Add 1", exact: true }).click();
+  await page.getByRole("combobox", { name: "Add Pipeline" }).click();
+  await page.getByRole("option", { name: /Build/ }).click();
+  await page.getByRole("button", { name: "Add 1", exact: true }).click();
+  await page
+    .getByRole("switch", { name: "Allow proposals to update project memory" })
+    .check();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => policy.projectIds).toEqual(["project"]);
+  expect(policy.pipelineIds).toEqual(["pipeline"]);
   expect(policy.autonomous).toBe(false);
+  // The action history moved to the Overview.
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await page.getByRole("link", { name: /^Actions and coding tasks/ }).click();
   await expect(
     page.getByText("Implement the requested feature", { exact: true }),
@@ -142,10 +153,8 @@ test("English project grants and exact action approvals link existing coding run
   ]);
   expect(cancellations).toBe(1);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(
-    page.getByRole("heading", { name: "Projects and coding tasks" }),
-  ).toBeVisible();
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(page.getByRole("heading", { name: /^Projects · 1 of 1/ })).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
@@ -283,7 +292,7 @@ test("pending coding approvals of the agent are decided in the chat", async ({
     .toEqual([["own", { revision: 1, decision: "decline" }]]);
   await expect(approvals.getByText("Task own", { exact: true })).toHaveCount(0);
 });
-test("saving Work drops a granted project that no longer exists and says so", async ({
+test("saving Access drops a granted project that no longer exists and says so", async ({
   page,
 }) => {
   await fixture(page);
@@ -324,7 +333,12 @@ test("saving Work drops a granted project that no longer exists and says so", as
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p === "/api/assistant-workspace-catalog")
-      body = { projects: [{ id: "project", name: "Demo project" }], pipelines: [] };
+      body = {
+        projects: [{ id: "project", name: "Demo project" }],
+        pipelines: [],
+        sshHosts: [],
+        secrets: [],
+      };
     else if (p.endsWith("/work") && method === "PUT") {
       sent = route.request().postDataJSON();
       const { revision, ...input } = sent.access;
@@ -346,12 +360,14 @@ test("saving Work drops a granted project that no longer exists and says so", as
     else return route.fallback();
     await route.fulfill({ json: body });
   });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(page.getByRole("link", { name: /^Allowed projects/ })).toContainText(
-    "1 of 1",
-  );
-  await page.getByLabel("Allow proposals to update project memory").check();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(
+    page.locator("#agent-access-projects").getByText("Demo project", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("switch", { name: "Allow proposals to update project memory" })
+    .check();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect(
     page.getByText(
       "1 allowed project no longer exists and was removed from this agent's access.",

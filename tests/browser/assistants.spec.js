@@ -76,8 +76,9 @@ test("direct sidebar chat preserves drafts through settings and reload restores 
   ).toBeVisible();
   await page.getByLabel("Message", { exact: true }).fill("Keep this dinner idea");
   await page.getByRole("button", { name: "Agent settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Identity", exact: true }).click();
   await expect(page.getByText("Saved revision: 2 · Applied revision: 1")).toBeVisible();
-  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+  await page.getByRole("button", { name: "Open chat", exact: true }).click();
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
     "Keep this dinner idea",
   );
@@ -180,12 +181,12 @@ test("late send acceptance preserves text edited after navigating back", async (
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => received).toBe(true);
   await page.getByRole("button", { name: "Agent settings", exact: true }).click();
-  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+  await page.getByRole("button", { name: "Open chat", exact: true }).click();
   await page.getByLabel("Message", { exact: true }).fill("My next unsent idea");
   accept();
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Agent settings", exact: true }).click();
-  await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+  await page.getByRole("button", { name: "Open chat", exact: true }).click();
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
     "My next unsent idea",
   );
@@ -260,7 +261,7 @@ test("conversation and settings share the mockup navigation on desktop and mobil
       path: `.cache/assistant-settings-aligned-${width}-en.png`,
       fullPage: true,
     });
-    await page.getByRole("button", { name: "Back to conversation", exact: true }).click();
+    await page.getByRole("button", { name: "Open chat", exact: true }).click();
     await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
       "Preserve my draft",
     );
@@ -301,9 +302,7 @@ for (const source of ["sidebar", "settings"]) {
       await requested;
       await page.getByRole("button", { name: "Back to Workspace", exact: true }).click();
     } else {
-      await page
-        .getByRole("button", { name: "Back to conversation", exact: true })
-        .click();
+      await page.getByRole("button", { name: "Open chat", exact: true }).click();
       await requested;
       await navigateTo(page, "Agents");
     }
@@ -347,7 +346,7 @@ test("an agent whose connection was deleted shows the missing connection instead
   ).toBeVisible();
   expect(opened).toEqual([]);
   await page.goto(baseURL + "/agents/home/settings");
-  await expect(page.locator(".assistant-header-status")).toHaveText(
+  await expect(page.locator(".assistant-header-status")).toContainText(
     "Provider connection missing",
   );
 });

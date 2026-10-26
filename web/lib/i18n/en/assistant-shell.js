@@ -16,7 +16,7 @@ export const assistantShellCopy = {
   warning:
     "With shell access the agent works as your user account: with your logins, your files and your keys, and it can read AgentPier's own data. The team write guard does not cover shell commands.",
   temporary:
-    "Task-bound team members get shell access only when their lead agent allows it under Work, and at most at the lead's level.",
+    "Task-bound team members get shell access only when their lead agent allows it under Team, and at most at the lead's level.",
   archived: "Archived agents have no shell access.",
   pending: "The new shell level applies as soon as the agent service is back.",
   badge: {

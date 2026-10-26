@@ -11,6 +11,7 @@ import {
   createInput,
   heartbeatKeys,
   heartbeatPatch,
+  mcpKeys,
   profileKeys,
   profilePatch,
   teamKeys,
@@ -41,6 +42,17 @@ export const capabilityStep = ({ assistant, label, update = assistantApi.update 
     }),
 });
 
+// The MCP servers granted in the Access tab: the agent's PATCH, which asks to confirm
+// binding a local (stdio) server.
+export const mcpStep = ({ assistantId, label, update = assistantApi.update }) => ({
+  id: "assistant",
+  label,
+  keys: mcpKeys,
+  resource: "assistant",
+  run: ({ values, revision, confirmations }) =>
+    update(assistantId, { mcpServers: values.mcpServers, revision, ...confirmations }),
+});
+
 export const heartbeatStep = ({ assistant, label, update }) =>
   assistantPatchStep({
     assistantId: assistant.id,
@@ -66,15 +78,19 @@ export const channelStep = ({
 export const workStep = ({
   assistantId,
   label,
+  withAccess = true,
   withTeam,
   sshHostIds = null,
   save = assistantApi.saveWork,
 }) => ({
   id: "work",
   label,
-  keys: withTeam ? [...accessKeys, ...teamKeys] : accessKeys,
+  keys: [...(withAccess ? accessKeys : []), ...(withTeam ? teamKeys : [])],
   run: ({ values, changed, revisions }) =>
-    save(assistantId, workBody({ values, changed, revisions, withTeam, sshHostIds })),
+    save(
+      assistantId,
+      workBody({ values, changed, revisions, withAccess, withTeam, sshHostIds }),
+    ),
   revisions: (result) => ({
     ...(result?.access ? { access: result.access.revision } : {}),
     ...(result?.team ? { team: result.team.revision } : {}),

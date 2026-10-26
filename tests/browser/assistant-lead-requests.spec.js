@@ -272,11 +272,11 @@ for (const language of ["en", "de"])
         await expect(page.locator(".assistant-approval-strip")).toHaveCount(0);
       });
 
-      test("Settings → Work → Teams lists questions and tasks per member", async ({
+      test("Settings → Team → Teams lists questions and tasks per member", async ({
         page,
       }) => {
         await setup(page, language);
-        await page.goto(baseURL + "/agents/home/settings?tab=work");
+        await page.goto(baseURL + "/agents/home/settings?tab=team");
         const list = page.locator(".agent-member-requests");
         await expect(list.getByRole("radio", { name: w.open })).toBeChecked();
         await expect(list.locator(".lead-request-card")).toHaveCount(2);
@@ -349,7 +349,7 @@ test("a long task's whole text replaces its 'Show all' link once loaded", async 
     const { truncated: _truncated, ...rest } = summary;
     return route.fulfill({ json: { ...rest, text: full } });
   });
-  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  await page.goto(baseURL + "/agents/home/settings?tab=team");
   const card = page.locator(".lead-request-card");
   await card.getByRole("button", { name: "Show all" }).click();
   await expect(card.locator(".assistant-approval-task")).toHaveText(full);
@@ -386,7 +386,7 @@ async function oneRequest(page, record) {
     members: [memberRecord("scout", "Scout", { lifetime: "permanent" })],
     requests: [record],
   });
-  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  await page.goto(baseURL + "/agents/home/settings?tab=team");
   return page.locator(".lead-request-card .lead-request-access");
 }
 
@@ -514,7 +514,7 @@ test("the lead sees its members' exchanges and reports", async ({ page }) => {
   ).toHaveCount(1);
   await fits(page);
   if (shots) await page.screenshot({ path: `${shots}/peer-notes.png` });
-  await page.goto(baseURL + "/agents/home/settings?tab=work");
+  await page.goto(baseURL + "/agents/home/settings?tab=team");
   const list = page.locator(".agent-member-requests");
   const task = list.locator(".lead-request-card");
   await expect(task.locator("strong")).toHaveText("Learning → Head Writer · task");

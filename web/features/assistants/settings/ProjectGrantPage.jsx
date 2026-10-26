@@ -39,7 +39,7 @@ export default function ProjectGrantPage({
   const choices = foldersOnly ? folderLevels.filter((v) => v !== "none") : folderLevels;
   return (
     <section className="agent-subpage ssh-grant-page" aria-label={copy.projects}>
-      <SubpageHeader title={copy.projects} tab="work" onBack={onBack} />
+      <SubpageHeader title={copy.projects} tab="access" onBack={onBack} />
       {foldersOnly && <LockedNotice items={["coding"]} />}
       <p className="assistant-note">
         {foldersOnly ? copy.projectsFoldersIntro : copy.projectsIntro}

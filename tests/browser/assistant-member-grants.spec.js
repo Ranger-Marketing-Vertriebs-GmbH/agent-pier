@@ -262,15 +262,15 @@ async function setup(page, { memberShellSsh = false, permanent = false } = {}) {
   return { posted, policy, decisions };
 }
 
-test("the Work tab saves whether team members may use shell and SSH", async ({
+test("the Team tab saves whether team members may use shell and SSH", async ({
   page,
 }) => {
   const { posted } = await setup(page);
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath("team"));
   const toggle = page.getByLabel("Team members may use shell and SSH");
   await expect(toggle).not.toBeChecked();
   await toggle.check();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => posted.at(-1)?.memberShellSsh).toBe(true);
   await expect(toggle).toBeChecked();
 });
@@ -315,11 +315,11 @@ test("a later shell grant waits for the owner's approval in the lead's chat", as
   await expect.poll(() => decisions.at(-1)?.decision).toBe("approve");
 });
 
-test("a task member's capabilities show what its lead granted and when", async ({
+test("a task member's Access tab shows what its lead granted and when", async ({
   page,
 }) => {
   await setup(page, { memberShellSsh: true });
-  await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
+  await page.goto(baseURL + settingsPath("access", undefined, "member-0"));
   const group = page.locator("#agent-granted");
   await expect(group).toContainText("Granted by the lead agent");
   await expect(
@@ -357,7 +357,7 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
   await expect(notes.filter({ hasText: "moved" })).toHaveText(
     "The lead agent moved Scout from Fixture (Router) to Qwen (Local)",
   );
-  await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
+  await page.goto(baseURL + settingsPath("access", undefined, "member-0"));
   const log = page.locator("[data-grant-log] li").nth(1);
   await expect(log).toContainText(
     "the lead agent changed the member's role, instructions",
@@ -371,11 +371,12 @@ test("a lead's edit of a member shows in its chat and in its history", async ({
   );
 });
 
-test("a permanent member's profile shows its lead's edits and the replaced instructions", async ({
+test("a permanent member's overview shows its lead's edits and the replaced instructions", async ({
   page,
 }) => {
   await setup(page, { permanent: true });
-  await page.goto(baseURL + settingsPath("profile", undefined, "member-0"));
+  // The member card with its history moved from Profile to Overview.
+  await page.goto(baseURL + settingsPath("", undefined, "member-0"));
   const log = page.locator("[data-grant-log] li").nth(1);
   await expect(log).toContainText(
     "the lead agent changed the member's role, instructions",
@@ -408,6 +409,6 @@ test("the owner opens a task member's own memory from its capabilities", async (
 }) => {
   await setup(page);
   await page.goto(baseURL + settingsPath("capabilities", undefined, "member-0"));
-  await page.locator("#agent-granted").getByText("Own memory", { exact: true }).click();
+  await page.getByRole("link", { name: /^Own memory/ }).click();
   await expect(page.getByText("memory/2026-10-17.md").first()).toBeAttached();
 });

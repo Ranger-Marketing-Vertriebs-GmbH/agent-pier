@@ -145,7 +145,7 @@ export default function HookPage({ assistant, hookId, onBack }) {
   const sheet = useAgentDraftGuard({
     draft,
     assistantId,
-    tab: "routines",
+    tab: "automation",
     page: "hook",
     label: hook?.name || copy.unknownName,
     save,
@@ -191,7 +191,7 @@ export default function HookPage({ assistant, hookId, onBack }) {
   if (!view || !hook)
     return (
       <section className="agent-subpage" aria-label={title}>
-        <SubpageHeader title={title} tab="routines" onBack={onBack} />
+        <SubpageHeader title={title} tab="automation" onBack={onBack} />
         <ErrorMessage error={loadError} />
         {!loadError && (
           <p role={view ? undefined : "status"} className="assistant-note">
@@ -222,7 +222,7 @@ export default function HookPage({ assistant, hookId, onBack }) {
     <section className="agent-subpage" aria-label={title}>
       <SubpageHeader
         title={title}
-        tab="routines"
+        tab="automation"
         onBack={onBack}
         hint={copy.description}
       />

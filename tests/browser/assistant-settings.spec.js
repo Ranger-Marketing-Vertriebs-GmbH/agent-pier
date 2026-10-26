@@ -20,7 +20,7 @@ test("settings edits survive a revision bump and a conflicting change offers a r
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + "/agents/home/settings?tab=identity");
   const name = page.getByLabel("Name", { exact: true });
   await name.fill("Home edited");
   state.assistants = [home({ revision: 2, instructions: "Server instructions" })];
@@ -191,13 +191,15 @@ test("mobile settings switch tabs in place and use 38×22 switches", async ({ pa
   await page.goto(baseURL + settingsPath());
   await page.evaluate(() => (window.__marker = "same-document"));
   await expect(page.getByRole("tab")).toHaveText([
-    "Profile",
+    "Overview",
+    "Identity",
     "Capabilities",
-    "Work",
-    "Routines & check-ins",
-    "Telegram",
+    "Access",
+    "Team",
+    "Automation",
+    "Channels",
   ]);
-  await agentTab(page, "Telegram").click();
+  await agentTab(page, "Channels").click();
   await expect(
     page.getByRole("region", { name: "Telegram", exact: true }),
   ).toBeInViewport();
@@ -209,22 +211,28 @@ test("mobile settings switch tabs in place and use 38×22 switches", async ({ pa
   expect([Math.round(box.width), Math.round(box.height)]).toEqual([38, 22]);
 });
 
-test("settings header names the view instead of a status badge", async ({ page }) => {
+test("settings header shows the status line, Open chat and more actions", async ({
+  page,
+}) => {
   await setup(page);
   await page.goto(baseURL + "/agents/home/settings");
-  await expect(page.locator(".assistant-header-sub")).toHaveText("Settings");
-  await expect(page.locator(".assistant-header-status")).toHaveCount(0);
+  await expect(page.locator(".assistant-header-sub")).toHaveCount(0);
+  await expect(page.locator(".assistant-header-status")).toBeVisible();
+  await expect(page.locator(".assistant-header-status")).toContainText("model");
+  await expect(page.getByRole("button", { name: "Open chat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back to agents" })).toBeVisible();
 });
 
 test("arrow keys move between the settings tabs", async ({ page }) => {
   await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseURL + settingsPath());
-  await agentTab(page, "Profile").focus();
+  await agentTab(page, "Overview").focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page).toHaveURL(/tab=capabilities$/);
-  await expect(agentTab(page, "Capabilities")).toBeFocused();
-  await expect(agentTab(page, "Capabilities")).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/tab=identity$/);
+  await expect(agentTab(page, "Identity")).toBeFocused();
+  await expect(agentTab(page, "Identity")).toHaveAttribute("aria-selected", "true");
 });
 
 test("the model field lists the connection's models and keeps a custom model ID", async ({
@@ -246,7 +254,7 @@ test("the model field lists the connection's models and keeps a custom model ID"
       },
     ],
   });
-  await page.goto(baseURL + "/agents/home/settings");
+  await page.goto(baseURL + "/agents/home/settings?tab=identity");
   const model = page.getByRole("combobox", { name: "Model", exact: true });
   await expect(model).toHaveValue("qwen3:4b");
   await expect(model.locator("option")).toHaveText([

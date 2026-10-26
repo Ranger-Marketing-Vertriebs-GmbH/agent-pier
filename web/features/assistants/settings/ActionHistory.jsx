@@ -253,7 +253,7 @@ function ActionCard({ action: a, assistantId, busy, act }) {
 export default function ActionHistory({ history, assistantId, onBack }) {
   return (
     <section className="agent-subpage" aria-label={copy.actions}>
-      <SubpageHeader title={copy.actions} tab="work" onBack={onBack} />
+      <SubpageHeader title={copy.actions} tab="overview" onBack={onBack} />
       <ErrorMessage error={history.error} />
       {history.loaded && !history.actions.length && (
         <p className="assistant-note">{copy.noActions}</p>

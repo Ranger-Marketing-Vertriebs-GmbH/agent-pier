@@ -28,7 +28,7 @@ const releasable = [
  * shared agent. Every
  * change applies at once through the owner's user-agents route.
  */
-export default function UserAccessGroup({ assistant }) {
+export default function UserAccessGroup({ assistant, title = copy.access }) {
   const { refresh } = useAssistants();
   const [users, setUsers] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -74,7 +74,7 @@ export default function UserAccessGroup({ assistant }) {
         id="agent-user-access"
         hint={access.mode === "shared" ? copy.accessHint : undefined}
       >
-        {copy.access}
+        {title}
       </GroupLabel>
       <ErrorMessage error={error} />
       <ListCard labelledBy="agent-user-access">
