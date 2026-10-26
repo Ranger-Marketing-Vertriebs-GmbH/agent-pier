@@ -52,8 +52,11 @@ and agents that work as a team.
   [SFTP](docs/sftp-access.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
-- **Accounts hub:** native CLI accounts, provider connections, ChatGPT for agents and
-  agent services in one place ([providers](docs/providers.md)).
+- **Connections:** model access (provider connections and ChatGPT for agents),
+  services for agents, MCP servers, SSH/SFTP accesses, secrets and GitHub connections
+  in one place, created once and granted where they are used, each with **Used by**
+  ([providers](docs/providers.md)). Native CLI accounts, skills, plugins and subagents
+  are under **CLIs and extensions** ([shared CLI extensions](docs/shared-cli-extensions.md)).
 - **Files and knowledge:** a file explorer, private artifacts, shared project memory
   and AgentBus between sessions ([files](docs/file-explorer.md),
   [artifacts](docs/artifacts.md), [memory](docs/memory.md),
@@ -113,16 +116,18 @@ npm start
 
 1. Open **http://127.0.0.1:4380** and create the workspace user. Later visits need the
    [login](docs/login.md). Finish this before you share access.
-2. Open **Accounts** from the sidebar **Menu**: sign in to a coding CLI under
-   **Native CLI accounts**, or add a provider connection under **Model access**.
-   Missing CLIs can be installed from the overview.
+2. Open the sidebar **Menu** (group **Set up**): sign in to a coding CLI under
+   **CLIs and extensions › Accounts**, or add a provider connection under
+   **Connections › Model access**. Missing CLIs can be installed from the overview or
+   under **CLIs and extensions › Installation**. **Search** (⌘K or Ctrl+K) finds every
+   page, agent and action, also by its old name.
 3. Choose **New → Session**, pick a CLI, an account and a project folder, and start.
    The native terminal handles CLI logins and menus; the chat shows the saved
    conversation.
-4. Optional: switch on agents under **Settings → Workspace → Agents → Enable agents**
-   and create one under **Agents** ([agents guide](docs/agents.md)).
+4. Optional: open **Agents** from the **Menu**, choose **Enable agents** and create one
+   with **New agent** ([agents guide](docs/agents.md)).
 
-Choose German or English under **Settings → Workspace → General → Language**.
+Choose German or English under **Settings › General › Language**.
 Stopping the web server leaves CLI sessions running; stop a session in the interface
 to end its CLI process.
 
@@ -141,7 +146,9 @@ below its minimum version until it is updated. A source checkout updates with `g
 >   restored on 1.x. Take a backup before updating if you might go back.
 > - Sign in again once to OAuth MCP servers used from managed Codex accounts.
 > - Lead agents now ask and instruct their members without an approval prompt.
-> - Settings moved into the Workspace, Access and Operations tabs; old links still work.
+> - Settings moved: shared credentials are under **Connections**, CLI accounts and
+>   extensions under **CLIs and extensions**, the agent service under **Agents ›
+>   Runtime**, the rest in the Settings tabs; old links still work.
 > - Backups copy CLI profiles by allowlist, include histories (AgentPier's sessions,
 >   chats and AgentBus messages, and CLI histories) only encrypted with a passphrase,
 >   and restored hook scripts need `chmod +x` again.

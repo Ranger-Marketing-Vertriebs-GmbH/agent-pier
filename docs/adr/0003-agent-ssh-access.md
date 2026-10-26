@@ -12,7 +12,7 @@ Date: 2026-10-16
 
 Agents can already run shell commands, and an agent with full shell access can use the
 owner's `~/.ssh`. The owner wants agents to work on servers they pinned in
-**Settings → Access → SSH accesses** — with the key, the host-key pin, the grant, the
+**Settings → Access → SSH accesses** (now **Connections › SSH/SFTP accesses**) — with the key, the host-key pin, the grant, the
 approval and the audit under AgentPier's control — and to decide per agent and per host
 how much supervision applies.
 
@@ -53,7 +53,7 @@ The owner decided that lead agents grant their temporary team members tools and
 access within their own capabilities (AGENTPIER-112). SSH stays excluded by default
 and needs an explicit choice:
 
-- Only while the lead's **Work → Team members may use shell and SSH** (off by
+- Only while the lead's **Work → Team members may use shell and SSH** (now on its **Team** tab; off by
   default) is on may the lead grant a temporary member `ssh`, in the team proposal
   or later. A proposal with such a grant always waits for the owner's approval, and
   a later SSH grant always becomes an owner card (web and Telegram); neither applies

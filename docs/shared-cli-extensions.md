@@ -1,6 +1,6 @@
 # Shared CLI extensions
 
-AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI profile on **Extensions**, whose tabs cover skills, plugins, marketplaces and agents (a reference row links to the central MCP list); existing account-specific links and the former plugin page links normalize to the corresponding CLI and tab.
+AgentPier accounts select credentials. Accounts for the same coding CLI share MCP definitions, local plugins, configured marketplaces, skills and custom agents by default. Codex default marketplace plugins remain account-specific. Shell sessions are unaffected. The UI selects a CLI profile under **CLIs and extensions › Extensions** (sidebar **Menu**, group **Set up**; `/coding/clis/extensions/<profile>`), whose tabs cover **Skills**, **Plugins**, **Marketplaces** and **Subagents** (a reference row links to the central MCP list); existing account-specific links, the former `/extensions` and plugin page links and `?tab=agents` normalize to the corresponding CLI and tab. See the [CLIs and extensions page](screenshots/coding-clis-desktop.png).
 
 ## Native configuration
 
@@ -12,7 +12,7 @@ AgentPier accounts select credentials. Accounts for the same coding CLI share MC
 
 The server user's native profile is authoritative. Managed accounts keep their separate credential, provider and history locations. At work-session launch AgentPier copies only the listed fields into each account's mixed configuration files and links the asset directories. OAuth/account metadata, main model, provider keys and permission settings are preserved. Existing project configuration continues to follow native CLI precedence. Existing shared user skills under `~/.agents/skills` remain discoverable; new Codex installations use `~/.codex/skills`.
 
-MCP servers are managed centrally under Accounts → **MCP servers** ([mcp.md](mcp.md#central-mcp-servers-in-the-coding-clis)); Extensions only shows a reference row that links there; old `?tab=mcp` links open Skills. AgentPier writes servers bound to a CLI into that CLI's canonical native profile before each launch, ahead of the projection described below, so a managed account receives them in the same launch. Entries added natively are still shared and are offered for adoption in the central list.
+MCP servers are managed centrally under **Connections › MCP servers** ([mcp.md](mcp.md#central-mcp-servers-in-the-coding-clis)); **Extensions** only shows a reference row that links there; old `?tab=mcp` links open Skills. AgentPier writes servers bound to a CLI into that CLI's canonical native profile before each launch, ahead of the projection described below, so a managed account receives them in the same launch. Entries added natively are still shared and are offered for adoption in the central list.
 
 This is configuration sharing, not an OS security boundary. Native plugins and agents still execute with the session user's permissions. Plugin-specific account preferences and state inside shared plugin directories are shared with that plugin; CLI login credentials remain separate.
 
@@ -37,7 +37,7 @@ installation. Reload or start a session to load changed native plugin configurat
 
 ## Installing skills
 
-**Extensions → Skills → Install skill** installs one skill into the selected CLI
+**Extensions › Skills › Install skill** installs one skill into the selected CLI
 profile's `skills` directory (shown as **Destination directory**), from an uploaded
 `SKILL.md` or ZIP, or from a public GitHub link. **Check skill** first reads and scans
 the source without writing anything (see [Skill import scan](#skill-import-scan));
@@ -102,7 +102,7 @@ package and plugin installs are not scanned yet; `scanSkill(files)` takes the un
 
 Skills bundled with an MCP server package are offered in the package's panel; see
 [Bundled skills of a package](mcp.md#bundled-skills-of-a-package). Their rows on
-**Extensions → Skills** say "From MCP package <name>@<version> · updated and removed
+**Extensions › Skills** say "From MCP package <name>@<version> · updated and removed
 with it".
 
 ## Bundled skills
@@ -155,6 +155,12 @@ Native CLI changes to shared configuration fields are reconciled at the next lau
 
 ## Agency Agents
 
+Installed Agency agents are CLI subagents: **CLIs and extensions › Extensions ›
+Subagents** (formerly **Extensions › Agents**) installs and removes them per CLI
+profile. The same catalog is under **Agents › Templates**, where a preview offers
+**Install as subagent in a CLI …** (choose the CLI under **Install for**) and shows in
+how many CLIs the entry is already installed.
+
 The catalog uses only the public [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) repository. Opening its section fetches a bounded GitHub tree pinned to a commit SHA. Search, category filtering and pagination show 20 entries per page. A one-hour cache supports ordinary viewing; a failed refresh reports an error, while an older cached catalog can be used when offline. After a failure, reads use the cached catalog (or report the failure) for five minutes without asking GitHub again; **Refresh catalog** always asks.
 
 Preview and installation fetch Markdown from the selected immutable revision. A changed catalog requires a new preview. Only validated YAML identity/description and the instruction body are converted. The installer does not execute upstream scripts, clone the repository, bulk-install the catalog, or accept arbitrary download hosts. Installation is always an explicit selection in the UI.
@@ -167,16 +173,17 @@ Upstream model and tool/permission overrides are not imported. Source URL, revis
 
 ### Agency agents as AgentPier agent templates
 
-While agents are switched on, an entry's preview also offers **Create agent**. It opens
-**Agents › New agent** with the entry as its template; **Start from a template** in that
-form searches the same catalog. AgentPier fetches the entry at the pinned revision
+While agents are switched on, an entry's preview (under **Subagents** or **Agents ›
+Templates**) also offers **Create personal agent**. It opens the new agent wizard with
+the entry as its template; **From template** in the wizard's first step searches the
+same catalog. AgentPier fetches the entry at the pinned revision
 (`GET /api/agency/templates` and `/api/agency/templates/preview`,
 `server/features/agency/agency-templates.js`) and fills **Name** and **Instructions**:
 the description, the instruction body and a closing attribution with the source URL,
 the revision and the MIT license. The upstream `model`, `tools` and permission fields
 are never read; tools and access start with the agent form's defaults (no shell, SSH,
 project folders or GitHub). The profile keeps the template's id, name, revision and
-source, shown on its **Profile** tab. **Remove template** restores the name and instructions from before the template. The template is fetched before the agent is admitted, so a slow GitHub never holds other agent operations.
+source, shown on its **Identity** tab. **Remove template** restores the name and instructions from before the template. The template is fetched before the agent is admitted, so a slow GitHub never holds other agent operations.
 
 Catalog text is untrusted. Each entry is scanned offline with the skill import scan
 (`skill-scan.js`): a blocked entry (hidden characters, download-and-run, credential

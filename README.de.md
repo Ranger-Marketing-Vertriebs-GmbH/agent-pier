@@ -57,8 +57,12 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und
   Coding-Sitzungen als Datei zuweist, nie als Umgebungsvariable
   ([Secrets](docs/secrets.md), auf Englisch).
-- **Accounts an einer Stelle:** native CLI-Accounts, Provider-Zugänge, ChatGPT für
-  Agenten und Dienste für Agenten ([Provider](docs/providers.md)).
+- **Zugänge:** Modell-Zugänge (Provider-Zugänge und ChatGPT für Agenten), Dienste für
+  Agenten, MCP-Server, SSH/SFTP-Zugänge, Geheimnisse und GitHub-Zugänge an einer
+  Stelle, einmal angelegt und dort gewährt, wo sie gebraucht werden, jeweils mit
+  **Benutzt von** ([Provider](docs/providers.md)). Native CLI-Accounts, Skills,
+  Plugins und Unteragenten liegen unter **CLIs & Erweiterungen**
+  ([geteilte CLI-Erweiterungen](docs/shared-cli-extensions.md), auf Englisch).
 - **Dateien und Wissen:** ein Datei-Explorer, private Artifacts, gemeinsames
   Projektwissen und AgentBus zwischen Sessions ([Dateien](docs/file-explorer.md),
   [Artifacts](docs/artifacts.md), [Projektwissen](docs/memory.md),
@@ -125,18 +129,20 @@ npm start
 1. Öffne **http://127.0.0.1:4380** und lege den Benutzer des Arbeitsbereichs an.
    Spätere Besuche brauchen die [Anmeldung](docs/login.md). Erledige das, bevor du
    den Zugriff freigibst.
-2. Öffne **Accounts** über das **Menü** der Seitenleiste: Melde dich unter **Native
-   CLI-Accounts** bei einer Coding-CLI an oder lege unter **Modell-Zugänge** einen
-   Provider-Zugang an. Fehlende CLIs lassen sich in der Übersicht installieren.
+2. Öffne das **Menü** der Seitenleiste (Gruppe **Einrichten**): Melde dich unter
+   **CLIs & Erweiterungen › Accounts** bei einer Coding-CLI an oder lege unter
+   **Zugänge › Modell-Zugänge** einen Provider-Zugang an. Fehlende CLIs lassen sich in
+   der Übersicht oder unter **CLIs & Erweiterungen › Installation** installieren.
+   **Suchen** (⌘K oder Strg+K) findet jede Seite, jeden Agenten und jede Aktion, auch
+   unter ihrem alten Namen.
 3. Wähle **Neu › Session**, eine CLI, einen Account und einen Projektordner und
    starte. Das native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt
    den gespeicherten Verlauf.
-4. Optional: Schalte Agenten unter
-   **Einstellungen → Arbeitsbereich → Agenten → Agenten aktivieren** ein und lege
-   unter **Agenten** einen an ([Agenten-Anleitung](docs/agents.md)).
+4. Optional: Öffne **Agenten** im **Menü**, wähle **Agenten aktivieren** und lege mit
+   **Neuer Agent** einen an ([Agenten-Anleitung](docs/agents.md)).
 
 Deutsch oder Englisch wählst du unter
-**Einstellungen → Arbeitsbereich → Allgemein → Sprache**. Wenn der Webserver stoppt,
+**Einstellungen › Allgemein › Sprache**. Wenn der Webserver stoppt,
 laufen die CLI-Sessions weiter; beende eine Session in der Oberfläche, um ihren
 CLI-Prozess zu beenden.
 
@@ -160,8 +166,10 @@ Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Check
 >   Codex-Accounts nutzt.
 > - Lead-Agenten fragen ihre Mitglieder und geben ihnen Aufgaben jetzt ohne
 >   Freigabe-Rückfrage.
-> - Die Einstellungen liegen jetzt in den Tabs Arbeitsbereich, Zugriff und Betrieb;
->   alte Links funktionieren weiter.
+> - Einstellungen sind umgezogen: geteilte Zugangsdaten liegen unter **Zugänge**,
+>   CLI-Accounts und Erweiterungen unter **CLIs & Erweiterungen**, der Agentendienst
+>   unter **Agenten › Laufzeit**, der Rest in den Tabs der Einstellungen; alte Links
+>   funktionieren weiter.
 > - Sicherungen kopieren CLI-Profile nach Allowlist, enthalten Verläufe (Sessions,
 >   Chats und AgentBus-Nachrichten von AgentPier sowie CLI-Verläufe) nur verschlüsselt
 >   mit Passphrase, und wiederhergestellte Hook-Skripte brauchen erneut `chmod +x`.

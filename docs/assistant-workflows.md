@@ -8,8 +8,8 @@ sandbox decisions remain deferred.
 
 ## Project access and actions
 
-In the agent's settings, **Work → Projects and coding tasks**, select registered
-projects and pipelines, then save. All agents, including permanent team members,
+In the agent's settings, **Access › Projects** and **Access › Pipelines**, add
+registered projects and pipelines, then save. All agents, including permanent team members,
 start with empty project access. In their team turns, team members can only
 request coding tasks on their parent's access (see below). Project access
 permits searching and reading that project's existing memory.
@@ -37,17 +37,17 @@ request. Nothing was started.", and each changed agent is audited as
 valid; SSH command approvals follow their host's SSH access instead. Grant the
 remaining project again if the agent should keep working on it. A `git init` move
 made while agents were switched off finishes when the agents are back and the project
-is used again. After a merge made while agents were switched off, saving **Work**
+is used again. After a merge made while agents were switched off, saving **Access**
 cleans up: it drops granted projects that no longer exist and says how many it removed; both
 `PUT /api/assistants/:id/work` and `PUT /api/assistants/:id/access` list them in
 `removedProjectIds`. A granted pipeline that was deleted later likewise leaves the grant
-with the next save, from **Work** or from the project, instead of blocking it; a
+with the next save, from **Access** or from the project, instead of blocking it; a
 pipeline newly selected that does not exist is still refused.
 
 Ask the agent to inspect project knowledge or propose a concrete coding task.
 The workspace tool first discovers the granted project/pipeline IDs. Approval
 shows the project, pipeline, exact task and optional base branch, or the exact
-memory change. Owner decisions are available in the agent's settings (**Work → Actions and coding
+memory change. Owner decisions are available in the agent's settings (**Overview › Actions and coding
 tasks**) and in its chat; Telegram-origin
 proposals also have approval buttons bound to the original channel/chat/user.
 Approvals expire after 24 hours. When a project knowledge change is declined,
@@ -59,7 +59,7 @@ and cannot invoke workspace, reminder or routine tools as owner instructions.
 
 ## Direct folder access
 
-Under **Work → Allowed projects**, each allowed project has **Direct folder access**:
+Under **Access › Projects**, each allowed project has **Direct folder access**:
 **None** (the default), **Read** or **Read and write**. The level belongs to the
 project grant: removing the project, or a merge that drops it, removes its level too.
 The agent's instructions list every granted folder with its project ID, path and
@@ -193,29 +193,29 @@ A lead passes folder access to its task members with `projects` in its grants
 (`{ "<projectId>": "read" | "write" }`), at most at its own level, visibly and without
 your approval like its other grants. What a member uses is resolved on every call:
 when the lead drops to **Read** or loses the project, the member does too. The
-member's **Capabilities → Granted by the lead agent** shows the levels it has now. A member
+member's **Access › Granted by the lead agent** shows the levels it has now. A member
 kept as a permanent agent keeps no folder access its lead granted; grant it yourself
-in its **Work** tab.
+in its **Access** tab.
 
 A lead can also share its folders and coding projects with its permanent members,
 standing or for one delegated task, apart from the access you give them; in a task
 from the lead those shares count beside the member's own folders and projects. The
 member's own folders change only in a task that may change files, a folder the lead
 shares with write access in every task of that lead. Coding requests on a shared project always wait for your approval and
-run on the lead's grant. You see and revoke each share in the member's **Work →
+run on the lead's grant. You see and revoke each share in the member's **Access ›
 Shared by the lead agent** and in the project's Agents section
 ([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).
 
 ## Agent access from the project
 
-**Projects → <project> → Agents** shows the same access from the project's side.
+**Projects › <project> › Agents** shows the same access from the project's side.
 Every permanent agent that is not archived is listed with **May start coding sessions
 in this project** (the project grant: project memory and coding tasks on the
-pipelines allowed in the agent's **Work** tab) and **Folder access** (**None**,
-**Read**, **Read and write**). A change saves at once through the Work tab's own save
+pipelines allowed in the agent's **Access** tab) and **Folder access** (**None**,
+**Read**, **Read and write**). A change saves at once through the Access tab's own save
 (`PUT /api/assistant-project-access/<projectId>/<agentId>`, which calls the same
 `saveWork`): the same validation, revision, audit (`kind: "project-grants"` with the
-added and removed projects and changed folder levels, also for Work tab saves) and
+added and removed projects and changed folder levels, also for Access tab saves) and
 instruction refresh, so both views always agree. For an owner agent, choosing a folder
 level grants the project and removing the grant removes the level. An agent of a
 restricted user holds folder levels without the project grant (files only): its
@@ -227,7 +227,7 @@ restricted user holds folder levels without the project grant (files only): its
 Only this project's entries change. The request names what the page showed for the
 project (`expected`); if the agent's access to it changed elsewhere since then, the
 page reloads that agent and says so. Unrelated changes, for example the agent's
-pipelines saved in its Work tab meanwhile, are kept. A Work tab draft opened before a
+pipelines saved in its Access tab meanwhile, are kept. An Access tab draft opened before a
 change from the project gets the usual conflict notice on save.
 
 Team members are not editable here. **Shared by lead agents** lists the permanent
@@ -260,7 +260,7 @@ members also have no reminder, routine or personal memory tools.
 A member's request always waits for your exact approval, even when the parent
 has standing permission to start pipelines. It appears in the parent's actions,
 in the parent's chat until decided, in the team's card under the parent's
-agent settings → **Work → Teams** and, when a Telegram chat is bound (the chat that started
+agent settings → **Team › Teams** (and **Agents › Teams**) and, when a Telegram chat is bound (the chat that started
 the team, otherwise the parent's paired chat), as a Telegram
 approval linking to the team task. Telegram decisions must come from exactly
 that chat and user. Before the start AgentPier checks the parent's access and
@@ -307,7 +307,7 @@ hand the owner the result with `agentpier_share_file`.
 ## Native routines and events
 
 Enable **Allow reminders and routines** for that agent; no Telegram chat is needed.
-Under **Routines & check-ins** in its settings (or by asking the agent in its chat),
+Under **Automation** in its settings (or by asking the agent in its chat),
 create a routine with a name, saved prompt and one of these triggers:
 
 - A single timestamp, entered in the browser's local timezone.
@@ -567,7 +567,7 @@ sends an edited or capped set as `rights` with the approve decision; an unedited
 approval within the ceiling, or one whose ceiling could not be loaded, sends none);
 Telegram approves the proposed rights as they are.
 After approval the chat links to the hook's page
-(`?tab=routines&page=hook&hook=<id>`) for its secret, and **Work → Actions and coding
+(`?tab=automation&page=hook&hook=<id>`; the old `tab=routines` still works) for its secret, and **Overview › Actions and coding
 tasks** lists the proposal with the hook name and outcome. Approving checks the rights against the agent's live
 rights again: a right it lost fails the proposal with `RIGHTS_CHANGED`, hooks switched
 off for the agent with `HOOK_UNAVAILABLE`, and nothing is created. An approved proposal creates the hook as the

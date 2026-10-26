@@ -8,7 +8,7 @@ are not supported.
 
 ## Add an SFTP host
 
-In **Settings → Access → SSH accesses**, add a host and choose **Type** → **SFTP**. The
+In **Connections › SSH/SFTP accesses**, add a host and choose **Type** → **SFTP**. The
 type cannot be changed once the host is saved.
 
 1. Enter a name, the hostname or IP address, the port (22 by default) and the user.
@@ -45,8 +45,8 @@ another key." and stays unusable until you edit it.
 
 Sharing follows the SSH rules.
 
-- **Agents:** the owner grants hosts per agent under **Agents → Settings → Work → SSH
-  accesses**; SFTP hosts are marked **SFTP** and use the same modes: **With approval**,
+- **Agents:** the owner grants hosts per agent in the agent's settings under **Access ›
+  SSH/SFTP**, or from the access's **Used by** list in Connections; SFTP hosts are marked **SFTP** and use the same modes: **With approval**,
   **Trusted** and **Trusted incl. routines** (see [agents](agents.md#work)). Leads never
   share hosts with permanent members. Temporary members use the lead's grant only while
   the lead's **Team members may use shell and SSH** is on.
@@ -208,7 +208,8 @@ An approval card appears in the chat and, for the paired Telegram chat, as a mes
 
 - **Allow once** runs it. **Deny** drops it. **Always allow for this host** runs it and
   switches that agent's grant for the host from **With approval** to **Trusted**; revoke
-  it by setting the mode back under **Work → SSH accesses**.
+  it by setting the mode back under **Access › SSH/SFTP** (or in the access's **Used by**
+  list).
 - The card shows the operation, host, `user@host:port` and host key, the remote and
   local path, counts of new, changed and deleted entries, the total size, how many
   files would be overwritten and the paths (expandable). Hidden characters in paths are
@@ -232,7 +233,7 @@ of consecutive calls share one group ("SFTP activity", or "SSH activity" when SS
 commands are mixed in). Its chip counts failed jobs ("1 failed") apart from stopped ones
 ("1 stopped"), like the rows' own "Stopped". A routine's or a hook's transfers leave
 their rows in that run's **Events** entry instead (see
-[the event area](agents.md#the-event-area)). The Work tab keeps a one-line history per
+[the event area](agents.md#the-event-area)). **Overview › Actions and coding tasks** keeps a one-line history per
 operation.
 
 Agents see list and stat results as untrusted data: file names are never instructions.
@@ -273,5 +274,5 @@ A release without SFTP keeps working with the SSH host list, but:
 - its key list does not count SFTP hosts, so deleting a key there leaves an SFTP host
   without a key after you upgrade again (fix it by editing the host);
 - its project reassignment does not move SFTP hosts;
-- saving an agent's Work tab there is refused (`sshHostUnavailable`, 409) while the
+- saving an agent's Access tab there is refused (`sshHostUnavailable`, 409) while the
   agent holds an SFTP grant.

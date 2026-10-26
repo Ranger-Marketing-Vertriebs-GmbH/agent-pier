@@ -8,7 +8,7 @@ and without delaying the start. A first installation selects its initial runtime
 subsequent starts use the existing selection. No upstream updater
 or arbitrary version input is exposed.
 
-Settings → Workspace → Agents → Agent service shows the current and target versions. Preparing the update
+**Agents › Runtime › OpenClaw updates** shows the current and target versions (the old address `/settings/assistants` opens this tab). Preparing the update
 does not interrupt work. Activation enters maintenance, checks assistant/channel/
 scheduled work, stops the owned Gateway, and creates a private snapshot before
 switching the selection. Authenticated readiness and read-only reconciliation must

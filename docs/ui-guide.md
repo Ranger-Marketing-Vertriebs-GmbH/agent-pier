@@ -295,6 +295,49 @@ one look (`web/components/choice.css`); no `accent-color` or bespoke switch styl
 - Routes, cross-links and the back arrow follow the
   [settings pattern › routes](settings-pattern.md#routes).
 
+#### Sidebar, menu and search
+
+![Sidebar with the Menu popover open](screenshots/navigation-menu-desktop.png)
+
+On a phone: [drawer with the menu](screenshots/navigation-menu-phone.png). Search:
+[⌘K dialog](screenshots/search-desktop.png).
+
+The information architecture is recorded in
+[ADR 0005](adr/0005-navigation-information-architecture.md).
+
+- **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)**, **Menu**), brand
+  with the LOCAL badge, **New**, **Inbox**, the **Agents** group, the **Sessions** group
+  and the host status. It belongs to agents and sessions; never add a permanent list of
+  areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
+  (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs
+  and extensions** (`/coding/clis`) and **New session**. While the agent service is
+  stopped, agent rows are dimmed with "offline".
+- **Menu popover** (`web/app/SidebarMenu.jsx`, model in `web/app/sidebar-menu-model.js`):
+  the only place for areas, in two groups. **Work**: Overview, Projects, Pipelines, Files,
+  Artifacts. **Set up**: Agents, CLIs and extensions, Connections, Settings. Below them
+  the host status, **Open remotely** (as before) and **Sign out**. The current area has
+  `aria-current="page"` (`menuArea()`, which reads old addresses as their new place).
+  Entries may carry a status hint (decisions or failed runs, running pipelines, agents
+  off/stopped/update ready, CLI updates, connection problems, AgentPier update). Hints
+  come only from data the app already has or reads once when the menu opens
+  (`useMenuHints.js`); a source that is unknown or fails shows no hint, never a zero.
+  **Agents** stays in the menu while agents are off and leads to the page that turns
+  them on. Escape, an outside click and navigation close the popover and return focus
+  to the **Menu** button.
+- **Phone**: the drawer keeps brand + Menu, New, Agents and Sessions; the Inbox is in the
+  mobile header. The menu popover opens inside the drawer at full width with a
+  **Search** row first.
+- **Search** (`web/app/SearchDialog.jsx`, a `Modal`; index in `web/app/search-entries.js`
+  and `search-index.js`, catalog `search.js`): opens from the sidebar button, the phone
+  menu row and ⌘K (macOS) / Ctrl+K (others). The shortcut is not taken while focus is in
+  a terminal, the code editor or a text field (`search-shortcut.js`). The client-side
+  index holds every area, tab, settings group and subpage in both languages plus old
+  names as aliases ("Settings › Access › SSH accesses"), the loaded agents and their
+  tabs, connection names (loaded on first open) and actions ("Add SSH access", "New
+  agent", "New session"). Results are grouped (**Pages**, **In agents**, **Actions**) with
+  their path; arrows move, Enter opens, Escape closes. A new page or tab gets an entry in
+  the index and in both catalogs.
+
 #### User app
 
 A restricted [user](users.md) gets her own shell (`web/features/users/UserApp.jsx`),

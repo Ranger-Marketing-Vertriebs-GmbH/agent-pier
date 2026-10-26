@@ -21,24 +21,24 @@ _(German)_ are not translated yet.
 | [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |
 | [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
 | [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
-| [SSH accesses](ssh-access.md)                              | SSH keys and hosts for projects, sessions and agents         |
+| [SSH accesses](ssh-access.md)                              | SSH keys and hosts, Used by, last test and bulk actions      |
 | [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs     |
 | [Secrets](secrets.md)                                      | Tokens for agents and coding sessions, delivered as files    |
 | [GitHub connections](github-agents.md)                     | Tokens for clones and pull requests                          |
-| [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and Agency agents          |
+| [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and subagents (Agency)     |
 | [Codex context](codex-context.md)                          | Codex context windows and model status                       |
 | [Sandboxed sessions](sandbox.md)                           | The optional nono sandbox for CLI sessions                   |
 
 ## Agents
 
-| Guide                                               | What it covers                                              |
-| --------------------------------------------------- | ----------------------------------------------------------- |
-| [Agents](agents.md)                                 | User guide: setup, capabilities, skills, teams and Telegram |
-| [Users](users.md)                                   | Family members, their agents, levels, lock and privacy      |
-| [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                   |
-| [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                      |
-| [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime      |
-| [Gateway design](assistant-gateway.md)              | Design and limits of the managed agent service              |
+| Guide                                               | What it covers                                           |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| [Agents](agents.md)                                 | User guide: agents page, wizard, settings tabs and teams |
+| [Users](users.md)                                   | Family members, their agents, levels, lock and privacy   |
+| [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                |
+| [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                   |
+| [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime   |
+| [Gateway design](assistant-gateway.md)              | Design and limits of the managed agent service           |
 
 ## Operate
 
@@ -57,23 +57,24 @@ _(German)_ are not translated yet.
 
 ## Design
 
-| Document                                                  | What it covers                                          |
-| --------------------------------------------------------- | ------------------------------------------------------- |
-| [Architecture](architecture.md)                           | Boundaries of the server, web app and features          |
-| [UI guide](ui-guide.md)                                   | Design tokens, shared components and UI rules           |
-| [Settings pattern](settings-pattern.md)                   | The shared layout and save model of settings pages      |
-| [UI glossary](ui-glossary.md)                             | Interface terms, action verbs and copy rules            |
-| [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md) | Optional per-session nono sandbox                       |
-| [ADR 0002](adr/0002-managed-openclaw-assistants.md)       | Managed OpenClaw agents and visible agent teams         |
-| [ADR 0003](adr/0003-agent-ssh-access.md)                  | SSH access for agents                                   |
-| [ADR 0004](adr/0004-restricted-users.md)                  | Restricted users                                        |
-| [Protocol adapter](protocol-adapter.md)                   | How custom endpoints are adapted to each CLI's protocol |
-| [Startup loading](startup-loading.md)                     | The startup screen shown before the app loads           |
-| [Chat observability](chat-observability.md)               | Chat context and subagent observations                  |
-| [Native chat delivery](native-chat-delivery.md)           | How chat messages reach the native CLIs                 |
-| [AgentBus broker](agentbus.md)                            | Broker and queue behind AgentBus                        |
-| [Testing](testing.md)                                     | Test suites and the CI tiers                            |
-| [Design contracts](refactor/design.md)                    | The original architecture and completion contract       |
+| Document                                                    | What it covers                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| [Architecture](architecture.md)                             | Boundaries of the server, web app and features          |
+| [UI guide](ui-guide.md)                                     | Design tokens, shared components and UI rules           |
+| [Settings pattern](settings-pattern.md)                     | The shared layout and save model of settings pages      |
+| [UI glossary](ui-glossary.md)                               | Interface terms, action verbs and copy rules            |
+| [ADR 0001](adr/0001-optional-per-session-nono-sandbox.md)   | Optional per-session nono sandbox                       |
+| [ADR 0002](adr/0002-managed-openclaw-assistants.md)         | Managed OpenClaw agents and visible agent teams         |
+| [ADR 0003](adr/0003-agent-ssh-access.md)                    | SSH access for agents                                   |
+| [ADR 0004](adr/0004-restricted-users.md)                    | Restricted users                                        |
+| [ADR 0005](adr/0005-navigation-information-architecture.md) | Navigation: sidebar, menu, Connections, agent tabs      |
+| [Protocol adapter](protocol-adapter.md)                     | How custom endpoints are adapted to each CLI's protocol |
+| [Startup loading](startup-loading.md)                       | The startup screen shown before the app loads           |
+| [Chat observability](chat-observability.md)                 | Chat context and subagent observations                  |
+| [Native chat delivery](native-chat-delivery.md)             | How chat messages reach the native CLIs                 |
+| [AgentBus broker](agentbus.md)                              | Broker and queue behind AgentBus                        |
+| [Testing](testing.md)                                       | Test suites and the CI tiers                            |
+| [Design contracts](refactor/design.md)                      | The original architecture and completion contract       |
 
 ## Evidence
 

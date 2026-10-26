@@ -9,17 +9,46 @@ diagnostic evidence, code identifiers, URLs and anchors keep their original word
 
 ## Terms
 
-| Concept                                | German                                   | English            | Notes                                                                                                   |
-| -------------------------------------- | ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------- |
-| A running or stored CLI terminal       | die Session, die Sessions                | session            | Never "Sitzung" _(checked)_. Compounds take a hyphen: "Session-ID", "Shell-Session", "Coding-Session".  |
-| The Accounts page and its entries      | Accounts, der Account                    | Accounts, account  | Never "Konten" or "Zugänge →" for the page _(checked)_. A vendor's own account stays "Konto".           |
-| A program or capability an agent calls | das Tool, die Tools                      | tool               | Never "Werkzeug" _(checked)_. "SSH-Tools", "Web-Tools", "AgentPier-Tools".                              |
-| A stored connection or credential      | der Zugang (Provider-Zugang, SSH-Zugang) | connection, access | Not "Verbindung" for provider connections _(checked)_.                                                  |
-| A permission level                     | die Berechtigung                         | permission         | For example a launch mode or a tool's permission profile.                                               |
-| The approval of a single request       | die Freigabe                             | approval           | Approve or deny one action; not a stored setting.                                                       |
-| Project knowledge (memory)             | das Projektwissen                        | memory             | German copy does not use "Memory" on its own.                                                           |
-| An Agency agent an agent starts from   | die Vorlage                              | template           | "Mit Vorlage beginnen" / "Start from a template"; the catalog stays "Agency-Agenten" / "Agency agents". |
-| `{agent.workspace}` in an MCP setting  | der Agenten-Platzhalter                  | agent placeholder  | Resolves to each bound agent's own folder; the overview card is "Agentenordner" / "Agent folders".      |
+| Concept                                | German                                   | English            | Notes                                                                                                                                                                          |
+| -------------------------------------- | ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A running or stored CLI terminal       | die Session, die Sessions                | session            | Never "Sitzung" _(checked)_. Compounds take a hyphen: "Session-ID", "Shell-Session", "Coding-Session".                                                                         |
+| A native CLI sign-in and its tab       | Accounts, der Account                    | Accounts, account  | Never "Konten" _(checked)_. The tab is CLIs & Erweiterungen › Accounts. A vendor's own account stays "Konto".                                                                  |
+| A program or capability an agent calls | das Tool, die Tools                      | tool               | Never "Werkzeug" _(checked)_. "SSH-Tools", "Web-Tools", "AgentPier-Tools".                                                                                                     |
+| A stored connection or credential      | der Zugang (Provider-Zugang, SSH-Zugang) | connection, access | Not "Verbindung" for provider connections _(checked)_.                                                                                                                         |
+| The area for shared credentials        | Zugänge                                  | Connections        | Menu area (`/connections`): Modell-Zugänge, Dienste für Agenten, MCP-Server, SSH/SFTP-Zugänge, Geheimnisse, GitHub-Zugänge. Never "Verbindungen"; no "→" in paths _(checked)_. |
+| Who uses an entry                      | Benutzt von                              | Used by            | The list on every entry in Zugänge and on native CLI accounts.                                                                                                                 |
+| What an agent may use (agent tab)      | Zugriffe                                 | Access             | The agent settings tab with projects, SSH/SFTP, MCP servers, pipelines, GitHub and secrets.                                                                                    |
+| CLI agent definitions (Agency)         | Unteragenten                             | Subagents          | CLIs & Erweiterungen › Erweiterungen › Unteragenten; never "Agenten" for them.                                                                                                 |
+| A permission level                     | die Berechtigung                         | permission         | For example a launch mode or a tool's permission profile.                                                                                                                      |
+| The approval of a single request       | die Freigabe                             | approval           | Approve or deny one action; not a stored setting.                                                                                                                              |
+| Project knowledge (memory)             | das Projektwissen                        | memory             | German copy does not use "Memory" on its own.                                                                                                                                  |
+| An Agency agent an agent starts from   | die Vorlage                              | template           | "Aus Vorlage" / "From template"; the tab is Agenten › Vorlagen / Agents › Templates; the catalog stays "Agency-Agenten" / "Agency agents".                                     |
+| `{agent.workspace}` in an MCP setting  | der Agenten-Platzhalter                  | agent placeholder  | Resolves to each bound agent's own folder; the overview card is "Agentenordner" / "Agent folders".                                                                             |
+
+## Navigation and areas
+
+The sidebar holds agents and sessions; every other area is in the **Menü** popover
+([ADR 0005](adr/0005-navigation-information-architecture.md)).
+
+| Concept                           | German                                                                           | English                                                                        |
+| --------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Menu button and popover           | Menü                                                                             | Menu                                                                           |
+| Menu group: doing work            | Arbeiten                                                                         | Work                                                                           |
+| Menu group: configuring           | Einrichten                                                                       | Set up                                                                         |
+| Areas in Arbeiten / Work          | Übersicht · Projekte · Pipelines · Dateien · Artifacts                           | Overview · Projects · Pipelines · Files · Artifacts                            |
+| Areas in Einrichten / Set up      | Agenten · CLIs & Erweiterungen · Zugänge · Einstellungen                         | Agents · CLIs and extensions · Connections · Settings                          |
+| Agents page tabs                  | Alle Agenten · Teams · Vorlagen · Laufzeit                                       | All agents · Teams · Templates · Runtime                                       |
+| Agent settings tabs               | Überblick · Identität · Fähigkeiten · Zugriffe · Team · Automatisierung · Kanäle | Overview · Identity · Capabilities · Access · Team · Automation · Channels     |
+| Section in the Access tab         | Wer diesen Agenten nutzt                                                         | Who uses this agent                                                            |
+| CLIs and extensions tabs          | Installation · Accounts · Erweiterungen · AgentPier als MCP                      | Installation · Accounts · Extensions · AgentPier as MCP                        |
+| Settings tabs                     | Allgemein · App & Benachrichtigungen · Benutzer · Fernzugriff · Betrieb          | General · App and notifications · Users · Remote access · Operations           |
+| Wizard capability profiles (risk) | Gesprächspartner · Rechercheur · Assistent · Operator (gering / mittel / hoch)   | Conversation partner · Researcher · Assistant · Operator (low / medium / high) |
+| Search                            | Suchen (⌘K)                                                                      | Search (⌘K)                                                                    |
+
+Old names (Accounts as a page, Erweiterungen › Agenten, Einstellungen › Zugriff,
+Arbeitsbereich, Agentendienst as a settings page, the agent tabs Profil, Arbeit,
+Routinen & Check-ins and Telegram) are no longer used in copy; the search keeps them as
+aliases so they still find the new place.
 
 ## Users and their agents
 
@@ -60,8 +89,8 @@ catalog defines its own key only when its text differs from the shared one.
 
 ## Writing rules
 
-- **Navigation paths** use "›" with spaces: "Accounts › MCP-Server",
-  "Einstellungen › Zugriff › GitHub-Zugänge" _(checked)_.
+- **Navigation paths** use "›" with spaces: "Zugänge › MCP-Server",
+  "Agenten › Laufzeit › Erweitert", "Settings › App and notifications" _(checked)_.
 - **Ellipses** take a space before them in both languages: "Wird geladen …",
   "Loading …" _(checked)_. Shortened values such as `3f2a9c1e…b6c5` and syntax such as
   `${…}` or `<U+…>` keep their form.

@@ -8,7 +8,11 @@ A project's hosts are available to its existing and future supported interactive
 
 The project is bound when the session launches. Running `cd` does not change it. AgentPier checks the canonical launch directory and its filesystem identity, as well as the Git common-directory identity where applicable. A removed, replaced or changed project directory requires a new binding; it cannot silently acquire another project's records. This also applies to replacing a worktree at the same path.
 
-In **Settings → Access → SSH accesses**, use the **Accesses** and **Keys** tabs to browse compact lists. Search by name, host, username or project, and combine the search with the project filter. Lists show 20 entries per page. Select an entry to open its details alongside the list; on narrow screens, close the details to return to the list. Host fingerprints stay collapsed until opened. Connection tests and private-key downloads still require an explicit action.
+Open **Connections › SSH/SFTP accesses** from the sidebar **Menu** (the old address `/settings/ssh` leads there). The **Accesses** and **Keys** tabs list every entry; see [Long lists and bulk actions](#long-lists-and-bulk-actions). Select an entry to open its details beside the list; **Full view** opens the complete page with the form, [Used by](#used-by), the [last test](#last-test-result) and **Manage** (the activity log filtered to the entry, **Reassign project resources** and **Delete access**). On a phone, categories, list and details open one after another. Host fingerprints stay collapsed until opened. Connection tests and private-key downloads still require an explicit action.
+
+![Connections with the SSH/SFTP list grouped by project](screenshots/connections-ssh-desktop.png)
+
+On a phone: [Connections categories](screenshots/connections-phone.png).
 
 A host is either an SSH host (commands) or an SFTP host (file transfer, see [SFTP access](sftp-access.md)). The host form has a **Type** choice for it; an SFTP host signs in with a **Password** or a **Key** (**Sign-in**) and can confine every remote path to an optional **Allowed remote folder**. The list's **Sign-in** column shows "Password" or the key's name, and SFTP hosts carry an **SFTP** badge.
 
@@ -75,6 +79,55 @@ Limits: the prompt is recognised by a last line that ends in `>`, `#`, `$` or `]
 
 For a Proxmox host, use an account with the permissions needed for the intended administration. AgentPier does not provision VMs simply because an access is assigned.
 
+### Last test result
+
+AgentPier keeps the last result of **Test connection** for each access: whether it
+succeeded, when, and for a failure one diagnostic line from OpenSSH (or the SFTP
+client's problem code). Key material, passwords, tokens and other long opaque values
+are removed from that line before it is stored, and it holds at most 200 characters;
+command output is never stored. The result survives restarts and shows in the list
+(**OK**, **Test failed**, **Host key changed** or **Untested**), in the details and in
+the full view (**Last test** with **Test again**). Editing the access makes the old
+result stale, so it shows as untested until you test again. A failed test or a changed
+host key counts as a problem: the entry appears under **With problems**, and the
+**Connections** entry of the sidebar **Menu** shows the number of problems.
+
+### Host key changed
+
+When a test reports that the host's key no longer matches the pinned one, the full
+view shows **Host key changed** with the pinned fingerprint. Connections stay blocked
+until you decide. **Fetch current host key** shows the key the host offers now;
+compare it with a trusted source and accept it only if you know why it changed (for
+example a reinstall). **Accept new key** pins it for every agent, hook and session that
+uses the access after a confirmation; **Keep blocked** leaves everything as it is.
+
+### Used by
+
+The details and the full view list who uses an access: agents with their mode
+(including grants shared by a lead and temporary team members), hooks, and the number
+of running coding sessions. **Add agent …** at the end of the list adds agents with a mode
+in one step; changing a mode or **Revoke** changes the same grant as the agent's
+**Access › SSH/SFTP** tab, with the same confirmations. When a source cannot be read,
+the list says that who uses the entry is not known right now instead of showing zero.
+Shares from a lead are changed in the lead's settings.
+
+### Long lists and bulk actions
+
+The list has the views **All**, **With problems** and **Not used**, plus **Used today**
+when last use is known. Last use covers agents' SSH commands and SFTP transfers and
+SFTP transfers of sessions; commands run by coding sessions through the SSH helper are
+not counted, and the page says so. Search covers name, host, user and project; filters
+narrow by **Project**, **Type**, **Used by** and **Status**; **Group** by project shows
+the first five entries of each group with **Show n more**; **Sort** by name, last change
+or last use. Arrow keys move through the rows and Space selects.
+
+Selecting rows shows the bulk actions: **Grant agent …** (agents and a mode),
+**Test** (one access after another, at most two at a time, with progress), **Assign
+project …** (moves every access and key of one project, because a key belongs to its
+project), **Revoke …** and **Delete** (a confirmation lists the affected agents, hooks
+and sessions; keys stay). Each bulk action calls the same per-access operations and
+lists the result of each access; nothing is retried on its own.
+
 ## Provision from a coding session
 
 Codex, Claude Code and OpenCode receive the `agentpier_ssh` MCP integration independently of the AgentBus setting, including when the project has no hosts yet. The startup SSH hint composes with existing Memory, AgentBus and user hooks. When the session has a secrets file, the same startup hint also names it ([Secrets](secrets.md#coding-sessions)). Login sessions and headless pipeline sessions do not receive this integration; shell sessions have the manual helper without a model hint.
@@ -110,12 +163,13 @@ Stop the old service before upgrading; concurrent old and new catalog writers ar
 ## Agents
 
 Agents use SSH accesses through AgentPier, never through the session MCP server. Grant
-hosts per agent under **Agents → Settings → Work → SSH accesses** and choose a mode:
+hosts per agent in the agent's settings under **Access › SSH/SFTP**, or from the access's
+[Used by](#used-by) list, and choose a mode:
 **With approval**, **Trusted** or **Trusted incl. routines** (see
 [agents](agents.md#work)). Any host can be granted, global or project-owned; the
 project badge only says where the key lives. Temporary team members never hold SSH
 accesses of their own. A lead can grant them SSH on its own accesses only while
-its **Work → Team members may use shell and SSH** is on, for teams proposed while it
+its **Team › Team members may use shell and SSH** is on, for teams proposed while it
 is on; a later SSH grant waits for the owner's approval (see [agents](agents.md)).
 
 SFTP hosts are granted the same way and show **SFTP** in the picker; the tool lists,

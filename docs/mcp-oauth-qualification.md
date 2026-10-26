@@ -429,7 +429,7 @@ authorization server:
 - **Login.** `POST /api/mcp-servers/<id>/oauth/login` (origin `http://127.0.0.1:<port>`)
   answers `authorize` with a URL for the compiled redirect; the list reads
   "login-pending". The mock authorization server auto-approves; the callback route
-  with `code` and `state` answers `303` to `/accounts?oauth=connected&server=<id>`,
+  with `code` and `state` answers `303` to `/accounts?oauth=connected&server=<id>` (the client opens it as **Connections › MCP servers**),
   and replaying it answers `400 state-invalid`. The list reads "connected" with
   `oauthExpiresAt`, OpenClaw `authorized`, and the post-login nudge set
   `mcp.sessionIdleTtlMs` to `0`. The next turn, inside the backoff window of the

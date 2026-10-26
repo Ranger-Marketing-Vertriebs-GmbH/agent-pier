@@ -11,63 +11,172 @@ limits are in the [Gateway design](assistant-gateway.md),
 
 ## Turn agents on
 
-1. Open **Settings → Workspace**. Under **Agents**, switch on **Enable agents** and
-   save. AgentPier downloads the pinned OpenClaw runtime and its own Node.js into the
-   data directory; nothing is installed globally. Installers can do this in advance
-   with `--with-assistants` (see [installation](installation.md#managed-assistant-runtime)).
-2. **Settings → Workspace → Agents → Agent service** shows the service, its
-   synchronization and its runtime version. Start, stop or restart the service there,
-   and prepare, activate or roll back OpenClaw updates
-   ([runtime updates](assistant-runtime-updates.md)).
-3. **Agent service → Advanced settings** offers a short, allow-listed set of OpenClaw
-   settings for all agents: **Time limit per task**, **Thinking level**, **Time zone**,
-   **Image quality**, **Maximum image size** and **Media file retention**. Each one is
-   marked **Immediate** or **Restart needed**. AgentPier offers only settings that do
-   not touch security, access or management, and applies them only to the runtime
-   version they were approved for; an older runtime starts with OpenClaw's defaults.
-   When an AgentPier update approves them for a new runtime version, saved values stay
-   stored but inactive until you activate that version under **Agent service**, and
-   again after a rollback before commit; the page names the installed version
-   meanwhile.
-   The activity log records each change as `setting.updated` with the setting and its
-   old and new value.
+Everything about agents is in **Agents** in the sidebar **Menu** (group **Set up**).
+While agents are off, the entry stays and leads to **Agents are off** with **Enable
+agents**.
 
-While agents are off, AgentPier shows no agent navigation and runs no agent
-connections or background work.
+1. Choose **Enable agents**, or open **Agents › Runtime** and switch on **Enable
+   agents** under **Function**, then save. AgentPier downloads the pinned OpenClaw
+   runtime and its own Node.js into the data directory; nothing is installed globally,
+   and the page shows the progress. Installers can do this in advance with
+   `--with-assistants` (see [installation](installation.md#managed-assistant-runtime)).
+   **Settings › General › Features** shows whether agents are on and links to
+   **Agents › Runtime**.
+2. **Agents › Runtime › Agent service** shows the service, its synchronization and its
+   runtime version. Start, stop or restart the service there, and prepare, activate or
+   roll back OpenClaw updates under **OpenClaw updates**
+   ([runtime updates](assistant-runtime-updates.md)). The same tab holds the host-wide
+   **Teams** limit, [Dreaming](#dreaming) and **Storage** (the agents' installed
+   dependencies, with the same clean-up as the system status dialog).
+3. **Agents › Runtime › Advanced · for all agents** offers a short, allow-listed set of
+   OpenClaw settings for all agents: **Time limit per task**, **Thinking level**,
+   **Time zone**, **Image quality**, **Maximum image size** and **Media file
+   retention**. Each one is marked **Immediate** or **Restart needed**. AgentPier
+   offers only settings that do not touch security, access or management, and applies
+   them only to the runtime version they were approved for; an older runtime starts
+   with OpenClaw's defaults. When an AgentPier update approves them for a new runtime
+   version, saved values stay stored but inactive until you activate that version under
+   **Agent service**, and again after a rollback before commit; the page names the
+   installed version meanwhile. The activity log records each change as
+   `setting.updated` with the setting and its old and new value. The old addresses
+   `/settings/assistants` and `/settings/assistants-advanced` open this tab.
+
+While agents are off, AgentPier shows no agents in the sidebar and runs no agent
+connections or background work. When the agent service is stopped, the sidebar dims
+the agents with **offline** and **Agents** shows a banner with **Start service** and
+**Diagnostic**.
+
+## The agents page
+
+![Agents page with the readiness card and two agents](screenshots/agents-hub-desktop.png)
+
+On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
+[agent service, updates and advanced settings](screenshots/agents-runtime-desktop.png).
+
+**Agents** (`/agents`) has four tabs:
+
+- **All agents:** a **Readiness** card (agent service and runtime version with
+  **Update ready**, web search not set up, approvals waiting in the inbox), **Your
+  agents** with model, status and what each may use, **Agents of users** with
+  **Manage users**, and **Archive** with archived agents and members (**Restore**,
+  reset the browser profile). An agent without provider access shows **Provider access
+  missing** and **Choose model**.
+- **Teams:** the teams of all leads, active or archived, with proposals, team cards,
+  coding requests and member requests, and the host-wide limit of concurrently active
+  members ([teams](#teams-asks-and-tasks)).
+- **Templates:** the Agency catalog (search, category, refresh, paging, preview with
+  the scan verdict, source, revision and license). A preview offers **Create personal
+  agent** (opens the wizard with the template) and **Install as subagent in a CLI …**
+  (see [shared CLI extensions](shared-cli-extensions.md)). Blocked entries cannot be
+  used.
+- **Runtime:** see [Turn agents on](#turn-agents-on).
 
 ## Create an agent
 
-Agents need a model. Set one up under **Accounts → Model access**: connect
+Agents need a model. Set one up under **Connections › Model access**: connect
 **ChatGPT for agents** with a device-code sign-in, or add a provider connection
-(OpenRouter, Ollama, llama.cpp or another OpenAI-compatible endpoint).
+(OpenRouter, Ollama, llama.cpp or another OpenAI-compatible endpoint). The wizard can
+also do this on the way (**+ Connect model**).
 
-Then open **Agents** from the sidebar **Menu** and choose **New agent**. Give it a
-**Name**, **Instructions**, a **Model connection** and a **Model**. For ChatGPT
-accounts the list shows the models your account can use and says when it could not
-be refreshed. The agent appears in the sidebar under **Agents**; its chat opens there.
+**New agent** on the agents page, the **+** in the sidebar's **Agents** group or
+**New › Agent** opens the wizard (`/agents?new=1`). Its six steps sit in a rail on the
+left on a computer and one per screen with a progress bar on a phone; **Back** and
+**Next** are always there, and steps 4 and 5 offer **Skip**:
 
-**Start from a template** fills Name and Instructions from an Agency agent (a role
-description from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents),
-MIT licensed); the preview of an entry under **Extensions › Agency agents** offers the same
-as **Create agent**. Its model and tool settings are not imported: you choose the model,
-and tools and access stay off until you grant them. AgentPier scans the entry first: a
-blocked one cannot be used, and warnings are shown before you create the agent. The
-agent's **Profile** names the template with its source, revision and license.
+1. **Start:** **Blank**, **From template** (an Agency role, checked first) or
+   **Duplicate** (an existing agent). When users exist, **For whom?** creates the
+   agent for a person, as their own or a shared agent ([Users](#users)); such agents
+   get chat only, and shell, coding, pipelines, SSH, GitHub, secrets and teams stay
+   locked.
+2. **Identity & model:** **Name**, **Instructions**, provider access and **Model**
+   (a custom model ID and refreshing the list work as in the agent's settings). For
+   ChatGPT accounts the list shows the models your account can use and says when it
+   could not be refreshed. **+ Connect model** opens ChatGPT sign-in or a provider
+   connection in a side sheet; the draft stays.
+3. **Capabilities:** a profile sets the switches below, which stay editable:
+   **Conversation partner** (low risk: memory only), **Researcher** (low: memory,
+   reminders and routines, web search, reading pages, images and PDFs),
+   **Assistant** (medium: Researcher plus a browser) and **Operator** (high: Assistant
+   plus the shell **With approval**). **Create images** needs a ChatGPT account, and a
+   service that is not set up says so with **set up here** instead of blocking.
+4. **Access** (optional): add projects (with folder level and coding), MCP servers,
+   pipelines, SSH/SFTP accesses (with mode), a GitHub level and token profile, and
+   secrets with the same inline add field as the agent's **Access** tab. Nothing is
+   preselected; what is missing can be created in a side sheet without leaving the
+   wizard.
+5. **Channels & routines** (optional): a Telegram bot token (pair your private chat
+   afterwards), **Check in on its own** and a first daily routine. Hooks are created
+   after the agent exists, because creating one reveals a secret.
+6. **Review:** every choice, open prerequisites (for example a missing web search
+   provider) and **Create agent**.
+
+![New agent wizard on the Capabilities step](screenshots/agent-wizard-desktop.png)
+
+On a phone the wizard shows one step per screen ([first step](screenshots/agent-wizard-phone.png)).
+
+One click creates the agent, then its capabilities, access, MCP servers, team policy,
+Telegram, check-ins and routine through the same endpoints as the settings, in that
+order. When a later step fails, the agent stays: the wizard lists each step as done
+or failed with **Try again** per failed step, **Open chat** and **Later in the
+settings**, and never resends a step on its own. Otherwise the agent's chat opens. The
+agent appears in the sidebar under **Agents**.
+
+**From template** fills Name and Instructions from an Agency agent (a role description
+from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents), MIT
+licensed); **Agents › Templates** and the preview of a subagent under **CLIs and
+extensions › Extensions › Subagents** offer the same as **Create personal agent**. Its
+model and tool settings are not imported: you choose the model, and tools and access
+stay off until you grant them. AgentPier scans the entry first: a blocked one cannot be
+used, and warnings are shown before you create the agent. The agent's **Identity** tab
+names the template with its source, revision and license.
+
+**Duplicate** (in the wizard's first step, in the agent's **Overview › Manage** and in
+the ⋯ menu of its settings header) opens the wizard prefilled with "Copy of <name>":
+instructions, model, capability switches, shell level, enabled bundled skills, access
+(projects with their levels, pipelines with their two switches, MCP servers, SSH with
+mode, GitHub level and token profile, secrets) and team policy. Memory, chats,
+attachments, Telegram, hooks, reminders, routines, always allowed commands, the
+browser profile, users and the template's provenance are not copied. Review every step
+before **Create agent**.
 
 ## Agent settings
 
-**Settings** in the agent's chat header opens five tabs: **Profile**, **Capabilities**,
-**Work**, **Routines & check-ins** and **Telegram**.
+**Settings** in the agent's chat header (or on its row on the agents page)
+opens seven tabs: **Overview**, **Identity**, **Capabilities**, **Access**, **Team**,
+**Automation** and **Channels**. The header has **Open chat** and a ⋯ menu with
+**Duplicate** and, for team members, **Archive** or **Restore**. Each tab keeps its own
+draft and save bar; leaving with unsaved changes asks first. A temporary team member
+shows Overview, Identity, Capabilities and Access; an agent of users has no Team tab.
+Old links with `tab=profile`, `tab=work`, `tab=routines` or `tab=telegram` open the
+matching new tab.
 
-### Profile
+![Agent settings on the Access tab](screenshots/agent-settings-access-desktop.png)
 
-Name, instructions and model. A team member also shows where it came from and whether
-its instructions changed since it was created. A temporary member has **Follow the
-lead's model** switched on unless it has a model of its own: its Profile then shows
-the lead's model. Switch it off to
-pick a model of its own; switch it on again to follow the lead. A permanent member, and
-a temporary member with a model of its own, also shows whether its model changed since
-it took it over from the lead.
+On a phone: [Overview tab](screenshots/agent-settings-phone.png).
+
+<a id="overview"></a>
+
+### Overview
+
+**Waiting for your approval** and **Actions and coding tasks** (everything the agent
+proposed and what waits for your decision, see
+[agent workflows](assistant-workflows.md)); **At a glance**, one read-only row per tab
+that opens it; **Chat attachments** ([attachments](#attachments)); for a team member
+the member group (where it came from, its history, **Stop member**, **Keep as permanent
+agent**); and **Manage** with **Duplicate** and, for team members, archive or restore.
+On a phone the agent service summary sits here too.
+
+<a id="profile"></a>
+
+### Identity
+
+Name, instructions and model, **Manage connections** (opens **Connections › Model
+access**), the template note and the revision. A team member also shows where it came
+from and whether its instructions changed since it was created. A temporary member has
+**Follow the lead's model** switched on unless it has a model of its own: its Identity
+tab then shows the lead's model. Switch it off to pick a model of its own; switch it on
+again to follow the lead. A permanent member, and a temporary member with a model of
+its own, also shows whether its model changed since it took it over from the lead.
 
 ### Capabilities
 
@@ -78,13 +187,13 @@ it took it over from the lead.
 - **Web & documents:** **Search the web**, **Read web pages**, **Use a browser** (a
   persistent browser profile of the agent's own; needs Chrome, Brave, Edge or
   Chromium on the host), **Read images**, **Read PDFs** and **Create images**
-  (through a ChatGPT account connected under **Accounts → ChatGPT for agents**;
+  (through a ChatGPT account connected under **Connections › Model access** as **ChatGPT for agents**;
   without one the switch is disabled and says so). The search provider is set once
-  under **Accounts → Services for agents → Web search** (DuckDuckGo, Brave Search or
+  under **Connections › Services for agents › Web search** (DuckDuckGo, Brave Search or
   Perplexity through OpenRouter). **Read PDFs** reads PDF files in the agent's
   workspace with the agent's own model when it accepts images, scanned pages
   included. For agents whose model does not, an optional fallback model reads them,
-  chosen under **Accounts → Services for agents → PDF reading** from the model
+  chosen under **Connections › Services for agents › PDF reading** from the model
   connections and ChatGPT accounts; without one, such an agent reads only the text of
   PDFs, not scanned pages or pages without text. PDFs never go to another provider;
   with several ChatGPT accounts any signed-in one may read them.
@@ -141,16 +250,8 @@ it took it over from the lead.
   and risky skills show a warning first. A skill is a hint, not a permission: most
   skills need shell access, and shell access decides what the agent can run. Agents
   with memory can also read the instructions of their installed skills. These
-  agent skills are separate from the CLI skills under **Extensions**
+  agent skills are separate from the CLI skills under **CLIs and extensions › Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
-- **MCP servers:** the central servers bound to this agent. Add servers under
-  **Accounts → MCP servers**; the wizard's **Connect** step can bind them to agents
-  directly (**Manage MCP servers** links there); OAuth servers
-  are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
-  A local server can also be installed from an npm or PyPI package under **Accounts → MCP
-  servers** ([MCP](mcp.md#installing-a-server-package)). A local server's path setting
-  can use an [agent placeholder](mcp.md#agent-placeholders) such as
-  `{agent.workspace}`, so each agent reads and writes only in its own folder.
 
 Switching a capability, the visible browser, skills or MCP servers applies while the
 agent service keeps running. A few changes still need a brief restart of the agent
@@ -203,12 +304,12 @@ and the command's output never counts as your message. When a write is refused, 
 agent service starts, a message waits a few seconds until memory can be written; if
 it still cannot, the chat says the message ran read-only. **Memory** in the agent's
 settings shows what was actually saved. Project knowledge that an agent proposes
-(**Work**) waits for your approval; when you decline it or it expires, the agent is
+(**Access › Projects**) waits for your approval; when you decline it or it expires, the agent is
 told it was not saved.
 
 #### Dreaming
 
-**Settings › Workspace › Agents › Agent service › Dreaming** switches nightly
+**Agents › Runtime › Dreaming** switches nightly
 dreaming on for all agents at once: **Dream at night**, the hour (default 03:00) and
 the time zone, which follows this device when you switch on (**Use my time zone**
 adopts it again later). The change applies at once, without restarting the agent
@@ -248,19 +349,30 @@ word for word. A busy agent still dreams that night.
 
 Server details: [Dreaming](assistant-gateway.md#dreaming).
 
-### Work
+<a id="work"></a>
 
-- **Secrets:** under **Work → Secrets**, pick the secrets this agent receives (up to
+### Access
+
+Everything the agent may use, in one tab: **Projects**, **SSH/SFTP**, **MCP servers**,
+**Pipelines**, **GitHub** and **Secrets**. You create these once under
+**Connections** and grant them here: each group ends in an add field
+(**Add <type> …**): type to filter, tick one or more entries (entries the agent already has
+show **already granted**), choose a mode where the group has one, then **Add n** and
+save. A long group shows its first entries and **n more · Show all**, which opens the
+full page with search. When nothing exists yet, the group links to Connections to set
+it up. An agent of users gets project folders only; the other groups show a lock.
+
+- **Secrets:** pick the secrets this agent receives (up to
   50). They are delivered as `.agentpier/secrets.env` in its workspace, and its
   AgentPier instructions name that file and how to load it, so it can read their
   values. The file is rewritten before every turn and file tools cannot change it, but
   shell access can ([secrets](secrets.md)).
-- **Projects and coding tasks:** **Allowed projects**, **Allowed pipelines**, whether
-  the agent may propose project memory updates, start selected coding pipelines
-  without another approval, and publish pull requests. **Actions and coding tasks**
-  lists what it proposed and what waits for your decision
-  ([agent workflows](assistant-workflows.md)).
-- **Direct folder access:** under **Allowed projects**, each allowed project offers
+- **Projects and pipelines:** **Projects** (coding start and folder level per project,
+  and whether the agent may propose project knowledge updates) and **Pipelines**
+  (which ones, whether it may start them without another approval, and whether it may
+  publish pull requests). What it proposed and what waits for your decision is under
+  **Overview › Actions and coding tasks** ([agent workflows](assistant-workflows.md)).
+- **Direct folder access:** under **Projects**, each allowed project offers
   **None**, **Read** or **Read and write** for its folder. With **Read** the agent
   lists, reads and searches files there; with **Read and write** it also creates and
   changes files, without an approval per change. Its instructions name each folder
@@ -268,10 +380,10 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   AgentPier's own data stay locked, and every change is recorded in the activity log
   with its path and size, never its content
   ([folder access](assistant-workflows.md#direct-folder-access)). The same access can
-  be set from the project: **Projects → <project> → Agents**
+  be set from the project: **Projects › <project> › Agents**
   ([agent access per project](assistant-workflows.md#agent-access-from-the-project)).
 - **GitHub:** **No access**, **Read** or **Read and write** through one of your token
-  profiles from **Settings → Access → GitHub connections** (the host's **Default for agents** is
+  profiles from **Connections › GitHub connections** (the host's **Default for agents** is
   preselected). The agent gets the official GitHub MCP server with that profile:
   **Read** offers repositories, issues, pull requests and Actions runs read only;
   **Read and write** also comments on and creates issues and pull requests, merges
@@ -289,7 +401,7 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   scopes lack `repo`, and AgentPier installs the GitHub MCP server on first use
   ([GitHub for agents](assistant-gateway.md#github-for-agents)). Each change is
   recorded in the activity log.
-- **SSH accesses:** the hosts from **Settings → Access → SSH accesses** this agent may
+- **SSH accesses:** the hosts from **Connections › SSH/SFTP accesses** this agent may
   run commands on, each with a mode. **With approval** (the default) shows every
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
   a command with hidden characters or more than 2,000 characters can only be allowed
@@ -326,24 +438,50 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   hook's transfers show in its **Events** entry instead.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
-- **Team:** **Use team** (**On request**, **Suggest** or **Autonomous**; see
-  [when a lead uses its team](#when-a-lead-uses-its-team)), **Allow teams without
-  asking each time**, **Team members may use shell and SSH** (off by default; see [teams](#teams-asks-and-tasks) below), **Maximum team size** and
-  **Member time limit (minutes)**.
-- **Teams:** the agent's active and archived teams and, below them, **Questions and
-  tasks** it sent to its members.
-- **Shared by the lead agent** (permanent members only): the project folders, coding
+- **MCP servers:** the central servers bound to this agent, each with its status and
+  **Open** (its entry under **Connections › MCP servers**). Add servers there; the MCP
+  wizard's **Connect** step can bind them to agents directly. OAuth servers
+  are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
+  A local server can also be installed from an npm or PyPI package under **Connections ›
+  MCP servers** ([MCP](mcp.md#installing-a-server-package)). A local server's path setting
+  can use an [agent placeholder](mcp.md#agent-placeholders) such as
+  `{agent.workspace}`, so each agent reads and writes only in its own folder.
+- **Shared by the lead agent** (team members): the project folders, coding
   projects, MCP servers and **Read images** the member's lead shares with it, each
   "via <lead>", with
   **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
+- **Granted by the lead agent** (temporary members): what the lead gave the member,
+  read only, and its temporary MCP servers ([teams](#teams-asks-and-tasks)). A
+  temporary member's Access tab shows only these and the lead's shares.
+- **Who uses this agent:** the users who chat with it, each with a level, **Remove**
+  and, on a user's own agent, the **Released capabilities** ([Users](#users)).
 
-### Routines & check-ins
+### Team
+
+- **Team:** **Use team** (**On request**, **Suggest** or **Autonomous**; see
+  [when a lead uses its team](#when-a-lead-uses-its-team)), **Allow teams without
+  asking each time**, **Team members may use shell and SSH** (off by default; see
+  [teams](#teams-asks-and-tasks) below), **Maximum team size** and **Member time limit
+  (minutes)**.
+- **Shared with members:** what this agent shares of its own access with its members,
+  with **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
+- **Teams:** the agent's active and archived teams with proposals and member requests
+  and, below them, **Questions and tasks** it sent to its members. **Agents › Teams**
+  shows the teams of all agents in one place.
+
+The Team tab is hidden for team members and agents of users.
+
+<a id="routines--check-ins"></a>
+
+### Automation
 
 **Acting on its own** (check-ins), **Reminders**, **Routines** and **Hooks**; see
 [routines, reminders and check-ins](#routines-reminders-and-check-ins) and
 [hooks](#hooks).
 
-### Telegram
+<a id="telegram"></a>
+
+### Channels
 
 - **Connection:** create a dedicated bot with BotFather, paste its token under
   **Telegram bot token**, choose **Connect Telegram**, then **Pair my private chat**.
@@ -352,7 +490,7 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   split between paragraphs or lines (beyond about 64,000 characters or 40 messages
   a closing note says the reply was shortened). **Telegram activity** shows deliveries that
   need a decision. Voice messages are transcribed when a Deepgram key is set under
-  **Accounts → Services for agents → Speech recognition**. Photos, documents and
+  **Connections › Services for agents › Speech recognition**. Photos, documents and
   videos you send there reach the agent like [attachments](#attachments) (see
   [files from Telegram](#files-from-telegram)). Files the agent shares in
   a Telegram turn reach Telegram too ([files from agents](#files-from-agents)).
@@ -369,6 +507,8 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
   it: the bundled OpenClaw version handles its people's photos and files on its own
   (it keeps them in its own media store, never in the agent's `attachments/` folder).
   AgentPier's tests do not cover this.
+- **Notifications:** a read-only row leads to **Settings › App and notifications**,
+  where each device chooses its push notifications ([notifications](notifications.md)).
 
 ## Teams, asks and tasks
 
@@ -385,22 +525,22 @@ template's instructions instead of the lead's, plus its role and assignment; wha
 may use still comes only from the lead's grants. The proposal card and the Telegram
 approval name each member's template with a link to its source. A template the scan
 warned about always waits for your approval, even when teams are allowed without
-asking; a blocked one is refused. The member's **Profile** keeps the template, also
+asking; a blocked one is refused. The member's **Identity** tab keeps the template, also
 after **Keep as permanent agent**.
 
 Every member row and chat header shows the model the member actually runs on:
 
 - **Temporary members** use the lead's current model unless they have one of their
   own. Change the lead's model and its following temporary members use the new one
-  from their next turn on; the member's own Profile revision does not change. A model
+  from their next turn on; the member's own Identity revision does not change. A model
   chosen for a temporary member in an earlier AgentPier version is ignored. When the
   lead's model connection is removed or unavailable, they stop working with the same
   hint as the lead until you choose another model for the lead. Switch off **Follow
-  the lead's model** in the member's Profile to give it a model of its own; lead
+  the lead's model** in the member's Identity tab to give it a model of its own; lead
   changes then no longer affect it until you switch it on again.
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
-  affect it. Change it in the member's Profile; its lead can change it too (see
+  affect it. Change it in the member's Identity tab; its lead can change it too (see
   below). A lead's own assignment is not shown as "changed since taken over".
 
 The lead decides what each temporary member gets, and can only give what it has
@@ -414,7 +554,7 @@ its task, and also after it finished as long as the lead can still ask it questi
 or give it tasks (it is not archived or kept as a permanent agent), the lead can
 grant it more or take grants back; each change shows on
 the team card, as a note in the member's chat and the lead's chat, and in the
-member's **Capabilities → Granted by the lead agent**, and it is recorded in the
+member's **Access › Granted by the lead agent**, and it is recorded in the
 activity log. Grants follow the lead: if it loses a capability, its members lose it
 too. You see a member's project folders, MCP servers, shell and SSH from its lead
 next to the shares with permanent members, and can revoke them there
@@ -427,11 +567,11 @@ Every temporary member has its own memory that it can write, always on. The lead
 memory grant adds a read-only copy of the lead's memory beside it (in the member's
 `memory/lead/` folder), without the lead's dream notes (`memory/dreaming/`); the
 member can search both but never writes the lead's. You
-can read a member's own memory under **Capabilities → Own memory** in its settings.
+can read a member's own memory under **Capabilities › Own memory** in its settings.
 When a member is kept as a permanent agent, its own memory stays and the copy of the
 lead's is removed.
 
-Shell and SSH need **Team members may use shell and SSH** in the lead's **Work** tab.
+Shell and SSH need **Team members may use shell and SSH** in the lead's **Team** tab.
 With it on, the lead may grant members of teams proposed from then on at most its
 own shell level and its SSH accesses; the proposal marks those members with a
 warning, and such a proposal always waits for your approval, even when teams are
@@ -460,8 +600,7 @@ A lead also talks to its members directly:
   and assignment, additional instructions, or their whole instructions, even ones you
   edited yourself, and their model. It does this on its own initiative. Each change
   shows as a note in the member's and the lead's chats and in the member's
-  **Capabilities → Granted by the lead agent** history (for a permanent member in
-  its Profile instead), which also keeps, for you only, the instructions the last five
+  **Access › Granted by the lead agent** history (for a permanent member in its Identity tab instead), which also keeps, for you only, the instructions the last five
   changes replaced. It takes effect from the member's next turn, also in your own
   chats with a permanent member.
 - It can **look up models** to give its members: it lists the models of your usable
@@ -505,7 +644,7 @@ A lead also talks to its members directly:
   **Go ahead** below its reply: it sends "Yes, go ahead" as your own message, so the
   lead can act in your turn. While a [work goal](#work-until-done) is open in that
   chat, the turn handling a member's result also has the goal's rights.
-- **Work → Teams → Questions and tasks** lists every request, open ones first, marked
+- **Team › Teams › Questions and tasks** lists every request, open ones first, marked
   "may write" or "read-only", "self-initiated" when an autonomous lead started it
   on its own and "Scheduled · <name>" when one of its routines did, with **Cancel** for open ones.
   It also lists the members' requests to each other as "<member> → <member> ·
@@ -556,8 +695,7 @@ with Learning") and on their own:
   changes memory, and a coding request from it always waits for your approval.
 - **The lead sees everything:** a quiet line in its main chat when an exchange starts
   and when it ends ("Learning asked Head Writer a question", "Head Writer answered
-  Learning"), naming only who and how it ended, and each exchange and report under
-  **Work → Teams → Questions and tasks**. The lead's "Your team" instructions and
+  Learning"), naming only who and how it ended, and each exchange and report under **Team › Teams › Questions and tasks**. The lead's "Your team" instructions and
   tools tell it that its members can agree among themselves; name in a task whom to
   involve and where the result goes.
 
@@ -584,9 +722,7 @@ the same access: if the lead's level drops, the member's drops with it at its ne
 call; if the lead loses the project or server, or the lead or member is archived or
 the member is no longer the lead's permanent member, the share ends and is removed.
 Shares never lower or replace the access you gave the member yourself and are listed
-apart from it: in the member's **Work → Shared by the lead agent**, in **Projects → <project> →
-Agents → Shared by lead agents** and with the MCP server under **Accounts → MCP
-servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
+apart from it: in the member's **Access › Shared by the lead agent**, in **Projects › <project> › Agents › Shared by lead agents** and with the MCP server under **Connections › MCP servers**, each "via <lead>" with **Revoke**. Revoking ends the share at once and fails
 coding requests that still wait on it. Every share, revocation and change of a
 project file through a share is recorded in the activity log with the lead and the
 task.
@@ -594,7 +730,7 @@ task.
 Shared folders and coding projects work in the lead's tasks for the member, in your
 own chats with the member and, for standing shares, in the member's own routines (a
 task's share stays with its task). In a lead's task the member also keeps the project
-folders and coding projects you granted it yourself in its **Work** tab: a folder you
+folders and coding projects you granted it yourself in its **Access** tab: a folder you
 set to **Read** only reads, one set to **Read and write** changes files only when the
 task may change files (see below), otherwise it reads. Where a folder is both your
 own grant and a lead's share, the higher level counts. The activity log names a
@@ -610,9 +746,8 @@ lead's task (also on the member's own project), always wait for your approval.
 Shell and SSH are never shared this way: a permanent member uses only its own.
 
 The same overviews list what leads granted their temporary members, marked
-**Task-bound member**: in the member's **Capabilities → Shared by the lead agent**
-(a temporary member has no Work tab), in **Projects → <project> → Agents → Shared by
-lead agents** and with the MCP server under **Accounts → MCP servers**. Each project
+**Task-bound member**: in the member's **Access › Shared by the lead agent**, in **Projects › <project> › Agents › Shared by
+lead agents** and with the MCP server under **Connections › MCP servers**. Each project
 folder shows the level the member uses now, at most the lead's own; a folder,
 server, shell level or SSH the lead does not hold right now is marked **Not in
 effect** and stays listed until it is revoked. **Revoke** takes a folder, MCP server,
@@ -643,16 +778,15 @@ each time. Temporary members are refused, as they work only on their task.
   message must name the member; with **Suggest** the lead offers it first. Each
   member takes at most 5 routines from its lead, and they run at most every 15
   minutes.
-- In the member's **Routines & check-ins** each shows "Created by <lead>". You can
-  edit its name and task, pause, remove it and switch **May write** like any
-  routine. The lead's reports are listed under **Work → Teams → Questions and
+- In the member's **Automation** tab each shows "Created by <lead>". You can
+  edit its name and task, pause, remove it and switch **May write** like any routine. The lead's reports are listed under **Team › Teams › Questions and
   tasks** as "Routine report from <member>".
 - When the member is archived or no longer the lead's permanent member, or the lead
   is archived, its routines are removed and the activity log records why.
 
 ### When a lead uses its team
 
-**Work → Team → Use team** sets how the lead involves its members on its own. Each
+**Team › Team › Use team** sets how the lead involves its members on its own. Each
 turn, AgentPier adds a short "Your team" section to the lead's instructions: its
 members with name, role and whether they are permanent or temporary, and the rules
 for the chosen level:
@@ -759,7 +893,7 @@ done: <title>** with a **Stop** button under the chat header.
 
 ## Routines, reminders and check-ins
 
-All three live in the agent's **Routines & check-ins** tab and need no Telegram. Their
+All three live in the agent's **Automation** tab and need no Telegram. Their
 results go to the agent's main chat (the first chat in AgentPier, the same one a
 paired Telegram chat writes into, whatever other chats you started) with a push notification that opens it. With a paired
 Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-ins
@@ -799,7 +933,7 @@ or proposing a team sends an **Agent approval** push notification as well.
   always waits for your approval in the agent's chat, also when the agent may start
   pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask
   its members and delegate tasks to permanent ones; such a task runs read-only unless
-  the routine is marked **May write**, and **Work → Teams → Questions and tasks**
+  the routine is marked **May write**, and **Team › Teams › Questions and tasks**
   marks the request "Scheduled · <name>". A marked routine's tasks count as your
   standing instruction and may change files like a task you asked for. Its result
   appears in the main chat's **Events** area (see [the event area](#the-event-area))
@@ -856,7 +990,7 @@ strip you opened stays.
 
 A hook lets monitoring and other systems wake an agent: it gets its own address, and
 every request to it with the hook's secret starts a run of the agent in its main chat.
-Manage hooks under **Routines & check-ins → Hooks**. They exist for your own agents and
+Manage hooks under **Automation › Hooks**. They exist for your own agents and
 permanent members with **Allow reminders and routines** switched on, not for shared
 agents. While that switch is off every hook is inactive (its address answers like an
 unknown one); the list stays, so you can still delete them. **Paused** means a hook's
@@ -904,14 +1038,13 @@ switch rights off, or on where the agent holds them now, before **Approve hook**
 **Decline action**. A right the agent no longer holds is left out, and the card says
 so. After approval the chat links to the hook's settings ("Show the
 secret in the hook's settings"), where **Create secret** makes its first secret.
-**Work → Actions and coding tasks** lists each proposal with its outcome.
+**Overview › Actions and coding tasks** lists each proposal with its outcome.
 
 ## Dictation
 
 The microphone next to the send button dictates into the message field: tap it, speak,
 and the words appear live; tap again to stop. The text stays in the field for editing
-unless **Send dictated messages right away** is on under **Accounts → Services for
-agents → Speech recognition**. Dictation uses that Deepgram key and needs HTTPS or
+unless **Send dictated messages right away** is on under **Connections › Services for agents › Speech recognition**. Dictation uses that Deepgram key and needs HTTPS or
 localhost for microphone access; the coding session chat offers the same microphone.
 Details and limits: [live dictation](assistant-gateway.md#live-dictation-in-the-chats).
 
@@ -1042,7 +1175,7 @@ are part of host backups only with history and a passphrase, and then encrypted 
 [backups](backups.md#what-a-backup-holds)).
 
 Each agent keeps up to 1 GB or 1000 files in its `attachments/` folder, files the
-agent put there itself included. The agent's **Profile** tab shows how much of that it
+agent put there itself included. The agent's **Overview** tab shows how much of that it
 uses under **Chat attachments**, for example "120 MB of 1 GB · 34 of 1,000 files".
 **Clear attachments** deletes everything in the folder after a confirmation, including
 videos still uploading and unsent files in the composer. Sent messages keep their text
@@ -1152,7 +1285,7 @@ signed-in one may be used for images.
 
 ## Users
 
-**Settings › Access › Users** adds other people who chat with agents. They sign in to
+**Settings › Users** adds other people who chat with agents. They sign in to
 the same AgentPier with their own username and password and see a slim app: **My
 agents**, their chats, their agents' settings within their level, and **Account**
 (Change password, whether you may read their chats, their devices' notifications,
@@ -1171,20 +1304,20 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   what is written in any of its chats, also word for word, can be carried into the
   shared memory that all its users and you read, by the agent's own notes, the memory
   step before a summary and dreaming).
-  Create one from **New agent** with **For** set to the person. On the agents page and
+  Create one from **New agent** with **For whom?** set to the person in the wizard's first step, or with **Add agent for this person** on the user's page. On the agents page and
   in the sidebar they appear under **Agents of users**. You open your own chat with a
   shared agent (**Open my chat**), never a user's; a user's own agent opens its
   settings, where its notes and browser stay hidden until you may read them and then
   show read-only; its reminders and routines are the user's. A user's chat you may
   read shows read-only, without composer, **New chat**
   or chat actions.
-- Their **Capabilities** and **Work** tabs show "Locked for agents of users: they
+- Their **Capabilities** and **Access** tabs show "Locked for agents of users: they
   cannot run programs on this computer." instead of shell, the visible browser window
   (their browser runs headless), SSH, secrets, GitHub, pipelines, coding and teams. Their
-  **Telegram** tab shows **Telegram for other people** as locked; on a user's own agent
+  **Channels** tab shows **Telegram for other people** as locked; on a user's own agent
   it offers no bot of yours either and says its user connects its bot in their app.
-  **Work › Projects**, a project's **Agents** section and **Add folder** offer
-  project folders only, **Read** or **Read and write**, never coding. **Profile › Users of this agent** sets each user's level and, on a
+  **Access › Projects**, a project's **Agents** section and **Add folder** offer
+  project folders only, **Read** or **Read and write**, never coding. **Access › Who uses this agent** sets each user's level and, on a
   user's own agent, the **Released capabilities** an Extended user may switch; a shared
   agent's capabilities stay yours.
 - In the user's app, **Personalize** edits name, picture (an emoji) and personality and
@@ -1250,13 +1383,13 @@ See [SECURITY.md](../SECURITY.md) for the reporting policy and the full trust mo
 
 ## Troubleshooting
 
-- **Settings → Workspace → Agents → Agent service** shows whether the service runs and
+- **Agents › Runtime › Agent service** shows whether the service runs and
   whether the agents' configuration is synchronized; **Technical details** shows the
   runtime version and more. Restart the service there if it does not become ready.
-- **Settings → Workspace** shows an **Agent diagnostic** under **Agents** when agents
+- **Agents › Runtime › Function** shows an **Agent diagnostic** when agents
   could not be switched on or started.
 - An agent whose model connection was deleted shows a hint in its chat header; choose
-  another connection on its **Profile** tab.
+  another connection on its **Identity** tab.
 - An agent marked **Couldn't start** could not start in the agent service, usually
   after the service stopped uncleanly. Its chats say so and offer **Restart agent
   service**, which brings it back; messages sent to it meanwhile are not delivered

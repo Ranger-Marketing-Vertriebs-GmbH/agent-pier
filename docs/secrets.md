@@ -4,7 +4,7 @@ A secret is a named value, such as an API token, that agents and coding sessions
 
 ## Manage secrets
 
-In **Settings → Access → Secrets**, select a secret to open its details alongside the list, or choose **New secret**. A secret has:
+In **Connections › Secrets** (the old address `/settings/secrets` leads there), select a secret to open its details alongside the list, or choose **New secret**. **Used by** in the details lists the agents that receive the secret and the running coding sessions that use it; agents can be added there too. A secret has:
 
 - **Name**: capital letters, digits and underscores, starting with a letter or an underscore, up to 64 characters, for example `ZABBIX_TOKEN`. Names are unique across all secrets.
 - **Description**: up to 200 characters.
@@ -17,7 +17,7 @@ Managing secrets is an owner operation. The API (`/api/secrets`) never returns v
 
 ## Agents
 
-Open **Agents → Settings → Work → Secrets** and select the secrets this agent receives, up to 50 per agent. AgentPier delivers them as `.agentpier/secrets.env` in its workspace. While at least one secret reaches the agent, its AgentPier instructions (`AGENTS.md`) name this file, tell it to load it in the same shell command with `set -a; . .agentpier/secrets.env; set +a`, and never to print, log, commit or paste the values. The instructions contain no secret names or values, and the line disappears once nothing is granted. A grant change reaches the instructions before the agent's next turn.
+In the agent's settings, open **Access › Secrets** and add the secrets this agent receives, up to 50 per agent (or add the agent from the secret's **Used by** list). AgentPier delivers them as `.agentpier/secrets.env` in its workspace. While at least one secret reaches the agent, its AgentPier instructions (`AGENTS.md`) name this file, tell it to load it in the same shell command with `set -a; . .agentpier/secrets.env; set +a`, and never to print, log, commit or paste the values. The instructions contain no secret names or values, and the line disappears once nothing is granted. A grant change reaches the instructions before the agent's next turn.
 
 - The file has the line `# Managed by AgentPier. Do not edit; changes are overwritten.` followed by one line per secret, sorted by name: `NAME='value'`, with every `'` in a value written as `'\''`. It has mode 0600 and can be loaded by a POSIX shell without expansion.
 - AgentPier rewrites the file at once when a value, a selection or a grant changes, and again before every turn. A deleted secret or a revoked grant disappears from the file immediately. The file is removed when nothing is granted, or when the agent is archived or becomes an agent of a user.
