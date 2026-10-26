@@ -1,7 +1,10 @@
 /* ⌘K search (SearchDialog.jsx): a Modal with a combobox field and grouped results.
    Tokens only. */
-dialog.search-dialog {
-  width: min(640px, calc(100vw - 32px));
+/* Phones keep the generic full-width bottom sheet (components/forms.css). */
+@media (min-width: 701px) {
+  dialog.search-dialog {
+    width: min(640px, calc(100vw - 32px));
+  }
 }
 .search-field {
   display: flex;
@@ -24,6 +27,14 @@ dialog.search-dialog {
   background: transparent;
   color: var(--text);
   font-size: var(--font-size-lg);
+}
+/* The ring wraps the whole field, icon and count included. */
+.search-field:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.search-field input:focus-visible {
+  outline: none;
 }
 .search-field input::placeholder {
   color: var(--placeholder);

@@ -338,7 +338,7 @@ test.describe("English", () => {
     await expect(group(page, "Work").getByRole("button")).toHaveCount(5);
     await expect(group(page, "Set up").getByRole("button")).toHaveText([
       /^Agents/,
-      /^CLIs & Erweiterungen|^CLIs and extensions/,
+      /^CLIs and extensions/,
       /^Connections/,
       /^Settings/,
     ]);

@@ -47,6 +47,10 @@ test("existing session assignment exposes copy command without sending agent inp
   state.accesses = [state.access];
   await page.goto(baseURL + "/sessions/fixture-session");
   await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
+  // "verwalten" leads to Zugänge › SSH/SFTP-Zugänge (Appendix A D-2).
+  await expect(
+    page.getByRole("link", { name: "SSH-Zugänge verwalten", exact: true }),
+  ).toHaveAttribute("href", "/connections?section=ssh");
   await page.getByRole("checkbox", { name: /Build server/ }).check();
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page

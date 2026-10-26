@@ -365,3 +365,13 @@ test("Telegram links use the browser address, which the owner can change", async
   await expect.poll(() => state.patched?.language).toBe("de");
   expect(state.patched.appUrl).toBeUndefined();
 });
+
+test("Channels links to the device notifications in the settings", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + settingsPath("channels"));
+  const row = page.getByRole("link", { name: /Settings › App and notifications/ });
+  await expect(row).toHaveAttribute("href", /^\/settings\/notifications/);
+  // The settings page itself is covered by notifications.spec.js.
+  await row.click();
+  await expect(page).toHaveURL(/\/settings\/notifications/);
+});
