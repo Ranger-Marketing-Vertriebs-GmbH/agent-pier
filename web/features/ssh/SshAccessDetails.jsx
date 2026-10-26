@@ -11,6 +11,7 @@ export default function SshAccessDetails({
   removed,
   loading,
   viewKey,
+  onTested,
 }) {
   const sftp = access.type === "sftp",
     usesKey = Boolean(access.keyId);
@@ -76,13 +77,15 @@ export default function SshAccessDetails({
         <button
           className="button"
           disabled={busy}
-          onClick={() =>
-            run(async () => {
+          onClick={async () => {
+            await run(async () => {
               setTested(
                 await api(`/ssh-accesses/${encodeURIComponent(access.id)}/test`, "POST"),
               );
-            })
-          }
+            });
+            // The stored result (Zugänge status and last test) comes with the next read.
+            onTested?.();
+          }}
         >
           {copy.test}
         </button>

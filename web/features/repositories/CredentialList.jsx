@@ -15,6 +15,7 @@ export default function CredentialList({
   setModal,
   label,
   checked = () => {},
+  extra,
 }) {
   const [checking, setChecking] = useState(null);
   const [errors, setErrors] = useState({});
@@ -69,6 +70,7 @@ export default function CredentialList({
               `${credential.commitIdentity.name} <${credential.commitIdentity.email}>`}
           </div>
           <div role="cell" className="repository-actions">
+            {extra?.(credential)}
             {credential.hasSecret && (
               <button
                 className="button secondary compact"

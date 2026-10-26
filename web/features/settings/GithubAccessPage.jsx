@@ -11,7 +11,18 @@ import React, { useEffect, useState, useSyncExternalStore } from "react";
 import CredentialDialog from "../repositories/CredentialDialog.jsx";
 import CredentialList from "../repositories/CredentialList.jsx";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
-export default function GithubAccessPage() {
+/**
+ * Zugänge › GitHub-Zugänge: token profiles with check, edit and delete. `only` shows
+ * one profile (its full view) with `after(credential)` below it; `rowExtra` adds an
+ * action per row; `onChanged` hears saves and deletes (`deletedId` when one went).
+ */
+export default function GithubAccessPage({
+  only,
+  after,
+  rowExtra,
+  onChanged,
+  emptyState,
+} = {}) {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -45,14 +56,17 @@ export default function GithubAccessPage() {
         <div>
           <p>{repositoriesPageCopy.agentCredentialDescription}</p>
         </div>
-        <button
-          className="button primary"
-          disabled={loading || Boolean(loadError) || cloning}
-          onClick={() => setModal({})}
-        >
-          <Icon name="plus" />
-          {commonCopy.addToken}
-        </button>
+        {/* An empty list offers adding in its empty state; a full view shows one entry. */}
+        {!only && !(emptyState && !loading && !loadError && !credentials.length) && (
+          <button
+            className="button primary"
+            disabled={loading || Boolean(loadError) || cloning}
+            onClick={() => setModal({})}
+          >
+            <Icon name="plus" />
+            {commonCopy.addToken}
+          </button>
+        )}
       </header>
       {loading && (
         <p role="status" className="loading">
@@ -70,10 +84,16 @@ export default function GithubAccessPage() {
           </button>
         </div>
       )}
-      {!loading && !loadError && (
+      {!loading && !loadError && !credentials.length && emptyState
+        ? emptyState(() => setModal({}))
+        : null}
+      {!loading && !loadError && (credentials.length > 0 || !emptyState) && (
         <>
           <CredentialList
-            credentials={credentials}
+            credentials={
+              only ? credentials.filter((item) => item.id === only) : credentials
+            }
+            extra={rowExtra}
             cloning={cloning}
             setModal={setModal}
             label={copy.pageHeadingTitle}
@@ -83,6 +103,12 @@ export default function GithubAccessPage() {
               )
             }
           />
+          {only &&
+            credentials
+              .filter((item) => item.id === only)
+              .map((credential) => (
+                <React.Fragment key={credential.id}>{after?.(credential)}</React.Fragment>
+              ))}
           <p className="field-description github-access-footnote">
             {credentialDialogCopy.multipleProfilesDescription}
           </p>
@@ -101,6 +127,7 @@ export default function GithubAccessPage() {
                 : [...items.filter((item) => item.id !== credential.id), credential],
             );
             setReload((value) => value + 1);
+            onChanged?.(credential, deletedId);
           }}
         />
       )}

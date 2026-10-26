@@ -1,4 +1,3 @@
-import { accountRow } from "../helpers/accounts-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
@@ -155,7 +154,11 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
   await expect(page).toHaveURL(
     /\/connections\?section=mcp-servers&returnTo=%2Fcoding%2Fclis%2Fextensions%2F/,
   );
-  await expect(accountRow(page, "In den CLIs gefunden")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "MCP-Server" })
+      .getByRole("button", { name: /^In den CLIs gefunden/ }),
+  ).toBeVisible();
   expect(writes).toHaveLength(0);
 });
 test("skill file upload and GitHub download show native shared scope and protect existing skills", async ({

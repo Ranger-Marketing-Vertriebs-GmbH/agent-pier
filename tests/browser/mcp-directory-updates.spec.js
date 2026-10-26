@@ -17,6 +17,12 @@ const fromDirectory = () =>
     envNames: ["OPNSENSE_API_KEY", "EXTRA"],
   });
 
+// The server's row in the Zugänge MCP list; its status names an available update.
+const row = (page) =>
+  page
+    .locator(".long-list-row")
+    .filter({ has: page.getByRole("button", { name: "opnsense", exact: true }) });
+
 for (const [label, use] of [
   ["desktop", {}],
   ["phone", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }],
@@ -33,9 +39,7 @@ for (const [label, use] of [
         directory: { updates: [{ serverId: "s1", version: "1.1.0" }] },
       });
       await page.goto(`${baseURL}/accounts?section=mcp-servers`);
-      await expect(
-        page.getByRole("link", { name: /^opnsense/ }).getByText("Update available"),
-      ).toBeVisible();
+      await expect(row(page).getByText("Update available")).toBeVisible();
       await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1`);
       const panel = page.locator(".mcp-package");
       await expect(
@@ -73,10 +77,8 @@ for (const [label, use] of [
       ).toBeVisible();
       await expect(page.getByText(/is listed in the directory/)).toHaveCount(0);
       await page.goto(`${baseURL}/accounts?section=mcp-servers`);
-      await expect(page.getByRole("link", { name: /^opnsense/ })).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: /^opnsense/ }).getByText("Update available"),
-      ).toHaveCount(0);
+      await expect(row(page)).toBeVisible();
+      await expect(row(page).getByText("Update available")).toHaveCount(0);
     });
 
     test("a changed address is a hint and shows no pill", async ({ page }) => {
@@ -90,10 +92,8 @@ for (const [label, use] of [
         page.getByText("The directory now lists another address for this server."),
       ).toBeVisible();
       await page.goto(`${baseURL}/accounts?section=mcp-servers`);
-      await expect(page.getByRole("link", { name: /^opnsense/ })).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: /^opnsense/ }).getByText("Update available"),
-      ).toHaveCount(0);
+      await expect(row(page)).toBeVisible();
+      await expect(row(page).getByText("Update available")).toHaveCount(0);
     });
 
     test("once the listed version is installed, pill and hint are gone", async ({
@@ -136,15 +136,9 @@ for (const [label, use] of [
       };
       await expect(panel.getByText("server-x@1.1.0")).toBeVisible();
       await expect(hint).toHaveCount(0);
-      const pill = page
-        .getByRole("link", { name: /^opnsense/ })
-        .getByText("Update available");
-      if (label === "desktop") {
-        await expect(page.getByRole("link", { name: /^opnsense/ })).toBeVisible();
-        await expect(pill).toHaveCount(0);
-      }
+      const pill = row(page).getByText("Update available");
       await page.goto(`${baseURL}/accounts?section=mcp-servers`);
-      await expect(page.getByRole("link", { name: /^opnsense/ })).toBeVisible();
+      await expect(row(page)).toBeVisible();
       await expect(pill).toHaveCount(0);
     });
 

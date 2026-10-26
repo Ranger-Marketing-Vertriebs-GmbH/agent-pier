@@ -46,3 +46,11 @@ export const connectionsRoute = (section, item) => ({
   ...(connectionSections.includes(section) ? { section } : {}),
   ...(section && item ? { item } : {}),
 });
+
+/** The activity log filtered to one Zugänge entry ("Im Aktivitätsprotokoll"). */
+export const auditRoute = (resourceId) => ({
+  view: "settings",
+  settingsSection: "audit",
+  settingsTab: "operations",
+  resourceIdFilter: resourceId,
+});

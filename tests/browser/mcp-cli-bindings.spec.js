@@ -19,7 +19,7 @@ test("the central MCP list is on Accounts without agents and offers no agent log
   page,
 }) => {
   await setup(page, { servers: [header({ auth: "oauth", headerNames: [] })] });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await expect(
     page.getByRole("heading", { name: "MCP servers", exact: true }),
   ).toBeVisible();
@@ -31,7 +31,7 @@ test("the wizard offers coding CLIs, explains a disabled one and saves the choic
   page,
 }) => {
   const state = await wizardSetup(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await expect(
     page.getByText("Running sessions see changes after a restart."),
   ).toBeVisible();
@@ -73,7 +73,7 @@ test("the wizard offers coding CLIs, explains a disabled one and saves the choic
 
 test("a working directory rules out Claude Code only", async ({ page }) => {
   await wizardSetup(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await chooseSource(wizard, /Own command/);
   await wizard.getByLabel("Name", { exact: true }).fill("tool");
@@ -98,7 +98,7 @@ test("a local command for a CLI is confirmed before anything is saved", async ({
   page,
 }) => {
   const state = await wizardSetup(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await commandToConnect(wizard);
   await wizard.getByRole("switch", { name: "Codex" }).check();
@@ -200,7 +200,7 @@ test("a conflict offers both choices and an OAuth server the CLI's login command
     }
     return false;
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "docs");
   await expect(page.getByText("Agents: Home · CLIs: Claude Code, Codex")).toBeVisible();
   await expect(page.getByText("Codex: edited by hand in the CLI")).toBeVisible();
@@ -280,7 +280,7 @@ test("a CLI that cannot be written names the reason, a failed choice the server'
       });
     return false;
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "docs");
   await expect(
     page.getByText(
@@ -295,7 +295,7 @@ test("a CLI that cannot be written names the reason, a failed choice the server'
 
 test("the CLI statuses read in German", async ({ page }) => {
   await setup(page, { language: "de", servers: [bound()] });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "docs");
   await expect(page.getByText("Codex: in der CLI von Hand geändert")).toBeVisible();
   await expect(
@@ -328,7 +328,7 @@ test("entries found in the CLIs are adopted one by one or all at once, names onl
       },
     });
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("in Claude Code, Codex")).toBeVisible();
@@ -372,7 +372,7 @@ test("a found entry that fails to adopt is named; German copy", async ({ page })
           },
         })
       : false;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "In den CLIs gefunden");
   const found = page.getByRole("region", { name: "In den CLIs gefunden" });
   await expect(found.getByText("wird gespeichert als /usr/bin/true")).toBeVisible();
@@ -401,7 +401,7 @@ test("an adoption failure reads in English from its message key", async ({ page 
           },
         })
       : false;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("Command not found on this computer.")).toBeVisible();
@@ -418,5 +418,7 @@ test("the section reports when nothing else is found", async ({ page }) => {
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByText("Nothing else found in the CLIs.")).toBeVisible();
+  // The finds open as their own view; the back arrow returns to the server list.
+  await page.getByRole("button", { name: "Back to MCP servers" }).click();
   await expect(page.getByRole("region", { name: "MCP servers" })).toBeInViewport();
 });

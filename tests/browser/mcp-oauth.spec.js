@@ -216,7 +216,7 @@ for (const [label, use] of [
       page,
     }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const panel = page.getByRole("region", { name: "MCP servers" });
       const wizard = await openAdd(page);
       await chooseSource(wizard, "Server on the internet");
@@ -294,7 +294,7 @@ for (const [label, use] of [
     }) => {
       const state = await setup(page);
       state.servers.push(oauthServer("s1", "docs"));
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const item = await openAccountItem(page, "docs");
       const login = item.getByRole("button", { name: "Log in to docs" });
       state.refusal = "plain-http-remote";
@@ -381,7 +381,7 @@ for (const [label, use] of [
         auth: "headers",
         headerNames: ["Authorization"],
       });
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       await page.goto(`${baseURL}/accounts?section=mcp-servers&item=s1&step=setup`);
       const dialog = accountDetail(page);
       await dialog.getByRole("radio", { name: "OAuth", exact: true }).check();
@@ -427,7 +427,7 @@ for (const [label, use] of [
         s3: { oauthStatus: "connected" },
       };
       state.bindings = ["s1", "s3"];
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const panel = page.getByRole("region", { name: "MCP servers" });
       const detail = accountDetail(page);
       await openAccountItem(page, "docs");

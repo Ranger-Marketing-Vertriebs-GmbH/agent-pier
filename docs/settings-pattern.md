@@ -168,9 +168,27 @@ moves focus to a tab only once it is selected.
 Moved pages keep their old addresses (`/settings/assistants`, `/settings/ssh`,
 `/settings/mcp`, `/accounts`, `/extensions`, `/plugins`, …): `movedRoute()` in
 `web/app/route-redirects.js` turns their routes into the new ones, for parsed
-addresses and for routes pages still build, with `returnTo` kept. Until the new areas
-have their own pages, `screenRoute()` in `web/app/route-screens.js` names the page
-that shows them; draft guards compare routes through `screenOf()`.
+addresses and for routes pages still build, with `returnTo` kept. Zugänge has its own
+page (`web/features/connections/ConnectionsPage.jsx`); until the other new areas have
+theirs, `screenRoute()` in `web/app/route-screens.js` names the page that shows them.
+Draft guards compare routes through `screenOf()`, which reads an old route as its new
+place first.
+
+### Zugänge
+
+Zugänge (`/connections`) lists shared credentials by category: a categories column
+with counts and problem counts (`GET /api/connections/problems`), the category's list
+and the open entry; on phones categories, list and entry are subpages. Model access
+and services keep the Accounts list and detail forms; SSH/SFTP accesses and MCP
+servers use the long list (`LongList.jsx`, rules in `long-list.js`): fixed views,
+search, filter chips, groups with "Weitere n anzeigen", sorting, selection with bulk
+actions and a detail pane; `item=<id>` opens an entry's full view. Every entry shows
+"Benutzt von" (`GET /api/connections/usage`, `GET /api/accounts/usage`). Granting and
+revoking there writes the agent's own access policy through the endpoints its Access
+tab uses (`PUT /api/assistants/:id/work`, MCP servers through `PATCH
+/api/assistants/:id`), read right before each write so the revision is current; a
+refusal is reported per agent and never retried. Bulk actions call the same per-item
+endpoints (SSH tests at most two at once) and list one result per item.
 
 Defaults are left out of addresses; `useWorkspaceNavigation` replaces any address whose
 canonical form differs, which is how legacy links redirect.
@@ -230,6 +248,12 @@ the same `item` and `step`) and saves with the usual save bar.
 - `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github, secrets }, operations: { diagnostics, backups, updates } }`;
   local state only, every part `null` when unknown. `secrets` is `{ count }`. `remote` is
   `{ tailscale, network, restartRequired }` (a saved network change not yet running).
+- `GET /api/connections/usage` — per SSH/SFTP host, secret and GitHub token profile:
+  agents (`via` grant, lead or hook, with mode), hooks, projects (GitHub), running
+  sessions and the host's last audited use (`lastUseCovers` names what it counts);
+  per MCP server its last change from the audit (`mcp[id].changedAt`).
+- `GET /api/connections/problems` — per Zugänge category `{ total, problems,
+warnings, unknown }` from stored state only; a category that cannot be read is null.
 - `GET /api/accounts/usage` — per provider connection, ChatGPT account, MCP server, web
   search, speech and native CLI account: `{ agents: [{ id, name, kind, via }], sessions, pipelineProfiles, clis: [{ tool, route }] }`.
   Agent data only while the agents feature runs. A source that cannot be read is `null`

@@ -44,7 +44,7 @@ test("the wizard refuses a header reference before anything is sent", async ({
   page,
 }) => {
   const state = await wizardSetup(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await chooseSource(wizard, "Server on the internet");
   await wizard.getByLabel("Name", { exact: true }).fill("docs");
@@ -74,7 +74,7 @@ test("a working directory with a reference is refused at that field", async ({
 }) => {
   const state = await wizardSetup(page);
   state.refuseCreate = refusal("cwd");
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await chooseSource(wizard, /Own command/);
   await wizard.getByLabel("Name", { exact: true }).fill("local");

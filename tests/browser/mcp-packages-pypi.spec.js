@@ -73,7 +73,7 @@ test("a PyPI package shows withdrawn versions and installs with a constraint", a
   state.versions = pypiVersions;
   state.preview = pypiPreview();
   acceptCreate(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePackage(dialog);
   await dialog.getByText("More options").click();
@@ -135,7 +135,7 @@ test("a refused constraint is named at its field", async ({ page }) => {
       messageKey: "mcpPackages.invalidConstraints",
     },
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
@@ -164,7 +164,7 @@ test("a fully yanked version is named at the version field", async ({ page }) =>
       messageKey: "mcpPackages.versionYanked",
     },
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePypi(dialog);
   const version = dialog.getByLabel("Version", { exact: true });
@@ -191,7 +191,7 @@ test("unsatisfiable limits are named at the constraints field, other failures at
       messageKey: "mcpPackages.unsatisfiable",
     },
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
@@ -231,7 +231,7 @@ test("a package that is built first names its program and the build tools", asyn
     constraints: [],
     installFile: { filename: "old_x-0.4.1.tar.gz", sha256: sdistDigest },
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePypi(dialog, "old-x", "old");
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
@@ -250,7 +250,7 @@ test("a package that is built first names its program and the build tools", asyn
 test("an npm package names no build tools and takes no constraints", async ({ page }) => {
   const state = await packageSetup(page);
   state.preview = preview({ needsScripts: true });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePackage(dialog);
   await dialog.getByLabel("Package", { exact: true }).fill("server-x");
@@ -280,7 +280,7 @@ test("the PyPI panel shows its constraints and program and keeps them on update"
           json: { job: { kind: "update", state: "running", code: null, log: "" } },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await expect(panel.getByRole("list", { name: "Constraints" })).toHaveText("fastmcp<4");
@@ -321,7 +321,7 @@ test("German: the panel of a PyPI package names its constraints and program", as
 }) => {
   const state = await packageSetup(page, { language: "de", servers: [pypiServer()] });
   state.versions = pypiVersions;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Paket" });
   await expect(
@@ -345,7 +345,7 @@ test("on a phone the PyPI confirmation wraps its digest within the width", async
   const state = await packageSetup(page);
   state.versions = pypiVersions;
   state.preview = pypiPreview();
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePypi(dialog);
   await expect(dialog.getByLabel("Version", { exact: true })).toHaveValue("0.4.1");
@@ -384,7 +384,7 @@ test("a build with several programs waits for the program choice", async ({ page
           json: { job: { kind: "activate", state: "running", code: null, log: "" } },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await expect(
@@ -435,7 +435,7 @@ test("a refused program choice names the reason and keeps the choice", async ({
           },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   const select = panel.getByLabel("Program", { exact: true });
@@ -461,7 +461,7 @@ test("German: the program choice is translated", async ({ page }) => {
     error: null,
     programs: ["opnsense-mcp", "opnsense-admin"],
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Paket" });
   await expect(
@@ -482,7 +482,7 @@ test("a waiting build whose programs are gone offers only Reinstall", async ({
   const state = await packageSetup(page, { servers: [server] });
   state.versions = pypiVersions;
   state.packageStatus = { source: server.source, job: null, error: null, programs: [] };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await expect(

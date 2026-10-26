@@ -112,6 +112,7 @@ export class SshAccessStore {
     hostKey,
     hostFingerprint,
     createdAt,
+    updatedAt,
     projectId = null,
     trustSource,
     type = "ssh",
@@ -136,6 +137,8 @@ export class SshAccessStore {
       hostKey,
       hostFingerprint,
       createdAt,
+      // The last edit; hosts never edited (or edited before it was kept) have none.
+      ...(typeof updatedAt === "string" ? { updatedAt } : {}),
       projectId,
       ...(["existing", "provider", "user"].includes(trustSource) ? { trustSource } : {}),
       type: sftp ? "sftp" : "ssh",
@@ -318,6 +321,7 @@ export class SshAccessStore {
       name: input.name === undefined ? previous.name : nameValue(input.name),
       hostKey,
       hostFingerprint: await fingerprint(hostKey, this.root, this.run),
+      updatedAt: new Date().toISOString(),
       ...((legacy ?? wasLegacy) && { legacyAlgorithms: true }),
       ...((interactive ?? wasInteractive) && { interactiveShell: true }),
     };

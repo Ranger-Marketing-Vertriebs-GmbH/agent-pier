@@ -11,7 +11,7 @@ export const staysOnEntry = (entry, request) => {
   // Old Accounts routes and their new places (Zugänge, Coding) compare alike.
   const next = screenOf(request.next);
   return (
-    next?.view === "accounts" &&
+    ["accounts", "connections"].includes(next?.view) &&
     next.section === entry.section &&
     next.item === entry.item &&
     (next.step ?? "") === (entry.step ?? "")

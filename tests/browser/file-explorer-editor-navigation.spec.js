@@ -344,7 +344,7 @@ test("a newer indexed traversal owns history before an older save completes", as
   await expect(page).toHaveURL(target.url);
   saveGate.resolve();
   await expect(
-    page.getByRole("heading", { name: "Your accounts", exact: true }),
+    page.getByRole("heading", { name: "Connections", level: 1, exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(target.url);
   expect(await page.evaluate(() => history.state.agentPierNavigationIndex)).toBe(

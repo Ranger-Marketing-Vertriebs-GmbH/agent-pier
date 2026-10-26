@@ -66,7 +66,7 @@ test("signed-in Claude account replaces login action and becomes the persistent 
   page,
 }) => {
   const f = await fixture(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   const card = await openAccountItem(page, "Work Claude");
   await expect(card.getByText("Angemeldet", { exact: true })).toBeVisible();
   await expect(card.getByRole("button", { name: "Anmelden", exact: true })).toHaveCount(
@@ -91,7 +91,7 @@ for (const tool of ["claude", "codex", "opencode"])
   test(`local ${tool} is only shown with a confirmed login`, async ({ page }) => {
     const f = await fixture(page);
     f.state.accounts[0] = { id: `local-${tool}`, name: "Local CLI", tool, kind: "local" };
-    await page.goto(baseURL + "/accounts");
+    await page.goto(baseURL + "/coding/clis?tab=accounts");
     await expect(accountRow(page, "Work Claude")).toBeVisible();
     await expect(accountRow(page, "Local CLI")).toHaveCount(0);
     f.authStates[`local-${tool}`] = "authenticated";
@@ -117,7 +117,7 @@ for (const tool of ["claude", "codex", "opencode"])
       },
     ];
     f.authStates[`managed-${tool}`] = "unauthenticated";
-    await page.goto(baseURL + "/accounts");
+    await page.goto(baseURL + "/coding/clis?tab=accounts");
     await expect(accountRow(page, "New account")).toBeVisible();
     const card = await openAccountItem(page, "New account");
     await expect(
@@ -130,7 +130,7 @@ test("local login and logout update without reloading the accounts page", async 
 }) => {
   const f = await fixture(page);
   await page.clock.install();
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   await openAccountItem(page, "Work Claude");
   await expect(
     accountDetail(page).getByText("Angemeldet", { exact: true }),

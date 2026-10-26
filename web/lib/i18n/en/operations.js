@@ -66,6 +66,7 @@ export const operationsCopy = {
   all: "All",
   sessionId: "Session ID",
   projectId: "Project ID",
+  resourceId: "Resource ID",
   filter: "Filter",
   clear: "Clear filters",
   success: "Successful",

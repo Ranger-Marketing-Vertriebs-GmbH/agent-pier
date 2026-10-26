@@ -16,31 +16,32 @@ async function populated(page) {
   return state;
 }
 
-test("SSH list searches across pages and combines search with project ownership", async ({
+test("SSH list groups by project, searches all hosts and combines search with project ownership", async ({
   page,
 }) => {
   const state = await populated(page);
   await page.goto(baseURL + "/settings/ssh");
-  const rows = page.locator(".ssh-resource-row");
-  await expect(rows).toHaveCount(20);
+  await expect(page).toHaveURL(/\/connections\?section=ssh$/);
+  const rows = page.locator(".long-list-row");
+  // Two project groups with their first five hosts each.
+  await expect(rows).toHaveCount(10);
   await expect(
-    page.getByRole("heading", { name: "SSH accesses", exact: true }),
+    page.getByRole("heading", { name: "SSH/SFTP accesses", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /next page/i }).click();
-  await expect(rows).toHaveCount(5);
+  await page.getByRole("button", { name: "Show 15 more" }).click();
+  await expect(rows).toHaveCount(25);
   await page.getByRole("button", { name: "Server 25", exact: true }).click();
   await expect(page.getByRole("article")).toContainText("host-25.example.test");
-  const search = page.getByRole("searchbox");
+  const search = page.getByRole("searchbox", { name: "Search the list" });
   await search.fill("  HOST-1.EXAMPLE.TEST  ");
   await expect(rows).toHaveCount(1);
-  await expect(page.getByRole("article")).toHaveCount(0);
   await page
-    .getByRole("combobox", { name: "Project filter" })
+    .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("project-docs");
   await expect(rows).toHaveCount(0);
-  await expect(page.getByText("No matching entries.")).toBeVisible();
+  await expect(page.getByText("1 filter active.")).toBeVisible();
   await page.getByRole("button", { name: "Reset filters" }).click();
-  await expect(rows).toHaveCount(20);
+  await expect(rows).toHaveCount(10);
   await search.fill("operator");
   await expect(rows).toHaveCount(1);
   await expect(
@@ -75,7 +76,7 @@ test("details expose explicit connection actions and navigate to the shared key"
   await page.screenshot({ path: ".cache/ssh-redesign-keys-en.png", fullPage: true });
 });
 
-test("mobile details return keyboard focus to the selected row without horizontal overflow", async ({
+test("on phones a host opens as its own page and Back returns to the list without horizontal overflow", async ({
   page,
 }) => {
   await populated(page);
@@ -84,14 +85,16 @@ test("mobile details return keyboard focus to the selected row without horizonta
   const row = page.getByRole("button", { name: "Server 01", exact: true });
   await row.focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("article")).toBeVisible();
+  await expect(page).toHaveURL(/item=host-0$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Server 01" })).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
   await page.screenshot({ path: ".cache/ssh-redesign-mobile-en.png", fullPage: true });
-  await page.getByRole("button", { name: "Close details", exact: true }).click();
-  await expect(row).toBeFocused();
-  await expect(row).toBeInViewport();
+  await page
+    .getByRole("button", { name: "Back to SSH/SFTP accesses", exact: true })
+    .click();
+  await expect(row).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
@@ -170,23 +173,21 @@ test("pending or failed access catalogs never present keys as unused or deletabl
   await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
 });
 
-test("deleting the last entry on a page returns to the remaining entries", async ({
+test("deleting the open entry closes its details and keeps the remaining entries", async ({
   page,
 }) => {
   const state = await populated(page);
   state.accesses = state.accesses.slice(0, 21);
   await page.goto(baseURL + "/settings/ssh");
-  await page.getByRole("button", { name: /next page/i }).click();
+  await page.getByRole("button", { name: "Show 15 more" }).click();
   await page.getByRole("button", { name: "Server 21", exact: true }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Delete now", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(0);
-  await expect(page.locator(".ssh-resource-row")).toHaveCount(20);
+  await expect(page.locator(".long-list-row")).toHaveCount(20);
   await expect(
     page.getByRole("button", { name: "Server 01", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("searchbox")).toBeFocused();
-  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
 });
 
 test("German desktop and mobile views keep long project names readable and tabs keyboard accessible", async ({
@@ -229,7 +230,7 @@ test("German desktop and mobile views keep long project names readable and tabs 
   await page.goto(baseURL + "/settings/ssh");
   await page.getByRole("button", { name: "Production", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "SSH-Zugänge", exact: true }),
+    page.getByRole("heading", { name: "SSH/SFTP-Zugänge", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("searchbox")).toBeVisible();
   await expect(page.getByRole("article")).toBeVisible();

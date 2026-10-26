@@ -102,7 +102,7 @@ test("phones ask before Back leaves a changed subpage", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Agent router", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("Accounts · Model access")).toBeVisible();
+  await expect(page.getByText("Connections · Model access")).toBeVisible();
   await accountDetail(page)
     .getByLabel("Connection name", { exact: true })
     .fill("Changed");

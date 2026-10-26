@@ -114,7 +114,9 @@ test("disabled agents make one request and render no assistant UI", async ({ pag
   await expect(page.getByRole("switch", { name: "Enable agents" })).toBeVisible();
   expect(await hasAssistantCss(page)).toBe(false);
   await page.goto(baseURL + "/accounts");
-  await expect(page.getByRole("heading", { name: "Accounts" }).first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Connections", level: 1 }),
+  ).toBeVisible();
   await expect(page.getByText(/speech recognition/i)).toHaveCount(0);
   await expect(page.getByText("Agent model connections")).toHaveCount(0);
   expect(await hasAssistantCss(page)).toBe(false);

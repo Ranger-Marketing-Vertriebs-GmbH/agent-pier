@@ -22,7 +22,7 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
     tool,
     kind: "local",
   }));
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
@@ -140,7 +140,7 @@ test("changing the address of a keyed endpoint requires the key again", async ({
       },
     },
   ];
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   const dialog = await openAccountItem(page, "Gateway box");
   const save = saveBar(page).getByRole("button", {
     name: "Save connection",
@@ -159,7 +159,7 @@ test("changing the address after a test discards the stale test result", async (
   page,
 }) => {
   const controls = await fixture(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
@@ -205,7 +205,7 @@ test("a rejected API key reads as an authentication failure", async ({ page }) =
     probeModelId: null,
     warnings: [],
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();

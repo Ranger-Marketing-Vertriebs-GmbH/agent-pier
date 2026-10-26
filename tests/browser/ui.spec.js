@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { navigateTo, openNewSession } from "../helpers/navigation.js";
+import { openNewSession } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import {
   accountDetail,
@@ -186,7 +186,8 @@ test("account creation, directory selection, session lifecycle and reload preser
   await expect(
     page.getByRole("heading", { name: "Dein Terminal. Überall." }),
   ).toBeVisible();
-  await navigateTo(page, "Accounts");
+  // Native CLI accounts live under Coding (Accounts moved to Zugänge).
+  await page.goto(base + "/coding/clis?tab=accounts");
   await page.getByRole("button", { name: "Account hinzufügen" }).click();
   await page.getByLabel("Account-Name").fill("Arbeit");
   await page.getByLabel("API-Key (optional)").fill("never-return-me");
@@ -267,7 +268,8 @@ test("failed account submission preserves input, then account editing and deleti
 }) => {
   await fixture(page);
   await page.goto(base);
-  await navigateTo(page, "Accounts");
+  // Native CLI accounts live under Coding (Accounts moved to Zugänge).
+  await page.goto(base + "/coding/clis?tab=accounts");
   await page.getByRole("button", { name: "Account hinzufügen" }).click();
   await page.getByLabel("Account-Name").fill("Team");
   await page.route(
@@ -313,7 +315,8 @@ test("native login opens a visible terminal and a closed socket reconnects", asy
     createdAt: "2026-09-06T10:00:00Z",
   });
   await page.goto(base);
-  await navigateTo(page, "Accounts");
+  // Native CLI accounts live under Coding (Accounts moved to Zugänge).
+  await page.goto(base + "/coding/clis?tab=accounts");
   await openAccountItem(page, "Arbeit");
   await accountDetail(page)
     .getByRole("button", { name: "Anmelden", exact: true })

@@ -45,25 +45,42 @@ async function setup(page, { agents = true, usage = "ok" } = {}) {
   return controls;
 }
 
-test("the hub lists the four groups with usage", async ({ page }) => {
+const categories = (page) => page.getByRole("navigation", { name: "Categories" });
+
+test("Zugänge lists its six categories; each lists its entries with usage", async ({
+  page,
+}) => {
   await setup(page);
   await page.goto(baseURL + "/accounts");
-  for (const name of [
-    "Model access",
-    "Services for agents",
-    "MCP servers",
-    "Native CLI accounts",
-  ])
-    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page).toHaveURL(`${baseURL}/connections`);
+  await expect(categories(page).getByRole("link")).toHaveText([
+    /^Model access/,
+    /^Services for agents/,
+    /^MCP servers/,
+    /^SSH\/SFTP accesses/,
+    /^Secrets/,
+    /^GitHub connections/,
+  ]);
+  // Model access is the first category: provider connections and ChatGPT.
+  await expect(
+    categories(page).getByRole("link", { name: /^Model access/ }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(accountRow(page, "Shared router")).toContainText("1 agent");
   await expect(accountRow(page, "Shared router")).toContainText("OpenRouter");
-  await expect(accountRow(page, "Speech recognition")).toBeVisible();
-  await expect(accountRow(page, "Web search")).toContainText("DuckDuckGo");
   await expect(accountRow(page, "ChatGPT for agents")).toBeVisible();
-  await expect(accountRow(page, "Work Codex")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Add provider connection", exact: true }),
   ).toBeVisible();
+  await categories(page)
+    .getByRole("link", { name: /^Services for agents/ })
+    .click();
+  await expect(accountRow(page, "Speech recognition")).toBeVisible();
+  await expect(accountRow(page, "Web search")).toContainText("DuckDuckGo");
+  // Native CLI accounts are no Zugänge category; they stay under Coding.
+  await expect(accountRow(page, "Work Codex")).toHaveCount(0);
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
+  await expect(accountRow(page, "Work Codex")).toBeVisible();
+  await expect(accountRow(page, "Shared router")).toHaveCount(0);
 });
 
 test("usage stays unknown when the endpoint fails", async ({ page }) => {
@@ -79,10 +96,16 @@ test("without agents the services group is hidden and no agent request is made",
   const controls = await setup(page, { agents: false });
   await page.goto(baseURL + "/accounts");
   await expect(
-    page.getByRole("heading", { name: "MCP servers", exact: true }),
+    categories(page).getByRole("link", { name: /^MCP servers/ }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Services for agents" })).toHaveCount(0);
+  await expect(
+    categories(page).getByRole("link", { name: /^Services for agents/ }),
+  ).toHaveCount(0);
+  await expect(accountRow(page, "Shared router")).toBeVisible();
   await expect(accountRow(page, "ChatGPT for agents")).toHaveCount(0);
+  // An old link to the services lands on Zugänge without them.
+  await page.goto(baseURL + "/connections?section=services");
+  await expect(page).toHaveURL(`${baseURL}/connections`);
   expect(
     controls.calls
       .map((call) => call.path)
@@ -94,7 +117,8 @@ test("without agents the services group is hidden and no agent request is made",
 
 test("the header note is a disclosure with the stored-locally text", async ({ page }) => {
   await setup(page);
-  await page.goto(baseURL + "/accounts");
+  // The note explains native CLI profiles (Coding › Accounts).
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   const button = page.getByRole("button", { name: "Show note about accounts" });
   await expect(button).toHaveAttribute("aria-expanded", "false");
   const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
@@ -115,13 +139,17 @@ test("an unknown item returns to its group once", async ({ page }) => {
   await expect(accountRow(page, "Shared router")).toBeVisible();
 });
 
-test("phones show the hub with the sidebar button and the intro", async ({ page }) => {
+test("phones show the categories with the sidebar button and the intro", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
   await page.goto(baseURL + "/accounts");
   await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
   await expect(page.locator(".mobile-header")).toBeHidden();
-  await expect(page.locator(".accounts-intro")).toBeVisible();
+  await expect(page.locator(".connections-intro")).toBeVisible();
+  await expect(categories(page)).toBeVisible();
+  await expect(accountRow(page, "Shared router")).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
@@ -130,8 +158,9 @@ test("phones show the hub with the sidebar button and the intro", async ({ page 
 test("the extensions link lands on the MCP group", async ({ page }) => {
   await setup(page, { agents: false });
   await page.goto(baseURL + "/accounts?section=mcp-servers");
-  await expect(page.getByRole("region", { name: "MCP servers" })).toBeInViewport();
-  await expect(accountRow(page, "Found in the CLIs")).toBeVisible();
+  const mcp = page.getByRole("region", { name: "MCP servers" });
+  await expect(mcp).toBeInViewport();
+  await expect(mcp.getByRole("button", { name: /^Found in the CLIs/ })).toBeVisible();
 });
 
 for (const [availability, expected] of [

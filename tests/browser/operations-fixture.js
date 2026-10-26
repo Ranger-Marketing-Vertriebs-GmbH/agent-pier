@@ -1,6 +1,18 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
+const category = (total) => ({ total, problems: [], warnings: [], unknown: [] });
+// GET /connections/problems from the Settings summary's counts; an unknown count is
+// a category that could not be read (null).
+const connectionProblems = (summary) => ({
+  agentsEnabled: false,
+  models: category(0),
+  services: null,
+  mcp: category(0),
+  ssh: summary.access.ssh ? category(summary.access.ssh.count) : null,
+  secrets: summary.access.secrets ? category(summary.access.secrets.count) : null,
+  github: summary.access.github ? category(summary.access.github.count) : null,
+});
 export async function operationsFixture(page, { tool = "codex", session = {} } = {}) {
   const chat = { messages: [], tasks: [], availability: "ready" };
   const state = {
@@ -180,6 +192,18 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/health") result = state.health;
     else if (/\/sessions\/[^/]+\/github$/.test(path))
       result = { configured: true, hosts: [], remote: null };
+    // Zugänge reads every category's list, usage and problems (connections specs
+    // replace them with their own routes).
+    else if (path === "/ssh-accesses" && method === "GET")
+      result = { accesses: state.sshAccesses || [] };
+    else if (path === "/ssh-keys" && method === "GET") result = { keys: [] };
+    else if (path === "/ssh-projects" && method === "GET") result = { projects: [] };
+    else if (path === "/mcp-servers" && method === "GET") result = [];
+    else if (path === "/mcp-servers/cli-finds") result = { finds: [], problems: [] };
+    else if (path === "/accounts/usage") result = {};
+    else if (path === "/connections/usage") result = state.connectionUsage ?? null;
+    else if (path === "/connections/problems")
+      result = state.connectionProblems ?? connectionProblems(state.summary);
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

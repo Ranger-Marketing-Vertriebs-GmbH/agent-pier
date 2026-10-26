@@ -229,6 +229,13 @@ export async function fixture(page, { account, session } = {}) {
     if (path === "/api/pipeline-profiles")
       return route.fulfill({ json: { profiles: [] } });
     if (path === "/api/ssh-accesses") return route.fulfill({ json: { accesses: [] } });
+    // Zugänge loads the SSH catalog and its usage and problem summaries.
+    if (path === "/api/ssh-keys") return route.fulfill({ json: { keys: [] } });
+    if (path === "/api/ssh-projects") return route.fulfill({ json: { projects: [] } });
+    if (path === "/api/connections/usage")
+      return route.fulfill({ json: controls.connectionUsage ?? null });
+    if (path === "/api/connections/problems")
+      return route.fulfill({ json: controls.connectionProblems ?? null });
     // The new-session dialog lists secrets once some exist.
     if (path === "/api/secrets") return route.fulfill({ json: { secrets: [] } });
     if (path === "/api/sandbox-profiles")
@@ -441,7 +448,7 @@ export async function createForm(page, tool = "codex", controls) {
       provider: { id: "zai-coding-plan", modelId: "legacy-model" },
     },
   ];
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   await page
     .locator(".accounts-hub")
     .getByRole("link", { name: /^Gateway account/ })

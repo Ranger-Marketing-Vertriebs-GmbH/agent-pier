@@ -1,12 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+
+/** One SSH list (accesses, keys or projects); a reload keeps the old list on screen. */
 export default function useSshAccesses(path = "/ssh-accesses") {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
+  const loaded = useRef(path);
   useEffect(() => {
     const controller = new AbortController();
-    setData(null);
+    if (loaded.current !== path) {
+      loaded.current = path;
+      setData(null);
+    }
     setError("");
     api(path, "GET", undefined, controller.signal)
       .then((result) => {
