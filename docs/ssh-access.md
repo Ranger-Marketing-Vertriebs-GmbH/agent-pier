@@ -12,7 +12,7 @@ Open **Connections › SSH/SFTP accesses** from the sidebar **Menu** (the old ad
 
 ![Connections with the SSH/SFTP list grouped by project](screenshots/connections-ssh-desktop.png)
 
-On a phone: [Connections categories](screenshots/connections-phone.png).
+The [categories with the model access list](screenshots/connections-desktop.png); on a phone: [Connections categories](screenshots/connections-phone.png).
 
 A host is either an SSH host (commands) or an SFTP host (file transfer, see [SFTP access](sftp-access.md)). The host form has a **Type** choice for it; an SFTP host signs in with a **Password** or a **Key** (**Sign-in**) and can confine every remote path to an optional **Allowed remote folder**. The list's **Sign-in** column shows "Password" or the key's name, and SFTP hosts carry an **SFTP** badge.
 

@@ -300,7 +300,8 @@ one look (`web/components/choice.css`); no `accent-color` or bespoke switch styl
 ![Sidebar with the Menu popover open](screenshots/navigation-menu-desktop.png)
 
 On a phone: [drawer with the menu](screenshots/navigation-menu-phone.png). Search:
-[⌘K dialog](screenshots/search-desktop.png).
+[⌘K dialog](screenshots/search-desktop.png), on a phone the same search as a
+[bottom sheet](screenshots/search-phone.png).
 
 The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).

@@ -158,7 +158,8 @@ moves focus to a tab only once it is selected.
 ## Routes
 
 Settings keeps five tabs: **General**, **App and notifications**, **Users**, **Remote
-access** and **Operations** ([General tab](screenshots/settings-general-desktop.png)).
+access** and **Operations** ([General tab](screenshots/settings-general-desktop.png),
+[on a phone](screenshots/settings-general-phone.png)).
 General shows a **Features** row (agents on or off, linking to Agents › Runtime) and,
 for two releases, a **Moved** group with links to the pages that left Settings.
 Operations adds a **Storage** row that opens the system status clean-up.
