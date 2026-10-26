@@ -15,6 +15,7 @@ import { memoryStepSession, stepPolicy } from "./memory-step-tools.js";
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
+import { confirmFromCall } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
 import * as hooks from "./agent-hook-bridge.js";
@@ -174,6 +175,8 @@ export class TeamBridge {
       if (value.expires < this.now() && (!value.promise || value.settled))
         this.tickets.delete(key);
     if (this.tickets.size >= 1000) throw assistantProblem("active", 409);
+    // A call of a turn whose send went unacknowledged proves that turn runs.
+    if (input.runId) confirmFromCall(this.assistants, input.sessionKey, input.runId);
     const matches = this.assistants.ledger.pending().filter((a) => {
       const c = this.assistants.store.getConversation(
         this.assistants.ledger.getRequest(a.requestId).conversationId,

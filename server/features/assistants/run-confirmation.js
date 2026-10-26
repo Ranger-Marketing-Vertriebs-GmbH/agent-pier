@@ -1,8 +1,10 @@
 // A turn whose sessions.send acknowledgement was lost stays uncertain, and without
 // proof it gets no AgentPier tools (team-bridge.js, assistant-workflows.js). The
 // Gateway proves it runs the turn by an event of the turn's run (its run id is the
-// attempt id, the send's idempotency key) or by the turn's own user message in the
-// transcript (delivery key `<attempt id>:user`, message-source.js). Either one moves
+// attempt id, the send's idempotency key), by a project or share call of that run
+// (its plugin names the tool call's run, TeamBridge.prepare) or by the turn's own
+// user message in the transcript (delivery key `<attempt id>:user`,
+// message-source.js). Any one moves
 // the attempt to running on the Gateway generation the send went to
 // (RequestLedger.confirm); nothing is sent again.
 
@@ -28,6 +30,21 @@ export function confirmFromEvent(service, conversation, payload) {
   if (service.ledger.getRequest(attempt.requestId).conversationId !== conversation.id)
     return null;
   return confirm(service, attempt, "event");
+}
+
+/**
+ * A bridge call of a session (TeamBridge.prepare) that names its tool call's run:
+ * the Gateway's own hook reports the run, so a call of the turn's run proves it.
+ */
+export function confirmFromCall(service, sessionKey, runId) {
+  const attempt = service.ledger.attemptForRun(runId);
+  if (!attempt?.unconfirmed) return null;
+  const request = service.ledger.getRequest(attempt.requestId);
+  if (
+    service.store.getConversation(request.conversationId).runtimeSessionKey !== sessionKey
+  )
+    return null;
+  return confirm(service, attempt, "tool-call");
 }
 
 /** The public messages of a conversation's current history page. */

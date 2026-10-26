@@ -528,8 +528,11 @@ held longer). Such an attempt becomes `uncertain` but stays _unconfirmed_ (evide
 `unconfirmed: "send"` with the supervisor's per-launch `generationId`,
 `run-confirmation.js`); a send the closed connection refused at once does not.
 Without proof it gets no AgentPier tools and no native writes. Any Gateway event of
-its run (run ID = attempt ID) or its own user message in the transcript (delivery key
-`<attempt ID>:user`) moves it to `running` on that same Gateway launch, so the turn's
+its run (run ID = attempt ID), an `agentpier_workspace` or `agentpier_share_file`
+call of that run (the plugin names the run of its tool call; `TeamBridge.prepare`
+confirms before it binds the call) or its own user message in the transcript
+(delivery key `<attempt ID>:user`) moves it to `running` on that same Gateway launch,
+so the turn's
 tools work, team member and lead request phases return to `running`, and it
 completes normally. A Gateway restart, a review, or uncertainty from any other cause
 is never confirmed this way, and an AgentPier start turns leftover unconfirmed
@@ -1575,7 +1578,12 @@ was compacted and the plan was gone. Four rules close that gap:
     Gateway's own record instead (`team-plugin/exec-processes.js`, on
     `globalThis`, so a plugin reload keeps it). `after_tool_call` records each
     `exec` result with `status: "running"` (`details.sessionId`) and the run that
-    started it. `llm_input` records the completion run's prompt in one of two
+    started it. A Code Mode cell is named `exec` too but runs no command itself;
+    only `before_tool_call` names its kind (`toolKind: "code_mode_exec"`), so the
+    plugin recognises its result by the call and never records it (a cell that
+    awaits a nested call reports `status: "waiting"`, which would otherwise leave
+    the session uncertain). Each command a cell starts reports as a nested `exec`
+    call of its own. `llm_input` records the completion run's prompt in one of two
     shapes: 2026.10.3's framing, where every line between OpenClaw's completion
     text and "Treat this completion" must be a process line; or 2026.10.7's bare
     shape, only under the `event` trigger, where after the optional timestamp

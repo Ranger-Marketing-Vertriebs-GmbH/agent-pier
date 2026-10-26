@@ -76,6 +76,32 @@ test("an exec refused before it started counts as nothing; an unknown result tai
   assert.equal(g.proof("s1", "w1").complete, true, "another session is unaffected");
 });
 
+test("a Code Mode cell is no command: its own result never taints the session", (t) => {
+  const g = gateway(t);
+  // OpenClaw 2026.10.7 names the cell `exec` too; only before_tool_call has its kind.
+  const cell = (toolCallId, status) => {
+    const ctx = { sessionKey: "s", runId: "r1", toolCallId };
+    g.emit("before_tool_call", { toolName: "exec", toolKind: "code_mode_exec" }, ctx);
+    g.emit("after_tool_call", { toolName: "exec", result: { details: { status } } }, ctx);
+  };
+  cell("cell-1", "waiting");
+  // The shell command it started reports on its own, as a nested tool call.
+  g.background("s", "r1", "plaid-falcon");
+  cell("cell-2", "completed");
+  g.complete("s", "w1", ["plaid-fa"]);
+  const proof = g.proof("s", "w1");
+  assert.equal(proof.complete, true);
+  assert.deepEqual(proof.processes, [{ id: "plaid-falcon", runId: "r1" }]);
+  // A cell that never reports its result leaves nothing open either.
+  g.emit(
+    "before_tool_call",
+    { toolName: "exec", toolKind: "code_mode_exec" },
+    { sessionKey: "s", runId: "r2", toolCallId: "cell-3" },
+  );
+  g.emit("agent_end", {}, { runId: "r2" });
+  assert.equal(g.proof("s", "w1").complete, true);
+});
+
 test("past the session bound the least recently used session is forgotten", (t) => {
   const g = gateway(t, { bounds: { maxSessions: 2 } });
   for (const s of ["s1", "s2", "s3"]) {

@@ -23,6 +23,10 @@
 //   own session events set; a typed message is `"user"`). The bare shape counts
 //   only with that trigger, and is marked `internal` for AgentPier's proof, keyed
 //   by the run, since before_tool_call names the run but not its trigger;
+// - a Code Mode cell (2026.10.7) is named `exec` too, but runs no command itself:
+//   each command it starts reports as a nested exec call of its own. Only
+//   before_tool_call names its kind (`code_mode_exec`), so its result (`waiting`
+//   while it awaits a nested call) is recognised by the call and never recorded;
 // - gateway_start: the record is complete only when it existed before the Gateway
 //   started serving, so no earlier process can be missing.
 // A process leaves the record only when its end is positively observed, never by
@@ -381,6 +385,11 @@ export function registerExecProcesses(api) {
   api.on(
     "before_tool_call",
     (event, ctx) => {
+      // A Code Mode cell; a cell forgotten past the bound counts as an exec call.
+      if (event?.toolName === "exec" && event.toolKind === "code_mode_exec") {
+        bounded((record.cells ??= new Map()), execBounds.maxPending, callKey(ctx), true);
+        return undefined;
+      }
       if (event?.toolName === "exec" && typeof ctx?.sessionKey === "string") {
         record.pending.set(callKey(ctx), {
           sessionKey: ctx.sessionKey,
@@ -400,7 +409,8 @@ export function registerExecProcesses(api) {
   );
   api.on("after_tool_call", (event, ctx) => {
     if (typeof ctx?.sessionKey !== "string") return;
-    if (event?.toolName === "exec") recordExec(record, event, ctx);
+    if (event?.toolName === "exec" && !record.cells?.delete(callKey(ctx)))
+      recordExec(record, event, ctx);
     // The process tool reports a finished process with its session id.
     const details = event?.result?.details;
     if (
