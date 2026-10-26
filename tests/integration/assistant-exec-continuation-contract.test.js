@@ -445,10 +445,12 @@ test(
     assert.equal(fs.existsSync(path.join(workspace, "notes/after-foreign.md")), false);
     // The Gateway's record names the reported process with the forwarded turn's run.
     t.diagnostic(`foreign evidence=${JSON.stringify(foreign.exec)}`);
-    assert.deepEqual(
-      foreign.exec.processes.map((p) => [p.id.slice(0, 8), p.runId]),
-      [[foreign.exec.completion.ids[0], forwardedTurn.runId]],
-    );
+    // An earlier turn's process may share the slug prefix (see `collided`): the
+    // evidence then lists it too, and the refusal stands all the more.
+    const [reportedId] = foreign.exec.completion.ids;
+    assert.ok(foreign.exec.processes.every((p) => p.id.slice(0, 8) === reportedId));
+    assert.ok(foreign.exec.processes.some((p) => p.runId === forwardedTurn.runId));
+    if (!collided(foreign.exec)) assert.equal(foreign.exec.processes.length, 1);
 
     // 5. A completion run's agentpier_workspace call names its run (the plugin maps
     // the tool call to the run of its before_tool_call) and is bound to the turn.

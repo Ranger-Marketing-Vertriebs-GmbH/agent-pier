@@ -85,10 +85,9 @@ test("the owner changes and resets advanced settings on Agenten › Laufzeit", a
   await expect(page).toHaveURL(/\/agents\?tab=runtime&section=advanced$/);
   const heading = page.getByRole("heading", { name: "Advanced · for all agents" });
   await expect(heading).toBeVisible();
-  // section=advanced scrolls the group into view.
-  await expect
-    .poll(() => heading.evaluate((el) => el.getBoundingClientRect().top))
-    .toBeLessThan(400);
+  // section=advanced scrolls the whole group into view. A tall viewport (the tablet)
+  // ends the page before the heading reaches the top, so no fixed offset is asserted.
+  await expect(page.locator("#agents-runtime-advanced")).toBeInViewport({ ratio: 1 });
   await expect(page.getByText("Tasks", { exact: true })).toBeVisible();
   await expect(page.getByText("Images and media", { exact: true })).toBeVisible();
   // All six 2026.9.9 settings apply at once; each default in the field's own unit.
