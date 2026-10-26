@@ -91,12 +91,12 @@
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-x": "^5.28.4",
+    "eslint-plugin-react-x": "^5.28.6",
     "fast-check": "^4.10.2",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   },
   "description": "Local coding CLI workspace with mobile chat, recoverable delivery and review pipelines",
   "license": "Apache-2.0",
