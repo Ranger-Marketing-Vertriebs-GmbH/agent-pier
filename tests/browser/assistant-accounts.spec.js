@@ -127,6 +127,12 @@ test("offline account UI links to assistant service and selected ChatGPT account
     saved = route.request().postDataJSON();
     await route.fulfill({ json: { ...saved, id: "new", revision: 1 } });
   });
+  // A created agent opens its first chat.
+  await page.route("**/api/assistants/new/conversations", (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({ json: { id: "new-chat", assistantId: "new" } })
+      : route.fallback(),
+  );
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent" }).click();
   await wizardToIdentity(page);
@@ -137,6 +143,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
   await expect
     .poll(() => saved?.model)
     .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-astra" });
+  await expect(page).toHaveURL(/\/agents\/new\/chats\/new-chat$/);
 });
 test("an older account fetch cannot restore an account after disconnect", async ({
   page,
