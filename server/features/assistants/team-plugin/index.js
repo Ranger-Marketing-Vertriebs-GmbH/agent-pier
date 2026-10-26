@@ -2,6 +2,7 @@ import { workflowDefinitions } from "./workflow-tools.js";
 import { registerToolGuard } from "./tool-guard.js";
 import { callRun, execEvidence, registerExecProcesses } from "./exec-processes.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
+import { sshAccessDefinition, sshAccessTimeoutMs } from "./ssh-access-tool.js";
 import { shareDefinition } from "./share-tool.js";
 import { registerBackgroundCommands } from "./background-commands.js";
 import { goalDefinition } from "./goal-tool.js";
@@ -28,6 +29,7 @@ export const toolTimeouts = {
   // A member's question for a colleague waits like the lead's (peer-requests.js).
   peer_ask: 125000,
   ssh: sshTimeoutMs,
+  ssh_access: sshAccessTimeoutMs,
   share_file: 30000,
   templates: 65000,
   propose: 95000,
@@ -43,6 +45,7 @@ const ownTools = [
   "share_file",
   "goal",
   "hook",
+  "ssh_access",
 ];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
@@ -99,6 +102,7 @@ const grantRule =
 const definitions = {
   ...workflowDefinitions,
   ...sshDefinition,
+  ...sshAccessDefinition,
   ...shareDefinition,
   ...goalDefinition,
   ...memberDefinitions,

@@ -84,6 +84,8 @@ export const assistantTeamCopy = {
       "Eine Notiz im Projektwissen wurde nicht gespeichert. Der Agent wurde informiert.",
     "ssh-result": "Ergebnis eines SSH-Befehls eingegangen.",
     "sftp-result": "Ergebnis eines SFTP-Vorgangs eingegangen.",
+    "ssh-access-result":
+      "Das Ergebnis eines SSH-Zugangsvorschlags wurde an den Agenten übergeben.",
     "memory-step":
       "Der Agent wurde gebeten, vor der Zusammenfassung seine Erinnerungen zu speichern.",
     "member-long-chat":

@@ -90,18 +90,19 @@ export function invokeHook(hooks, inv, input) {
   return { status: "approval_requested", proposalId: action.id };
 }
 
+// What the owner may choose in his browser before approving a proposal.
+const ownerChoices = { hook_proposal: ["rights"], ssh_access: ["keyId", "mode"] };
 /**
  * The keys a decision may carry (AssistantWorkflows.decideOnce): the owner's
- * edited rights only from his browser, and only for a hook proposal.
+ * edited rights of a hook proposal, or the key and mode of an SSH access proposal,
+ * only from his browser.
  */
 export function decisionKeys(w, id, input, origin) {
   const keys = ["revision", "decision"];
   if (origin?.kind !== "owner" || !input || typeof input !== "object") return keys;
-  if (!("rights" in input)) return keys;
   try {
-    return w.store.get(id).payload.action === "hook_proposal"
-      ? [...keys, "rights"]
-      : keys;
+    const choices = ownerChoices[w.store.get(id).payload.action] || [];
+    return [...keys, ...choices.filter((key) => key in input)];
   } catch {
     return keys;
   }

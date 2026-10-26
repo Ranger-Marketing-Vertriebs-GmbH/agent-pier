@@ -17,6 +17,10 @@ import MemberGrantNote from "../MemberGrantNote.jsx";
 import { grantNote } from "../member-grants.js";
 import HookProposalCard from "../HookProposalCard.jsx";
 import { hookCopy } from "../../../lib/i18n/messages/assistant-hooks.js";
+import SshAccessProposalCard, {
+  SshAccessCreatedNote,
+} from "../SshAccessProposalCard.jsx";
+import { sshProposalCopy } from "../../../lib/i18n/messages/assistant-ssh-proposals.js";
 
 const decide = (action, decision, extra = {}) =>
   api(`/assistant-actions/${encodeURIComponent(action.id)}/decision`, "POST", {
@@ -46,6 +50,31 @@ function HookProposalRow({ action: a, act }) {
       </p>
       <p>{copy.states[a.state]}</p>
       {diagnostic && <p className="assistant-note">{diagnostic}</p>}
+    </article>
+  );
+}
+
+// An agent's SSH access proposal: the owner's card while it waits, then the access,
+// its outcome and, once created, the public key to install.
+function SshAccessProposalRow({ action: a, act }) {
+  if (a.state === "awaiting_approval")
+    return (
+      <SshAccessProposalCard
+        action={a}
+        onDecide={(decision, extra) => act(() => decide(a, decision, extra))}
+      />
+    );
+  const p = a.payload;
+  const diagnostic = sshProposalCopy.diagnostics[a.diagnostic];
+  return (
+    <article className="assistant-card assistant-reminder-row" data-ssh-access-row="">
+      <h3>{sshProposalCopy.history(p.name)}</h3>
+      <p>
+        <code>{assistantSshCopy.endpoint(p.username, p.host, p.port)}</code>
+      </p>
+      <p>{copy.states[a.state]}</p>
+      {diagnostic && <p className="assistant-note">{diagnostic}</p>}
+      {a.state === "completed" && <SshAccessCreatedNote action={a} />}
     </article>
   );
 }
@@ -132,6 +161,8 @@ function ActionCard({ action: a, assistantId, busy, act }) {
   if (a.payload.action === "exec") return <ExecCard action={a} act={act} />;
   if (a.payload.action === "hook_proposal")
     return <HookProposalRow action={a} act={act} />;
+  if (a.payload.action === "ssh_access")
+    return <SshAccessProposalRow action={a} act={act} />;
   // A lead's edit of a member, or a member's reminder on its lead: its chat line.
   if (
     ["member_update", "member_reminder", "member_promote", "member_summarise"].includes(

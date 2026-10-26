@@ -175,6 +175,32 @@ export const assistants = {
       folders: (count) => `Projektordner: ${count}`,
     },
   },
+  sshProposals: {
+    approval: (agent, name) =>
+      `SSH-Zugangsvorschlag wartet auf Freigabe: ${agent} möchte den SSH-Zugang ${name}.`,
+    endpoint: (username, host, port) => `Anmeldung: ${username}@${host}, Port ${port}`,
+    project: (name) => `Projekt: ${name}`,
+    purpose: "Zweck:",
+    fingerprint: "Fingerabdruck des Hostschlüssels (gescannt, nicht geprüft):",
+    verify:
+      "Prüfe diesen Fingerabdruck über einen Weg, dem du vertraust (Konsole des Servers, dein Anbieter oder ein Administrator), bevor du bestätigst. Mit der Bestätigung wird er als von dir geprüft gepinnt. AgentPier legt einen verwalteten Schlüssel mit dem Modus „Mit Freigabe“ an; einen anderen Schlüssel oder Modus wählst du in AgentPier im Browser.",
+    approve: "Zugang bestätigen",
+    states: {
+      completed: "SSH-Zugang angelegt",
+      declined: "SSH-Zugangsvorschlag abgelehnt",
+      expired: "Der SSH-Zugangsvorschlag ist abgelaufen",
+      failed: "SSH-Zugang nicht angelegt",
+    },
+    name: (name, username, host, port) => `${name}: ${username}@${host}:${port}`,
+    publicKey:
+      "Hinterlege diesen öffentlichen Schlüssel für den entfernten Benutzer (in ~/.ssh/authorized_keys), bevor der Agent sich verbindet:",
+    diagnostics: {
+      HOST_KEY_CHANGED:
+        "Der Host hat einen anderen Schlüssel gezeigt als im Vorschlag. Der Agent muss den Zugang neu vorschlagen.",
+      HOST_EXISTS: "Dieser Host, Port und Benutzer sind schon ein SSH-Zugang.",
+      AGENT_UNAVAILABLE: "Der Agent kann keine SSH-Zugänge mehr haben.",
+    },
+  },
   teamResultNoText: (objective) =>
     `Team-Ergebnisse für ${objective}. Für die abgeschlossene Zusammenfassung ist kein Text verfügbar. Prüfe die Einzelberichte.`,
   teamReportUnavailable:
@@ -471,6 +497,19 @@ export const assistants = {
     "Hooks können nur in einem Zug deiner eigenen Nachricht an den Agenten vorgeschlagen werden, nicht aus weitergeleiteten, geplanten oder Hook-Inhalten.",
   hookUnavailable:
     "Hooks gibt es nur für eigene Agenten und dauerhafte Teammitglieder, bei denen „Erinnerungen und Routinen erlauben“ eingeschaltet ist.",
+  sshProposalOwnerOnly:
+    "SSH-Zugänge können nur in einem Zug deiner eigenen Nachricht an den Agenten vorgeschlagen werden, nicht aus weitergeleiteten, geplanten oder Hook-Inhalten.",
+  sshProposalUnavailable:
+    "SSH-Zugangsvorschläge gibt es nur für eigene Agenten und dauerhafte Teammitglieder ohne Telegram-Bot für andere Personen.",
+  sshProposalInvalid:
+    "Gib einen Hostnamen oder eine IP-Adresse, einen Port von 1 bis 65535 und einen entfernten Benutzernamen aus Buchstaben, Ziffern, _ . und - an.",
+  sshProposalLimit:
+    "Für diesen Agenten warten schon zwei SSH-Zugangsvorschläge, oder er hat in der letzten Stunde fünf vorgeschlagen.",
+  sshProposalExists: "Dieser Host, Port und Benutzer sind schon ein SSH-Zugang.",
+  sshProposalScanFailed: "Der Hostschlüssel konnte von diesem Host nicht gelesen werden.",
+  sshProposalProject: "Dieses Projekt gibt es nicht.",
+  sshProposalKey:
+    "Wähle einen Schlüssel aus dem Projekt des Vorschlags oder einen neuen verwalteten Schlüssel.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   conflict: "Die Daten wurden inzwischen geändert. Bitte neu laden.",
   capacity:

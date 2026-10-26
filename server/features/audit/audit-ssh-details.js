@@ -5,7 +5,7 @@ const modes = ["approval", "trusted", "routines"];
 const isId = (value) => typeof value === "string" && idPattern.test(value);
 
 export function sshAuditDetails(details, event, auditId) {
-  for (const key of ["assistantId", "accessId", "leadAssistantId"])
+  for (const key of ["assistantId", "accessId", "leadAssistantId", "proposalId"])
     if (details[key] !== undefined) event.details[key] = auditId(details[key]);
   // An owner-chosen catalog name; control characters could forge log lines.
   if (
@@ -54,6 +54,6 @@ export function sshAuditDetails(details, event, auditId) {
     event.details.modeChanged = details.modeChanged
       .filter((c) => isId(c?.accessId) && modes.includes(c.from) && modes.includes(c.to))
       .map(({ accessId, from, to }) => ({ accessId, from, to }));
-  if (["owner", "host-removed", "always-allow"].includes(details.reason))
+  if (["owner", "host-removed", "always-allow", "proposal"].includes(details.reason))
     event.details.reason = details.reason;
 }

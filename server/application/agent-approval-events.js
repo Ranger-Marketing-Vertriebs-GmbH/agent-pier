@@ -9,6 +9,7 @@ const subjects = {
   memory_write: "memory",
   member_grant: "grant",
   hook_proposal: "hook",
+  ssh_access: "sshAccess",
 };
 
 /**

@@ -316,6 +316,28 @@ export class AssistantAccess {
       throw assistantProblem("telegramSendersSsh", 409);
     return list.sort(byAccessId);
   }
+  /**
+   * Adds one SSH grant from an approved SSH access proposal (agent-ssh-proposals.js)
+   * with the checks of an owner save, but keeps the approval revision, so pending
+   * approvals stay valid. Returns the written policy.
+   */
+  grantSsh(id, accessId, mode) {
+    this.eligible(id);
+    const before = this.stored(id);
+    const sshAccesses = this.sshList(id, [
+      ...before.sshAccesses.filter((g) => g.accessId !== accessId),
+      { accessId, mode },
+    ]);
+    const after = this.write(id, {
+      ...before,
+      sshAccesses,
+      revision: before.revision + 1,
+      approvalRevision: approvalRevision(before),
+    });
+    this.auditSsh(id, before, after, "proposal");
+    this.s.assistants.changed();
+    return after;
+  }
   // A GitHub access for a known profile; an agent with its own bot for other people
   // never gets one (its server works on GitHub with the owner's token).
   githubAccess(id, value) {

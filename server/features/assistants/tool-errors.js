@@ -5,6 +5,7 @@
 import { autonomousCaps } from "./team-policy.js";
 import { peerCaps } from "./peer-request-rules.js";
 import { reportCaps } from "./member-reports.js";
+import { sshProposalCaps } from "./agent-ssh-proposal-notes.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -191,6 +192,19 @@ const reasons = {
     "Hooks can only be proposed or listed in a turn of the owner's own message, not in forwarded, scheduled, hook or member-result turns. Do not retry; tell the owner.",
   HOOK_UNAVAILABLE:
     "Hooks are only available to your owner's own agents and permanent members with reminders and routines switched on. Do not retry; tell the owner.",
+  SSH_PROPOSAL_OWNER_ONLY:
+    "SSH accesses can only be proposed or checked in a turn of the owner's own message, not in forwarded, scheduled, hook or member-result turns. Do not retry; tell the owner.",
+  SSH_PROPOSAL_UNAVAILABLE:
+    "SSH access proposals are only available to your owner's own agents and permanent members without a Telegram bot for other people. Do not retry; tell the owner.",
+  SSH_PROPOSAL_INVALID:
+    "Give host as a host name or IP address (no spaces, options or user@ prefix), port as a number from 1 to 65535 and username as letters, digits, _ . and - (not starting with -). Fix the values and propose again.",
+  SSH_PROPOSAL_LIMIT: `${sshProposalCaps.open} of your SSH access proposals already wait for the owner, or you proposed ${sshProposalCaps.perHour} in the last hour. Do not retry now; check them with action status and tell the owner.`,
+  SSH_PROPOSAL_EXISTS:
+    "This host, port and user are already an SSH access in AgentPier. Do not propose it again; ask the owner to grant you that access.",
+  SSH_PROPOSAL_SCAN_FAILED:
+    "AgentPier could not read the host key of this server: it is unreachable from AgentPier, the port is not SSH, or the name does not resolve. Check host and port with the owner; do not retry unchanged.",
+  SSH_PROPOSAL_PROJECT:
+    "No project has this projectId. Leave projectId out or use one of your project folder ids.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -255,6 +269,13 @@ const byKey = {
   hookRightExceeds: "HOOK_RIGHT_EXCEEDS",
   hookUnavailable: "HOOK_UNAVAILABLE",
   hookOwnerOnly: "HOOK_OWNER_ONLY",
+  sshProposalOwnerOnly: "SSH_PROPOSAL_OWNER_ONLY",
+  sshProposalUnavailable: "SSH_PROPOSAL_UNAVAILABLE",
+  sshProposalInvalid: "SSH_PROPOSAL_INVALID",
+  sshProposalLimit: "SSH_PROPOSAL_LIMIT",
+  sshProposalExists: "SSH_PROPOSAL_EXISTS",
+  sshProposalScanFailed: "SSH_PROPOSAL_SCAN_FAILED",
+  sshProposalProject: "SSH_PROPOSAL_PROJECT",
   shareNotFound: "SHARE_NOT_FOUND",
   shareOutside: "SHARE_OUTSIDE",
   shareTooLarge: "SHARE_TOO_LARGE",
