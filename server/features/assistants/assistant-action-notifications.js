@@ -168,6 +168,17 @@ function notifyExec(w, action, phase, key, m) {
         : [],
   });
 }
+// Actions whose tool call holds the agent's run while the owner decides: an exec
+// approval, and an SSH or SFTP request until its hold ends (`followUp`).
+const holdsRun = (a) =>
+  a.payload?.action === "exec" ||
+  (["ssh", "sftp"].includes(a.payload?.action) && a.followUp !== true);
+/**
+ * The approval cards of a Telegram turn's actions (a card not yet queued is null),
+ * each with whether it ends the turn: while its action still awaits the owner, or
+ * for a proposal the turn ends with (coding runs, memory, grants and the like). An
+ * approval the owner granted while the run waited does not; the run answers after it.
+ */
 export function actionApprovals(w, entry, notifications) {
   return w.store
     .list()
@@ -185,7 +196,10 @@ export function actionApprovals(w, entry, notifications) {
           n.chatId === entry.chatId &&
           n.userId === entry.userId,
       );
-      return n ? [n] : a.state === "awaiting_approval" ? [null] : [];
+      const waiting = a.state === "awaiting_approval";
+      return n || waiting
+        ? [{ notification: n || null, endsTurn: waiting || !holdsRun(a) }]
+        : [];
     });
 }
 // Records once when an agent-requested coding run started and when it ended, so

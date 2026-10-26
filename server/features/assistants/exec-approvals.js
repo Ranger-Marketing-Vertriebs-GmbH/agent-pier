@@ -121,9 +121,12 @@ export class ExecApprovals {
     )
       return { reason: "UNKNOWN_SESSION" };
     // The Telegram target follows the request that started the run, as for other
-    // actions; a run AgentPier cannot place answers only in the web.
+    // actions. A run AgentPier cannot place asks where the conversation's latest
+    // turn came from: the owner's paired Telegram chat, otherwise only the web.
     const attempt = a.ledger?.attemptForRun(request.runId);
-    let origin = { kind: "owner" },
+    let origin = (!attempt && this.followUpOrigin(assistant, conversation)) || {
+        kind: "owner",
+      },
       lead = null;
     if (attempt) {
       const req = a.ledger.getRequest(attempt.requestId);
@@ -149,6 +152,29 @@ export class ExecApprovals {
       ...(lead && lead !== assistant.id ? { leadAssistantId: lead } : {}),
       origin,
     };
+  }
+  /**
+   * The Telegram origin of a run AgentPier did not start in a conversation (OpenClaw's
+   * own follow-up after a background command, for example), or null. Such a run
+   * continues the conversation's latest turn; when that turn came from the owner's
+   * paired Telegram chat, its approval is asked there too, as a hook's run asks
+   * there. Only while that chat is still the agent's paired, enabled chat writing into
+   * this conversation, so a re-paired or another person's chat never receives it.
+   */
+  followUpOrigin(assistant, conversation) {
+    const a = this.w.a,
+      channels = this.w.s?.assistantChannels;
+    const latest = a.ledger?.latestRequest(conversation.id);
+    const context = latest && a.teams?.store.context(latest.id);
+    if (context?.kind !== "telegram" || !channels?.store?.list) return null;
+    const channel = pairedChannel(channels, assistant.id);
+    if (!channel || channel.conversationId !== conversation.id) return null;
+    const target = telegramTarget(channel);
+    return ["channelId", "chatId", "userId"].every(
+      (k) => String(target[k] ?? "") === String(context[k] ?? ""),
+    )
+      ? { kind: "telegram", ...target }
+      : null;
   }
   // The lead that delegated the turn: a lead's request, or a team assignment.
   lead(context) {
