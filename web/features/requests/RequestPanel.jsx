@@ -8,7 +8,7 @@ import "./requests.css";
 export default function RequestPanel({ session, active, openTerminal, onStateChange }) {
   const resource = useResource(
     active ? `/sessions/${encodeURIComponent(session.id)}/requests` : null,
-    { poll: 1500 },
+    { poll: 1500, timeoutMs: 5000 },
   );
   const [, setSettled] = useState(0);
   const blocked =
