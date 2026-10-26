@@ -9,7 +9,7 @@ import { draftFromEntry } from "./directory-draft.js";
 import useDirectoryStatus from "./useDirectoryStatus.js";
 import WizardStep from "./WizardStep.jsx";
 
-const settingsRoute = tabRoot("workspace");
+const settingsRoute = tabRoot("general");
 const idle = { phase: "idle", entries: [], cursor: null, error: null };
 
 /** "Directory turned off" links to Settings → Workspace, where it is switched on. */

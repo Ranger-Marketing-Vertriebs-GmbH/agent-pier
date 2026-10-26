@@ -15,7 +15,7 @@ export const assistantDreamingCopy = {
   busy: (names) =>
     `Dreaming stays off: memory could not be switched on for agents that are working right now (${names}). Save again when they are done.`,
   memoryLocked:
-    "Dreaming is on: every permanent agent keeps its memory. Switch it off under Settings › Workspace › Agents › Agent service › Dreaming.",
+    "Dreaming is on: every permanent agent keeps its memory. Switch it off under Agents › Runtime › Dreaming.",
   diary: "Dream diary",
   diaryHint: "Written by the agent's nightly dreaming. Read only.",
 };

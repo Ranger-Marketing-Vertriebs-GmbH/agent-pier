@@ -82,8 +82,8 @@ export const assistantChannelCopy = {
     TRANSCRIPTION_RATE_LIMITED:
       "Deepgram still asked to slow down after several attempts. You can retry the transcription later.",
     MEDIA_DOWNLOAD: "The voice message could not be downloaded.",
-    SPEECH_NOT_CONFIGURED: "Configure Deepgram in Accounts before transcribing.",
-    SPEECH_AUTH: "Deepgram rejected the credential. Update it in Accounts.",
+    SPEECH_NOT_CONFIGURED: "Configure Deepgram in Connections before transcribing.",
+    SPEECH_AUTH: "Deepgram rejected the credential. Update it in Connections.",
     TRANSCRIPTION_EMPTY: "No speech was recognized.",
     TRANSCRIPTION_FAILED: "Transcription failed. You can retry it explicitly.",
     TRANSCRIPTION_INTERRUPTED:

@@ -158,7 +158,7 @@ test("an obsolete save continuation cannot resolve a newer navigation decision",
   await page.getByRole("button", { name: "Save and continue", exact: true }).click();
   await page.evaluate(() => {
     [...document.querySelectorAll("button")]
-      .find((button) => button.textContent?.includes("Accounts"))
+      .find((button) => button.textContent?.includes("Connections"))
       ?.click();
   });
   saveGate.resolve();
@@ -213,7 +213,7 @@ test("application navigation during history replay reconciles before push", asyn
   const replay = await page.evaluate(async () => {
     const buttons = [...document.querySelectorAll("button")];
     const discard = buttons.find((button) => button.textContent === "Discard");
-    const accounts = buttons.find((button) => button.textContent.includes("Accounts"));
+    const accounts = buttons.find((button) => button.textContent.includes("Connections"));
     if (!discard || !accounts) throw new Error("Expected navigation controls");
     const go = history.go;
     let calls = 0;
@@ -311,7 +311,7 @@ test("a newer indexed traversal owns history before an older save completes", as
   const saveGate = deferred();
   const editor = await setup(page, { saveGate });
   await editor.fill("original");
-  await navigateTo(page, "Accounts");
+  await navigateTo(page, "Connections");
   const target = {
     url: page.url(),
     index: await page.evaluate(() => history.state.agentPierNavigationIndex),

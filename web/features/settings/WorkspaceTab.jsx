@@ -15,9 +15,8 @@ import useLanguage from "../../lib/i18n/useLanguage.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { mcpDirectoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
-import { notificationCopy } from "../../lib/i18n/messages/notifications.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
-import { settingsHubCopy, settingsPageCopy } from "../../lib/i18n/messages/settings.js";
+import { settingsPageCopy } from "../../lib/i18n/messages/settings.js";
 import { sameValue } from "../../lib/settings/draft-state.js";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
@@ -27,6 +26,7 @@ import useAssistantFeature, {
 import DirectoryRow from "./DirectoryRow.jsx";
 import McpDirectoryRow, { officialRegistry } from "./McpDirectoryRow.jsx";
 import { TabFrame } from "./SettingsFrame.jsx";
+import { MovedGroup } from "./SummaryTabs.jsx";
 import { staysOn, subpage } from "./settings-navigation.js";
 import {
   featureStep,
@@ -41,7 +41,7 @@ const languages = [
   { value: "de", label: "Deutsch", lang: "de" },
   { value: "en", label: "English", lang: "en" },
 ];
-const stays = staysOn("general", "workspace");
+const stays = staysOn("general", "general");
 
 export default function WorkspaceTab({ frame, state, refresh, ready }) {
   const language = useLanguage();
@@ -90,7 +90,7 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
   const overwrite = async () => finish(await draft.overwrite(steps));
   const sheet = useUnsavedChangesGuard({
     draft,
-    tab: operationsCopy.groups.workspace,
+    tab: operationsCopy.groups.general,
     save,
     stays,
   });
@@ -187,14 +187,7 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
         )}
       </ListCard>
       <ErrorMessage error={diagnostic && `${featureCopy.diagnostic}: ${diagnostic}`} />
-      <GroupLabel id="settings-app">{settingsHubCopy.appGroup}</GroupLabel>
-      <ListCard labelledBy="settings-app">
-        <ListRow
-          label={operationsCopy.sections.notifications}
-          sub={notificationCopy.description}
-          {...open("notifications")}
-        />
-      </ListCard>
+      <MovedGroup frame={frame} />
       {saved && !draft.dirty && (
         <p className="field-description" role="status">
           {settingsPageCopy.settingsSaved}

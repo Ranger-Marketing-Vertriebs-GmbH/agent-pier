@@ -21,12 +21,25 @@ const read = (address) => readRoute(new URL(address, "http://localhost"));
 const agent = { view: "agents", assistantId: "home", agentSettings: true };
 
 test("settings tabs follow the section and keep tab roots addressable", () => {
-  assert.equal(read("/settings").settingsTab, "workspace");
+  assert.equal(read("/settings").settingsTab, "general");
   // The Access tab moved to Zugänge; its sections live there and in Coding.
   assert.deepEqual(read("/settings?tab=access"), { view: "connections" });
   assert.equal(routePath(read("/settings?tab=workspace")), "/settings");
   assert.equal(read("/settings?tab=operations").settingsTab, "operations");
-  assert.equal(read("/settings?tab=bogus").settingsTab, "workspace");
+  assert.equal(read("/settings?tab=bogus").settingsTab, "general");
+  assert.equal(read("/settings?tab=workspace").settingsTab, "general");
+  // App, Benutzer and Fernzugriff are tabs at their section's address.
+  for (const [tab, section] of [
+    ["app", "notifications"],
+    ["users", "users"],
+    ["remote", "remote"],
+  ]) {
+    const route = read(`/settings?tab=${tab}`);
+    assert.equal(route.settingsSection, section, tab);
+    assert.equal(route.settingsTab, tab, tab);
+    assert.equal(routePath(route), `/settings/${section}`, tab);
+  }
+  assert.deepEqual(settingsTabs, ["general", "app", "users", "remote", "operations"]);
   assert.equal(read("/settings/diagnostics").settingsTab, "operations");
   const contradicted = read("/settings/diagnostics?tab=access");
   assert.equal(contradicted.settingsTab, "operations");
@@ -208,7 +221,7 @@ test("a settings section change carries the tab of its section", () => {
 test("the users page and one user's detail have their own addresses", () => {
   const list = read("/settings/users");
   assert.equal(list.settingsSection, "users");
-  assert.equal(list.settingsTab, "access");
+  assert.equal(list.settingsTab, "users");
   assert.equal(list.userId, undefined);
   const detail = read("/settings/users?user=u-1");
   assert.equal(detail.userId, "u-1");

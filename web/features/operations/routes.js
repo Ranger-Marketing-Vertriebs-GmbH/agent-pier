@@ -1,6 +1,6 @@
 export const sections = new Set([
   "assistants",
-  // Nested below the agent service; it belongs to the workspace tab but is no row there.
+  // Nested below the agent service (now Agenten › Laufzeit › Erweitert).
   "assistants-advanced",
   "notifications",
   "diagnostics",
@@ -12,36 +12,70 @@ export const sections = new Set([
   "ssh",
   "secrets",
   "github",
-  // Restricted users and their agents (Settings › Access › Users).
+  // Restricted users and their agents (Settings › Users).
   "users",
   // The component gallery, below the Development group of the operations tab.
   "components",
 ]);
-export const settingsTabs = ["workspace", "access", "operations"];
-// The settings sections each tab lists; "general" is also the root of every tab.
+// Tabs Allgemein · App & Benachrichtigungen · Benutzer · Fernzugriff · Betrieb (handoff
+// §5.8). App, Benutzer and Fernzugriff show one section each, at its own address.
+export const settingsTabs = ["general", "app", "users", "remote", "operations"];
+export const defaultSettingsTab = "general";
+export const settingsTabSections = {
+  app: "notifications",
+  users: "users",
+  remote: "remote",
+};
+// Former tab values: Arbeitsbereich is Allgemein; Zugriff moved to Zugänge, so it stays
+// recognisable for the redirect (web/app/route-redirects.js).
+const legacySettingsTabs = { workspace: "general", access: "access" };
+export const readSettingsTab = (value) =>
+  settingsTabs.includes(value)
+    ? value
+    : Object.hasOwn(legacySettingsTabs, value ?? "")
+      ? legacySettingsTabs[value]
+      : defaultSettingsTab;
+// The settings sections each tab lists; "general" is also the root of every tab. The
+// sections that moved (agent service, MCP access, SSH, secrets, GitHub) redirect to
+// their new place and count as Allgemein, whose "Umgezogen" group links them.
 export const settingsSectionGroups = {
-  workspace: ["general", "notifications", "assistants"],
-  access: ["mcp", "remote", "ssh", "secrets", "github", "users"],
+  general: [
+    "general",
+    "assistants",
+    "assistants-advanced",
+    "mcp",
+    "ssh",
+    "secrets",
+    "github",
+  ],
+  app: ["notifications"],
+  users: ["users"],
+  remote: ["remote"],
   operations: ["diagnostics", "backups", "updates", "audit", "components"],
 };
 export const settingsTabOf = (section) =>
-  settingsTabs.find((tab) => settingsSectionGroups[tab].includes(section)) || "workspace";
+  settingsTabs.find((tab) => settingsSectionGroups[tab].includes(section)) ||
+  defaultSettingsTab;
 const identity = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 export function readSettingsRoute(pathname, search) {
   const match = /^\/settings(?:\/([^/]+))?$/.exec(pathname);
   if (!match) return null;
-  if (match[1] && !sections.has(match[1])) return { view: "missing" };
-  const query = new URLSearchParams(search),
-    rawPage = query.get("page") || "1",
+  const query = new URLSearchParams(search);
+  // /settings?tab=users is the Benutzer tab, whose address is /settings/users.
+  const tab = query.get("tab") || "";
+  const section =
+    match[1] || (Object.hasOwn(settingsTabSections, tab) ? settingsTabSections[tab] : "");
+  if (section && !sections.has(section)) return { view: "missing" };
+  const rawPage = query.get("page") || "1",
     before = query.get("before") || "",
     job = query.get("job") || "";
   const authorization = query.get("authorization") || "";
   return {
     // One user's detail on the users page (?user=<id>).
-    ...(match[1] === "users" && identity.test(query.get("user") || "")
+    ...(section === "users" && identity.test(query.get("user") || "")
       ? { userId: query.get("user") }
       : {}),
-    ...(match[1] === "mcp"
+    ...(section === "mcp"
       ? {
           mcpAuthorization: /^[A-Za-z0-9_-]{1,200}$/.test(authorization)
             ? authorization
@@ -53,12 +87,8 @@ export function readSettingsRoute(pathname, search) {
         }
       : {}),
     view: "settings",
-    settingsSection: match[1] || "general",
-    settingsTab: match[1]
-      ? settingsTabOf(match[1])
-      : settingsTabs.includes(query.get("tab"))
-        ? query.get("tab")
-        : "workspace",
+    settingsSection: section || "general",
+    settingsTab: section ? settingsTabOf(section) : readSettingsTab(query.get("tab")),
     auditPage:
       /^[1-9]\d*$/.test(rawPage) &&
       Number.isSafeInteger(Number(rawPage)) &&
@@ -77,13 +107,15 @@ export function readSettingsRoute(pathname, search) {
   };
 }
 export function settingsRoutePath(route) {
-  const section = route.settingsSection || "general",
+  const tabSection = Object.hasOwn(settingsTabSections, route.settingsTab ?? "")
+    ? settingsTabSections[route.settingsTab]
+    : "";
+  const own = route.settingsSection && route.settingsSection !== "general";
+  const section = own ? route.settingsSection : tabSection || "general",
     query = new URLSearchParams();
-  if (
-    section === "general" &&
-    settingsTabs.includes(route.settingsTab) &&
-    route.settingsTab !== "workspace"
-  )
+  // Only tabs without an address of their own carry ?tab= (and the former Zugriff tab
+  // until it is redirected).
+  if (section === "general" && ["operations", "access"].includes(route.settingsTab))
     query.set("tab", route.settingsTab);
   if (section === "mcp") {
     if (route.mcpAuthorization) query.set("authorization", route.mcpAuthorization);

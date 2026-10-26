@@ -63,7 +63,8 @@ export const assistantCopy = {
     enableCreateImages: "Create images",
     memoryDescription: "Keeps its own notes between conversations.",
     remindersDescription: "Sends reminders and runs schedules through Telegram.",
-    webSearchDescription: "Looks things up with the web search provider set in Accounts.",
+    webSearchDescription:
+      "Looks things up with the web search provider set in Connections.",
     webFetchDescription: "Opens a web address and reads the page text.",
     browserDescription:
       "Drives a persistent browser profile of its own for pages that need clicking or signing in.",
@@ -72,11 +73,11 @@ export const assistantCopy = {
     createImagesDescription:
       "Creates and edits images with your ChatGPT account (gpt-image-2) and hands them to you in the chat.",
     imagesUnavailable:
-      "Connect a ChatGPT account under Accounts › ChatGPT for agents to create images.",
+      "Connect a ChatGPT account under Connections › Model access to create images.",
     browserUnavailable:
       "No supported browser found on this computer. Install Chrome, Brave, Edge or Chromium to use this.",
     searchUnavailable:
-      "Web search is not set up. Choose a provider and add its key in Accounts.",
+      "Web search is not set up. Choose a provider and add its key in Connections.",
     availableAfterSaving: "Available after saving the agent",
     webHint:
       "Web pages can contain instructions meant to mislead the agent. Switch these on only for agents whose other tools you would trust with that.",
@@ -295,7 +296,7 @@ export const assistantCopy = {
     "The ChatGPT model list could not be loaded. Enter a model ID or try again later.",
   chooseConnection: "Choose a connection",
   connections: "Manage connections",
-  noConnections: "Connect ChatGPT or OpenRouter in Accounts to get started.",
+  noConnections: "Connect ChatGPT or OpenRouter in Connections to get started.",
   save: "Save agent",
   settings: "Agent settings",
   connectionUse: {

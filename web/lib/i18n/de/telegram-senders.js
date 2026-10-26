@@ -34,9 +34,9 @@ export const telegramSendersCopy = {
   invalidId: "Gib eine numerische Telegram-Nutzer-ID ein.",
   duplicate: "Diese Person steht bereits auf der Liste.",
   voiceOn:
-    "Sprachnachrichten werden mit dem Deepgram-Schlüssel unter Accounts transkribiert.",
+    "Sprachnachrichten werden mit dem Deepgram-Schlüssel unter Zugänge transkribiert.",
   voiceOff:
-    "Sprachnachrichten werden nicht transkribiert. Hinterlege einen Deepgram-Schlüssel unter Accounts, um sie einzuschalten.",
+    "Sprachnachrichten werden nicht transkribiert. Hinterlege einen Deepgram-Schlüssel unter Zugänge, um sie einzuschalten.",
   pending:
     "Gespeicherte Änderungen sind noch nicht aktiv. Starte den Agentendienst neu, um sie zu übernehmen.",
   pendingLive:

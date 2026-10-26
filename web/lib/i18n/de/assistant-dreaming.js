@@ -15,7 +15,7 @@ export const assistantDreamingCopy = {
   busy: (names) =>
     `Träumen bleibt aus: Für gerade arbeitende Agenten ließ sich das Gedächtnis nicht einschalten (${names}). Speichere erneut, wenn sie fertig sind.`,
   memoryLocked:
-    "Träumen ist eingeschaltet: Jeder dauerhafte Agent behält sein Gedächtnis. Schalte es unter Einstellungen › Arbeitsbereich › Agenten › Agentendienst › Träumen aus.",
+    "Träumen ist eingeschaltet: Jeder dauerhafte Agent behält sein Gedächtnis. Schalte es unter Agenten › Laufzeit › Träumen aus.",
   diary: "Traumtagebuch",
   diaryHint: "Vom nächtlichen Träumen des Agenten geschrieben. Nur lesbar.",
 };

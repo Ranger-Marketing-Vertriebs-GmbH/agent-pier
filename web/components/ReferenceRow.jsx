@@ -2,8 +2,9 @@ import React from "react";
 import Icon from "./Icon.jsx";
 import { isPlainClick } from "./link-click.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
+import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 
-// A setting managed centrally: a dashed row that opens its Accounts subpage. With
+// A setting managed centrally: a dashed row that opens its place in Zugänge. With
 // `href` it is a link that `onOpen` turns into in-app navigation; without one it is a
 // button that calls `onOpen`.
 export default function ReferenceRow({ title, sub, count, href, onOpen, linkLabel }) {
@@ -20,7 +21,7 @@ export default function ReferenceRow({ title, sub, count, href, onOpen, linkLabe
         {subtitle && <span className="list-row-sub">{subtitle}</span>}
       </span>
       <span className="reference-row-link">
-        {linkLabel ?? commonCopy.accounts}
+        {linkLabel ?? connectionsAreaCopy.title}
         <Icon name="external" size={13} />
       </span>
     </>

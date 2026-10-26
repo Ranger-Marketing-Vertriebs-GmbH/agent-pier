@@ -174,6 +174,8 @@ function Application() {
           page,
           navigate,
           route,
+          address,
+          ready,
           state,
           selected,
           error,

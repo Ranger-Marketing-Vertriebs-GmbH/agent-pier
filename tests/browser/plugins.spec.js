@@ -1,4 +1,4 @@
-import { navigateTo } from "../helpers/navigation.js";
+import { openExtensions } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import {
@@ -89,7 +89,7 @@ async function setup(page, tool = "claude") {
   await page.goto(base);
   if (await page.getByRole("button", { name: "Navigation öffnen" }).isVisible())
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
   const extensionsUrl = new URL(page.url());
   extensionsUrl.searchParams.set("tab", "plugins");
   await page.goto(extensionsUrl.toString());

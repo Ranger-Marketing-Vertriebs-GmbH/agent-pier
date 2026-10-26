@@ -250,7 +250,7 @@ for (const [label, use] of [
       await expect(images).toBeDisabled();
       await expect(
         page.getByText(
-          "Connect a ChatGPT account under Accounts › ChatGPT for agents to create images.",
+          "Connect a ChatGPT account under Connections › Model access to create images.",
         ),
       ).toBeVisible();
     });

@@ -120,7 +120,7 @@ export const sessionGithubCopy = {
   profile: (name, host) => `${name} (${host})`,
   removed: (host) => `${host}: profile removed`,
   tokenProblem: (host) =>
-    `${host}: token needs attention in Settings › Access › GitHub connections`,
+    `${host}: token needs attention in Connections › GitHub connections`,
   sshRemote:
     "The project remote uses SSH. GitHub tokens apply to HTTPS only; git uses your SSH keys here.",
 };

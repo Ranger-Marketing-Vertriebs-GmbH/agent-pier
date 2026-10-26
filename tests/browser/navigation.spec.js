@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { navigateTo } from "../helpers/navigation.js";
+import { navigateTo, openExtensions } from "../helpers/navigation.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import { profileList } from "../helpers/extensions.js";
@@ -101,13 +101,13 @@ test("Shell profile deep links are rejected and never become the profile navigat
     ).toBeVisible();
     await expect(page).toHaveURL(`${base}/${expected}`);
   }
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
   await expect(
     profileList(page).getByRole("button", { name: /Codex Lokal/ }),
   ).toHaveAttribute("aria-current", "true");
   await expect(profileList(page).getByRole("button", { name: /Shell/ })).toHaveCount(0);
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
   await page.goto(`${base}/extensions/local-codex?tab=plugins`);
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex\?tab=plugins$/);
   await expect(page.getByRole("tab", { name: /^Plugins/ })).toHaveAttribute(
@@ -150,7 +150,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
     "aria-selected",
     "true",
   );
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
   await page.goto(`${base}/extensions/work-claude?tab=plugins`);
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/work-claude\?tab=plugins$/);
   await page.reload();
@@ -159,7 +159,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
     "aria-selected",
     "true",
   );
-  await navigateTo(page, "Accounts");
+  await navigateTo(page, "Zugänge");
   await expect(page).toHaveURL(/\/connections$/);
   await navigateTo(page, "Projekte");
   await expect(page).toHaveURL(/\/projects$/);

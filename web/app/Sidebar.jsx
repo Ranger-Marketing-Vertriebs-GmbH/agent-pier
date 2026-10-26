@@ -3,6 +3,7 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense } from "react";
 import Icon from "../components/Icon.jsx";
+import { isPlainClick } from "../components/link-click.js";
 import { names } from "../lib/providers.js";
 const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
@@ -11,14 +12,40 @@ import useMobileLayout from "../lib/useMobileLayout.js";
 import useNewMenuItems from "./useNewMenuItems.js";
 import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import SidebarMenu from "./SidebarMenu.jsx";
-import SidebarGroup from "./SidebarGroup.jsx";
+import SidebarGroup, { SidebarGroupActions } from "./SidebarGroup.jsx";
+import useSearchDialog from "./search-dialog.js";
+import { routePath } from "./routes.js";
+import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { agentsHubRoute } from "../features/assistants/hub-routes.js";
+import { codingRoute } from "../features/coding/routes.js";
 import SessionRow from "./SessionRow.jsx";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
 import LegacyTmuxNotice from "../features/dashboard/LegacyTmuxNotice.jsx";
+// A link-styled icon button of a group head that navigates in-app.
+function HeadLink({ icon, label, route, navigate }) {
+  return (
+    <a
+      className="icon-button"
+      href={routePath(route)}
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        if (!isPlainClick(event)) return;
+        event.preventDefault();
+        navigate(route);
+      }}
+    >
+      <Icon name={icon} size={16} />
+    </a>
+  );
+}
+
 export default function Sidebar({
   mobileNav,
   navigate,
   route,
+  address,
+  ready,
   collapse,
   collapseRef,
   select,
@@ -35,6 +62,47 @@ export default function Sidebar({
   const mobile = useMobileLayout();
   const { enabled: agentsEnabled } = useAssistantFeature();
   const newItems = useNewMenuItems({ launch, navigate });
+  const search = useSearchDialog();
+  // Head icons of the Agenten group (rendered by AssistantSidebar while agents are on)
+  // and of the Sessions group (handoff §5.1).
+  const groupActions = {
+    "assistant-chats": (
+      <>
+        <HeadLink
+          icon="grid"
+          label={copy.manageAgents}
+          route={agentsHubRoute()}
+          navigate={navigate}
+        />
+        <HeadLink
+          icon="plus"
+          label={assistantCopy.create}
+          route={{ view: "agents", creating: true }}
+          navigate={navigate}
+        />
+      </>
+    ),
+  };
+  const sessionActions = (
+    <>
+      <HeadLink
+        icon="terminal"
+        label={copy.clisAndExtensions}
+        route={codingRoute()}
+        navigate={navigate}
+      />
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={commonCopy.newSession}
+        title={commonCopy.newSession}
+        disabled={!installed}
+        onClick={() => launch()}
+      >
+        <Icon name="plus" size={16} />
+      </button>
+    </>
+  );
   const hostname = window.location.hostname.replace(/\.$/, "");
   const localAccess =
     hostname === "localhost" ||
@@ -56,6 +124,15 @@ export default function Sidebar({
           <Icon name="back" />
         </button>
         <button
+          type="button"
+          className="icon-button sidebar-search"
+          aria-label={copy.search}
+          title={copy.search}
+          onClick={() => search.open()}
+        >
+          <Icon name="search" size={16} />
+        </button>
+        <button
           className="brand"
           onClick={() => select(null)}
           aria-label={copy.brandAriaLabel}
@@ -71,12 +148,13 @@ export default function Sidebar({
         </button>
         <SidebarMenu
           {...{
-            view,
+            address,
             selected,
             page,
+            navigate,
             select,
             state,
-            agentsEnabled,
+            ready,
             localAccess,
             error,
             loading,
@@ -95,9 +173,11 @@ export default function Sidebar({
       </div>
       <div className="sidebar-scroll">
         {agentsEnabled && (
-          <Suspense fallback={null}>
-            <AssistantSidebar navigate={navigate} route={route} />
-          </Suspense>
+          <SidebarGroupActions.Provider value={groupActions}>
+            <Suspense fallback={null}>
+              <AssistantSidebar navigate={navigate} route={route} />
+            </Suspense>
+          </SidebarGroupActions.Provider>
         )}
         <SidebarGroup
           name="sessions"
@@ -105,6 +185,7 @@ export default function Sidebar({
           count={sessions.length.toString().padStart(2, "0")}
           defaultOpen
           activeKey={selected}
+          actions={sessionActions}
         >
           <LegacyTmuxNotice status={state.legacyTmux} className="sidebar-legacy-tmux" />
           <div className="session-list">

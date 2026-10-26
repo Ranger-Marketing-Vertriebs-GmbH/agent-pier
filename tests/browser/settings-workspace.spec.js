@@ -64,8 +64,8 @@ for (const locale of ["de-DE", "en-GB"]) {
       });
       await expect(sheet).toContainText(
         t(
-          "Im Tab Arbeitsbereich ist 1 Änderung noch nicht gespeichert.",
-          "1 change in Workspace is not saved yet.",
+          "Im Tab Allgemein ist 1 Änderung noch nicht gespeichert.",
+          "1 change in General is not saved yet.",
         ),
       );
       await sheet
@@ -78,7 +78,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         .getByRole("button", { name: t("Verwerfen", "Discard"), exact: true })
         .click();
       await expect(page).toHaveURL(/\/settings\?tab=operations$/);
-      await page.getByRole("tab", { name: t("Arbeitsbereich", "Workspace") }).click();
+      await page.getByRole("tab", { name: t("Allgemein", "General") }).click();
       await expect(toggle).toBeChecked();
       await toggle.click();
       await page.getByRole("tab", { name: t("Betrieb", "Operations") }).click();
@@ -166,7 +166,7 @@ test("rows, browser back and closing the page ask while the tab has changes", as
 }) => {
   await operationsFixture(page);
   await page.goto(baseURL + "/settings?tab=operations");
-  await page.getByRole("tab", { name: "Arbeitsbereich" }).click();
+  await page.getByRole("tab", { name: "Allgemein" }).click();
   await page
     .getByRole("switch", { name: "Unterbrochene Sessions automatisch fortsetzen" })
     .click();
@@ -178,7 +178,7 @@ test("rows, browser back and closing the page ask while the tab has changes", as
     });
   expect(await unload()).toBe(true);
   const sheet = page.getByRole("dialog", { name: "Änderungen speichern?" });
-  await settingsRow(page, "App & Benachrichtigungen").click();
+  await settingsRow(page, "MCP & Zugriffe (AgentPier für CLIs)").click();
   await expect(sheet).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
@@ -301,7 +301,7 @@ test.describe("settings workspace field checks", () => {
       .getByRole("switch", { name: "Resume interrupted sessions automatically" })
       .click();
     const sheet = page.getByRole("dialog", { name: "Save changes?" });
-    const row = settingsRow(page, "App & notifications");
+    const row = settingsRow(page, "MCP & access (AgentPier for CLIs)");
     await row.focus();
     await page.keyboard.press("Enter");
     await expect(sheet).toBeVisible();
@@ -309,8 +309,8 @@ test.describe("settings workspace field checks", () => {
     await expect(sheet).toHaveCount(0);
     await expect(row).toBeFocused();
     // An arrow key switch the sheet refused leaves focus on the tab still selected.
-    // ArrowLeft wraps to Operations (the Access tab leads to Zugänge).
-    const workspace = page.getByRole("tab", { name: "Workspace" });
+    // ArrowLeft wraps to Operations, the last tab.
+    const workspace = page.getByRole("tab", { name: "General" });
     const operations = page.getByRole("tab", { name: "Operations" });
     await workspace.focus();
     await page.keyboard.press("ArrowLeft");

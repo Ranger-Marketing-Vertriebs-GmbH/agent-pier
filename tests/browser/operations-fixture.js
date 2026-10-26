@@ -204,6 +204,12 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/connections/usage") result = state.connectionUsage ?? null;
     else if (path === "/connections/problems")
       result = state.connectionProblems ?? connectionProblems(state.summary);
+    // The Menü hints read the pipeline runs when the menu opens.
+    else if (path === "/pipeline-runs" && method === "GET")
+      result = { runs: [], total: 0, page: 1, pageSize: 20 };
+    // Agents are off: the users page lists users without agents.
+    else if (path === "/assistants" && method === "GET")
+      return route.fulfill({ status: 503, json: { error: "Agents are off" } });
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

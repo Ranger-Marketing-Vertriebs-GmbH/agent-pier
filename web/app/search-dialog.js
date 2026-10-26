@@ -1,0 +1,22 @@
+import { createContext, useContext } from "react";
+
+// The ⌘K search (handoff §5.9) opens from the sidebar search button, the phone menu's
+// search row and the shortcut. Until the search dialog exists, `open()` announces the
+// request as a window event the dialog can listen for; a provider of
+// `SearchDialogContext` may replace it. Without either, opening does nothing.
+export const openSearchEvent = "agentpier:open-search";
+
+export const announceSearch = () => {
+  try {
+    window.dispatchEvent(new CustomEvent(openSearchEvent));
+  } catch {
+    // No window (tests, server rendering): nothing to open.
+  }
+};
+
+export const SearchDialogContext = createContext({ open: announceSearch });
+
+/** `{ open() }` of the app's search dialog. */
+export default function useSearchDialog() {
+  return useContext(SearchDialogContext);
+}

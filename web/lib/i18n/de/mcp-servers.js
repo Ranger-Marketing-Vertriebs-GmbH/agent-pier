@@ -73,8 +73,8 @@ export const mcpServerCopy = {
   agentTitle: "MCP-Server",
   agentDescription:
     "Wähle, welche zentralen MCP-Server dieser Agent nutzen kann. Eine Änderung gilt für den laufenden Agentendienst ohne Neustart.",
-  agentNone: "Es sind noch keine MCP-Server eingerichtet. Füge sie unter Accounts hinzu.",
-  agentOpenAccounts: "Accounts öffnen",
+  agentNone: "Es sind noch keine MCP-Server eingerichtet. Füge sie unter Zugänge hinzu.",
+  agentOpenAccounts: "Zugänge öffnen",
   agentSaved: "MCP-Server gespeichert.",
   pendingNotice: "Gespeichert — wird in Kürze auf laufende Agenten angewendet.",
   temporaryTitle: "MCP-Server",

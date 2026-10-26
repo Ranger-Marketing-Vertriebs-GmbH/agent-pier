@@ -121,7 +121,7 @@ export const assistants = {
   dreamingMemoryConfirm:
     "Dreaming needs memory: these agents do not remember information yet. Confirm to switch it on for all of them.",
   dreamingMemoryRequired:
-    "While dreaming is on, every permanent agent keeps its memory. Switch dreaming off under Settings › Workspace › Agents › Agent service to turn it off here.",
+    "While dreaming is on, every permanent agent keeps its memory. Switch dreaming off under Agents › Runtime to turn it off here.",
   dreamingAgentsBusy: "These agents are working right now. Try again when they are done.",
   heartbeatPrefix: "Check-in:",
   reminderChannelRequired:
@@ -301,7 +301,7 @@ export const assistants = {
   secretUnavailable: "This secret no longer exists. Reload the page and choose again.",
   githubFromLead: "A task-bound team member gets GitHub only from its lead agent.",
   githubProfileUnavailable:
-    "This GitHub token profile no longer exists. Choose another one under Settings › Access › GitHub connections.",
+    "This GitHub token profile no longer exists. Choose another one under Connections › GitHub connections.",
   sshNotGranted: "This SSH access is not granted to the agent.",
   sshHostUnavailable:
     "This SSH access is unavailable: it was removed, or OpenSSH is missing.",
@@ -476,7 +476,7 @@ export const assistants = {
   chatHintFailed: "The hint could not be hidden right now. Try again later.",
   queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
-  disabled: "Agents are turned off. Turn them on under Settings › Agents.",
+  disabled: "Agents are turned off. Turn them on under Agents › Runtime.",
   storageUnsafe:
     "The agent storage folder is unsafe. Check its owner and links in the data directory.",
   restartRequired:

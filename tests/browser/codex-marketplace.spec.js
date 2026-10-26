@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { navigateTo } from "../helpers/navigation.js";
+import { openExtensions } from "../helpers/navigation.js";
 import { baseURL } from "../helpers/browser.js";
 import {
   emptyExtensions,
@@ -85,7 +85,7 @@ async function setup(page) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL);
-  await navigateTo(page, "Erweiterungen");
+  await openExtensions(page);
   // The extensions page reads plugins for its tab counts; count only the reads
   // of the plugins deep link below.
   await expect(page.getByRole("tab", { name: "Plugins 0", exact: true })).toBeVisible();

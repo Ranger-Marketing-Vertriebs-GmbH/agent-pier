@@ -43,3 +43,9 @@ export async function openNewSession(page) {
   }
   await page.getByRole("menuitem", { name: /^Session$/ }).click();
 }
+// CLIs & Erweiterungen › Erweiterungen: the menu opens the Coding page, its tab the
+// extensions of the current CLI profile.
+export async function openExtensions(page) {
+  await navigateTo(page, /^(CLIs & Erweiterungen|CLIs and extensions)$/);
+  await page.getByRole("tab", { name: /^(Erweiterungen|Extensions)/ }).click();
+}

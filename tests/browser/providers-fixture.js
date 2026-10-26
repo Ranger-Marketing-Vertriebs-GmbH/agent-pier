@@ -429,6 +429,13 @@ export async function fixture(page, { account, session } = {}) {
     // An agent chat lists its chats (AGENTPIER-181); fixtures that pass it on have none.
     if (/^\/api\/assistants\/[^/]+\/chats$/.test(path) && method === "GET")
       return route.fulfill({ json: [] });
+    // The Menü hints and the settings summary rows; nothing to report here.
+    if (path === "/api/pipeline-runs" && method === "GET")
+      return route.fulfill({ json: { runs: [], total: 0, page: 1, pageSize: 20 } });
+    if (path === "/api/settings/summary" && method === "GET")
+      return route.fulfill({ json: { access: {}, operations: {} } });
+    if (path === "/api/assistant-runtime/updates" && method === "GET")
+      return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

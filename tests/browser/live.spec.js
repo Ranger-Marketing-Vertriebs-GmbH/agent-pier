@@ -72,7 +72,8 @@ test("live backend account save and real terminal compose, resize and reconnect"
     fullPage: true,
     animations: "disabled",
   });
-  await navigateTo(page, "Accounts");
+  await navigateTo(page, "CLIs & Erweiterungen");
+  await page.getByRole("tab", { name: /^Accounts/ }).click();
   await page.getByRole("button", { name: "Account hinzufügen" }).click();
   await page.getByLabel("Account-Name").fill("Browser Test");
   await page.getByRole("button", { name: "Account erstellen", exact: true }).click();

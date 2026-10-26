@@ -123,7 +123,7 @@ export const assistants = {
   dreamingMemoryConfirm:
     "Träumen braucht Gedächtnis: Diese Agenten merken sich noch nichts. Bestätige, um es für alle einzuschalten.",
   dreamingMemoryRequired:
-    "Solange Träumen eingeschaltet ist, behalten alle dauerhaften Agenten ihr Gedächtnis. Schalte Träumen unter Einstellungen › Arbeitsbereich › Agenten › Agentendienst aus, um es hier auszuschalten.",
+    "Solange Träumen eingeschaltet ist, behalten alle dauerhaften Agenten ihr Gedächtnis. Schalte Träumen unter Agenten › Laufzeit aus, um es hier auszuschalten.",
   dreamingAgentsBusy:
     "Diese Agenten arbeiten gerade. Versuche es erneut, wenn sie fertig sind.",
   heartbeatPrefix: "Check-in:",
@@ -315,7 +315,7 @@ export const assistants = {
   githubFromLead:
     "Ein auftragsgebundenes Team-Mitglied erhält GitHub nur von seinem leitenden Agenten.",
   githubProfileUnavailable:
-    "Dieses GitHub-Tokenprofil gibt es nicht mehr. Wähle unter Einstellungen › Zugriff › GitHub-Zugänge ein anderes.",
+    "Dieses GitHub-Tokenprofil gibt es nicht mehr. Wähle unter Zugänge › GitHub-Zugänge ein anderes.",
   sshNotGranted: "Dieser SSH-Zugang ist dem Agenten nicht zugewiesen.",
   sshHostUnavailable:
     "Dieser SSH-Zugang ist nicht verfügbar: Er wurde entfernt, oder OpenSSH fehlt.",
@@ -510,7 +510,7 @@ export const assistants = {
     "Der Hinweis konnte gerade nicht ausgeblendet werden. Versuche es später noch einmal.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
-  disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Einstellungen › Agenten.",
+  disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Agenten › Laufzeit.",
   storageUnsafe:
     "Der Speicherordner der Agenten ist unsicher. Prüfe Eigentümer und Verknüpfungen im Datenverzeichnis.",
   restartRequired:

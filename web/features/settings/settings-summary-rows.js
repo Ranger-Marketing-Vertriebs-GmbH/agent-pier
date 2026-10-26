@@ -1,9 +1,12 @@
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
-import { remoteCopy } from "../../lib/i18n/messages/remote.js";
 import { settingsHubCopy as copy } from "../../lib/i18n/messages/settings.js";
+import { agentsHubRoute } from "../assistants/hub-routes.js";
+import { codingRoute } from "../coding/routes.js";
+import { connectionsRoute } from "../connections/routes.js";
+import { statusBytes } from "../dashboard/system-status-format.js";
 
-// Rows of the Zugriff and Betrieb tabs from GET /settings/summary. `value: null`
+// Rows of the Allgemein and Betrieb tabs from GET /settings/summary. `value: null`
 // means "not known" (the row shows "—"); a missing value means the row has none.
 const count = (part) => (Number.isSafeInteger(part?.count) ? part.count : null);
 
@@ -13,50 +16,42 @@ function mcpState(mcp) {
   return { value: copy.mcpClients(mcp.activeGrants) };
 }
 
-function remoteState(remote) {
-  if (!remote) return { value: null };
-  // A saved network change that is not running yet: the mode shown would be wrong.
-  if (remote.restartRequired)
-    return { status: { tone: "warn", text: copy.remoteRestart } };
-  const active = [
-    remote.tailscale && remoteCopy.tailscale,
-    remote.network && remoteCopy.network,
-  ].filter(Boolean);
-  return active.length
-    ? { status: { tone: "ok", text: active.join(" · ") } }
-    : { value: remoteCopy.local };
-}
-
-export function accessRows(access) {
-  const label = (id) => operationsCopy.sections[id];
+// "Umgezogen" in Allgemein: where the former Einstellungen pages live now. Shown for two
+// releases after 2.7.0: remove the group (and its copy) in 2.9.0.
+export function movedRows(access) {
   return [
-    { id: "mcp", label: label("mcp"), sub: copy.mcpSub, ...mcpState(access?.mcp) },
     {
-      id: "remote",
-      label: label("remote"),
-      sub: copy.remoteSub,
-      ...remoteState(access?.remote),
-    },
-    { id: "ssh", label: label("ssh"), sub: copy.sshSub, value: count(access?.ssh) },
-    {
-      id: "secrets",
-      label: label("secrets"),
-      sub: copy.secretsSub,
-      value: count(access?.secrets),
+      id: "agents",
+      label: copy.movedAgents,
+      sub: copy.movedAgentsSub,
+      route: agentsHubRoute("runtime"),
     },
     {
-      id: "github",
-      label: label("github"),
-      sub: copy.githubSub,
-      value: count(access?.github),
+      id: "connections",
+      label: copy.movedConnections,
+      sub: copy.movedConnectionsSub,
+      route: connectionsRoute(),
     },
     {
-      id: "users",
-      label: label("users"),
-      sub: copy.usersSub,
-      value: count(access?.users),
+      id: "mcp",
+      label: copy.movedMcp,
+      sub: copy.movedMcpSub,
+      route: codingRoute("mcp"),
+      ...mcpState(access?.mcp),
     },
   ];
+}
+
+/** Betrieb › Speicher: the free disk space from GET /system-status, "—" until known. */
+export function storageRow(status) {
+  const free = status?.disk?.freeBytes;
+  return {
+    id: "storage",
+    label: operationsCopy.sections.storage,
+    sub: copy.storageSub,
+    value:
+      Number.isFinite(free) && free >= 0 ? copy.storageFree(statusBytes(free)) : null,
+  };
 }
 
 function diagnosticsState(diagnostics) {

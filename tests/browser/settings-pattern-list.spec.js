@@ -96,7 +96,7 @@ test("group actions and the Accounts reference row navigate in-app", async ({ pa
     "href",
     "/connections?section=services&item=web-search",
   );
-  await expect(reference).toContainText("Zentral unter Accounts");
+  await expect(reference).toContainText("Zentral unter Zugänge");
   await reference.click();
   await expect(log(page)).toContainText("accounts:services/web-search");
   expect(new URL(page.url()).searchParams.get("fixture")).toBe("list");
@@ -118,7 +118,7 @@ test("shared copy follows the language", async ({ page }) => {
   await open(page, "en");
   await expect(page.getByRole("button", { name: "Show hint" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Suchanbieter/ })).toContainText(
-    "Managed centrally in Accounts",
+    "Managed centrally in Connections",
   );
   await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
 });

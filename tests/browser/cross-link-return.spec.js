@@ -17,7 +17,7 @@ const copy = {
     runtime: "Agent service settings",
     speech: /^Speech recognition · Deepgram/,
     backToAgent: "Back to Home",
-    backToWorkspace: "Back to Workspace",
+    backToWorkspace: "Back to General",
     menu: "Open navigation",
   },
   de: {
@@ -28,7 +28,7 @@ const copy = {
     runtime: "Agentendienst-Einstellungen",
     speech: /^Spracherkennung · Deepgram/,
     backToAgent: "Zurück zu Home",
-    backToWorkspace: "Zurück zu Arbeitsbereich",
+    backToWorkspace: "Zurück zu Allgemein",
     menu: "Navigation öffnen",
   },
 };
@@ -129,13 +129,14 @@ test("a cross-link's origin does not leak into later navigation", async ({ page 
   await page.getByRole("link", { name: copy.en.speech }).click();
   await expect(page).toHaveURL(/returnTo=/);
   // Leaving through the app's own navigation drops the origin, even within Accounts.
-  await navigateTo(page, "Accounts");
+  await navigateTo(page, "Connections");
   await expect(page).toHaveURL(/\/connections$/);
   await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
   await navigateTo(page, "Settings");
   await expect(page).toHaveURL(/\/settings$/);
-  // The Access tab moved to Zugänge: a plain move between areas carries no origin.
-  await page.getByRole("tab", { name: "Access" }).click();
+  // The Access tab moved to Zugänge: its old address carries no origin either.
+  await expect(page.getByRole("tab", { name: "Access" })).toHaveCount(0);
+  await page.goto(baseURL + "/settings?tab=access");
   await expect(page).toHaveURL(/\/connections$/);
   await expect(back(page, "Back to Access")).toHaveCount(0);
 });

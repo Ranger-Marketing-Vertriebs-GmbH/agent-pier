@@ -1,4 +1,8 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { createContext, useContext, useEffect, useId, useState } from "react";
+
+// Icon buttons in a group head, by group name: the sidebar provides them for groups
+// that other features render (the Agenten group lives in AssistantSidebar).
+export const SidebarGroupActions = createContext({});
 export default function SidebarGroup({
   name,
   label,
@@ -6,8 +10,11 @@ export default function SidebarGroup({
   count,
   defaultOpen = false,
   activeKey = "",
+  actions,
   children,
 }) {
+  const provided = useContext(SidebarGroupActions)[name];
+  const headActions = actions ?? provided;
   const id = useId(),
     storageKey = `agentpier.sidebar.${name}`;
   const [open, setOpen] = useState(() => {
@@ -34,19 +41,22 @@ export default function SidebarGroup({
     <section
       className={`sidebar-group ${name}-group ${open ? "expanded" : "collapsed"} ${activeKey ? "active" : ""}`}
     >
-      <button
-        className="sidebar-group-toggle"
-        aria-label={ariaLabel || label}
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={toggle}
-      >
-        <span className="sidebar-group-chevron" aria-hidden="true">
-          ›
-        </span>
-        <span>{label}</span>
-        {count !== undefined && <span className="sidebar-group-count">{count}</span>}
-      </button>
+      <div className="sidebar-group-head">
+        <button
+          className="sidebar-group-toggle"
+          aria-label={ariaLabel || label}
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={toggle}
+        >
+          <span className="sidebar-group-chevron" aria-hidden="true">
+            ›
+          </span>
+          <span>{label}</span>
+          {count !== undefined && <span className="sidebar-group-count">{count}</span>}
+        </button>
+        {headActions && <div className="sidebar-group-actions">{headActions}</div>}
+      </div>
       <div className="sidebar-group-content" id={id} hidden={!open}>
         {children}
       </div>

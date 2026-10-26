@@ -16,13 +16,15 @@
   z-index: 20;
   overflow: visible;
 }
-/* Desktop: collapse and Menü share the first row, the brand sits below (2f). */
+/* Desktop: collapse, search and Menü share the first row, the brand sits below (2f,
+   handoff §5.1). */
 .sidebar-head {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   grid-template-areas:
-    "collapse . menu"
-    "brand brand brand";
+    "collapse . search menu"
+    "brand brand brand brand";
+  column-gap: var(--space-1);
   align-items: center;
   padding: 12px 14px 0;
 }
@@ -34,6 +36,9 @@
 }
 .sidebar-menu {
   grid-area: menu;
+}
+.sidebar-head .sidebar-search {
+  grid-area: search;
 }
 .sidebar-head .brand {
   grid-area: brand;
@@ -194,18 +199,41 @@
   font-weight: 600;
   color: var(--text-group);
 }
-.sidebar-scroll .sidebar-group-toggle {
+/* The head row: the toggle, then the group's icon buttons (handoff §5.1). */
+.sidebar-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sidebar-group-head > .sidebar-group-toggle {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-scroll .sidebar-group-head {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--sidebar-bg);
+}
+.sidebar-group-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+.sidebar-group-actions .icon-button {
+  width: 28px;
+  height: 28px;
+  color: var(--text-group);
+}
+.sidebar-group-actions .icon-button:hover:not(:disabled) {
+  color: var(--accent-text);
 }
 .sidebar-group-toggle:hover {
   background: #222327;
   color: #ffe2c9;
 }
 /* An open group shows its selected row; only a collapsed one marks the header (1a). */
-.sidebar-group.active.collapsed > .sidebar-group-toggle {
+.sidebar-group.active.collapsed > .sidebar-group-head > .sidebar-group-toggle {
   color: #ffc99d;
 }
 .sidebar-group-chevron {
@@ -214,7 +242,7 @@
   line-height: 1;
   transition: transform 0.15s;
 }
-.sidebar-group.expanded > .sidebar-group-toggle .sidebar-group-chevron {
+.sidebar-group.expanded > .sidebar-group-head .sidebar-group-chevron {
   transform: rotate(90deg);
 }
 .sidebar-group-count {

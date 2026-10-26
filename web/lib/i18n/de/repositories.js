@@ -121,8 +121,7 @@ export const sessionGithubCopy = {
   none: "Kein GitHub-Profil",
   profile: (name, host) => `${name} (${host})`,
   removed: (host) => `${host}: Profil entfernt`,
-  tokenProblem: (host) =>
-    `${host}: Token unter Einstellungen › Zugriff › GitHub-Zugänge prüfen`,
+  tokenProblem: (host) => `${host}: Token unter Zugänge › GitHub-Zugänge prüfen`,
   sshRemote:
     "Das Projekt-Remote verwendet SSH. GitHub-Tokens gelten nur für HTTPS; Git nutzt hier deine SSH-Schlüssel.",
 };

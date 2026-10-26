@@ -1,7 +1,9 @@
 const title = "Settings";
 const groups = {
-  workspace: "Workspace",
-  access: "Access",
+  general: "General",
+  app: "App and notifications",
+  users: "Users",
+  remote: "Remote access",
   operations: "Operations",
 };
 const sections = {
@@ -12,18 +14,19 @@ const sections = {
   ssh: "SSH accesses",
   secrets: "Secrets",
   github: "GitHub connections",
-  notifications: "App & notifications",
+  notifications: "App and notifications",
   diagnostics: "Diagnostics",
   backups: "Backups",
   updates: "Updates",
   users: "Users",
   audit: "Activity log",
+  storage: "Storage",
 };
 export const operationsCopy = {
   sections,
   groups,
   title,
-  description: "Manage your workspace, app and operations.",
+  description: "Manage general settings, the app, users, remote access and operations.",
   loading: "Loading data …",
   refresh: "Refresh",
   next: "Next",

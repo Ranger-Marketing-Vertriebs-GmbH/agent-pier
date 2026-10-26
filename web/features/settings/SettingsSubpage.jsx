@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import AgentServiceRoute from "./AgentServiceRoute.jsx";
-import { SubpageFrame } from "./SettingsFrame.jsx";
+import { SubpageFrame, TabFrame } from "./SettingsFrame.jsx";
 
 // Each section keeps its current content; only the frame around it is new.
 const UpdatesPage = lazy(() => import("../operations/UpdatesPage.jsx"));
@@ -21,6 +21,21 @@ const wideSections = new Set(["audit"]);
 // The former OperationsPage sections keep the `.operations-page` scope of
 // operations.css (heading sizes, `overflow-wrap: anywhere` on long paths and hashes).
 const operationsSections = new Set(["diagnostics", "backups", "audit"]);
+
+/**
+ * App & Benachrichtigungen, Benutzer and Fernzugriff: a tab whose content is one
+ * section, at the section's own address (/settings/notifications, /users, /remote).
+ */
+export function SectionTab({ section, route, state, frame }) {
+  const Page = pages[section];
+  return (
+    <TabFrame frame={frame}>
+      <Suspense fallback={<p role="status">{operationsCopy.loading}</p>}>
+        <Page route={route} navigate={frame.navigate} state={state} frame={frame} />
+      </Suspense>
+    </TabFrame>
+  );
+}
 
 export default function SettingsSubpage({ section, route, state, frame }) {
   if (section === "assistants") return <AgentServiceRoute frame={frame} />;

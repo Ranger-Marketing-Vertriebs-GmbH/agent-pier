@@ -77,15 +77,135 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(
         categories.getByRole("link", { name: t(/^Geheimnisse/, /^Secrets/) }),
       ).toContainText("2");
+      // Fernzugriff stayed: it is a settings tab now, at its old address.
       await page.goto(baseURL + "/settings/remote");
       await expect(page).toHaveURL(/\/settings\/remote$/);
       await expect(
-        page.getByRole("heading", {
-          level: 1,
-          name: t("Fernzugriff", "Remote access"),
-          exact: true,
-        }),
-      ).toBeVisible();
+        page.getByRole("tab", { name: t("Fernzugriff", "Remote access") }),
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("five tabs; App, Benutzer and Fernzugriff show their page at its address", async ({
+      page,
+    }) => {
+      await operationsFixture(page);
+      await page.goto(baseURL + "/settings");
+      await expect(page.getByRole("tab")).toHaveText([
+        t("Allgemein", "General"),
+        t("App & Benachrichtigungen", "App and notifications"),
+        t("Benutzer", "Users"),
+        t("Fernzugriff", "Remote access"),
+        t("Betrieb", "Operations"),
+      ]);
+      for (const [tab, address, marker] of [
+        [
+          t("App & Benachrichtigungen", "App and notifications"),
+          "/settings/notifications",
+          ".notifications-page",
+        ],
+        [t("Benutzer", "Users"), "/settings/users", ".users-page"],
+        [t("Fernzugriff", "Remote access"), "/settings/remote", ".remote-settings"],
+      ]) {
+        await page.getByRole("tab", { name: tab, exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(address.replace(/\//g, "\\/") + "$"));
+        await expect(page.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        await expect(page.getByRole("tabpanel").locator(marker).first()).toBeVisible();
+        await expect(
+          page.getByRole("heading", { level: 1, name: t("Einstellungen", "Settings") }),
+        ).toBeVisible();
+      }
+      // ?tab= names the same tabs.
+      await page.goto(baseURL + "/settings?tab=users");
+      await expect(page).toHaveURL(/\/settings\/users$/);
+      await page.goto(baseURL + "/settings?tab=workspace");
+      await expect(page).toHaveURL(/\/settings$/);
+      await expect(
+        page.getByRole("tab", { name: t("Allgemein", "General") }),
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("Umgezogen links the moved pages and counts MCP clients", async ({ page }) => {
+      await operationsFixture(page);
+      await page.goto(baseURL + "/settings");
+      const mcp = settingsRow(
+        page,
+        t("MCP & Zugriffe (AgentPier für CLIs)", "MCP & access (AgentPier for CLIs)"),
+      );
+      await expect(mcp).toContainText(t("2 verbundene Clients", "2 connected clients"));
+      await expect(mcp).toHaveAttribute(
+        "href",
+        "/coding/clis?tab=mcp&returnTo=%2Fsettings",
+      );
+      const runtime = settingsRow(
+        page,
+        t(
+          "Agentendienst, Updates, Träumen, Erweitert",
+          "Agent service, updates, dreaming, advanced",
+        ),
+      );
+      await expect(runtime).toHaveAttribute("href", /^\/agents\?tab=runtime/);
+      const connections = settingsRow(
+        page,
+        t(
+          "SSH-Zugänge, Geheimnisse, GitHub-Zugänge",
+          "SSH accesses, secrets, GitHub connections",
+        ),
+      );
+      await connections.click();
+      await expect(page).toHaveURL(/\/connections\?returnTo=%2Fsettings$/);
+    });
+
+    test("unknown MCP clients show a dash while a real zero stays zero", async ({
+      page,
+    }) => {
+      const state = await operationsFixture(page);
+      state.summary = { access: { mcp: null }, operations: null };
+      await page.goto(baseURL + "/settings");
+      const label = t(
+        "MCP & Zugriffe (AgentPier für CLIs)",
+        "MCP & access (AgentPier for CLIs)",
+      );
+      await expect(settingsRow(page, label)).toContainText("—");
+      state.summary = { access: { mcp: { available: true, activeGrants: 0 } } };
+      await page.reload();
+      await expect(settingsRow(page, label)).toContainText(
+        t("0 verbundene Clients", "0 connected clients"),
+      );
+      state.summary = { access: { mcp: { available: false, activeGrants: 0 } } };
+      await page.reload();
+      await expect(settingsRow(page, label)).toContainText(
+        t("Nicht verfügbar", "Not available"),
+      );
+    });
+
+    test("Betrieb › Speicher shows the free space and opens the clean-up", async ({
+      page,
+    }) => {
+      await operationsFixture(page);
+      await page.goto(baseURL + "/settings?tab=operations");
+      const storage = page.getByRole("button", {
+        name: new RegExp(`^${t("Speicher", "Storage")}`),
+      });
+      await expect(storage).toContainText(
+        t("200 GB frei", "200 GB free").replace(" ", "\u00a0"),
+      );
+      await storage.click();
+      const dialog = page.getByRole("dialog", {
+        name: t("Systemstatus", "System status"),
+      });
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole("heading", { name: t("Speicher freigeben", "Free up space") }),
+      ).toBeInViewport();
+      await dialog
+        .getByRole("button", { name: t("Schließen", "Close") })
+        .first()
+        .click();
+      await expect(dialog).toHaveCount(0);
+      await expect(page).toHaveURL(/\/settings\?tab=operations$/);
     });
 
     test("unknown operations summary parts show a dash", async ({ page }) => {
@@ -122,10 +242,13 @@ for (const locale of ["de-DE", "en-GB"]) {
         }),
       ).toBeVisible();
       await page.goto(baseURL + "/settings");
-      const workspace = page.getByRole("tab", { name: t("Arbeitsbereich", "Workspace") });
+      const workspace = page.getByRole("tab", { name: t("Allgemein", "General") });
       await expect(workspace).toHaveAttribute("aria-selected", "true");
       // The Access tab moved to Zugänge; history leads back to the settings tab.
-      await page.getByRole("tab", { name: t("Zugriff", "Access") }).click();
+      await expect(
+        page.getByRole("tab", { name: t("Zugriff", "Access"), exact: true }),
+      ).toHaveCount(0);
+      await page.goto(baseURL + "/settings?tab=access");
       await expect(page).toHaveURL(/\/connections$/);
       await page.goBack();
       await expect(page).toHaveURL(/\/settings$/);

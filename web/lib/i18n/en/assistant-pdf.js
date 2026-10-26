@@ -1,7 +1,7 @@
 export const assistantPdfCopy = {
   enable: "Read PDFs",
   description:
-    "Reads PDF files in its workspace with its own model, page images included if that model accepts images. Otherwise the PDF fallback model from Accounts reads them, or, without one, only their text is read.",
+    "Reads PDF files in its workspace with its own model, page images included if that model accepts images. Otherwise the PDF fallback model from Connections reads them, or, without one, only their text is read.",
   reference: (name) => `PDF fallback · ${name}`,
   notSet: "Not chosen",
   title: "PDF reading",

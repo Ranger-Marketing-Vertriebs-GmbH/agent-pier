@@ -78,7 +78,8 @@ export const sessionReloadCopy = {
   switchNow: "Switch account & resume",
   targetAccount: "Target account",
   chooseAccount: "Choose an account …",
-  noAccounts: "Create another account for this CLI under Accounts and sign in first.",
+  noAccounts:
+    "Create another account for this CLI under CLIs and extensions › Accounts and sign in first.",
 
   openTerminal: "Open terminal",
   terminalHint:

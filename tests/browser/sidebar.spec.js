@@ -80,12 +80,12 @@ test("the sessions group stays collapsible and remembers its state", async ({ pa
   await page.goto(base + "/sessions/status-working/terminal");
   await expect(sessions).toHaveAttribute("aria-expanded", "true");
   const menu = await openMenu(page);
-  await menu.getByRole("button", { name: "Accounts", exact: true }).click();
+  await menu.getByRole("button", { name: "Zugänge", exact: true }).click();
   await openMenu(page);
-  await expect(menu.getByRole("button", { name: "Accounts", exact: true })).toHaveClass(
+  await expect(menu.getByRole("button", { name: "Zugänge", exact: true })).toHaveClass(
     /selected/,
   );
-  await expect(menu.getByRole("button", { name: "Accounts", exact: true })).toHaveCSS(
+  await expect(menu.getByRole("button", { name: "Zugänge", exact: true })).toHaveCSS(
     "color",
     "rgb(255, 201, 157)",
   );
@@ -95,7 +95,9 @@ test("an open group keeps a neutral header; a collapsed one marks the selection"
 }) => {
   await fixture(page);
   await page.goto(base + "/sessions/status-working/terminal");
-  const header = page.locator(".sessions-group > .sidebar-group-toggle");
+  const header = page.locator(
+    ".sessions-group > .sidebar-group-head > .sidebar-group-toggle",
+  );
   await expect(header).toHaveAttribute("aria-expanded", "true");
   await expect(header).toHaveCSS("color", "rgb(151, 152, 156)");
   const count = header.locator(".sidebar-group-count");

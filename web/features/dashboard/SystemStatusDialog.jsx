@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
 import Modal from "../../components/Modal.jsx";
 import useSystemStatus from "./useSystemStatus.js";
@@ -79,8 +79,16 @@ function processLabel(item) {
   return copy.session(item.name);
 }
 
-export default function SystemStatusDialog({ close }) {
+/** `cleanup` (Einstellungen › Betrieb › Speicher) scrolls to the clean-up once shown. */
+export default function SystemStatusDialog({ close, cleanup = false }) {
   const { data: answer, error } = useSystemStatus("/system-status/details");
+  const loaded = Boolean(answer);
+  useEffect(() => {
+    if (cleanup && loaded)
+      document
+        .getElementById("system-cleanup-heading")
+        ?.scrollIntoView({ block: "start" });
+  }, [cleanup, loaded]);
   // The details tolerate a missing part, such as process rows after a failed ps.
   const data = answer && {
     ...answer,

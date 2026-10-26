@@ -16,18 +16,22 @@ export const settingsPageCopy = {
 export const settingsHubCopy = {
   backTo: (tab) => `Zurück zu ${tab}`,
   subpageOf: (tab) => `Einstellungen · ${tab}`,
-  appGroup: "App",
-  mcpSub: "Coding-CLI mit AgentPier verbinden",
   mcpClients: (count) =>
     count === 1 ? "1 verbundener Client" : `${count} verbundene Clients`,
   mcpUnavailable: "Nicht verfügbar",
-  remoteRestart: "Neustart nötig",
-  remoteSub: "Von anderen Geräten erreichen",
-  sshSub: "Schlüssel und Hosts",
-  secretsSub: "Token und URLs für Agenten und Coding-CLIs",
-  githubSub: "Token für Klone und Pull Requests",
-  usersSub: "Weitere Personen, die mit Agenten chatten",
-  centralTitle: "Provider-Zugänge, MCP-Server",
+  // Gruppe „Umgezogen“ im Tab Allgemein (für zwei Versionen).
+  movedGroup: "Umgezogen",
+  movedHint:
+    "Diese Einträge bleiben zwei Versionen lang hier, damit gewohnte Wege nicht ins Leere laufen.",
+  movedAgents: "Agentendienst, Updates, Träumen, Erweitert",
+  movedAgentsSub: "Jetzt unter Agenten › Laufzeit",
+  movedConnections: "SSH-Zugänge, Geheimnisse, GitHub-Zugänge, Modell-Zugänge",
+  movedConnectionsSub: "Jetzt unter Zugänge",
+  movedMcp: "MCP & Zugriffe (AgentPier für CLIs)",
+  movedMcpSub: "Jetzt unter CLIs & Erweiterungen › AgentPier als MCP",
+  storageSub:
+    "Systemstatus und Aufräumen: Update-Sicherungen, Verläufe, Abhängigkeiten der Agenten",
+  storageFree: (size) => `${size} frei`,
   diagnosticsOk: "In Ordnung",
   diagnosticsFailed: (count) => (count === 1 ? "1 Fehler" : `${count} Fehler`),
   diagnosticsWarnings: (count) => (count === 1 ? "1 Warnung" : `${count} Warnungen`),

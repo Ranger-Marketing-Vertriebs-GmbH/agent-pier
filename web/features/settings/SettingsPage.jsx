@@ -1,12 +1,18 @@
 import React from "react";
-import SettingsSubpage from "./SettingsSubpage.jsx";
+import SettingsSubpage, { SectionTab } from "./SettingsSubpage.jsx";
 import WorkspaceTab from "./WorkspaceTab.jsx";
-import { AccessTab, OperationsTab } from "./SummaryTabs.jsx";
-import { mergeSettingsRoute, settingsLocation } from "./settings-navigation.js";
+import { OperationsTab } from "./SummaryTabs.jsx";
+import {
+  isTabSection,
+  mergeSettingsRoute,
+  settingsLocation,
+} from "./settings-navigation.js";
 import "../operations/operations.css";
 import "./settings-page.css";
 
-// Tabs Arbeitsbereich / Zugriff / Betrieb; every section is a subpage of its tab.
+// Tabs Allgemein · App & Benachrichtigungen · Benutzer · Fernzugriff · Betrieb. App,
+// Benutzer and Fernzugriff show their one section; every other section is a subpage of
+// its tab.
 export default function SettingsPage({
   state,
   refresh,
@@ -28,6 +34,9 @@ export default function SettingsPage({
     navigate: (changes, replace = false) =>
       onNavigate(mergeSettingsRoute(route, changes), replace),
   };
+  // Opened through a cross-link, a tab's section keeps the back arrow to its origin.
+  if (isTabSection(section) && !route.returnTo)
+    return <SectionTab section={section} route={route} state={state} frame={frame} />;
   if (section !== "general")
     return (
       <SettingsSubpage
@@ -38,7 +47,6 @@ export default function SettingsPage({
         frame={frame}
       />
     );
-  if (tab === "access") return <AccessTab frame={frame} />;
   if (tab === "operations") return <OperationsTab frame={frame} />;
   return <WorkspaceTab frame={frame} state={state} refresh={refresh} ready={ready} />;
 }

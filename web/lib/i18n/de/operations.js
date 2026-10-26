@@ -1,7 +1,9 @@
 const title = "Einstellungen";
 const groups = {
-  workspace: "Arbeitsbereich",
-  access: "Zugriff",
+  general: "Allgemein",
+  app: "App & Benachrichtigungen",
+  users: "Benutzer",
+  remote: "Fernzugriff",
   operations: "Betrieb",
 };
 const sections = {
@@ -18,12 +20,13 @@ const sections = {
   updates: "Updates",
   users: "Benutzer",
   audit: "Aktivitätsprotokoll",
+  storage: "Speicher",
 };
 export const operationsCopy = {
   sections,
   groups,
   title,
-  description: "Arbeitsbereich, App und Betrieb verwalten.",
+  description: "Allgemeines, App, Benutzer, Fernzugriff und Betrieb verwalten.",
   loading: "Daten werden geladen …",
   refresh: "Aktualisieren",
   next: "Weiter",
