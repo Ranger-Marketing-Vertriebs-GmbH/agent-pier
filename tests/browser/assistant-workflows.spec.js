@@ -201,7 +201,7 @@ test("model connection choices explain unsupported providers and protocols witho
     }),
   );
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: "New agent" }).click();
+  await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
   await wizardToIdentity(page);
   const choices = page.getByLabel("Model connection");
   await expect(choices.locator('option[value="missing"]')).toHaveText(

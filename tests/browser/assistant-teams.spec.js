@@ -288,11 +288,8 @@ test("historical assignments group same-named members with direct chat access", 
   await expect(
     group.getByRole("button", { name: /^Reviewer 1, / }),
   ).toHaveAccessibleDescription("Check last release notes");
-  const launch = await page
-    .locator(".sidebar-launch")
-    .getByRole("button", { name: "New", exact: true })
-    .boundingBox();
-  expect(launch.height).toBeGreaterThanOrEqual(40);
+  const inbox = await page.locator(".sidebar-inbox .inbox-entry").boundingBox();
+  expect(inbox.height).toBeGreaterThanOrEqual(36);
   const content = await page
     .locator(".assistant-chats-group > .sidebar-group-content")
     .boundingBox();

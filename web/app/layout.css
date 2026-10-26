@@ -44,9 +44,6 @@
   grid-area: brand;
   padding: 10px 10px 24px;
 }
-.sidebar-launch {
-  padding: 0 14px 12px;
-}
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
@@ -136,20 +133,15 @@
   background: #2a1b1a;
   border-color: #8a4945;
 }
-.new-session {
-  width: 100%;
-  justify-content: flex-start;
-  /* 13px to the content edge in the handoff, inside the 1px button border. */
-  padding: 0 12px;
-}
 .new-menu {
   position: relative;
 }
+/* The compact "+ New" of the phone header and the collapsed sidebar. */
 .new-menu-popover {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  min-width: 180px;
   z-index: 20;
   display: grid;
   padding: 6px;
@@ -158,11 +150,7 @@
   background: var(--popover-bg);
   box-shadow: var(--popover-shadow);
 }
-.new-menu-icon .new-menu-popover {
-  right: auto;
-  min-width: 180px;
-}
-.new-menu-icon .new-menu-popover.align-right {
+.new-menu-popover.align-right {
   left: auto;
   right: 0;
 }

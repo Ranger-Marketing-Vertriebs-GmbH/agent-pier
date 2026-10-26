@@ -307,12 +307,17 @@ The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).
 
 - **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)**, **Menu**), brand
-  with the LOCAL badge, **New**, **Inbox**, the **Agents** group, the **Sessions** group
-  and the host status. It belongs to agents and sessions; never add a permanent list of
+  with the LOCAL badge, **Inbox**, the **Agents** group, the **Sessions** group and the
+  host status. It belongs to agents and sessions; never add a permanent list of
   areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
   (`/agents`) and **New agent** (wizard), hidden while agents are off; Sessions → **CLIs
-  and extensions** (`/coding/clis`) and **New session**. While the agent service is
-  stopped, agent rows are dimmed with "offline".
+  and extensions** (`/coding/clis`) and **New session**. These "+" buttons are the
+  expanded sidebar's only way to create; it has no **New** button. Once the agent list
+  has loaded, the Agents group shows even without agents, with a hint and its "+". The
+  compact **+ New** menu (`web/app/SidebarNewMenu.jsx`: **Session**, and **Agent** while
+  agents are on) stays where no group heads are: the phone header and the floating bar
+  of a collapsed sidebar. While the agent service is stopped, agent rows are dimmed with
+  "offline".
 - **Menu popover** (`web/app/SidebarMenu.jsx`, model in `web/app/sidebar-menu-model.js`):
   the only place for areas, in two groups. **Work**: Overview, Projects, Pipelines, Files,
   Artifacts. **Set up**: Agents, CLIs and extensions, Connections, Settings. Below them

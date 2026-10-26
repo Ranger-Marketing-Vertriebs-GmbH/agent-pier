@@ -361,7 +361,8 @@ test.describe("phone drawer", () => {
     await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
     const drawer = page.locator(".sidebar");
     await expect(drawer).toHaveClass(/open/);
-    // Brand + Menü, Neu, Agenten, Sessions; no search or head icons in the drawer.
+    // Brand + Menü, Eingang, Agenten, Sessions; no search, head icons or "+ Neu" in the
+    // drawer (the phone header keeps its "+").
     await expect(drawer.locator(".brand")).toBeVisible();
     await expect(drawer.locator(".assistant-chats-group")).toBeVisible();
     await expect(trigger(page)).toBeVisible();
@@ -369,7 +370,7 @@ test.describe("phone drawer", () => {
     await expect(drawer.locator(".sidebar-collapse")).toBeHidden();
     await expect(drawer.locator(".sidebar-group-actions").first()).toBeHidden();
     const order = await drawer
-      .locator(".brand, .sidebar-launch, .assistant-chats-group, .sessions-group")
+      .locator(".brand, .sidebar-inbox, .assistant-chats-group, .sessions-group")
       .evaluateAll((nodes) =>
         nodes
           .map((node) => ({
@@ -379,7 +380,7 @@ test.describe("phone drawer", () => {
           .sort((a, b) => a.top - b.top)
           .map((item) => item.name.split(" ")[0]),
       );
-    expect(order).toEqual(["brand", "sidebar-launch", "sidebar-group", "sidebar-group"]);
+    expect(order).toEqual(["brand", "sidebar-inbox", "sidebar-group", "sidebar-group"]);
     await trigger(page).click();
     const menu = popover(page);
     await expect(menu).toBeVisible();

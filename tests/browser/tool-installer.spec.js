@@ -309,7 +309,9 @@ test("an installed utility does not enable session creation when no session tool
     card(page, "GitHub CLI").getByRole("button", { name: "GitHub-Zugänge", exact: true }),
   ).toBeEnabled();
   await expect(
-    page.locator(".sidebar-launch").getByRole("button", { name: "Neu", exact: true }),
+    page
+      .locator(".sessions-group")
+      .getByRole("button", { name: "Neue Session", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByText("Tools verfügbar", { exact: true }).locator(".."),

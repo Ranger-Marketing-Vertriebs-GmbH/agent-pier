@@ -166,7 +166,7 @@ function Application() {
             >
               <Icon name="arrow" />
             </button>
-            <SidebarNewMenu icon items={newItems} disabled={!installed} />
+            <SidebarNewMenu items={newItems} disabled={!installed} />
           </div>
         )}
         <Sidebar

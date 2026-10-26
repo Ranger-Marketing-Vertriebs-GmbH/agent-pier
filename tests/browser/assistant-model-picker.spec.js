@@ -47,7 +47,10 @@ async function setup(page) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: "New agent", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "New agent", exact: true })
+    .click();
   await wizardToIdentity(page);
   return { controls, created };
 }

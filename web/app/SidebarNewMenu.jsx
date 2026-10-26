@@ -2,15 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
 
-// The orange "+ New" button: a small menu with the two things the owner can create.
-// `icon` renders the compact "+" of the phone header and the collapsed sidebar; `align`
-// keeps the popover inside the viewport ("right" under the header's "+").
-export default function SidebarNewMenu({
-  items,
-  disabled,
-  icon = false,
-  align = "left",
-}) {
+// The compact "+ New": a small menu with the two things the owner can create, in the
+// phone header and the collapsed sidebar, which have no group heads with their own "+".
+// `align` keeps the popover inside the viewport ("right" under the header's "+").
+export default function SidebarNewMenu({ items, disabled, align = "left" }) {
   const [open, setOpen] = useState(false);
   const root = useRef(null),
     trigger = useRef(null),
@@ -55,20 +50,19 @@ export default function SidebarNewMenu({
     controls[next].focus();
   };
   return (
-    <div className={`new-menu ${icon ? "new-menu-icon" : ""}`} ref={root}>
+    <div className="new-menu" ref={root}>
       <button
         ref={trigger}
         type="button"
-        className={icon ? "icon-button" : "button primary new-session"}
-        aria-label={icon ? copy.newLabel : undefined}
-        title={icon ? copy.newLabel : undefined}
+        className="icon-button"
+        aria-label={copy.newLabel}
+        title={copy.newLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="plus" />
-        {!icon && copy.newLabel}
       </button>
       {open && (
         <div

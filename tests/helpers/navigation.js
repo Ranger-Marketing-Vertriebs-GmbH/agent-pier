@@ -29,8 +29,9 @@ export async function navigateTo(page, name) {
   const menu = await openMenu(page);
   await menu.getByRole("button", { name, exact: true }).click();
 }
-// "+ Neu" offers a session or an agent: in the sidebar, in the phone header and in the
-// floating bar of a collapsed sidebar. This picks whichever one is on screen.
+// The phone header and the floating bar of a collapsed sidebar offer "+ Neu" (session
+// or agent); the expanded sidebar has the "+" of its Sessions group. This picks
+// whichever one is on screen.
 export async function openNewSession(page) {
   await appReady(page, ".mobile-header");
   const name = /^(Neu|New)$/;
@@ -39,7 +40,11 @@ export async function openNewSession(page) {
   if (await header.isVisible()) await header.click();
   else if (await float.isVisible()) await float.click();
   else {
-    await page.locator(".sidebar .sidebar-launch").getByRole("button", { name }).click();
+    await page
+      .locator(".sessions-group .sidebar-group-actions")
+      .getByRole("button", { name: /^(Neue Session|New session)$/ })
+      .click();
+    return;
   }
   await page.getByRole("menuitem", { name: /^Session$/ }).click();
 }

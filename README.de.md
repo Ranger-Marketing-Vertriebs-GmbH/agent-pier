@@ -136,9 +136,10 @@ npm start
    der Übersicht oder unter **CLIs & Erweiterungen › Installation** installieren.
    **Suchen** (⌘K oder Strg+K) findet jede Seite, jeden Agenten und jede Aktion, auch
    unter ihrem alten Namen.
-3. Wähle **Neu › Session**, eine CLI, einen Account und einen Projektordner und
-   starte. Das native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt
-   den gespeicherten Verlauf.
+3. Wähle **+** in der Gruppe **Sessions** der Seitenleiste (am Handy **+ › Session** in
+   der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Das
+   native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt den
+   gespeicherten Verlauf.
 4. Optional: Öffne **Agenten** im **Menü**, wähle **Agenten aktivieren** und lege mit
    **Neuer Agent** einen an ([Agenten-Anleitung](docs/agents.md)).
 

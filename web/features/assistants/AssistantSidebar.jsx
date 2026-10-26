@@ -44,6 +44,7 @@ export default function AssistantSidebar({ navigate, route }) {
     models = [],
     runtime,
     activity = {},
+    loaded = false,
     connected,
     offline,
     refresh,
@@ -246,7 +247,9 @@ export default function AssistantSidebar({ navigate, route }) {
       </button>
     );
   }
-  if (!roots.length) return null;
+  // Once the list is in, the group stays even without agents: its head "+" is the
+  // sidebar's way to create the first one.
+  if (!roots.length && !loaded) return null;
   return (
     <SidebarGroup
       name="assistant-chats"
@@ -266,6 +269,7 @@ export default function AssistantSidebar({ navigate, route }) {
       <div
         className={`session-list${stale ? " assistant-sidebar-stale" : ""}${down ? " assistant-sidebar-down" : ""}`}
       >
+        {!roots.length && <p className="assistant-sidebar-empty">{copy.empty}</p>}
         {roots.map((parent, index) => {
           const groups = new Map();
           for (const child of visible.filter(

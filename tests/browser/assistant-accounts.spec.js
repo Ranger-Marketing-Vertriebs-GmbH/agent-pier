@@ -134,7 +134,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
       : route.fallback(),
   );
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: "New agent" }).click();
+  await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
   await wizardToIdentity(page);
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel("Model connection").selectOption("openclaw:test");

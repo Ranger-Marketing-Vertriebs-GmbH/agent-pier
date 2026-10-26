@@ -249,7 +249,7 @@ test.describe("agent settings on phones", () => {
   test("the new agent wizard keeps its buttons in the bar", async ({ page }) => {
     await setupAssistantSettings(page);
     await page.goto(baseURL + "/agents");
-    await page.getByRole("link", { name: "New agent" }).click();
+    await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
     const steps = page.getByRole("region", { name: "Steps" });
     await expect(steps.getByRole("button", { name: "Next" })).toBeVisible();
     await expect(steps.getByRole("button", { name: "Back" })).toBeDisabled();

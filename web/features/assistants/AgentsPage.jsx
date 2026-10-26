@@ -134,7 +134,8 @@ export default function AgentsPage({
         error={error || loadError}
       />
     );
-  // "Neuer Agent" (also the sidebar's "Neu › Agent"): the wizard, one per address.
+  // "Neuer Agent" (also the sidebar's Agents "+" and "+ › Agent"): the wizard, one per
+  // address.
   if (route.creating)
     return <AgentWizard key={routePath(route)} route={route} navigate={navigate} />;
   // An agent page whose agent is not (or not yet) listed.

@@ -29,26 +29,95 @@ async function agentsOn(page) {
   });
 }
 
-const sidebarNew = (page) => page.locator(".sidebar .sidebar-launch").getByRole("button");
 const menu = (page) => page.getByRole("menu", { name: "New" });
+// The compact "+ New" of whichever bar is on screen: the phone header at 390px, the
+// floating bar of the collapsed sidebar at 1280px.
+const compactNew = (page, narrow) =>
+  page
+    .locator(narrow ? ".mobile-header" : ".sidebar-float")
+    .getByRole("button", { name: "New", exact: true });
 
 async function open(page, narrow) {
   await page.goto("/");
-  if (narrow) await page.getByRole("button", { name: "Open navigation" }).click();
+  if (!narrow) await page.getByRole("button", { name: "Collapse navigation" }).click();
 }
 
+test.describe("the expanded sidebar", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 844 });
+  });
+  const sidebar = (page) => page.locator(".sidebar");
+  const sessionsPlus = (page) =>
+    page
+      .locator(".sessions-group .sidebar-group-actions")
+      .getByRole("button", { name: "New session", exact: true });
+  const agentsPlus = (page) =>
+    page
+      .locator(".assistant-chats-group .sidebar-group-actions")
+      .getByRole("link", { name: "New agent", exact: true });
+
+  test("has no New menu; the Sessions + opens the launch dialog", async ({ page }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await page.goto("/");
+    await expect(sessionsPlus(page)).toBeVisible();
+    await expect(
+      sidebar(page).getByRole("button", { name: "New", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      sidebar(page).locator("[aria-haspopup=menu]").filter({ hasText: "New" }),
+    ).toHaveCount(0);
+    await sessionsPlus(page).click();
+    await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
+  });
+
+  test("without agents yet, the Agents group still offers its +", async ({ page }) => {
+    await fixture(page);
+    await agentsOn(page);
+    await page.goto("/");
+    const group = page.locator(".assistant-chats-group");
+    await expect(group).toBeVisible();
+    await expect(group.locator(".sidebar-group-count")).toHaveText("0");
+    await expect(group).toContainText("Create your first agent to start a conversation.");
+    await agentsPlus(page).click();
+    await expect(page).toHaveURL(/\/agents\?new=1$/);
+    await expect(
+      page.getByRole("heading", { name: "New agent", level: 1 }),
+    ).toBeVisible();
+  });
+
+  test("with agents off, the Sessions + still creates a session", async ({ page }) => {
+    await fixture(page);
+    await page.goto("/");
+    await expect(sessionsPlus(page)).toBeVisible();
+    await expect(page.locator(".assistant-chats-group")).toHaveCount(0);
+    await sessionsPlus(page).click();
+    await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
+  });
+
+  test("the phone drawer has no New menu either", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await fixture(page);
+    await agentsOn(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await expect(sidebar(page)).toHaveClass(/open/);
+    await expect(sidebar(page).locator(".new-menu")).toHaveCount(0);
+  });
+});
+
 for (const width of [1280, 390]) {
-  test.describe(`${width}px`, () => {
+  test.describe(`the compact + at ${width}px`, () => {
+    const narrow = width < 700;
     test.beforeEach(async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
     });
 
-    test("the orange button offers Session and Agent in a menu", async ({ page }) => {
+    test("offers Session and Agent in a menu", async ({ page }) => {
       await fixture(page);
       await agentsOn(page);
-      await open(page, width < 700);
-      const button = sidebarNew(page);
-      await expect(button).toHaveText(/New/);
+      await open(page, narrow);
+      const button = compactNew(page, narrow);
       await expect(button).toHaveAttribute("aria-haspopup", "menu");
       await expect(button).toHaveAttribute("aria-expanded", "false");
       await button.click();
@@ -64,48 +133,33 @@ for (const width of [1280, 390]) {
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       ).toBe(true);
-      await page.screenshot({
-        path: test.info().outputPath(`new-menu-${width}.png`),
-      });
     });
 
     test("Session opens the launch dialog", async ({ page }) => {
       await fixture(page);
       await agentsOn(page);
-      await open(page, width < 700);
-      await sidebarNew(page).click();
+      await open(page, narrow);
+      await compactNew(page, narrow).click();
       await menu(page).getByRole("menuitem", { name: "Session" }).click();
       await expect(page.getByRole("dialog", { name: "New session" })).toBeVisible();
-    });
-
-    test("Agent opens the create-agent flow", async ({ page }) => {
-      await fixture(page);
-      await agentsOn(page);
-      await open(page, width < 700);
-      await sidebarNew(page).click();
-      await menu(page).getByRole("menuitem", { name: "Agent" }).click();
-      await expect(page).toHaveURL(/\/agents\?new=1$/);
-      await expect(
-        page.getByRole("heading", { name: "New agent", level: 1 }),
-      ).toBeVisible();
     });
 
     test("Escape closes the menu and returns focus to the button", async ({ page }) => {
       await fixture(page);
       await agentsOn(page);
-      await open(page, width < 700);
-      await sidebarNew(page).click();
+      await open(page, narrow);
+      await compactNew(page, narrow).click();
       await expect(menu(page)).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(menu(page)).toHaveCount(0);
-      await expect(sidebarNew(page)).toBeFocused();
-      await expect(sidebarNew(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(compactNew(page, narrow)).toBeFocused();
+      await expect(compactNew(page, narrow)).toHaveAttribute("aria-expanded", "false");
     });
 
     test("Agent is not offered while agents are off", async ({ page }) => {
       await fixture(page);
-      await open(page, width < 700);
-      await sidebarNew(page).click();
+      await open(page, narrow);
+      await compactNew(page, narrow).click();
       await expect(menu(page).getByRole("menuitem")).toHaveText(["Session"]);
     });
   });

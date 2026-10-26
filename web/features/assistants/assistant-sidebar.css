@@ -150,8 +150,10 @@
   padding-top: 2px;
 }
 
-/* Offline: the last known agents stay, marked as not current. */
-.assistant-sidebar-offline {
+/* Offline: the last known agents stay, marked as not current. Empty: the hint to
+   create the first agent with the group head's "+". */
+.assistant-sidebar-offline,
+.assistant-sidebar-empty {
   margin: 0 0 6px;
   padding: 0 10px;
   color: var(--text-meta);

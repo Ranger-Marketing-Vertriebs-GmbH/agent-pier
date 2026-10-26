@@ -29,7 +29,7 @@ export default function MobileHeader({
       </button>
       <div className="mobile-header-actions">
         <InboxHeaderButton onOpen={() => navigate({ view: "inbox" })} />
-        <SidebarNewMenu icon align="right" items={items} disabled={!installed} />
+        <SidebarNewMenu align="right" items={items} disabled={!installed} />
       </div>
     </div>
   );
