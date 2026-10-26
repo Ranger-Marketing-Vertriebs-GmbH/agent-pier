@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileSpellings } from "./file-urls.js";
 import { fold, managedFolder, reachesManaged } from "./managed-folder.js";
 
 // A hook run without the hook's Secrets switch never reads the agent's secrets file
@@ -17,8 +17,8 @@ const pathKeys = ["path", "file_path", "filePath", "pdf", "pdfs", "image", "imag
 
 // The spellings a file tool may resolve a value to: OpenClaw's path repairs (a
 // trailing `</arg_value>`, a leading `@`), a file: URL decoded as OpenClaw decodes it
-// (fileURLToPath, so %2E is ".") and a home-relative path.
-export function fileSpellings(value) {
+// (file-urls.js) and a home-relative path.
+function pathSpellings(value) {
   const forms = new Set([value, value.trim()]);
   for (const form of [...forms]) {
     const stripped = form.replace(/(<\/arg_value>)+>*$/, "");
@@ -26,12 +26,7 @@ export function fileSpellings(value) {
     if (stripped.startsWith("@")) forms.add(stripped.slice(1));
   }
   for (const form of [...forms]) {
-    if (/^\s*file:/i.test(form))
-      try {
-        forms.add(fileURLToPath(form.trim()));
-      } catch {
-        // An undecodable file: value is judged as written.
-      }
+    for (const spelling of fileSpellings(form)) forms.add(spelling);
     if (/^~(\/|\\|$)/.test(form)) forms.add(path.join(os.homedir(), form.slice(1)));
   }
   return [...forms].map((form) => form.replaceAll("\\", "/").normalize("NFKC"));
@@ -58,7 +53,7 @@ export function namesSecrets(params, { roots = [], agentId } = {}) {
   let real = null;
   for (const value of values) {
     if (typeof value !== "string") continue;
-    for (const form of fileSpellings(value)) {
+    for (const form of pathSpellings(value)) {
       if (namesFolder(form)) return true;
       if (!workspace) continue;
       const target = path.resolve(workspace, form);
