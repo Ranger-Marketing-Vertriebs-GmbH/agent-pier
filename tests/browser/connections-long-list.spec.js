@@ -171,19 +171,19 @@ test("bulk grant and revoke write the agent's access policy that its Access tab 
     { accessId: hostId(2), mode: "trusted" },
   ]);
   // The agent's Access tab shows the grant made in Zugänge.
-  await page.goto(baseURL + settingsPath("work", "ssh"));
+  await page.goto(baseURL + settingsPath("access", "ssh"));
   await expect(page.getByLabel("server-002", { exact: true })).toBeChecked();
   await expect(page.getByLabel("server-004", { exact: true })).not.toBeChecked();
 });
 
 test("a grant from the agent's Access tab shows in Benutzt von", async ({ page }) => {
   const state = await connectionsFixture(page, { hosts: 3 });
-  await page.goto(baseURL + settingsPath("work", "ssh"));
+  await page.goto(baseURL + settingsPath("access", "ssh"));
   await page.getByLabel("server-001", { exact: true }).check();
-  await page.getByRole("button", { name: "Back to Work" }).click();
+  await page.getByRole("button", { name: "Back to Access" }).click();
   await page
     .getByRole("region", { name: "Unsaved changes" })
-    .getByRole("button", { name: "Save", exact: true })
+    .getByRole("button", { name: "Save agent", exact: true })
     .click();
   await expect.poll(() => state.work.length).toBe(1);
   await page.goto(baseURL + `/connections?section=ssh&item=${hostId(1)}`);
