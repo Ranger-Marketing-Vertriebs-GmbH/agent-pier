@@ -123,6 +123,17 @@ test("under her opt-in the owner reads her dream notes and diary in full, read-o
     dreamNote,
     ownNote,
   ]);
+  assert.equal(listed.total, 2);
+  // A later page leaves the diary out; a bad offset is refused.
+  const later = await (
+    await f.request(`/api/assistants/${agent.id}/memory/files?offset=1`)
+  ).json();
+  assert.equal(later.files.length, 1);
+  assert.ok(!later.files.some((file) => file.name === diary));
+  assert.equal(
+    (await f.request(`/api/assistants/${agent.id}/memory/files?offset=x`)).status,
+    400,
+  );
   // The existing rule: memory reads in full, older entries included, so a dream
   // note that quotes her chats from before the opt-in shows too.
   const dream = await f.request(

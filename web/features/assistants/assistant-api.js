@@ -12,7 +12,10 @@ export const assistantApi = {
   setFeature: (enabled) => api("/assistant-feature", "PUT", { enabled }),
   memory: (id, name) =>
     api(`/assistants/${encodeURIComponent(id)}/memory?name=${encodeURIComponent(name)}`),
-  memoryFiles: (id) => api(`/assistants/${encodeURIComponent(id)}/memory/files`),
+  memoryFiles: (id, offset = 0) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/memory/files${offset ? `?offset=${offset}` : ""}`,
+    ),
   saveMemory: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/memory`, "PUT", input),
   searchMemory: (id, query) =>

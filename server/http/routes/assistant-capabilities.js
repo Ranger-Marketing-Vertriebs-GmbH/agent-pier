@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { ownerBinding, ownerPerson } from "./binding-scope.js";
+import { memoryOffset } from "../../features/assistants/native-memory.js";
 export function assistantCapabilityRoutes(services) {
   const { assistants, assistantMemory, assistantReminders } = services;
   const router = Router();
@@ -17,7 +18,11 @@ export function assistantCapabilityRoutes(services) {
     res.json(await assistantMemory.write(req.params.id, req.body)),
   );
   router.get("/assistants/:id/memory/files", async (req, res) =>
-    res.json(await assistantMemory.files(req.params.id)),
+    res.json(
+      await assistantMemory.files(req.params.id, {
+        offset: memoryOffset(req.query.offset),
+      }),
+    ),
   );
   router.get("/assistants/:id/memory/search", async (req, res) =>
     res.json(await assistantMemory.search(req.params.id, req.query.q)),

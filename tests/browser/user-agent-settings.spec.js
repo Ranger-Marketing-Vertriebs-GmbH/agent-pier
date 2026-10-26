@@ -30,6 +30,7 @@ const languages = {
     connect: "Telegram verbinden",
     disconnect: "Bot trennen",
     telegramPaired: "Verbunden mit @lotta_bot",
+    moreNotes: "1 weitere Notiz laden",
   },
   en: {
     title: "Settings of Lotta",
@@ -51,6 +52,7 @@ const languages = {
     connect: "Connect Telegram",
     disconnect: "Disconnect bot",
     telegramPaired: "Connected to @lotta_bot",
+    moreNotes: "Load 1 more note",
   },
 };
 
@@ -198,6 +200,26 @@ for (const [language, copy] of Object.entries(languages))
         "DELETE",
         "PUT",
       ]);
+    });
+
+    test("her memory view loads older notes page by page", async ({ page }) => {
+      const files = Array.from({ length: 3 }, (_, i) => ({
+        name: `memory/2026-10-2${3 - i}.md`,
+        size: 10,
+        modifiedAt: `2026-10-2${3 - i}T09:00:00Z`,
+      }));
+      const state = await userAppFixture(page, {
+        language,
+        memory: { lotta: { files, pageSize: 2, contents: {} } },
+      });
+      await page.goto(baseURL + "/agents/lotta/settings");
+      await page.getByRole("button", { name: new RegExp(copy.memory) }).click();
+      await expect(page.getByText("2026-10-22.md")).toBeVisible();
+      await expect(page.getByText("2026-10-21.md")).toHaveCount(0);
+      await page.getByRole("button", { name: copy.moreNotes }).click();
+      await expect(page.getByText("2026-10-21.md")).toBeVisible();
+      await expect(page.getByRole("button", { name: copy.moreNotes })).toHaveCount(0);
+      expect(state.memoryPages).toEqual([0, 2]);
     });
 
     test("a shared agent stays the owner's at every level", async ({ page }) => {

@@ -222,7 +222,19 @@ function agentRoute(route, state, agent, rest, method, body) {
     if (values.name) agent.name = values.name;
     return json(route, state.settings[id]);
   }
-  if (rest === "/memory") return json(route, state.memory[id] || { files: [] });
+  if (rest === "/memory") {
+    // Paged as the server pages them (native-memory.js), `pageSize` per page.
+    const { files = [], pageSize } = state.memory[id] || {};
+    if (!pageSize) return json(route, { files });
+    const offset = Number(new URL(route.request().url()).searchParams.get("offset") || 0);
+    state.memoryPages = [...(state.memoryPages || []), offset];
+    const next = offset + pageSize;
+    return json(route, {
+      files: files.slice(offset, next),
+      total: files.length,
+      nextOffset: next < files.length ? next : null,
+    });
+  }
   let m;
   if ((m = /^\/memory\/(.+)$/.exec(rest)) && method === "GET") {
     const name = decodeURIComponent(m[1]);

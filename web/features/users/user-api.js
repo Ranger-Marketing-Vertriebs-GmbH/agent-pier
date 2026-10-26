@@ -44,7 +44,8 @@ export const userApi = {
   settings: (agentId) => api(`${agent(agentId)}/settings`),
   saveSettings: (agentId, values, revision) =>
     api(`${agent(agentId)}/settings`, "PATCH", { values, revision }),
-  memory: (agentId) => api(`${agent(agentId)}/memory`),
+  memory: (agentId, offset = 0) =>
+    api(`${agent(agentId)}/memory${offset ? `?offset=${offset}` : ""}`),
   readMemory: (agentId, name) => api(`${agent(agentId)}/memory/${id(name)}`),
   removeMemory: (agentId, name) => api(`${agent(agentId)}/memory/${id(name)}`, "DELETE"),
   reminders: (agentId, kind = "reminders") => api(`${agent(agentId)}/${kind}`),

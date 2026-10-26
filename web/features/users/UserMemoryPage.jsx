@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -7,6 +7,7 @@ import Modal from "../../components/Modal.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { assistantDreamingCopy as dreamingCopy } from "../../lib/i18n/messages/assistant-dreaming.js";
+import useMemoryNotes from "../assistants/settings/useMemoryNotes.js";
 import { userApi } from "./user-api.js";
 
 const shortName = (name) => name.replace(/^memory\//, "");
@@ -18,8 +19,8 @@ const label = (file) => (file.diary ? dreamingCopy.diary : shortName(file.name))
  * notes of her own agent; a shared agent's memory is everyone's, so the owner manages it.
  */
 export default function UserMemoryPage({ agent }) {
-  const [files, setFiles] = useState(null);
   const [error, setError] = useState("");
+  const [reload, setReload] = useState(0);
   const [removing, setRemoving] = useState(null);
   const [reading, setReading] = useState(null);
   const open = async (file) => {
@@ -32,21 +33,16 @@ export default function UserMemoryPage({ agent }) {
       setError(e.message);
     }
   };
-  const load = useCallback(async () => {
-    try {
-      setFiles((await userApi.memory(agent.id)).files || []);
-    } catch (e) {
-      setError(e.message);
-      setFiles([]);
-    }
-  }, [agent.id]);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const fetchNotes = useCallback(
+    (offset) => userApi.memory(agent.id, offset),
+    [agent.id],
+  );
+  const listing = useMemoryNotes(fetchNotes, reload);
+  const files = listing.notes;
   const deletable = !agent.shared && ["personalize", "extended"].includes(agent.level);
   return (
     <>
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || listing.error} />
       {agent.shared && <p className="user-app-hint">{copy.memoryShared}</p>}
       {files === null ? (
         <p role="status">{copy.loading}</p>
@@ -70,6 +66,16 @@ export default function UserMemoryPage({ agent }) {
       ) : (
         <p className="user-app-hint">{copy.noNotes}</p>
       )}
+      {listing.nextCount > 0 && (
+        <button
+          type="button"
+          className="button secondary compact"
+          disabled={listing.loading}
+          onClick={listing.loadMore}
+        >
+          {dreamingCopy.moreNotes(listing.nextCount)}
+        </button>
+      )}
       {reading && (
         <Modal title={reading.title} close={() => setReading(null)} wide>
           {reading.content === null ? (
@@ -89,7 +95,7 @@ export default function UserMemoryPage({ agent }) {
           onConfirm={async () => {
             await userApi.removeMemory(agent.id, removing.name);
             setRemoving(null);
-            await load();
+            setReload((n) => n + 1);
           }}
         />
       )}

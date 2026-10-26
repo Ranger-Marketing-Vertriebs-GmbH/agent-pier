@@ -198,3 +198,32 @@ test("an unreadable dreaming setting says why the switch is off", async ({ page 
   ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Dream at night" })).toBeDisabled();
 });
+
+test("the memory view loads older notes page by page", async ({ page }) => {
+  await setup(page, { enabled: true, memoryOn: true });
+  const note = (day) => ({
+    name: `memory/dreaming/light/2026-10-${day}.md`,
+    size: 20,
+    modifiedAt: `2026-10-${day}T03:10:00Z`,
+  });
+  const offsets = [];
+  await page.route("**/api/assistants/home/memory/files*", (route) => {
+    const offset = Number(new URL(route.request().url()).searchParams.get("offset") || 0);
+    offsets.push(offset);
+    route.fulfill({
+      json:
+        offset === 0
+          ? { files: [note(25), note(24)], total: 3, nextOffset: 2 }
+          : { files: [note(23)], total: 3, nextOffset: null },
+    });
+  });
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  const option = (day) =>
+    page.getByRole("option", { name: `memory/dreaming/light/2026-10-${day}.md` });
+  await expect(option(24)).toHaveCount(1);
+  await expect(option(23)).toHaveCount(0);
+  await page.getByRole("button", { name: "Load 1 more note" }).click();
+  await expect(option(23)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Load 1 more note" })).toHaveCount(0);
+  expect(offsets).toEqual([0, 2]);
+});
