@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
 import { execEvidence } from "./exec-processes.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
+import { fileSpellings } from "./file-urls.js";
 import {
   fold,
   managedFolder,
@@ -248,7 +249,8 @@ export function attachmentTargets(toolName, params, { roots = [], agentId } = {}
   const files = new Set();
   for (const value of values) {
     if (typeof value !== "string") continue;
-    for (const form of repairs(value)) {
+    // A file: URL counts as written and as the path OpenClaw decodes from it.
+    for (const form of repairs(value).flatMap(fileSpellings)) {
       const relative = relativeTarget(form, roots, ownId);
       if (relative) {
         const [first, ...rest] = relative.split("/");

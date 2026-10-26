@@ -4571,7 +4571,8 @@ type.
   chat's files stay with that chat: the team plugin asks AgentPier
   (`/attachment-policy`, `attachment-access.js`) for every `read`, `memory_get`,
   `pdf`, `image`, `image_generate`, `write`, `edit` or `apply_patch` call naming
-  `attachments/`, which allows only files indexed for the calling chat (its turn's, a
+  `attachments/` (also as a `file://` URL, judged both as written and as the
+  percent-decoded path OpenClaw reads, `file-urls.js`), which allows only files indexed for the calling chat (its turn's, a
   routine run's or the session's own), and `agentpier_share_file` refuses another
   chat's file with `SHARE_NOT_FOUND`. When the agent deletes a sent copy,
   the chat history keeps the message and names that file as no longer available
