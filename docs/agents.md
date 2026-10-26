@@ -333,6 +333,8 @@ word for word. A busy agent still dreams that night.
   (`memory/dreaming/light/`, `rem/` and `deep/`, one file per night), and the
   **Dream diary** (`DREAMS.md`) shows first, read-only, also in a user's memory view.
   Notes are listed newest first, 200 at a time; **Load N more notes** shows older ones.
+  A diary larger than 256 KiB shows its newest entries and says that older ones are
+  cut off.
   On a user's own agent you see them only while she has switched on **Owner may
   read chats**, like the rest of its memory; then in full, including notes that quote
   her chats from before she switched it on ([Privacy](users.md#privacy)).

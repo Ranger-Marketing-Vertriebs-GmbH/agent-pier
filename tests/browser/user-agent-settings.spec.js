@@ -31,6 +31,8 @@ const languages = {
     disconnect: "Bot trennen",
     telegramPaired: "Verbunden mit @lotta_bot",
     moreNotes: "1 weitere Notiz laden",
+    diary: "Traumtagebuch",
+    diaryTruncated: /ist 3 MB groß\. Hier stehen nur seine neuesten Einträge/,
   },
   en: {
     title: "Settings of Lotta",
@@ -53,6 +55,9 @@ const languages = {
     disconnect: "Disconnect bot",
     telegramPaired: "Connected to @lotta_bot",
     moreNotes: "Load 1 more note",
+    diary: "Dream diary",
+    diaryTruncated:
+      /is 3 MB\. Only its newest entries are shown here; older ones are cut off\./,
   },
 };
 
@@ -220,6 +225,32 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.getByText("2026-10-21.md")).toBeVisible();
       await expect(page.getByRole("button", { name: copy.moreNotes })).toHaveCount(0);
       expect(state.memoryPages).toEqual([0, 2]);
+    });
+
+    test("a long dream diary says that older entries are cut off", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        memory: {
+          lotta: {
+            files: [
+              {
+                name: "DREAMS.md",
+                diary: true,
+                size: 3145728,
+                modifiedAt: "2026-10-25T03:10:00Z",
+              },
+            ],
+            contents: { "DREAMS.md": "---\n\n*Last night*\n\nA calm night." },
+            truncated: { "DREAMS.md": 3145728 },
+          },
+        },
+      });
+      await page.goto(baseURL + "/agents/lotta/settings");
+      await page.getByRole("button", { name: new RegExp(copy.memory) }).click();
+      await page.getByText(copy.diary, { exact: true }).click();
+      const reader = page.getByRole("dialog", { name: copy.diary });
+      await expect(reader.getByText("A calm night.")).toBeVisible();
+      await expect(reader.getByText(copy.diaryTruncated)).toBeVisible();
     });
 
     test("a shared agent stays the owner's at every level", async ({ page }) => {

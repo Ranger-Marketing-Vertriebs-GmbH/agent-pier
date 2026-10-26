@@ -4115,7 +4115,11 @@ setting and clears what was pending.
   `?offset=` (a whole number, default 0) returns the next 200 notes newest first (same
   instant: by name) with `total` and `nextOffset` (null on the last page), the diary
   heading the first page only. A folder is read up to 10,000 notes. The memory view
-  shows **Load N more notes** while notes are left.
+  shows **Load N more notes** while notes are left. A note is read up to 256 KiB; a
+  larger diary is not refused but read from its end (OpenClaw appends each night's
+  entry at the end of the diary section): the last 256 KiB from the first `---` entry
+  break, with `truncated: true` and the whole `size`, and the memory view says that
+  older entries are cut off.
   On a user's own agent the owner reaches them only under her **Owner may read chats**:
   without it the owner-content guard (`owner-content-guard.js`, `agentContent` in
   `owner-privacy.js`) answers 404 on every owner memory route of that agent (`GET`

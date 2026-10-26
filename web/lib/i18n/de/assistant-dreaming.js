@@ -20,4 +20,6 @@ export const assistantDreamingCopy = {
   diaryHint: "Vom nächtlichen Träumen des Agenten geschrieben. Nur lesbar.",
   moreNotes: (count) =>
     count === 1 ? "1 weitere Notiz laden" : `${count} weitere Notizen laden`,
+  diaryTruncated: (size) =>
+    `Das Traumtagebuch ist ${size} groß. Hier stehen nur seine neuesten Einträge, ältere sind abgeschnitten.`,
 };

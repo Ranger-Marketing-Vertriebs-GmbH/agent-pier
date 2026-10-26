@@ -4,7 +4,8 @@ import ListRow from "../../components/ListRow.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import Modal from "../../components/Modal.jsx";
-import { formatTimestamp } from "../../lib/i18n/index.js";
+import { formatBytes } from "../../lib/format-bytes.js";
+import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { assistantDreamingCopy as dreamingCopy } from "../../lib/i18n/messages/assistant-dreaming.js";
 import useMemoryNotes from "../assistants/settings/useMemoryNotes.js";
@@ -27,7 +28,13 @@ export default function UserMemoryPage({ agent }) {
     setReading({ title: label(file), content: null });
     try {
       const note = await userApi.readMemory(agent.id, file.name);
-      setReading({ title: label(file), content: note.content ?? "" });
+      setReading({
+        title: label(file),
+        content: note.content ?? "",
+        cut: note.truncated
+          ? dreamingCopy.diaryTruncated(formatBytes(note.size, locale))
+          : "",
+      });
     } catch (e) {
       setReading(null);
       setError(e.message);
@@ -81,7 +88,10 @@ export default function UserMemoryPage({ agent }) {
           {reading.content === null ? (
             <p role="status">{copy.loading}</p>
           ) : (
-            <pre className="user-memory-note">{reading.content}</pre>
+            <>
+              {reading.cut && <p className="user-app-hint">{reading.cut}</p>}
+              <pre className="user-memory-note">{reading.content}</pre>
+            </>
           )}
         </Modal>
       )}

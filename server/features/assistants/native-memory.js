@@ -38,6 +38,23 @@ async function assertRealDirectories(root, notes = true) {
   for (const dir of notes ? [root, path.join(root, "memory")] : [root])
     if (!(await fs.lstat(dir)).isDirectory()) throw Error("link");
 }
+/**
+ * The newest part of a Dream diary larger than the read limit. OpenClaw appends each
+ * night's entry at the end of the diary section (entries are separated by `---`
+ * lines), so the last `maxNoteBytes` are read and start at the first entry within
+ * them, else after the first line break: both are ASCII, so the text never starts
+ * inside a character.
+ */
+async function diaryTail(handle, size) {
+  const buffer = Buffer.alloc(maxNoteBytes);
+  const { bytesRead } = await handle.read(buffer, 0, maxNoteBytes, size - maxNoteBytes);
+  const tail = buffer.subarray(0, bytesRead);
+  const entry = tail.indexOf("\n---\n");
+  let start = entry >= 0 ? entry + 1 : tail.indexOf("\n") + 1;
+  // No line break at all: skip a split character's continuation bytes.
+  while (start < tail.length && (tail[start] & 0xc0) === 0x80) start++;
+  return tail.subarray(start).toString("utf8");
+}
 export class NativeMemory {
   constructor(assistants, { workspaces } = {}) {
     this.assistants = assistants;
@@ -134,14 +151,19 @@ export class NativeMemory {
       // so a swap cannot substitute an oversized file either.
       handle = await openInside(real, constants.O_RDONLY);
       const stat = await handle.stat();
-      if (!stat.isFile() || stat.size > maxNoteBytes) throw Error("size");
-      const content = await handle.readFile("utf8");
+      if (!stat.isFile() || (stat.size > maxNoteBytes && !diary)) throw Error("size");
+      // A diary past the limit shows its newest part: the size says how much is cut.
+      const truncated = stat.size > maxNoteBytes;
+      const content = truncated
+        ? await diaryTail(handle, stat.size)
+        : await handle.readFile("utf8");
       return {
         name,
         content,
         missing: false,
         readOnly: true,
         hash: createHash("sha256").update(content).digest("hex"),
+        ...(truncated ? { truncated: true, size: stat.size } : {}),
       };
     } catch (error) {
       if (error.code === "ENOENT") throw assistantProblem("notFound", 404);

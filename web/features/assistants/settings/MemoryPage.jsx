@@ -5,6 +5,8 @@ import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
+import { formatBytes } from "../../../lib/format-bytes.js";
+import { locale } from "../../../lib/i18n/index.js";
 import { assistantApi } from "../assistant-api.js";
 import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
@@ -151,7 +153,11 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
         </label>
       </div>
       {diary ? (
-        <p className="assistant-note">{dreamingCopy.diaryHint}</p>
+        <p className="assistant-note">
+          {dreamingCopy.diaryHint}
+          {file?.truncated &&
+            ` ${dreamingCopy.diaryTruncated(formatBytes(file.size, locale))}`}
+        </p>
       ) : (
         readOnly && !locked && <p className="assistant-note">{copy.agentNotesHint}</p>
       )}

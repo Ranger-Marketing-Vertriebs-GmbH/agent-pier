@@ -240,7 +240,14 @@ function agentRoute(route, state, agent, rest, method, body) {
     const name = decodeURIComponent(m[1]);
     const content = state.memory[id]?.contents?.[name];
     if (content === undefined) return missing(route);
-    return json(route, { name, content, readOnly: true });
+    // A diary past the read limit: its newest part and its whole size.
+    const size = state.memory[id]?.truncated?.[name];
+    return json(route, {
+      name,
+      content,
+      readOnly: true,
+      ...(size ? { truncated: true, size } : {}),
+    });
   }
   if ((m = /^\/memory\/(.+)$/.exec(rest)) && method === "DELETE") {
     const name = decodeURIComponent(m[1]);
