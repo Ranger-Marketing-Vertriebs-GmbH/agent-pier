@@ -17,6 +17,7 @@ import SshKeysView from "./SshKeysView.jsx";
 import { statusTone } from "./SshTestBox.jsx";
 import { globalProject, sshItems } from "./connection-items.js";
 import { connectionsRoute } from "./routes.js";
+import { usePageAction } from "../../app/page-action.js";
 import "../ssh/ssh.css";
 import "../ssh/ssh-settings.css";
 
@@ -123,6 +124,26 @@ export default function SshCategory({
     ? catalog.keys.filter((key) => (key.projectId || "") === owner)
     : catalog.keys;
   const canAdd = catalog.ready && ownerAvailable && ownedKeys.length > 0;
+  // ⌘K actions: the keys view, adding a key, adding an access (a key first when none
+  // exists yet, as the empty state offers).
+  usePageAction("ssh-keys", () => setView("keys"));
+  usePageAction(
+    "ssh-key-add",
+    () => {
+      setView("keys");
+      if (ownerAvailable) setEditingKey({});
+    },
+    catalog.ready,
+  );
+  usePageAction(
+    "ssh-add",
+    () => {
+      setView(canAdd ? "accesses" : "keys");
+      if (canAdd) setEditing({});
+      else if (ownerAvailable) setEditingKey({});
+    },
+    catalog.ready,
+  );
   const projectOptions = [
     { value: globalProject, label: projectCopy.global },
     ...catalog.ownerProjects.map((p) => ({ value: p.id, label: p.name })),

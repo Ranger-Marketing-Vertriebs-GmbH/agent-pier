@@ -1,0 +1,151 @@
+/* ⌘K search (SearchDialog.jsx): a Modal with a combobox field and grouped results.
+   Tokens only. */
+dialog.search-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 var(--space-6);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-input);
+  color: var(--muted);
+}
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--font-size-lg);
+}
+.search-field input::placeholder {
+  color: var(--placeholder);
+}
+.search-count {
+  flex: none;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.search-results {
+  max-height: min(440px, 56dvh);
+  margin-top: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.search-group-label {
+  padding: var(--space-3) var(--space-6) var(--space-1);
+  color: var(--text-group);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.search-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-6);
+  color: var(--text);
+  cursor: pointer;
+}
+.search-option.active {
+  background: var(--surface-accent);
+}
+.search-option-icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-row);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.search-option-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.search-option-label,
+.search-option-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-option-label {
+  font-size: var(--font-size-base);
+}
+.search-option-path {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.search-option-key {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+}
+.search-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  color: var(--muted);
+  font-size: var(--font-size-md);
+}
+.search-empty p {
+  margin: 0;
+}
+.search-empty-title {
+  color: var(--text);
+  font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
+}
+.search-loading {
+  margin: 0;
+  padding: var(--space-2) var(--space-6);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.search-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--divider);
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+}
+/* Phones: the dialog is a bottom sheet; key hints do not apply to touch. */
+@media (max-width: 700px) {
+  .search-field {
+    margin: 0 var(--space-4);
+  }
+  .search-group-label,
+  .search-option,
+  .search-empty,
+  .search-loading {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .search-keys {
+    display: none;
+  }
+}

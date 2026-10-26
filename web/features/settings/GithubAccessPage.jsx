@@ -11,6 +11,7 @@ import React, { useEffect, useState, useSyncExternalStore } from "react";
 import CredentialDialog from "../repositories/CredentialDialog.jsx";
 import CredentialList from "../repositories/CredentialList.jsx";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
+import { usePageAction } from "../../app/page-action.js";
 /**
  * Zugänge › GitHub-Zugänge: token profiles with check, edit and delete. `only` shows
  * one profile (its full view) with `after(credential)` below it; `rowExtra` adds an
@@ -50,6 +51,12 @@ export default function GithubAccessPage({
       alive = false;
     };
   }, [reload]);
+  // ⌘K "GitHub-Zugang hinzufügen" opens the add dialog once the list has loaded.
+  usePageAction(
+    "github-add",
+    () => setModal({}),
+    !only && !loading && !loadError && !cloning,
+  );
   return (
     <div className="page github-access-page">
       <header className="page-heading">
