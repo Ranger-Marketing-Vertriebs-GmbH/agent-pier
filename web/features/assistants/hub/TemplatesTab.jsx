@@ -5,6 +5,7 @@ import ListRow, { unknownValue } from "../../../components/ListRow.jsx";
 import SearchSelect from "../../../components/SearchSelect.jsx";
 import SidePanel from "../../../components/SidePanel.jsx";
 import { routePath } from "../../../app/routes.js";
+import api from "../../../lib/api.js";
 import { agentTemplateCopy } from "../../../lib/i18n/messages/agent-templates.js";
 import { agencyCopy } from "../../../lib/i18n/messages/agency.js";
 import { agentsHubCopy } from "../../../lib/i18n/messages/agents-hub.js";
@@ -59,6 +60,22 @@ function useCatalog() {
     setPage,
     reloaded: () => setReload((n) => n + 1),
   };
+}
+
+/**
+ * Which CLIs hold each entry as a subagent (`{ id: [tool] }`), read once per visit of
+ * the tab; null while unknown or unreadable, so no row claims "not installed".
+ */
+function useInstalledTools() {
+  const [tools, setTools] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api("/agency/installed", "GET", undefined, controller.signal)
+      .then((result) => !controller.signal.aborted && setTools(result.tools || {}))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  return tools;
 }
 
 function link(route, navigate) {
@@ -147,6 +164,7 @@ function TemplatePreview({ preview, onClose, navigate, subagentProfiles }) {
  */
 export default function TemplatesTab({ navigate, onTotal, subagentProfiles = null }) {
   const catalog = useCatalog();
+  const installed = useInstalledTools();
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const { data, page } = catalog;
@@ -223,6 +241,13 @@ export default function TemplatesTab({ navigate, onTotal, subagentProfiles = nul
                   key={item.id}
                   label={item.name}
                   sub={item.category}
+                  value={
+                    installed?.[item.id]?.length ? (
+                      <span className="agents-hub-pill">
+                        {copy().installedIn(installed[item.id].length)}
+                      </span>
+                    ) : undefined
+                  }
                   disabled={busy}
                   onClick={() => show(item)}
                 />

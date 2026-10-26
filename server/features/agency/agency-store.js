@@ -140,6 +140,21 @@ export class AgencyStore {
       })),
     };
   }
+  /**
+   * Which CLIs hold each installed entry (Coding › Unteragenten records), for the
+   * agents hub's Vorlagen list: `{ "<entry id>": ["claude", "codex"] }`. Only ids
+   * and CLI names; no catalog read, no paths.
+   */
+  installedTools() {
+    const tools = {};
+    for (const record of readJSON(this.file, [])) {
+      if (typeof record?.id !== "string" || typeof record.tool !== "string") continue;
+      const list = (tools[record.id] ??= []);
+      if (!list.includes(record.tool)) list.push(record.tool);
+    }
+    for (const list of Object.values(tools)) list.sort();
+    return tools;
+  }
   async preview(id, input) {
     this.location(id);
     const { raw: _raw, ...agent } = await this.entry(input);

@@ -1,11 +1,15 @@
-import React, { useId } from "react";
+import React, { useEffect, useId, useState } from "react";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
 import { SelectRow, ToggleRow } from "../../../components/ListRow.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantChannelCopy } from "../../../lib/i18n/messages/assistant-channel.js";
 import { assistantProactivityCopy as proactivity } from "../../../lib/i18n/messages/assistant-proactivity.js";
+import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
+import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
+import { assistantApi } from "../assistant-api.js";
 import { heartbeatIntervals } from "../heartbeat.js";
+import ServiceSheet from "./ServiceSheet.jsx";
 
 const copy = () => agentWizardCopy.channels;
 const hours = Array.from({ length: 25 }, (_, hour) => hour);
@@ -15,17 +19,34 @@ export const newRoutine = () => ({
   name: "",
   prompt: "",
   time: "08:30",
-  telegram: false,
 });
+
+// Voice messages need speech recognition: "hier einrichten" while it has no key.
+function useSpeechMissing(wanted) {
+  const [speech, setSpeech] = useState(null);
+  const load = () =>
+    assistantApi
+      .speech()
+      .then(setSpeech)
+      .catch(() => {});
+  useEffect(() => {
+    if (wanted) load();
+  }, [wanted]);
+  return [Boolean(speech) && !speech.hasSecret, load];
+}
 
 /**
  * Schritt 5 (handoff 5.3): the Telegram bot token (connected on creation, paired
  * afterwards), "Sich von selbst melden" with how often and the active hours, one first
- * routine (name, description, daily time, Telegram) and the hint that hooks come
- * after creating. An agent of users has none of them.
+ * routine (name, description, daily time) and the hint that hooks come after
+ * creating. A routine delivers to Telegram only once the bot is paired, which happens
+ * after creating: the wizard says so instead of asking. An agent of users has none.
  */
 export default function StepChannels({ d, set }) {
   const id = useId();
+  const telegram = !d.owner && Boolean(d.telegramToken.trim());
+  const [speechMissing, reloadSpeech] = useSpeechMissing(telegram);
+  const [sheet, setSheet] = useState(false);
   if (d.owner)
     return (
       <p className="agent-locked-notice" role="note">
@@ -53,6 +74,16 @@ export default function StepChannels({ d, set }) {
             <span className="field-description">{copy().tokenSub}</span>
           </label>
         </div>
+        {telegram && speechMissing && (
+          <button
+            type="button"
+            className="group-label-action agent-wizard-setup"
+            onClick={() => setSheet(true)}
+          >
+            {assistantSettingsCopy.speechProvider}:{" "}
+            {agentWizardCopy.capabilities.setUpHere}
+          </button>
+        )}
       </section>
       <section aria-labelledby={`${id}-checkins`}>
         <GroupLabel id={`${id}-checkins`} hint={proactivity.heartbeatDescription}>
@@ -139,17 +170,25 @@ export default function StepChannels({ d, set }) {
                 onChange={(event) => setRoutine({ time: event.target.value })}
               />
             </label>
-            {d.telegramToken.trim() && (
-              <ToggleRow
-                label={copy().routineTelegram}
-                checked={routine.telegram}
-                onChange={(telegram) => setRoutine({ telegram })}
-              />
+            {telegram && (
+              <p className="field-description agent-field">
+                {copy().routineTelegramLater}
+              </p>
             )}
           </div>
         )}
       </section>
       <p className="field-description">{copy().hooks}</p>
+      {sheet && (
+        <ServiceSheet
+          kind="speech"
+          title={assistantCopy.speech.title}
+          onClose={() => {
+            setSheet(false);
+            reloadSpeech();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -143,3 +143,25 @@ test("Agency removal retains a replacement file even with original contents", as
   assert.equal(await fs.readFile(installed.path, "utf8"), content);
   assert.equal((await (await f.request(endpoint)).json()).installed.length, 1);
 });
+
+test("Agency lists which CLIs hold each installed entry for the Vorlagen list", async (t) => {
+  const f = await fixture(t);
+  const listed = async () =>
+    (await (await f.request("/api/agency/installed")).json()).tools;
+  assert.deepEqual(await listed(), {});
+  const catalog = await (await f.request("/api/accounts/local-codex/agency")).json();
+  const id = catalog.items[0].id;
+  for (const tool of ["codex", "claude"])
+    assert.equal(
+      (
+        await f.request(`/api/accounts/local-${tool}/agency`, {
+          method: "POST",
+          body: { id, revision },
+        })
+      ).status,
+      201,
+    );
+  assert.deepEqual(await listed(), { [id]: ["claude", "codex"] });
+  await f.request(`/api/accounts/local-claude/agency/${id}`, { method: "DELETE" });
+  assert.deepEqual(await listed(), { [id]: ["codex"] });
+});

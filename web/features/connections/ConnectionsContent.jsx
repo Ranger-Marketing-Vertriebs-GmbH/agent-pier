@@ -198,7 +198,7 @@ export default function ConnectionsContent({ section, route, entry, shared, narr
       />
     );
   if (section === "secrets")
-    return <SecretsCategory shared={shared} loading={loadingLine} />;
+    return <SecretsCategory shared={shared} item={route.item} loading={loadingLine} />;
   if (section === "github")
     return <GithubCategory shared={shared} item={route.item} loading={loadingLine} />;
   return null;

@@ -16,9 +16,10 @@ const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id
 /**
  * Zugänge › Geheimnisse: values go to the server and never come back. `usedBy(secret)`
  * renders who uses the open secret; `emptyState` replaces the empty sentence; `onChanged`
- * hears every create, edit and delete (to reload counts and usage).
+ * hears every create, edit and delete (to reload counts and usage). `item` (the
+ * address's `item=<id|new>`) opens that secret, or the empty form, once the list is in.
  */
-export default function SecretsSettings({ usedBy, emptyState, onChanged }) {
+export default function SecretsSettings({ usedBy, emptyState, onChanged, item = "" }) {
   const [secrets, setSecrets] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState("");
@@ -63,6 +64,15 @@ export default function SecretsSettings({ usedBy, emptyState, onChanged }) {
   }));
   // ⌘K "Geheimnis hinzufügen" opens the empty form once the list is there.
   usePageAction("secret-add", () => select("new"), Boolean(secrets));
+  // The address names a secret (⌘K, a link): it opens once per address.
+  const opened = useRef("");
+  const known =
+    Boolean(secrets) && (item === "new" || secrets.some((s) => s.id === item));
+  useEffect(() => {
+    if (!item || !known || opened.current === item) return;
+    opened.current = item;
+    select(item);
+  }, [item, known]);
   const missing = (secrets || [])
     .map((secret) => secret.projectId)
     .filter(

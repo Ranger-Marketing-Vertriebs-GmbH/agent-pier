@@ -116,6 +116,8 @@ export const agentsHubCopy = {
       "Unteragenten lassen sich installieren, sobald ein Account für Codex, Claude Code oder OpenCode eingerichtet ist.",
     installedNote:
       "Installierte Unteragenten verwaltest du unter Coding › CLIs & Erweiterungen › Unteragenten.",
+    installedIn: (count) =>
+      count === 1 ? "In 1 CLI installiert" : `In ${count} CLIs installiert`,
     blocked: "Dieser Eintrag ist gesperrt und kann nicht verwendet werden.",
   },
   runtime: {

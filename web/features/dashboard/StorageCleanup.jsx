@@ -1,5 +1,6 @@
 import React, { useId, useState } from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
+import { usePageAction } from "../../app/page-action.js";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow from "../../components/ListRow.jsx";
 import CleanupSnapshots from "./CleanupSnapshots.jsx";
@@ -12,9 +13,13 @@ const groups = [
   ["dependencies", CleanupDependencies],
 ];
 
-/** One cleanup list behind its row; also on Agenten › Laufzeit › Speicher. */
-export function CleanupGroup({ id, List }) {
+/**
+ * One cleanup list behind its row; also on Agenten › Laufzeit › Speicher. `action`
+ * names the page action (⌘K) that opens it.
+ */
+export function CleanupGroup({ id, List, action = "" }) {
   const [open, setOpen] = useState(false);
+  usePageAction(action, () => setOpen(true), Boolean(action));
   const panel = useId();
   const text = copy.cleanup[id];
   return (

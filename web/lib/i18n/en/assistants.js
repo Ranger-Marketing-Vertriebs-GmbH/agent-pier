@@ -353,7 +353,7 @@ export const assistantCopy = {
   emptyChat: "What would you like to work on?",
   loading: "Loading …",
   unavailable: "This agent is not available.",
-  runtimeLink: "Agent service settings",
+  runtimeLink: "Agents › Runtime",
   runtime: "Agent service",
   runtimeDescription: "One managed OpenClaw service runs your agents on this host.",
   enable: "Enable service",

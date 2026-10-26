@@ -231,7 +231,7 @@ export default function AgentWizard({ route, navigate }) {
   ) : step === "capabilities" ? (
     <StepCapabilities d={d} set={set} runtime={runtime} models={models} />
   ) : step === "access" ? (
-    <StepAccess d={d} set={set} />
+    <StepAccess d={d} set={set} navigate={navigate} />
   ) : step === "channels" ? (
     <StepChannels d={d} set={set} />
   ) : (

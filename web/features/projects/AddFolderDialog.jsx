@@ -39,10 +39,11 @@ const folderLabels = {
 const choicesOf = (agent) => (agent?.userAccess ? folderChoices : choices);
 const permanent = (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent");
 
-// Permanent agents to offer; none while agents are off or unreadable.
-function useAgents() {
+// Permanent agents to offer; none while agents are off or unreadable (or `!wanted`).
+function useAgents(wanted) {
   const [agents, setAgents] = useState([]);
   useEffect(() => {
+    if (!wanted) return undefined;
     let alive = true;
     api("/assistants")
       .then((data) => alive && setAgents((data.assistants || []).filter(permanent)))
@@ -50,115 +51,110 @@ function useAgents() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [wanted]);
   return agents;
 }
 
-export default function AddFolderDialog({ home, close, added }) {
+/**
+ * Adds a folder as a project, optionally with agent access. `bare` renders the form
+ * alone (in a side panel whose footer cancels) and offers no agents: the new agent
+ * wizard grants the folder to the agent it creates.
+ */
+export default function AddFolderDialog({ home, close, added, bare = false }) {
   const action = useAsyncAction();
   const [directory, setDirectory] = useState(home || "");
   const [browse, setBrowse] = useState(false);
-  const agents = useAgents();
+  const agents = useAgents(!bare);
   const [access, setAccess] = useState({});
   // Set after the project was added while some agent access could not be set.
   const [partial, setPartial] = useState(null);
-  return (
-    <Modal
-      title={memoryCopy.addProject}
-      // After a partial failure the project exists: leaving always opens it.
-      close={partial ? () => added(partial.project) : close}
-      closeDisabled={action.busy}
-      className="project-dialog"
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          action.run(async () => {
-            if (partial) return added(partial.project);
-            const project = await api("/memory/projects", "POST", {
-              cwd: directory.trim(),
-            });
-            const base = `/assistant-project-access/${encodeURIComponent(project.id)}`;
-            let failed = 0,
-              current = null;
-            for (const [agentId, choice] of Object.entries(access)) {
-              const wanted = choicesOf(agents.find((a) => a.id === agentId))[choice];
-              if (!wanted) continue;
-              try {
-                await api(`${base}/${encodeURIComponent(agentId)}`, "PUT", {
-                  expected: { coding: false, folder: "none" },
-                  ...wanted,
-                });
-              } catch (error) {
-                // A folder registered before keeps its agents' access: no failure
-                // when the agent already holds exactly what was chosen.
-                if (error.status === 409) current ??= await api(base).catch(() => ({}));
-                const held = current?.agents?.find((a) => a.id === agentId);
-                if (
-                  !held ||
-                  held.coding !== wanted.coding ||
-                  held.folder !== wanted.folder
-                )
-                  failed++;
-              }
-            }
-            if (failed) setPartial({ project, failed });
-            else added(project);
+  const form = (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        action.run(async () => {
+          if (partial) return added(partial.project);
+          const project = await api("/memory/projects", "POST", {
+            cwd: directory.trim(),
           });
-        }}
-      >
-        <div className="form-content">
-          <p className="field-description">{copy.addFolderDescription}</p>
-          <label>
-            {memoryCopy.directory}
-            <div className="input-action">
-              <input
-                aria-label={memoryCopy.directory}
-                required
-                value={directory}
-                disabled={action.busy}
-                onChange={(event) => setDirectory(event.target.value)}
-                spellCheck={false}
-                autoCapitalize="none"
-              />
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={commonCopy.chooseDirectory}
-                disabled={action.busy}
-                onClick={() => setBrowse(true)}
-              >
-                <Icon name="folder" />
-              </button>
-            </div>
-          </label>
-          {agents.length > 0 && (
-            <fieldset className="project-agent-pick" disabled={action.busy || !!partial}>
-              <legend>{agentsCopy.pick}</legend>
-              <p className="field-description">{agentsCopy.pickHint}</p>
-              {agents.map((agent) => (
-                <label key={agent.id}>
-                  {agent.name}
-                  <select
-                    value={access[agent.id] || "none"}
-                    onChange={(event) =>
-                      setAccess({ ...access, [agent.id]: event.target.value })
-                    }
-                  >
-                    {Object.keys(choicesOf(agent)).map((choice) => (
-                      <option key={choice} value={choice}>
-                        {(agent.userAccess ? folderLabels : choiceLabels)[choice]()}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <ErrorMessage error={action.error} />
-          {partial && <ErrorMessage error={agentsCopy.pickFailed(partial.failed)} />}
-        </div>
-        <div className="dialog-actions">
+          const base = `/assistant-project-access/${encodeURIComponent(project.id)}`;
+          let failed = 0,
+            current = null;
+          for (const [agentId, choice] of Object.entries(access)) {
+            const wanted = choicesOf(agents.find((a) => a.id === agentId))[choice];
+            if (!wanted) continue;
+            try {
+              await api(`${base}/${encodeURIComponent(agentId)}`, "PUT", {
+                expected: { coding: false, folder: "none" },
+                ...wanted,
+              });
+            } catch (error) {
+              // A folder registered before keeps its agents' access: no failure
+              // when the agent already holds exactly what was chosen.
+              if (error.status === 409) current ??= await api(base).catch(() => ({}));
+              const held = current?.agents?.find((a) => a.id === agentId);
+              if (!held || held.coding !== wanted.coding || held.folder !== wanted.folder)
+                failed++;
+            }
+          }
+          if (failed) setPartial({ project, failed });
+          else added(project);
+        });
+      }}
+    >
+      <div className="form-content">
+        <p className="field-description">{copy.addFolderDescription}</p>
+        <label>
+          {memoryCopy.directory}
+          <div className="input-action">
+            <input
+              aria-label={memoryCopy.directory}
+              required
+              value={directory}
+              disabled={action.busy}
+              onChange={(event) => setDirectory(event.target.value)}
+              spellCheck={false}
+              autoCapitalize="none"
+            />
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={commonCopy.chooseDirectory}
+              disabled={action.busy}
+              onClick={() => setBrowse(true)}
+            >
+              <Icon name="folder" />
+            </button>
+          </div>
+        </label>
+        {agents.length > 0 && (
+          <fieldset className="project-agent-pick" disabled={action.busy || !!partial}>
+            <legend>{agentsCopy.pick}</legend>
+            <p className="field-description">{agentsCopy.pickHint}</p>
+            {agents.map((agent) => (
+              <label key={agent.id}>
+                {agent.name}
+                <select
+                  value={access[agent.id] || "none"}
+                  onChange={(event) =>
+                    setAccess({ ...access, [agent.id]: event.target.value })
+                  }
+                >
+                  {Object.keys(choicesOf(agent)).map((choice) => (
+                    <option key={choice} value={choice}>
+                      {(agent.userAccess ? folderLabels : choiceLabels)[choice]()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        <ErrorMessage error={action.error} />
+        {partial && <ErrorMessage error={agentsCopy.pickFailed(partial.failed)} />}
+      </div>
+      <div className="dialog-actions">
+        {!bare && (
           <button
             type="button"
             className="button secondary"
@@ -167,23 +163,42 @@ export default function AddFolderDialog({ home, close, added }) {
           >
             {commonCopy.cancel}
           </button>
-          <button className="button primary" disabled={action.busy}>
-            {partial ? agentsCopy.done : memoryCopy.addProject}
-          </button>
-        </div>
-      </form>
-      {browse && (
-        <Modal title={memoryCopy.directory} close={() => setBrowse(false)}>
-          <DirectoryPicker
-            initialPath={directory || "~"}
-            cancel={() => setBrowse(false)}
-            choose={(path) => {
-              setDirectory(path);
-              setBrowse(false);
-            }}
-          />
-        </Modal>
-      )}
+        )}
+        <button className="button primary" disabled={action.busy}>
+          {partial ? agentsCopy.done : memoryCopy.addProject}
+        </button>
+      </div>
+    </form>
+  );
+  const picker = browse && (
+    <Modal title={memoryCopy.directory} close={() => setBrowse(false)}>
+      <DirectoryPicker
+        initialPath={directory || "~"}
+        cancel={() => setBrowse(false)}
+        choose={(path) => {
+          setDirectory(path);
+          setBrowse(false);
+        }}
+      />
+    </Modal>
+  );
+  if (bare)
+    return (
+      <>
+        {form}
+        {picker}
+      </>
+    );
+  return (
+    <Modal
+      title={memoryCopy.addProject}
+      // After a partial failure the project exists: leaving always opens it.
+      close={partial ? () => added(partial.project) : close}
+      closeDisabled={action.busy}
+      className="project-dialog"
+    >
+      {form}
+      {picker}
     </Modal>
   );
 }

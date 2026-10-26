@@ -14,6 +14,8 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
  * The SSH/SFTP access form: a dialog for a new access (and Edit in the list), or
  * `inline` in an access's full view, where it keeps a draft with the save bar and asks
  * before a navigation leaves unsaved changes (`saveNote` names who they affect).
+ * `bare` renders the form alone (in a side panel whose footer cancels), e.g. from
+ * the new agent wizard.
  */
 export default function SshAccessForm({
   access,
@@ -23,6 +25,7 @@ export default function SshAccessForm({
   close,
   saved,
   inline = false,
+  bare = false,
   saveNote,
 }) {
   const [owner, setOwner] = useState(access?.projectId || projectId || "");
@@ -299,9 +302,11 @@ export default function SshAccessForm({
       {busy && <p role="status">{copy.busy}</p>}
       {!inline && (
         <div className="ssh-actions">
-          <button className="button" type="button" disabled={busy} onClick={close}>
-            {commonCopy.cancel}
-          </button>
+          {!bare && (
+            <button className="button" type="button" disabled={busy} onClick={close}>
+              {commonCopy.cancel}
+            </button>
+          )}
           <button className="button primary" disabled={busy || !ready}>
             {commonCopy.save}
           </button>
@@ -329,6 +334,7 @@ export default function SshAccessForm({
         <UnsavedChangesSheet {...sheet} />
       </>
     );
+  if (bare) return form;
   return (
     <Modal
       title={access ? copy.edit : copy.add}

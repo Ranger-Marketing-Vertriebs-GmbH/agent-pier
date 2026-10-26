@@ -130,8 +130,10 @@ export async function runCreationStep(
       clientRequestId: env.routineRequestId,
       name: d.routine.name.trim(),
       prompt: d.routine.prompt.trim(),
+      // Never Telegram: the bot is paired only after creating, and the server refuses
+      // a routine for an unpaired chat (reminderChannelRequired). It is switched on
+      // under Automatisierung once paired (StepChannels says so).
       trigger: routineTrigger(d.routine.time, d.heartbeatTimeZone),
-      ...(d.routine.telegram && d.telegramToken.trim() ? { telegram: true } : {}),
     });
   throw new Error(`Unknown creation step ${step}`);
 }

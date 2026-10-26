@@ -199,7 +199,11 @@ export function RuntimeOn({ frame, feature, section }) {
       <ErrorMessage error={fieldError} />
       <section id={sectionIds.storage} aria-labelledby={`${teamId}-storage`}>
         <GroupLabel id={`${teamId}-storage`}>{copy.runtime.storage}</GroupLabel>
-        <CleanupGroup id="dependencies" List={CleanupDependencies} />
+        <CleanupGroup
+          id="dependencies"
+          List={CleanupDependencies}
+          action="agent-dependencies-cleanup"
+        />
       </section>
       {restart && (
         <RestartConfirmation

@@ -150,7 +150,7 @@ test("the plan follows the draft; agents of users keep only folders and MCP", ()
     team: { usage: "suggest" },
     telegramToken: "1:abc",
     heartbeatEnabled: true,
-    routine: { name: "Daily", prompt: "Sum up", time: "08:30", telegram: true },
+    routine: { name: "Daily", prompt: "Sum up", time: "08:30" },
   };
   assert.deepEqual(creationPlan(full), [
     "create",
@@ -221,7 +221,7 @@ const fullDraft = {
   modelId: "m",
   projectIds: ["p"],
   telegramToken: "1:abc",
-  routine: { name: "Daily", prompt: "Sum up", time: "08:30", telegram: true },
+  routine: { name: "Daily", prompt: "Sum up", time: "08:30" },
 };
 
 test("a failed later step keeps the agent; retry repeats only that step", async () => {
@@ -254,8 +254,21 @@ test("a failed later step keeps the agent; retry repeats only that step", async 
     name: "Daily",
     prompt: "Sum up",
     trigger: { kind: "cron", expr: "30 8 * * *", tz: "UTC" },
-    telegram: true,
   });
+  // Never Telegram: the bot is paired only after creating, and the server refuses a
+  // routine for an unpaired chat (tests/blackbox/agent-wizard-telegram-routine.test.js).
+  const old = await runCreation({
+    plan,
+    d: { ...fullDraft, routine: { ...fullDraft.routine, telegram: true } },
+    api,
+    ask: async () => false,
+    env,
+  });
+  assert.equal(old.results.routine.status, "done");
+  assert.equal(
+    "telegram" in calls.filter((c) => c[0] === "createRoutine").at(-1)[2],
+    false,
+  );
   const before = calls.length;
   const retried = await runCreation({
     plan,
