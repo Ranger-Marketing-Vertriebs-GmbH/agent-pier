@@ -204,6 +204,12 @@ hook metadata to the existing request panel in both Chat and Terminal. Buttons a
 explanations are localized in German and English; native hook definitions remain
 verbatim review evidence. Nothing is trusted automatically.
 
+The request panel retries a read that takes more than five seconds, so a stalled
+initial HTTP response cannot stop approval polling. An aborted response cannot
+replace a newer request list. This also applies before the first conversation is
+bound; the launch dialog opens the same request panel as an existing session.
+See the [English mobile startup approval](../screenshots/codex-startup-hook-trust-retry.png).
+
 A Chat decision controls only the recognized native startup menu under the session
 lock. It verifies account, private launch identity, hook count and selection before
 sending one Enter. Trust succeeds only after observing the native `config/batchWrite`
