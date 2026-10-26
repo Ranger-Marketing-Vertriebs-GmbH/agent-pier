@@ -1,8 +1,5 @@
 // Agency agents as templates for new agents and team members.
 export const agentTemplateCopy = {
-  start: "Start from a template",
-  change: "Choose another template",
-  clear: "Remove template",
   pickerTitle: "Start from a template",
   pickerSubtitle: "Agency agents from msitarzewski/agency-agents",
   search: "Search templates",

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 import {
@@ -69,11 +70,13 @@ async function setup(page, { language = "en", models = listed, modelCatalog } = 
 async function newAgent(page, copy) {
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: copy.create }).click();
+  await wizardToIdentity(page, copy.language);
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel(copy.connection).selectOption("openclaw:test");
 }
 
 const english = {
+  language: "en",
   create: "New agent",
   connection: "Model connection",
   model: "Model",
@@ -94,6 +97,7 @@ const english = {
   save: "Save agent",
 };
 const german = {
+  language: "de",
   create: "Neuer Agent",
   connection: "Provider-Zugang",
   model: "Modell",
@@ -139,7 +143,7 @@ for (const [language, copy] of [
     await expect(options.getByRole("option")).toHaveText(["GPT-6 Sol (gpt-6-sol)"]);
     await options.getByRole("option", { name: "GPT-6 Sol (gpt-6-sol)" }).click();
     await expect(model).toHaveValue("gpt-6-sol");
-    await page.getByRole("button", { name: copy.createAgent }).click();
+    await wizardFinish(page, { language: copy.language });
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-sol" });
@@ -188,7 +192,7 @@ for (const [language, copy] of [
     await model.selectOption("gpt-6-astra");
     await model.selectOption({ label: copy.custom });
     await page.getByRole("textbox", { name: copy.modelId }).fill("gpt-6-preview");
-    await page.getByRole("button", { name: copy.createAgent }).click();
+    await wizardFinish(page, { language: copy.language });
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-preview" });

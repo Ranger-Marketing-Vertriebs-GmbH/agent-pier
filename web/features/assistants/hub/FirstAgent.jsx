@@ -55,9 +55,7 @@ export default function FirstAgent({ runtime, models, webSearchReady, navigate }
   const starts = [
     { id: "blank", route: newAgentRoute, primary: true },
     { id: "template", route: agentsHubRoute("templates") },
-    ...(hasUsers
-      ? [{ id: "forUser", route: { view: "settings", settingsSection: "users" } }]
-      : []),
+    ...(hasUsers ? [{ id: "forUser", route: newAgentRoute }] : []),
   ];
   return (
     <section className="agents-hub-state">

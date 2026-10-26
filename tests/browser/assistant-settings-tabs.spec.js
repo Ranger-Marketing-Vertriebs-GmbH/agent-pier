@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import {
   connectedChannel,
   home,
@@ -406,27 +407,14 @@ test("creating an agent opens its settings without asking", async ({ page }) => 
   });
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent" }).click();
-  const create = saveBar(page).getByRole("button", { name: "Create agent" });
-  await expect(create).toBeVisible();
+  await wizardToIdentity(page);
   await page.getByLabel("Name", { exact: true }).fill("Fresh");
-  await agentTab(page, "Capabilities").click();
-  // Every web switch waits for the saved agent, like scheduled check-ins.
-  const web = [
-    "Search the web",
-    "Read web pages",
-    "Use a browser",
-    "Read images",
-    "Read PDFs",
-    "Create images",
-  ];
-  for (const name of web)
-    await expect(page.getByRole("switch", { name, exact: true })).toBeDisabled();
-  await expect(page.getByText("Available after saving the agent")).toHaveCount(
-    web.length + 1,
-  );
-  await page.getByRole("switch", { name: "Remember information" }).check();
-  await create.click();
-  await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
+  await page.getByLabel("Model connection").selectOption({ label: "Router" });
+  await page.getByRole("textbox", { name: "Model ID" }).fill("model");
+  // Conversation partner: memory on, no web tools, so only the agent itself is created.
+  await wizardFinish(page);
+  // Without a chat to open the agent's settings open, and nothing asks to save.
+  await expect(page).toHaveURL(/\/agents\/fresh\/(settings|chats\/[^/]+)$/);
   await expect(unsavedSheet(page)).toHaveCount(0);
   expect(state.created).toMatchObject({ name: "Fresh", capabilities: { memory: true } });
 });

@@ -1,8 +1,5 @@
 // Agency-Agenten als Vorlagen für neue Agenten und Team-Mitglieder.
 export const agentTemplateCopy = {
-  start: "Mit Vorlage beginnen",
-  change: "Andere Vorlage wählen",
-  clear: "Vorlage entfernen",
   pickerTitle: "Mit Vorlage beginnen",
   pickerSubtitle: "Agency-Agenten aus msitarzewski/agency-agents",
   search: "Vorlagen durchsuchen",

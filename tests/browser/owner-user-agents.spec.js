@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardFinish, wizardNext } from "../helpers/agent-wizard-browser.js";
 import {
   connectedChannel,
   home,
@@ -491,10 +492,11 @@ for (const [language, copy] of Object.entries(languages))
       await expect(pick).toHaveValue("u-1");
       await expect(pick.locator("option:checked")).toHaveText(copy.unknownUser);
       await expect(page.getByText("Users unavailable")).toBeVisible();
+      await wizardNext(page, language);
       await page.getByLabel(copy.name, { exact: true }).fill("Helper");
       await page.getByLabel(copy.connection).selectOption({ label: "Router" });
       await page.getByLabel(copy.model).fill("model");
-      await page.getByRole("button", { name: copy.create, exact: true }).click();
+      await wizardFinish(page, { language });
       await expect.poll(() => created.length).toBe(1);
       expect(created[0].userAccess.members).toEqual([{ userId: "u-1", level: "chat" }]);
     });

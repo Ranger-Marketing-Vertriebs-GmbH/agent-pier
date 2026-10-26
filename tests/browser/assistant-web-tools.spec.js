@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
+import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
+import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
@@ -206,40 +207,42 @@ for (const [label, use] of [
       expect(state.patches[0].confirmRestart).toBeUndefined();
     });
 
-    test("the create form disables the web switches until the agent is saved", async ({
+    test("the wizard switches web tools on right after creating the agent", async ({
       page,
     }) => {
       const state = await setup(page);
+      const patched = [];
+      await page.route("**/api/assistants/fresh", (route) => {
+        patched.push(route.request().postDataJSON());
+        return route.fulfill({ json: { id: "fresh", revision: 2 } });
+      });
       await page.goto(baseURL + "/agents");
       await page.getByRole("link", { name: "New agent" }).click();
-      await agentTab(page, "Capabilities").click();
-      for (const name of [
-        "Search the web",
-        "Read web pages",
-        "Use a browser",
-        "Read images",
-        "Read PDFs",
-        "Create images",
-      ]) {
-        await expect(page.getByLabel(name)).toBeDisabled();
-        await expect(page.getByLabel(name)).not.toBeChecked();
-      }
-      // The six web switches and scheduled check-ins.
-      await expect(page.getByText("Available after saving the agent")).toHaveCount(7);
-      await expect(page.getByLabel("Remember information")).toBeEnabled();
-      await page.getByLabel("Remember information").check();
-      await agentTab(page, "Identity").click();
+      await wizardToIdentity(page);
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");
-      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
+      // The Researcher profile (preselected) switches the web tools on; they stay editable.
+      await wizardFinish(page, { keepProfile: true });
       await expect.poll(() => state.creates.length).toBe(1);
+      // A new agent starts with web tools off; they follow with the capabilities step.
       expect(state.creates[0].capabilities).toMatchObject({
         memory: true,
         webSearch: false,
         webFetch: false,
         browser: false,
         documents: false,
+      });
+      await expect.poll(() => patched.length).toBe(1);
+      expect(patched[0].capabilities).toMatchObject({
+        memory: true,
+        reminders: true,
+        webSearch: true,
+        webFetch: true,
+        documents: true,
+        readPdfs: true,
+        browser: false,
+        createImages: false,
       });
     });
 

@@ -38,7 +38,7 @@ function AgentList({ id, title, count, action, agents, rowProps }) {
  * Alle Agenten (handoff 5.2): readiness, the owner's agents, agents of users and the
  * archive; the activation progress, a stopped service and "no agent yet" as states.
  */
-export default function AllAgentsTab({ navigate, onOpen, feature, error, children }) {
+export default function AllAgentsTab({ navigate, onOpen, feature, error }) {
   const { assistants, models = [], runtime, activity } = useAssistants();
   const lists = hubLists(assistants);
   const listed = [...lists.own, ...lists.ofUsers];
@@ -78,7 +78,6 @@ export default function AllAgentsTab({ navigate, onOpen, feature, error, childre
         />
       )}
       <ErrorMessage error={error} />
-      {children}
       {!phase && (
         <ReadinessCard
           runtime={runtime}
@@ -87,7 +86,7 @@ export default function AllAgentsTab({ navigate, onOpen, feature, error, childre
           navigate={navigate}
         />
       )}
-      {!listed.length && !children && (
+      {!listed.length && (
         <FirstAgent
           runtime={runtime}
           models={models}

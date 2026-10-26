@@ -13,7 +13,6 @@ import TemplatesTab from "./TemplatesTab.jsx";
 /**
  * Agenten (handoff 5.2) while agents are on: Alle Agenten, Teams, Vorlagen and
  * Laufzeit, deep-linked by `tab=`. The Runtime tab honours a cross-link's `returnTo`.
- * `children` (the new agent form) shows above All agents.
  */
 export default function AgentsHub({
   route,
@@ -22,7 +21,6 @@ export default function AgentsHub({
   navigationOpen,
   onOpen,
   error,
-  children,
 }) {
   const feature = useAssistantFeature();
   const { assistants, teams } = useAssistants();
@@ -46,9 +44,12 @@ export default function AgentsHub({
       ) : tab === "templates" ? (
         <TemplatesTab navigate={navigate} onTotal={setTemplates} />
       ) : (
-        <AllAgentsTab navigate={navigate} onOpen={onOpen} feature={feature} error={error}>
-          {children}
-        </AllAgentsTab>
+        <AllAgentsTab
+          navigate={navigate}
+          onOpen={onOpen}
+          feature={feature}
+          error={error}
+        />
       )}
     </HubFrame>
   );

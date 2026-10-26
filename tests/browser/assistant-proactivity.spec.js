@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardNext, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import {
   connectedChannel,
   setupAssistantSettings as setup,
@@ -127,14 +128,27 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
   await page.screenshot({ path: ".cache/assistant-proactivity-phone-en.png" });
 });
 
-test("a new agent switches check-ins on after saving", async ({ page }) => {
+test("the wizard offers check-ins once the agent remembers", async ({ page }) => {
   await setup(page, { channel: connectedChannel() });
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent" }).click();
-  await agentTab(page, "Capabilities").click();
-  const heartbeat = section(page).getByRole("switch", { name: "Check in on its own" });
+  await wizardToIdentity(page);
+  await page.getByLabel("Name", { exact: true }).fill("Fresh");
+  await page.getByLabel("Model connection").selectOption({ index: 1 });
+  await page.getByRole("textbox", { name: "Model ID" }).fill("model");
+  await wizardNext(page);
+  await page.getByRole("switch", { name: "Remember information" }).uncheck();
+  await wizardNext(page);
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  const heartbeat = page.getByRole("switch", { name: "Check in on its own" });
   await expect(heartbeat).toBeDisabled();
-  await expect(section(page)).toContainText("Available after saving the agent");
+  await expect(page.getByText("Needs “Remember information”")).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("switch", { name: "Remember information" }).check();
+  await wizardNext(page);
+  await wizardNext(page);
+  await expect(heartbeat).toBeEnabled();
 });
 
 test("the proactivity section is translated", async ({ page }) => {
