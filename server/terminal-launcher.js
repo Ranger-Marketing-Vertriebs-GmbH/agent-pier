@@ -9,7 +9,31 @@ import {
 } from "node:fs";
 import { spawn } from "node:child_process";
 import { constants } from "node:os";
+import { Writable } from "node:stream";
 import { spawnNativeProcess } from "./features/pipelines/native-process.js";
+
+// Node opens the terminal behind process.stdout/stderr lazily, by reopening the pane's
+// terminal by name; its own internals read process.stderr too (closing a socket). On macOS
+// that open waits forever once tmux has hung the pane up (its server killed right after
+// the start), so the launcher would block before it could notice and never exit. Both
+// streams write straight to the inherited descriptors instead, dropping what is refused.
+for (const [name, fd] of [
+  ["stdout", 1],
+  ["stderr", 2],
+])
+  Object.defineProperty(process, name, {
+    configurable: true,
+    enumerable: true,
+    value: new Writable({
+      write(chunk, encoding, done) {
+        try {
+          for (let offset = 0; offset < chunk.length;)
+            offset += writeSync(fd, chunk, offset, chunk.length - offset);
+        } catch {}
+        done();
+      },
+    }),
+  });
 
 const payloadPath = process.argv[2];
 let payload = null;
