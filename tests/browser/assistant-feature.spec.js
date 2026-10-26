@@ -144,12 +144,35 @@ test("settings switch enables agents and shows navigation after artifacts", asyn
   await expect(page.getByRole("button", { name: "Agent chats" })).toBeVisible();
 });
 
-test("agent group stays hidden without agents", async ({ page }) => {
+test("without agents the group appears once the list loaded, with its +", async ({
+  page,
+}) => {
   await featureFixture(page, { enabled: true });
-  await page.goto(baseURL + "/");
+  // Hold the first agent list: until it arrives, neither the group nor the hub's
+  // first-agent start shows, so nothing flashes "no agents" for a moment.
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route("**/api/assistants", async (route) => {
+    await held;
+    return route.fallback();
+  });
+  await page.goto(baseURL + "/agents");
+  await expect(page.locator(".sessions-group")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agents", level: 1 })).toBeVisible();
+  const group = page.getByRole("button", { name: "Agent chats" });
+  await expect(group).toHaveCount(0);
+  await expect(page.locator(".agents-hub-start")).toHaveCount(0);
+  release();
+  await expect(group).toBeVisible();
+  await expect(group).toContainText("0");
+  const section = page.locator(".assistant-chats-group");
+  await expect(section).toContainText("Create your first agent to start a conversation.");
+  await expect(page.locator(".agents-hub-start").first()).toBeVisible();
   await openMenu(page);
   await expect(agentsNav(page)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await section.getByRole("link", { name: "New agent", exact: true }).click();
+  await expect(page).toHaveURL(/\/agents\?new=1$/);
 });
 
 test("team members are collapsed under their parent", async ({ page }) => {

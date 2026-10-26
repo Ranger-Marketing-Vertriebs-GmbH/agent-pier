@@ -39,7 +39,7 @@ function AgentList({ id, title, count, action, agents, rowProps }) {
  * archive; the activation progress, a stopped service and "no agent yet" as states.
  */
 export default function AllAgentsTab({ navigate, onOpen, feature, error }) {
-  const { assistants, models = [], runtime, activity } = useAssistants();
+  const { assistants, models = [], runtime, activity, loaded = false } = useAssistants();
   const lists = hubLists(assistants);
   const listed = [...lists.own, ...lists.ofUsers];
   const summaries = useHubSummaries(
@@ -86,7 +86,8 @@ export default function AllAgentsTab({ navigate, onOpen, feature, error }) {
           navigate={navigate}
         />
       )}
-      {!listed.length && (
+      {/* Only once the list is in: before it, "no agent yet" would flash. */}
+      {loaded && !listed.length && (
         <FirstAgent
           runtime={runtime}
           models={models}
