@@ -33,6 +33,7 @@ export const inboxCopy = {
     memory_write: "Gedächtnis-Eintrag",
     member_grant: "Recht für ein Teammitglied",
     hook_proposal: "Hook-Vorschlag",
+    ssh_access: "SSH-Zugangsvorschlag",
     gate: "Freigabe einer Stufe",
     decision: "Entscheidung zu einer Stufe",
     claudeFolderTrust: "Arbeitsordner vertrauen",

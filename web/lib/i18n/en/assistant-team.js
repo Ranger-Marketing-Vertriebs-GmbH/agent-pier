@@ -80,6 +80,7 @@ export const assistantTeamCopy = {
     "memory-result": "A project knowledge note was not saved. The agent was told.",
     "ssh-result": "SSH command result received.",
     "sftp-result": "SFTP operation result received.",
+    "ssh-access-result": "The outcome of an SSH access proposal was passed to the agent.",
     "memory-step": "The agent was asked to save its memories before the summary.",
     "member-long-chat": "A member's chat has grown long. The agent was told.",
     "goal-continuation": "AgentPier asked the agent to continue its goal.",

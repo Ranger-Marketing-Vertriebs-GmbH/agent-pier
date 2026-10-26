@@ -18,6 +18,7 @@ import * as continuation from "./exec-continuation.js";
 import { confirmFromCall } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
+import { invokeSshAccess } from "./agent-ssh-proposals.js";
 import * as hooks from "./agent-hook-bridge.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
@@ -56,6 +57,15 @@ export function runtimeStatus(runtime, assistants, bridge) {
     : state;
 }
 const peerActions = new Set(["peers", "peer_ask", "peer_delegate"]);
+// A permanent member's own tools, as an own agent's.
+const personalActions = new Set([
+  "reminder",
+  "routine",
+  "ssh",
+  "goal",
+  "hook",
+  "ssh_access",
+]);
 
 export class TeamBridge {
   constructor({ assistants, teams, generation = () => 1, now = Date.now }) {
@@ -149,8 +159,7 @@ export class TeamBridge {
           record.action === "workspace" ||
           record.action === "share_file" ||
           memberActions.has(record.action) ||
-          (["reminder", "routine", "ssh", "goal", "hook"].includes(record.action) &&
-            parent.lifetime === "permanent") ||
+          (personalActions.has(record.action) && parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
         )) ||
       parent.archivedAt
@@ -491,6 +500,8 @@ export class TeamBridge {
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
       if (action === "hook")
         return invokeHook(this.assistants.routines?.hooks, invocation, input);
+      if (action === "ssh_access")
+        return invokeSshAccess(this.assistants.workflows, invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
       if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"

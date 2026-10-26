@@ -9,6 +9,7 @@ const files = [
   "index.js",
   "workflow-tools.js",
   "ssh-tool.js",
+  "ssh-access-tool.js",
   "share-tool.js",
   "goal-tool.js",
   "member-tools.js",

@@ -8,6 +8,7 @@ import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 import { notifyHookProposal } from "./agent-hook-proposals.js";
+import { notifySshProposal } from "./agent-ssh-proposal-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -28,6 +29,8 @@ export function notifyAction(w, action, phase) {
     return notifyMemberGrant(w, action, phase, key, m, target);
   if (action.payload.action === "hook_proposal")
     return notifyHookProposal(w, action, phase, key, m, target);
+  if (action.payload.action === "ssh_access")
+    return notifySshProposal(w, action, phase, key, m, target);
   const detail =
     (action.requestedBy ? `${m.actionRequestedByMember(action.memberName)}\n` : "") +
     (action.payload.action === "coding_start"

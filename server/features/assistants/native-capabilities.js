@@ -96,6 +96,7 @@ export const lockedTools = [
   "agentpier_ssh",
   "agentpier_goal",
   "agentpier_hook",
+  "agentpier_ssh_access",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -262,6 +263,8 @@ export function profileTools(
     ...(nativeReady && !assistant.archivedAt ? ["agentpier_share_file"] : []),
     // Work goals: own agents and permanent members only (goal-turns.js).
     ...(nativeReady && goalAgent(assistant) ? ["agentpier_goal"] : []),
+    // SSH access proposals: own agents and permanent members (agent-ssh-proposals.js).
+    ...(nativeReady && goalAgent(assistant) ? ["agentpier_ssh_access"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

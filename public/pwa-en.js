@@ -91,6 +91,7 @@ self.agentPierNotificationCopyEn = {
     memory: "Memory entry",
     grant: "Member permission",
     hook: "Hook proposal",
+    sshAccess: "SSH access proposal",
     team: "Team proposal",
   },
   tools: {

@@ -107,6 +107,7 @@ const actionTitle = (a) => {
   if (p.action === "ssh" || p.action === "sftp") return p.hostName;
   if (p.action === "member_grant") return p.memberName;
   if (p.action === "hook_proposal") return p.name;
+  if (p.action === "ssh_access") return p.name;
   return "";
 };
 

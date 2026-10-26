@@ -130,6 +130,7 @@ const nativeAllow = [
   "agentpier_share_file",
   "agentpier_goal",
   "agentpier_hook",
+  "agentpier_ssh_access",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 
@@ -358,6 +359,7 @@ test("a temporary member uses its lead's web tools without widening the global s
         "agentpier_routine",
         "agentpier_hook",
         "agentpier_goal",
+        "agentpier_ssh_access",
       ].includes(tool),
   );
   assert.deepEqual(agentAllow(config, "ap-m2"), [status, ...memberTeamTools, ...rest]);

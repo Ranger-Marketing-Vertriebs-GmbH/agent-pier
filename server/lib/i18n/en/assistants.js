@@ -171,6 +171,32 @@ export const assistants = {
       folders: (count) => `project folders: ${count}`,
     },
   },
+  sshProposals: {
+    approval: (agent, name) =>
+      `SSH access proposal awaiting approval: ${agent} wants the SSH access ${name}.`,
+    endpoint: (username, host, port) => `Login: ${username}@${host}, port ${port}`,
+    project: (name) => `Project: ${name}`,
+    purpose: "Purpose:",
+    fingerprint: "Host key fingerprint (scanned, not verified):",
+    verify:
+      "Check this fingerprint against the server through a channel you trust (its console, your provider or an administrator) before you confirm. Confirming pins it as verified by you. AgentPier creates a managed key with mode With approval; choose another key or mode in AgentPier in the browser.",
+    approve: "Confirm access",
+    states: {
+      completed: "SSH access created",
+      declined: "SSH access proposal declined",
+      expired: "The SSH access proposal expired",
+      failed: "SSH access not created",
+    },
+    name: (name, username, host, port) => `${name}: ${username}@${host}:${port}`,
+    publicKey:
+      "Install this public key for the remote user (in ~/.ssh/authorized_keys) before the agent connects:",
+    diagnostics: {
+      HOST_KEY_CHANGED:
+        "The host presented a different key than the one in the proposal. The agent has to propose the access again.",
+      HOST_EXISTS: "This host, port and user are already an SSH access.",
+      AGENT_UNAVAILABLE: "The agent can no longer hold SSH accesses.",
+    },
+  },
   teamResultNoText: (objective) =>
     `Team results for ${objective}. No text is available for the completed synthesis. Review the individual reports.`,
   teamReportUnavailable:
@@ -443,6 +469,18 @@ export const assistants = {
     "Hooks can only be proposed in a turn of your own message to the agent, not from forwarded, scheduled or hook content.",
   hookUnavailable:
     "Hooks are only available for your own agents and permanent team members with “Allow reminders and routines” switched on.",
+  sshProposalOwnerOnly:
+    "SSH accesses can only be proposed in a turn of your own message to the agent, not from forwarded, scheduled or hook content.",
+  sshProposalUnavailable:
+    "SSH access proposals are only available for your own agents and permanent team members without a Telegram bot for other people.",
+  sshProposalInvalid:
+    "Give a host name or IP address, a port from 1 to 65535 and a remote user name of letters, digits, _ . and -.",
+  sshProposalLimit:
+    "This agent already has two SSH access proposals waiting, or proposed five in the last hour.",
+  sshProposalExists: "This host, port and user are already an SSH access.",
+  sshProposalScanFailed: "The host key could not be read from this host.",
+  sshProposalProject: "This project does not exist.",
+  sshProposalKey: "Choose a key of the proposal's project, or a new managed key.",
   notFound: "Agent or conversation not found.",
   conflict: "The data has changed. Please reload.",
   capacity: "The team size exceeds this host's capacity. Choose a smaller value.",

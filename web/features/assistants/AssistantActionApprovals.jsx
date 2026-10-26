@@ -6,12 +6,14 @@ import SshApprovalCard from "./SshApprovalCard.jsx";
 import SftpApprovalCard from "./SftpApprovalCard.jsx";
 import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 import HookProposalCard, { HookCreatedNote } from "./HookProposalCard.jsx";
+import SshAccessProposalCard, { SshAccessCreatedNote } from "./SshAccessProposalCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
 const isSftp = (a) => a.payload.action === "sftp";
 const isGrant = (a) => a.payload.action === "member_grant";
 const isHook = (a) => a.payload.action === "hook_proposal";
+const isSshAccess = (a) => a.payload.action === "ssh_access";
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
@@ -28,6 +30,8 @@ export default function AssistantActionApprovals({
   const [busy, setBusy] = useState(false);
   // Hooks the owner approved here: they leave the list, their secret waits in settings.
   const [created, setCreated] = useState([]);
+  // SSH accesses he confirmed here, with the public key to install.
+  const [accesses, setAccesses] = useState([]);
   async function choose(a, decision) {
     setBusy(true);
     try {
@@ -36,12 +40,18 @@ export default function AssistantActionApprovals({
       setBusy(false);
     }
   }
-  if (!actions.length && !error && !created.length) return null;
+  if (!actions.length && !error && !created.length && !accesses.length) return null;
   // Shell and SSH commands and SFTP operations have their own cards; they decide
   // through `decide(id, decision)`. An SSH or SFTP card stays while its allowed
   // command or job runs.
   const others = actions.filter(
-    (a) => !isExec(a) && !isSsh(a) && !isSftp(a) && !isGrant(a) && !isHook(a),
+    (a) =>
+      !isExec(a) &&
+      !isSsh(a) &&
+      !isSftp(a) &&
+      !isGrant(a) &&
+      !isHook(a) &&
+      !isSshAccess(a),
   );
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
@@ -83,6 +93,21 @@ export default function AssistantActionApprovals({
       ))}
       {created.map((a) => (
         <HookCreatedNote key={a.id} action={a} navigate={go} />
+      ))}
+      {actions.filter(isSshAccess).map((a) => (
+        <SshAccessProposalCard
+          key={a.id}
+          action={a}
+          onDecide={async (decision, extra) => {
+            const decided = await decide(a, decision, extra);
+            if (decided?.state === "completed" && decided.result?.publicKey)
+              setAccesses((list) => [...list, decided]);
+            return decided;
+          }}
+        />
+      ))}
+      {accesses.map((a) => (
+        <SshAccessCreatedNote key={a.id} action={a} />
       ))}
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>

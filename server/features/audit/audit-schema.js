@@ -106,6 +106,8 @@ const verbs = new Set([
   "reinstalled",
   "detached",
   "executed",
+  // An agent's proposal waiting for the owner (agent-ssh-proposals.js).
+  "proposed",
 ]);
 // Names of the fields an MCP server or agent binding change can send.
 const changeFields = new Set([
