@@ -18,6 +18,7 @@ const none = {
   folders: {},
   memory: false,
   mcp: false,
+  secrets: false,
   webSearch: false,
   webFetch: false,
 };
@@ -90,6 +91,14 @@ test("rightsInput accepts ticks within the ceiling and rejects malformed input",
   );
   assert.throws(() => rightsInput({ coding: true }, ceiling), { status: 400 });
   assert.throws(() => rightsInput({ memory: true }, ceiling), { status: 400 });
+  assert.throws(() => rightsInput({ secrets: true }, ceiling), { status: 400 });
+  assert.equal(
+    rightsInput({ secrets: true }, { ...ceiling, secrets: true }).secrets,
+    true,
+  );
+  assert.throws(() => rightsInput({ secrets: "yes" }, { ...ceiling, secrets: true }), {
+    status: 400,
+  });
   for (const bad of [
     null,
     [],
@@ -105,6 +114,22 @@ test("rightsInput accepts ticks within the ceiling and rejects malformed input",
     assert.throws(() => rightsInput(bad, ceiling), { status: 400 }, JSON.stringify(bad));
   const many = { ...none, sshHosts: Array.from({ length: 101 }, (_, i) => `h${i}`) };
   assert.throws(() => rightsInput({ sshHosts: many.sshHosts }, many), { status: 400 });
+});
+
+test("a new hook may not read the agent's secrets", () => {
+  assert.equal(hookDefaults.secrets, false);
+  assert.equal(rightsInput({}, { ...none, secrets: true }).secrets, false);
+});
+
+test("a stored hook without the secrets field runs without secrets", () => {
+  const { secrets: _secrets, ...legacy } = { ...hookDefaults, sshHosts: [], folders: {} };
+  assert.equal(effectiveRights(legacy, { ...none, secrets: true }).secrets, false);
+  assert.equal(
+    effectiveRights({ ...legacy, secrets: true }, { ...none, secrets: true }).secrets,
+    true,
+  );
+  // Secrets the agent no longer receives are off for the run.
+  assert.equal(effectiveRights({ ...legacy, secrets: true }, none).secrets, false);
 });
 
 test("effectiveRights caps every tick live", () => {

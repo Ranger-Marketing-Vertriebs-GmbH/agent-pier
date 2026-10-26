@@ -7,7 +7,11 @@ import {
   shellTools,
 } from "./native-capabilities.js";
 
-/** What a new hook may do: it can tell the owner and nothing else. */
+/**
+ * What a new hook may do: it can tell the owner and nothing else. `secrets`: a run may
+ * read the agent's secrets file; without it the file is withheld while the run works
+ * (AgentHooks.withholdsSecrets, agent-secrets.js).
+ */
 export const hookDefaults = Object.freeze({
   notify: true,
   telegram: false,
@@ -18,8 +22,9 @@ export const hookDefaults = Object.freeze({
   folders: Object.freeze({}),
   memory: false,
   mcp: false,
+  secrets: false,
 });
-const tickKeys = ["telegram", "research", "coding", "memory", "mcp"];
+const tickKeys = ["telegram", "research", "coding", "memory", "mcp", "secrets"];
 const rightKeys = Object.keys(hookDefaults);
 const folderLevels = ["read", "write"];
 const maxHosts = 100;
@@ -34,6 +39,9 @@ const copy = (rights) => ({
   sshHosts: [...rights.sshHosts],
   folders: { ...rights.folders },
 });
+
+/** Stored rights in the current shape: a right an older build did not know is off. */
+export const storedRights = (rights) => ({ ...copy(hookDefaults), ...rights });
 
 /** Goal agents the owner runs alone (no shared or user agents) with reminders on. */
 export const hookEligible = (agent) =>

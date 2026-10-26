@@ -2,7 +2,15 @@ import { sameValue } from "../../../lib/settings/draft-state.js";
 import { sortedIds, sortedLevels } from "./agent-settings-fields.js";
 
 // The on/off rights of a hook, in the order the detail page lists them.
-export const hookTicks = ["notify", "telegram", "research", "coding", "memory", "mcp"];
+export const hookTicks = [
+  "notify",
+  "telegram",
+  "research",
+  "coding",
+  "memory",
+  "mcp",
+  "secrets",
+];
 const rightKeys = [...hookTicks, "shell", "sshHosts", "folders"];
 const plainKeys = ["name", "sender", "instruction", "hourlyLimit", "enabled"];
 

@@ -59,6 +59,8 @@ export function invokeHook(hooks, inv, input) {
   exact(input, proposeKeys);
   const { action: _action, reason, ...fields } = input;
   const why = textValue(reason, 1000);
+  // Whether a run may read the agent's secrets is the owner's switch on the hook.
+  if (fields.rights?.secrets === true) throw assistantProblem("invalid");
   // Checked as the owner's own create would be, against the live ceiling.
   const values = hooks.fields(fields, createKeys, turn.agent, true);
   const w = hooks.assistants.workflows;

@@ -45,6 +45,7 @@ test("hookDraft flattens a hook into stable draft values", () => {
     coding: false,
     memory: false,
     mcp: false,
+    secrets: false,
     shell: "off",
     sshHosts: ["a", "b"],
     folders: { p1: "read", p2: "write" },
@@ -81,6 +82,7 @@ test("hookPatch sends every right when one changed, stored ones unchanged", () =
       folders: { p1: "read", p2: "write" },
       memory: false,
       mcp: false,
+      secrets: false,
     },
   });
 });
@@ -169,6 +171,7 @@ test("clampRights caps a proposal's edited ticks to the agent's ceiling", () => 
       coding: true,
       memory: false,
       mcp: false,
+      secrets: false,
       shell: "off",
       sshHosts: ["nas"],
       folders: { web: "read", api: "read" },

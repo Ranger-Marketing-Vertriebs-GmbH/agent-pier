@@ -149,6 +149,11 @@ test("the agent proposes a hook only in a direct owner turn", async (t) => {
     key: "hookRightExceeds",
     status: 400,
   });
+  // Reading the secrets is the owner's switch on the hook's page, never proposed.
+  await assert.rejects(f.call({ ...proposal, rights: { secrets: true } }), {
+    key: "invalid",
+    status: 400,
+  });
   // An agent with reminders off may not hold hooks at all.
   f.setCaps({ memory: false, reminders: false, webSearch: true });
   await assert.rejects(f.call(proposal), { key: "hookUnavailable", status: 403 });

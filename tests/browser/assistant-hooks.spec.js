@@ -45,7 +45,7 @@ const hookView = (input) => ({
   },
   // What the agent holds caps every saved right live (agent-hook-rights.js).
   effective: { notify: true, shell: input.rights?.shell ?? "off" },
-  ceiling,
+  ceiling: input.ceiling ?? ceiling,
   shellChoices: ["off", "approval"],
   hourlyLimit: 20,
   enabled: true,
@@ -215,6 +215,39 @@ test("a right the agent lost shows its reason and is kept on save", async ({ pag
     rights: { research: true, memory: true, folders: { "project-1": "read" } },
   });
   await expect(page.getByRole("heading", { name: "Uptime checks" })).toBeVisible();
+});
+
+test("Secrets start off and switch on only while the agent receives secrets", async ({
+  page,
+}) => {
+  // A hook stored before the switch existed has no secrets field.
+  await setup(page, { hooks: [hookView({ name: "Uptime", sender: "Kuma" })] });
+  await page.goto(baseURL + detailPath);
+  const secrets = page.getByRole("switch", { name: "Secrets" });
+  await expect(secrets).not.toBeChecked();
+  await expect(secrets).toBeDisabled();
+  await expect(page.getByText("The agent receives no secrets.")).toBeVisible();
+});
+
+test("the owner lets a hook's runs read the agent's secrets", async ({ page }) => {
+  const state = await setup(page, {
+    hooks: [
+      hookView({
+        name: "Uptime",
+        sender: "Kuma",
+        ceiling: { ...ceiling, secrets: true },
+      }),
+    ],
+  });
+  await page.goto(baseURL + detailPath);
+  const secrets = page.getByRole("switch", { name: "Secrets" });
+  await expect(secrets).not.toBeChecked();
+  await expect(page.getByText("Reads the agent's secrets file.")).toBeVisible();
+  await secrets.check();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => state.patches.length).toBe(1);
+  expect(state.patches[0].rights).toMatchObject({ secrets: true, research: false });
+  await expect(secrets).toBeChecked();
 });
 
 test("a stale right can be switched off and saved, then stays off", async ({ page }) => {

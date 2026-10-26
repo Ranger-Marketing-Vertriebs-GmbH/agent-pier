@@ -550,6 +550,20 @@ stay out.
 | **Folders**               | The chosen project folders at min(hook, agent) level; changes need the tool guard like every agent write and are audited with `via: "hook"`, `hookId` and `hookEventId`. An SFTP transfer never writes the agent's workspace.                                                          |
 | **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                           |
 | **MCP**                   | The agent's MCP tools.                                                                                                                                                                                                                                                                 |
+| **Secrets**               | The agent's secrets file (`.agentpier/secrets.env`) stays in place. Off (the default, also for a hook stored without the field): the run starts only after the file is removed, and it is restored when the event settles or fails. See below.                                         |
+
+**Secrets.** A hook offers **Secrets** only while the agent receives secrets
+(`secretIds` in its access grants); the agent cannot propose it (`agentpier_hook`
+refuses `rights.secrets: true`). Without it, `HookRuns.start` marks the event
+`secretsWithheld` and syncs the agent's file before it applies the configuration and
+forces the job. While any unsettled event of the agent is marked,
+`AgentSecrets.entries` returns nothing, so every sync, including the one before each
+turn of the agent's other chats, leaves the file away and the bootstrap does not name
+it. When the file cannot be removed the start fails (503, the sender retries). The
+settle, a failed or stale event, a failed start and deleting the hook each sync the
+file back once no marked event is left. A command the run started in the background
+keeps running after the event settled and can read the restored file; the hook's
+shell level is the owner's choice for that.
 
 **Proposals.** The agent can propose a hook itself with `agentpier_hook`
 (`agent-hook-proposals.js`, own agents and permanent members with **Allow reminders and

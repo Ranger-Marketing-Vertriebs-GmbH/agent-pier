@@ -1007,14 +1007,21 @@ own **Enabled** switch is off.
 - A hook's row opens its details: the name, sender and an **Instruction** (what the
   agent should do with an event), and **What a run may use**: **Notify** (a push notice
   with the result), **Also send to Telegram**, **Research** (web search and web pages),
-  **Coding CLI**, **Write memory** and **MCP servers**, the **Shell** (off or the agent's
-  own level), the **SSH hosts** set to **Trusted incl. routines** and each project
+  **Coding CLI**, **Write memory**, **MCP servers** and **Secrets** (whether a run may
+  read the agent's [secrets file](secrets.md#agents); off by default, also for hooks
+  created before the switch existed), the **Shell** (off or the agent's own level),
+  the **SSH hosts** set to **Trusted incl. routines** and each project
   **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
   agent holds: a switch the agent lacks is shown disabled with the reason, and a right
   the agent loses later keeps its saved value but no longer applies until the agent has
   it again; you can still switch it off or lower it, and then it stays disabled.
   **Wake-ups per hour** (20 by default) limits the runs; later events in the same hour
   are recorded without waking the agent, and the first one sends a push notice.
+  With **Secrets** off, AgentPier takes the agent's secrets file away before the run
+  starts and puts it back once the run's event has settled, so a run cannot read it,
+  not even with its shell. Your own chats with that agent have no secrets while such
+  a run works. A command the run left running in the background can still read the
+  file once it is back.
   **Enabled** pauses or resumes the hook. A shell command a hook run asks for offers
   only **Allow once** and **Deny**, never **Always allow**, so an event cannot make a
   command permanent for your own chats.

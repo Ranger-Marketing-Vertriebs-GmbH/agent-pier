@@ -289,7 +289,9 @@ for the implementation and remaining native platform/version qualification.
   `agentpier_share_file` refuses its files. Shell commands are not covered: an agent
   with a shell can change or delete the file, and AgentPier writes it again before
   the agent's next turn. Proven on 2026.10.7 by
-  `assistant-secrets-guard-contract.test.js`.
+  `assistant-secrets-guard-contract.test.js`. A hook run without the hook's
+  **Secrets** switch runs while the file is removed, including against its shell
+  ([agent hooks](assistant-workflows.md#agent-hooks)).
 - **Every file tool is guarded.** The guard's hook matches `write`, `edit` and
   `apply_patch`, every file-changing tool of OpenClaw's fs section. OpenClaw grants
   `apply_patch` wherever `write` is allowed, and hook matchers compare exact tool
