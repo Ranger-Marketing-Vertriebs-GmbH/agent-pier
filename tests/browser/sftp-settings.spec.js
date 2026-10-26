@@ -63,10 +63,11 @@ test("adds a password SFTP host", async ({ page }) => {
     hostKey: state.access.hostKey,
   });
   expect(post.body.keyId).toBeUndefined();
-  const row = page.getByRole("button", { name: "Files box", exact: true });
+  const button = page.getByRole("button", { name: "Files box", exact: true });
+  const row = page.locator(".long-list-row").filter({ has: button });
   await expect(row).toContainText("SFTP");
   await expect(row).toContainText("/srv/files");
-  await row.click();
+  await button.click();
   await page.screenshot({ path: ".cache/sftp-settings-list-en.png" });
 });
 
@@ -157,7 +158,8 @@ test("a host whose key was deleted needs a new key before Save", async ({ page }
   ];
   await english(page);
   await page.goto(baseURL + "/settings/ssh");
-  const row = page.getByRole("button", { name: "Files box", exact: true });
+  const button = page.getByRole("button", { name: "Files box", exact: true });
+  const row = page.locator(".long-list-row").filter({ has: button });
   await expect(row).toContainText("Key deleted");
   await openAccess(page, "Files box");
   await page.getByRole("button", { name: "Edit", exact: true }).click();

@@ -1,0 +1,277 @@
+/* The dense long list of a Zugänge category (LongList.jsx). Tokens only. */
+.long-list {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.long-list-views.segment {
+  justify-self: start;
+  grid-auto-columns: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.long-list-note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--hint);
+}
+.long-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.long-list-search {
+  flex: 1 1 100%;
+  min-width: 0;
+  height: 36px;
+}
+.long-list-toolbar .long-list-chip,
+.long-list-toolbar .long-list-choice {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.long-list-chip .anchored-select select {
+  border-radius: var(--radius-pill);
+}
+.long-list-chip.is-active .anchored-select select {
+  border-color: var(--accent-line);
+  background-color: var(--surface-accent);
+  color: var(--accent-text);
+}
+.long-list-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-accent);
+}
+.long-list-bulk-count {
+  margin-right: auto;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent-text);
+}
+.long-list-table {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.long-list-head,
+.long-list-row {
+  display: grid;
+  grid-template-columns: 28px minmax(160px, 1fr) 64px minmax(110px, 170px) 130px 90px;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+.long-list-head {
+  min-height: 34px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-group);
+}
+.long-list-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+.long-list-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.long-list-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--text-meta);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+.long-list-group-head small {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-faint);
+}
+.long-list-group-head .long-list-group-problems {
+  color: var(--warning);
+}
+.long-list-row {
+  min-height: 46px;
+  border-top: 1px solid var(--divider-soft);
+  font-size: var(--font-size-md);
+  color: var(--text-row);
+}
+.long-list-row.is-active {
+  background: var(--nav-selected);
+}
+.long-list-open {
+  display: block;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.long-list-name {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.long-list-name strong {
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.long-list-name span {
+  overflow: hidden;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: var(--font-size-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.long-list-used,
+.long-list-last {
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.long-list-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.long-list-status.is-error {
+  color: var(--error-text);
+}
+.long-list-status.is-warning {
+  color: var(--warning);
+}
+.long-list-status.is-ok {
+  color: var(--success);
+}
+.long-list-status.is-idle {
+  color: var(--text-meta);
+}
+.long-list-more {
+  justify-self: start;
+  margin: var(--space-1) var(--space-3) var(--space-2) 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+.long-list-group {
+  display: grid;
+}
+.long-list-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+}
+.long-list-empty h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.long-list-empty p {
+  margin: 0;
+  color: var(--text-meta);
+}
+.long-list-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-faint);
+}
+/* Beside the detail pane the list keeps name, use and status. */
+.connections-list-detail.has-detail .long-list-head,
+.connections-list-detail.has-detail .long-list-row {
+  grid-template-columns: 28px minmax(140px, 1fr) minmax(80px, 140px) 120px;
+}
+.connections-list-detail.has-detail .long-list-head > :nth-child(3),
+.connections-list-detail.has-detail .long-list-head > :nth-child(6),
+.connections-list-detail.has-detail .long-list-row .long-list-type,
+.connections-list-detail.has-detail .long-list-row .long-list-last {
+  display: none;
+}
+@media (max-width: 1150px) {
+  .long-list-head,
+  .long-list-row {
+    grid-template-columns: 28px minmax(140px, 1fr) minmax(90px, 140px) 120px;
+  }
+  .long-list-head > :nth-child(3),
+  .long-list-head > :nth-child(6),
+  .long-list-row .long-list-type,
+  .long-list-row .long-list-last {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .long-list-head,
+  .long-list-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+  .long-list-head > :nth-child(4),
+  .long-list-row .long-list-used,
+  .long-list-keys {
+    display: none;
+  }
+  .long-list-row,
+  .long-list-open,
+  .long-list-group-head,
+  .long-list-more {
+    min-height: var(--touch-target);
+  }
+  .long-list-check {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+}

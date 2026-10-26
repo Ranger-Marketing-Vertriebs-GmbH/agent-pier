@@ -9,7 +9,7 @@ test.use({ locale: "en-GB" });
 
 async function openNewEndpoint(page, preset = "llamacpp") {
   const controls = await fixture(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   await page
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
@@ -234,7 +234,7 @@ test.describe("German UI", () => {
   test.use({ locale: "de-DE" });
   test("the routing section is translated", async ({ page }) => {
     await fixture(page);
-    await page.goto(baseURL + "/accounts");
+    await page.goto(baseURL + "/connections?section=models");
     await page.getByRole("button", { name: /Provider-Zugang hinzufügen/ }).click();
     const dialog = accountDetail(page);
     await dialog.getByLabel("API-Anbieter", { exact: true }).selectOption("endpoint");

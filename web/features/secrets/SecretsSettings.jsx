@@ -12,8 +12,12 @@ import "./secrets.css";
 
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 
-/** Settings › Access › Secrets: values go to the server and never come back. */
-export default function SecretsSettings() {
+/**
+ * Zugänge › Geheimnisse: values go to the server and never come back. `usedBy(secret)`
+ * renders who uses the open secret; `emptyState` replaces the empty sentence; `onChanged`
+ * hears every create, edit and delete (to reload counts and usage).
+ */
+export default function SecretsSettings({ usedBy, emptyState, onChanged }) {
   const [secrets, setSecrets] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState("");
@@ -73,16 +77,19 @@ export default function SecretsSettings() {
     <div className="page secrets-page">
       <header className="secrets-heading">
         <p>{copy.notice}</p>
-        <button
-          type="button"
-          className="button primary"
-          ref={addButton}
-          disabled={!secrets}
-          onClick={() => select("new")}
-        >
-          <Icon name="plus" />
-          {copy.add}
-        </button>
+        {/* An empty list offers adding in its empty state. */}
+        {!(emptyState && secrets && !items.length && !detailId) && (
+          <button
+            type="button"
+            className="button primary"
+            ref={addButton}
+            disabled={!secrets}
+            onClick={() => select("new")}
+          >
+            <Icon name="plus" />
+            {copy.add}
+          </button>
+        )}
       </header>
       {error && (
         <div className="secrets-load-error">
@@ -97,7 +104,10 @@ export default function SecretsSettings() {
         </div>
       )}
       {!secrets && !error && <p role="status">{copy.loading}</p>}
-      {secrets && !items.length && !detailId && <p>{copy.empty}</p>}
+      {secrets &&
+        !items.length &&
+        !detailId &&
+        (emptyState ? emptyState(() => select("new")) : <p>{copy.empty}</p>)}
       {secrets && (
         <ListDetail
           className="secrets-list-detail"
@@ -116,26 +126,31 @@ export default function SecretsSettings() {
           )}
           detail={
             detailId ? (
-              <SecretForm
-                key={detailId}
-                secret={selected || null}
-                projects={owners}
-                focusHeading={detailId === createdId}
-                saved={(result) => {
-                  if (!selected) setCreatedId(result.id);
-                  setSecrets((current) => [
-                    ...current.filter((secret) => secret.id !== result.id),
-                    result,
-                  ]);
-                  setSelectedId(result.id);
-                }}
-                removed={(id) => {
-                  setSecrets((current) => current.filter((secret) => secret.id !== id));
-                  setSelectedId("");
-                  // The dialog's opener is gone; the add button keeps the focus.
-                  requestAnimationFrame(() => addButton.current?.focus());
-                }}
-              />
+              <>
+                <SecretForm
+                  key={detailId}
+                  secret={selected || null}
+                  projects={owners}
+                  focusHeading={detailId === createdId}
+                  saved={(result) => {
+                    if (!selected) setCreatedId(result.id);
+                    setSecrets((current) => [
+                      ...current.filter((secret) => secret.id !== result.id),
+                      result,
+                    ]);
+                    setSelectedId(result.id);
+                    onChanged?.();
+                  }}
+                  removed={(id) => {
+                    setSecrets((current) => current.filter((secret) => secret.id !== id));
+                    setSelectedId("");
+                    // The dialog's opener is gone; the add button keeps the focus.
+                    requestAnimationFrame(() => addButton.current?.focus());
+                    onChanged?.();
+                  }}
+                />
+                {selected && usedBy?.(selected)}
+              </>
             ) : (
               items.length > 0 && <p className="secrets-placeholder">{copy.choose}</p>
             )

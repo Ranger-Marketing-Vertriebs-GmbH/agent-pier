@@ -22,10 +22,10 @@ test("same-name projects expose their directories when choosing SSH ownership", 
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
   const labels = ["app · /first/app", "app · /second/app"];
-  await expect(
-    page.getByRole("combobox", { name: "Project filter" }).locator("option"),
-  ).toHaveText(["All owners", "Global", ...labels]);
   await openKey(page, "Deployment key");
+  await expect(
+    page.getByRole("combobox", { name: "Project", exact: true }).locator("option"),
+  ).toHaveText(["Project: all", "Global", ...labels]);
   await expect(card(page, "Deployment key")).toContainText(labels[0]);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
   await page.getByRole("combobox", { name: "Owner" }).selectOption({ label: labels[1] });
@@ -88,7 +88,7 @@ test("project filter scopes creation and host keys to the selected owner", async
   await page.goto(baseURL + "/settings/ssh");
 
   await page
-    .getByRole("combobox", { name: "Project filter" })
+    .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("project-app");
   await expect(page.getByRole("button", { name: "App host", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Docs host", exact: true })).toHaveCount(
@@ -219,7 +219,7 @@ test("missing project metadata never presents owned resources as global and rema
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
   await page
-    .getByRole("combobox", { name: "Project filter" })
+    .getByRole("combobox", { name: "Project", exact: true })
     .selectOption("missing-app");
   await expect(
     page.getByRole("button", { name: "Add access", exact: true }),

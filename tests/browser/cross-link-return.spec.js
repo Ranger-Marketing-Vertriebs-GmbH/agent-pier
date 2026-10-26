@@ -152,13 +152,13 @@ test.describe("cross-links on phones", () => {
     await openAccountItem(page, "ChatGPT for agents");
     await expect(page).toHaveURL(/item=chatgpt&returnTo=/);
     await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
-    await back(page, "Back").click();
+    await back(page, "Back to Model access").click();
     await expect(page).toHaveURL(/\/connections\?section=models&returnTo=/);
     await back(page, copy.en.backToAgent).click();
     await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   });
 
-  test("a hub reached later keeps the menu", async ({ page }) => {
+  test("a list reached later goes up to the categories", async ({ page }) => {
     await setup(page);
     await page.goto(baseURL + settingsPath("telegram"));
     await page.getByRole("link", { name: copy.en.speech }).click();
@@ -170,14 +170,15 @@ test.describe("cross-links on phones", () => {
         encodeURIComponent("/agents/home/settings?tab=telegram"),
     );
     await expect(page).toHaveURL(/\/connections\?section=services&returnTo=/);
-    await expect(page.getByRole("button", { name: copy.en.menu })).toBeVisible();
+    // On phones a category's list is a subpage of the categories.
+    await expect(back(page, "Connections")).toBeVisible();
     await expect(back(page, copy.en.backToAgent)).toHaveCount(0);
   });
 
   test("history moves recompute the landing page", async ({ page }) => {
     await setup(page);
     await page.goto(baseURL + "/accounts?section=services");
-    await expect(page.getByRole("button", { name: copy.en.menu })).toBeVisible();
+    await expect(back(page, "Connections")).toBeVisible();
     // Mounted without an origin, then moved through history onto a cross-link entry.
     await page.evaluate(
       (path) => {
@@ -211,7 +212,7 @@ test("chained cross-links lead back through every origin", async ({ page }) => {
   await panel.getByRole("link", { name: copy.en.runtime }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=/);
   await page.reload();
-  await back(page, "Back to Accounts").click();
+  await back(page, "Back to Connections").click();
   await expect(page).toHaveURL(/\/connections\?section=models&item=chatgpt&returnTo=/);
   await back(page, copy.en.backToAgent).click();
   await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);

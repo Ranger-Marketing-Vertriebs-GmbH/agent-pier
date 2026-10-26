@@ -12,8 +12,9 @@ test.use(phone);
 const pages = [
   ["workspace", "/"],
   ["agents", "/agents"],
-  ["accounts", "/accounts"],
-  ["accounts mcp", "/accounts?section=mcp-servers"],
+  ["connections", "/connections"],
+  ["connections mcp", "/connections?section=mcp-servers"],
+  ["connections ssh", "/connections?section=ssh"],
   ["projects", "/repositories"],
   ["files", "/files"],
   ["artifacts", "/artifacts"],

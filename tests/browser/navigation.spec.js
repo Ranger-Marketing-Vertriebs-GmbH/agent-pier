@@ -164,7 +164,7 @@ test("profile deep links and navigation survive reload and history", async ({ pa
   await navigateTo(page, "Projekte");
   await expect(page).toHaveURL(/\/projects$/);
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "Deine Accounts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zugänge", level: 1 })).toBeVisible();
 });
 for (const [path, message] of [
   ["/sessions/missing/chat", "Session nicht gefunden"],
@@ -190,7 +190,7 @@ test("legacy mobile session links normalize once and use the reader", async ({
   await expect(page.getByLabel("Chatverlauf")).toBeVisible();
 });
 for (const [path, heading] of [
-  ["/accounts", "Deine Accounts"],
+  ["/accounts", "Zugänge"],
   ["/repositories", "Projekte"],
   ["/agentbus", "Projekte"],
 ])

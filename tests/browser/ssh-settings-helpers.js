@@ -4,10 +4,10 @@ export const detail = (page, name) =>
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
 
 export async function showAccesses(page) {
-  await page.getByRole("tab", { name: /^(Zugänge|Accesses)\s/ }).click();
+  await page.getByRole("tab", { name: /^(Zugänge|Accesses)/ }).click();
 }
 export async function showKeys(page) {
-  await page.getByRole("tab", { name: /^(Schlüssel|Keys)\s/ }).click();
+  await page.getByRole("tab", { name: /^(Schlüssel|Keys)/ }).click();
 }
 export async function openAccess(page, name) {
   await showAccesses(page);

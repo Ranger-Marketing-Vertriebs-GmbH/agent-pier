@@ -76,7 +76,7 @@ test("the sandbox-profile selector is absent for a login launch", async ({ page 
   await page.route("**/api/accounts/*/auth-status", (route) =>
     route.fulfill({ json: { state: "unauthenticated", checkedAt: Date.now() } }),
   );
-  await page.goto(base + "/accounts");
+  await page.goto(base + "/coding/clis?tab=accounts");
   await openAccountItem(page, "Managed Codex");
   await accountDetail(page)
     .getByRole("button", { name: "Anmelden", exact: true })

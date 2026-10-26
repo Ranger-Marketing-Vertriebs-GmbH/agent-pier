@@ -36,7 +36,7 @@ test("a ready package offers its bundled skills and installs them after confirma
           json: listing([{ profileId: "local-claude", version: "1.0.0" }]),
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const skills = dialog.getByRole("region", { name: "Bundled skills" });
   await expect(skills.getByText("Reverse engineer a program.")).toBeVisible();
@@ -67,7 +67,7 @@ test("a ready package offers its bundled skills and installs them after confirma
 
 test("a package without bundled skills shows no skills section", async ({ page }) => {
   await packageSetup(page, { servers: [packagedServer("ready")] });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   await expect(dialog.getByRole("region", { name: "Package" })).toBeVisible();
   await expect(dialog.getByRole("region", { name: "Bundled skills" })).toHaveCount(0);
@@ -77,7 +77,7 @@ test("on a phone the bundled skills fit the width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await packageSetup(page, { servers: [packagedServer("ready")] });
   state.packageSkills = listing();
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   await expect(dialog.getByRole("region", { name: "Bundled skills" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -94,7 +94,7 @@ test("a refused install names the reason and shows the list as it is now", async
     state.packageSkills = listing([{ profileId: "local-codex", version: "1.0.0" }]);
     return { status: 409, json: { error: "This skill folder already exists." } };
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const skills = dialog.getByRole("region", { name: "Bundled skills" });
   await skills.getByRole("checkbox", { name: "reverse-it" }).check();

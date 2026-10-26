@@ -66,11 +66,10 @@ test("links inside one area, to other views or without an origin stay plain", ()
     accounts,
   );
   assert.equal(read("/accounts?section=models").returnTo, undefined);
-  // Zugänge models and SSH were two pages (Accounts, Settings): links keep returnTo.
-  assert.equal(
-    crossLinkRoute({ view: "connections", section: "ssh" }, accounts).returnTo,
-    "/connections?section=models",
-  );
+  // Zugänge is one page: a link from model access to SSH stays plain.
+  const ssh = { view: "connections", section: "ssh" };
+  assert.equal(crossLinkRoute(ssh, accounts), ssh);
+  assert.equal(crossLinkRoute(ssh, { view: "connections", section: "models" }), ssh);
   // An agent's own pages never carry returnTo, but its Runtime tab does.
   const agent = { view: "agents", assistantId: "home", agentSettings: true };
   assert.equal(crossLinkRoute(agent, accounts), agent);

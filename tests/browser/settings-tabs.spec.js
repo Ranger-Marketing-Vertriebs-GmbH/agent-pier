@@ -59,10 +59,24 @@ for (const locale of ["de-DE", "en-GB"]) {
       await expect(page).toHaveURL(/\/connections\?section=github$/);
       await expect(
         page.getByRole("heading", {
-          level: 1,
+          level: 2,
           name: t("GitHub-Zugänge", "GitHub connections"),
+          exact: true,
         }),
       ).toBeVisible();
+      // The counts the Access tab showed (3 SSH accesses, 1 GitHub profile) are in
+      // Zugänge's categories column.
+      const categories = page.getByRole("navigation", {
+        name: t("Kategorien", "Categories"),
+      });
+      await expect(
+        categories.getByRole("link", {
+          name: t(/^GitHub-Zugänge/, /^GitHub connections/),
+        }),
+      ).toContainText("1");
+      await expect(
+        categories.getByRole("link", { name: t(/^Geheimnisse/, /^Secrets/) }),
+      ).toContainText("2");
       await page.goto(baseURL + "/settings/remote");
       await expect(page).toHaveURL(/\/settings\/remote$/);
       await expect(

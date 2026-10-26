@@ -17,7 +17,6 @@ import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { connectionSummary } from "../provider-connections/connection-summary.js";
 import useAssistants from "../assistants/useAssistants.js";
 import { authOf } from "./useAccountAuthStates.js";
-import McpServersGroup from "./McpServersGroup.jsx";
 import AddLabel from "./AddLabel.jsx";
 import { itemRoute } from "./accounts-items.js";
 import { usageEntry, usageValue } from "./account-usage-view.js";
@@ -79,6 +78,10 @@ function NativeAccountRow({ account, auth, state, usage, selected, navigate }) {
   );
 }
 
+/**
+ * The entry lists of model access, services for agents (Zugänge) and native CLI
+ * accounts (Coding › Accounts); `groups` names the ones a page shows.
+ */
 export default function AccountsHub({
   state,
   data,
@@ -86,11 +89,8 @@ export default function AccountsHub({
   agentsEnabled,
   selected,
   navigate,
-  oauth,
-  oauthResult,
-  mcpNotice,
-  focusMcp,
   authStates,
+  groups = ["models", "services", "cli"],
 }) {
   const { runtime } = useAssistants();
   const ready = runtime.availability === "ready";
@@ -99,66 +99,66 @@ export default function AccountsHub({
   const row = { selected, navigate };
   const speech = assistantCopy.speech;
   const webSearch = assistantCopy.webSearch;
-  // An open MCP server shows the action feedback next to its buttons instead.
-  const mcpDetail = ["mcp-server", "mcp-new"].includes(selected?.kind);
   return (
     <div className="accounts-hub">
       <p className="accounts-intro">{hubCopy.intro}</p>
-      <HubGroup
-        title={hubCopy.groups.models}
-        hint={connectionCopy.description}
-        action={{
-          label: <AddLabel text={connectionCopy.add} />,
-          onClick: () => navigate(itemRoute("models", "new")),
-        }}
-      >
-        {(labelId) => (
-          <>
-            {agentsEnabled && <ErrorMessage error={data.chatgptError} />}
-            {!connections.length && (
-              <p className="accounts-note">{connectionCopy.empty}</p>
-            )}
-            <ListCard labelledBy={labelId}>
-              {connections.map((connection) => (
-                <ItemRow
-                  key={connection.id}
-                  section="models"
-                  id={connection.id}
-                  {...row}
-                  label={connection.name}
-                  sub={connectionSummary(connection).join(" · ")}
-                  value={usageValue(usageEntry(usage, "connection", connection.id))}
-                />
-              ))}
-              {agentsEnabled &&
-                (data.chatgpt || []).map((account) => (
+      {groups.includes("models") && (
+        <HubGroup
+          title={hubCopy.groups.models}
+          hint={connectionCopy.description}
+          action={{
+            label: <AddLabel text={connectionCopy.add} />,
+            onClick: () => navigate(itemRoute("models", "new")),
+          }}
+        >
+          {(labelId) => (
+            <>
+              {agentsEnabled && <ErrorMessage error={data.chatgptError} />}
+              {!connections.length && (
+                <p className="accounts-note">{connectionCopy.empty}</p>
+              )}
+              <ListCard labelledBy={labelId}>
+                {connections.map((connection) => (
                   <ItemRow
-                    key={account.id}
+                    key={connection.id}
                     section="models"
-                    id={account.id}
+                    id={connection.id}
                     {...row}
-                    label={account.name}
-                    sub={hubCopy.chatgptSub(
-                      assistantCopy.accountStatus[ready ? account.status : "offline"] ||
-                        assistantCopy.accountStatus.unknown,
-                    )}
-                    value={usageValue(usageEntry(usage, "chatgpt", account.id))}
+                    label={connection.name}
+                    sub={connectionSummary(connection).join(" · ")}
+                    value={usageValue(usageEntry(usage, "connection", connection.id))}
                   />
                 ))}
-              {agentsEnabled && (
-                <ItemRow
-                  section="models"
-                  id="chatgpt"
-                  {...row}
-                  label={assistantCopy.accountsTitle}
-                  sub={hubCopy.chatgptConnectSub}
-                />
-              )}
-            </ListCard>
-          </>
-        )}
-      </HubGroup>
-      {agentsEnabled && (
+                {agentsEnabled &&
+                  (data.chatgpt || []).map((account) => (
+                    <ItemRow
+                      key={account.id}
+                      section="models"
+                      id={account.id}
+                      {...row}
+                      label={account.name}
+                      sub={hubCopy.chatgptSub(
+                        assistantCopy.accountStatus[ready ? account.status : "offline"] ||
+                          assistantCopy.accountStatus.unknown,
+                      )}
+                      value={usageValue(usageEntry(usage, "chatgpt", account.id))}
+                    />
+                  ))}
+                {agentsEnabled && (
+                  <ItemRow
+                    section="models"
+                    id="chatgpt"
+                    {...row}
+                    label={assistantCopy.accountsTitle}
+                    sub={hubCopy.chatgptConnectSub}
+                  />
+                )}
+              </ListCard>
+            </>
+          )}
+        </HubGroup>
+      )}
+      {agentsEnabled && groups.includes("services") && (
         <HubGroup title={hubCopy.groups.services}>
           {(labelId) => (
             <>
@@ -209,40 +209,30 @@ export default function AccountsHub({
           )}
         </HubGroup>
       )}
-      <McpServersGroup
-        servers={data.mcpServers}
-        error={data.mcpError}
-        feedback={!mcpDetail}
-        notice={mcpNotice}
-        oauth={oauth}
-        oauthResult={oauthResult}
-        focus={focusMcp}
-        usage={usage}
-        selected={selected}
-        navigate={navigate}
-      />
-      <HubGroup
-        title={hubCopy.groups.cli}
-        action={{
-          label: <AddLabel text={commonCopy.addAccount} />,
-          onClick: () => navigate(itemRoute("cli", "new")),
-        }}
-      >
-        {(labelId) => (
-          <ListCard labelledBy={labelId}>
-            {accounts.map((account) => (
-              <NativeAccountRow
-                key={account.id}
-                account={account}
-                auth={authOf(authStates, account)}
-                state={state}
-                usage={usage}
-                {...row}
-              />
-            ))}
-          </ListCard>
-        )}
-      </HubGroup>
+      {groups.includes("cli") && (
+        <HubGroup
+          title={hubCopy.groups.cli}
+          action={{
+            label: <AddLabel text={commonCopy.addAccount} />,
+            onClick: () => navigate(itemRoute("cli", "new")),
+          }}
+        >
+          {(labelId) => (
+            <ListCard labelledBy={labelId}>
+              {accounts.map((account) => (
+                <NativeAccountRow
+                  key={account.id}
+                  account={account}
+                  auth={authOf(authStates, account)}
+                  state={state}
+                  usage={usage}
+                  {...row}
+                />
+              ))}
+            </ListCard>
+          )}
+        </HubGroup>
+      )}
     </div>
   );
 }

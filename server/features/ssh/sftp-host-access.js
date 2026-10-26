@@ -98,6 +98,7 @@ export async function updateSftp(store, id, input, previous) {
         : remoteRootValue(input.remoteRoot),
     hostKey,
     hostFingerprint: await fingerprint(hostKey, store.root, store.run),
+    updatedAt: new Date().toISOString(),
     credentialRevision:
       password !== undefined || auth !== stored.auth
         ? randomUUID()

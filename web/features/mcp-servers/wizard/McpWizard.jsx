@@ -96,7 +96,9 @@ export default function McpWizard({
     stays: (request) => {
       const next = screenOf(request.next);
       return (
-        next?.view === "accounts" && next.section === "mcp-servers" && next.item === "new"
+        ["accounts", "connections"].includes(next?.view) &&
+        next.section === "mcp-servers" &&
+        next.item === "new"
       );
     },
   });

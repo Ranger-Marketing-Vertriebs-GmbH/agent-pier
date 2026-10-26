@@ -31,8 +31,9 @@ import "./accounts-page.css";
 const ids = (list) => (list || []).map((item) => item.id);
 
 /**
- * Accounts: a hub of four groups (models, services for agents, MCP servers, native CLI
- * accounts); each entry opens as a subpage (phones) or in the detail pane (desktop).
+ * Native CLI accounts (Coding › Accounts until Coding has its own page; model access,
+ * services and MCP servers moved to Zugänge, ConnectionsPage.jsx); each entry opens
+ * as a subpage (phones) or in the detail pane (desktop).
  * Detail components receive DetailProps:
  * { entry, usage, agentsEnabled, state, data, refresh, navigate, act, oauth, mcpNotice,
  *   notifyMcp, authStates }.
@@ -168,11 +169,8 @@ export default function AccountsPage({
           agentsEnabled={agentsEnabled === true}
           selected={entry}
           navigate={navigate}
-          oauth={oauth}
-          oauthResult={route.mcpOAuth}
-          mcpNotice={mcpNotice}
-          focusMcp={route.section === "mcp-servers" && !route.item}
           authStates={authStates}
+          groups={["cli"]}
         />
         <div className="accounts-pane">
           {Detail ? (

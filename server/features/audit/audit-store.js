@@ -32,7 +32,7 @@ export class AuditStore {
       );
     return { ...event, id: String(result.lastInsertRowid) };
   }
-  list({ page = 1, action, outcome, sessionId, projectId, before } = {}) {
+  list({ page = 1, action, outcome, sessionId, projectId, resourceId, before } = {}) {
     page = auditInteger(page, "page", { min: 1, max: 100000 });
     const boundary =
       before === undefined
@@ -58,6 +58,11 @@ export class AuditStore {
         clauses.push(`${column}=?`);
         values.push(auditId(value));
       }
+    // One resource, e.g. a Zugänge entry ("Im Aktivitätsprotokoll").
+    if (resourceId) {
+      clauses.push("json_extract(document,'$.resourceId')=?");
+      values.push(auditId(resourceId));
+    }
     const where = clauses.join(" AND ");
     const total = this.db
       .prepare(`SELECT COUNT(*) AS count FROM events WHERE ${where}`)

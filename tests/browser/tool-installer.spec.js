@@ -231,7 +231,9 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "GitHub-Zugänge", exact: true }).click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
-  await expect(page.getByRole("heading", { name: "GitHub-Zugänge" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "GitHub-Zugänge", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(controls.state.sessions).toEqual([]);
   await navigateTo(page, "Übersicht");
@@ -239,7 +241,8 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
     .getByRole("button", { name: "GitHub-Zugänge", exact: true })
     .click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
-  await navigateTo(page, "Accounts");
+  // Native CLI accounts are under Coding; gh is no CLI account there either.
+  await page.goto(base + "/coding/clis?tab=accounts");
   await page.getByRole("button", { name: "Account hinzufügen", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Tool", exact: true })).toBeVisible();
   await expect(

@@ -109,7 +109,7 @@ test("provider account retains a blank key, rotates it, removes it and returns t
     provider: { id: "openrouter", modelId: "z-ai/glm-5.3" },
   };
   const controls = await fixture(page, { account });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   async function edit() {
     await openAccountItem(page, "Gateway");
     await expect(page.getByLabel("Anbietermodell", { exact: true })).toHaveValue(
@@ -288,7 +288,7 @@ test("provider cards expose stale catalog provenance and recover through refresh
       provider: { id: "openrouter", modelId: "z-ai/glm-5.3" },
     },
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   const card = (await openAccountItem(page, "Gateway card"))
     .locator("section.accounts-detail-group")
     .first();
@@ -327,7 +327,7 @@ test("renaming a running provider account does not submit a provider change", as
       cwd: "/fixture",
     },
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/coding/clis?tab=accounts");
   await openAccountItem(page, "Gateway");
   await page.getByLabel("Account-Name").fill("Renamed gateway");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
@@ -356,7 +356,7 @@ for (const unavailable of ["delisted", "unreachable"]) {
     });
     if (unavailable === "delisted") controls.catalogs.openrouter = [];
     else controls.failCatalog = true;
-    await page.goto(baseURL + "/accounts");
+    await page.goto(baseURL + "/coding/clis?tab=accounts");
     await openAccountItem(page, "Gateway");
     await page.getByLabel("Gespeicherten API-Key entfernen").check();
     const save = page.getByRole("button", { name: "Speichern", exact: true });

@@ -20,6 +20,7 @@ export default function AuditPage({ route, navigate }) {
     ["auditOutcome", "outcome"],
     ["sessionIdFilter", "sessionId"],
     ["projectIdFilter", "projectId"],
+    ["resourceIdFilter", "resourceId"],
     ["auditBefore", "before"],
   ])
     if (route[field]) query.set(name, route[field]);
@@ -29,12 +30,19 @@ export default function AuditPage({ route, navigate }) {
     pageCount = Math.max(1, Math.ceil((data?.total || 0) / (data?.pageSize || 25)));
   const [action, setAction] = useState(route.auditAction || ""),
     [session, setSession] = useState(route.sessionIdFilter || ""),
-    [project, setProject] = useState(route.projectIdFilter || "");
+    [project, setProject] = useState(route.projectIdFilter || ""),
+    [resourceFilter, setResourceFilter] = useState(route.resourceIdFilter || "");
   useEffect(() => {
     setAction(route.auditAction || "");
     setSession(route.sessionIdFilter || "");
     setProject(route.projectIdFilter || "");
-  }, [route.auditAction, route.sessionIdFilter, route.projectIdFilter]);
+    setResourceFilter(route.resourceIdFilter || "");
+  }, [
+    route.auditAction,
+    route.sessionIdFilter,
+    route.projectIdFilter,
+    route.resourceIdFilter,
+  ]);
   useEffect(() => {
     if (data && page > pageCount) navigate({ auditPage: pageCount }, true);
   }, [data, page, pageCount, navigate]);
@@ -49,6 +57,7 @@ export default function AuditPage({ route, navigate }) {
             auditAction: action,
             sessionIdFilter: session,
             projectIdFilter: project,
+            resourceIdFilter: resourceFilter,
             auditPage: 1,
             auditBefore: "",
           });
@@ -93,6 +102,14 @@ export default function AuditPage({ route, navigate }) {
             onChange={(event) => setProject(event.target.value)}
           />
         </label>
+        <label>
+          {copy.resourceId}
+          <input
+            maxLength={120}
+            value={resourceFilter}
+            onChange={(event) => setResourceFilter(event.target.value)}
+          />
+        </label>
         <button className="button secondary">{copy.filter}</button>
         <button
           type="button"
@@ -103,6 +120,7 @@ export default function AuditPage({ route, navigate }) {
               auditOutcome: "",
               sessionIdFilter: "",
               projectIdFilter: "",
+              resourceIdFilter: "",
               auditPage: 1,
               auditBefore: "",
             })

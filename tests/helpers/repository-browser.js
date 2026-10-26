@@ -109,6 +109,13 @@ export async function fixture(page) {
       repositories.projects.push(result);
     } else if (path === "/api/accounts/usage") {
       result = {};
+    } else if (
+      ["/api/ssh-accesses", "/api/ssh-keys", "/api/ssh-projects"].includes(path)
+    ) {
+      // Zugänge reads the SSH catalog for its counts.
+      result = { accesses: [], keys: [], projects: [] };
+    } else if (["/api/connections/usage", "/api/connections/problems"].includes(path)) {
+      result = null;
     } else if (path === "/api/settings/summary") {
       result = {
         access: { mcp: null, remote: null, ssh: null, github: null },

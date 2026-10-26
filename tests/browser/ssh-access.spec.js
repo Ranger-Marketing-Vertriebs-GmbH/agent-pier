@@ -104,7 +104,9 @@ test("endpoint edits invalidate confirmation and deletion requires confirmation"
   await expect(page.getByRole("alert")).toBeVisible();
   state.fail = false;
   await page.getByRole("button", { name: "Jetzt löschen", exact: true }).click();
-  await expect(page.getByText("Noch keine SSH-Zugänge vorhanden.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Noch keine SSH- oder SFTP-Zugänge" }),
+  ).toBeVisible();
 });
 
 test("English management supports explicit key import and manual copying fallback", async ({
@@ -124,7 +126,7 @@ test("English management supports explicit key import and manual copying fallbac
   });
   await page.goto(baseURL + "/settings/ssh");
   await expect(
-    page.getByRole("heading", { name: "SSH accesses", exact: true }),
+    page.getByRole("heading", { name: "SSH/SFTP accesses", exact: true }),
   ).toBeVisible();
   await showKeys(page);
   await page.getByRole("button", { name: "Add SSH key", exact: true }).click();

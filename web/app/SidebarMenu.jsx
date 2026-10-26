@@ -148,7 +148,7 @@ export default function SidebarMenu({
           icon: "users",
           label: commonCopy.accounts,
           ariaLabel: commonCopy.accounts,
-          active: view === "accounts",
+          active: view === "accounts" || view === "connections",
           onClick: () => page("accounts"),
           extra: (
             <span className="count">

@@ -17,3 +17,16 @@ export function sshLastUse(audit) {
     return null;
   }
 }
+
+/** Audit actions that record a change of a central MCP server ("last changed"). */
+export const mcpChangeActions = ["mcp.created", "mcp.updated"];
+
+/** Server id → ISO time of its newest create or edit; null when unreadable. */
+export function mcpLastChange(audit) {
+  if (!audit?.latestByResource) return null;
+  try {
+    return audit.latestByResource(mcpChangeActions);
+  } catch {
+    return null;
+  }
+}

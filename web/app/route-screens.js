@@ -1,9 +1,10 @@
 // Until the redesigned pages exist, the new areas are shown by today's pages. A route
-// of a new area (Zugänge, Coding, the agents hub's Runtime and Templates tabs) maps to
-// the route today's page understands, so every old and new address renders the same
-// content. Pages receive this route; the address keeps the new one.
+// of a new area (Coding, the agents hub's Runtime and Templates tabs) maps to the
+// route today's page understands, so every old and new address renders the same
+// content. Pages receive this route; the address keeps the new one. Zugänge has its
+// own page (web/features/connections/ConnectionsPage.jsx).
 import { readSettingsRoute } from "../features/operations/routes.js";
-import { accountConnectionSections } from "../features/connections/routes.js";
+import { canonicalRoute } from "./route-redirects.js";
 
 const settingsScreen = (section, route, fields = {}) => ({
   ...readSettingsRoute(`/settings/${section}`, ""),
@@ -14,15 +15,6 @@ const pick = (route, ...fields) =>
   Object.fromEntries(
     fields.filter((field) => route[field] !== undefined).map((f) => [f, route[f]]),
   );
-
-function connectionsScreen(route) {
-  if (route.section && !accountConnectionSections.includes(route.section))
-    return settingsScreen(route.section, route);
-  return {
-    view: "accounts",
-    ...pick(route, "section", "item", "step", "returnTo", "mcpOAuth"),
-  };
-}
 
 function codingScreen(route) {
   if (route.codingTab === "accounts")
@@ -56,9 +48,12 @@ function agentsScreen(route) {
   return { view: "agents" };
 }
 
-/** The route today's page renders for `route`; other routes are returned as they are. */
-export function screenRoute(route) {
-  if (route?.view === "connections") return connectionsScreen(route);
+/**
+ * The route today's page renders for `route`; other routes are returned as they are.
+ * A moved page's old route is first read as its new place.
+ */
+export function screenRoute(input) {
+  const route = input && canonicalRoute(input);
   if (route?.view === "coding") return codingScreen(route);
   if (route?.view === "agents") return agentsScreen(route);
   return route;

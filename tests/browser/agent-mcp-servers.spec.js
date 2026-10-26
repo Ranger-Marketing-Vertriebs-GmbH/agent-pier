@@ -250,7 +250,7 @@ for (const [label, use] of [
       page,
     }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const panel = page.getByRole("region", { name: "MCP servers" });
       await expect(panel.getByText("No MCP servers yet")).toBeVisible();
       const wizard = await openAdd(page);
@@ -302,7 +302,7 @@ for (const [label, use] of [
       page,
     }) => {
       const state = await setup(page);
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const wizard = await openAdd(page);
       await chooseSource(wizard, /Own command/);
       await wizard.getByLabel("Name", { exact: true }).fill("local");
@@ -402,7 +402,7 @@ for (const [label, use] of [
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(panel.getByText(notice)).toBeVisible();
       expect(state.bindings).toEqual(["s1"]);
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const settings = page.getByRole("region", { name: "MCP servers" });
       await openAccountItem(page, "more");
       await accountDetail(page).getByRole("button", { name: "Remove more" }).click();
@@ -479,7 +479,7 @@ for (const [label, use] of [
         envNames: [],
         revision: 1,
       });
-      await page.goto(baseURL + "/accounts");
+      await page.goto(baseURL + "/connections?section=mcp-servers");
       const insideAlert = () =>
         page.evaluate(() => !!document.activeElement?.closest('[role="alertdialog"]'));
       // Remove: focus enters, Tab stays inside, Escape cancels and focus returns.

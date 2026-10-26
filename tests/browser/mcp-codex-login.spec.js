@@ -92,7 +92,7 @@ test("each managed Codex account shows its login and logs in in a new tab", asyn
   await fakeTabs(page);
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   // The owner's own profile keeps the CLI's command.
@@ -136,7 +136,7 @@ test("a pending login can be cancelled", async ({ page }) => {
     servers: [codexServer([{ id: "a2", name: "Private", state: "pending" }])],
   });
   handleLogins(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
@@ -153,7 +153,7 @@ test("a refused tab offers the login page as a link", async ({ page }) => {
   await fakeTabs(page, { blocked: true });
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
@@ -179,7 +179,7 @@ test("over plain HTTP from the network only the CLI command is offered", async (
         json: { code: "plain-http-remote", error: "OAuth needs HTTPS." },
       }),
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
@@ -210,7 +210,7 @@ test("a login Codex cannot start shows its error and closes the tab", async ({
         },
       }),
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   await area
@@ -235,7 +235,7 @@ test("the callback's result names the account and the server", async ({ page }) 
 
 test("without managed accounts the area says so", async ({ page }) => {
   await setup(page, { servers: [codexServer([])] });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   await expect(
     page
@@ -277,7 +277,7 @@ test("a connected account can log in again, for a login revoked at the provider"
   await fakeTabs(page);
   const state = await setup(page, { servers: [codexServer()] });
   handleLogins(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex accounts for search" });
   const again = area.getByRole("button", {
@@ -299,7 +299,7 @@ test("German: erneut anmelden und Hinweis ohne HTTPS", async ({ page }) => {
     start: ({ route }) =>
       route.fulfill({ status: 409, json: { code: "plain-http-remote", error: "x" } }),
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "search");
   const area = page.getByRole("group", { name: "Codex-Accounts für search" });
   await area

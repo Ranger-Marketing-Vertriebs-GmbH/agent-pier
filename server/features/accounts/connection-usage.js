@@ -1,7 +1,7 @@
 import { sshFromLead } from "../assistants/assistant-access.js";
 import { inheritsFromLead } from "../assistants/native-capabilities.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
-import { sshLastUse, sshLastUseCovers } from "./connection-last-use.js";
+import { mcpLastChange, sshLastUse, sshLastUseCovers } from "./connection-last-use.js";
 
 // "Used by" for the shared credentials in Zugänge: SSH/SFTP hosts, secrets and GitHub
 // token profiles (docs/settings-pattern.md). Like account-usage.js, agent data is read
@@ -108,6 +108,8 @@ export async function connectionUsageSources(services) {
     projects: safe(() => services.repositories?.listProjects(), []),
     sessions: sessionHoldings(services, sessions, hosts, secrets),
     lastUse: sshLastUse(services.audit),
+    mcpServers: safe(() => services.mcpServerChanges?.list(), []),
+    mcpChanges: mcpLastChange(services.audit),
     agents,
     access,
     hooks,
@@ -204,6 +206,19 @@ export function summarizeConnectionUsage(sources) {
         leadId: agent.parentAssistantId ?? null,
       });
   }
+  // MCP servers keep no change time: the newest create or edit in the audit stands in.
+  const mcp = sources.mcpServers
+    ? Object.fromEntries(
+        sources.mcpServers.map((server) => [
+          server.id,
+          {
+            changedAt: sources.mcpChanges
+              ? sources.mcpChanges.get(server.id) || null
+              : null,
+          },
+        ]),
+      )
+    : null;
   return {
     agentsEnabled: sources.agentsEnabled,
     // What `ssh[id].lastUsedAt` covers (connection-last-use.js); null if unreadable.
@@ -211,6 +226,7 @@ export function summarizeConnectionUsage(sources) {
     ssh,
     secrets,
     github,
+    mcp,
   };
 }
 

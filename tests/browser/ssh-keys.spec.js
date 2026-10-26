@@ -50,7 +50,9 @@ test("named keys are created independently, renamed and reused by two hosts", as
       )
       .check();
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(card(page, name)).toBeVisible();
+    // On phones the new access opens as its own page.
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await page.getByRole("button", { name: "Back to SSH/SFTP accesses" }).click();
   }
   expect(state.accesses.map((a) => a.keyId)).toEqual([
     state.keys[0].id,
@@ -76,18 +78,18 @@ test("named keys are created independently, renamed and reused by two hosts", as
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await showAccesses(page);
   await expect(
-    page.locator(".ssh-resource-row").filter({ hasText: "Build host" }),
+    page.locator(".long-list-row").filter({ hasText: "Build host" }),
   ).toContainText("Renamed shared key");
   await expect(
-    page.locator(".ssh-resource-row").filter({ hasText: "Production host" }),
+    page.locator(".long-list-row").filter({ hasText: "Production host" }),
   ).toContainText("Renamed shared key");
+  // On phones an access opens as its own page; Verwalten deletes it.
   for (const name of ["Build host", "Production host"]) {
     await openAccess(page, name);
-    await card(page, name).getByRole("button", { name: "Delete", exact: true }).click();
-    await card(page, name)
-      .getByRole("button", { name: "Delete now", exact: true })
-      .click();
-    await expect(card(page, name)).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page.getByRole("button", { name: "Delete now", exact: true }).click();
+    await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
   }
   await openKey(page, "Renamed shared key");
   await expect(
@@ -177,9 +179,11 @@ test("the empty access list's Add SSH key button opens the key form", async ({
   state.keys = [];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/ssh");
-  await expect(page.getByText("No SSH accesses yet.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "No SSH or SFTP accesses yet", exact: true }),
+  ).toBeVisible();
   await page
-    .locator(".ssh-empty")
+    .locator(".connections-empty")
     .getByRole("button", { name: "Add SSH key", exact: true })
     .click();
   await expect(page.getByLabel("Name", { exact: true })).toBeVisible();

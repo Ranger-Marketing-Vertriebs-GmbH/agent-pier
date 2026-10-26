@@ -71,6 +71,7 @@ export function readSettingsRoute(pathname, search) {
       : "",
     sessionIdFilter: (query.get("sessionId") || "").slice(0, 80),
     projectIdFilter: (query.get("projectId") || "").slice(0, 80),
+    resourceIdFilter: (query.get("resourceId") || "").slice(0, 120),
     auditBefore: /^[1-9]\d{0,18}$/.test(before) ? before : "",
     operationId: identity.test(job) ? job : "",
   };
@@ -95,6 +96,7 @@ export function settingsRoutePath(route) {
       ["auditOutcome", "outcome"],
       ["sessionIdFilter", "sessionId"],
       ["projectIdFilter", "projectId"],
+      ["resourceIdFilter", "resourceId"],
       ["auditBefore", "before"],
     ])
       if (route[field]) query.set(name, route[field]);

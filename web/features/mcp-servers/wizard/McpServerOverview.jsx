@@ -41,8 +41,12 @@ function StepCard({ title, lines, onChange }) {
   );
 }
 
-/** A saved server: its live status, one card per wizard step, package, users, Remove. */
+/**
+ * A saved server: its live status, one card per wizard step, package, users, Remove.
+ * `usedBy` replaces the read-only "Benutzt von" (Zugänge grants and revokes there).
+ */
 export default function McpServerOverview({
+  usedBy,
   entry,
   usage,
   agentsEnabled,
@@ -162,7 +166,9 @@ export default function McpServerOverview({
           onChange={() => open("connect")}
         />
       </div>
-      <UsedByGroup usage={usage} agentsEnabled={agentsEnabled} navigate={navigate} />
+      {usedBy ?? (
+        <UsedByGroup usage={usage} agentsEnabled={agentsEnabled} navigate={navigate} />
+      )}
     </AccountDetail>
   );
 }

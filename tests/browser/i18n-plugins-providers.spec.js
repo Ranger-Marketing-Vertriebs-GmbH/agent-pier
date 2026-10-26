@@ -143,7 +143,7 @@ test("English provider picker supports translated search, empty results and keyb
       provider: { id: "zai-coding-plan", modelId: "legacy-model" },
     },
   });
-  await page.goto("/accounts");
+  await page.goto("/coding/clis?tab=accounts");
   await openAccountItem(page, "Gateway account");
   await page.getByLabel("API provider", { exact: true }).selectOption("openrouter");
   const model = page.getByLabel("Provider model", { exact: true });

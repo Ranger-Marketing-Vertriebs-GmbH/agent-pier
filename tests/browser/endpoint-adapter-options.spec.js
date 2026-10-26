@@ -32,7 +32,7 @@ const APPLIED = "Adapter options updated with the test suggestions.";
 
 async function openEndpoint(page, { preset = "llamacpp", labels = ENGLISH } = {}) {
   const controls = await fixture(page);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=models");
   await page.getByRole("button", { name: labels.add, exact: true }).click();
   const dialog = accountDetail(page);
   await dialog.getByLabel(labels.provider, { exact: true }).selectOption("endpoint");

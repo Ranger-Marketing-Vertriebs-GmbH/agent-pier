@@ -216,8 +216,14 @@ export function readRoute(location) {
 // name the page that renders a route (`screenRoute`): Zugänge and Coding act as the
 // Accounts and settings pages they come from, the agents hub's Runtime tab as the
 // agent service settings.
-const returnOrigins = new Set(["agents", "settings", "extensions", "accounts"]);
-const returnTargets = new Set(["settings", "accounts", "artifacts"]);
+const returnOrigins = new Set([
+  "agents",
+  "settings",
+  "extensions",
+  "accounts",
+  "connections",
+]);
+const returnTargets = new Set(["settings", "accounts", "connections", "artifacts"]);
 const artifactReturnOrigins = new Set(["workspace"]);
 const originsFor = (view) =>
   view === "artifacts" ? artifactReturnOrigins : returnOrigins;

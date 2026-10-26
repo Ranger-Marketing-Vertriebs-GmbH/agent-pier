@@ -27,7 +27,7 @@ test("an edit draft stays only on the same entry and the same step", () => {
 });
 
 test("an entry without a step stays on routes without a step", () => {
-  const plain = { section: "providers", item: "p-1" };
+  const plain = { section: "models", item: "p-1" };
   assert.equal(staysOnEntry(plain, next(plain)), true);
   assert.equal(staysOnEntry(plain, next({ ...plain, step: "settings" })), false);
 });

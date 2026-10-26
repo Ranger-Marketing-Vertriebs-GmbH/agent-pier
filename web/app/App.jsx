@@ -32,6 +32,7 @@ const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"))
 const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
 const Settings = lazy(() => import("../features/settings/SettingsPage.jsx"));
 const AccountsPage = lazy(() => import("../features/accounts/AccountsPage.jsx"));
+const ConnectionsPage = lazy(() => import("../features/connections/ConnectionsPage.jsx"));
 const SessionWorkspace = lazy(() => import("../features/sessions/SessionWorkspace.jsx"));
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
@@ -317,6 +318,19 @@ function Application() {
                     cwd,
                   })
                 }
+              />
+            ) : view === "connections" ? (
+              <ConnectionsPage
+                {...{
+                  refresh,
+                  state,
+                  ready,
+                  act,
+                  route,
+                  onNavigate: navigate,
+                  openNavigation,
+                  navigationOpen: mobileNav,
+                }}
               />
             ) : view === "accounts" ? (
               <AccountsPage

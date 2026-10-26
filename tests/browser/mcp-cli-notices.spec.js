@@ -77,7 +77,7 @@ test("a find with environment references stays in the CLI and says why", async (
       },
     ],
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(
@@ -99,7 +99,7 @@ test("the finds keep their heading while loading and after a failed load", async
     await held;
     return route.fulfill({ status: 500, json: { error: "Finds unavailable." } });
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(
@@ -138,7 +138,7 @@ test("an adoption reloads the finds once and confirms what was adopted", async (
     state.servers.push(...adopted);
     return route.fulfill({ json: { adopted, failed: [] } });
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await expect(found.getByRole("button", { name: "Adopt all" })).toBeVisible();
@@ -174,7 +174,7 @@ test("the finds reload after an adoption even when the list fails to reload", as
       json: { adopted: [header({ name: body.names.k1 })], failed: [] },
     });
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await openAccountItem(page, "Found in the CLIs");
   const found = page.getByRole("region", { name: "Found in the CLIs" });
   await settledFindLoads(page, state, 1);

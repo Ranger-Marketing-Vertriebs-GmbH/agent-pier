@@ -22,7 +22,7 @@ test("installing an npm package previews, confirms once and shows progress", asy
 }) => {
   const state = await packageSetup(page);
   acceptCreate(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await choosePackage(wizard);
   await expect(wizard.getByRole("textbox", { name: /^Command/ })).toHaveCount(0);
@@ -74,7 +74,7 @@ test("a package with several programs lets the confirmation choose one", async (
   const state = await packageSetup(page);
   state.preview = preview({ programs: ["server-x", "server-x-cli"] });
   acceptCreate(state);
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await choosePackage(wizard);
   await wizard.getByLabel("Package", { exact: true }).fill("server-x");
@@ -89,7 +89,7 @@ test("a package with several programs lets the confirmation choose one", async (
 test("allowing scripts warns in the form and in the confirmation", async ({ page }) => {
   const state = await packageSetup(page);
   state.preview = preview({ needsScripts: true });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await choosePackage(wizard);
   await wizard.getByLabel("Package", { exact: true }).fill("server-x");
@@ -126,7 +126,7 @@ test("an unknown package or an unreachable registry is named at the version", as
       messageKey: "mcpPackages.notFound",
     },
   };
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const wizard = await openAdd(page);
   await choosePackage(wizard);
   await wizard.getByLabel("Package", { exact: true }).fill("no-such-server");
@@ -171,7 +171,7 @@ test("an update shows the lock diff before it is confirmed", async ({ page }) =>
           json: { job: { kind: "update", state: "running", code: null, log: "" } },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await expect(panel.getByRole("status").filter({ hasText: "Installed" })).toBeVisible();
@@ -223,7 +223,7 @@ test("an update to a version that renamed its only program names the rename", as
           json: { job: { kind: "update", state: "running", code: null, log: "" } },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await panel.getByRole("button", { name: "Check update" }).click();
@@ -258,7 +258,7 @@ test("on a phone the package panel and its update confirmation fit the width", a
       changed: [{ name: "helper", path: "helper", from: "0.9.0", to: "1.0.0" }],
     },
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await panel.getByRole("button", { name: "Check update" }).click();
@@ -371,7 +371,7 @@ test("German: a failed package shows its error, log and Reinstall; bindings wait
           json: { job: { kind: "reinstall", state: "running", code: null, log: "" } },
         }
       : null;
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Paket" });
   await expect(
@@ -409,7 +409,7 @@ test("German: a failed package shows its error, log and Reinstall; bindings wait
 
 test("German: the wizard offers the package source", async ({ page }) => {
   await packageSetup(page, { language: "de" });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   await page
     .getByRole("region", { name: "MCP-Server" })
     .getByRole("button", { name: "MCP-Server hinzufügen" })
@@ -431,7 +431,7 @@ test("cancelling the update confirmation returns focus to Check update", async (
 }) => {
   const state = await packageSetup(page, { servers: [packagedServer("ready")] });
   state.preview = preview({ diff: { added: [], removed: [], changed: [] } });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
   await panel.getByRole("button", { name: "Check update" }).click();
@@ -466,7 +466,7 @@ test("a new package name clears the chosen version until its list loads", async 
     await held;
     await route.fulfill({ json: state.versions });
   });
-  await page.goto(baseURL + "/accounts");
+  await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAdd(page);
   await choosePackage(dialog);
   await dialog.getByLabel("Package", { exact: true }).fill("server-x");

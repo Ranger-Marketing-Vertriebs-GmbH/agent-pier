@@ -93,18 +93,28 @@ test("the server serves the app document for every new area address", () => {
 
 test("new areas render today's pages until they have their own", () => {
   const screen = (path) => screenRoute(read(path));
-  assert.deepEqual(screen("/connections"), { view: "accounts" });
+  // Zugänge has its own page for every category.
+  assert.deepEqual(screen("/connections"), { view: "connections" });
   assert.deepEqual(screen("/connections?section=models&item=c1"), {
-    view: "accounts",
+    view: "connections",
     section: "models",
     item: "c1",
   });
   for (const section of ["ssh", "secrets", "github"]) {
     const page = screen(`/connections?section=${section}&returnTo=%2Fagents`);
-    assert.equal(page.view, "settings");
-    assert.equal(page.settingsSection, section);
+    assert.equal(page.view, "connections");
+    assert.equal(page.section, section);
     assert.equal(page.returnTo, "/agents");
   }
+  // Old routes pages still build are read as their new place.
+  assert.deepEqual(screenRoute({ view: "accounts", section: "mcp-servers" }), {
+    view: "connections",
+    section: "mcp-servers",
+  });
+  assert.equal(
+    screenRoute({ view: "settings", settingsSection: "ssh" }).view,
+    "connections",
+  );
   const mcp = screen("/coding/clis?tab=mcp&authorization=auth_one&cli=claude&page=2");
   assert.equal(mcp.settingsSection, "mcp");
   assert.equal(mcp.mcpAuthorization, "auth_one");
@@ -135,9 +145,13 @@ test("new areas render today's pages until they have their own", () => {
   assert.equal(screenRoute(files), files);
   // Guards compare old and new routes as the same page.
   assert.deepEqual(screenOf({ view: "accounts", section: "models" }), {
-    view: "accounts",
+    view: "connections",
     section: "models",
   });
-  assert.equal(screenOf({ view: "settings", settingsSection: "ssh" }).view, "settings");
+  assert.deepEqual(screenOf({ view: "accounts", section: "cli", item: "a1" }), {
+    view: "accounts",
+    section: "cli",
+    item: "a1",
+  });
   assert.equal(screenOf(null), null);
 });
