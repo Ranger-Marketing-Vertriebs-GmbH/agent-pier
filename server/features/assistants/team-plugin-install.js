@@ -15,6 +15,7 @@ const files = [
   "chat-title.js",
   "tool-guard.js",
   "dreams-guard.js",
+  "file-urls.js",
   "patch-paths.js",
   "exec-processes.js",
   "background-commands.js",

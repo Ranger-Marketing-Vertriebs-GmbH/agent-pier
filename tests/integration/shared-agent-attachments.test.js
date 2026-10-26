@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { run, shareFixture } from "../helpers/agent-share-fixture.js";
 import {
   attachmentCall,
@@ -73,6 +74,13 @@ test("a turn on a shared agent reads only its own chat's uploads", async (t) => 
   assert.equal(await f.call(f.chat, "read", { path: own }), undefined);
   assert.equal(await f.call(f.chat, "pdf", { pdf: own }), undefined);
   assert.equal(await f.call(f.chat, "read", { path: "notes.md" }), undefined);
+  // OpenClaw decodes a file: URL (%61 is "a", %2E is "."), so the guard does too.
+  const url = (file) =>
+    pathToFileURL(path.join(f.workspaces, f.agent.id, file)).href.replace(
+      "/attachments/",
+      "/%61ttachments/",
+    );
+  assert.equal(await f.call(f.chat, "read", { path: url(own) }), undefined);
   for (const [tool, params] of [
     ["read", { path: hers }],
     ["read", { file_path: `./${hers}` }],
@@ -80,6 +88,9 @@ test("a turn on a shared agent reads only its own chat's uploads", async (t) => 
     ["read", { path: path.join(f.workspaces, f.agent.id, hers) }],
     ["read", { path: "memory/../attachments/20261021-bbbb-passport.pdf" }],
     ["read", { path: "attachments" }],
+    ["read", { path: url(hers) }],
+    ["read", { path: url(hers).replace("/%61t", "/memory/%2E%2E/%61t") }],
+    ["pdf", { pdfs: [url(own), url(hers)] }],
     ["pdf", { pdfs: [own, hers] }],
     ["image", { image: hers }],
     ["view_image", { path: hers }],
