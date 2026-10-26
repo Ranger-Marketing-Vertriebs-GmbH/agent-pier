@@ -71,7 +71,8 @@ cross-version migration, and other operating systems remain outside this contrac
 
 Two contracts (variable `AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME`) pin memory-core's
 dreaming on OpenClaw 2026.10.7 with the compiled native configuration and the
-owner's switch on (see the [gateway guide](assistant-gateway.md#dreaming)):
+owner's switch on, and a third pins it on the rollback targets (see the
+[gateway guide](assistant-gateway.md#dreaming)):
 
 - `tests/integration/assistant-dreaming-contract.test.js`: the compiled default
   schedules no sweep; switched on, a forced sweep takes each agent's own chats into
@@ -85,6 +86,12 @@ owner's switch on (see the [gateway guide](assistant-gateway.md#dreaming)):
   blocks it nor opens agent sessions; the managed schedule fires without `cron.run`
   under the hardened heartbeat; under a symlinked data directory the sweep writes no
   corpus (macOS only).
+- `tests/integration/assistant-dreaming-rollback-cross-version.test.js`
+  (`AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME`, run by the cross-version job for each
+  rollback target): on the predecessor runtime the compiled section is accepted, the
+  managed job follows the switch, a live hour change and the switch-off without a
+  Gateway restart, a forced sweep keeps each agent to its own chats, and a deleted
+  chat leaves the corpus and stays out of later runs.
 
 The archived transcript copy OpenClaw keeps after a deletion
 (`session_transcript_archives` and the `.jsonl.deleted.*` files) is purged before the

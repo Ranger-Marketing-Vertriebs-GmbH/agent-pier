@@ -27,6 +27,12 @@ export const dreamingOn = {
 };
 const modelIds = ["fixture-model", "orchid-model", "fern-model", "task-model"];
 
+/** The OpenClaw version installed in a runtime root. */
+export const openClawVersion = (root) =>
+  JSON.parse(
+    fs.readFileSync(path.join(root, "app/node_modules/openclaw/package.json"), "utf8"),
+  ).version;
+
 /** Every regular file below `dir` as { relative path: content }. */
 export function snapshot(dir) {
   const files = {};
@@ -55,17 +61,17 @@ export const changed = (before, after) =>
  * The data directory is resolved; `resolve: false` reaches it through a symbolic link
  * of its own, on every platform (as macOS's /var -> /private/var would).
  */
-export async function nativeFixture(t, { resolve = true } = {}) {
-  assert.ok(path.isAbsolute(installed));
+export async function nativeFixture(t, { resolve = true, root = installed } = {}) {
+  assert.ok(path.isAbsolute(root));
   const real = fs.mkdtempSync(
     path.join(fs.realpathSync(os.tmpdir()), "assistant-dreaming-contract-"),
   );
   const dataDir = resolve ? real : `${real}-link`;
   if (!resolve) fs.symlinkSync(real, dataDir, "dir");
   const descriptor = {
-    version: runtimeManifest.version,
-    nodePath: path.join(installed, "node/bin/node"),
-    entryPath: path.join(installed, "app/node_modules/openclaw/openclaw.mjs"),
+    version: root === installed ? runtimeManifest.version : openClawVersion(root),
+    nodePath: path.join(root, "node/bin/node"),
+    entryPath: path.join(root, "app/node_modules/openclaw/openclaw.mjs"),
   };
   const runtime = new RuntimeSupervisor({ dataDir, install: async () => descriptor });
   const store = new AssistantStore({ dataDir });
