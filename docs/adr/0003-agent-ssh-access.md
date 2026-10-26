@@ -86,3 +86,39 @@ console reports no exit status; the audit row records `interactive: true`. Promp
 detection is a heuristic (see docs/ssh-access.md), so an agent judges success from the
 output. The switch is part of the host's connection revision, so changing it cancels
 pending approvals for that host.
+
+## Amendment 2026-10-26: agents propose SSH accesses, the owner confirms them
+
+The owner wants an agent to ask for access to a new server itself instead of the owner
+setting up the access first (AGENTPIER-249). Agents still get no key or host
+management; they may only **propose** an access, like a hook proposal:
+
+- A bridge tool `agentpier_ssh_access` (actions `propose` and `status`) of the
+  `agentpier-teams` plugin, compiled for own agents and permanent members, never for
+  temporary members or user agents and never in routine or hook runs. Only a direct
+  owner turn (web or Telegram, not forwarded, not a goal continuation) may propose;
+  agents with a Telegram bot for other people are refused, as for grants. At most two
+  proposals wait per agent and five are made per hour, failed scans included.
+- Name, host, port, remote user, purpose and an optional project are checked like the
+  owner's own host (no value can reach `ssh` or `ssh-keyscan` as an option). AgentPier
+  scans the host key and stores it with the proposal as an unverified observation;
+  nothing else is written. The owner's card (chat, Inbox, paired Telegram) shows the
+  fingerprint and asks him to verify it through a trusted channel.
+- Only his approval writes, through the SSH catalog's own paths: a managed key (or a
+  key of the proposal's project he picks in the browser), the host pinned to the
+  scanned key with the provenance **user verification**, and a grant for the
+  proposing agent in mode `approval` (or the mode he picks; Telegram approves the
+  defaults). The host key is read again first: a changed key fails the proposal and
+  needs a new one. The grant keeps the approval revision, so other pending approvals
+  stay valid; a grant that cannot be written removes the new host and key again.
+- The public key is shown to the owner and handed to the agent in a follow-up turn
+  (`ssh-access-result`, attributed data that never counts as an owner request); the
+  owner installs it. There is no password bootstrap and no automatic key install.
+  Declined and expired proposals leave nothing behind.
+- Audit: `ssh.proposed`, `ssh.accepted`, `ssh.denied`, `ssh.expired`, `ssh.failed` with
+  agent and proposal ids, access id, mode or a code; never the purpose, the host key
+  or a key.
+- Consequence: an agent steered by content it read in the owner's turn can ask for
+  access to a host the owner did not mean; the owner's card, his fingerprint check
+  and the default `approval` mode are the safeguards. AgentPier scanning a host on an
+  agent's request reveals only the host's public key and whether it answers SSH.

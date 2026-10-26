@@ -4292,6 +4292,20 @@ returns each hook's id, name, sender, state, the rights it holds now and its
 addresses. The agent never receives a secret or its hash. See
 [agent hooks](assistant-workflows.md#agent-hooks).
 
+## SSH access proposals (2026-10-26, AGENTPIER-249)
+
+`agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and
+permanent members (`goalAgent` in `profileTools`), locked for user agents and never in a
+routine's or a hook run's `toolsAllow`. `invokeSshAccess` (`agent-ssh-proposals.js`)
+admits only a direct owner turn (`SSH_PROPOSAL_OWNER_ONLY`) of an agent without a
+Telegram bot for other people (`SSH_PROPOSAL_UNAVAILABLE`), validates the endpoint like
+the SSH catalog, limits proposals (`SSH_PROPOSAL_LIMIT`), scans the host key and
+reserves an `ssh_access` approval action. The owner's decision may carry `keyId` and
+`mode` from the browser only (`decisionKeys`); approving registers the host through
+`ssh-verified-host.js` and grants it with `AssistantAccess.grantSsh`. The outcome
+reaches the agent once as an `ssh-access-result` turn. See
+[SSH accesses](ssh-access.md#proposals-from-agents).
+
 ## Live agent chat feed
 
 `/api/assistant-conversations/<id>/stream?cursor=<cursor>` is a WebSocket behind the

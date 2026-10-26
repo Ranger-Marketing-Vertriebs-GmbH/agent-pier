@@ -48,7 +48,8 @@ and agents that work as a team.
   ([MCP](docs/mcp.md)).
 - **SSH and SFTP:** SSH and SFTP hosts with a pinned host key (SFTP with a password
   or a key) that coding CLIs and agents use, with approvals for changes and deletes,
-  whole-folder transfers, syncs and live activity rows ([SSH](docs/ssh-access.md),
+  whole-folder transfers, syncs and live activity rows; agents can propose a new SSH
+  access that you confirm after checking its host key ([SSH](docs/ssh-access.md),
   [SFTP](docs/sftp-access.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
