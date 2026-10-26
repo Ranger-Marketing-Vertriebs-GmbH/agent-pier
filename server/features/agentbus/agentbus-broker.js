@@ -10,6 +10,7 @@ import {
   sendBudgetRefusal,
 } from "./agentbus-send-budget.js";
 import { resolveAgentBusProcess } from "./agentbus-process.js";
+import { permissionClass } from "./agentbus-permission-class.js";
 import {
   registerPeer,
   trustedPeers,
@@ -240,11 +241,24 @@ export class AgentBusBroker {
       if (this.closed || current.record.generation !== target.brokerGeneration)
         return false;
     }
+    let fromMode;
+    if (target.runtime === "claude") {
+      // A mismatched or bypass-vs-missing class makes Claude Code hold the wake.
+      const sender = await interrupted(
+        Promise.resolve()
+          .then(() => this.bus.sessions.get(from.agentpierSessionId))
+          .catch(() => null),
+        signal,
+      );
+      if (this.closed || signal.aborted) return false;
+      fromMode = permissionClass(sender);
+    }
     if (!trustedPeers(ctx.h).some((peer) => peer.alive && samePeer(peer, target)))
       return false;
     if (!this.bus.queue(ctx.h).summary(target.key).count) return false;
     return trustedNudge(ctx.h, target, text, from.name, {
       signal,
+      fromMode,
       exec: (command, args, options) =>
         new Promise((resolve, reject) => {
           execFile(
