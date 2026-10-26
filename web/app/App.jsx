@@ -235,6 +235,11 @@ function Application() {
                   <AgentsPage
                     route={route}
                     navigate={navigate}
+                    subagentProfiles={
+                      ready
+                        ? Boolean(state.sharedCliExtensions && extensionProfileId)
+                        : null
+                    }
                     openNavigation={openNavigation}
                     navigationOpen={mobileNav}
                   />
@@ -321,10 +326,7 @@ function Application() {
                     openNavigation,
                     navigationOpen: mobileNav,
                   }}
-                  profileId={
-                    route.profileId ||
-                    (address.view === "agents" ? extensionProfileId : "")
-                  }
+                  profileId={route.profileId || ""}
                 />
               ) : view === "projects" ? (
                 <ProjectsPage

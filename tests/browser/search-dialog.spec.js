@@ -159,6 +159,43 @@ test("⌘K finds areas, tabs, agents, old names and actions and navigates by key
   await expect(page.getByRole("dialog", { name: "Neue Session" })).toBeVisible();
 });
 
+test("hub tabs and Runtime groups open their place", async ({ page }) => {
+  await agentsOn(page);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto(baseURL + "/projects");
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await openWithShortcut(page);
+  await field(page).fill("Vorlagen");
+  await expect(options(page).first()).toContainText("Agenten › Vorlagen");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/agents\?tab=templates$/);
+  await expect(page.getByRole("tab", { name: /^Vorlagen/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  for (const [query, address, heading] of [
+    [
+      "Erweitert · für alle Agenten",
+      /\/agents\?tab=runtime&section=advanced$/,
+      "Erweitert · für alle Agenten",
+    ],
+    [
+      "Installierte Abhängigkeiten der Agenten",
+      /\/agents\?tab=runtime&section=storage$/,
+      "Speicher",
+    ],
+  ]) {
+    await openWithShortcut(page);
+    await field(page).fill(query);
+    await expect(options(page).first()).toContainText("Agenten › Laufzeit");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(address);
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true }),
+    ).toBeInViewport();
+  }
+});
+
 test("Escape closes the search and returns the focus; the sidebar button opens it", async ({
   page,
 }) => {
@@ -288,6 +325,9 @@ test.describe("phone", () => {
     page,
   }) => {
     await page.goto(baseURL + "/projects");
+    // The page draws its own header once loaded; until then the app's mobile header
+    // (hidden afterwards) holds a button of the same name.
+    await page.getByRole("heading", { name: "Projekte", level: 1 }).waitFor();
     await page.getByRole("button", { name: "Navigation öffnen", exact: true }).click();
     const drawer = page.locator(".sidebar");
     await expect(drawer).toHaveClass(/open/);

@@ -217,7 +217,7 @@ for (const [label, use] of [
         return route.fulfill({ json: { id: "fresh", revision: 2 } });
       });
       await page.goto(baseURL + "/agents");
-      await page.getByRole("link", { name: "New agent" }).click();
+      await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
       await wizardToIdentity(page);
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");

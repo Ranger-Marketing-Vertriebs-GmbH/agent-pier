@@ -19,6 +19,9 @@ export const settingsHubCopy = {
   mcpClients: (count) =>
     count === 1 ? "1 verbundener Client" : `${count} verbundene Clients`,
   mcpUnavailable: "Nicht verfügbar",
+  // Gruppe „Funktionen“ im Tab Allgemein: Agenten schaltet Agenten › Laufzeit.
+  featuresGroup: "Funktionen",
+  featureAgentsSub: "Ein- und ausschalten unter Agenten › Laufzeit",
   // Gruppe „Umgezogen“ im Tab Allgemein (für zwei Versionen).
   movedGroup: "Umgezogen",
   movedHint:

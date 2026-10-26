@@ -406,7 +406,7 @@ test("creating an agent opens its settings without asking", async ({ page }) => 
     await route.fulfill({ status: 201, json: state.assistants.at(-1) });
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: "New agent" }).click();
+  await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
   await wizardToIdentity(page);
   await page.getByLabel("Name", { exact: true }).fill("Fresh");
   await page.getByLabel("Model connection").selectOption({ label: "Router" });

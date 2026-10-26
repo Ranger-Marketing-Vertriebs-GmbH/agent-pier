@@ -34,6 +34,12 @@ import "../../dashboard/storage-cleanup.css";
 
 import { useRuntimeGuard } from "./RuntimeOff.jsx";
 
+// The groups a `section=` link scrolls to.
+const sectionIds = {
+  advanced: "agents-runtime-advanced",
+  storage: "agents-runtime-storage",
+};
+
 function useAdvancedSettings() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -124,19 +130,21 @@ export function RuntimeOn({ frame, feature, section }) {
       .find(Boolean) ||
     "";
   const restart = draft.confirmation?.kind === "restart" ? draft.confirmation : null;
-  // `section=advanced` scrolls to the group once it is there, once per link.
+  // `section=advanced|storage` scrolls to the group once the advanced values above
+  // it have loaded (or failed), once per link.
   const scrolled = useRef(false);
+  const advancedSettled = Boolean(advanced.data || advanced.error);
   useEffect(() => {
-    if (section !== "advanced") {
+    if (!sectionIds[section]) {
       scrolled.current = false;
       return;
     }
-    if (scrolled.current || !advanced.data) return;
+    if (scrolled.current || !advancedSettled) return;
     scrolled.current = true;
     document
-      .getElementById("agents-runtime-advanced")
+      .getElementById(sectionIds[section])
       ?.scrollIntoView({ block: "start", behavior: "auto" });
-  }, [section, advanced.data]);
+  }, [section, advancedSettled]);
   const teamId = useId();
   // Only the host capacity changed: the bar names the team settings, as before.
   const teamOnly =
@@ -189,7 +197,7 @@ export function RuntimeOn({ frame, feature, section }) {
         disabled={draft.saving}
       />
       <ErrorMessage error={fieldError} />
-      <section aria-labelledby={`${teamId}-storage`}>
+      <section id={sectionIds.storage} aria-labelledby={`${teamId}-storage`}>
         <GroupLabel id={`${teamId}-storage`}>{copy.runtime.storage}</GroupLabel>
         <CleanupGroup id="dependencies" List={CleanupDependencies} />
       </section>

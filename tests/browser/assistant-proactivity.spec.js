@@ -131,7 +131,7 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
 test("the wizard offers check-ins once the agent remembers", async ({ page }) => {
   await setup(page, { channel: connectedChannel() });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: "New agent" }).click();
+  await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
   await wizardToIdentity(page);
   await page.getByLabel("Name", { exact: true }).fill("Fresh");
   await page.getByLabel("Model connection").selectOption({ index: 1 });

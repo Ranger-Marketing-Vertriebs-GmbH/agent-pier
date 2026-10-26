@@ -260,6 +260,8 @@ export const assistantCopy = {
   agentsGroup: "Agenten",
   sidebarOffline:
     "Verbindung unterbrochen. Angezeigt werden die zuletzt bekannten Agenten.",
+  // Agentendienst gestoppt: Zeilen der Seitenleiste gedimmt mit „offline“.
+  sidebarServiceOffline: "offline",
   feature: {
     title: "Agenten aktivieren",
     description:

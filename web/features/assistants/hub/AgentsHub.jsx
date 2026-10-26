@@ -13,6 +13,8 @@ import TemplatesTab from "./TemplatesTab.jsx";
 /**
  * Agenten (handoff 5.2) while agents are on: Alle Agenten, Teams, Vorlagen and
  * Laufzeit, deep-linked by `tab=`. The Runtime tab honours a cross-link's `returnTo`.
+ * `subagentProfiles`: whether a shared CLI profile exists for Coding › Unteragenten
+ * (null while unknown).
  */
 export default function AgentsHub({
   route,
@@ -21,6 +23,7 @@ export default function AgentsHub({
   navigationOpen,
   onOpen,
   error,
+  subagentProfiles = null,
 }) {
   const feature = useAssistantFeature();
   const { assistants, teams } = useAssistants();
@@ -42,7 +45,11 @@ export default function AgentsHub({
       {tab === "teams" ? (
         <HubTeamsTab navigate={navigate} />
       ) : tab === "templates" ? (
-        <TemplatesTab navigate={navigate} onTotal={setTemplates} />
+        <TemplatesTab
+          navigate={navigate}
+          onTotal={setTemplates}
+          subagentProfiles={subagentProfiles}
+        />
       ) : (
         <AllAgentsTab
           navigate={navigate}

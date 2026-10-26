@@ -2,8 +2,11 @@ import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fix
 import { fixture } from "./providers-fixture.js";
 
 // A lead agent with a running four-member team, an open proposal and its team policy.
-export async function setup(page) {
-  await fixture(page);
+// `options` go to the providers fixture (e.g. an account); `runtime` is the agent
+// service state the page reads, changeable before it loads.
+export async function setup(page, options = {}) {
+  const controls = await fixture(page, options);
+  const runtime = { availability: "ready", sync: "current" };
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const parent = {
     id: "home",
@@ -107,8 +110,7 @@ export async function setup(page) {
         policies: { home: policy },
         teamSettings,
       };
-    else if (p === "/api/assistant-runtime")
-      body = { availability: "ready", sync: "current" };
+    else if (p === "/api/assistant-runtime") body = runtime;
     else if (p.endsWith("/messages")) {
       body = {
         messages: history.messages,
@@ -171,5 +173,15 @@ export async function setup(page) {
     }
     await route.fulfill({ json: body });
   });
-  return { members, posted, policy, teamSettings, teams, assistants, history };
+  return {
+    members,
+    posted,
+    policy,
+    teamSettings,
+    teams,
+    assistants,
+    history,
+    controls,
+    runtime,
+  };
 }

@@ -72,8 +72,12 @@ function link(route, navigate) {
   };
 }
 
-/** One entry's preview: description, scan verdict, source, revision and license. */
-function TemplatePreview({ preview, onClose, navigate }) {
+/**
+ * One entry's preview: description, scan verdict, source, revision and license.
+ * Installing as a subagent needs a shared CLI profile (Coding › Unteragenten exists
+ * only then); without one the action is disabled and says why.
+ */
+function TemplatePreview({ preview, onClose, navigate, subagentProfiles }) {
   const blocked = preview.verdict === "block";
   return (
     <SidePanel
@@ -84,12 +88,25 @@ function TemplatePreview({ preview, onClose, navigate }) {
       footer={
         blocked ? null : (
           <>
-            <a
-              className="button secondary"
-              {...link(subagentInstallRoute(preview), navigate)}
-            >
-              {copy().installSubagent}
-            </a>
+            {subagentProfiles ? (
+              <a
+                className="button secondary"
+                {...link(subagentInstallRoute(preview), navigate)}
+              >
+                {copy().installSubagent}
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="button secondary"
+                disabled
+                aria-describedby={
+                  subagentProfiles === false ? "template-subagent-reason" : undefined
+                }
+              >
+                {copy().installSubagent}
+              </button>
+            )}
             <a
               className="button primary"
               {...link(templateAgentRoute(preview), navigate)}
@@ -110,6 +127,11 @@ function TemplatePreview({ preview, onClose, navigate }) {
         </ListCard>
         <TemplateNote template={preview} findings={preview.findings} />
         {blocked && <ErrorMessage error={copy().blocked} />}
+        {!blocked && subagentProfiles === false && (
+          <p className="field-description" id="template-subagent-reason">
+            {copy().noSubagentProfiles}
+          </p>
+        )}
         <p className="field-description">{copy().installedNote}</p>
         <pre>{preview.instructions}</pre>
       </div>
@@ -123,7 +145,7 @@ function TemplatePreview({ preview, onClose, navigate }) {
  * "Persönlichen Agenten anlegen" and "Als Unteragent in CLI installieren …";
  * a blocked entry offers neither.
  */
-export default function TemplatesTab({ navigate, onTotal }) {
+export default function TemplatesTab({ navigate, onTotal, subagentProfiles = null }) {
   const catalog = useCatalog();
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -235,6 +257,7 @@ export default function TemplatesTab({ navigate, onTotal }) {
         <TemplatePreview
           preview={preview}
           navigate={navigate}
+          subagentProfiles={subagentProfiles}
           onClose={() => setPreview(null)}
         />
       )}

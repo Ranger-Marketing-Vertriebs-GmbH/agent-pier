@@ -72,9 +72,10 @@ test("the hub's tabs render, count and deep-link", async ({ page }) => {
   }
   await tab(page, "All agents").click();
   await expect(page).toHaveURL(/\/agents$/);
-  await page.getByRole("link", { name: "From template" }).click();
+  await page.getByRole("main").getByRole("link", { name: "From template" }).click();
   await expect(page).toHaveURL(/\/agents\?tab=templates$/);
-  await page.getByRole("link", { name: "New agent" }).click();
+  // The hub's own "New agent" (the sidebar head offers one too).
+  await page.getByRole("main").getByRole("link", { name: "New agent" }).click();
   await expect(page).toHaveURL(/\/agents\?new=1$/);
 });
 
@@ -96,7 +97,10 @@ test("the Teams tab shows every lead's teams with their actions", async ({ page 
 });
 
 test("templates offer both uses; a blocked entry offers none", async ({ page }) => {
-  await setup(page);
+  const { controls } = await setup(page, {
+    account: { id: "local-codex", name: "Codex", tool: "codex", kind: "local" },
+  });
+  controls.state.sharedCliExtensions = true;
   await catalog(page);
   await page.goto(baseURL + "/agents?tab=templates");
   await page.getByRole("button", { name: /^SRE/ }).click();
@@ -106,10 +110,9 @@ test("templates offer both uses; a blocked entry offers none", async ({ page }) 
   await expect(preview).toContainText("MIT license");
   await expect(
     preview.getByRole("link", { name: "Install as subagent in a CLI …" }),
-    // Coding › Unteragenten reads `install=<entry>` once that page knows it.
   ).toHaveAttribute(
     "href",
-    /^\/coding\/clis\/extensions\?tab=subagents(&install=engineering__sre)?$/,
+    "/coding/clis/extensions?tab=subagents&install=engineering__sre",
   );
   await preview.getByRole("link", { name: "Create personal agent" }).click();
   await expect(page).toHaveURL(
@@ -125,6 +128,40 @@ test("templates offer both uses; a blocked entry offers none", async ({ page }) 
   await expect(
     blocked.getByRole("link", { name: "Install as subagent in a CLI …" }),
   ).toHaveCount(0);
+});
+
+test("without a shared CLI profile, installing as a subagent says why", async ({
+  page,
+}) => {
+  await setup(page);
+  await catalog(page);
+  await page.goto(baseURL + "/agents?tab=templates");
+  await page.getByRole("button", { name: /^SRE/ }).click();
+  const preview = page.getByRole("dialog", { name: "SRE" });
+  const install = preview.getByRole("button", { name: "Install as subagent in a CLI …" });
+  await expect(install).toBeDisabled();
+  await expect(install).toHaveAccessibleDescription(
+    "Subagents can be installed once an account for Codex, Claude Code or OpenCode is set up.",
+  );
+  await expect(
+    preview.getByRole("link", { name: "Install as subagent in a CLI …" }),
+  ).toHaveCount(0);
+  await expect(
+    preview.getByRole("link", { name: "Create personal agent" }),
+  ).toBeVisible();
+});
+
+test("Runtime's section links scroll to advanced values and storage", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto(baseURL + "/agents?tab=runtime&section=storage");
+  await expect(page.getByRole("heading", { name: "Storage" })).toBeInViewport();
+  await page.goto(baseURL + "/agents?tab=runtime&section=advanced");
+  await expect(
+    page.getByRole("heading", { name: "Advanced · for all agents" }),
+  ).toBeInViewport();
 });
 
 test("Runtime holds the agent service, updates, teams, dreaming, advanced and storage", async ({

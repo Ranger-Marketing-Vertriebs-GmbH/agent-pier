@@ -214,6 +214,11 @@ test("with agents off, Agenten leads to the page that turns them on", async ({
   await entry(page, "Agenten").click();
   await expect(page).toHaveURL(/\/agents$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Agenten/);
+  // The hub's off state (handoff 5.10), not a page of its own.
+  await expect(page.getByText("Agenten sind ausgeschaltet")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Agenten aktivieren", exact: true }),
+  ).toBeVisible();
 });
 
 test("with agents on, the hint names a ready update or a stopped service", async ({
@@ -236,6 +241,29 @@ test("with agents on, the hint names a ready update or a stopped service", async
   await expect(entry(page, "Agenten").locator(".sidebar-menu-hint")).toHaveText(
     "Dienst gestoppt",
   );
+  // The sidebar dims its agents as "offline" and warns on the group head (5.10).
+  const group = page.locator(".assistant-chats-group");
+  await expect(group.locator(".assistant-sidebar-down")).toBeVisible();
+  await expect(group.locator(".assistant-sidebar-item")).toContainText("offline");
+  await expect(
+    group.getByRole("img", { name: "Agentendienst läuft nicht" }),
+  ).toBeVisible();
+  // The entry leads to the hub with the stopped banner.
+  await entry(page, "Agenten").click();
+  await expect(page).toHaveURL(/\/agents$/);
+  await expect(page.getByText(/^Der Agentendienst läuft nicht\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dienst starten" })).toBeVisible();
+});
+
+test("with the agent service running, the sidebar's agents are not dimmed", async ({
+  page,
+}) => {
+  await agentsOn(page, { update: false });
+  await page.goto(baseURL);
+  const group = page.locator(".assistant-chats-group");
+  await expect(group.locator(".assistant-sidebar-item")).toContainText("Scout");
+  await expect(group.locator(".assistant-sidebar-down")).toHaveCount(0);
+  await expect(group.locator(".sidebar-group-warning")).toHaveCount(0);
 });
 
 test("the sidebar head and the group heads offer their icon buttons", async ({
@@ -279,8 +307,13 @@ test("the sidebar head and the group heads offer their icon buttons", async ({
   ).toHaveAttribute("href", "/coding/clis");
   await agents.getByRole("link", { name: "Alle Agenten verwalten" }).click();
   await expect(page).toHaveURL(/\/agents$/);
+  await expect(page.getByRole("tab", { name: /^Alle Agenten/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await agents.getByRole("link", { name: "Neuer Agent" }).click();
   await expect(page).toHaveURL(/\/agents\?new=1$/);
+  await expect(page.getByRole("heading", { name: "Womit starten?" })).toBeVisible();
   await sessions.getByRole("link", { name: "CLIs und Erweiterungen" }).click();
   await expect(page).toHaveURL(/\/coding\/clis$/);
   await sessions.getByRole("button", { name: "Neue Session" }).click();

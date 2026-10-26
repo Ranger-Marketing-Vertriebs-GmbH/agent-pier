@@ -6,7 +6,10 @@ import { withLanguage } from "../lib/i18n/index.js";
 import { sidebarCopy } from "../lib/i18n/messages/app.js";
 import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
+import { assistantDreamingCopy } from "../lib/i18n/messages/assistant-dreaming.js";
 import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.js";
+import { assistantTeamCopy } from "../lib/i18n/messages/assistant-team.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
@@ -19,7 +22,8 @@ import { operationsCopy } from "../lib/i18n/messages/operations.js";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { pipelineQueueCopy } from "../lib/i18n/messages/pipeline-queue.js";
 import { searchCopy } from "../lib/i18n/messages/search.js";
-import { settingsPageCopy } from "../lib/i18n/messages/settings.js";
+import { settingsHubCopy, settingsPageCopy } from "../lib/i18n/messages/settings.js";
+import { systemStatusCopy } from "../lib/i18n/messages/system-status.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
 import {
   agentPageAllowed,
@@ -87,6 +91,26 @@ const pipelinesRoute = (pipelineTab) => ({
   projectId: "",
   pipelineStatus: "",
 });
+// Laufzeit's groups under the names the tab shows; `section` scrolls to a group.
+const runtimeGroups = [
+  ["feature", () => assistantCopy.feature.title, ["agentsFeature"]],
+  ["service", () => agentsHubCopy.runtime.service, ["agentService"]],
+  ["updates", () => assistantCopy.updates.title],
+  ["members", () => assistantTeamCopy.capacity],
+  ["dreaming", () => assistantDreamingCopy.title],
+  [
+    "advanced",
+    () => agentsHubCopy.runtime.advanced,
+    ["agentServiceAdvanced"],
+    "advanced",
+  ],
+  [
+    "storage",
+    () => agentsHubCopy.runtime.storage,
+    [() => systemStatusCopy.cleanup.dependencies.title],
+    "storage",
+  ],
+];
 const extensionTabLabels = {
   skills: () => extensionsHubCopy.tabSkills,
   plugins: () => extensionsHubCopy.tabPlugins,
@@ -109,7 +133,7 @@ export function pageEntries() {
   const inbox = [bilingual(text.inbox)];
   const pipelines = [bilingual(text.pipelines)];
   const agents = [bilingual(text.agents)];
-  const runtime = [...agents, bilingual(() => searchCopy.hubTabs.runtime)];
+  const runtime = [...agents, bilingual(() => agentsHubCopy.tabs.runtime)];
   const clis = [bilingual(text.clis)];
   const extensions = [...clis, bilingual(() => codingPageCopy.tabs.extensions)];
   const connections = [bilingual(text.connections)];
@@ -146,7 +170,7 @@ export function pageEntries() {
     ...["all", "teams", "templates", "runtime"].map((tab) =>
       pageEntry(
         `agents-${tab}`,
-        () => searchCopy.hubTabs[tab],
+        () => agentsHubCopy.tabs[tab],
         agents,
         { route: agentsHubRoute(tab) },
         {
@@ -158,26 +182,15 @@ export function pageEntries() {
         },
       ),
     ),
-    ...[
-      "feature",
-      "service",
-      "updates",
-      "members",
-      "dreaming",
-      "advanced",
-      "storage",
-    ].map((group) =>
+    ...runtimeGroups.map(([group, label, aliases = [], section = ""]) =>
       pageEntry(
         `runtime-${group}`,
-        () => searchCopy.runtimeGroups[group],
+        label,
         runtime,
-        { route: agentsHubRoute("runtime", group === "advanced" ? "advanced" : "") },
+        { route: agentsHubRoute("runtime", section) },
         {
           agentsOnly: true,
-          aliases: {
-            feature: [alias("agentsFeature")],
-            advanced: [alias("agentServiceAdvanced")],
-          }[group],
+          aliases: aliases.map((name) => (typeof name === "string" ? alias(name) : name)),
         },
       ),
     ),
@@ -266,6 +279,7 @@ export function pageEntries() {
       ["directory", () => settingsPageCopy.settingsFormFieldLabel],
       ["resume", () => settingsPageCopy.autoResumeLabel],
       ["mcp-directory", () => mcpDirectoryCopy.settingsTitle],
+      ["features", () => settingsHubCopy.featuresGroup],
     ].map(([id, label]) =>
       pageEntry(`settings-general-${id}`, label, general, {
         route: settingsRoute("general"),
