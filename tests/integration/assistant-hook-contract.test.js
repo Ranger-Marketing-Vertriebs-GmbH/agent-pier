@@ -126,8 +126,10 @@ test(
     f.assistants.requireReady = () => assert.ok(runtime.client?.ready);
     f.assistants.admit = (fn) => Promise.resolve().then(fn);
     // No project, SSH or folder grants: the hook's ceiling is the agent's own tools.
+    // A granted secret comes later (the Secrets section below).
+    const grants = { projectIds: [], sshAccesses: [] };
     f.assistants.workflows = {
-      access: { get: () => ({ projectIds: [], sshAccesses: [] }), sshHosts: () => [] },
+      access: { get: () => grants, sshHosts: () => [] },
       folders: { ownAndShared: () => ({}) },
     };
     const audits = [];
@@ -422,5 +424,82 @@ test(
     const audit = audits.find((a) => a.details?.kind === "hook-delivery");
     assert.equal(audit?.details.outcome, "accepted");
     assert.ok(!json(audits).includes(marker));
+
+    // Secrets (AGENTPIER-243). A hook run without Secrets and without shell, coding
+    // or MCP keeps the agent's secrets file in place for its other chats; the tool
+    // guard refuses that run's own read of it (team-plugin/secrets-guard.js, the
+    // bridge's /secrets-policy). A hook with Secrets reads it like a chat does.
+    grants.secretIds = ["contract-secret"];
+    const secretsFile = path.join(
+      runtime.paths.workspaces,
+      id,
+      ".agentpier",
+      "secrets.env",
+    );
+    const seeded =
+      "# Managed by AgentPier. Do not edit; changes are overwritten.\nCONTRACT_TOKEN='fixture'\n";
+    fs.mkdirSync(path.dirname(secretsFile), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(secretsFile, seeded, { mode: 0o600 });
+    const readMarker = "HOOK_SECRETS_CONTRACT";
+    model.reply = (request) => {
+      if (!json(request.messages).includes(readMarker)) return { text: "Chat reply." };
+      if (!stepped(request))
+        return { tool: { name: "read", arguments: { path: ".agentpier/secrets.env" } } };
+      return { text: "SECRETS_DONE" };
+    };
+    // One event of a hook with the given rights; the read's tool result.
+    const readThrough = async (name, rights, eventId) => {
+      const { hook: reader } = hooks.create(id, { name, sender: "vault01", rights });
+      const stored = hooks.store.get(reader.id);
+      const body = json({ id: eventId, alert: `${readMarker} ${eventId}` });
+      const from = model.requests.length;
+      const answer = await hooks.deliver(stored, {
+        text: body,
+        json: JSON.parse(body),
+        contentType: "application/json",
+        size: Buffer.byteLength(body),
+        headers: {},
+        source: "local",
+      });
+      assert.equal(answer.status, 202, `${name} accepted`);
+      const started = hooks.events.find(stored.id, eventId);
+      const [readerJob] = (await reminders.jobs(null)).filter(
+        (j) => j.declarationKey === `agentpier-hook:${started.id}`,
+      );
+      assert.ok(readerJob.payload.toolsAllow.includes("read"), `${name} may read`);
+      for (const tool of ["exec", "process", "agentpier_workspace", "*__*"])
+        assert.ok(!readerJob.payload.toolsAllow.includes(tool), `${name} has no ${tool}`);
+      const done = await until(
+        () => {
+          const now = hooks.events.get(started.id);
+          return ["done", "failed"].includes(now.status) && now;
+        },
+        90000,
+        `the ${name} event did not settle`,
+      );
+      assert.equal(done.status, "done", `${name} settled`);
+      const answered = model.requests
+        .slice(from)
+        .filter((r) => json(r.messages).includes(readMarker) && stepped(r))
+        .at(-1);
+      const result = answered?.messages.filter((m) => m.role === "tool").at(-1);
+      return { event: started, text: content(result) || json(result?.content ?? "") };
+    };
+    const closed = await readThrough("Reader", { notify: false, memory: true }, "s-1");
+    t.diagnostic(`read without Secrets=${json(closed.text.slice(0, 300))}`);
+    assert.equal(closed.event.secretsRead, false);
+    assert.equal(closed.event.secretsWithheld, undefined, "no shell: the file stays");
+    assert.match(closed.text, /secrets are not available in this run/);
+    assert.doesNotMatch(closed.text, /CONTRACT_TOKEN/);
+    assert.equal(fs.readFileSync(secretsFile, "utf8"), seeded, "the file stayed");
+    const open = await readThrough(
+      "Vault",
+      { notify: false, memory: true, secrets: true },
+      "s-2",
+    );
+    t.diagnostic(`read with Secrets=${json(open.text.slice(0, 300))}`);
+    assert.equal(open.event.secretsRead, true);
+    assert.match(open.text, /# Managed by AgentPier\./, "a hook with Secrets reads it");
+    assert.match(open.text, /CONTRACT_TOKEN='/);
   },
 );

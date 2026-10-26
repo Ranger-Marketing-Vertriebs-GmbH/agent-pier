@@ -382,7 +382,10 @@ for the implementation and remaining native platform/version qualification.
   reply is committed), and AgentPier's chat view never shows the prompt or payload. A
   background command the run started exits after the event settled without
   starting a completion turn: the cron run session keeps no transcript, and the
-  bridge would refuse any shell call of such a turn (`hookLockedTool`).
+  bridge would refuse any shell call of such a turn (`hookLockedTool`). A hook run
+  without **Secrets**, shell, coding or MCP gets the secrets refusal for its `read` of
+  `.agentpier/secrets.env` while the file stays in place; a hook with **Secrets**
+  reads it (values masked).
 - **Approvals are audited.** Every approval, decline and withdrawal of an action
   (memory change, coding start, member coding request) is recorded with its actor,
   source and outcome.
