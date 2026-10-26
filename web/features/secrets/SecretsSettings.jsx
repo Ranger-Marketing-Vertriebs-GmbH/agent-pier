@@ -8,6 +8,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { secretsCopy as copy } from "../../lib/i18n/messages/secrets.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import SecretForm from "./SecretForm.jsx";
+import { usePageAction } from "../../app/page-action.js";
 import "./secrets.css";
 
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
@@ -60,6 +61,8 @@ export default function SecretsSettings({ usedBy, emptyState, onChanged }) {
       ? projectCopy.projectLocation(project.name, project.cwd || project.id)
       : project.name,
   }));
+  // ⌘K "Geheimnis hinzufügen" opens the empty form once the list is there.
+  usePageAction("secret-add", () => select("new"), Boolean(secrets));
   const missing = (secrets || [])
     .map((secret) => secret.projectId)
     .filter(

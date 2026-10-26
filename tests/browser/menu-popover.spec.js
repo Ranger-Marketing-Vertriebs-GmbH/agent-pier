@@ -260,13 +260,11 @@ test("the sidebar head and the group heads offer their icon buttons", async ({
     "Menü",
     "AgentPier Startseite",
   ]);
-  // The search button asks the app to open the search (the dialog comes later).
-  await page.evaluate(() => {
-    window.searchRequests = 0;
-    window.addEventListener("agentpier:open-search", () => window.searchRequests++);
-  });
+  // The search button opens the ⌘K search (search-dialog.spec.js covers it in full).
   await head.getByRole("button", { name: "Suchen (⌘K)" }).click();
-  expect(await page.evaluate(() => window.searchRequests)).toBe(1);
+  await expect(page.getByRole("dialog", { name: "Suchen" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Suchen" })).toHaveCount(0);
   const agents = page.locator(".assistant-chats-group .sidebar-group-actions");
   await expect(
     agents.getByRole("link", { name: "Alle Agenten verwalten" }),
@@ -352,7 +350,7 @@ test.describe("phone drawer", () => {
     await trigger(page).click();
     const menu = popover(page);
     await expect(menu).toBeVisible();
-    // Search is the first row and asks the app to open the search.
+    // Search is the first row and opens the search.
     const first = menu.locator("button").first();
     await expect(first).toHaveText("Suchen");
     await expect(first).toBeFocused();
@@ -362,13 +360,12 @@ test.describe("phone drawer", () => {
     expect(box.x - aside.x).toBeLessThanOrEqual(12);
     expect(aside.x + aside.width - (box.x + box.width)).toBeLessThanOrEqual(12);
     expect(box.y + box.height).toBeLessThanOrEqual(844);
-    await page.evaluate(() => {
-      window.searchRequests = 0;
-      window.addEventListener("agentpier:open-search", () => window.searchRequests++);
-    });
     await first.click();
     await expect(menu).toBeHidden();
-    expect(await page.evaluate(() => window.searchRequests)).toBe(1);
+    await expect(page.getByRole("dialog", { name: "Suchen" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Suchen" })).toHaveCount(0);
+    await expect(drawer).toHaveClass(/open/);
     // Escape closes the menu first, then the drawer.
     await trigger(page).click();
     await page.keyboard.press("Escape");

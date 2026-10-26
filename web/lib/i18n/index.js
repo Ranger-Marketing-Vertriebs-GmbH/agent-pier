@@ -57,6 +57,22 @@ export function subscribeLanguage(listener) {
 export function getLanguage() {
   return language;
 }
+/**
+ * Runs `read` with the catalogs answering in `lang`, without telling subscribers: the
+ * ⌘K search reads every label in German and English so both stay searchable. `read`
+ * must be synchronous; the previous language is restored afterwards.
+ */
+export function withLanguage(lang, read) {
+  if (lang !== "de" && lang !== "en") throw new Error("Unsupported language");
+  const previous = [language, locale];
+  language = lang;
+  locale = lang === "de" ? "de-DE" : "en-US";
+  try {
+    return read();
+  } finally {
+    [language, locale] = previous;
+  }
+}
 export function initializeLanguage(browser = globalThis.window) {
   if (!browser) return () => {};
   let saved;

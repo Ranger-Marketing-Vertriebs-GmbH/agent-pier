@@ -9,6 +9,7 @@ import ErrorMessage from "../components/ErrorMessage.jsx";
 import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
+import AppSearch from "./AppSearch.jsx";
 import SavePrompt from "../components/SavePrompt.jsx";
 import { defaultSessionMode, screenRoute } from "./routes.js";
 import { CrossLinkOrigin } from "./cross-link.js";
@@ -142,265 +143,275 @@ function Application() {
       item,
     });
   return (
-    <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <button
-        className={`nav-backdrop ${mobileNav ? "visible" : ""}`}
-        aria-label={copy.appAriaLabel}
-        onClick={() => setMobileNav(false)}
-      />
-      {sidebarCollapsed && (
-        <div className="sidebar-float">
-          <button
-            ref={expandButton}
-            className="icon-button"
-            aria-label={sidebarCopy.expandSidebar}
-            title={sidebarCopy.expandSidebar}
-            onClick={() => toggleSidebar(false)}
-          >
-            <Icon name="arrow" />
-          </button>
-          <SidebarNewMenu icon items={newItems} disabled={!installed} />
-        </div>
-      )}
-      <Sidebar
-        collapse={() => toggleSidebar(true)}
-        collapseRef={collapseButton}
-        {...{
-          mobileNav,
-          select,
-          launch,
-          installed,
-          view,
-          page,
-          navigate,
-          route,
-          address,
-          ready,
-          state,
-          selected,
-          error,
-          loading,
-        }}
-      />
-      <main>
-        <MobileHeader
-          {...{
-            mobileNav,
-            setMobileNav,
-            select,
-            launch,
-            navigate,
-            installed,
-          }}
+    <AppSearch
+      navigate={navigate}
+      launch={launch}
+      extensionProfileId={extensionProfileId}
+      providerConnections={ready ? state.providerConnections : null}
+    >
+      <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+        <button
+          className={`nav-backdrop ${mobileNav ? "visible" : ""}`}
+          aria-label={copy.appAriaLabel}
+          onClick={() => setMobileNav(false)}
         />
-        {error && (
-          <div className="global-error">
-            <ErrorMessage error={error} />
-            <button onClick={() => refresh().catch(() => {})}>{commonCopy.retry}</button>
+        {sidebarCollapsed && (
+          <div className="sidebar-float">
+            <button
+              ref={expandButton}
+              className="icon-button"
+              aria-label={sidebarCopy.expandSidebar}
+              title={sidebarCopy.expandSidebar}
+              onClick={() => toggleSidebar(false)}
+            >
+              <Icon name="arrow" />
+            </button>
+            <SidebarNewMenu icon items={newItems} disabled={!installed} />
           </div>
         )}
-        <CrossLinkOrigin.Provider value={address}>
-          <Suspense
-            fallback={
-              <p className="loading" role="status">
-                {copy.workspaceLoading}
-              </p>
-            }
-          >
-            {missing ? (
-              <div className="page">
-                <h1>{missing}</h1>
-                <p>{copy.pageDescription}</p>
-                <button className="button secondary" onClick={() => select(null)}>
-                  {copy.returnToOverview}
-                </button>
-              </div>
-            ) : !ready && (selected || extensionsShown) ? (
-              <div className="page">
+        <Sidebar
+          collapse={() => toggleSidebar(true)}
+          collapseRef={collapseButton}
+          {...{
+            mobileNav,
+            select,
+            launch,
+            installed,
+            view,
+            page,
+            navigate,
+            route,
+            address,
+            ready,
+            state,
+            selected,
+            error,
+            loading,
+          }}
+        />
+        <main>
+          <MobileHeader
+            {...{
+              mobileNav,
+              setMobileNav,
+              select,
+              launch,
+              navigate,
+              installed,
+            }}
+          />
+          {error && (
+            <div className="global-error">
+              <ErrorMessage error={error} />
+              <button onClick={() => refresh().catch(() => {})}>
+                {commonCopy.retry}
+              </button>
+            </div>
+          )}
+          <CrossLinkOrigin.Provider value={address}>
+            <Suspense
+              fallback={
                 <p className="loading" role="status">
                   {copy.workspaceLoading}
                 </p>
-              </div>
-            ) : view === "agents" ? (
-              agentsEnabled ? (
-                <AgentsPage
+              }
+            >
+              {missing ? (
+                <div className="page">
+                  <h1>{missing}</h1>
+                  <p>{copy.pageDescription}</p>
+                  <button className="button secondary" onClick={() => select(null)}>
+                    {copy.returnToOverview}
+                  </button>
+                </div>
+              ) : !ready && (selected || extensionsShown) ? (
+                <div className="page">
+                  <p className="loading" role="status">
+                    {copy.workspaceLoading}
+                  </p>
+                </div>
+              ) : view === "agents" ? (
+                agentsEnabled ? (
+                  <AgentsPage
+                    route={route}
+                    navigate={navigate}
+                    openNavigation={openNavigation}
+                    navigationOpen={mobileNav}
+                  />
+                ) : agentsLoading ? (
+                  <p className="loading" role="status">
+                    {copy.workspaceLoading}
+                  </p>
+                ) : (
+                  <AgentsOff navigate={navigate} />
+                )
+              ) : view === "pipelines" ? (
+                <Suspense
+                  fallback={
+                    <p className="loading" role="status">
+                      {copy.workspaceLoading}
+                    </p>
+                  }
+                >
+                  <PipelinePage
+                    route={route}
+                    onNavigate={navigate}
+                    accounts={state.accounts}
+                    home={state.home}
+                    onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
+                  />
+                </Suspense>
+              ) : view === "artifacts" ? (
+                <Suspense>
+                  <ArtifactsPage
+                    route={route}
+                    onNavigate={navigate}
+                    sessions={state.sessions}
+                    tools={state.tools}
+                    openNavigation={openNavigation}
+                    navigationOpen={mobileNav}
+                  />
+                </Suspense>
+              ) : view === "inbox" ? (
+                <InboxPage
                   route={route}
                   navigate={navigate}
                   openNavigation={openNavigation}
                   navigationOpen={mobileNav}
                 />
-              ) : agentsLoading ? (
-                <p className="loading" role="status">
-                  {copy.workspaceLoading}
-                </p>
-              ) : (
-                <AgentsOff navigate={navigate} />
-              )
-            ) : view === "pipelines" ? (
-              <Suspense
-                fallback={
-                  <p className="loading" role="status">
-                    {copy.workspaceLoading}
-                  </p>
-                }
-              >
-                <PipelinePage
+              ) : view === "files" ? (
+                <Suspense
+                  fallback={
+                    <p className="loading" role="status">
+                      {copy.workspaceLoading}
+                    </p>
+                  }
+                >
+                  <FilesPage route={route} navigate={navigate} />
+                </Suspense>
+              ) : view === "settings" ? (
+                <Settings
+                  state={state}
+                  refresh={refresh}
+                  ready={ready}
                   route={route}
                   onNavigate={navigate}
-                  accounts={state.accounts}
-                  home={state.home}
-                  onLaunchProfile={(profile) => setModal({ type: "launch", profile })}
-                />
-              </Suspense>
-            ) : view === "artifacts" ? (
-              <Suspense>
-                <ArtifactsPage
-                  route={route}
-                  onNavigate={navigate}
-                  sessions={state.sessions}
-                  tools={state.tools}
                   openNavigation={openNavigation}
                   navigationOpen={mobileNav}
                 />
-              </Suspense>
-            ) : view === "inbox" ? (
-              <InboxPage
-                route={route}
-                navigate={navigate}
-                openNavigation={openNavigation}
-                navigationOpen={mobileNav}
-              />
-            ) : view === "files" ? (
-              <Suspense
-                fallback={
-                  <p className="loading" role="status">
-                    {copy.workspaceLoading}
-                  </p>
-                }
-              >
-                <FilesPage route={route} navigate={navigate} />
-              </Suspense>
-            ) : view === "settings" ? (
-              <Settings
-                state={state}
-                refresh={refresh}
-                ready={ready}
-                route={route}
-                onNavigate={navigate}
-                openNavigation={openNavigation}
-                navigationOpen={mobileNav}
-              />
-            ) : view === "coding" ? (
-              <CodingPage
-                {...{
-                  route,
-                  state,
-                  ready,
-                  refresh,
-                  act,
-                  launch,
-                  page,
-                  setModal,
-                  availableTools,
-                  loading,
-                  onNavigate: navigate,
-                  openNavigation,
-                  navigationOpen: mobileNav,
-                }}
-                profileId={
-                  route.profileId || (address.view === "agents" ? extensionProfileId : "")
-                }
-              />
-            ) : view === "projects" ? (
-              <ProjectsPage
-                route={route}
-                onNavigate={navigate}
-                openNavigation={openNavigation}
-                navigationOpen={mobileNav}
-                home={state.home}
-                defaultCwd={state.defaultCwd}
-                state={state}
-                select={select}
-                onLaunch={(cwd) =>
-                  setModal({
-                    type: "launch",
-                    cwd,
-                  })
-                }
-              />
-            ) : view === "connections" ? (
-              <ConnectionsPage
-                {...{
-                  refresh,
-                  state,
-                  ready,
-                  act,
-                  route,
-                  onNavigate: navigate,
-                  openNavigation,
-                  navigationOpen: mobileNav,
-                }}
-              />
-            ) : activeSession ? (
-              <SessionWorkspace
-                openNavigation={openNavigation}
-                key={activeSession.id}
-                session={activeSession}
-                route={route}
-                navigate={navigate}
-                account={state.accounts.find((a) => a.id === activeSession.accountId)}
-                autoResume={state.autoResumeInterrupted !== false}
-                action={act}
-                mode={
-                  activeSession.tool === "shell" && route.mode !== "files"
-                    ? "terminal"
-                    : route.mode ||
-                      defaultSessionMode(
-                        activeSession,
-                        window.matchMedia("(max-width: 700px)").matches,
-                      )
-                }
-                setMode={(mode) =>
-                  navigate({
-                    ...route,
-                    mode,
-                  })
-                }
-              />
-            ) : (
-              <DashboardPage
-                {...{
-                  state,
-                  installedToolCount,
-                  availableTools,
-                  installed,
-                  error,
-                  loading,
-                  launch,
-                  page,
-                  setModal,
-                }}
-              />
-            )}
-          </Suspense>
-        </CrossLinkOrigin.Provider>
-      </main>
-      {/* A share sheet that needs one more tap in a home-screen app (FileLink). */}
-      <SavePrompt />
-      <AppDialogs
-        {...{
-          modal,
-          state,
-          close,
-          created,
-          refresh,
-          launch,
-          update,
-          page,
-          select,
-        }}
-      />
-      <FileNavigationGuardDialog guard={fileNavigationGuard} />
-    </div>
+              ) : view === "coding" ? (
+                <CodingPage
+                  {...{
+                    route,
+                    state,
+                    ready,
+                    refresh,
+                    act,
+                    launch,
+                    page,
+                    setModal,
+                    availableTools,
+                    loading,
+                    onNavigate: navigate,
+                    openNavigation,
+                    navigationOpen: mobileNav,
+                  }}
+                  profileId={
+                    route.profileId ||
+                    (address.view === "agents" ? extensionProfileId : "")
+                  }
+                />
+              ) : view === "projects" ? (
+                <ProjectsPage
+                  route={route}
+                  onNavigate={navigate}
+                  openNavigation={openNavigation}
+                  navigationOpen={mobileNav}
+                  home={state.home}
+                  defaultCwd={state.defaultCwd}
+                  state={state}
+                  select={select}
+                  onLaunch={(cwd) =>
+                    setModal({
+                      type: "launch",
+                      cwd,
+                    })
+                  }
+                />
+              ) : view === "connections" ? (
+                <ConnectionsPage
+                  {...{
+                    refresh,
+                    state,
+                    ready,
+                    act,
+                    route,
+                    onNavigate: navigate,
+                    openNavigation,
+                    navigationOpen: mobileNav,
+                  }}
+                />
+              ) : activeSession ? (
+                <SessionWorkspace
+                  openNavigation={openNavigation}
+                  key={activeSession.id}
+                  session={activeSession}
+                  route={route}
+                  navigate={navigate}
+                  account={state.accounts.find((a) => a.id === activeSession.accountId)}
+                  autoResume={state.autoResumeInterrupted !== false}
+                  action={act}
+                  mode={
+                    activeSession.tool === "shell" && route.mode !== "files"
+                      ? "terminal"
+                      : route.mode ||
+                        defaultSessionMode(
+                          activeSession,
+                          window.matchMedia("(max-width: 700px)").matches,
+                        )
+                  }
+                  setMode={(mode) =>
+                    navigate({
+                      ...route,
+                      mode,
+                    })
+                  }
+                />
+              ) : (
+                <DashboardPage
+                  {...{
+                    state,
+                    installedToolCount,
+                    availableTools,
+                    installed,
+                    error,
+                    loading,
+                    launch,
+                    page,
+                    setModal,
+                  }}
+                />
+              )}
+            </Suspense>
+          </CrossLinkOrigin.Provider>
+        </main>
+        {/* A share sheet that needs one more tap in a home-screen app (FileLink). */}
+        <SavePrompt />
+        <AppDialogs
+          {...{
+            modal,
+            state,
+            close,
+            created,
+            refresh,
+            launch,
+            update,
+            page,
+            select,
+          }}
+        />
+        <FileNavigationGuardDialog guard={fileNavigationGuard} />
+      </div>
+    </AppSearch>
   );
 }
