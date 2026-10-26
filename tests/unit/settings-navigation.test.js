@@ -85,6 +85,7 @@ test("a draft stays on screen only for its own section and tab", () => {
   const ssh = staysOn("ssh");
   assert.equal(ssh({ next: read("/connections?section=ssh") }), false);
   assert.equal(ssh({ next: subpage("ssh") }), false);
-  assert.equal(staysOn("assistants")({ next: read("/agents?tab=runtime") }), true);
+  // Agenten › Laufzeit is the hub's own page with its own draft.
+  assert.equal(staysOn("assistants")({ next: read("/agents?tab=runtime") }), false);
   assert.equal(staysOn("mcp")({ next: read("/coding/clis?tab=mcp&page=2") }), false);
 });

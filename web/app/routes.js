@@ -231,6 +231,13 @@ const returnTargets = new Set([
   "coding",
   "artifacts",
 ]);
+// The agents hub honours `returnTo` only on its Runtime tab (the former agent service
+// settings); the other tabs, the wizard and agent pages keep their own navigation.
+const agentsRuntime = (route) =>
+  route.view === "agents" &&
+  route.agentsTab === "runtime" &&
+  !route.assistantId &&
+  !route.creating;
 const artifactReturnOrigins = new Set(["workspace"]);
 const originsFor = (view) =>
   view === "artifacts" ? artifactReturnOrigins : returnOrigins;
@@ -239,8 +246,9 @@ const codingReturnTabs = new Set(["accounts", "mcp"]);
 const honoursReturnTo = (route) => {
   const screen = screenRoute(route);
   return (
-    returnTargets.has(screen.view) &&
-    (screen.view !== "coding" || codingReturnTabs.has(screen.codingTab))
+    (returnTargets.has(screen.view) &&
+      (screen.view !== "coding" || codingReturnTabs.has(screen.codingTab))) ||
+    agentsRuntime(screen)
   );
 };
 
@@ -292,7 +300,10 @@ export function returnRoute(route) {
  */
 export function crossLinkRoute(target, origin) {
   if (!origin) return target;
-  if (!honoursReturnTo(target) || screenView(target) === screenView(origin))
+  if (
+    !honoursReturnTo(target) ||
+    (screenView(target) === screenView(origin) && !agentsRuntime(screenRoute(target)))
+  )
     return target;
   const moved = canonicalRoute(target);
   const { returnTo } = readReturnTo(

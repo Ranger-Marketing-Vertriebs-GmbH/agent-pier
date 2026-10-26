@@ -243,7 +243,12 @@ function Application() {
                     {copy.workspaceLoading}
                   </p>
                 ) : (
-                  <AgentsOff navigate={navigate} />
+                  <AgentsOff
+                    route={route}
+                    navigate={navigate}
+                    openNavigation={openNavigation}
+                    navigationOpen={mobileNav}
+                  />
                 )
               ) : view === "pipelines" ? (
                 <Suspense

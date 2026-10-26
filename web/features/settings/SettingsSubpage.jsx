@@ -1,9 +1,9 @@
 import React, { lazy, Suspense } from "react";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
-import AgentServiceRoute from "./AgentServiceRoute.jsx";
 import { SubpageFrame, TabFrame } from "./SettingsFrame.jsx";
 
-// Each section keeps its current content; only the frame around it is new.
+// Each section keeps its current content; only the frame around it is new. The agent
+// service sections moved to Agenten › Laufzeit (movedRoute in web/app/route-redirects.js).
 const UpdatesPage = lazy(() => import("../operations/UpdatesPage.jsx"));
 const ComponentGallery = lazy(() => import("../gallery/ComponentGallery.jsx"));
 const pages = {
@@ -38,9 +38,6 @@ export function SectionTab({ section, route, state, frame }) {
 }
 
 export default function SettingsSubpage({ section, route, state, frame }) {
-  if (section === "assistants") return <AgentServiceRoute frame={frame} />;
-  if (section === "assistants-advanced")
-    return <AgentServiceRoute frame={frame} advanced />;
   // Pages that draw their own frame (title, save bar) wait inside an empty one.
   const fallback = (
     <SubpageFrame frame={frame}>

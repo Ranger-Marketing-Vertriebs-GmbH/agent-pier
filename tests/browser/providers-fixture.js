@@ -203,6 +203,24 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, provider: "duckduckgo", hasBraveKey: false, ready: true },
       });
+    // Agenten › Laufzeit › Erweitert (empty) and the Vorlagen catalog (empty).
+    if (method === "GET" && path === "/api/assistant-advanced-settings")
+      return route.fulfill({
+        json: { gateway: { qualified: true, running: true }, settings: [] },
+      });
+    if (method === "GET" && path === "/api/agency/templates")
+      return route.fulfill({
+        json: {
+          items: [],
+          categories: [],
+          total: 0,
+          page: 1,
+          hasMore: false,
+          revision: "0".repeat(40),
+        },
+      });
+    if (method === "GET" && path === "/api/system-status/cleanup/dependencies")
+      return route.fulfill({ json: { agents: [] } });
     if (method === "GET" && path === "/api/assistant-pdf-model")
       return route.fulfill({ json: { revision: 0, ready: false, reason: "notSet" } });
     if (method === "GET" && path === "/api/mcp-servers")

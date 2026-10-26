@@ -300,13 +300,13 @@ for (const source of ["sidebar", "settings"]) {
         .getByRole("button", { name: /^Home assistant, / })
         .click();
       await requested;
-      await page.getByRole("button", { name: "Back to General", exact: true }).click();
+      await page.getByRole("tab", { name: "Teams" }).click();
     } else {
       await page.getByRole("button", { name: "Open chat", exact: true }).click();
       await requested;
       await navigateTo(page, "Agents");
     }
-    const expected = source === "sidebar" ? /\/settings(?:\/general)?$/ : /\/agents$/;
+    const expected = source === "sidebar" ? /\/agents\?tab=teams$/ : /\/agents$/;
     await expect(page).toHaveURL(expected);
     const refreshed = page.waitForResponse("**/api/assistant-runtime");
     release();
@@ -331,19 +331,17 @@ test("an agent whose connection was deleted shows the missing connection instead
     opened,
   });
   await page.goto(baseURL + "/agents");
-  const card = page.locator(".assistant-card").filter({ hasText: "Home assistant" });
-  await expect(
-    card.getByText("Provider connection missing", { exact: true }),
-  ).toBeVisible();
+  const card = page.locator(".agents-hub-agent").filter({ hasText: "Home assistant" });
+  await expect(card.getByText("Provider access missing", { exact: true })).toBeVisible();
   await expect(
     page.locator("aside").getByRole("button", { name: /^Home assistant, / }),
   ).toHaveAccessibleName(/Provider connection missing/);
-  await card.getByRole("button", { name: "Open chat", exact: true }).click();
-  await expect(
-    page.getByText(
-      "This agent's provider connection was deleted. Choose another provider connection in the agent settings.",
-    ),
-  ).toBeVisible();
+  // No chat without a provider: "Choose model" opens the Identity tab instead.
+  await expect(card.getByRole("button", { name: "Open chat", exact: true })).toHaveCount(
+    0,
+  );
+  await card.getByRole("link", { name: "Choose model", exact: true }).click();
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   expect(opened).toEqual([]);
   await page.goto(baseURL + "/agents/home/settings");
   await expect(page.locator(".assistant-header-status")).toContainText(

@@ -138,27 +138,26 @@ test("a failed second step keeps the tab dirty and a retry skips the first", asy
   page,
 }) => {
   const state = await operationsFixture(page);
-  const feature = await featureRoute(page);
-  feature.fail = true;
+  await featureRoute(page);
+  let failures = 1;
+  await page.route("**/api/preferences", (route) =>
+    route.request().method() === "PATCH" && failures-- > 0
+      ? route.fulfill({ status: 500, json: { error: "Preferences fixture failure" } })
+      : route.fallback(),
+  );
   await page.goto(baseURL + "/settings");
   const resume = page.getByRole("switch", {
     name: "Unterbrochene Sessions automatisch fortsetzen",
   });
-  const agents = page.getByRole("switch", { name: "Agenten aktivieren" });
   await resume.click();
-  await agents.click();
+  await page.getByRole("combobox", { name: "Sprache" }).selectOption("en");
   const bar = settingsBar(page);
   await bar.getByRole("button", { name: "Einstellungen speichern", exact: true }).click();
-  await expect(bar.getByRole("alert")).toContainText("Teilweise gespeichert: Allgemein.");
-  await expect(bar.getByRole("alert")).toContainText("Feature fixture failure");
-  await expect(agents).toBeChecked();
-  await bar.getByRole("button", { name: "Einstellungen speichern", exact: true }).click();
-  await expect.poll(() => feature.puts.length).toBe(2);
-  expect(calls(state, "PATCH", "/preferences")).toHaveLength(1);
-  await bar.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(bar.getByRole("alert")).toContainText("Partially saved: Language.");
+  await expect(bar.getByRole("alert")).toContainText("Preferences fixture failure");
+  await bar.getByRole("button", { name: "Save settings", exact: true }).click();
   await expect(bar).toHaveCount(0);
-  await expect(agents).not.toBeChecked();
-  await expect(resume).not.toBeChecked();
+  expect(calls(state, "PATCH", "/preferences")).toHaveLength(1);
 });
 
 test("rows, browser back and closing the page ask while the tab has changes", async ({
@@ -329,7 +328,10 @@ test.describe("settings workspace field checks", () => {
     await operationsFixture(page);
     const feature = await featureRoute(page);
     feature.answer = { enabled: false, error: "ASSISTANT_STORAGE_UNSAFE" };
+    // The switch lives on Agenten › Laufzeit; Settings › General links there.
     await page.goto(baseURL + "/settings");
+    await page.getByRole("link", { name: /^Agents.*Off$/ }).click();
+    await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
     const agents = page.getByRole("switch", { name: "Enable agents" });
     await agents.click();
     await settingsBar(page)

@@ -405,7 +405,7 @@ test("creating an agent opens its settings without asking", async ({ page }) => 
     await route.fulfill({ status: 201, json: state.assistants.at(-1) });
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "New agent" }).click();
+  await page.getByRole("link", { name: "New agent" }).click();
   const create = saveBar(page).getByRole("button", { name: "Create agent" });
   await expect(create).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill("Fresh");

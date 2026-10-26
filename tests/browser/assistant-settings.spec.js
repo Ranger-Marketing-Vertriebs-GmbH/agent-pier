@@ -130,7 +130,7 @@ test("agents without a usable name show a fallback avatar", async ({ page }) => 
     assistants: [home({ id: "blank", name: "  " }), home({ name: "😀 Pip" })],
   });
   await page.goto(baseURL + "/agents");
-  const avatars = page.locator(".assistant-card .assistant-avatar");
+  const avatars = page.locator(".agents-hub-agent .assistant-avatar");
   await expect(avatars).toHaveCount(2);
   await expect(avatars.nth(0)).toHaveText(/\S/);
   await expect(avatars.nth(1)).toHaveText("😀");

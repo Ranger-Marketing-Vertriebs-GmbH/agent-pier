@@ -186,13 +186,16 @@ test("new areas render their own pages or today's until they have one", () => {
     mcpCli: "codex",
     mcpPage: 1,
   });
-  assert.equal(screen("/agents?tab=runtime").settingsSection, "assistants");
-  assert.equal(
-    screen("/agents?tab=runtime&section=advanced").settingsSection,
-    "assistants-advanced",
-  );
-  assert.equal(screen("/agents?tab=templates").extensionTab, "subagents");
-  assert.deepEqual(screen("/agents?tab=teams"), { view: "agents" });
+  // The agents hub renders its own tabs (AgentsHub.jsx).
+  for (const path of [
+    "/agents?tab=runtime",
+    "/agents?tab=runtime&section=advanced",
+    "/agents?tab=templates",
+    "/agents?tab=teams",
+  ]) {
+    const hub = read(path);
+    assert.equal(screenRoute(hub), hub);
+  }
   // Agent pages and other areas are left as they are.
   const agent = read("/agents/home/settings?tab=access");
   assert.equal(screenRoute(agent), agent);

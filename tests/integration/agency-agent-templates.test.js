@@ -179,3 +179,16 @@ test("a retried proposal stays the same after the catalog moved on", async (t) =
   );
   assert.equal(again.id, team.id);
 });
+
+test("Agenten › Vorlagen refreshes the catalog on request only", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const fetched = agencyFetch(files);
+  f.application.agency.fetchImpl = fetched.fetchImpl;
+  const trees = () => fetched.urls.filter((url) => url.includes("/git/ref/")).length;
+  assert.equal((await f.request("/api/agency/templates")).status, 200);
+  assert.equal((await f.request("/api/agency/templates?page=1")).status, 200);
+  assert.equal(trees(), 1);
+  const refreshed = await (await f.request("/api/agency/templates?refresh=1")).json();
+  assert.equal(trees(), 2);
+  assert.equal(refreshed.total, 3);
+});

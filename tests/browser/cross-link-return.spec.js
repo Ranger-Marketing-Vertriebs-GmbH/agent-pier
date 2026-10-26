@@ -101,9 +101,11 @@ for (const [language, text] of Object.entries(copy))
 
       test("pages opened directly keep their hierarchical back", async ({ page }) => {
         await setup(page, { language });
+        // Agenten › Laufzeit is a top-level page: opened directly it has no back arrow.
         await page.goto(baseURL + "/settings/assistants");
-        await back(page, text.backToWorkspace).click();
-        await expect(page).toHaveURL(/\/settings$/);
+        await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
+        await expect(back(page, text.backToWorkspace)).toHaveCount(0);
+        await expect(back(page, text.backToAgent)).toHaveCount(0);
         await page.goto(baseURL + "/accounts?section=models");
         await expect(back(page, text.backToAgent)).toHaveCount(0);
         if (size === "phone")
@@ -115,8 +117,7 @@ for (const [language, text] of Object.entries(copy))
             encodeURIComponent("//evil.test/x"),
         );
         await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
-        await back(page, text.backToWorkspace).click();
-        await expect(page).toHaveURL(/\/settings$/);
+        await expect(back(page, text.backToAgent)).toHaveCount(0);
       });
     });
 

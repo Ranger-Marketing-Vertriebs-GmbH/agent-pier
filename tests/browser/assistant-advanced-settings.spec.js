@@ -74,18 +74,21 @@ async function setup(
   return { state, overrides };
 }
 
-test("the owner changes and resets advanced settings from the agent service", async ({
+test("the owner changes and resets advanced settings on Agenten › Laufzeit", async ({
   page,
 }) => {
   const { state, overrides } = await setup(page);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(baseURL + "/settings/assistants");
-  await page.getByRole("link", { name: /Advanced settings/ }).click();
+  // The former subpage is an inline group of the Runtime tab; its old address scrolls there.
+  await page.goto(baseURL + "/settings/assistants-advanced");
   await expect(page).toHaveURL(/\/agents\?tab=runtime&section=advanced$/);
-  await expect(
-    page.getByRole("heading", { name: "Advanced", exact: true }),
-  ).toBeVisible();
+  const heading = page.getByRole("heading", { name: "Advanced · for all agents" });
+  await expect(heading).toBeVisible();
+  // section=advanced scrolls the group into view.
+  await expect
+    .poll(() => heading.evaluate((el) => el.getBoundingClientRect().top))
+    .toBeLessThan(400);
   await expect(page.getByText("Tasks", { exact: true })).toBeVisible();
   await expect(page.getByText("Images and media", { exact: true })).toBeVisible();
   // All six 2026.9.9 settings apply at once; each default in the field's own unit.
@@ -176,15 +179,15 @@ test("a setting that needs a restart asks first and then restarts", async ({ pag
     ]);
 });
 
-test("German on a phone: own labels, no sideways scroll, back to the agent service", async ({
+test("German on a phone: own labels, no sideways scroll, inline on Laufzeit", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page, { language: "de", running: false });
   await page.goto(baseURL + "/settings/assistants-advanced");
   await expect(
-    page.getByRole("heading", { name: "Erweitert", exact: true }),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Erweitert · für alle Agenten" }),
+  ).toBeInViewport();
   await expect(page.getByText(/Der Agentendienst läuft gerade nicht/)).toBeVisible();
   await expect(page.getByText("Zeitlimit pro Auftrag")).toBeVisible();
   await expect(page.getByText("Standard: 172.800 Sekunden (48 Stunden)")).toBeVisible();
@@ -199,8 +202,10 @@ test("German on a phone: own labels, no sideways scroll, back to the agent servi
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
-  await page.getByRole("button", { name: "Zurück zu Agentendienst" }).click();
-  await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
+  await expect(page.getByRole("tab", { name: "Laufzeit" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("an unapproved runtime keeps every setting read-only", async ({ page }) => {

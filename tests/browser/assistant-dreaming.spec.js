@@ -71,7 +71,7 @@ test("switching dreaming on confirms the agents without memory", async ({ page }
   await toggle.check();
   await expect(group.getByRole("combobox", { name: "Time" })).toHaveValue("3");
   await expect(group).toContainText("Europe/Berlin");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save settings", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Turn memory on for these agents?" });
   await expect(dialog).toContainText("1 permanent agent does not remember");
   await expect(dialog).toContainText("Fern");
@@ -123,7 +123,7 @@ test("busy agents are named once and dreaming stays off", async ({ page }) => {
   );
   await page.goto(baseURL + "/settings/assistants");
   await page.getByRole("combobox", { name: "Time" }).selectOption("5");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save settings", exact: true }).click();
   const busy = page.getByText(
     "Dreaming stays off: memory could not be switched on for agents that are working right now (Fern).",
   );
@@ -136,7 +136,7 @@ test("the hour change saves without a confirmation", async ({ page }) => {
   await page.goto(baseURL + "/settings/assistants");
   const group = page.getByRole("region", { name: "Dreaming" });
   await group.getByRole("combobox", { name: "Time" }).selectOption("5");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save settings", exact: true }).click();
   await expect(page.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(state.dreamingPuts).toEqual([
