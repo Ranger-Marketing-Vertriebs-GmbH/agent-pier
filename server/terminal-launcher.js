@@ -35,12 +35,13 @@ async function launch(payload) {
   let forward = null; // set once the CLI runs
   let early = null;
   const starting = new AbortController();
-  for (const signal of ["SIGHUP", "SIGTERM"])
-    process.on(signal, () => {
-      if (forward) return forward(signal);
-      early ??= signal;
-      starting.abort();
-    });
+  const stop = (signal) => {
+    if (forward) return forward(signal);
+    early ??= signal;
+    starting.abort();
+  };
+  for (const signal of ["SIGHUP", "SIGTERM"]) process.on(signal, () => stop(signal));
+  watchTmuxServer(() => stop("SIGHUP"));
   let adapter = null;
   if (payload.adapter) {
     let substituteAdapterUrl;
@@ -79,6 +80,22 @@ async function launch(payload) {
     process.stderr.write("Unable to load the terminal launch configuration.\n");
     process.exitCode = 127;
   }
+}
+
+/**
+ * A pane's process is a child of its tmux server (`TMUX` names the server's PID). A
+ * server that dies while the pane is still starting never hangs it up, so the launcher
+ * and its CLI would run on as orphans; losing the server counts as a hangup instead.
+ */
+function watchTmuxServer(hangUp) {
+  const server = Number(process.env.TMUX?.split(",")[1]);
+  if (!Number.isInteger(server) || server <= 0) return;
+  const watch = setInterval(() => {
+    if (process.ppid === server) return;
+    clearInterval(watch);
+    hangUp();
+  }, 500);
+  watch.unref();
 }
 
 /** Runs the CLI (or the headless pipeline group); returns the signal-forwarding function. */
