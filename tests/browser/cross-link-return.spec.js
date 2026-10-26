@@ -4,6 +4,7 @@ import { setupAssistantSettings as setup } from "../helpers/assistant-settings-b
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
+import { connectionsFixture, mcpServer } from "./connections-fixture.js";
 
 // A page opened through a cross-link leads back to exactly where the owner came from;
 // opened any other way it keeps its hierarchical back.
@@ -217,3 +218,32 @@ test("chained cross-links lead back through every origin", async ({ page }) => {
   await back(page, copy.en.backToAgent).click();
   await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });
+
+// AC-RT-2: an entry opened from the agent's Access tab leads back to that tab, also
+// after a reload of the Zugänge page.
+for (const [size, viewport] of Object.entries(sizes))
+  test(`Access → Zugänge item returns to the Access tab (${size})`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await connectionsFixture(page, {
+      hosts: 1,
+      assistant: { mcpServers: ["docs"] },
+      mcpServers: [mcpServer("docs", "Docs")],
+    });
+    await page.goto(baseURL + settingsPath("access"));
+    await expect(agentTab(page, "Access")).toHaveAttribute("aria-selected", "true");
+    const open = page.getByRole("link", { name: "Open Docs in Connections" });
+    await open.click();
+    await expect(page).toHaveURL(
+      /\/connections\?section=mcp-servers&item=docs&returnTo=/,
+    );
+    await page.reload();
+    // The entry opens: its detail pane on desktops, its own subpage on phones.
+    await expect(
+      page.getByRole("heading", { name: "Docs", exact: true }).last(),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Used by", level: 2 })).toBeVisible();
+    await back(page, copy.en.backToAgent).click();
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=access$/);
+    await expect(agentTab(page, "Access")).toHaveAttribute("aria-selected", "true");
+    await expect(open).toBeVisible();
+  });
