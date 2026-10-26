@@ -8,7 +8,8 @@ import { memoryStep } from "./memory-write-policy.js";
  * included, is refused while the step runs (team-plugin/tool-guard.js stepCall).
  * In OpenClaw Code Mode the model sees only `exec` (a JavaScript cell, hook
  * `toolKind: "code_mode_exec"`) and `wait` (which resumes such a cell) and calls
- * every other tool from the cell. The step admits the cell (codeModeControl); each
+ * every other tool from the cell. The step admits the cell (codeModeControl), in the
+ * locked-tool hook too, as `exec` is one of OpenClaw's locked tools; each
  * tool call from it meets this hook and the bridge's write guard on its own, so it
  * reaches only the tools above. The cell's own JavaScript is not a tool call: it runs
  * in OpenClaw's executor (Node `node:vm` by default, which OpenClaw says is no
@@ -19,7 +20,9 @@ import { memoryStep } from "./memory-write-policy.js";
  * carries no such kind, stays refused.
  */
 export const memoryStepTools = ["memory_search", "memory_get", "read", "write", "edit"];
-const codeModeControl = ({ toolName, toolKind }) =>
+// The one rule both hooks ask: the step hook (stepPolicy) and, for `exec` as one of
+// OpenClaw's locked tools, team-bridge.js toolPolicy (tool-guard.js lockedToolCall).
+export const codeModeControl = ({ toolName, toolKind }) =>
   (toolName === "exec" && toolKind === "code_mode_exec") || toolName === "wait";
 const running = new Set(["pending", "accepted", "running"]);
 

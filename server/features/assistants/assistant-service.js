@@ -18,6 +18,7 @@ import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
 import { CompletionRuns } from "./exec-continuation.js";
 import { MemoryNotes } from "./memory-notes.js";
+import { MemoryStepWrites } from "./memory-step.js";
 import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
 import { memoryRequirement, newCapabilities } from "./memory-rules.js";
@@ -98,6 +99,8 @@ export class AssistantService {
     // The write guard admits OpenClaw's memory flush of an owner run (team-bridge.js).
     this.memoryFlushes = new MemoryFlushes({ now });
     this.memoryNotes = new MemoryNotes(store.db, now);
+    // A memory step saved only what the write guard admitted (memory-step.js).
+    this.memoryStepWrites = new MemoryStepWrites();
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
     // A command's completion run may continue its owner turn (exec-continuation.js).
     this.completionRuns = new CompletionRuns({ now });

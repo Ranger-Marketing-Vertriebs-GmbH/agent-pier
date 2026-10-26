@@ -70,9 +70,14 @@ async function fixture(t, { memory = true, step = {} } = {}) {
   const history = async () => json(await f.request(`${chat}/messages`), 200);
   const stepSends = () => gateway.sent.filter((s) => s.message === memoryStepText);
   const otherSends = () => gateway.sent.filter((s) => s.message !== memoryStepText);
-  // Ends the memory step's run with `status` (agent.wait), as the reconciler sees it.
-  const endStep = async (status) => {
+  // Ends the memory step's run with `status` (agent.wait), as the reconciler sees it,
+  // after the write guard admitted `writes` of its memory writes (team-bridge.js).
+  const endStep = async (status, { writes = 1 } = {}) => {
     await until(() => stepSends().length === 1, "the memory step");
+    const attempt = assistants.ledger.attemptFor(
+      assistants.ledger.requests(id).at(-1).id,
+    );
+    for (let i = 0; i < writes; i++) assistants.memoryStepWrites.note(attempt.id);
     gateway.runs[stepSends()[0].idempotencyKey] = { status };
     await assistants.reconcile();
   };
@@ -148,6 +153,18 @@ test("a failed memory step still summarises, and the chat says nothing was saved
     202,
   );
   assert.equal((await x.history()).memoryNotSaved, undefined);
+});
+
+test("a memory step that wrote nothing still summarises, and the chat says so", async (t) => {
+  const x = await fixture(t);
+  assert.deepEqual(await json(await x.summarise(), 200), running);
+  // The run completed, but the write guard admitted none of its memory writes.
+  await x.endStep("ok", { writes: 0 });
+  await x.ended();
+  assert.deepEqual(x.order(), ["sessions.send", "sessions.compact"]);
+  const after = await x.history();
+  assert.equal(after.memoryNotSaved, true);
+  assert.equal(after.compactOutcome, undefined);
 });
 
 test("a timed-out memory step is aborted, then the chat is summarised", async (t) => {

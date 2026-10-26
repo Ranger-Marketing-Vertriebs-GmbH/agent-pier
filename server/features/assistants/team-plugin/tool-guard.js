@@ -42,6 +42,8 @@ export const lockedCoreTools = [
   "sessions_spawn",
 ];
 // Refuses a locked core tool unless the bridge answers that this agent may run it.
+// A memory step admits OpenClaw's Code Mode cell, an `exec` the bridge tells apart by
+// its host-set kind only (memory-step-tools.js codeModeControl).
 async function lockedToolCall(event, ctx, bridge) {
   const response = await bridge(
     "/tool-policy",
@@ -49,6 +51,7 @@ async function lockedToolCall(event, ctx, bridge) {
       agentId: ctx?.agentId,
       ...(typeof ctx?.sessionKey === "string" ? { sessionKey: ctx.sessionKey } : {}),
       toolName: event.toolName,
+      ...(typeof event?.toolKind === "string" ? { toolKind: event.toolKind } : {}),
     },
     ctx?.abortSignal,
   ).catch(() => null);

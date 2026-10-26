@@ -1459,8 +1459,15 @@ was compacted and the plan was gone. Four rules close that gap:
   and every bridge action refuse the session's other tools. In OpenClaw Code Mode the
   model sees only `exec` and `wait`; the step hook (`stepPolicy`, `memory-step-tools.js`)
   admits an `exec` only with the host-set hook `toolKind: "code_mode_exec"` (a shell
-  `exec` carries none) and `wait`. Every tool call from the cell passes the step hook
-  and the bridge's write guard on its own, so it reaches only the step's memory tools.
+  `exec` carries none) and `wait`. `exec` is also one of OpenClaw's locked core tools,
+  whose own hook (`lockedToolCall`) forwards the kind to `/tool-policy`; during a memory
+  step `toolPolicy` admits the same Code Mode cell by the same rule (`codeModeControl`)
+  and keeps refusing every other locked call, a shell `exec` included (an agent of
+  restricted users runs no cell at all). Every tool call from the cell passes the step
+  hook and the bridge's write guard on its own (OpenClaw wraps the cell's catalog tools
+  in `before_tool_call`), so it reaches only the step's memory tools;
+  `assistant-memory-step-code-mode-contract.test.js` saves a day note from a cell on the
+  pinned runtime and sees a write outside the memory refused inside the cell.
   The cell's own JavaScript is no tool call: it runs in OpenClaw's executor, by default
   Node `node:vm` in a worker, which OpenClaw documents as no security boundary (its
   QuickJS executor isolates more), and its `store()`/`load()` meet no hook. `wait` is
@@ -1469,7 +1476,10 @@ was compacted and the plan was gone. Four rules close that gap:
   chat's own attempt, never reaches Telegram and is aborted like **Stop** after five
   minutes.
   OpenClaw's own pre-run flush during the step (`flushWrite`) may write the day note
-  like a direct turn's. The chat offers no **Try again** on a failed or stalled step
+  like a direct turn's. The step counts as saved only when its run completed after the
+  write guard admitted at least one of its memory writes (or its flush's write,
+  `MemoryStepWrites`); a completed run whose writes were all refused, or that wrote
+  nothing, reports `unwritten` and leaves `memoryNotSaved`. The chat offers no **Try again** on a failed or stalled step
   and keeps showing that memories are saved while the step's outcome is uncertain.
 - **Summarising status.** A long conversation makes OpenClaw shorten its history
   before it answers, which can take minutes. The pinned runtime signals it on the
@@ -1690,7 +1700,10 @@ was compacted and the plan was gone. Four rules close that gap:
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
   newest 100 per conversation): forwarded content, a scheduled or automatic turn,
   a lead's task, another non-owner turn, a memory step's write outside its own
-  memory, or a refused flush. A refused flush the
+  memory, or a refused flush. A refused flush also logs one line per flush session
+  with its time (ISO), code (`FLUSH_SHAPE`, `FLUSH_DATE`, `FLUSH_ORIGIN`,
+  `FLUSH_UNREPORTED`, `FLUSH_SESSION`), path, session key and run id, never its
+  content. A refused flush the
   Gateway did not report (for example after a runtime change renamed the event) is
   attributed to the agent's single active owner turn, so it never goes unnoticed.
   The chat renders them as quiet lines ("Memory not saved: …"). A run without an
@@ -4480,7 +4493,8 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   carries `compacting: "memory"` during the step (the chat shows "Saving memories before
   the summary …" and "Saving memories" in
   the header) and `true` during the summary. Any step result but a saved one (failed,
-  refused, timed out, interrupted, or a summary that failed after it) still leads to
+  refused, timed out, interrupted, completed without an admitted memory write, or a
+  summary that failed after it) still leads to
   the summary and sets the separate history field `memoryNotSaved: true` next to
   `compactOutcome` ("No memories were saved before the summary."); if the chat is
   still busy afterwards the summary ends with `busy` next to that note. Other sends

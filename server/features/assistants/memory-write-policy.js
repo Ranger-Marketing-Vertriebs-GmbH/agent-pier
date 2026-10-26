@@ -54,14 +54,17 @@ export function turnWrite(bridge, { attempt, parent, origin, current }, input) {
         )))
   );
 }
-// Refused flush writes are logged once per flush session (bounded).
+// Refused flush writes are logged once per flush session (bounded): when, which
+// flush session and run, never what the flush meant to write.
 const logged = new Set();
 function diagnose(bridge, input, code) {
   if (logged.has(input.sessionKey)) return;
   if (logged.size > 1000) logged.clear();
   logged.add(input.sessionKey);
+  const at = new Date(bridge.now?.() ?? Date.now()).toISOString();
   (bridge.warn || console.warn)(
-    `Memory flush write refused for ${input.agentId} (${code}): ${input.path}`,
+    `${at} Memory flush write refused for ${input.agentId} (${code}): ${input.path}` +
+      ` (session ${input.sessionKey}, run ${input.runId ?? "none"})`,
   );
 }
 
@@ -93,6 +96,7 @@ function sources(bridge, input) {
           // A task member's own memory takes its flush in any of its turns, and a
           // memory step its own agent's (memoryStep).
           (directTurn(origin, parent) || inheritsFromLead(parent) || memoryStep(origin)),
+        step: memoryStep(origin),
       },
     ];
   });
@@ -129,6 +133,8 @@ export function flushWrite(bridge, input) {
   if (!bridge.assistants.memoryFlushes.pin(found[0].flush, input.sessionKey))
     return (diagnose(bridge, input, "FLUSH_SESSION"), false);
   if (isShared(found[0].agent)) noteSharedFlush(bridge, found[0]);
+  // A memory step's flush saved its memory too (memory-step.js MemoryStepWrites).
+  if (found[0].step) bridge.assistants.memoryStepWrites?.note(found[0].attempt.id);
   return true;
 }
 

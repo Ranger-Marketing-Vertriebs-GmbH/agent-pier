@@ -92,6 +92,11 @@ test("a refused flush the Gateway never reported is still noted in the owner's c
   assert.deepEqual(f.notes(), ["flush"]);
   assert.equal(warnings.length, 1, "and the refusal is logged");
   assert.match(warnings[0], /FLUSH_UNREPORTED/);
+  // When, which flush session and which run, never the note's content.
+  assert.match(warnings[0], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z /);
+  assert.ok(warnings[0].includes(`session ${ctx.sessionKey}`), warnings[0]);
+  assert.ok(warnings[0].includes(`run ${run}`), warnings[0]);
+  assert.ok(!warnings[0].includes("Injected"), warnings[0]);
   f.assistants.ledger.transition(owner.attemptId, "completed");
   // Without exactly one owner turn there is no conversation to tell.
   const other = { ...ctx, sessionKey: ctx.sessionKey.replace(run, crypto.randomUUID()) };

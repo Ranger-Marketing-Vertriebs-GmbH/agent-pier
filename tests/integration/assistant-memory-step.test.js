@@ -161,6 +161,17 @@ test("a memory step runs only memory tools: no shell, SSH, project folder or oth
   // The existing gates refuse too: OpenClaw's locked tools and apply_patch's write.
   for (const toolName of ["exec", "process", "sessions_send", "sessions_spawn"])
     assert.equal(await f.tool(toolName), false, toolName);
+  // Of them only OpenClaw's Code Mode cell passes (AGENTPIER-250): its own tool calls
+  // meet the step hook and the write guard one by one. A shell exec stays refused.
+  const policy = (toolKind) =>
+    f.bridge.toolPolicy({
+      agentId: f.agentId,
+      sessionKey: "session",
+      toolName: "exec",
+      toolKind,
+    });
+  assert.deepEqual(policy("code_mode_exec"), { allow: true });
+  assert.deepEqual(policy("shell"), { allow: false });
   assert.equal(await f.patch(["*** Add File: MEMORY.md", "+Saved"]), false);
   for (const action of ["workspace", "ssh", "share_file", "reminder", "routine", "ask"])
     assert.throws(() => f.prepare(action), { status: 403 }, action);

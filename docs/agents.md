@@ -1136,7 +1136,8 @@ a result after that, because it failed, found nothing left to summarise, could n
 start, the agent runtime stopped or restarted, or its end could not be confirmed, the
 chat says so once it is ready again, until you write your next message. If there is nothing
 left to summarise, or the agent service refuses, the chat says so. If the memory step
-failed, was refused or ran out of time, the summary still follows and the chat says
+failed, was refused, ran out of time or ended without the agent having saved anything
+to its memory, the summary still follows and the chat says
 **No memories were saved before the summary.**; if the chat is still busy after the
 step, the summary is refused and the chat says so next to that note. Nothing of the
 step is sent to Telegram. **Hide**
