@@ -19,10 +19,11 @@ export const eventGroups = [
     "finished",
     ["session-completed", "session-ended", "pipeline-completed", "pipeline-failed"],
   ],
-  ["agents", ["agent-checkin", "agent-routine", "telegram"]],
+  ["agents", ["agent-checkin", "agent-routine", "agent-hook-throttled", "telegram"]],
 ];
 // A restricted user's devices get only her agents' notices (no sessions, pipelines
-// or system notices: push-content.js sends those to the owner alone).
+// or system notices: push-content.js sends those to the owner alone). Hooks are the
+// owner's alone, so neither is their throttle notice.
 export const userEventGroups = [
   ["waiting", ["agent-approval"]],
   ["agents", ["agent-checkin", "agent-routine", "telegram"]],

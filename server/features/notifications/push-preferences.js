@@ -23,6 +23,7 @@ export const pushEventDefaults = Object.freeze({
   "pipeline-failed": true,
   "agent-checkin": true,
   "agent-routine": true,
+  "agent-hook-throttled": true,
   telegram: false,
 });
 export const pushEvents = Object.keys(pushEventDefaults);
@@ -82,6 +83,12 @@ export function normalizePreferences(stored) {
   const events = { ...base.events };
   for (const key of pushEvents)
     if (typeof stored.events?.[key] === "boolean") events[key] = stored.events[key];
+  // Before it had its own switch, a hook's throttle notice was a routine result.
+  if (
+    typeof stored.events?.["agent-routine"] === "boolean" &&
+    stored.events["agent-hook-throttled"] === undefined
+  )
+    events["agent-hook-throttled"] = stored.events["agent-routine"];
   // Before the split, one switch covered every ended run.
   if (typeof stored.events?.["pipeline-ended"] === "boolean") {
     if (stored.events["pipeline-completed"] === undefined)

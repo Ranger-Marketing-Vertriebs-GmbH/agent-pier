@@ -374,7 +374,8 @@ test("the first throttled event in an hour sends one push", async (t) => {
   assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 1);
   assert.equal(event(f, hook, "p3").status, "throttled");
   assert.equal(f.pushes.length, 1);
-  assert.equal(f.pushes[0].kind, "agent-routine");
+  // Its own kind: no result was written to the chat.
+  assert.equal(f.pushes[0].kind, "agent-hook-throttled");
   assert.match(f.pushes[0].eventId, /^hook-throttled-/);
   assert.equal(f.pushes[0].assistantId, f.id);
 });
