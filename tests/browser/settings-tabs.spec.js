@@ -107,7 +107,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         [t("Fernzugriff", "Remote access"), "/settings/remote", ".remote-settings"],
       ]) {
         await page.getByRole("tab", { name: tab, exact: true }).click();
-        await expect(page).toHaveURL(new RegExp(address.replace(/\//g, "\\/") + "$"));
+        await expect(page).toHaveURL((url) => url.pathname === address && !url.search);
         await expect(page.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
           "aria-selected",
           "true",

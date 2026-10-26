@@ -6,14 +6,20 @@ import { readCodingExtensionTab } from "../features/coding/routes.js";
 
 const connectionSections = new Set(["ssh", "secrets", "github"]);
 const accountSections = new Set(["models", "services", "mcp-servers"]);
-const kept = (route, ...fields) =>
+// The fields each moved page carries over. `mcpOAuth` is only a sign-in outcome
+// ({ result, serverId?, reason? }), never a credential.
+const returnFields = ["returnTo"];
+const cliFields = ["item", "returnTo"];
+const accountItemFields = ["item", "step"];
+const accountFields = ["returnTo", "mcpOAuth"];
+const kept = (route, fields) =>
   Object.fromEntries(
     fields.filter((field) => route[field] !== undefined).map((f) => [f, route[f]]),
   );
 
 function movedSettings(route) {
   const section = route.settingsSection || "general";
-  const returnTo = kept(route, "returnTo");
+  const returnTo = kept(route, returnFields);
   if (section === "assistants")
     return { view: "agents", agentsTab: "runtime", ...returnTo };
   if (section === "assistants-advanced")
@@ -41,13 +47,13 @@ function movedSettings(route) {
 
 function movedAccounts(route) {
   if (route.section === "cli")
-    return { view: "coding", codingTab: "accounts", ...kept(route, "item", "returnTo") };
+    return { view: "coding", codingTab: "accounts", ...kept(route, cliFields) };
   return {
     view: "connections",
     ...(accountSections.has(route.section)
-      ? { section: route.section, ...kept(route, "item", "step") }
+      ? { section: route.section, ...kept(route, accountItemFields) }
       : {}),
-    ...kept(route, "returnTo", "mcpOAuth"),
+    ...kept(route, accountFields),
   };
 }
 
