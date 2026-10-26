@@ -4,10 +4,11 @@ import {
   home,
   setupAssistantSettings as setup,
 } from "../helpers/assistant-settings-browser.js";
-import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
+import { settingsPath } from "../helpers/agent-settings-page.js";
+import { wizardFinish, wizardNext } from "../helpers/agent-wizard-browser.js";
 import { teamListFixture, teamRecords } from "../helpers/assistant-team-list-fixture.js";
 
-// Agency agents as templates: "Start from a template" in the new-agent form, the
+// Agency agents as templates: "From template" in the new agent wizard, the
 // "Create agent" address from an Agency entry, and templates on team proposals.
 const revision = "a".repeat(40);
 const viewports = {
@@ -121,7 +122,8 @@ for (const [label, viewport] of Object.entries(viewports))
       await templates(page);
       await created(page, state);
       await page.goto(baseURL + "/agents?new=1");
-      await page.getByRole("button", { name: "Start from a template" }).click();
+      await page.getByRole("radio", { name: /^From template/ }).check();
+      await page.getByRole("button", { name: "Choose template …" }).click();
       const picker = page.getByRole("dialog", { name: "Start from a template" });
       await picker.getByRole("searchbox", { name: "Search templates" }).fill("content");
       await expect(picker.locator(".list-row")).toHaveCount(1);
@@ -145,21 +147,22 @@ for (const [label, viewport] of Object.entries(viewports))
         .getByRole("dialog", { name: "Frontend Developer" })
         .getByRole("button", { name: "Use template" })
         .click();
-      await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
-        "Frontend Developer",
-      );
-      await expect(page.getByRole("textbox", { name: "Instructions" })).toHaveValue(
-        /Ship careful UI\.[\s\S]*License: MIT/,
-      );
       const note = page.locator(".agent-template-note");
       await expect(note).toContainText("Template: Frontend Developer (Agency agents)");
       await expect(note.getByRole("link", { name: "Source on GitHub" })).toHaveAttribute(
         "href",
         previews["engineering__frontend-developer"].source,
       );
+      await wizardNext(page);
+      await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+        "Frontend Developer",
+      );
+      await expect(page.getByRole("textbox", { name: "Instructions" })).toHaveValue(
+        /Ship careful UI\.[\s\S]*License: MIT/,
+      );
       await fits(page);
       await chooseModel(page);
-      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
+      await wizardFinish(page);
       await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
       expect(state.created).toMatchObject({
         name: "Frontend Developer",
@@ -177,20 +180,22 @@ for (const [label, viewport] of Object.entries(viewports))
         baseURL +
           `/agents?new=1&template=engineering__frontend-developer&revision=${revision}`,
       );
-      await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+      await expect(page.locator(".agent-template-note")).toContainText(
         "Frontend Developer",
       );
+      await expect(page.getByRole("radio", { name: /^From template/ })).toBeChecked();
       expect(asked).toContain(
         `/api/agency/templates/preview?id=engineering__frontend-developer&revision=${revision}`,
       );
-      await page.getByRole("button", { name: "Remove template" }).click();
+      // Starting blank instead: the third-party text leaves with its origin.
+      await page.getByRole("radio", { name: /^Blank/ }).check();
       await expect(page.locator(".agent-template-note")).toHaveCount(0);
-      // The third-party text leaves with its origin.
+      await wizardNext(page);
       await expect(page.getByLabel("Name", { exact: true })).toHaveValue("");
       await expect(page.getByRole("textbox", { name: "Instructions" })).toHaveValue("");
       await page.getByLabel("Name", { exact: true }).fill("Mine");
       await chooseModel(page);
-      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
+      await wizardFinish(page);
       await expect(page).toHaveURL(/\/agents\/fresh\/settings$/);
       expect(state.created.template).toBeUndefined();
     });

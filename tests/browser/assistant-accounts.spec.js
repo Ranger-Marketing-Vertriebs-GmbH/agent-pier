@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
-import { saveBar } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 import { accountRow, openAccountItem } from "../helpers/accounts-browser.js";
 async function setup(page, ready = true) {
@@ -128,10 +128,11 @@ test("offline account UI links to assistant service and selected ChatGPT account
   });
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent" }).click();
+  await wizardToIdentity(page);
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel("Model connection").selectOption("openclaw:test");
   await page.getByLabel("Model ID").fill("gpt-6-astra");
-  await saveBar(page).getByRole("button", { name: "Create agent" }).click();
+  await wizardFinish(page);
   await expect
     .poll(() => saved?.model)
     .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-astra" });

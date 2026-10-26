@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardNext, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { command, execAction, profile, setup } from "./assistant-shell-fixture.js";
 
@@ -113,15 +114,21 @@ for (const [label, use] of [
       const state = await setup(page);
       await page.goto(baseURL + "/agents");
       await page.getByRole("link", { name: "New agent" }).click();
+      await wizardToIdentity(page);
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");
-      await agentTab(page, "Capabilities").click();
-      await shell(page)
-        .getByRole("radio", { name: /^With approval/ })
-        .check();
+      await wizardNext(page);
+      // The Operator profile sets the shell to "With approval".
+      await page.getByRole("radio", { name: /^Operator/ }).check();
+      await expect(
+        shell(page).getByRole("radio", { name: /^With approval/ }),
+      ).toBeChecked();
       await expect(shell(page).getByText("Always allowed commands")).toHaveCount(0);
-      await saveBar(page).getByRole("button", { name: "Create agent" }).click();
+      await wizardNext(page);
+      await page.getByRole("button", { name: "Skip", exact: true }).click();
+      await page.getByRole("button", { name: "Skip", exact: true }).click();
+      await page.getByRole("button", { name: "Create agent", exact: true }).click();
       await page
         .getByRole("dialog", { name: "Turn on shell access?" })
         .getByRole("button", { name: "Turn on shell access" })

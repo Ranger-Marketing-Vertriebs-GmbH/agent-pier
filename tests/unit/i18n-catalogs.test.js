@@ -54,6 +54,9 @@ function strings(value, found = []) {
     for (const child of Object.values(value)) strings(child, found);
   return found;
 }
+// The wizard's capability profile "Assistent" / "Assistant" is a fixed product name
+// (handoff 5.3 step 3); it is exempt only as that exact label in that catalog.
+const profileNames = { "agent-wizard.js": new Set(["Assistent", "Assistant"]) };
 test("catalogs say agent consistently instead of assistant", async () => {
   for (const file of (await readdir(new URL("de/", base))).filter((n) =>
     n.endsWith(".js"),
@@ -61,12 +64,14 @@ test("catalogs say agent consistently instead of assistant", async () => {
     const de = strings(await import(new URL(`de/${file}`, base)));
     const en = strings(await import(new URL(`en/${file}`, base)));
     assert.deepEqual(
-      de.filter((text) => /Assistent/i.test(text)),
+      de.filter((text) => /Assistent/i.test(text) && !profileNames[file]?.has(text)),
       [],
       `${file} German`,
     );
     assert.deepEqual(
-      en.filter((text) => /\bassistants?\b/i.test(text)),
+      en.filter(
+        (text) => /\bassistants?\b/i.test(text) && !profileNames[file]?.has(text),
+      ),
       [],
       `${file} English`,
     );

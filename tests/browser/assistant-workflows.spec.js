@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
@@ -201,6 +202,7 @@ test("model connection choices explain unsupported providers and protocols witho
   );
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent" }).click();
+  await wizardToIdentity(page);
   const choices = page.getByLabel("Model connection");
   await expect(choices.locator('option[value="missing"]')).toHaveText(
     "Private provider · Credentials required",

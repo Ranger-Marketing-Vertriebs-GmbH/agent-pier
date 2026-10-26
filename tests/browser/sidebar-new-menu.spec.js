@@ -85,7 +85,9 @@ for (const width of [1280, 390]) {
       await sidebarNew(page).click();
       await menu(page).getByRole("menuitem", { name: "Agent" }).click();
       await expect(page).toHaveURL(/\/agents\?new=1$/);
-      await expect(page.getByRole("region", { name: "New agent" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "New agent", level: 1 }),
+      ).toBeVisible();
     });
 
     test("Escape closes the menu and returns focus to the button", async ({ page }) => {
@@ -166,6 +168,8 @@ test.describe("the small + buttons", () => {
     await page.screenshot({ path: test.info().outputPath("new-menu-collapsed.png") });
     await menu(page).getByRole("menuitem", { name: "Agent" }).click();
     await expect(page).toHaveURL(/\/agents\?new=1$/);
-    await expect(page.getByRole("region", { name: "New agent" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "New agent", level: 1 }),
+    ).toBeVisible();
   });
 });

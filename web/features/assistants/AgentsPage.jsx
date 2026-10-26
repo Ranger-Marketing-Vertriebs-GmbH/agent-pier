@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import useAssistants from "./useAssistants.js";
 import { assistantApi } from "./assistant-api.js";
-import AgentCreate from "./settings/AgentCreate.jsx";
+import { routePath } from "../../app/routes.js";
+import AgentWizard from "./wizard/AgentWizard.jsx";
 import AgentSettingsPage from "./settings/AgentSettingsPage.jsx";
 import AgentBrowserPage from "./browser/AgentBrowserPage.jsx";
 import AssistantChat from "./AssistantChat.jsx";
@@ -21,8 +22,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     error: loadError,
     refresh,
   } = useAssistants();
-  const [creating, setCreating] = useState(Boolean(route.creating)),
-    [error, setError] = useState("");
+  const [error, setError] = useState("");
   const assistant = assistants.find((a) => a.id === route.assistantId);
   const request = useRef(null);
   useEffect(
@@ -31,14 +31,6 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
     },
     [route],
   );
-  // The sidebar's "New > Agent" arrives with the flag while this page may be open.
-  useEffect(() => {
-    if (route.creating) setCreating(true);
-  }, [route.creating]);
-  const stopCreating = () => {
-    setCreating(false);
-    if (route.creating) navigate({ view: "agents" });
-  };
   async function open(a) {
     const ticket = {};
     request.current = ticket;
@@ -136,6 +128,9 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
         error={error || loadError}
       />
     );
+  // "Neuer Agent" (also the sidebar's "Neu › Agent"): the wizard, one per address.
+  if (route.creating)
+    return <AgentWizard key={routePath(route)} route={route} navigate={navigate} />;
   // An agent page whose agent is not (or not yet) listed.
   if (route.assistantId)
     return (

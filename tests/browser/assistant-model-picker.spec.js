@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
-import { saveBar } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 
 async function setup(page) {
@@ -48,6 +48,7 @@ async function setup(page) {
   });
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: "New agent", exact: true }).click();
+  await wizardToIdentity(page);
   return { controls, created };
 }
 
@@ -70,7 +71,7 @@ test("OpenRouter loads a current searchable catalog when creating an agent", asy
     .getByRole("option", { name: /GLM 5.3/ })
     .click();
   await expect(picker(page)).toHaveValue("z-ai/glm-5.3");
-  await saveBar(page).getByRole("button", { name: "Create agent", exact: true }).click();
+  await wizardFinish(page);
   await expect
     .poll(() => created.at(-1)?.model)
     .toEqual({ connectionId: "router", modelId: "z-ai/glm-5.3" });

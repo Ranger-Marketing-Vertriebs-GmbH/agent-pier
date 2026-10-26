@@ -210,6 +210,10 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     // Agents are off: the users page lists users without agents.
     else if (path === "/assistants" && method === "GET")
       return route.fulfill({ status: 503, json: { error: "Agents are off" } });
+    // The new agent wizard reads the users and whether web search is set up.
+    else if (path === "/users" && method === "GET") result = [];
+    else if (path === "/assistant-web-search")
+      result = { revision: 0, provider: "duckduckgo", ready: true };
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });
