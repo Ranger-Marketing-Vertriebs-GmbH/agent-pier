@@ -59,7 +59,11 @@ export async function sendTelegramParts({
       entry = save({
         parts,
         state: "outbound",
-        remoteMessageIds: parts.filter((p) => p.state === "sent").map((p) => p.messageId),
+        // Messages sent for the entry before its parts (a turn's approval cards).
+        remoteMessageIds: [
+          ...(entry.leadMessageIds || []),
+          ...parts.filter((p) => p.state === "sent").map((p) => p.messageId),
+        ],
         diagnostic: null,
       });
     } catch (error) {

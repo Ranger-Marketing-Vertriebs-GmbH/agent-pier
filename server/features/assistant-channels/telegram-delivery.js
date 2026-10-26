@@ -13,8 +13,13 @@ export class TelegramDelivery {
   constructor(service) {
     this.service = service;
   }
-  settleApproval(entry) {
-    const { assistants, outbox, ledger } = this.service;
+  /**
+   * The approval cards of the turn's team proposals and actions (a card not yet
+   * queued is null), each with whether it ends the turn (`actionApprovals`). A team
+   * proposal always does: the turn proposes it and ends.
+   */
+  approvals(entry) {
+    const { assistants, outbox } = this.service;
     const notifications = outbox.all(entry.channelId);
     const approvals = (assistants.teams?.store.list() || [])
       .filter(
@@ -34,26 +39,29 @@ export class TelegramDelivery {
             n.chatId === entry.chatId &&
             n.userId === entry.userId,
         );
-        return notification
-          ? [notification]
-          : team.phase === "awaiting_approval"
-            ? [null]
-            : [];
+        return notification || team.phase === "awaiting_approval"
+          ? [{ notification: notification || null, endsTurn: true }]
+          : [];
       });
     if (assistants.workflows)
       approvals.push(...actionApprovals(assistants.workflows, entry, notifications));
-    if (!approvals.length) return false;
-    // The durable proposal is this turn's Telegram reply. Wait for its actual
-    // acknowledgement (or explicit review), including across worker restarts.
-    if (approvals.every((n) => n && ["delivered", "reviewed"].includes(n.state))) {
-      ledger.patch(entry.id, {
-        state: approvals.every((n) => n.state === "delivered") ? "delivered" : "reviewed",
-        remoteMessageIds: approvals.flatMap((n) => n.remoteMessageIds),
-        diagnostic: null,
-      });
-      assistants.changed({ conversationId: entry.conversationId });
-    }
-    return true;
+    return approvals;
+  }
+  /**
+   * Settles a turn whose approval cards are its Telegram reply: once every card was
+   * acknowledged (or reviewed), the entry is done with the cards' messages. Waits for
+   * them, including across worker restarts.
+   */
+  settleCards(entry, approvals) {
+    const { assistants, ledger } = this.service;
+    const cards = approvals.map((a) => a.notification);
+    if (!cards.every((n) => n && ["delivered", "reviewed"].includes(n.state))) return;
+    ledger.patch(entry.id, {
+      state: cards.every((n) => n.state === "delivered") ? "delivered" : "reviewed",
+      remoteMessageIds: cards.flatMap((n) => n.remoteMessageIds),
+      diagnostic: null,
+    });
+    assistants.changed({ conversationId: entry.conversationId });
   }
   // Tell the Telegram user once per input that needs the owner in AgentPier
   // (review lane or unknown model outcome). The outbox key makes the notice durable and unique per input.
@@ -140,7 +148,11 @@ export class TelegramDelivery {
         return;
       }
       if (attempt.state !== "completed") return;
-      if (this.settleApproval(entry)) return;
+      // A card the turn ends with (a proposal, or an action still awaiting the
+      // owner) is the turn's reply. When the owner granted every approval while the
+      // run waited (exec, SSH, SFTP), the run's own answer follows the cards.
+      const approvals = this.approvals(entry);
+      if (approvals.some((a) => a.endsTurn)) return this.settleCards(entry, approvals);
       const history = await assistants.history(entry.conversationId);
       if (history.stale || signal.aborted) return;
       const message = history.messages
@@ -154,7 +166,10 @@ export class TelegramDelivery {
       if (!message?.text?.trim() && message?.cut !== true && message?.partial !== true) {
         const now = this.service.now(),
           since = entry.replyMissingSince ?? now;
-        if (now - since >= replyGraceMs) {
+        // Without an answer, the decided cards stand in for the reply.
+        if (now - since >= replyGraceMs && approvals.length)
+          this.settleCards(entry, approvals);
+        else if (now - since >= replyGraceMs) {
           ledger.patch(entry.id, {
             state: "reply_unavailable",
             diagnostic: "REPLY_WITHOUT_TEXT",
@@ -170,10 +185,15 @@ export class TelegramDelivery {
       // The history page cuts long replies; this one is read on its own.
       const reply = await completeMessage(assistants, entry.conversationId, message);
       if (signal.aborted) return;
+      // The cards' messages belong to the turn too and stay named with the reply.
+      const leadMessageIds = approvals.flatMap(
+        (a) => a.notification?.remoteMessageIds || [],
+      );
       entry = ledger.patch(entry.id, {
         state: "outbound",
         parts: this.replyParts(channel, reply),
-        remoteMessageIds: [],
+        leadMessageIds,
+        remoteMessageIds: leadMessageIds,
         nextDeliveryAt: 0,
         diagnostic: null,
       });

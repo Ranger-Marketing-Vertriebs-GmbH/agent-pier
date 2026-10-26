@@ -3837,6 +3837,21 @@ allow** and **Deny**.
   `team-coding.js`), and the approval is offered there and in the web (owner
   decision). Each decision goes to the Gateway exactly once and is
   audited (`assistant.answered`, with the allowlist outcome).
+- A run AgentPier did not start has no turn context: OpenClaw's own follow-up run in
+  a session (for example after a background command finished). Its request asks in
+  the paired Telegram chat too when the conversation's latest request came from that
+  chat (turn context `telegram`), and only while that chat is still the owner's
+  paired, enabled chat writing into this conversation (`followUpOrigin` in
+  `exec-approvals.js`, the same target a hook's run uses). Otherwise it asks only in
+  the web. The run's own replies still reach only the web chat.
+- Telegram delivery of the turn (`telegram-delivery.js`): an approval the run waited
+  for (exec, and SSH or SFTP until their hold ends) does not replace the reply. Once
+  the owner decided every such card and the run completed, its answer goes to
+  Telegram after the cards, and the input records the cards' and the reply's message
+  ids. Proposals the turn ends with (teams, coding runs and the like) and approvals
+  still waiting when the run ended stay the turn's reply, as before. A run that
+  completes without text after granted approvals waits the usual grace for it; then
+  the cards stand in for the reply.
 - While a turn waits for an approval, the chat header says **Awaiting approval**, as
   the sidebar does, instead of the turn's accepted or running state.
 - Allow once runs the command once; Deny never runs it.
