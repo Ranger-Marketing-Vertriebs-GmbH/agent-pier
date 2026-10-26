@@ -30,12 +30,16 @@
   .sidebar.open {
     transform: translateX(0);
   }
-  /* The drawer keeps its look: search sits in the menu, group heads have no icons. */
+  /* In the drawer search sits in the menu; the group heads keep their icon buttons
+     (agents page or CLIs, and "+") with a full tap target. */
   .sidebar-collapse,
   .sidebar-float,
-  .sidebar-head .sidebar-search,
-  .sidebar-group-actions {
+  .sidebar-head .sidebar-search {
     display: none;
+  }
+  .sidebar-group-actions .icon-button {
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
   .nav-backdrop.visible {
     display: block;

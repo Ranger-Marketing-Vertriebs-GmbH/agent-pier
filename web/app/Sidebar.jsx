@@ -61,9 +61,9 @@ export default function Sidebar({
   const { enabled: agentsEnabled } = useAssistantFeature();
   const search = useSearchDialog();
   // Head icons of the Agenten group (rendered by AssistantSidebar while agents are on)
-  // and of the Sessions group (handoff §5.1). Their "+" buttons are how the expanded
-  // sidebar creates sessions and agents; the compact "+ New" menu is only for the
-  // phone header and the collapsed sidebar.
+  // and of the Sessions group (handoff §5.1), also in the phone drawer. Their "+"
+  // buttons are how the sidebar creates sessions and agents; the compact "+ New" menu
+  // is for the phone header and the collapsed sidebar.
   const groupActions = {
     "assistant-chats": (
       <>
