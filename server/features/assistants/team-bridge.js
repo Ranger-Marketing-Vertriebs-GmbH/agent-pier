@@ -509,6 +509,7 @@ export class TeamBridge {
           "/browser-policy",
           "/browser-upload",
           "/attachment-policy",
+          "/secrets-policy",
           "/guard",
           ...Object.keys(toolPolicyRoutes),
         ].includes(req.url)
@@ -548,9 +549,11 @@ export class TeamBridge {
                   ? toolPolicy(this, req.url, input)
                   : req.url === "/attachment-policy"
                     ? this.attachmentPolicy(input)
-                    : req.url === "/guard"
-                      ? this.registerGuard(input)
-                      : this.invoke(input));
+                    : req.url === "/secrets-policy"
+                      ? hooks.secretsPolicy(this, input)
+                      : req.url === "/guard"
+                        ? this.registerGuard(input)
+                        : this.invoke(input));
       if (req.url === "/invoke") invocation = this.tickets.get(input.ticket)?.invocation;
       if (lost) invocation?.undelivered?.();
       res.writeHead(200, {

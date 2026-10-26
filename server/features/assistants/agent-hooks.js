@@ -63,8 +63,6 @@ export class AgentHooks {
     this.events = new HookEvents(this.assistants.store.db);
     this.runs = new HookRuns(this);
     routines.hooks = this;
-    // The bridge's answer to a read of the secrets folder (bridge-tool-policies.js).
-    this.assistants.hookSecrets = { check: (input) => this.secretsRead(input) };
     // Completions arrive on the reminder webhook's second route.
     reminders.webhook.receiveHook = (id, event) => this.runs.complete(id, event);
     const hub = this.assistants.gatewayEvents;

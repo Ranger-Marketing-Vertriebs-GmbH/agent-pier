@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -9,10 +10,10 @@ import {
   hookFixture,
   makeHook,
 } from "../helpers/agent-hook-fixture.js";
+import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { eventArea } from "../../server/features/assistants/agent-event-area.js";
 import { ExecApprovals } from "../../server/features/assistants/exec-approvals.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { toolPolicy } from "../../server/features/assistants/bridge-tool-policies.js";
 import {
   classifyWrite,
   workspaceId,
@@ -352,13 +353,52 @@ test("a routine run is unaffected", async (t) => {
   assert.equal(f.policy(sessionKey, "sessions_list"), true);
 });
 
+// The plugin's question before a read of .agentpier/, over the bridge's own HTTP
+// route as the secrets guard asks it (team-plugin/secrets-guard.js).
+async function secretsPolicy(bridge, body) {
+  const { url, token } = await bridge.start();
+  const response = await fetch(`${url}/secrets-policy`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, ...(await response.json()) };
+}
+
 test("the bridge refuses a hook run's reads of the secrets folder, not other chats'", async (t) => {
   const f = await setup(t);
   const running = await f.run(makeHook(f), "p1");
   const ask = (sessionKey) =>
-    toolPolicy(f.bridge, "/secrets-policy", { agentId: f.runtimeAgentId, sessionKey });
-  assert.deepEqual(ask(running.sessionKey), { allow: false });
-  assert.deepEqual(ask(`agent:${f.runtimeAgentId}:main`), { allow: true });
-  await f.bridge.close();
-  assert.equal(ask(`agent:${f.runtimeAgentId}:main`).allow, false);
+    secretsPolicy(f.bridge, { agentId: f.runtimeAgentId, sessionKey });
+  assert.deepEqual(await ask(running.sessionKey), { status: 200, allow: false });
+  // An ordinary chat, a routine's run and a call without a session read the file.
+  for (const sessionKey of [
+    `agent:${f.runtimeAgentId}:main`,
+    `agent:${f.runtimeAgentId}:dashboard:${randomUUID()}`,
+    `agent:${f.runtimeAgentId}:cron:routine-job:run:r1`,
+    undefined,
+  ])
+    assert.deepEqual(await ask(sessionKey), { status: 200, allow: true }, sessionKey);
+  assert.equal((await secretsPolicy(f.bridge, null)).status, 400);
+});
+
+test("an ordinary chat reads its secrets file where no hook service runs", async (t) => {
+  // The secrets guard contract's bridge: the channel fixture's agent service, which
+  // has no routines and no hooks.
+  const f = channelFixture(t);
+  const agent = f.store.getAssistant(f.channel.assistantId);
+  const bridge = new TeamBridge({
+    assistants: f.assistants,
+    teams: { store: { context: () => null } },
+  });
+  t.after(() => bridge.close());
+  for (const sessionKey of [
+    `agent:${agent.runtimeAgentId}:dashboard:${randomUUID()}`,
+    `agent:${agent.runtimeAgentId}:cron:job-1:run:r1`,
+  ])
+    assert.deepEqual(
+      await secretsPolicy(bridge, { agentId: agent.runtimeAgentId, sessionKey }),
+      { status: 200, allow: true },
+      sessionKey,
+    );
 });
