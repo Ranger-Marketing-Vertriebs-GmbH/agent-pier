@@ -2,7 +2,7 @@
 
 AgentPier can run as an installed web app (PWA) and send push notifications to the
 devices you enable. Both are set up per device under
-**Settings → Workspace → App & notifications**.
+**Settings › App and notifications** (an agent's **Channels** tab links there too).
 
 ## Requirements
 
@@ -25,7 +25,7 @@ connection keeps showing what it already loaded until the connection is back.
 
 ## Enable notifications on a device
 
-1. Open **Settings → Workspace → App & notifications** on the device itself.
+1. Open **Settings › App and notifications** on the device itself.
 2. Switch on **Notifications** under **Notifications on this device** and allow them
    when the browser asks.
 3. Optionally set a **Device name** and choose **Save name**.

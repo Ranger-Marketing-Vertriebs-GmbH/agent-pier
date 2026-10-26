@@ -24,8 +24,7 @@ ones) and temporary members grouped by team. A permanent member becomes a root a
 only when its lead is archived. The Agents directory manages profiles. Per-agent
 settings configure instructions, models, service access and team permission.
 
-Place shared service operation under **Settings → Workspace → Agents → Agent
-service**. Call the main card **Agent service**; show OpenClaw as its managed runtime, not another
+Place shared service operation under **Agents › Runtime › Agent service** (formerly Settings › Workspace › Agents › Agent service). Call the main card **Agent service**; show OpenClaw as its managed runtime, not another
 application the user must administer. The card shows readiness, host, active work,
 restart preparation and diagnostics. Central model/service connections remain in
 AgentPier. Technical details such as protocol, pin and private state locations are
@@ -69,7 +68,7 @@ processes on the same native host are not an OS sandbox.
 
 ## Opt-in switch
 
-Agents are off by default. **Settings → Workspace → Agents** carries the single switch
+Agents are off by default. **Agents › Runtime › Function** (and the **Enable agents** page shown while agents are off) carries the single switch
 ("Enable agents"). While it is off the subsystem is dormant: AgentPier creates no `assistants/`
 folder or database, starts no Gateway, poller, scheduler or background loop, installs
 or downloads nothing, and shows no agent navigation or account sections. Turning it
@@ -162,7 +161,7 @@ live pid in it always ends in `OWNERSHIP_CONFLICT`. Resolve it by hand once: che
 the pid from the file (`ps -p <pid> -o pid,command`). If it is a leftover
 `openclaw-gateway` from this data directory, stop it (`kill <pid>`); if it is an
 unrelated process, leave it running. Then delete `assistants/owner.json` and start
-the service under Settings → Workspace → Agents → Agent service. The next start writes a
+the service under Agents › Runtime › Agent service. The next start writes a
 complete record.
 
 Executable evidence reuses the release-cleanup process checks: `/proc/<pid>/exe`
@@ -220,8 +219,7 @@ The update workflow extends the current pinned installer:
    runtime. Verify package integrity and the dependency graph, platform support and
    required Gateway contracts. A failed download or validation must leave the active
    selection intact. Do not run an upstream self-updater against managed files.
-2. Show current and target versions, affected assistants and blocking work under
-   Settings → Workspace → Agents → Agent service. Activation is explicit; downloading a candidate must not
+2. Show current and target versions, affected assistants and blocking work under Agents › Runtime › OpenClaw updates. Activation is explicit; downloading a candidate must not
    implicitly migrate live state. Include enabled existing installations in the
    normal AgentPier update path, not a developer-only setup command.
 3. Enter maintenance: gate new execution, coordinate Telegram/transcription/delivery
@@ -477,7 +475,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 The foundation now provisions OpenClaw 2026.10.7 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
-protocol readiness. It is optional: enabling it in Settings → Workspace → Agents provisions
+protocol readiness. It is optional: enabling it under Agents › Runtime provisions
 the runtime; enabled installations provision the selected version at startup after
 an AgentPier update. Installation failures preserve the previous runtime selection.
 The current platform probes cover macOS arm64; the manifest also pins macOS x64
@@ -633,7 +631,7 @@ configuration and service adapters, with a completed durable execution record.
 
 ### ChatGPT assistant accounts
 
-Accounts contains a separate **ChatGPT for assistants** section. Start the assistant
+**Connections › Model access** contains a separate **ChatGPT for agents** entry. Start the assistant
 service first, connect using the displayed OpenAI device code, and select the
 connection plus a model ID in an assistant's settings. The qualified model is
 `gpt-6-astra`; availability and subscription access are determined by OpenAI.
@@ -658,7 +656,7 @@ is no longer available"). `assistant-chatgpt-login-contract.test.js` starts the
 device-code sign-in on a team-mode Gateway and cancels it at the first wizard step.
 A failed attempt reports one diagnostic to the browser (`LOGIN_UNAVAILABLE`,
 `UNSUPPORTED_LOGIN_STEP`, `LOGIN_EXPIRED`, `CONNECTION_LOST` or `LOGIN_FAILED`),
-which the Accounts page explains. The server log line adds the Gateway error code,
+which the Connections page explains. The server log line adds the Gateway error code,
 the wizard status and the Gateway's reason with device codes, bearer values and
 token-like strings redacted.
 
@@ -729,7 +727,7 @@ not send to Telegram. Input is persisted before polling acknowledgement. Stable
 request identities survive duplicate updates and restart. Telegram retains unread
 updates for at most 24 hours; that provider limit still applies while disconnected.
 
-Configure Deepgram under **Accounts → Services for agents → Speech recognition**. The key stays in a
+Configure Deepgram under **Connections › Services for agents › Speech recognition**. The key stays in a
 private backend store; model and language are shared by all assistant voice inputs.
 The adapter uses direct HTTP, smart formatting and model-specific proper-name hints,
 following the existing pattern in the user-owned Mimisbrunnr project. Voice notes
@@ -967,7 +965,7 @@ Known limits: AgentPier cannot tell third-party text pasted into the web compose
 from the owner's own words (only Telegram forwards are detected), and an owner
 message that mentions a team in another sense ("my team meets at three") can still
 be quoted by the model. The mitigation is visibility: the team card (in the proposal
-and under the lead's agent settings → **Work → Teams**) and the Telegram start notice show "Started because you wrote: “…”" with the quote, and the owner
+and under the lead's agent settings → **Team › Teams**) and the Telegram start notice show "Started because you wrote: “…”" with the quote, and the owner
 can stop the team at any time.
 
 Default limits are four members, eight concurrent members per host and ten minutes
@@ -1175,8 +1173,7 @@ A lead reaches its own members without the owner relaying anything
   task's own running attempt (`TeamBridge.toolPolicy`, `LeadRequests.mayWrite`).
   `MEMORY.md` and `memory/` stay read-only in every spelling the write guard repairs
   and through links in the workspace (`lead-request-writes.js`), so a task cannot
-  plant instructions for the owner's own chats. Every other task runs read-only.
-  The lead's agent settings → **Work → Teams** mark each task "may write" or "read-only".
+  plant instructions for the owner's own chats. Every other task runs read-only. The lead's agent settings → **Team › Teams** mark each task "may write" or "read-only".
 
 - **Team usage levels.** The lead's team policy carries `usage`
   (`onRequest`, `suggest`, `autonomous`; `team-policy.js`). Policies stored
@@ -1240,7 +1237,7 @@ A lead reaches its own members without the owner relaying anything
   request. A longer one is cut by code point and stored with `answerCut`, also when
   OpenClaw serves it only as "message too large" (no `NO_TEXT` then); the ask tool result and the follow-up then carry `shortened: true`
   and tell the lead that the whole text is in the member's chat, as does a
-  follow-up shortened to fit its own limit. The request in **Work → Teams** shows
+  follow-up shortened to fit its own limit. The request in **Team › Teams** shows
   "Shortened" with a link to that chat.
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
   run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
@@ -1276,7 +1273,7 @@ A lead reaches its own members without the owner relaying anything
   under `autonomous` a routine's requests are `selfInitiated` and count against
   `autonomousCaps`. An ask returns the answer inline within the wait; a later answer
   or a task's result reaches the lead as a follow-up turn in the routine's chat once no
-  ask waits for it. **Work → Teams** marks such requests "Scheduled · <routine>".
+  ask waits for it. **Team › Teams** marks such requests "Scheduled · <routine>".
 - **Recovery.** Requests are durable records in the team store; settled ones are
   pruned after 30 days or beyond the newest 200 per lead (members' requests to each
   other and their reports count apart, with their own 200), and the scheduling pass
@@ -1351,7 +1348,7 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
   lead's current main chat when a request starts and when it ends (who and how it
   ended, never the text). A request created while the lead had no main chat shows its
   notes in the main chat the lead has later. Notes are no lead turn and are pruned with
-  their request. **Work → Teams → Questions and tasks** lists exchanges as "<member> →
+  their request. **Team › Teams › Questions and tasks** lists exchanges as "<member> →
   <member> · question/task" and reports as "Result from <member>" / "Problem from
   <member>"; `agentpier_team_members` shows the lead each member's requests from
   colleagues. The lead's "Your team" section and tool descriptions say that members can
@@ -1707,7 +1704,7 @@ was compacted and the plan was gone. Four rules close that gap:
 ### Reminders
 
 Enable **Allow reminders and routines**; no Telegram chat is needed. Request a
-reminder in chat or create a one-time/daily reminder under **Routines & check-ins** in
+reminder in chat or create a one-time/daily reminder under **Automation** in
 its settings. One-time
 form values use the browser's displayed local timezone; daily schedules carry an
 explicit IANA timezone. Native OpenClaw handles scheduling and timezone calculation.
@@ -1838,14 +1835,14 @@ what their lead grants them (see [Team member grants](#team-member-grants-2026-1
 The tools exist only in team mode (native teams), where AgentPier compiles them into
 the Gateway's startup configuration.
 
-| Switch             | Grants           | What it does                                                                                                                                                                                                         |
-| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Search the web** | `web_search`     | Searches with the provider chosen under **Accounts → Services for agents → Web search**                                                                                                                              |
-| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                                                                                      |
-| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                                                                                       |
-| **Read images**    | `view_image`     | Looks at images in the workspace, and with `image_view` in granted project folders; needs a model that accepts images                                                                                                |
-| **Read PDFs**      | `pdf`            | Reads workspace PDFs with the agent's own model, or the optional fallback under **Accounts → Services for agents → PDF reading** when that model does not accept images (see [PDF reading](#pdf-reading-2026-10-19)) |
-| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))                                                                        |
+| Switch             | Grants           | What it does                                                                                                                                                                                                            |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search the web** | `web_search`     | Searches with the provider chosen under **Connections › Services for agents › Web search**                                                                                                                              |
+| **Read web pages** | `web_fetch`      | Fetches a public address and reads its text; private, loopback and internal targets are refused                                                                                                                         |
+| **Use a browser**  | `browser`        | Drives a separate, headless browser profile owned by AgentPier                                                                                                                                                          |
+| **Read images**    | `view_image`     | Looks at images in the workspace, and with `image_view` in granted project folders; needs a model that accepts images                                                                                                   |
+| **Read PDFs**      | `pdf`            | Reads workspace PDFs with the agent's own model, or the optional fallback under **Connections › Services for agents › PDF reading** when that model does not accept images (see [PDF reading](#pdf-reading-2026-10-19)) |
+| **Create images**  | `image_generate` | Creates and edits images with `openai/gpt-image-2` through a signed-in ChatGPT account (see [Image generation](#image-generation-2026-10-18))                                                                           |
 
 Web content is untrusted data. OpenClaw wraps fetched and browsed content as
 external content, and the switches do not grant any other tool.
@@ -1880,7 +1877,7 @@ agent's own. AgentPier therefore never lets the tool choose:
   images but is unusable right now is refused too, not passed to the fallback. The reference is resolved like the agent's live
   apply, so it names the provider the Gateway runs; an agent's model change applies
   to its PDFs with the same live apply.
-- **Fallback:** **Accounts → Services for agents → PDF reading** optionally chooses a
+- **Fallback:** **Connections › Services for agents › PDF reading** optionally chooses a
   fallback model connection (OpenRouter, a custom endpoint or a ChatGPT account) and
   one of its models for agents whose own model does not accept images. Only ids are
   stored (`assistants/pdf-model.sqlite`); the key stays with the model connection.
@@ -2064,7 +2061,7 @@ always opened by the same app. The block:
 - sets `allowSystemProfileImport: false`, so the agent cannot copy cookies from a
   system browser profile, and `evaluateEnabled: false`;
 - runs every profile `headless` unless the owner switches on **Visible browser** for
-  the agent (**Agents → agent → Capabilities → Agent browser**). A visible window needs
+  the agent (**agent settings › Capabilities › Agent browser**). A visible window needs
   the separate agent app and a display; with only the owner's Chrome, or on Linux
   without `DISPLAY`/`WAYLAND_DISPLAY`, the profile stays headless and the setting
   says why. AgentPier passes `DISPLAY`, `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` to
@@ -2215,7 +2212,7 @@ starts with OpenClaw's defaults. After the AgentPier update that moved the appro
 from 2026.10.3 to 2026.10.7, stored overrides therefore stay inactive on 2026.10.3
 until the owner activates 2026.10.7, and again after a rollback before commit
 (`overridesFor`, `openclaw-config/overrides.js`).
-The owner edits them under **Settings → Workspace → Agents → Agent service → Advanced settings**
+The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
 the running Gateway and stored only once OpenClaw accepted it; a `restart` setting
@@ -2345,7 +2342,7 @@ sign in, solve a check or search, and **Hand back** returns it.
 
 ### Search provider
 
-**Accounts → Services for agents → Web search** selects one provider for all agents:
+**Connections › Services for agents › Web search** selects one provider for all agents:
 
 - **DuckDuckGo** (default) needs no key.
 - **Perplexity** uses an existing OpenRouter connection's key; searches are billed to
@@ -2408,7 +2405,7 @@ again; a try first notices such a start and then ends without restarting. A runt
 update is refused (`UPDATE_BUSY`) while a try runs.
 
 The agent settings, the connection details, the web search, PDF reading and Telegram
-settings and **Settings → Workspace → Agents → Agent service** show **Agent service
+settings and **Agents › Runtime › Agent service** show **Agent service
 restart pending** with what it is for and what it waits for. **Restart now** asks
 first and then restarts at once (`POST /api/assistant-runtime/pending-restart`,
 exempt from the maintenance guard). It interrupts all running agent work and can take
@@ -2588,7 +2585,7 @@ lead's own members: a temporary one that works on its task or is finished but st
 reachable (with a chat; `reachableMember` in `member-reach.js`, the same rule as
 later grants), or a permanent one that is not archived (`editableMember`). The
 change shows in the lead's chat and history; for a permanent member also in the
-history of its Profile tab:
+history of its Identity tab:
 
 - `name` (as for any agent, at most 100 characters), `role` (200) and `assignment`
   (8192) update the member's record, which the sidebar, the team card and the
@@ -2620,14 +2617,13 @@ history of its Profile tab:
   with the usual model error and there is no fallback to the lead's model.
 
 An edit of a permanent member applies from its next turn, also in the owner's chats
-with it, and appears in the history of its Profile tab together with the replaced
+with it, and appears in the history of its Identity tab together with the replaced
 instructions.
 
 Owner edits never block the lead. Every result is recorded as the lead's
 (`leadInstructions` on the member's team record), so the member's settings show an
 instructions override only for owner edits made after it. Each change is visible:
-an entry in the member's log (team card and **Capabilities → Granted by the lead
-agent**), a note in the
+an entry in the member's log (team card and **Access › Granted by the lead agent**), a note in the
 member's and the lead's chats, and an audit record (`assistant.updated`, `kind:
 "member-edit"`) that names the changed fields only. The member's new revision
 applies from its next turn; a running member is re-applied at once. The member's
@@ -2691,12 +2687,11 @@ with the lead.
   `revoke: true` at any time (`member-grant-requests.js`). Capabilities, skills and
   MCP servers apply at once without the owner, but visibly (servers granted later
   are kept apart, `grantedMcpServerIds`, and end with the task): the member's record keeps
-  a log (shown on the team card and in the member's **Capabilities → Granted by the
-  lead agent**), the member's and the lead's chats get a note, and the audit records
+  a log (shown on the team card and in the member's **Access › Granted by the lead agent**), the member's and the lead's chats get a note, and the audit records
   `assistant.updated` with `kind: "member-grant"`, the changed kinds and a server
   count, never names or content. Shell and SSH granted later always become an owner
   approval (an action card in the lead's chat and its paired Telegram chat, the
-  Work tab's **Actions** list) and apply only once approved, after the ceiling is
+  Overview tab's **Actions and coding tasks** list) and apply only once approved, after the ceiling is
   checked again; a card whose member ended or whose setting went off fails closed
   (`GRANT_REVOKED`). Revoking shell or SSH, the member ending, or the setting going
   off cancels such a pending card like other cancellations: a note in the lead's
@@ -2717,7 +2712,7 @@ with the lead.
   empties the folder once the grant goes. Memory search finds both, and the
   member's instructions say which is which. Copies from the earlier layout (the
   member's own root files identical to the lead's) are removed once. The owner
-  reads a member's own memory in its **Capabilities → Own memory**.
+  reads a member's own memory in its **Capabilities › Own memory**.
 - **Reminders.** A member granted reminders gets `agentpier_reminder` (never
   `agentpier_routine`) and may only create a reminder, in a turn its lead gave it
   (`team-member` or `lead-request`). The reminder is created on the lead: it is
@@ -2726,8 +2721,7 @@ with the lead.
   the owner can pause or remove it there. The members of one team create at most
   five (`MEMBER_REMINDER_LIMIT`); each creation adds a note to the lead's chat and
   an audit record (`kind: "member-reminder"`), never the reminder's text.
-- **Shell and SSH.** The lead's **Work → Team → Team members may use shell and
-  SSH** is off by default. It is recorded with each team when it is proposed and
+- **Shell and SSH.** The lead's **Team › Team › Team members may use shell and SSH** is off by default. It is recorded with each team when it is proposed and
   also read live: a team proposed while it was off never gets shell or SSH.
   Switching it off latches (`TeamStore.latchShellSsh`): the lead's teams lose the
   setting for good, their members lose their shell and SSH grants (logged as the
@@ -2841,7 +2835,7 @@ images** (`documents`) with its own permanent members, without the owner
   `projectId`, `serverId`) and `DELETE /api/assistant-lead-shares/:id`; the project's
   Agents view carries `shared`, the MCP server list `shared` per server. A shared
   **Read images** is listed as `kind: "capability"` with `live.on` and shown in the
-  member's **Work → Shared by the lead agent**.
+  member's **Access › Shared by the lead agent**.
 - **Audit.** `assistant.updated` with `kind: "lead-share"`, `change` (`grant` or
   `revoke`), `by` (`lead`, `owner` or `system`), `reason`, the lead
   (`leadAssistantId`), member (`memberId`), task (`requestId`), `projects` (ids with
@@ -2902,7 +2896,7 @@ bindingId, name }`, the result kept like an answer, idempotent per run). The
   attributed data that the lead may act on like any follow-up. A silent run sends
   nothing; a failed run is reported once (`ROUTINE_FAILED`) and later failures stay
   quiet until a run succeeds again (`leadReportFailing` on the binding). Reports are
-  listed in **Work → Teams → Questions and tasks** as "Routine report from
+  listed in **Team › Teams › Questions and tasks** as "Routine report from
   <member>" with "Scheduled · <name>" and do not count against the lead's request
   caps.
 - **Lifecycle.** A lead routine counts only while the relation holds
@@ -2917,7 +2911,7 @@ bindingId, name }`, the result kept like an answer, idempotent per run). The
   `routineId`, `change`, `by` (`lead` or `system`), the edited fields and, for an
   ended relation, the `reason` (`lead-archived`, `member-archived`, `member-left`,
   `lead-gone`, `member-gone`); never the routine's text.
-- **Owner view.** The member's **Routines & check-ins** list shows "Created by
+- **Owner view.** The member's **Automation** tab shows "Created by
   <lead>" and a note that its results also go to the lead and that it only reads
   unless **May write** is on or the lead uses its team autonomously; the owner
   edits name and task, pauses, removes and switches **May write** like for any
@@ -2931,7 +2925,7 @@ Agents can use tools from MCP servers that the owner manages in one central list
 
 ### Central list
 
-**Accounts → MCP servers** lists, adds, edits and removes servers. The list is
+**Connections › MCP servers** lists, adds, edits and removes servers. The list is
 stored in `<data>/mcp-servers/servers.sqlite` (a private directory, mode 0700) and
 is independent of the coding CLIs' own MCP configuration.
 
@@ -3061,7 +3055,7 @@ would refuse aborts the restore before anything is written, while an address it
 would refuse is left out and reported. A restore without them lists each affected
 server in `credentialsNeedingLogin`: `mcp:<name>` when its header or environment
 values are missing, `mcp-address:<name>` when the token in its address is missing.
-Enter them again under **Accounts**.
+Enter them again under **Connections › MCP servers**.
 
 The restored instance's next start reconciles the coding CLIs: it writes managed
 entries a CLI lacks and leaves entries the owner changed as conflicts. A server
@@ -3116,7 +3110,7 @@ environment. Because AgentPier's listener holds the redirect port, the CLI print
 authorization URL and exits; the browser opens it. The provider redirects to the
 callback, which accepts only the unguessable, single-use `state` of a login the owner
 started in the last 10 minutes, runs `openclaw mcp login <name> --code <code>`, and
-returns to **Accounts** with the result. Codes and tokens are never logged or
+returns to **Connections › MCP servers** with the result. Codes and tokens are never logged or
 returned. After a successful login AgentPier makes one hot `mcp` change
 (`mcp.sessionIdleTtlMs` toggles between unset and `0`, which mean the same): a turn
 that tried the server without credentials backs it off for up to 10 minutes, and
@@ -3163,8 +3157,7 @@ recorded in the [MCP OAuth qualification](mcp-oauth-qualification.md).
 
 ## GitHub for agents
 
-An agent works on GitHub with one of the owner's token profiles from **Settings →
-Access → GitHub connections** (AGENTPIER-129). The Work tab's **GitHub** page chooses the level
+An agent works on GitHub with one of the owner's token profiles from **Connections › GitHub connections** (AGENTPIER-129). The Access tab's **GitHub** page chooses the level
 (**No access**, **Read**, **Read and write**) and the profile; the host's **Default
 for agents** is preselected. The access is stored with the agent's access record
 (`github: { credentialId, level }`), audited as `assistant.updated` with
@@ -3219,7 +3212,7 @@ both levels.
 size for macOS and Linux on x64 and arm64), unpacked to `clis/.packages/github-mcp-*`
 and activated through the `clis/github-mcp-server` link after its `--version`
 matches. AgentPier installs it in the background when an agent first gets GitHub
-access; the Work tab shows the state and **Try again** after a failure. An AgentPier
+access; the Access tab shows the state and **Try again** after a failure. An AgentPier
 update that pins a newer version updates an installed server at the next server start
 and through the installer (`setup.sh`, `release-install.mjs`); the previous version
 stays until the next update, so running servers keep their files. Without the server
@@ -3264,7 +3257,7 @@ holds the remote helper `git-remote-agentpier-read-only`. git therefore pushes t
 the `agentpier-read-only://` URL, and the helper prints "AgentPier: this agent has
 Read access to GitHub; pushing is not allowed. Ask the owner for Read and write." and
 exits with status 1. **Read and write** sets neither. The folder is written again
-whenever the agent is re-applied, so a level change in **Work → GitHub** reaches the
+whenever the agent is re-applied, so a level change in **Access › GitHub** reaches the
 next command (`github-credentials.js` `prepareAgent`). This is best effort, not a
 sandbox: the agent runs as the owner, and a remote with an explicit `pushurl`, other
 git configuration or another URL form for the same host (an SSH host alias, for
@@ -3810,7 +3803,7 @@ agent, expiry (30 minutes) and OpenClaw's notes, with **Allow once**, **Always
 allow** and **Deny**.
 
 - The card appears in the agent chat, a permanent team member's own chat included,
-  and under Settings → Work → Actions. When the member's turn was delegated by its
+  and under the agent's **Overview › Actions and coding tasks**. When the member's turn was delegated by its
   lead (a lead's question or task, or a team assignment), the action also records
   `leadAssistantId`: the lead's chat lists the same action and counts it in its
   approval strip, so the owner can decide from either chat; the decision ends it in
@@ -3885,8 +3878,7 @@ them). Check the agent settings after a restore if in doubt.
 ## Skills
 
 OpenClaw bundles skills: short instructions (`SKILL.md`) that teach an agent a tool,
-mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilities →
-Skills** the owner switches bundled skills on per agent. Only personal agents and
+mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilities › Skills** the owner switches bundled skills on per agent. Only personal agents and
 promoted permanent members have a selection of their own; temporary members use
 their lead's current selection, archived agents have none, and a new agent starts
 without any.
@@ -4067,8 +4059,7 @@ AgentPier bridge), and the team plugin contract passes with it.
 ### Dreaming
 
 OpenClaw's dreaming (memory-core's nightly sweep,
-`plugins.entries.memory-core.config.dreaming`) is one owner switch under **Settings ›
-Workspace › Agents › Agent service › Dreaming**: **Dream at night**, the hour (default
+`plugins.entries.memory-core.config.dreaming`) is one owner switch under **Agents › Runtime › Dreaming**: **Dream at night**, the hour (default
 03:00) and its time zone. Switching on adopts this device's zone; **Use my time zone**
 adopts it again later. The setting lives in `assistants/dreaming.sqlite`
 (`dreaming-settings.js`, `GET`/`PUT /api/assistant-dreaming`) and compiles
@@ -4339,7 +4330,7 @@ shared `chat-stream-transport.js`):
   polls. A decided card stays hidden until the feed pushes its next state. While the
   socket is down, or with a server whose window has no `actions`, the chat reads
   `GET /api/assistants/<id>/actions` at start, on change events and every 5 seconds
-  while an approval waits. Settings → Work → Teams still reads the team requests
+  while an approval waits. **Team › Teams** in the agent's settings still reads the team requests
   itself.
 - The chat shows the live window, the rows the window pushed out while the chat is
   open, and the pages "Earlier messages" loaded above them
@@ -4626,7 +4617,7 @@ type.
   naming them fails and says so), and sent rows are marked gone, so their messages
   keep the file name as unavailable. Shared files (`shares/<agent>/`) are a separate
   store and stay. The clear is audited as `assistant.updated` with kind
-  `attachment-clear`, the entry count and the bytes, never file names. Profile >
+  `attachment-clear`, the entry count and the bytes, never file names. Overview ›
   Chat attachments in the agent settings offers it after a confirmation.
 - **Replaced folder.** An agent that puts a link, a file or anything else that is not
   a directory in place of `attachments/` blocks every upload. When the agent's own

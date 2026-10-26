@@ -41,8 +41,8 @@ AgentPier. Present an AgentPier-native UI and control it through the AgentPier
 backend. Keep OpenClaw as an external runtime behind an adapter; do not fork it or
 embed its dashboard as the main product interface.
 
-The subsystem is opt-in. **Settings > Agents** (now **Settings → Workspace →
-Agents**) holds one switch; while it is off the
+The subsystem is opt-in. **Settings > Agents** (now **Agents › Runtime ›
+Function**) holds one switch; while it is off the
 subsystem is dormant and nothing is created, installed, started or shown. Existing
 installations that already used agents migrate to enabled. See the
 [operating guide](../assistant-gateway.md#opt-in-switch).
@@ -316,8 +316,8 @@ from terminal failure, and reconcile external effects before retrying uncertain
 work. Native log warnings alone must not determine task status.
 
 The [Gateway design](../assistant-gateway.md) places service operation in
-Settings > Agents > Agent service (now Settings → Workspace → Agents → Agent
-service) while preserving direct agent chats. It separates
+Settings > Agents > Agent service (now Agents › Runtime ›
+Agent service) while preserving direct agent chats. It separates
 service availability, status reconciliation, run outcome and external delivery.
 
 OpenClaw's logging path must be set explicitly; isolated HOME/TMPDIR does not by
@@ -454,7 +454,7 @@ the member's own workspace only with the owner's explicit wording in the same tu
 `@Name` mention the owner sees as a chip (AGENTPIER-68); `MEMORY.md` and `memory/` stay read-only.
 Accepted risk: an owner who gives members wide shell or MCP rights lets a lead use
 them unattended. The owner-facing record lists every request as "may write" or
-"read-only" in the lead's agent settings (Work → Teams). See
+"read-only" in the lead's agent settings (Work → Teams, now Team › Teams). See
 [lead questions and tasks](../assistant-gateway.md#lead-questions-and-tasks-for-members).
 
 Team usage levels (2026-10-19, AGENTPIER-150): leads used members only when told to,

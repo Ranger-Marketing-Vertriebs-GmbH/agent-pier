@@ -3,7 +3,9 @@
 The start page shows a compact **System status** row with three bars: **Disk**, **CPU**
 and **RAM**. Select the row to open the details: the computer's figures, a sparkline of
 the last hour, AgentPier's own share of CPU and memory, and the size of its data
-directory by area.
+directory by area. The same details, with their cleanups, also open from **Storage** in
+**Settings › Operations** (the row shows the free space). **Agents › Runtime ›
+Storage** offers the cleanup of the agents' installed dependencies.
 
 ## What the figures mean
 

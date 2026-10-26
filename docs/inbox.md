@@ -3,7 +3,9 @@
 The **Inbox** (German **Eingang**, "Waiting on you") collects every decision that
 waits for you, wherever it came from, so you do not have to visit each chat, run and
 agent to find it. It sits in the sidebar directly under **New** with a live count; on a
-phone the header shows an inbox icon with the same count.
+phone the header shows an inbox icon with the same count. The sidebar **Menu** does not
+repeat it. **Agents › All agents** shows how many agent approvals wait, with a link to
+the **Agents** tab here.
 
 ## What it lists
 

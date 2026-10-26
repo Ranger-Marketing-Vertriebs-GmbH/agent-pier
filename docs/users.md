@@ -11,7 +11,7 @@ German copy calls them "Benutzer". The terms used below are fixed in the
 
 ## Add a user
 
-**Settings › Access › Users** lists the users. **Add user** asks for a display name, a
+**Settings › Users** lists the users (`/settings/users`, with `?user=<id>` for one user). **Add user** asks for a display name, a
 username and a first password of at least 12 characters; hand it over safely. There is
 no self-registration. Usernames must differ from the owner's and every other user's,
 ignoring case; at sign-in the name counts exactly as it was created.
@@ -93,7 +93,7 @@ everyone else's chats with it are deleted (their messages show them as unavailab
 its browser closes the tabs that are still open, and the owner's reminders, routines
 and Telegram bot on it end.
 
-Create one from **New agent** with **For** set to the person, or from the user's page.
+Create one in the new agent wizard with **For whom?** set to the person (first step), or with **Add agent for this person** on the user's page. Their levels and released capabilities are in the agent's settings under **Access › Who uses this agent**.
 On the agents page and in the sidebar they appear under **Agents of users**. The owner
 does not chat with a user's own agent.
 
@@ -164,7 +164,7 @@ settings ("by Anna"), never chat text.
 
 Users sign in on the same page as the owner:
 
-- **Home network**: with network mode on (**Settings › Access › Remote access ›
+- **Home network**: with network mode on (**Settings › Remote access ›
   Network › Network access**), anyone on the network reaches the sign-in. It has no TLS: no push
   notifications, no app installation, no dictation. Use it only in a trusted network.
 - **Tailscale**: every member of the owner's tailnet reaches the sign-in through
@@ -198,7 +198,7 @@ A restore never brings back sessions: everyone signs in again. Restored without 
 credentials, a user keeps her agents and settings but cannot sign in, and her chats are
 not in such a backup: they come back only from a backup with a passphrase and history.
 The restore report lists her as "User <name> (set a new password)" and
-**Settings › Access › Users** shows her as **Needs a new password** until the owner
+**Settings › Users** shows her as **Needs a new password** until the owner
 uses **Reset password**.
 
 ## Updates and rollback

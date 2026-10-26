@@ -1,9 +1,9 @@
 # Settings pattern
 
-Agent settings, Accounts, Settings, Extensions and Projects share one pattern:
-a header with underline tabs, grouped list cards, one bottom save bar per tab or
-subpage, hints behind ⓘ, central settings as dashed reference rows into Accounts, and
-"Used by" lists in Accounts. This guide names the building blocks and their contracts.
+Agent settings, the agents hub, Connections (Zugänge), CLIs and extensions, Settings
+and Projects share one pattern: a header with underline tabs, grouped list cards, one
+bottom save bar per tab or subpage, hints behind ⓘ, central settings as dashed
+reference rows into Connections, and "Used by" lists in Connections. This guide names the building blocks and their contracts.
 It is part of the [UI guide](ui-guide.md), which holds the design tokens, the full
 component catalogue and the rules for every screen.
 
@@ -19,7 +19,7 @@ component catalogue and the rules for every screen.
 | `ToggleRow`, `NumberRow`, `SelectRow`, `RadioRow`, `CheckboxRow` | Control rows (switch 38×22 as `<input type="checkbox" role="switch">`, number 64×34, native select, radio, checkbox with optional pill such as "stdio").                                                                                                        |
 | `Segmented`                                                      | Segmented choice (shell level, Active/Archive, Sessions/Messages).                                                                                                                                                                                              |
 | `InfoHint` (`useInfoHint`, `InfoHintButton`, `InfoHintText`)     | ⓘ disclosure: `aria-expanded` + `aria-controls`, inserts the hint text verbatim below the row or label. Never a tooltip.                                                                                                                                        |
-| `ReferenceRow`                                                   | Dashed row "Managed centrally in Accounts" (or a count) linking to `{ view: "accounts", section, item }`: a link with `href` (`onOpen` keeps it in-app), a button without.                                                                                      |
+| `ReferenceRow`                                                   | Dashed row "Managed centrally in Connections" (or a count) linking to `{ view: "connections", section, item }`: a link with `href` (`onOpen` keeps it in-app), a button without.                                                                                |
 | `SaveBar`                                                        | Visible while the draft is dirty, saving, or reports an error, conflict or partial save. Cancel + primary (specific label where one exists); in a conflict "Reload" + "Overwrite anyway". Optional `note` such as a restart notice.                             |
 | `Sheet`                                                          | Bottom sheet on phones, centred dialog (max 420px) on desktop; used for chain confirmations.                                                                                                                                                                    |
 | `UnsavedChangesSheet`                                            | "Save changes?" with "Save and switch", "Discard", "Cancel"; body names the tab and the number of changed fields.                                                                                                                                               |
@@ -117,9 +117,9 @@ const steps = [
   failed step and `partial` (labels of saved steps); the bar shows "Partially saved: …"
   and the tab stays dirty. A confirmation cancelled after an earlier step saved also
   reports "Partially saved: …", without an error.
-- **Agent helpers** (`web/features/assistants/assistant-save-steps.js`):
-  `assistantPatchStep` for `PATCH /assistants/:id` (Profile, Skills, Telegram
-  heartbeat) and `assistantWorkStep` for `PUT /assistants/:id/work` (Work; revisions
+- **Agent helpers** (`web/features/assistants/assistant-save-steps.js`): `assistantPatchStep` for `PATCH /assistants/:id` (Identity, Capabilities, Skills,
+  Automation heartbeat) and `assistantWorkStep` for `PUT /assistants/:id/work` (the
+  Access tab saves the `access` half, the Team tab the `team` half; revisions
   `{ access, team }`).
 
 ## Unsaved changes and navigation (`web/lib/navigation-guard.js`)
@@ -157,9 +157,15 @@ moves focus to a tab only once it is selected.
 
 ## Routes
 
+Settings keeps five tabs: **General**, **App and notifications**, **Users**, **Remote
+access** and **Operations** ([General tab](screenshots/settings-general-desktop.png)).
+General shows a **Features** row (agents on or off, linking to Agents › Runtime) and,
+for two releases, a **Moved** group with links to the pages that left Settings.
+Operations adds a **Storage** row that opens the system status clean-up.
+
 | Page                | Address                                                                 | Route fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Settings            | `/settings?tab=<tab>`, `/settings/<section>`                            | `settingsSection`, `settingsTab` (derived from the section; `settingsSection: "general"` is the tab root). `settingsSectionGroups`, `settingsTabOf()` in `web/features/operations/routes.js`.                                                                                                                                                                                                                                                                                                                                                                                          |
+| Settings            | `/settings?tab=<tab>`, `/settings/<section>`                            | `settingsSection`, `settingsTab` (`general` / `app` / `users` / `remote` / `operations`, derived from the section; `settingsSection: "general"` is the tab root; `tab=workspace` and `tab=access` are old names). `settingsSectionGroups`, `settingsTabOf()` in `web/features/operations/routes.js`.                                                                                                                                                                                                                                                                                   |
 | Agents hub          | `/agents?tab=<tab>&section=advanced`                                    | `agentsTab` (`all` / `teams` / `templates` / `runtime`), `agentsSection` (`advanced`, Runtime only); `web/features/assistants/hub-routes.js`. Runtime honours `returnTo`.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Agent settings      | `/agents/:id/settings?tab=<tab>&page=<page>`                            | `agentTab` (`overview` / `identity` / `capabilities` / `access` / `team` / `automation` / `channels`; old names `profile`, `work`, `routines`, `telegram` are mapped), `agentPage` (`memory`, `allowlist`, `skills`, `actions`, `projects`, `pipelines`, `ssh`, `github`, `secrets`, `hook`, `telegram-activity`, `telegram-connection`; a page decides the tab). `agentSettingsTab(route)` names the tab, `agentSettingsLocation(route)` the tab of the current page that shows it. `agentTeam` (`team=<id>`, Team tab only) opens that team in the Teams group (`agentTeamRoute()`). |
 | Zugänge             | `/connections?section=<category>&item=<id or new>&step=<step>`          | `section` (`models` / `services` / `mcp-servers` / `ssh` / `secrets` / `github`), `item`, `step` (MCP server wizard and edit steps only, see Wizards); MCP OAuth results keep working. `web/features/connections/routes.js`.                                                                                                                                                                                                                                                                                                                                                           |
@@ -168,11 +174,19 @@ moves focus to a tab only once it is selected.
 Moved pages keep their old addresses (`/settings/assistants`, `/settings/ssh`,
 `/settings/mcp`, `/accounts`, `/extensions`, `/plugins`, …): `movedRoute()` in
 `web/app/route-redirects.js` turns their routes into the new ones, for parsed
-addresses and for routes pages still build, with `returnTo` kept. Zugänge has its own
-page (`web/features/connections/ConnectionsPage.jsx`); until the other new areas have
-theirs, `screenRoute()` in `web/app/route-screens.js` names the page that shows them.
-Draft guards compare routes through `screenOf()`, which reads an old route as its new
-place first.
+addresses and for routes pages still build, with `returnTo` kept. Every area has its
+own page: Zugänge (`web/features/connections/ConnectionsPage.jsx`), CLIs and
+extensions (`web/features/coding/CodingPage.jsx`) and the agents hub
+(`web/features/assistants/hub/AgentsHub.jsx`). `screenRoute()` in
+`web/app/route-screens.js` reads an old route as its new place, and draft guards
+compare routes through `screenOf()`. The server keeps building old addresses where
+they are stored or sent (MCP consent `/settings/mcp?authorization=…`, MCP OAuth results
+`/accounts?oauth=…`); the client redirect keeps them working.
+
+The sidebar **Menu** (`web/app/SidebarMenu.jsx`, entries and hints in
+`web/app/sidebar-menu-model.js`) lists the areas in the groups Arbeiten/Work and
+Einrichten/Set up and marks the current one with `menuArea()`; see the
+[UI guide](ui-guide.md#sidebar-menu-and-search).
 
 ### Zugänge
 
@@ -195,31 +209,34 @@ canonical form differs, which is how legacy links redirect.
 
 ### Cross-links and the back arrow
 
-A link that leaves the current area (a `ReferenceRow` into Accounts, "Agent service
-settings", the Deepgram row on the Telegram tab, the Access tab's Accounts row, the
-CLI extensions' MCP row) wraps its target with `useCrossLink()` from
+A link that leaves the current area (a `ReferenceRow` into Connections, the link to
+Agents › Runtime, the Deepgram row on the Channels tab, the Identity tab's "Manage
+connections" row, the Access tab's "Open" and set-up links, the CLI extensions' MCP
+row) wraps its target with `useCrossLink()` from
 `web/app/cross-link.js`. The target gets `returnTo=<origin path>`: the exact page,
 tab and subpage the owner came from.
 
-- Accounts and settings subpages read it with `useReturnTarget(route, navigate)`
+- Connections, CLIs and extensions (Accounts and AgentPier as MCP tabs), Agents ›
+  Runtime, Artifacts and settings subpages read it with `useReturnTarget(route, navigate)`
   (`web/app/useReturnTarget.js`). A valid `returnTo` turns the back arrow into "Back to
   <origin>" (`settingsHubCopy.backTo`, e.g. "Back to Chief of Staff") that returns
-  there; without one the back arrow keeps the hierarchy (subpage → its tab, Accounts
-  entry → its group).
+  there; without one the back arrow keeps the hierarchy (subpage → its tab, Connections
+  entry → its category).
 - `returnTo` is part of the route (`readRoute`/`routePath`), so it survives a reload
-  and history moves. Moves inside Accounts keep it; any other navigation builds a
+  and history moves. Moves inside Connections keep it; any other navigation builds a
   fresh route and drops it.
-- Accounts on phones: only the page the link landed on (hub or entry) shows the
-  origin's back arrow. Another entry goes back to its group, and a hub the link did not
-  land on keeps the menu button. On wider screens Accounts is one page (hub and detail
-  side by side) and shows the origin's back arrow for the whole visit.
+- Connections on phones: only the page the link landed on (category list or entry)
+  shows the origin's back arrow. Another entry goes back to its category, and a list the
+  link did not land on keeps the menu button. On wider screens Connections is one page
+  (categories, list and detail side by side) and shows the origin's back arrow for the whole visit.
 - Chains keep one earlier origin: a cross-link that starts on a page with its own
-  `returnTo` carries it forward (Agent settings → Deepgram → Agent service settings →
+  `returnTo` carries it forward (Agent settings → Deepgram → Agents › Runtime →
   back to Deepgram → back to the agent). A third link drops the oldest origin.
 - Validation (`readReturnTo()` in `web/app/routes.js`, `appPathParts()` in
   `web/app/return-to.js`): same-origin app paths only, no scheme, no `//host`, no
   backslash or control characters, bounded length; the value is parsed as an app route
-  of an allowed origin (agents, settings, extensions, accounts) and rebuilt with
+  of an allowed origin (agents, settings, connections, coding and the old extensions and
+  accounts views) and rebuilt with
   `routePath`, never echoed. Nesting stops after one level.
 - Agent settings remember their scroll position (`useReturnScroll`); returning through
   the back arrow restores it.
@@ -232,12 +249,22 @@ tab and subpage the owner came from.
 
 A multi-step flow (the MCP server wizard, `web/features/mcp-servers/wizard/`) keeps its
 draft in a React reducer only, never in storage. The address carries an allowlisted
-`step` (`web/features/accounts/routes.js`) so browser history moves between steps; a
+`step` (`web/features/connections/routes.js`) so browser history moves between steps; a
 reload drops the draft and returns to the first step with a notice. Each step has one
 `h1` that takes focus, a form whose Enter submits the primary action, and a sticky bar.
 `useWizardGuard` asks before a navigation leaves an unsaved draft. Saved records are
 edited step by step: each edit step owns its draft (`useAccountDraft` keeps it only for
 the same `item` and `step`) and saves with the usual save bar.
+
+The new agent wizard (`/agents?new=1`, `web/features/assistants/wizard/`) has six steps
+in one draft (`wizard-draft.js`, profiles in `wizard-profiles.js`). Its address does not
+carry the step; leaving the page with a draft asks first, and side sheets (model access,
+setting up what step 3 or 4 needs) keep the draft. **Create agent** runs the existing
+endpoints in order (`wizard-creation.js`): `POST /api/assistants` (or the user-agent
+endpoint), capabilities, the `access` half of `PUT /assistants/:id/work`, MCP bindings, the
+`team` half (duplicates), Telegram, heartbeat, routine, each with its revision. A failed later step keeps the agent and lists every
+step as done or failed with "Try again"; no step is resent silently. `duplicate=<id>`
+prefills it from another agent by the copy rules in `wizard-draft.js`.
 
 ## Server summaries
 
@@ -245,7 +272,7 @@ the same `item` and `step`) and saves with the usual save bar.
   → `{ access, team, removedProjectIds }`; one transaction, both revisions are preconditions.
   Granted projects that no longer exist are dropped and listed in `removedProjectIds`;
   `PUT /api/assistants/:id/access` returns the saved policy with the same field.
-- `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github, secrets }, operations: { diagnostics, backups, updates } }`;
+- `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github, secrets }, operations: { diagnostics, backups, updates } }` (the `access` key keeps its old name; the settings tabs and the menu's update hint read it);
   local state only, every part `null` when unknown. `secrets` is `{ count }`. `remote` is
   `{ tailscale, network, restartRequired }` (a saved network change not yet running).
 - `GET /api/connections/usage` — per SSH/SFTP host, secret and GitHub token profile:
@@ -263,7 +290,8 @@ Rows show "—" until a summary arrives, never a fake 0.
 
 ## Copy
 
-Shared texts live in `commonCopy` (`web/lib/i18n/{de,en}/common.js`): `centralInAccounts`,
+Shared texts live in `commonCopy` (`web/lib/i18n/{de,en}/common.js`): `centralInAccounts`
+("Managed centrally in Connections"),
 `usedBy`, `agentsCount(n)`, `ofCount(a, b)`, `unsavedTitle`, `unsavedBody(tab, n)`,
 `saveAndSwitch`, `discard`, `showHint`, `changedElsewhere`, `overwrite`,
 `partiallySaved(steps)`, `unsavedChanges`, `moreActions`, `confirm`, `language`.

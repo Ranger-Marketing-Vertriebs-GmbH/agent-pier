@@ -48,7 +48,7 @@ resolved and applied. Subsequent resolution reads the current central credential
 Editing or removing a connection referenced by an assistant needs a Gateway restart.
 A revocation (deleting the connection, a new key or removing its key) restarts it at
 once: the request needs `confirmRestart: true`; without it the route answers 409
-`ASSISTANT_RESTART_REQUIRED` and the Accounts page asks for that confirmation. The
+`ASSISTANT_RESTART_REQUIRED` and **Connections › Model access** asks for that confirmation. The
 change then uses the shared runtime maintenance gate; active or uncertain work
 prevents it, and the owned Gateway stops before central credentials change. Any
 other change (for example the endpoint or the name) is saved at once and the restart

@@ -6,13 +6,13 @@ Grants limit the MCP API. They do not provide OS-level isolation from the truste
 
 ## Prepare the connection
 
-Open **Settings → Access → MCP & access** to copy the actual server address. For use on the same machine, HTTP is allowed only for `localhost`, `127.0.0.1` or `[::1]` with an explicit fixed port. The server supplies `http://127.0.0.1:<actual-port>/mcp` when no remote origin is configured; do not copy that address to another computer.
+Open **CLIs and extensions › AgentPier as MCP** (sidebar **Menu**, group **Set up**) to copy the actual server address. For use on the same machine, HTTP is allowed only for `localhost`, `127.0.0.1` or `[::1]` with an explicit fixed port. The server supplies `http://127.0.0.1:<actual-port>/mcp` when no remote origin is configured; do not copy that address to another computer.
 
 For a CLI on another computer, configure [private HTTPS access](remote-access.md) on the AgentPier host. Its setup script records the actual `remoteUrl`. A configured HTTPS address remains HTTPS, and an invalid remote configuration is reported rather than silently downgraded to local HTTP. Other HTTP hostnames, LAN addresses and tailnet addresses are not offered as MCP setup URLs.
 
 For remote access, your CLI computer must be connected to the same tailnet. For local HTTP, run both the CLI and browser on the AgentPier host. Complete browser authorization on the CLI computer using the AgentPier owner's access, so that its loopback callback reaches the CLI. No provider API key belongs in these commands.
 
-The commands below use `MCP_URL` for the exact address copied from Settings. The in-app instructions substitute the configured address directly.
+The commands below use `MCP_URL` for the exact address copied from **AgentPier as MCP**. The in-app instructions substitute the configured address directly.
 
 ## Codex
 
@@ -55,7 +55,7 @@ See the [official Claude Code MCP documentation](https://code.claude.com/docs/en
 
 ## OpenCode 1.x
 
-Merge the following entry into `mcp` in your existing `opencode.json`, replacing `COPIED_MCP_URL` with the address from Settings. Keep your other configuration entries.
+Merge the following entry into `mcp` in your existing `opencode.json`, replacing `COPIED_MCP_URL` with the address from **AgentPier as MCP**. Keep your other configuration entries.
 
 ```json
 {
@@ -80,7 +80,7 @@ To remove credentials, run `opencode mcp logout agentpier`, then remove `mcp.age
 
 ## Review and revoke access
 
-CLI login redirects to `/settings/mcp?authorization=<opaque-id>`. The owner sees the client-provided name, client ID, callback URLs, expiry and requested permissions. Names and callback addresses are shown as text. The initial selection includes only requested catalog and run read permissions. Projects, source accounts and provider connections all start unselected; each resource group remains inaccessible until explicitly selected. Select both the source account and central provider connection when granting runs that use a central provider.
+CLI login redirects to `/settings/mcp?authorization=<opaque-id>`, which opens the consent screen under **CLIs and extensions › AgentPier as MCP** (`/coding/clis?tab=mcp&authorization=<opaque-id>`). The owner sees the client-provided name, client ID, callback URLs, expiry and requested permissions. Names and callback addresses are shown as text. The initial selection includes only requested catalog and run read permissions. Projects, source accounts and provider connections all start unselected; each resource group remains inaccessible until explicitly selected. Select both the source account and central provider connection when granting runs that use a central provider.
 
 To start pipelines, explicitly select **Start runs** (`runs:start`) during browser consent, together with the needed projects, source accounts and provider connections. The initial read-only selection does not authorize starting runs. Add `definitions:write` only when the client should edit profiles or pipelines, and `runs:cancel` when it should cancel its own runs.
 
@@ -161,7 +161,7 @@ backup limits.
 
 ## Central MCP servers in the coding CLIs
 
-Accounts → **MCP servers** is the one place for the MCP servers the owner uses. A server
+**Connections › MCP servers** is the one place for the MCP servers the owner uses. A server
 can be given to agents and to the coding CLIs Claude Code, Codex and OpenCode (**Coding
 CLIs** on the wizard's **Connect** step). A server bound to a CLI is written into that CLI's own
 configuration (`~/.claude.json` `mcpServers`, `~/.codex/config.toml` `mcp_servers`,
@@ -171,6 +171,16 @@ CLI. AgentPier writes at every save and before every session start; running sess
 see a change after a restart. The list, the CLI bindings and the finds work with or
 without agents; agent OAuth logins need agents. A local (stdio) command given to a CLI
 needs the owner's confirmation, because every session of that CLI starts it.
+
+The list has the views **All**, **With problems** (sign-in expired, installation failed,
+CLI error; an available update counts as a warning) and **Not used**, a search over
+name, address and command, filters for **Transport**, **CLI**, **Agent** and
+**Status**, and **Group** by **Source** with the first five entries per group and
+**Show n more**. Selecting servers offers **Bind to CLI …**, **Grant agent …**, **Check
+updates** and **Remove**; each runs the same per-server operation and lists the result
+for every server. An agent's own **Access › MCP servers** group and the server's **Who
+may use it** change the same binding. Old `/accounts?section=mcp-servers` links open
+this page.
 
 **Add MCP server** opens a wizard: **Source** (package from npm or PyPI, server on the
 internet, own command, or [the MCP directory](#mcp-directory)), **Set up**, **Settings**, then **Install** (package) or
@@ -307,7 +317,7 @@ command is such a runner.
   the callback URL `<origin>/api/mcp-servers/cli-oauth/callback`, receives the
   provider's redirect there (Codex appends a path segment per server URL; the login is
   found by its `state`), hands the full callback URL to the waiting Codex on stdin and
-  returns the tab to the Accounts page with the result. Codex itself exchanges the code
+  returns the tab to **Connections › MCP servers** with the result. Codex itself exchanges the code
   and stores the tokens; AgentPier keeps only the pending process in memory.
   - At most one login per account and server (a new one ends the previous), at most
     eight at once (counted from the moment a login starts), each for five minutes
@@ -346,9 +356,9 @@ command is such a runner.
   that get none (`MCP_CWD_TOO_BROAD`).
 - **Audit.** Binding and unbinding CLIs, conflict choices and adoptions are recorded as
   `mcp.updated`/`mcp.created` with the CLIs, never with an entry or a value.
-- **Extensions** does not edit MCP servers: Skills and Plugins show a reference row
-  with the number of central servers bound to that CLI, linking to Accounts →
-  **MCP servers**.
+- **CLIs and extensions › Extensions** does not edit MCP servers: Skills and Plugins
+  show a reference row with the number of central servers bound to that CLI, linking to
+  **Connections › MCP servers**.
 
 ### Servers a member uses through its lead
 
@@ -363,7 +373,7 @@ exists and (for a task's share) the task runs. A server with
 with the member's folders. An agent with its own Telegram bot for other people never
 gets a local (stdio) server this way. A share, its revocation and the lead losing the
 binding reach the running Gateway like any binding change, at the latest with the
-team scheduler's next tick. The server's overview under **Accounts → MCP servers**
+team scheduler's next tick. The server's overview under **Connections › MCP servers**
 lists every member using it this way, "via <lead>", with **Revoke**
 (`DELETE /api/assistant-lead-shares/:id`, owner only; `GET /api/assistant-lead-shares`
 lists them).
@@ -441,7 +451,7 @@ tool result instead and needs no folder at all.
 ### Installing a server package
 
 A local (stdio) server can come from an npm or PyPI package instead of an own command.
-In **Accounts → MCP servers** choose **Package from npm or PyPI** on the wizard's
+In **Connections › MCP servers** choose **Package from npm or PyPI** on the wizard's
 **Source** step, then the **Registry** (npm or PyPI), the **Package** and a **Version**.
 The package step names the publisher and source link as npm or PyPI state them, marked
 "Link given by the publisher, not verified."; **More options** holds the PyPI
@@ -588,7 +598,7 @@ Nothing is copied automatically. Tick the skills, choose the CLI profile in
 **Install into CLI profile** and confirm **Install** after **Install selected skills**;
 the confirmation warns that skill content comes from the package author and is not
 checked. The copy goes into the same profile directory as
-**Extensions → Skills → Install skill** and an existing directory is never overwritten:
+**CLIs and extensions › Extensions › Skills › Install skill** and an existing directory is never overwritten:
 if one of the chosen skills' folders exists, none of them is copied. Installing a skill
 this package already installed in that profile again changes nothing.
 AgentPier owns the copy and ties it to the package version: an update (or reinstall)
@@ -597,14 +607,14 @@ no longer ships it, and removing the server or switching it to an own command re
 it. AgentPier records a digest of every file it wrote (path, permissions, SHA-256) and
 replaces or removes a copy only while it is still exactly that: a copy you edited,
 extended, replaced or deleted is no longer owned, keeps your changes and then shows as
-your own skill on **Extensions → Skills**. The package's own code runs with your
+your own skill on **CLIs and extensions › Extensions › Skills**. The package's own code runs with your
 user's rights (as an allowed install script, and as the server itself at any time),
 so it can change the installed skill files before they are copied; review skills
 before you install them, especially those of packages you trust less.
 
 ### MCP directory
 
-**Settings → Workspace → MCP directory → Search the MCP Registry** lets AgentPier search
+**Settings › General › MCP directory › Search the MCP Registry** lets AgentPier search
 the official [MCP Registry](https://registry.modelcontextprotocol.io) on demand (on by
 default). The AgentPier server sends only the search term or the entry name to the
 configured **Registry address** (under **Advanced**; `https://` only, `http://` only

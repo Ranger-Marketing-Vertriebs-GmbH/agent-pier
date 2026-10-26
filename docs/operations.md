@@ -2,6 +2,8 @@
 
 How AgentPier stores, backs up, restores and moves its data, and how release packages and the installer work. For everyday use see [backups](backups.md), [installation](installation.md) and [Stable and Preview releases](release-channels.md).
 
+In the app, **Settings › Operations** holds **Diagnostics**, **Backups**, **Updates**, the **Activity log**, **Storage** (free space and the cleanups of the [system status](system-status.md#free-up-space)) and **Development › Components**.
+
 ## Storage and consistency
 
 Backups are versioned `.apbackup` archives with explicit regular-file members, SHA-256 content checksums, capture metadata and omissions. Version 2 is a streamed tar.gz without an overall size limit (see [backups](backups.md)); version 1 gzip/JSON archives, bounded to 256 MiB and 20,000 members, remain restorable. The encrypted credential capsule stays bounded. They are private data, including task/history content; “credentials excluded” does not mean arbitrary user text is universally redacted.

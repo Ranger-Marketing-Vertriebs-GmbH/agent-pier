@@ -2,6 +2,8 @@
 
 Configure shared OpenRouter or Z.ai access once, then choose the CLI and model for each new session. Native accounts remain specific to their CLI, and existing account-bound provider configurations remain supported.
 
+Provider connections and **ChatGPT for agents** live under **Connections › Model access**; native CLI accounts under **CLIs and extensions › Accounts**. Both open from the sidebar **Menu** (group **Set up**), and each entry lists who uses it under **Used by**. Old `/accounts?section=models` and `/accounts?section=cli` links open these pages. A model access whose key is missing or whose sign-in expired counts as a problem in **Connections**.
+
 ## Central connections and session selection
 
 Create a provider connection once, then select the CLI, compatible access and model when starting a session. A native account belongs to its own CLI; a central OpenRouter or Z.ai connection can be used across supported CLIs. Z.ai/Codex requires explicit Responses API access. Native defaults and existing account-specific provider profiles remain available.

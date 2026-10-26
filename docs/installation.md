@@ -137,7 +137,7 @@ npm run build
 npm start
 ```
 
-Open `http://127.0.0.1:4380` on the Mac mini. Install missing CLIs, including the GitHub CLI `gh`, through **Install CLI** as needed. They are installed on this server inside the AgentPier data directory and verified with `--version`. Then configure CLI accounts and open a session in a test project. Create a separate profile for each additional account. Add GitHub or Enterprise tokens separately under **Settings → Access → GitHub connections**.
+Open `http://127.0.0.1:4380` on the Mac mini. Install missing CLIs, including the GitHub CLI `gh`, through **Install CLI** as needed. They are installed on this server inside the AgentPier data directory and verified with `--version`. Then configure CLI accounts under **CLIs and extensions › Accounts** and open a session in a test project. Create a separate profile for each additional account. Add GitHub or Enterprise tokens separately under **Connections › GitHub connections**.
 
 Press `Ctrl+C` to stop the test web service before configuring the persistent service. Running terminal sessions remain in tmux.
 
@@ -169,7 +169,7 @@ npm run service:status
 
 Installation writes only the AgentPier LaunchAgent at `~/Library/LaunchAgents/dev.agentpier.server.plist`. It starts the web service when the user logs in and restarts it after a crash. The service runs under that user account; it is not a system service that starts before login.
 
-The plist saves the Node path, project and data directories, and PATH at installation time. Run `npm run service:install` again after moving the project or upgrading Node. Your CLI sessions survive a web service restart. A machine restart or crash, however, ends all CLI processes. On the next startup—after login on macOS, since the LaunchAgent starts only then—AgentPier automatically resumes interrupted sessions with their own conversations if **Resume interrupted sessions automatically** is enabled under **Settings → Workspace → General** (on by default). Responses and processes running at the time of interruption are lost; sessions stopped by the user remain stopped. A session with a waiting or running [Reload & resume](session-reload.md) is relaunched by that reload instead, exactly once.
+The plist saves the Node path, project and data directories, and PATH at installation time. Run `npm run service:install` again after moving the project or upgrading Node. Your CLI sessions survive a web service restart. A machine restart or crash, however, ends all CLI processes. On the next startup—after login on macOS, since the LaunchAgent starts only then—AgentPier automatically resumes interrupted sessions with their own conversations if **Resume interrupted sessions automatically** is enabled under **Settings › General** (on by default). Responses and processes running at the time of interruption are lost; sessions stopped by the user remain stopped. A session with a waiting or running [Reload & resume](session-reload.md) is relaunched by that reload instead, exactly once.
 
 ## 5. Optional: private remote access
 
@@ -211,18 +211,21 @@ back to:
   restore. 2.0 still restores backups made by 1.x.
 - **Codex MCP logins.** Managed Codex accounts now keep MCP OAuth tokens in their own
   profile instead of the macOS keychain. Sign in once more to each OAuth MCP server
-  you used from a managed Codex account, under **Accounts → MCP servers** (see
+  you used from a managed Codex account, under **Connections › MCP servers** (see
   [Central MCP servers](mcp.md#central-mcp-servers-in-the-coding-clis)).
 - **Lead agents instruct their members without approval.** Questions and tasks from
   a lead to its team members run without an approval prompt, and each member uses
   its own capabilities for them. Check your members' shell access and MCP servers
   after the update; see [Teams](agents.md#teams-asks-and-tasks).
-- **Settings moved.** Settings has the tabs **Workspace**, **Access** and
-  **Operations**; agent settings have **Profile**, **Capabilities**, **Work** and
-  **Telegram**; **Accounts** groups **Model access**, **Services for agents**,
-  **MCP servers** and **Native CLI accounts**. MCP servers for the coding CLIs moved
-  from **Extensions** to **Accounts → MCP servers**. Navigation and **Sign out** are
-  in the sidebar **Menu**. Old links and bookmarks still open the right page.
+- **Settings moved.** Navigation and **Sign out** are in the sidebar **Menu**, grouped
+  into **Work** and **Set up**. **Connections** holds model access, services for
+  agents, MCP servers, SSH/SFTP accesses, secrets and GitHub connections; **CLIs and
+  extensions** holds installation, native CLI accounts, extensions and AgentPier as
+  MCP; **Agents › Runtime** holds the agent service; Settings has the tabs **General**,
+  **App and notifications**, **Users**, **Remote access** and **Operations**. Agent
+  settings have the tabs **Overview**, **Identity**, **Capabilities**, **Access**,
+  **Team**, **Automation** and **Channels**. Old links and bookmarks still open the
+  right page.
 - **Backups capture less of the CLI profiles.** Profiles are copied by
   [allowlist](backups.md#cli-profile-allowlists), histories (AgentPier's sessions,
   chats and AgentBus messages, and CLI conversation histories) only encrypted into
@@ -284,7 +287,7 @@ When activating a staged version, the confirmation offers **Move running session
 ### Managed assistant runtime
 
 The assistant service is optional and off initially: until the owner turns on
-**Settings → Workspace → Agents → Enable agents**, nothing is created, downloaded or started. Installations that
+**Enable agents** (under **Agents**, or **Agents › Runtime › Function**), nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
 private OpenClaw 2026.10.7 installation and Node 26.12.1 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^22.23.4 || ^24.22.1 || >=26.12.1`.
@@ -305,7 +308,7 @@ Provisioning paths:
 - After an AgentPier update, an installation with assistants enabled prepares the
   runtime the new version ships in the background through the same staging path
   and installation lock. AgentPier starts without waiting; the selection is not
-  changed. Activation stays an owner action under Settings → Workspace → Agents → Agent service. With
+  changed. Activation stays an owner action under **Agents › Runtime › OpenClaw updates**. With
   assistants disabled, nothing is downloaded.
 
 Downloads are aborted only after 30 seconds without data, not after a total
@@ -354,7 +357,7 @@ reach uv:
 the agent service's state database (schema 19 to 20), and OpenClaw 2026.9.9 and
 2026.9.8 refuse the migrated database. If activation fails before the update is
 committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
-neither **Settings → Workspace → Agents → Agent service** nor an older AgentPier
+neither **Agents › Runtime** nor an older AgentPier
 can return the agent service to 2026.9.x. Create a host backup under
 **Settings → Operations → Backups** before you activate 2026.10.3.
 
@@ -365,7 +368,7 @@ still running after 10 minutes is stopped, and the activation rolls back. It
 migrates each agent's OpenClaw database from schema 24 to 25, and OpenClaw
 2026.10.3, 2026.9.9 and 2026.9.8 refuse the migrated databases. If activation fails before the update is
 committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
-neither **Settings → Workspace → Agents → Agent service** nor an older AgentPier
+neither **Agents › Runtime** nor an older AgentPier
 (2.6.x or earlier) can return the agent service to 2026.10.3. Installations on
 AgentPier 1.28.x or 2.0.0 update straight from 2026.9.8 or 2026.9.9 to 2026.10.7.
 Create a host backup under **Settings → Operations → Backups** before you activate
@@ -412,7 +415,7 @@ How packages are installed: [MCP](mcp.md#installing-a-server-package).
 
 ### Assistant qualification in a source checkout
 
-The optional assistant service is configured under **Settings → Workspace → Agents**;
+The optional assistant service is configured under **Agents › Runtime**;
 create agents under **Agents** in the sidebar menu, then use their direct sidebar chats. Agents use
 the model connections and ChatGPT accounts configured in AgentPier (OpenRouter,
 Ollama, llama.cpp, generic and Azure OpenAI-compatible endpoints; see
