@@ -168,18 +168,20 @@ export class DreamingBackups {
 }
 
 /**
- * Removes a deleted chat's session from dreaming's copies (corpus lines, seen
- * hashes, short-term entries) with the runtime's own `openclaw memory forget`, which
- * also finds a session already deleted from its archive. True once it succeeded;
- * false while no runtime is installed. Notes distilled from it earlier stay.
+ * Removes a deleted chat's sessions (one id or several, `--session` repeated) from
+ * dreaming's copies (corpus lines, seen hashes, short-term entries) with the
+ * runtime's own `openclaw memory forget`, which also finds a session already deleted
+ * from its archive. True once it succeeded; false while no runtime is installed.
+ * Notes distilled from it earlier stay.
  */
-export async function forgetDreamingSession(assistants, agent, sessionId) {
+export async function forgetDreamingSession(assistants, agent, sessionIds) {
   const { runtime: descriptor, paths } = assistants.runtime || {};
   if (!descriptor?.nodePath || !descriptor?.entryPath || !paths?.root) return false;
   const args = ["memory", "forget", "--agent", agent.runtimeAgentId];
+  const sessions = [sessionIds].flat().flatMap((id) => ["--session", id]);
   await promisify(execFile)(
     descriptor.nodePath,
-    [descriptor.entryPath, ...args, "--session", sessionId, "--json"],
+    [descriptor.entryPath, ...args, ...sessions, "--json"],
     {
       cwd: paths.root,
       env: runtimeEnvironment(paths, descriptor.nodePath),

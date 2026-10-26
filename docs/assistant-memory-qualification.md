@@ -88,7 +88,9 @@ owner's switch on (see the [gateway guide](assistant-gateway.md#dreaming)):
 
 The archived transcript copy OpenClaw keeps after a deletion
 (`session_transcript_archives` and the `.jsonl.deleted.*` files) is purged before the
-forget runs; `assistant-chat-deletion-contract.test.js` covers that purge. Not
-covered: a `memory forget` that fails or is lost, which is not retried.
+forget runs; `assistant-chat-deletion-contract.test.js` covers that purge. The
+session ids the archives name for the chat's key are read before it, and the forget
+names each (`assistant-dreaming-forget.test.js`). Not covered: a `memory forget` that
+fails or is lost, which is not retried.
 Cross-conversation recall (transcript indexing) is not offered and has no contract
 here.
