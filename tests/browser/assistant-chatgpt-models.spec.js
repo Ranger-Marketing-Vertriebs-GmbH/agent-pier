@@ -58,6 +58,9 @@ async function setup(page, { language = "en", models = listed, modelCatalog } = 
       state.saved = route.request().postDataJSON();
       return route.fulfill({ json: { ...state.saved, id: "new", revision: 1 } });
     }
+    // A created agent opens its first chat.
+    if (pathname === "/api/assistants/new/conversations" && method === "POST")
+      return route.fulfill({ json: { id: "new-chat", assistantId: "new" } });
     if (pathname === "/api/assistants")
       return route.fulfill({
         json: { assistants: [], conversations: [], models: [state.account] },
@@ -147,6 +150,7 @@ for (const [language, copy] of [
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-sol" });
+    await expect(page).toHaveURL(/\/agents\/new\/chats\/new-chat$/);
     expect(state.refreshes).toBe(0);
   });
 
@@ -196,6 +200,7 @@ for (const [language, copy] of [
     await expect
       .poll(() => state.saved?.model)
       .toEqual({ connectionId: "openclaw:test", modelId: "gpt-6-preview" });
+    await expect(page).toHaveURL(/\/agents\/new\/chats\/new-chat$/);
   });
 
   test(`${language}: a failed refresh keeps the list, says it may be out of date`, async ({
