@@ -5,11 +5,11 @@ import { RadioRow, ToggleRow } from "../../../components/ListRow.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
-import { connectionsRoute } from "../../connections/routes.js";
 import { assistantApi } from "../assistant-api.js";
 import { ShellGroup } from "../settings/CapabilityGroups.jsx";
 import LockedNotice from "../settings/LockedNotice.jsx";
-import SetupSheet from "./SetupSheet.jsx";
+import ConnectModelSheet from "./ConnectModelSheet.jsx";
+import ServiceSheet from "./ServiceSheet.jsx";
 import {
   matchingProfile,
   profileIds,
@@ -40,20 +40,28 @@ const texts = {
 /**
  * Schritt 3 (handoff 5.3): a profile sets the switches below it (wizard-profiles.js),
  * which stay editable. An unavailable service names its reason and offers "hier
- * einrichten" in a side sheet; it never blocks creating. Shell uses the settings'
- * control (confirmations as today); agents of users keep it locked.
+ * einrichten": its Zugänge form in a side sheet (web search, the optional PDF model;
+ * images need ChatGPT, so "+ Modell verbinden"); it never blocks creating. Shell uses
+ * the settings' control (confirmations as today); agents of users keep it locked.
  */
 export default function StepCapabilities({ d, set, runtime, models }) {
   const id = useId();
   const [search, setSearch] = useState(null);
-  const [setup, setSetup] = useState(false);
-  const loadSearch = () =>
+  const [pdf, setPdf] = useState(null);
+  const [sheet, setSheet] = useState("");
+  // Unknown stays usable: the server decides when the agent starts.
+  const loadServices = () => {
     assistantApi
       .webSearch()
       .then(setSearch)
       .catch(() => {});
+    assistantApi
+      .pdfModel()
+      .then(setPdf)
+      .catch(() => {});
+  };
   useEffect(() => {
-    loadSearch();
+    loadServices();
   }, []);
   const images = models.some(
     (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
@@ -63,6 +71,17 @@ export default function StepCapabilities({ d, set, runtime, models }) {
     browser: runtime?.browser?.available === false ? personal().browserUnavailable : "",
     createImages: images ? "" : personal().imagesUnavailable,
   };
+  // "hier einrichten" rows: [sheet, shown, label]. The PDF model is optional (a
+  // fallback for models without images), so it is offered while none is chosen.
+  const setUps = [
+    ["web-search", Boolean(reasons.webSearch), personal().enableWebSearch],
+    [
+      "pdf-model",
+      d.readPdfs === true && Boolean(pdf) && !pdf.modelId,
+      pdfCopy.reference(pdfCopy.notSet),
+    ],
+    ["images", Boolean(reasons.createImages), personal().enableCreateImages],
+  ];
   const current = matchingProfile(d);
   const pick = (profile) =>
     set({
@@ -115,15 +134,19 @@ export default function StepCapabilities({ d, set, runtime, models }) {
               );
             })}
           </ListCard>
-          {group === "webGroup" && reasons.webSearch && (
-            <button
-              type="button"
-              className="group-label-action agent-wizard-setup"
-              onClick={() => setSetup(true)}
-            >
-              {personal().enableWebSearch}: {copy().setUpHere}
-            </button>
-          )}
+          {group === "webGroup" &&
+            setUps
+              .filter(([, shown]) => shown)
+              .map(([key, , label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="group-label-action agent-wizard-setup"
+                  onClick={() => setSheet(key)}
+                >
+                  {label}: {copy().setUpHere}
+                </button>
+              ))}
         </section>
       ))}
       {d.owner ? (
@@ -132,15 +155,17 @@ export default function StepCapabilities({ d, set, runtime, models }) {
         <ShellGroup draft={draft} creating />
       )}
       <p className="field-description">{copy().later}</p>
-      {setup && (
-        <SetupSheet
-          title={assistantCopy.webSearch.title}
-          text={personal().searchUnavailable}
-          route={connectionsRoute("services", "web-search")}
-          onRefresh={loadSearch}
-          onClose={() => setSetup(false)}
+      {(sheet === "web-search" || sheet === "pdf-model") && (
+        <ServiceSheet
+          kind={sheet}
+          title={sheet === "web-search" ? assistantCopy.webSearch.title : pdfCopy.title}
+          onClose={() => {
+            setSheet("");
+            loadServices();
+          }}
         />
       )}
+      {sheet === "images" && <ConnectModelSheet onClose={() => setSheet("")} />}
     </>
   );
 }

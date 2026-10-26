@@ -187,7 +187,10 @@ export function pageEntries() {
         `runtime-${group}`,
         label,
         runtime,
-        { route: agentsHubRoute("runtime", section) },
+        {
+          route: agentsHubRoute("runtime", section),
+          ...(group === "storage" ? { pending: "agent-dependencies-cleanup" } : {}),
+        },
         {
           agentsOnly: true,
           aliases: aliases.map((name) => (typeof name === "string" ? alias(name) : name)),
@@ -297,6 +300,7 @@ export function pageEntries() {
     ),
     pageEntry("settings-storage", () => operationsCopy.sections.storage, operations, {
       route: { view: "settings", settingsSection: "general", settingsTab: "operations" },
+      pending: "storage-cleanup",
     }),
     pageEntry("settings-components", () => galleryCopy.title, operations, {
       route: settingsRoute("components"),
@@ -403,7 +407,7 @@ const connectionKinds = [
   ["models", "models", true],
   ["mcp", "mcp-servers", true],
   ["ssh", "ssh", true],
-  ["secrets", "secrets", false],
+  ["secrets", "secrets", true],
   ["github", "github", true],
 ];
 

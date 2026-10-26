@@ -74,11 +74,11 @@ test("an agent of users has no Team tab and keeps project folders only", async (
     "Automation",
     "Channels",
   ]);
-  await expect(page.getByRole("combobox", { name: "Add Project" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Add project" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Add SSH/SFTP access" })).toHaveCount(
     0,
   );
-  await expect(page.getByRole("combobox", { name: "Add Pipeline" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Add pipeline" })).toHaveCount(0);
   await expect(
     page.getByRole("note").filter({ hasText: "Locked: Pipelines" }),
   ).toBeVisible();

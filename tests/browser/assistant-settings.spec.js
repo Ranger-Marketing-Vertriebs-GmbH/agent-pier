@@ -74,7 +74,7 @@ test("links to Accounts and Settings navigate inside the app", async ({ page }) 
   await expect(page.getByLabel("Deepgram API key")).toBeVisible();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
   const panel = await openAccountItem(page, "ChatGPT for agents");
-  await panel.getByRole("link", { name: "Agent service settings" }).click();
+  await panel.getByRole("link", { name: "Agents › Runtime" }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=%2Fconnections%3F/);
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
 });

@@ -42,9 +42,7 @@ for (const width of [1440, 390]) {
     const sidebar = page.locator(".sidebar");
     await expect(sidebar.locator(".session-item")).toHaveCount(3);
     await expect(sidebar.locator(".session-item")).not.toContainText(["Finished worker"]);
-    await expect(sidebar.locator(".sessions-group .sidebar-group-count")).toHaveText(
-      "03",
-    );
+    await expect(sidebar.locator(".sessions-group .sidebar-group-count")).toHaveText("3");
     if (width === 390)
       await page.getByRole("button", { name: "Navigation öffnen" }).click();
     await expect(sidebar.getByRole("button", { name: /Active worker/ })).toBeVisible();
@@ -63,9 +61,7 @@ for (const width of [1440, 390]) {
     state.sessions.find((item) => item.id === "active").status = "stopped";
     await page.reload();
     await expect(sidebar.locator(".session-item")).toHaveCount(2);
-    await expect(sidebar.locator(".sessions-group .sidebar-group-count")).toHaveText(
-      "02",
-    );
+    await expect(sidebar.locator(".sessions-group .sidebar-group-count")).toHaveText("2");
     await expect(
       page.getByRole("heading", { name: "Finished worker", exact: true }),
     ).toBeVisible();

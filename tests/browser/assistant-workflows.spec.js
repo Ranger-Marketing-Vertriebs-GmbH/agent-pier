@@ -114,10 +114,10 @@ test("English project grants and exact action approvals link existing coding run
   });
   // Projects and pipelines are added in the Access tab's inline add fields.
   await page.goto(baseURL + settingsPath("access"));
-  await page.getByRole("combobox", { name: "Add Project" }).click();
+  await page.getByRole("combobox", { name: "Add project" }).click();
   await page.getByRole("option", { name: /Demo project/ }).click();
   await page.getByRole("button", { name: "Add 1", exact: true }).click();
-  await page.getByRole("combobox", { name: "Add Pipeline" }).click();
+  await page.getByRole("combobox", { name: "Add pipeline" }).click();
   await page.getByRole("option", { name: /Build/ }).click();
   await page.getByRole("button", { name: "Add 1", exact: true }).click();
   await page

@@ -182,7 +182,7 @@ export default function Sidebar({
         <SidebarGroup
           name="sessions"
           label={commonCopy.sessions}
-          count={sessions.length.toString().padStart(2, "0")}
+          count={String(sessions.length)}
           defaultOpen
           activeKey={selected}
           actions={sessionActions}

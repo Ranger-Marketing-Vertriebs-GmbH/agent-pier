@@ -36,12 +36,13 @@ function ManageGroup({ id, navigate }) {
 }
 
 /** Zugänge › Geheimnisse: the secrets list and form, with "Benutzt von" per secret. */
-export function SecretsCategory({ shared, loading }) {
+export function SecretsCategory({ shared, item, loading }) {
   const { connectionUsage, reloadAll, agentsEnabled, assistants, navigate } = shared;
   return (
     <CategorySection title={copy.sections.secrets}>
       <Suspense fallback={loading}>
         <SecretsSettings
+          item={item || ""}
           onChanged={reloadAll}
           emptyState={(openNew) => (
             <EmptyCategory

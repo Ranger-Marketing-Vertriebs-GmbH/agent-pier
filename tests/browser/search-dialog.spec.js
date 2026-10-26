@@ -193,7 +193,42 @@ test("hub tabs and Runtime groups open their place", async ({ page }) => {
     await expect(
       page.getByRole("heading", { name: heading, exact: true }),
     ).toBeInViewport();
-  }
+  } // Speicher opens its clean-up list at once.
+  await expect(
+    page.getByRole("button", { name: /^Installierte Abhängigkeiten der Agenten:/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+});
+
+test("Betrieb › Speicher opens the clean-up and a secret opens itself", async ({
+  page,
+}) => {
+  await agentsOn(page);
+  await page.route("**/api/secrets", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({
+          json: {
+            secrets: [
+              { id: "sec-1", name: "STRIPE_KEY", description: "", projectId: null },
+            ],
+          },
+        })
+      : route.fallback(),
+  );
+  await page.goto(baseURL + "/projects");
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await openWithShortcut(page);
+  await field(page).fill("Einstellungen Betrieb Speicher");
+  await expect(options(page).first()).toContainText("Betrieb");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/settings\?tab=operations$/);
+  const status = page.getByRole("dialog", { name: "Systemstatus" });
+  await expect(status).toBeVisible();
+  await status.getByRole("button", { name: "Dialog schließen" }).click();
+  await openWithShortcut(page);
+  await field(page).fill("STRIPE_KEY");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/connections\?section=secrets&item=sec-1$/);
+  await expect(page.getByRole("heading", { name: "STRIPE_KEY", level: 2 })).toBeVisible();
 });
 
 test("Escape closes the search and returns the focus; the sidebar button opens it", async ({

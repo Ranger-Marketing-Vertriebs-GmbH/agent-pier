@@ -84,6 +84,11 @@ export const agentWizardCopy = {
     github: "GitHub-Zugriff",
     githubProfile: "Tokenprofil",
     userOnly: "Agenten von Benutzern erreichen nur Projektordner und MCP-Server.",
+    loading: "Wird geladen …",
+    noKey:
+      "Für einen SSH-Zugang brauchst du zuerst einen Schlüssel. Ein SFTP-Zugang mit Passwort braucht keinen.",
+    withoutKey: "Ohne Schlüssel weiter (SFTP mit Passwort)",
+    added: (name) => `„${name}“ ist angelegt und ausgewählt.`,
   },
   channels: {
     intro: "Optional. Alles hier gibt es später unter Automatisierung und Kanäle.",
@@ -96,7 +101,8 @@ export const agentWizardCopy = {
     routineName: "Name",
     routineDescription: "Beschreibung",
     routineTime: "Täglich um",
-    routineTelegram: "Auch an Telegram senden",
+    routineTelegramLater:
+      "Die Routine meldet sich im Chat. Telegram schaltest du für sie unter Automatisierung ein, sobald der Bot gekoppelt ist.",
     hooks:
       "Hooks für Monitoring und andere Systeme legst du nach dem Anlegen an, weil dabei ein Geheimnis erzeugt wird.",
     userLocked:

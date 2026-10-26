@@ -130,7 +130,7 @@ test("Access saves grants and Team saves the team policy, each its own half", as
   await page.goto(baseURL + settingsPath("access"));
   const projects = page.locator("#agent-access-projects");
   await expect(projects).toContainText("Projects · 0 of 2");
-  await page.getByRole("combobox", { name: "Add Project" }).click();
+  await page.getByRole("combobox", { name: "Add project" }).click();
   await page.getByRole("option", { name: /Demo/ }).click();
   await page.getByRole("button", { name: "Add 1" }).click();
   await expect(unsavedSheet(page)).toHaveCount(0);

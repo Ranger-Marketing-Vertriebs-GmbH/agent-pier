@@ -364,7 +364,7 @@ export const assistantCopy = {
   emptyChat: "Woran möchtest du arbeiten?",
   loading: "Wird geladen …",
   unavailable: "Dieser Agent ist nicht verfügbar.",
-  runtimeLink: "Agentendienst-Einstellungen",
+  runtimeLink: "Agenten › Laufzeit",
   runtime: "Agentendienst",
   runtimeDescription:
     "Ein verwalteter OpenClaw-Dienst führt deine Agenten auf diesem Rechner aus.",

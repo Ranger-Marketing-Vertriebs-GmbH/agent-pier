@@ -111,9 +111,16 @@ test("the hub's tabs and Runtime's groups use the hub's names and open their pla
   const ids = index.map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   // Speicher in Laufzeit and in Betrieb are both found, each at its own place.
-  const storage = results("Speicher").map(pathOf);
-  assert.ok(storage.includes("/agents?tab=runtime&section=storage"));
-  assert.ok(storage.includes("/settings?tab=operations"));
+  const storage = results("Speicher");
+  assert.ok(storage.map(pathOf).includes("/agents?tab=runtime&section=storage"));
+  assert.ok(storage.map(pathOf).includes("/settings?tab=operations"));
+  // Both open their clean-up at once (page-action.js).
+  const pending = (path) => storage.find((hit) => pathOf(hit) === path).target.pending;
+  assert.equal(
+    pending("/agents?tab=runtime&section=storage"),
+    "agent-dependencies-cleanup",
+  );
+  assert.equal(pending("/settings?tab=operations"), "storage-cleanup");
   // Funktionen (Einstellungen › Allgemein) holds the agents link row.
   assert.equal(pathOf(first("Funktionen")), "/settings");
 });
@@ -208,7 +215,7 @@ test("connection names are found by name and host and open their entry", () => {
   assert.equal(pathOf(first("prod-db")), "/connections?section=ssh&item=ssh-1");
   assert.equal(pathOf(first("db.example")), "/connections?section=ssh&item=ssh-1");
   assert.equal(pathOf(first("linear")), "/connections?section=mcp-servers&item=mcp-1");
-  assert.equal(pathOf(first("stripe")), "/connections?section=secrets");
+  assert.equal(pathOf(first("stripe")), "/connections?section=secrets&item=sec-1");
   assert.equal(pathOf(first("Firmen-Token")), "/connections?section=github&item=gh-1");
   assert.equal(
     pathOf(first("OpenRouter privat")),

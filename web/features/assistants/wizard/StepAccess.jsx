@@ -8,7 +8,6 @@ import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/as
 import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistant-ssh.js";
 import { assistantWorkflowCopy as wf } from "../../../lib/i18n/messages/assistant-workflows.js";
-import { connectionsRoute } from "../../connections/routes.js";
 import { assistantApi } from "../assistant-api.js";
 import {
   folderLevels,
@@ -28,6 +27,8 @@ import {
   removeId,
   removeProject,
 } from "../settings/access/access-groups.js";
+import CreateSheet, { createKinds } from "./CreateSheet.jsx";
+import McpSheet from "./McpSheet.jsx";
 import SetupSheet from "./SetupSheet.jsx";
 
 const copy = assistantSettingsCopy.access;
@@ -39,31 +40,37 @@ const endpoint = (host) =>
   ]
     .filter(Boolean)
     .join(" · ");
-// Where "+ … anlegen" sets a missing source up.
+// What "+ … anlegen" names. Pipelines have no creation form to embed (the builder is
+// a page of its own): theirs opens in a new tab and the list is read again.
 const sources = {
-  projects: [copy.projectType, { view: "projects" }],
-  mcp: [copy.mcpType, connectionsRoute("mcp-servers", "new")],
-  pipelines: [copy.pipelineType, { view: "pipelines" }],
-  ssh: [copy.sshType, connectionsRoute("ssh", "new")],
-  github: ["GitHub", connectionsRoute("github")],
-  secrets: [copy.secretType, connectionsRoute("secrets", "new")],
+  projects: () => copy.projectType,
+  mcp: () => copy.mcpType,
+  pipelines: () => copy.pipelineType,
+  ssh: () => copy.sshType,
+  github: () => "GitHub",
+  secrets: () => copy.secretType,
 };
+const pipelinesRoute = { view: "pipelines", pipelineTab: "definitions" };
 
 function useSources() {
   const [catalog, setCatalog] = useState(null);
   const [servers, setServers] = useState(null);
   const [error, setError] = useState("");
+  // Resolves to the fresh lists (null after a failed load).
   const load = useCallback(async () => {
     try {
       const [list, mcp] = await Promise.all([
         api("/assistant-workspace-catalog"),
         assistantApi.mcpServers(),
       ]);
+      const next = Array.isArray(mcp) ? mcp : mcp?.servers || [];
       setCatalog(list);
-      setServers(Array.isArray(mcp) ? mcp : mcp?.servers || []);
+      setServers(next);
       setError("");
+      return { catalog: list, servers: next };
     } catch (e) {
       setError(e.message);
+      return null;
     }
   }, []);
   useEffect(() => {
@@ -76,11 +83,14 @@ function useSources() {
  * Schritt 4 (handoff 5.3): optional grants with the inline add fields of the Access
  * tab (5.5): projects (folder access, coding start), MCP servers, pipelines with
  * their two switches, SSH/SFTP with a mode, the GitHub level and secrets. An empty
- * source offers "+ … anlegen" in a side sheet. Agents of users: folders and MCP only.
+ * source offers "+ … anlegen": its creation form in a side sheet (CreateSheet,
+ * McpSheet); the new entry is read into the list and selected. Agents of users:
+ * folders and MCP only.
  */
-export default function StepAccess({ d, set }) {
+export default function StepAccess({ d, set, navigate }) {
   const { catalog, servers, error, load } = useSources();
   const [creating, setCreating] = useState("");
+  const [added, setAdded] = useState("");
   const user = Boolean(d.owner);
   const projects = catalog?.projects ?? null;
   const pipelines = catalog?.pipelines ?? null;
@@ -94,9 +104,34 @@ export default function StepAccess({ d, set }) {
         className="group-label-action agent-wizard-setup"
         onClick={() => setCreating(key)}
       >
-        {agentWizardCopy.access.create(sources[key][0])}
+        {agentWizardCopy.access.create(sources[key]())}
       </button>
     );
+  // A created entry is selected once the fresh list holds it (with the defaults the
+  // add fields use); a GitHub profile becomes the profile of the chosen level.
+  const created = async (kind, item) => {
+    setCreating("");
+    const fresh = await load();
+    const id = item?.id;
+    if (!fresh || !id) return;
+    const listed = {
+      projects: fresh.catalog?.projects,
+      mcp: fresh.servers,
+      ssh: fresh.catalog?.sshHosts,
+      secrets: fresh.catalog?.secrets,
+      github: fresh.catalog?.github?.profiles,
+    }[kind];
+    const entry = (listed || []).find((candidate) => candidate.id === id);
+    if (!entry) return;
+    if (kind === "projects") set(addProjects(d, [id], user ? "read" : "none", user));
+    if (kind === "mcp") set({ mcpServers: addIds(d.mcpServers, [id]) });
+    if (kind === "ssh")
+      set({ sshAccesses: addSshGrants(d.sshAccesses, [id], "approval") });
+    if (kind === "secrets") set({ secretIds: addIds(d.secretIds, [id]) });
+    if (kind === "github")
+      set({ github: { credentialId: id, level: d.github?.level || "read" } });
+    setAdded(agentWizardCopy.access.added(entry.name || id));
+  };
   const levels = user ? folderLevels.filter((v) => v !== "none") : folderLevels;
   const levelOptions = levels.map((value) => ({ value, label: wf.folderLevels[value] }));
   const projectIds = grantedProjectIds(d, user);
@@ -138,6 +173,11 @@ export default function StepAccess({ d, set }) {
     <>
       <p className="field-description">{agentWizardCopy.access.intro}</p>
       <ErrorMessage error={error} />
+      {added && (
+        <p role="status" className="assistant-notice">
+          {added}
+        </p>
+      )}
       <AccessGroup
         id="agent-wizard-projects"
         title={copy.projects}
@@ -302,10 +342,28 @@ export default function StepAccess({ d, set }) {
           )}
         </>
       )}
-      {creating && (
+      {createKinds.includes(creating) && (
+        <CreateSheet
+          kind={creating}
+          onCreated={(item) => created(creating, item)}
+          onClose={() => setCreating("")}
+        />
+      )}
+      {creating === "mcp" && (
+        <McpSheet
+          navigate={navigate}
+          onCreated={(item) => created("mcp", item)}
+          onClose={() => {
+            setCreating("");
+            // A server saved before closing is listed (not selected).
+            load();
+          }}
+        />
+      )}
+      {creating === "pipelines" && (
         <SetupSheet
-          title={agentWizardCopy.access.create(sources[creating][0])}
-          route={sources[creating][1]}
+          title={agentWizardCopy.access.create(sources.pipelines())}
+          route={pipelinesRoute}
           onRefresh={load}
           onClose={() => setCreating("")}
         />

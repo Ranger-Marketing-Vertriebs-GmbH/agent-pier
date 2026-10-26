@@ -86,7 +86,7 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   await page.getByRole("switch", { name: "Read PDFs" }).click();
   await next(page);
   await expect(heading(page, "Access")).toBeVisible();
-  const project = page.getByRole("combobox", { name: "Add Project" });
+  const project = page.getByRole("combobox", { name: "Add project" });
   await project.focus();
   await page.keyboard.type("Notes");
   await page.keyboard.press("ArrowDown");
@@ -99,6 +99,10 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   await page.getByRole("switch", { name: "Create a first routine" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Daily overview");
   await page.getByLabel("Description").fill("Sum up the news");
+  // The bot is paired after creating: the routine asks for Telegram only then.
+  await expect(
+    page.getByText("Switch on Telegram for it under Automation"),
+  ).toBeVisible();
   await next(page);
   await expect(heading(page, "Review")).toBeVisible();
   await expect(page.getByText("1 project")).toBeVisible();
@@ -179,6 +183,95 @@ test("the draft survives the model side sheet and leaving asks first", async ({
   await expect(ask).toBeVisible();
   await ask.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Keeper");
+});
+
+// "+ … anlegen" (handoff 5.3 step 4): Zugänge forms in side sheets over the wizard.
+async function creationSources(page, state) {
+  const keys = [];
+  await page.route(
+    /\/api\/(ssh-keys|ssh-projects|ssh-accesses|secrets)/,
+    async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const method = request.method();
+      const body = method === "GET" ? null : request.postDataJSON();
+      if (path === "/api/ssh-keys" && method === "GET")
+        return route.fulfill({ json: { keys } });
+      if (path === "/api/ssh-keys" && method === "POST") {
+        const key = { id: "key-1", name: body.name, projectId: null };
+        keys.push(key);
+        return route.fulfill({ status: 201, json: key });
+      }
+      if (path === "/api/ssh-projects") return route.fulfill({ json: { projects: [] } });
+      if (path === "/api/ssh-accesses/scan")
+        return route.fulfill({
+          json: { hostKey: "ssh-ed25519 AAAAC3", hostFingerprint: "SHA256:wizard" },
+        });
+      if (path === "/api/ssh-accesses" && method === "POST") {
+        const access = { id: "ssh-new", type: "ssh", ...body, projectId: null };
+        state.catalog.sshHosts.push(access);
+        return route.fulfill({ status: 201, json: access });
+      }
+      if (path === "/api/secrets" && method === "POST") {
+        const secret = { id: "sec-new", name: body.name, projectId: null };
+        state.catalog.secrets.push(secret);
+        return route.fulfill({ status: 201, json: secret });
+      }
+      return route.fallback();
+    },
+  );
+}
+
+test("step 4 creates an SSH access and a secret in side sheets and keeps the draft", async ({
+  page,
+}) => {
+  const { state, sent } = await wizard(page, {
+    catalog: { projects: [], pipelines: [], sshHosts: [], secrets: [] },
+  });
+  await creationSources(page, state);
+  await page.goto(baseURL + "/agents?new=1");
+  await next(page);
+  await identity(page, "Keeper");
+  await next(page);
+  await next(page);
+  await expect(heading(page, "Access")).toBeVisible();
+  await page.getByRole("button", { name: "+ Create SSH/SFTP access" }).click();
+  const ssh = page.getByRole("dialog", { name: "Add access" });
+  await expect(ssh).toBeVisible();
+  // Without a key the sheet starts with the key form.
+  await expect(ssh.getByText("An SSH access needs a key first.")).toBeVisible();
+  await ssh.getByLabel("Name", { exact: true }).fill("Deploy key");
+  await ssh.getByRole("button", { name: "Save", exact: true }).click();
+  await ssh.getByLabel("Name", { exact: true }).fill("prod-db");
+  await ssh.getByLabel("Host", { exact: true }).fill("db.example");
+  await ssh.getByLabel("Username", { exact: true }).fill("deploy");
+  await expect(ssh.getByRole("combobox", { name: "SSH key" })).toHaveValue("key-1");
+  await ssh.getByRole("button", { name: "Fetch host key" }).click();
+  await ssh.getByRole("checkbox").check();
+  await ssh.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(ssh).toHaveCount(0);
+  await expect(page.getByText("“prod-db” is created and selected.")).toBeVisible();
+  await expect(page.locator("[data-access-grant='ssh-new']")).toBeVisible();
+  await page.getByRole("button", { name: "+ Create secret" }).click();
+  const secret = page.getByRole("dialog", { name: "New secret" });
+  await secret.getByLabel("Name", { exact: true }).fill("STRIPE_KEY");
+  await secret.getByLabel("Value", { exact: true }).fill("sk_live_wizard");
+  await secret.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(secret).toHaveCount(0);
+  await expect(page.locator("[data-access-grant='sec-new']")).toBeVisible();
+  // The draft kept everything typed before the sheets.
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Keeper");
+  await next(page);
+  await next(page);
+  await next(page);
+  await next(page);
+  await page.getByRole("button", { name: "Create agent", exact: true }).click();
+  await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
+  const work = sent.find(([name]) => name === "work")[1].access;
+  expect(work.sshAccesses).toEqual([{ accessId: "ssh-new", mode: "approval" }]);
+  expect(work.secretIds).toEqual(["sec-new"]);
 });
 
 test("duplicate prefills the copy and sends its grants", async ({ page }) => {

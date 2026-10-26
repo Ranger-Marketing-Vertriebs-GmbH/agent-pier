@@ -33,6 +33,9 @@ const entries = {
 };
 async function catalog(page) {
   const asked = [];
+  await page.route("**/api/agency/installed", (route) =>
+    route.fulfill({ json: { tools: {} } }),
+  );
   await page.route(/\/api\/agency\/templates/, (route) => {
     const url = new URL(route.request().url());
     asked.push(url.search);
@@ -102,7 +105,14 @@ test("templates offer both uses; a blocked entry offers none", async ({ page }) 
   });
   controls.state.sharedCliExtensions = true;
   await catalog(page);
+  await page.route("**/api/agency/installed", (route) =>
+    route.fulfill({ json: { tools: { engineering__sre: ["claude", "codex"] } } }),
+  );
   await page.goto(baseURL + "/agents?tab=templates");
+  // The list says in how many CLIs an entry is installed as a subagent.
+  await expect(page.getByRole("button", { name: /^SRE/ })).toContainText(
+    "Installed in 2 CLIs",
+  );
   await page.getByRole("button", { name: /^SRE/ }).click();
   const preview = page.getByRole("dialog", { name: "SRE" });
   await expect(preview).toContainText("Checked");

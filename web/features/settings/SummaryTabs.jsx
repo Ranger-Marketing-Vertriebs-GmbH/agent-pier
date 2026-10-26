@@ -8,6 +8,7 @@ import { useCrossLink } from "../../app/cross-link.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../../lib/i18n/messages/settings.js";
 import { galleryCopy } from "../../lib/i18n/messages/gallery.js";
+import { usePageAction } from "../../app/page-action.js";
 import { TabFrame } from "./SettingsFrame.jsx";
 import { subpage } from "./settings-navigation.js";
 import { movedRows, operationsRows, storageRow } from "./settings-summary-rows.js";
@@ -54,6 +55,8 @@ export function OperationsTab({ frame }) {
   // One read for the free space; the dialog polls on its own while it is open.
   const system = useResource("/system-status");
   const [storageOpen, setStorageOpen] = useState(false);
+  // ⌘K "Speicher" opens the clean-up at once.
+  usePageAction("storage-cleanup", () => setStorageOpen(true));
   const storage = storageRow(system.data);
   return (
     <TabFrame frame={frame}>

@@ -36,7 +36,7 @@ test("projects, SSH hosts and MCP servers are added with the keyboard and saved"
   const state = await openAccess(page);
 
   // Projects: filter, granted entries disabled, multi-select, folder level as mode.
-  const project = page.getByRole("combobox", { name: "Add Project" });
+  const project = page.getByRole("combobox", { name: "Add project" });
   await project.focus();
   await page.keyboard.type("w");
   await expect(page.getByText("3 matches")).toBeVisible();
