@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { setup } from "./assistant-teams-fixture.js";
+import { setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
 
 // Agenten (handoff 5.2): the hub's four tabs with their counts, the teams of all
 // leads with their actions, the Agency templates and the runtime.
@@ -209,4 +210,27 @@ test("phones show the hub in one column", async ({ page }) => {
   await page.goto(baseURL + "/agents");
   await page.getByRole("link", { name: /Home assistant/ }).click();
   await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+});
+
+test("without agents the hub lists the prerequisites and three ways to start", async ({
+  page,
+}) => {
+  await setupAssistantSettings(page, { assistants: [] });
+  await catalog(page);
+  // A user exists, so "For a user" is the third start.
+  await page.route("**/api/users", (route) =>
+    route.fulfill({ json: [{ id: "u1", name: "Mia", disabled: false }] }),
+  );
+  await page.goto(baseURL + "/agents");
+  const state = page.locator(".agents-hub-state");
+  await expect(
+    state.getByRole("heading", { name: "Create your first agent" }),
+  ).toBeVisible();
+  await expect(state.getByText("Agent service is running")).toBeVisible();
+  const starts = state.locator(".agents-hub-start");
+  await expect(starts).toHaveCount(3);
+  await expect(starts.nth(0)).toHaveAttribute("href", "/agents?new=1");
+  await expect(starts.nth(1)).toHaveAttribute("href", "/agents?tab=templates");
+  await starts.nth(1).click();
+  await expect(page).toHaveURL(/\/agents\?tab=templates$/);
 });

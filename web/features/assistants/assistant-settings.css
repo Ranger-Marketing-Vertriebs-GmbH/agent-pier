@@ -29,6 +29,10 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+  /* A tab that opens with a card (Overview) keeps it clear of the tab bar. */
+  .agent-settings-main > .list-card:first-child {
+    margin-top: var(--space-3);
+  }
 }
 /* The sticky save bar ends the scroller and carries the home indicator inset itself;
    at the end of the scroll it keeps the page's gap below the last card. */

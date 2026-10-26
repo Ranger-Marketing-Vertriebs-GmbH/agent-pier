@@ -377,6 +377,10 @@ test.describe("phone", () => {
     await page.locator("#sidebar-menu").getByRole("button", { name: "Suchen" }).click();
     await field(page).fill("Geheimnisse");
     await expect(options(page).first()).toContainText("Zugänge › Geheimnisse");
+    // The search is the generic bottom sheet across the whole width.
+    const sheet = await dialog(page).boundingBox();
+    expect(sheet.x).toBe(0);
+    expect(sheet.width).toBe(390);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);

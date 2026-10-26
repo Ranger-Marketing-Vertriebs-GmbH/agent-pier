@@ -10,6 +10,10 @@
   max-width: 100%;
   overflow-x: auto;
 }
+/* Narrow screens scroll the views sideways instead of cutting their names. */
+.long-list-views.segment label {
+  min-width: max-content;
+}
 .long-list-note {
   margin: 0;
   padding: 0 var(--space-1);
@@ -37,6 +41,10 @@
   min-width: 0;
   font-size: var(--font-size-sm);
   color: var(--text-meta);
+}
+/* The fixed select height has no room for 16px text plus the form padding on phones. */
+.long-list-toolbar select {
+  padding-block: 0;
 }
 .long-list-chip .anchored-select select {
   border-radius: var(--radius-pill);
