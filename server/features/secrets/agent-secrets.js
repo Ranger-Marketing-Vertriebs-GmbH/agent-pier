@@ -36,7 +36,12 @@ export class AgentSecrets {
       !this.access.s.assistantTelegramSenders?.connected(agent.id)
     );
   }
+  /**
+   * The entries the agent's file holds now: none while a hook run without Secrets
+   * works (AgentHooks.withholdsSecrets), so the run cannot read them.
+   */
   entries(agentId) {
+    if (this.assistants.routines?.hooks?.withholdsSecrets(agentId)) return [];
     let agent;
     try {
       agent = this.assistants.store.getAssistant(agentId);

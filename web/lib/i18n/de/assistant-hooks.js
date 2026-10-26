@@ -32,6 +32,7 @@ export const hookCopy = {
     coding: "Coding-CLI",
     memory: "Gedächtnis schreiben",
     mcp: "MCP-Server",
+    secrets: "Geheimnisse",
   },
   tickHints: {
     notify: "Eine Push-Benachrichtigung mit dem Ergebnis.",
@@ -40,6 +41,8 @@ export const hookCopy = {
     coding: "Startet Coding-Läufe in den Projektordnern des Agenten.",
     memory: "Schreibt die Gedächtnisnotizen des Agenten.",
     mcp: "Nutzt die MCP-Server des Agenten.",
+    secrets:
+      "Liest die Geheimnisse-Datei des Agenten. Aus: Solange ein Lauf arbeitet, wird die Datei zurückgehalten, auch in den anderen Chats des Agenten.",
   },
   missing: {
     telegram: "Der Agent hat keinen gekoppelten Telegram-Chat.",
@@ -47,6 +50,7 @@ export const hookCopy = {
     coding: "Der Agent hat keinen Projektordner für Coding.",
     memory: "Das Gedächtnis des Agenten ist aus.",
     mcp: "Der Agent hat keine MCP-Server.",
+    secrets: "Der Agent erhält keine Geheimnisse.",
   },
   telegramNeedsNotify: "Schalte zuerst „Benachrichtigen“ ein.",
   shell: "Shell",

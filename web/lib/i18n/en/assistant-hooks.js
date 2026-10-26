@@ -32,6 +32,7 @@ export const hookCopy = {
     coding: "Coding CLI",
     memory: "Write memory",
     mcp: "MCP servers",
+    secrets: "Secrets",
   },
   tickHints: {
     notify: "A push notice with the result.",
@@ -40,6 +41,8 @@ export const hookCopy = {
     coding: "Starts coding runs in the agent's project folders.",
     memory: "Writes the agent's memory notes.",
     mcp: "Uses the agent's MCP servers.",
+    secrets:
+      "Reads the agent's secrets file. Off: the file is withheld while a run works, from the agent's other chats too.",
   },
   missing: {
     telegram: "The agent has no paired Telegram chat.",
@@ -47,6 +50,7 @@ export const hookCopy = {
     coding: "The agent has no project folder for coding.",
     memory: "The agent's memory is off.",
     mcp: "The agent has no MCP servers.",
+    secrets: "The agent receives no secrets.",
   },
   telegramNeedsNotify: "Switch on Notify first.",
   shell: "Shell",

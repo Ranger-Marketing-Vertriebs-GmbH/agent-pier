@@ -63,6 +63,13 @@ export class HookRuns {
       if (!hook?.enabled || !hookEligible(agent))
         throw assistantProblem("unavailable", 503);
       this.assistants.requireReady();
+      // Without Secrets the agent's secrets file is gone before the run starts and
+      // stays away until its event settles; a file that cannot be withheld fails the
+      // start. The apply below then leaves the file out of the agent's instructions.
+      if (!effectiveRights(hook.rights, this.hooks.ceiling(agent)).secrets) {
+        events.patch(event.id, { secretsWithheld: true });
+        await this.hooks.syncSecrets(agent.id);
+      }
       // The agent's live tools and shell level are current before its run starts.
       await this.assistants.config.apply(agent.id);
       const ceiling = this.hooks.ceiling(agent);
@@ -217,6 +224,7 @@ export class HookRuns {
       notified: { push: notify, telegram },
       completedAt: Date.now(),
     });
+    this.hooks.releaseSecrets(event.assistantId);
     if (hook && !quiet && !event.test) this.report(hook, event, ok, text);
     if (notify)
       Promise.resolve()
@@ -379,6 +387,7 @@ export class HookRuns {
       completedAt: Date.now(),
       activity: event.jobId ? this.activity(event) : [],
     });
+    this.hooks.releaseSecrets(event.assistantId);
   }
   /** A deleted hook: the jobs of its unsettled events (read before they are forgotten). */
   async cancel(hookId) {

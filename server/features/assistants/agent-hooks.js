@@ -107,7 +107,30 @@ export class AgentHooks {
       folders: workflows.folders.ownAndShared(agent.id),
       memory: caps.memory,
       mcp: (this.assistants.config.mcpTools?.(agent) || []).length > 0,
+      // Granted secrets that still exist (assistant-access.js secretIds).
+      secrets: (access.secretIds || []).length > 0,
     };
+  }
+  /**
+   * Whether the agent's secrets file is withheld now: while an event of one of its
+   * hooks runs without Secrets (HookRuns.start marks it), every sync leaves the file
+   * away (agent-secrets.js), for the agent's other chats too.
+   */
+  withholdsSecrets(assistantId) {
+    return this.events
+      .unsettled()
+      .some((event) => event.assistantId === assistantId && event.secretsWithheld);
+  }
+  /** Writes the agent's secrets file as it should be now; throws when that fails. */
+  async syncSecrets(assistantId) {
+    await this.assistants.config.syncSecrets?.(assistantId);
+  }
+  /** Gives the file back once no run withholds it; never throws. */
+  releaseSecrets(assistantId) {
+    if (this.withholdsSecrets(assistantId)) return;
+    this.syncSecrets(assistantId).catch((error) =>
+      console.error("Agent secrets file could not be restored:", error?.code || "error"),
+    );
   }
   view(hook, agent, ceiling) {
     const last = this.events.last(hook.id);
@@ -225,6 +248,7 @@ export class AgentHooks {
     // Cancelling reads the running events first; reconcile removes what is left.
     this.runs.cancel(hookId).catch(() => {});
     this.events.forget(hookId);
+    this.releaseSecrets(assistantId);
     this.audit("assistant.updated", hook, { change: "delete" });
     return { removed: true };
   }
@@ -271,6 +295,7 @@ export class AgentHooks {
       // hook event without rights (HookEvents.tombstone); the retry runs afresh.
       if (this.events.get(event.id)?.jobId) this.events.tombstone(event.id);
       else this.events.remove(event.id);
+      this.releaseSecrets(hook.assistantId);
       return answer(503, "unavailable");
     }
     return answer(202, "accepted", event);

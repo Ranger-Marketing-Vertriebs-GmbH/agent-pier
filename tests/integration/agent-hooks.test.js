@@ -87,8 +87,42 @@ test("the list carries the agent's ceiling and shell choices before any hook exi
     folders: { p1: "write" },
     memory: false,
     mcp: false,
+    secrets: false,
   });
   assert.deepEqual(shellChoices, ["off"]);
+  // Granted secrets let a hook hold the Secrets switch.
+  f.grants.access = { ...f.grants.access, secretIds: ["s1"] };
+  assert.equal(f.hooks.list(f.id).ceiling.secrets, true);
+});
+
+test("a hook stored before the Secrets switch reads as switched off", async (t) => {
+  const f = hookFixture(t);
+  f.grants.access = { projectIds: [], sshAccesses: [], secretIds: ["s1"] };
+  const { hook } = await f.hooks.create(f.id, base);
+  assert.equal(hook.rights.secrets, false);
+  // An older build stored rights without the field.
+  const stored = f.hooks.store.get(hook.id);
+  const { secrets: _secrets, ...legacy } = stored.rights;
+  f.store.db
+    .prepare("UPDATE assistant_hooks SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...stored, rights: legacy }), hook.id);
+  const [listed] = f.hooks.list(f.id).hooks;
+  assert.equal(listed.rights.secrets, false);
+  assert.equal(listed.effective.secrets, false);
+  // Saving another field neither raises it nor audits it as raised.
+  const count = f.audits.length;
+  const updated = await f.hooks.update(f.id, hook.id, {
+    revision: listed.revision,
+    rights: { ...legacy, notify: true },
+  });
+  assert.equal(updated.rights.secrets, false);
+  assert.deepEqual(f.audits[count].details.rights, []);
+  const on = await f.hooks.update(f.id, hook.id, {
+    revision: updated.revision,
+    rights: { ...legacy, secrets: true },
+  });
+  assert.equal(on.effective.secrets, true);
+  assert.deepEqual(f.audits.at(-1).details.rights, ["secrets"]);
 });
 
 test("an agent proposal creates a hook without a secret and audits its actor", async (t) => {

@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
+import { storedRights } from "./agent-hook-rights.js";
 
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
@@ -16,6 +17,13 @@ export function secretMatches(hash, supplied) {
   const actual = Buffer.from(sha256(supplied), "hex");
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
+
+// A hook as stored, its rights in the current shape (a hook saved before a right
+// existed holds it switched off).
+const parsed = (body) => {
+  const hook = JSON.parse(body);
+  return hook.rights ? { ...hook, rights: storedRights(hook.rights) } : hook;
+};
 
 export class HookStore {
   constructor(db) {
@@ -41,13 +49,13 @@ export class HookStore {
   }
   get(id) {
     const row = this.db.prepare("SELECT body FROM assistant_hooks WHERE id=?").get(id);
-    return row ? JSON.parse(row.body) : null;
+    return row ? parsed(row.body) : null;
   }
   list(assistantId) {
     return this.db
       .prepare("SELECT body FROM assistant_hooks WHERE assistant_id=? ORDER BY rowid")
       .all(assistantId)
-      .map((row) => JSON.parse(row.body));
+      .map((row) => parsed(row.body));
   }
   patch(id, fields, revision) {
     const current = this.get(id);

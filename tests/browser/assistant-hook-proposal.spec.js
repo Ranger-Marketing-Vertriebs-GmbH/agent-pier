@@ -126,6 +126,7 @@ for (const language of ["en", "de"])
         coding: false,
         memory: true,
         mcp: false,
+        secrets: false,
         shell: "off",
         sshHosts: ["ssh-1"],
         folders: {},
