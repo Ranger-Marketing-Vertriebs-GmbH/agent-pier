@@ -421,9 +421,11 @@ Testing), so its window never mixes with yours.
 - Chrome runs with the three anti-throttling flags from `extraArgs`, read from the
   process list (CDP returns the command line only with `--enable-automation`).
 - On a page of 400 rows (a link, a button, a field and text each), the page is
-  `visible`, renders at least 20 animation frames a second, 20 timers of 50 ms take
-  less than five seconds, and OpenClaw's `GET /snapshot` (`browser.request`)
-  answers in less than ten seconds, half of its browser client's 20-second budget.
+  `visible`, renders at least 20 animation frames a second (counted from its first
+  frame, the best of up to three one-second windows, so one slow frame is not read as
+  throttling), 20 timers of 50 ms take less than five seconds, and OpenClaw's
+  `GET /snapshot` (`browser.request`) answers in less than ten seconds, half of its
+  browser client's 20-second budget.
   The same holds after the keeper's CDP session, and with it its focus emulation,
   is gone, as after an AgentPier restart.
 - **Stop browser** (`AgentBrowsers.ownerStop`) ends the browser: OpenClaw then
