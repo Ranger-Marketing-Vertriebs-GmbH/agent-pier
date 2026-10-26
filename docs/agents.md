@@ -51,7 +51,8 @@ the agents with **offline** and **Agents** shows a banner with **Start service**
 ![Agents page with the readiness card and two agents](screenshots/agents-hub-desktop.png)
 
 On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
-[agent service, updates and advanced settings](screenshots/agents-runtime-desktop.png).
+[agent service, updates and advanced settings](screenshots/agents-runtime-desktop.png)
+([on a phone](screenshots/agents-runtime-phone.png)).
 
 **Agents** (`/agents`) has four tabs:
 
