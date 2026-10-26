@@ -227,8 +227,8 @@ jobs:
           --data-dir "$RUNNER_TEMP/agentpier-assistant-contracts"
           --env-file "$GITHUB_ENV"
       # Activation, rollback after a failed validation, the legacy agent roster, an
-      # MCP OAuth login refreshed on the updated runtime and a model key rotated
-      # after the activation's Doctor run.
+      # MCP OAuth login refreshed on the updated runtime, a model key rotated
+      # after the activation's Doctor run, and dreaming on the rollback target.
       - name: Run the cross-version update tests
         run: >-
           node --test --test-concurrency=1
@@ -237,5 +237,6 @@ jobs:
           tests/integration/assistant-runtime-cross-version.test.js
           tests/integration/assistant-mcp-oauth-cross-version.test.js
           tests/integration/assistant-doctor-credentials-cross-version.test.js
+          tests/integration/assistant-dreaming-rollback-cross-version.test.js
       - name: Fail when a cross-version test skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/cross-version.tap"

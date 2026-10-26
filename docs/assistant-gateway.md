@@ -4177,7 +4177,12 @@ deleted or forgotten chat stays out, a live hour change during a turn) and
 `assistant-dreaming-scope-contract.test.js` (a temporary member is swept, a shared
 agent dreams over every chat while memory search returns no raw corpus, a sweep during
 a running turn, the managed schedule under the hardened heartbeat, no corpus under a
-symlinked data directory). See [memory qualification](assistant-memory-qualification.md#dreaming).
+symlinked data directory). On the rollback targets (2026.10.3, 2026.9.9 and 2026.9.8),
+which run this release's compiled configuration after a failed activation,
+`assistant-dreaming-rollback-cross-version.test.js` pins in the cross-version job that
+the section is accepted, the managed job follows the switch and a live hour change
+without a restart, a sweep keeps each agent to its own chats, and a deleted chat leaves
+dreaming. See [memory qualification](assistant-memory-qualification.md#dreaming).
 
 ## Work goals (2026-10-24, AGENTPIER-208)
 
