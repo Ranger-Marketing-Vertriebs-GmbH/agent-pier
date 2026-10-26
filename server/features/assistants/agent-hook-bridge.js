@@ -1,4 +1,4 @@
-import { assistantProblem } from "./assistant-validation.js";
+import { assistantProblem, textValue } from "./assistant-validation.js";
 import { runSession } from "./agent-hook-runs.js";
 import { ownMemoryTarget } from "./lead-request-writes.js";
 import { personalCapabilities, shellTools } from "./native-capabilities.js";
@@ -27,6 +27,22 @@ export function hookSession(bridge, { sessionKey }) {
   const events = bridge.assistants.routines?.hooks?.events;
   const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
   return (events && match && events.byJob(match[2])) || null;
+}
+
+/**
+ * The answer to the tool guard's question before a file-tool read of `.agentpier/`
+ * (team-plugin/secrets-guard.js, `/secrets-policy`). The bridge answers it itself:
+ * every session that is not a hook run's reads its agent's file, whether or not the
+ * hook service runs; a hook run's session asks AgentHooks.secretsRead.
+ */
+export function secretsPolicy(bridge, input) {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw assistantProblem("invalid");
+  textValue(input.agentId, 4096);
+  if (input.sessionKey !== undefined) textValue(input.sessionKey, 4096);
+  if (bridge.closed) return { allow: false };
+  if (!hookSession(bridge, input)) return { allow: true };
+  return bridge.assistants.routines.hooks.secretsRead(input);
 }
 
 /** Re-checks a hook ticket on every step (TeamBridge.valid); throws 403. */

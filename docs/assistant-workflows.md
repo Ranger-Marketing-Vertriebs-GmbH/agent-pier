@@ -572,15 +572,18 @@ refuses `rights.secrets: true`). `HookRuns.start` decides at the start and recor
   the file back once no marked event is left. A command the run started in the
   background keeps running after the event settled and can read the restored file.
 - Any other run keeps the file in place for the agent's other chats. The team
-  plugin's `secrets-guard.js` asks the bridge (`/secrets-policy`,
-  `AgentHooks.secretsRead`) on every `read`, `memory_get`, `pdf`, `view_image` or
+  plugin's `secrets-guard.js` asks the bridge (`/secrets-policy`, answered by the
+  bridge itself in `agent-hook-bridge.js`, so a session that is not a hook run's
+  never depends on the hook service; a hook run's asks `AgentHooks.secretsRead`) on
+  every `read`, `memory_get`, `pdf`, `view_image` or
   `image` call that names `.agentpier` in any spelling (case folded, `\`, OpenClaw's
   path repairs, a `file:` URL decoded with `fileURLToPath` so `%2E` counts, `~`) or
   reaches it through a symbolic or hard link from the workspace. The bridge refuses
   only a hook run's session (`agent:<agent>:cron:<job>…` of a hook event), unless its
   event is running with Secrets decided at the start and still held; a settled run
   and an event from before the switch read nothing. Every other session reads as
-  before (OpenClaw masks the values). An unanswered question refuses. The agent's
+  before (OpenClaw masks the values); `assistant-secrets-guard-contract.test.js` proves
+  that on 2026.10.7. An unanswered question refuses. The agent's
   instructions still name the file for all its chats, so the run's prompt says that
   its secrets are not available.
 
