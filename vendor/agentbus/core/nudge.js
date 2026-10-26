@@ -17,9 +17,12 @@ const escapeAttr = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&am
 // Wire-Format aus Spec Abschnitt 4 (Claude Code 2.1.257, per Proxy mitgeschnitten).
 // Attribute UND Rumpf werden escaped: sonst schließt ein Name oder Text mit
 // </cross-session-message> den Rahmen und alles danach wäre Anweisung.
-export function claudeWireLines(token, fromName, text) {
+// from-mode attests the sender's permission class. Claude Code holds messages whose
+// class differs from its own, so AgentPier passes the sending session's class.
+export function claudeWireLines(token, fromName, text, fromMode = 'prompting') {
   const from = `agentbus:${fromName}`;
-  const content = `<cross-session-message from="${escapeAttr(from)}" from-name="${escapeAttr(fromName)}" from-mode="prompting">\n${escapeAttr(text)}\n</cross-session-message>`;
+  const mode = fromMode === 'bypass' ? 'bypass' : 'prompting';
+  const content = `<cross-session-message from="${escapeAttr(from)}" from-name="${escapeAttr(fromName)}" from-mode="${mode}">\n${escapeAttr(text)}\n</cross-session-message>`;
   return [
     JSON.stringify({ type: 'auth', token }),
     JSON.stringify({
@@ -73,10 +76,10 @@ function sendSocket(socketPath, payload, timeoutMs, signal) {
   });
 }
 
-function nudgeClaude({ socketPath, keyPath }, text, fromName, readKey, timeoutMs, signal) {
+function nudgeClaude({ socketPath, keyPath }, text, fromName, readKey, timeoutMs, signal, fromMode) {
   let token;
   try { token = readKey(keyPath); } catch { return Promise.resolve(false); }
-  const payload = claudeWireLines(token, fromName, text).join('\n') + '\n';
+  const payload = claudeWireLines(token, fromName, text, fromMode).join('\n') + '\n';
   return sendSocket(socketPath, payload, timeoutMs, signal);
 }
 
@@ -95,10 +98,10 @@ async function nudgeCodex({ threadId, command, codexHome }, text, exec) {
 }
 
 // Erfolg heißt nur: Anstoß abgesetzt. Kein Kanal bestätigt Zustellung.
-export async function nudge(peer, text, fromName, { readKey = defaultReadKey, exec = defaultExec, timeoutMs = 5000, signal } = {}) {
+export async function nudge(peer, text, fromName, { readKey = defaultReadKey, exec = defaultExec, timeoutMs = 5000, signal, fromMode } = {}) {
   if (signal?.aborted) return false;
   const n = peer?.nudge ?? {};
-  if (n.kind === 'cc-socks') return nudgeClaude(n, text, fromName, readKey, timeoutMs, signal);
+  if (n.kind === 'cc-socks') return nudgeClaude(n, text, fromName, readKey, timeoutMs, signal, fromMode);
   if (n.kind === 'codex-queue') return nudgeCodex(n, text, exec);
   if (n.kind === 'oc-sock') return nudgeOpencode(n, text, timeoutMs, signal);
   return false;

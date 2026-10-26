@@ -21,7 +21,14 @@ revoke filesystem access from an already running, unsandboxed same-user process.
 
 Codex and Claude launch/prompt hooks register their exact native conversation and
 return instructions and pending-message counts. Claude wakes use the native
-registry only when its PID matches the registered process. Codex wakes require an
+registry only when its PID matches the registered process. A Claude wake attests
+the sending session's permission class as launched: `bypass` for Claude Code
+bypass permissions, Codex YOLO, OpenCode Auto and headless pipeline turns, and
+`prompting` otherwise. Claude Code delivers a wake automatically only when that
+class matches its own; otherwise it holds the hint for manual approval in the
+recipient's terminal (Claude Code's `crossSessionInbound` setting), and the next
+prompt hook still reports the unread messages. A mode changed inside a running
+CLI is not reflected. Codex wakes require an
 independently verified native binding. If that cannot be proved, the next prompt
 hook supplies the pending-message hint. During a broker lifetime, Codex receives
 one queued wake per unread batch and registered native process. Further sends join
