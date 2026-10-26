@@ -122,12 +122,27 @@ const heavyPage = `document.body.innerHTML = Array.from({ length: 400 }, (_, i) 
   '<div><a href="#r' + i + '">Row ' + i + '</a> <button>Act ' + i + '</button> ' +
   '<input aria-label="Field ' + i + '"> <span>Some text for row ' + i + '</span></div>'
 ).join(""); document.querySelectorAll("button").length`;
-// Animation frames in one second, and how long 20 timers of 50 ms take: a hidden or
-// throttled page paints no frames and runs timers once a second at best.
+// Animation frames per second, and how long 20 timers of 50 ms take: a hidden or
+// throttled page paints no frames and runs timers once a second at best. The frames
+// are counted from the page's first frame on, in up to three one-second windows (the
+// best one counts). Counted from the probe's start, one stall of over a second before
+// the first frame read as one frame a second on two Linux runners; that is latency,
+// while a throttled or hidden page stays below the rate in every window.
 const frameProbe = `new Promise((done) => {
-  let frames = 0; const start = performance.now();
-  const tick = () => { frames++; if (performance.now() - start < 1000) requestAnimationFrame(tick); else done(frames); };
-  requestAnimationFrame(tick); setTimeout(() => done(frames), 5000);
+  const start = performance.now(); const samples = [];
+  let first = null, from = 0, frames = 0;
+  const tick = (now) => {
+    if (first === null) { first = Math.round(performance.now() - start); from = now; }
+    else if (now - from < 1000) frames++;
+    else {
+      samples.push(frames);
+      if (frames >= 20 || samples.length === 3) return done({ first, samples });
+      frames = 0; from = now;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  setTimeout(() => done({ first, samples: [...samples, frames] }), 8000);
 })`;
 const timerProbe = `new Promise((done) => {
   let n = 0; const start = performance.now();
@@ -236,7 +251,8 @@ test(
 
     const check = async (label) => {
       assert.equal(await page.evaluate("document.visibilityState"), "visible", label);
-      const frames = await page.evaluate(frameProbe);
+      const { first, samples } = await page.evaluate(frameProbe);
+      const frames = Math.max(...samples);
       const timers = await page.evaluate(timerProbe);
       started = Date.now();
       const snapshot = await runtime.client.request(
@@ -250,7 +266,7 @@ test(
       );
       const snapshotMs = Date.now() - started;
       t.diagnostic(
-        `${label}: frames/s=${frames} timers=${timers}ms snapshot=${snapshotMs}ms`,
+        `${label}: first frame=${first}ms frames/s=${samples.join(",")} timers=${timers}ms snapshot=${snapshotMs}ms`,
       );
       assert.ok(frames >= 20, `${label}: ${frames} animation frames in a second`);
       assert.ok(timers < 5000, `${label}: 20 timers of 50 ms took ${timers} ms`);
