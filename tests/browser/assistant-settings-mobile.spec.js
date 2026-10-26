@@ -46,7 +46,7 @@ test.describe("agent settings on phones", () => {
     page,
   }) => {
     await setupAssistantSettings(page);
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     const style = await page.locator("#agent-profile").evaluate((el) => {
       const textBox = (field) => {
         const c = getComputedStyle(field);
@@ -73,7 +73,7 @@ test.describe("agent settings on phones", () => {
 
   test("selects show the 16px handoff chevron 12px from the edge", async ({ page }) => {
     await setupAssistantSettings(page);
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     const select = page.locator("#agent-profile select").first();
     await expect(select).toBeVisible();
     const style = await select.evaluate((el) => {
@@ -98,6 +98,13 @@ test.describe("agent settings on phones", () => {
     });
   });
 
+  test("the agent service sits inside Overview on phones", async ({ page }) => {
+    await setupAssistantSettings(page);
+    await page.goto(baseURL + settingsPath());
+    await expect(page.locator(".agent-runtime-group")).toBeVisible();
+    await expect(page.locator(".agent-runtime-aside")).toBeHidden();
+  });
+
   test("switches keep their native semantics", async ({ page }) => {
     await setupAssistantSettings(page);
     await page.goto(baseURL + settingsPath("capabilities"));
@@ -116,7 +123,15 @@ test.describe("agent settings on phones", () => {
         assistant: full,
         channel: connectedChannel(),
       });
-      for (const tab of [undefined, "capabilities", "work", "telegram"]) {
+      for (const tab of [
+        undefined,
+        "identity",
+        "capabilities",
+        "access",
+        "team",
+        "automation",
+        "channels",
+      ]) {
         await page.goto(baseURL + settingsPath(tab));
         await expect(page.getByRole("tabpanel")).toBeVisible();
         expect(
@@ -127,14 +142,14 @@ test.describe("agent settings on phones", () => {
               el.scrollWidth <= el.clientWidth
             );
           }),
-          tab ?? "profile",
+          tab ?? "overview",
         ).toBe(true);
       }
     });
 
   test("the save bar appears after an edit and saves the profile", async ({ page }) => {
     const state = await setupAssistantSettings(page, { applyUpdates: true });
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     await expect(page.locator("#agent-profile")).toBeVisible();
     await expect(bar(page)).toHaveCount(0);
     await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
@@ -147,7 +162,7 @@ test.describe("agent settings on phones", () => {
 
   test("a failed save shows its error in the save bar", async ({ page }) => {
     await setupAssistantSettings(page, { saveStatus: 409 });
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
     await scroller(page).evaluate((el) => (el.scrollTop = el.scrollHeight));
     await bar(page).getByRole("button", { name: "Save agent" }).click();
@@ -159,7 +174,7 @@ test.describe("agent settings on phones", () => {
 
   test("the save bar mirrors a running save", async ({ page }) => {
     await setupAssistantSettings(page, { applyUpdates: true, saveDelay: 800 });
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
     await bar(page).getByRole("button", { name: "Save agent" }).click();
     await expect(bar(page).getByRole("button", { name: "Saving …" })).toBeDisabled();
@@ -168,13 +183,13 @@ test.describe("agent settings on phones", () => {
 
   test("cancel in the save bar restores the saved values", async ({ page }) => {
     const state = await setupAssistantSettings(page);
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     const name = page.getByRole("textbox", { name: "Name" });
     await name.fill("Home 2");
     await bar(page).getByRole("button", { name: "Cancel" }).click();
     await expect(name).toHaveValue("Home");
     await expect(bar(page)).toHaveCount(0);
-    await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
     expect(state.opened).toBe(0);
   });
 
@@ -215,7 +230,7 @@ test.describe("agent settings on phones", () => {
   test("the save bar fits a 320px phone", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await setupAssistantSettings(page);
-    await page.goto(baseURL + settingsPath());
+    await page.goto(baseURL + settingsPath("identity"));
     await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
     await expect(bar(page)).toBeVisible();
     const fit = await bar(page).evaluate((el) => {
@@ -243,7 +258,7 @@ test.describe("agent settings on phones", () => {
 test("desktop settings save from the same bar", async ({ page }) => {
   await setupAssistantSettings(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await page.getByRole("textbox", { name: "Name" }).fill("Home 2");
   await expect(saveBar(page).getByRole("button", { name: "Save agent" })).toBeVisible();
   await expect(

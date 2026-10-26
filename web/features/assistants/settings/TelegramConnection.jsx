@@ -47,8 +47,8 @@ export function ConnectionGroup({ assistant, telegram, draft, go, navigate }) {
   const connected = Boolean(channel?.hasSecret);
   const activity = channelActivity(channel);
   const link = (page) => ({
-    href: routePath(agentRoute(assistant.id, "telegram", page)),
-    onClick: () => go("telegram", page),
+    href: routePath(agentRoute(assistant.id, "channels", page)),
+    onClick: () => go("channels", page),
   });
   // Activity and connection details stay reachable after a disconnect: entries may
   // still need a decision.

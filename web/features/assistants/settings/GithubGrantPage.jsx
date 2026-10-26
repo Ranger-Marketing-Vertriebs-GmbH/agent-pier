@@ -35,7 +35,7 @@ export default function GithubGrantPage({
   const set = (next) => onChange(next.level ? next : null);
   return (
     <section className="agent-subpage ssh-grant-page" aria-label={copy.title}>
-      <SubpageHeader title={copy.title} tab="work" onBack={onBack} />
+      <SubpageHeader title={copy.title} tab="access" onBack={onBack} />
       <p className="assistant-note">{copy.intro}</p>
       {!profiles && <p className="assistant-note">{assistantCopy.loading}</p>}
       {profiles?.length === 0 && (

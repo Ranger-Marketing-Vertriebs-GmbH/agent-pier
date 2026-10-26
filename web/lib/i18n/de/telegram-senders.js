@@ -11,7 +11,7 @@ export const telegramSendersCopy = {
   removedPending:
     "Der Agentendienst führt noch einen Bot oder eine Person aus, die du entfernt hast. Starte ihn neu, um sie sofort zu stoppen.",
   sshBlocked:
-    "Dieser Agent hat SSH-Zugänge. Entferne sie unter Arbeit › SSH-Zugänge, bevor du einen Bot für andere Personen verbindest.",
+    "Dieser Agent hat SSH-Zugänge. Entferne sie unter Zugriffe › SSH/SFTP, bevor du einen Bot für andere Personen verbindest.",
   shellBlocked:
     "Dieser Agent hat Shell-Zugriff. Schalte die Shell aus, bevor du einen Bot für andere Personen verbindest.",
   token: "Bot-Token",

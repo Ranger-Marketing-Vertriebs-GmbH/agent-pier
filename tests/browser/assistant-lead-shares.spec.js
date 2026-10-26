@@ -185,7 +185,7 @@ for (const [language, label, viewport] of cases) {
         else return route.fallback();
         await route.fulfill({ json: body });
       });
-      await page.goto(baseURL + settingsPath("work", undefined, "scout"));
+      await page.goto(baseURL + settingsPath("access", undefined, "scout"));
       const group = page.locator("#agent-lead-shares");
       await expect(group.getByRole("heading", { name: w.title })).toBeVisible();
       const row = (name) => group.locator(".lead-share-row", { hasText: name });

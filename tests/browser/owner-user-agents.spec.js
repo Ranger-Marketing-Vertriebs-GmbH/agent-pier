@@ -30,14 +30,14 @@ const languages = {
     foldersIntro:
       /Agenten von Benutzern bekommen weder Projektwissen noch Coding-Aufträge/,
     sharedIntro: /stehen für Projektwissen und Coding-Aufträge bereit/,
-    access: "Benutzer dieses Agenten",
+    access: "Wer diesen Agenten nutzt",
     released: "Freigegebene Fähigkeiten",
     browser: "Browser",
     restartTitle: "Agentendienst neu starten?",
     restartConfirm: "Speichern und neu starten",
     lockedCoding: /Gesperrt: Coding\./,
     read: "Lesen",
-    save: "Speichern",
+    save: "Agent speichern",
     openMyChat: "Meinen Chat öffnen",
     options: "Optionen",
     attach: "Datei, Bild oder Video anhängen",
@@ -78,14 +78,14 @@ const languages = {
     projects: "Projects",
     foldersIntro: /Agents of users get no project memory and no coding tasks/,
     sharedIntro: /can be used for project memory and coding tasks/,
-    access: "Users of this agent",
+    access: "Who uses this agent",
     released: "Released capabilities",
     browser: "Browser",
     restartTitle: "Restart the agent service?",
     restartConfirm: "Save and restart",
     lockedCoding: /Locked: Coding\./,
     read: "Read",
-    save: "Save",
+    save: "Save agent",
     openMyChat: "Open my chat",
     options: "Options",
     attach: "Attach file, image or video",
@@ -141,10 +141,10 @@ for (const [language, copy] of Object.entries(languages))
         page.getByRole("switch", { name: copy.visible, exact: true }),
       ).toHaveCount(0);
       await expect(page.locator("#agent-shell, [data-shell-group]")).toHaveCount(0);
-      await page.goto(baseURL + "/agents/home/settings?tab=work");
+      await page.goto(baseURL + "/agents/home/settings?tab=access");
       await expect(page.getByText(copy.locked)).toBeVisible();
       await expect(page.getByText("GitHub", { exact: false })).toHaveCount(1);
-      // A link to a locked Work page shows the lock, never its grants.
+      // An old link to a locked page shows the Access lock, never its grants.
       for (const locked of ["ssh", "github", "pipelines"]) {
         await page.goto(baseURL + `/agents/home/settings?tab=work&page=${locked}`);
         await expect(page.getByText(copy.locked)).toBeVisible();
@@ -199,7 +199,7 @@ for (const [language, copy] of Object.entries(languages))
           ],
         });
         await users(page);
-        await page.goto(baseURL + "/agents/home/settings?tab=profile");
+        await page.goto(baseURL + "/agents/home/settings?tab=access");
         await expect(page.getByText(copy.access, { exact: true })).toBeVisible();
         // A shared agent's capabilities stay the owner's at every level.
         await expect(page.getByText(copy.released, { exact: true })).toHaveCount(
@@ -235,7 +235,7 @@ for (const [language, copy] of Object.entries(languages))
           });
         return route.fulfill({ json: home({ userAccess: body.userAccess }) });
       });
-      await page.goto(baseURL + "/agents/home/settings?tab=profile");
+      await page.goto(baseURL + "/agents/home/settings?tab=access");
       await page.getByRole("checkbox", { name: copy.browser, exact: true }).click();
       const dialog = page.getByRole("dialog", { name: copy.restartTitle });
       await expect(dialog).toBeVisible();

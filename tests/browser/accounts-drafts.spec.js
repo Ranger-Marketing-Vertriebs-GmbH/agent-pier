@@ -174,7 +174,7 @@ test("a restart note names how many agents restart", async ({ page }) => {
   const detail = await openAccountItem(page, "Agent router");
   await expect(detail.getByRole("link", { name: /^Olli/ })).toHaveAttribute(
     "href",
-    "/agents/a/settings",
+    "/agents/a/settings?tab=identity",
   );
   await expect(detail.getByText("Temporary team member")).toBeVisible();
   await detail.getByLabel("Connection name", { exact: true }).fill("Changed");

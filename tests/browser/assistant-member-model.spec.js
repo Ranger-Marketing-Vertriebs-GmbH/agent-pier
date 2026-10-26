@@ -102,7 +102,7 @@ test("a task member's profile follows the lead's model until the owner picks one
 }) => {
   const state = await chatFixture(page, setup());
   const patches = await recordPatches(page, state);
-  await page.goto(baseURL + "/agents/member-0/settings");
+  await page.goto(baseURL + "/agents/member-0/settings?tab=identity");
   const follow = page.getByRole("switch", { name: "Follow the lead's model" });
   await expect(follow).toBeChecked();
   await expect(
@@ -141,12 +141,14 @@ test("a task member's profile follows the lead's model until the owner picks one
 
 test("a permanent member's profile offers its own model", async ({ page }) => {
   await chatFixture(page, setup("permanent"));
-  await page.goto(baseURL + "/agents/member-0/settings");
+  await page.goto(baseURL + "/agents/member-0/settings?tab=identity");
   await expect(page.getByLabel("Model connection")).toBeVisible();
   await expect(page.getByText("Manage connections", { exact: true })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Follow the lead's model" })).toHaveCount(
     0,
   );
+  // The member card with its provenance sits in the Overview.
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(
     page.getByText("Model: as taken over from the lead", { exact: true }),
   ).toBeVisible();

@@ -34,7 +34,7 @@ export default function HooksGroup({ assistantId, paused = false, navigate }) {
       alive = false;
     };
   }, [assistantId]);
-  const route = (hookId) => agentRoute(assistantId, "routines", "hook", hookId);
+  const route = (hookId) => agentRoute(assistantId, "automation", "hook", hookId);
   async function create(data) {
     const name = String(data.get("name") || "").trim(),
       sender = String(data.get("sender") || "").trim();

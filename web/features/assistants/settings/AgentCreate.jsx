@@ -26,7 +26,7 @@ import { usersCopy } from "../../../lib/i18n/messages/users.js";
 import { ownerUsersApi } from "../../users/owner-users-api.js";
 import "../agent-settings.css";
 
-const tabs = ["profile", "capabilities"];
+const tabs = ["identity", "capabilities"];
 const idleHeartbeat = { heartbeatEnabled: false };
 const ignore = () => {};
 
@@ -45,7 +45,7 @@ export default function AgentCreate({
   forUser = "",
 }) {
   const { models, refresh, runtime } = useAssistants();
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState("identity");
   const [created, setCreated] = useState(null);
   const [template, setTemplate] = useState(null),
     [picking, setPicking] = useState(false),
@@ -125,7 +125,7 @@ export default function AgentCreate({
   // A missing name sends the owner back to the Profile tab instead of the server.
   const valid = () => {
     if (profileValid(draft)) return true;
-    setTab("profile");
+    setTab("identity");
     return false;
   };
   const create = async () => {
@@ -219,7 +219,7 @@ export default function AgentCreate({
         id={`agent-create-tabpanel-${tab}`}
         aria-labelledby={`agent-create-tab-${tab}`}
       >
-        {tab === "profile" ? (
+        {tab === "identity" ? (
           <form
             id="agent-profile"
             className="agent-settings-form"

@@ -3,9 +3,9 @@ import { baseURL } from "../helpers/browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
 import { teamListFixture, teamRecords } from "../helpers/assistant-team-list-fixture.js";
 
-// Settings → Work → Teams: every team of the lead with members, status, results and
+// Agent settings › Team › Teams: every team of the lead with members, status, results and
 // the immediate actions that used to live in the chat's team cards.
-const work = baseURL + settingsPath("work");
+const work = baseURL + settingsPath("team");
 const shots = process.env.TEAM_SETTINGS_SHOTS;
 const viewports = {
   phone: { width: 390, height: 844 },
@@ -107,7 +107,7 @@ test("a deep link to an archived team opens the Archived side with it expanded",
 }) => {
   await page.setViewportSize(viewports.phone);
   await teamListFixture(page);
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=old");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=old");
   const teams = group(page);
   await expect(teams.getByRole("radio", { name: "Archived (1)" })).toBeChecked();
   const card = teams.locator("#assistant-team-old");
@@ -119,7 +119,7 @@ test("a deep link to an archived team opens the Archived side with it expanded",
 
 test("an unknown team in the link leaves the list as it is", async ({ page }) => {
   await teamListFixture(page);
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=missing");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=missing");
   const teams = group(page);
   await expect(teams.getByRole("radio", { name: "Active (3)" })).toBeChecked();
   await expect(teams.locator("details[open]")).toHaveCount(0);
@@ -127,7 +127,7 @@ test("an unknown team in the link leaves the list as it is", async ({ page }) =>
 
 test("the group speaks German", async ({ page }) => {
   await teamListFixture(page, { language: "de" });
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=research");
   const teams = group(page);
   await expect(teams.getByRole("radio", { name: "Aktiv (3)" })).toBeChecked();
   await expect(teams.getByRole("radio", { name: "Archiviert (1)" })).toBeVisible();
@@ -172,7 +172,7 @@ test("a member's pending coding request opens its team card", async ({ page }) =
 
 test("a link to a proposal focuses its card", async ({ page }) => {
   await teamListFixture(page);
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=proposal");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=proposal");
   const card = group(page).getByRole("article", { name: "Write launch copy" });
   await expect(card).toBeFocused();
   await expect(card).toBeInViewport();
@@ -183,7 +183,7 @@ test("switching sides after a team link does not pull the reader back", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await teamListFixture(page);
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=research");
   const teams = group(page);
   const summary = teams.locator("#assistant-team-research > summary");
   await expect(summary).toBeFocused();
@@ -239,7 +239,7 @@ test("a shortened report and answer say so and link to the member's chat", async
       json: { memberId: "researcher", text: "Vendor B is cheapest.", cut: true },
     }),
   );
-  await page.goto(baseURL + "/agents/home/settings?tab=work&team=research");
+  await page.goto(baseURL + "/agents/home/settings?tab=team&team=research");
   const research = group(page).locator("#assistant-team-research");
   await research.getByText("Report", { exact: true }).click();
   await expect(research).toContainText("Vendor B is cheapest.");

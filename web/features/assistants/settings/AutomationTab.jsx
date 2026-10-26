@@ -30,12 +30,12 @@ const conflictLabels = {
 };
 
 /**
- * Routines & check-ins: everything the agent does on a schedule. Results go to the
+ * Automatisierung (former Routines & check-ins): everything the agent does on its own. Results go to the
  * agent's chat with a push notification; with a paired Telegram chat each item can
  * go there too. Check-ins are the tab's draft; reminders, routines and hooks apply at
  * once. A hook's detail (`page === "hook"`) is a subpage with its own draft.
  */
-export default function RoutinesTab({ assistant, page, go, navigate, hookId }) {
+export default function AutomationTab({ assistant, page, go, navigate, hookId }) {
   const { refresh } = useAssistants();
   const { channel } = useTelegramChannel(assistant.id);
   const paired = Boolean(channel?.enabled && channel?.chatId);
@@ -43,19 +43,19 @@ export default function RoutinesTab({ assistant, page, go, navigate, hookId }) {
     server: routinesServer(assistant),
     revisions: { assistant: assistant.revision },
   });
-  const label = settingsCopy.tabs.routines;
+  const label = settingsCopy.tabs.automation;
   const steps = [heartbeatStep({ assistant, label: proactivity.title })];
   const after = async (result) => {
     if (result.completed?.length) await refresh();
     return result;
   };
   const save = async () => after(await draft.save(steps));
-  const back = () => go("routines");
+  const back = () => go("automation");
   const overwrite = async () => after(await draft.overwrite(steps));
   const sheet = useAgentDraftGuard({
     draft,
     assistantId: assistant.id,
-    tab: "routines",
+    tab: "automation",
     label,
     save,
   });
@@ -111,6 +111,7 @@ export default function RoutinesTab({ assistant, page, go, navigate, hookId }) {
         draft={draft}
         onSave={save}
         onOverwrite={overwrite}
+        saveLabel={assistantCopy.save}
         note={assistantCopy.pendingConfigShort}
       />
       <ConfirmationSheet confirmation={draft.confirmation} />

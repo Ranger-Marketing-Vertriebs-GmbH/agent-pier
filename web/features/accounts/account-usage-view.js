@@ -41,10 +41,11 @@ export function usageValue(entry) {
 }
 
 const agentTabs = {
+  model: "identity",
   capability: "capabilities",
-  binding: "capabilities",
-  pipelines: "work",
-  channel: "telegram",
+  binding: "access",
+  pipelines: "access",
+  channel: "channels",
 };
 
 /** The agent settings tab where the agent chose this entry. */

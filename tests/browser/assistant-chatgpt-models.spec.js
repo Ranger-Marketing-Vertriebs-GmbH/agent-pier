@@ -246,7 +246,7 @@ for (const [language, copy] of [
       assistant: { model: { connectionId: "openclaw:test", modelId: "gpt-6-legacy" } },
       models: [account],
     });
-    await page.goto(baseURL + "/agents/home/settings");
+    await page.goto(baseURL + "/agents/home/settings?tab=identity");
     const model = page.getByRole("combobox", { name: copy.model, exact: true });
     await expect(model.locator("option:checked")).toHaveText(copy.custom);
     await expect(page.getByRole("textbox", { name: copy.modelId })).toHaveValue(
@@ -295,8 +295,8 @@ test("screenshots: the open ChatGPT model list on desktop and mobile", async ({
     ["mobile", { width: 390, height: 844 }],
   ]) {
     await page.setViewportSize(viewport);
-    // The Profile tab of an existing agent, with the account's hint showing.
-    await page.goto(baseURL + "/agents/home/settings");
+    // The Identity tab of an existing agent, with the account's hint showing.
+    await page.goto(baseURL + "/agents/home/settings?tab=identity");
     const model = page.getByRole("combobox", { name: english.model, exact: true });
     await expect(page.getByText(english.unknown)).toBeVisible();
     await page.getByRole("button", { name: english.refresh }).scrollIntoViewIfNeeded();

@@ -1,12 +1,8 @@
 // Agent settings tabs and their subpages: /agents/:id/settings?tab=…&page=…
 //
-// The address uses the tab names of the redesigned page (`agentSettingsTabs`). Older
-// names keep working: `profile` → identity, `work` → access, team or overview,
-// `routines` → automation, `telegram` → channels. Until the page shows the new tabs,
-// `agentSettingsLocation` names the tab of today's page that renders the content
-// (`agentTabs`), so every old and new link opens the right content.
-export const agentTabs = ["profile", "capabilities", "work", "routines", "telegram"];
-export const agentSettingsTabs = [
+// Seven tabs by purpose (handoff 5.4). Older names keep working: `profile` → identity,
+// `work` → access, team or overview, `routines` → automation, `telegram` → channels.
+export const agentTabs = [
   "overview",
   "identity",
   "capabilities",
@@ -15,24 +11,12 @@ export const agentSettingsTabs = [
   "automation",
   "channels",
 ];
-export const defaultAgentSettingsTab = "identity";
-// Each subpage belongs to one of today's tabs; a valid page decides the tab.
+// Kept as an alias of `agentTabs` for callers that name the redesign.
+export const agentSettingsTabs = agentTabs;
+export const legacyAgentTabs = ["profile", "work", "routines", "telegram"];
+export const defaultAgentSettingsTab = "overview";
+// Each subpage belongs to one tab; a valid page decides the tab.
 export const agentPages = {
-  memory: "capabilities",
-  allowlist: "capabilities",
-  skills: "capabilities",
-  actions: "work",
-  projects: "work",
-  pipelines: "work",
-  ssh: "work",
-  github: "work",
-  secrets: "work",
-  hook: "routines",
-  "telegram-activity": "telegram",
-  "telegram-connection": "telegram",
-};
-// The redesigned tab each subpage belongs to.
-export const agentPageTabs = {
   memory: "capabilities",
   allowlist: "capabilities",
   skills: "capabilities",
@@ -46,19 +30,9 @@ export const agentPageTabs = {
   "telegram-activity": "channels",
   "telegram-connection": "channels",
 };
-// Today's tab that shows a redesigned tab's content.
-const contentTab = {
-  overview: "work",
-  identity: "profile",
-  capabilities: "capabilities",
-  access: "work",
-  team: "work",
-  automation: "routines",
-  channels: "telegram",
-};
+export const agentPageTabs = agentPages;
 const renamedTab = {
   profile: "identity",
-  capabilities: "capabilities",
   routines: "automation",
   telegram: "channels",
 };
@@ -68,24 +42,22 @@ const teamPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const validTeam = (value) => teamPattern.test(value ?? "");
 
 /**
- * The redesigned tab of a route (`agentTab` may hold an old or a new name): a valid
- * page decides it; `work` becomes team with a focused team, otherwise overview.
+ * The tab of a route (`agentTab` may hold an old or a new name): a valid page decides
+ * it; `work` becomes team with a focused team, otherwise overview.
  */
 export function agentSettingsTab(route) {
   const page = pageOf(route.agentPage);
-  if (page) return agentPageTabs[page];
+  if (page) return agentPages[page];
   const tab = route.agentTab;
-  if (agentSettingsTabs.includes(tab)) return tab;
+  if (agentTabs.includes(tab)) return tab;
   if (tab === "work") return validTeam(route.agentTeam) ? "team" : "overview";
   return Object.hasOwn(renamedTab, tab ?? "") ? renamedTab[tab] : defaultAgentSettingsTab;
 }
 
-/** `{ tab, page }` on today's page; missing fields mean the defaults. */
+/** `{ tab, page }` the page shows; missing fields mean the defaults. */
 export function agentSettingsLocation(route) {
   const page = pageOf(route.agentPage);
-  if (page) return { tab: agentPages[page], page };
-  if (agentTabs.includes(route.agentTab)) return { tab: route.agentTab, page };
-  return { tab: contentTab[agentSettingsTab(route)], page };
+  return { tab: agentSettingsTab(route), page };
 }
 
 const focusTeam = (tab, page, value) =>
@@ -96,16 +68,18 @@ const hookPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 const focusHook = (page, value) =>
   page === "hook" && hookPattern.test(value ?? "") ? value : "";
 
-// The default tab stays out of the address unless a link names it (`tab=profile`
-// becomes `tab=identity`, a plain link stays plain).
-const namesIdentity = (value) => value === "identity" || value === "profile";
+// The default tab stays out of the address unless a link names it or a subpage
+// (`tab=work` becomes `tab=overview`, a plain link stays plain).
+const namesDefault = (route) =>
+  ["overview", "work"].includes(route.agentTab) &&
+  agentSettingsTab({ ...route, agentPage: "" }) === "overview";
 
 function settingsFields(route) {
   const page = pageOf(route.agentPage);
   const tab = agentSettingsTab(route);
   return {
     tab,
-    shown: tab !== defaultAgentSettingsTab || (!page && namesIdentity(route.agentTab)),
+    shown: tab !== defaultAgentSettingsTab || !!page || namesDefault(route),
     page,
     team: focusTeam(tab, page, route.agentTeam),
     hook: focusHook(page, route.agentHook),

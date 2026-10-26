@@ -16,7 +16,7 @@ export default function GrantSelectionPage({
 }) {
   return (
     <section className="agent-subpage" aria-label={title}>
-      <SubpageHeader title={title} tab="work" onBack={onBack} />
+      <SubpageHeader title={title} tab="access" onBack={onBack} />
       {!items && <p className="assistant-note">{assistantCopy.loading}</p>}
       {items?.length === 0 && <p className="assistant-note">{copy.noResources}</p>}
       {items?.length > 0 && (

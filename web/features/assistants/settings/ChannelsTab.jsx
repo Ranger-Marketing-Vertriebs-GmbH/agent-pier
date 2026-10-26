@@ -1,4 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useId } from "react";
+import GroupLabel from "../../../components/GroupLabel.jsx";
+import ReferenceRow from "../../../components/ReferenceRow.jsx";
+import { routePath } from "../../../app/routes.js";
+import { useCrossLink } from "../../../app/cross-link.js";
 import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
@@ -24,6 +28,26 @@ const conflictLabels = {
   appUrl: () => channelCopy.appUrl,
 };
 
+const notifications = { view: "settings", settingsSection: "notifications" };
+
+/** Push notices are set per device under Einstellungen › App & Benachrichtigungen. */
+function NotificationsGroup({ navigate }) {
+  const id = useId();
+  const target = useCrossLink()(notifications);
+  return (
+    <section aria-labelledby={id}>
+      <GroupLabel id={id}>{settingsCopy.notificationsGroup}</GroupLabel>
+      <ReferenceRow
+        title={settingsCopy.notificationsRow}
+        sub={null}
+        linkLabel={settingsCopy.notificationsPath}
+        href={routePath(target)}
+        onOpen={() => navigate(target)}
+      />
+    </section>
+  );
+}
+
 /** Why a tab section is absent for an agent of users. */
 function UserAgentNote({ text }) {
   return (
@@ -35,12 +59,13 @@ function UserAgentNote({ text }) {
 }
 
 /**
- * Telegram: the connection, its notice settings and the agent's own bot. Reminders,
+ * Kanäle (former Telegram): the connection, its notice settings, the agent's own bot
+ * and where its push notifications are set. Reminders,
  * routines and check-ins live on their own tab and only use Telegram as an extra.
  * A user's own agent has her bot only (managed in her app), and no agent of users
  * gets a bot for other people (user-agent-lock.js).
  */
-export default function TelegramTab({ assistant, page, go, navigate }) {
+export default function ChannelsTab({ assistant, page, go, navigate }) {
   const { refresh } = useAssistants();
   const own = assistant.userAccess?.mode === "own";
   const loaded = useTelegramChannel(assistant.id);
@@ -51,7 +76,7 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
     server: telegramServer(channel),
     revisions: { channel: channel?.revision },
   });
-  const label = settingsCopy.tabs.telegram;
+  const label = settingsCopy.tabs.channels;
   const steps = channel
     ? [channelStep({ channelId: channel.id, label: settingsCopy.connectionGroup })]
     : [];
@@ -64,16 +89,16 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
   const sheet = useAgentDraftGuard({
     draft,
     assistantId: assistant.id,
-    tab: "telegram",
+    tab: "channels",
     label,
     save,
   });
   // A Telegram subpage needs a channel; without one the address falls back to the tab.
   useEffect(() => {
     if (telegram.loaded && !channel && page)
-      navigate(agentRoute(assistant.id, "telegram"), true, true);
+      navigate(agentRoute(assistant.id, "channels"), true, true);
   }, [telegram.loaded, channel, page, assistant.id, navigate]);
-  const back = () => go("telegram");
+  const back = () => go("channels");
   const subpage =
     channel && page === "telegram-activity" ? (
       <TelegramActivityPage
@@ -115,12 +140,14 @@ export default function TelegramTab({ assistant, page, go, navigate }) {
               <TelegramSendersSettings assistantId={assistant.id} />
             )
           )}
+          <NotificationsGroup navigate={navigate} />
         </>
       )}
       <SaveBar
         draft={draft}
         onSave={save}
         onOverwrite={overwrite}
+        saveLabel={assistantCopy.save}
         note={assistantCopy.pendingConfigShort}
       />
       <ConfirmationSheet confirmation={draft.confirmation} />

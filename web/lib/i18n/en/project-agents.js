@@ -1,11 +1,11 @@
 export const projectAgentsCopy = {
   tab: "Agents",
   title: "Agent access",
-  hint: "The same access as in each agent's Work tab: changing it here changes it there.",
+  hint: "The same access as in each agent's Access tab: changing it here changes it there.",
   agentsLabel: "Agents with access to this project",
   coding: "May start coding sessions in this project",
   codingHint:
-    "Project memory and coding tasks on the pipelines allowed in the agent's Work tab. Folder access needs it.",
+    "Project memory and coding tasks on the pipelines allowed in the agent's Access tab. Folder access needs it.",
   folderLegend: "Folder access",
   folder: { none: "None", read: "Read", write: "Read and write" },
   noAgents: "No permanent agents yet. Create one under Agents.",

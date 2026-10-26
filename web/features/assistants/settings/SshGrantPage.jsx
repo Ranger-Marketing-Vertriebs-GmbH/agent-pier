@@ -40,7 +40,7 @@ export default function SshGrantPage({
   );
   return (
     <section className="agent-subpage ssh-grant-page" aria-label={copy.title}>
-      <SubpageHeader title={copy.title} tab="work" onBack={onBack} />
+      <SubpageHeader title={copy.title} tab="access" onBack={onBack} />
       <p className="assistant-note">{copy.intro}</p>
       {hosts === null && (
         <div className="ssh-grant-state">

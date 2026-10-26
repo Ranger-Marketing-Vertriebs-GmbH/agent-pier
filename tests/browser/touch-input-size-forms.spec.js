@@ -93,7 +93,15 @@ test("session chat composer", async ({ page }) => {
 
 test("agent settings tabs and team limits", async ({ page }) => {
   await setupAssistantSettings(page);
-  for (const tab of ["profile", "capabilities", "work", "telegram"]) {
+  for (const tab of [
+    "overview",
+    "identity",
+    "capabilities",
+    "access",
+    "team",
+    "automation",
+    "channels",
+  ]) {
     await page.goto(baseURL + settingsPath(tab));
     await expect(page.getByRole("tab", { selected: true })).toBeVisible();
     await expectTouchSized(page, `agent settings ${tab}`);
@@ -105,11 +113,11 @@ test("agent settings tabs and team limits", async ({ page }) => {
   }
 });
 
-test("agent work tab team limits", async ({ page }) => {
+test("agent team tab team limits", async ({ page }) => {
   await teamSetup(page);
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath("team"));
   await expect(page.getByRole("spinbutton", { name: "Maximum team size" })).toBeVisible();
-  await expectTouchSized(page, "agent work team");
+  await expectTouchSized(page, "agent team tab");
 });
 
 test("agent chat composer", async ({ page }) => {

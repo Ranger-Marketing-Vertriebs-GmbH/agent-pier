@@ -4,17 +4,20 @@ import { setupAssistantSettings as setup } from "../helpers/assistant-settings-b
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { catalog, nas, opnsense } from "./assistant-ssh-fixture.js";
 
-const row = (page) => page.getByRole("link", { name: /^SSH accesses/ });
-const save = (page) => saveBar(page).getByRole("button", { name: "Save", exact: true });
-const back = (page) => page.getByRole("button", { name: "Back to Work" });
+const group = (page) => page.locator("#agent-access-ssh");
+const save = (page) =>
+  saveBar(page).getByRole("button", { name: "Save agent", exact: true });
+const back = (page) => page.getByRole("button", { name: "Back to Access" });
 
-test("SSH accesses are picked with a mode and saved with the Work tab", async ({
+test("SSH accesses are picked with a mode on the full list and saved with Access", async ({
   page,
 }) => {
   const state = await setup(page, { catalog: catalog() });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(row(page)).toContainText("None");
-  await row(page).click();
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(
+    group(page).getByRole("heading", { name: "SSH/SFTP · 0 of 2" }),
+  ).toBeVisible();
+  await page.goto(baseURL + settingsPath("access", "ssh"));
   await expect(page.getByText("Project: Homelab")).toBeVisible();
   await expect(page.getByText("admin@nas.invalid:2222")).toBeVisible();
   await page.getByLabel("Search hosts").fill("opn");
@@ -28,7 +31,9 @@ test("SSH accesses are picked with a mode and saved with the Work tab", async ({
   await modes.getByRole("radio", { name: "Trusted", exact: true }).check();
   await expect(page.getByText(/could run without your confirmation/)).toBeVisible();
   await back(page).click();
-  await expect(row(page)).toContainText("1 host · 1 trusted");
+  await expect(
+    group(page).getByRole("combobox", { name: "Mode for opnsense" }),
+  ).toHaveValue("trusted");
   await save(page).click();
   await expect.poll(() => state.work.length).toBe(1);
   expect(state.work[0].access.sshAccesses).toEqual([
@@ -36,12 +41,12 @@ test("SSH accesses are picked with a mode and saved with the Work tab", async ({
   ]);
 });
 
-test("an empty catalog links to the SSH settings", async ({ page }) => {
+test("an empty catalog links to the SSH/SFTP connections", async ({ page }) => {
   await setup(page, { catalog: catalog([]) });
   await page.goto(baseURL + settingsPath("work", "ssh"));
   await expect(page.getByText("There are no SSH accesses yet.")).toBeVisible();
   await page.getByRole("button", { name: "Set up SSH accesses" }).click();
-  await expect(page).toHaveURL(/settings/);
+  await expect(page).toHaveURL(/\/connections\?section=ssh/);
   await expect(page).not.toHaveURL(/agents\/home/);
 });
 

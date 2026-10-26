@@ -13,11 +13,7 @@ import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import ProfileFields, { profileValid } from "./ProfileFields.jsx";
-import MemberGroup from "./MemberGroup.jsx";
-import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
-import RuntimeSummary from "./RuntimeSummary.jsx";
 import TemplateNote from "./TemplateNote.jsx";
-import UserAccessGroup from "./UserAccessGroup.jsx";
 
 const conflictLabels = {
   name: () => copy.name,
@@ -27,14 +23,17 @@ const conflictLabels = {
   followLead: () => copy.team.followLeadModelChoice,
 };
 
-/** Profile: name, instructions, model; team member card; one PATCH per save. */
-export default function ProfileTab({ assistant, navigate }) {
-  const { assistants, models, refresh, runtime } = useAssistants();
+/**
+ * Identity (former Profile): name, instructions, model, template and revision; one
+ * PATCH per save. The member card, users and attachments live in Overview and Access.
+ */
+export default function IdentityTab({ assistant, navigate }) {
+  const { assistants, models, refresh } = useAssistants();
   const draft = useTabDraft({
     server: profileServer(assistant),
     revisions: { assistant: assistant.revision },
   });
-  const label = settingsCopy.tabs.profile;
+  const label = settingsCopy.tabs.identity;
   const member = followsLeadModel(assistant);
   const leadModel = member
     ? assistants.find((a) => a.id === assistant.parentAssistantId)?.model
@@ -51,7 +50,7 @@ export default function ProfileTab({ assistant, navigate }) {
   const sheet = useAgentDraftGuard({
     draft,
     assistantId: assistant.id,
-    tab: "profile",
+    tab: "identity",
     label,
     save,
   });
@@ -115,14 +114,6 @@ export default function ProfileTab({ assistant, navigate }) {
           {copy.pendingConfig}
         </p>
       </form>
-      {assistant.teamMemberId && <MemberGroup assistant={assistant} />}
-      <UserAccessGroup assistant={assistant} />
-      <AttachmentStorageGroup assistant={assistant} />
-      <RuntimeSummary
-        className="agent-runtime-group"
-        runtime={runtime}
-        navigate={navigate}
-      />
       <SaveBar
         draft={draft}
         onSave={save}

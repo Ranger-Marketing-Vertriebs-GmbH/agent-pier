@@ -55,22 +55,58 @@ test("agent settings tabs and subpages have their own addresses", () => {
     agentTab: "identity",
   });
   assert.deepEqual(read("/agents/home/settings?tab=nope&page=nope"), agent);
-  assert.deepEqual(agentSettingsLocation(agent), { tab: "profile", page: "" });
+  // Overview is the first tab and the default; a link that names it keeps it.
+  assert.deepEqual(agentSettingsLocation(agent), { tab: "overview", page: "" });
+  assert.equal(
+    routePath(read("/agents/home/settings?tab=overview")),
+    "/agents/home/settings?tab=overview",
+  );
+  assert.deepEqual(read("/agents/home/settings?page=actions"), {
+    ...agent,
+    agentTab: "overview",
+    agentPage: "actions",
+  });
   assert.deepEqual(
     agentSettingsLocation({ ...agent, agentPage: "telegram-connection" }),
     {
-      tab: "telegram",
+      tab: "channels",
       page: "telegram-connection",
     },
   );
+});
+
+test("every old agent settings address of handoff 4.2 opens its new tab (AC-AS-1)", () => {
+  const id = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
+  for (const [old, now] of [
+    ["?tab=profile", "?tab=identity"],
+    ["?tab=capabilities&page=memory", "?tab=capabilities&page=memory"],
+    ["?tab=capabilities&page=allowlist", "?tab=capabilities&page=allowlist"],
+    ["?tab=capabilities&page=skills", "?tab=capabilities&page=skills"],
+    ["?tab=work&page=projects", "?tab=access&page=projects"],
+    ["?tab=work&page=pipelines", "?tab=access&page=pipelines"],
+    ["?tab=work&page=ssh", "?tab=access&page=ssh"],
+    ["?tab=work&page=github", "?tab=access&page=github"],
+    ["?tab=work&page=secrets", "?tab=access&page=secrets"],
+    ["?tab=work&team=team-1", "?tab=team&team=team-1"],
+    ["?tab=work&page=actions", "?tab=overview&page=actions"],
+    ["?tab=work", "?tab=overview"],
+    ["?tab=routines", "?tab=automation"],
+    [`?tab=routines&page=hook&hook=${id}`, `?tab=automation&page=hook&hook=${id}`],
+    ["?tab=telegram", "?tab=channels"],
+    ["?tab=telegram&page=telegram-activity", "?tab=channels&page=telegram-activity"],
+    ["?tab=telegram&page=telegram-connection", "?tab=channels&page=telegram-connection"],
+  ]) {
+    const route = read(`/agents/home/settings${old}`);
+    assert.equal(routePath(route), `/agents/home/settings${now}`, old);
+    assert.equal(agentSettingsLocation(route).tab, new URLSearchParams(now).get("tab"));
+  }
 });
 
 test("a team link from the chat focuses that team in the Team tab only", () => {
   const focused = agentTeamRoute("home", "team-1");
   assert.equal(routePath(focused), "/agents/home/settings?tab=team&team=team-1");
   assert.deepEqual(read(routePath(focused)), focused);
-  // Today's page shows teams in the Work tab.
-  assert.equal(agentSettingsLocation(focused).tab, "work");
+  assert.equal(agentSettingsLocation(focused).tab, "team");
   // Elsewhere, on a subpage or with an invalid id, the focus is dropped.
   assert.deepEqual(read("/agents/home/settings?team=team-1"), agent);
   assert.deepEqual(read("/agents/home/settings?tab=team&page=actions&team=team-1"), {
@@ -91,7 +127,7 @@ test("a team link from the chat focuses that team in the Team tab only", () => {
 test("a hook's detail is an automation subpage that keeps a valid hook id", () => {
   const id = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
   assert.deepEqual(agentSettingsLocation({ agentPage: "hook" }), {
-    tab: "routines",
+    tab: "automation",
     page: "hook",
   });
   const hook = { ...agent, agentTab: "automation", agentPage: "hook", agentHook: id };
@@ -100,7 +136,7 @@ test("a hook's detail is an automation subpage that keeps a valid hook id", () =
     agentPage: "hook",
     agentHook: id,
   });
-  // Today's page builds the routines tab; its address is the automation tab.
+  // An old link to the routines tab opens the automation tab.
   const built = agentRoute("home", "routines", "hook", id);
   assert.equal(
     routePath(built),

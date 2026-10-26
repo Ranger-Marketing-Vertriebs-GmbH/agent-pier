@@ -283,3 +283,37 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Access tab (handoff 5.4): a granted entry keeps its mode select and actions at their
+   size; on phones they wrap under the name. */
+.agent-access-row > .list-row-select,
+.agent-access-row > .button {
+  flex: none;
+}
+.agent-access-row > .button + .button {
+  margin-left: 0;
+}
+.agent-access-sub {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.agent-settings-main section > .list-card + .list-card {
+  margin-top: 8px;
+}
+@media (max-width: 700px) {
+  .agent-access-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding-bottom: 8px;
+  }
+  .agent-access-row > .list-row-main {
+    flex-basis: 100%;
+  }
+  .agent-access-row > .list-row-select {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  .agent-access-row > .list-row-select select {
+    padding-left: 0;
+    text-align: left;
+  }
+}

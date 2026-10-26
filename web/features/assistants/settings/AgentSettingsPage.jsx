@@ -8,32 +8,38 @@ import { useReturnScroll } from "../../../app/return-scroll.js";
 import AssistantHeader from "../AssistantHeader.jsx";
 import useAssistants from "../useAssistants.js";
 import { agentRoute, resolveAgentLocation } from "./agent-settings-fields.js";
-import ProfileTab from "./ProfileTab.jsx";
+import AgentHeaderActions from "./AgentHeaderActions.jsx";
+import OverviewTab from "./OverviewTab.jsx";
+import IdentityTab from "./IdentityTab.jsx";
 import CapabilitiesTab from "./CapabilitiesTab.jsx";
-import WorkTab from "./WorkTab.jsx";
-import RoutinesTab from "./RoutinesTab.jsx";
-import TelegramTab from "./TelegramTab.jsx";
+import AccessTab from "./AccessTab.jsx";
+import TeamTab from "./TeamTab.jsx";
+import AutomationTab from "./AutomationTab.jsx";
+import ChannelsTab from "./ChannelsTab.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
 import "../agent-settings.css";
 
 const panels = {
-  profile: ProfileTab,
+  overview: OverviewTab,
+  identity: IdentityTab,
   capabilities: CapabilitiesTab,
-  work: WorkTab,
-  routines: RoutinesTab,
-  telegram: TelegramTab,
+  access: AccessTab,
+  team: TeamTab,
+  automation: AutomationTab,
+  channels: ChannelsTab,
 };
 
 /**
- * Agent settings as tabs (handoff 1b/3b): one draft and save bar per tab, subpages
- * inside their tab, all addressed by `agentTab`/`agentPage` so every switch passes
- * the unsaved-changes guard.
+ * Agent settings in seven tabs by purpose (handoff 5.4): one draft and save bar per
+ * tab, subpages inside their tab, all addressed by `agentTab`/`agentPage` so every
+ * switch passes the unsaved-changes guard.
  */
 export default function AgentSettingsPage({
   assistant,
   route,
   navigate,
   onBack,
+  onOpenChat,
   openNavigation,
   navigationOpen,
   error,
@@ -46,7 +52,7 @@ export default function AgentSettingsPage({
   const go = (nextTab, nextPage = "") =>
     navigate(agentRoute(assistant.id, nextTab, nextPage));
   const scroller = useRef(null);
-  // Back from a cross-link target (Accounts, agent service) lands where the owner was.
+  // Back from a cross-link target (Zugänge, agent service) lands where the owner was.
   useReturnScroll(
     scroller,
     routePath(agentRoute(assistant.id, tab, page, route.agentHook)),
@@ -67,8 +73,16 @@ export default function AgentSettingsPage({
         variant="settings"
         navigate={navigate}
         onBack={onBack}
+        backLabel={copy.backToAgents}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
+        actions={
+          <AgentHeaderActions
+            assistant={assistant}
+            navigate={navigate}
+            onOpenChat={onOpenChat}
+          />
+        }
       />
       <div className="agent-settings-tabs">
         <UnderlineTabs

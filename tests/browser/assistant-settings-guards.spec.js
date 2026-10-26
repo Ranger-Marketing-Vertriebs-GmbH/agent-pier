@@ -31,7 +31,7 @@ test("a save started from a Capabilities subpage shows its confirmation", async 
   await page.goto(baseURL + settingsPath("capabilities"));
   await page.getByRole("switch", { name: "Read web pages" }).check();
   await page.getByRole("link", { name: /^Always allowed commands/ }).click();
-  await agentTab(page, "Profile").click();
+  await agentTab(page, "Identity").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
   const confirm = page.getByRole("dialog", { name: "Restart the agent service?" });
   await expect(confirm).toBeVisible();
@@ -40,7 +40,7 @@ test("a save started from a Capabilities subpage shows its confirmation", async 
   await confirm.getByRole("button", { name: "Save and restart" }).click();
   await expect.poll(() => state.updates.length).toBe(2);
   expect(state.updates[1]).toMatchObject({ confirmRestart: true });
-  await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   await expect(saveBar(page)).toHaveCount(0);
 });
 
@@ -48,20 +48,21 @@ test("an empty or out-of-range team number blocks the save with a field error", 
   page,
 }) => {
   const state = await setup(page);
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath("team"));
   const size = page.getByRole("spinbutton", { name: "Maximum team size" });
   await size.fill("");
   await expect(size).toHaveAccessibleDescription("Enter a whole number from 1 to 8.");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await size.fill("9");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
-  await agentTab(page, "Profile").click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await agentTab(page, "Identity").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
-  await expect(page).toHaveURL(/tab=overview$/);
+  // The invalid number blocks the save, so the Team tab stays.
+  await expect(page).toHaveURL(/tab=team$/);
   expect(state.work).toEqual([]);
   await size.fill("8");
   await expect(size).toHaveAccessibleDescription("");
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.work.length).toBe(1);
   expect(state.work[0].team).toMatchObject({ maxMembers: 8 });
 });
@@ -72,14 +73,11 @@ test("a team policy changed elsewhere is overwritten with its newer revision", a
   const state = await setup(page, {
     catalog: { projects: [], pipelines: [{ id: "b1", name: "Build" }] },
   });
-  await page.goto(baseURL + settingsPath("work"));
-  await expect(page.getByRole("link", { name: /^Allowed pipelines/ })).toContainText(
-    "0 of 1",
-  );
+  await page.goto(baseURL + settingsPath("team"));
   await page.getByRole("spinbutton", { name: "Maximum team size" }).fill("6");
   // Changed elsewhere without an event: only the refresh after the 409 can see it.
   state.policies.home = { ...state.policies.home, revision: 5, runTimeoutMinutes: 40 };
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText(
     "Changed elsewhere in the meantime.",
   );
@@ -96,9 +94,9 @@ test("a team policy changed elsewhere is overwritten with its newer revision", a
   await expect(saveBar(page)).toHaveCount(0);
 });
 
-test("a failed Work reload after a conflict shows an error", async ({ page }) => {
+test("a failed Access reload after a conflict shows an error", async ({ page }) => {
   const state = await setup(page);
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath("access"));
   await page
     .getByRole("switch", {
       name: "Allow selected pipelines to publish pull requests",
@@ -106,13 +104,16 @@ test("a failed Work reload after a conflict shows an error", async ({ page }) =>
     .check();
   state.access = { ...state.access, revision: 3 };
   state.accessFailures = 1;
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page).getByRole("alert")).toContainText(
     "Changed elsewhere in the meantime.",
   );
-  await expect(page.locator("#agent-access").getByRole("alert")).toHaveText(
-    "Access unavailable",
-  );
+  await expect(
+    page
+      .getByRole("tabpanel")
+      .getByRole("alert")
+      .filter({ hasText: "Access unavailable" }),
+  ).toBeVisible();
 });
 
 test("a disconnected channel keeps its activity and drops its unsaved fields", async ({
@@ -152,12 +153,12 @@ test("a Telegram subpage link for an agent without a channel opens the tab", asy
 
 test("an agent without a name is not sent", async ({ page }) => {
   const state = await setup(page);
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("");
   await saveBar(page).getByRole("button", { name: "Save agent" }).click();
-  await agentTab(page, "Work").click();
+  await agentTab(page, "Access").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   expect(state.updates).toEqual([]);
 });
 
@@ -165,7 +166,7 @@ test("generated instructions are marked as reviewed only without unsaved edits",
   page,
 }) => {
   await setup(page, { assistant: { instructionsSource: "model" } });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   const review = page.getByRole("button", { name: "Mark as reviewed" });
   await expect(review).toBeEnabled();
   await page.getByRole("textbox", { name: "Instructions" }).fill("Mine");
@@ -188,7 +189,7 @@ test("a saved check-in schedule shows on and can be switched off without Telegra
   await checkIns.uncheck();
   // Check-ins need no Telegram chat: they stay available after switching off.
   await expect(checkIns).toBeEnabled();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect.poll(() => state.updates.length).toBe(1);
   expect(state.updates[0].heartbeat.enabled).toBe(false);
 });

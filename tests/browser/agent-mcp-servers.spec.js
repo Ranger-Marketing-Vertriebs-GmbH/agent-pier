@@ -28,6 +28,15 @@ const tokenColor = (page, token) =>
     probe.remove();
     return color;
   }, token);
+// Grants a server through the Access tab's inline add field (handoff 5.5).
+async function grantServer(page, name) {
+  await page.getByRole("combobox", { name: "Add MCP server" }).click();
+  await page
+    .getByRole("listbox", { name: "MCP server: options" })
+    .getByRole("option", { name: new RegExp(name) })
+    .click();
+  await page.getByRole("button", { name: "Add 1" }).click();
+}
 const stdioChange = (body) =>
   ["command", "args", "cwd", "env"].some((key) => body[key] !== undefined);
 
@@ -387,9 +396,9 @@ for (const [label, use] of [
         },
       );
       const notice = "Saved \u2014 will be applied to running agents shortly.";
-      await page.goto(baseURL + settingsPath("capabilities"));
-      const panel = page.getByRole("region", { name: "MCP servers" });
-      await panel.getByLabel("docs").check();
+      await page.goto(baseURL + settingsPath("access"));
+      const panel = page.locator("#agent-mcp");
+      await grantServer(page, "docs");
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(panel.getByText(notice)).toBeVisible();
       expect(state.bindings).toEqual(["s1"]);
@@ -409,13 +418,13 @@ for (const [label, use] of [
         { id: "s1", name: "docs", transport: "http", url: "https://a.example/mcp" },
         { id: "s2", name: "local", transport: "stdio", stdio: true, command: "/bin/x" },
       );
-      await page.goto(baseURL + settingsPath("capabilities"));
-      const panel = page.getByRole("region", { name: "MCP servers" });
-      await panel.getByLabel("docs").check();
+      await page.goto(baseURL + settingsPath("access"));
+      const panel = page.locator("#agent-mcp");
+      await grantServer(page, "docs");
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       await expect(panel.getByText("MCP servers saved.")).toBeVisible();
       expect(state.bindings).toEqual(["s1"]);
-      await panel.getByLabel(/local/).check();
+      await grantServer(page, "local");
       await saveBar(page).getByRole("button", { name: "Save agent" }).click();
       const warning = page.getByRole("dialog", { name: "Give agents a local command?" });
       await expect(warning).toContainText("every session of every agent");
@@ -443,10 +452,13 @@ for (const [label, use] of [
         pkg("s1", "installing", "installing"),
         pkg("s2", "ready", "ready"),
       );
-      await page.goto(baseURL + settingsPath("capabilities"));
-      const panel = page.getByRole("region", { name: "MCP servers" });
-      await expect(panel.getByLabel(/installing/)).toBeDisabled();
-      await expect(panel.getByLabel(/ready/)).toBeEnabled();
+      await page.goto(baseURL + settingsPath("access"));
+      const panel = page.locator("#agent-mcp");
+      await page.getByRole("combobox", { name: "Add MCP server" }).click();
+      const options = page.getByRole("listbox", { name: "MCP server: options" });
+      // A package still installing is not offered; an installed one is.
+      await expect(options.getByRole("option", { name: /installing/ })).toHaveCount(0);
+      await expect(options.getByRole("option", { name: /ready/ })).toBeVisible();
       await expect(
         panel.getByText(
           "Coding CLIs and agents can be added once the package is installed.",
@@ -519,13 +531,15 @@ for (const [label, use] of [
 
     test("temporary members list their servers read only", async ({ page }) => {
       await setup(page);
-      await page.goto(baseURL + settingsPath("capabilities", undefined, "temp-agent"));
+      // A temporary member's servers moved with its lead's grants to Access.
+      await page.goto(baseURL + settingsPath("access", undefined, "temp-agent"));
       const panel = page.getByRole("region", { name: "MCP servers" });
       await expect(panel).toContainText("Named in the lead agent's team proposal");
       await expect(panel).toContainText("docs");
       await expect(panel).toContainText("local");
       await expect(panel).toContainText("stdio, local command");
       await expect(panel.getByRole("checkbox")).toHaveCount(0);
+      await expect(page.getByRole("combobox")).toHaveCount(0);
     });
 
     test("the team approval lists servers per member with a stdio marker", async ({

@@ -1,40 +1,21 @@
-import React, { useId, useState } from "react";
+import React, { useId } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import useAssistants from "../useAssistants.js";
-import { assistantApi } from "../assistant-api.js";
 import MemberHistory from "./MemberHistory.jsx";
+import useMemberLifecycle from "./useMemberLifecycle.js";
 
-/** Provenance, assignment, phase and lifecycle actions of a team member. */
+/**
+ * Provenance, assignment, phase and lifecycle actions of a team member (Overview).
+ * Archive and restore sit in the Verwalten group beside it.
+ */
 export default function MemberGroup({ assistant }) {
-  const { members = [], assistants, refresh } = useAssistants();
-  const member = members.find((m) => m.assistantId === assistant.id);
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+  const { assistants } = useAssistants();
+  const { member, active, busy, error, act: action } = useMemberLifecycle(assistant);
   const id = useId();
   if (!member) return null;
-  const parent = assistants.find((a) => a.id === member.parentAssistantId),
-    active = !["completed", "failed", "cancelled"].includes(member.phase);
-  async function action(name) {
-    setBusy(true);
-    try {
-      if (name === "recover")
-        await assistantApi.recoverTeamMember(member.id, member.revision);
-      else
-        await assistantApi.teamAction(
-          "team-members",
-          member.id,
-          name,
-          name === "stop" ? undefined : member.revision,
-        );
-      await refresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const parent = assistants.find((a) => a.id === member.parentAssistantId);
   return (
     <section className="agent-member" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.team.memberSettings}</GroupLabel>
@@ -92,24 +73,15 @@ export default function MemberGroup({ assistant }) {
               {copy.team.stopMember}
             </button>
           ) : (
-            <>
-              {member.lifetime !== "permanent" && (
-                <button
-                  className="button primary"
-                  disabled={busy}
-                  onClick={() => action("promote")}
-                >
-                  {copy.team.promote}
-                </button>
-              )}
+            member.lifetime !== "permanent" && (
               <button
-                className="button secondary"
+                className="button primary"
                 disabled={busy}
-                onClick={() => action(member.archivedAt ? "restore" : "archive")}
+                onClick={() => action("promote")}
               >
-                {member.archivedAt ? copy.team.restore : copy.team.archive}
+                {copy.team.promote}
               </button>
-            </>
+            )
           )}
         </div>
       </div>

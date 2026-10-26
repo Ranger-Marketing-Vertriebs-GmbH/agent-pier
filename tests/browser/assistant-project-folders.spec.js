@@ -5,7 +5,7 @@ import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 
 // The Work tab sets direct folder access per allowed project (AGENTPIER-123).
-test("English Work tab grants a project folder for reading and writing and removes it with the project", async ({
+test("English Access tab grants a project folder for reading and writing and removes it with the project", async ({
   page,
 }) => {
   await fixture(page);
@@ -81,8 +81,7 @@ test("English Work tab grants a project folder for reading and writing and remov
     else return route.fallback();
     await route.fulfill({ json: body });
   });
-  await page.goto(baseURL + settingsPath("work"));
-  await page.getByRole("link", { name: /^Allowed projects/ }).click();
+  await page.goto(baseURL + settingsPath("access", "projects"));
   await expect(page.getByText("/Users/me/demo", { exact: true })).toHaveCount(1);
   // Folder access appears only for an allowed project, and starts at none.
   await expect(page.getByText("Direct folder access", { exact: true })).toHaveCount(0);
@@ -92,18 +91,17 @@ test("English Work tab grants a project folder for reading and writing and remov
   await expect(
     page.getByText(/changes files directly, without an approval/),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await expect(page.getByText("1 with folder access", { exact: true })).toBeVisible();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Back to Access" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Folder access for Demo project" }),
+  ).toHaveValue("write");
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => saves.length).toBe(1);
   expect(saves[0].projectIds).toEqual(["project"]);
   expect(saves[0].projectFiles).toEqual({ project: "write" });
   // Removing the project removes its folder access as well.
-  await page.getByRole("link", { name: /^Allowed projects/ }).click();
-  await expect(page.getByLabel("Read and write", { exact: true })).toBeChecked();
-  await page.getByLabel("Demo project", { exact: true }).uncheck();
-  await page.getByRole("button", { name: "Back to Work" }).click();
-  await saveBar(page).getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Revoke Demo project" }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent", exact: true }).click();
   await expect.poll(() => saves.length).toBe(2);
   expect(saves[1]).toMatchObject({ projectIds: [], projectFiles: {} });
 });

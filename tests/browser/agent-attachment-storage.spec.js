@@ -35,7 +35,7 @@ for (const [label, use] of [
       await chatFixture(page);
       const state = { clears: 0, usage: { files: 34, bytes: 120 * MB } };
       await storageRoutes(page, state);
-      await page.goto(baseURL + settingsPath("profile"));
+      await page.goto(baseURL + settingsPath("overview"));
 
       const group = page.getByRole("region", { name: "Chat attachments" });
       await expect(group.getByText("120 MB of 1 GB · 34 of 1,000 files")).toBeVisible();
@@ -77,7 +77,7 @@ test("an agent that users chat with offers no Clear attachments", async ({ page 
   await chatFixture(page, { assistants: [chatAssistant({ userAccess })] });
   const state = { clears: 0, usage: { files: 34, bytes: 120 * MB } };
   await storageRoutes(page, state);
-  await page.goto(baseURL + settingsPath("profile"));
+  await page.goto(baseURL + settingsPath("overview"));
 
   const group = page.getByRole("region", { name: "Chat attachments" });
   await expect(group.getByText("120 MB of 1 GB · 34 of 1,000 files")).toBeVisible();
@@ -125,7 +125,7 @@ test("a folder the agent replaced is explained and restored by clearing", async 
   await chatFixture(page);
   const state = { clears: 0, usage: { files: 0, bytes: 0, unsafe: true } };
   await storageRoutes(page, state);
-  await page.goto(baseURL + settingsPath("profile"));
+  await page.goto(baseURL + settingsPath("overview"));
   const group = page.getByRole("region", { name: "Chat attachments" });
   await expect(
     group.getByText(

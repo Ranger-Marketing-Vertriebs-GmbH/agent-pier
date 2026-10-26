@@ -38,7 +38,7 @@ export const hookSettingsRoute = (assistantId, hookId) => ({
   view: "agents",
   assistantId,
   agentSettings: true,
-  agentTab: "routines",
+  agentTab: "automation",
   agentPage: "hook",
   agentHook: hookId,
 });

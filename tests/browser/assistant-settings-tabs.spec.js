@@ -15,78 +15,108 @@ import {
 
 const name = (page) => page.getByRole("textbox", { name: "Name", exact: true });
 
-test("deep links select their tab and junk falls back to the profile", async ({
+test("deep links select their tab and junk falls back to the overview", async ({
   page,
 }) => {
   await setup(page);
   await page.goto(baseURL + settingsPath("work"));
-  await expect(agentTab(page, "Work")).toHaveAttribute("aria-selected", "true");
+  await expect(agentTab(page, "Overview")).toHaveAttribute("aria-selected", "true");
+  await page.goto(baseURL + settingsPath("profile"));
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
+  await expect(agentTab(page, "Identity")).toHaveAttribute("aria-selected", "true");
   await page.goto(baseURL + settingsPath("nope"));
   await expect(page).toHaveURL(/\/agents\/home\/settings$/);
-  await expect(agentTab(page, "Profile")).toHaveAttribute("aria-selected", "true");
-  await agentTab(page, "Telegram").click();
+  await expect(agentTab(page, "Overview")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab")).toHaveText([
+    "Overview",
+    "Identity",
+    "Capabilities",
+    "Access",
+    "Team",
+    "Automation",
+    "Channels",
+  ]);
+  await agentTab(page, "Channels").click();
   await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });
 
-test("a task-bound member has two tabs and other tabs normalise without asking", async ({
+test("a task-bound member has four tabs and other tabs normalise without asking", async ({
   page,
 }) => {
   await setup(page, { assistants: [home({ teamMemberId: "m1", lifetime: "task" })] });
   await page.goto(baseURL + settingsPath("telegram"));
   await expect(page).toHaveURL(/\/agents\/home\/settings$/);
-  await expect(page.getByRole("tab")).toHaveText(["Profile", "Capabilities"]);
+  await expect(page.getByRole("tab")).toHaveText([
+    "Overview",
+    "Identity",
+    "Capabilities",
+    "Access",
+  ]);
   await expect(unsavedSheet(page)).toHaveCount(0);
 });
 
 test("switching tabs with unsaved changes asks first", async ({ page }) => {
   const state = await setup(page, { applyUpdates: true });
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await name(page).fill("Home 2");
   await expect(saveBar(page)).toBeVisible();
   await agentTab(page, "Capabilities").click();
   const sheet = unsavedSheet(page);
-  await expect(sheet).toContainText("1 change in Profile is not saved yet.");
+  await expect(sheet).toContainText("1 change in Identity is not saved yet.");
   await sheet.getByRole("button", { name: "Cancel" }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   await expect(name(page)).toHaveValue("Home 2");
   await agentTab(page, "Capabilities").click();
   await unsavedSheet(page).getByRole("button", { name: "Discard" }).click();
   await expect(page).toHaveURL(/tab=capabilities$/);
   expect(state.updates).toEqual([]);
-  await agentTab(page, "Profile").click();
+  await agentTab(page, "Identity").click();
   await expect(name(page)).toHaveValue("Home");
   await name(page).fill("Home 3");
-  await agentTab(page, "Work").click();
+  await agentTab(page, "Access").click();
   await unsavedSheet(page).getByRole("button", { name: "Save and switch" }).click();
-  await expect(page).toHaveURL(/tab=overview$/);
+  await expect(page).toHaveURL(/tab=access$/);
   await expect.poll(() => state.updates.at(-1)?.name).toBe("Home 3");
 });
 
-test("going back to the conversation with unsaved changes asks first", async ({
-  page,
-}) => {
+test("going back to the agents with unsaved changes asks first", async ({ page }) => {
   await setup(page);
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   await name(page).fill("Home 2");
-  await page.getByRole("button", { name: "Back to conversation" }).click();
+  await page.getByRole("button", { name: "Back to agents" }).click();
   await unsavedSheet(page).getByRole("button", { name: "Cancel" }).click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   await expect(name(page)).toHaveValue("Home 2");
-  await page.getByRole("button", { name: "Back to conversation" }).click();
+  await page.getByRole("button", { name: "Back to agents" }).click();
   await unsavedSheet(page).getByRole("button", { name: "Discard" }).click();
+  await expect(page).toHaveURL(/\/agents$/);
+});
+
+test("the header opens the chat and duplicates the agent", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto(baseURL + settingsPath());
+  await page.getByRole("button", { name: "Open chat" }).click();
   await expect(page).toHaveURL(/\/agents\/home\/chats\/c1$/);
+  expect(state.opened).toBe(1);
+  await page.goto(baseURL + settingsPath());
+  await page.getByRole("button", { name: "More actions" }).click();
+  const menu = page.getByRole("menu", { name: "More actions" });
+  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate"]);
+  await menu.getByRole("menuitem", { name: "Duplicate" }).click();
+  // The wizard that consumes it follows; the address keeps the agent to copy.
+  await expect(page).toHaveURL(/\/agents\?new=1&duplicate=home$/);
 });
 
 test("browser back asks first and cancelling keeps the address", async ({ page }) => {
   await setup(page);
-  await page.goto(baseURL + settingsPath());
-  await agentTab(page, "Work").click();
-  await agentTab(page, "Profile").click();
+  await page.goto(baseURL + settingsPath("identity"));
+  await agentTab(page, "Access").click();
+  await agentTab(page, "Identity").click();
   await name(page).fill("Home 2");
   await page.goBack();
   await unsavedSheet(page).getByRole("button", { name: "Cancel" }).click();
-  await expect(page).toHaveURL(/\/agents\/home\/settings$/);
+  await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=identity$/);
   await expect(name(page)).toHaveValue("Home 2");
 });
 
@@ -94,7 +124,7 @@ test("an unsaved tab warns before the page unloads until it is reset", async ({
   page,
 }) => {
   await setup(page);
-  await page.goto(baseURL + settingsPath());
+  await page.goto(baseURL + settingsPath("identity"));
   expect(await beforeUnloadPrevented(page)).toBe(false);
   await name(page).fill("Home 2");
   await expect.poll(() => beforeUnloadPrevented(page)).toBe(true);
@@ -227,7 +257,7 @@ test("waiting approvals lead to the full action history", async ({ page }) => {
       },
     ],
   });
-  await page.goto(baseURL + settingsPath("work"));
+  await page.goto(baseURL + settingsPath());
   await page.getByRole("button", { name: /Waiting for your approval · 1/ }).click();
   await expect(page).toHaveURL(/tab=overview&page=actions$/);
   const history = page.getByRole("region", { name: "Actions and coding tasks" });
@@ -242,7 +272,7 @@ test("without Telegram check-ins are offered on their own tab", async ({ page })
   await page.goto(baseURL + settingsPath("telegram"));
   await expect(page.getByLabel("Telegram bot token")).toBeVisible();
   await expect(page.getByRole("switch", { name: "Check in on its own" })).toHaveCount(0);
-  await agentTab(page, "Routines & check-ins").click();
+  await agentTab(page, "Automation").click();
   await expect(page).toHaveURL(/tab=automation$/);
   const checkIn = page.getByRole("switch", { name: "Check in on its own" });
   await expect(checkIn).toBeEnabled();
@@ -251,7 +281,7 @@ test("without Telegram check-ins are offered on their own tab", async ({ page })
   await expect(page.getByRole("switch", { name: "Also send to Telegram" })).toHaveCount(
     0,
   );
-  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
   await expect(saveBar(page)).toHaveCount(0);
   expect(state.updates.at(-1).heartbeat).toMatchObject({ enabled: true, telegram: true });
   await expect(page.getByRole("region", { name: "Reminders" })).toHaveCount(0);
@@ -275,7 +305,7 @@ test("Telegram activity and connection details open as subpages", async ({ page 
   await panel.getByRole("link", { name: /^Telegram activity/ }).click();
   await expect(page).toHaveURL(/tab=channels&page=telegram-activity$/);
   await expect(panel.getByText("One")).toBeVisible();
-  await page.getByRole("button", { name: "Back to Telegram" }).click();
+  await page.getByRole("button", { name: "Back to Channels" }).click();
   await panel.getByRole("link", { name: /^Connection/ }).click();
   await expect(
     panel.getByText("Ignored messages: 2 from other private chats, 1 from groups."),
