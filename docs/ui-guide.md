@@ -389,6 +389,9 @@ accent. Never encode a state by colour alone: add text or an icon.
   with matching keys and arguments; import from `web/lib/i18n/messages/`. Shared
   labels (Cancel, Save, Delete, Remove, Retry, …) come from `commonCopy`; do not
   redefine them per feature.
+- The catalog tests and the translation lock render a message function with
+  placeholder arguments and again with each argument set to 1, so a singular branch
+  (`count === 1 ? … : …`) is checked and reviewed like the rest of the text.
 - English uses sentence case for buttons, titles and labels. German uses the informal
   "du" as the rest of the app.
 - Ellipses take a space before them in both languages ("Saving …").

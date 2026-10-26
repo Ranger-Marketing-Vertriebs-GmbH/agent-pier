@@ -38,14 +38,22 @@ test("German pipeline catalogs use one term for verification and the run branch"
 
 // UI glossary (docs/ui-glossary.md): German copy says "Session", "Tool" and
 // "Accounts" (the page), and navigation paths use "›" in both languages.
-// Rendered texts of the web and server catalogs, as the translation lock reads them.
+// Rendered texts of the web and server catalogs, as the translation lock reads them;
+// a message's singular branch (`[__ARG_0__=1] …`) is checked as a text of its own.
 async function catalogTexts(language) {
   const texts = [];
   for (const kind of ["web", "server"]) {
     const catalogs = await loadCatalogs(kind);
     for (const lang of language ? [language] : ["german", "english"])
-      for (const [key, text] of catalogs[lang])
+      for (const [key, rendered] of catalogs[lang]) {
+        const [text, ...singular] = rendered.split(/\n(?=\[__ARG_\d+__=1\] )/);
         texts.push({ where: `${kind} ${key}`, text });
+        for (const form of singular)
+          texts.push({
+            where: `${kind} ${key} ${form.slice(0, form.indexOf("]") + 1)}`,
+            text: form.slice(form.indexOf("]") + 2),
+          });
+      }
   }
   return texts;
 }

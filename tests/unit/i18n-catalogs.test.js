@@ -1,10 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
-import { placeholderArgs } from "../../scripts/i18n-translation-lock.mjs";
+import { placeholderArgs, renderSingular } from "../../scripts/i18n-translation-lock.mjs";
 import { setLanguage } from "../../web/lib/i18n/index.js";
 
 const base = new URL("../../web/lib/i18n/", import.meta.url);
+// Placeholder arguments never satisfy `count === 1`: each argument is also rendered as
+// 1, and the singular texts must render and keep the other arguments in both languages.
+function compareSingular(german, english, path, exact = false) {
+  const args = placeholderArgs(german.length);
+  for (let index = 0; index < args.length; index++) {
+    const expected = renderSingular(german, index);
+    if (expected === undefined) continue;
+    const actual = renderSingular(english, index);
+    const where = `${path} with ${args[index]}=1`;
+    assert.equal(typeof actual, "string", where);
+    if (exact) assert.equal(actual, expected, where);
+    for (const arg of args.filter((_, i) => i !== index))
+      assert.equal(actual.includes(arg), expected.includes(arg), `${where}: ${arg}`);
+  }
+}
 function compare(german, english, path, exact = false) {
   assert.equal(typeof english, typeof german, path);
   if (typeof german === "function") {
@@ -17,6 +32,7 @@ function compare(german, english, path, exact = false) {
     for (const arg of args) {
       assert.equal(actual.includes(arg), expected.includes(arg), `${path}: ${arg}`);
     }
+    compareSingular(german, english, path, exact);
   } else if (german && typeof german === "object") {
     assert.deepEqual(Object.keys(english).sort(), Object.keys(german).sort(), path);
     for (const key of Object.keys(german))

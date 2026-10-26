@@ -13,6 +13,7 @@ import {
   lockPaths,
   readLock,
   serializeLock,
+  singularForms,
 } from "../../scripts/i18n-translation-lock.mjs";
 
 for (const kind of Object.keys(lockPaths)) {
@@ -170,4 +171,49 @@ test("confirming a selection leaves other keys unreviewed", () => {
     ["page"],
   );
   assert.deepEqual(page.confirmed.changed, ["page.title"]);
+});
+
+// Placeholder arguments are strings, so `count === 1` never holds while rendering:
+// each argument is also rendered as 1, and a singular branch joins the locked text.
+const countCopy = (singular) => ({
+  files: (count, size) => (count === 1 ? singular(size) : `${count} Dateien · ${size}`),
+});
+const germanCount = countCopy((size) => `1 Datei · ${size}`);
+const englishCount = {
+  files: (count, size) => (count === 1 ? `1 file · ${size}` : `${count} files · ${size}`),
+};
+
+test("flattening renders the singular branch of a count argument", () => {
+  assert.deepEqual(singularForms(germanCount.files), [
+    { index: 0, text: "1 Datei · __ARG_1__" },
+  ]);
+  assert.deepEqual(singularForms(germanCopy.page.greet), []);
+  assert.deepEqual(
+    singularForms(() => "x"),
+    [],
+  );
+  assert.deepEqual(
+    [...catalog(germanCount)],
+    [["files", "__ARG_0__ Dateien · __ARG_1__\n[__ARG_0__=1] 1 Datei · __ARG_1__"]],
+  );
+  // Without a branch the text stays as it was, so the lock keeps its entries.
+  assert.deepEqual([...catalog(germanCopy)], [...catalog(germanCopy)]);
+  assert.equal(catalog(germanCopy).get("page.greet"), "Hallo __ARG_0__");
+});
+
+test("a German-only change to a singular branch is detected", () => {
+  const locked = createLock(catalog(germanCount), catalog(englishCount));
+  const german = catalog(countCopy((size) => `Eine Datei · ${size}`));
+  const found = findUntranslated(german, catalog(englishCount), locked);
+  assert.deepEqual(
+    found.map(({ key }) => key),
+    ["files"],
+  );
+  assert.deepEqual(diffLock(german, catalog(englishCount), locked).changed, ["files"]);
+});
+
+test("an argument that cannot be a number keeps its placeholder rendering", () => {
+  const list = (names) => [...names].slice(0, 2).join("");
+  assert.deepEqual(singularForms(list), []);
+  assert.equal(catalog({ list }).get("list"), "__");
 });
