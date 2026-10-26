@@ -194,8 +194,11 @@ npm run test:e2e
 AGENTPIER_TEST_BROWSER=webkit npm run test:e2e
 ```
 
-For frontend development, run `npm start` for the backend and `npm run dev` in a
-second terminal. Vite proxies `/api` and `/auth` to the backend.
+For frontend development, run `AGENTPIER_DEV=1 npm start` for the backend and
+`npm run dev` in a second terminal. Vite serves on port 5173 and proxies `/api` and
+`/auth` to the backend on 4380; `AGENTPIER_DEV=1` lets the backend accept that dev
+origin. In a pipeline stage with a leased port block, both follow `AGENTPIER_PORT`
+(see [Ports and browser sessions](docs/pipelines.md#ports-and-browser-sessions)).
 
 Bug reports, documentation improvements and focused pull requests are welcome.
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [testing guide](docs/testing.md)

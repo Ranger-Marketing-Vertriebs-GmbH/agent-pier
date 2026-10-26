@@ -30,7 +30,10 @@ Use a disposable `AGENTPIER_DATA_DIR` when trying changes that affect accounts,
 sessions, credentials or cleanup. Automated tests must use the existing isolated
 fixtures, not your real sessions or the default tmux server.
 
-For Vite development, keep the backend running and run `npm run dev` separately.
+For Vite development, keep the backend running with `AGENTPIER_DEV=1 npm start` and
+run `npm run dev` separately. In a pipeline stage with a leased port block, Vite
+listens on `AGENTPIER_PORT + 1` and proxies to `AGENTPIER_PORT`; see
+[Ports and browser sessions](docs/pipelines.md#ports-and-browser-sessions).
 The UI supports German and English. Add matching keys and interpolation arguments
 to `web/lib/i18n/de/` and `web/lib/i18n/en/`, and import reactive exports from
 `web/lib/i18n/messages/`. Use the shared locale helpers for dates and numbers; do

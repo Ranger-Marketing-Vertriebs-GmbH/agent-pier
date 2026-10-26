@@ -18,7 +18,7 @@ If a change requires additional runtime tools, provision them through the instal
 
 - `npm ci`: install locked dependencies, including native terminal support.
 - `npm run build && npm start`: build and serve locally at `http://127.0.0.1:4380`.
-- `npm run dev`: start Vite; run the backend separately with `npm start`. Vite proxies `/api` to port 4380.
+- `npm run dev`: start Vite; run the backend separately with `AGENTPIER_DEV=1 npm start`. Vite serves on 5173 and proxies `/api` and `/auth` to port 4380; with a leased stage port block (`AGENTPIER_PORT`, `AGENTPIER_PORT_COUNT` ≥ 2) Vite uses `AGENTPIER_PORT + 1` and proxies to `AGENTPIER_PORT`.
 - `npm run check`: run lint, formatting, structure checks, build, and backend tests.
 - `npm test`: run all Node.js test suites; use `npm run test:integration` or another strategy script for focused checks.
 - `npm run test:e2e`: run Playwright browser tests after building and installing the selected browser.
