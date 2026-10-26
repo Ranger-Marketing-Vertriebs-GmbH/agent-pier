@@ -24,12 +24,6 @@
   .sidebar-head .local-badge {
     display: none;
   }
-  .sidebar-launch {
-    padding: 0 14px 10px;
-  }
-  .sidebar-launch .new-session {
-    height: 40px;
-  }
   .sidebar-scroll {
     padding: 0 6px 16px;
   }

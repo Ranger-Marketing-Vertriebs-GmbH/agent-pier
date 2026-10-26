@@ -72,7 +72,7 @@ async function setup(page, { language = "en", models = listed, modelCatalog } = 
 
 async function newAgent(page, copy) {
   await page.goto(baseURL + "/agents");
-  await page.getByRole("link", { name: copy.create }).click();
+  await page.getByRole("main").getByRole("link", { name: copy.create }).click();
   await wizardToIdentity(page, copy.language);
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel(copy.connection).selectOption("openclaw:test");

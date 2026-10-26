@@ -176,11 +176,12 @@ test("the sidebar head follows the handoff measurements", async ({ page }) => {
   await page.goto(baseURL);
   const collapse = await page.locator(".sidebar-collapse").boundingBox();
   expect([collapse.width, collapse.height]).toEqual([32, 32]);
-  const launch = page.locator(".sidebar-launch .new-session");
-  const button = await launch.boundingBox();
-  const plus = await launch.locator("svg").boundingBox();
-  expect(plus.x - button.x).toBe(13);
-  expect(button.height).toBe(43);
+  // No "+ New" button: the brand is followed by the inbox entry.
+  await expect(page.locator(".sidebar-launch, .sidebar .new-menu")).toHaveCount(0);
+  const brand = await page.locator(".sidebar-head .brand").boundingBox();
+  const inbox = await page.locator(".sidebar-inbox").boundingBox();
+  expect(inbox.y).toBeGreaterThanOrEqual(brand.y + brand.height);
+  expect(inbox.y - (brand.y + brand.height)).toBeLessThanOrEqual(16);
 });
 
 // WebKit can drop a media query "change" event when the viewport crosses the phone

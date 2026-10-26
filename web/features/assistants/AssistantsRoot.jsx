@@ -11,7 +11,9 @@ import { applyListSync } from "./agent-list-sync.js";
 const none = [];
 const nothing = {};
 // The host state from a list read or a list sync; missing sections stay stable.
+// `loaded` tells an empty first list apart from the empty state before it arrives.
 const toData = (next) => ({
+  loaded: true,
   assistants: next.assistants || none,
   conversations: next.conversations || none,
   models: next.models || none,

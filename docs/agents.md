@@ -79,9 +79,10 @@ Agents need a model. Set one up under **Connections › Model access**: connect
 (OpenRouter, Ollama, llama.cpp or another OpenAI-compatible endpoint). The wizard can
 also do this on the way (**+ Connect model**).
 
-**New agent** on the agents page, the **+** in the sidebar's **Agents** group or
-**New › Agent** opens the wizard (`/agents?new=1`). Its six steps sit in a rail on the
-left on a computer and one per screen with a progress bar on a phone; **Back** and
+**New agent** on the agents page, the **+** in the sidebar's **Agents** group (shown
+with a hint while you have no agents yet) or **+ › Agent** in the phone header and the
+collapsed sidebar opens the wizard (`/agents?new=1`). Its six steps sit in a rail on
+the left on a computer and one per screen with a progress bar on a phone; **Back** and
 **Next** are always there, and steps 4 and 5 offer **Skip**:
 
 1. **Start:** **Blank**, **From template** (an Agency role, checked first) or

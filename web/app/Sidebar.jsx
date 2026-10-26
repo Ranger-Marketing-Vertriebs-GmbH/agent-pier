@@ -9,8 +9,6 @@ const AssistantSidebar = lazy(
   () => import("../features/assistants/AssistantSidebar.jsx"),
 );
 import useMobileLayout from "../lib/useMobileLayout.js";
-import useNewMenuItems from "./useNewMenuItems.js";
-import SidebarNewMenu from "./SidebarNewMenu.jsx";
 import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup, { SidebarGroupActions } from "./SidebarGroup.jsx";
 import useSearchDialog from "./search-dialog.js";
@@ -61,10 +59,11 @@ export default function Sidebar({
   // Off-canvas on phones: keep the closed drawer out of the tab order.
   const mobile = useMobileLayout();
   const { enabled: agentsEnabled } = useAssistantFeature();
-  const newItems = useNewMenuItems({ launch, navigate });
   const search = useSearchDialog();
   // Head icons of the Agenten group (rendered by AssistantSidebar while agents are on)
-  // and of the Sessions group (handoff §5.1).
+  // and of the Sessions group (handoff §5.1). Their "+" buttons are how the expanded
+  // sidebar creates sessions and agents; the compact "+ New" menu is only for the
+  // phone header and the collapsed sidebar.
   const groupActions = {
     "assistant-chats": (
       <>
@@ -161,9 +160,6 @@ export default function Sidebar({
             mobileNav,
           }}
         />
-      </div>
-      <div className="sidebar-launch">
-        <SidebarNewMenu disabled={!installed} items={newItems} />
       </div>
       <div className="sidebar-inbox">
         <InboxEntry

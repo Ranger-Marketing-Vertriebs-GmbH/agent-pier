@@ -27,11 +27,16 @@ Organise by object, not by technology. The owner decided:
 
 1. **The menu stays a popover** on the **Menu** button in the sidebar head. It never
    becomes a permanent list of areas in the sidebar.
-2. **The sidebar order stays:** head (collapse, search, Menu), brand, **New**, **Inbox**,
-   the **Agents** group, the **Sessions** group, host status. On phones the drawer keeps
-   its look and order (brand + Menu, New, Agents, Sessions); the Inbox sits in the
-   mobile header. The two group heads gain two icon buttons each (agents page and new
-   agent; CLIs and extensions and new session).
+2. **The sidebar order stays:** head (collapse, search, Menu), brand, **Inbox**, the
+   **Agents** group, the **Sessions** group, host status. On phones the drawer keeps
+   its look and order (brand + Menu, Inbox, Agents, Sessions); the mobile header also
+   shows the Inbox icon. The two group heads gain two icon buttons each (agents page and
+   new agent; CLIs and extensions and new session). _Amended 2026-10-26:_ the orange
+   **New** button under the brand was removed, because the group heads' "+" already
+   create sessions and agents. The Agents group shows once the agent list has loaded,
+   even without agents, so its "+" stays reachable. The compact **+ New** menu remains
+   where no group-head icons are: the phone header (the drawer hides them) and the
+   collapsed sidebar.
 3. **Menu content in two groups with status hints:** **Work** (Overview, Projects,
    Pipelines, Files, Artifacts) and **Set up** (Agents, CLIs and extensions,
    Connections, Settings). Hints come only from data the app already has or reads once
