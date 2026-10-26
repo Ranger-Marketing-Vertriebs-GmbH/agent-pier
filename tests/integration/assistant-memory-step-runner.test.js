@@ -6,6 +6,7 @@ import { teamFixture } from "../helpers/assistant-team-fixture.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {
   MemoryStep,
+  MemoryStepWrites,
   memoryStepText,
 } from "../../server/features/assistants/memory-step.js";
 
@@ -32,9 +33,11 @@ function setup(t, { writeGuard = true } = {}) {
   return { ...f, agent, chat, step, attempts };
 }
 
-// Settles the step's attempt once the step sent it.
-async function settle(f, status) {
+// Settles the step's attempt once the step sent it, after the write guard admitted
+// `writes` of its memory writes (team-bridge.js writeAllowed).
+async function settle(f, status, { writes = 1 } = {}) {
   while (!f.attempts().length) await new Promise((r) => setTimeout(r, 2));
+  for (let i = 0; i < writes; i++) f.assistants.memoryStepWrites.note(f.attempts()[0].id);
   f.complete(f.attempts()[0].id, status);
 }
 
@@ -99,6 +102,15 @@ test("a completed step saved the memories, in a hidden memory-step turn", async 
   assert.deepEqual(f.service.store.context(request.id).kind, "memory-step");
   const sent = f.calls.find((c) => c.method === "sessions.send");
   assert.equal(sent.input.key, f.chat.runtimeSessionKey);
+});
+
+test("a completed step whose memory writes were all refused saved nothing", async (t) => {
+  const f = setup(t);
+  const run = f.step.run(f.chat);
+  await settle(f, "ok", { writes: 0 });
+  assert.deepEqual(await run, { saved: false, reason: "unwritten" });
+  // The step's record goes with it.
+  assert.equal(f.assistants.memoryStepWrites.written(f.attempts()[0].id), false);
 });
 
 test("a failed step saved nothing", async (t) => {
@@ -171,11 +183,13 @@ test("a memory step's reply never reaches Telegram", async (t) => {
   };
   f.assistants.config = { writeGuard: () => true };
   f.assistants.cancel = async () => {};
+  f.assistants.memoryStepWrites = new MemoryStepWrites();
   const step = new MemoryStep({ service: f.assistants, ...fast });
   const conversation = f.store.getConversation(f.channel.conversationId);
   const run = step.run(conversation);
   while (!f.sent.length) await new Promise((r) => setTimeout(r, 2));
   const [request] = f.assistants.ledger.requests(conversation.id);
+  f.assistants.memoryStepWrites.note(f.assistants.ledger.attemptFor(request.id).id);
   f.assistants.ledger.transition(
     f.assistants.ledger.attemptFor(request.id).id,
     "completed",

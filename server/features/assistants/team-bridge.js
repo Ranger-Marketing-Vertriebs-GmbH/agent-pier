@@ -11,7 +11,7 @@ import { guardNeeded } from "./write-guard-wait.js";
 import { writeTools } from "./team-plugin/tool-guard.js";
 import { flushSessionAgent } from "./memory-flushes.js";
 import { flushWrite, memoryStep, noteRefusal, turnWrite } from "./memory-write-policy.js";
-import { memoryStepSession, stepPolicy } from "./memory-step-tools.js";
+import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-tools.js";
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
@@ -273,19 +273,32 @@ export class TeamBridge {
       !input ||
       Object.keys(input).some(
         (k) =>
-          !["agentId", "sessionKey", "toolName", "path", "runId", "exec"].includes(k),
+          ![
+            "agentId",
+            "sessionKey",
+            "toolName",
+            "path",
+            "runId",
+            "exec",
+            "toolKind",
+          ].includes(k),
       )
     )
       throw assistantProblem("invalid");
+    // OpenClaw's host-set kind of the call (`code_mode_exec` for a Code Mode cell).
+    if ("toolKind" in input) textValue(input.toolKind, 512);
     // A user agent never runs a locked tool, whatever its compiled entry says: the
     // plugin asks for every call of a locked core tool (tool-guard.js lockedToolCall).
     if (lockedTools.includes(input.toolName)) {
       textValue(input.agentId, 4096);
-      // A memory step runs none of them (memory-step-tools.js).
+      // A memory step runs none of them but a Code Mode cell, whose own tool calls meet
+      // the step hook and this guard one by one (memory-step-tools.js codeModeControl).
       const locked = lockedCall(this.agentOf(input.agentId), input.toolName);
       const hook = hooks.hookLockedTool(this, input);
       if (hook !== null) return { allow: hook && !locked };
-      return { allow: !locked && !memoryStepSession(this, input) };
+      return {
+        allow: !locked && (codeModeControl(input) || !memoryStepSession(this, input)),
+      };
     }
     if (!writeTools.includes(input.toolName)) throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
@@ -388,6 +401,8 @@ export class TeamBridge {
       return !!r;
     }
     const allowed = turnWrite(this, { attempt, parent, origin, current }, input);
+    // What a memory step saved (memory-step.js MemoryStepWrites).
+    if (allowed && memoryStep(origin)) this.assistants.memoryStepWrites?.note(attempt.id);
     if (allowed && isShared(parent) && isMemory(input.path))
       this.noteShared(
         `${attempt.id}:shared-write`,

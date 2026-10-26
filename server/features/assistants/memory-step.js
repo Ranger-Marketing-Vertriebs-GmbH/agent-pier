@@ -17,6 +17,32 @@ export const memoryStepLimitMs = 5 * 60_000;
 const idleLimitMs = 60_000;
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const ended = { completed: null, failed: "failed", cancelled: "interrupted" };
+// More open records than steps could ever run at once means some outlived their step.
+const keptWrites = 1000;
+
+/**
+ * The memory writes the write guard admitted for each memory step's turn
+ * (team-bridge.js writeAllowed and memory-write-policy.js flushWrite): a step counts
+ * as saved only when its run completed after at least one of them. A completed run
+ * says nothing about its writes, all of which the guard may have refused.
+ */
+export class MemoryStepWrites {
+  constructor() {
+    this.counts = new Map();
+  }
+  note(attemptId) {
+    if (typeof attemptId !== "string") return;
+    if (!this.counts.has(attemptId) && this.counts.size >= keptWrites)
+      this.counts.clear();
+    this.counts.set(attemptId, (this.counts.get(attemptId) ?? 0) + 1);
+  }
+  written(attemptId) {
+    return (this.counts.get(attemptId) ?? 0) > 0;
+  }
+  forget(attemptId) {
+    this.counts.delete(attemptId);
+  }
+}
 
 /**
  * The memory step before a summary: a hidden turn of context kind `memory-step`
@@ -52,8 +78,19 @@ export class MemoryStep {
     }
     return !!agent && personalCapabilities(agent).memory && !!config?.writeGuard?.();
   }
-  /** Runs the step: `{ saved }`, with a `reason` when nothing was saved. */
+  /**
+   * Runs the step: `{ saved }`, with a `reason` when nothing was saved; a completed
+   * run without an admitted memory write is "unwritten".
+   */
   async run(conversation) {
+    let attemptId;
+    try {
+      return await this.attempt(conversation, (id) => (attemptId = id));
+    } finally {
+      this.service.memoryStepWrites?.forget(attemptId);
+    }
+  }
+  async attempt(conversation, track) {
     const { service } = this;
     let attemptId;
     try {
@@ -62,7 +99,7 @@ export class MemoryStep {
         { clientRequestId: `memory-step:${randomUUID()}`, text: memoryStepText },
         { kind: "memory-step" },
       );
-      attemptId = sent.attempt?.id;
+      attemptId = track(sent.attempt?.id);
     } catch {
       return { saved: false, reason: "refused" };
     }
@@ -85,7 +122,10 @@ export class MemoryStep {
     const { state } = this.service.ledger.getAttempt(attemptId);
     if (state === "interrupted") return { saved: false, reason: "interrupted" };
     if (!(state in ended)) return null;
-    return ended[state] ? { saved: false, reason: ended[state] } : { saved: true };
+    if (ended[state]) return { saved: false, reason: ended[state] };
+    return this.service.memoryStepWrites?.written(attemptId)
+      ? { saved: true }
+      : { saved: false, reason: "unwritten" };
   }
   // Until no attempt of the chat is active (as sendTurn's busy rule), within a bound.
   async idle(conversationId) {
