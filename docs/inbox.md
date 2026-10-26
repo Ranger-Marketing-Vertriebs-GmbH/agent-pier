@@ -9,12 +9,12 @@ the **Agents** tab here.
 
 ## What it lists
 
-| Tab           | Items                                                                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                          |
-| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog    |
-| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                      |
-| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, hook proposals) and team proposals |
+| Tab           | Items                                                                                                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                         |
+| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                   |
+| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                     |
+| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, hook and SSH access proposals) and team proposals |
 
 **All** shows everything; every tab shows its count. Items about to expire (within 15
 minutes, such as an agent's shell command) come first, soonest first; everything else

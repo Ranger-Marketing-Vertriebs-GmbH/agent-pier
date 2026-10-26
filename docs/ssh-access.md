@@ -176,7 +176,8 @@ SFTP hosts are granted the same way and show **SFTP** in the picker; the tool li
 downloads, uploads and syncs on them with approvals as described in
 [SFTP access](sftp-access.md#agent-actions-and-approvals). On SSH hosts, the agent's
 `agentpier_ssh` tool can list its granted hosts and run one command at a
-time; it cannot create, import, scan, test or download keys or hosts. AgentPier runs
+time; it cannot create, import, scan, test or download keys or hosts, only
+[propose a new access](#proposals-from-agents) for you to confirm. AgentPier runs
 the command with the same pinned connection as sessions (`-F /dev/null`, only the
 pinned host key, no agent forwarding), with at most 16 KiB of command, 120 seconds and
 64 KiB of output. On a host in [interactive shell](#interactive-shell-network-devices) mode each line
@@ -218,6 +219,48 @@ without the command. Allowing that card cannot run the command: the older releas
 checks it as a project action, finds no project grant and marks it failed. Commands
 that were running when the service stopped are marked as unknown on its next start.
 The grants themselves stay stored and take effect again after upgrading.
+
+### Proposals from agents
+
+An agent cannot add hosts or keys, but it can **propose** a new SSH access with its
+`agentpier_ssh_access` tool (`agent-ssh-proposals.js`) when you ask for one in your own
+message: a name, host, port, remote user, purpose and optionally a project. Own
+agents and permanent team members have the tool; temporary members, user agents and
+agents with a Telegram bot for other people do not, and forwarded, scheduled,
+routine, hook and member turns are refused (`SSH_PROPOSAL_OWNER_ONLY`). Host, port and
+user pass the same checks as **Add a server**, so nothing the agent writes can reach
+`ssh` or `ssh-keyscan` as an option. At most two proposals of an agent wait at a
+time, and an agent makes at most five per hour, failed host-key scans included.
+
+AgentPier reads the host key with `ssh-keyscan` (an unverified observation) and shows
+you an **SSH access proposal** card in the agent's chat, in the Inbox **Agents** tab
+and, with **Confirm access** and **Decline**, in the paired Telegram chat: the login
+(`user@host:port`), the project, the purpose and the scanned fingerprint, with the
+note to check the fingerprint through a channel you trust (the server's console, your
+provider or an administrator). A host, port and user that already exist as an
+access are refused (`SSH_PROPOSAL_EXISTS`); ask for a grant instead.
+
+Nothing exists until you confirm. In the browser you can pick an existing key of the
+proposal's project instead of a new managed key, and another mode than **With
+approval**; Telegram confirms with a new managed key and **With approval**.
+Confirming reads the host key again: when it changed, the proposal fails
+(**Host key changed**) and the agent has to propose again; when the host cannot be
+reached, the proposal stays open. Otherwise AgentPier registers the host pinned to
+the key you checked, with **user verification** as the pin's provenance (as
+`ssh_register_host` records it), creates the managed key when you did not pick one,
+and grants the access to the agent in the chosen mode. The card, the Telegram result
+and **Overview › Actions and coding tasks** then show the public key: install it for
+the remote user in `~/.ssh/authorized_keys` yourself. AgentPier never installs keys and
+never uses passwords. Declined and expired proposals (after 24 hours) leave no key,
+host or grant behind; a grant that cannot be written removes the new host and key
+again.
+
+The agent hears the outcome once in the chat it proposed in, with the access's id,
+mode and public key when it was created, and can check its proposals with action
+`status`. The activity log records `ssh.proposed`, `ssh.accepted`, `ssh.denied`,
+`ssh.expired` and `ssh.failed` with the agent and proposal ids, the access id and mode
+or a code, never the purpose, the host key or a key; the host itself is recorded as
+`ssh.created` and the grant as an `assistant.updated` with reason `proposal`.
 
 ## Scope and storage
 

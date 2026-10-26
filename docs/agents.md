@@ -421,6 +421,13 @@ it up. An agent of users gets project folders only; the other groups show a lock
   (passwords, tokens and keys in flags, headers, URLs and variables) as `•••` and say
   "Secrets hidden"; this is best effort. An approval shows the exact command until you
   decide and it has run. AgentPier keeps the newest 500 trusted runs per agent.
+  When you ask an own agent or a permanent member for access to a new server, it can
+  propose one: an **SSH access proposal** card shows the login, the purpose and the
+  scanned host-key fingerprint to check through a channel you trust. **Confirm
+  access** creates the access with a new managed key (or a key of its project you
+  pick) and grants it to the agent in **With approval** (or the mode you pick); then
+  install the public key the card shows on the server. Details in
+  [SSH accesses](ssh-access.md#proposals-from-agents).
   **Trusted incl. routines** also runs in the agent's routines. A routine's or a hook's
   runs leave their rows in that run's entry of the **Events** area, not in the chat
   (see [the event area](#the-event-area)).
