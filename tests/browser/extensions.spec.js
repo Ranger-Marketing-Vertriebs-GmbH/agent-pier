@@ -6,6 +6,7 @@ import {
   openProfiles,
   openTab,
   extensionRow,
+  extensionTabList,
   profileList,
 } from "../helpers/extensions.js";
 async function fixture(page) {
@@ -132,15 +133,18 @@ test("the MCP reference row points to the central MCP server list", async ({ pag
   const { writes } = await fixture(page);
   await open(page);
   await expect(
-    page.getByRole("heading", { name: "Erweiterungen", level: 1 }),
+    page.getByRole("heading", { name: "CLIs & Erweiterungen", level: 1 }),
   ).toBeVisible();
   const claude = profileList(page).getByRole("button", { name: /Claude Code/ });
   await claude.click();
   await expect(claude).toHaveAttribute("aria-current", "true");
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/managed-claude$/);
-  await expect(page.getByRole("tab")).toHaveText([/^Skills/, /^Plugins/]);
+  await expect(extensionTabList(page).getByRole("tab")).toHaveText([
+    /^Skills/,
+    /^Plugins/,
+  ]);
   // Page margins sit on the frame, so the hover arrows line up with the tab row.
-  const tabList = page.getByRole("tablist");
+  const tabList = extensionTabList(page);
   const tabRow = await tabList.boundingBox();
   const tabFrame = await tabList.locator("..").boundingBox();
   expect(Math.round(tabRow.x)).toBe(Math.round(tabFrame.x));
@@ -248,7 +252,7 @@ for (const mobile of [false, true])
     await open(page);
     await expect(page.getByRole("tab", { name: /^Skills/ })).toContainText("50");
     await openTab(page, "Skills");
-    const section = page.getByRole("tabpanel");
+    const section = page.locator("#underline-tabpanel-skills");
     await expect(section.locator(".extension-list .list-row")).toHaveCount(20);
     await expect(extensionRow(section, "skill-01")).toBeVisible();
     await expect(extensionRow(section, "skill-50")).toHaveCount(0);

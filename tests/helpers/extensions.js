@@ -33,8 +33,14 @@ export async function expectProfilesDisabled(page, name) {
   for (const button of await buttons.all()) await expect(button).toBeDisabled();
 }
 
+// The extension kinds of one CLI profile (Skills, Plugins, …), inside Coding's own
+// tab row (Installation, Accounts, Erweiterungen, AgentPier als MCP).
+export function extensionTabList(page) {
+  return page.getByRole("tablist", { name: /^(Erweiterungen|Extensions)$/ });
+}
+
 export async function openTab(page, name) {
-  const tab = page.getByRole("tab", { name: new RegExp(`^${name}`) });
+  const tab = extensionTabList(page).getByRole("tab", { name: new RegExp(`^${name}`) });
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }

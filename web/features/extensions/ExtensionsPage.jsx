@@ -1,16 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import ListDetail from "../../components/ListDetail.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
-import SettingsShell from "../../components/SettingsShell.jsx";
+import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import {
-  extensionsHubCopy as hub,
-  extensionsPageCopy as copy,
-} from "../../lib/i18n/messages/extensions.js";
+import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { names } from "../../lib/providers.js";
+import CodingFrame from "../coding/CodingFrame.jsx";
+import { codingRoute } from "../coding/routes.js";
 import ExtensionWorkspace from "./ExtensionWorkspace.jsx";
 import ProfileSwitcher from "./ProfileSwitcher.jsx";
-import { defaultExtensionTab } from "./routes.js";
 import { extensionProfiles } from "./sharedProfiles.js";
 import useMcpUsage from "./useMcpUsage.js";
 import { cliServerCount } from "./workspace-model.js";
@@ -18,15 +16,21 @@ import "./extensions-hub.css";
 
 const busySources = ["extensions", "plugins", "agency"];
 
+/**
+ * Coding › Erweiterungen: the CLI profiles beside one profile's skills, plugins,
+ * marketplaces and subagents. `install` names a subagent whose install preview opens
+ * (from the agents hub's templates); it stays while the profile changes, so the
+ * preview follows the chosen CLI, and is dropped once the preview closes.
+ */
 export default function ExtensionsPage({
+  frame,
   shared = false,
   accounts = [],
-  request,
+  request = api,
   profileId,
-  extensionTab = defaultExtensionTab,
+  extensionTab = "skills",
+  install = "",
   onNavigate,
-  openNavigation,
-  navigationOpen = false,
 }) {
   const profiles = extensionProfiles(accounts, shared);
   const [busy, setBusy] = useState({});
@@ -48,24 +52,30 @@ export default function ExtensionsPage({
   const account =
     profiles.find((item) => item.id === profileId) || (!profileId ? profiles[0] : null);
   const sub = (item) => (shared ? hub.sharedProfile : names[item.tool] || item.tool);
+  // A new tab drops the install request; a new profile keeps it.
   const go = (next, replace = false) =>
     onNavigate(
-      {
-        view: "extensions",
-        profileId: account?.id,
+      codingRoute("extensions", {
+        profileId: account?.id || "",
         extensionTab,
+        ...(install && !next.extensionTab ? { install } : {}),
         ...next,
-      },
+      }),
       replace,
     );
+  const finishInstall = useCallback(
+    () =>
+      onNavigate(
+        codingRoute("extensions", { profileId: account?.id || "", extensionTab }),
+        true,
+      ),
+    [onNavigate, account?.id, extensionTab],
+  );
   return (
-    <SettingsShell
+    <CodingFrame
+      {...frame}
+      disabled={locked}
       className="extensions-page extensions-hub"
-      title={copy.title}
-      description={copy.description}
-      leading="menu"
-      onLeading={openNavigation}
-      navigationOpen={navigationOpen}
       subtitle={
         account && (
           <ProfileSwitcher
@@ -103,6 +113,9 @@ export default function ExtensionsPage({
               request={request}
               tab={extensionTab}
               onTab={(extensionTab, replace) => go({ extensionTab }, replace)}
+              install={install}
+              onInstallDone={finishInstall}
+              cliChoice={{ profiles, onSelect: (id) => go({ profileId: id }) }}
               busySetters={busySetters}
               locked={locked}
               onNavigate={onNavigate}
@@ -116,6 +129,6 @@ export default function ExtensionsPage({
           )
         }
       />
-    </SettingsShell>
+    </CodingFrame>
   );
 }

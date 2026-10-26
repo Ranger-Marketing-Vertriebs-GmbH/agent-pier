@@ -62,10 +62,11 @@ test("a draft stays on screen only for its own section and tab", () => {
   assert.equal(updates({ next: { ...subpage("updates"), operationId: "job-1" } }), true);
   assert.equal(updates({ next: tabRoot("operations") }), false);
   // Moved sections compare their new addresses as the same settings page; SSH,
-  // secrets and GitHub are Zugänge's own page and no settings page any more.
+  // secrets and GitHub are Zugänge's own page, MCP access Coding's, and no settings
+  // page any more.
   const ssh = staysOn("ssh");
   assert.equal(ssh({ next: read("/connections?section=ssh") }), false);
   assert.equal(ssh({ next: subpage("ssh") }), false);
   assert.equal(staysOn("assistants")({ next: read("/agents?tab=runtime") }), true);
-  assert.equal(staysOn("mcp")({ next: read("/coding/clis?tab=mcp&page=2") }), true);
+  assert.equal(staysOn("mcp")({ next: read("/coding/clis?tab=mcp&page=2") }), false);
 });

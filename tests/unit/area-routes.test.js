@@ -78,6 +78,48 @@ test("Coding › CLIs & Erweiterungen tabs and profile extensions", () => {
   assert.equal(read("/coding/clis/extensions/a%2Fb").view, "missing");
   assert.equal(read("/coding/clis/other").view, "missing");
   assert.equal(read("/coding/clis?tab=bogus").codingTab, "install");
+  // "Als Unteragent in CLI installieren …" opens an entry's install preview.
+  const install = read(
+    "/coding/clis/extensions/local-claude?tab=subagents&install=engineering__frontend",
+  );
+  assert.deepEqual(install, {
+    view: "coding",
+    codingTab: "extensions",
+    profileId: "local-claude",
+    extensionTab: "subagents",
+    install: "engineering__frontend",
+  });
+  assert.equal(
+    routePath(install),
+    "/coding/clis/extensions/local-claude?tab=subagents&install=engineering__frontend",
+  );
+  assert.equal(
+    routePath(codingRoute("extensions", { extensionTab: "subagents", install: "a__b" })),
+    "/coding/clis/extensions?tab=subagents&install=a__b",
+  );
+  // Only the Unteragenten tab takes it, and only a valid entry id.
+  assert.equal(
+    read("/coding/clis/extensions?tab=skills&install=a__b").install,
+    undefined,
+  );
+  assert.equal(
+    read("/coding/clis/extensions?tab=subagents&install=..%2Fx").install,
+    undefined,
+  );
+  // Only Accounts and AgentPier als MCP honour returnTo.
+  assert.equal(
+    read("/coding/clis?tab=accounts&returnTo=%2Fconnections").returnTo,
+    "/connections",
+  );
+  assert.equal(
+    read("/coding/clis?tab=mcp&returnTo=%2Fconnections").returnTo,
+    "/connections",
+  );
+  assert.equal(read("/coding/clis?returnTo=%2Fconnections").returnTo, undefined);
+  assert.equal(
+    routePath({ ...codingRoute("extensions"), returnTo: "/connections" }),
+    "/coding/clis/extensions",
+  );
 });
 
 test("the server serves the app document for every new area address", () => {
@@ -91,7 +133,7 @@ test("the server serves the app document for every new area address", () => {
   assert.equal(appDocumentPath.test("/coding/clis/extensions/a/b"), false);
 });
 
-test("new areas render today's pages until they have their own", () => {
+test("new areas render their own pages or today's until they have one", () => {
   const screen = (path) => screenRoute(read(path));
   // Zugänge has its own page for every category.
   assert.deepEqual(screen("/connections"), { view: "connections" });
@@ -115,28 +157,41 @@ test("new areas render today's pages until they have their own", () => {
     screenRoute({ view: "settings", settingsSection: "ssh" }).view,
     "connections",
   );
+  // Coding has its own page for every tab.
   const mcp = screen("/coding/clis?tab=mcp&authorization=auth_one&cli=claude&page=2");
-  assert.equal(mcp.settingsSection, "mcp");
-  assert.equal(mcp.mcpAuthorization, "auth_one");
-  assert.equal(mcp.mcpCli, "claude");
-  assert.equal(mcp.mcpPage, 2);
+  assert.deepEqual(mcp, {
+    view: "coding",
+    codingTab: "mcp",
+    mcpAuthorization: "auth_one",
+    mcpCli: "claude",
+    mcpPage: 2,
+  });
   assert.deepEqual(screen("/coding/clis?tab=accounts&item=a1"), {
-    view: "accounts",
-    section: "cli",
+    view: "coding",
+    codingTab: "accounts",
     item: "a1",
   });
   assert.deepEqual(screen("/coding/clis/extensions/p1?tab=subagents"), {
-    view: "extensions",
+    view: "coding",
+    codingTab: "extensions",
     profileId: "p1",
-    extensionTab: "agents",
+    extensionTab: "subagents",
   });
-  assert.deepEqual(screen("/coding/clis"), { view: "workspace", sessionId: "" });
+  assert.deepEqual(screen("/coding/clis"), { view: "coding", codingTab: "install" });
+  // The consent link the server sends to CLIs opens the consent on Coding.
+  assert.deepEqual(screen("/settings/mcp?authorization=auth_one"), {
+    view: "coding",
+    codingTab: "mcp",
+    mcpAuthorization: "auth_one",
+    mcpCli: "codex",
+    mcpPage: 1,
+  });
   assert.equal(screen("/agents?tab=runtime").settingsSection, "assistants");
   assert.equal(
     screen("/agents?tab=runtime&section=advanced").settingsSection,
     "assistants-advanced",
   );
-  assert.equal(screen("/agents?tab=templates").extensionTab, "agents");
+  assert.equal(screen("/agents?tab=templates").extensionTab, "subagents");
   assert.deepEqual(screen("/agents?tab=teams"), { view: "agents" });
   // Agent pages and other areas are left as they are.
   const agent = read("/agents/home/settings?tab=access");
@@ -149,8 +204,8 @@ test("new areas render today's pages until they have their own", () => {
     section: "models",
   });
   assert.deepEqual(screenOf({ view: "accounts", section: "cli", item: "a1" }), {
-    view: "accounts",
-    section: "cli",
+    view: "coding",
+    codingTab: "accounts",
     item: "a1",
   });
   assert.equal(screenOf(null), null);

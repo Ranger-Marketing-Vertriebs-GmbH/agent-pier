@@ -6,7 +6,7 @@ import {
   nativeAccountBody,
   nativeAccountStep,
   nativeAccountValues,
-} from "../../web/features/accounts/native-account-save.js";
+} from "../../web/features/coding/accounts/native-account-save.js";
 
 const tools = [
   { id: "shell", installed: true },

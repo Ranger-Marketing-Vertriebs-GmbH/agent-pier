@@ -1,10 +1,6 @@
 import * as de from "../de/extensions.js";
 import * as en from "../en/extensions.js";
 import { localizedCopy } from "../index.js";
-export const extensionsPageCopy = localizedCopy(
-  de.extensionsPageCopy,
-  en.extensionsPageCopy,
-);
 export const extensionsHubCopy = localizedCopy(
   de.extensionsHubCopy,
   en.extensionsHubCopy,

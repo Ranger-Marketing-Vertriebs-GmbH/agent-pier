@@ -5,7 +5,6 @@ import useLanguage from "../lib/i18n/useLanguage.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { appCopy as copy, sidebarCopy } from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import api from "../lib/api.js";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import Icon from "../components/Icon.jsx";
 import Sidebar from "./Sidebar.jsx";
@@ -29,9 +28,8 @@ import {
 } from "../features/notifications/usePushPresence.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
-const Extensions = lazy(() => import("../features/extensions/ExtensionsPage.jsx"));
+const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
 const Settings = lazy(() => import("../features/settings/SettingsPage.jsx"));
-const AccountsPage = lazy(() => import("../features/accounts/AccountsPage.jsx"));
 const ConnectionsPage = lazy(() => import("../features/connections/ConnectionsPage.jsx"));
 const SessionWorkspace = lazy(() => import("../features/sessions/SessionWorkspace.jsx"));
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
@@ -121,6 +119,7 @@ function Application() {
   // their own (route-screens.js); cross-links keep the address as their origin.
   const route = screenRoute(address);
   const view = route.view;
+  const extensionsShown = view === "coding" && route.codingTab === "extensions";
   const created = async (session) => {
     await refresh();
     setModal(null);
@@ -214,7 +213,7 @@ function Application() {
                   {copy.returnToOverview}
                 </button>
               </div>
-            ) : !ready && (selected || view === "extensions") ? (
+            ) : !ready && (selected || extensionsShown) ? (
               <div className="page">
                 <p className="loading" role="status">
                   {copy.workspaceLoading}
@@ -289,18 +288,26 @@ function Application() {
                 openNavigation={openNavigation}
                 navigationOpen={mobileNav}
               />
-            ) : view === "extensions" ? (
-              <Extensions
-                shared={state.sharedCliExtensions}
-                accounts={state.accounts}
-                request={api}
+            ) : view === "coding" ? (
+              <CodingPage
+                {...{
+                  route,
+                  state,
+                  ready,
+                  refresh,
+                  act,
+                  launch,
+                  page,
+                  setModal,
+                  availableTools,
+                  loading,
+                  onNavigate: navigate,
+                  openNavigation,
+                  navigationOpen: mobileNav,
+                }}
                 profileId={
                   route.profileId || (address.view === "agents" ? extensionProfileId : "")
                 }
-                extensionTab={route.extensionTab}
-                onNavigate={navigate}
-                openNavigation={openNavigation}
-                navigationOpen={mobileNav}
               />
             ) : view === "projects" ? (
               <ProjectsPage
@@ -321,19 +328,6 @@ function Application() {
               />
             ) : view === "connections" ? (
               <ConnectionsPage
-                {...{
-                  refresh,
-                  state,
-                  ready,
-                  act,
-                  route,
-                  onNavigate: navigate,
-                  openNavigation,
-                  navigationOpen: mobileNav,
-                }}
-              />
-            ) : view === "accounts" ? (
-              <AccountsPage
                 {...{
                   refresh,
                   state,

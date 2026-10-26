@@ -1,12 +1,12 @@
 import { defaultExtensionTab } from "./routes.js";
 
-/** The tabs of one CLI profile: marketplaces only when the CLI supports them, agents only for shared profiles. */
+/** The tabs of one CLI profile: marketplaces only when the CLI supports them, subagents only for shared profiles. */
 export function workspaceTabs({ shared, marketplaces, counts = {} }) {
   return [
     { id: "skills", count: counts.skills },
     { id: "plugins", count: counts.plugins },
     ...(marketplaces ? [{ id: "marketplaces", count: counts.marketplaces }] : []),
-    ...(shared ? [{ id: "agents", count: counts.agents }] : []),
+    ...(shared ? [{ id: "subagents", count: counts.subagents }] : []),
   ];
 }
 
@@ -36,7 +36,7 @@ export function primaryAction({
       ? { kind: "npm", disabled: !pluginsReady || !pluginInstall }
       : { kind: "discover", disabled: !catalogSupported };
   if (tab === "marketplaces") return { kind: "market", disabled: !pluginsReady };
-  if (tab === "agents") return { kind: "catalog", disabled: false };
+  if (tab === "subagents") return { kind: "catalog", disabled: false };
   return { kind: "skill", disabled: !extensionsReady };
 }
 

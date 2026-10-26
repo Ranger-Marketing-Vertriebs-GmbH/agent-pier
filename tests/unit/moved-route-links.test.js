@@ -23,7 +23,7 @@ const movedAddress = new RegExp(
 const allowed = new Map([
   ["web/app/routes.js", null],
   ["web/app/route-redirects.js", null],
-  ["web/features/accounts/native-account-save.js", new Set(['"/accounts'])],
+  ["web/features/coding/accounts/native-account-save.js", new Set(['"/accounts'])],
 ]);
 
 function sources(directory) {

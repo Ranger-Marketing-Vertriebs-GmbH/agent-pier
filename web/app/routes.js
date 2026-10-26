@@ -213,21 +213,36 @@ export function readRoute(location) {
 }
 // Pages a cross-link may return to, and pages that honour a `returnTo`. The Artifacts
 // page is opened from a session's artifact panel and returns only to sessions. Both
-// name the page that renders a route (`screenRoute`): Zugänge and Coding act as the
-// Accounts and settings pages they come from, the agents hub's Runtime tab as the
-// agent service settings.
+// name the page that renders a route (`screenRoute`): the agents hub's Runtime tab
+// acts as the agent service settings. Coding honours `returnTo` on its Accounts and
+// AgentPier-als-MCP tabs.
 const returnOrigins = new Set([
   "agents",
   "settings",
   "extensions",
   "accounts",
   "connections",
+  "coding",
 ]);
-const returnTargets = new Set(["settings", "accounts", "connections", "artifacts"]);
+const returnTargets = new Set([
+  "settings",
+  "accounts",
+  "connections",
+  "coding",
+  "artifacts",
+]);
 const artifactReturnOrigins = new Set(["workspace"]);
 const originsFor = (view) =>
   view === "artifacts" ? artifactReturnOrigins : returnOrigins;
 const screenView = (route) => screenRoute(route).view;
+const codingReturnTabs = new Set(["accounts", "mcp"]);
+const honoursReturnTo = (route) => {
+  const screen = screenRoute(route);
+  return (
+    returnTargets.has(screen.view) &&
+    (screen.view !== "coding" || codingReturnTabs.has(screen.codingTab))
+  );
+};
 
 // How many origins a chain of cross-links remembers beyond the first: Agent settings →
 // Deepgram (Accounts) → Agent service settings leads back to Deepgram, and from
@@ -241,7 +256,7 @@ function parseOrigin(value, depth, origins = returnOrigins) {
   if (!parts) return null;
   const origin = readRoute({ ...parts, search: withoutReturnParam(parts.search) });
   if (!origins.has(screenView(origin))) return null;
-  if (depth > 0 && returnTargets.has(screenView(origin))) {
+  if (depth > 0 && honoursReturnTo(origin)) {
     const inner = parseOrigin(
       new URLSearchParams(parts.search).get(returnParam),
       depth - 1,
@@ -277,8 +292,8 @@ export function returnRoute(route) {
  */
 export function crossLinkRoute(target, origin) {
   if (!origin) return target;
-  const view = screenView(target);
-  if (!returnTargets.has(view) || view === screenView(origin)) return target;
+  if (!honoursReturnTo(target) || screenView(target) === screenView(origin))
+    return target;
   const moved = canonicalRoute(target);
   const { returnTo } = readReturnTo(
     `?${new URLSearchParams({ returnTo: routePath(origin) })}`,
@@ -288,7 +303,7 @@ export function crossLinkRoute(target, origin) {
 }
 
 function withReturnTo(path, route) {
-  if (!route.returnTo || !returnTargets.has(screenView(route))) return path;
+  if (!route.returnTo || !honoursReturnTo(route)) return path;
   const query = new URLSearchParams({ [returnParam]: route.returnTo });
   return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 }

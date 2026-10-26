@@ -1,6 +1,6 @@
 // Coding › CLIs & Erweiterungen:
 //   /coding/clis?tab=install|accounts|extensions|mcp
-//   /coding/clis/extensions[/:profileId]?tab=skills|plugins|marketplaces|subagents
+//   /coding/clis/extensions[/:profileId]?tab=skills|plugins|marketplaces|subagents[&install=<entry>]
 import { accountItemPattern } from "../accounts/routes.js";
 
 export const codingTabs = ["install", "accounts", "extensions", "mcp"];
@@ -13,6 +13,8 @@ const legacyExtensionTabs = { agents: "subagents", mcp: "skills" };
 export const mcpClis = ["codex", "claude", "opencode"];
 const profilePattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const authorizationPattern = /^[A-Za-z0-9_-]{1,200}$/;
+// An Agency catalog entry id (path segments joined by "__", see server/features/agency).
+export const subagentEntryPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}$/;
 
 /** A requested extension tab with old names mapped; unknown tabs open Skills. */
 export function readCodingExtensionTab(requested) {
@@ -34,12 +36,22 @@ export function readCodingMcpQuery(search) {
   };
 }
 
-const extensionsRoute = (profileId, search) => ({
-  view: "coding",
-  codingTab: "extensions",
-  profileId,
-  extensionTab: readCodingExtensionTab(new URLSearchParams(search).get("tab")),
-});
+// `install` opens a subagent's install preview (the agents hub's "Als Unteragent in
+// CLI installieren …"); it belongs to the Unteragenten tab only.
+function extensionsRoute(profileId, search) {
+  const query = new URLSearchParams(search);
+  const extensionTab = readCodingExtensionTab(query.get("tab"));
+  const install = query.get("install") || "";
+  return {
+    view: "coding",
+    codingTab: "extensions",
+    profileId,
+    extensionTab,
+    ...(extensionTab === "subagents" && subagentEntryPattern.test(install)
+      ? { install }
+      : {}),
+  };
+}
 
 /** The coding route of a path, `{ view: "missing" }` for a bad profile, else null. */
 export function readCodingRoute(pathname, search) {
@@ -71,6 +83,8 @@ export function codingRoutePath(route) {
   if (tab === "extensions") {
     const kind = readCodingExtensionTab(route.extensionTab);
     if (kind !== defaultCodingExtensionTab) query.set("tab", kind);
+    if (kind === "subagents" && subagentEntryPattern.test(route.install || ""))
+      query.set("install", route.install);
     const profile = route.profileId ? `/${encodeURIComponent(route.profileId)}` : "";
     return `/coding/clis/extensions${profile}${query.size ? `?${query}` : ""}`;
   }

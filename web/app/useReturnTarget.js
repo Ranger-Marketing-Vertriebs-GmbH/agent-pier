@@ -1,16 +1,15 @@
 import useAssistants from "../features/assistants/useAssistants.js";
 import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
-import { extensionsPageCopy } from "../lib/i18n/messages/extensions.js";
 import { operationsCopy } from "../lib/i18n/messages/operations.js";
 import { settingsHubCopy } from "../lib/i18n/messages/settings.js";
 import { returnRoute, routePath, screenRoute } from "./routes.js";
 import { markReturn } from "./return-scroll.js";
 
-// Origins are named after the page that shows them (Coding's areas as their settings
-// or Accounts page until they have names of their own).
+// Origins are named after the page that shows them.
 function originName(address, assistants, sessions) {
   const origin = screenRoute(address);
   if (origin.view === "workspace")
@@ -28,7 +27,7 @@ function originName(address, assistants, sessions) {
     return origin.settingsSection === "general"
       ? operationsCopy.groups[origin.settingsTab] || commonCopy.settings
       : operationsCopy.sections[origin.settingsSection] || commonCopy.settings;
-  if (origin.view === "extensions") return extensionsPageCopy.title;
+  if (origin.view === "coding") return codingPageCopy.title;
   if (origin.view === "connections") return connectionsAreaCopy.title;
   return commonCopy.accounts;
 }

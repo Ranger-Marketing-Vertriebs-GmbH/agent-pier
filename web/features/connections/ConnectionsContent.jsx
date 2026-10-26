@@ -57,7 +57,6 @@ function AccountEntry({ entry, shared, usedBy }) {
         oauth={shared.oauth}
         mcpNotice={shared.mcpNotice}
         notifyMcp={shared.notifyMcp}
-        authStates={{}}
         usedBy={usedBy}
       />
     </Suspense>
@@ -75,7 +74,6 @@ function AccountsArea({ section, entry, shared, narrow }) {
       agentsEnabled={shared.agentsEnabled}
       selected={entry}
       navigate={shared.navigate}
-      authStates={{}}
       groups={[section]}
     />
   );

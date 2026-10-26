@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import ProviderFields from "../providers/ProviderFields.jsx";
-import useAccountProvider from "../providers/useAccountProvider.js";
+import { connectionCopy } from "../../../lib/i18n/messages/connections.js";
+import ProviderFields from "../../providers/ProviderFields.jsx";
+import useAccountProvider from "../../providers/useAccountProvider.js";
 
 /**
  * The legacy per-account provider of an older managed account. It keeps its own

@@ -160,7 +160,7 @@ export default function SidebarMenu({
           key: "extensions",
           icon: "grid",
           label: copy.extensionsNavigation,
-          active: view === "extensions",
+          active: view === "coding",
           onClick: () => page("extensions"),
         })}
         {entry({
