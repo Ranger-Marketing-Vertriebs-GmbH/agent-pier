@@ -179,6 +179,22 @@ test("template actions lead to the wizard and to Coding › Unteragenten", () =>
   const install = subagentInstallRoute(entry);
   assert.equal(install.extensionTab, "subagents");
   assert.equal(install.install, "engineering__sre");
+  // Coding's routes keep the entry, so the install preview opens there.
+  assert.equal(
+    routePath(install),
+    "/coding/clis/extensions?tab=subagents&install=engineering__sre",
+  );
+  assert.equal(read(routePath(install)).install, "engineering__sre");
+});
+
+test("Runtime links scroll to the advanced values or the storage cleanup", () => {
+  for (const section of ["advanced", "storage"]) {
+    const path = `/agents?tab=runtime&section=${section}`;
+    assert.equal(read(path).agentsSection, section);
+    assert.equal(routePath(read(path)), path);
+  }
+  assert.equal(read("/agents?tab=runtime&section=other").agentsSection, undefined);
+  assert.equal(read("/agents?tab=teams&section=storage").agentsSection, undefined);
 });
 
 test("only the Runtime tab of the hub keeps a cross-link's origin", () => {

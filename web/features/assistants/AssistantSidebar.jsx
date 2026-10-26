@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { assistantApi } from "./assistant-api.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import SidebarGroup from "../../app/SidebarGroup.jsx";
+import { agentsHubCopy } from "../../lib/i18n/messages/agents-hub.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import useAssistants from "./useAssistants.js";
 import { avatarGlyph } from "./avatar-glyph.js";
 import { connectionMissing } from "./connection-state.js";
+import { serviceDown } from "./hub/hub-model.js";
 import Icon from "../../components/Icon.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
@@ -48,6 +50,9 @@ export default function AssistantSidebar({ navigate, route }) {
   } = useAssistants();
   // Without a connection the rows show the last known state until it is back.
   const stale = offline || !connected;
+  // A stopped or failed agent service (handoff 5.10): rows dimmed with "offline" and
+  // a warning dot on the group head; the hub shows the banner with start and diagnose.
+  const down = serviceDown(runtime);
   const [opening, setOpening] = useState(null),
     [error, setError] = useState(""),
     [expanded, setExpanded] = useState(readExpanded);
@@ -162,13 +167,15 @@ export default function AssistantSidebar({ navigate, route }) {
     const chat = chatsOf(assistant)[0];
     const entry = activityFor(activity, assistant.id);
     const dot = activityDot(entry);
-    const subline = sidebarSubline({
-      assistant,
-      entry,
-      member,
-      model: assistant.model,
-      copy,
-    });
+    const subline = down
+      ? { text: copy.sidebarServiceOffline, tone: "meta" }
+      : sidebarSubline({
+          assistant,
+          entry,
+          member,
+          model: assistant.model,
+          copy,
+        });
     const current = route.assistantId === assistant.id && route.view === "agents";
     return (
       <button
@@ -248,6 +255,7 @@ export default function AssistantSidebar({ navigate, route }) {
       count={String(roots.length)}
       defaultOpen
       activeKey={route.assistantId}
+      warning={down ? agentsHubCopy.first.serviceDown : ""}
     >
       <ErrorMessage error={error} />
       {stale && (
@@ -255,7 +263,9 @@ export default function AssistantSidebar({ navigate, route }) {
           {copy.sidebarOffline}
         </p>
       )}
-      <div className={`session-list${stale ? " assistant-sidebar-stale" : ""}`}>
+      <div
+        className={`session-list${stale ? " assistant-sidebar-stale" : ""}${down ? " assistant-sidebar-down" : ""}`}
+      >
         {roots.map((parent, index) => {
           const groups = new Map();
           for (const child of visible.filter(

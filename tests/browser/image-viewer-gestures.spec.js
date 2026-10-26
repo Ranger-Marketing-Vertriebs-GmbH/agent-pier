@@ -184,7 +184,8 @@ test.describe("desktop", () => {
       clientX: centre.x,
       clientY: centre.y,
     });
-    expect((await place(page)).scale).toBeCloseTo(3, 1);
+    // The zoom is drawn on React's next render, after the event returns.
+    await expect.poll(async () => (await place(page)).scale).toBeCloseTo(3, 1);
     // A click on the image keeps the viewer open.
     await page.mouse.click(centre.x, centre.y);
     await expect(viewer).toBeVisible();

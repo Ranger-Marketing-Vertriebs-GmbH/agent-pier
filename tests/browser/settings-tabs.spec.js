@@ -147,6 +147,29 @@ for (const locale of ["de-DE", "en-GB"]) {
         ),
       );
       await expect(runtime).toHaveAttribute("href", /^\/agents\?tab=runtime/);
+      // Funktionen holds the one "Agenten · An/Aus" row; it leads to Laufzeit too.
+      const features = page.getByRole("group", {
+        name: t("Funktionen", "Features"),
+        exact: true,
+      });
+      await expect(features.getByRole("link")).toHaveCount(1);
+      await expect(features.getByRole("link")).toHaveAttribute(
+        "href",
+        "/agents?tab=runtime",
+      );
+      await expect(features.getByRole("link")).toContainText(
+        t(
+          "Ein- und ausschalten unter Agenten › Laufzeit",
+          "Turn on and off under Agents › Runtime",
+        ),
+      );
+      await expect(features.getByRole("link")).toContainText(t("Aus", "Off"));
+      await runtime.click();
+      await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=%2Fsettings$/);
+      await expect(
+        page.getByRole("switch", { name: t("Agenten aktivieren", "Enable agents") }),
+      ).toBeVisible();
+      await page.goBack();
       const connections = settingsRow(
         page,
         t(

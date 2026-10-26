@@ -252,6 +252,8 @@ export const assistantCopy = {
   chats: "Agent chats",
   agentsGroup: "Agents",
   sidebarOffline: "Connection lost. Showing the last known agents.",
+  // Agent service stopped: sidebar rows dimmed with "offline".
+  sidebarServiceOffline: "offline",
   feature: {
     title: "Enable agents",
     description:

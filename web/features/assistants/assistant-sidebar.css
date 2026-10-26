@@ -158,6 +158,9 @@
   font-size: 12px;
   line-height: 1.4;
 }
+.assistant-sidebar-down .assistant-sidebar-item {
+  opacity: 0.6;
+}
 .assistant-sidebar-stale .activity-dot {
   opacity: 0.45;
 }

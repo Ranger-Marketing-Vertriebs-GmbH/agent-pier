@@ -76,6 +76,48 @@ test("areas, tabs, settings groups and subpages are indexed with their routes", 
   assert.equal(first("Unteragenten").target.extensions, "subagents");
 });
 
+test("the hub's tabs and Runtime's groups use the hub's names and open their place", () => {
+  const cases = [
+    ["Alle Agenten", "/agents", "Agenten › Alle Agenten"],
+    ["All agents", "/agents", "Agents › All agents"],
+    ["Teams", "/agents?tab=teams", "Agenten › Teams"],
+    ["Templates", "/agents?tab=templates", "Agents › Templates"],
+    ["Runtime", "/agents?tab=runtime", "Agents › Runtime"],
+    ["Agentendienst", "/agents?tab=runtime", "Agenten › Laufzeit › Agentendienst"],
+    ["OpenClaw-Updates", "/agents?tab=runtime", "Agenten › Laufzeit › OpenClaw-Updates"],
+    ["Träumen", "/agents?tab=runtime", "Agenten › Laufzeit › Träumen"],
+    [
+      "Gleichzeitig aktive Mitglieder",
+      "/agents?tab=runtime",
+      "Agenten › Laufzeit › Gleichzeitig aktive Mitglieder auf diesem Host",
+    ],
+    [
+      "Erweitert · für alle Agenten",
+      "/agents?tab=runtime&section=advanced",
+      "Agenten › Laufzeit › Erweitert · für alle Agenten",
+    ],
+    [
+      "Installierte Abhängigkeiten der Agenten",
+      "/agents?tab=runtime&section=storage",
+      "Agenten › Laufzeit › Speicher",
+    ],
+  ];
+  for (const [query, path, label] of cases) {
+    const hit = first(query);
+    assert.equal(pathOf(hit), path, query);
+    assert.ok([hit.path.de, hit.path.en].includes(label), `${query}: ${hit.path.de}`);
+  }
+  // Each hub tab and Runtime group is indexed once.
+  const ids = index.map((entry) => entry.id);
+  assert.equal(new Set(ids).size, ids.length);
+  // Speicher in Laufzeit and in Betrieb are both found, each at its own place.
+  const storage = results("Speicher").map(pathOf);
+  assert.ok(storage.includes("/agents?tab=runtime&section=storage"));
+  assert.ok(storage.includes("/settings?tab=operations"));
+  // Funktionen (Einstellungen › Allgemein) holds the agents link row.
+  assert.equal(pathOf(first("Funktionen")), "/settings");
+});
+
 test("each result carries its path in both languages", () => {
   const ssh = first("SSH/SFTP-Zugänge");
   assert.deepEqual(ssh.path, {

@@ -19,6 +19,9 @@ export const settingsHubCopy = {
   mcpClients: (count) =>
     count === 1 ? "1 connected client" : `${count} connected clients`,
   mcpUnavailable: "Not available",
+  // The "Features" group of the General tab: agents switch on Agents › Runtime.
+  featuresGroup: "Features",
+  featureAgentsSub: "Turn on and off under Agents › Runtime",
   // The "Moved" group of the General tab (for two releases).
   movedGroup: "Moved",
   movedHint:

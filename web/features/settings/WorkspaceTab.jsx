@@ -16,7 +16,7 @@ import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { mcpDirectoryCopy } from "../../lib/i18n/messages/mcp-directory.js";
 import { operationsCopy } from "../../lib/i18n/messages/operations.js";
-import { settingsPageCopy } from "../../lib/i18n/messages/settings.js";
+import { settingsHubCopy, settingsPageCopy } from "../../lib/i18n/messages/settings.js";
 import { sameValue } from "../../lib/settings/draft-state.js";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
@@ -42,7 +42,6 @@ const stays = staysOn("general", "general");
 export default function WorkspaceTab({ frame, state, refresh, ready }) {
   const language = useLanguage();
   const feature = useAssistantFeature();
-  const featureCopy = assistantCopy.feature;
   const server = {
     language,
     defaultCwd: ready ? state.defaultCwd || state.home || "" : "",
@@ -136,28 +135,34 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
         />
       </ListCard>
       <ErrorMessage error={fieldError} />
-      <McpDirectoryRow
-        values={draft.values}
-        edit={edit}
-        error={addressError}
-        disabled={locked}
-      />
-      <GroupLabel id="settings-agents">{operationsCopy.sections.assistants}</GroupLabel>
-      <ListCard labelledBy="settings-agents">
+      {/* Funktionen: the one link to the agents switch on Agenten › Laufzeit. */}
+      <GroupLabel id="settings-features">{settingsHubCopy.featuresGroup}</GroupLabel>
+      <ListCard labelledBy="settings-features">
         <ListRow
           label={assistantCopy.title}
-          sub={featureCopy.title}
+          sub={settingsHubCopy.featureAgentsSub}
+          status={
+            feature.enabled && !feature.loading
+              ? { tone: "ok", text: hubCopy.featureOn }
+              : undefined
+          }
           value={
             feature.loading
               ? unknownValue
               : feature.enabled
-                ? hubCopy.featureOn
+                ? undefined
                 : hubCopy.featureOff
           }
           href={routePath(agentsRuntime)}
           onClick={() => frame.go(agentsRuntime)}
         />
       </ListCard>
+      <McpDirectoryRow
+        values={draft.values}
+        edit={edit}
+        error={addressError}
+        disabled={locked}
+      />
       <MovedGroup frame={frame} />
       {saved && !draft.dirty && (
         <p className="field-description" role="status">

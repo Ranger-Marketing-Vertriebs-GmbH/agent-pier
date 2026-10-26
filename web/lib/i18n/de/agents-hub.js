@@ -112,6 +112,8 @@ export const agentsHubCopy = {
     },
     createAgent: "Persönlichen Agenten anlegen",
     installSubagent: "Als Unteragent in CLI installieren …",
+    noSubagentProfiles:
+      "Unteragenten lassen sich installieren, sobald ein Account für Codex, Claude Code oder OpenCode eingerichtet ist.",
     installedNote:
       "Installierte Unteragenten verwaltest du unter Coding › CLIs & Erweiterungen › Unteragenten.",
     blocked: "Dieser Eintrag ist gesperrt und kann nicht verwendet werden.",

@@ -245,6 +245,9 @@
 .sidebar-group.expanded > .sidebar-group-head .sidebar-group-chevron {
   transform: rotate(90deg);
 }
+.sidebar-group-warning {
+  margin-left: 6px;
+}
 .sidebar-group-count {
   margin-left: auto;
   font-size: var(--font-size-xs);

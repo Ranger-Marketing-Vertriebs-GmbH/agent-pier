@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useId, useState } from "react";
+import StatusDot from "../components/StatusDot.jsx";
 
 // Icon buttons in a group head, by group name: the sidebar provides them for groups
 // that other features render (the Agenten group lives in AssistantSidebar).
@@ -11,6 +12,7 @@ export default function SidebarGroup({
   defaultOpen = false,
   activeKey = "",
   actions,
+  warning = "",
   children,
 }) {
   const provided = useContext(SidebarGroupActions)[name];
@@ -53,6 +55,9 @@ export default function SidebarGroup({
             ›
           </span>
           <span>{label}</span>
+          {warning && (
+            <StatusDot tone="warning" label={warning} className="sidebar-group-warning" />
+          )}
           {count !== undefined && <span className="sidebar-group-count">{count}</span>}
         </button>
         {headActions && <div className="sidebar-group-actions">{headActions}</div>}

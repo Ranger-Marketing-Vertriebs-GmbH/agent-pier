@@ -18,22 +18,6 @@ export const searchCopy = {
   keySelect: "↑↓ wählen",
   keyOpen: "↵ öffnen",
   keyOldNames: "Findet auch alte Namen wie „Einstellungen › Zugriff › SSH-Zugänge“",
-  // Die Tabs des Agenten-Hubs und die Gruppen von Laufzeit.
-  hubTabs: {
-    all: "Alle Agenten",
-    teams: "Teams",
-    templates: "Vorlagen",
-    runtime: "Laufzeit",
-  },
-  runtimeGroups: {
-    feature: "Agenten aktivieren",
-    service: "Agentendienst",
-    updates: "OpenClaw-Updates",
-    members: "Gleichzeitig aktive Mitglieder",
-    dreaming: "Träumen",
-    advanced: "Erweitert",
-    storage: "Installierte Abhängigkeiten der Agenten",
-  },
   sshKeys: "SSH-Schlüssel",
   // Unterseiten in den Einstellungen eines Agenten.
   agentPages: {

@@ -13,7 +13,13 @@ import AssistantHeader from "./AssistantHeader.jsx";
 import { DeletedChat } from "./chats/ChatStates.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AgentsHub from "./hub/AgentsHub.jsx";
-export default function AgentsPage({ route, navigate, openNavigation, navigationOpen }) {
+export default function AgentsPage({
+  route,
+  navigate,
+  openNavigation,
+  navigationOpen,
+  subagentProfiles = null,
+}) {
   const {
     assistants,
     conversations = [],
@@ -148,6 +154,7 @@ export default function AgentsPage({ route, navigate, openNavigation, navigation
       navigationOpen={navigationOpen}
       onOpen={open}
       error={error || loadError}
-    ></AgentsHub>
+      subagentProfiles={subagentProfiles}
+    />
   );
 }

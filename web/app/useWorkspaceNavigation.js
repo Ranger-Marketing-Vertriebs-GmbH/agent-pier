@@ -326,7 +326,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     activeSession,
     page,
     missing,
-    // The profile the agents hub's Templates tab shows until it has its own page.
+    // The CLI profile a search result for Coding › Erweiterungen opens ("" if none).
     extensionProfileId: resolveProfileId(),
   };
 }
