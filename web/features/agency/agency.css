@@ -9,7 +9,10 @@
   justify-items: start;
   min-width: 0;
 }
-.agency-preview > p:first-child {
+.agency-preview > .agency-cli-choice {
+  justify-self: stretch;
+}
+.agency-preview > p:first-of-type {
   font-size: 13px;
   line-height: 1.8;
   color: #cdced2;

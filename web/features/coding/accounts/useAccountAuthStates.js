@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../../lib/api.js";
+import api from "../../../lib/api.js";
 
 const polledTools = ["claude", "codex", "opencode"];
 

@@ -47,6 +47,9 @@ export default function ExtensionWorkspace({
   onNavigate,
   serverCount,
   onConfigPath,
+  install,
+  onInstallDone,
+  cliChoice,
 }) {
   const ext = useProfileExtensions({
     account,
@@ -75,7 +78,7 @@ export default function ExtensionWorkspace({
     skills: hub.tabSkills,
     plugins: hub.tabPlugins,
     marketplaces: hub.tabMarketplaces,
-    agents: hub.tabAgents,
+    subagents: hub.tabAgents,
   };
   const tabs = workspaceTabs({
     shared: account.shared,
@@ -84,7 +87,7 @@ export default function ExtensionWorkspace({
       skills: ext.data?.skills.items.length,
       plugins: plugins.data?.installed.length,
       marketplaces: plugins.data?.marketplaces.length,
-      agents: agentCount,
+      subagents: agentCount,
     },
   }).map((item) => ({ ...item, label: tabLabels[item.id] }));
   // A marketplaces deep link waits for the CLI's capabilities instead of
@@ -99,7 +102,7 @@ export default function ExtensionWorkspace({
   }, [tab, requestedTab, onTab]);
   const configPath = ext.data?.mcp.path || "";
   useEffect(() => onConfigPath?.(configPath), [configPath, onConfigPath]);
-  if (tab === "agents" && !agentsSeen) setAgentsSeen(true);
+  if (tab === "subagents" && !agentsSeen) setAgentsSeen(true);
   const openPanel = (kind) => {
     if (kind === "skill") ext.setError("");
     setSubmitted(false);
@@ -141,7 +144,7 @@ export default function ExtensionWorkspace({
         ? pluginCatalogCopy.extensionSectionLabel
         : commonCopy.installed,
     marketplaces: hub.tabMarketplaces,
-    agents: hub.tabAgents,
+    subagents: hub.tabAgents,
   }[tab];
   const groupLabel = !(tab === "plugins" && pluginDetail) && (
     <GroupLabel
@@ -194,7 +197,7 @@ export default function ExtensionWorkspace({
         onSelect={onTab}
         disabled={locked}
       />
-      {tab !== "agents" && (
+      {tab !== "subagents" && (
         <section
           role="tabpanel"
           id={`underline-tabpanel-${tab}`}
@@ -234,12 +237,12 @@ export default function ExtensionWorkspace({
       {account.shared && agentsSeen && (
         <section
           role="tabpanel"
-          id="underline-tabpanel-agents"
-          aria-labelledby="underline-tab-agents"
+          id="underline-tabpanel-subagents"
+          aria-labelledby="underline-tab-subagents"
           className="extension-tabpanel"
-          hidden={tab !== "agents"}
+          hidden={tab !== "subagents"}
         >
-          {tab === "agents" && groupLabel}
+          {tab === "subagents" && groupLabel}
           <AgentsTab
             account={account}
             request={request}
@@ -248,6 +251,9 @@ export default function ExtensionWorkspace({
             setMode={setAgentMode}
             onCount={setAgentCount}
             onNavigate={onNavigate}
+            install={tab === "subagents" ? install : ""}
+            onInstallDone={onInstallDone}
+            cliChoice={cliChoice}
           />
         </section>
       )}

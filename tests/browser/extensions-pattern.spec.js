@@ -5,6 +5,7 @@ import {
   expectNoHorizontalOverflow,
   extensionRow,
   openTab,
+  extensionTabList,
 } from "../helpers/extensions.js";
 
 const mcpLink = (page) => page.getByRole("link", { name: /^MCP-Server · / });
@@ -17,7 +18,7 @@ test("legacy MCP links open Skills and the reference row counts central servers"
   const fixture = await extensionsPageFixture(page, { holdUsage: true });
   await page.goto(`${base}/extensions/local-codex?tab=mcp`);
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex$/);
-  await expect(page.getByRole("tab")).toHaveText([
+  await expect(extensionTabList(page).getByRole("tab")).toHaveText([
     /^Skills/,
     /^Plugins/,
     /^Marketplaces/,
@@ -267,7 +268,7 @@ test("desktop plugin rows offer Details and actions behind ⋯ with keyboard sup
   await expect(trigger).toBeFocused();
   await trigger.click();
   // An outside press closes the menu; the page title is inert, unlike the sidebar corner.
-  await page.getByRole("heading", { name: "Erweiterungen", level: 1 }).click();
+  await page.getByRole("heading", { name: "CLIs & Erweiterungen", level: 1 }).click();
   await expect(menu).toHaveCount(0);
   await trigger.click();
   await page.getByRole("menuitem", { name: "Plugin superpowers deaktivieren" }).click();
@@ -326,7 +327,7 @@ test("phones: sidebar button, profile sheet, plugin detail and a locked switcher
   await page.goto(`${base}/extensions/local-codex`);
   await expect(page.locator(".mobile-header")).toBeHidden();
   await expect(
-    page.getByRole("heading", { name: "Erweiterungen", level: 1 }),
+    page.getByRole("heading", { name: "CLIs & Erweiterungen", level: 1 }),
   ).toBeVisible();
   await expect(profileColumn(page)).toBeHidden();
   await page
@@ -397,13 +398,13 @@ test.describe("in English", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await extensionsPageFixture(page, { shared: true });
     await page.goto(`${base}/extensions/local-claude?tab=agents`);
-    await expect(page.getByRole("tab")).toHaveText([
+    await expect(extensionTabList(page).getByRole("tab")).toHaveText([
       /^Skills/,
       /^Plugins/,
       /^Marketplaces/,
-      /^Agents/,
+      /^Subagents/,
     ]);
-    const agents = page.getByRole("tab", { name: /^Agents/ });
+    const agents = page.getByRole("tab", { name: /^Subagents/ });
     await expect(agents).toHaveAttribute("aria-selected", "true");
     await expect(agents).toBeInViewport();
     await expect(

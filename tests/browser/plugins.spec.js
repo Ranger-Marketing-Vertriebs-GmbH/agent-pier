@@ -8,6 +8,7 @@ import {
   extensionRow,
   openTab,
   rowMenuItem,
+  extensionTabList,
 } from "../helpers/extensions.js";
 async function setup(page, tool = "claude") {
   const writes = [];
@@ -99,7 +100,7 @@ test("marketplace source, browse, install, disable and deliberate removal use se
 }) => {
   const { writes } = await setup(page);
   expect(writes).toEqual([]);
-  await expect(page.getByRole("tab")).toHaveText([
+  await expect(extensionTabList(page).getByRole("tab")).toHaveText([
     /^Skills/,
     /^Plugins/,
     /^Marketplaces/,
@@ -147,7 +148,10 @@ test("OpenCode installs explicit npm package and stays usable on mobile", async 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { writes } = await setup(page, "opencode");
-  await expect(page.getByRole("tab")).toHaveText([/^Skills/, /^Plugins/]);
+  await expect(extensionTabList(page).getByRole("tab")).toHaveText([
+    /^Skills/,
+    /^Plugins/,
+  ]);
   await expect(page.getByRole("radio", { name: /^Entdecken/ })).toHaveCount(0);
   await expect(page.getByLabel("Marketplace-Quelle")).toHaveCount(0);
   await page.getByRole("button", { name: "npm-Plugin hinzufügen", exact: true }).click();

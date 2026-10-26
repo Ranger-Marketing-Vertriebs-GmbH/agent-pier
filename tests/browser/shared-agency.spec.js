@@ -8,6 +8,7 @@ import {
   closeProfiles,
   expectNoHorizontalOverflow,
   extensionRow,
+  extensionTabList,
   openProfiles,
   openTab,
   revealRow,
@@ -121,11 +122,11 @@ for (const mobile of [false, true])
       "true",
     );
     await closeProfiles(page);
-    await expect(page.getByRole("tab")).toHaveText([
+    await expect(extensionTabList(page).getByRole("tab")).toHaveText([
       /^Skills/,
       /^Plugins/,
       /^Marketplaces/,
-      /^Agenten/,
+      /^Unteragenten/,
     ]);
     await page
       .getByRole("button", { name: "Vorhandene Account-Konfigurationen übernehmen" })
@@ -135,12 +136,12 @@ for (const mobile of [false, true])
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Agency Agents" })).toHaveCount(0);
     expect(agencyReads).toEqual([]);
-    await openTab(page, "Agenten");
+    await openTab(page, "Unteragenten");
     await expect(page).toHaveURL(
       /coding\/clis\/extensions\/local-claude\?tab=subagents$/,
     );
     await expect(
-      page.getByText("Installierte Agenten gelten für alle Accounts dieser CLI."),
+      page.getByText("Installierte Unteragenten gelten für alle Accounts dieser CLI."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Katalog durchsuchen", exact: true }).click();
     await expect(page.getByRole("radio", { name: /^Katalog/ })).toBeChecked();
@@ -155,7 +156,9 @@ for (const mobile of [false, true])
     );
     await expect(dialog.getByRole("link", { name: /Quelle auf GitHub/ })).toBeVisible();
     // Without agents switched on, an entry cannot become an AgentPier agent.
-    await expect(dialog.getByRole("link", { name: "Agent anlegen" })).toHaveCount(0);
+    await expect(
+      dialog.getByRole("link", { name: "Persönlichen Agenten anlegen" }),
+    ).toHaveCount(0);
     await page.screenshot({
       path: `/tmp/agentpier-agency-preview-${mobile ? "mobile" : "desktop"}.png`,
       animations: "disabled",
@@ -163,7 +166,9 @@ for (const mobile of [false, true])
     await dialog.getByRole("button", { name: "Für diese CLI installieren" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(
-      page.getByText("Agent installiert. Starte eine neue Session, um ihn zu verwenden."),
+      page.getByText(
+        "Unteragent installiert. Starte eine neue Session, um ihn zu verwenden.",
+      ),
     ).toBeVisible();
     expect(writes.find((item) => item.path.endsWith("/agency")).body).toEqual({
       id: "engineering__frontend",
@@ -171,12 +176,12 @@ for (const mobile of [false, true])
     });
     await page.getByRole("radio", { name: /^Installiert/ }).check();
     await revealRow(page, "Frontend Expert");
-    await page.getByRole("button", { name: "Agent entfernen", exact: true }).click();
+    await page.getByRole("button", { name: "Unteragent entfernen", exact: true }).click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Agent entfernen", exact: true })
+      .getByRole("button", { name: "Unteragent entfernen", exact: true })
       .click();
-    await expect(page.getByText("Agency-Agent entfernt.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Unteragent entfernt.", { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.getByRole("radio", { name: /^Katalog/ }).check();
     await revealRow(page, "frontend");
@@ -188,7 +193,7 @@ for (const mobile of [false, true])
   });
 
 for (const mobile of [false, true])
-  test(`an Agency entry offers "Create agent" while agents are on (${mobile ? "mobile" : "desktop"})`, async ({
+  test(`a subagent offers "Create personal agent" while agents are on (${mobile ? "mobile" : "desktop"})`, async ({
     page,
   }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
@@ -198,10 +203,73 @@ for (const mobile of [false, true])
     await revealRow(page, "frontend");
     await page.getByRole("button", { name: "Agent ansehen" }).click();
     const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
-    const create = dialog.getByRole("link", { name: "Agent anlegen" });
+    const create = dialog.getByRole("link", { name: "Persönlichen Agenten anlegen" });
     await expect(create).toHaveAttribute(
       "href",
       `/agents?new=1&template=engineering__frontend&revision=${revision}`,
     );
     await expectNoHorizontalOverflow(page);
   });
+
+// The agents hub's "Als Unteragent in CLI installieren …" links here with `install`.
+test("an install link opens the subagent's preview for a chosen CLI and installs it", async ({
+  page,
+}) => {
+  const { writes } = await fixture(page, { agents: true });
+  await page.goto(
+    baseURL + "/coding/clis/extensions?tab=subagents&install=engineering__frontend",
+  );
+  const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
+  await expect(dialog).toContainText("Gilt für alle Codex-Accounts");
+  await expect(page).toHaveURL(
+    /coding\/clis\/extensions\/local-codex\?tab=subagents&install=engineering__frontend$/,
+  );
+  await expect(
+    dialog.getByRole("link", { name: "Persönlichen Agenten anlegen" }),
+  ).toHaveAttribute(
+    "href",
+    `/agents?new=1&template=engineering__frontend&revision=${revision}`,
+  );
+  // Another CLI: the preview follows the chosen profile and keeps the request.
+  await dialog
+    .getByRole("combobox", { name: "Installieren für" })
+    .selectOption("local-claude");
+  await expect(page).toHaveURL(
+    /coding\/clis\/extensions\/local-claude\?tab=subagents&install=engineering__frontend$/,
+  );
+  await expect(dialog).toContainText("Gilt für alle Claude Code-Accounts");
+  await dialog.getByRole("button", { name: "Für diese CLI installieren" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/coding\/clis\/extensions\/local-claude\?tab=subagents$/);
+  const install = writes.filter((item) => item.method === "POST");
+  expect(install.map((item) => item.path)).toEqual(["/api/accounts/local-claude/agency"]);
+  expect(install[0].body).toEqual({ id: "engineering__frontend", revision });
+  await expect(
+    page.getByText(
+      "Unteragent installiert. Starte eine neue Session, um ihn zu verwenden.",
+    ),
+  ).toBeVisible();
+});
+
+test("closing an install link's preview drops the request without installing", async ({
+  page,
+}) => {
+  const { writes } = await fixture(page);
+  await page.goto(
+    baseURL +
+      "/coding/clis/extensions/local-claude?tab=subagents&install=engineering__frontend",
+  );
+  const dialog = page.getByRole("dialog", { name: "Frontend Expert" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Vorschau schließen" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/coding\/clis\/extensions\/local-claude\?tab=subagents$/);
+  // A reload does not reopen it, and nothing was written.
+  await page.reload();
+  await expect(page.getByRole("tab", { name: /^Unteragenten/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(dialog).toHaveCount(0);
+  expect(writes.filter((item) => item.method === "POST")).toEqual([]);
+});

@@ -1,29 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import AnchoredSelect from "../../components/AnchoredSelect.jsx";
-import GroupLabel from "../../components/GroupLabel.jsx";
-import Icon from "../../components/Icon.jsx";
-import ListCard from "../../components/ListCard.jsx";
-import ListRow, { CheckboxRow } from "../../components/ListRow.jsx";
-import { names } from "../../lib/providers.js";
-import { sameValue } from "../../lib/settings/draft-state.js";
-import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { connectionCopy } from "../../lib/i18n/messages/connections.js";
-import { providerCopy } from "../../lib/i18n/messages/providers.js";
+import AnchoredSelect from "../../../components/AnchoredSelect.jsx";
+import GroupLabel from "../../../components/GroupLabel.jsx";
+import Icon from "../../../components/Icon.jsx";
+import ListCard from "../../../components/ListCard.jsx";
+import ListRow, { CheckboxRow } from "../../../components/ListRow.jsx";
+import { names } from "../../../lib/providers.js";
+import { sameValue } from "../../../lib/settings/draft-state.js";
+import { commonCopy } from "../../../lib/i18n/messages/common.js";
+import { connectionCopy } from "../../../lib/i18n/messages/connections.js";
+import { providerCopy } from "../../../lib/i18n/messages/providers.js";
 import {
   accountDialogCopy as dialogCopy,
   accountsHubCopy as hubCopy,
   accountsPageCopy as copy,
-} from "../../lib/i18n/messages/accounts.js";
-import ProviderAccountSummary from "../providers/ProviderAccountSummary.jsx";
-import AccountDetail, { AccountSaveBar } from "./AccountDetail.jsx";
-import FieldRow from "./FieldRow.jsx";
+} from "../../../lib/i18n/messages/accounts.js";
+import ProviderAccountSummary from "../../providers/ProviderAccountSummary.jsx";
+import AccountDetail, { AccountSaveBar } from "../../accounts/AccountDetail.jsx";
+import FieldRow from "../../accounts/FieldRow.jsx";
 import LegacyProviderEditor from "./LegacyProviderEditor.jsx";
 import NativeAccountActions from "./NativeAccountActions.jsx";
-import UsedByGroup from "./UsedByGroup.jsx";
+import UsedByGroup from "../../accounts/UsedByGroup.jsx";
 import { authOf } from "./useAccountAuthStates.js";
-import useAccountDraft from "./useAccountDraft.js";
-import useCreatedRedirect from "./useCreatedRedirect.js";
-import { accountItemTitle } from "./accounts-items.js";
+import useAccountDraft from "../../accounts/useAccountDraft.js";
+import { cliAccountRoute, cliAccountTitle } from "./cli-accounts.js";
 import {
   keyChangeRequired,
   nativeAccountStep,
@@ -48,7 +47,7 @@ function SignInGroup({ account, auth, state, act, refresh }) {
   );
 }
 
-/** A native CLI account: local profiles read only, managed ones editable. */
+/** A native CLI account (Coding › Accounts): local profiles read only, managed ones editable. */
 export default function NativeAccountDetail({
   entry,
   usage,
@@ -77,7 +76,7 @@ export default function NativeAccountDetail({
   const reported = useRef(null);
   const form = useAccountDraft({
     server,
-    tab: accountItemTitle(entry),
+    tab: cliAccountTitle(entry),
     entry,
     steps: [
       nativeAccountStep({
@@ -94,7 +93,10 @@ export default function NativeAccountDetail({
   const values = draft.values;
   const live = useRef(draft);
   live.current = draft;
-  useCreatedRedirect({ created, draft, navigate, section: "cli" });
+  // After a create, show the new account in place of the empty form (Back skips it).
+  useEffect(() => {
+    if (created && !draft.dirty) navigate(cliAccountRoute(created), true);
+  }, [created, draft.dirty, navigate]);
   const onLegacy = useCallback(({ value, ready, providerId }) => {
     reported.current = value;
     setLegacy({ ready, providerId });
@@ -119,7 +121,7 @@ export default function NativeAccountDetail({
   const tools = (state.tools || []).filter((item) => item.id !== "shell");
   return (
     <AccountDetail
-      title={accountItemTitle(entry)}
+      title={cliAccountTitle(entry)}
       destructive={
         account?.kind === "managed" && (
           <button

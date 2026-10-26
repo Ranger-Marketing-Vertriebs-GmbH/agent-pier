@@ -1,13 +1,14 @@
-// The tabs of a CLI profile's extensions. MCP servers are managed in Accounts; an old
-// `?tab=mcp` link opens Skills, where the MCP reference row points there.
-export const extensionTabs = ["skills", "plugins", "marketplaces", "agents"];
-export const defaultExtensionTab = "skills";
-const legacyTabs = { mcp: "skills" };
+// The tabs of a CLI profile's extensions (Coding › Erweiterungen). Old names keep
+// working: `?tab=agents` opens Unteragenten, `?tab=mcp` Skills (MCP servers are
+// managed in Zugänge; the MCP reference row points there).
+import {
+  codingExtensionTabs,
+  defaultCodingExtensionTab,
+  readCodingExtensionTab,
+} from "../coding/routes.js";
 
-export function readExtensionTab(search) {
-  const requested = new URLSearchParams(search).get("tab");
-  const tab = Object.hasOwn(legacyTabs, requested ?? "")
-    ? legacyTabs[requested]
-    : requested;
-  return extensionTabs.includes(tab) ? tab : defaultExtensionTab;
-}
+export const extensionTabs = codingExtensionTabs;
+export const defaultExtensionTab = defaultCodingExtensionTab;
+
+export const readExtensionTab = (search) =>
+  readCodingExtensionTab(new URLSearchParams(search).get("tab"));

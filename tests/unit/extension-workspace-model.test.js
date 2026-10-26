@@ -13,7 +13,7 @@ import {
   pluginStatus,
 } from "../../web/features/plugins/plugin-state.js";
 
-test("workspace tabs list marketplaces only when supported and agents only when shared", () => {
+test("workspace tabs list marketplaces only when supported and subagents only when shared", () => {
   assert.deepEqual(
     workspaceTabs({ shared: false, marketplaces: false }).map((tab) => tab.id),
     ["skills", "plugins"],
@@ -28,7 +28,7 @@ test("workspace tabs list marketplaces only when supported and agents only when 
       { id: "skills", count: 2 },
       { id: "plugins", count: 0 },
       { id: "marketplaces", count: 1 },
-      { id: "agents", count: undefined },
+      { id: "subagents", count: undefined },
     ],
   );
 });
@@ -39,7 +39,7 @@ test("unknown or unsupported tabs fall back; marketplaces waits for capabilities
     tab: "plugins",
     pending: false,
   });
-  assert.deepEqual(resolveWorkspaceTab("agents", ids, true), {
+  assert.deepEqual(resolveWorkspaceTab("subagents", ids, true), {
     tab: defaultExtensionTab,
     pending: false,
   });
@@ -103,7 +103,7 @@ test("each tab has one primary action with today's enablement rules", () => {
       disabled: true,
     },
   );
-  assert.deepEqual(primaryAction({ ...ready, tab: "agents" }), {
+  assert.deepEqual(primaryAction({ ...ready, tab: "subagents" }), {
     kind: "catalog",
     disabled: false,
   });

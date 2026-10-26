@@ -37,14 +37,13 @@ test("entries resolve by section and item", () => {
   assert.equal(at("mcp-servers", "s1").kind, "mcp-server");
   assert.equal(at("mcp-servers", "new").kind, "mcp-new");
   assert.equal(at("mcp-servers", "cli-finds").kind, "mcp-finds");
-  assert.equal(at("cli", "managed-1").kind, "cli-account");
-  assert.equal(at("cli", "new").kind, "cli-new");
+  // Native CLI accounts moved to Coding › Accounts (coding/accounts/cli-accounts.js).
+  assert.equal(at("cli", "managed-1"), null);
 });
 
 test("unknown or hidden entries are missing, unloaded ones loading", () => {
   assert.equal(at("models", "gone").kind, "missing");
   assert.equal(at("services", "other").kind, "missing");
-  assert.equal(at("cli", "local-shell").kind, "missing");
   assert.equal(at("mcp-servers", "s1", { ...data, mcpServers: null }).kind, "loading");
   assert.equal(at("models", "c1", { ...data, connections: null }).kind, "loading");
   const off = { ...data, agentsEnabled: false };
@@ -94,6 +93,5 @@ test("routes and titles", () => {
   assert.equal(accountItemTitle(at("models", "c1")), "Router");
   assert.equal(accountItemTitle(at("services", "web-search")), "Web search");
   assert.equal(accountItemTitle(at("models", "chatgpt")), "ChatGPT for agents");
-  assert.equal(accountItemTitle(at("cli", "new")), "Add account");
   setLanguage("de");
 });

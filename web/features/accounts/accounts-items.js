@@ -1,4 +1,3 @@
-import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { mcpServerCopy } from "../../lib/i18n/messages/mcp-servers.js";
@@ -18,7 +17,6 @@ const groupKeys = {
   models: "models",
   services: "services",
   "mcp-servers": "mcpServers",
-  cli: "cli",
 };
 export const sectionLabel = (section) => accountsHubCopy.groups[groupKeys[section]] ?? "";
 
@@ -76,13 +74,6 @@ export function resolveAccountItem(route, data) {
     if (item === "cli-finds") return at("mcp-finds");
     return lookup(data.mcpServers, "mcp-server", "mcpServers");
   }
-  if (section === "cli") {
-    if (item === "new") return at("cli-new");
-    return lookup(
-      data.accounts?.filter((account) => account.tool !== "shell"),
-      "cli-account",
-    );
-  }
   return null;
 }
 
@@ -91,7 +82,6 @@ export function accountItemTitle(entry) {
     case "connection":
     case "chatgpt":
     case "mcp-server":
-    case "cli-account":
       return entry.record.name;
     case "connection-new":
       return connectionCopy.add;
@@ -107,8 +97,6 @@ export function accountItemTitle(entry) {
       return mcpServerCopy.add;
     case "mcp-finds":
       return mcpCliCopy.foundTitle;
-    case "cli-new":
-      return commonCopy.addAccount;
     default:
       return "";
   }

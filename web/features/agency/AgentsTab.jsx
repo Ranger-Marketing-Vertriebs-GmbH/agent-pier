@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
+import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import Modal from "../../components/Modal.jsx";
@@ -10,26 +11,53 @@ import SidePanel from "../../components/SidePanel.jsx";
 import { agencyCopy as copy } from "../../lib/i18n/messages/agency.js";
 import { extensionsHubCopy as hub } from "../../lib/i18n/messages/extensions.js";
 import { names } from "../../lib/providers.js";
+import FieldRow from "../accounts/FieldRow.jsx";
 import ExtensionHint from "../extensions/ExtensionHint.jsx";
 import RowLines from "../extensions/RowLines.jsx";
 import useAgency from "./useAgency.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
-import { agentTemplateCopy } from "../../lib/i18n/messages/agent-templates.js";
+import { codingPageCopy } from "../../lib/i18n/messages/coding.js";
 import { routePath } from "../../app/routes.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./agency.css";
 
-// "Create agent": the agent form with this entry as its template.
+// "Persönlichen Agenten anlegen": the new agent wizard with this entry as its template.
 const agentRoute = (preview) => ({
   view: "agents",
   creating: true,
   template: { id: preview.id, revision: preview.revision },
 });
 
-// Mounted the first time the Agenten tab opens and kept afterwards, so the
-// catalog is only fetched on demand and notices survive tab switches.
-export default function AgentsTab({ mode, setMode, onCount, onNavigate, ...props }) {
+// Mounted the first time the Unteragenten tab opens and kept afterwards, so the
+// catalog is only fetched on demand and notices survive tab switches. `install`
+// (an entry id from the agents hub's templates) opens that entry's install preview
+// once the catalog is known; `onInstallDone` runs when the preview closes.
+export default function AgentsTab({
+  mode,
+  setMode,
+  onCount,
+  onNavigate,
+  install = "",
+  onInstallDone,
+  cliChoice,
+  ...props
+}) {
   const state = useAgency(props);
+  const requested = useRef("");
+  const revision = state.data?.revision;
+  const { show } = state;
+  useEffect(() => {
+    if (!install) requested.current = "";
+    if (!install || !revision || requested.current === install) return;
+    requested.current = install;
+    show({ id: install });
+  }, [install, revision, show]);
+  // The request ends with its preview: installed, closed, or refused by the server.
+  const shown = Boolean(state.preview);
+  const settled = Boolean(install) && requested.current === install && !state.busy;
+  useEffect(() => {
+    if (settled && !shown) onInstallDone?.();
+  }, [settled, shown, onInstallDone]);
   // An entry can also become an AgentPier agent while agents are switched on.
   const { enabled: agentsEnabled } = useAssistantFeature();
   const { data, preview, confirm, busy, loading, query, category, page } = state;
@@ -220,7 +248,7 @@ export default function AgentsTab({ mode, setMode, onCount, onNavigate, ...props
                     onNavigate(agentRoute(preview));
                   }}
                 >
-                  {agentTemplateCopy.createAgent}
+                  {codingPageCopy.createPersonalAgent}
                 </a>
               )}
               <button
@@ -235,6 +263,22 @@ export default function AgentsTab({ mode, setMode, onCount, onNavigate, ...props
           }
         >
           <div className="agency-preview">
+            {install && cliChoice?.profiles.length > 1 && (
+              <ListCard className="agency-cli-choice">
+                <FieldRow label={codingPageCopy.subagentCli}>
+                  <AnchoredSelect
+                    label={codingPageCopy.subagentCli}
+                    value={props.account.id}
+                    disabled={busy}
+                    onChange={cliChoice.onSelect}
+                    options={cliChoice.profiles.map((profile) => ({
+                      value: profile.id,
+                      label: profile.name,
+                    }))}
+                  />
+                </FieldRow>
+              </ListCard>
+            )}
             <p>{preview.description}</p>
             <p className="field-description">{copy.note}</p>
             <a href={preview.source} target="_blank" rel="noreferrer">

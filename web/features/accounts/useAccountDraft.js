@@ -8,11 +8,14 @@ import { screenOf } from "../../app/route-screens.js";
  * MCP wizard's edit steps, the same step. Each edit step keeps its own draft.
  */
 export const staysOnEntry = (entry, request) => {
-  // Old Accounts routes and their new places (Zugänge, Coding) compare alike.
+  // Old Accounts routes and their new places (Zugänge, Coding) compare alike; Coding's
+  // Accounts tab holds the former section "cli".
   const next = screenOf(request.next);
+  const section =
+    next?.view === "coding" ? next.codingTab === "accounts" && "cli" : next?.section;
   return (
-    ["accounts", "connections"].includes(next?.view) &&
-    next.section === entry.section &&
+    ["accounts", "connections", "coding"].includes(next?.view) &&
+    section === entry.section &&
     next.item === entry.item &&
     (next.step ?? "") === (entry.step ?? "")
   );

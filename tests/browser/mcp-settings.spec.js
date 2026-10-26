@@ -5,10 +5,12 @@ test("HTTPS setup copy, CLI deep links and grant pages survive reload without wr
   page,
 }) => {
   const state = await mcpFixture(page);
+  // The former Einstellungen › Zugriff › MCP page is Coding › AgentPier als MCP.
   await page.goto(baseURL + "/settings/mcp");
+  await expect(page).toHaveURL(/\/coding\/clis\?tab=mcp$/);
   await expect(
-    page.getByRole("heading", { name: "MCP & Zugriffe", exact: true }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "AgentPier als MCP", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page
     .getByRole("button", { name: "Befehl kopieren: Hinzufügen", exact: true })
     .click();
@@ -123,7 +125,7 @@ test("copy failure offers manual copying and keyboard tabs retain the selected C
   await page.getByRole("tab", { name: "Codex", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeFocused();
-  await expect(page.getByRole("tabpanel")).toContainText(
+  await expect(page.locator("#mcp-cli-panel")).toContainText(
     "claude mcp add --transport http --scope user",
   );
 });
@@ -222,7 +224,7 @@ test("setup copy buttons name the command or configuration they copy", async ({
   await mcpFixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/settings/mcp");
-  const panel = page.getByRole("tabpanel");
+  const panel = page.locator("#mcp-cli-panel");
   await expect(
     panel.getByRole("button", { name: "Copy command: Add", exact: true }),
   ).toBeVisible();

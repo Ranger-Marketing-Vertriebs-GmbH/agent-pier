@@ -1,7 +1,3 @@
-export const extensionsPageCopy = {
-  title: "Extensions",
-  description: "Skills and plugins for each CLI profile.",
-};
 export const extensionsHubCopy = {
   profiles: "CLI profiles",
   sharedProfile: "All accounts using this CLI",
@@ -12,7 +8,7 @@ export const extensionsHubCopy = {
   tabSkills: "Skills",
   tabPlugins: "Plugins",
   tabMarketplaces: "Marketplaces",
-  tabAgents: "Agents",
+  tabAgents: "Subagents",
   panelSubtitle: (value1) => `Profile ${value1}`,
   rowActions: (value1) => `Actions for ${value1}`,
   viewLabel: "View",

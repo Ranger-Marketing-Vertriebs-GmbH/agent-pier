@@ -1,0 +1,29 @@
+/* Coding › CLIs & Erweiterungen (handoff 5.7): one settings shell with four tabs. */
+.coding-page .settings-shell-content {
+  max-width: 1120px;
+}
+.coding-tabpanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+.coding-hint {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* Today's MCP access page keeps its markup inside the shell (as in Einstellungen). */
+.coding-page .page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+@media (max-width: 700px) {
+  /* The settings shell brings its own 56px header with the sidebar button. */
+  .app:has(.coding-page) .mobile-header {
+    display: none;
+  }
+}

@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { fixture as providerFixture } from "./providers-fixture.js";
-import { emptyAgency, emptyExtensions, extensionRow } from "../helpers/extensions.js";
+import {
+  emptyAgency,
+  emptyExtensions,
+  extensionRow,
+  extensionTabList,
+} from "../helpers/extensions.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 
 test.use({ locale: "en-GB" });
@@ -60,22 +65,24 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
   });
   await page.goto("/plugins");
   await expect(page).toHaveURL(/\/coding\/clis\/extensions\/local-codex\?tab=plugins$/);
-  await expect(page.getByRole("heading", { name: "Extensions", level: 1 })).toBeVisible();
   await expect(
-    page.getByText("Skills and plugins for each CLI profile.", {
-      exact: true,
-    }),
+    page.getByRole("heading", { name: "CLIs and extensions", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      /^Everything that concerns only coding CLIs: installation, native accounts/,
+    ),
   ).toBeVisible();
   const profiles = page.getByRole("navigation", { name: "CLI profiles", exact: true });
   await expect(profiles.getByRole("button", { name: /Codex/ })).toHaveAttribute(
     "aria-current",
     "true",
   );
-  await expect(page.getByRole("tab")).toHaveText([
+  await expect(extensionTabList(page).getByRole("tab")).toHaveText([
     /^Skills/,
     /^Plugins/,
     /^Marketplaces/,
-    /^Agents/,
+    /^Subagents/,
   ]);
   await expect(page.getByRole("radio", { name: "Installed · 0" })).toBeChecked();
   await page.getByRole("button", { name: "Discover plugins", exact: true }).click();
@@ -89,9 +96,9 @@ test("English Marketplace localizes empty and unavailable catalog guidance and n
   await expect(
     page.getByRole("link", { name: /^MCP servers · — for Codex/ }),
   ).toContainText("Managed centrally in Accounts");
-  await page.getByRole("tab", { name: /^Agents/ }).click();
+  await page.getByRole("tab", { name: /^Subagents/ }).click();
   await expect(
-    page.getByText("Installed agents apply to all accounts using this CLI."),
+    page.getByText("Installed subagents apply to all accounts using this CLI."),
   ).toBeVisible();
   await page.getByRole("tab", { name: /^Plugins/ }).click();
   await expect(page.getByRole("radio", { name: "Discover · 0" })).toBeChecked();

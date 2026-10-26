@@ -1,4 +1,4 @@
-import api from "../../lib/api.js";
+import api from "../../../lib/api.js";
 
 /** The draft fields of a native CLI account; `provider` null means "unchanged". */
 export function nativeAccountValues(account, tools = []) {
