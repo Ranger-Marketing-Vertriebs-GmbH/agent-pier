@@ -244,7 +244,8 @@ its own, also shows whether its model changed since it took it over from the lea
   either chat settles it in both. In a turn you sent from Telegram, the agent's answer
   after your decision also arrives there. A run the agent starts on its own (for
   example after a background command finished) asks in the paired Telegram chat
-  when your latest message to the agent came from Telegram. Every request waiting for approval, and every team
+  when your latest message to the agent came from Telegram, and its answer arrives
+  there too. Every request waiting for approval, and every team
   proposal, also appears under **Agents** in the [inbox](inbox.md). **Always allowed commands** lists what you allowed
   permanently; delete an entry and the agent asks again. Temporary team members get
   shell access only through their lead's **Team members may use shell and SSH**

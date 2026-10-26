@@ -3,6 +3,7 @@ import { TelegramOutbox } from "./telegram-outbox.js";
 import { TelegramTeamActions } from "./telegram-team-actions.js";
 import { TelegramFeedback } from "./telegram-feedback.js";
 import { TelegramDelivery } from "./telegram-delivery.js";
+import { TelegramFollowUps } from "./telegram-follow-ups.js";
 import { SpeechService } from "../speech/speech-service.js";
 import { ChannelLedger } from "./channel-ledger.js";
 import { TelegramIngress } from "./telegram-ingress.js";
@@ -38,6 +39,11 @@ export class ChannelService {
     this.speechService = new SpeechService({ connections: speech });
     this.ingress = new TelegramIngress(this);
     this.delivery = new TelegramDelivery(this);
+    // Replies of runs AgentPier did not start, for the paired chat (telegram-follow-ups.js).
+    this.followUps = new TelegramFollowUps(this);
+    assistants.gatewayEvents?.on("agent", (payload) => {
+      if (!this.closed) this.followUps.observe(payload);
+    });
     this.feedback = new TelegramFeedback(this);
     this.feedbackWorkers = new Map();
     this.pollers = new Map();
@@ -384,6 +390,7 @@ export class ChannelService {
     // not keep this channel's own inbox and outbox from moving.
     if (!signal.aborted) await this.teamOutbox.transfer();
     if (!signal.aborted) this.delivery.announceReview(id);
+    if (!signal.aborted) await this.followUps.process(id, signal);
     if (!signal.aborted) await this.teamOutbox.process(id, signal);
     if (!signal.aborted) await this.speechService.process(this, id, signal);
     if (!signal.aborted) await this.ingress.dispatch(id, signal);

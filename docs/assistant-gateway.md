@@ -3841,9 +3841,27 @@ allow** and **Deny**.
   a session (for example after a background command finished). Its request asks in
   the paired Telegram chat too when the conversation's latest request came from that
   chat (turn context `telegram`), and only while that chat is still the owner's
-  paired, enabled chat writing into this conversation (`followUpOrigin` in
-  `exec-approvals.js`, the same target a hook's run uses). Otherwise it asks only in
-  the web. The run's own replies still reach only the web chat.
+  paired, enabled chat writing into this conversation with the same ids
+  (`follow-up-target.js`, the same target a hook's run uses). Otherwise it asks only
+  in the web.
+- The reply of such a run goes to that chat too (`telegram-follow-ups.js`). Its
+  lifecycle end (a Gateway `agent` event of the chat's subscribed session) records
+  the run once, durably by run id (`channel_follow_ups`), when no attempt has that
+  run id and the same target applies. Before anything is sent, the session's
+  transcript (`sessions.get`) must show the run as an exec completion: the entry right
+  before its first record is a user entry with the exec provenance. Check-ins,
+  routines and hooks (their own sessions and delivery), memory flushes and every
+  AgentPier turn (an attempt, delivered as that turn's reply) never qualify. The
+  run's last assistant text (read whole, waited for up to 60 seconds) becomes one
+  outbox notice `follow-up-reply:<runId>`, formatted, split and retried like every
+  notice and sent after the replies of Telegram inputs that were still under way
+  when the run ended. Silent replies (`NO_REPLY`, `HEARTBEAT_OK`) and runs without
+  text are dropped, as is a run whose chat was paired anew or switched off
+  meanwhile. Only live end events count: nothing is read back from older history,
+  and a run that ended while AgentPier was not connected stays in the web chat.
+  `assistant-telegram-follow-ups-contract.test.js`
+  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins these assumptions against the pinned
+  runtime.
 - Telegram delivery of the turn (`telegram-delivery.js`): an approval the run waited
   for (exec, and SSH or SFTP until their hold ends) does not replace the reply. Once
   the owner decided every such card and the run completed, its answer goes to

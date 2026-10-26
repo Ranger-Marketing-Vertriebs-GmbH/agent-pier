@@ -284,6 +284,23 @@ const entryText = (m) =>
       ? m.content[0].text
       : null;
 /**
+ * Whether a `sessions.get` page shows `runId` as an exec completion run: the entry
+ * right before the run's first record is a user entry with exactly the exec
+ * provenance (see transcriptHolds). Telegram delivery of a follow-up run's reply
+ * needs no more (telegram-follow-ups.js): it grants nothing.
+ */
+export function completionRun(messages, runId) {
+  if (!Array.isArray(messages) || typeof runId !== "string") return false;
+  const first = messages.findIndex((m) => m?.__openclaw?.runId === runId);
+  const entry = first > 0 ? messages[first - 1] : null;
+  return (
+    entry?.role === "user" &&
+    (entry.__openclaw?.runId ?? runId) === runId &&
+    isDeepStrictEqual(entry.provenance, execProvenance)
+  );
+}
+export const completionTranscriptLimit = transcriptLimit;
+/**
  * Whether a `sessions.get` page holds the user entry of the 2026.10.7 completion run
  * `runId` reporting `ids`. OpenClaw names that entry by neither its run nor its
  * idempotency key (`<random logical turn id>:user`): it is the entry right before

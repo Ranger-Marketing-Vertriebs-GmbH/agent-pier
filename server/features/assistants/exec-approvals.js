@@ -4,6 +4,7 @@ import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
 import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
+import { followUpTelegram } from "./follow-up-target.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
 // owner (`payload.action: "exec"`), keyed by the Gateway's approval id. A request
@@ -153,28 +154,15 @@ export class ExecApprovals {
       origin,
     };
   }
-  /**
-   * The Telegram origin of a run AgentPier did not start in a conversation (OpenClaw's
-   * own follow-up after a background command, for example), or null. Such a run
-   * continues the conversation's latest turn; when that turn came from the owner's
-   * paired Telegram chat, its approval is asked there too, as a hook's run asks
-   * there. Only while that chat is still the agent's paired, enabled chat writing into
-   * this conversation, so a re-paired or another person's chat never receives it.
-   */
+  // The Telegram origin of a run AgentPier did not start (follow-up-target.js).
   followUpOrigin(assistant, conversation) {
-    const a = this.w.a,
-      channels = this.w.s?.assistantChannels;
-    const latest = a.ledger?.latestRequest(conversation.id);
-    const context = latest && a.teams?.store.context(latest.id);
-    if (context?.kind !== "telegram" || !channels?.store?.list) return null;
-    const channel = pairedChannel(channels, assistant.id);
-    if (!channel || channel.conversationId !== conversation.id) return null;
-    const target = telegramTarget(channel);
-    return ["channelId", "chatId", "userId"].every(
-      (k) => String(target[k] ?? "") === String(context[k] ?? ""),
-    )
-      ? { kind: "telegram", ...target }
-      : null;
+    const target = followUpTelegram(
+      this.w.a,
+      this.w.s?.assistantChannels,
+      assistant,
+      conversation,
+    );
+    return target ? { kind: "telegram", ...target } : null;
   }
   // The lead that delegated the turn: a lead's request, or a team assignment.
   lead(context) {
