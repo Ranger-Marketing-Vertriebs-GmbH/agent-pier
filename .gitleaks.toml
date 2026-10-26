@@ -67,3 +67,21 @@ condition = "AND"
 paths = ['''(^|/)tests/unit/openclaw-web-tools-config\.test\.js$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*const key = "BSA-secret-fixture-7f3a";$''']
+
+# SSH test-result sanitiser tests feed synthetic tokens and a fake key fragment to
+# prove they are stripped. None is a real credential. Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic token in the SSH last-test blackbox test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/blackbox/connection-routes\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*"deploy@nas-01\.invalid: Permission denied \(publickey\) token=ghp_0123456789abcdefghij0123456789abcd\\n",$''']
+
+[[allowlists]]
+description = "Exact synthetic key fragment in the SSH test-result sanitiser test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/ssh-test-results\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*for \(const secret of \[\.\.\.secrets, "b3BlbnNzaC1rZXktdjEAAAAA", "PRIVATE KEY"\]\)$''']
