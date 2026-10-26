@@ -1,7 +1,12 @@
 import { RunSteps } from "./run-steps.js";
 import { cronResultText } from "./cron-result-text.js";
 import { hookPrompt } from "./agent-hook-prompt.js";
-import { effectiveRights, hookEligible, hookTools } from "./agent-hook-rights.js";
+import {
+  effectiveRights,
+  hookEligible,
+  hookTools,
+  readsBeyondGuard,
+} from "./agent-hook-rights.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { routineTimeoutSeconds } from "./native-routines.js";
 import { pairedChannel, telegramTarget } from "./routine-targets.js";
@@ -63,13 +68,19 @@ export class HookRuns {
       if (!hook?.enabled || !hookEligible(agent))
         throw assistantProblem("unavailable", 503);
       this.assistants.requireReady();
-      // Without Secrets the agent's secrets file is gone before the run starts and
-      // stays away until its event settles; a file that cannot be withheld fails the
-      // start. The apply below then leaves the file out of the agent's instructions.
-      if (!effectiveRights(hook.rights, this.hooks.ceiling(agent)).secrets) {
-        events.patch(event.id, { secretsWithheld: true });
-        await this.hooks.syncSecrets(agent.id);
-      }
+      // Whether the run reads the agent's secrets is decided now. Without Secrets, a
+      // run that reaches files past the file-tool guard (shell, coding, MCP) starts
+      // only once the file is gone, and it stays away until its event settles; a file
+      // that cannot be withheld fails the start (the apply below then leaves it out of
+      // the agent's instructions). Any other run keeps the file in place for the
+      // agent's other chats; the tool guard refuses its own reads of it.
+      const early = effectiveRights(hook.rights, this.hooks.ceiling(agent));
+      const withheld = !early.secrets && readsBeyondGuard(early);
+      events.patch(event.id, {
+        secretsRead: early.secrets,
+        ...(withheld && { secretsWithheld: true }),
+      });
+      if (withheld) await this.hooks.syncSecrets(agent.id);
       // The agent's live tools and shell level are current before its run starts.
       await this.assistants.config.apply(agent.id);
       const ceiling = this.hooks.ceiling(agent);
@@ -94,6 +105,7 @@ export class HookRuns {
             payloadText: events.payload(event.id) ?? "",
             contentType: event.contentType,
             test: event.test === true,
+            secretsClosed: !early.secrets && this.hooks.ceiling(agent).secrets,
           }),
           timeoutSeconds: routineTimeoutSeconds,
           lightContext: false,

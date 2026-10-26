@@ -5,6 +5,7 @@ import { patchPaths } from "./patch-paths.js";
 import { execEvidence } from "./exec-processes.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 import { fileSpellings } from "./file-urls.js";
+import { secretsCall, secretsReadTools } from "./secrets-guard.js";
 import {
   fold,
   managedFolder,
@@ -540,6 +541,10 @@ export function registerToolGuard(api) {
   });
   api.on("before_tool_call", (event, ctx) => attachmentCall(event, ctx, bridge, roots), {
     matcher: attachmentTools,
+    priority: 1000,
+  });
+  api.on("before_tool_call", (event, ctx) => secretsCall(event, ctx, bridge, roots), {
+    matcher: secretsReadTools,
     priority: 1000,
   });
   api.on("before_tool_call", (event) => dreamsCall(event), {

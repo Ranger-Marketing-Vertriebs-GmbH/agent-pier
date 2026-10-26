@@ -63,6 +63,8 @@ export class AgentHooks {
     this.events = new HookEvents(this.assistants.store.db);
     this.runs = new HookRuns(this);
     routines.hooks = this;
+    // The bridge's answer to a read of the secrets folder (bridge-tool-policies.js).
+    this.assistants.hookSecrets = { check: (input) => this.secretsRead(input) };
     // Completions arrive on the reminder webhook's second route.
     reminders.webhook.receiveHook = (id, event) => this.runs.complete(id, event);
     const hub = this.assistants.gatewayEvents;
@@ -120,6 +122,30 @@ export class AgentHooks {
     return this.events
       .unsettled()
       .some((event) => event.assistantId === assistantId && event.secretsWithheld);
+  }
+  /**
+   * Whether a session may read the agent's secrets folder with a file tool: every
+   * session but a hook run's, and a hook run's only while its event runs with
+   * Secrets decided at its start and still held now. A settled run, an event from
+   * before the switch and a deleted or paused hook read nothing.
+   */
+  secretsRead(input) {
+    if (!input || typeof input !== "object") throw assistantProblem("invalid");
+    textValue(input.agentId, 4096);
+    if (input.sessionKey !== undefined) textValue(input.sessionKey, 4096);
+    const match = runSession.exec(input.sessionKey ?? "");
+    const event = match && this.events.byJob(match[2]);
+    if (!event) return { allow: true };
+    let agent;
+    try {
+      agent = this.assistants.store.getAssistant(event.assistantId);
+    } catch {
+      return { allow: false };
+    }
+    if (agent.runtimeAgentId?.toLowerCase() !== String(input.agentId).toLowerCase())
+      return { allow: false };
+    const origin = this.runOrigin(agent, input.sessionKey, event);
+    return { allow: event.secretsRead === true && origin?.effective.secrets === true };
   }
   /** Writes the agent's secrets file as it should be now; throws when that fails. */
   async syncSecrets(assistantId) {

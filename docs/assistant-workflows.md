@@ -541,32 +541,48 @@ call; the settings show the tick disabled with its reason. The run's origin clas
 browser uploads, owner-only switches, reminder, routine and hook tools and team tools
 stay out.
 
-| Tick                      | What a hook run gets                                                                                                                                                                                                                                                                   |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Always                    | `session_status`, `memory_search`, `memory_get`; the workspace `catalog` when folders or coding are ticked.                                                                                                                                                                            |
-| **Notify**                | A push notice with the result (see Notify above).                                                                                                                                                                                                                                      |
-| **Also send to Telegram** | The result in the paired Telegram chat as well.                                                                                                                                                                                                                                        |
-| **Research**              | `web_search` and `web_fetch`, whichever the agent has; never `browser`.                                                                                                                                                                                                                |
-| **Coding**                | `coding_start`, `coding_status`, `coding_artifacts`. A request on the agent's own project starts as `approved` without a card; one on a lead's share waits for the owner as always. The action carries `hookId` and `hookEventId`, and the event lists it. `coding_cancel` is refused. |
-| **Shell**                 | Off or the agent's own level (With approval or Full; OpenClaw sets exec per agent). Only while the event runs. Its approval cards offer no **Always allow** (refused on the server too).                                                                                               |
-| **SSH hosts**             | `agentpier_ssh` on the chosen hosts that the agent holds in mode **Trusted incl. routines** (SSH commands and SFTP); other hosts answer `SSH_NOT_GRANTED`, an SFTP delete is refused, and nothing waits for a card.                                                                    |
-| **Folders**               | The chosen project folders at min(hook, agent) level; changes need the tool guard like every agent write and are audited with `via: "hook"`, `hookId` and `hookEventId`. An SFTP transfer never writes the agent's workspace.                                                          |
-| **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                           |
-| **MCP**                   | The agent's MCP tools.                                                                                                                                                                                                                                                                 |
-| **Secrets**               | The agent's secrets file (`.agentpier/secrets.env`) stays in place. Off (the default, also for a hook stored without the field): the run starts only after the file is removed, and it is restored when the event settles or fails. See below.                                         |
+| Tick                      | What a hook run gets                                                                                                                                                                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Always                    | `session_status`, `memory_search`, `memory_get`; the workspace `catalog` when folders or coding are ticked.                                                                                                                                                                                              |
+| **Notify**                | A push notice with the result (see Notify above).                                                                                                                                                                                                                                                        |
+| **Also send to Telegram** | The result in the paired Telegram chat as well.                                                                                                                                                                                                                                                          |
+| **Research**              | `web_search` and `web_fetch`, whichever the agent has; never `browser`.                                                                                                                                                                                                                                  |
+| **Coding**                | `coding_start`, `coding_status`, `coding_artifacts`. A request on the agent's own project starts as `approved` without a card; one on a lead's share waits for the owner as always. The action carries `hookId` and `hookEventId`, and the event lists it. `coding_cancel` is refused.                   |
+| **Shell**                 | Off or the agent's own level (With approval or Full; OpenClaw sets exec per agent). Only while the event runs. Its approval cards offer no **Always allow** (refused on the server too).                                                                                                                 |
+| **SSH hosts**             | `agentpier_ssh` on the chosen hosts that the agent holds in mode **Trusted incl. routines** (SSH commands and SFTP); other hosts answer `SSH_NOT_GRANTED`, an SFTP delete is refused, and nothing waits for a card.                                                                                      |
+| **Folders**               | The chosen project folders at min(hook, agent) level; changes need the tool guard like every agent write and are audited with `via: "hook"`, `hookId` and `hookEventId`. An SFTP transfer never writes the agent's workspace.                                                                            |
+| **Write memory**          | `read`, `write`, `edit`, admitted only for the agent's own `MEMORY.md` and `memory/`. Without it a hook run writes neither memory nor the agent's workspace.                                                                                                                                             |
+| **MCP**                   | The agent's MCP tools.                                                                                                                                                                                                                                                                                   |
+| **Secrets**               | The run may read the agent's secrets file (`.agentpier/secrets.env`). Off (the default, also for a hook stored without the field): a run with Shell, Coding or MCP starts only after the file is removed; any other run keeps it in place, and the tool guard refuses that run's reads of it. See below. |
 
 **Secrets.** A hook offers **Secrets** only while the agent receives secrets
 (`secretIds` in its access grants); the agent cannot propose it (`agentpier_hook`
-refuses `rights.secrets: true`). Without it, `HookRuns.start` marks the event
-`secretsWithheld` and syncs the agent's file before it applies the configuration and
-forces the job. While any unsettled event of the agent is marked,
-`AgentSecrets.entries` returns nothing, so every sync, including the one before each
-turn of the agent's other chats, leaves the file away and the bootstrap does not name
-it. When the file cannot be removed the start fails (503, the sender retries). The
-settle, a failed or stale event, a failed start and deleting the hook each sync the
-file back once no marked event is left. A command the run started in the background
-keeps running after the event settled and can read the restored file; the hook's
-shell level is the owner's choice for that.
+refuses `rights.secrets: true`). `HookRuns.start` decides at the start and records
+`secretsRead` on the event. Without Secrets there are two cases
+(`readsBeyondGuard` in `agent-hook-rights.js`):
+
+- The run can reach files past the file-tool guard: a shell level other than Off,
+  Coding (a coding CLI runs commands) or MCP. The event is marked `secretsWithheld`
+  and the agent's file is synced away before the configuration is applied and the
+  job is forced. While any unsettled event of the agent is marked,
+  `AgentSecrets.entries` returns nothing, so every sync, including the one before each
+  turn of the agent's other chats, leaves the file away and the bootstrap does not
+  name it. When the file cannot be removed the start fails (503, the sender retries).
+  The settle, a failed or stale event, a failed start and deleting the hook each sync
+  the file back once no marked event is left. A command the run started in the
+  background keeps running after the event settled and can read the restored file.
+- Any other run keeps the file in place for the agent's other chats. The team
+  plugin's `secrets-guard.js` asks the bridge (`/secrets-policy`,
+  `AgentHooks.secretsRead`) on every `read`, `memory_get`, `pdf`, `view_image` or
+  `image` call that names `.agentpier` in any spelling (case folded, `\`, OpenClaw's
+  path repairs, a `file:` URL decoded with `fileURLToPath` so `%2E` counts, `~`) or
+  reaches it through a symbolic or hard link from the workspace. The bridge refuses
+  only a hook run's session (`agent:<agent>:cron:<job>…` of a hook event), unless its
+  event is running with Secrets decided at the start and still held; a settled run
+  and an event from before the switch read nothing. Every other session reads as
+  before (OpenClaw masks the values). An unanswered question refuses. The agent's
+  instructions still name the file for all its chats, so the run's prompt says that
+  its secrets are not available.
 
 **Proposals.** The agent can propose a hook itself with `agentpier_hook`
 (`agent-hook-proposals.js`, own agents and permanent members with **Allow reminders and

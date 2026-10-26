@@ -147,6 +147,15 @@ export function effectiveRights(rights, ceiling) {
   return out;
 }
 
+/**
+ * Whether a run's rights reach files past the file-tool guard: it can run commands
+ * (shell, a coding CLI) or use MCP servers. Without Secrets such a run has the
+ * agent's secrets file removed for its time; any other run is refused only its
+ * file-tool reads of it (team-plugin/secrets-guard.js).
+ */
+export const readsBeyondGuard = (effective) =>
+  effective.shell !== "off" || effective.coding === true || effective.mcp === true;
+
 /** The run's toolsAllow: only what the ticks switch on. */
 export function hookTools(effective, ceiling) {
   const tools = [...baseTools];

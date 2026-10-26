@@ -1018,11 +1018,13 @@ own **Enabled** switch is off.
   **Wake-ups per hour** (20 by default) limits the runs; later events in the same hour
   are recorded without waking the agent, and the first one sends a **Hook limit
   reached** push notice.
-  With **Secrets** off, AgentPier takes the agent's secrets file away before the run
-  starts and puts it back once the run's event has settled, so a run cannot read it,
-  not even with its shell. Your own chats with that agent have no secrets while such
-  a run works. A command the run left running in the background can still read the
-  file once it is back.
+  With **Secrets** off, a run never reads the agent's secrets file. When the hook
+  lets it run commands or reach files past AgentPier's file guard (a **Shell**,
+  **Coding CLI** or **MCP servers**), AgentPier takes the file away before the run
+  starts and puts it back once the run's event has settled; your own chats with that
+  agent have no secrets meanwhile, and a command the run left running in the
+  background can still read the file once it is back. Any other run keeps the file
+  in place for your chats; only that run's own file reads of it are refused.
   **Enabled** pauses or resumes the hook. A shell command a hook run asks for offers
   only **Allow once** and **Deny**, never **Always allow**, so an event cannot make a
   command permanent for your own chats.
