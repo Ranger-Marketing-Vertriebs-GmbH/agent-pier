@@ -1,3 +1,5 @@
+import { inheritsFromLead, personalCapabilities } from "./native-capabilities.js";
+
 // A member's own tools: its siblings of the same lead, questions and tasks for them
 // (peer-requests.js) and reports to its lead (member-reports.js). Leads never reach
 // them (TeamBridge.valid).
@@ -65,3 +67,20 @@ export const routineActions = new Set([
   // the caller check (peer-request-rules.js peerCaller).
   ...memberActions,
 ]);
+// A member's questions and tasks for its siblings (peer-requests.js).
+export const peerActions = new Set(["peers", "peer_ask", "peer_delegate"]);
+// A permanent member's own tools, as an own agent's.
+export const personalActions = new Set([
+  "reminder",
+  "routine",
+  "ssh",
+  "goal",
+  "hook",
+  "ssh_access",
+]);
+// What a temporary member reaches through its lead: reminders (created on the lead)
+// and SSH on the lead's grants, each only while it inherits them right now.
+export const inheritedAction = (a, action) =>
+  inheritsFromLead(a) &&
+  ((action === "reminder" && personalCapabilities(a).reminders) ||
+    (action === "ssh" && a.inherited.ssh === true));
