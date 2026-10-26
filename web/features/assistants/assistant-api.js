@@ -160,9 +160,9 @@ export const assistantApi = {
   runtime: () => api("/assistant-runtime"),
   create: (input) => api("/assistants", "POST", input),
   // Agency agents as templates for new agents (server agency-templates.js).
-  templates: ({ q = "", category = "", page = 1 } = {}, signal) =>
+  templates: ({ q = "", category = "", page = 1, refresh = false } = {}, signal) =>
     api(
-      `/agency/templates?${new URLSearchParams({ q, category, page: String(page) })}`,
+      `/agency/templates?${new URLSearchParams({ q, category, page: String(page), ...(refresh ? { refresh: "1" } : {}) })}`,
       "GET",
       undefined,
       signal,

@@ -249,7 +249,7 @@ test.describe("agent settings on phones", () => {
   test("creating an agent shows the save bar at once", async ({ page }) => {
     await setupAssistantSettings(page);
     await page.goto(baseURL + "/agents");
-    await page.getByRole("button", { name: "New agent" }).click();
+    await page.getByRole("link", { name: "New agent" }).click();
     await expect(bar(page)).toBeVisible();
     await expect(bar(page).getByRole("button", { name: "Create agent" })).toBeVisible();
   });

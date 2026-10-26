@@ -1,0 +1,183 @@
+/* Agenten hub (AgentsHub.jsx, AgentsOff.jsx) and the new agent wizard. Tokens only. */
+.agents-hub-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.agents-hub-panel > .list-card,
+.agents-hub-panel > section > .list-card {
+  margin-bottom: var(--space-4);
+}
+.agents-hub-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.agents-hub-pill {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--pill-bg);
+  color: var(--pill-text);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.agents-hub-pill.accent {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.group-label-row .agents-hub-pill,
+.group-label-row .agents-hub-count {
+  margin-inline-start: var(--space-2);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.agents-hub-count {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.agents-hub-avatar {
+  position: relative;
+  display: inline-flex;
+}
+.agents-hub-avatar-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+}
+.agents-hub-row-link {
+  margin-left: auto;
+  padding: var(--space-2) 0;
+  white-space: nowrap;
+}
+.agents-hub-state {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.agents-hub-state h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+.agents-hub-state p {
+  margin: 0;
+}
+.agents-hub-state.centered {
+  justify-items: center;
+  text-align: center;
+}
+.agents-hub-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.agents-hub-progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+.agents-hub-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.agents-hub-banner p {
+  margin: 0;
+}
+.agents-hub-banner > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+.agents-hub-starts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2);
+}
+.agents-hub-start {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  height: auto;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+}
+.agents-hub-start small {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  opacity: 0.8;
+}
+.agents-hub-teams-head {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.agents-hub-lead {
+  display: grid;
+  gap: var(--space-2);
+}
+.agents-hub-lead-name {
+  margin: var(--space-2) 0 0;
+  color: var(--text-meta);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+.agents-hub-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.agents-hub-toolbar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.agents-runtime-details summary {
+  cursor: pointer;
+  list-style: none;
+}
+.agents-runtime-details dl {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--panel);
+}
+.agents-runtime-details dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.agents-runtime-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.agents-hub-archive {
+  display: contents;
+}
+
+@media (max-width: 700px) {
+  /* The page header carries the sidebar button, as on the settings page. */
+  .app:has(.agents-hub) .mobile-header {
+    display: none;
+  }
+  body:has(.app .agents-hub) .update-notice {
+    top: calc(var(--safe-area-inset-top) + var(--space-2));
+  }
+  .agents-hub-row-actions {
+    justify-content: flex-start;
+  }
+}

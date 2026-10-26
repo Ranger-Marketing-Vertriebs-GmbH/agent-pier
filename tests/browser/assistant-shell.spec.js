@@ -112,7 +112,7 @@ for (const [label, use] of [
     test("a new agent with shell is confirmed before it is created", async ({ page }) => {
       const state = await setup(page);
       await page.goto(baseURL + "/agents");
-      await page.getByRole("button", { name: "New agent" }).click();
+      await page.getByRole("link", { name: "New agent" }).click();
       await page.getByLabel("Name", { exact: true }).fill("Fresh");
       await page.getByLabel("Model connection").selectOption("router");
       await page.getByRole("textbox", { name: "Model ID" }).fill("model");

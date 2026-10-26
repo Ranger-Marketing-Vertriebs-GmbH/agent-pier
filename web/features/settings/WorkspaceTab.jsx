@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
@@ -20,21 +20,17 @@ import { settingsPageCopy } from "../../lib/i18n/messages/settings.js";
 import { sameValue } from "../../lib/settings/draft-state.js";
 import useTabDraft from "../../lib/settings/useTabDraft.js";
 import useUnsavedChangesGuard from "../../lib/settings/useUnsavedChangesGuard.js";
-import useAssistantFeature, {
-  FEATURE_CHECK_FAILED,
-} from "../assistants/useAssistantFeature.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
+import { agentsHubRoute } from "../assistants/hub-routes.js";
+import { agentsHubCopy as hubCopy } from "../../lib/i18n/messages/agents-hub.js";
 import DirectoryRow from "./DirectoryRow.jsx";
 import McpDirectoryRow, { officialRegistry } from "./McpDirectoryRow.jsx";
 import { TabFrame } from "./SettingsFrame.jsx";
 import { MovedGroup } from "./SummaryTabs.jsx";
-import { staysOn, subpage } from "./settings-navigation.js";
-import {
-  featureStep,
-  fieldCheckStep,
-  languageStep,
-  preferencesStep,
-} from "./settings-steps.js";
-const AgentServiceStatus = lazy(() => import("./AgentServiceStatus.jsx"));
+import { staysOn } from "./settings-navigation.js";
+import { fieldCheckStep, languageStep, preferencesStep } from "./settings-steps.js";
+// Agents are switched on and off under Agenten › Laufzeit (handoff 5.2).
+const agentsRuntime = agentsHubRoute("runtime");
 
 // Language names are endonyms, the same in every UI language.
 const languages = [
@@ -51,16 +47,11 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
     language,
     defaultCwd: ready ? state.defaultCwd || state.home || "" : "",
     autoResumeInterrupted: state.autoResumeInterrupted !== false,
-    agentsEnabled: feature.enabled,
     mcpDirectoryEnabled: state.mcpDirectory?.enabled !== false,
     mcpDirectoryBaseUrl: state.mcpDirectory?.baseUrl || officialRegistry,
   };
   const draft = useTabDraft({ server });
   const [saved, setSaved] = useState(false);
-  // Opening the settings re-checks a feature state that could not be read (as the
-  // old AssistantFeatureSettings did); `retry` is a stable module function.
-  const retryFeature = feature.retry;
-  useEffect(retryFeature, [retryFeature]);
   // The state refresh of the preferences step (or the 3s state poll) can publish the
   // server's canonical directory (realpath, "~/work") while the save is still running;
   // useTabDraft then records a conflict and, once the save marks the typed value as
@@ -76,11 +67,6 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
     fieldCheckStep({ id: "directory", fields: ["defaultCwd"], error: directoryError }),
     languageStep({ label: () => commonCopy.language, apply: setLanguage }),
     preferencesStep({ label: () => operationsCopy.sections.general, refresh }),
-    featureStep({
-      label: () => operationsCopy.sections.assistants,
-      setEnabled: feature.setEnabled,
-      notApplied: () => settingsPageCopy.agentsNotApplied,
-    }),
   ];
   const finish = (result) => {
     setSaved(result.status === "saved");
@@ -98,10 +84,6 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
     setSaved(false);
     draft.set(key, value);
   };
-  const open = (section) => ({
-    href: routePath(subpage(section)),
-    onClick: () => frame.go(subpage(section)),
-  });
   const locked = !ready || draft.saving;
   const fieldError =
     ready && draft.changedKeys.includes("defaultCwd") ? directoryError(draft.values) : "";
@@ -117,9 +99,6 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
   const bar = addressRefused
     ? { ...draft, outcome: { ...draft.outcome, error: undefined } }
     : draft;
-  const diagnostic = feature.error
-    ? featureCopy.errors[feature.error] || featureCopy.problem(feature.error)
-    : "";
   return (
     <TabFrame
       frame={frame}
@@ -165,28 +144,20 @@ export default function WorkspaceTab({ frame, state, refresh, ready }) {
       />
       <GroupLabel id="settings-agents">{operationsCopy.sections.assistants}</GroupLabel>
       <ListCard labelledBy="settings-agents">
-        <ToggleRow
-          label={featureCopy.title}
-          hint={featureCopy.description}
-          checked={draft.values.agentsEnabled}
-          disabled={
-            feature.loading || feature.error === FEATURE_CHECK_FAILED || draft.saving
+        <ListRow
+          label={assistantCopy.title}
+          sub={featureCopy.title}
+          value={
+            feature.loading
+              ? unknownValue
+              : feature.enabled
+                ? hubCopy.featureOn
+                : hubCopy.featureOff
           }
-          onChange={edit("agentsEnabled")}
+          href={routePath(agentsRuntime)}
+          onClick={() => frame.go(agentsRuntime)}
         />
-        {feature.enabled && (
-          <ListRow
-            label={assistantCopy.runtime}
-            value={
-              <Suspense fallback={unknownValue}>
-                <AgentServiceStatus />
-              </Suspense>
-            }
-            {...open("assistants")}
-          />
-        )}
       </ListCard>
-      <ErrorMessage error={diagnostic && `${featureCopy.diagnostic}: ${diagnostic}`} />
       <MovedGroup frame={frame} />
       {saved && !draft.dirty && (
         <p className="field-description" role="status">

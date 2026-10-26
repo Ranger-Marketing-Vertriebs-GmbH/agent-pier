@@ -47,7 +47,7 @@ async function setup(page) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "New agent", exact: true }).click();
+  await page.getByRole("link", { name: "New agent", exact: true }).click();
   return { controls, created };
 }
 

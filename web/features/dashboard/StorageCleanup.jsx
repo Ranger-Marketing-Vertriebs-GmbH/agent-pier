@@ -12,7 +12,8 @@ const groups = [
   ["dependencies", CleanupDependencies],
 ];
 
-function CleanupGroup({ id, List }) {
+/** One cleanup list behind its row; also on Agenten › Laufzeit › Speicher. */
+export function CleanupGroup({ id, List }) {
   const [open, setOpen] = useState(false);
   const panel = useId();
   const text = copy.cleanup[id];

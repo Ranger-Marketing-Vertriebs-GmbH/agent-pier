@@ -127,7 +127,7 @@ test("offline account UI links to assistant service and selected ChatGPT account
     await route.fulfill({ json: { ...saved, id: "new", revision: 1 } });
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "New agent" }).click();
+  await page.getByRole("link", { name: "New agent" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Home");
   await page.getByLabel("Model connection").selectOption("openclaw:test");
   await page.getByLabel("Model ID").fill("gpt-6-astra");

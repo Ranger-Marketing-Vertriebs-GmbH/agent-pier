@@ -7,7 +7,7 @@ test("nested members open directly, retain drafts and show independent settings"
 }) => {
   await setup(page);
   await page.goto(baseURL + "/agents");
-  await expect(page.locator(".assistant-card")).toHaveCount(1);
+  await expect(page.locator(".agents-hub-agent")).toHaveCount(1);
   await expect(page.locator(".assistant-sidebar-member")).toHaveCount(0);
   await page.getByRole("button", { name: /Show team members/ }).click();
   await expect(page.locator(".assistant-sidebar-member")).toHaveCount(4);
@@ -200,16 +200,17 @@ test("host capacity overwrite uses the newer revision and leaving asks first", a
   ).toEqual([4]);
   await expect(page.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
   await capacity.fill("8");
-  const back = page.getByRole("button", { name: "Back to General", exact: true });
+  // Leaving the Runtime tab (here for another hub tab) asks first.
+  const back = page.getByRole("tab", { name: "All agents" });
   await back.click();
   const sheet = page.getByRole("dialog", { name: "Save changes?" });
-  await expect(sheet).toContainText("1 change in Agent service is not saved yet.");
+  await expect(sheet).toContainText("1 change in Runtime is not saved yet.");
   await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
   await expect(capacity).toHaveValue("8");
   await back.click();
   await sheet.getByRole("button", { name: "Discard", exact: true }).click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/agents$/);
   expect(teamSettings.hostMaxConcurrent).toBe(16);
 });
 

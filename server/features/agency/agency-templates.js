@@ -47,11 +47,15 @@ export class AgencyTemplates {
   constructor(agency) {
     this.agency = agency;
   }
-  /** One page of catalog entries (id, name, category) at the current revision. */
+  /**
+   * One page of catalog entries (id, name, category) at the current revision;
+   * `refresh=1` reads the catalog again first ("Katalog aktualisieren").
+   */
   async search(query = {}) {
     const q = typeof query.q === "string" ? query.q.slice(0, templateLimits.query) : "";
     const category = typeof query.category === "string" ? query.category : "";
-    return searchCatalog(await this.agency.catalog(), { ...query, q, category });
+    const catalog = await this.agency.catalog(query.refresh === "1");
+    return searchCatalog(catalog, { ...query, q, category });
   }
   /**
    * One entry at `revision` (the current one when omitted): its parsed identity,

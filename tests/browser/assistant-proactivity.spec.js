@@ -130,7 +130,7 @@ test("an agent's saved check-ins load into the form and fit a phone", async ({
 test("a new agent switches check-ins on after saving", async ({ page }) => {
   await setup(page, { channel: connectedChannel() });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "New agent" }).click();
+  await page.getByRole("link", { name: "New agent" }).click();
   await agentTab(page, "Capabilities").click();
   const heartbeat = section(page).getByRole("switch", { name: "Check in on its own" });
   await expect(heartbeat).toBeDisabled();

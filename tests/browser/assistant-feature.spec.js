@@ -235,7 +235,11 @@ test("switching agents off removes navigation and closes the event stream", asyn
   page,
 }) => {
   await featureFixture(page, { enabled: true, assistants: [assistant("home")] });
+  // The switch moved from Settings › General to Agenten › Laufzeit; a link row stays.
   await page.goto(baseURL + "/settings");
+  await expect(page.getByRole("switch", { name: "Enable agents" })).toHaveCount(0);
+  await page.getByRole("link", { name: /^Agents.*On/ }).click();
+  await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
   await expect(page.getByRole("button", { name: "Agent chats" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__streams.length)).toBe(1);
   await page.getByRole("switch", { name: "Enable agents" }).click();
@@ -259,4 +263,24 @@ test("a rejected switch change reports the problem and stays off", async ({ page
   await expect(toggle).not.toBeChecked();
   await openMenu(page);
   await expect(agentsOff(page)).toHaveText("off");
+});
+
+test("agents off: every hub tab offers Enable agents, Runtime keeps the switch", async ({
+  page,
+}) => {
+  const { requests, feature } = await featureFixture(page, {
+    assistants: [assistant("home")],
+  });
+  await page.goto(baseURL + "/agents?tab=teams");
+  await expect(page.getByRole("heading", { name: "Agents are off" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Runtime" })).toBeVisible();
+  expect(requests.every((r) => r === "GET /api/assistant-feature")).toBe(true);
+  expect(await hasAssistantCss(page)).toBe(false);
+  await page.getByRole("tab", { name: "Runtime" }).click();
+  await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
+  await expect(page.getByRole("switch", { name: "Enable agents" })).not.toBeChecked();
+  await page.getByRole("tab", { name: "All agents" }).click();
+  await page.getByRole("button", { name: "Enable agents" }).click();
+  await expect.poll(() => feature.enabled).toBe(true);
+  await expect(page.getByRole("heading", { name: "Your agents" })).toBeVisible();
 });

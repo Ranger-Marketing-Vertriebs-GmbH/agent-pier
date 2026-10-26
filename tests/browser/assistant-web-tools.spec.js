@@ -211,7 +211,7 @@ for (const [label, use] of [
     }) => {
       const state = await setup(page);
       await page.goto(baseURL + "/agents");
-      await page.getByRole("button", { name: "New agent" }).click();
+      await page.getByRole("link", { name: "New agent" }).click();
       await agentTab(page, "Capabilities").click();
       for (const name of [
         "Search the web",
