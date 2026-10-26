@@ -22,8 +22,8 @@ const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
 const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
 // The memory view lists notes newest first in pages of `pageSize` (AGENTPIER-234:
-// dreaming adds three a night). A folder is read up to `maxNotes`; beyond, the oldest
-// stay out of the view, though the agent still has them.
+// dreaming adds three a night). A folder is read up to `maxNotes` notes, a bound on
+// the work of one listing; notes beyond it stay out of the view, not out of memory.
 const pageSize = 200,
   maxNotes = 10000,
   maxNoteBytes = 262144;
