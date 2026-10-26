@@ -18,11 +18,52 @@ export function placeholderArgs(length) {
   return Array.from({ length }, (_, i) => `__ARG_${i}__`);
 }
 
-/** Renders a catalog message: strings as is, functions with placeholder arguments. */
+/**
+ * The singular branches of a message function. Placeholder arguments are strings,
+ * so a branch such as `count === 1` never renders with them: each argument is set to
+ * 1 in turn (the others stay placeholders), and a rendering that is more than the
+ * placeholder text with 1 in its place is a branch of its own. An argument that
+ * cannot be a number (the function throws or returns no string) has none.
+ */
+export function singularForms(message) {
+  if (typeof message !== "function") return [];
+  const args = placeholderArgs(message.length);
+  const plain = message(...args);
+  const forms = [];
+  for (let index = 0; index < args.length; index++) {
+    const text = renderSingular(message, index);
+    if (text !== undefined && text !== plain.replaceAll(args[index], "1"))
+      forms.push({ index, text });
+  }
+  return forms;
+}
+
+/** `message` with argument `index` set to 1 and placeholders for the others. */
+export function renderSingular(message, index) {
+  const args = placeholderArgs(message.length).map((arg, i) => (i === index ? 1 : arg));
+  try {
+    const text = message(...args);
+    return typeof text === "string" ? text : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Renders a catalog message: strings as is, functions with placeholder arguments,
+ * followed by their singular branches (`[__ARG_0__=1] …`, one per line).
+ */
 export function renderMessage(message) {
-  return typeof message === "function"
-    ? message(...placeholderArgs(message.length))
-    : message;
+  if (typeof message !== "function") return message;
+  const text = message(...placeholderArgs(message.length));
+  if (typeof text !== "string") return text;
+  const args = placeholderArgs(message.length);
+  return [
+    text,
+    ...singularForms(message).map(
+      ({ index, text: form }) => `[${args[index]}=1] ${form}`,
+    ),
+  ].join("\n");
 }
 
 /** Flattens a catalog into key path → rendered text, for strings and functions. */
