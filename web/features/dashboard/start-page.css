@@ -32,6 +32,12 @@
 .start-section-head {
   margin-bottom: var(--space-3);
 }
+.start-head-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
 .start-section-head h2,
 .start-card-head h2,
 .start-system-title {
