@@ -14,6 +14,7 @@ import { TeamBridge } from "../features/assistants/team-bridge.js";
 import { AgentLifecycle } from "../features/assistants/agent-lifecycle.js";
 import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
 import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
+import { workflowInstructionWiring } from "./workflow-instruction-wiring.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
 import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
@@ -499,15 +500,7 @@ export function connectAssistantServices(graph) {
       !!(runtime.telegram || runtime.telegramStarting)?.accounts.includes(
         assistant.runtimeAgentId,
       ),
-    // Agents with an SSH grant get agentpier_ssh (assistant-access.js).
-    sshGranted: (assistant) => workflows.access.hasSshGrants(assistant.id),
-    // Project folders the agent may use directly, named in its instructions.
-    projectFolders: (assistant) => workflows.folders.forAgent(assistant),
-    // Its GitHub access, named in its instructions, and its shell's GitHub folder.
-    github: (assistant) => workflows.github.describe(assistant),
-    githubShellPath: (assistant) => workflows.github.shellPath(assistant),
-    // Projects it may start coding sessions on, named in its instructions.
-    codingSessions: (assistant) => workflows.sessions.projects(assistant.id),
+    ...workflowInstructionWiring(workflows),
     // A lead's members and team usage level while its team tools are offered.
     teamRoster: (assistant) =>
       bridge.status().ready ? teams.requests.roster(assistant.id) : null,
