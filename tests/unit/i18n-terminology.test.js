@@ -82,6 +82,7 @@ const properNouns = [
   /Brave Search/g,
   /Claude Code/g,
   /REA Core/g,
+  /\b(Ghidra|Temurin|JDK|Hopper|IDA|JEB|LLDB)\b/g,
   /Z\.ai Coding Plan/g,
   /OpenAI Chat Completions|Chat Completions|OpenAI Responses|Anthropic Messages/g,
   /MCP Registry/g,

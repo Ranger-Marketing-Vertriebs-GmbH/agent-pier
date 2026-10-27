@@ -11,8 +11,14 @@ import {
   dashboardPageCopy,
   startPageCopy as copy,
 } from "../../lib/i18n/messages/dashboard.js";
+import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
-import { splitToolActions, toolActions, updateRequired } from "./tool-actions.js";
+import {
+  reaUpdate,
+  splitToolActions,
+  toolActions,
+  updateRequired,
+} from "./tool-actions.js";
 import {
   runToolAction,
   toolActionLabel,
@@ -30,13 +36,15 @@ function stateLine(tool) {
       .filter(Boolean)
       .join(" · ");
   if (!tool.installed) return commonCopy.notInstalled;
+  if (reaUpdate(tool))
+    return [reaCopy.updateBadge, tool.version].filter(Boolean).join(" · ");
   return [commonCopy.ready, tool.version].filter(Boolean).join(" · ");
 }
 
 function ToolRow({ tool, effects }) {
   const menu = useRowMenu();
   const { primary, more } = splitToolActions(toolActions(tool));
-  const outdated = updateRequired(tool);
+  const outdated = updateRequired(tool) || reaUpdate(tool);
   return (
     <li className={`start-tool ${tool.installed ? "" : "unavailable"}`}>
       <ProviderMark tool={tool.id} size="row" />

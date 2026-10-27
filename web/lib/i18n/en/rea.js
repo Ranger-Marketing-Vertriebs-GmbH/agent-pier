@@ -1,0 +1,62 @@
+export const reaCopy = {
+  title: "REA",
+  manage: "Manage",
+  updateBadge: "Update available",
+  working: "Working …",
+  intro:
+    "REA gives Claude Code tools to analyse binaries. AgentPier downloads the parts you choose, checks their size and SHA-256 and keeps them in its own folder, apart from your own configuration.",
+  loading: "Loading REA …",
+  loadFailed: "REA's state could not be loaded.",
+  componentsLabel: "Components",
+  core: "REA Core",
+  coreDescription: "REA's MCP server and skill. Always part of REA.",
+  ghidra: "Ghidra with decompiler + Temurin JDK",
+  ghidraDescription: "Decompiles native code; brings its own Java runtime.",
+  frida: "Frida",
+  fridaDescription: "Instruments running processes for dynamic analysis.",
+  version: (version) => `Version ${version}`,
+  installedVersion: (version) => `Installed: ${version}`,
+  availableVersion: (version) => `Available: ${version}`,
+  ghidraVersion: (ghidra, jdk) => `Ghidra ${ghidra} · Temurin JDK ${jdk}`,
+  sizes: (download, installed) => `Download ${download} · Installed ${installed}`,
+  total: (download, installed) => `Total: download ${download}, installed ${installed}`,
+  ownToolsLabel: "Your own tools",
+  ownToolsDescription:
+    "AgentPier never downloads Hopper, IDA or JEB. If you have them, REA can use them through these settings. Leave a field empty to not use it.",
+  hopperPath: "Hopper launcher path",
+  idaConfig: "IDA MCP bridge configuration",
+  jebUrl: "JEB MCP URL",
+  provider: "Analysis provider",
+  providerHint: "IDA needs the path to the IDA MCP bridge configuration.",
+  safetyLabel: "Safety",
+  safetyDualUse:
+    "REA is dual use: the tools that explain software can also help to break it. Analyse only software you are allowed to analyse.",
+  safetyDisclaimer:
+    "REA's DISCLAIMER forbids circumventing DRM, licence checks and anti-cheat systems.",
+  safetyUntrusted:
+    "Open untrusted binaries only in a virtual machine or a separate user account, never next to your own data.",
+  safetyGenuine:
+    "Only morluto/rea is the genuine REA. Copies under other names are not from its author.",
+  sandboxLabel: "Sandbox",
+  sandboxNotice:
+    "REA is not supported in the nono sandbox. These features need an unsandboxed session:",
+  sandboxGhidra: "Ghidra decompilation",
+  sandboxFrida: "Frida attach and spawn",
+  sandboxLldb: "Debugging with LLDB",
+  sandboxProcesses: "Listing processes",
+  sandboxBridges: "The Hopper, IDA and JEB bridges",
+  acknowledge:
+    "I understand these notes and use REA only on software I am allowed to analyse.",
+  applyChanges: "Apply changes",
+  update: "Update",
+  updateNote: (version) => `A newer REA is available: ${version}.`,
+  statusRunning: "REA is being changed …",
+  statusFailed: "The last change failed",
+  statusSucceeded: "Done",
+  backgroundNote: "You can close this window. REA continues in the background.",
+  uninstall: "Uninstall REA",
+  uninstallTitle: "Uninstall REA?",
+  uninstallBody:
+    "AgentPier removes REA's MCP server, its skill copies, Ghidra, the Java runtime and Frida. Your own Hopper, IDA and JEB stay untouched.",
+  uninstallConfirm: "Uninstall",
+};

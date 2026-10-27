@@ -10,6 +10,7 @@
 @import "../features/extensions/extensions.css";
 @import "../features/plugins/plugins.css";
 @import "../features/tools/tool-installer.css";
+@import "../features/tools/rea.css";
 @import "../components/anchored-select.css";
 @import "../components/side-panel.css";
 @import "../components/underline-tabs.css";

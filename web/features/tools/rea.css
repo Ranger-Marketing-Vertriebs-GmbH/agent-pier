@@ -1,0 +1,83 @@
+/* The REA dialog (ReaDialog.jsx): components, own tools, notes and status. Tokens
+   only, see docs/ui-guide.md. */
+.rea-dialog .rea-components {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.rea-dialog .rea-reason {
+  color: var(--warning);
+}
+.rea-dialog .rea-total {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text);
+}
+.rea-section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.rea-section h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text);
+}
+.rea-section .dialog-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.rea-provider {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.rea-provider-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text);
+}
+.rea-notes {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}
+.rea-dialog .rea-warning {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--warning);
+  overflow-wrap: anywhere;
+}
+.rea-status {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.rea-status strong {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent-text);
+}
+.rea-status.failed strong {
+  color: var(--error-text);
+}
+.rea-status.succeeded strong {
+  color: var(--success);
+}
+.rea-status p {
+  margin: var(--space-1) 0 0;
+}
+.rea-dialog .rea-uninstall {
+  margin-right: auto;
+}
