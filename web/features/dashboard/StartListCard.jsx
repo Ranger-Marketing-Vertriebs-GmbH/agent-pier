@@ -6,10 +6,11 @@ import { filterList, PHONE_LIMIT, shownRows } from "./start-lists.js";
 
 /**
  * A start page card with a long list (sessions, agents): title and count, a search
- * (desktop), filter chips with counts after the search, the first `limit` rows and
- * "Show n more", which lets the list scroll inside the card. Changing the filter or
- * the search folds it again. Phones show `PHONE_LIMIT` rows and a "show all" row
- * (`showAll(count)` → `{ label, onClick }`) instead.
+ * (beside the title; above the chips on phones), filter chips with counts after the
+ * search, the first `limit` rows and "Show n more", which lets the list scroll inside
+ * the card. Changing the filter or the search folds it again. Phones show
+ * `PHONE_LIMIT` rows and a "show all" row (`showAll(count)` → `{ label, onClick }`)
+ * instead.
  */
 export default function StartListCard({
   id,
@@ -40,6 +41,28 @@ export default function StartListCard({
     ? shownRows(rows, PHONE_LIMIT, false)
     : shownRows(rows, limit, expanded);
   const hidden = rows.length - shownRows(rows, limit, false).length;
+  const search = (
+    <label className="start-search">
+      <Icon name="search" size={14} />
+      <input
+        type="search"
+        value={query}
+        placeholder={searchLabel}
+        aria-label={searchLabel}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setExpanded(false);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && query) {
+            event.preventDefault();
+            setQuery("");
+            setExpanded(false);
+          }
+        }}
+      />
+    </label>
+  );
   const all = showAll && phone && rows.length > PHONE_LIMIT ? showAll(rows.length) : null;
   return (
     <section
@@ -50,29 +73,9 @@ export default function StartListCard({
         <h2 id={`${id}-title`}>
           {title} {count && <span className="start-card-count">{count}</span>}
         </h2>
-        {!phone && items.length > 0 && (
-          <label className="start-search">
-            <Icon name="search" size={14} />
-            <input
-              type="search"
-              value={query}
-              placeholder={searchLabel}
-              aria-label={searchLabel}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setExpanded(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && query) {
-                  event.preventDefault();
-                  setQuery("");
-                  setExpanded(false);
-                }
-              }}
-            />
-          </label>
-        )}
+        {!phone && items.length > 0 && search}
       </div>
+      {phone && items.length > 0 && search}
       {items.length > 0 && (
         <FilterChips
           label={chipsLabel}

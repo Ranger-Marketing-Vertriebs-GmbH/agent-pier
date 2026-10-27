@@ -571,6 +571,14 @@ a.start-row:hover {
   .start-list {
     padding-bottom: 0;
   }
+  .start-list > .start-search {
+    width: 100%;
+    height: auto;
+    margin-top: var(--space-3);
+  }
+  .start-list > .start-search input {
+    height: var(--touch-target);
+  }
   .start-head-link {
     min-height: var(--touch-target);
   }

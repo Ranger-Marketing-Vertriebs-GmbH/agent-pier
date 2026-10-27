@@ -182,7 +182,12 @@ test.describe("phone", () => {
     await page.goto("/");
     const card = sessionsCard(page);
     await expect(card.locator(".start-row")).toHaveCount(4);
-    await expect(card.getByRole("searchbox")).toHaveCount(0);
+    // The search sits above the chips with a full tap target and filters the rows.
+    const search = card.getByRole("searchbox", { name: "Name or project" });
+    const chips = card.getByRole("group", { name: "Filter sessions" });
+    const searchBox = await search.boundingBox();
+    expect(searchBox.height).toBeGreaterThanOrEqual(44);
+    expect(searchBox.y).toBeLessThan((await chips.boundingBox()).y);
     await expect(card.getByRole("button", { name: /Show .* more/ })).toHaveCount(0);
     const all = card.getByRole("button", { name: "Show all 18 sessions" });
     await expect(all).toBeVisible();
@@ -219,6 +224,13 @@ test.describe("phone", () => {
       path: testInfo.outputPath("start-page-phone.png"),
       fullPage: true,
     });
+    await search.fill("bilen");
+    await expect(card.locator(".start-row")).toHaveCount(3);
+    await expect(card.getByRole("button", { name: /Show all/ })).toHaveCount(0);
+    await search.fill("");
+    await expect(
+      agentsCard(page).getByRole("searchbox", { name: "Search agents" }),
+    ).toBeVisible();
     await all.click();
     await expect(page.locator(".sidebar.open, .app .sidebar")).toBeVisible();
   });
