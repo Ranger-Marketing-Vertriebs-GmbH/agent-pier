@@ -1,4 +1,5 @@
 import React from "react";
+import ChatTime from "./ChatTime.jsx";
 import TeamNote from "./TeamNote.jsx";
 import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
@@ -70,6 +71,8 @@ export default function TranscriptItem({
   ) : m.event === "peer-request" ? (
     <p className="assistant-note assistant-event" data-peer-note={m.phase}>
       {leadRequestCopy.peerNote[m.phase]?.(m.type, m.from, m.to)}
+      {m.timestamp > 0 && " · "}
+      <ChatTime timestamp={m.timestamp} />
     </p>
   ) : m.event === "compaction" ? (
     <p className="assistant-note assistant-event" data-compaction-note>

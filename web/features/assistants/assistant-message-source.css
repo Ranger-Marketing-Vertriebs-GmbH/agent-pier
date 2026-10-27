@@ -16,7 +16,7 @@
   font-size: 12px;
   line-height: 1.4;
 }
-/* A routine's result: the agent's name with a quiet "Scheduled · <routine>" badge. */
+/* The speaker's name with its time, and a routine's result: the name with a quiet "Scheduled · <routine>" badge. */
 .assistant-message-head {
   display: flex;
   flex-wrap: wrap;
@@ -27,6 +27,11 @@
 .assistant-message-head > strong {
   color: var(--muted);
   font-size: 12px;
+}
+.assistant-message-time {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .assistant-scheduled-badge {
   max-width: 100%;

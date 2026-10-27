@@ -96,3 +96,30 @@ test("browser initialization and storage changes follow persisted preferences", 
   assert.equal(i18n.language, "de");
   dispose();
 });
+
+test("chat times show the clock today and add the date, then the year, for older messages", () => {
+  const storage = { setItem() {} };
+  const document = { documentElement: { lang: "de" } };
+  const now = new Date(2026, 9, 27, 12, 0);
+  const today = new Date(2026, 9, 27, 8, 0);
+  const earlier = new Date(2026, 9, 26, 18, 0);
+  const lastYear = new Date(2025, 11, 31, 23, 5);
+  try {
+    i18n.setLanguage("en", { storage, document });
+    assert.equal(i18n.formatChatTime(today, now), "08:00 AM");
+    assert.match(i18n.formatChatTime(earlier, now), /^Mon,? (Oct 26|26 Oct),? 06:00 PM$/);
+    assert.match(
+      i18n.formatChatTime(lastYear, now),
+      /^Wed,? (Dec 31|31 Dec),? 2025,? 11:05 PM$/,
+    );
+    assert.equal(i18n.formatChatTime(today.getTime(), now), "08:00 AM");
+    assert.match(i18n.formatChatTimeTitle(earlier), /Monday.*October 26, 2026.*6:00 PM/);
+    i18n.setLanguage("de", { storage, document });
+    assert.equal(i18n.formatChatTime(today, now), "08:00");
+    assert.equal(i18n.formatChatTime(earlier, now), "Mo., 26.10., 18:00");
+    assert.equal(i18n.formatChatTime(lastYear, now), "Mi., 31.12.2025, 23:05");
+    assert.match(i18n.formatChatTimeTitle(earlier), /Montag.*26\. Oktober 2026.*18:00/);
+  } finally {
+    i18n.setLanguage("de", { storage, document });
+  }
+});
