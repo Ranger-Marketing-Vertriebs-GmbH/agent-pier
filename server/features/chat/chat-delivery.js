@@ -24,7 +24,8 @@ import {
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const statuses = new Set(["pending", "handed-off", "rejected", "uncertain"]);
-function sessionScope(session) {
+/** The scope a delivery is bound to: the session and the CLI and account it runs. */
+export function sessionScope(session) {
   return JSON.stringify([
     session.id,
     session.deliveryAccountId || session.accountId,
