@@ -18,6 +18,7 @@ Usage: agentpier-install [options]
   --dependencies-only   Install missing Git and tmux only
   --with-assistants     Enable assistants and pre-install their runtime
   --with-agent-browser  Install the managed agent browser (Chrome for Testing)
+  --with-rea            Install REA with Ghidra and the JDK (Core follows at server start)
   --help                Show this help
   --version             Show the installer version
 EOF

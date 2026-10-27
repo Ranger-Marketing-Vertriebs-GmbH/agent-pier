@@ -27,6 +27,7 @@ import { inspectSetupService } from "./setup-service.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
+import { provisionRea } from "../server/features/tools/rea-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
 const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
@@ -91,6 +92,7 @@ export async function resumeSetup(
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
     agentBrowser = provisionAgentBrowser,
+    rea = provisionRea,
     githubMcp = provisionGithubMcp,
   } = {},
 ) {
@@ -217,6 +219,8 @@ export async function resumeSetup(
       dataDir,
       enable: options.withAgentBrowser === true,
     });
+    // Ghidra and the JDK now; REA Core and its server row at the next server start.
+    const reaResult = await rea({ dataDir, enable: options.withRea === true });
     // Keeps an installed GitHub MCP server for agents at the pinned version.
     const githubMcpResult = await githubMcp({ dataDir });
     if (options.service) {
@@ -271,6 +275,7 @@ export async function resumeSetup(
       ...(assistants ? { assistantRuntime: assistants } : {}),
       toolchains: toolchainResult,
       ...(browserResult ? { agentBrowser: browserResult } : {}),
+      ...(reaResult ? { rea: reaResult } : {}),
       ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
     };
   } finally {

@@ -16,6 +16,7 @@ import { ensureDependencies } from "./install-dependencies.mjs";
 import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
+import { provisionRea } from "../server/features/tools/rea-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
@@ -32,6 +33,7 @@ async function installInitialRelease(
     service = false,
     withAssistants = false,
     withAgentBrowser = false,
+    withRea = false,
   },
   {
     run,
@@ -44,6 +46,7 @@ async function installInitialRelease(
     assistantRuntime,
     toolchains = provisionInstallerToolchains,
     agentBrowser = provisionAgentBrowser,
+    rea = provisionRea,
     githubMcp = provisionGithubMcp,
   } = {},
 ) {
@@ -80,6 +83,8 @@ async function installInitialRelease(
   );
   const toolchainResult = await toolchains({ dataDir });
   const browserResult = await agentBrowser({ dataDir, enable: withAgentBrowser });
+  // Ghidra and the JDK now; REA Core and its server row at the next server start.
+  const reaResult = await rea({ dataDir, enable: withRea });
   // Keeps an installed GitHub MCP server for agents at the pinned version.
   const githubMcpResult = await githubMcp({ dataDir });
   const configuredEnv = {
@@ -111,6 +116,7 @@ async function installInitialRelease(
     ...(assistants ? { assistantRuntime: assistants } : {}),
     toolchains: toolchainResult,
     ...(browserResult ? { agentBrowser: browserResult } : {}),
+    ...(reaResult ? { rea: reaResult } : {}),
     ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
   };
 }
@@ -127,6 +133,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--dependencies-only",
         "--with-assistants",
         "--with-agent-browser",
+        "--with-rea",
       ].includes(key)
     )
       options[key] = true;
@@ -175,6 +182,7 @@ export async function runInstaller(args, dependencies = {}) {
       installDependencies: options["--skip-dependencies"] !== true,
       withAssistants: options["--with-assistants"] === true,
       withAgentBrowser: options["--with-agent-browser"] === true,
+      withRea: options["--with-rea"] === true,
     },
     dependencies,
   );
