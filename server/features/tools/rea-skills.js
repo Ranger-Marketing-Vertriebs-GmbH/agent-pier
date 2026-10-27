@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { logFailure } from "../mcp-packages/package-install-job.js";
 
 // The skill REA's npm package ships for the coding CLIs (AGENTPIER-104).
@@ -31,8 +32,14 @@ export async function syncReaSkills({ serverId, servers, packageSkills, extensio
         confirmInstall: true,
       });
     } catch (error) {
-      // The owner's own folder of that name wins; a busy package is retried later.
-      if (error?.status !== 409) logFailure("copy REA's skill into a CLI profile", error);
+      // The owner's own folder of that name wins and is never retried. Anything else
+      // (a busy package, a missing install) is logged; the next sync (a binding
+      // change, REA's next job or server start) tries again.
+      if (error?.message !== serverMessages.extensions.skillDirectoryAlreadyExists)
+        logFailure(
+          "copy REA's skill into a CLI profile (retried at the next sync)",
+          error,
+        );
     }
   }
   const bound = new Set(targets.map((profile) => profile.id));

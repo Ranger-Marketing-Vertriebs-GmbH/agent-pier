@@ -1,8 +1,6 @@
-import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { cleanEnvironment } from "../accounts/account-store.js";
@@ -18,7 +16,6 @@ import {
   installReaComponent,
   managedReaComponent,
   removeReaComponent,
-  sweepReaComponents,
 } from "./rea-components.js";
 import {
   cleanReaSettings,
@@ -29,7 +26,8 @@ import {
 } from "./rea-environment.js";
 import { placeFridaPrebuild } from "./rea-frida.js";
 import { syncReaSkills } from "./rea-skills.js";
-import { keyed, reaComponentStates } from "./rea-state.js";
+import { startRea, uninstallRea } from "./rea-lifecycle.js";
+import { failureText, keyed, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
 
 const messages = serverMessages.rea;
@@ -37,11 +35,6 @@ const tool = "rea";
 const refuse = (message) => problem(message, 409);
 const defaultDarwinMajor = () =>
   process.platform === "darwin" ? Number(os.release().split(".")[0]) : NaN;
-// Only catalog texts reach the card; anything else (paths, npm output) stays out.
-const failureText = (error) =>
-  typeof error?.status === "number" && messageIdentity(error.message).messageKey
-    ? error.message
-    : messages.failed;
 const flag = (value, fallback) => (typeof value === "boolean" ? value : fallback);
 
 /**
@@ -158,13 +151,18 @@ export class ReaTool {
   component(id) {
     return managedReaComponent(this.root, id);
   }
-  /** Whether an installed part differs from the pins of this AgentPier. */
-  outdated() {
-    const row = this.record();
-    const coreOld =
+  /** Whether Core's record differs from the pinned version or the committed lock. */
+  coreOutdated(row) {
+    const digest = this.lockDigest();
+    return (
       !!row &&
       (row.version !== this.core.ref.version ||
-        (this.lockDigest() !== null && row.lockDigest !== this.lockDigest()));
+        (digest !== null && row.lockDigest !== digest))
+    );
+  }
+  /** Whether an installed part differs from the pins of this AgentPier. */
+  outdated() {
+    const coreOld = this.coreOutdated(this.record());
     const ghidra = this.component("rea-ghidra");
     const jdk = this.component("rea-jdk");
     const componentsOld =
@@ -216,20 +214,33 @@ export class ReaTool {
       settings: stored.settings,
     };
   }
-  /** The REA row of the Work tab's utilities. */
+  /**
+   * The REA row of the Work tab's utilities. A fault (an unreadable store or settings)
+   * degrades this row only, never the whole workspace state.
+   */
   utility() {
-    const row = this.record();
-    const installed = this.installed();
-    return {
+    const row = {
       id: tool,
       name: "REA",
       utility: true,
-      installed,
-      version: row?.version ?? null,
+      installed: false,
+      version: null,
       pinnedVersion: this.core.ref.version,
-      updateAvailable: installed && this.outdated(),
+      updateAvailable: false,
       status: this.job ? "running" : this.status,
     };
+    try {
+      const installed = this.installed();
+      return {
+        ...row,
+        installed,
+        version: this.record()?.version ?? null,
+        updateAvailable: installed && this.outdated(),
+      };
+    } catch (error) {
+      logFailure("read REA's state", error);
+      return { ...row, status: "failed" };
+    }
   }
   requireIdle() {
     if (this.job || this.claimed) throw refuse(messages.busy);
@@ -308,6 +319,7 @@ export class ReaTool {
     this.status = "running";
     this.step = null;
     this.message = "";
+    this.aborted = false;
     this.job = (async () => {
       await null;
       try {
@@ -317,6 +329,8 @@ export class ReaTool {
       } catch (error) {
         this.status = "failed";
         this.message = failureText(error);
+        // Stopped by close(): no verdict on the install, so a request stays for later.
+        this.aborted = controller.signal.aborted;
         logFailure("install or change REA", error);
       } finally {
         this.job = null;
@@ -376,10 +390,12 @@ export class ReaTool {
       });
     }
   }
-  /** A free name for the new row: `rea`, or `rea-agentpier` when the owner has one. */
+  /** A free name for the new row: `rea`, else `rea-agentpier`, else `rea-agentpier-<n>`. */
   rowName() {
     const taken = new Set(this.servers.list().map((server) => server.name.toLowerCase()));
-    return taken.has(tool) ? "rea-agentpier" : tool;
+    let name = taken.has(tool) ? "rea-agentpier" : tool;
+    for (let n = 2; taken.has(name); n += 1) name = `rea-agentpier-${n}`;
+    return name;
   }
   async placeCore({ components, settings, stored, update, source }) {
     let id = this.serverId();
@@ -412,15 +428,13 @@ export class ReaTool {
       const row = this.record(id);
       // A managed row without REA's package (a restored backup): the card removes it.
       if (!row) throw refuse(messages.rowBroken);
-      const outdated =
-        row.version !== this.core.ref.version || row.lockDigest !== this.lockDigest();
       let kind = null;
       if (
         this.packages.records.computedStatus(row) !== "ready" ||
         components.frida !== stored.components.frida
       )
         kind = "reinstall";
-      else if (update && outdated) kind = "update";
+      else if (update && this.coreOutdated(row)) kind = "update";
       if (kind) installFrozen(this.packages, id, this.core, program, kind);
     }
     await jobSettled(this.packages, id);
@@ -467,82 +481,13 @@ export class ReaTool {
       logFailure(`audit ${action}`, error);
     }
   }
-  /**
-   * Removes REA: its row (and with it the skill copies), Ghidra, the JDK and
-   * `<data>/rea`. Works whatever is left, so a managed row of a failed install or a
-   * restored backup goes too; refused while REA is in use.
-   */
-  async uninstall({ source = "user" } = {}) {
-    this.requireIdle();
-    await this.requireUnused(!!this.serverId());
-    let done;
-    this.job = new Promise((resolve) => (done = resolve));
-    this.status = "running";
-    this.message = "";
-    try {
-      const id = this.serverId();
-      this.progress("core", messages.removing("REA Core"));
-      if (id) {
-        await this.changes.remove(id);
-        Promise.resolve(this.packages.cancel(id)).catch(() => {});
-        this.packages.prune();
-        this.auditRow("mcp.deleted", id, source);
-      }
-      this.progress("ghidra", messages.removing("Ghidra"));
-      await removeReaComponent(this.root, "rea-ghidra");
-      await removeReaComponent(this.root, "rea-jdk");
-      await fsp.rm(this.directory, { recursive: true, force: true });
-      this.status = "idle";
-      this.message = "";
-    } catch (error) {
-      this.status = "failed";
-      this.message = failureText(error);
-      throw error;
-    } finally {
-      this.job = null;
-      this.step = null;
-      done();
-    }
-    return this.state();
+  /** Removes REA, whatever is left of it (rea-lifecycle.js). */
+  uninstall(options) {
+    return uninstallRea(this, options);
   }
-  /**
-   * At a server start, while no REA job runs: sweeps interrupted installs, installs
-   * what the installer requested (--with-rea), brings an outdated REA to the pins
-   * unless it is in use (then the next start tries again) and syncs the skill copies.
-   * Never throws.
-   */
-  async start() {
-    try {
-      if (!this.job) sweepReaComponents(this.root);
-      const stored = this.stored();
-      if (stored.requested) {
-        const { requested } = stored;
-        const host = this.host();
-        // The request goes either way: a failed install is retried from the card.
-        writePrivate(this.file, {
-          serverId: this.serverId(),
-          components: stored.components,
-          settings: stored.settings,
-        });
-        if (!this.serverId() && host.available) {
-          const components = {
-            ghidra: requested.components?.ghidra === true && !!host.ghidra,
-            frida: requested.components?.frida === true && !!host.frida,
-          };
-          await this.apply(
-            { components, settings: requested.settings, confirmInstall: true },
-            { source: "system" },
-          );
-          await this.settled();
-        }
-      } else if (this.installed() && this.outdated() && !(await this.inUse())) {
-        await this.update({ source: "system" });
-        await this.settled();
-      }
-    } catch (error) {
-      logFailure("start REA", error);
-    }
-    await this.bindingsChanged();
+  /** The server-start sweep, requested install and update (rea-lifecycle.js). */
+  start() {
+    return startRea(this);
   }
   /** The row's CLI bindings changed: the skill copies follow. Never throws. */
   async bindingsChanged() {

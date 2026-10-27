@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,7 +29,10 @@ function fixture(t) {
     dataDir: f.dataDir,
     servers: f.servers,
     records: { get: () => record },
-    requireIdle() {},
+    busy: false,
+    requireIdle() {
+      if (this.busy) throw Object.assign(new Error("busy"), { status: 409 });
+    },
   };
   const packageSkills = new PackageSkills(service, f.extensions);
   packageSkills.bundled = () => bundledSkills(pkg);
@@ -41,7 +44,7 @@ function fixture(t) {
       extensions: f.extensions,
     });
   const copy = (cli) => path.join(f.home, `.${cli}`, "skills", reaSkill);
-  return { ...f, server, packageSkills, sync, copy };
+  return { ...f, server, service, packageSkills, sync, copy };
 }
 
 test("copies the skill into profiles of bound CLIs only", async (t) => {
@@ -68,7 +71,11 @@ test("an owner's own skill folder of the same name is left alone", async (t) => 
   fs.mkdirSync(f.copy("claude"), { recursive: true });
   fs.writeFileSync(path.join(f.copy("claude"), "SKILL.md"), "mine");
   f.servers.setClis(f.server.id, ["claude", "codex"]);
+  const errors = mock.method(console, "error", () => {});
+  t.after(() => errors.mock.restore());
   await f.sync();
+  // The owner's folder is no failure: nothing is logged.
+  assert.equal(errors.mock.callCount(), 0);
   assert.equal(fs.readFileSync(path.join(f.copy("claude"), "SKILL.md"), "utf8"), "mine");
   assert.deepEqual(
     f.packageSkills.owned(f.server.id).map((item) => item.accountId),
@@ -88,4 +95,19 @@ test("unbinding a CLI removes the owned copy there; a changed copy is only forgo
   // The owner's change keeps the copy; it is theirs now.
   assert.equal(fs.readFileSync(path.join(f.copy("codex"), "notes.md"), "utf8"), "mine");
   assert.deepEqual(f.packageSkills.owned(f.server.id), []);
+});
+
+test("a busy package is logged and copied at the next sync", async (t) => {
+  const f = fixture(t);
+  f.servers.setClis(f.server.id, ["claude"]);
+  const errors = mock.method(console, "error", () => {});
+  t.after(() => errors.mock.restore());
+  f.service.busy = true;
+  await f.sync();
+  assert.equal(fs.existsSync(f.copy("claude")), false);
+  assert.equal(errors.mock.callCount(), 1);
+  assert.match(errors.mock.calls[0].arguments[0], /retried at the next sync/);
+  f.service.busy = false;
+  await f.sync();
+  assert.equal(fs.existsSync(path.join(f.copy("claude"), "SKILL.md")), true);
 });
