@@ -3,12 +3,21 @@ import { attemptRead } from "../../lib/resource-reads.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
 
 const LOADING = Object.freeze({ data: null, error: "", loading: true });
+// Timeouts in a row over held data before the error shows: one slow read must
+// not make the chat flap.
+const QUIET_TIMEOUTS = 2;
+
+// Chat waits only for open requests or while no answer has arrived yet. An error
+// over held data never blocks: the chat never blocks on a slow server.
+export function requestsBlockChat({ data, error, loading }) {
+  return Boolean(loading || (error && !data) || data?.requests?.length);
+}
 
 /**
  * The open native requests of each session, read by one polling loop per session
  * however many views show them (chat, inbox card, agent escalation card). A loop
  * runs while the session has listeners. A read is aborted after `timeoutMs`; the
- * timeout is reported as an error and the last data stays.
+ * timeout shows at once without data, after three in a row over held data, which stays.
  */
 export function createSessionRequestsStore({
   read,
@@ -32,6 +41,9 @@ export function createSessionRequestsStore({
       });
       if (!result || sessions.get(sessionId) !== entry) return;
       if (started !== entry.generation) return;
+      entry.timeouts = result.timedOut ? entry.timeouts + 1 : 0;
+      if (entry.snapshot.data && entry.timeouts && entry.timeouts <= QUIET_TIMEOUTS)
+        return;
       publish(
         entry,
         "data" in result
@@ -44,7 +56,13 @@ export function createSessionRequestsStore({
     subscribe(sessionId, listener) {
       let entry = sessions.get(sessionId);
       if (!entry) {
-        entry = { listeners: new Set(), snapshot: LOADING, generation: 0, stop() {} };
+        entry = {
+          listeners: new Set(),
+          snapshot: LOADING,
+          generation: 0,
+          timeouts: 0,
+          stop() {},
+        };
         sessions.set(sessionId, entry);
         entry.listeners.add(listener);
         start(sessionId, entry);

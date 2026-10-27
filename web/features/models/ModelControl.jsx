@@ -95,7 +95,8 @@ export default function ModelControl({
           aria-label={copy.modelPopoverAriaLabel}
           aria-busy={busy}
           onKeyDown={(event) => {
-            if (event.key === "Escape" && !blocked) {
+            // Esc always closes, even while a native request is open.
+            if (event.key === "Escape") {
               event.preventDefault();
               event.stopPropagation();
               cancel();
