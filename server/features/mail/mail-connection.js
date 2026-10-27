@@ -69,6 +69,55 @@ function asMailError(error) {
   return isMailError(error) ? error : mailError(mailErrorCode(error));
 }
 
+// Programming errors (a TypeError from a caller's bug, also Node's own ERR_INVALID_*
+// TypeErrors) are never server answers and must surface unchanged.
+const isProgrammingError = (error) =>
+  error instanceof TypeError ||
+  error instanceof RangeError ||
+  error instanceof ReferenceError ||
+  error instanceof SyntaxError;
+
+// An error raised by imapflow, nodemailer, a socket or the server: these carry a
+// status, a server response or a library/socket code.
+function isTransportError(error) {
+  if (!error || typeof error !== "object" || isProgrammingError(error)) return false;
+  return Boolean(
+    error.authenticationFailed ||
+    error.tlsFailed ||
+    error.responseStatus ||
+    error.serverResponseCode ||
+    error.response ||
+    error.responseCode ||
+    typeof error.code === "string",
+  );
+}
+
+// Inside a caller's callback only transport errors become mail errors; anything else
+// (a bug, an application error) is rethrown as is.
+function translate(error) {
+  return isMailError(error) || !isTransportError(error) ? error : asMailError(error);
+}
+
+const logoutLimit = 5_000;
+
+// A server that stops answering must not hold the call: logout gets 5 s, then the
+// socket is closed.
+async function closeImap(client) {
+  let timer;
+  const limit = new Promise((resolve) => {
+    timer = setTimeout(resolve, logoutLimit, "timeout");
+    timer.unref?.();
+  });
+  try {
+    const result = await Promise.race([client.logout().then(() => "done"), limit]);
+    if (result === "timeout") client.close();
+  } catch {
+    client.close();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function transport(account, settings, { ca, timeouts } = {}) {
   const security = settings.security;
   if (!["tls", "starttls", "none"].includes(security))
@@ -94,7 +143,7 @@ export function imapOptions(account, password, options) {
     host: account.imap.host,
     port: account.imap.port,
     secure: security === "tls",
-    doSTARTTLS: security === "starttls" ? true : security === "none" ? false : undefined,
+    ...(security === "tls" ? {} : { doSTARTTLS: security === "starttls" }),
     auth: { user: account.imap.username, pass: password },
     tls,
     logger: false,
@@ -130,14 +179,14 @@ export async function withImap(account, password, fn, options) {
     await client.connect();
   } catch (error) {
     client.close();
-    throw asMailError(error);
+    throw isProgrammingError(error) ? error : asMailError(error);
   }
   try {
     return await fn(client);
   } catch (error) {
-    throw asMailError(error);
+    throw translate(error);
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImap(client);
   }
 }
 
@@ -146,7 +195,7 @@ async function withSmtp(account, password, fn, options) {
   try {
     return await fn(transporter);
   } catch (error) {
-    throw asMailError(error);
+    throw translate(error);
   } finally {
     transporter.close();
   }
@@ -176,7 +225,8 @@ async function outcome(run) {
     await run();
     return { ok: true };
   } catch (error) {
-    return { ok: false, code: asMailError(error).code };
+    if (!isMailError(error)) throw error;
+    return { ok: false, code: error.code };
   }
 }
 

@@ -22,6 +22,7 @@ test("implicit TLS validates certificates and never logs", () => {
   assert.equal(o.tls.minVersion, "TLSv1.2");
   assert.equal(o.logger, false);
   assert.equal(o.disableAutoIdle, true);
+  assert.equal(Object.hasOwn(o, "doSTARTTLS"), false);
   assert.deepEqual(
     [o.connectionTimeout, o.greetingTimeout, o.socketTimeout],
     [15000, 15000, 60000],
