@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { operationsFixture } from "./operations-fixture.js";
+import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { recordApiRequests } from "../helpers/visibility.js";
 const request = {
   id: "request-one",
   sessionId: "fixture-session",
@@ -373,3 +375,55 @@ for (const locale of ["de-DE", "en-GB"]) {
     });
   });
 }
+
+// Every view of one session's requests shares one poll (AGENTPIER-266): two
+// escalation cards of the same session read /requests once per 1.5 s, not twice.
+test("escalation cards of one session share one requests poll", async ({ page }) => {
+  const escalation = (id, promptId) => ({
+    id,
+    assistantId: "home",
+    revision: 1,
+    state: "awaiting_approval",
+    createdAt: "2026-10-27T08:00:00.000Z",
+    expiresAt: "2099-01-01T00:00:00.000Z",
+    payload: {
+      action: "session_request",
+      sessionId: "agent-session",
+      promptId,
+      sessionName: "Codex · demo",
+      kind: "permission",
+      title: "shell",
+    },
+  });
+  const prompt = (id) => ({
+    id,
+    sessionId: "agent-session",
+    kind: "permission",
+    source: "codex",
+    status: "pending",
+    revision: 1,
+    options: [{ id: "allow", label: "Allow" }],
+    subject: { tool: "shell", description: `Prompt ${id}` },
+  });
+  await chatFixture(page, {
+    actions: [escalation("escalation-1", "p1"), escalation("escalation-2", "p2")],
+  });
+  await page.route(/\/api\/sessions\/agent-session\/requests$/, (route) =>
+    route.fulfill({ json: { requests: [prompt("p1"), prompt("p2")] } }),
+  );
+  const recorded = recordApiRequests(page);
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const cards = page.locator("[data-session-escalation]");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.getByRole("button", { name: "Allow" })).toHaveCount(2);
+  recorded.clear();
+  await page.waitForTimeout(6000);
+  const reads = recorded
+    .list()
+    .filter(
+      (entry) =>
+        entry.method === "GET" && entry.path === "/api/sessions/agent-session/requests",
+    );
+  expect(reads.length).toBeGreaterThanOrEqual(2);
+  expect(reads.length).toBeLessThanOrEqual(5);
+});
