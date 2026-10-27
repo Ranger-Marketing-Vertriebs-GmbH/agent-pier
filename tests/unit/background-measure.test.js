@@ -77,16 +77,48 @@ test("invalidate measures again on the next read, also during a measurement", as
   assert.equal(runs.length, 3);
 });
 
-test("a failed measurement is reported and tried again on the next read", async () => {
-  const { measure, runs, errors, settle } = fixture();
+test("a failed measurement is reported as failed and retried only after a delay", async () => {
+  const { measure, runs, errors, settle, advance } = fixture(1000);
   measure.read();
   await settle();
   runs[0].reject(new Error("unreadable"));
   await settle();
   assert.equal(errors.length, 1);
+  // Every poll in the retry delay answers at once without measuring again.
+  for (let poll = 0; poll < 3; poll++) {
+    advance(200);
+    assert.deepEqual(measure.read(), { state: "failed" });
+    await settle();
+  }
+  assert.equal(runs.length, 1);
+  advance(400);
   assert.deepEqual(measure.read(), { state: "pending" });
   await settle();
+  assert.equal(runs.length, 2, "tried again after the delay");
+  runs[1].resolve({ bytes: 7 });
+  await settle();
+  assert.deepEqual(measure.read(), { state: "ready", bytes: 7 });
+});
+
+test("a failed refresh keeps the previous result and waits before trying again", async () => {
+  const { measure, runs, settle, advance } = fixture(1000);
+  measure.read();
+  await settle();
+  runs[0].resolve({ bytes: 5 });
+  await settle();
+  advance(1000);
+  measure.read();
+  await settle();
+  runs[1].reject(new Error("unreadable"));
+  await settle();
+  assert.deepEqual(measure.read(), { state: "ready", bytes: 5 });
+  await settle();
   assert.equal(runs.length, 2);
+  // A deletion still measures again at once.
+  measure.invalidate();
+  measure.read();
+  await settle();
+  assert.equal(runs.length, 3);
 });
 
 test("close waits for the running measurement and starts no other", async () => {
