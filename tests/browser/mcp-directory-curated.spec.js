@@ -39,7 +39,7 @@ for (const [label, use] of [
         /tick “Allow install scripts or source builds”/,
         /REA_MCP_INPUT_SCHEMA_PROFILE to compact/,
         /GHIDRA_INSTALL_DIR and JAVA_HOME/,
-        /need an unsandboxed session/,
+        /needs an unsandboxed session/,
         /Do not run REA’s own “rea setup”/,
       ])
         await expect(note.getByText(text)).toBeVisible();
@@ -54,7 +54,7 @@ for (const [label, use] of [
       await wizard.getByRole("button", { name: "Back", exact: true }).click();
       await expect(page).toHaveURL(/step=package/);
       const stepNote = wizard.getByRole("region", { name: noteName });
-      await expect(stepNote.getByText(/need an unsandboxed session/)).toBeVisible();
+      await expect(stepNote.getByText(/needs an unsandboxed session/)).toBeVisible();
       await expect(stepNote.getByRole("heading", { level: 2 })).toHaveText(noteName);
       await fits(page);
     });
