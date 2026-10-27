@@ -168,6 +168,10 @@ test("a successful launch preselects that mode next time for the same CLI only",
   await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await openDialog(page);
+  // The dialog reopens on the last launched CLI, with its remembered mode.
+  await expect(cli).toHaveValue("claude");
+  await expect(mode).toHaveValue("bypass");
+  await cli.selectOption("codex");
   await expect(mode).toHaveValue("yolo");
   await mode.selectOption("default");
   await dialog.getByRole("button", { name: "Session starten", exact: true }).click();
@@ -178,6 +182,7 @@ test("a successful launch preselects that mode next time for the same CLI only",
   ]);
   await page.reload();
   await openDialog(page);
+  await expect(cli).toHaveValue("codex");
   await expect(mode).toHaveValue("default");
   await cli.selectOption("claude");
   await expect(mode).toHaveValue("bypass");

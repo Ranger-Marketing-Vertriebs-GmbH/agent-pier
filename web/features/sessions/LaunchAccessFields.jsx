@@ -3,39 +3,39 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
-import { launchDialogCopy as sandboxCopy } from "../../lib/i18n/messages/sessions.js";
+import { launchDialogCopy as launchCopy } from "../../lib/i18n/messages/sessions.js";
 export default function LaunchAccessFields({
   access,
   onAccessChange,
   taskProfileSelected = false,
 }) {
-  const modelHelpId = useId();
+  const modelHelpId = useId(),
+    rememberedId = useId();
+  const accessRemembered = access.accessRemembered && !taskProfileSelected;
   const sandboxDisabled = !access.sandboxAvailable || taskProfileSelected;
   const sandboxFields = (
     <fieldset>
-      <legend>{sandboxCopy.sandboxSection}</legend>
+      <legend>{launchCopy.sandboxSection}</legend>
       <label>
-        {sandboxCopy.sandboxProfile}
+        {launchCopy.sandboxProfile}
         <AnchoredSelect
-          label={sandboxCopy.sandboxProfile}
+          label={launchCopy.sandboxProfile}
           value={access.nonoProfile || ""}
           disabled={sandboxDisabled}
           onChange={(value) => access.setNonoProfile(value || null)}
           options={[
-            { value: "", label: sandboxCopy.noSandboxProfile },
+            { value: "", label: launchCopy.noSandboxProfile },
             ...access.sandboxProfiles.map((name) => ({ value: name, label: name })),
           ]}
         />
       </label>
       {!access.sandboxAvailable ? (
-        <p className="field-description">{sandboxCopy.sandboxUnavailable}</p>
+        <p className="field-description">{launchCopy.sandboxUnavailable}</p>
       ) : taskProfileSelected ? (
-        <p className="field-description">
-          {sandboxCopy.sandboxUnavailableForTaskProfile}
-        </p>
+        <p className="field-description">{launchCopy.sandboxUnavailableForTaskProfile}</p>
       ) : (
         access.nonoProfile && (
-          <p className="field-description">{sandboxCopy.sandboxHint}</p>
+          <p className="field-description">{launchCopy.sandboxHint}</p>
         )
       )}
     </fieldset>
@@ -47,6 +47,7 @@ export default function LaunchAccessFields({
         {copy.access}
         <AnchoredSelect
           label={copy.access}
+          describedBy={accessRemembered ? rememberedId : undefined}
           value={access.accessId}
           required
           onChange={onAccessChange}
@@ -74,6 +75,11 @@ export default function LaunchAccessFields({
           ]}
         />
       </label>
+      {accessRemembered && (
+        <p className="field-description" id={rememberedId}>
+          {launchCopy.rememberedFromLastSession}
+        </p>
+      )}
       {access.connection ? (
         <>
           <p className="field-description">{copy.isolated}</p>

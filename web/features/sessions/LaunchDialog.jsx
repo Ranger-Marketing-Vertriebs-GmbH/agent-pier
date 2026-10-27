@@ -27,6 +27,7 @@ import {
   rememberedLaunchMode,
   unattendedLaunchMode,
 } from "./launch-modes.js";
+import { rememberLaunchChoice } from "./launch-preferences.js";
 const modeCopy = (tool, mode) =>
   ({
     "codex:yolo": [copy.codexYoloOption, copy.codexYoloDescription],
@@ -112,6 +113,7 @@ export default function LaunchDialog({
     [secretIds, setSecretIds] = useState([]),
     [refused, setRefused] = useState(null);
   const selectedTool = access.tool;
+  const cliRemembered = access.toolRemembered && !profileId;
   const coding = selectedTool !== "shell";
   const modeDescription =
     launchMode === "profile"
@@ -188,6 +190,7 @@ export default function LaunchDialog({
                 if (error.updateRequired) setRefused(error.updateRequired);
                 throw error;
               });
+              if (!profile) rememberLaunchChoice(access.tool, access.accessId);
               if (!profile && coding) rememberLaunchMode(access.tool, launchMode);
               await created(result.session || result);
             }}
@@ -205,6 +208,7 @@ export default function LaunchDialog({
                   {connectionCopy.cli}
                   <AnchoredSelect
                     label={connectionCopy.cli}
+                    describedBy={cliRemembered ? "launch-cli-remembered" : undefined}
                     value={access.tool}
                     required
                     options={access.tools.map((item) => ({
@@ -227,6 +231,11 @@ export default function LaunchDialog({
                     }}
                   />
                 </label>
+                {cliRemembered && (
+                  <p className="field-description" id="launch-cli-remembered">
+                    {copy.rememberedFromLastSession}
+                  </p>
+                )}
                 <CliVersionNotice
                   tool={state.tools.find((item) => item.id === access.tool)}
                   refused={refused}
@@ -368,7 +377,7 @@ export default function LaunchDialog({
                       {modeDescription}
                       {modeRemembered && (
                         <span className="launch-mode-remembered">
-                          {copy.launchModeRemembered}
+                          {copy.rememberedFromLastSession}
                         </span>
                       )}
                     </span>

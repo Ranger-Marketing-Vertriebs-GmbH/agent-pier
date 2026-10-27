@@ -26,7 +26,7 @@ export const launchDialogCopy = {
     "Auto prüft Aktionen mit Claudes Sicherheitsprüfung. Verfügbarkeit hängt von Version, Modell und Kontorichtlinien ab; Rückfragen bleiben möglich.",
   claudeBypassDescription:
     "Ohne Rückfragen führt Claude jeden Befehl und jede Änderung aus, ohne zu fragen. Nur in vertrauenswürdigen Projekten nutzen, am besten mit Sandbox-Profil. Gilt nur für diese neue Session.",
-  launchModeRemembered: "Aus deiner letzten Session vorausgewählt.",
+  rememberedFromLastSession: "Aus deiner letzten Session vorausgewählt.",
   opencodeAutoDescription:
     "Auto bestätigt Berechtigungsanfragen automatisch. Explizite Verbote bleiben aktiv. Gilt nur für diese neue Session.",
   codingSessionDescription: "Ein echtes Terminal. Dein Tool, dein Account, dein Projekt.",
