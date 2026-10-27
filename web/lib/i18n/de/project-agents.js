@@ -6,6 +6,9 @@ export const projectAgentsCopy = {
   coding: "Darf in diesem Projekt Coding-Sessions starten",
   codingHint:
     "Projektwissen und Coding-Aufträge mit den Pipelines, die im Tab „Zugriffe“ des Agenten freigegeben sind. Ordnerzugriff setzt das voraus.",
+  sessions: "Coding-Sessions",
+  sessionsHint:
+    "Der Agent darf in diesem Projekt eigene Coding-Sessions starten und steuern, ohne jedes Mal zu fragen.",
   folderLegend: "Ordnerzugriff",
   folder: { none: "Keiner", read: "Lesen", write: "Lesen und schreiben" },
   noAgents: "Noch keine dauerhaften Agenten. Lege einen unter Agenten an.",
