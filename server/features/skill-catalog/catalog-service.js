@@ -152,6 +152,13 @@ export class SkillCatalog {
     if (contentHash(pack.files) === record.contentHash) return { upToDate: true };
     return this.previewPack(pack, "github");
   }
+  /** Removes catalog skill `id` after every earlier write; 404 when it is unknown. */
+  remove(id) {
+    return this.serialized(() => {
+      this.assertOpen();
+      return this.store.remove(id);
+    });
+  }
   async close() {
     this.closed = true;
     this.previews.clear();

@@ -18,6 +18,7 @@ import { mcpServerErrors, replyStdioConfirmation } from "./mcp-servers.js";
 import { mcpOAuthRateLimit, mcpOAuthRoutes } from "./mcp-oauth.js";
 import { assistantShellRoutes, replyShellConfirmation } from "./assistant-shell.js";
 import { assistantSkillRoutes } from "./assistant-skills.js";
+import { agentSkillCatalogRoutes } from "./agent-skill-catalog.js";
 import { userAgentRoutes } from "./user-agents.js";
 import { assistantChatRoutes } from "./assistant-chats.js";
 import { assistantLifecycleRoutes } from "./assistant-lifecycle.js";
@@ -40,9 +41,9 @@ import { sendStatus } from "../../features/assistants/chat-commands.js";
 
 // Agent OAuth logins of MCP servers exist only while the agent services do; the
 // central list itself is a core route (mcp-servers.js). Agents for restricted users
-// (user-agents.js) are agent routes as well.
+// (user-agents.js) and the owner's agent skill catalog are agent routes as well.
 const assistantPath =
-  /^\/(?:assistants?(?:[-/]|$)|user-agents(?:\/|$)|mcp-servers\/[^/]+\/oauth\/)/;
+  /^\/(?:assistants?(?:[-/]|$)|user-agents(?:\/|$)|agent-skill-catalog(?:\/|$)|mcp-servers\/[^/]+\/oauth\/)/;
 const reply = (res, status, code, message) =>
   res.status(status).json({ code, error: message, ...messageIdentity(message) });
 /**
@@ -121,6 +122,7 @@ function activeAssistantRoutes(services) {
   router.use("/mcp-servers", mcpServerErrors);
   router.use(assistantShellRoutes(services));
   router.use(assistantSkillRoutes(services));
+  router.use(agentSkillCatalogRoutes(services));
   router.use(assistantAttachmentRoutes(services));
   router.use(userAgentRoutes(services));
   router.use(assistantChatRoutes(services));

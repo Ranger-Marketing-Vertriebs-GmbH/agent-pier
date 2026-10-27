@@ -249,6 +249,8 @@ export function auditEvent(input) {
       "chat-deleted",
       "dictation",
       "skill-import",
+      // A catalog skill for agents (agent-skill-catalog.js): ids and counts only.
+      "catalog-skill",
       "spec",
       "risk",
       "risk-rules",
