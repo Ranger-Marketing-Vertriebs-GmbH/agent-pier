@@ -162,6 +162,8 @@ export class SessionActivity {
     this.screens = new Map();
     // The report each session's terminal reading ended (see mergeActivity).
     this.ended = new Map();
+    // Since when each running session is in its current state (`since`).
+    this.states = new Map();
     this.cacheMs = cacheMs;
     this.now = now;
     this.staleMs = staleMs;
@@ -269,6 +271,7 @@ export class SessionActivity {
       return result(merged.state, {
         ...merged,
         observedAt: new Date(time).toISOString(),
+        since: this.since(session.id, merged.state, time),
       });
     });
     this.cache.set(session.id, entry);
@@ -321,8 +324,17 @@ export class SessionActivity {
     if (previous?.digest !== digest)
       this.screens.set(id, { digest, changedAt: this.now() });
   }
+  /** When `id` entered `state`: kept while the state holds, else now. */
+  since(id, state, time) {
+    const previous = this.states.get(id);
+    if (previous?.state === state) return previous.since;
+    const next = { state, since: new Date(time).toISOString() };
+    this.states.set(id, next);
+    return next.since;
+  }
   remove(id) {
     this.cache.delete(id);
+    this.states.delete(id);
     this.screens.delete(id);
     this.ended.delete(id);
     for (const key of this.observations.keys())

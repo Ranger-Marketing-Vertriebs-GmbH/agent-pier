@@ -10,6 +10,8 @@ import { DiskWarning, freePercent, WARN_BELOW_PERCENT } from "./disk-warning.js"
 
 const HOUR = 60 * 60 * 1000;
 const MAX_SESSIONS = 200;
+// Points of the start page's sparklines: 20 minutes of 30-second buckets.
+export const SUMMARY_HISTORY = 40;
 /** Running sessions and their tmux pane pid, from one tmux call. */
 export async function sessionPanes(sessions) {
   let output;
@@ -196,9 +198,19 @@ export class SystemStatus {
     if (stale) await this.sample();
     return this.latest;
   }
+  /**
+   * The start page's figures: host load, each session's CPU and RAM (ids only, no
+   * names) and the last points of the history for its sparklines.
+   */
   async summary() {
     const latest = await this.current();
-    return latest.summary;
+    return {
+      ...latest.summary,
+      sessions: latest.processes
+        .filter((item) => item.kind === "session")
+        .map(({ id, cpuPercent, rssBytes }) => ({ id, cpuPercent, rssBytes })),
+      history: historyPoints(this.history, this.now()).slice(-SUMMARY_HISTORY),
+    };
   }
   async details() {
     const latest = await this.current();
