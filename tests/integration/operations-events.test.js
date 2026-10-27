@@ -174,7 +174,10 @@ function waitingFixture(t) {
   const audit = { append() {} };
   // The sessions an agent controls (AgentCodingSessions.controls).
   ctx.controlled = new Set();
+  // The broker's open requests (RequestBroker.listAll).
+  ctx.pending = [];
   ctx.events = new OperationsEvents({
+    requests: { listAll: () => ctx.pending },
     assistants: {
       workflows: {
         sessions: { controls: (id) => ctx.controlled.has(id), requestEvent() {} },
@@ -411,4 +414,100 @@ test("a controlled session sends no completion or wait push, but its end", async
   await ctx.poll("working");
   await ctx.poll("idle");
   assert.deepEqual(ctx.kinds(), ["session-ended", "session-completed"]);
+});
+
+const pending = (ctx, id) => ({
+  id,
+  sessionId: ctx.session.id,
+  kind: "permission",
+  status: "pending",
+});
+
+test("an open request of a controlled session that was never announced is held too", async (t) => {
+  // After a restart the broker does not announce a request again.
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  ctx.pending = [
+    pending(ctx, "restored"),
+    { ...pending(ctx, "busy"), status: "responding" },
+  ];
+  await ctx.poll("waiting", "request");
+  assert.deepEqual(ctx.sent, []);
+  assert.deepEqual([...ctx.events.held.keys()], ["restored"]);
+  ctx.clock += agentRequestHoldMs;
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "restored"]],
+  );
+  // Revoking control releases a restored request at once.
+  ctx.pending.push(pending(ctx, "restored-two"));
+  await ctx.poll();
+  assert.equal(ctx.events.held.has("restored-two"), true);
+  ctx.controlled.delete(ctx.session.id);
+  await ctx.poll();
+  assert.deepEqual(
+    ctx.sent.map(({ eventId }) => eventId),
+    ["restored", "restored-two"],
+  );
+  // An owner session's open requests are not reconciled.
+  ctx.pending.push(pending(ctx, "owner-open"));
+  await ctx.poll();
+  assert.equal(ctx.events.held.size, 0);
+});
+
+test("a request republished after its socket reconnected is still pushed once", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("waiting", "request");
+  ctx.request("reconnected");
+  ctx.pending = [pending(ctx, "reconnected")];
+  await flush();
+  // The socket closes: the broker expires the request, then republishes it with
+  // the same id and no new request.created.
+  ctx.pending = [];
+  answered(ctx, "reconnected", "request.expired");
+  assert.equal(ctx.events.held.size, 0);
+  await ctx.poll();
+  ctx.pending = [pending(ctx, "reconnected")];
+  await ctx.poll();
+  assert.equal(ctx.events.held.has("reconnected"), true);
+  ctx.clock += agentRequestHoldMs;
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "reconnected"]],
+  );
+});
+
+test("an expired request is forgotten without a push", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  ctx.request("expired");
+  await flush();
+  answered(ctx, "expired", "request.expired");
+  assert.equal(ctx.events.held.size, 0);
+  ctx.clock += agentRequestHoldMs;
+  await ctx.poll();
+  ctx.controlled.delete(ctx.session.id);
+  await ctx.poll();
+  assert.deepEqual(ctx.sent, []);
+});
+
+test("a held request is dropped once its session stops running", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  ctx.request("stopped-prompt");
+  await flush();
+  ctx.session.status = "stopped";
+  await ctx.poll();
+  assert.equal(ctx.events.held.size, 0);
+  ctx.clock += agentRequestHoldMs;
+  ctx.controlled.delete(ctx.session.id);
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), ["session-ended"]);
 });
