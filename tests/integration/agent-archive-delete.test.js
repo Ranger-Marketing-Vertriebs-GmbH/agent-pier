@@ -190,7 +190,14 @@ test("delete removes every store of the agent and keeps everything else", async 
   });
   const full = f.remains(id);
   assert.equal(full.files.length, 6);
-  for (const key of ["notes", "routineResults", "hookEvents", "leadShares", "followUps"])
+  for (const key of [
+    "attachments",
+    "notes",
+    "routineResults",
+    "hookEvents",
+    "leadShares",
+    "followUps",
+  ])
     assert.ok(full.rows[key], key);
   const otherBefore = f.remains(other.agent.id);
   const before = tree(f.dataDir);

@@ -1,6 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { deletionCounts, purgeAgent } from "./agent-deletion.js";
-import { pauseOwnJobs, resumeOwnJobs, settleOwnJobs } from "./agent-own-jobs.js";
+import { followArchive, settleOwnJobs } from "./agent-own-jobs.js";
 
 const temporary = (m) => m.lifetime !== "permanent";
 // A failure as a stable code for the archive list and the log, never a message.
@@ -22,8 +22,12 @@ export function listedAgents(store) {
   return {
     assistants: all.filter((a) => !gone.has(a.id)),
     conversations: store.listConversations().filter((c) => !gone.has(c.assistantId)),
+    // A member goes with its lead; one whose lead record is gone shows on its own.
     deletions: all
-      .filter((a) => gone.has(a.id) && (a.deletion?.leadId ?? a.id) === a.id)
+      .filter((a) => {
+        const lead = a.deletion?.leadId ?? a.id;
+        return gone.has(a.id) && (lead === a.id || !all.some((x) => x.id === lead));
+      })
       .map((a) => ({ id: a.id, name: a.name, error: a.deletion?.error ?? null })),
   };
 }
@@ -111,12 +115,8 @@ export class AgentLifecycle {
     if (agent.revision !== revision) throw assistantProblem("conflict", 409);
     if (agent.teamMemberId) {
       const m = this.teams.store.member(id);
+      // The team lifecycle pauses its own jobs as well (agent-own-jobs.js).
       await this.teams.lifecycle("archive", m.id, m.revision);
-      await this.a.admit(async () =>
-        this.a.store.changeUserAgent(id, {
-          ownJobs: await pauseOwnJobs(this.a, this.a.store.storedAssistant(id)),
-        }),
-      );
       this.audit({ action: "assistant.archived", resourceType: "assistant" }, id);
       return this.a.store.getAssistant(id);
     }
@@ -135,10 +135,11 @@ export class AgentLifecycle {
         throw assistantProblem("active", 409);
       if (tasks.length && !members) throw assistantProblem("leadHasMembers", 409);
       await this.a.reminders?.disable(id);
-      const ownJobs = await pauseOwnJobs(this.a, current);
       for (const m of tasks) this.teams.store.archive(m.id, m.revision);
       this.a.store.setArchived(id, revision, new Date().toISOString());
-      const result = this.a.store.changeUserAgent(id, { ownJobs });
+      // Its own cron jobs pause, and those of the members archived with it.
+      await followArchive(this.a, "archive", [id, ...tasks]);
+      const result = this.a.store.storedAssistant(id);
       await this.reconfigure([id, ...tasks.map((m) => m.assistantId)]);
       await this.a.browsers?.stopAgent?.(id).catch(() => {});
       this.a.changed();
@@ -167,11 +168,6 @@ export class AgentLifecycle {
     if (agent.teamMemberId) {
       const m = this.teams.store.member(id);
       await this.teams.lifecycle("restore", m.id, m.revision);
-      await this.a.admit(async () =>
-        this.a.store.changeUserAgent(id, {
-          ownJobs: await resumeOwnJobs(this.a, this.a.store.storedAssistant(id)),
-        }),
-      );
       this.audit({ action: "assistant.restored", resourceType: "assistant" }, id);
       return this.a.store.getAssistant(id);
     }
@@ -182,9 +178,8 @@ export class AgentLifecycle {
       // A deleted user's own agent has nobody to serve: it can only be deleted.
       if (this.userGone(current)) throw assistantProblem("userAgentUserGone", 409);
       this.a.store.setArchived(id, revision, null);
-      const result = this.a.store.changeUserAgent(id, {
-        ownJobs: await resumeOwnJobs(this.a, current),
-      });
+      await followArchive(this.a, "restore", [id]);
+      const result = this.a.store.storedAssistant(id);
       await this.reconfigure([id]);
       this.a.changed();
       this.audit({ action: "assistant.restored", resourceType: "assistant" }, id);
@@ -306,11 +301,14 @@ export class AgentLifecycle {
     await this.teams?.applyMcp?.();
     await this.a.config?.browserProfiles?.sync?.().catch(() => {});
     this.a.changed();
-    if (leadId === agent.id)
+    // A member left over from its lead's delete is audited on its own, without the
+    // lead's counts.
+    const own = leadId === agent.id;
+    if (own || !this.exists(leadId))
       this.audit(
         { action: "assistant.deleted", resourceType: "assistant" },
         agent.id,
-        { ...counts, ...(memberIds.length ? { memberIds } : {}) },
+        own ? { ...counts, ...(memberIds.length ? { memberIds } : {}) } : {},
         source,
       );
   }
