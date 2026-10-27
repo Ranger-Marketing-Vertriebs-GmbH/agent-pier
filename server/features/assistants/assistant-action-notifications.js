@@ -9,6 +9,7 @@ import { redactSecrets } from "../../lib/secret-redaction.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 import { notifyHookProposal } from "./agent-hook-proposals.js";
 import { notifySshProposal } from "./agent-ssh-proposal-notes.js";
+import { codingToolNames } from "./coding-sessions/session-options.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -35,7 +36,9 @@ export function notifyAction(w, action, phase) {
     (action.requestedBy ? `${m.actionRequestedByMember(action.memberName)}\n` : "") +
     (action.payload.action === "coding_start"
       ? `${action.projectName} · ${action.pipelineName}\n${action.payload.task}${action.payload.baseBranch ? `\n${action.payload.baseBranch}` : ""}`
-      : `${action.projectName}\n${action.payload.title}\n\n${action.payload.content}`);
+      : action.payload.action === "session_start"
+        ? sessionStartDetail(action)
+        : `${action.projectName}\n${action.payload.title}\n\n${action.payload.content}`);
   const text =
     phase === "approval"
       ? `${m.actionApproval}\n\n${detail}`
@@ -65,6 +68,12 @@ export function notifyAction(w, action, phase) {
           ]
         : [],
   });
+}
+// An agent's coding session start (coding-sessions/session-start.js): the project,
+// the CLI and, for a worktree, the base branch the agent chose.
+function sessionStartDetail(action) {
+  const { tool, baseBranch } = action.payload.options;
+  return `${action.projectName} · ${codingToolNames[tool] || tool}${baseBranch ? `\n${baseBranch}` : ""}`;
 }
 const commandLimit = 1500;
 // A model-chosen name as inline code: inside it the Markdown renderer escapes

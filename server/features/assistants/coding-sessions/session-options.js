@@ -2,6 +2,12 @@ import { readSandboxProfiles } from "../../nono/nono-profiles.js";
 
 /** The coding CLIs an agent may start; never a shell. */
 export const codingTools = ["claude", "codex", "opencode"];
+/** Their product names, as session names and approval texts show them. */
+export const codingToolNames = Object.freeze({
+  claude: "Claude Code",
+  codex: "Codex",
+  opencode: "OpenCode",
+});
 /** Launch modes per CLI, as the session dialog offers them (account-store.js). */
 export const launchModes = Object.freeze({
   codex: ["default", "yolo"],

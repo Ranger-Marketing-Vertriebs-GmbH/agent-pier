@@ -100,9 +100,14 @@ function chatLink(assistantId, conversationId, conversations) {
     : `/agents/${segment(assistantId)}/settings`;
 }
 
+const toolNames = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
 const actionTitle = (a) => {
   const p = a.payload || {};
   if (p.action === "coding_start") return p.task;
+  if (p.action === "session_start") {
+    const tool = p.options?.tool;
+    return `${a.projectName || ""} · ${toolNames[tool] || tool || ""}`;
+  }
   if (p.action === "memory_write") return p.title || p.content;
   if (p.action === "ssh" || p.action === "sftp") return p.hostName;
   if (p.action === "member_grant") return p.memberName;

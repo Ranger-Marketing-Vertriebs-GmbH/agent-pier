@@ -6,6 +6,7 @@ import { isUserAgent } from "../../users/user-access.js";
 import { AgentSessionStore } from "./session-store.js";
 import { sessionContext } from "./session-turns.js";
 import { sessionOptions } from "./session-options.js";
+import { advanceStart, startSession } from "./session-start.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -24,10 +25,13 @@ export class AgentCodingSessions {
   constructor(w) {
     this.w = w;
     this.store = new AgentSessionStore(w.a.store.db);
+    // Starts running in this process, by action key (session-start.js runStart).
+    this.starting = new Map();
     // Each action: (ctx, input) => result. Later actions register here.
     this.actions = {
       options: (ctx) => sessionOptions(this.w, ctx.assistantId),
       list: (ctx) => this.list(ctx),
+      start: (ctx, input) => startSession(this.w, ctx, input),
     };
   }
   invoke(inv, input) {
@@ -47,6 +51,10 @@ export class AgentCodingSessions {
     this.closed = false;
   }
   async tick() {}
+  /** The action tick of a `session_start` action (session-start.js advanceStart). */
+  advanceStart(a) {
+    return advanceStart(this.w, a);
+  }
   close() {
     this.closed = true;
   }

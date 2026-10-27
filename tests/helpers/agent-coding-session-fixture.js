@@ -38,9 +38,14 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
   git(cwd, ["commit", "-q", "-m", "initial"]);
   git(cwd, ["remote", "add", "origin", remote]);
   git(cwd, ["push", "-q", "origin", "main"]);
+  // The folder became a Git work tree after the workflow fixture registered it:
+  // registering it again moves its row to the Git identity now, as AgentPier would
+  // on its next look at the folder (project-memory.js), so the ids stay stable.
+  const project = await f.memory.register(cwd);
+  const policy = { ...f.policy, projectIds: [project.id] };
   f.workflows.access.save(
     f.id,
-    { ...f.policy, sessionProjectIds: sessionProjects ? [f.project.id] : [] },
+    { ...policy, sessionProjectIds: sessionProjects ? [project.id] : [] },
     0,
   );
 
@@ -175,6 +180,8 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
 
   return {
     ...f,
+    project,
+    policy,
     cwd,
     remote,
     launches,

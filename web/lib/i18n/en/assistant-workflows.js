@@ -38,6 +38,7 @@ export const assistantWorkflowCopy = {
   noActions:
     "No actions yet. Ask this agent in chat to inspect project memory or propose a coding task.",
   coding: "Coding task",
+  codingSession: "Coding session",
   memory: "Project memory change",
   branch: "Base branch",
   revision: "Expected revision",

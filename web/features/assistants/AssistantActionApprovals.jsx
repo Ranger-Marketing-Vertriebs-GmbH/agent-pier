@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
+import { names as toolNames } from "../../lib/providers.js";
 import ExecApprovalCard from "./ExecApprovalCard.jsx";
 import SshApprovalCard from "./SshApprovalCard.jsx";
 import SftpApprovalCard from "./SftpApprovalCard.jsx";
@@ -14,6 +15,15 @@ const isSftp = (a) => a.payload.action === "sftp";
 const isGrant = (a) => a.payload.action === "member_grant";
 const isHook = (a) => a.payload.action === "hook_proposal";
 const isSshAccess = (a) => a.payload.action === "ssh_access";
+const heading = (a) =>
+  ({ coding_start: copy.coding, session_start: copy.codingSession })[a.payload.action] ||
+  copy.memory;
+// An agent's coding session start names its CLI where a coding task names its pipeline.
+const detail = (a) =>
+  a.payload.action === "session_start"
+    ? toolNames[a.payload.options?.tool] || a.payload.options?.tool
+    : a.pipelineName;
+const branchOf = (a) => a.payload.baseBranch || a.payload.options?.baseBranch;
 
 // The agent's own pending actions as cards in the transcript (handoff 2c). The chat
 // loads them once (useAssistantActions) and also counts them in the approval strip.
@@ -112,24 +122,26 @@ export default function AssistantActionApprovals({
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>
           <div className="assistant-approval-head">
-            <strong>
-              {a.payload.action === "coding_start" ? copy.coding : copy.memory}
-            </strong>
+            <strong>{heading(a)}</strong>
             <small>{copy.states.awaiting_approval}</small>
           </div>
-          {(a.projectName || a.pipelineName) && (
+          {(a.projectName || detail(a)) && (
             <p>
               {a.projectName}
-              {a.pipelineName ? ` · ${a.pipelineName}` : ""}
+              {detail(a) ? ` · ${detail(a)}` : ""}
             </p>
           )}
           {a.payload.title && (
             <strong className="assistant-approval-title">{a.payload.title}</strong>
           )}
-          <p className="assistant-approval-task">{a.payload.task || a.payload.content}</p>
-          {a.payload.baseBranch && (
+          {(a.payload.task || a.payload.content) && (
+            <p className="assistant-approval-task">
+              {a.payload.task || a.payload.content}
+            </p>
+          )}
+          {branchOf(a) && (
             <p>
-              {copy.branch}: {a.payload.baseBranch}
+              {copy.branch}: {branchOf(a)}
             </p>
           )}
           <div className="assistant-card-actions">

@@ -438,6 +438,7 @@ export class AssistantWorkflows {
     if (a.payload.action === "member_grant") return this.a.teams?.grants?.advance(a);
     if (a.payload.action === "hook_proposal") return advanceHookProposal(this, a);
     if (a.payload.action === "ssh_access") return advanceSshProposal(this, a);
+    if (a.payload.action === "session_start") return this.sessions.advanceStart(a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
       return;
