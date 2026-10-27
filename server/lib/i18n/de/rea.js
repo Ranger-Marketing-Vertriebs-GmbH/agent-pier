@@ -26,4 +26,5 @@ export const rea = Object.freeze({
   jdkVersionMismatch: (version) =>
     `Die Java-Laufzeit für REA meldet nicht Version ${version}.`,
   diskFull: "Für diesen REA-Bestandteil ist nicht genug Speicherplatz frei.",
+  fridaFailed: "frida für REA konnte nicht installiert werden oder lädt nicht.",
 });

@@ -51,6 +51,7 @@ export class McpPackages {
     adapters = { npm: npmAdapter, pypi: pythonAdapter },
     previewConcurrency = 2,
     extensions,
+    afterInstall = null,
   }) {
     Object.assign(this, {
       dataDir,
@@ -66,6 +67,7 @@ export class McpPackages {
       previewTtl,
     });
     this.adapters = adapters;
+    this.afterInstall = afterInstall; // (serverId, { directory, ... }) before a commit
     this.previewConcurrency = previewConcurrency;
     // Skills the packages bundle, copied into CLI profiles on request (owner-confirmed).
     this.skills = extensions ? new PackageSkills(this, extensions) : null;
