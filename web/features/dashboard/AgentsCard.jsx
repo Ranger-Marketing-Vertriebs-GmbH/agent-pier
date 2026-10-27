@@ -32,6 +32,8 @@ function serviceLine(runtime) {
 export default function AgentsCard({ navigate, phone }) {
   const data = useAssistants();
   const open = useOpenAgent(navigate);
+  // Until the first list arrives nothing is known: no "No agent yet" meanwhile.
+  if (!data.loaded) return null;
   const items = startAgents({ ...data, copy: assistantCopy });
   const service = serviceLine(data.runtime);
   const count = (state) => items.filter((item) => item.state === state).length;
@@ -42,7 +44,7 @@ export default function AgentsCard({ navigate, phone }) {
       title={copy.agents}
       count={
         phone
-          ? copy.agentsSummary(count("needsYou"), count("working")) || items.length
+          ? copy.agentsSummary(count("needsYou"), count("working")) || null
           : items.length || null
       }
       items={items}
