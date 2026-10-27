@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
 import Modal from "../../components/Modal.jsx";
+import { lineSegments } from "../../components/history-chart.js";
 import useSystemStatus from "./useSystemStatus.js";
 import StorageCleanup from "./StorageCleanup.jsx";
 import { DiskWarning, SystemMeter } from "./SystemMeter.jsx";
@@ -15,32 +16,17 @@ import {
 
 const WIDTH = 240,
   HEIGHT = 44,
-  HOUR = 60 * 60 * 1000,
-  // Points further apart than this mark a time nobody looked; the line breaks there.
-  GAP = 90 * 1000;
+  HOUR = 60 * 60 * 1000;
 
 /** One series of the last hour as SVG polylines, with a text value for readers. */
 export function Sparkline({ name, points, field, now }) {
-  const segments = [];
-  let segment = [];
-  let previous;
-  for (const point of points) {
-    if (!Number.isFinite(point[field])) {
-      segments.push(segment);
-      segment = [];
-      previous = null;
-      continue;
-    }
-    if (previous && point.t - previous.t > GAP) {
-      segments.push(segment);
-      segment = [];
-    }
-    const x = Math.max(0, WIDTH - ((now - point.t) / HOUR) * WIDTH);
-    const y = HEIGHT - (clampPercent(point[field]) / 100) * (HEIGHT - 2) - 1;
-    segment.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    previous = point;
-  }
-  segments.push(segment);
+  const segments = lineSegments(points, field).map((items) =>
+    items.map((point) => {
+      const x = Math.max(0, WIDTH - ((now - point.t) / HOUR) * WIDTH);
+      const y = HEIGHT - (clampPercent(point[field]) / 100) * (HEIGHT - 2) - 1;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }),
+  );
   const last = points.at(-1)?.[field];
   return (
     <figure className="system-sparkline">
