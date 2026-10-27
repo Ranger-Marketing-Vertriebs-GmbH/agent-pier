@@ -366,6 +366,11 @@ export class SkillCatalogStore {
       })
       .sort();
   }
+  /** Removes every live copy (best effort): OpenClaw then loads no catalog skill. */
+  clearLive() {
+    for (const name of fs.readdirSync(this.subRoot(this.liveRoot)))
+      quietly(() => remove(path.join(this.liveRoot, name)));
+  }
   /** Removes staging leftovers, unreferenced store versions and live folders without a record. */
   sweep() {
     const records = new Map(this.list().map((record) => [record.name, record]));

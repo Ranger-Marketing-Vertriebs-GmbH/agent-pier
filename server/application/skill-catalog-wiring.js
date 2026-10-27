@@ -38,7 +38,12 @@ export async function reportedSkillNames(runtime) {
   );
 }
 
-/** Checks every catalog copy; an error is logged by its code only, never thrown. */
+/**
+ * Checks every catalog copy; an error is logged by its code only, never thrown. A
+ * catalog that cannot be checked as a whole (an unreadable catalog.json) loses its live
+ * copies, best effort: the start compiles none of them (RuntimeSupervisor.catalogDrops),
+ * and the next check that passes restores them from the store.
+ */
 export function verifyQuietly(store) {
   try {
     const { failed } = store.verify();
@@ -48,6 +53,11 @@ export function verifyQuietly(store) {
     console.error(
       `AgentPier could not check the skill catalog (${error?.code || "no code"}).`,
     );
+    try {
+      store.clearLive();
+    } catch {
+      /* The compile still leaves every catalog name out. */
+    }
   }
 }
 
@@ -73,8 +83,8 @@ export function connectSkillCatalog(graph) {
   // Every start checks the catalog copies before it compiles the configuration
   // (teamConfiguration is what the compile reads), so a copy restored or removed here
   // is what the Gateway loads. A failure never stops the start: a skill that could not
-  // be checked is in store.failed, and dropped() names it.
-  // TODO(Task 6): the compile drops store.dropped(...) names from every agent's list.
+  // be checked is in store.failed, and the start compile leaves out every name
+  // dropped() returns (RuntimeSupervisor.catalogDrops).
   const compileInputs = runtime.teamConfiguration;
   runtime.teamConfiguration = async (...args) => {
     verifyQuietly(store);

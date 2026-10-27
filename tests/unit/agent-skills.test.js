@@ -275,8 +275,12 @@ test("skill folders that would replace a bundled skill are found by any name", (
   plant("workspaces/a/.agents/skills/x", '---\ndescription: d\nname: "weather"\n---\n');
   plant("state/skills/notion");
   plant("workspaces/other/skills/spike");
-  const roots = skillShadowRoots(root, "a");
+  plant("state/agents/ap-a/agent/workshop-skills/drafted");
+  plant("state/agents/ap-other/agent/workshop-skills/elsewhere");
+  const roots = skillShadowRoots(root, { id: "a", runtimeAgentId: "ap-a" });
+  assert.ok(roots.includes(path.join(root, "state/agents/ap-a/agent/workshop-skills")));
   assert.deepEqual([...shadowingSkillNames(roots)].sort(), [
+    "drafted",
     "github",
     "inner",
     "notion",
@@ -288,6 +292,11 @@ test("skill folders that would replace a bundled skill are found by any name", (
     "github",
   ]);
   assert.deepEqual(shadowedSkills(root, { id: "a" }, []), []);
+  // The agent's workshop skills (tier 5) outrank bundled and catalog skills.
+  assert.deepEqual(
+    shadowedSkills(root, { id: "a", runtimeAgentId: "ap-a" }, ["drafted", "elsewhere"]),
+    ["drafted"],
+  );
 });
 
 test("shadowed names are neither compiled nor shown as active", () => {

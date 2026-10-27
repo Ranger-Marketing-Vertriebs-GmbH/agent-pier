@@ -10,6 +10,7 @@ import { selectedAssistantRuntime } from "./runtime-install.js";
 import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
 import { personalSkills } from "./native-capabilities.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
+import { bundledSkillNames } from "./agent-skills.js";
 import { GatewayClient } from "./gateway-client.js";
 import { prepareGatewayTls } from "./gateway-tls.js";
 import { openConsoleLog, rotateConsoleLog } from "./gateway-log.js";
@@ -150,6 +151,20 @@ export class RuntimeSupervisor extends EventEmitter {
         identity: this.identity,
         graceMs: this.timing.killGraceMs,
       });
+  }
+  /**
+   * The catalog skills among `names` the start compile leaves out: bundled by this
+   * runtime, needing settings, damaged or not checked (SkillCatalogStore.dropped; the
+   * start's teamConfiguration checked every copy first). A catalog that cannot be read
+   * leaves only the bundled names, so no catalog skill is compiled.
+   */
+  catalogDrops(names, bundled) {
+    if (!this.skillCatalog) return [];
+    try {
+      return this.skillCatalog.dropped(names, bundled);
+    } catch {
+      return names.filter((name) => !bundled.has(name));
+    }
   }
   setState(patch) {
     Object.assign(this.state, patch);
@@ -296,6 +311,7 @@ export class RuntimeSupervisor extends EventEmitter {
     // be compared with it (telegram-senders.js), not with "no Gateway".
     this.telegramStarting = telegram || null;
     const tls = prepareGatewayTls(this.paths);
+    const bundled = bundledSkillNames(runtime.entryPath);
     const token = prepareRuntimeConfig(this.paths, port, teams, {
       maintenance: !!this.maintenance?.(),
       tls,
@@ -304,11 +320,15 @@ export class RuntimeSupervisor extends EventEmitter {
       shell,
       mcp: teams?.mcp,
       telegram: teams?.telegram,
-      // Assigned skills a same-named skill in the agent's folders would replace.
+      // Assigned skills a same-named skill in the agent's folders would replace, and
+      // catalog skills this start must not load (catalogDrops).
       skillShadows: Object.fromEntries(
         (teams?.profiles || []).map((profile) => [
           profile.runtimeAgentId,
-          shadowedSkills(this.paths.root, profile, personalSkills(profile)),
+          [
+            ...shadowedSkills(this.paths.root, profile, personalSkills(profile)),
+            ...this.catalogDrops(personalSkills(profile), bundled),
+          ],
         ]),
       ),
     });

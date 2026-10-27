@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { isMap, parseDocument } from "yaml";
 
-// A skill OpenClaw finds in the agent's workspace, its `.agents` folder or the
-// Gateway's managed and personal folders wins over a bundled skill of the same name
-// (docs/assistant-gateway.md#skills). Shell commands run as the owner and can write
+// A skill OpenClaw finds in the agent's workspace, its `.agents` folder, its workshop
+// folder or the Gateway's managed and personal folders wins over a bundled or catalog
+// skill of the same name (docs/assistant-gateway.md#skills). Shell commands run as the owner and can write
 // such a folder, so an owner's switch for a bundled skill must never load it: the
 // compiler drops every assigned name found there. The scan over-approximates
 // OpenClaw's discovery (any SKILL.md up to 8 levels deep, by folder name and YAML
@@ -14,12 +14,27 @@ import { isMap, parseDocument } from "yaml";
 const maxDepth = 8;
 const maxEntries = 2000;
 
-/** The folders whose skills take precedence over bundled ones for this agent. */
-export function skillShadowRoots(root, assistantId) {
-  const workspace = path.join(root, "workspaces", assistantId);
+/**
+ * The folders whose skills take precedence over bundled and catalog ones for this
+ * agent; its workshop folder (tier 5) only once it has a runtime agent id.
+ */
+export function skillShadowRoots(root, assistant) {
+  const workspace = path.join(root, "workspaces", assistant.id);
   return [
     path.join(workspace, "skills"),
     path.join(workspace, ".agents", "skills"),
+    ...(assistant.runtimeAgentId
+      ? [
+          path.join(
+            root,
+            "state",
+            "agents",
+            assistant.runtimeAgentId,
+            "agent",
+            "workshop-skills",
+          ),
+        ]
+      : []),
     path.join(root, "state", "skills"),
     path.join(root, "home", ".agents", "skills"),
     path.join(root, "home", ".openclaw", "skills"),
@@ -126,6 +141,6 @@ export function shadowingSkillNames(roots) {
 /** The assigned names a higher-precedence skill of this agent would replace. */
 export const shadowedSkills = (root, assistant, names) => {
   if (!names.length || !root) return [];
-  const found = shadowingSkillNames(skillShadowRoots(root, assistant.id));
+  const found = shadowingSkillNames(skillShadowRoots(root, assistant));
   return names.filter((name) => found.has(anyName) || found.has(name));
 };
