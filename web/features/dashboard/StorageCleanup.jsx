@@ -40,9 +40,16 @@ const groups = [
   },
 ];
 
-/** The summary's groups once measured, else null ("measured on open"). */
+/** The summary's groups once measured, else null. */
 export const summaryGroups = (summary) =>
   summary && summary.state !== "pending" && summary.groups ? summary.groups : null;
+
+/**
+ * What stands in for a size the summary does not know: "Updating sizes …" while it is
+ * measured, "Measured on open" only once it failed or cannot be read.
+ */
+export const unmeasured = (summary) =>
+  summary?.state === "failed" ? copy.cleanup.measuredOnOpen : copy.dataRefreshing;
 
 /**
  * One cleanup list behind its row; also on Agenten › Laufzeit › Speicher. `action`
@@ -77,7 +84,7 @@ export function CleanupGroup({ id, List, action = "" }) {
 }
 
 // One group of the panel: its size from the summary, and its list on request.
-function CleanupCard({ id, List, group, facts }) {
+function CleanupCard({ id, List, group, facts, unknown }) {
   const [open, setOpen] = useState(false);
   const panel = useId();
   const heading = useId();
@@ -87,7 +94,7 @@ function CleanupCard({ id, List, group, facts }) {
       <div className="system-cleanup-card-head">
         <h4 id={heading}>{text.title}</h4>
         <strong className={group ? "" : "pending"}>
-          {group ? cleanupSize(group.bytes, group.atLeast) : copy.cleanup.measuredOnOpen}
+          {group ? cleanupSize(group.bytes, group.atLeast) : unknown}
         </strong>
       </div>
       <p>{text.sub}</p>
@@ -127,7 +134,7 @@ export default function StorageCleanup({ summary }) {
       <div>
         <h3 id="system-cleanup-heading">{copy.cleanup.heading}</h3>
         <p className="system-cleanup-total" role="status">
-          {measured ? copy.cleanup.upTo(statusBytes(total)) : copy.cleanup.measuredOnOpen}
+          {measured ? copy.cleanup.upTo(statusBytes(total)) : unmeasured(summary)}
           {summary?.state === "refreshing" && <small>{copy.dataRefreshing}</small>}
         </p>
       </div>
@@ -137,6 +144,7 @@ export default function StorageCleanup({ summary }) {
           id={item.id}
           List={item.List}
           group={measured?.[item.summary] || null}
+          unknown={unmeasured(summary)}
           facts={item.facts}
         />
       ))}

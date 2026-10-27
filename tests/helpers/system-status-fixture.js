@@ -96,9 +96,9 @@ export function details(options) {
   };
 }
 
-/** GET /system-status/cleanup/summary: `state` "pending" has no sizes yet. */
+/** GET /system-status/cleanup/summary: "pending" and "failed" carry no sizes. */
 export function cleanupSummary(state = "ready") {
-  if (state === "pending") return { state };
+  if (state === "pending" || state === "failed") return { state };
   return {
     state,
     computedAt: new Date(Date.now() - 30_000).toISOString(),
