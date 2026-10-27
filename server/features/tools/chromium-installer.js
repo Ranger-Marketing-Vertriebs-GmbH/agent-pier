@@ -8,13 +8,13 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { problem } from "../../lib/storage.js";
 import { chromiumManifest, chromiumPlatform } from "./chromium-manifest.js";
+import { unpackZip } from "./zip-unpack.js";
 
 // A managed Chrome for Testing build for the agents' browsers (AGENTPIER-121): a
 // pinned, SHA-256-checked archive unpacked below <dataDir>/clis/.packages and
 // activated through the <dataDir>/clis/chromium link, like the managed CLIs.
 const MAX_EXPANDED = 1536 * 1024 * 1024,
-  MAX_FILES = 20000,
-  MAX_LINK = 4096;
+  MAX_FILES = 20000;
 const record = "agentpier-chromium.json";
 const packagePrefix = "chromium-";
 const bad = (message) => problem(message, 409);
@@ -143,141 +143,13 @@ async function download({ entry, file, fetchImpl, signal, progress }) {
     throw bad(serverMessages.tools.chromiumChecksumMismatch);
 }
 
-function entryName(name, top) {
-  if (
-    typeof name !== "string" ||
-    name.length > 1024 ||
-    /[\\\x00-\x1f\x7f]/.test(name) ||
-    name.startsWith("/") ||
-    name.split("/").some((part) => part === "." || part === "..") ||
-    !(name === `${top}/` || name.startsWith(`${top}/`))
-  )
-    throw bad(serverMessages.tools.unsafeArchivePath);
-  return name.replace(/\/$/, "");
-}
-
-// Every parent below `dest` must be a real directory: a link unpacked earlier never
-// redirects a later entry.
-async function realParents(dest, relative) {
-  let current = dest;
-  for (const part of path.posix.dirname(relative).split("/")) {
-    if (part === ".") continue;
-    current = path.join(current, part);
-    const stat = await fsp.lstat(current).catch(() => null);
-    if (!stat) await fsp.mkdir(current, { mode: 0o700 });
-    else if (!stat.isDirectory() || stat.isSymbolicLink())
-      throw bad(serverMessages.tools.unsafeArchivePath);
-  }
-}
-
 /** Unpacks the archive into `dest`, keeping modes and the app bundle's links. */
-export async function unpackChromium(file, dest, top, signal) {
-  // Loaded on use: the installer scripts import this module before dependencies exist.
-  const { open: openZip } = await import("yauzl");
-  return new Promise((resolve, reject) => {
-    openZip(
-      file,
-      { lazyEntries: true, strictFileNames: true, validateEntrySizes: true },
-      (error, zip) => {
-        if (error) return reject(bad(serverMessages.tools.chromiumArchiveInvalid));
-        let failed = false,
-          count = 0,
-          expanded = 0;
-        const seen = new Set(),
-          links = [];
-        const fail = (cause) => {
-          if (failed) return;
-          failed = true;
-          zip.close();
-          reject(
-            cause?.status ? cause : bad(serverMessages.tools.chromiumArchiveInvalid),
-          );
-        };
-        zip.on("error", fail);
-        // Each link stays inside on its own; a chain of them may not. Once all are
-        // there, every link must resolve to a path inside the browser's folder.
-        zip.on("end", () => {
-          if (failed) return;
-          try {
-            const inside = fs.realpathSync.native(path.join(dest, top));
-            for (const link of links) {
-              const real = fs.realpathSync.native(link);
-              if (real !== inside && !real.startsWith(inside + path.sep))
-                throw bad(serverMessages.tools.unsafeArchivePath);
-            }
-            resolve();
-          } catch (cause) {
-            reject(cause?.status ? cause : bad(serverMessages.tools.unsafeArchivePath));
-          }
-        });
-        const read = (entry) =>
-          new Promise((done, stop) =>
-            zip.openReadStream(entry, (err, stream) => (err ? stop(err) : done(stream))),
-          );
-        zip.on("entry", async (entry) => {
-          try {
-            if (signal?.aborted)
-              throw bad(serverMessages.tools.installationAbortedOrTimedOut);
-            const relative = entryName(entry.fileName, top);
-            const mode = (entry.externalFileAttributes >>> 16) & 0o177777;
-            const kind = mode & 0o170000;
-            const directory = entry.fileName.endsWith("/") || kind === 0o040000;
-            if (entry.generalPurposeBitFlag & 1)
-              throw bad(serverMessages.tools.encryptedArchivesForbidden);
-            if (
-              ++count > MAX_FILES ||
-              (expanded += entry.uncompressedSize) > MAX_EXPANDED
-            )
-              throw bad(serverMessages.tools.archiveSizeExceeded);
-            const key = relative.toLowerCase();
-            if (seen.has(key)) throw bad(serverMessages.tools.duplicateArchivePaths);
-            seen.add(key);
-            const target = path.join(dest, relative);
-            await realParents(dest, directory ? `${relative}/x` : relative);
-            if (directory) {
-              const stat = await fsp.lstat(target).catch(() => null);
-              if (!stat) await fsp.mkdir(target, { mode: 0o755 });
-              else if (!stat.isDirectory())
-                throw bad(serverMessages.tools.unsafeArchivePath);
-            } else if (kind === 0o120000) {
-              if (entry.uncompressedSize > MAX_LINK)
-                throw bad(serverMessages.tools.unsafeArchivePath);
-              const chunks = [];
-              for await (const chunk of await read(entry)) chunks.push(chunk);
-              const link = Buffer.concat(chunks).toString("utf8");
-              const resolved = path.posix.normalize(
-                path.posix.join(path.posix.dirname(relative), link),
-              );
-              // Links stay relative and inside the browser's own folder.
-              if (
-                !link ||
-                link.startsWith("/") ||
-                /[\\\x00-\x1f]/.test(link) ||
-                !(resolved === top || resolved.startsWith(`${top}/`))
-              )
-                throw bad(serverMessages.tools.unsafeArchivePath);
-              await fsp.symlink(link, target);
-              links.push(target);
-            } else if (kind === 0o100000 || kind === 0) {
-              await pipeline(
-                await read(entry),
-                fs.createWriteStream(target, {
-                  flags: "wx",
-                  mode: (mode & 0o111 ? 0o755 : 0o644) & 0o755,
-                }),
-                { signal },
-              );
-            } else throw bad(serverMessages.tools.specialArchiveFilesForbidden);
-            zip.readEntry();
-          } catch (cause) {
-            fail(cause);
-          }
-        });
-        zip.readEntry();
-      },
-    );
+export const unpackChromium = (file, dest, top, signal) =>
+  unpackZip(file, dest, top, signal, {
+    maxExpanded: MAX_EXPANDED,
+    maxFiles: MAX_FILES,
+    invalid: serverMessages.tools.chromiumArchiveInvalid,
   });
-}
 
 /**
  * Checks that the unpacked browser can run from the agent service: on macOS the app

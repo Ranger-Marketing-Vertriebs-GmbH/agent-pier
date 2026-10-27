@@ -1619,6 +1619,7 @@
   "tools.archiveCliNotRegular": "de:8a365edf476d en:aed75949c80d",
   "tools.archiveCliOrLicenseMissing": "de:a008a25fe292 en:8bc06f6fd1ff",
   "tools.archiveEntryLimit": "de:028822d0bb6b en:d96cffba9826",
+  "tools.archiveInvalid": "de:3db20d225357 en:751ea567c042",
   "tools.archiveSizeExceeded": "de:ce6601a3699b en:650282172962",
   "tools.archiveTooLarge": "de:5a704d248745 en:b855e54fe4e1",
   "tools.checkingInstalledVersion": "de:06cef40938d9 en:87486225142b",
