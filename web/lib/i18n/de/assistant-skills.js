@@ -30,7 +30,7 @@ export const assistantSkillsCopy = {
     needsSettings: "Braucht Einstellungen \u2014 noch nicht unterstützt",
     damaged: "Beschädigt \u2014 installiere ihn unter Agenten \u203a Skills neu",
     shadowedCatalog:
-      "Aus: Ein mitgelieferter Skill gleichen Namens ersetzt diesen Katalog-Skill. Entferne einen von beiden, um den anderen zu nutzen.",
+      "Aus: Ein mitgelieferter Skill gleichen Namens ersetzt diesen Katalog-Skill. Entferne den Katalog-Skill, um den mitgelieferten zu nutzen.",
     shadowed:
       "Für diesen Agenten aus: Ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
   },
@@ -43,6 +43,7 @@ export const assistantSkillsCopy = {
   },
   missingLine: (parts) => `Fehlt: ${parts}`,
   needsShell: "Braucht Shell-Zugriff",
+  fromCatalogPlain: "Aus dem Skill-Katalog",
   fromCatalog: (version) => `Aus dem Skill-Katalog \u00b7 Version ${version}`,
   worksWithLimits:
     "Funktioniert eingeschränkt: Er führt Programme aus, und dieser Agent hat keinen Shell-Zugriff.",
