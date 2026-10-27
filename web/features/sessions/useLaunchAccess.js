@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useConnectionModels from "../providers/useConnectionModels.js";
 import api from "../../lib/api.js";
+import { preferredLaunchAccess, rememberedLaunchTool } from "./launch-preferences.js";
 export function launchAccesses(state, tool) {
   return {
     accounts: state.accounts.filter((account) => account.tool === tool),
@@ -9,32 +10,38 @@ export function launchAccesses(state, tool) {
     ),
   };
 }
-function defaultAccess(state, tool) {
-  const { accounts, connections } = launchAccesses(state, tool);
-  return (
-    accounts.find(
-      (account) =>
-        account.id === state.defaultAccountIds?.[tool] &&
-        !account.provider &&
-        !account.internal,
-    )?.id ||
-    accounts[0]?.id ||
-    (connections.find((connection) => connection.launchable)
-      ? `provider:${connections.find((connection) => connection.launchable).id}`
-      : "")
-  );
+// An explicit CLI (per-CLI "new" action or task profile) keeps its CLI; a plain
+// "new session" starts with the CLI of the last successful launch if still installed.
+function initialChoice(state, tools, initialTool, initialProfile) {
+  const explicit = tools.find((tool) => tool.id === initialTool)?.id;
+  const remembered = initialTool ? null : rememberedLaunchTool(tools);
+  const tool = explicit || remembered || tools[0]?.id || "";
+  if (initialProfile)
+    return {
+      tool,
+      toolRemembered: false,
+      accessId: initialProfile.config.providerConnectionId
+        ? `provider:${initialProfile.config.providerConnectionId}`
+        : initialProfile.config.accountId,
+      accessRemembered: false,
+    };
+  const access = preferredLaunchAccess(state, tool);
+  return {
+    tool,
+    toolRemembered: Boolean(remembered) && !explicit,
+    accessId: access.accessId,
+    accessRemembered: access.remembered,
+  };
 }
 export default function useLaunchAccess(state, initialTool, initialProfile) {
   const tools = state.tools.filter((tool) => tool.installed);
-  const initial = tools.find((tool) => tool.id === initialTool)?.id || tools[0]?.id || "";
-  const [tool, setTool] = useState(initial),
-    [accessId, setAccess] = useState(() =>
-      initialProfile
-        ? initialProfile.config.providerConnectionId
-          ? `provider:${initialProfile.config.providerConnectionId}`
-          : initialProfile.config.accountId
-        : defaultAccess(state, initial),
-    ),
+  const [start] = useState(() =>
+    initialChoice(state, tools, initialTool, initialProfile),
+  );
+  const [tool, setTool] = useState(start.tool),
+    [toolRemembered, setToolRemembered] = useState(start.toolRemembered),
+    [accessId, setAccess] = useState(start.accessId),
+    [accessRemembered, setAccessRemembered] = useState(start.accessRemembered),
     [modelId, setModel] = useState(initialProfile?.config.models.default || ""),
     [nativeModelId, setNativeModel] = useState(
       initialProfile?.config.models.default || "",
@@ -66,12 +73,16 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     setQuery("");
   }
   function chooseTool(value) {
+    const preferred = preferredLaunchAccess(state, value);
+    if (value !== tool) setToolRemembered(false);
     setTool(value);
-    setAccess(defaultAccess(state, value));
+    setAccess(preferred.accessId);
+    setAccessRemembered(preferred.remembered);
     resetModel();
   }
   function chooseAccess(value) {
     setAccess(value);
+    setAccessRemembered(false);
     resetModel();
   }
   const ready = Boolean(
@@ -81,6 +92,8 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
   return {
     tools,
     tool,
+    toolRemembered,
+    accessRemembered,
     accounts,
     connections,
     account,
