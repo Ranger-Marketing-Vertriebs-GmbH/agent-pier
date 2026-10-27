@@ -34,3 +34,14 @@ export function processGroups(processes, sort, name) {
     },
   };
 }
+
+/**
+ * The agents the gateway runs, counted like Agents › All agents (no archived agent, no
+ * temporary team member); null until the agents are loaded or while they are off.
+ */
+export function gatewayAgentCount(agents) {
+  if (!agents?.loaded || !Array.isArray(agents.assistants)) return null;
+  return agents.assistants.filter(
+    (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent"),
+  ).length;
+}

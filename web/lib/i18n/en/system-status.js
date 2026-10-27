@@ -63,6 +63,7 @@ export const systemStatusCopy = {
   groupSessions: (count) => `Sessions · ${count} running`,
   serverSub: "Web interface, API, tmux",
   gatewaySub: "OpenClaw · runs the agents",
+  gatewayAgents: (count) => `OpenClaw · ${count === 1 ? "1 agent" : `${count} agents`}`,
   openSession: "Open",
   openSessionLabel: (name) => `Open ${name}`,
   processCount: "Processes",

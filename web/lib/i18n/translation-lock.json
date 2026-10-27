@@ -6639,6 +6639,7 @@
   "system-status:systemStatusCopy.driveNote": "de:25a3d19429af en:a0a187f704eb",
   "system-status:systemStatusCopy.driveOther": "de:7b24f624aea1 en:b00f6b2b5af8",
   "system-status:systemStatusCopy.gateway": "de:03e0090a0f4b en:16db115373f3",
+  "system-status:systemStatusCopy.gatewayAgents": "de:2dfff7afcf45 en:ec802ccee5bd",
   "system-status:systemStatusCopy.gatewaySub": "de:945d24e8d14e en:5a6858ee069c",
   "system-status:systemStatusCopy.groupCore": "de:298128ae07ef en:2548bec320c6",
   "system-status:systemStatusCopy.groupSessions": "de:ee6430789ffe en:a0d386971c21",
