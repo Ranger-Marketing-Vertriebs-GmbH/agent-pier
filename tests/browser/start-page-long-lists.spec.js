@@ -289,3 +289,19 @@ test.describe("phone without agents", () => {
     await expect(card.getByRole("heading")).toHaveText("Agents");
   });
 });
+
+test("a failed Inbox read is tried again", async ({ page }) => {
+  await serveLongLists(page);
+  let reads = 0;
+  await page.route("**/api/inbox", (route) =>
+    ++reads === 1
+      ? route.fulfill({ status: 500, json: { error: "unavailable" } })
+      : route.fallback(),
+  );
+  await page.goto("/");
+  const needs = page.getByRole("region", { name: "Needs you" });
+  await expect(needs).toContainText("Risk-Gate: japanischa · Dependency-Update", {
+    timeout: 10_000,
+  });
+  expect(reads).toBeGreaterThanOrEqual(2);
+});
