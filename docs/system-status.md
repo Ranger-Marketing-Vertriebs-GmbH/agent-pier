@@ -47,8 +47,9 @@ changing the filter or the search folds it again. Stopped sessions show only und
 
 On a phone the page is one column: **Session** and **Agent** as two large buttons,
 Needs you as compact rows, the system status as three small bars, four sessions and
-four agents with a row that shows all (the sidebar for sessions, the agents page for
-agents), and Pipelines and Your tools as two tiles that lead to their pages.
+four agents (each card with its search above the chips) with a row that shows all
+(the sidebar for sessions, the agents page for agents), and Pipelines and Your tools
+as two tiles that lead to their pages.
 
 ### System status tile
 
