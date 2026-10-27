@@ -324,11 +324,24 @@ export class SessionActivity {
     if (previous?.digest !== digest)
       this.screens.set(id, { digest, changedAt: this.now() });
   }
-  /** When `id` entered `state`: kept while the state holds, else now. */
+  /**
+   * When `id` entered `state`: kept while the state holds, else now. A passing
+   * `unknown` reading (a frozen screen, a failed capture) neither starts a new span
+   * nor ends one: the span runs on until a different known state follows.
+   */
   since(id, state, time) {
     const previous = this.states.get(id);
-    if (previous?.state === state) return previous.since;
-    const next = { state, since: new Date(time).toISOString() };
+    if (previous && (state === "unknown" || previous.state === state))
+      return previous.since;
+    if (previous?.state === null) {
+      // The first known state after an unknown start keeps that start.
+      this.states.set(id, { state, since: previous.since });
+      return previous.since;
+    }
+    const next = {
+      state: state === "unknown" ? null : state,
+      since: new Date(time).toISOString(),
+    };
     this.states.set(id, next);
     return next.since;
   }
