@@ -19,13 +19,14 @@ const defaultOutput = fileURLToPath(
 
 // Maintainer operation only: resolves REA Core's npm graph into the committed
 // lockfile with the managed Node toolchain, `--package-lock-only --ignore-scripts`,
-// in a throwaway folder. Nothing is installed and no package script runs. Prints the
-// registry integrity, which `reaManifest.core.integrity` must carry.
+// in a throwaway folder. Nothing is installed and no package script runs. Refuses
+// unless the registry integrity equals `reaManifest.core.integrity`.
 export async function refreshReaLock({
   dataDir,
   output = defaultOutput,
   manifest = reaManifest,
   registry = npmRegistry,
+  download,
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rea-lock-refresh-"));
   try {
@@ -35,9 +36,16 @@ export async function refreshReaLock({
       version: manifest.core.version,
     };
     const { integrity } = npmVersionInfo(
-      await npmPackument(ref.name, { registry }),
+      await npmPackument(ref.name, { registry, download }),
       ref.version,
     );
+    // The committed lock must belong to the tarball the manifest pins: refuse before
+    // anything is resolved or written.
+    if (integrity !== manifest.core.integrity)
+      throw Error(
+        `${ref.name}@${ref.version}: the registry integrity ${integrity} differs from ` +
+          `reaManifest.core.integrity ${manifest.core.integrity}. Update the manifest first.`,
+      );
     const node = await ensureToolchain("node", {
       dataDir: dataDir ?? path.join(root, "data"),
     });
@@ -54,7 +62,6 @@ export async function refreshReaLock({
       name: ref.name,
       version: ref.version,
       integrity,
-      matchesManifest: integrity === manifest.core.integrity,
       packages: checked.dependencies.length,
       needsScripts: checked.needsScripts,
       lockSha256: checked.digest,
