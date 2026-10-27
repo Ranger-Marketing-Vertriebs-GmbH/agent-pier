@@ -6,6 +6,7 @@ import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 import { hubFixture } from "./projects-fixture.js";
 import { fixture as providersFixture } from "./providers-fixture.js";
+import { fixture as reaFixture, reaState, card as reaCard } from "./rea-fixture.js";
 
 // A hidden tab sends nothing for six seconds; showing it again reads at once.
 async function pausesWhenHidden(page, requests, resumed) {
@@ -239,4 +240,81 @@ test("login status is not requested while hidden and is read once on show", asyn
   expect(statuses).toEqual([]);
   await setTabHidden(page, false);
   await expect.poll(() => statuses.length, { timeout: 1000 }).toBe(1);
+});
+
+// A codex install dialog over a stubbed installer; `job` is the codex installation.
+async function installerFixture(page, job, stall = false) {
+  const reads = { count: 0 };
+  const installation = {
+    tool: "codex",
+    name: "Codex",
+    packageName: "@openai/codex",
+    status: "idle",
+    available: true,
+    destination: "/home/server/.local/share/agentpier/clis/codex",
+    ...job,
+  };
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/state")
+      return route.fulfill({
+        json: {
+          tools: [{ id: "codex", name: "Codex", installed: false }],
+          accounts: [],
+          sessions: [],
+          home: "/home/server",
+        },
+      });
+    if (path === "/api/tool-installations") {
+      if (stall && ++reads.count > 1) await new Promise((r) => setTimeout(r, 17000));
+      return route.fulfill({
+        json: {
+          installations: [installation],
+          busy: installation.status === "running",
+        },
+      });
+    }
+    return route.fulfill({ json: {} });
+  });
+  await page.goto(baseURL + "/coding/clis");
+  await page.getByRole("button", { name: "Install CLI", exact: true }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+}
+
+test("an idle tool installation is not polled", async ({ page }) => {
+  const requests = recordApiRequests(page);
+  await installerFixture(page, {});
+  await expect
+    .poll(() => requests.list().some((r) => r.path === "/api/tool-installations"))
+    .toBe(true);
+  await page.waitForTimeout(500);
+  requests.clear();
+  await page.waitForTimeout(6000);
+  expect(requests.list().filter((r) => r.path === "/api/tool-installations")).toEqual([]);
+});
+
+test("a running tool installation pauses while hidden and reads on show", async ({
+  page,
+}) => {
+  const requests = recordApiRequests(page);
+  await installerFixture(page, { status: "running", message: "Installing" });
+  await pausesWhenHidden(page, requests, /\/api\/tool-installations/);
+});
+
+test("a stalled tool installation read shows a timeout", async ({ page }) => {
+  test.setTimeout(60000);
+  await installerFixture(page, { status: "running", message: "Installing" }, true);
+  await expect(page.getByRole("dialog")).toContainText(
+    "The server did not answer in time.",
+    { timeout: 25000 },
+  );
+});
+
+test("a hidden REA dialog sends no REA read while a job runs", async ({ page }) => {
+  const requests = recordApiRequests(page);
+  await reaFixture(page, reaState({ status: "running", step: "core", message: "…" }));
+  await reaCard(page).getByRole("button", { name: "Install" }).click();
+  await expect(page.getByRole("dialog", { name: "REA" })).toBeVisible();
+  await pausesWhenHidden(page, requests, /\/api\/rea/);
 });

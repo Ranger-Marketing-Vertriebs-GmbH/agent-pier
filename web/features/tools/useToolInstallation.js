@@ -1,5 +1,8 @@
 import { useToolInstallationCopy as copy } from "../../lib/i18n/messages/tools.js";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
+import { toolPollDelay } from "./tool-installation-poll.js";
 export default function useToolInstallation({ tool, request, refresh, update = false }) {
   const [attempted, setAttempted] = useState(false);
   const [job, setJob] = useState(null),
@@ -15,6 +18,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
     mutating = useRef(false),
     generation = useRef(0),
     synchronizing = useRef(false),
+    polling = useRef(false),
     observedRunning = useRef(false);
   const requestRef = useRef(request),
     refreshRef = useRef(refresh);
@@ -23,40 +27,62 @@ export default function useToolInstallation({ tool, request, refresh, update = f
   const invalidateRequests = useCallback(() => {
     generation.current++;
   }, []);
-  useEffect(() => {
-    mounted.current = true;
-    let alive = true,
-      timer;
-    const poll = async () => {
+  const read = useCallback(
+    async (signal) => {
       const version = generation.current;
-      if (!mutating.current) {
-        try {
-          const result = await requestRef.current("/tool-installations");
-          if (alive && version === generation.current && !mutating.current) {
-            const found = result.installations?.find((item) => item.tool === tool);
-            if (found?.status === "running") observedRunning.current = true;
-            setJob(found || null);
-            setGlobalBusy(Boolean(result.busy));
-            setLoading(false);
-            setLoadError(found ? "" : copy.installationUnavailable);
-          }
-        } catch (err) {
-          if (alive && version === generation.current) {
-            setLoadError(err.message);
-            setLoading(false);
-          }
+      if (mutating.current) return;
+      try {
+        const result = await requestRef.current(
+          "/tool-installations",
+          "GET",
+          undefined,
+          signal,
+        );
+        if (mounted.current && version === generation.current && !mutating.current) {
+          const found = result.installations?.find((item) => item.tool === tool);
+          if (found?.status === "running") observedRunning.current = true;
+          setJob(found || null);
+          setGlobalBusy(Boolean(result.busy));
+          setLoading(false);
+          setLoadError(found ? "" : copy.installationUnavailable);
+        }
+      } catch (err) {
+        // A deadline abort reports the timeout; hiding or stopping stays silent.
+        if (
+          mounted.current &&
+          version === generation.current &&
+          (!signal?.aborted || timedOut(signal))
+        ) {
+          setLoadError(timedOut(signal) ? apiCopy.timedOut : err.message);
+          setLoading(false);
         }
       }
-      if (alive) timer = setTimeout(poll, 1500);
+    },
+    [tool],
+  );
+  // One read on mount and whenever the tab comes back to view.
+  useEffect(() => {
+    mounted.current = true;
+    const controller = new AbortController();
+    if (!document.hidden) void read(controller.signal);
+    const visible = () => {
+      if (!document.hidden && !polling.current) void read();
     };
-    poll();
+    document.addEventListener("visibilitychange", visible);
     return () => {
-      alive = false;
+      document.removeEventListener("visibilitychange", visible);
+      controller.abort();
       mounted.current = false;
       invalidateRequests();
-      clearTimeout(timer);
     };
-  }, [tool, invalidateRequests]);
+  }, [read, invalidateRequests]);
+  const delay = toolPollDelay({ job, busy: globalBusy, submitting });
+  polling.current = delay !== null;
+  // The loop runs only while a job is active, and never from a hidden tab.
+  useEffect(() => {
+    if (delay === null) return undefined;
+    return startVisiblePolling((signal) => read(signal), delay);
+  }, [delay, read]);
   const synchronize = useCallback(async () => {
     if (synchronizing.current) return;
     synchronizing.current = true;

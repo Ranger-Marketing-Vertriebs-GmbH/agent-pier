@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { assistantApi } from "../assistants/assistant-api.js";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 
 const pollMs = 2000;
 
@@ -31,17 +33,23 @@ export default function usePackageStatus(server, onSettled) {
   }, [id, server?.revision, server?.source?.status]);
   useEffect(() => {
     if (!id || !running) return undefined;
-    const timer = setInterval(() => {
-      assistantApi.mcpPackageStatus(id).then(
-        (next) => {
-          setStatus(next);
-          if (next.source?.status !== "installing" && next.job?.state !== "running")
-            settled.current?.();
-        },
-        () => {},
-      );
+    // Only a visible tab reads; a stalled read is cut off and reported.
+    // The first run is skipped: the effect above just read the status.
+    let first = true;
+    return startVisiblePolling(async (signal) => {
+      if (first) {
+        first = false;
+        return;
+      }
+      try {
+        const next = await assistantApi.mcpPackageStatus(id, signal);
+        setStatus(next);
+        if (next.source?.status !== "installing" && next.job?.state !== "running")
+          settled.current?.();
+      } catch {
+        if (timedOut(signal)) setError(apiCopy.timedOut);
+      }
     }, pollMs);
-    return () => clearInterval(timer);
   }, [running, id]);
   return { status, setStatus, error, setError, source, job, running, shown };
 }

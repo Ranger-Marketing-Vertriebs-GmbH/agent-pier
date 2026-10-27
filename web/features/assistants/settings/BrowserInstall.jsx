@@ -6,6 +6,8 @@ import { serverText } from "../../../lib/server-messages.js";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { assistantApi } from "../assistant-api.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
+import { apiCopy } from "../../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../../lib/visible-polling.js";
 
 /**
  * Installs AgentPier's own agent browser (Chrome for Testing, chromium-installer.js)
@@ -26,18 +28,19 @@ export default function BrowserInstall({ browser, refresh }) {
   }, []);
   useEffect(() => {
     if (!running) return undefined;
-    const timer = setInterval(async () => {
+    // Only a visible tab reads; a stalled read is cut off and reported.
+    return startVisiblePolling(async (signal) => {
       try {
-        const list = await api("/tool-installations");
+        const list = await api("/tool-installations", "GET", undefined, signal);
         const found = list.installations?.find((item) => item.tool === "chromium");
         if (!alive.current || !found) return;
         setJob(found);
         if (found.status !== "running") await refresh?.();
       } catch {
-        /* The next poll retries. */
+        // The next poll retries; only a deadline abort needs a visible report.
+        if (alive.current && timedOut(signal)) setError(apiCopy.timedOut);
       }
     }, 1500);
-    return () => clearInterval(timer);
   }, [running, refresh]);
   const install = async () => {
     setError("");

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { serverMessagesReady } from "../../lib/server-messages.js";
 import { reaCopy as copy } from "../../lib/i18n/messages/rea.js";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 
 const pollMs = 1000;
 
@@ -22,19 +24,24 @@ export default function useRea({ request }) {
     if (alive.current) setState(next);
     return next;
   }, []);
-  const refresh = useCallback(async () => {
-    try {
-      const next = await requestRef.current("/rea");
-      await settle(next);
-      if (alive.current) setError("");
-      return next;
-    } catch (err) {
-      if (alive.current) setError(err.message || copy.loadFailed);
-      return null;
-    } finally {
-      if (alive.current) setLoading(false);
-    }
-  }, [settle]);
+  const refresh = useCallback(
+    async (signal) => {
+      try {
+        const next = await requestRef.current("/rea", "GET", undefined, signal);
+        await settle(next);
+        if (alive.current) setError("");
+        return next;
+      } catch (err) {
+        // A deadline abort reports the timeout; hiding or stopping stays silent.
+        if (alive.current && (!signal?.aborted || timedOut(signal)))
+          setError(timedOut(signal) ? apiCopy.timedOut : err.message || copy.loadFailed);
+        return null;
+      } finally {
+        if (alive.current) setLoading(false);
+      }
+    },
+    [settle],
+  );
   useEffect(() => {
     alive.current = true;
     void refresh();
@@ -45,8 +52,8 @@ export default function useRea({ request }) {
   const running = state?.status === "running";
   useEffect(() => {
     if (!running) return undefined;
-    const timer = setInterval(() => void refresh(), pollMs);
-    return () => clearInterval(timer);
+    // Only a visible tab reads, and a stalled read is cut off.
+    return startVisiblePolling((signal) => refresh(signal), pollMs);
   }, [running, refresh]);
   const act = useCallback(
     async (path, method, body) => {

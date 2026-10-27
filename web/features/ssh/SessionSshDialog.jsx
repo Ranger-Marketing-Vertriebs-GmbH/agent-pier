@@ -9,6 +9,8 @@ import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 import "./ssh.css";
 import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js";
 const toolTones = {
@@ -43,25 +45,18 @@ export default function SessionSshDialog({ session, close, openReload }) {
     if (data) setTools(data.tools);
   }, [data]);
   useEffect(() => {
-    if (tools?.state !== "starting") return;
-    const controller = new AbortController();
-    let timer;
-    async function poll() {
+    if (tools?.state !== "starting") return undefined;
+    // Only a visible tab reads; a stalled read is cut off and reported.
+    return startVisiblePolling(async (signal) => {
       try {
-        const result = await api(path, "GET", undefined, controller.signal);
-        if (!controller.signal.aborted) {
-          setTools(result.tools);
-          if (result.tools?.state === "starting") timer = setTimeout(poll, 1500);
-        }
+        const result = await api(path, "GET", undefined, signal);
+        if (!mounted.current) return;
+        setTools(result.tools);
+        setError((current) => (current === apiCopy.timedOut ? "" : current));
       } catch {
-        if (!controller.signal.aborted) timer = setTimeout(poll, 1500);
+        if (mounted.current && timedOut(signal)) setError(apiCopy.timedOut);
       }
-    }
-    timer = setTimeout(poll, 1500);
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
+    }, 1500);
   }, [path, tools?.state]);
 
   const save = async () => {

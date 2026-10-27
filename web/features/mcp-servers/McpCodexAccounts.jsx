@@ -4,6 +4,7 @@ import { mcpCliCopy as copy } from "../../lib/i18n/messages/mcp-cli.js";
 import { cliApi } from "./cli-api.js";
 import { brokerUsable, failureReason, openBlankTab } from "./codex-login.js";
 import { authorizationTarget } from "./oauth-result.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 
 // Refusals that depend on the address AgentPier was opened with, not the account.
 const originRefusals = new Set(["plain-http-remote", "loopback-redirect"]);
@@ -42,16 +43,23 @@ export default function McpCodexAccounts({ server, oauth, onChanged }) {
   const pending = accounts.some((account) => account.state === "pending");
   useEffect(() => {
     if (!pending) return undefined;
-    const timer = window.setInterval(() => void onChanged(), pollMs);
-    const visible = () => {
+    // A hidden tab reads nothing; the loop reads again when the tab is back in view.
+    // The first run is skipped: the login that made it pending just read the status.
+    let first = true;
+    const stop = startVisiblePolling(async () => {
+      if (first) {
+        first = false;
+        return;
+      }
+      await onChanged();
+    }, pollMs);
+    const focused = () => {
       if (document.visibilityState === "visible") void onChanged();
     };
-    window.addEventListener("focus", visible);
-    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", focused);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", visible);
-      document.removeEventListener("visibilitychange", visible);
+      stop();
+      window.removeEventListener("focus", focused);
     };
   }, [pending, onChanged]);
   async function login(account) {
