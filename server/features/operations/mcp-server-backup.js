@@ -45,6 +45,7 @@ const knownColumns = {
   oauth_logouts: ["name", "url", "transport"],
   oauth_logout_history: ["name", "url", "transport", "at"],
   cli_entries: ["server_id", "cli", "name", "hash", "pending_hash", "written_at"],
+  managed_servers: ["server_id", "tool", "locked_env"],
   server_packages: [
     "server_id",
     "registry",

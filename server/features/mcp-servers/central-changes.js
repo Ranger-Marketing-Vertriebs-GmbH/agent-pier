@@ -64,6 +64,7 @@ export class CentralMcpChanges {
         bind: clis.map((cli) => ["cli", cli]),
         pendingCommand: options.pendingCommand === true,
         packageRecord: options.packageRecord ?? null,
+        managed: options.managed ?? null,
       });
     }
     await this.onSaved();

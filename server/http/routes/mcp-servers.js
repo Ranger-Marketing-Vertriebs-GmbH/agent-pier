@@ -8,7 +8,11 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { record } from "../../features/extensions/mcp-config.js";
-import { MCP_SERVER_ORIGINS } from "../../features/mcp-servers/server-origins.js";
+import { MCP_SERVER_WIZARD_ORIGINS } from "../../features/mcp-servers/server-origins.js";
+import {
+  requireOwnerPatch,
+  requireUnmanaged,
+} from "../../features/mcp-servers/managed-servers.js";
 import { mcpCliRoutes } from "./mcp-cli.js";
 import {
   auditDetails,
@@ -18,9 +22,12 @@ import {
   requireInstallConfirmation,
 } from "./mcp-packages.js";
 
-/** How a new server was set up (wizard source); anything else counts as manual. */
+/**
+ * How a new server was set up (wizard source); anything else counts as manual. The
+ * browser never creates a managed row: only a tool of AgentPier marks one.
+ */
 const createOrigin = (body) =>
-  MCP_SERVER_ORIGINS.includes(body?.origin) ? body.origin : "manual";
+  MCP_SERVER_WIZARD_ORIGINS.includes(body?.origin) ? body.origin : "manual";
 
 /** A saved change whose OAuth logout is retried later (see McpOAuthLogins.forget). */
 function deferredWarning() {
@@ -168,6 +175,8 @@ export function mcpServerRoutes(services) {
   // `clis` (optional) replaces the server's coding CLIs in the same write.
   router.put("/mcp-servers/:id", async (req, res) => {
     const body = req.body;
+    // A managed row keeps what its tool set, in the source branch too (409).
+    requireOwnerPatch(services.mcpServers, req.params.id, body);
     try {
       if (record(body) && body.source !== undefined)
         return await changeSource(services, { changes, auditMcp }, req, res);
@@ -204,6 +213,8 @@ export function mcpServerRoutes(services) {
     }
   });
   router.delete("/mcp-servers/:id", async (req, res) => {
+    // Only its tool removes a managed row (with the files it installed).
+    requireUnmanaged(services.mcpServers, req.params.id);
     const { pending, logoutDeferred, transport } = await changes().remove(req.params.id);
     // A running install of the deleted server stops now: npm or uv end with their
     // whole process tree and the stage goes. Its package record went with the server;

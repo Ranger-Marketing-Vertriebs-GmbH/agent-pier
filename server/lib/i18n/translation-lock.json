@@ -874,6 +874,8 @@
   "mcpServers.invalidTarget": "de:50ba2570ef33 en:bb763dd4edea",
   "mcpServers.invalidToolTimeout": "de:d36849e087cf en:b753c77e9900",
   "mcpServers.invalidTransport": "de:ba83374f247c en:af6e020c282e",
+  "mcpServers.managedLocked": "de:84b6a767b401 en:4ce5978bf5ee",
+  "mcpServers.managedRemoveThroughTool": "de:02cb9331af6d en:2de7f385ba6c",
   "mcpServers.nameTaken": "de:09a50e783494 en:0697c94af59f",
   "mcpServers.notFound": "de:ee6a9fe546dc en:79a6904e360e",
   "mcpServers.oauthCliTimeout": "de:991708208eab en:165e17d39b3f",

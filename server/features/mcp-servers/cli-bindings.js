@@ -17,6 +17,7 @@ import { loginCommand } from "./cli-oauth-status.js";
 import { CliMcpReconciler } from "./cli-reconciler.js";
 import { adoptFailure, reasonIdentity, statusView } from "./cli-status.js";
 import { resolveCommand } from "./command-resolution.js";
+import { requireOwnerPatch } from "./managed-servers.js";
 import { changesStdio, requireStdioConfirmation } from "./stdio-confirmation.js";
 
 const messages = serverMessages.mcpServers;
@@ -270,6 +271,8 @@ export class CliMcpBindings {
     if (!parsed.ok) throw changeRefusal(parsed);
     const server = this.servers.get(id);
     const patch = patchFromNative(server, cli, parsed);
+    // An adoption replaces the command: never on a row a tool of AgentPier keeps.
+    requireOwnerPatch(this.servers, id, patch);
     const stdioChanged = changesStdio(server, patch);
     if (stdioChanged) requireStdioConfirmation(confirmStdio === true);
     const changes = this.changes();

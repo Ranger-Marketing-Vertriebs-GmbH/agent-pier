@@ -7,6 +7,7 @@ import { mcpUrl, record } from "../extensions/mcp-config.js";
 import { PackageRecords } from "../mcp-packages/package-records.js";
 import { rowPlaceholders, usesAgentPlaceholders } from "./agent-placeholders.js";
 import { CliEntryStore } from "./cli-entry-store.js";
+import { ManagedServers } from "./managed-servers.js";
 import { cleanDirectoryOrigin, readDirectoryOrigin } from "./directory-origin.js";
 import { resolveCommand, sanitisedPrefix } from "./command-resolution.js";
 import {
@@ -77,6 +78,7 @@ export class McpServerStore {
     // Which native CLI entries AgentPier wrote (cli-reconciler.js).
     this.cliEntries = new CliEntryStore(this.db);
     this.packages = new PackageRecords(this.db, dataDir);
+    this.managed = new ManagedServers(this.db);
   }
   transaction(work) {
     this.db.exec("BEGIN IMMEDIATE");
@@ -132,6 +134,7 @@ export class McpServerStore {
       revision: row.revision,
       ...(origin ? { directoryOrigin: origin } : {}),
       ...this.packages.publicFields(row.id, packages),
+      ...this.managed.publicFields(row.id),
       ...this.placeholderFields(row),
     };
   }
@@ -340,9 +343,10 @@ export class McpServerStore {
   /**
    * `bind`: `[kind, targetId]` pairs bound in the same transaction. `pendingCommand`
    * stores a stdio server whose command a package install generates later;
-   * `packageRecord` is its package source, written in the same transaction.
+   * `packageRecord` (package source) and `managed` go in the same transaction.
    */
-  create(input, { bind = [], pendingCommand = false, packageRecord = null } = {}) {
+  create(input, options = {}) {
+    const { bind = [], pendingCommand = false, packageRecord = null, managed } = options;
     // Only a literal true leaves the command to an install; anything else needs one.
     const pending = pendingCommand === true;
     requireLiteralValues(input);
@@ -367,6 +371,7 @@ export class McpServerStore {
           .run(JSON.stringify(origin), id);
       for (const [kind, targetId] of bind) this.bind(id, kind, targetId);
       if (packageRecord) this.packages.put(id, packageRecord);
+      if (managed) this.managed.put(id, managed);
     });
     return this.get(id);
   }
