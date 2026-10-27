@@ -65,6 +65,10 @@ export const skillScanCopy = {
     "binary-executable":
       "Die Datei enthält Maschinencode, den du vor der Installation nicht lesen kannst.",
   },
+  replaces: (version) => `Ersetzt Version ${version}`,
+  newRules: (version) => `Neu seit Version ${version}`,
+  knownWarnings: (version) =>
+    `Diese Warnungen hast du für Version ${version} akzeptiert; keine ist neu.`,
   acceptWarnings: "Ich habe die Hinweise geprüft und möchte den Skill installieren.",
   overrideAction: "Trotzdem installieren …",
   overrideTitle: "Blockierten Skill trotzdem installieren?",

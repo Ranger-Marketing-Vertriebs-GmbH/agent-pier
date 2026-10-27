@@ -8,8 +8,15 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { skillInstallFormCopy as copy } from "../../lib/i18n/messages/extensions.js";
 import { skillScanCopy as scanCopy } from "../../lib/i18n/messages/skill-scan.js";
 import { fileContent } from "./extensionInputs.js";
-import SkillScanPreview from "./SkillScanPreview.jsx";
+import SkillScanPreview, { needsAcceptance } from "./SkillScanPreview.jsx";
 import React from "react";
+
+/**
+ * Checks a skill upload or GitHub link and installs the scanned preview. The defaults
+ * install into a CLI profile (`endpoint`, `data.skills.installPath`); the agent skill
+ * catalog passes its own `paths`, a `destination` text with its label, `title`,
+ * `installLabel`, and `initialPreview` when an update check already returned one.
+ */
 export default function SkillInstallForm({
   mutate,
   request,
@@ -21,6 +28,16 @@ export default function SkillInstallForm({
   setError,
   subtitle,
   close,
+  paths = {
+    preview: `${endpoint}/skills/preview`,
+    install: `${endpoint}/skills`,
+  },
+  destination,
+  destinationLabel = copy.destinationLabel,
+  title = commonCopy.installSkill,
+  installLabel = commonCopy.installSkill,
+  successNotice = copy.installedNotice,
+  initialPreview = null,
 }) {
   const formId = useId();
   const [source, setSource] = useState("file");
@@ -29,7 +46,7 @@ export default function SkillInstallForm({
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef(null);
   // The scan of the chosen source; installing confirms exactly this preview.
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(initialPreview);
   const [accepted, setAccepted] = useState(false);
   const [checking, setChecking] = useState(false);
   const working = Boolean(busy) || checking;
@@ -58,7 +75,7 @@ export default function SkillInstallForm({
         if (!file) throw new Error(copy.fileRequired);
         body = { fileName: file.name, contentBase64: await fileContent(file) };
       }
-      const result = await request(`${endpoint}/skills/preview`, "POST", body);
+      const result = await request(paths.preview, "POST", body);
       if (!alive.current) return;
       setAccepted(false);
       setPreview(result);
@@ -72,7 +89,7 @@ export default function SkillInstallForm({
     mutate(
       "skill",
       async () => {
-        await request(`${endpoint}/skills`, "POST", {
+        await request(paths.install, "POST", {
           previewId: preview.previewId,
           contentHash: preview.contentHash,
           ...(preview.verdict === "warn" ? { acceptWarnings: accepted } : {}),
@@ -81,7 +98,7 @@ export default function SkillInstallForm({
         // The panel closes on success; the next one starts with an empty draft.
         if (alive.current) close();
       },
-      copy.installedNotice,
+      successNotice,
     );
   }
   const footer = preview ? (
@@ -101,10 +118,10 @@ export default function SkillInstallForm({
         <button
           type="button"
           className="button primary"
-          disabled={working || (preview.verdict === "warn" && !accepted)}
+          disabled={working || (needsAcceptance(preview) && !accepted)}
           onClick={() => install()}
         >
-          {busy === "skill" ? copy.installingSkill : commonCopy.installSkill}
+          {busy === "skill" ? copy.installingSkill : installLabel}
         </button>
       )}
     </>
@@ -119,7 +136,7 @@ export default function SkillInstallForm({
   );
   return (
     <SidePanel
-      title={commonCopy.installSkill}
+      title={title}
       subtitle={subtitle}
       close={close}
       closeDisabled={working}
@@ -141,8 +158,12 @@ export default function SkillInstallForm({
           <fieldset className="extension-fields" disabled={working}>
             <ErrorMessage error={error} as="p" className="error extension-wide" />
             <div className="extension-field extension-wide">
-              <span>{copy.destinationLabel}</span>
-              <code className="extension-path">{data.skills.installPath}</code>
+              <span>{destinationLabel}</span>
+              {destination ? (
+                <span>{destination}</span>
+              ) : (
+                <code className="extension-path">{data.skills.installPath}</code>
+              )}
             </div>
             <div className="extension-field extension-wide">
               <span aria-hidden="true">{commonCopy.skillSource}</span>

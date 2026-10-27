@@ -14,6 +14,10 @@ import {
   hubLists,
 } from "../../web/features/assistants/hub/agent-rows.js";
 import {
+  agentsHubQuery,
+  readAgentsHubQuery,
+} from "../../web/features/assistants/hub-routes.js";
+import {
   activationPhase,
   subagentInstallRoute,
   templateAgentRoute,
@@ -209,4 +213,11 @@ test("only the Runtime tab of the hub keeps a cross-link's origin", () => {
     crossLinkRoute({ view: "agents", agentsTab: "teams" }, origin).returnTo,
     undefined,
   );
+});
+
+test("the skills tab is a hub tab", () => {
+  assert.deepEqual(readAgentsHubQuery("?tab=skills"), { agentsTab: "skills" });
+  assert.equal(read("/agents?tab=skills").agentsTab, "skills");
+  assert.equal(agentsHubQuery({ agentsTab: "skills" }), "?tab=skills");
+  assert.equal(routePath(read("/agents?tab=skills")), "/agents?tab=skills");
 });

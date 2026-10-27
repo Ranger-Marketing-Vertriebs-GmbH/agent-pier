@@ -167,7 +167,7 @@ export function pageEntries() {
       { route: agentsHubRoute() },
       { aliases: [alias("menuAgents")] },
     ),
-    ...["all", "teams", "templates", "runtime"].map((tab) =>
+    ...["all", "teams", "templates", "skills", "runtime"].map((tab) =>
       pageEntry(
         `agents-${tab}`,
         () => agentsHubCopy.tabs[tab],

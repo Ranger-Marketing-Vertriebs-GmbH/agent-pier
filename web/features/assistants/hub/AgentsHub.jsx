@@ -8,11 +8,12 @@ import { hubCounts } from "./agent-rows.js";
 import HubFrame from "./HubFrame.jsx";
 import HubTeamsTab from "./HubTeamsTab.jsx";
 import { RuntimeOn } from "./RuntimeTab.jsx";
+import SkillCatalogTab from "./SkillCatalogTab.jsx";
 import TemplatesTab from "./TemplatesTab.jsx";
 
 /**
- * Agenten (handoff 5.2) while agents are on: Alle Agenten, Teams, Vorlagen and
- * Laufzeit, deep-linked by `tab=`. The Runtime tab honours a cross-link's `returnTo`.
+ * Agenten (handoff 5.2) while agents are on: Alle Agenten, Teams, Vorlagen, Skills
+ * (the owner's skill catalog) and Laufzeit, deep-linked by `tab=`. The Runtime tab honours a cross-link's `returnTo`.
  * `subagentProfiles`: whether a shared CLI profile exists for Coding › Unteragenten
  * (null while unknown).
  */
@@ -44,6 +45,8 @@ export default function AgentsHub({
     <HubFrame {...frame}>
       {tab === "teams" ? (
         <HubTeamsTab navigate={navigate} />
+      ) : tab === "skills" ? (
+        <SkillCatalogTab />
       ) : tab === "templates" ? (
         <TemplatesTab
           navigate={navigate}
