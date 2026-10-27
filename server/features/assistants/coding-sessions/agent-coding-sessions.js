@@ -9,6 +9,7 @@ import { sessionOptions } from "./session-options.js";
 import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
 import { answerPrompt, listPrompts } from "./session-requests.js";
+import { removeWorktree, stopSession } from "./session-worktrees.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -18,8 +19,16 @@ const toolKeys = Object.keys(
 const needsProjects = new Set(["options", "start"]);
 // What runs after admission instead of under it: a wait polls for up to 100 s and a
 // send or an answer may wait on the terminal, which must never hold every agent's
-// admission.
-const unlocked = new Set(["send", "read", "wait", "requests", "answer"]);
+// admission; a stop waits on the terminal and a worktree removal fetches origin.
+const unlocked = new Set([
+  "send",
+  "read",
+  "wait",
+  "requests",
+  "answer",
+  "stop",
+  "worktree_remove",
+]);
 // Who answered a session prompt, as the broker's events name it (requestEvent).
 const answerers = new Set(["owner", "agent", "telegram"]);
 const maxAnswers = 1000;
@@ -53,6 +62,8 @@ export class AgentCodingSessions {
       wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
       requests: (ctx, input) => listPrompts(this.w, ctx, input),
       answer: (ctx, input, inv) => answerPrompt(this.w, ctx, input, inv),
+      stop: (ctx, input, inv) => stopSession(this.w, ctx, input, inv),
+      worktree_remove: (ctx, input, inv) => removeWorktree(this.w, ctx, input, inv),
     };
   }
   async invoke(inv, input) {
