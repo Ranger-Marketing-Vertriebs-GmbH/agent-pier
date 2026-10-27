@@ -204,9 +204,12 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/connections/usage") result = state.connectionUsage ?? null;
     else if (path === "/connections/problems")
       result = state.connectionProblems ?? connectionProblems(state.summary);
-    // The Menü hints read the pipeline runs when the menu opens.
+    // The Menü hints read the pipeline runs when the menu opens; the start page reads
+    // the same sources, the agent runtime's updates included, while it is visible.
     else if (path === "/pipeline-runs" && method === "GET")
       result = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (path === "/assistant-runtime/updates" && method === "GET")
+      return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     // Agents are off: the users page lists users without agents.
     else if (path === "/assistants" && method === "GET")
       return route.fulfill({ status: 503, json: { error: "Agents are off" } });
