@@ -452,6 +452,9 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({ json: { runs: [], total: 0, page: 1, pageSize: 20 } });
     if (path === "/api/settings/summary" && method === "GET")
       return route.fulfill({ json: { access: {}, operations: {} } });
+    // Connections counts the email accounts; fixtures have none.
+    if (path === "/api/mail/accounts" && method === "GET")
+      return route.fulfill({ json: { accounts: [], presets: {} } });
     if (path === "/api/assistant-runtime/updates" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);

@@ -13,6 +13,7 @@ export const connectionSections = [
   "services",
   "mcp-servers",
   "ssh",
+  "mail",
   "secrets",
   "github",
 ];

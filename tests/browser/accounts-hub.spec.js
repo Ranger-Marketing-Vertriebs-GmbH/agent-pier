@@ -47,7 +47,7 @@ async function setup(page, { agents = true, usage = "ok" } = {}) {
 
 const categories = (page) => page.getByRole("navigation", { name: "Categories" });
 
-test("Zugänge lists its six categories; each lists its entries with usage", async ({
+test("Zugänge lists its seven categories; each lists its entries with usage", async ({
   page,
 }) => {
   await setup(page);
@@ -58,6 +58,7 @@ test("Zugänge lists its six categories; each lists its entries with usage", asy
     /^Services for agents/,
     /^MCP servers/,
     /^SSH\/SFTP accesses/,
+    /^Email accounts/,
     /^Secrets/,
     /^GitHub connections/,
   ]);

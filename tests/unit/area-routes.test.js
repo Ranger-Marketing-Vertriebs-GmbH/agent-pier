@@ -40,6 +40,7 @@ test("Zugänge categories, items and wizard steps have their own addresses", () 
     "services",
     "mcp-servers",
     "ssh",
+    "mail",
     "secrets",
     "github",
   ]) {

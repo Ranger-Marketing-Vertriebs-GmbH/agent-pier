@@ -24,7 +24,7 @@ import "./connections.css";
 
 const ids = (list) => (list || []).map((item) => item.id);
 // Entries that open as a full view: the long-list categories and GitHub profiles.
-const fullViewSections = new Set(["ssh", "mcp-servers", "github"]);
+const fullViewSections = new Set(["ssh", "mail", "mcp-servers", "github"]);
 
 /**
  * Zugänge (handoff 5.6): shared credentials, created once and granted where they are
@@ -86,6 +86,8 @@ export default function ConnectionsPage({
   const accountUsage = useAccountUsage(signature);
   const usage = useConnectionsResource("/connections/usage", signature);
   const problems = useConnectionsResource("/connections/problems", signature);
+  const mail = useConnectionsResource("/mail/accounts", agentsEnabled);
+  const mailAccounts = Array.isArray(mail.data?.accounts) ? mail.data.accounts : null;
   const { reload: reloadUsage } = usage;
   const { reload: reloadProblems } = problems;
   const reloadAll = useCallback(() => {
@@ -130,6 +132,7 @@ export default function ConnectionsPage({
       chatgpt: data.chatgpt,
       mcpServers: data.mcpServers,
       ssh: catalog.accessesLoaded ? catalog.accesses : null,
+      mail: mailAccounts,
     },
     agentsEnabled: agentsEnabled === true,
   });
@@ -141,6 +144,7 @@ export default function ConnectionsPage({
   const itemTitle =
     (entry && accountItemTitle(entry)) ||
     (section === "ssh" && catalog.accesses.find((access) => access.id === item)?.name) ||
+    (section === "mail" && mailAccounts?.find((account) => account.id === item)?.name) ||
     sectionLabel;
   const toOrigin =
     Boolean(returnTarget) &&
@@ -163,6 +167,7 @@ export default function ConnectionsPage({
     problems: problems.data,
     reloadAll,
     catalog,
+    mail,
     lists: {
       ssh: { state: ssh[0], dispatch: ssh[1] },
       mcp: { state: mcp[0], dispatch: mcp[1] },

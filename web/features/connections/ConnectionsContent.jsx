@@ -6,6 +6,7 @@ import { connectionsAreaCopy as copy } from "../../lib/i18n/messages/connections
 import { detailComponents } from "../accounts/account-details.js";
 import { usageEntry } from "../accounts/account-usage-view.js";
 import { GithubCategory, SecretsCategory } from "./CredentialCategories.jsx";
+import MailCategory from "../mail/MailCategory.jsx";
 import McpCategory from "./McpCategory.jsx";
 import McpUsedBy from "./McpUsedBy.jsx";
 import SshCategory from "./SshCategory.jsx";
@@ -200,6 +201,8 @@ export default function ConnectionsContent({ section, route, entry, shared, narr
         setActiveId={(id) => shared.setActive((current) => ({ ...current, ssh: id }))}
       />
     );
+  if (section === "mail")
+    return <MailCategory shared={shared} item={route.item} loading={loadingLine} />;
   if (section === "secrets")
     return <SecretsCategory shared={shared} item={route.item} loading={loadingLine} />;
   if (section === "github")

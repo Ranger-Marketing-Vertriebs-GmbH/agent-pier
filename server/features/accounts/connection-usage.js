@@ -4,9 +4,9 @@ import { temporaryMember } from "../assistants/team-presentation.js";
 import { mcpLastChange, sshLastUse, sshLastUseCovers } from "./connection-last-use.js";
 
 // "Used by" for the shared credentials in Zugänge: SSH/SFTP hosts, secrets, GitHub
-// token profiles and email accounts (docs/settings-pattern.md). Like account-usage.js, agent data is read
-// only while the agents feature runs, and a source that fails to read becomes null,
-// never a fake 0 or an empty list. Nothing here changes a grant.
+// token profiles and email accounts (docs/settings-pattern.md). Like account-usage.js,
+// agent data is read only while the agents feature runs, and a source that fails to
+// read becomes null, never a fake 0 or an empty list. Nothing here changes a grant.
 const safe = (read, empty) => {
   try {
     return read() ?? empty;
