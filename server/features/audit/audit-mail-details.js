@@ -32,12 +32,23 @@ export function mailAuditDetails(details, event, auditId) {
   if (details.kind === "message") messageDetails(details, event, auditId);
 }
 
-// An agent's change to mail (Trash moves): the agent and how many messages.
+// An agent's change to mail (Trash moves) or send: the agent, how many messages, and
+// for a send what authorized it, how many recipients it had and a failure's code.
 function messageDetails(details, event, auditId) {
   if (details.assistantId !== undefined)
     event.details.assistantId = auditId(details.assistantId);
   if (Number.isSafeInteger(details.count) && details.count >= 0 && details.count <= 1000)
     event.details.count = details.count;
+  if (["rule", "approval"].includes(details.authorizedBy))
+    event.details.authorizedBy = details.authorizedBy;
+  if (
+    Number.isSafeInteger(details.recipients) &&
+    details.recipients >= 0 &&
+    details.recipients <= 50
+  )
+    event.details.recipients = details.recipients;
+  if (resultCode(details.code) && details.code !== "ok")
+    event.details.code = details.code;
 }
 
 // An agent's grant change: account ids, how many recipient rules it holds and why.

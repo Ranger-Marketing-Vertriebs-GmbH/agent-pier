@@ -166,7 +166,8 @@ const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
  * Saves `fields` (draftFields) as a new draft in the Drafts folder, flagged \Draft
  * and \Seen, with its Bcc kept. A reply takes its thread headers from the parent
  * message. With `replaceUid` the old draft is checked first and moved to Trash after
- * the new one is stored. Returns the new draft's UID and Message-ID, and with
+ * the new one is stored. Returns the new draft's UID, Message-ID and thread headers
+ * (`thread`, what a send of it carries), and with
  * `replaceUid` whether the old draft went to Trash (`replaced`; false leaves both).
  */
 export async function saveDraft(client, account, fields, { replaceUid } = {}) {
@@ -201,7 +202,15 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
     if (replaceUid !== undefined) await checkReplaced(client, replaceUid);
     const appended = await client.append(folders.drafts, raw, ["\\Draft", "\\Seen"]);
     if (!appended) throw mailError("MAIL_PROTOCOL");
-    const saved = { folder: folders.drafts, draftUid: appended.uid ?? null, messageId };
+    const saved = {
+      folder: folders.drafts,
+      draftUid: appended.uid ?? null,
+      messageId,
+      thread: {
+        inReplyTo: thread.inReplyTo ?? null,
+        references: thread.references ?? [],
+      },
+    };
     if (replaceUid === undefined) return saved;
     // The new draft is stored: a failed move of the old one must not hide it.
     try {
@@ -212,4 +221,36 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
     }
     return { ...saved, replaced: true };
   });
+}
+
+const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
+
+/**
+ * After a send: appends the copy `raw` to the Sent folder when `saveSent`, flagged
+ * \Seen, and moves the sent draft `draftUid` from Drafts to Trash. Each step is best
+ * effort, because the mail is gone already: a step that fails leaves things as they
+ * were and reports false.
+ */
+export async function fileSent(client, { raw, saveSent, draftUid }) {
+  const { folders } = await mailboxOf(client);
+  let savedToSent = false;
+  let draftTrashed = false;
+  if (saveSent && folders.sent)
+    try {
+      savedToSent = Boolean(await client.append(folders.sent, raw, ["\\Seen"]));
+    } catch (error) {
+      if (isBug(error)) throw error;
+    }
+  if (draftUid && folders.drafts && folders.trash && client.capabilities.has("MOVE"))
+    try {
+      draftTrashed = await inFolder(client, folders.drafts, async () => {
+        const found = await client.search({ uid: String(draftUid) }, { uid: true });
+        if (!Array.isArray(found) || !found.includes(draftUid)) return false;
+        await move(client, [draftUid], folders.trash);
+        return true;
+      });
+    } catch (error) {
+      if (isBug(error)) throw error;
+    }
+  return { savedToSent, draftTrashed };
 }

@@ -35,6 +35,9 @@ export function notifyAction(w, action, phase, prompt = null) {
   if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
   if (action.payload.action === "sftp")
     return notifySftp(w, action, phase, key, m, target);
+  // Mail cards get their own Telegram text with the mail in full (Task 12); never
+  // the generic action text.
+  if (action.payload.action === "mail_send") return;
   if (action.payload.action === "member_grant")
     return notifyMemberGrant(w, action, phase, key, m, target);
   if (action.payload.action === "hook_proposal")
@@ -209,10 +212,10 @@ function notifyExec(w, action, phase, key, m) {
   });
 }
 // Actions whose tool call holds the agent's run while the owner decides: an exec
-// approval, and an SSH or SFTP request until its hold ends (`followUp`).
+// approval, and an SSH, SFTP or mail request until its hold ends (`followUp`).
 const holdsRun = (a) =>
   a.payload?.action === "exec" ||
-  (["ssh", "sftp"].includes(a.payload?.action) && a.followUp !== true);
+  (["ssh", "sftp", "mail_send"].includes(a.payload?.action) && a.followUp !== true);
 /**
  * The approval cards of a Telegram turn's actions (a card not yet queued is null),
  * each with whether it ends the turn: while its action still awaits the owner, or

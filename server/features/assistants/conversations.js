@@ -103,6 +103,8 @@ export const internalKinds = new Set([
   "member-long-chat",
   "ssh-result",
   "sftp-result",
+  // The outcome of an agent mail send its call no longer waited for (agent-mail-sends.js).
+  "mail-result",
   // The outcome of the agent's SSH access proposal (agent-ssh-proposals.js).
   "ssh-access-result",
   // AgentPier asks the agent to continue its open work goal (goal-turns.js).
