@@ -54,7 +54,7 @@ On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
 [agent service, updates and advanced settings](screenshots/agents-runtime-desktop.png)
 ([on a phone](screenshots/agents-runtime-phone.png)).
 
-**Agents** (`/agents`) has four tabs:
+**Agents** (`/agents`) has five tabs:
 
 - **All agents:** a **Readiness** card (agent service and runtime version with
   **Update ready**, web search not set up, approvals waiting in the inbox), **Your
@@ -71,7 +71,42 @@ On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
   agent** (opens the wizard with the template) and **Install as subagent in a CLI …**
   (see [shared CLI extensions](shared-cli-extensions.md)). Blocked entries cannot be
   used.
+- **Skills:** the owner's skill catalog for all agents ([skill catalog](#skill-catalog)).
 - **Runtime:** see [Turn agents on](#turn-agents-on).
+
+## Skill catalog
+
+**Agents › Skills** (`/agents?tab=skills`) is the owner's catalog of extra skills for
+all agents. Only the owner installs, updates and removes catalog skills and switches
+them on; restricted users never do ([users](users.md#what-stays-locked)).
+
+- **Install skill** takes a `SKILL.md`, a ZIP or a public GitHub link. The check
+  scans the source without writing anything, with the same offline scan as CLI skills
+  ([skill import scan](shared-cli-extensions.md#skill-import-scan)), and previews the
+  files, the findings and the programs the skill runs. **Add to catalog** installs
+  exactly what was checked. Warnings need your confirmation; a blocked skill can be
+  installed only as an explicit override.
+- **Updates.** Uploading a skill with the name of a catalog skill (**Upload new
+  version**) or **Check for update** on a GitHub skill installs a new version. Agents
+  that use the skill get it at their next turn. If the new version brings warnings you
+  have not accepted for the previous version, or is blocked, you confirm again; the
+  preview shows "New since version N". A repository that now names a different skill is
+  refused. There are no automatic update checks.
+- **Remove** names the agents that use the skill, switches it off for all of them and
+  deletes its files.
+- **Name clashes.** A skill whose name a bundled skill, a plugin skill or a skill in
+  the agents' folders already carries is refused. If a runtime update later bundles a
+  skill of that name, the catalog skill shows "Shadowed by a bundled skill" and stays
+  off until you remove it.
+- Each skill shows its version, its source (upload, or GitHub repository, ref and
+  commit), the programs it runs and on how many agents it is on. A skill that needs
+  settings installs but is never switched on ("Needs settings — not supported yet").
+  "Damaged — install it again" appears when the live copy and its stored copy both
+  fail the integrity check.
+
+Per agent, the owner switches catalog skills under **Agent › Capabilities › Skills**.
+The runtime, the integrity checks and the shell caveat are described in
+[assistant gateway](assistant-gateway.md#skills).
 
 ## Create an agent
 
@@ -316,13 +351,19 @@ its own, also shows whether its model changed since it took it over from the lea
   permanently; delete an entry and the agent asks again. Temporary team members get
   shell access only through their lead's **Team members may use shell and SSH**
   (see below).
-- **Skills:** **Bundled skills** lists the skills that ship with OpenClaw. A skill
-  teaches the agent a tool, mostly a command-line program such as `gh`. Switch on the
-  ones this agent may use; each one shows whether it is ready or what it is missing,
-  and risky skills show a warning first. A skill is a hint, not a permission: most
-  skills need shell access, and shell access decides what the agent can run. Agents
-  with memory can also read the instructions of their installed skills. These
-  agent skills are separate from the CLI skills under **CLIs and extensions › Extensions**
+- **Skills:** lists the skills that ship with OpenClaw and the skills from the
+  [skill catalog](#skill-catalog). A skill teaches the agent a tool, mostly a
+  command-line program such as `gh`. Switch on the ones this agent may use; each one
+  shows whether it is ready or what it is missing, and risky skills show a warning
+  first. Catalog rows say "From the skill catalog · Version N". A skill is a hint, not
+  a permission: most skills need shell access, and shell access decides what the agent
+  can run. A catalog skill that runs programs on an agent without shell access shows
+  "Works with limits"; a catalog skill that needs settings (environment variables, API
+  keys or configuration) shows "Needs settings — not supported yet" and cannot be
+  switched on. A catalog skill whose files are damaged or cannot be checked shows
+  that state instead. Skills reach only agents that can read files (**Remember
+  information** on); the agent reads the skill's instructions itself. These agent
+  skills are separate from the CLI skills under **CLIs and extensions › Extensions**
   ([shared CLI extensions](shared-cli-extensions.md)).
 
 Switching a capability, the visible browser, skills or MCP servers applies while the

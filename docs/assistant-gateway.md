@@ -3952,7 +3952,8 @@ them). Check the agent settings after a restore if in doubt.
 ## Skills
 
 OpenClaw bundles skills: short instructions (`SKILL.md`) that teach an agent a tool,
-mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilities › Skills** the owner switches bundled skills on per agent. Only personal agents and
+mostly a command-line program such as `gh`, `himalaya` or `tmux`. In **Capabilities › Skills** the owner switches bundled skills and skills from the
+[skill catalog](#the-skill-catalog) on per agent. Only personal agents and
 promoted permanent members have a selection of their own; temporary members use
 their lead's current selection, archived agents have none, and a new agent starts
 without any.
@@ -3978,8 +3979,9 @@ without any.
   configuration checks, and host directories are cut out of every text. Upstream
   descriptions stay in their original language. Entering API keys is not offered;
   the page only names what is missing.
-- **Only bundled skills.** A save is refused (409 `skillUnavailable`) for a name that
-  the running Gateway does not report as an `openclaw-bundled` skill: ClawHub,
+- **Assignable skills.** A save is refused (409 `skillUnavailable`) for a name that
+  the running Gateway reports neither as an `openclaw-bundled` skill nor as a skill of
+  the AgentPier skill catalog (see [the skill catalog](#the-skill-catalog)): ClawHub,
   managed, Custodian and workspace skills are never assignable. Names already
   assigned can always be kept or removed, also while the Gateway is down.
 - **Shadowed skills are never compiled.** OpenClaw matches an agent's list by name
@@ -4012,6 +4014,53 @@ without any.
 - **macOS privacy.** Programs such as `remindctl`, `memo` or `peekaboo` need Reminders,
   Notes or Screen Recording permission for the process that runs them. A background
   service cannot show the prompt; grant it in System Settings if a skill fails.
+
+### The skill catalog
+
+The owner can install extra skills for all agents under **Agents › Skills** (guide:
+[skill catalog](agents.md#skill-catalog)). The catalog lives in AgentPier's own
+`skill-catalog/` folder (`catalog.json`, `store/<name>/<digest>/` with the current
+version, `skills/<name>/` as the live copies, `staging/` for copies on their way in
+or out). Nothing from a workspace is ever used for it.
+
+- **Runtime.** Only the catalog's `skills/` folder is added to
+  `skills.load.extraDirs`, and `skills.load` is a locked path: an agent cannot add
+  another folder. An agent sees a catalog skill only if its own allow list
+  (`agents.entries.<id>.skills`) names it. Because OpenClaw matches names across all
+  sources, a skill of the same name in a higher tier wins: bundled, workspace,
+  managed, personal, workshop (`workshop-skills` of the agent) or plugin skills
+  outrank the catalog. An install is refused for such a name, and a name a runtime
+  update later bundles makes the catalog skill **shadowed**: it is dropped from every
+  compile and stays off until the catalog skill is removed.
+- **Programs.** Required programs come from OpenClaw's `skills.status`, not from
+  AgentPier's scan. A skill needing environment variables, API keys or configuration
+  (`requirements.env`, `requirements.config`, `primaryEnv`) installs, shows **Needs
+  settings — not supported yet** and is never compiled. The hard lock of agents for
+  users still applies: a skill never brings shell or a tool the lock removes.
+- **Integrity.** The live copies are read-only. Before every turn is admitted and
+  before every Gateway start, AgentPier compares each switched-on skill with the
+  SHA-256 digest of its installed version (permission bits are not part of the digest,
+  because backups restore files as 0600). A copy that fails is restored from the
+  store copy. If the store copy is tampered too, the skill is **damaged**: never
+  compiled, and the owner has to install it again. A check that cannot run (an I/O
+  error) drops the skill for that apply only and shows it as **unavailable**. An
+  unreadable `catalog.json` compiles no catalog skill at all. One skill's error never
+  stops the agent service or other agents.
+- **Reach.** Skills load only for agents that can read files, that is agents with
+  memory on (their allow list contains `read`).
+- **Shell gap.** A skill is instructions, not a sandbox. An agent with shell access
+  runs as the owner's OS user and can read the catalog, change the files of a live
+  copy before the next check, or write its own skills into folders it controls; the
+  digest check and the read-only copies protect against accidents and against agents
+  without shell, not against an agent with shell. Give shell access only to agents you
+  trust.
+- **Audit.** Install, update, override and removal are audited with ids and counts
+  only, never names, paths, excerpts or content. Removing a skill strips it from every
+  agent's stored list, deletes its files and applies the affected agents.
+- **Restricted users.** Catalog routes (`/api/agent-skill-catalog*`) are owner-only;
+  restricted users get 404, and `skills` stays a locked setting for agents of users.
+- **Backups.** The catalog is part of host backups, see
+  [backups](backups.md#what-a-backup-holds).
 
 ## Proactivity: check-ins (2026-10-12)
 

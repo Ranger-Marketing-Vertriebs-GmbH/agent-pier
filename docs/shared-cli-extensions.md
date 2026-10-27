@@ -59,6 +59,9 @@ take SHAs from the repository's own history or releases.
 ### Skill import scan
 
 Every ZIP, `SKILL.md` and GitHub import is scanned offline before anything is written.
+The same scan guards installs into the agent skill catalog
+([skill catalog](agents.md#skill-catalog)); coding CLIs keep their own per-profile
+skills and never read the agents' catalog.
 The scan (`server/features/extensions/skill-scan.js`) reads the unpacked files only: it
 runs nothing, fetches nothing and decodes nothing it finds. The result lists the verdict
 and the findings grouped by file, each with its rule, line and a short excerpt in which
