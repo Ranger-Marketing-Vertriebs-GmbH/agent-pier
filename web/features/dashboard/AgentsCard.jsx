@@ -1,5 +1,4 @@
 import React from "react";
-import ErrorMessage from "../../components/ErrorMessage.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import useAssistants from "../assistants/useAssistants.js";
@@ -58,14 +57,12 @@ export default function AgentsCard({ navigate, phone }) {
       noMatch={copy.noAgentMatch}
       phone={phone}
       footer={
-        <>
-          <p className="start-card-note">
-            <StatusDot tone={service.tone} />
-            {service.text}
-          </p>
-          <ErrorMessage error={open.error} />
-        </>
+        <p className="start-card-note">
+          <StatusDot tone={service.tone} />
+          {service.text}
+        </p>
       }
+      error={open.error}
       showAll={(total) => ({
         label: copy.showAllAgents(total),
         onClick: () => navigate({ view: "agents" }),

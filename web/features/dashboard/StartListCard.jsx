@@ -1,5 +1,6 @@
 import React, { useId, useState } from "react";
 import FilterChips from "../../components/FilterChips.jsx";
+import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { filterList, PHONE_LIMIT, shownRows } from "./start-lists.js";
@@ -10,7 +11,7 @@ import { filterList, PHONE_LIMIT, shownRows } from "./start-lists.js";
  * search, the first `limit` rows and "Show n more", which lets the list scroll inside
  * the card. Changing the filter or the search folds it again. Phones show
  * `PHONE_LIMIT` rows and a "show all" row (`showAll(count)` → `{ label, onClick }`)
- * instead.
+ * instead. `error` (such as a failed open) shows on both layouts.
  */
 export default function StartListCard({
   id,
@@ -27,6 +28,7 @@ export default function StartListCard({
   empty,
   noMatch,
   footer = null,
+  error = "",
   showAll,
   phone,
   className = "",
@@ -106,6 +108,7 @@ export default function StartListCard({
           children(visible)
         )}
       </div>
+      <ErrorMessage error={error} />
       {all && (
         <button type="button" className="start-show-all" onClick={all.onClick}>
           {all.label}
