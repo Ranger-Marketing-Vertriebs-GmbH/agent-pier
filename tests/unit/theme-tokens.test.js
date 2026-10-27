@@ -84,7 +84,7 @@ test("redesign tokens exist with the handoff values", async () => {
 
 test("semantic colour tokens reference the palette instead of repeating hex values", async () => {
   const css = await readFile(new URL("styles/base.css", web), "utf8");
-  const palette = /^--(neutral|warm|orange|green|amber|red)-\d+$/;
+  const palette = /^--(neutral|warm|orange|green|amber|red|blue)-\d+$/;
   const solid = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
   for (const [, name, value] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g))
     if (solid.test(value.trim()))
