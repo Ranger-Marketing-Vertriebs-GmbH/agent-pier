@@ -129,7 +129,9 @@ export async function installReaComponent({
     }
     published = true;
     // Published: an old version that cannot be removed now goes at the next install.
-    await prune(root, id, [directory, previous].filter(Boolean)).catch((error) =>
+    await prune(root, id, [directory, previous].filter(Boolean), {
+      sparesRecent: true,
+    }).catch((error) =>
       console.warn(
         `AgentPier could not remove an old version of ${id} (${error?.code ?? "error"}).`,
       ),
@@ -146,18 +148,32 @@ export async function installReaComponent({
   }
 }
 
+// An unpublished version folder (no record) changed this recently may belong to an
+// install still running in another process (an installer run beside the server).
+const inFlightMs = 10 * 60 * 1000;
+
+async function inFlight(directory) {
+  if (await fsp.stat(path.join(directory, record)).catch(() => null)) return false;
+  const stat = await fsp.stat(directory).catch(() => null);
+  return !!stat && Date.now() - stat.mtimeMs < inFlightMs;
+}
+
 // Keeps `keep` and whatever the link points at when pruning runs (like
 // pruneGithubMcpPackages); only this component's version directories are touched.
-// The server runs one installation job at a time, so no two prunes overlap.
-async function prune(root, id, keep) {
+// The server runs one installation job at a time; with `sparesRecent` an install also
+// leaves another process's recent unpublished folder alone (the next start sweeps it).
+async function prune(root, id, keep, { sparesRecent = false } = {}) {
   const packages = path.join(root, ".packages");
   const active = await fsp.realpath(activation(root, id)).catch(() => null);
   const kept = new Set(
     [...keep, active].filter(Boolean).map((dir) => path.basename(dir)),
   );
-  for (const name of await fsp.readdir(packages).catch(() => []))
-    if (name.startsWith(prefix(id)) && !kept.has(name))
-      await fsp.rm(path.join(packages, name), { recursive: true, force: true });
+  for (const name of await fsp.readdir(packages).catch(() => [])) {
+    if (!name.startsWith(prefix(id)) || kept.has(name)) continue;
+    const directory = path.join(packages, name);
+    if (sparesRecent && (await inFlight(directory))) continue;
+    await fsp.rm(directory, { recursive: true, force: true });
+  }
 }
 
 /** Removes component `id`: its link and every version directory; a no-op when absent. */
