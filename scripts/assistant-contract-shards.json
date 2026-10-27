@@ -55,7 +55,8 @@
     "tests/integration/assistant-agent-admission-contract.test.js",
     "tests/integration/agent-deletion-contract.test.js",
     "tests/integration/assistant-memory-step-code-mode-contract.test.js",
-    "tests/integration/assistant-ssh-runtime-contract.test.js"
+    "tests/integration/assistant-ssh-runtime-contract.test.js",
+    "tests/integration/assistant-coding-session-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -113,6 +114,7 @@
     "tests/integration/assistant-agent-admission-contract.test.js": 105,
     "tests/integration/agent-deletion-contract.test.js": 30,
     "tests/integration/assistant-memory-step-code-mode-contract.test.js": 25,
-    "tests/integration/assistant-ssh-runtime-contract.test.js": 40
+    "tests/integration/assistant-ssh-runtime-contract.test.js": 40,
+    "tests/integration/assistant-coding-session-contract.test.js": 112
   }
 }

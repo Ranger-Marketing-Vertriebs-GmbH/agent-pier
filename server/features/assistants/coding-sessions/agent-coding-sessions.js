@@ -63,7 +63,7 @@ export class AgentCodingSessions {
     this.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     // Each action: (ctx, input, inv) => result. Later actions register here.
     this.actions = {
-      options: (ctx) => sessionOptions(this.w, ctx.assistantId),
+      options: (ctx) => sessionOptions(this.w, ctx),
       list: (ctx) => this.list(ctx),
       start: (ctx, input) => startSession(this.w, ctx, input),
       send: (ctx, input, inv) => sendToSession(this.w, ctx, input, inv),
@@ -85,7 +85,7 @@ export class AgentCodingSessions {
     exact(input, toolKeys);
     const ctx = sessionContext(this.w, inv);
     refuseUserAgent(this.w.a.store.getAssistant(ctx.assistantId));
-    if (needsProjects.has(input.action) && !this.projects(ctx.assistantId).length)
+    if (needsProjects.has(input.action) && !this.projects(ctx.assistantId, ctx).length)
       throw assistantProblem("sessionsNotEnabled", 403);
     const action = this.actions[input.action];
     if (!action) throw assistantProblem("invalid");
@@ -157,9 +157,11 @@ export class AgentCodingSessions {
   /**
    * The projects the agent may start sessions on: its own grants with the sessions
    * switch, and standing lead shares with coding on projects the lead itself has
-   * sessions on for (session-control.js sessionGrant).
+   * sessions on for (session-control.js sessionGrant). With a turn `ctx` that uses
+   * the agent's own grant only (a lead's follow-up on its member's result, a
+   * temporary member's team turn), the shares are left out, as no start rests on them.
    */
-  projects(assistantId) {
+  projects(assistantId, ctx = null) {
     const w = this.w;
     let policy;
     try {
@@ -171,7 +173,8 @@ export class AgentCodingSessions {
     const ids = new Set(
       policy.sessionProjectIds.filter((id) => policy.projectIds.includes(id)),
     );
-    for (const share of w.shares.codingProjects(assistantId, {}))
+    const ownOnly = !!(ctx?.requestedBy || ctx?.memberResult);
+    for (const share of ownOnly ? [] : w.shares.codingProjects(assistantId, {}))
       if (w.access.sessionsEnabled(share.leadId, share.projectId))
         ids.add(share.projectId);
     if (!ids.size) return [];

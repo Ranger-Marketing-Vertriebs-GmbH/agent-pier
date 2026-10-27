@@ -275,6 +275,8 @@ export class AssistantConfig {
       images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
       // Whether it receives a secrets file; names the file, never its contents.
       secrets: !!this.secretsGranted?.(assistant),
+      // The projects it may start coding sessions on (AgentCodingSessions.projects).
+      codingSessions: (nativeReady && this.codingSessions?.(assistant)) || [],
     };
     // A lead's "Your team" section names its members as they are now. It changes
     // with every busy member, so it stays out of the fingerprint: verifyBootstrap

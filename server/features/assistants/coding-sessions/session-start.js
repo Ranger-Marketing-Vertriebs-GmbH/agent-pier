@@ -57,7 +57,7 @@ async function validOptions(w, ctx, input) {
   if (options.baseBranch !== undefined && options.worktree === false) throw invalid();
   if (options.launchMode !== undefined && !launchModes[tool].includes(options.launchMode))
     throw invalid();
-  const offered = await sessionOptions(w, ctx.assistantId);
+  const offered = await sessionOptions(w, ctx);
   if (
     options.accountId !== undefined &&
     !offered.accounts.some((a) => a.id === options.accountId && a.tool === tool)
