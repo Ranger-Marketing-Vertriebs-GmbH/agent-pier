@@ -83,39 +83,6 @@
   .page {
     padding: 26px 23px 25px;
   }
-  .page-topline {
-    font-size: var(--font-size-xs);
-    letter-spacing: 1px;
-  }
-  .page-topline .subtle {
-    font-size: var(--font-size-xs);
-  }
-  .hero {
-    padding: 46px 0 40px;
-    min-height: 0;
-  }
-  .eyebrow {
-    font-size: var(--font-size-xs);
-    letter-spacing: 1.2px;
-    margin-bottom: 18px;
-  }
-  .hero h1 {
-    font-size: 49px;
-    letter-spacing: -2.7px;
-  }
-  .hero p {
-    font-size: 11px;
-    line-height: 1.9;
-    margin-top: 18px;
-  }
-  .hero-cta {
-    margin-top: 23px;
-    font-size: var(--font-size-xs);
-    height: 40px;
-  }
-  .hero h1 {
-    max-width: 270px;
-  }
   .section-heading {
     margin-bottom: 14px;
   }
@@ -198,32 +165,6 @@
     padding: 0 8px;
     font-size: 11px;
     justify-content: space-between;
-  }
-  .dashboard-note {
-    padding: 15px 13px;
-    margin-top: 20px;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .dashboard-note p {
-    font-size: var(--font-size-xs);
-  }
-  .dashboard-note strong {
-    display: block;
-    margin: 0 0 2px;
-  }
-  .dashboard-note svg {
-    margin-top: 2px;
-    width: 15px;
-  }
-  .dashboard-footer {
-    margin-top: 32px;
-    align-items: center;
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.8px;
-  }
-  .dashboard-footer > span:last-child {
-    font-size: var(--font-size-xs);
   }
   .page-heading {
     margin: 38px 0 25px;

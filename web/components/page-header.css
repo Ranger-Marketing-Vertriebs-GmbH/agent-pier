@@ -1,0 +1,48 @@
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-6);
+}
+.page-header-text {
+  min-width: 0;
+}
+.page-header-eyebrow {
+  margin-bottom: var(--space-2);
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.page-header h1 {
+  font:
+    700 34px/1.15 Manrope,
+    "DM Sans",
+    sans-serif;
+  letter-spacing: -1px;
+}
+.page-header-summary {
+  margin-top: var(--space-2);
+  color: var(--text-meta);
+  font-size: var(--font-size-base);
+}
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+@media (max-width: 700px) {
+  .page-header h1 {
+    font-size: 28px;
+  }
+  .page-header-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    width: 100%;
+  }
+  .page-header-actions > .button {
+    min-height: 48px;
+  }
+}

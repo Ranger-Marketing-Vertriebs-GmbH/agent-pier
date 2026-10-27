@@ -8,7 +8,6 @@ export const systemStatusCopy = {
   unavailable: "System status unavailable",
   diskValue: (free, total) => `${free} free of ${total}`,
   usedValue: (used, total) => `${used} of ${total}`,
-  cpuValue: (percent, cores) => `${percent} of ${cores} cores`,
   diskLowTitle: "Disk space is low",
   diskLow: (percent, threshold) =>
     `Only ${percent} is free on the drive that holds AgentPier's data (warning below ${threshold}). Delete old backups or unused data before the drive runs full.`,

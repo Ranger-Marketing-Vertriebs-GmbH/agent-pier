@@ -4,6 +4,7 @@ import {
   GAP_MS,
   lineSegments,
   nearestIndex,
+  sparklinePaths,
   timeGaps,
 } from "../../web/components/history-chart.js";
 
@@ -54,4 +55,18 @@ test("the nearest point to a time is found, ties choose the earlier one", () => 
   assert.equal(nearestIndex(points, 31_000), 1);
   assert.equal(nearestIndex(points, 500_000), 2);
   assert.equal(nearestIndex([], 0), -1);
+});
+
+test("sparklines draw one path per run and keep the gaps", () => {
+  const points = [
+    { t: 0, cpu: 0 },
+    { t: 30_000, cpu: 50 },
+    { t: 200_000, cpu: 100 },
+    { t: 230_000, cpu: 100 },
+  ];
+  assert.deepEqual(sparklinePaths(points, "cpu", 230, 20), [
+    "M0 20 L30 10",
+    "M200 0 L230 0",
+  ]);
+  assert.deepEqual(sparklinePaths(points.slice(0, 1), "cpu", 100, 20), []);
 });

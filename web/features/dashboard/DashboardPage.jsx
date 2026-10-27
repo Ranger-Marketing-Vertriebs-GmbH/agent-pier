@@ -1,120 +1,161 @@
-import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
-import React from "react";
+import React, { lazy, Suspense, useState } from "react";
 import Icon from "../../components/Icon.jsx";
-import StatusDot from "../../components/StatusDot.jsx";
-import SystemStatus from "./SystemStatus.jsx";
-import ToolGrid from "./ToolGrid.jsx";
+import useMobileLayout from "../../lib/useMobileLayout.js";
+import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
+import { useHintsOf, useMenuHintSources } from "../../app/useMenuHints.js";
+import useAssistantFeature from "../assistants/useAssistantFeature.js";
+import useAssistants, { idleAssistants } from "../assistants/useAssistants.js";
+import useInbox from "../inbox/useInbox.js";
+import useSystemStatus from "./useSystemStatus.js";
+import { attentionItems, systemAttention } from "./attention.js";
+import { startAgents } from "./start-agents.js";
+import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
+import StartHeader from "./StartHeader.jsx";
+import NeedsYou from "./NeedsYou.jsx";
+import SessionsCard from "./SessionsCard.jsx";
+import SystemStatusTile from "./SystemStatusTile.jsx";
+import AgentsCard from "./AgentsCard.jsx";
+import PipelinesCard from "./PipelinesCard.jsx";
+import ToolRows from "./ToolRows.jsx";
+import "./start-page.css";
+
+const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
+// The menu hint sources change slowly; the start page reads them twice a minute.
+const HINT_POLL_MS = 30_000;
+
+/**
+ * The start page: what runs and what needs you. Header, Needs you, sessions beside
+ * the system status, agents beside the pipelines, the tools and a footer.
+ */
 export default function DashboardPage({
   state,
-  installedToolCount,
   availableTools,
   installed,
   error,
   loading,
+  ready,
   launch,
   page,
   setModal,
   navigate,
+  openNavigation,
 }) {
+  const phone = useMobileLayout();
+  const [dialog, setDialog] = useState(null);
+  const status = useSystemStatus("/system-status", !dialog);
+  const sources = useMenuHintSources(true, { poll: HINT_POLL_MS });
+  const hints = useHintsOf(sources, state, ready);
+  const inbox = useInbox();
+  const feature = useAssistantFeature();
+  const assistants = useAssistants();
+  const agentsEnabled = feature.enabled;
+  const agentsLoaded =
+    agentsEnabled && assistants !== idleAssistants && assistants.loaded;
+  const system = systemAttention({
+    serviceError: Boolean(error),
+    status: status.data,
+    hints,
+    tools: state.tools,
+    utilities: state.utilities,
+    ready,
+    appVersion: sources?.summary?.operations?.updates?.available || null,
+    legacyTmux: state.legacyTmux?.sessions,
+  });
+  const attention = attentionItems({
+    inbox: inbox.loading || inbox.error ? null : inbox.items,
+    system,
+  });
+  const counts = {
+    sessions: ready
+      ? state.sessions.filter(
+          (s) => s.status === "running" && s.activity?.state === "working",
+        ).length
+      : null,
+    agents: agentsLoaded
+      ? startAgents({ ...assistants, copy: assistantCopy }).filter(
+          (agent) => agent.state === "working",
+        ).length
+      : null,
+    attention: attention.total,
+  };
+  const openStatus = (tab) => setDialog(tab);
   return (
-    <div className="page dashboard">
-      <div className="page-topline">
-        <span>{copy.pageToplineLabel}</span>
-        <span className="subtle">
-          <StatusDot tone="ok" />
-          {installedToolCount}
-          {copy.subtle}
-        </span>
+    <div className="page dashboard start-page">
+      <StartHeader
+        counts={counts}
+        agentsEnabled={agentsEnabled}
+        installed={installed}
+        launch={launch}
+        navigate={navigate}
+        phone={phone}
+      />
+      <NeedsYou
+        items={attention.items}
+        phone={phone}
+        navigate={navigate}
+        setModal={setModal}
+        openStorage={() => openStatus("storage")}
+      />
+      <div className="start-row-grid start-row-sessions">
+        <SessionsCard
+          sessions={state.sessions}
+          figures={status.data?.sessions}
+          navigate={navigate}
+          openNavigation={openNavigation}
+          phone={phone}
+        />
+        <SystemStatusTile
+          data={status.data}
+          error={status.error}
+          onOpen={() => openStatus("load")}
+          phone={phone}
+        />
       </div>
-      <section className="hero">
-        <div className="eyebrow">
-          <span className="tiny-terminal">›_</span>
-          {copy.eyebrow}
+      <div className={`start-row-grid start-row-agents ${agentsEnabled ? "" : "single"}`}>
+        {agentsEnabled && <AgentsCard navigate={navigate} phone={phone} />}
+        {!phone && (
+          <PipelinesCard runs={sources?.runs} navigate={navigate} phone={false} />
+        )}
+      </div>
+      {phone ? (
+        <div className="start-tiles">
+          <PipelinesCard
+            counts={{
+              running: sources?.running,
+              decisions: sources?.decisions,
+              failed: sources?.failed,
+            }}
+            navigate={navigate}
+            phone
+          />
+          <ToolRows tools={availableTools} navigate={navigate} phone />
         </div>
-        <h1>
-          {copy.heroTitle}
-          <br />
-          <span>{copy.heroLabel}</span>
-        </h1>
-        <p>
-          {copy.supportedTools}
-          <br />
-          {copy.workspaceDescription}
-        </p>
-        <button
-          className="button primary hero-cta"
-          onClick={() => launch()}
-          disabled={!installed}
-        >
-          <Icon name="plus" />
-          {copy.startNewSession}
-          <Icon name="arrow" size={17} />
-        </button>
-        <div className="workspace-snapshot">
-          <div className="snapshot-heading">
-            <Icon name="terminal" size={16} />
-            <span>{copy.snapshotHeadingLabel}</span>
-          </div>
-          <div>
-            <span>{commonCopy.availableTools}</span>
-            <strong>
-              {installedToolCount}
-              <small> / {availableTools.length}</small>
-            </strong>
-          </div>
-          <div>
-            <span>{commonCopy.activeSessions}</span>
-            <strong>
-              {state.sessions
-                .filter((s) => s.status === "running")
-                .length.toString()
-                .padStart(2, "0")}
-            </strong>
-          </div>
-          <div>
-            <span>{commonCopy.availableProfiles}</span>
-            <strong>
-              {state.accounts
-                .filter((a) => a.tool !== "shell")
-                .length.toString()
-                .padStart(2, "0")}
-            </strong>
-          </div>
-          <p>
-            <StatusDot tone={error ? "error" : "ok"} />
-            {error ? commonCopy.serviceUnavailable : copy.workspaceSnapshotDescription}
-          </p>
-        </div>
-      </section>
-      <SystemStatus navigate={navigate} />
-      <section className="tools-section">
-        <div className="section-heading">
-          <h2>{copy.sectionHeadingHeading}</h2>
-          <span>{copy.sectionHeadingLabel}</span>
-        </div>
-        <ToolGrid
+      ) : (
+        <ToolRows
           tools={availableTools}
+          loading={loading}
+          navigate={navigate}
           launch={launch}
           page={page}
           setModal={setModal}
         />
-        {loading && <p className="loading">{copy.workspaceLoading}</p>}
-      </section>
-      <div className="dashboard-note">
-        <Icon name="terminal" size={18} />
-        <p>
-          <strong>{copy.dashboardNoteLabel}</strong>
-          {copy.dashboardNoteDescription}
-        </p>
-      </div>
-      <footer className="dashboard-footer">
-        <span>{copy.localExecution}</span>
+      )}
+      <footer className="start-footer">
+        <span>{copy.keepsRunning}</span>
         <span>
           <Icon name="shield" size={13} />
-          {copy.privateAccess}
+          {copy.localOnly}
         </span>
       </footer>
+      {dialog && (
+        <Suspense fallback={null}>
+          <SystemStatusDialog
+            close={() => setDialog(null)}
+            cleanup={dialog === "storage"}
+            openSession={navigate}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

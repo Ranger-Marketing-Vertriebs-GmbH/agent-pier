@@ -65,7 +65,7 @@ test("live backend account save and real terminal compose, resize and reconnect"
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(url);
   await expect(
-    page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/live-desktop.png",
@@ -164,6 +164,6 @@ test("a user can open the workspace from an external link without weakening API 
   expect(response.status()).toBe(200);
   // Fetch Metadata is covered directly in security.test.js; interception may omit it from CDP headers.
   await expect(
-    page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
   ).toBeVisible();
 });

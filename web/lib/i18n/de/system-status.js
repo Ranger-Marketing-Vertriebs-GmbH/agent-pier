@@ -8,7 +8,6 @@ export const systemStatusCopy = {
   unavailable: "Systemstatus nicht verfügbar",
   diskValue: (free, total) => `${free} frei von ${total}`,
   usedValue: (used, total) => `${used} von ${total}`,
-  cpuValue: (percent, cores) => `${percent} von ${cores} Kernen`,
   diskLowTitle: "Speicherplatz wird knapp",
   diskLow: (percent, threshold) =>
     `Auf dem Laufwerk mit den AgentPier-Daten sind nur noch ${percent} frei (Warnung unter ${threshold}). Lösche alte Sicherungen oder ungenutzte Daten, bevor das Laufwerk voll ist.`,

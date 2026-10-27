@@ -139,7 +139,6 @@ function Application() {
   const newItems = useNewMenuItems({ launch, navigate });
   const availableTools = [...state.tools, ...(state.utilities || [])];
   const installed = state.tools.filter((t) => t.installed).length;
-  const installedToolCount = availableTools.filter((t) => t.installed).length;
   const act = (type, item) =>
     setModal({
       type,
@@ -391,15 +390,16 @@ function Application() {
                 <DashboardPage
                   {...{
                     state,
-                    installedToolCount,
                     availableTools,
                     installed,
                     error,
                     loading,
+                    ready,
                     launch,
                     page,
                     setModal,
                     navigate,
+                    openNavigation,
                   }}
                 />
               )}

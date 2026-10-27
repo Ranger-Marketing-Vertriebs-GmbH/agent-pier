@@ -115,10 +115,27 @@ const card = (page, name) =>
     .locator(".tool-card")
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
 
-test("dashboard shows each CLI's version and which one is below its minimum", async ({
+test("the start page flags an outdated CLI and offers its update first", async ({
   page,
 }) => {
   await fixture(page);
+  const needs = page.getByRole("region", { name: "Needs you" });
+  await expect(needs).toContainText("Claude Code 2.1.263 or later");
+  await expect(needs).toContainText("Installed: 2.1.100 · new sessions do not start");
+  const tools = page.getByRole("region", { name: /Your tools/ });
+  const row = tools.locator(".start-tool").filter({ hasText: "Claude Code" });
+  await expect(row).toContainText("Update required");
+  await row.getByRole("button", { name: "Update: Claude Code", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Update Claude Code", exact: true }),
+  ).toContainText("Installed: 2.1.100 · Requires 2.1.263 or later");
+});
+
+test("the full grid shows each CLI's version and which one is below its minimum", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto(base + "/coding/clis");
   const claude = card(page, "Claude Code");
   await expect(claude.locator(".tool-state")).toHaveText("Update required");
   await expect(claude.locator(".tool-version")).toHaveText(
@@ -184,9 +201,12 @@ test("an outdated CLI that AgentPier did not install only warns and points to it
       managedInstall: false,
     }),
   );
-  await expect(card(page, "OpenCode").locator(".tool-state")).toHaveText(
-    "Update required",
-  );
+  await expect(
+    page
+      .getByRole("region", { name: /Your tools/ })
+      .locator(".start-tool")
+      .filter({ hasText: "OpenCode" }),
+  ).toContainText("Update required");
   await openNewSession(page);
   const dialog = page.getByRole("dialog");
   await page.getByLabel("CLI", { exact: true }).selectOption("opencode");

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-async function fixture(page) {
+async function fixture(page, path = "/") {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const calls = [];
   await page.route("**/api/**", async (route) => {
@@ -39,7 +39,7 @@ async function fixture(page) {
           : { profiles: [], accesses: [] };
     return route.fulfill({ json });
   });
-  await page.goto("/");
+  await page.goto(path);
   return calls;
 }
 
@@ -48,7 +48,8 @@ for (const width of [390, 780, 1440]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
-    const calls = await fixture(page);
+    // The full grid under CLIs & extensions › Installation shows every action.
+    const calls = await fixture(page, "/coding/clis");
     const card = page
       .locator(".tool-card")
       .filter({ has: page.getByRole("heading", { name: "Codex", exact: true }) });
@@ -112,7 +113,7 @@ test("the general launch dialog can switch between Codex and Shell and launch th
       },
     }),
   );
-  await page.locator(".hero-cta").click();
+  await page.locator(".start-new-session").click();
   const modal = page.getByRole("dialog", { name: "New session", exact: true });
   const cli = modal.getByRole("combobox", { name: "CLI", exact: true });
   await modal
@@ -137,3 +138,27 @@ test("the general launch dialog can switch between Codex and Shell and launch th
     },
   });
 });
+
+for (const width of [780, 1440])
+  test(`the start page's Codex row starts and keeps Update CLI in its menu at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const calls = await fixture(page);
+    const tools = page.getByRole("region", { name: /Your tools/ });
+    await tools.getByRole("button", { name: "Start: Codex", exact: true }).click();
+    await expect(
+      page.getByRole("dialog", { name: "New session", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+    const more = tools.getByRole("button", { name: "More actions for Codex" });
+    await more.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu", { name: "More actions for Codex" });
+    await expect(menu.getByRole("menuitem", { name: "Update CLI" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    const modal = page.getByRole("dialog", { name: "Update Codex", exact: true });
+    await modal.getByRole("button", { name: "Update now", exact: true }).click();
+    await expect(modal.getByRole("alert")).toHaveText("Request captured");
+    expect(calls).toEqual([{ pathname: "/api/tools/codex/update", body: {} }]);
+  });

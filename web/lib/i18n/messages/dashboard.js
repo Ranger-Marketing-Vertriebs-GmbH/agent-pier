@@ -5,3 +5,4 @@ export const dashboardPageCopy = localizedCopy(
   de.dashboardPageCopy,
   en.dashboardPageCopy,
 );
+export const startPageCopy = localizedCopy(de.startPageCopy, en.startPageCopy);

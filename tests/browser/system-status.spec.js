@@ -30,18 +30,23 @@ for (const [name, viewport] of [
     await routeStatus(page);
     await page.goto("/");
     const row = page.getByRole("button", { name: /System status/ });
-    await expect(row).toContainText("Disk");
-    for (const value of ["Disk60%", "CPU34%", "RAM75%"])
-      await expect(row).toContainText(value);
-    // Phones show the bars with their percentages; the details carry the figures.
-    const figures = row.getByText("200 GB free of 500 GB");
-    if (name === "phone") await expect(figures).toBeHidden();
-    else {
-      await expect(figures).toBeVisible();
-      await expect(row).toContainText("34% of 12 cores");
-      await expect(row).toContainText("36 GB of 48 GB");
+    await expect(row).toHaveAttribute("aria-haspopup", "dialog");
+    // Phones show three bars with their percentages; the details carry the figures.
+    if (name === "phone") {
+      for (const value of ["CPU34%", "RAM75%", "Disk60%"])
+        await expect(row).toContainText(value);
+      await expect(row.getByText("200 GB free of 500 GB")).toHaveCount(0);
+      expect((await row.boundingBox()).height).toBeLessThan(130);
+    } else {
+      // CPU and RAM with sparklines, the disk, AgentPier's share and Details.
+      await expect(row).toContainText("CPU12 cores34%");
+      await expect(row).toContainText("RAM36 GB / 48 GB75%");
+      await expect(row.getByText("200 GB free of 500 GB")).toBeVisible();
+      await expect(row).toContainText("AgentPier: 2.5% CPU · 3 GB RAM");
+      await expect(row).toContainText("Live · every 5 s");
+      await expect(row.locator(".start-sparkline.cpu path")).toHaveCount(2);
+      await expect(row.locator(".start-sparkline.memory path")).toHaveCount(2);
     }
-    expect((await row.boundingBox()).height).toBeLessThan(name === "phone" ? 130 : 100);
     await expect(page.getByRole("alert")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`start-${name}.png`) });
     const box = await row.boundingBox();
@@ -118,14 +123,33 @@ for (const [name, viewport] of [
   });
 }
 
-test("low disk space shows a warning on the start page", async ({ page }) => {
+test("low disk space needs you on the start page and opens Storage", async ({ page }) => {
+  await routeStatus(page, { freePercent: 6, diskLow: true });
+  await page.goto("/");
+  const needs = page.getByRole("region", { name: "Needs you" });
+  const card = needs.locator(".start-attention-card").filter({ hasText: "Disk space" });
+  await expect(card).toContainText("Disk space is low");
+  await expect(card).toContainText("Only 6% is free");
+  await expect(card).toContainText("warning below 10%");
+  await expect(page.locator(".start-disk.low")).toBeVisible();
+  await card.getByRole("button", { name: "Free up space" }).click();
+  const dialog = page.getByRole("dialog", { name: "System status" });
+  await expect(dialog.getByRole("tab", { name: /Storage/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(dialog.getByRole("alert")).toContainText("Disk space is low");
+});
+
+test("on a phone low disk space is a compact row", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await routeStatus(page, { freePercent: 6, diskLow: true });
   await page.goto("/");
-  const alert = page.getByRole("alert");
-  await expect(alert).toContainText("Disk space is low");
-  await expect(alert).toContainText("Only 6% is free");
-  await expect(alert).toContainText("warning below 10%");
+  const row = page
+    .getByRole("region", { name: "Needs you" })
+    .getByRole("button", { name: /Disk space: Disk space is low/ });
+  await expect(row).toBeVisible();
+  expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
 });
 
 test("the start page polls the status only while it is visible", async ({ page }) => {
@@ -150,7 +174,7 @@ test("an unknown disk share shows a dash, not a full bar", async ({ page }) => {
   await page.goto("/");
   const row = page.getByRole("button", { name: /System status/ });
   await expect(row).toContainText("Disk–");
-  const bar = row.locator(".system-meter-bar i").first();
+  const bar = row.locator(".start-disk .system-meter-bar i");
   expect(await bar.evaluate((node) => node.style.width)).toBe("0%");
   await expect(row.locator("div")).toHaveCount(0);
 });
@@ -163,7 +187,7 @@ for (const [name, answer] of [
     await page.route("**/api/system-status", (route) => route.fulfill(answer));
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Your tools" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "System status" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /System status/ })).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 

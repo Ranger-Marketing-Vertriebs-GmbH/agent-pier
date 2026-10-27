@@ -451,7 +451,7 @@ test("mobile connection errors leave the composer reachable", async ({ page }) =
   expect(composer.y + composer.height).toBeLessThanOrEqual(844);
 });
 
-test("Claude dashboard mark uses a vector instead of a platform-dependent emoji", async ({
+test("Claude tool mark uses a vector instead of a platform-dependent emoji", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -465,7 +465,7 @@ test("Claude dashboard mark uses a vector instead of a platform-dependent emoji"
       },
     }),
   );
-  await page.goto(baseURL);
+  await page.goto(baseURL + "/coding/clis");
   const mark = page.locator(".tool-card .provider-mark.claude");
   await expect(mark.locator("svg")).toBeVisible();
   await expect(mark).toHaveText("");

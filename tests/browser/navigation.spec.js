@@ -319,7 +319,7 @@ test("mobile navigation waits for the authenticated workspace to mount", async (
   releaseStatus();
   await navigation;
   await expect(
-    page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
   ).toBeVisible();
 });
 

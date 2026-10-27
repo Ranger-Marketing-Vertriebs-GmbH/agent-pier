@@ -1,7 +1,27 @@
 // Start page system status answers for browser fixtures that refuse unknown requests.
 const GB = 1024 ** 3;
+// Two runs a 10-minute gap apart: nobody looked meanwhile.
+function history(now = Date.now()) {
+  return [
+    ...Array.from({ length: 10 }, (_, index) => ({
+      t: now - 20 * 60_000 - (9 - index) * 60_000,
+      cpu: 10 + index,
+      memory: 60,
+      agentCpu: 1,
+    })),
+    ...Array.from({ length: 20 }, (_, index) => ({
+      t: now - (19 - index) * 30_000,
+      cpu: 20 + index,
+      memory: 70 + index / 4,
+      agentCpu: 2,
+    })),
+  ];
+}
 export function summary({ freePercent = 40, diskLow = false } = {}) {
   return {
+    // The start page's per-session figures and its sparklines' points.
+    sessions: [],
+    history: history(),
     sampledAt: new Date().toISOString(),
     cpu: { percent: 34, cores: 12, load: [4.68, 5.61, 6.17] },
     memory: { totalBytes: 48 * GB, usedBytes: 36 * GB, percent: 75 },
@@ -54,21 +74,7 @@ export function details(options) {
         cpuPercent: 0,
       },
     ],
-    // Two runs a 10-minute gap apart: nobody looked meanwhile.
-    history: [
-      ...Array.from({ length: 10 }, (_, index) => ({
-        t: now - 20 * 60_000 - (9 - index) * 60_000,
-        cpu: 10 + index,
-        memory: 60,
-        agentCpu: 1,
-      })),
-      ...Array.from({ length: 20 }, (_, index) => ({
-        t: now - (19 - index) * 30_000,
-        cpu: 20 + index,
-        memory: 70 + index / 4,
-        agentCpu: 2,
-      })),
-    ],
+    history: history(now),
     areas: {
       state: "ready",
       computedAt: new Date(now - 60_000).toISOString(),
