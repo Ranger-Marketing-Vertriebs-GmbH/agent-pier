@@ -9,6 +9,7 @@ import { problem } from "../../lib/storage.js";
 // redirects followed by hand and each hop checked against a host and path allowlist,
 // size and SHA-256 checked before the file counts as downloaded.
 const bad = (message) => problem(message, 409);
+const diskFull = (error) => ["ENOSPC", "EDQUOT"].includes(error?.code);
 const redirectStatuses = new Set([301, 302, 303, 307, 308]);
 const maxRedirects = 3;
 // Homebrew's anonymous pull token for public ghcr.io packages; it is no secret, but it
@@ -132,7 +133,7 @@ export async function verifiedDownload({
     handle = await fsp.open(file, "wx", 0o600);
   } catch (error) {
     await response.body.cancel?.().catch(() => {});
-    if (error.code === "ENOSPC") throw error;
+    if (diskFull(error)) throw error;
     throw bad(serverMessages.rea.downloadFailed);
   }
   const hash = createHash("sha256");
@@ -161,7 +162,7 @@ export async function verifiedDownload({
     await handle.close().catch(() => {});
     await fsp.rm(file, { force: true }).catch(() => {});
     if (signal?.aborted) throw bad(serverMessages.tools.installationAbortedOrTimedOut);
-    if (error.status || error.code === "ENOSPC") throw error;
+    if (error.status || diskFull(error)) throw error;
     throw bad(serverMessages.rea.downloadFailed);
   }
 }

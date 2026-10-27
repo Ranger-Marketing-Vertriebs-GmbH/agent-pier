@@ -1,6 +1,7 @@
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -24,14 +25,22 @@ const linuxDecompiler = "Ghidra/Features/Decompiler/os/linux_x86_64/decompile";
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 // A Homebrew-bottle-shaped Ghidra: application.properties and the native decompiler.
-function ghidraBottle({ version = ghidraVersion, decompiler = true } = {}) {
+function ghidraBottle({
+  version = ghidraVersion,
+  decompiler = true,
+  properties = true,
+} = {}) {
   const base = `ghidra/${ghidraVersion}/libexec`;
   return tarGz([
     { name: "ghidra/", type: "dir" },
-    {
-      name: `${base}/Ghidra/application.properties`,
-      content: `application.name=Ghidra\napplication.version=${version}\n`,
-    },
+    ...(properties
+      ? [
+          {
+            name: `${base}/Ghidra/application.properties`,
+            content: `application.name=Ghidra\napplication.version=${version}\n`,
+          },
+        ]
+      : []),
     { name: `${base}/ghidraRun`, content: "#!/bin/sh\n", mode: 0o755 },
     ...(decompiler
       ? [{ name: `${base}/${macDecompiler}`, content: "#!/bin/sh\n", mode: 0o755 }]
@@ -219,6 +228,69 @@ test("Ghidra with another version is refused", async (t) => {
   assert.deepEqual(f.packages(), []);
 });
 
+test("Ghidra without application.properties has an unexpected layout", async (t) => {
+  const f = await fixture(t);
+  const bytes = ghidraBottle({ properties: false });
+  await assert.rejects(f.install("rea-ghidra", ghidraEntry(bytes), bytes), {
+    message: serverMessages.rea.layoutInvalid("Ghidra"),
+  });
+  assert.deepEqual(f.packages(), []);
+});
+
+test("a JDK whose version only starts with the pinned one is refused", async (t) => {
+  const f = await fixture(t);
+  const bytes = jdkArchive(`${jdkVersion}1`);
+  await assert.rejects(f.install("rea-jdk", jdkEntry(bytes), bytes), {
+    message: serverMessages.rea.jdkVersionMismatch(jdkVersion),
+  });
+  assert.deepEqual(f.packages(), []);
+});
+
+test("an abort during the library check stops the install", async (t) => {
+  const f = await fixture(t);
+  const bytes = await ghidraZip();
+  const controller = new AbortController();
+  const shutdown = Object.assign(Error(serverMessages.tools.installationShutdown), {
+    status: 409,
+  });
+  await assert.rejects(
+    f.install("rea-ghidra", linuxGhidraEntry(bytes), bytes, {
+      platform: "linux",
+      signal: controller.signal,
+      run: async () => {
+        controller.abort();
+        throw shutdown;
+      },
+    }),
+    (error) => error === shutdown,
+  );
+  assert.equal(managedReaComponent(f.root, "rea-ghidra"), null);
+  assert.deepEqual(f.packages(), []);
+});
+
+test("an old version that cannot be pruned is logged, not a failed install", async (t) => {
+  const f = await fixture(t);
+  const bytes = jdkArchive();
+  await f.install("rea-jdk", jdkEntry(bytes, "one.tar.gz"), bytes);
+  const first = managedReaComponent(f.root, "rea-jdk").directory;
+  await f.install("rea-jdk", jdkEntry(bytes, "two.tar.gz"), bytes);
+  const original = fsp.rm;
+  const rm = mock.method(fsp, "rm", (target, options) =>
+    target === first
+      ? Promise.reject(Object.assign(Error("busy"), { code: "EBUSY" }))
+      : original(target, options),
+  );
+  const warn = mock.method(console, "warn", () => {});
+  t.after(() => {
+    rm.mock.restore();
+    warn.mock.restore();
+  });
+  const third = await f.install("rea-jdk", jdkEntry(bytes, "three.tar.gz"), bytes);
+  assert.deepEqual(managedReaComponent(f.root, "rea-jdk"), third);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.ok(fs.existsSync(first));
+});
+
 test("Ghidra without the decompiler is refused", async (t) => {
   const f = await fixture(t);
   const bytes = ghidraBottle({ decompiler: false });
@@ -379,8 +451,10 @@ test("sweep removes work folders, stray links and unpublished versions only", as
   await f.install("rea-jdk", jdkEntry(bytes), bytes);
   const active = managedReaComponent(f.root, "rea-jdk");
   const packages = path.join(f.root, ".packages");
-  fs.mkdirSync(path.join(f.root, ".install-abc"));
-  fs.writeFileSync(path.join(f.root, ".install-abc", "archive"), "partial");
+  fs.mkdirSync(path.join(f.root, ".rea-install-abc"));
+  fs.writeFileSync(path.join(f.root, ".rea-install-abc", "archive"), "partial");
+  // Another installer's work folder may be in flight; it is not REA's to sweep.
+  fs.mkdirSync(path.join(f.root, ".install-x"));
   fs.symlinkSync("x", path.join(f.root, ".rea-jdk-link-1234"));
   fs.symlinkSync("x", path.join(f.root, ".rea-ghidra-link-5678"));
   fs.mkdirSync(path.join(packages, "rea-ghidra-unpublished"));
@@ -392,6 +466,7 @@ test("sweep removes work folders, stray links and unpublished versions only", as
   sweepReaComponents(f.root);
   assert.deepEqual(fs.readdirSync(f.root).sort(), [
     ".chromium-foreign",
+    ".install-x",
     ".packages",
     "rea-jdk",
   ]);
