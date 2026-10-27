@@ -18,6 +18,7 @@ import { requestCopy } from "./en/requests.js";
 import { sessions } from "./en/sessions.js";
 import { settings } from "./en/settings.js";
 import { secrets } from "./en/secrets.js";
+import { mail } from "./en/mail.js";
 import { ssh } from "./en/ssh.js";
 import { tools } from "./en/tools.js";
 import { sessionInput } from "./en/session-input.js";
@@ -84,6 +85,7 @@ export const englishServerMessages = Object.freeze({
   sessions,
   secrets,
   settings,
+  mail,
   ssh,
   tools,
   requests: requestCopy,
