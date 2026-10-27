@@ -29,7 +29,7 @@ export const assistantSkillsCopy = {
     needsSettings: "Needs settings \u2014 not supported yet",
     damaged: "Damaged \u2014 install it again in Agents \u203a Skills",
     shadowedCatalog:
-      "Off: a bundled skill of the same name replaces this catalog skill. Remove one of them to use the other.",
+      "Off: a bundled skill of the same name replaces this catalog skill. Remove the catalog skill to use the bundled one.",
     shadowed:
       "Off for this agent: a skill of the same name in the agent's folders would run in its place. Your choice stays saved and applies again once that skill is gone.",
   },
@@ -42,6 +42,7 @@ export const assistantSkillsCopy = {
   },
   missingLine: (parts) => `Missing: ${parts}`,
   needsShell: "Needs shell access",
+  fromCatalogPlain: "From the skill catalog",
   fromCatalog: (version) => `From the skill catalog \u00b7 version ${version}`,
   worksWithLimits:
     "Works with limits: it runs programs and this agent has no shell access.",

@@ -23,7 +23,9 @@ function SkillDetails({ skill, shellOff, on }) {
         {statusText(skill, copy)}
       </span>
       {skill.source === "catalog" && (
-        <span className="agent-skill-line">{copy.fromCatalog(skill.version ?? "")}</span>
+        <span className="agent-skill-line">
+          {skill.version ? copy.fromCatalog(skill.version) : copy.fromCatalogPlain}
+        </span>
       )}
       {skill.usesShell && shellOff && (
         <span className="agent-skill-line agent-skill-shell">
