@@ -217,11 +217,15 @@ test("start() brings an outdated Ghidra, JDK or Core lock to the pins", async (t
   // A newer AgentPier pins newer components and Core.
   const rea = await f.tool({ coreVersion: "6.9.0" });
   assert.equal(rea.state().updateAvailable, true);
+  assert.equal(rea.state().components.core.outdated, true);
+  assert.equal(rea.state().components.ghidra.outdated, true);
   assert.equal(rea.utility().updateAvailable, true);
   await rea.start();
   const state = rea.state();
   assert.equal(state.status, "succeeded", state.message);
   assert.equal(state.updateAvailable, false);
+  assert.equal(state.components.core.outdated, false);
+  assert.equal(state.components.ghidra.outdated, false);
   assert.equal(state.serverId, serverId);
   assert.equal(state.components.ghidra.version, "12.1.4");
   assert.equal(state.components.ghidra.jdkVersion, "21.0.13+9");
@@ -280,6 +284,11 @@ test("start() skips the update while REA is in use and reports updateAvailable",
   const old = await f.tool({ pins: { ghidra: "12.1.3" } });
   await f.install(old);
   await old.close();
+  // Only Ghidra and the JDK are behind: Core is not named as outdated.
+  const pinsOnly = await f.tool();
+  assert.equal(pinsOnly.state().components.core.outdated, false);
+  assert.equal(pinsOnly.state().components.ghidra.outdated, true);
+  await pinsOnly.close();
   const rea = await f.tool({ coreVersion: "6.9.0" });
   f.busy.value = true;
   await rea.start();

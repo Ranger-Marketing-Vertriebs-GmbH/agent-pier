@@ -30,6 +30,15 @@ function chosenFrom(state) {
     : { ghidra: ghidra.available, frida: frida.available };
 }
 
+/** What the update brings: Core's pinned version, the Ghidra/JDK pins, or both. */
+function updateNote({ core, ghidra }) {
+  const parts = [];
+  if (core.outdated || !ghidra.outdated) parts.push(copy.updateCore(core.pinnedVersion));
+  if (ghidra.outdated)
+    parts.push(copy.updateGhidra(ghidra.pinnedVersion, ghidra.jdkPinnedVersion));
+  return copy.updateNote(parts.join(", "));
+}
+
 function SafetyNotes() {
   return (
     <section className="rea-section" aria-labelledby="rea-safety">
@@ -154,9 +163,7 @@ export default function ReaDialog({ request, refresh, close }) {
         {ready && (
           <>
             {state.updateAvailable && (
-              <p className="rea-warning">
-                {copy.updateNote(state.components.core.pinnedVersion)}
-              </p>
+              <p className="rea-warning">{updateNote(state.components)}</p>
             )}
             <ReaComponents
               components={state.components}
