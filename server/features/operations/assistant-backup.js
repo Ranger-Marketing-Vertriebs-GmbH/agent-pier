@@ -85,6 +85,17 @@ const volatileTree = /(^|\/)([^/]*cache|node_modules)(\/|$)/i;
 // accept them from older backups.
 const workspaceDependencies = (relative, stat) =>
   stat.isDirectory() && /^workspaces\/(.*\/)?node_modules$/.test(relative);
+// The agent skill catalog (skill-catalog/) is configuration the owner installed: a
+// skill's own folders keep any name (a "redis-cache" skill, a bundled node_modules)
+// and come back intact; their digests ignore the 0600 a restore writes, and the
+// catalog re-applies modes before use. Its staging/ holds half-written copies and
+// the old copy during a swap; it is never archived and a restore refuses it.
+const catalogTree = /^skill-catalog\//;
+const catalogStaging = /^skill-catalog\/staging(\/|$)/;
+const ownNames = (relative) => {
+  const [top] = relative.split("/");
+  return top === "workspaces" || catalogTree.test(relative);
+};
 // What builds before the agent browser profiles excluded; restores stay accepting
 // everything they archived (restorable below).
 const legacyVolatileTree = /(^|\/)(cache|node_modules)(\/|$)/;
@@ -117,7 +128,8 @@ const restorable = (relative) => {
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
     !volatile.test(relative) &&
-    (top === "workspaces" || !legacyVolatileTree.test(relative))
+    !catalogStaging.test(relative) &&
+    (ownNames(relative) || !legacyVolatileTree.test(relative))
   );
 };
 /**
@@ -129,9 +141,7 @@ const included = (relative) =>
   !browserTree.test(relative) &&
   !isRuntimeOnly(relative) &&
   !agentSecretMember.test(relative) &&
-  (relative.split("/")[0] === "workspaces" ||
-    shared(relative) ||
-    !volatileTree.test(relative));
+  (ownNames(relative) || shared(relative) || !volatileTree.test(relative));
 /**
  * A cache an older backup archived publicly (Chromium's "Cache", "GPUCache"); a
  * restore accepts it and leaves it out.
@@ -139,11 +149,7 @@ const included = (relative) =>
 export function isLegacyAssistantCache(name) {
   if (!isAssistantMember(name)) return false;
   const relative = name.slice(prefix.length + 1);
-  return (
-    !relative.startsWith("workspaces/") &&
-    !shared(relative) &&
-    volatileTree.test(relative)
-  );
+  return !ownNames(relative) && !shared(relative) && volatileTree.test(relative);
 }
 /** True for an archive member path a host backup may restore into assistants/. */
 export function isAssistantMember(name) {
