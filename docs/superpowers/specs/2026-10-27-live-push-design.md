@@ -85,10 +85,11 @@ the message, and polling only where nothing can tell the server that something c
     on `pagehide` (an open socket blocks bfcache), the client closes the socket. On
     `visible`/`pageshow`/`online` it reconnects if needed and resubscribes with its
     stored revisions, reusing the resume semantics of `startVisiblePolling`.
-12. **Fallback.** After three failed handshakes while REST works, `useLiveTopic` falls
-    back to the hook's previous poll, visible-only, at the previous interval. This
-    covers a proxy that refuses Upgrade and keeps browser specs that mock only REST
-    valid. See owner question 1.
+12. **Fallback** _(owner, 2026-10-27)_. When `/api/live` cannot connect, the app falls
+    back to polling, only while the tab is visible: after three failed handshakes while
+    REST works, `useLiveTopic` falls back to the hook's previous poll, visible-only, at
+    the previous interval, and keeps retrying the socket with backoff. This covers a
+    proxy that refuses Upgrade and keeps browser specs that mock only REST valid.
 13. **Client API.** One `LiveClient` per tab in `web/lib/live/`; `useLiveTopic(topic, opts)`
     returns `{data, error, loading, connected}`, the same shape as
     `useResource`, so call sites change in about one line. Backoff 0.5 s → 30 s with
@@ -225,9 +226,11 @@ server (at most every 60 s while subscribed), not in the browser.
 
 ## Phased rollout
 
-Each phase ships on its own and keeps the REST routes. _(Claude's call, pending owner
-question 3)_ one PR per phase, because Phase 0 is urgent and each later phase is
-reviewable alone.
+_(Owner, 2026-10-27)_ All six phases, including moving the existing SSE streams into
+the channel, the `me.*` user topics and the file and queue watchers, belong to
+AGENTPIER-266. They are worked through cleanly one phase after another, Phase 0 first,
+and each phase leaves the branch green and keeps the REST routes. Everything ships in
+**one pull request** at the end; there is no release between phases.
 
 | Phase                           | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -240,12 +243,5 @@ reviewable alone.
 
 ## Open questions for the owner
 
-1. **Fallback poll.** When `/api/live` cannot connect but REST works, should the app
-   fall back to visible-only polling (decision 12), or require WebSockets, as the
-   terminal already does, and show "live updates unavailable"? Dropping the fallback
-   means about 80 browser specs that mock only REST need a `/api/live` stub.
-2. **Scope of this ticket.** Phases 0-3 here, with Phase 4 (moving the existing SSE
-   streams and the user `me.*` topics) and Phase 5 (file and queue watchers) as
-   follow-up tickets, or all six phases under AGENTPIER-266?
-3. **PR granularity.** One PR per phase, or Phase 0 alone and the rest combined into
-   fewer PRs to run CI and the merge queue less often?
+None. The owner answered the fallback, scope and PR questions on 2026-10-27; the
+answers are in decision 12 and under "Phased rollout".
