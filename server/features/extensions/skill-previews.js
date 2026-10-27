@@ -24,14 +24,13 @@ export class SkillPreviews {
   }
   /**
    * Scans `pack` for profile `accountId` and keeps it as a new preview; `extra` (or
-   * `extra(scan)`) is kept with the entry and shown in the preview.
+   * `extra(scan)`) is kept as `entry.extra` and shown in the preview.
    */
   create(accountId, pack, importKind, extra = {}) {
     this.prune();
     const scan = scanSkill(pack.files);
     if (typeof extra === "function") extra = extra(scan);
     const entry = {
-      ...extra,
       extra,
       previewId: randomUUID(),
       accountId,

@@ -39,7 +39,8 @@ const confirm = (preview, extra = {}) => ({
 
 /**
  * A catalog in a temporary root with a fake GitHub: `repo.archives` maps a commit to
- * `{ name: body }`, `repo.head` is the commit `main` points to.
+ * `{ folder: body }` (or `{ folder: { name, body } }` for a SKILL.md naming another
+ * skill), `repo.head` is the commit `main` points to.
  */
 function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-catalog-install-"));
@@ -53,9 +54,9 @@ function setup(t) {
     if (href.startsWith("https://codeload.github.com/")) {
       const sha = href.split("/").at(-1);
       const files = Object.fromEntries(
-        Object.entries(repo.archives[sha] || {}).map(([name, body]) => [
-          `repo-${sha}/skills/${name}/SKILL.md`,
-          doc(name, body),
+        Object.entries(repo.archives[sha] || {}).map(([folder, body]) => [
+          `repo-${sha}/skills/${folder}/SKILL.md`,
+          typeof body === "string" ? doc(folder, body) : doc(body.name, body.body),
         ]),
       );
       return new Response(zipBytes(files));
@@ -235,6 +236,19 @@ test("check for update: unchanged digest says up to date, a moved branch preview
   assert.equal(c.store.byId(id).origin.commit, moved);
   assert.equal(c.store.byId(id).source.url, githubUrl("three"));
   assert.deepEqual(await c.checkUpdate(id), { upToDate: true });
+});
+
+test("check for update refuses a source that now names another skill", async (t) => {
+  const { catalog: c, repo } = setup(t);
+  const { skill } = await install(c, github("three"));
+  repo.archives[moved] = { three: { name: "renamed", body: "New.\n" } };
+  repo.head = moved;
+  await assert.rejects(c.checkUpdate(skill.id), {
+    status: 409,
+    message: messages.catalogUpdateRenamed("renamed"),
+  });
+  assert.deepEqual([...c.store.names()], ["three"]);
+  assert.equal(c.previews.items.size, 0);
 });
 
 test("check for update refuses an uploaded or unknown skill", async (t) => {

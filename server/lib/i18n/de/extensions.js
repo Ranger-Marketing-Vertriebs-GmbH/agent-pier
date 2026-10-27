@@ -108,4 +108,6 @@ export const extensions = Object.freeze({
   catalogSkillNotFound: "Dieser Skill ist nicht im Skill-Katalog.",
   catalogUpdateNeedsRepository:
     "Nur Skills aus einem GitHub-Repository lassen sich auf Updates prüfen. Lade eine neue Version hoch, um diesen Skill zu aktualisieren.",
+  catalogUpdateRenamed: (name) =>
+    `Das Repository enthält jetzt einen Skill namens „${name}“. Entferne diesen Skill und installiere stattdessen den neuen.`,
 });

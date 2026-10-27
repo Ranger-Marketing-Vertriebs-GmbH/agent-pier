@@ -5,7 +5,7 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
-import { readSkillPack, skillMetadata } from "./skill-packages.js";
+import { readSkillPackTracked, skillMetadata } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 import { skillDigest } from "./skill-digest.js";
 import { writeSkillFiles } from "./skill-files.js";
@@ -285,18 +285,8 @@ export class ExtensionsStore {
     return this.writeSkill(id, pack, { package: owner });
   }
   /** Reads a source (see readSkillPack); close() aborts a download in flight. */
-  async readPack(input) {
-    const controller = new AbortController();
-    const pending = readSkillPack(input, {
-      fetchImpl: this.fetchImpl,
-      signal: controller.signal,
-    });
-    this.active.set(pending, controller);
-    try {
-      return await pending;
-    } finally {
-      this.active.delete(pending);
-    }
+  readPack(input) {
+    return readSkillPackTracked(this.active, input, this.fetchImpl);
   }
   /** The folder a skill named `name` is installed into for profile `id`. */
   skillTarget(id, name) {
