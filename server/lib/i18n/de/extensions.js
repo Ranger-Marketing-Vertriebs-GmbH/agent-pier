@@ -101,4 +101,11 @@ export const extensions = Object.freeze({
     "Die Prüfung hat Hinweise gefunden. Bitte bestätige sie ausdrücklich, bevor der Skill installiert wird.",
   skillScanBlocked:
     "Die Prüfung hat diesen Skill blockiert. Er wird nur mit einer ausdrücklichen Ausnahme für die genannten Risiken installiert.",
+  catalogNameBundled:
+    "Ein Skill mit diesem Namen gehört schon zum Agent-Dienst. Bitte benenne den Skill um.",
+  catalogNameTaken:
+    "Ein Skill mit diesem Namen ist schon außerhalb des Skill-Katalogs installiert. Bitte benenne den Skill um.",
+  catalogSkillNotFound: "Dieser Skill ist nicht im Skill-Katalog.",
+  catalogUpdateNeedsRepository:
+    "Nur Skills aus einem GitHub-Repository lassen sich auf Updates prüfen. Lade eine neue Version hoch, um diesen Skill zu aktualisieren.",
 });

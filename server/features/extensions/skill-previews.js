@@ -22,11 +22,17 @@ export class SkillPreviews {
     this.now = now;
     this.items = new Map();
   }
-  /** Scans `pack` for profile `accountId` and keeps it as a new preview. */
-  create(accountId, pack, importKind) {
+  /**
+   * Scans `pack` for profile `accountId` and keeps it as a new preview; `extra` (or
+   * `extra(scan)`) is kept with the entry and shown in the preview.
+   */
+  create(accountId, pack, importKind, extra = {}) {
     this.prune();
     const scan = scanSkill(pack.files);
+    if (typeof extra === "function") extra = extra(scan);
     const entry = {
+      ...extra,
+      extra,
       previewId: randomUUID(),
       accountId,
       pack,
@@ -51,11 +57,24 @@ export class SkillPreviews {
       bytes -= entry.size;
     }
   }
+  /** The live preview `previewId` of `accountId`, without taking it. */
+  peek(accountId, previewId) {
+    const entry = typeof previewId === "string" ? this.items.get(previewId) : undefined;
+    return entry && entry.accountId === accountId && entry.expires >= this.now()
+      ? entry
+      : undefined;
+  }
+  /** Drops a preview that can no longer be confirmed. */
+  discard(previewId) {
+    this.items.delete(previewId);
+  }
   /**
    * Takes the preview `input.previewId` of `accountId` once, after checking the
    * owner's decision; a refused decision leaves the preview for another attempt.
+   * A warning whose rules are all in `acceptedRules` (the owner accepted them for the
+   * version it replaces) needs no new acceptance; a block always needs the override.
    */
-  take(accountId, input = {}) {
+  take(accountId, input = {}, { acceptedRules = [] } = {}) {
     if (typeof input.previewId !== "string")
       throw problem(serverMessages.extensions.skillPreviewRequired, 409);
     const entry = this.items.get(input.previewId);
@@ -72,7 +91,8 @@ export class SkillPreviews {
       blocking.every((rule) => named.includes(rule));
     if (verdict === "block" && !overridden)
       throw problem(serverMessages.extensions.skillScanBlocked, 409);
-    if (verdict === "warn" && input.acceptWarnings !== true)
+    const known = entry.scan.rules.every((rule) => acceptedRules.includes(rule));
+    if (verdict === "warn" && input.acceptWarnings !== true && !known)
       throw problem(serverMessages.extensions.skillWarningsNotAccepted, 409);
     this.items.delete(entry.previewId);
     return { ...entry, overridden };
@@ -90,6 +110,7 @@ export class SkillPreviews {
 export function publicPreview(entry) {
   const { pack, scan } = entry;
   return {
+    ...entry.extra,
     previewId: entry.previewId,
     contentHash: entry.hash,
     expiresAt: new Date(entry.expires).toISOString(),

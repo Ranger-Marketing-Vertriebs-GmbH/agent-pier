@@ -5,12 +5,7 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
-import {
-  MAX_UPLOAD,
-  skillMetadata,
-  unpackSkill,
-  downloadSkill,
-} from "./skill-packages.js";
+import { readSkillPack, skillMetadata } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 import { skillDigest } from "./skill-digest.js";
 import { writeSkillFiles } from "./skill-files.js";
@@ -289,40 +284,19 @@ export class ExtensionsStore {
     if (this.closed) throw problem(serverMessages.common.serverStopping, 503);
     return this.writeSkill(id, pack, { package: owner });
   }
+  /** Reads a source (see readSkillPack); close() aborts a download in flight. */
   async readPack(input) {
-    let pack;
-    if (input.url !== undefined) {
-      if (input.contentBase64 !== undefined)
-        throw problem(serverMessages.extensions.skillSourceRequired);
-      const controller = new AbortController();
-      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]);
-      const pending = downloadSkill(input.url, this.fetchImpl, signal);
-      this.active.set(pending, controller);
-      try {
-        pack = await pending;
-      } finally {
-        this.active.delete(pending);
-      }
-    } else {
-      if (
-        typeof input.contentBase64 !== "string" ||
-        input.contentBase64.length > Math.ceil(MAX_UPLOAD / 3) * 4 ||
-        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-          input.contentBase64,
-        )
-      )
-        throw problem(serverMessages.extensions.invalidSkillUpload);
-      const buffer = Buffer.from(input.contentBase64, "base64");
-      if (input.fileName === "SKILL.md")
-        pack = { ...skillMetadata(buffer), files: [["SKILL.md", buffer]] };
-      else if (
-        typeof input.fileName === "string" &&
-        input.fileName.toLowerCase().endsWith(".zip")
-      )
-        pack = await unpackSkill(buffer);
-      else throw problem(serverMessages.extensions.skillFileTypeRequired);
+    const controller = new AbortController();
+    const pending = readSkillPack(input, {
+      fetchImpl: this.fetchImpl,
+      signal: controller.signal,
+    });
+    this.active.set(pending, controller);
+    try {
+      return await pending;
+    } finally {
+      this.active.delete(pending);
     }
-    return pack;
   }
   /** The folder a skill named `name` is installed into for profile `id`. */
   skillTarget(id, name) {

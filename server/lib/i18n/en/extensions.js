@@ -93,4 +93,11 @@ export const extensions = Object.freeze({
     "The scan found warnings. Please confirm them explicitly before the skill is installed.",
   skillScanBlocked:
     "The scan blocked this skill. It is only installed with an explicit override for the named risks.",
+  catalogNameBundled:
+    "The agent service already ships a skill with this name. Please rename the skill.",
+  catalogNameTaken:
+    "A skill with this name is already installed outside the skill catalog. Please rename the skill.",
+  catalogSkillNotFound: "This skill is not in the skill catalog.",
+  catalogUpdateNeedsRepository:
+    "Only skills from a GitHub repository can be checked for updates. Upload a new version to update this skill.",
 });
