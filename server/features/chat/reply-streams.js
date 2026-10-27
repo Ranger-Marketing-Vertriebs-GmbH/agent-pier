@@ -158,13 +158,20 @@ export class ReplyStreams {
   }
   // A CLI that died mid-reply never ends its runs: quiet runs expire.
   keepAlive(sessionId, entry) {
-    clearTimeout(entry.idle);
-    entry.idle = setTimeout(() => {
-      const stale = Date.now() - this.idleMs;
-      for (const [runId, run] of [...entry.runs])
-        if (run.at <= stale) this.endStream(sessionId, runId);
-      if (entry.runs.size) this.keepAlive(sessionId, entry);
-    }, this.idleMs);
+    // New text must not postpone another run's expiry. Recheck at the earliest
+    // deadline, then schedule from the remaining runs' own last updates.
+    if (entry.idle || !entry.runs.size) return;
+    const deadline = Math.min(...[...entry.runs.values()].map((run) => run.at));
+    entry.idle = setTimeout(
+      () => {
+        entry.idle = null;
+        const stale = Date.now() - this.idleMs;
+        for (const [runId, run] of [...entry.runs])
+          if (run.at <= stale) this.endStream(sessionId, runId);
+        if (entry.runs.size) this.keepAlive(sessionId, entry);
+      },
+      Math.max(0, deadline + this.idleMs - Date.now()),
+    );
     entry.idle.unref?.();
   }
   release(sessionId, entry) {
