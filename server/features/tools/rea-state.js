@@ -1,3 +1,4 @@
+import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 
 /**
@@ -49,3 +50,9 @@ export function reaComponentStates({ host, manifest, ghidra, jdk, frida }) {
     },
   };
 }
+
+/** Only catalog texts reach the card; anything else (paths, npm output) stays out. */
+export const failureText = (error) =>
+  typeof error?.status === "number" && messageIdentity(error.message).messageKey
+    ? error.message
+    : serverMessages.rea.failed;

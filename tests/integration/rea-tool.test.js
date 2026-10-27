@@ -383,6 +383,11 @@ test("start() sweeps interrupted REA installs, never while a job runs", async (t
   assert.equal(fs.existsSync(leftover(".rea-install-running")), true);
   held.release();
   await rea.settled();
+  // Nor while a refusal check holds the job slot.
+  rea.claimed = true;
+  await rea.start();
+  assert.equal(fs.existsSync(leftover(".rea-install-running")), true);
+  rea.claimed = false;
 });
 
 test("close() stops a running download through the job's signal", async (t) => {
@@ -404,4 +409,79 @@ test("close() stops a running download through the job's signal", async (t) => {
   assert.equal(rea.state().status, "failed");
   assert.equal(rea.serverId(), null);
   assert.equal(rea.component("rea-jdk"), null);
+});
+
+test("a --with-rea request survives a stop mid-download and the next start retries it", async (t) => {
+  const f = await reaFixture(t);
+  const file = path.join(f.s.dataDir, "rea", "settings.json");
+  writePrivate(file, {
+    requested: { components: { ghidra: true, frida: false }, settings: {} },
+  });
+  let started;
+  const reached = new Promise((resolve) => (started = resolve));
+  const stopped = await f.tool({
+    fetchImpl: (_url, options) =>
+      new Promise((_resolve, reject) => {
+        started();
+        options.signal.addEventListener("abort", () => reject(options.signal.reason));
+      }),
+  });
+  const starting = stopped.start();
+  await reached;
+  await stopped.close();
+  await starting;
+  assert.ok(JSON.parse(fs.readFileSync(file, "utf8")).requested);
+  assert.equal(stopped.serverId(), null);
+  // The next AgentPier start installs it and only then drops the request.
+  const rea = await f.tool();
+  await rea.start();
+  assert.equal(rea.state().installed, true, rea.state().message);
+  assert.equal(rea.state().components.ghidra.installed, true);
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).requested, undefined);
+});
+
+test("a --with-rea request that really fails is cleared and the card shows why", async (t) => {
+  const f = await reaFixture(t);
+  const file = path.join(f.s.dataDir, "rea", "settings.json");
+  writePrivate(file, {
+    requested: { components: { ghidra: true, frida: false }, settings: {} },
+  });
+  const rea = await f.tool();
+  rea.manifest.jdk.platforms["darwin-arm64"].sha256 = "0".repeat(64);
+  await rea.start();
+  const state = rea.state();
+  assert.equal(state.status, "failed");
+  assert.equal(state.message, serverMessages.rea.checksumMismatch);
+  assert.equal(state.messageKey, "rea.checksumMismatch");
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).requested, undefined);
+});
+
+test("the managed row takes a numbered name when rea and rea-agentpier are the owner's", async (t) => {
+  const f = await reaFixture(t);
+  for (const name of ["rea", "REA-AgentPier"])
+    f.s.servers.create({ name, transport: "stdio", command: "/fake/bin/rea", args: [] });
+  const rea = await f.tool();
+  const state = await f.install(rea, { components: { ghidra: false, frida: false } });
+  assert.equal(state.serverName, "rea-agentpier-2", state.message);
+});
+
+test("a fault reading REA degrades only REA's utility row", async (t) => {
+  const f = await reaFixture(t);
+  const rea = await f.tool();
+  rea.packages = {
+    ...rea.packages,
+    records: {
+      get: () => {
+        throw new Error("store gone");
+      },
+    },
+  };
+  f.s.servers.create(
+    { name: "rea", transport: "stdio", command: "/fake/bin/rea", args: [] },
+    { managed: { tool: "rea" } },
+  );
+  const row = rea.utility();
+  assert.equal(row.id, "rea");
+  assert.equal(row.installed, false);
+  assert.equal(row.status, "failed");
 });
