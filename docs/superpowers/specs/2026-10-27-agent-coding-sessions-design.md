@@ -136,13 +136,18 @@ Typical flows (owner's words):
   its own session only when it is clean and its branch is merged; otherwise it stays.
   Archiving the agent never deletes worktrees.
 
-### Other launch options *(Claude's call)*
+### Other launch options *(owner decision: "as if I had started them")*
 
-- Agent-started sessions get no session secrets, no SSH access, AgentBus off and the
-  AgentPier session tools off (no back door to `run_start`). The sandbox follows the
-  launch dialog's default. GitHub access comes from the project's repository
-  connection as for every session; when there is none, the start succeeds and the
-  result says `gh` is signed out, so the agent can report it.
+- Agent-started sessions run exactly like sessions the owner starts in the launch
+  dialog. The agent may set every option the dialog offers (`session-lifecycle.js`):
+  launch mode, session secrets (`secretIds`), SSH access (`sshAccessIds`), sandbox
+  profile (`nonoProfile`), AgentPier session tools (`agentpierTools`) and AgentBus
+  (`agentbus`). Options the agent does not set get the dialog's defaults.
+- Consequence the owner accepts: through the session's AgentPier tools the session
+  can start pipelines, and secrets/SSH reach the session like in an owner launch.
+- GitHub access comes from the project's repository connection as for every session;
+  when there is none, the start succeeds and the result says `gh` is signed out, so
+  the agent can report it.
 - The agent's `publish` grant does not restrict what the session pushes: the owner
   wants the agent to take changes to `main` through the CLI.
 - The host-wide cap of 30 running sessions (`session-lifecycle.js`) applies; a refused
