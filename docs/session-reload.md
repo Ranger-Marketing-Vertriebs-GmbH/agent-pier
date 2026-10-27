@@ -4,7 +4,7 @@ Use **Reload & resume** in a Codex, Claude Code or OpenCode session to restart i
 
 AgentPier verifies the native conversation ID before stopping the CLI and resumes that exact conversation. The AgentPier session ID, working directory, account, attachments, saved chat draft and SSH assignments remain attached to the same session. A reload does not resend chat messages or start a fresh conversation. Login, shell, pipeline and imported historical sessions are excluded.
 
-Resuming needs the CLI's transcript of that conversation. **System status › Data directory › Free up space › Transcripts in CLI profiles** never deletes the transcript of a session AgentPier still lists, running or stopped; a session removed from the list loses the way back once its old transcript is deleted there ([system status](system-status.md#free-up-space)).
+Resuming needs the CLI's transcript of that conversation. **System status › Storage › Free up space › Transcripts in CLI profiles** never deletes the transcript of a session AgentPier still lists, running or stopped; a session removed from the list loses the way back once its old transcript is deleted there ([system status](system-status.md#free-up-space)).
 
 A session started from a task profile keeps the permission settings it was launched with, such as Claude Code's `--permission-mode` or Codex's `approval_policy`. Reload and automatic resume reuse exactly these settings; editing the profile later affects only new sessions. Sessions started before AgentPier stored these settings fall back to their launch mode.
 
