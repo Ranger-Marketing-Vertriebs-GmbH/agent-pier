@@ -1564,6 +1564,8 @@ was compacted and the plan was gone. Four rules close that gap:
     member's result that completed unreviewed and that `resultTurn` proves
     (`sourceRequest`, AGENTPIER-261: such follow-ups arrive on their own while a
     render runs, and the lead's completion run used to be refused with `PROCESS`).
+    Later means later by row (`requestsAfter`), never by time, so a clock step
+    cannot hide a newer owner message.
     Any other newer request (the owner's own message, forwarded content, a reminder,
     a lead's task, a hook report, an interrupted turn) ends the continuation, and
     the completion run is never a ledger turn's own run.

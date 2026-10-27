@@ -103,6 +103,18 @@ export class RequestLedger {
       .all(conversationId, since)
       .map(requestRecord);
   }
+  /**
+   * The conversation's requests recorded after the request `id` (by row, so a clock
+   * step never hides one), oldest first.
+   */
+  requestsAfter(conversationId, id) {
+    return this.db
+      .prepare(
+        "SELECT * FROM requests WHERE conversation_id=? AND rowid>(SELECT rowid FROM requests WHERE id=?) ORDER BY rowid",
+      )
+      .all(conversationId, id)
+      .map(requestRecord);
+  }
   /** The conversation's newest request, or null, without reading the others. */
   latestRequest(conversationId) {
     return (
