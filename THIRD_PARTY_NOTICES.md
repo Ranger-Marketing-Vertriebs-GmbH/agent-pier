@@ -56,6 +56,45 @@ are disabled in the project allowScripts policy. An npm version that does not en
 allowScripts may still build their optional native bindings; `ssh2` then uses them, and
 a failed build does not stop the installation.
 
+## Email (IMAP and SMTP)
+
+Agent email access uses `imapflow` 2.4.0 (MIT, Copyright (c) 2020-2024 Postal Systems
+OÜ, <https://github.com/postalsys/imapflow>) for IMAP and `nodemailer`
+10.1.0 (MIT-0, Copyright (c) 2011-2023 Andris Reinman,
+<https://github.com/nodemailer/nodemailer>) for SMTP and message
+composition. Both are pinned to exact versions and have no install scripts.
+AgentPier always runs `imapflow` with logging turned off (`logger: false`), so
+credentials and message content never reach its logger.
+
+`imapflow` brings these runtime dependencies, each with its license preserved in
+`node_modules`:
+
+- `@zone-eu/mailsplit` 5.4.20 (MIT OR EUPL-1.1+, Copyright (c) 2011-2019, 2024 Andris
+  Reinman and Zone Media OÜ), <https://github.com/zone-eu/mailsplit>; AgentPier uses
+  it under the MIT license.
+- `libmime` 5.4.7, `libqp` 2.1.2 and `libbase64` 1.3.2 (MIT, Copyright Andris
+  Reinman), <https://github.com/nodemailer/libmime>,
+  <https://github.com/nodemailer/libqp>, <https://github.com/nodemailer/libbase64>.
+- `iconv-lite` 0.7.3 (MIT, Copyright (c) 2011 Alexander Shtuchkin) with `safer-buffer`
+  2.1.2 (MIT), <https://github.com/pillarjs/iconv-lite>.
+- `encoding-japanese` 2.4.0 (MIT, Copyright (c) 2012-present polygonplanet),
+  <https://github.com/polygonplanet/encoding.js>.
+- `socks` 2.8.10 (MIT, Copyright (c) 2013 Josh Glazebrook) with `ip-address` 10.7.4
+  (MIT, Copyright (C) 2011 by Beau Gunderson) and `smart-buffer` 4.2.0 (MIT, Copyright
+  (c) 2013-2017 Josh Glazebrook), <https://github.com/JoshGlazebrook/socks>.
+- `pino` 10.3.1 (MIT, Copyright (c) 2016-2025 Matteo Collina, David Mark Clements and
+  the Pino contributors), <https://github.com/pinojs/pino>, with its helpers
+  `@pinojs/redact` 0.4.0, `atomic-sleep` 1.0.0, `on-exit-leak-free` 2.1.2,
+  `pino-abstract-transport` 3.0.0, `pino-std-serializers` 7.1.0, `process-warning`
+  5.1.1, `quick-format-unescaped` 4.0.4, `real-require` 0.2.0 and 1.0.0,
+  `safe-stable-stringify` 2.5.0, `sonic-boom` 4.2.1 and `thread-stream` 4.2.0 (MIT) and
+  `split2` 4.2.0 (ISC).
+
+Tests use `smtp-server` 3.19.21 (MIT-0, Copyright (c) 2015-2025 Andris Reinman,
+<https://github.com/nodemailer/smtp-server>) as a development
+dependency with `punycode.js` 2.3.1 and `ipv6-normalize` 1.0.1 (MIT). It is not part
+of installation or update packages.
+
 ## Fonts
 
 The web interface bundles the DM Sans and Manrope fonts through
