@@ -95,7 +95,7 @@ export function mailGrantList(services, assistantId, value) {
   const list = value.map((entry) => grantInput(entry, seen));
   if (!list.length) return list;
   const catalog = mailCatalog(services);
-  if (!catalog) throw assistantProblem("unavailable", 503);
+  if (!catalog) throw assistantProblem("catalogUnreadable", 503);
   if (list.some((g) => !catalog.some((account) => account.id === g.accountId)))
     throw assistantProblem("mailAccountUnavailable", 409);
   if (services.assistantTelegramSenders?.connected(assistantId))
@@ -170,14 +170,46 @@ export function heldMailGrant(access, id, accountId) {
     const agent = access.eligible(id);
     if (isUserAgent(agent) || access.s.assistantTelegramSenders?.connected(id))
       return null;
+    // The account must still be listed: an unreadable catalog grants nothing.
+    if (!mailCatalog(access.s)?.some((account) => account.id === accountId)) return null;
     return access.get(id).mailAccesses.find((g) => g.accountId === accountId) || null;
   } catch {
     return null;
   }
 }
 
+/**
+ * The policy as read: `mailAccesses` holds only accounts that still exist (one
+ * removed while agents were off, or dropped by a restore). While the catalog cannot
+ * be read the stored grants stay, so a save that leaves them out keeps them.
+ */
+export function withLiveMail(services, policy) {
+  if (!policy.mailAccesses.length) return policy;
+  const catalog = mailCatalog(services);
+  if (!catalog) return policy;
+  const known = new Set(catalog.map((account) => account.id));
+  return {
+    ...policy,
+    mailAccesses: policy.mailAccesses.filter((g) => known.has(g.accountId)),
+  };
+}
+
+const removals = new WeakMap();
 /** A removed email account leaves every agent's grants (mail-account-store.js). */
 export function bindAccountRemoval(services, access) {
-  if (services.mailAccounts)
-    services.mailAccounts.onRemoved = (accountId) => access.revokeMail(accountId);
+  if (!services.mailAccounts) return;
+  const removed = (accountId) => access.revokeMail(accountId);
+  removals.set(access, removed);
+  services.mailAccounts.onRemoved = removed;
+}
+
+/**
+ * Unbinds `access` when its database closes (AssistantWorkflows.close), but only
+ * while the store still calls it: a newer AssistantAccess keeps its own binding.
+ */
+export function unbindAccountRemoval(services, access) {
+  const removed = removals.get(access);
+  if (removed && services.mailAccounts?.onRemoved === removed)
+    services.mailAccounts.onRemoved = null;
+  removals.delete(access);
 }

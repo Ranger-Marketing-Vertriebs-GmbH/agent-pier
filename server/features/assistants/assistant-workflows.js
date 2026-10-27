@@ -1,3 +1,4 @@
+import { unbindAccountRemoval } from "./mail/agent-mail-grants.js";
 import { AssistantAccess, exact } from "./assistant-access.js";
 import {
   AssistantActionStore,
@@ -551,6 +552,8 @@ export class AssistantWorkflows {
     this.exec.close();
     this.ssh.close();
     this.sessions.close();
+    // A removed email account no longer reaches this closed database.
+    unbindAccountRemoval(this.s, this.access);
     await this.running?.catch(() => {});
   }
 }
