@@ -1,13 +1,13 @@
-import { assistantProblem } from "../assistants/assistant-validation.js";
 import { mailError } from "./mail-connection.js";
 import { openFolder, resolveFolders } from "./mail-folders.js";
 import { attachmentsOf, leafParts, mailBounds } from "./mail-messages.js";
 import { draftFields, threadHeaders, validMessageId } from "./mail-compose.js";
 
 // A stored draft read back for sending (agent `send` with `draftUid`): its envelope and
-// its plain text, checked again like an agent's own draft fields. A draft with an
-// attachment, or without a text/plain part, is not sent: AgentPier only sends what
-// the owner's card can show in full.
+// its plain text, checked again like an agent's own draft fields. Only the text/plain
+// part is sent (an HTML alternative of another mail program's draft is not). A draft
+// with an attachment, without a text/plain part or with more than 1 MiB of text is
+// not sent: AgentPier only sends what the owner's card can show in full.
 
 const quoteName = (name) => `"${name.replace(/["\\]/g, (c) => `\\${c}`)}"`;
 const entry = (a) => (a.name ? `${quoteName(a.name)} <${a.address ?? ""}>` : a.address);
@@ -26,7 +26,7 @@ async function partText(client, uid, part) {
     chunks.push(chunk);
     size += chunk.length;
   }
-  if (size >= mailBounds.partBytes) throw assistantProblem("invalid");
+  if (size >= mailBounds.partBytes) throw mailError("MAIL_DRAFT_UNSUPPORTED");
   return Buffer.concat(chunks).toString("utf8");
 }
 
@@ -34,7 +34,8 @@ async function partText(client, uid, part) {
  * Draft `uid` of the Drafts folder as `{ fields, thread, messageId }`: the fields as
  * draftFields returns them, the thread headers it carries and its own Message-ID
  * (null when malformed). Without Drafts MAIL_NO_DRAFTS, an unknown UID
- * MAIL_NOT_FOUND, any attachment MAIL_ATTACHMENTS_UNSUPPORTED.
+ * MAIL_NOT_FOUND, any attachment MAIL_ATTACHMENTS_UNSUPPORTED, no plain text or too
+ * much of it MAIL_DRAFT_UNSUPPORTED.
  */
 export async function loadDraft(client, uid) {
   const { drafts } = await resolveFolders(client);
@@ -49,7 +50,7 @@ export async function loadDraft(client, uid) {
   if (attachmentsOf(row.bodyStructure).length)
     throw mailError("MAIL_ATTACHMENTS_UNSUPPORTED");
   const part = leafParts(row.bodyStructure).find((n) => n.type === "text/plain");
-  if (!part) throw assistantProblem("invalid");
+  if (!part) throw mailError("MAIL_DRAFT_UNSUPPORTED");
   const text = await partText(client, uid, part.part || "1");
   const envelope = row.envelope || {};
   const fields = draftFields({

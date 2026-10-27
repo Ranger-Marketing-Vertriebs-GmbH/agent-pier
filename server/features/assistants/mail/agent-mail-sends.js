@@ -41,6 +41,14 @@ const followUpRetryMs = 300000;
 const retryable = new Set([409, 429, 503]);
 const settledStates = new Set([...actionTerminal, "unknown"]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Mail errors that end a send before the server could accept the message.
+const notSent = new Set([
+  "MAIL_AUTH_FAILED",
+  "MAIL_TLS_FAILED",
+  "MAIL_UNREACHABLE",
+  "MAIL_PLAINTEXT_REFUSED",
+]);
+const isMailCode = (code) => typeof code === "string" && code.startsWith("MAIL_");
 const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
 
 export class MailSends {
@@ -83,18 +91,15 @@ export class MailSends {
       throw this.refuse(inv, caller, "mailSendNotGranted");
     const key = `mail:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
     const inputSha256 = inputDigest(input);
-    const existing = this.w.store.byKey(key);
-    if (existing) {
-      // A retry of the same tool call finds its row; a different call never does.
-      if (
-        existing.payload.action !== "mail_send" ||
-        existing.payload.accountId !== account.id ||
-        existing.payload.inputSha256 !== inputSha256
-      )
-        throw assistantProblem("conflict", 409);
-      return this.follow(inv, existing.id);
+    const retried = () => this.retried(key, account.id, inputSha256);
+    if (retried()) return this.follow(inv, retried().id);
+    let stored;
+    try {
+      stored = this.accounts.get(account.id);
+    } catch {
+      stored = null;
     }
-    const stored = this.accounts.get(account.id);
+    if (!stored) throw this.refuse(inv, caller, "mailAccountUnavailable");
     const draft = request.draftUid
       ? await this.accounts.withImap(account.id, (c) => loadDraft(c, request.draftUid))
       : { fields: request.fields };
@@ -104,10 +109,8 @@ export class MailSends {
     const ruled = recipients.every((address) => recipientAllowed(rules, address));
     const permit = mailPermits(grant.level, cls, "send", ruled);
     const agentId = caller.assistant.id;
-    if (permit === "card" && this.open(agentId) >= maxOpenMailApprovals)
-      throw this.refuse(inv, caller, "mailApprovalLimit");
-    if (permit === "run" && this.ruleSends(agentId) >= maxRuleSendsPerHour)
-      throw this.refuse(inv, caller, "mailSendLimit");
+    // Checked before the draft is saved, and again just before the row is written.
+    this.limit(inv, caller, permit);
     const from = { name: stored.displayName || "", address: account.address };
     if (!request.draftUid) {
       const saved = await this.accounts.withImap(account.id, (c) =>
@@ -143,6 +146,10 @@ export class MailSends {
     const telegram = trusted
       ? null
       : (ownerTelegram(caller.origin) ?? pairedTelegram(this.w, agentId));
+    // No await from here to the row: a concurrent call with the same key, or one
+    // that took the last free slot, is seen now.
+    if (retried()) return this.follow(inv, retried().id);
+    this.limit(inv, caller, permit);
     const action = this.w.store.reserve({
       assistantId: agentId,
       conversationId: caller.conversationId,
@@ -172,6 +179,26 @@ export class MailSends {
       await this.start(action, "rule");
     }
     return this.outcome(this.w.store.get(action.id));
+  }
+  // The row of an earlier call with the same key, or null; another call's row is a
+  // conflict.
+  retried(key, accountId, inputSha256) {
+    const existing = this.w.store.byKey(key);
+    if (!existing) return null;
+    if (
+      existing.payload.action !== "mail_send" ||
+      existing.payload.accountId !== accountId ||
+      existing.payload.inputSha256 !== inputSha256
+    )
+      throw assistantProblem("conflict", 409);
+    return existing;
+  }
+  limit(inv, caller, permit) {
+    const agentId = caller.assistant.id;
+    if (permit === "card" && this.open(agentId) >= maxOpenMailApprovals)
+      throw this.refuse(inv, caller, "mailApprovalLimit");
+    if (permit === "run" && this.ruleSends(agentId) >= maxRuleSendsPerHour)
+      throw this.refuse(inv, caller, "mailSendLimit");
   }
   follow(inv, id) {
     // A result the bridge could not hand back arrives as a follow-up instead.
@@ -319,8 +346,9 @@ export class MailSends {
       date: new Date(this.now()),
     };
     let sent;
+    let raw;
     try {
-      const raw = await composeMessage(message, { keepBcc: false });
+      raw = await composeMessage(message, { keepBcc: false });
       sent = await this.accounts.sendRaw(p.accountId, {
         envelope: { from: p.from.address, to: recipients },
         raw,
@@ -328,7 +356,14 @@ export class MailSends {
     } catch (error) {
       const { code } = toolError(error);
       this.audit(a, authorizedBy, recipients.length, code);
-      return this.finish(a.id, { state: "failed", diagnostic: code, result: { code } });
+      // Only an error before the SMTP session proves nothing went out; a timeout,
+      // reset or odd answer later (after DATA) may have delivered it.
+      const failed = !raw || !isMailCode(error?.code) || notSent.has(error.code);
+      return this.finish(a.id, {
+        state: failed ? "failed" : "unknown",
+        diagnostic: code,
+        result: { code },
+      });
     }
     let filed = { savedToSent: false, draftTrashed: false };
     try {
@@ -395,8 +430,12 @@ export class MailSends {
     }
     if (a.state === "executing") {
       if (this.runs.has(a.id)) return;
-      // Never sent again: the send may have gone out before the restart.
-      a = this.finish(a.id, { state: "unknown" });
+      // Never sent again: the send may have gone out before the restart. The agent
+      // hears so even when its call had not returned yet.
+      a = this.finish(a.id, {
+        state: "unknown",
+        ...(a.delivered ? {} : { followUp: true }),
+      });
     }
     if (!a.payload.trusted) notifyAction(this.w, a, "result");
     if (a.followUp && !a.followUpSent && !a.delivered && !(await this.followUp(a)))
