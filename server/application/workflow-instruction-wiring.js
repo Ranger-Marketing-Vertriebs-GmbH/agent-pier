@@ -1,6 +1,7 @@
 /**
  * The configuration inputs AssistantWorkflows answers for an agent's instructions
- * and shell: its SSH grant, project folders, GitHub access and coding-session projects.
+ * and shell: its SSH grant, project folders, GitHub access, coding-session projects
+ * and email accounts.
  */
 export function workflowInstructionWiring(workflows) {
   return {
@@ -13,5 +14,10 @@ export function workflowInstructionWiring(workflows) {
     githubShellPath: (assistant) => workflows.github.shellPath(assistant),
     // Projects it may start coding sessions on, named in its instructions.
     codingSessions: (assistant) => workflows.sessions.projects(assistant.id),
+    // Its granted email accounts, named in its instructions (names and ids only).
+    mailAccounts: (assistant) =>
+      workflows.mail
+        .accounts(assistant.id)
+        .map(({ accountId, name }) => ({ accountId, name })),
   };
 }

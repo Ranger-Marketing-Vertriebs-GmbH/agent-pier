@@ -12,7 +12,9 @@ import {
   personalCapabilities,
   profileTools,
   routineTools,
+  senderLockedTools,
 } from "../../server/features/assistants/native-capabilities.js";
+import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
 
@@ -283,4 +285,43 @@ test("agentpier_coding_session: own agents and permanent members, routines, neve
   );
   assert.ok(lockedTools.includes(tool));
   assert.ok(routineTools.includes(tool));
+});
+
+test("agentpier_mail: own agents and permanent members, routines, never user agents or temporary members", () => {
+  const tool = "agentpier_mail";
+  const own = { id: "a", capabilities: { memory: true, reminders: true } };
+  assert.ok(profileTools(own, true, true).includes(tool));
+  // Offered without a grant: the tool answers MAIL_NOT_GRANTED, so a grant needs no
+  // recompile.
+  assert.ok(profileTools({ id: "b" }, true, true).includes(tool));
+  assert.ok(
+    profileTools(
+      { id: "p", teamMemberId: "t", lifetime: "permanent" },
+      true,
+      true,
+    ).includes(tool),
+  );
+  assert.ok(
+    !profileTools({ id: "m", teamMemberId: "t", lifetime: "task" }, true, true).includes(
+      tool,
+    ),
+  );
+  assert.ok(!profileTools(own, true, false).includes(tool));
+  assert.ok(!profileTools({ ...own, archivedAt: "today" }, true, true).includes(tool));
+  assert.ok(
+    !profileTools({ ...own, userAccess: { mode: "own" } }, true, true).includes(tool),
+  );
+  assert.ok(lockedTools.includes(tool));
+  assert.ok(routineTools.includes(tool));
+  assert.ok(senderLockedTools.includes(tool));
+});
+
+test("an agent with its own Telegram bot for other people is compiled without mail", () => {
+  const own = { id: "a", capabilities: { memory: true } };
+  const allow = (senderFacing) =>
+    agentEntry({}, own, { teamsReady: true, nativeReady: true, senderFacing }).tools
+      .allow;
+  assert.ok(allow(false).includes("agentpier_mail"));
+  assert.ok(!allow(true).includes("agentpier_mail"));
+  assert.ok(!allow(true).includes("sessions_send"));
 });

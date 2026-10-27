@@ -1,4 +1,5 @@
 import { unbindAccountRemoval } from "./mail/agent-mail-grants.js";
+import { AgentMail } from "./mail/agent-mail.js";
 import { AssistantAccess, exact } from "./assistant-access.js";
 import {
   AssistantActionStore,
@@ -52,6 +53,8 @@ export class AssistantWorkflows {
     this.coding = new AssistantCoding(this);
     this.exec = new ExecApprovals(this);
     this.ssh = new AgentSsh(this);
+    // The agent's email accounts (agentpier_mail).
+    this.mail = new AgentMail(this);
     this.forget = new AssistantMemoryForget(this);
     this.folders = new AgentProjectFiles(this);
     this.browserUploads = new AgentBrowserUploads(this);
@@ -551,6 +554,7 @@ export class AssistantWorkflows {
     clearInterval(this.timer);
     this.exec.close();
     this.ssh.close();
+    this.mail.close();
     this.sessions.close();
     // A removed email account no longer reaches this closed database.
     unbindAccountRemoval(this.s, this.access);

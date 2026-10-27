@@ -32,3 +32,43 @@ test("coding session problems carry stable codes and fixed English reasons", () 
       );
   }
 });
+
+const mailCodes = {
+  mailNotGranted: "MAIL_NOT_GRANTED",
+  mailSendNotGranted: "MAIL_SEND_NOT_GRANTED",
+  mailOriginRefused: "MAIL_ORIGIN_REFUSED",
+  mailAccountUnavailable: "MAIL_ACCOUNT_UNAVAILABLE",
+  mailAuthFailed: "MAIL_AUTH_FAILED",
+  mailTlsFailed: "MAIL_TLS_FAILED",
+  mailUnreachable: "MAIL_UNREACHABLE",
+  mailTimeout: "MAIL_TIMEOUT",
+  mailProtocol: "MAIL_PROTOCOL",
+  mailNotFound: "MAIL_NOT_FOUND",
+  mailNoTrash: "MAIL_NO_TRASH",
+  mailNoArchive: "MAIL_NO_ARCHIVE",
+  mailNoDrafts: "MAIL_NO_DRAFTS",
+  mailAttachmentsUnsupported: "MAIL_ATTACHMENTS_UNSUPPORTED",
+  mailApprovalLimit: "MAIL_APPROVAL_LIMIT",
+  mailSendLimit: "MAIL_SEND_LIMIT",
+  mailRevoked: "MAIL_REVOKED",
+  mailQueryEmpty: "MAIL_QUERY_EMPTY",
+};
+
+test("mail problems carry stable codes, fixed English reasons and owner copy", () => {
+  for (const [key, code] of Object.entries(mailCodes)) {
+    const error = toolError(assistantProblem(key, 409));
+    assert.equal(error.code, code, key);
+    assert.equal(error.reason, toolReason(code), key);
+    assert.notEqual(error.reason, toolReason("UNAVAILABLE"), key);
+    for (const lang of ["de", "en"])
+      assert.equal(typeof serverCatalogs[lang].mail[key], "string", `${lang} ${key}`);
+  }
+  // A connection failure (mail-connection.js) keeps its code without a status.
+  const failure = toolError(
+    Object.assign(Error("MAIL_AUTH_FAILED"), {
+      code: "MAIL_AUTH_FAILED",
+      key: "mailAuthFailed",
+    }),
+  );
+  assert.equal(failure.code, "MAIL_AUTH_FAILED");
+});

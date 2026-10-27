@@ -247,3 +247,11 @@ test("the Email tick needs a mail grant and lapses with it", () => {
   const { mail: _mail, ...legacy } = rights;
   assert.equal(effectiveRights(legacy, { ...none, mail: true }).mail, false);
 });
+
+test("hookTools offers agentpier_mail only with the Email tick", () => {
+  assert.ok(hookTools({ ...hookDefaults, mail: true }, none).includes("agentpier_mail"));
+  assert.ok(!hookTools(hookDefaults, none).includes("agentpier_mail"));
+  assert.ok(
+    !hookTools({ ...hookDefaults, coding: true }, none).includes("agentpier_mail"),
+  );
+});

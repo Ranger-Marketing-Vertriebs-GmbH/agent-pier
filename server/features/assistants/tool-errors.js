@@ -223,6 +223,42 @@ const reasons = {
     "The worktree branch is not merged into its base branch on origin (a squash merge does not count), so it was kept. Leave it for the owner or merge it first.",
   NO_REPOSITORY:
     "This project folder is not a Git repository with an origin remote, so no worktree can be made. Start with worktree: false to work in the project folder itself, or tell the owner.",
+  MAIL_NOT_GRANTED:
+    "This email account is not granted to you. Use agentpier_mail with action accounts and an accountId from it; ask the owner to grant other accounts.",
+  MAIL_SEND_NOT_GRANTED:
+    "You may only read this email account. Do not retry; save a draft with action draft and tell the owner, or ask the owner for the send level.",
+  MAIL_ORIGIN_REFUSED:
+    "Email is not available in this turn: only the owner's own requests, routines and hooks with the Email tick may use it, never forwarded content, team requests or member results. Do not retry; tell the owner.",
+  MAIL_ACCOUNT_UNAVAILABLE:
+    "This email account is not available: it was removed or the saved accounts cannot be read. Use action accounts again and tell the owner if it is missing.",
+  MAIL_AUTH_FAILED:
+    "The mail server refused the login of this account. Do not retry; tell the owner to check the account under Connections.",
+  MAIL_TLS_FAILED:
+    "The encrypted connection to the mail server failed. Do not retry; tell the owner to check the account under Connections.",
+  MAIL_UNREACHABLE:
+    "The mail server cannot be reached right now. Try again later and tell the owner if it stays unreachable.",
+  MAIL_TIMEOUT:
+    "The mail server did not answer in time. Try again later, with a smaller limit if you listed or searched.",
+  MAIL_PROTOCOL:
+    "The mail server sent an unexpected response. Do not retry unchanged; tell the owner.",
+  MAIL_NOT_FOUND:
+    "No such message or folder. List the folder again and use a uid and folder from the result.",
+  MAIL_NO_TRASH:
+    "This mailbox has no Trash folder, so nothing was deleted. Do not retry; tell the owner.",
+  MAIL_NO_ARCHIVE:
+    "This mailbox has no archive folder, so nothing was moved. Move the mail to a named folder instead or tell the owner.",
+  MAIL_NO_DRAFTS:
+    "This mailbox has no Drafts folder, so no draft could be saved. Do not retry; tell the owner.",
+  MAIL_ATTACHMENTS_UNSUPPORTED:
+    "This draft has attachments, which you cannot send. Do not retry; leave the draft for the owner to send.",
+  MAIL_APPROVAL_LIMIT:
+    "Too many of your mail sends already wait for the owner's approval. Do not send more now; tell the owner.",
+  MAIL_SEND_LIMIT:
+    "You sent the most mail allowed in the last hour. Do not retry now; tell the owner.",
+  MAIL_REVOKED:
+    "The owner changed your access to this email account. Do not retry; use action accounts again and tell the owner.",
+  MAIL_QUERY_EMPTY:
+    "A search needs at least one criterion in query (from, to, subject, text, body, attachment, since, unseen or hasAttachment).",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -317,6 +353,24 @@ const byKey = {
   worktreeDirty: "WORKTREE_DIRTY",
   worktreeNotMerged: "WORKTREE_NOT_MERGED",
   noRepository: "NO_REPOSITORY",
+  mailNotGranted: "MAIL_NOT_GRANTED",
+  mailSendNotGranted: "MAIL_SEND_NOT_GRANTED",
+  mailOriginRefused: "MAIL_ORIGIN_REFUSED",
+  mailAccountUnavailable: "MAIL_ACCOUNT_UNAVAILABLE",
+  mailAuthFailed: "MAIL_AUTH_FAILED",
+  mailTlsFailed: "MAIL_TLS_FAILED",
+  mailUnreachable: "MAIL_UNREACHABLE",
+  mailTimeout: "MAIL_TIMEOUT",
+  mailProtocol: "MAIL_PROTOCOL",
+  mailNotFound: "MAIL_NOT_FOUND",
+  mailNoTrash: "MAIL_NO_TRASH",
+  mailNoArchive: "MAIL_NO_ARCHIVE",
+  mailNoDrafts: "MAIL_NO_DRAFTS",
+  mailAttachmentsUnsupported: "MAIL_ATTACHMENTS_UNSUPPORTED",
+  mailApprovalLimit: "MAIL_APPROVAL_LIMIT",
+  mailSendLimit: "MAIL_SEND_LIMIT",
+  mailRevoked: "MAIL_REVOKED",
+  mailQueryEmpty: "MAIL_QUERY_EMPTY",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

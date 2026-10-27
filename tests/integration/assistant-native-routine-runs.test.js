@@ -78,6 +78,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling and mos
     "agentpier_share_file",
     // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
     "agentpier_coding_session",
+    "agentpier_mail",
     "web_search",
     "web_fetch",
     "browser",
@@ -94,6 +95,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling and mos
       "agentpier_workspace",
       "agentpier_share_file",
       "agentpier_coding_session",
+      "agentpier_mail",
       "web_fetch",
       "browser",
       "view_image",

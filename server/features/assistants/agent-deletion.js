@@ -43,6 +43,7 @@ export const agentTables = [
   "assistant_lead_shares",
   "assistant_team_records",
   "agent_coding_sessions",
+  "agent_mail_cursors",
 ];
 export const channelTables = ["channel_follow_ups"];
 
@@ -209,6 +210,8 @@ function removeRows(db, id) {
     remove(db, "assistant_lead_shares", "member_assistant_id=? OR lead_id=?", id, id);
     // Which coding sessions it started; the sessions keep running as the owner's.
     remove(db, "agent_coding_sessions", "assistant_id=?", id);
+    // Its "new mail since last check" positions (mail/agent-mail.js).
+    remove(db, "agent_mail_cursors", "assistant_id=?", id);
     // A lead's teams, member records and requests with their texts; its policy; a
     // member's own record and the lead's requests to it or from it.
     const toMember =
