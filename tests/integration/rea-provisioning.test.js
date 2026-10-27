@@ -94,6 +94,24 @@ test("an installed REA is brought to the pinned Ghidra and JDK on every installe
   assert.equal(request(dir), undefined);
 });
 
+test("--with-rea keeps an installed REA's choice to leave Ghidra off", async (t) => {
+  const dir = dataDir(t);
+  fs.mkdirSync(path.join(dir, "rea"));
+  fs.writeFileSync(
+    path.join(dir, "rea", "settings.json"),
+    JSON.stringify({
+      serverId: "abc",
+      components: { ghidra: false, frida: true },
+      settings: { provider: "ghidra" },
+    }),
+  );
+  const install = async () => assert.fail("must not download Ghidra or the JDK");
+  const result = await provisionRea({ dataDir: dir, enable: true, ...host }, { install });
+  assert.deepEqual(result, { status: "ready", ghidra: null });
+  assert.equal(fs.existsSync(path.join(dir, "clis", "rea-ghidra")), false);
+  assert.equal(request(dir), undefined);
+});
+
 test("a failed download never fails the installation", async (t) => {
   const dir = dataDir(t);
   const install = async () => {

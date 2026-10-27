@@ -70,7 +70,10 @@ export async function provisionRea(
   if (!host.available) return { status: "unavailable", message: host.reason };
   try {
     if (enable && !installed) writeRequest(directory, file, saved);
-    const wanted = enable || saved.components?.ghidra === true || hasComponents;
+    // An installed REA keeps the owner's choice: `--with-rea` never adds Ghidra to it.
+    const wanted = installed
+      ? saved.components?.ghidra === true || hasComponents
+      : enable;
     if (!wanted) return { status: installed ? "ready" : "pending", ghidra: null };
     if (!host.ghidra)
       return {

@@ -136,6 +136,26 @@ test("CLAUDE_CONFIG_DIR and CODEX_HOME point into REA's own home, never the CLI'
   assert.notEqual(env.CODEX_HOME, path.join(os.homedir(), ".codex"));
 });
 
+test("prepareReaHome refuses a link in place of any home directory, .local included", (t) => {
+  for (const sub of ["tmp", ".config", ".cache", ".local", ".local/share", ".claude"]) {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-rea-link-"));
+    t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-rea-outside-"));
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+    const target = path.join(reaHome(dataDir), sub);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.symlinkSync(outside, target);
+    assert.throws(
+      () => prepareReaHome(dataDir),
+      (error) =>
+        error.status === 409 &&
+        error.message === serverMessages.tools.installationDirectoryInvalid,
+      sub,
+    );
+    assert.deepEqual(fs.readdirSync(outside), [], sub);
+  }
+});
+
 test("cleanReaSettings refuses relative paths, control characters, credential URLs and ida without config", () => {
   const refuses = (input, message) =>
     assert.throws(
