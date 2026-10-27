@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clampView,
+  doubleTapView,
   pinchView,
+  scaleLimit,
   scrollView,
   zoomAt,
 } from "../../web/components/image-viewer-zoom.js";
@@ -113,4 +115,44 @@ test("a wheel scroll pans like a page: down shows the bottom, shift goes sideway
     x: 0,
     y: -940,
   });
+});
+
+test("a long screenshot may zoom to twice its fit-to-width size, others to 4×", () => {
+  // 188 wide in a 1280 stage: fit to width is 1280 / 188 ≈ 6.8×, so the limit ≈ 13.6×.
+  assert.equal(scaleLimit(tall, desk), (2 * 1280) / 188);
+  const deep = clampView({ scale: 99, x: 0, y: -1e6 }, tall, desk);
+  assert.equal(deep.scale, (2 * 1280) / 188);
+  // At its limit it is 2560 wide: 640 to spare each side, and its bottom reachable.
+  assert.equal(clampView({ scale: 99, x: 1e6, y: 0 }, tall, desk).x, 640);
+  assert.equal(edges(deep, tall).bottom, 0);
+  // A normal image keeps the 4× limit, and so does pinchView without one.
+  assert.equal(scaleLimit(image, stage), 4);
+  assert.equal(clampView({ scale: 9, x: 0, y: 0 }, image, stage).scale, 4);
+  assert.equal(
+    pinchView({ scale: 1, x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, 9).scale,
+    4,
+  );
+  assert.equal(
+    pinchView({ scale: 1, x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, 9, 13).scale,
+    9,
+  );
+});
+
+test("a double tap fills the width with a long screenshot from its top", () => {
+  const rest = { scale: 1, x: 0, y: 0 };
+  const view = doubleTapView(rest, { x: 40, y: 300 }, tall, desk);
+  const scale = 1280 / 188;
+  assert.deepEqual(view, { scale, x: 0, y: (940 * scale - 940) / 2 });
+  assert.equal(clampView(view, tall, desk).y, view.y);
+  assert.equal(edges(view, tall).top, 0);
+  // A normal image doubles around the tap, and any zoomed image goes back to rest.
+  assert.deepEqual(doubleTapView(rest, { x: 50, y: 40 }, image, stage), {
+    scale: 2,
+    x: -50,
+    y: -40,
+  });
+  assert.deepEqual(doubleTapView(view, { x: 0, y: 0 }, tall, desk), rest);
+  // Half the stage's width or more is no strip.
+  const half = { width: 640, height: 940 };
+  assert.equal(doubleTapView(rest, { x: 0, y: 0 }, half, desk).scale, 2);
 });

@@ -48,15 +48,15 @@ const place = (page) =>
       bottom: box.bottom - stage.bottom,
       left: box.left - stage.left,
       right: box.right - stage.right,
-      height: box.height,
-      stageHeight: stage.height,
+      width: box.width,
+      stageWidth: stage.width,
       scale: box.width / image.offsetWidth,
       centre: { x: stage.left + stage.width / 2, y: stage.top + stage.height / 2 },
     };
   });
 
 test.describe("desktop", () => {
-  test("a tall image fits the stage and wheel or drag reach both its ends when zoomed", async ({
+  test("a tall image fits at rest; a double click fills the width from the top and wheel or drag reach the bottom", async ({
     page,
   }) => {
     const { viewer } = await open(page);
@@ -65,23 +65,45 @@ test.describe("desktop", () => {
     expect(now.top).toBeGreaterThanOrEqual(-0.5);
     expect(now.bottom).toBeLessThanOrEqual(0.5);
     const { centre } = now;
+    // A long screenshot is a thin strip at rest: a double click fills the stage's width
+    // with it, from its top edge.
     await page.mouse.dblclick(centre.x, centre.y);
-    await expect.poll(async () => (await place(page)).scale).toBeCloseTo(2, 2);
+    await expect
+      .poll(async () => (await place(page)).width)
+      .toBeCloseTo(now.stageWidth, 0);
+    now = await place(page);
+    expect(now.left).toBeCloseTo(0, 0);
+    expect(now.top).toBeCloseTo(0, 0);
+    const fit = now.scale;
+    expect(fit).toBeGreaterThan(4);
     // Wheel (or trackpad) scrolling pans down to the bottom edge and not beyond.
     await page.mouse.move(centre.x, centre.y);
     for (let i = 0; i < 40; i += 1) await page.mouse.wheel(0, 400);
     await expect.poll(async () => (await place(page)).bottom).toBeCloseTo(0, 0);
-    expect((await place(page)).scale).toBeCloseTo(2, 2);
+    expect((await place(page)).scale).toBeCloseTo(fit, 2);
     for (let i = 0; i < 40; i += 1) await page.mouse.wheel(0, -400);
     await expect.poll(async () => (await place(page)).top).toBeCloseTo(0, 0);
     // A drag upward reaches the bottom edge too.
     await page.mouse.move(centre.x, centre.y);
     await page.mouse.down();
-    await page.mouse.move(centre.x, centre.y - 6000, { steps: 6 });
+    await page.mouse.move(centre.x, centre.y - 12000, { steps: 6 });
     await page.mouse.up();
     now = await place(page);
     expect(now.bottom).toBeCloseTo(0, 0);
     await expect(viewer).toBeVisible();
+    // Zooming on stops at twice the fit-to-width size, past the usual 4×.
+    // Trackpad pinches arrive as wheel events with ctrlKey set.
+    for (let i = 0; i < 4; i += 1)
+      await page.locator(".image-viewer-stage img").dispatchEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        deltaY: -200,
+        clientX: centre.x,
+        clientY: centre.y,
+      });
+    await expect.poll(async () => (await place(page)).scale).toBeCloseTo(2 * fit, 1);
+    expect((await place(page)).width).toBeCloseTo(2 * now.stageWidth, 0);
   });
 });
 
@@ -143,5 +165,27 @@ test.describe("phone", () => {
     for (let i = 0; i < 6; i += 1) await touch(page, drag(20 + i, [0, -300], [0, 300]));
     now = await place(page);
     expect(now.top).toBeCloseTo(0, 0);
+  });
+
+  test("a double tap fills the width from the top and one finger reaches the bottom", async ({
+    page,
+  }) => {
+    await open(page);
+    let now = await place(page);
+    expect(now.width).toBeLessThan(now.stageWidth / 2);
+    await touch(page, [
+      ["pointerdown", 1, 20, 100],
+      ["pointerup", 1, 20, 100],
+      ["pointerdown", 2, 20, 100],
+      ["pointerup", 2, 20, 100],
+    ]);
+    now = await place(page);
+    expect(now.width).toBeCloseTo(now.stageWidth, 0);
+    expect(now.left).toBeCloseTo(0, 0);
+    expect(now.top).toBeCloseTo(0, 0);
+    for (let i = 0; i < 6; i += 1) await touch(page, drag(10 + i, [0, 300], [0, -300]));
+    now = await place(page);
+    expect(now.bottom).toBeCloseTo(0, 0);
+    expect(now.width).toBeCloseTo(now.stageWidth, 0);
   });
 });

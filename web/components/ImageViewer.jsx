@@ -2,7 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { imageViewerCopy as copy } from "../lib/i18n/messages/components.js";
 import { observeBuild } from "../lib/build-check.js";
 import FileLink from "./FileLink.jsx";
-import { clampView, pinchView, scrollView, zoomAt } from "./image-viewer-zoom.js";
+import {
+  clampView,
+  doubleTapView,
+  pinchView,
+  scaleLimit,
+  scrollView,
+  zoomAt,
+} from "./image-viewer-zoom.js";
 import "./image-viewer.css";
 
 const rest = { scale: 1, x: 0, y: 0 };
@@ -17,8 +24,9 @@ const doubleTap = { time: 300, distance: 30 };
  * home-screen app (iOS) has no back button to return from a navigation. Closes with
  * its button, Esc, a tap beside the image or, on touch screens, a swipe down while not
  * zoomed. It fits whole at rest, however tall. Pinches (two fingers or a trackpad),
- * ctrl + wheel and double taps zoom around the fingers or the pointer; one finger, the
- * mouse or the wheel pans a zoomed image, never past its edges. A modal dialog keeps focus inside and gives it back to the element that
+ * ctrl + wheel and double taps zoom around the fingers or the pointer, a long screenshot
+ * up to twice its fit-to-width size, and a double tap on one fills the width from its
+ * top; one finger, the mouse or the wheel pans a zoomed image, never past its edges. A modal dialog keeps focus inside and gives it back to the element that
  * opened it. `name` is the file name a download saves.
  */
 // `opener` is the element that opened it: Safari does not focus a clicked button.
@@ -40,12 +48,24 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
     const box = stage.current.getBoundingClientRect();
     return { x: x - box.left - box.width / 2, y: y - box.top - box.height / 2 };
   };
-  const show = (next) => {
-    const box = stage.current.getBoundingClientRect();
-    const size = {
-      width: image.current?.offsetWidth || 0,
-      height: image.current?.offsetHeight || 0,
+  // The image's fitted size, untransformed and unrounded (offsetWidth rounds, so fit to
+  // width would miss the stage's edges by a fraction), and the stage's box.
+  const measure = () => {
+    const style = image.current ? getComputedStyle(image.current) : null;
+    return {
+      size: {
+        width: parseFloat(style?.width) || 0,
+        height: parseFloat(style?.height) || 0,
+      },
+      box: stage.current.getBoundingClientRect(),
     };
+  };
+  const limit = () => {
+    const { size, box } = measure();
+    return scaleLimit(size, box);
+  };
+  const show = (next) => {
+    const { size, box } = measure();
     current.current = clampView(next, size, box);
     setView(current.current);
   };
@@ -66,7 +86,8 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
       }
       // Trackpad pinches arrive as wheel events with ctrlKey set.
       const scale = current.current.scale * Math.exp(-event.deltaY / 100);
-      show(zoomAt(current.current, scale, local({ x: event.clientX, y: event.clientY })));
+      const point = local({ x: event.clientX, y: event.clientY });
+      show(zoomAt(current.current, scale, point, limit()));
     };
     const gestures = ["gesturestart", "gesturechange", "gestureend"];
     area.addEventListener("touchmove", hold, { passive: false });
@@ -125,7 +146,7 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
       const points = [...g.points.values()];
       const { from, distance, view: start } = g.pinch;
       const factor = apart(...points) / distance;
-      show(pinchView(start, local(from), local(midpoint(...points)), factor));
+      show(pinchView(start, local(from), local(midpoint(...points)), factor, limit()));
     } else if (g.swipe !== null) setPull(Math.max(0, point.y - g.swipe));
     else if (g.pan && current.current.scale > 1) {
       const { from, view: start } = g.pan;
@@ -152,7 +173,8 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
       if (!last || tap.time - last.time > doubleTap.time) return;
       if (apart(tap, last) > doubleTap.distance) return;
       g.last = null;
-      show(current.current.scale > 1 ? rest : zoomAt(current.current, 2, local(tap)));
+      const { size, box } = measure();
+      show(doubleTapView(current.current, local(tap), size, box));
     } else if (swipe !== null && event.type === "pointerup" && event.clientY - swipe > 90)
       close();
   };
