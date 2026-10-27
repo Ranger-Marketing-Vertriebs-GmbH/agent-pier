@@ -161,9 +161,16 @@ function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
   // The runtime bundles the name, another source reports it, or the reported copy is
   // not the catalog's: whatever runs under this name is not the catalog skill.
   if (clash || (entry && !ownCopy(entry, liveRoot)))
-    return emptySkill(name, "shadowed", roots);
+    return {
+      ...emptySkill(name, "shadowed", roots),
+      shadowedBy: clash === "bundled" ? "bundled" : "source",
+    };
   if (shadowed.has(name) || shadowed.has(anyName))
-    return { ...sanitizeSkill(entry || record, roots), state: "shadowed" };
+    return {
+      ...sanitizeSkill(entry || record, roots),
+      state: "shadowed",
+      shadowedBy: "agentFolder",
+    };
   if (record.needsSettings || (entry && needsSettings(entry)))
     return {
       ...sanitizeSkill(entry || record, roots),
@@ -176,8 +183,9 @@ function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
 
 /**
  * A catalog skill's row: `damaged` (install again); `shadowed` when the runtime
- * bundles the name (`clash`), the report resolves it to another source or outside
- * the catalog's live folder, or a skill in the agent's folders would replace it;
+ * bundles the name (`clash` "bundled"), the report resolves it to another source or
+ * outside the catalog's live folder, or a skill in the agent's folders would replace
+ * it (`shadowedBy` "bundled", "source" or "agentFolder");
  * `needsSettings` (environment or config keys AgentPier cannot set yet);
  * `unavailable` when the Gateway does not report it or its last check failed.
  */
@@ -254,7 +262,7 @@ export function skillCatalog({
       ? catalogRow({
           record,
           entry: extras.get(name),
-          clash: bundled.has(name) || others.has(name),
+          clash: bundled.has(name) ? "bundled" : others.has(name) ? "source" : null,
           shadowed,
           liveRoot,
           roots,

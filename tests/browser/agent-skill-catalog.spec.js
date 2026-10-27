@@ -114,7 +114,16 @@ async function setup(page) {
       state.catalog = [...state.catalog.filter((item) => item.name !== "probe"), skill];
       return route.fulfill({ status: 201, json: { skill, replaced: Boolean(current) } });
     }
-    if (path.endsWith("/check")) return route.fulfill({ json: { upToDate: true } });
+    if (path.endsWith("/check"))
+      return route.fulfill({
+        json: state.newer
+          ? preview(state, {
+              name: "gh-notes",
+              importKind: "github",
+              replaces: { id: "gh-1", version: 3 },
+            })
+          : { upToDate: true },
+      });
     if (method === "DELETE") {
       const id = path.split("/").pop();
       const removed = state.catalog.find((skill) => skill.id === id);
@@ -247,6 +256,11 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
   await panel.getByLabel("Skill file").setInputFiles(skillFile);
   await panel.getByRole("button", { name: "Check skill", exact: true }).click();
   await expect(panel).toContainText("Replaces version 1");
+  // The upload names the skill it updates, so the server refuses another one.
+  expect(state.writes.at(-1).body).toMatchObject({
+    fileName: "SKILL.md",
+    skillId: "probe-1",
+  });
   await expect(panel).toContainText("New since version 1");
   const update = panel.getByRole("button", { name: "Install update", exact: true });
   await expect(update).toBeDisabled();
@@ -279,6 +293,15 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
   ).toHaveText(["Upload new version", "Remove"]);
   await page.keyboard.press("Escape");
 
+  // A newer GitHub version opens its preview under its own title.
+  state.newer = true;
+  await rowAction(page, "gh-notes", "Check for update");
+  panel = page.getByRole("dialog", { name: "Update skill" });
+  await expect(panel).toContainText("Replaces version 3");
+  await expect(page.getByRole("dialog", { name: "Upload new version" })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Close dialog" }).click();
+  await expect(panel).toHaveCount(0);
+
   // The agent switches the catalog skill on in its settings.
   await page.goto(baseURL + settingsPath("capabilities", "skills"));
   const toggle = page.locator("#agent-skills-page .toggle-row", { hasText: "probe" });
@@ -309,6 +332,27 @@ test("the owner installs, updates, checks and removes catalog skills", async ({
       page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     )
     .toBe(true);
+});
+
+test("the catalog page names the cause of a skill's limit", async ({ page }) => {
+  const state = await setup(page);
+  const plain = { ...githubSkill, repository: false, importKind: "skill-md" };
+  state.catalog = [
+    { ...plain, id: "b", name: "bundled-twin", state: "shadowed", shadowedBy: "bundled" },
+    { ...plain, id: "s", name: "plugin-twin", state: "shadowed", shadowedBy: "source" },
+    { ...plain, id: "u", name: "not-loaded", state: "unavailable" },
+  ];
+  await page.goto(`${baseURL}/agents?tab=skills`);
+  await expect(catalogRow(page, "bundled-twin")).toContainText(
+    "Shadowed by a bundled skill",
+  );
+  await expect(catalogRow(page, "plugin-twin")).toContainText(
+    "Shadowed by another installed skill of the same name",
+  );
+  await expect(catalogRow(page, "plugin-twin")).not.toContainText("bundled");
+  await expect(catalogRow(page, "not-loaded")).toContainText(
+    "Not available right now \u2014 AgentPier will check it again",
+  );
 });
 
 test("the catalog page fits a phone", async ({ page }) => {

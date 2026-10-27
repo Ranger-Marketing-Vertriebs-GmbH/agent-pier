@@ -15,7 +15,8 @@ import React from "react";
  * Checks a skill upload or GitHub link and installs the scanned preview. The defaults
  * install into a CLI profile (`endpoint`, `data.skills.installPath`); the agent skill
  * catalog passes its own `paths`, a `destination` text with its label, `title`,
- * `installLabel`, and `initialPreview` when an update check already returned one.
+ * `installLabel`, `initialPreview` when an update check already returned one, and
+ * `previewFields` sent with every check (the catalog skill an upload updates).
  */
 export default function SkillInstallForm({
   mutate,
@@ -38,6 +39,7 @@ export default function SkillInstallForm({
   installLabel = commonCopy.installSkill,
   successNotice = copy.installedNotice,
   initialPreview = null,
+  previewFields = null,
 }) {
   const formId = useId();
   const [source, setSource] = useState("file");
@@ -75,7 +77,7 @@ export default function SkillInstallForm({
         if (!file) throw new Error(copy.fileRequired);
         body = { fileName: file.name, contentBase64: await fileContent(file) };
       }
-      const result = await request(paths.preview, "POST", body);
+      const result = await request(paths.preview, "POST", { ...body, ...previewFields });
       if (!alive.current) return;
       setAccepted(false);
       setPreview(result);

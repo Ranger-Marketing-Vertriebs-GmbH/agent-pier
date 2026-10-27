@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { signedInUser } from "../helpers/users.js";
+import { zipBytes } from "../helpers/zip-file.js";
 
 // The agent skill catalog over HTTP: owner only, audited by id and counts.
 const skillMd = (name, body = "Say hello.") => ({
@@ -206,4 +207,114 @@ test("the catalog lists the agents using a skill, and removal switches them off"
   const [, deleted] = await catalogEvents(f);
   assert.deepEqual(deleted.details, { kind: "catalog-skill", count: 1 });
   assert.ok(!JSON.stringify(deleted).includes("Home"));
+});
+
+/** A fake GitHub for the catalog: `repo.files` is what `main` holds at `repo.head`. */
+function fakeGithub(f, repo) {
+  const doc = ({ name, body }) =>
+    `---\nname: ${name}\ndescription: Fixture.\n---\n${body}\n`;
+  f.application.assistantSkillCatalog.fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.startsWith("https://codeload.github.com/"))
+      return new Response(
+        zipBytes({ [`repo-${repo.head}/skills/three/SKILL.md`]: doc(repo.skill) }),
+      );
+    if (href.endsWith("/git/ref/heads/main"))
+      return Response.json({ object: { type: "commit", sha: repo.head } });
+    return new Response("{}", { status: 404 });
+  };
+}
+const githubSource = { url: "https://github.com/example/repo/tree/main/skills/three" };
+
+test("check for update: up to date, a preview of the update, or 409 for another skill", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const repo = { head: "a".repeat(40), skill: { name: "three", body: "One." } };
+  fakeGithub(f, repo);
+  const first = await preview(f, githubSource);
+  const { skill } = await (
+    await f.request("/api/agent-skill-catalog/skills", post(confirm(first)))
+  ).json();
+  const check = () =>
+    f.request(`/api/agent-skill-catalog/skills/${skill.id}/check`, post({}));
+  let response = await check();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { upToDate: true });
+
+  repo.head = "b".repeat(40);
+  repo.skill = { name: "three", body: "Two." };
+  response = await check();
+  assert.equal(response.status, 200);
+  const update = await response.json();
+  assert.deepEqual(update.replaces, { id: skill.id, version: 1 });
+  assert.equal(update.name, "three");
+  assert.ok(update.previewId);
+
+  // The repository now names another skill: refused, never a second skill.
+  repo.skill = { name: "four", body: "Other." };
+  response = await check();
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).messageKey, "extensions.catalogUpdateRenamed");
+  const { skills } = await (await f.request("/api/agent-skill-catalog")).json();
+  assert.deepEqual(
+    skills.map((s) => [s.name, s.version]),
+    [["three", 1]],
+  );
+});
+
+test("a new version upload that names another skill is refused with 409", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const p = await preview(f, skillMd("probe"));
+  const { skill } = await (
+    await f.request("/api/agent-skill-catalog/skills", post(confirm(p)))
+  ).json();
+  const upload = (input) =>
+    f.request(
+      "/api/agent-skill-catalog/skills/preview",
+      post({ ...input, skillId: skill.id }),
+    );
+  let response = await upload(skillMd("other"));
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.messageKey, "extensions.catalogUploadOtherSkill");
+  assert.match(body.error, /other/);
+  response = await upload(skillMd("probe", "Version two."));
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).replaces, { id: skill.id, version: 1 });
+  response = await f.request(
+    "/api/agent-skill-catalog/skills/preview",
+    post({ ...skillMd("probe"), skillId: "unknown" }),
+  );
+  assert.equal(response.status, 404);
+  const { skills } = await (await f.request("/api/agent-skill-catalog")).json();
+  assert.deepEqual(
+    skills.map((s) => s.name),
+    ["probe"],
+  );
+});
+
+test("removal also switches off a switch-on saved while it waited", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const { store } = f.application.assistants;
+  const catalog = f.application.assistantSkillCatalog;
+  const p = await preview(f, skillMd("probe"));
+  const { skill } = await (
+    await f.request("/api/agent-skill-catalog/skills", post(confirm(p)))
+  ).json();
+  const model = { connectionId: "c", modelId: "m" };
+  const agent = store.createAssistant({ name: "Home", instructions: "", model });
+  // An earlier catalog write still runs while the removal arrives.
+  let release;
+  const held = catalog.serialized(() => new Promise((resolve) => (release = resolve)));
+  const removal = f.request(`/api/agent-skill-catalog/skills/${skill.id}`, {
+    method: "DELETE",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const current = store.getAssistant(agent.id);
+  store.updateAssistant(agent.id, { skills: ["probe"] }, current.revision);
+  release();
+  await held;
+  const response = await removal;
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { removed: skill.id, switchedOff: [agent.id] });
+  assert.deepEqual(store.getAssistant(agent.id).skills, []);
 });

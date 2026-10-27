@@ -12,27 +12,34 @@ const names = (value) =>
   Array.isArray(value)
     ? value.filter((item) => typeof item === "string").slice(0, 32)
     : [];
-const viewState = (record, shadowed) =>
+const viewState = (record, { shadowedBy, unavailable }) =>
   record.damaged
     ? "damaged"
-    : shadowed
+    : shadowedBy
       ? "shadowed"
       : record.needsSettings
         ? "needsSettings"
-        : "ready";
+        : unavailable
+          ? "unavailable"
+          : "ready";
 
 /**
  * A catalog record as the browser sees it: no paths, digests or source URL. With the
  * running Gateway's report (`entries`, by source) it carries the programs the skill
- * needs, and `shadowed` when the runtime bundles the name or reports it from another
- * source; `agents` are the agents that switch it on.
+ * needs, `shadowed` when the runtime bundles the name (`shadowedBy` "bundled") or
+ * reports it from another source ("source"), and `unavailable` when the report lacks
+ * it or its last check failed (`failed`), as on the agent's Skills page; `agents` are
+ * the agents that switch it on.
  */
-export function catalogView(record, { entries, bundled, agents } = {}) {
+export function catalogView(record, { entries, bundled, failed, agents } = {}) {
   const reported = entries?.filter((entry) => entry?.name === record.name) || [];
   const own = reported.find((entry) => entry.source === catalogSource);
-  const shadowed =
-    !!bundled?.has(record.name) ||
-    reported.some((entry) => entry.source !== catalogSource);
+  const shadowedBy = bundled?.has(record.name)
+    ? "bundled"
+    : reported.some((entry) => entry.source !== catalogSource)
+      ? "source"
+      : null;
+  const unavailable = !!failed?.has(record.name) || (!!entries && !own);
   return {
     id: record.id,
     name: record.name,
@@ -43,7 +50,8 @@ export function catalogView(record, { entries, bundled, agents } = {}) {
     repository: Boolean(record.source?.url),
     scan: record.scan,
     needsSettings: record.needsSettings === true,
-    state: viewState(record, shadowed),
+    state: viewState(record, { shadowedBy, unavailable }),
+    ...(shadowedBy ? { shadowedBy } : {}),
     ...(own
       ? {
           requirements: {
@@ -117,6 +125,7 @@ export function agentSkillCatalogRoutes(services) {
         catalogView(record, {
           entries,
           bundled,
+          failed: catalog.store.failed,
           agents: assistants ? catalogUsers(assistants, record.name) : [],
         }),
       ),
@@ -136,11 +145,11 @@ export function agentSkillCatalogRoutes(services) {
     res.json(await catalog.checkUpdate(req.params.skillId)),
   );
   router.delete("/agent-skill-catalog/skills/:skillId", async (req, res) => {
-    // Switched off on every agent first, so no apply compiles a name being removed.
-    const known = catalog.store.byId(req.params.skillId);
-    const switchedOff =
-      known && assistants ? await switchOffEverywhere(assistants, known.name) : [];
-    const record = await catalog.remove(req.params.skillId);
+    // Switched off on every agent first, so no apply compiles a name being removed, and
+    // again once it is gone (SkillCatalog.remove).
+    const { record, switchedOff } = await catalog.remove(req.params.skillId, (name) =>
+      assistants ? switchOffEverywhere(assistants, name) : Promise.resolve([]),
+    );
     appendQuietly(audit, {
       action: "extension.deleted",
       resourceType: "extension",

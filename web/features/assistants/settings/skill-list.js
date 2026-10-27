@@ -34,8 +34,14 @@ export function statusText(skill, copy) {
     const os = skill.missing?.os?.length ? ` (${skill.missing.os.join(", ")})` : "";
     return `${copy.states.unsupported}${os}`;
   }
-  if (skill.state === "shadowed" && skill.source === "catalog")
-    return copy.states.shadowedCatalog;
+  if (skill.source === "catalog") {
+    // Keyed on the cause: a skill in the agent's own folders gets the generic text.
+    if (skill.state === "shadowed" && skill.shadowedBy === "bundled")
+      return copy.states.shadowedCatalog;
+    if (skill.state === "shadowed" && skill.shadowedBy === "source")
+      return copy.states.shadowedCatalogSource;
+    if (skill.state === "unavailable") return copy.states.unavailableCatalog;
+  }
   return copy.states[skill.state] || copy.states.unavailable;
 }
 

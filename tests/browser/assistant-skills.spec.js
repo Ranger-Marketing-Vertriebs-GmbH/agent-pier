@@ -34,6 +34,20 @@ const catalogSkills = [
     missing: none,
     usesShell: false,
   },
+  ...[
+    ["in-folder", "shadowed", "agentFolder"],
+    ["also-bundled", "shadowed", "bundled"],
+    ["not-loaded", "unavailable"],
+  ].map(([name, state, shadowedBy]) => ({
+    name,
+    source: "catalog",
+    version: "1",
+    description: "",
+    state,
+    ...(shadowedBy ? { shadowedBy } : {}),
+    missing: none,
+    usesShell: false,
+  })),
 ];
 const catalog = (on = [], extra = []) => ({
   assigned: on,
@@ -289,8 +303,20 @@ test("catalog skills show their origin and limits and can be saved", async ({ pa
   await expect(row("himalaya")).toContainText("Needs shell access");
   await expect(row("needs-key")).toContainText("Needs settings \u2014 not supported yet");
   await expect(row("needs-key").getByRole("switch")).toBeDisabled();
+  // Each limit names its real cause.
+  await expect(row("in-folder")).toContainText(
+    "Off for this agent: a skill of the same name in the agent's folders",
+  );
+  await expect(row("in-folder")).not.toContainText("Remove the catalog skill");
+  await expect(row("also-bundled")).toContainText(
+    "Off: a bundled skill of the same name replaces this catalog skill.",
+  );
+  await expect(row("not-loaded")).toContainText(
+    "Not available right now \u2014 AgentPier will check it again",
+  );
+  await expect(row("not-loaded")).not.toContainText("OpenClaw version");
   await subpage(page).getByRole("combobox", { name: "Show" }).selectOption("catalog");
-  await expect(subpage(page).locator(".toggle-row")).toHaveCount(2);
+  await expect(subpage(page).locator(".toggle-row")).toHaveCount(5);
   await row("pdf-notes").getByRole("switch").check();
   await saveBar(page, "Unsaved changes")
     .getByRole("button", { name: "Save agent" })

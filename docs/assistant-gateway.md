@@ -4023,9 +4023,14 @@ or out). Nothing from a workspace is ever used for it.
   (`agents.entries.<id>.skills`) names it. Because OpenClaw matches names across all
   sources, a skill of the same name in a higher tier wins: bundled, workspace,
   managed, personal, workshop (`workshop-skills` of the agent) or plugin skills
-  outrank the catalog. An install is refused for such a name, and a name a runtime
-  update later bundles makes the catalog skill **shadowed**: it is dropped from every
-  compile and stays off until the catalog skill is removed.
+  outrank the catalog. An install is refused for a name the runtime bundles, a shared
+  skill folder (plugin, managed or personal skills) holds, or a running Gateway
+  reports from another source. A name a runtime update later bundles makes the catalog
+  skill **shadowed** (`shadowedBy: "bundled"`): it is dropped from every compile and
+  stays off until the catalog skill is removed. A name reported from another source is
+  shadowed as `"source"`. A workspace or workshop skill of one agent is not refused at
+  install; the catalog skill is shadowed for that agent only (`"agentFolder"`), and the
+  agent's Skills page says so.
 - **Programs.** Required programs come from OpenClaw's `skills.status`, not from
   AgentPier's scan. A skill needing environment variables, API keys or configuration
   (`requirements.env`, `requirements.config`, `primaryEnv`) installs, shows **Needs
@@ -4036,7 +4041,12 @@ or out). Nothing from a workspace is ever used for it.
   SHA-256 digest of its installed version (permission bits are not part of the digest,
   because backups restore files as 0600). A copy that fails is restored from the
   store copy. If the store copy is tampered too, the skill is **damaged**: never
-  compiled, and the owner has to install it again. A check that cannot run (an I/O
+  compiled, and the owner has to install it again. Before a turn, a copy is hashed
+  again only when the lstat signature of one of its entries (inode, size, mode,
+  modification or change time) differs from the last match; a write or chmod always
+  changes the change time, so a content change with a preserved modification time is
+  still caught at the next turn. A copy changed less than two seconds before its hash
+  is not cached, and every Gateway start hashes all copies. A check that cannot run (an I/O
   error) drops the skill for that apply only and shows it as **unavailable**. An
   unreadable `catalog.json` compiles no catalog skill at all. One skill's error never
   stops the agent service or other agents.

@@ -28,6 +28,9 @@ export const assistantSkillsCopy = {
     unavailable: "No longer bundled with this OpenClaw version",
     needsSettings: "Needs settings \u2014 not supported yet",
     damaged: "Damaged \u2014 install it again in Agents \u203a Skills",
+    unavailableCatalog: "Not available right now \u2014 AgentPier will check it again",
+    shadowedCatalogSource:
+      "Off: another installed skill of the same name runs in place of this catalog skill. Your choice stays saved and applies again once that skill is gone.",
     shadowedCatalog:
       "Off: a bundled skill of the same name replaces this catalog skill. Remove the catalog skill to use the bundled one.",
     shadowed:
