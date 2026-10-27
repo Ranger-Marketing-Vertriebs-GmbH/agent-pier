@@ -4,9 +4,9 @@
 // call under way when the send timed out keeps running (boundTurnLive). The Gateway
 // proves it runs the turn by the late acknowledgement itself (GatewayClient onLate,
 // conversation-turns.js), by an event of the turn's run (its run id is the attempt
-// id, the send's idempotency key), by any AgentPier tool call of that run (its
-// plugin names the tool call's run, TeamBridge.prepare and invoke) or by the turn's
-// own user message in the transcript (delivery key `<attempt id>:user`,
+// id, the send's idempotency key), by any AgentPier tool call or native write of
+// that run (the plugin names its run: TeamBridge.prepare, invoke, toolPolicy) or the
+// turn's own user message in the transcript (delivery key `<attempt id>:user`,
 // message-source.js). Any one moves the attempt to running on the Gateway
 // generation the send went to (RequestLedger.confirm); nothing is sent again.
 //

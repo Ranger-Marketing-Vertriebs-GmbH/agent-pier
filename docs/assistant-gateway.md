@@ -536,8 +536,9 @@ Without proof it gets no AgentPier tools and no native writes; a tool call is
 refused as `TURN_UNCONFIRMED` (retry after a few seconds), not `FORBIDDEN`. The
 Gateway's acknowledgement arriving after the timeout (OpenClaw acknowledges before it
 starts the run; `GatewayClient` hands a late answer to the send's `onLate`), any
-Gateway event of its run (run ID = attempt ID), any AgentPier tool call of that run
-(the plugin names the run of its tool call; `TeamBridge.prepare` and `invoke` and
+Gateway event of its run (run ID = attempt ID), any AgentPier tool call or native
+write/edit of that run (the plugin names the run of its tool call, the write guard
+the run of the write, `TeamBridge.toolPolicy`; `TeamBridge.prepare` and `invoke` and
 `workspaceContext`, after waiting for the admission lock the send held, confirm
 before they check the turn) or its own user message in the transcript (delivery key
 `<attempt ID>:user`) moves it to `running` on that same Gateway launch, so the
