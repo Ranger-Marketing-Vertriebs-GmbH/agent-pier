@@ -294,6 +294,8 @@ Failure to inspect one action does not prevent independent actions progressing.
 
 ## Coding sessions
 
+![An escalated coding session prompt in the agent chat](screenshots/agent-session-escalation.png)
+
 An agent can start and steer coding CLI sessions (Codex, Claude Code, OpenCode) in a
 project on its own, the way you do in the session dialog, and answer their questions. It
 does this with the tool `agentpier_coding_session`. Its sessions are ordinary AgentPier
