@@ -121,105 +121,6 @@
 .sidebar-legacy-tmux {
   margin: 4px 8px 8px;
 }
-.system-status-details {
-  display: grid;
-  gap: 24px;
-}
-.system-status-details h3 {
-  margin-bottom: 12px;
-  font-size: var(--font-size-md);
-  font-weight: 600;
-}
-.system-status-details .hint {
-  margin-top: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-}
-.system-status-total {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin-bottom: 10px;
-  font-size: var(--font-size-sm);
-}
-.system-status-total small {
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-}
-.system-sparklines {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-.system-sparkline {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-}
-.system-sparkline figcaption {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-size-xs);
-  color: var(--text-meta);
-}
-.system-sparkline svg {
-  width: 100%;
-  height: 44px;
-  border-bottom: 1px solid var(--line);
-}
-.system-sparkline polyline {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-.system-sparkline circle {
-  fill: var(--accent);
-}
-.system-process-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
-}
-.system-process-table th,
-.system-process-table td {
-  padding: 7px 6px;
-  border-bottom: 1px solid var(--line);
-  text-align: right;
-  font-weight: 400;
-  white-space: nowrap;
-}
-.system-process-table th:first-child {
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.system-process-table thead th {
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-}
-.system-process-table tbody th small {
-  display: block;
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-}
-.system-area-list {
-  display: grid;
-  gap: 10px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.system-area-list li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px 12px;
-  font-size: var(--font-size-sm);
-}
-.system-area-list .system-meter-bar {
-  grid-column: 1 / -1;
-}
 @media (max-width: 700px) {
   .system-status {
     margin: 0 0 32px;
@@ -244,10 +145,5 @@
   }
   .system-status-row .system-meter small {
     display: none;
-  }
-  .system-status-details .system-status-meters,
-  .system-sparklines {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
   }
 }

@@ -90,7 +90,11 @@ export function OperationsTab({ frame }) {
       </ListCard>
       {storageOpen && (
         <Suspense fallback={null}>
-          <SystemStatusDialog cleanup close={() => setStorageOpen(false)} />
+          <SystemStatusDialog
+            cleanup
+            close={() => setStorageOpen(false)}
+            openSession={(route) => frame.go(route)}
+          />
         </Suspense>
       )}
     </TabFrame>

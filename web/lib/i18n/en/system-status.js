@@ -19,19 +19,52 @@ export const systemStatusCopy = {
   legacyTmux: (count) =>
     `Stop ${count === 1 ? "this session" : "these sessions"} when convenient; AgentPier then starts new sessions on the new server.`,
   legacyTmuxSessions: "Sessions on the old tmux server",
-  hostHeading: "Computer",
+  host: {
+    computer: "This computer",
+    cores: (count) => (count === 1 ? "1 core" : `${count} cores`),
+    memory: (size) => `${size} RAM`,
+    platforms: { darwin: "macOS", linux: "Linux" },
+  },
+  live: "Live · every 5 s",
+  tabsLabel: "System status sections",
+  tabs: { load: "Load", processes: "Processes", storage: "Storage" },
+  reclaimable: (size) => `${size} reclaimable`,
   load: (one, five, fifteen) => `Load average ${one} · ${five} · ${fifteen}`,
-  historyHeading: "Last hour",
+  historyHeading: "History",
+  range: { label: "Time range", quarter: "15 min", hour: "1 h" },
+  rangeName: { quarter: "15 minutes", hour: "hour" },
+  historyAgo: (minutes) => `−${minutes} min`,
+  historyNow: "now",
+  historyTime: "Time",
+  historyGapNote:
+    "Hatched: nothing measured because no view was open. One sample a minute, every 5 s while the system status is open.",
   historyEmpty:
     "The history fills over the first hour after AgentPier starts: one sample a minute, every five seconds while this view is open.",
   historyCpu: "CPU",
   historyMemory: "RAM",
   historyAgentPier: "AgentPier CPU",
-  historyLabel: (name, value) => `${name}: currently ${value}`,
+  historyLabel: (range, cpu, memory, agentPier) =>
+    `CPU, RAM and AgentPier CPU over the last ${range}; now ${cpu}, ${memory} and ${agentPier}`,
   shareHeading: "AgentPier's share",
-  shareTotal: (cpu, memory) => `${cpu} CPU · ${memory} RAM`,
-  processHeading: "Processes",
+  shareLink: "Break down by process",
+  shareCpu: "Computer CPU",
+  shareMemory: "Computer RAM",
+  shareOf: (part, whole) => `${part} of ${whole}`,
+  shareOfUsed: (part, whole) => `${part} of ${whole} used`,
+  shareAgentPier: "AgentPier",
+  shareOther: "Other programs",
+  processTotalCpu: "AgentPier total · CPU",
+  processSort: "Sort",
+  processSortName: "Name",
   processName: "Part",
+  processActions: "Actions",
+  processes: (count) => (count === 1 ? "1 process" : `${count} processes`),
+  groupCore: "AgentPier core",
+  groupSessions: (count) => `Sessions · ${count} running`,
+  serverSub: "Web interface, API, tmux",
+  gatewaySub: "OpenClaw · runs the agents",
+  openSession: "Open",
+  openSessionLabel: (name) => `Open ${name}`,
   processCount: "Processes",
   processCpu: "CPU",
   processMemory: "RAM",
@@ -51,6 +84,15 @@ export const systemStatusCopy = {
   dataPartial: "The data directory is very large; sizes cover only part of it.",
   dataMeasured: (time) => `Measured ${time}`,
   dataTotal: (total) => `${total} in total`,
+  dataUsed: "Used",
+  dataReclaimable: "Of which reclaimable",
+  dataMore: (count, size) => `${count} more · ${size}`,
+  dataFewer: "Show fewer",
+  driveHeading: "Drive with the AgentPier data",
+  driveAgentPier: (size) => `AgentPier ${size}`,
+  driveOther: (size) => `Other data ${size}`,
+  driveFree: (size) => `Free ${size}`,
+  driveNote: (threshold) => `The start page warns once less than ${threshold} is free.`,
   areas: {
     profiles: "CLI profiles",
     clis: "CLI installations",
@@ -67,6 +109,10 @@ export const systemStatusCopy = {
   },
   cleanup: {
     heading: "Free up space",
+    upTo: (size) => `Up to ${size} can be deleted`,
+    measuredOnOpen: "Measured on open",
+    footnote:
+      "Nothing is deleted before you choose and confirm. What is in use right now stays.",
     open: "Clean up …",
     measuring: "Measuring what can be deleted …",
     atLeast: (size) => `at least ${size}`,
@@ -79,6 +125,11 @@ export const systemStatusCopy = {
     snapshots: {
       title: "Update backups",
       sub: "The agents' state and runtime from before each runtime update",
+      caveat: "The way back to the old runtime goes away",
+      facts: (count, oldest) =>
+        count === 1
+          ? `1 backup · from ${oldest}`
+          : `${count} backups · oldest from ${oldest}`,
       label: "Stored update backups",
       empty: "No update backup is stored.",
       versions: (from, to) => `Update ${from} → ${to}`,
@@ -98,6 +149,9 @@ export const systemStatusCopy = {
     transcripts: {
       title: "Transcripts in CLI profiles",
       sub: "Conversations of ended Claude Code and Codex sessions",
+      caveat: "These sessions can no longer be resumed",
+      facts: (count, days, profiles) =>
+        `${count === 1 ? "1 transcript" : `${count} transcripts`} older than ${days} days · ${profiles === 1 ? "1 profile" : `${profiles} profiles`}`,
       label: "Transcripts by CLI profile",
       age: "Last changed more than",
       days: (days) => `${days} days ago`,
@@ -125,6 +179,9 @@ export const systemStatusCopy = {
     dependencies: {
       title: "Installed agent dependencies",
       sub: "node_modules folders in the agents' workspaces",
+      caveat: "Installed again when needed",
+      facts: (folders, agents) =>
+        `${folders === 1 ? "1 folder" : `${folders} folders`} at ${agents === 1 ? "1 agent" : `${agents} agents`}`,
       label: "Installed dependencies by agent",
       empty: "No agent workspace holds installed dependencies.",
       folders: (count) =>
@@ -142,5 +199,6 @@ export const systemStatusCopy = {
       confirm: "Delete dependencies",
     },
   },
-  cpuNote: "CPU shares are of the whole computer, all cores together.",
+  cpuNote:
+    "CPU shares are of the whole computer, all cores together. All agents run inside the agent gateway; stopped sessions use nothing.",
 };

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { details, summary } from "../helpers/system-status-fixture.js";
+import { cleanupSummary, details, summary } from "../helpers/system-status-fixture.js";
 import { systemStatusCopy as en } from "../../web/lib/i18n/en/system-status.js";
 import { systemStatusCopy as de } from "../../web/lib/i18n/de/system-status.js";
 
@@ -70,14 +70,18 @@ const dependencies = {
   ],
 };
 
-async function routeAll(page) {
-  const calls = { lists: 0, deleted: [] };
+async function routeAll(page, { summaryState = "ready" } = {}) {
+  const calls = { lists: 0, summaries: 0, deleted: [] };
   let snapshots = backups();
   await page.route("**/api/system-status", (route) => route.fulfill({ json: summary() }));
   await page.route("**/api/system-status/details", (route) =>
     route.fulfill({ json: details() }),
   );
   await page.route("**/api/system-status/cleanup/**", async (route) => {
+    if (route.request().url().endsWith("/cleanup/summary")) {
+      calls.summaries++;
+      return route.fulfill({ json: cleanupSummary(calls.state || summaryState) });
+    }
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
@@ -106,7 +110,9 @@ async function routeAll(page) {
 async function openDetails(page) {
   await page.goto("/");
   await page.getByRole("button", { name: /System status|Systemstatus/ }).click();
-  return page.getByRole("dialog", { name: /System status|Systemstatus/ });
+  const dialog = page.getByRole("dialog", { name: /System status|Systemstatus/ });
+  await dialog.getByRole("tab", { name: /Storage|Speicher/ }).click();
+  return dialog;
 }
 
 test.describe("in English", () => {
@@ -118,9 +124,15 @@ test.describe("in English", () => {
     const calls = await routeAll(page);
     const dialog = await openDetails(page);
     await expect(dialog.getByRole("heading", { name: en.cleanup.heading })).toBeVisible();
-    // Opening the details measures nothing; the poll never asks for cleanup sizes.
+    // Opening the details measures no list; the sizes come from the summary.
     await page.waitForTimeout(500);
     expect(calls.lists).toBe(0);
+    expect(calls.summaries).toBeGreaterThan(0);
+    const card = dialog.getByRole("article", { name: en.cleanup.snapshots.title });
+    await expect(card).toContainText("512 MB");
+    await expect(card).toContainText(/2 backups · oldest from .*2026/);
+    await expect(card).toContainText(en.cleanup.snapshots.caveat);
+    await expect(dialog.getByText("Up to 2.8 GB can be deleted")).toBeVisible();
     const open = dialog.getByRole("button", {
       name: `${en.cleanup.snapshots.title}: ${en.cleanup.open}`,
     });
@@ -256,4 +268,45 @@ test("the cleanup speaks German with the German catalog", async ({ page }) => {
   await expect(
     confirm.getByRole("button", { name: de.cleanup.snapshots.confirm }),
   ).toBeVisible();
+});
+
+test.describe("the summary", () => {
+  test.use({ locale: "en-GB" });
+
+  test("shows 'measured on open' until it is known and asks again after a deletion", async ({
+    page,
+  }) => {
+    const calls = await routeAll(page, { summaryState: "pending" });
+    const dialog = await openDetails(page);
+    const card = dialog.getByRole("article", { name: en.cleanup.transcripts.title });
+    await expect(card).toContainText(en.cleanup.measuredOnOpen);
+    await expect(dialog.getByRole("tab", { name: /Storage/ })).not.toContainText(
+      "reclaimable",
+    );
+    calls.state = "ready";
+    await expect(card).toContainText("2 GB", { timeout: 10_000 });
+    await expect(card).toContainText("41 transcripts older than 30 days · 2 profiles");
+    const reclaimable = dialog.locator(".system-area-list li", {
+      hasText: "CLI profiles",
+    });
+    await expect(reclaimable).toContainText("2 GB reclaimable");
+    await expect(dialog.getByRole("tab", { name: /Storage/ })).toContainText(
+      "2.8 GB reclaimable",
+    );
+    await card
+      .getByRole("button", {
+        name: `${en.cleanup.transcripts.title}: ${en.cleanup.open}`,
+      })
+      .click();
+    const list = dialog.getByRole("group", { name: en.cleanup.transcripts.label });
+    await list.getByRole("button", { name: "Delete old transcripts of Work" }).click();
+    calls.state = "refreshing";
+    await page
+      .getByRole("dialog", { name: /Delete transcripts of "Work"/ })
+      .getByRole("button", { name: en.cleanup.transcripts.confirm })
+      .click();
+    await expect(dialog.getByText(en.dataRefreshing).first()).toBeVisible({
+      timeout: 10_000,
+    });
+  });
 });

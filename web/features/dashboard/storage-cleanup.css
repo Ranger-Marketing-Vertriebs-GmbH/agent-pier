@@ -1,12 +1,81 @@
-/* System status › Data directory › Free up space (StorageCleanup.jsx). */
+/* System status › Storage › Free up space (StorageCleanup.jsx) and the cleanup row on
+   Agents › Runtime › Storage (CleanupGroup). */
 .system-cleanup {
   display: grid;
   gap: 12px;
-  margin-top: 20px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg);
+  background: var(--accent-faint);
 }
-.system-cleanup h4 {
+.system-cleanup h3 {
+  margin: 0;
+}
+.system-cleanup-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.system-cleanup-total small {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-cleanup-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.system-cleanup-card p {
   margin: 0;
   font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.system-cleanup-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.system-cleanup-card-head h4 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+.system-cleanup-card-head strong {
+  flex: none;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--accent-text);
+}
+.system-cleanup-card-head strong.pending {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--muted);
+}
+.system-cleanup-card .system-cleanup-facts {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-cleanup-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+.system-cleanup-card .system-cleanup-caveat {
+  flex: 1 1 140px;
+  font-size: var(--font-size-xs);
+  color: var(--warning);
 }
 .system-cleanup-group,
 .system-cleanup-panel {

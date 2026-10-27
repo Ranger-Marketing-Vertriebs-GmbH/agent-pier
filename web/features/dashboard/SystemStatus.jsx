@@ -9,7 +9,7 @@ import LegacyTmuxNotice from "./LegacyTmuxNotice.jsx";
 const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
 
 /** The start page's compact disk, CPU and RAM row; it opens the details. */
-export default function SystemStatus() {
+export default function SystemStatus({ navigate }) {
   const [open, setOpen] = useState(false);
   const { data, error } = useSystemStatus("/system-status", !open);
   // Optional information: without any figures yet, a failure hides the row quietly.
@@ -61,7 +61,7 @@ export default function SystemStatus() {
       </button>
       {open && (
         <Suspense fallback={null}>
-          <SystemStatusDialog close={() => setOpen(false)} />
+          <SystemStatusDialog close={() => setOpen(false)} openSession={navigate} />
         </Suspense>
       )}
     </section>

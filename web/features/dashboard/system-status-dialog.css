@@ -1,0 +1,405 @@
+/* System status dialog (SystemStatusDialog.jsx): three tabs of cards. Chart colours
+   come from the --chart-* tokens of base.css. */
+@media (min-width: 701px) {
+  .system-status-dialog {
+    width: min(1000px, calc(100vw - 32px));
+    height: min(880px, calc(100dvh - 36px));
+  }
+}
+.system-status-details {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 0 25px 25px;
+}
+.system-status-details h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+.system-status-details .hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-status-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: -8px;
+}
+.system-status-head p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.system-status-tab,
+.system-storage-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.system-status-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+.system-status-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.system-status-card-head strong {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.system-status-card-head small {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-status-card-head .button.text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-text);
+}
+.system-status-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+
+/* Load */
+.system-status-tab .system-meter-top strong {
+  font-size: var(--font-size-2xl);
+}
+.system-meter.memory .system-meter-bar i {
+  background: var(--chart-memory);
+}
+.system-meter.memory .system-meter-top strong {
+  color: var(--chart-memory-text);
+}
+.system-meter.disk .system-meter-bar i {
+  background: var(--chart-agentpier);
+}
+.system-meter.disk .system-meter-top strong {
+  color: var(--text);
+}
+.system-history .segment {
+  width: auto;
+}
+.system-share-bars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+.system-share {
+  display: grid;
+  gap: 8px;
+}
+.system-share-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.system-share-value.cpu {
+  color: var(--accent-text);
+}
+.system-share-value.memory {
+  color: var(--chart-memory-text);
+}
+
+/* Processes */
+.system-processes-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.system-process-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+}
+.system-process-tiles .system-status-card {
+  gap: 4px;
+  padding: 10px 14px;
+}
+.system-process-tiles dt {
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+}
+.system-process-tiles dd {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-variant-numeric: tabular-nums;
+}
+.system-process-tiles .cpu {
+  color: var(--accent-text);
+}
+.system-process-tiles .memory {
+  color: var(--chart-memory-text);
+}
+.system-process-sort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+}
+.system-process-frame {
+  padding: 0;
+  overflow-x: auto;
+}
+.system-process-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.system-process-table th,
+.system-process-table td {
+  padding: 10px 16px;
+  border-top: 1px solid var(--divider-soft);
+  text-align: left;
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.system-process-table thead th {
+  border-top: 0;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-process-table th:nth-child(2),
+.system-process-table td:nth-child(2) {
+  text-align: right;
+}
+.system-process-table td:last-child {
+  text-align: right;
+}
+.system-process-group th,
+.system-process-group td {
+  font-size: var(--font-size-xs);
+  color: var(--text-group);
+}
+.system-process-group th {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.system-process-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.system-process-name small,
+.system-process-card-text small {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.system-process-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--surface-accent);
+  color: var(--accent-text);
+}
+.system-process-value {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) auto;
+  align-items: center;
+  gap: 12px;
+}
+.system-process-bar {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--divider);
+  overflow: hidden;
+}
+.system-process-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-cpu);
+}
+.system-process-bar.memory i {
+  background: var(--chart-memory);
+}
+.system-process-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--accent-text);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+.system-process-open:hover {
+  text-decoration: underline;
+}
+.system-process-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.system-process-cards {
+  display: grid;
+  gap: 16px;
+}
+.system-process-cards h4 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-group);
+}
+.system-process-cards ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.system-process-cards li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+.system-process-card-text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.system-process-card-values {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.system-process-card-values .cpu {
+  color: var(--accent-text);
+}
+.system-process-card-values .memory {
+  color: var(--text-meta);
+}
+
+/* Storage */
+.system-storage-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: start;
+  gap: 16px;
+}
+.system-area-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.system-area-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--font-size-sm);
+}
+.system-area-list strong {
+  font-weight: var(--font-weight-regular);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.system-area-bar {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--divider);
+  overflow: hidden;
+}
+.system-area-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-other);
+}
+.system-area-bar b {
+  display: block;
+  height: 100%;
+  background: var(--chart-cpu);
+}
+.system-area-more {
+  justify-self: start;
+}
+@media (max-width: 700px) {
+  /* Three tabs fill the row; the panels show the counts. */
+  .system-status-details .underline-tabs small {
+    display: none;
+  }
+  .system-status-details {
+    padding: 0 16px calc(21px + env(safe-area-inset-bottom));
+  }
+  .system-status-tab .system-status-meters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .system-status-tab .system-status-meters > :last-child {
+    grid-column: 1 / -1;
+  }
+  .system-share-bars,
+  .system-storage-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .system-processes-top,
+  .system-process-sort {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .system-process-tiles > * {
+    flex: 1 1 0;
+  }
+  .system-process-sort .segment label {
+    height: var(--touch-target);
+  }
+  .system-history .segment label {
+    height: var(--touch-target);
+  }
+  .system-process-open {
+    min-height: var(--touch-target);
+  }
+  .system-area-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .system-area-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

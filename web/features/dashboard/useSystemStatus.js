@@ -6,14 +6,15 @@ import { usableStatus } from "./system-status-format.js";
 // The server samples only while a page asks, so polling stops with a hidden page.
 export const SYSTEM_STATUS_INTERVAL = 5000;
 
-export default function useSystemStatus(path, enabled = true) {
+/** Polls `path` while the page is visible; `usable` turns an answer into data or null. */
+export default function useSystemStatus(path, enabled = true, usable = usableStatus) {
   const [state, setState] = useState({ data: null, error: null });
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
     const stop = startVisiblePolling(async (signal) => {
       try {
-        const data = usableStatus(await api(path, "GET", undefined, signal));
+        const data = usable(await api(path, "GET", undefined, signal));
         if (!data) throw new Error("Unusable system status");
         if (active) setState({ data, error: null });
       } catch (error) {
@@ -25,6 +26,6 @@ export default function useSystemStatus(path, enabled = true) {
       active = false;
       stop();
     };
-  }, [path, enabled]);
+  }, [path, enabled, usable]);
   return state;
 }

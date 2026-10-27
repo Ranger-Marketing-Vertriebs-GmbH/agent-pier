@@ -15,6 +15,7 @@ export default function DashboardPage({
   launch,
   page,
   setModal,
+  navigate,
 }) {
   return (
     <div className="page dashboard">
@@ -86,7 +87,7 @@ export default function DashboardPage({
           </p>
         </div>
       </section>
-      <SystemStatus />
+      <SystemStatus navigate={navigate} />
       <section className="tools-section">
         <div className="section-heading">
           <h2>{copy.sectionHeadingHeading}</h2>
