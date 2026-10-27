@@ -21,6 +21,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
         "--dependencies-only",
         "--with-assistants",
         "--with-agent-browser",
+        "--with-rea",
       ].includes(option)
     ) {
       present.add(option);
@@ -80,6 +81,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
     dependenciesOnly: present.has("--dependencies-only"),
     ...(present.has("--with-assistants") ? { withAssistants: true } : {}),
     ...(present.has("--with-agent-browser") ? { withAgentBrowser: true } : {}),
+    ...(present.has("--with-rea") ? { withRea: true } : {}),
     resume: true,
   };
 }
@@ -105,6 +107,7 @@ export function installerArguments(options, version) {
   if (!options.installDependencies) args.push("--skip-dependencies");
   if (options.withAssistants) args.push("--with-assistants");
   if (options.withAgentBrowser) args.push("--with-agent-browser");
+  if (options.withRea) args.push("--with-rea");
   return args;
 }
 

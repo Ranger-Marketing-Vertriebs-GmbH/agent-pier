@@ -190,6 +190,13 @@ probe in [Assistant Gateway](assistant-gateway.md#qualification-and-diagnostics)
 before enabling it on a Linux host. AgentPier's existing Node requirement remains
 unchanged; the optional Gateway uses its separately provisioned Node runtime.
 
+### Optional REA
+
+`--with-rea` downloads the pinned Ghidra and JDK on Linux x64 (see
+[installation](installation.md)); REA Core follows at the next AgentPier start. Linux
+arm64 has no Ghidra build, so only Core is installed there. Ghidra's native decompiler
+needs the usual system libraries; the installation names any that `ldd` cannot resolve.
+
 ### Toolchains für MCP-Pakete
 
 Für MCP-Serverpakete aus npm und PyPI stellt AgentPier eigene, per SHA-256 geprüfte
