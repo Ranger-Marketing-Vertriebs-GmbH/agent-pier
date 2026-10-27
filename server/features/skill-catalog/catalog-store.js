@@ -114,6 +114,8 @@ export class SkillCatalogStore {
     this.liveRoot = path.join(root, "skills");
     this.stagingRoot = path.join(root, "staging");
     this.storeRoot = path.join(root, "store");
+    // Names whose last verify hit an I/O error; dropped until a verify passes.
+    this.failed = new Set();
   }
   /** One of the fixed sub-roots as a real private folder (a planted link is removed). */
   subRoot(dir) {
@@ -267,6 +269,8 @@ export class SkillCatalogStore {
     quietly(() => remove(stage));
     if (previous && previous.digest !== digest)
       quietly(() => remove(this.storePath(name, previous.digest)));
+    // A fresh, intact copy: the next verify decides again.
+    this.failed.delete(name);
     return next;
   }
   /** Drops the record first; a crash before the files go leaves them to sweep(). */
@@ -280,6 +284,7 @@ export class SkillCatalogStore {
     );
     remove(this.livePath(record.name));
     remove(this.storePath(record.name));
+    this.failed.delete(record.name);
     return record;
   }
   /**
@@ -288,21 +293,27 @@ export class SkillCatalogStore {
    * record is marked `damaged`. Modes are re-applied to every intact copy.
    *
    * Only the two digest checks decide `damaged`. An I/O error while re-applying modes,
-   * repairing or restoring deletes nothing: every record is still checked, the marks are
-   * saved, and then the first such error is thrown so the next call retries.
+   * repairing or restoring marks nothing damaged: the name is `failed` (kept in
+   * `this.failed` and `dropped` until a later verify passes), a live copy that was not
+   * intact is removed best-effort so OpenClaw cannot load it, and every other record is
+   * still checked. The marks are saved; nothing is thrown for one record's failure.
    */
   verify(names) {
     const wanted = names ? new Set(names) : null;
     const restored = [];
     const damaged = [];
-    const errors = [];
+    const failed = [];
     const records = this.list();
     for (const record of records) {
       if (record.damaged || (wanted && !wanted.has(record.name))) continue;
+      const state = {};
       try {
-        this.verifyOne(record, { restored, damaged });
-      } catch (error) {
-        errors.push(error);
+        this.verifyOne(record, { restored, damaged }, state);
+        this.failed.delete(record.name);
+      } catch {
+        failed.push(record.name);
+        this.failed.add(record.name);
+        if (state.liveIntact !== true) quietly(() => remove(this.livePath(record.name)));
       }
     }
     if (damaged.length) {
@@ -314,14 +325,13 @@ export class SkillCatalogStore {
         ),
       );
     }
-    if (errors.length) throw errors[0];
-    return { restored, damaged };
+    return { restored, damaged, failed };
   }
-  verifyOne(record, { restored, damaged }) {
+  verifyOne(record, { restored, damaged }, state = {}) {
     const executables = new Set(record.executables || []);
     const live = this.livePath(record.name);
     const storeDir = this.storePath(record.name, record.digest);
-    const liveIntact = this.intact(live, record.digest);
+    const liveIntact = (state.liveIntact = this.intact(live, record.digest));
     const storeIntact = this.intact(storeDir, record.digest);
     if (liveIntact) {
       applyModes(live, executables);
@@ -337,13 +347,22 @@ export class SkillCatalogStore {
       remove(live);
     }
   }
-  /** The given names that are catalog skills and bundled, `needsSettings` or damaged. */
+  /**
+   * The given names that are catalog skills and bundled, `needsSettings`, damaged or
+   * failed in the last verify.
+   */
   dropped(names, bundled = new Set()) {
     const records = new Map(this.list().map((record) => [record.name, record]));
     return [...new Set(names)]
       .filter((name) => {
         const record = records.get(name);
-        return record && (bundled.has(name) || record.needsSettings || record.damaged);
+        return (
+          record &&
+          (bundled.has(name) ||
+            record.needsSettings ||
+            record.damaged ||
+            this.failed.has(name))
+        );
       })
       .sort();
   }

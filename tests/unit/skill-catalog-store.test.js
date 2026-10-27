@@ -135,7 +135,7 @@ test("a crash after the live copy moved aside is restored from the store", () =>
   // The process died between moving the live copy aside and renaming the new one in.
   fs.renameSync(path.join(s.liveRoot, "probe"), path.join(root, "staging/crash-old"));
   fs.mkdirSync(path.join(root, "staging/crash-new"));
-  assert.deepEqual(s.verify(), { restored: ["probe"], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: ["probe"], damaged: [], failed: [] });
   assert.match(fs.readFileSync(path.join(s.liveRoot, "probe/SKILL.md"), "utf8"), /v1/);
   s.sweep();
   assert.deepEqual(fs.readdirSync(path.join(root, "staging")), []);
@@ -148,7 +148,7 @@ test("verify restores an edited live copy from the store", () => {
   fs.chmodSync(file, 0o600);
   fs.writeFileSync(file, "tampered");
   fs.writeFileSync(path.join(s.liveRoot, "probe/extra.md"), "added");
-  assert.deepEqual(s.verify(["probe"]), { restored: ["probe"], damaged: [] });
+  assert.deepEqual(s.verify(["probe"]), { restored: ["probe"], damaged: [], failed: [] });
   assert.match(fs.readFileSync(file, "utf8"), /v1/);
   assert.equal(mode(file), 0o400);
   assert.equal(mode(path.join(s.liveRoot, "probe/run.sh")), 0o500);
@@ -164,7 +164,7 @@ test("verify only re-applies modes after a 0600 restore", () => {
   const store = path.join(root, "store/probe", r.digest);
   for (const dir of [live, store]) eachFile(dir, (file) => fs.chmodSync(file, 0o600));
   const inode = fs.statSync(path.join(live, "SKILL.md")).ino;
-  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
   assert.equal(fs.statSync(path.join(live, "SKILL.md")).ino, inode); // not re-copied
   for (const dir of [live, store]) {
     assert.equal(mode(path.join(dir, "bin/run.sh")), 0o500);
@@ -185,17 +185,17 @@ test("a damaged store copy removes the live copy and marks the record", () => {
     fs.chmodSync(file, 0o600);
     fs.writeFileSync(file, "tampered");
   }
-  assert.deepEqual(s.verify(["probe"]), { restored: [], damaged: ["probe"] });
+  assert.deepEqual(s.verify(["probe"]), { restored: [], damaged: ["probe"], failed: [] });
   assert.ok(!fs.existsSync(path.join(s.liveRoot, "probe")));
   assert.equal(s.byName("probe").damaged, true);
   assert.equal(new SkillCatalogStore({ root }).byName("probe").damaged, true);
   assert.deepEqual(s.dropped(["probe"]), ["probe"]);
   // A damaged skill stays damaged and is not reported again.
-  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
   // Installing it again clears the mark.
   const again = s.write(pack("probe", "v1"), meta());
   assert.equal(again.damaged, undefined);
-  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
 });
 
 test("an intact live copy repairs a changed store copy", () => {
@@ -204,7 +204,7 @@ test("an intact live copy repairs a changed store copy", () => {
   const stored = path.join(root, "store/probe", r.digest, "SKILL.md");
   fs.chmodSync(stored, 0o600);
   fs.writeFileSync(stored, "tampered");
-  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
   assert.match(fs.readFileSync(stored, "utf8"), /v1/);
   assert.equal(mode(path.join(root, "store/probe", r.digest, "run.sh")), 0o500);
   assert.deepEqual(fs.readdirSync(path.join(root, "staging")), []);
@@ -215,7 +215,7 @@ test("a missing store copy marks the record damaged", () => {
   const r = s.write(pack("probe", "v1"), meta());
   fs.rmSync(path.join(root, "store/probe", r.digest), { recursive: true });
   fs.rmSync(path.join(s.liveRoot, "probe"), { recursive: true });
-  assert.deepEqual(s.verify(["probe"]), { restored: [], damaged: ["probe"] });
+  assert.deepEqual(s.verify(["probe"]), { restored: [], damaged: ["probe"], failed: [] });
 });
 
 test("dropped names bundled, needsSettings and damaged catalog skills only", () => {
@@ -303,7 +303,11 @@ test("a symlinked live folder is replaced and the other skills are still verifie
     const probe = path.join(s.liveRoot, "probe/SKILL.md");
     fs.chmodSync(probe, 0o600);
     fs.writeFileSync(probe, "tampered");
-    assert.deepEqual(s.verify(), { restored: ["alpha", "probe"], damaged: [] });
+    assert.deepEqual(s.verify(), {
+      restored: ["alpha", "probe"],
+      damaged: [],
+      failed: [],
+    });
     assert.ok(!fs.lstatSync(live).isSymbolicLink());
     assert.match(fs.readFileSync(path.join(live, "SKILL.md"), "utf8"), /v1/);
     assert.match(fs.readFileSync(probe, "utf8"), /v1/);
@@ -326,7 +330,7 @@ test("a symlinked store version is replaced from the intact live copy", () => {
     const stored = path.join(root, "store/probe", r.digest);
     fs.rmSync(stored, { recursive: true });
     fs.symlinkSync(outside, stored);
-    assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+    assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
     assert.ok(!fs.lstatSync(stored).isSymbolicLink());
     assert.match(fs.readFileSync(path.join(stored, "SKILL.md"), "utf8"), /v1/);
     assert.deepEqual(fs.readdirSync(outside), []);
@@ -370,15 +374,17 @@ for (const method of ["renameSync", "writeFileSync"])
     mock.method(fs, method, () => {
       throw Object.assign(new Error("EIO"), { code: "EIO" });
     });
-    assert.throws(() => s.verify(), /EIO/);
+    assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: ["probe"] });
     mock.restoreAll();
+    // The live copy was intact: it stays, and the name is dropped until a verify passes.
     assert.match(fs.readFileSync(path.join(s.liveRoot, "probe/SKILL.md"), "utf8"), /v1/);
     assert.equal(s.byName("probe").damaged, undefined);
-    assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+    assert.deepEqual(s.dropped(["probe"]), ["probe"]);
+    assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
     assert.match(fs.readFileSync(stored, "utf8"), /v1/);
   });
 
-test("a failing restore deletes nothing and the next verify restores", () => {
+test("a tampered live copy that could not be restored leaves skills/ and is restored next", () => {
   const s = new SkillCatalogStore({ root });
   s.write(pack("probe", "v1"), meta());
   const file = path.join(s.liveRoot, "probe/SKILL.md");
@@ -390,12 +396,15 @@ test("a failing restore deletes nothing and the next verify restores", () => {
     if (String(to).endsWith(".json")) return rename(from, to);
     throw Object.assign(new Error("EIO"), { code: "EIO" });
   });
-  assert.throws(() => s.verify(), /EIO/);
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: ["probe"] });
   mock.restoreAll();
-  assert.equal(fs.readFileSync(file, "utf8"), "tampered"); // nothing deleted
+  // OpenClaw can no longer load the tampered copy; the store copy is kept.
+  assert.deepEqual(fs.readdirSync(s.liveRoot), []);
   assert.equal(s.byName("probe").damaged, undefined);
-  assert.deepEqual(s.verify(), { restored: ["probe"], damaged: [] });
+  assert.deepEqual(s.dropped(["probe"]), ["probe"]);
+  assert.deepEqual(s.verify(), { restored: ["probe"], damaged: [], failed: [] });
   assert.match(fs.readFileSync(file, "utf8"), /v1/);
+  assert.deepEqual(s.dropped(["probe"]), []);
 });
 
 test("a tampered store folder without write permission is still replaced", () => {
@@ -405,7 +414,7 @@ test("a tampered store folder without write permission is still replaced", () =>
   fs.chmodSync(path.join(stored, "SKILL.md"), 0o600);
   fs.writeFileSync(path.join(stored, "SKILL.md"), "tampered");
   fs.chmodSync(stored, 0o500);
-  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.deepEqual(s.verify(), { restored: [], damaged: [], failed: [] });
   assert.match(fs.readFileSync(path.join(stored, "SKILL.md"), "utf8"), /v1/);
   fs.chmodSync(stored, 0o500);
   s.write(pack("probe", "v2"), meta());
