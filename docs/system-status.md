@@ -1,11 +1,37 @@
 # System status
 
 The start page shows a compact **System status** row with three bars: **Disk**, **CPU**
-and **RAM**. Select the row to open the details: the computer's figures, a sparkline of
-the last hour, AgentPier's own share of CPU and memory, and the size of its data
-directory by area. The same details, with their cleanups, also open from **Storage** in
-**Settings › Operations** (the row shows the free space). **Agents › Runtime ›
-Storage** offers the cleanup of the agents' installed dependencies.
+and **RAM**. Select the row to open the details. The dialog names the computer (cores,
+RAM and, when known, the platform), shows **Live · every 5 s**, and has three tabs:
+
+- **Load** (the dialog opens here): cards for CPU with the load average, RAM and disk; a
+  **History** chart of CPU, RAM and AgentPier's CPU over the last hour or the last 15
+  minutes; and **AgentPier's share** of the computer's CPU and of its used RAM. **Break
+  down by process** switches to **Processes**.
+- **Processes** (with the number of processes): AgentPier's total CPU, RAM and process
+  count, and a table of the [processes that belong to AgentPier](#agentpiers-share).
+- **Storage** (with how much can be freed, once known, and a warning dot when the disk
+  is low): the drive, the [data directory](#data-directory) by area and
+  [Free up space](#free-up-space).
+
+The same dialog opens on **Storage** from **Storage** in **Settings › Operations** (the
+row shows the free space). **Agents › Runtime › Storage** offers the cleanup of the
+agents' installed dependencies.
+
+On a phone the dialog is a bottom sheet: the three tabs fill the row, the content is one
+column, the chart is 150 px high and each process is a card.
+
+### History chart
+
+The chart shows one line per series: **CPU** and **RAM** of the computer and
+**AgentPier CPU** (dashed), from 0 to 100 %. Each legend button turns its line on or
+off. **15 min** and **1 h** pick the time range; 15 minutes is a slice of the same
+history. Hatched stretches are times with nothing measured, because no view was open
+(points more than 90 seconds apart). Move the pointer over the chart, or focus it and
+use the arrow keys (Home and End jump, Escape hides it), for a crosshair with the time
+and the values. Screen readers get a summary of the current values and a table of the
+last points. Until three points exist, a hint explains that the history fills over the
+first hour.
 
 ## What the figures mean
 
@@ -22,14 +48,21 @@ therefore reads `vm_stat` and counts file cache and free pages as available.
 
 ## AgentPier's share
 
-The details list the processes that belong to AgentPier, each with its whole process
-tree:
+**Processes** lists the processes that belong to AgentPier, each with its whole process
+tree, in two groups with a subtotal each: **AgentPier core** and **Sessions · n
+running**:
 
 - **AgentPier server:** the server process and its children, such as the protocol
   adapters and MCP servers.
 - **Agent gateway:** the managed agent runtime, when agents are enabled.
 - **One row per running session:** the coding CLI (Claude Code, Codex, OpenCode) or shell
-  started in the session's tmux pane, found through the pane's process ID.
+  started in the session's tmux pane, found through the pane's process ID. Its sub line
+  names the tool and the name of the session's folder. **Open** closes the dialog and
+  selects the session.
+
+Every row shows its number of processes and bars for CPU and RAM, scaled to the largest
+row. **Sort** orders each group by CPU (the default), RAM or name. All agents run inside
+the agent gateway; stopped sessions use nothing.
 
 One `ps` call per sample reads every process. CPU is the share of the whole computer
 (all cores together) since the previous sample, from the change in each process's CPU
@@ -39,8 +72,16 @@ exceed what the processes really occupy together.
 
 ## Data directory
 
+**Storage** shows the drive that holds the data directory (free of total, and a bar of
+AgentPier's data, other data and free space) and the data directory by area. The eight
+largest areas show first; **n more** shows the rest. Once the
+[cleanup summary](#free-up-space) is known, an area's bar marks in the accent colour the
+part that a cleanup can free: update backups in **Backups**, old transcripts in **CLI
+profiles** and installed dependencies in **Agent workspaces**.
+
 The data directory is measured in the background, never while a request waits, and the
-result is kept for ten minutes. The walk never follows symbolic links, stays on the data
+result is kept for ten minutes; until then the card says so, and while it is measured
+again it shows the previous sizes with **Updating sizes …**. The walk never follows symbolic links, stays on the data
 directory's file system, counts a hard-linked file once and stops after a million
 entries or two minutes; a partial result says so. Sizes are allocated disk blocks, like
 `du`.
@@ -63,8 +104,16 @@ The response names only these areas, never a path.
 
 ## Free up space
 
-Below the areas, **Free up space** offers three cleanups. Each list is measured only
-when you open it with **Clean up …**, never with the five-second refresh. Every
+Beside the areas (below them on a phone), **Free up space** offers three cleanups with
+"Up to … can be deleted". Each card shows what its group can free, how many entries it
+holds and what deleting costs. These sizes come from a summary that the server measures
+in the background like the data directory, keeps for ten minutes and measures again
+after every deletion; until it is known, the cards say **Measured on open**. The
+summary counts the update backups except the one an unresolved recovery needs,
+transcripts older than 30 days, and every installed dependency folder (an agent at
+work included). The list behind **Clean up …** is measured only when you open it, never
+with the five-second refresh, and nothing is deleted without its selection and
+confirmation. Every
 deletion asks first in a confirmation that names what goes away and how much space it
 frees; only the owner can run it, one cleanup at a time, and the **Activity log**
 records it as `storage.deleted` with the area, the number of entries removed or skipped
@@ -127,8 +176,8 @@ project needs them.
 Host backups (`operations/backups`) are deleted under **Settings › Operations ›
 Backups** instead ([backups](backups.md)).
 
-After a cleanup the data directory is measured again the next time the details are
-open.
+After a cleanup the data directory and the summary are measured again the next time
+the details are open.
 
 ## Refresh and cost
 
@@ -137,14 +186,15 @@ visible. The server then samples every five seconds and returns to its backgroun
 30 seconds after the last request. In the background it takes one sample a minute (CPU
 and memory of the computer and of AgentPier's processes: one `ps` call, plus `vm_stat`
 on macOS and one tmux listing), so the sparkline covers the whole last hour even when
-nobody looked. The data directory is walked only while the details are open. A disk
-check runs every ten minutes for the warning below, and every sample stops at shutdown.
-Points more than 90 seconds apart, such as after a restart, break the line.
+nobody looked. The data directory and the cleanup summary are walked only while the
+details are open. A disk check runs every ten minutes for the warning below, and every
+sample stops at shutdown. Points more than 90 seconds apart, such as after a restart,
+break the line and are hatched.
 
 ## Low disk space
 
-When less than 10 % of the data directory's volume is free, the start page shows a
-warning and AgentPier sends one **Disk space is low** push notification to the devices
+When less than 10 % of the data directory's volume is free, the start page and the
+**Storage** tab show a warning and AgentPier sends one **Disk space is low** push notification to the devices
 that [receive notifications](notifications.md). The warning clears when at least 12 % is
 free again; a disk that hovers around the threshold does not notify again, and neither
 does a restart during the same low-space episode.
@@ -172,11 +222,18 @@ stopped in the list but still counts in the notice; **Stop session** ends it. Se
 
 `GET /api/system-status` returns the bars, the warning and the sessions on the old tmux
 server (`legacyTmux.sessions`, id and name only), and
-`GET /api/system-status/details` adds processes, history and data areas. Both require
-the workspace login like every other `/api` route.
+`GET /api/system-status/details` adds the host platform (`host.platform`, such as
+`darwin` or `linux`, or `null`), processes (sessions with their id, name, tool and folder
+name), history and data areas. Both require the workspace login like every other `/api`
+route.
 
 The cleanups live under `/api/system-status/cleanup` and are owner-only:
 `GET update-backups` and `DELETE update-backups/<id>`, `GET transcripts` and
 `POST transcripts/<profile>` with `{ "olderThanDays": 30 | 90 | 180 }`, and
 `GET dependencies` and `DELETE dependencies/<agent>`. A deletion answers with the
-number of entries removed and skipped and the bytes freed.
+number of entries removed and skipped and the bytes freed. `GET summary` answers at
+once with `{ state: "pending" }` or `{ state: "ready" | "refreshing", computedAt,
+groups }`, where `groups` holds `updateBackups` (`bytes`, `count`, `blocked`,
+`atLeast`, `oldestAt`), `transcripts` (`bytes`, `count`, `olderThanDays`, `profiles`)
+and `dependencies` (`bytes`, `count` of folders, `agents`, `atLeast`); `atLeast` marks a
+measurement that stopped at its bound.
