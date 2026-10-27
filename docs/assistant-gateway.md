@@ -532,13 +532,16 @@ acknowledgement times out (the client's default 10 s, so the admission lock is n
 held longer). Such an attempt becomes `uncertain` but stays _unconfirmed_ (evidence
 `unconfirmed: "send"` with the supervisor's per-launch `generationId`,
 `run-confirmation.js`); a send the closed connection refused at once does not.
-Without proof it gets no AgentPier tools and no native writes. Any Gateway event of
-its run (run ID = attempt ID), an `agentpier_workspace` or `agentpier_share_file`
-call of that run (the plugin names the run of its tool call; `TeamBridge.prepare`
-confirms before it binds the call) or its own user message in the transcript
-(delivery key `<attempt ID>:user`) moves it to `running` on that same Gateway launch,
-so the turn's
-tools work, team member and lead request phases return to `running`, and it
+Without proof it gets no AgentPier tools and no native writes; a tool call is
+refused as `TURN_UNCONFIRMED` (retry after a few seconds), not `FORBIDDEN`. The
+Gateway's acknowledgement arriving after the timeout (OpenClaw acknowledges before it
+starts the run; `GatewayClient` hands a late answer to the send's `onLate`), any
+Gateway event of its run (run ID = attempt ID), any AgentPier tool call of that run
+(the plugin names the run of its tool call; `TeamBridge.prepare` and `invoke` and
+`workspaceContext`, after waiting for the admission lock the send held, confirm
+before they check the turn) or its own user message in the transcript (delivery key
+`<attempt ID>:user`) moves it to `running` on that same Gateway launch, so the
+turn's tools work, team member and lead request phases return to `running`, and it
 completes normally. A Gateway restart, a review, or uncertainty from any other cause
 is never confirmed this way, and an AgentPier start turns leftover unconfirmed
 attempts into plain `uncertain` ones. Agent activity counts an unconfirmed turn as

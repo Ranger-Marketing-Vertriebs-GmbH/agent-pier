@@ -4,6 +4,7 @@ import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 import { reopenRefusedChat } from "./native-chat-archive.js";
+import { confirmFromAck } from "./run-confirmation.js";
 import { memoryStep } from "./memory-write-policy.js";
 import { agentDegraded, noteRefusal, pendingAdmission } from "./agent-admission.js";
 
@@ -139,12 +140,17 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       { byUser },
     );
     const client = service.runtime.client;
+    // OpenClaw acknowledges a send before it starts the run, so an acknowledgement
+    // that arrives after the timeout proves the run (run-confirmation.js).
+    const onLate = (ok) => {
+      if (ok) confirmFromAck(service, attempt.id);
+    };
     const send = () =>
-      client.call("sessions.send", {
-        key: conversation.runtimeSessionKey,
-        ...turn,
-        idempotencyKey: attempt.id,
-      });
+      client.call(
+        "sessions.send",
+        { key: conversation.runtimeSessionKey, ...turn, idempotencyKey: attempt.id },
+        { onLate },
+      );
     // OpenClaw's maintenance may have archived the session natively; such a refusal
     // comes before any run, so the reopened chat takes the same turn.
     const sent = await send().catch(async (error) => {

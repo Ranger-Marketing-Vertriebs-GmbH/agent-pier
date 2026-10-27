@@ -11,7 +11,7 @@ import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-to
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
-import { boundTurnLive, confirmFromCall } from "./run-confirmation.js";
+import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
 import { invokeSshAccess } from "./agent-ssh-proposals.js";
@@ -124,9 +124,9 @@ export class TeamBridge {
     if (record.continuation) return continuation.assertContinuation(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     // A call under way outlives a send whose acknowledgement timed out meanwhile;
-    // a call starts only on a live turn.
+    // a call starts only on a live turn (an unproven one: TURN_UNCONFIRMED).
     if (running ? !boundTurnLive(a) : !active.has(a.state) || a.reviewedAt)
-      throw assistantProblem("invalid", 403);
+      throw running ? assistantProblem("invalid", 403) : turnRefusal(a);
     const c = this.assistants.store.getConversation(
         this.assistants.ledger.getRequest(a.requestId).conversationId,
       ),
@@ -173,12 +173,12 @@ export class TeamBridge {
     if (this.tickets.size >= 1000) throw assistantProblem("active", 409);
     // A call of a turn whose send went unacknowledged proves that turn runs.
     if (input.runId) confirmFromCall(this.assistants, input.sessionKey, input.runId);
-    const matches = this.assistants.ledger.pending().filter((a) => {
-      const c = this.assistants.store.getConversation(
-        this.assistants.ledger.getRequest(a.requestId).conversationId,
-      );
-      return c.runtimeSessionKey === input.sessionKey && active.has(a.state);
-    });
+    const matches = this.bound(input.sessionKey);
+    // No live turn: one whose send is only unacknowledged is told to wait.
+    const refuse = () => {
+      const turns = this.bound(input.sessionKey, true);
+      return turnRefusal(turns.length === 1 ? turns[0] : null);
+    };
     const issue = (bound) => {
       const record = this.valid({
         ...input,
@@ -205,13 +205,13 @@ export class TeamBridge {
       if (routine) return issue({ attemptId: null, routine });
       // A command's completion run; 2026.10.7's is read from the transcript first.
       const resume = (resumed) => {
-        if (!resumed) throw assistantProblem("invalid", 403);
+        if (!resumed) throw refuse();
         return issue({ attemptId: null, continuation: resumed });
       };
       const resumed = continuation.continuationBinding(this, input);
       return resumed instanceof Promise ? resumed.then(resume) : resume(resumed);
     }
-    throw assistantProblem("invalid", 403);
+    throw refuse();
   }
   // The Gateway's own plugin reports its write guard once the hook is registered;
   // write/edit stay withheld until then and after every runtime restart.
@@ -418,13 +418,13 @@ export class TeamBridge {
     });
     if (added) this.assistants.changed?.();
   }
-  // The active attempts bound to a runtime session.
-  bound(sessionKey) {
+  // The active attempts bound to a runtime session (`unresolved`: any unresolved one).
+  bound(sessionKey, unresolved = false) {
     return this.assistants.ledger.pending().filter((a) => {
       const c = this.assistants.store.getConversation(
         this.assistants.ledger.getRequest(a.requestId).conversationId,
       );
-      return c.runtimeSessionKey === sessionKey && active.has(a.state);
+      return c.runtimeSessionKey === sessionKey && (unresolved || active.has(a.state));
     });
   }
   turn(attempt, agentId) {
@@ -462,6 +462,9 @@ export class TeamBridge {
       .digest("hex");
     if (record.hash && record.hash !== hash) throw assistantProblem("conflict", 409);
     if (record.promise) return record.promise;
+    // Its run (also workspace-calls.js liveAttempt) proves a send that timed out since.
+    if (record.runId && record.attemptId)
+      confirmFromCall(this.assistants, record.sessionKey, record.runId);
     this.valid(record);
     record.hash = hash;
     const invocation = {
@@ -474,6 +477,7 @@ export class TeamBridge {
       hook: record.hook || null,
       continuation: record.continuation || null,
       sessionKey: record.sessionKey,
+      runId: record.runId || null,
     };
     record.invocation = invocation;
     record.promise = Promise.resolve().then(() => {

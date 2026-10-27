@@ -358,7 +358,8 @@ test("a turn whose send went unacknowledged writes once the Gateway proved it", 
     unconfirmed: "send",
     generation: null,
   });
-  await assert.rejects(write(), { status: 403 });
+  // Not proven yet: retryable, not forbidden.
+  await assert.rejects(write(), { status: 409, key: "turnUnconfirmed" });
   assert.equal(
     f.assistants.ledger.confirm(inv.attemptId, { proof: "event" }).state,
     "running",

@@ -71,6 +71,8 @@ export class GatewayClient extends EventEmitter {
     super();
     Object.assign(this, { url, token, certPath, timeoutMs, caps });
     this.pending = new Map();
+    // Requests that timed out but whose caller still wants a late answer (onLate).
+    this.late = new Map();
     this.ready = false;
   }
   async connect() {
@@ -117,7 +119,7 @@ export class GatewayClient extends EventEmitter {
         }
         if (frame.type === "res") {
           const pending = this.pending.get(frame.id);
-          if (!pending) return;
+          if (!pending) return this.answeredLate(frame);
           // Gateway may acknowledge a long-running RPC before its final response.
           if (frame.payload?.status === "accepted" && pending.final) return;
           clearTimeout(pending.timer);
@@ -198,12 +200,24 @@ export class GatewayClient extends EventEmitter {
     if (!this.ready) return Promise.reject(gatewayError());
     return this.request(method, params, options);
   }
-  request(method, params, { timeoutMs = this.timeoutMs, final = false } = {}) {
+  // `onLate(ok, payload)`: the answer to a request that timed out, if one arrives on
+  // the same connection within `lateMs` (a sessions.send acknowledged late proves its
+  // run, conversation-turns.js). Called at most once; never for a closed connection.
+  request(
+    method,
+    params,
+    { timeoutMs = this.timeoutMs, final = false, onLate, lateMs = 300000 } = {},
+  ) {
     return new Promise((resolve, reject) => {
       if (this.ws?.readyState !== WebSocket.OPEN) return reject(gatewayError());
       const id = randomUUID();
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        if (typeof onLate === "function") {
+          const expiry = setTimeout(() => this.late.delete(id), lateMs);
+          expiry.unref?.();
+          this.late.set(id, { onLate, expiry });
+        }
         reject(gatewayError("TIMEOUT"));
       }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer, final });
@@ -310,7 +324,20 @@ export class GatewayClient extends EventEmitter {
     this.on("event", listener);
     return () => this.off("event", listener);
   }
+  answeredLate(frame) {
+    const late = this.late.get(frame.id);
+    if (!late) return;
+    clearTimeout(late.expiry);
+    this.late.delete(frame.id);
+    try {
+      late.onLate(frame.ok === true, frame.ok ? frame.payload : undefined);
+    } catch {
+      /* A late answer is evidence only; its handler never breaks the connection. */
+    }
+  }
   rejectPending() {
+    for (const { expiry } of this.late.values()) clearTimeout(expiry);
+    this.late.clear();
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(

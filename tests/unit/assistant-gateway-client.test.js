@@ -341,3 +341,34 @@ test("close ends a pending connect at once", async (t) => {
   await assert.rejects(connecting, { code: "UNAVAILABLE" });
   assert.ok(Date.now() - closed < 1000);
 });
+
+test("an answer after the timeout reaches the caller's onLate once", async (t) => {
+  const fixture = await gatewayFixture();
+  t.after(() => fixture.close());
+  const client = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+  });
+  t.after(() => client.close());
+  await client.connect();
+  const late = [];
+  const answered = new Promise((resolve) => {
+    const onLate = (ok, payload) => {
+      late.push({ ok, payload });
+      resolve();
+    };
+    assert
+      .rejects(
+        client.call("slow", {}, { timeoutMs: 10, onLate }),
+        (error) => error.code === "TIMEOUT",
+      )
+      .catch(() => {});
+  });
+  await answered;
+  assert.deepEqual(late, [{ ok: true, payload: { value: 42 } }]);
+  assert.equal(client.late.size, 0);
+  // Without onLate a late answer is dropped, as before.
+  await assert.rejects(client.call("slow", {}, { timeoutMs: 10 }), { code: "TIMEOUT" });
+  assert.equal(client.late.size, 0);
+});

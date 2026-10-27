@@ -47,12 +47,14 @@ async function setup(t) {
   return { ...f, share, unacknowledged };
 }
 const forbidden = (error) => toolError(error).code === "FORBIDDEN";
+// An unproven unacknowledged send: retryable after a short wait, not FORBIDDEN.
+const unconfirmed = (error) => toolError(error).code === "TURN_UNCONFIRMED";
 
 test("a call of the unacknowledged turn's own run confirms the turn", async (t) => {
   const f = await setup(t);
   const attemptId = await f.unacknowledged();
   // Another run of the session proves nothing.
-  await assert.rejects(f.share("other-run"), forbidden);
+  await assert.rejects(f.share("other-run"), unconfirmed);
   assert.equal(f.assistants.ledger.getAttempt(attemptId).state, "uncertain");
   assert.equal((await f.share(attemptId)).status, "shared");
   const attempt = f.assistants.ledger.getAttempt(attemptId);
@@ -63,7 +65,7 @@ test("a call of the unacknowledged turn's own run confirms the turn", async (t) 
 test("a call never confirms a send to an earlier Gateway or a reviewed turn", async (t) => {
   const f = await setup(t);
   const earlier = await f.unacknowledged("earlier-generation");
-  await assert.rejects(f.share(earlier), forbidden);
+  await assert.rejects(f.share(earlier), unconfirmed);
   assert.equal(f.assistants.ledger.getAttempt(earlier).state, "uncertain");
   f.assistants.ledger.transition(earlier, "failed");
   const reviewed = await f.unacknowledged();
@@ -113,8 +115,8 @@ test("a running call outlives a send acknowledgement that timed out", async (t) 
   f.assertCurrent();
   // Nothing proved the run: the turn stays unconfirmed, and no call starts on it.
   assert.equal(f.assistants.ledger.getAttempt(f.attemptId).state, "uncertain");
-  await assert.rejects(f.bind(), forbidden);
-  await assert.rejects(async () => f.invoke(prepared), forbidden);
+  await assert.rejects(f.bind(), unconfirmed);
+  await assert.rejects(async () => f.invoke(prepared), unconfirmed);
   // A reviewed turn is over for the running call too.
   f.assistants.ledger.review(f.attemptId);
   assert.throws(f.assertCurrent, forbidden);

@@ -37,6 +37,8 @@ const reasons = {
     "Grants are only for your own task members that are not archived, and shares only for your own permanent members. Check agentpier_team_members for the memberId.",
   FORBIDDEN:
     "This action is not permitted for this agent in the current turn. Do not retry; explain this to the owner.",
+  TURN_UNCONFIRMED:
+    "AgentPier has not yet confirmed that this turn started (the Gateway acknowledged it late). This is temporary: wait about 5 seconds and retry the same call, at most 3 times; if it still fails, tell the owner.",
   NOT_FOUND:
     "The referenced item does not exist or is not accessible. Use catalog, list or status to find valid IDs.",
   CONFLICT:
@@ -320,6 +322,7 @@ const byKey = {
   active: "BUSY",
   provider: "MODEL_UNAVAILABLE",
   unavailable: "UNAVAILABLE",
+  turnUnconfirmed: "TURN_UNCONFIRMED",
 };
 const byStatus = {
   400: "INVALID_INPUT",

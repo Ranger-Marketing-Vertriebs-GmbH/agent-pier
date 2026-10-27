@@ -101,6 +101,8 @@ export async function gatewayFixture({ token = "fixture", delay = 0, features } 
           }),
         );
       if (req.method === "connect") setTimeout(send, delay);
+      // An answer that arrives after a short client timeout.
+      else if (req.method === "slow") setTimeout(send, 100);
       else send();
     });
   });
