@@ -86,6 +86,9 @@ export const sessionTools = [
   "sessions_send",
   "sessions_spawn",
 ];
+// What an agent with its own Telegram bot for other people never holds: the session
+// tools and email (its grants are refused too, mail/agent-mail-grants.js).
+export const senderLockedTools = [...sessionTools, "agentpier_mail"];
 /**
  * What an agent of restricted users never holds, whatever its stored settings say:
  * shell, SSH, team tools and the session tools that read its other users' chats
@@ -98,6 +101,7 @@ export const lockedTools = [
   "agentpier_hook",
   "agentpier_ssh_access",
   "agentpier_coding_session",
+  "agentpier_mail",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -130,6 +134,8 @@ export const routineTools = [
   "agentpier_workspace",
   // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
   "agentpier_coding_session",
+  // Email on the agent's grants; a send without a matching rule waits for the owner.
+  "agentpier_mail",
   ...routineTeamTools,
   ...memberTeamTools,
   "*__*",
@@ -271,6 +277,9 @@ export function profileTools(
     // Coding sessions: own agents and permanent members; without a project with
     // sessions on the tool answers SESSIONS_NOT_ENABLED (agent-coding-sessions.js).
     ...(nativeReady && goalAgent(assistant) ? ["agentpier_coding_session"] : []),
+    // Email: own agents and permanent members; without a grant the tool answers
+    // MAIL_NOT_GRANTED, so a grant needs no recompile (mail/agent-mail.js).
+    ...(nativeReady && goalAgent(assistant) ? ["agentpier_mail"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

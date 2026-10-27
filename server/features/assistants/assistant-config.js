@@ -8,7 +8,7 @@ import {
   personalShell,
   personalSkills,
   profileTools,
-  sessionTools,
+  senderLockedTools,
 } from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
@@ -223,7 +223,8 @@ export class AssistantConfig {
     const available = this.webToolsAvailable?.() || {};
     // The agent's MCP globs the running Gateway was started with (mcpSections).
     const mcpTools = this.mcpTools?.(assistant) || [];
-    // An agent whose own bot for other people the Gateway runs has no session tools.
+    // An agent whose own bot for other people the Gateway runs has no session tools
+    // and no email (senderLockedTools).
     const senderFacing = !!this.senderFacing?.(assistant);
     // The agent holds an SSH grant (assistant-access.js); the Gateway start uses the same.
     const ssh = !!this.sshGranted?.(assistant);
@@ -235,7 +236,7 @@ export class AssistantConfig {
       available,
       mcpTools,
       ssh,
-    ).filter((tool) => !senderFacing || !sessionTools.includes(tool));
+    ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
     // An agent with GitHub access starts with its GitHub folder (agent-github.js).
     const pathPrepend = [
@@ -277,6 +278,8 @@ export class AssistantConfig {
       secrets: !!this.secretsGranted?.(assistant),
       // The projects it may start coding sessions on (AgentCodingSessions.projects).
       codingSessions: (nativeReady && this.codingSessions?.(assistant)) || [],
+      // Its granted email accounts (AgentMail.accounts), by name and id only.
+      mailAccounts: (nativeReady && this.mailAccounts?.(assistant)) || [],
     };
     // A lead's "Your team" section names its members as they are now. It changes
     // with every busy member, so it stays out of the fingerprint: verifyBootstrap

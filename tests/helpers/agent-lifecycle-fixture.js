@@ -11,6 +11,7 @@ import { dismissalTable } from "../../server/features/assistants/long-chats.js";
 import { LeadShares } from "../../server/features/assistants/lead-shares.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle.js";
+import { mailCursorTable } from "../../server/features/assistants/mail/agent-mail-cursors.js";
 import { AgentSessionStore } from "../../server/features/assistants/coding-sessions/session-store.js";
 import { ChannelStore } from "../../server/features/assistant-channels/channel-store.js";
 import { TelegramFollowUps } from "../../server/features/assistant-channels/telegram-follow-ups.js";
@@ -112,6 +113,7 @@ export function lifecycleFixture(t) {
   new LeadShares({ a: { store: f.store } });
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
+  mailCursorTable(db);
   db.exec(
     "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
   );
@@ -236,6 +238,13 @@ export function lifecycleFixture(t) {
     );
     // Which coding session it started; the session itself is the owner's to keep.
     codingSessions.insert({ sessionId: `session-${id}`, assistantId: id, ended: false });
+    // Its "new mail" position in an email account.
+    db.prepare("INSERT INTO agent_mail_cursors VALUES(?,?,?,?)").run(
+      id,
+      "account-1",
+      7,
+      42,
+    );
     const channelId = `channel-${id}`;
     channels.list.push({ id: channelId, assistantId: id });
     channelStore.db
@@ -393,6 +402,7 @@ export function lifecycleFixture(t) {
         "SELECT 1 FROM assistant_team_records WHERE kind='context' AND substr(id,9) NOT IN (SELECT id FROM requests)",
       ),
       codingSessions: q("SELECT 1 FROM agent_coding_sessions WHERE assistant_id=?", id),
+      mailCursors: q("SELECT 1 FROM agent_mail_cursors WHERE assistant_id=?", id),
       followUps: channelStore.db
         .prepare("SELECT 1 FROM channel_follow_ups WHERE channel_id=?")
         .all(`channel-${id}`).length,

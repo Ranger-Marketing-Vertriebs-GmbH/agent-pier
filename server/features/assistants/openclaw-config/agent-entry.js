@@ -3,7 +3,7 @@ import {
   personalShell,
   personalSkills,
   profileTools,
-  sessionTools,
+  senderLockedTools,
 } from "../native-capabilities.js";
 import { agentExec } from "./shell.js";
 import { lockedEntry } from "../../users/user-agent-lock.js";
@@ -51,7 +51,7 @@ export function agentEntry(
         available,
         mcpTools,
         ssh,
-      ).filter((tool) => !senderFacing || !sessionTools.includes(tool)),
+      ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
       ...(exec && { exec }),
     };
   // The agent's final skill list (agents.defaults.skills is []): only the bundled and

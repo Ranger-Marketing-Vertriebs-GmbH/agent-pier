@@ -26,4 +26,21 @@ export const mail = Object.freeze({
     "Diesen E-Mail-Zugang gibt es nicht mehr. Lade die Seite neu und wähle erneut.",
   telegramSendersMail:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen E-Mail-Zugang haben. Entferne den E-Mail-Zugang oder trenne zuerst den Bot.",
+  mailNotGranted: "Der Agent hat keinen Zugriff auf diesen E-Mail-Zugang.",
+  mailSendNotGranted:
+    "Der Agent darf diesen E-Mail-Zugang nur lesen, nicht daraus senden.",
+  mailOriginRefused:
+    "E-Mail ist nur in deinen eigenen Anfragen, Routinen und Hooks mit Häkchen bei E-Mail verfügbar.",
+  mailNotFound: "Die Nachricht oder der Ordner wurde nicht gefunden.",
+  mailNoTrash: "Dieses Postfach hat keinen Papierkorb, daher wurde nichts gelöscht.",
+  mailNoArchive:
+    "Dieses Postfach hat keinen Archivordner, daher wurde nichts verschoben.",
+  mailNoDrafts:
+    "Dieses Postfach hat keinen Entwürfe-Ordner, daher wurde kein Entwurf gespeichert.",
+  mailAttachmentsUnsupported: "Einen Entwurf mit Anhängen kann ein Agent nicht senden.",
+  mailApprovalLimit: "Zu viele E-Mails des Agenten warten bereits auf deine Freigabe.",
+  mailSendLimit:
+    "Der Agent hat in der letzten Stunde die höchstens erlaubten E-Mails gesendet.",
+  mailRevoked: "Der Zugriff des Agenten auf diesen E-Mail-Zugang wurde geändert.",
+  mailQueryEmpty: "Eine E-Mail-Suche braucht mindestens ein Kriterium.",
 });
