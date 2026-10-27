@@ -2,9 +2,16 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { capabilityKeys, shellLevels } from "./native-capabilities.js";
 import { validateHeartbeat } from "./heartbeat-schedule.js";
-// The key travels with the error so agent tools can name a stable reason.
+// The key travels with the error so agent tools can name a stable reason. Coding
+// session copy lives in its own catalog (i18n/*/agent-coding-sessions.js).
 export const assistantProblem = (key, status = 400) =>
-  Object.assign(problem(serverMessages.assistants[key], status), { key });
+  Object.assign(
+    problem(
+      serverMessages.assistants[key] ?? serverMessages.agentCodingSessions[key],
+      status,
+    ),
+    { key },
+  );
 // OpenClaw skill names (agent-skills.js); a list holds at most `maxSkills` of them.
 export const skillNamePattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const maxSkills = 64;

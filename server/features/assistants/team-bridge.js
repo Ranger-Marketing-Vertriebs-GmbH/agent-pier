@@ -485,6 +485,8 @@ export class TeamBridge {
         return invokeHook(this.assistants.routines?.hooks, invocation, input);
       if (action === "ssh_access")
         return invokeSshAccess(this.assistants.workflows, invocation, input);
+      if (action === "coding_session")
+        return this.assistants.workflows.sessions.invoke(invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
       if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"

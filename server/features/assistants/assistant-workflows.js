@@ -15,7 +15,6 @@ import { deliverFollowUps } from "./team-coding.js";
 import { decideAudited } from "./approval-audit.js";
 import { approvalAudience } from "../users/approval-audience.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { permanentReasons } from "./native-routines.js";
 import { ExecApprovals, execDecisions } from "./exec-approvals.js";
 import { allowAlwaysByAgentPier, decideExec, execPlan } from "./exec-decisions.js";
 import { AgentSsh } from "./agent-ssh.js";
@@ -36,7 +35,8 @@ import {
   decisionKeys,
 } from "./agent-hook-proposals.js";
 import { advanceSshProposal, decideSshProposal } from "./agent-ssh-proposals.js";
-const maxEventRetryMs = 300000;
+import { emitCompletion } from "./coding-completion.js";
+import { AgentCodingSessions } from "./coding-sessions/agent-coding-sessions.js";
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
 export class AssistantWorkflows {
@@ -56,6 +56,8 @@ export class AssistantWorkflows {
     this.shares = new LeadShares(this);
     this.memberGrants = new TaskMemberGrants(this);
     this.github = new AgentGithub(this);
+    // The agent's own coding sessions (agentpier_coding_session).
+    this.sessions = new AgentCodingSessions(this);
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
@@ -66,6 +68,7 @@ export class AssistantWorkflows {
     this.ssh.start().catch(() => {});
     // Staged browser uploads of an earlier process go (agent-browser-uploads.js).
     this.browserUploads.start();
+    this.sessions.start();
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
     this.timer.unref();
   }
@@ -425,6 +428,8 @@ export class AssistantWorkflows {
           this.store.patch(action.id, { state: "unknown" });
       }
     }
+    // The agents' coding sessions on the same tick (coding-sessions/).
+    if (!this.closed && !this.a.maintenance) await this.sessions.tick().catch(() => {});
     if (this.store.writes !== writes) this.a.changed({ feeds: false });
   }
   async advanceAction(a) {
@@ -526,54 +531,10 @@ export class AssistantWorkflows {
     if (terminal.has(a.state)) {
       a = noteCodingRun(this, a);
       notifyAction(this, a, "result");
-      const emitted = await this.emitCompletion(a),
+      const emitted = await emitCompletion(this, a),
         delivered = await deliverFollowUps(this, a),
         reported = await deliverMemoryFollowUp(this, a);
       if (emitted && delivered && reported) this.store.patch(a.id, { settled: true });
-    }
-  }
-  // Returns whether the terminal action has no follow-up work left.
-  async emitCompletion(a) {
-    if (
-      a.payload.action !== "coding_start" ||
-      a.state !== "completed" ||
-      // A member's run is reported to the member and the team, not to the
-      // parent's own coding.completed routines.
-      a.requestedBy ||
-      !this.s.assistantRoutines ||
-      a.eventEmitted ||
-      a.eventSkipped
-    )
-      return true;
-    if (a.eventRetryAt > this.now()) return false;
-    try {
-      const results = await this.s.assistantRoutines.emit({
-        assistantId: a.assistantId,
-        kind: "coding.completed",
-        eventId: `coding:${a.id}:completed`,
-      });
-      const skipped = results.filter((r) => r.status === "skipped");
-      this.store.patch(a.id, {
-        eventEmitted: true,
-        eventRetryAt: undefined,
-        ...(skipped.length ? { eventSkippedBindings: skipped } : {}),
-      });
-      return true;
-    } catch (error) {
-      const reason = permanentReasons[error.status];
-      if (reason) {
-        this.store.patch(a.id, {
-          eventSkipped: { status: error.status, reason },
-          eventRetryAt: undefined,
-        });
-        return true;
-      }
-      const failures = (a.eventFailures || 0) + 1;
-      this.store.patch(a.id, {
-        eventFailures: failures,
-        eventRetryAt: this.now() + Math.min(1000 * 2 ** failures, maxEventRetryMs),
-      });
-      return false;
     }
   }
   async close() {
@@ -583,6 +544,7 @@ export class AssistantWorkflows {
     clearInterval(this.timer);
     this.exec.close();
     this.ssh.close();
+    this.sessions.close();
     await this.running?.catch(() => {});
   }
 }

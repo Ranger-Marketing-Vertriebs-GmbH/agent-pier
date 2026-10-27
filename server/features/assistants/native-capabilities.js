@@ -97,6 +97,7 @@ export const lockedTools = [
   "agentpier_goal",
   "agentpier_hook",
   "agentpier_ssh_access",
+  "agentpier_coding_session",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -127,6 +128,8 @@ export const routineTools = [
   "agentpier_share_file",
   // Project folders, read-only unless the owner marked the routine "May write".
   "agentpier_workspace",
+  // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
+  "agentpier_coding_session",
   ...routineTeamTools,
   ...memberTeamTools,
   "*__*",
@@ -265,6 +268,9 @@ export function profileTools(
     ...(nativeReady && goalAgent(assistant) ? ["agentpier_goal"] : []),
     // SSH access proposals: own agents and permanent members (agent-ssh-proposals.js).
     ...(nativeReady && goalAgent(assistant) ? ["agentpier_ssh_access"] : []),
+    // Coding sessions: own agents and permanent members; without a project with
+    // sessions on the tool answers SESSIONS_NOT_ENABLED (agent-coding-sessions.js).
+    ...(nativeReady && goalAgent(assistant) ? ["agentpier_coding_session"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

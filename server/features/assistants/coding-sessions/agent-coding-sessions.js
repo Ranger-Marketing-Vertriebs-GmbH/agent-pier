@@ -1,0 +1,115 @@
+import { exact } from "../assistant-access.js";
+import { assistantProblem } from "../assistant-validation.js";
+import { codingSessionDefinition } from "../team-plugin/coding-session-tool.js";
+import { refuseUserAgent } from "../../users/user-agent-lock.js";
+import { isUserAgent } from "../../users/user-access.js";
+import { AgentSessionStore } from "./session-store.js";
+import { sessionContext } from "./session-turns.js";
+import { sessionOptions } from "./session-options.js";
+
+const toolKeys = Object.keys(
+  codingSessionDefinition.coding_session.parameters.properties,
+);
+// What needs a project with coding sessions on; every other action works on the
+// agent's existing records (session-control.js control checks their grant).
+const needsProjects = new Set(["options", "start"]);
+
+/**
+ * agentpier_coding_session (AssistantWorkflows.sessions): an agent's interactive
+ * coding CLI sessions on projects the owner switched coding sessions on for it.
+ * The agent reaches only sessions it started itself (AgentSessionStore); the turn
+ * decides the session class (session-turns.js).
+ */
+export class AgentCodingSessions {
+  constructor(w) {
+    this.w = w;
+    this.store = new AgentSessionStore(w.a.store.db);
+    // Each action: (ctx, input) => result. Later actions register here.
+    this.actions = {
+      options: (ctx) => sessionOptions(this.w, ctx.assistantId),
+      list: (ctx) => this.list(ctx),
+    };
+  }
+  invoke(inv, input) {
+    return this.w.a.admit(() => this.call(inv, input));
+  }
+  async call(inv, input) {
+    exact(input, toolKeys);
+    const ctx = sessionContext(this.w, inv);
+    refuseUserAgent(this.w.a.store.getAssistant(ctx.assistantId));
+    if (needsProjects.has(input.action) && !this.projects(ctx.assistantId).length)
+      throw assistantProblem("sessionsNotEnabled", 403);
+    const action = this.actions[input.action];
+    if (!action) throw assistantProblem("invalid");
+    return action(ctx, input);
+  }
+  start() {
+    this.closed = false;
+  }
+  async tick() {}
+  close() {
+    this.closed = true;
+  }
+  /**
+   * The projects the agent may start sessions on: its own grants with the sessions
+   * switch, and standing lead shares with coding on projects the lead itself has
+   * sessions on for (session-control.js sessionGrant).
+   */
+  projects(assistantId) {
+    const w = this.w;
+    let policy;
+    try {
+      if (isUserAgent(w.access.eligible(assistantId))) return [];
+      policy = w.access.get(assistantId);
+    } catch {
+      return [];
+    }
+    const ids = new Set(
+      policy.sessionProjectIds.filter((id) => policy.projectIds.includes(id)),
+    );
+    for (const share of w.shares.codingProjects(assistantId, {}))
+      if (w.access.sessionsEnabled(share.leadId, share.projectId))
+        ids.add(share.projectId);
+    if (!ids.size) return [];
+    return w.s.memory
+      .projects()
+      .projects.filter((p) => ids.has(p.id))
+      .map(({ id, name }) => ({ projectId: id, name }));
+  }
+  /** Whether an agent controls this session now: a record that has not ended. */
+  controls(sessionId) {
+    const record = this.store.get(sessionId);
+    return !!record && !record.ended;
+  }
+  // The sessions the agent started, each with its live status ("gone" once removed).
+  async list(ctx) {
+    const names = new Map(this.w.s.memory.projects().projects.map((p) => [p.id, p.name]));
+    const sessions = [];
+    for (const record of this.store.forAgent(ctx.assistantId)) {
+      let session = null;
+      try {
+        session = await this.w.s.sessions.get(record.sessionId);
+      } catch (error) {
+        if (error?.status !== 404) throw error;
+      }
+      sessions.push({
+        sessionId: record.sessionId,
+        projectId: record.projectId,
+        projectName: names.get(record.projectId) ?? null,
+        tool: session?.tool ?? null,
+        name: session?.name ?? null,
+        status: session ? session.status : "gone",
+        ended: record.ended,
+        worktree: record.worktree
+          ? {
+              branch: record.worktree.branch,
+              baseBranch: record.worktree.baseBranch,
+              removed: record.worktree.removed === true,
+            }
+          : null,
+        createdAt: record.createdAt,
+      });
+    }
+    return { sessions };
+  }
+}

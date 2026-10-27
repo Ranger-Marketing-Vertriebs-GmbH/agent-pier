@@ -32,7 +32,8 @@
       "agentpier_share_file",
       "agentpier_goal",
       "agentpier_hook",
-      "agentpier_ssh_access"
+      "agentpier_ssh_access",
+      "agentpier_coding_session"
     ]
   },
   "configSchema": {

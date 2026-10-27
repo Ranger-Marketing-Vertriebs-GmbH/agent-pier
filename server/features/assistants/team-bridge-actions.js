@@ -36,6 +36,8 @@ export const actions = new Set([
   "hook",
   // The agent's SSH access proposals (agent-ssh-proposals.js); owner turns only.
   "ssh_access",
+  // The agent's own coding sessions (coding-sessions/agent-coding-sessions.js).
+  "coding_session",
   ...memberActions,
 ]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
@@ -49,6 +51,7 @@ export const bridgeTool = (action) =>
     "goal",
     "hook",
     "ssh_access",
+    "coding_session",
   ].includes(action)
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;
@@ -63,6 +66,8 @@ export const routineActions = new Set([
   "delegate",
   // Project folders and coding requests (workspace-calls.js routineContext).
   "workspace",
+  // Coding sessions the routine starts and drives (coding-sessions/session-turns.js).
+  "coding_session",
   // A member's routine asks, hands over and reports; a lead's routine is refused by
   // the caller check (peer-request-rules.js peerCaller).
   ...memberActions,
@@ -77,6 +82,7 @@ export const personalActions = new Set([
   "goal",
   "hook",
   "ssh_access",
+  "coding_session",
 ]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.

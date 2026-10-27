@@ -26,13 +26,14 @@ test("the plugin hook covers every locked core tool; the rest are plugin tools",
       "agentpier_goal",
       "agentpier_hook",
       "agentpier_ssh_access",
+      "agentpier_coding_session",
       ...delegationTools,
       ...memberTeamTools,
     ].sort(),
   );
   // The plugin tools are refused by the bridge (TeamBridge.valid), by their tool name.
   const user = { id: "a", userAccess };
-  for (const action of ["ssh", "goal", "hook", "ssh_access"]) {
+  for (const action of ["ssh", "goal", "hook", "ssh_access", "coding_session"]) {
     assert.equal(lockedCall(user, bridgeTool(action)), true, action);
     assert.equal(lockedCall({ id: "a" }, bridgeTool(action)), false, action);
   }

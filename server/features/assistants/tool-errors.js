@@ -205,6 +205,22 @@ const reasons = {
     "AgentPier could not read the host key of this server: it is unreachable from AgentPier, the port is not SSH, or the name does not resolve. Check host and port with the owner; do not retry unchanged.",
   SSH_PROPOSAL_PROJECT:
     "No project has this projectId. Leave projectId out or use one of your project folder ids.",
+  SESSIONS_NOT_ENABLED:
+    "Coding sessions are not switched on for you on this project (or on any project). Do not retry; ask the owner to switch on coding sessions for the project in your settings.",
+  GRANT_REVOKED:
+    "The owner removed your access to this coding session: its project, the coding sessions switch or the share it rested on is gone, or you can no longer use sessions. Do not retry and do not use the session again; tell the owner.",
+  SESSION_LIMIT:
+    "You already run the most coding sessions allowed at a time. Stop a session you no longer need with action stop before you start another.",
+  PROMPT_ANSWERED:
+    "This prompt was already answered or has changed. Read the open prompts again with action requests and answer the one that is still open.",
+  SESSION_RUNNING:
+    "The session is still working. Use action wait until it is idle before you send the next prompt or remove its worktree, or stop it if you are done.",
+  WORKTREE_DIRTY:
+    "The worktree has uncommitted changes, so it was kept. Let the session commit or discard them first, or leave the worktree for the owner.",
+  WORKTREE_NOT_MERGED:
+    "The worktree branch is not merged into its base branch on origin (a squash merge does not count), so it was kept. Leave it for the owner or merge it first.",
+  NO_REPOSITORY:
+    "This project folder is not a Git repository with an origin remote, so no worktree can be made. Start with worktree: false to work in the project folder itself, or tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -291,6 +307,14 @@ const byKey = {
   goalUnavailable: "GOAL_UNAVAILABLE",
   goalNotOpen: "GOAL_NOT_OPEN",
   goalUpdateTurn: "GOAL_UPDATE_TURN",
+  sessionsNotEnabled: "SESSIONS_NOT_ENABLED",
+  grantRevoked: "GRANT_REVOKED",
+  sessionLimit: "SESSION_LIMIT",
+  promptAnswered: "PROMPT_ANSWERED",
+  sessionRunning: "SESSION_RUNNING",
+  worktreeDirty: "WORKTREE_DIRTY",
+  worktreeNotMerged: "WORKTREE_NOT_MERGED",
+  noRepository: "NO_REPOSITORY",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

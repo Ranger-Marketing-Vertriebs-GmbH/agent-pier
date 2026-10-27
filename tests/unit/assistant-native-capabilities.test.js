@@ -259,3 +259,28 @@ test("members hold the member tools, leads and user agents never", () => {
     assert.ok(routineTools.includes(tool), tool);
   }
 });
+
+test("agentpier_coding_session: own agents and permanent members, routines, never user agents", () => {
+  const tool = "agentpier_coding_session";
+  const own = { id: "a", capabilities: { memory: true, reminders: true } };
+  assert.ok(profileTools(own, true, true).includes(tool));
+  assert.ok(
+    profileTools(
+      { id: "p", teamMemberId: "t", lifetime: "permanent" },
+      true,
+      true,
+    ).includes(tool),
+  );
+  assert.ok(
+    !profileTools({ id: "m", teamMemberId: "t", lifetime: "task" }, true, true).includes(
+      tool,
+    ),
+  );
+  assert.ok(!profileTools(own, true, false).includes(tool));
+  assert.ok(!profileTools({ ...own, archivedAt: "today" }, true, true).includes(tool));
+  assert.ok(
+    !profileTools({ ...own, userAccess: { mode: "own" } }, true, true).includes(tool),
+  );
+  assert.ok(lockedTools.includes(tool));
+  assert.ok(routineTools.includes(tool));
+});
