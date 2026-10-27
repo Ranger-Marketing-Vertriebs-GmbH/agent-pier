@@ -75,6 +75,8 @@ On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
 
 ## Skill catalog
 
+![The skill catalog under Agents › Skills](screenshots/agent-skill-catalog.png)
+
 **Agents › Skills** (`/agents?tab=skills`) is the owner's catalog of extra skills for
 all agents. Only the owner installs, updates and removes catalog skills and switches
 them on; restricted users never do ([users](users.md#what-stays-locked)).
