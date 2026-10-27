@@ -11,7 +11,7 @@ import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-to
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
-import { confirmFromCall } from "./run-confirmation.js";
+import { boundTurnLive, confirmFromCall } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
 import { invokeSshAccess } from "./agent-ssh-proposals.js";
@@ -96,7 +96,8 @@ export class TeamBridge {
       token: this.token,
     });
   }
-  valid(record) {
+  // `running`: the re-check of a call already under way (its assertCurrent).
+  valid(record, { running = false } = {}) {
     if (
       this.closed ||
       record.generation !== this.generation() ||
@@ -122,7 +123,10 @@ export class TeamBridge {
     // (exec-continuation.js).
     if (record.continuation) return continuation.assertContinuation(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
-    if (!active.has(a.state) || a.reviewedAt) throw assistantProblem("invalid", 403);
+    // A call under way outlives a send whose acknowledgement timed out meanwhile;
+    // a call starts only on a live turn.
+    if (running ? !boundTurnLive(a) : !active.has(a.state) || a.reviewedAt)
+      throw assistantProblem("invalid", 403);
     const c = this.assistants.store.getConversation(
         this.assistants.ledger.getRequest(a.requestId).conversationId,
       ),
@@ -465,7 +469,7 @@ export class TeamBridge {
       toolCallId: record.toolCallId,
       // Waits (an ask) count from here, the moment the call reached AgentPier.
       startedAt: Date.now(),
-      assertCurrent: () => this.valid(record),
+      assertCurrent: () => this.valid(record, { running: true }),
       routine: record.routine || null,
       hook: record.hook || null,
       continuation: record.continuation || null,

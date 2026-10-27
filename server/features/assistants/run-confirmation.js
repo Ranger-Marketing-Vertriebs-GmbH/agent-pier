@@ -1,5 +1,6 @@
 // A turn whose sessions.send acknowledgement was lost stays uncertain, and without
-// proof it gets no AgentPier tools (team-bridge.js, assistant-workflows.js). The
+// proof it gets no new AgentPier tool calls (team-bridge.js, assistant-workflows.js);
+// a call under way when the send timed out keeps running (boundTurnLive). The
 // Gateway proves it runs the turn by an event of the turn's run (its run id is the
 // attempt id, the send's idempotency key), by a project or share call of that run
 // (its plugin names the tool call's run, TeamBridge.prepare) or by the turn's own
@@ -59,3 +60,17 @@ export function confirmFromTranscript(service, conversationId, messages) {
       confirm(service, attempt, "transcript");
   }
 }
+
+const liveStates = new Set(["pending", "accepted", "running"]);
+/**
+ * Whether a turn still serves a call already under way (TeamBridge.invoke started
+ * it on a live turn): live and not reviewed, or only unconfirmed. A send whose
+ * acknowledgement timed out while the call ran (a slow Gateway) proves no end of the
+ * run, so a long call such as a coding session wait keeps going. Preparing or
+ * starting a call still needs a live or proven turn; a plain uncertain turn (lost
+ * connection, AgentPier restart) ends the call.
+ */
+export const boundTurnLive = (attempt) =>
+  !!attempt &&
+  !attempt.reviewedAt &&
+  (liveStates.has(attempt.state) || attempt.unconfirmed === true);

@@ -71,3 +71,67 @@ test("a call never confirms a send to an earlier Gateway or a reviewed turn", as
   await assert.rejects(f.share(reviewed), forbidden);
   assert.equal(f.assistants.ledger.getAttempt(reviewed).state, "uncertain");
 });
+
+// A call that started while its turn was live re-checks the turn on every step (a
+// coding session wait polls once a second for up to 100 s). A slow Gateway whose
+// sessions.send acknowledgement times out meanwhile leaves the turn unconfirmed, not
+// over: the running call stays current, while a new call still needs proof.
+async function runningCall(t) {
+  const f = await setup(t);
+  const { attemptId } = await f.invocation(randomUUID(), { kind: "owner" });
+  const bind = async () =>
+    (
+      await f.bridge.prepare({
+        agentId: f.agentId,
+        sessionKey: "session",
+        toolCallId: randomUUID(),
+        action: "share_file",
+      })
+    ).ticket;
+  const invoke = (ticket) =>
+    f.bridge.invoke({
+      ticket,
+      action: "share_file",
+      input: { path: "renders/episode.mp4" },
+    });
+  const ticket = await bind();
+  await invoke(ticket);
+  // The call's per-step check (TeamBridge.invoke assertCurrent).
+  const { assertCurrent } = f.bridge.tickets.get(ticket).invocation;
+  return { ...f, attemptId, bind, invoke, assertCurrent };
+}
+
+test("a running call outlives a send acknowledgement that timed out", async (t) => {
+  const f = await runningCall(t);
+  // Prepared while the turn was live, but not started yet.
+  const prepared = await f.bind();
+  f.assistants.ledger.transition(f.attemptId, "uncertain", {
+    unconfirmed: "send",
+    generation: null,
+    code: "TIMEOUT",
+  });
+  f.assertCurrent();
+  // Nothing proved the run: the turn stays unconfirmed, and no call starts on it.
+  assert.equal(f.assistants.ledger.getAttempt(f.attemptId).state, "uncertain");
+  await assert.rejects(f.bind(), forbidden);
+  await assert.rejects(async () => f.invoke(prepared), forbidden);
+  // A reviewed turn is over for the running call too.
+  f.assistants.ledger.review(f.attemptId);
+  assert.throws(f.assertCurrent, forbidden);
+});
+
+test("a plain uncertain turn ends a running call", async (t) => {
+  // A lost Gateway connection (markOutstandingUnknown) leaves no unconfirmed send.
+  const lost = await runningCall(t);
+  lost.assistants.ledger.transition(lost.attemptId, "uncertain");
+  assert.throws(lost.assertCurrent, forbidden);
+  // An AgentPier restart forgets an unconfirmed send (RequestLedger.forgetUnconfirmed).
+  const restarted = await runningCall(t);
+  restarted.assistants.ledger.transition(restarted.attemptId, "uncertain", {
+    unconfirmed: "send",
+    generation: null,
+    code: "TIMEOUT",
+  });
+  restarted.assistants.ledger.forgetUnconfirmed();
+  assert.throws(restarted.assertCurrent, forbidden);
+});
