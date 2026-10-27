@@ -103,6 +103,15 @@ export function runInstall(service, serverId, { preview, program, kind }) {
         log,
         signal,
       });
+      // Before the commit: a failed step keeps the previous install (frozen-install.js).
+      await service.afterInstall?.(serverId, {
+        directory: stage,
+        ref,
+        toolchain,
+        execute: service.execute,
+        signal,
+        log,
+      });
       // Some packages name their programs for sure only once installed (and built).
       const installed = adapter.programsAfterInstall(stage, ref);
       // The stored program an update kept gives way when the build has only another.

@@ -45,6 +45,12 @@ export async function npmRegistryFixture(t, packages) {
       ...(pkg.bin ? { bin: pkg.bin } : {}),
       ...(pkg.scripts ? { scripts: pkg.scripts } : {}),
       ...(pkg.dependencies ? { dependencies: pkg.dependencies } : {}),
+      ...(pkg.optionalDependencies
+        ? { optionalDependencies: pkg.optionalDependencies }
+        : {}),
+      ...(pkg.type ? { type: pkg.type } : {}),
+      ...(pkg.main ? { main: pkg.main } : {}),
+      ...(pkg.exports ? { exports: pkg.exports } : {}),
     };
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(manifest));
     for (const [file, body] of Object.entries(pkg.files || {})) {
