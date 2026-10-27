@@ -92,7 +92,7 @@ export const mcpDirectoryCopy = {
           "AgentPier can install REA for you, including Ghidra, a JDK and Frida, into its own folder and keep them updated. That install runs no install scripts and keeps the tool list compact.",
           "If you set REA up yourself: its optional dependency frida runs an install script, so tick “Allow install scripts or source builds”, or the install is refused. Install Ghidra 12.1 and JDK 21 or newer yourself and set GHIDRA_INSTALL_DIR and JAVA_HOME.",
           "Its tool list is large (about 500 KB). Set REA_MCP_INPUT_SCHEMA_PROFILE to compact to cut it to about 290 KB.",
-          "Its runtime tools (LLDB, Frida attach, process lists) need an unsandboxed session. A nono sandbox very likely blocks them.",
+          "REA needs an unsandboxed session: in a nono sandbox, Ghidra decompilation and process lists with ps fail, and LLDB and Frida attach need one too.",
           "Do not run REA’s own “rea setup”: it writes into the CLI configuration AgentPier manages.",
         ],
       },

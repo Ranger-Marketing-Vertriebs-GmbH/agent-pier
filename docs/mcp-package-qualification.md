@@ -180,6 +180,13 @@ toolchains already staged at startup.
 
 ## REA (rea-agents): setup notes, not qualified
 
+This section covers REA set up by hand from the directory. AgentPier's own install of
+REA ([managed REA](mcp.md#managed-rea)) installs a committed lockfile with install
+scripts off, sets the compact tool list, ships Ghidra, a JDK and Frida, and was checked
+end to end on macOS 26 (Apple silicon): `rea doctor --provider ghidra` healthy and one
+`rea decompile` of a small C binary. Its sandbox results are in
+[sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed).
+
 REA (`io.github.morluto/rea`, npm `rea-agents`, argument `mcp`) is not part of the
 qualification above: it was not installed, run or code-reviewed on the qualification
 machine, and REA's own `rea setup` was not run because it writes into the CLI files
@@ -192,10 +199,10 @@ the package step ([MCP](mcp.md#worked-example-rea)):
   third-party code as the server user during install.
 - The tool catalog is about 496 KB; `REA_MCP_INPUT_SCHEMA_PROFILE=compact` brings it to
   about 290 KB.
-- Ghidra 12.1 and JDK 21+ are bring-your-own (`GHIDRA_INSTALL_DIR`, `JAVA_HOME`);
-  AgentPier provisions neither.
-- LLDB, Frida attach and the setuid `ps` are very likely denied in a nono-sandboxed
-  session (inferred, not tested); see
+- Ghidra 12.1 and JDK 21+ are bring-your-own (`GHIDRA_INSTALL_DIR`, `JAVA_HOME`) for
+  a server set up by hand; only the managed REA provisions them.
+- In a nono-sandboxed session Ghidra decompilation and the setuid `ps` fail (tested
+  with the managed REA); LLDB and Frida attach need an unsandboxed session too; see
   [sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed).
 - Trojaned look-alike copies circulate; only `morluto/rea` and the npm package
   published by morluto are genuine. The note is keyed by the exact names and is not

@@ -306,9 +306,30 @@ personal workspace, not an isolation boundary for mutually untrusted users.
 
 AgentPier does not try to make every tool work under nono. Some tools need access a
 sandbox profile is meant to withhold: attaching a debugger (LLDB) or Frida to another
-process, or reading other processes through a setuid `ps`, for example REA's runtime
-tools ([MCP](mcp.md#worked-example-rea)). Such tools are shown, not supported: run them
-in an unsandboxed session, or widen the sandbox profile yourself with `nono`.
+process, or reading other processes through a setuid `ps`. Such tools are shown, not
+supported: run them in an unsandboxed session, or widen the sandbox profile yourself
+with `nono`.
+
+[REA](mcp.md#managed-rea) is one of them, and its dialog lists the features that need
+an unsandboxed session. Checked on 2026-10-27 on macOS 26 (Apple silicon) with nono
+0.79.0 and its `default` profile, running REA 6.8.0 with the managed row's environment,
+once with the grants AgentPier gives a packaged MCP server (its install and toolchain,
+read-only) and once with REA's components and home granted in addition:
+
+| REA feature                                          | Unsandboxed | Sandboxed                         |
+| ---------------------------------------------------- | ----------- | --------------------------------- |
+| `rea doctor --provider ghidra`, `rea decompile`      | works       | fails, even with the extra grants |
+| Frida device list (`list-frida-devices`)             | works       | works                             |
+| Frida process list (`list-frida-processes`)          | works       | works                             |
+| Process list through the setuid `/bin/ps`            | works       | fails (`Operation not permitted`) |
+| Frida spawn or attach, LLDB (`observe-native-calls`) | timed out   | not judged                        |
+| Hopper, IDA and JEB bridges                          | not checked | not checked                       |
+
+With AgentPier's grants, Ghidra's files under the data directory cannot be read;
+with them granted, REA's start of the JVM is still denied (`spawn EPERM`). Frida spawn
+and LLDB timed out even unsandboxed on that Mac (macOS Developer Mode was off), so the
+sandbox could not be judged for them; the dialog keeps them on its list, like the
+bridges, which were not available there.
 
 When a tool call fails in a sandboxed session and its output reads like an operating
 system denial — `EPERM`, `EACCES`, "Operation not permitted", "Permission denied" or a
