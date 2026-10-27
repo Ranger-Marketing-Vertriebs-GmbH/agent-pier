@@ -12,4 +12,17 @@ export const agentCodingSessions = Object.freeze({
     "The worktree's branch is not merged into its base branch on origin yet; the worktree is kept.",
   noRepository:
     "The project folder is not a Git repository with an origin remote; a worktree is not possible.",
+  // Telegram: an agent's escalated session prompt (session-escalation-notes.js).
+  escalationTelegram: (agent, session) =>
+    `${agent} needs your answer in the session ${session}:`,
+  escalationNote: "Note from the agent:",
+  escalationReplyHint: "Reply to this message to send your own text.",
+  escalationAnswerInApp: "This prompt can only be answered in AgentPier.",
+  escalationAnsweredBy: Object.freeze({
+    owner: "Answered in AgentPier.",
+    agent: "Answered by the agent.",
+    telegram: "Answered in Telegram.",
+    session: "The session no longer waits for this answer.",
+  }),
+  escalationStale: "This prompt was already answered or has changed.",
 });

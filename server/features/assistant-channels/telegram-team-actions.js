@@ -1,4 +1,5 @@
 import { telegramMessages } from "./telegram-messages.js";
+import { sessionMessages } from "../assistants/coding-sessions/session-escalation-notes.js";
 export class TelegramTeamActions {
   constructor(channels) {
     this.channels = channels;
@@ -57,7 +58,17 @@ export class TelegramTeamActions {
       return answer(messages.teamDecisionStale);
     let text, decided;
     try {
-      if (entry.kind === "action-approval") {
+      if (entry.source.escalation && action.decision === "answer") {
+        await c.assistants.workflows.sessions.answerEscalation(
+          action.proposalId,
+          action.answer,
+          { channelId, chatId: channel.chatId, userId: channel.userId },
+        );
+        // An escalated session prompt (session-escalations.js) is answered, not decided.
+        decided = {
+          escalationText: sessionMessages(channel).escalationAnsweredBy.telegram,
+        };
+      } else if (entry.kind === "action-approval") {
         decided = await c.assistants.workflows.decide(
           action.proposalId,
           { revision: action.revision, decision: action.decision },
@@ -75,7 +86,10 @@ export class TelegramTeamActions {
           c.outbox.transition(entry.id, entry.state, { diagnostic: null });
         } catch {}
     } catch (error) {
-      if ([400, 403, 404, 409].includes(error.status)) text = messages.teamDecisionStale;
+      if ([400, 403, 404, 409].includes(error.status))
+        text = entry.source.escalation
+          ? sessionMessages(channel).escalationStale
+          : messages.teamDecisionStale;
       else {
         // Record the failure on the notification instead of refetching the
         // update forever; the owner can still decide in AgentPier.
@@ -91,6 +105,7 @@ export class TelegramTeamActions {
 }
 // The callback answer for a decision that was saved.
 function decisionText(messages, entry, action, decided) {
+  if (decided?.escalationText) return decided.escalationText;
   if (decided?.payload?.action === "exec") {
     const allowlist = decided.result?.allowlist;
     return messages.execDecided[

@@ -10,7 +10,12 @@ import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
 import { answerPrompt, listPrompts } from "./session-requests.js";
 import { removeWorktree, stopSession } from "./session-worktrees.js";
-import { advanceEscalation, escalatePrompt } from "./session-escalations.js";
+import {
+  advanceEscalation,
+  answerEscalation,
+  answerEscalationText,
+  escalatePrompt,
+} from "./session-escalations.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -116,6 +121,14 @@ export class AgentCodingSessions {
   /** The action tick of a `session_request` (session-escalations.js). */
   advanceEscalation(a) {
     return advanceEscalation(this.w, a);
+  }
+  /** Answers an escalated prompt from its Telegram chat (session-escalations.js). */
+  answerEscalation(actionId, answer, origin) {
+    return answerEscalation(this.w, actionId, answer, origin);
+  }
+  /** Whether a Telegram message replied to an escalation and was consumed by it. */
+  answerEscalationText(channel, message) {
+    return answerEscalationText(this.w, channel, message);
   }
   close() {
     this.closed = true;

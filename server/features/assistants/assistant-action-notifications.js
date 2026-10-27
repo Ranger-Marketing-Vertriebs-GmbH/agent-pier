@@ -10,21 +10,24 @@ import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 import { notifyHookProposal } from "./agent-hook-proposals.js";
 import { notifySshProposal } from "./agent-ssh-proposal-notes.js";
 import { codingToolNames } from "./coding-sessions/session-options.js";
+import { notifyEscalation } from "./coding-sessions/session-escalation-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
   return action.origin.kind === "telegram" ? action.origin : action.telegram || null;
 }
-export function notifyAction(w, action, phase) {
+// `prompt` is the live session prompt of an escalation (session-escalations.js).
+export function notifyAction(w, action, phase, prompt = null) {
   // An escalated session prompt is answered in its session, never approved or
-  // declined: the generic approval message does not fit it.
-  if (action.payload.action === "session_request") return;
-  const target = telegramTarget(action);
+  // declined: it asks in the owner's paired chat with its own buttons.
+  const escalation = action.payload.action === "session_request";
+  const target = escalation ? action.telegram : telegramTarget(action);
   if (!target) return;
   const { outbox, store } = w.s.assistantChannels;
   const key = `action-${phase}:${action.id}`;
   if (outbox.all(target.channelId).some((e) => e.key === key)) return;
   const m = telegramMessages(store.get(target.channelId));
+  if (escalation) return notifyEscalation(w, action, phase, key, m, target, prompt);
   if (action.payload.action === "exec") return notifyExec(w, action, phase, key, m);
   if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
   if (action.payload.action === "sftp")
