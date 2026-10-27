@@ -60,16 +60,50 @@ function executablesOf(dir, relative = "") {
   return found.sort();
 }
 
+/** chmod only when the bits differ, so an intact copy keeps its change time. */
+function setMode(file, wanted) {
+  if ((fs.lstatSync(file).mode & 0o777) !== wanted) fs.chmodSync(file, wanted);
+}
+
 /** Sets the catalog modes: folders 0o700, files 0o400, `executables` 0o500. */
 function applyModes(dir, executables, relative = "") {
   const folder = path.join(dir, relative);
-  fs.chmodSync(folder, 0o700);
+  setMode(folder, 0o700);
   for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
     const name = relative ? `${relative}/${entry.name}` : entry.name;
     if (entry.isDirectory()) applyModes(dir, executables, name);
     else if (entry.isFile())
-      fs.chmodSync(path.join(dir, name), executables.has(name) ? 0o500 : 0o400);
+      setMode(path.join(dir, name), executables.has(name) ? 0o500 : 0o400);
   }
+}
+
+/**
+ * What lstat says about every entry below `dir` (name, kind, inode, size, mode,
+ * modification and change time in ns), and the newest of those times. Any write,
+ * chmod, rename or replacement changes it: the change time cannot be set back.
+ */
+function statSignature(dir) {
+  const parts = [];
+  let newest = 0n;
+  const walk = (relative) => {
+    const folder = path.join(dir, relative);
+    for (const name of fs.readdirSync(folder).sort()) {
+      const rel = relative ? `${relative}/${name}` : name;
+      const stat = fs.lstatSync(path.join(dir, rel), { bigint: true });
+      if (stat.ctimeNs > newest) newest = stat.ctimeNs;
+      if (stat.mtimeNs > newest) newest = stat.mtimeNs;
+      parts.push(
+        `${rel}\0${stat.mode}\0${stat.ino}\0${stat.size}\0${stat.mtimeNs}\0${stat.ctimeNs}`,
+      );
+      if (stat.isDirectory()) walk(rel);
+    }
+  };
+  const top = fs.lstatSync(dir, { bigint: true });
+  if (!top.isDirectory()) return null;
+  newest = top.ctimeNs > top.mtimeNs ? top.ctimeNs : top.mtimeNs;
+  parts.push(`.\0${top.mode}\0${top.ino}\0${top.mtimeNs}\0${top.ctimeNs}`);
+  walk("");
+  return { signature: parts.join("\n"), newest };
 }
 
 /** Copies a stored version file by file (never following links) with catalog modes. */
@@ -105,10 +139,16 @@ function copySkill(from, to, executables, relative = "") {
  * copy OpenClaw scans, and `staging/` everything in flight. Staging and the old copy of
  * a swap stay outside `skills/`, so OpenClaw never sees two `SKILL.md` with one name.
  * Digests ignore permission bits (a backup restores files as 0600); `verify` re-applies
- * the modes from `executables`.
+ * the modes from `executables`. A cached verify (before each turn) re-hashes a copy
+ * only when its stat signature changed since it last matched; a copy changed less than
+ * `settleMs` before it was hashed is never cached, since a coarse file system clock
+ * could give a later change the same times.
  */
 export class SkillCatalogStore {
-  constructor({ root }) {
+  constructor({ root, settleMs = 2000 }) {
+    this.settleMs = settleMs;
+    // Folder -> { digest, signature } of the last matching hash.
+    this.verified = new Map();
     this.root = root;
     this.file = path.join(root, "catalog.json");
     this.liveRoot = path.join(root, "skills");
@@ -158,13 +198,28 @@ export class SkillCatalogStore {
   names() {
     return new Set(this.list().map((record) => record.name));
   }
-  /** Whether `dir` holds exactly the content with `digest` (modes aside). */
-  intact(dir, digest) {
+  digestOf(dir) {
+    return skillDigest(dir, { modes: false });
+  }
+  /**
+   * Whether `dir` holds exactly the content with `digest` (modes aside). `cached`
+   * trusts an unchanged stat signature of an earlier match instead of hashing again.
+   */
+  intact(dir, digest, { cached = false } = {}) {
     try {
-      return (
-        fs.statSync(dir).isDirectory() && skillDigest(dir, { modes: false }) === digest
-      );
+      if (!fs.statSync(dir).isDirectory()) return false;
+      const stats = cached ? statSignature(dir) : null;
+      const known = this.verified.get(dir);
+      if (stats && known?.digest === digest && known.signature === stats.signature)
+        return true;
+      this.verified.delete(dir);
+      const ok = this.digestOf(dir) === digest;
+      const settled = BigInt(Date.now() - this.settleMs) * 1_000_000n;
+      if (ok && stats && stats.newest < settled)
+        this.verified.set(dir, { digest, signature: stats.signature });
+      return ok;
     } catch {
+      this.verified.delete(dir);
       return false;
     }
   }
@@ -297,8 +352,10 @@ export class SkillCatalogStore {
    * `this.failed` and `dropped` until a later verify passes), a live copy that was not
    * intact is removed best-effort so OpenClaw cannot load it, and every other record is
    * still checked. The marks are saved; nothing is thrown for one record's failure.
+   * `cached` (the check before each turn) skips hashing copies whose stat signature
+   * is unchanged since they last matched; a Gateway start always hashes.
    */
-  verify(names) {
+  verify(names, { cached = false } = {}) {
     const wanted = names ? new Set(names) : null;
     const restored = [];
     const damaged = [];
@@ -308,7 +365,7 @@ export class SkillCatalogStore {
       if (record.damaged || (wanted && !wanted.has(record.name))) continue;
       const state = {};
       try {
-        this.verifyOne(record, { restored, damaged }, state);
+        this.verifyOne(record, { restored, damaged, cached }, state);
         this.failed.delete(record.name);
       } catch {
         failed.push(record.name);
@@ -327,12 +384,12 @@ export class SkillCatalogStore {
     }
     return { restored, damaged, failed };
   }
-  verifyOne(record, { restored, damaged }, state = {}) {
+  verifyOne(record, { restored, damaged, cached }, state = {}) {
     const executables = new Set(record.executables || []);
     const live = this.livePath(record.name);
     const storeDir = this.storePath(record.name, record.digest);
-    const liveIntact = (state.liveIntact = this.intact(live, record.digest));
-    const storeIntact = this.intact(storeDir, record.digest);
+    const liveIntact = (state.liveIntact = this.intact(live, record.digest, { cached }));
+    const storeIntact = this.intact(storeDir, record.digest, { cached });
     if (liveIntact) {
       applyModes(live, executables);
       if (storeIntact) applyModes(storeDir, executables);

@@ -122,7 +122,7 @@ export class AssistantConfig {
     if (!catalog || !names.length) return { dropped: [], unreadable: false };
     let checked = true;
     try {
-      catalog.verify(names);
+      catalog.verify(names, { cached: true });
     } catch {
       checked = false;
     }
