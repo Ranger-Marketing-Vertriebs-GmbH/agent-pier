@@ -61,8 +61,12 @@ export class OperationsEvents {
     // Each session's current wait: when it began and whether it was handled.
     this.waits = new Map();
     // Request pushes held while an agent controls their session, by request ID.
-    // Held only in memory: a restart forgets them (the broker does not re-announce).
+    // Held only in memory. The broker announces a request once, even when it returns
+    // after a restart or a socket reconnect, so collect() also holds every open
+    // request of a controlled session it has not held or notified (reconcileHeld).
     this.held = new Map();
+    // The requests this process has notified, so reconciliation never holds them again.
+    this.announced = new Set();
     if (intervalMs > 0) {
       this.timer = setInterval(() => this.poll().catch(onError), intervalMs);
       this.timer.unref();
@@ -123,12 +127,48 @@ export class OperationsEvents {
   /** Release each held request whose session left agent control or whose hold ran out. */
   async releaseHeld() {
     const now = this.now();
-    for (const [id, { event, since }] of [...this.held])
-      if (now - since >= agentRequestHoldMs || !this.controlled(event.sessionId))
-        await this.releaseRequest(id).catch(this.onError);
+    const due = [...this.held].filter(
+      ([, { event, since }]) =>
+        now - since >= agentRequestHoldMs || !this.controlled(event.sessionId),
+    );
+    await Promise.all(due.map(([id]) => this.releaseRequest(id).catch(this.onError)));
+  }
+  /**
+   * Hold every open request of a controlled running session that this process has
+   * neither held nor notified: one the broker kept quiet about after a restart, or
+   * republished under the same ID after its socket reconnected.
+   */
+  reconcileHeld(running) {
+    const controlled = [...running].filter((id) => this.controlled(id));
+    if (!controlled.length) return;
+    const sessions = new Set(controlled);
+    const now = this.now();
+    for (const entry of this.requests?.listAll?.() ?? [])
+      if (
+        entry.status === "pending" &&
+        sessions.has(entry.sessionId) &&
+        !this.held.has(entry.id) &&
+        !this.announced.has(entry.id)
+      )
+        this.held.set(entry.id, {
+          event: {
+            action: "request.created",
+            resourceType: "request",
+            resourceId: entry.id,
+            sessionId: entry.sessionId,
+            kind: entry.kind,
+            source: "system",
+            outcome: "success",
+            details: { kind: entry.kind },
+          },
+          since: now,
+        });
   }
   /** A request's push: its session, and the question as a preview. */
   async notifyRequest(event) {
+    this.announced.add(event.resourceId);
+    if (this.announced.size > 10000)
+      this.announced.delete(this.announced.values().next().value);
     const session = await Promise.resolve(this.sessions.get?.(event.sessionId)).catch(
       () => null,
     );
@@ -194,6 +234,11 @@ export class OperationsEvents {
     // A held request of a session that stopped can no longer be answered.
     for (const [id, { event }] of this.held)
       if (!running.has(event.sessionId)) this.held.delete(id);
+    try {
+      this.reconcileHeld(running);
+    } catch (error) {
+      this.onError(error);
+    }
     if (this.held.size) await this.releaseHeld();
     for (const session of sessions) {
       if (
