@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { measureDataAreas } from "../../server/features/system-status/data-areas.js";
 import {
+  SUMMARY_HISTORY,
   SystemStatus,
   historyPoints,
   sessionPanes,
@@ -174,6 +175,36 @@ test("the sampler maps the server, the Gateway and each session to its process t
   assert.equal(details.disk.freePercent, 50);
   assert.deepEqual(details.cpu.load, [1.23, 1, 1]);
   assert.equal(details.warning.diskLow, false);
+  // The start page reads the summary only: each session's figures and a short history.
+  const summary = await status.summary();
+  assert.deepEqual(summary.sessions, [
+    { id: "one", cpuPercent: details.processes[2].cpuPercent, rssBytes: 6000 * 1024 },
+  ]);
+  assert.ok(Array.isArray(summary.history) && summary.history.length >= 1);
+  assert.deepEqual(Object.keys(summary.history.at(-1)).sort(), [
+    "agentCpu",
+    "cpu",
+    "memory",
+    "t",
+  ]);
+  assert.equal(summary.processes, undefined, "no process names in the summary");
+});
+
+test("the summary history keeps the last 40 points of the details history", async (t) => {
+  const now = 10 * 60 * 60 * 1000;
+  const { status } = sampler({ now: () => now });
+  t.after(() => status.close());
+  for (let index = 0; index < 60; index++)
+    status.history.push({
+      t: now - (60 - index) * 30_000,
+      cpu: index,
+      memory: 50,
+      agentCpu: 1,
+    });
+  const summary = await status.summary();
+  const details = await status.details();
+  assert.equal(summary.history.length, SUMMARY_HISTORY);
+  assert.deepEqual(summary.history, details.history.slice(-SUMMARY_HISTORY));
 });
 
 test("live sampling runs only while viewed and the slow disk check idles otherwise", async (t) => {
