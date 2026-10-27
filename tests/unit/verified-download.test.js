@@ -359,6 +359,26 @@ test("lets a full disk through with its own code", async (t) => {
   assert.equal(fs.existsSync(file), false);
 });
 
+test("lets a full quota through with its own code", async (t) => {
+  const { fetchImpl } = await harness(t, {
+    "ghcr.io/v2/homebrew/core/ghidra/blobs/sha256:abc": send(body),
+  });
+  const file = target(t);
+  await assert.rejects(
+    verifiedDownload({
+      entry: entryFor(),
+      file,
+      allow,
+      fetchImpl,
+      progress: () => {
+        throw Object.assign(new Error("quota exceeded"), { code: "EDQUOT" });
+      },
+    }),
+    (error) => error.code === "EDQUOT",
+  );
+  assert.equal(fs.existsSync(file), false);
+});
+
 test("an abort stops the download and leaves no partial file behind", async (t) => {
   const { fetchImpl } = await harness(t, {
     "ghcr.io/v2/homebrew/core/ghidra/blobs/sha256:abc": (req, res) => {

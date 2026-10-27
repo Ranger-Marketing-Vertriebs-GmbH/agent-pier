@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
@@ -344,6 +344,37 @@ test("a full disk is named as such", async (t) => {
   );
 });
 
+test("a full disk while the archive unpacks is named as such", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  fs.mkdirSync(f.root, { recursive: true });
+  const original = fs.createWriteStream;
+  const writes = mock.method(fs, "createWriteStream", (file, options) => {
+    const stream = original(file, options);
+    if (String(file).includes(`${path.sep}.packages${path.sep}`))
+      queueMicrotask(() =>
+        stream.destroy(Object.assign(Error("no space"), { code: "ENOSPC" })),
+      );
+    return stream;
+  });
+  t.after(() => writes.mock.restore());
+  await assert.rejects(
+    installChromium({
+      root: f.root,
+      platform: "linux",
+      arch: "x64",
+      manifest,
+      fetchImpl: (url, options) =>
+        fetch(url.href.replace("https://storage.googleapis.com", f.local), options),
+      run: async () => "",
+    }),
+    { message: serverMessages.tools.chromiumDiskFull },
+  );
+  assert.equal(managedChromium(f.root), null);
+});
+
 test("a platform without a pinned build is explained, not offered", async (t) => {
   const f = await fixture(t);
   const tools = new ToolInstaller({
@@ -396,6 +427,8 @@ test("a server start sweeps what an interrupted install left behind", async (t) 
     recursive: true,
   });
   fs.symlinkSync("missing", path.join(f.root, ".chromium-stray"));
+  // REA's in-flight work folder is not the browser's to sweep.
+  fs.mkdirSync(path.join(f.root, ".rea-install-x"));
   // Another tool's version directory is not the browser's to sweep.
   fs.mkdirSync(path.join(packages, "4d1c6e2a-cli"));
   const restarted = f.installer(manifest);
@@ -403,5 +436,6 @@ test("a server start sweeps what an interrupted install left behind", async (t) 
   assert.deepEqual(fs.readdirSync(packages).sort(), [current, "4d1c6e2a-cli"].sort());
   assert.equal(fs.existsSync(path.join(f.root, ".install-crashed")), false);
   assert.equal(fs.existsSync(path.join(f.root, ".chromium-stray")), false);
+  assert.ok(fs.existsSync(path.join(f.root, ".rea-install-x")));
   assert.ok(managedChromium(f.root));
 });

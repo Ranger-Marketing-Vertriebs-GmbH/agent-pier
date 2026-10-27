@@ -15,6 +15,9 @@ import { run as defaultRun } from "./tool-run.js";
 // through the <root>/<id> link, like the managed browser (chromium-installer.js).
 export const reaComponentIds = Object.freeze(["rea-ghidra", "rea-jdk"]);
 const record = "agentpier-rea.json";
+// REA's own work-folder prefix: the browser's and the CLI installers' sweeps remove
+// `.install-*`, so neither can ever touch an REA install in flight, nor REA theirs.
+const workPrefix = ".rea-install-";
 const bad = (message) => problem(message, 409);
 // Ghidra unpacks to about 0.9 GB in some 20000 files; the limits leave headroom while
 // still stopping an archive bomb.
@@ -88,7 +91,7 @@ export async function installReaComponent({
   const { name, home, check } = component(id);
   const packages = path.join(root, ".packages");
   await fsp.mkdir(packages, { recursive: true, mode: 0o700 });
-  const work = await fsp.mkdtemp(path.join(root, ".install-"));
+  const work = await fsp.mkdtemp(path.join(root, workPrefix));
   const directory = path.join(packages, `${prefix(id)}${randomUUID()}`);
   let published = false;
   try {
@@ -125,7 +128,12 @@ export async function installReaComponent({
       throw error;
     }
     published = true;
-    await prune(root, id, [directory, previous].filter(Boolean));
+    // Published: an old version that cannot be removed now goes at the next install.
+    await prune(root, id, [directory, previous].filter(Boolean)).catch((error) =>
+      console.warn(
+        `AgentPier could not remove an old version of ${id} (${error?.code ?? "error"}).`,
+      ),
+    );
     const real = await fsp.realpath(directory);
     return { version, directory: real, home: insideReal(real, home(entry)) };
   } catch (error) {
@@ -178,7 +186,7 @@ export function sweepReaComponents(root) {
   };
   const links = reaComponentIds.map((id) => `.${id}-link-`);
   for (const name of entries(root))
-    if (name.startsWith(".install-") || links.some((link) => name.startsWith(link)))
+    if (name.startsWith(workPrefix) || links.some((link) => name.startsWith(link)))
       fs.rmSync(path.join(root, name), { recursive: true, force: true });
   const packages = path.join(root, ".packages");
   for (const name of entries(packages))

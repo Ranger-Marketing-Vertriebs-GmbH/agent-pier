@@ -49,7 +49,8 @@ export async function checkGhidra({
   if (!home) throw bad(serverMessages.rea.layoutInvalid("Ghidra"));
   const properties = await fsp
     .readFile(path.join(home, "Ghidra", "application.properties"), "utf8")
-    .catch(() => "");
+    .catch(() => null);
+  if (properties === null) throw bad(serverMessages.rea.layoutInvalid("Ghidra"));
   const found = properties.match(/^application\.version=(.*)$/m)?.[1]?.trim();
   if (found !== version) throw bad(serverMessages.rea.ghidraVersionMismatch(version));
   // A link inside the install folder is followed; its target must stay inside.
@@ -65,7 +66,7 @@ export async function checkGhidra({
   if (platform !== "linux") return;
   const output = await run("ldd", [decompiler], env, home, signal, 60000).catch(
     (error) => {
-      if (diskFull(error)) throw error;
+      if (diskFull(error) || signal?.aborted) throw error;
       return "";
     },
   );
@@ -99,6 +100,8 @@ export async function checkJdk({
       throw bad(serverMessages.rea.jdkNotStarting);
     },
   );
-  if (!output.includes(version))
+  // The exact version: 21.0.13+9 must not match 21.0.13+91.
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!new RegExp(`(?:^|[^0-9.])${escaped}(?![0-9])`).test(output))
     throw bad(serverMessages.rea.jdkVersionMismatch(version));
 }
