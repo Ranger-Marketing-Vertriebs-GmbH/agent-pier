@@ -380,8 +380,11 @@ label.check-row:has(input:disabled) .check-row-text {
   .dialog-body + .dialog-actions:last-child {
     flex-wrap: wrap;
   }
+  /* Equal shares, not label widths: a busy label ("Working …") must not move the
+     buttons, or iOS Safari keeps stale paint of the old layout in the sticky footer.
+     A label longer than its share still wraps the button onto its own line. */
   .dialog-body + .dialog-actions:last-child > .button {
-    flex: 1 1 auto;
+    flex: 1 1 0;
   }
   .dialog-body + .dialog-actions:last-child > .dialog-actions-note {
     flex: 1 1 100%;
