@@ -16,7 +16,10 @@ import {
 } from "../../web/features/assistants/settings/access/access-groups.js";
 import {
   accessServer,
+  invalidMailGrants,
   recipientLines,
+  recipientRulesProblem,
+  validRecipientRule,
   setMailGrant,
   workBody,
 } from "../../web/features/assistants/settings/agent-settings-fields.js";
@@ -227,6 +230,41 @@ test("recipient rules are read one per line, trimmed and lower case", () => {
     "bob@example.com",
   ]);
   assert.deepEqual(recipientLines(""), []);
+  // Repeats count once, as the server keeps them.
+  assert.deepEqual(recipientLines("a.de\nA.de\nb.de"), ["a.de", "b.de"]);
+});
+
+test("recipient rules are checked like the server checks them", () => {
+  for (const rule of ["example.com", "bob@example.com", "a+tag@sub.example.co.uk"])
+    assert.equal(validRecipientRule(rule), true, rule);
+  for (const rule of [
+    '"Bob" <bob@example.com>',
+    "Bob <bob@example.com>",
+    "*.example.com",
+    "localhost",
+    "@example.com",
+    "a@b@example.com",
+    "bob smith@example.com",
+    "example..com",
+    "-example.com",
+    "",
+  ])
+    assert.equal(validRecipientRule(rule), false, rule);
+  assert.deepEqual(recipientRulesProblem(["ok.de", "localhost", "@x.de"]), {
+    invalid: "localhost",
+  });
+  const many = Array.from({ length: 51 }, (_, i) => `r${i}.example.com`);
+  assert.deepEqual(recipientRulesProblem(many), { tooMany: 50 });
+  assert.equal(recipientRulesProblem(many.slice(0, 50)), null);
+  assert.equal(recipientRulesProblem([]), null);
+  assert.deepEqual(
+    invalidMailGrants([
+      { accountId: "a", level: "send", recipients: ["localhost"] },
+      { accountId: "b", level: "send", recipients: ["ok.de"] },
+      { accountId: "c", level: "read", recipients: [] },
+    ]),
+    ["a"],
+  );
 });
 
 test("the work body sends mail grants only when they changed", () => {

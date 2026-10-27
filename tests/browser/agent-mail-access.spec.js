@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
-import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
+import {
+  home,
+  setupAssistantSettings as setup,
+} from "../helpers/assistant-settings-browser.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { connectionsFixture } from "./connections-fixture.js";
 
@@ -74,7 +77,13 @@ test("agents that cannot hold mail show why instead of the controls", async ({
   await page.goto(baseURL + settingsPath("access"));
   await expect(page.locator("#agent-access-projects")).toBeVisible();
   await expect(page.locator("#agent-access-mail")).toHaveCount(0);
-  await expect(page.getByRole("note")).toContainText("Email");
+  await expect(page.locator(".agent-locked-notice")).toContainText(
+    "Locked: Pipelines, SSH, Git/GitHub, Secrets, Email, Coding, Teams.",
+  );
+  // A link to the Email subpage shows the tab with its lock notice instead.
+  await page.goto(baseURL + settingsPath("access", "mail"));
+  await expect(page.getByLabel("Send without asking to")).toHaveCount(0);
+  await expect(page.locator("#agent-access-mail")).toHaveCount(0);
 });
 
 test("an agent with a Telegram bot for other people cannot add email", async ({
@@ -83,15 +92,60 @@ test("an agent with a Telegram bot for other people cannot add email", async ({
   await setup(page, {
     assistant: { telegramSenders: { mode: "allowlist" } },
     catalog: catalog(),
+    access: {
+      revision: 1,
+      mailAccesses: [{ accountId, level: "send", recipients: ["example.com"] }],
+    },
   });
   await page.goto(baseURL + settingsPath("access"));
   const group = page.locator("#agent-access-mail");
   await expect(group).toContainText("own Telegram bot for other people");
   await expect(group.getByRole("combobox", { name: "Add email account" })).toHaveCount(0);
+  // A held grant can only be revoked: no level select, no rule change.
+  await expect(group.getByRole("combobox", { name: "Level for Support" })).toHaveCount(0);
+  await page.goto(baseURL + settingsPath("access", "mail"));
+  await expect(page.getByRole("radio", { name: "Read", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("Send without asking to")).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Support/ }).uncheck();
+  await expect(page.getByLabel("Send without asking to")).toHaveCount(0);
+});
+
+test("a rule the server would refuse is named and blocks the save", async ({ page }) => {
+  const state = await setup(page, {
+    catalog: catalog(),
+    access: { revision: 1, mailAccesses: [{ accountId, level: "send", recipients: [] }] },
+  });
+  await page.goto(baseURL + settingsPath("access", "mail"));
+  const rules = page.getByLabel("Send without asking to");
+  await rules.fill('example.com\n"Bob" <bob@example.com>');
+  await expect(page.getByRole("alert")).toHaveText(
+    '“"bob" <bob@example.com>” is not an address or domain. Use bob@example.com or example.com, without a name or wildcard.',
+  );
+  await expect(rules).toHaveAttribute("aria-invalid", "true");
+  await expect(save(page)).toBeDisabled();
+  await rules.fill("localhost");
+  await expect(page.getByRole("alert")).toContainText("“localhost”");
+  await rules.fill(Array.from({ length: 51 }, (_, i) => `r${i}.example.com`).join("\n"));
+  await expect(page.getByRole("alert")).toHaveText("At most 50 rules per email account.");
+  await expect(save(page)).toBeDisabled();
+  // Repeats count once; a valid list saves.
+  await rules.fill("example.com\nExample.com\nbob@partner.de");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await save(page).click();
+  await expect.poll(() => state.work.length).toBe(1);
+  expect(state.work[0].access.mailAccesses).toEqual([
+    { accountId, level: "send", recipients: ["example.com", "bob@partner.de"] },
+  ]);
 });
 
 test("the account's Used by lists the agent with its level", async ({ page }) => {
-  const state = await connectionsFixture(page, { hosts: 1 });
+  await connectionsFixture(page, {
+    hosts: 1,
+    assistants: [
+      home(),
+      home({ id: "bot", name: "Bot", telegramSenders: { mode: "allowlist" } }),
+    ],
+  });
   await page.route("**/api/mail/**", (route) =>
     route.fulfill({
       json: {
@@ -133,10 +187,20 @@ test("the account's Used by lists the agent with its level", async ({ page }) =>
   await page.goto(baseURL + `/connections?section=mail&item=${accountId}`);
   const usedBy = page.getByRole("region", { name: /^Used by/ });
   await expect(usedBy.getByText("Home", { exact: true })).toBeVisible();
-  await expect(usedBy.getByRole("combobox", { name: /Home/ })).toContainText(
+  await expect(usedBy.getByRole("combobox", { name: "Level for Home" })).toHaveValue(
+    "send",
+  );
+  await expect(usedBy.getByRole("combobox", { name: "Level for Home" })).toContainText(
     "Read and send",
   );
-  expect(state).toBeTruthy();
+  // An agent with a Telegram bot for other people is never offered.
+  await usedBy.getByRole("combobox", { name: "Add agent" }).click();
+  const offered = page.getByRole("listbox", { name: "agent: options" });
+  await expect(offered.getByRole("option", { name: /Home/ })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await expect(offered.getByRole("option", { name: /Bot/ })).toHaveCount(0);
 });
 
 test("the hook's Email tick is locked while the agent holds no mail", async ({

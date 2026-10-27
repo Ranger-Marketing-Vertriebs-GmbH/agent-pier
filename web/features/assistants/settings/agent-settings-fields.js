@@ -195,12 +195,47 @@ export function setMailGrant(grants, accountId, level, recipients) {
     { accountId, level, recipients: recipients ?? kept },
   ]);
 }
-/** Recipient rules of a text field: one per line, trimmed, lower case, no blanks. */
-export const recipientLines = (text) =>
-  String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim().toLowerCase())
-    .filter(Boolean);
+/**
+ * Recipient rules of a text field: one per line, trimmed, lower case, no blanks and
+ * no repeats (the server dedupes the same way).
+ */
+export const recipientLines = (text) => [
+  ...new Set(
+    String(text || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim().toLowerCase())
+      .filter(Boolean),
+  ),
+];
+// The server's limits and patterns (agent-mail-grants.js ruleParts, recipientRule).
+export const maxMailRecipients = 50;
+const ruleLabel = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+const ruleDomain = new RegExp(`^(?=.{1,253}$)${ruleLabel}(?:\\.${ruleLabel})+$`);
+const ruleLocal = /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]{1,64}$/;
+/** Whether the server accepts `rule`: "local@domain" or "domain" (two labels or more). */
+export function validRecipientRule(rule) {
+  if (typeof rule !== "string" || rule.length > 320 || rule.includes("\0")) return false;
+  const text = rule.trim().toLowerCase();
+  if (!text) return false;
+  const at = text.lastIndexOf("@");
+  if (!ruleDomain.test(text.slice(at + 1))) return false;
+  return at < 0 || ruleLocal.test(text.slice(0, at));
+}
+/**
+ * Why a send grant's rules would be refused: the first rule the server rejects
+ * (`{ invalid: rule }`), more than 50 rules (`{ tooMany: 50 }`), or null.
+ */
+export function recipientRulesProblem(recipients) {
+  const list = recipients || [];
+  const invalid = list.find((rule) => !validRecipientRule(rule));
+  if (invalid !== undefined) return { invalid };
+  return list.length > maxMailRecipients ? { tooMany: maxMailRecipients } : null;
+}
+/** Account ids whose send rules the server would refuse; a save waits for none. */
+export const invalidMailGrants = (grants) =>
+  (grants || [])
+    .filter((g) => g.level === "send" && recipientRulesProblem(g.recipients))
+    .map((g) => g.accountId);
 /** Granted hosts that still exist, and how many of them run without asking. */
 export function sshSummary(grants, hosts) {
   const known = grants.filter((g) => hosts.some((h) => h.id === g.accessId));

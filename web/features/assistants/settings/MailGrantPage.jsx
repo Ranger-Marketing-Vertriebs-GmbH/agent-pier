@@ -8,7 +8,12 @@ import { sameValue } from "../../../lib/settings/draft-state.js";
 import { assistantMailCopy as copy } from "../../../lib/i18n/messages/assistant-mail.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
 import { connectionsRoute } from "../../connections/routes.js";
-import { mailLevels, recipientLines, setMailGrant } from "./agent-settings-fields.js";
+import {
+  mailLevels,
+  recipientLines,
+  recipientRulesProblem,
+  setMailGrant,
+} from "./agent-settings-fields.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 import "./ssh-grant-page.css";
 
@@ -19,6 +24,7 @@ import "./ssh-grant-page.css";
  */
 function RecipientRules({ accountId, recipients, disabled, onChange }) {
   const id = useId();
+  const problem = recipientRulesProblem(recipients);
   const [text, setText] = useState(recipients.join("\n"));
   useEffect(() => {
     if (!sameValue(recipientLines(text), recipients)) setText(recipients.join("\n"));
@@ -34,7 +40,8 @@ function RecipientRules({ accountId, recipients, disabled, onChange }) {
         disabled={disabled}
         spellCheck={false}
         autoCapitalize="none"
-        aria-describedby={`${id}-hint`}
+        aria-invalid={problem ? true : undefined}
+        aria-describedby={`${id}-hint${problem ? ` ${id}-error` : ""}`}
         onChange={(event) => {
           setText(event.target.value);
           onChange(recipientLines(event.target.value));
@@ -43,6 +50,17 @@ function RecipientRules({ accountId, recipients, disabled, onChange }) {
       <span id={`${id}-hint`} className="field-description">
         {copy.rulesHint}
       </span>
+      {problem && (
+        <div id={`${id}-error`}>
+          <ErrorMessage
+            error={
+              problem.invalid !== undefined
+                ? copy.invalidRule(problem.invalid)
+                : copy.tooManyRules(problem.tooMany)
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -109,7 +127,7 @@ export default function MailGrantPage({
         <ListCard label={copy.title}>
           {accounts.map((account) => {
             const grant = grantOf.get(account.id);
-            // A held grant can always be lowered or revoked, never raised while locked.
+            // While locked a held grant can only be revoked: no level or rule change.
             const blocked = disabled || (locked && !grant);
             return (
               <div key={account.id} className="ssh-grant-host">
@@ -129,7 +147,7 @@ export default function MailGrantPage({
                     </GroupLabel>
                     <ListCard
                       labelledBy={`mail-level-${account.id}-label`}
-                      disabled={disabled}
+                      disabled={disabled || locked}
                     >
                       {mailLevels.map((level) => (
                         <RadioRow
@@ -139,7 +157,7 @@ export default function MailGrantPage({
                           label={copy.levels[level]}
                           sub={copy.levelHints[level]}
                           checked={grant.level === level}
-                          disabled={disabled || (locked && level === "send")}
+                          disabled={disabled || locked}
                           onChange={(value) =>
                             onChange(setMailGrant(grants, account.id, value))
                           }
@@ -150,7 +168,7 @@ export default function MailGrantPage({
                       <RecipientRules
                         accountId={account.id}
                         recipients={grant.recipients}
-                        disabled={disabled}
+                        disabled={disabled || locked}
                         onChange={(recipients) =>
                           onChange(setMailGrant(grants, account.id, "send", recipients))
                         }
