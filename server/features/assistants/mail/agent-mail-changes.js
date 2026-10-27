@@ -8,8 +8,8 @@ import {
 } from "../../mail/mail-changes.js";
 
 // The changing actions of agentpier_mail: mark, move, delete (to Trash only) and
-// draft. They need no approval in any turn the gate lets through; only a delete (or
-// a move into Trash) is audited, with the agent, the account and a count.
+// draft. They need no approval in any turn the gate lets through; only a delete (a
+// move into Trash, or a replaced draft going there) is audited, with the agent, the account and a count.
 
 const selection = ["folder", "uid", "uids"];
 const fields = {
@@ -107,6 +107,8 @@ export async function runChanging({ accounts, services }, gate, input) {
     auditDelete(services, gate, result.moved);
   if (request.action === "move" && result.deleted && result.moved)
     auditDelete(services, gate, result.moved);
+  // The replaced draft went to Trash.
+  if (request.action === "draft" && result.replaced) auditDelete(services, gate, 1);
   const { deleted: _deleted, draftFolder, ...rest } = result;
   return {
     accountId: account.id,

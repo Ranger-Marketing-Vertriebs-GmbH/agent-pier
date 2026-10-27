@@ -2,7 +2,8 @@
 // UID MOVE and UID COPY (COPYUID). EXPUNGE and UID EXPUNGE are never carried out:
 // the fake records them in `mailbox.expunges` and answers NO, and every STORE that
 // would set \Deleted is recorded in `mailbox.deleteFlags`. `mailbox.noMove` and
-// `mailbox.noUidplus` take the MOVE and UIDPLUS capabilities away.
+// `mailbox.noUidplus` take the MOVE and UIDPLUS capabilities away; `failAppend` and
+// `failMove` make APPEND and UID MOVE answer NO.
 
 const text = (token) =>
   token && typeof token === "object" && "literal" in token
@@ -32,6 +33,8 @@ function append(session, tag, args) {
   const folder = mailbox.folder(String(text(args[0])));
   if (!folder) return session.send(`${tag} NO [TRYCREATE] Unknown mailbox`);
   const flags = Array.isArray(args[1]) ? args[1].map(String) : [];
+  if (mailbox.failAppend)
+    return session.send(`${tag} NO [OVERQUOTA] Quota exceeded fake-secret-8`);
   const literal = args.at(-1)?.literal;
   if (!literal) return session.send(`${tag} BAD Missing message literal`);
   const stored = mailbox.append(folder.path, { raw: literal, flags });
@@ -68,6 +71,7 @@ function store(session, tag, [set, operation, list]) {
 function transfer(session, tag, [set, destination], move) {
   const mailbox = session.server.mailbox;
   if (move && mailbox.noMove) return session.send(`${tag} BAD Unknown command`);
+  if (move && mailbox.failMove) return session.send(`${tag} NO [SERVERBUG] Move failed`);
   const folder = session.selected;
   if (move && session.readOnly)
     return session.send(`${tag} NO [READ-ONLY] Mailbox is read-only`);

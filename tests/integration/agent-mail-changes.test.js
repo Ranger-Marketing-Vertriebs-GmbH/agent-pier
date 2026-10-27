@@ -329,3 +329,131 @@ test("draft needs a Drafts folder, and Trash to replace one; UIDs without UIDPLU
   assert.deepEqual(plain.subjects("Drafts"), ["Older draft", "Again"]);
   plain.untouched();
 });
+
+test("moves into, within and out of Trash: only a move into Trash is audited", async (t) => {
+  const f = await changesFixture(t);
+  const a = f.seed("To trash");
+  const deleted = () => f.audit.filter((e) => e.action === "mail.deleted");
+  const into = await f.mail({ action: "move", uid: a, destination: "Trash" });
+  assert.equal(into.moved, 1);
+  assert.equal(into.destination, "Trash");
+  assert.deepEqual(deleted().at(-1).details, {
+    kind: "message",
+    assistantId: f.id,
+    count: 1,
+  });
+  const inTrash = f.imap.folder("Trash").messages[0].uid;
+  // Within Trash (named in another case): nothing moves and nothing is audited.
+  const within = await f.mail({
+    action: "move",
+    uid: inTrash,
+    folder: "trash",
+    destination: "TRASH",
+  });
+  assert.equal(within.moved, 0);
+  assert.equal(within.folder, "trash");
+  assert.equal(within.destination, "Trash");
+  assert.equal(deleted().length, 1);
+  // Out of Trash: restored, not audited as a delete.
+  const out = await f.mail({
+    action: "move",
+    uid: inTrash,
+    folder: "Trash",
+    destination: "inbox",
+  });
+  assert.equal(out.moved, 1);
+  assert.equal(out.destination, "INBOX");
+  assert.deepEqual(f.subjects("INBOX"), ["To trash"]);
+  assert.deepEqual(f.subjects("Trash"), []);
+  assert.equal(deleted().length, 1);
+  f.untouched();
+});
+
+test("folder names resolve to the server's listed path, ambiguous case is refused", async (t) => {
+  const f = await changesFixture(t, {
+    ...standard,
+    Projects: {},
+    Team: {},
+    TEAM: {},
+  });
+  const a = f.seed("Case");
+  assert.equal(
+    (await f.mail({ action: "move", uid: a, destination: "projects" })).destination,
+    "Projects",
+  );
+  const p = f.imap.folder("Projects").messages[0].uid;
+  assert.equal(
+    (await f.mail({ action: "mark", uid: p, folder: "PROJECTS", flag: "flagged" }))
+      .marked,
+    1,
+  );
+  assert.equal(
+    await code(
+      f.mail({ action: "move", uid: p, folder: "Projects", destination: "team" }),
+    ),
+    "MAIL_NOT_FOUND",
+  );
+  assert.equal(
+    (await f.mail({ action: "move", uid: p, folder: "Projects", destination: "TEAM" }))
+      .destination,
+    "TEAM",
+  );
+  // Deleting from a Trash named in another case keeps the message where it is.
+  const g = f.seed("Gone");
+  await f.mail({ action: "delete", uid: g });
+  const tr = f.imap.folder("Trash").messages[0].uid;
+  assert.deepEqual(
+    (await f.mail({ action: "delete", uid: tr, folder: "TRASH" })).alreadyInTrash,
+    1,
+  );
+  f.untouched();
+});
+
+test("draft replacement: audited as a delete, the old draft survives a failed APPEND", async (t) => {
+  const f = await changesFixture(t);
+  const deleted = () => f.audit.filter((e) => e.action === "mail.deleted");
+  const first = await f.mail({ action: "draft", subject: "V1" });
+  assert.equal(first.replaced, undefined);
+  const second = await f.mail({
+    action: "draft",
+    draftUid: first.draftUid,
+    subject: "V2",
+  });
+  assert.equal(second.replaced, true);
+  assert.deepEqual(deleted().at(-1).details, {
+    kind: "message",
+    assistantId: f.id,
+    count: 1,
+  });
+  // APPEND refused: nothing new, the old draft stays and no server text leaks.
+  f.imap.mailbox.failAppend = true;
+  let error;
+  try {
+    await f.mail({ action: "draft", draftUid: second.draftUid, subject: "V3" });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.equal(toolError(error).code, "MAIL_PROTOCOL");
+  assert.doesNotMatch(JSON.stringify(toolError(error)), /fake-secret|OVERQUOTA/);
+  assert.deepEqual(f.subjects("Drafts"), ["V2"]);
+  assert.deepEqual(f.subjects("Trash"), ["V1"]);
+  assert.equal(deleted().length, 1);
+  f.imap.mailbox.failAppend = false;
+  // The move to Trash fails after the APPEND: the new draft is returned, both stay.
+  f.imap.mailbox.failMove = true;
+  const third = await f.mail({
+    action: "draft",
+    draftUid: second.draftUid,
+    subject: "V4",
+  });
+  assert.equal(third.replaced, false);
+  assert.equal(third.folder, "Drafts");
+  assert.equal(
+    f.imap.folder("Drafts").messages.find((m) => m.uid === third.draftUid) !== undefined,
+    true,
+  );
+  assert.deepEqual(f.subjects("Drafts"), ["V2", "V4"]);
+  assert.deepEqual(f.subjects("Trash"), ["V1"]);
+  assert.equal(deleted().length, 1);
+  f.untouched();
+});
