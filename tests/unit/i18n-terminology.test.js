@@ -81,6 +81,7 @@ const properNouns = [
   /GitHub App/g,
   /Brave Search/g,
   /Claude Code/g,
+  /REA Core/g,
   /Z\.ai Coding Plan/g,
   /OpenAI Chat Completions|Chat Completions|OpenAI Responses|Anthropic Messages/g,
   /MCP Registry/g,

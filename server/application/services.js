@@ -34,6 +34,7 @@ import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { McpPackages } from "../features/mcp-packages/mcp-packages.js";
+import { createReaTool } from "./rea-wiring.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
 import { CliOAuthStatus } from "../features/mcp-servers/cli-oauth-status.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
@@ -258,8 +259,13 @@ export async function createServices(config) {
       servers: mcpServers,
       agents: () => services.assistantMcpChanges,
       maintenance: () => !!services.assistants?.maintenance,
-      // Every saved change is written into the bound CLIs at once.
-      onSaved: async () => services.cliMcp?.reconcileAll(),
+      // Every saved change is written into the bound CLIs at once; REA's skill
+      // copies follow its row's CLIs.
+      onSaved: async () => {
+        const reconciled = await services.cliMcp?.reconcileAll();
+        await services.rea?.bindingsChanged();
+        return reconciled;
+      },
     });
   // Packaged MCP servers (docs/mcp.md); started once AgentPier listens (app.js).
   const mcpPackages =
@@ -270,6 +276,17 @@ export async function createServices(config) {
       changes: mcpServerChanges,
       extensions,
     });
+  // The managed REA tool (AGENTPIER-104) on its own MCP row; started in app.js.
+  const rea = createReaTool({
+    config,
+    servers: mcpServers,
+    changes: mcpServerChanges,
+    packages: mcpPackages,
+    extensions,
+    audit,
+    sessions,
+    services: () => services,
+  });
   const cliMcp =
     mcpServers &&
     new CliMcpBindings({
@@ -412,6 +429,7 @@ export async function createServices(config) {
     mcpServers,
     mcpServerChanges,
     mcpPackages,
+    rea,
     cliMcp,
     sharedProfiles,
     agency,
