@@ -33,6 +33,7 @@ export const hookCopy = {
     memory: "Gedächtnis schreiben",
     mcp: "MCP-Server",
     secrets: "Geheimnisse",
+    mail: "E-Mail",
   },
   tickHints: {
     notify: "Eine Push-Benachrichtigung mit dem Ergebnis.",
@@ -43,6 +44,7 @@ export const hookCopy = {
     mcp: "Nutzt die MCP-Server des Agenten.",
     secrets:
       "Liest die Geheimnisse-Datei des Agenten. Aus: Ein Lauf liest sie nie; mit Shell, Coding-CLI oder MCP-Servern wird sie allen Chats des Agenten vorenthalten, solange der Lauf arbeitet.",
+    mail: "Liest, entwirft und sendet E-Mails über den E-Mail-Zugang des Agenten. Das Senden folgt seinen Empfängerregeln.",
   },
   missing: {
     telegram: "Der Agent hat keinen gekoppelten Telegram-Chat.",
@@ -51,6 +53,7 @@ export const hookCopy = {
     memory: "Das Gedächtnis des Agenten ist aus.",
     mcp: "Der Agent hat keine MCP-Server.",
     secrets: "Der Agent erhält keine Geheimnisse.",
+    mail: "Gib dem Agenten zuerst unter Zugriffe einen E-Mail-Zugang.",
   },
   telegramNeedsNotify: "Schalte zuerst „Benachrichtigen“ ein.",
   shell: "Shell",

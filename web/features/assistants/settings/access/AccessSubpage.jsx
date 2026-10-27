@@ -7,9 +7,10 @@ import ProjectGrantPage from "../ProjectGrantPage.jsx";
 import GithubGrantPage from "../GithubGrantPage.jsx";
 import SshGrantPage from "../SshGrantPage.jsx";
 import SecretGrantPage from "../SecretGrantPage.jsx";
+import MailGrantPage from "../MailGrantPage.jsx";
 
 /**
- * The full lists behind "Alle anzeigen" (`page=projects|pipelines|ssh|github|secrets`),
+ * The full lists behind "Alle anzeigen" (`page=projects|pipelines|ssh|github|secrets|mail`),
  * kept as they were with search: they edit the Access tab's draft and save with its bar.
  */
 export default function AccessSubpage({
@@ -48,6 +49,19 @@ export default function AccessSubpage({
         disabled={disabled}
         locked={Boolean(assistant.telegramSenders)}
         onChange={(next) => draft.set("secretIds", next)}
+        onRetry={retryCatalog}
+        onBack={back}
+        navigate={navigate}
+      />
+    );
+  if (page === "mail")
+    return (
+      <MailGrantPage
+        accounts={catalog ? catalog.mailAccounts : loadError ? null : undefined}
+        grants={draft.values.mailAccesses}
+        disabled={disabled}
+        locked={Boolean(assistant.telegramSenders)}
+        onChange={(next) => draft.set("mailAccesses", next)}
         onRetry={retryCatalog}
         onBack={back}
         navigate={navigate}

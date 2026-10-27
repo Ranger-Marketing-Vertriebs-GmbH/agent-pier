@@ -8,11 +8,14 @@ import ListCard from "../../components/ListCard.jsx";
 import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import { routePath } from "../../app/routes.js";
 import { assistantSshCopy as sshCopy } from "../../lib/i18n/messages/assistant-ssh.js";
+import { assistantMailCopy as mailCopy } from "../../lib/i18n/messages/assistant-mail.js";
 import { connectionsAreaCopy as copy } from "../../lib/i18n/messages/connections-area.js";
 import {
   githubLevels,
   grantKinds,
   grantableAgents,
+  mailGrantableAgents,
+  mailLevels,
   sshGrantModes,
 } from "./agent-grants.js";
 import { runEach } from "./bulk-run.js";
@@ -37,13 +40,15 @@ const hookRoute = (agentId, hookId) => ({
   agentPage: "hook",
   agentHook: hookId,
 });
-const accessPages = { ssh: "ssh", secret: "secrets", github: "github" };
+const accessPages = { ssh: "ssh", secret: "secrets", github: "github", mail: "mail" };
 
 export function grantModes(kind) {
   if (kind === "ssh")
     return sshGrantModes.map((value) => ({ value, label: sshCopy.modes[value] }));
   if (kind === "github")
     return githubLevels.map((value) => ({ value, label: copy.githubLevels[value] }));
+  if (kind === "mail")
+    return mailLevels.map((value) => ({ value, label: mailCopy.levels[value] }));
   return null;
 }
 
@@ -68,6 +73,8 @@ export default function ConnectionUsedBy({
   const [errors, setErrors] = useState([]);
   const [confirm, setConfirm] = useState(null);
   const modes = grantModes(kind);
+  const modeLabel =
+    { github: copy.usedBy.level, mail: mailCopy.levelLabel }[kind] ?? copy.usedBy.mode;
   // A kind whose grants this page cannot write yet only lists who uses the entry.
   const writable = grantKinds.includes(kind);
   const sftp = item.type === "sftp";
@@ -101,7 +108,9 @@ export default function ConnectionUsedBy({
     if (raising) setConfirm({ type: "raise", agent, mode });
     else run([{ agentId: agent.id, mode }]);
   };
-  const candidates = grantableAgents(assistants).map((agent) => ({
+  // An agent with a Telegram bot for other people never holds mail (server refuses).
+  const offered = kind === "mail" ? mailGrantableAgents : grantableAgents;
+  const candidates = offered(assistants).map((agent) => ({
     id: agent.id,
     name: agent.name,
     sub: copy.usedBy.agentKinds.agent,
@@ -118,9 +127,7 @@ export default function ConnectionUsedBy({
         {writable && modes && (
           <span className="connections-used-mode">
             <AnchoredSelect
-              label={(kind === "github" ? copy.usedBy.level : copy.usedBy.mode)(
-                agent.name,
-              )}
+              label={modeLabel(agent.name)}
               value={agent.mode}
               disabled={busy}
               onChange={(mode) => changeMode(agent, mode)}
@@ -213,7 +220,11 @@ export default function ConnectionUsedBy({
           </ListCard>
           {writable && agentsEnabled && agents !== null && (
             <p className="accounts-note">
-              {kind === "github" ? copy.usedBy.githubReplaceHint : copy.usedBy.lockedHint}
+              {kind === "github"
+                ? copy.usedBy.githubReplaceHint
+                : kind === "mail"
+                  ? mailCopy.usedByHint
+                  : copy.usedBy.lockedHint}
             </p>
           )}
           {showPipelines && <p className="accounts-note">{copy.usedBy.pipelinesNone}</p>}

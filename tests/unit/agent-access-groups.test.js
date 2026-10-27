@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addIds,
+  addMailGrants,
   addProjects,
   addSshGrants,
   candidatesOf,
@@ -13,7 +14,12 @@ import {
   removeProject,
   setSessionProject,
 } from "../../web/features/assistants/settings/access/access-groups.js";
-import { accessServer } from "../../web/features/assistants/settings/agent-settings-fields.js";
+import {
+  accessServer,
+  recipientLines,
+  setMailGrant,
+  workBody,
+} from "../../web/features/assistants/settings/agent-settings-fields.js";
 import {
   accessSummary,
   automationSummary,
@@ -168,4 +174,73 @@ test("the coding sessions grant is added sorted, removed, and dropped with its p
     "b",
   ]);
   assert.deepEqual(accessServer({}).sessionProjectIds, []);
+});
+
+test("mail grants are set sorted, keep rules only for send and are removed by null", () => {
+  assert.deepEqual(setMailGrant([], "a", "send", ["x.de"]), [
+    { accountId: "a", level: "send", recipients: ["x.de"] },
+  ]);
+  const held = setMailGrant(
+    [{ accountId: "c", level: "read", recipients: [] }],
+    "a",
+    "send",
+    ["x.de"],
+  );
+  assert.deepEqual(
+    held.map((g) => g.accountId),
+    ["a", "c"],
+  );
+  // Switching to read empties the rules; switching back starts without rules.
+  const read = setMailGrant(held, "a", "read");
+  assert.deepEqual(read[0], { accountId: "a", level: "read", recipients: [] });
+  assert.deepEqual(setMailGrant(read, "a", "send")[0].recipients, []);
+  // A level change at send keeps the rules; new rules replace them.
+  assert.deepEqual(setMailGrant(held, "a", "send")[0].recipients, ["x.de"]);
+  assert.deepEqual(setMailGrant(held, "a", "send", ["b@y.de"])[0].recipients, ["b@y.de"]);
+  assert.deepEqual(setMailGrant(held, "a", null), [
+    { accountId: "c", level: "read", recipients: [] },
+  ]);
+  // Adding keeps existing grants as they are.
+  assert.deepEqual(addMailGrants(held, ["a", "b"], "read"), [
+    { accountId: "a", level: "send", recipients: ["x.de"] },
+    { accountId: "b", level: "read", recipients: [] },
+    { accountId: "c", level: "read", recipients: [] },
+  ]);
+  assert.deepEqual(
+    accessServer({
+      mailAccesses: [
+        { accountId: "b", level: "read", recipients: ["ignored.de"] },
+        { accountId: "a", level: "send", recipients: ["x.de"] },
+      ],
+    }).mailAccesses,
+    [
+      { accountId: "a", level: "send", recipients: ["x.de"] },
+      { accountId: "b", level: "read", recipients: [] },
+    ],
+  );
+  assert.deepEqual(accessServer({}).mailAccesses, []);
+});
+
+test("recipient rules are read one per line, trimmed and lower case", () => {
+  assert.deepEqual(recipientLines(" Example.com \n\n bob@Example.com\r\n"), [
+    "example.com",
+    "bob@example.com",
+  ]);
+  assert.deepEqual(recipientLines(""), []);
+});
+
+test("the work body sends mail grants only when they changed", () => {
+  const values = {
+    projectIds: [],
+    pipelineIds: [],
+    memoryWrite: false,
+    autonomous: false,
+    publish: false,
+    mailAccesses: [{ accountId: "a", level: "send", recipients: ["example.com"] }],
+  };
+  const sent = workBody({ values, changed: ["mailAccesses"], revisions: { access: 3 } });
+  assert.deepEqual(sent.access.mailAccesses, values.mailAccesses);
+  assert.equal(sent.access.revision, 3);
+  const other = workBody({ values, changed: ["publish"], revisions: { access: 3 } });
+  assert.equal("mailAccesses" in other.access, false);
 });

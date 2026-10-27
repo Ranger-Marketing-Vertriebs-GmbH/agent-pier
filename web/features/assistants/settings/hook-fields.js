@@ -10,6 +10,7 @@ export const hookTicks = [
   "memory",
   "mcp",
   "secrets",
+  "mail",
 ];
 const rightKeys = [...hookTicks, "shell", "sshHosts", "folders"];
 const plainKeys = ["name", "sender", "instruction", "hourlyLimit", "enabled"];

@@ -385,6 +385,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     sshAccesses: [],
     github: null,
     secretIds: [],
+    mailAccesses: [],
     memoryWrite: true,
     autonomous: false,
     publish: false,

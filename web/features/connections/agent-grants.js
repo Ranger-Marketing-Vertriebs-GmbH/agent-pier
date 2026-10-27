@@ -1,4 +1,9 @@
-import { setSshGrant, sortedIds } from "../assistants/settings/agent-settings-fields.js";
+import {
+  mailLevels,
+  setMailGrant,
+  setSshGrant,
+  sortedIds,
+} from "../assistants/settings/agent-settings-fields.js";
 
 // Granting and revoking from Zugänge ("Benutzt von", bulk actions) writes the same
 // agent settings as the agent's Access tab: `PUT /assistants/:id/work` with the access
@@ -8,9 +13,10 @@ import { setSshGrant, sortedIds } from "../assistants/settings/agent-settings-fi
 // per agent and never retried.
 
 // The kinds of grant an access policy holds, and their modes.
-export const grantKinds = ["ssh", "secret", "github"];
+export const grantKinds = ["ssh", "secret", "github", "mail"];
 export const sshGrantModes = ["approval", "trusted", "routines"];
 export const githubLevels = ["read", "write"];
+export { mailLevels };
 
 /** The access half of a work save: the policy's fields with one grant changed. */
 export function grantAccessBody(policy, { kind, itemId, mode = null }) {
@@ -33,6 +39,15 @@ export function grantAccessBody(policy, { kind, itemId, mode = null }) {
     if (!mode && policy.github?.credentialId !== itemId) return null;
     return { ...body, github: mode ? { credentialId: itemId, level: mode } : null };
   }
+  if (kind === "mail") {
+    // The add field passes `true` when it offers no level: read, the lower one.
+    const level = mode === true ? "read" : mode;
+    // Recipient rules are edited only in the agent's settings; a send grant keeps them.
+    return {
+      ...body,
+      mailAccesses: setMailGrant(policy.mailAccesses || [], itemId, level),
+    };
+  }
   throw new Error(`Unknown grant kind ${kind}`);
 }
 
@@ -43,6 +58,8 @@ export function currentGrant(policy, { kind, itemId }) {
   if (kind === "secret") return (policy.secretIds || []).includes(itemId) || null;
   if (kind === "github")
     return policy.github?.credentialId === itemId ? policy.github.level : null;
+  if (kind === "mail")
+    return (policy.mailAccesses || []).find((g) => g.accountId === itemId)?.level ?? null;
   return null;
 }
 
@@ -75,6 +92,13 @@ export function grantableAgents(assistants) {
       (!agent.teamMemberId || agent.lifetime === "permanent"),
   );
 }
+
+/**
+ * Agents that may hold email: grantable agents without a Telegram bot for other people
+ * (the server refuses them with telegramSendersMail).
+ */
+export const mailGrantableAgents = (assistants) =>
+  grantableAgents(assistants).filter((agent) => !agent.telegramSenders);
 
 /** Agents that take MCP servers from the owner (connect-plan.js ownerManaged). */
 export const mcpAgents = (assistants) =>
