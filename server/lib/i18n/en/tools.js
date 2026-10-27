@@ -16,6 +16,7 @@ export const tools = Object.freeze({
   unsafeArchivePath: "The archive contains an unsafe path.",
   archiveSizeExceeded: "The archive exceeds the allowed size.",
   specialArchiveFilesForbidden: "Links and special files are not allowed in the archive.",
+  archiveInvalid: "The archive is damaged or has an unknown format.",
   duplicateArchivePaths: "The archive contains duplicate paths.",
   invalidZipArchive: "The ZIP archive is invalid.",
   encryptedArchivesForbidden: "Encrypted archives are not allowed.",

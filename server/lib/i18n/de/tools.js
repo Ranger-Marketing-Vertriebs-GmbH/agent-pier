@@ -17,6 +17,7 @@ export const tools = Object.freeze({
   archiveSizeExceeded: "Das Archiv überschreitet die zulässige Größe.",
   specialArchiveFilesForbidden:
     "Links und spezielle Dateien sind im Archiv nicht erlaubt.",
+  archiveInvalid: "Das Archiv ist beschädigt oder hat ein unbekanntes Format.",
   duplicateArchivePaths: "Das Archiv enthält doppelte Pfade.",
   invalidZipArchive: "Das ZIP-Archiv ist ungültig.",
   encryptedArchivesForbidden: "Verschlüsselte Archive sind nicht erlaubt.",
