@@ -113,6 +113,11 @@ work and preserves results that already completed. A move can publish its destin
 before source cleanup finishes; inspect the displayed `outputPublished`, `sourceRemoved`,
 and `sourceRemovalPending` outcome before trying it again.
 
+The browser reads the job list once when the explorer opens and again when the tab
+becomes visible or the window gains focus. It polls every 1.5 s only while it tracks a
+running job or a watched upload group, and never from a hidden tab. Starting a job resumes
+the poll until the job retires.
+
 Recorded operation checkpoints allow AgentPier to reconstruct jobs after a web-service
 restart. Recovery replays durable facts, then observes the current filesystem before a new
 destructive step. It is not a historical filesystem journal. A native process can change

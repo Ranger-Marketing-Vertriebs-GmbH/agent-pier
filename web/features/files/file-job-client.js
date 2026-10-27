@@ -14,7 +14,11 @@ const environment = {
   hidden: () => document.hidden,
   listen: (callback) => {
     document.addEventListener("visibilitychange", callback);
-    return () => document.removeEventListener("visibilitychange", callback);
+    window.addEventListener("focus", callback);
+    return () => {
+      document.removeEventListener("visibilitychange", callback);
+      window.removeEventListener("focus", callback);
+    };
   },
   timer: (callback, delay) => setTimeout(callback, delay),
   clear: (id) => clearTimeout(id),
@@ -231,7 +235,7 @@ export class FileJobClient {
     this.listeners.add(listener);
     if (this.listeners.size === 1) {
       this.generation++;
-      this.unlisten = this.timing.listen(() => this.schedule());
+      this.unlisten = this.timing.listen(() => this.wake());
       this.poll();
     }
     return () => {
@@ -243,13 +247,24 @@ export class FileJobClient {
       for (const controller of this.controllers) controller.abort();
     };
   }
+  // Polling runs only while a job is tracked or an upload group is watched, and
+  // never from a hidden tab. An idle explorer reads /jobs on mount and on return.
   schedule() {
     this.timing.clear(this.timer);
+    if (!this.listeners.size || this.timing.hidden()) return;
+    if (this.tracked.size === 0 && this.uploads.watched.size === 0) return;
+    this.timer = this.timing.timer(() => this.poll(), 1500);
+  }
+  // A started job or a newly watched upload resumes the timer; an in-flight poll
+  // re-arms it itself when it settles.
+  resume() {
+    if (!this.polling) this.schedule();
+  }
+  // A visible tab reads once at once; a hidden one stops.
+  wake() {
     if (!this.listeners.size) return;
-    this.timer = this.timing.timer(
-      () => this.poll(),
-      this.timing.hidden() ? 10000 : 1500,
-    );
+    if (this.timing.hidden()) return this.timing.clear(this.timer);
+    this.poll();
   }
   poll() {
     this.timing.clear(this.timer);
@@ -289,11 +304,13 @@ export class FileJobClient {
   }
   accept(job, track = false) {
     this.invalidateManifest(job);
-    if (track || this.tracked.has(job.id)) this.tracked.set(job.id, job);
+    const tracking = track || this.tracked.has(job.id);
+    if (tracking) this.tracked.set(job.id, job);
     this.update({
       history: this.overlayHistory([job]),
       jobs: this.boundedJobs([...this.state.jobs, job]),
     });
+    if (track) this.resume();
   }
   overlayHistory(jobs) {
     if (!this.state.history) return null;
