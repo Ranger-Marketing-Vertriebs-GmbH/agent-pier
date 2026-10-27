@@ -72,6 +72,32 @@ settles its open questions.
    that raises a pinned version updates installed components at the next server start,
    like `ToolInstaller.keepChromiumCurrent`.
 
+## Spike result (2026-10-27, this Mac, macOS 26 Tahoe arm64) — binding pins
+
+- REA works end to end: `rea doctor --provider ghidra` healthy (native decompiler
+  accepted), `rea decompile` of a small C binary succeeded in 6 s.
+- **Pins:** Ghidra **12.1.4** (JDK 21; 12.2 is not needed), Temurin **21.0.13+9**,
+  rea-agents **6.8.0**, frida **17.23.2** (N-API prebuild `napi-v8`).
+- **Ghidra per platform** *(Claude's call from the spike)*:
+  - darwin-arm64: Homebrew bottle 12.1.4 from ghcr.io — `arm64_sequoia`
+    (sha256 `fdaf330d…6ca2`, 464278484 B) and `arm64_tahoe` (`d2a62223…0a9a`,
+    464260893 B); pick by macOS version, newer macOS falls back to the tahoe bottle.
+    Decompiler links only system libraries, ad-hoc signed; use `libexec` as
+    `GHIDRA_INSTALL_DIR`, ignore Homebrew's launcher scripts.
+  - linux-x64: the **official Ghidra 12.1.4 zip** (ships `linux_x86_64` natives), not
+    the bottle — Homebrew's Linux bottles need Homebrew's ELF interpreter and glibc ≥
+    2.38.
+  - linux-arm64 and darwin-x64: Ghidra unavailable with a clear reason for now.
+- **frida**: the prebuild is one file, placed at
+  `node_modules/frida/build/frida_binding.node`; rea-agents installs with
+  `--ignore-scripts`.
+- **REA environment**: AgentPier starts REA with a controlled environment (its own
+  HOME/TMPDIR, no inherited `CLAUDE_CONFIG_DIR`); REA otherwise reads the CLI's config
+  directory. `rea doctor` will report `registration`/`skill` "config_drift" because
+  `rea setup` is never run — expected, not shown as an error.
+- **Sizes**: download ≈ 700 MB, installed ≈ 1.36 GB (Ghidra 767 MB, JDK 335 MB,
+  rea-agents incl. frida 257 MB).
+
 ## Non-goals / anti-goals
 
 - Never run `rea setup`: it writes into the CLI files AgentPier manages.
