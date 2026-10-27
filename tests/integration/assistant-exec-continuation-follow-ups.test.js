@@ -8,10 +8,11 @@ import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { continuationSource } from "../../server/features/assistants/exec-continuation.js";
 import { execEvidence } from "../../server/features/assistants/team-plugin/exec-processes.js";
 
-// AGENTPIER-261: a lead's follow-ups on its members' results that arrive while a
-// background command runs do not end its completion run's rights; anything else does.
-async function setup(t) {
-  const f = await execContinuationFixture(t);
+// AGENTPIER-261: a lead's follow-ups on its members' results and the owner's own
+// direct messages that arrive while a background command runs do not end its
+// completion run's rights; anything else does.
+async function setup(t, options) {
+  const f = await execContinuationFixture(t, options);
   f.assistants.shares = new AgentShares({
     assistants: f.assistants,
     channels: f.service,
@@ -65,22 +66,83 @@ async function setup(t) {
   return { ...f, input, share, followUp, render, sources };
 }
 
-test("an owner message between the render and a later follow-up ends the share", async (t) => {
+test("the owner's own messages after the render do not end its share", async (t) => {
+  // The owner decided: his newer direct message keeps the command's follow-up.
   const f = await setup(t);
-  await f.render();
+  const source = await f.render();
   await f.turn({ kind: "owner" }, { exec: false });
   await f.followUp("r2");
   await f.wake();
-  await assert.rejects(f.share(), { status: 403 });
-  assert.deepEqual(f.sources(), []);
+  assert.equal((await f.share()).status, "shared");
+  // It keeps the render turn's rights and origin, not the later message's.
+  assert.deepEqual(f.sources(), [source]);
 });
 
-test("a clock step back never hides a newer owner message", async (t) => {
+test("a later owner message from Telegram never sends a web turn's render there", async (t) => {
+  const f = await setup(t);
+  const source = await f.render();
+  await f.turn(
+    {
+      kind: "telegram",
+      channelId: f.channel.id,
+      chatId: f.channel.chatId,
+      userId: f.channel.userId,
+      inputId: "input-1",
+    },
+    { exec: false },
+  );
+  await f.wake();
+  const result = await f.share();
+  assert.equal(result.status, "shared");
+  assert.equal(result.telegram, undefined);
+  assert.deepEqual(f.sources(), [source]);
+  assert.deepEqual(
+    f.service.outbox.all(f.channel.id).filter((e) => e.kind === "file"),
+    [],
+  );
+});
+
+test("forwarded content, reminders, hooks and lead tasks after the render end it", async (t) => {
+  for (const origin of [
+    { kind: "owner", forwarded: true },
+    { kind: "telegram", forwarded: true },
+    { kind: "reminder" },
+    { kind: "hook" },
+    { kind: "routine" },
+    { kind: "lead-request", requestId: "r2" },
+    { kind: "unknown" },
+  ]) {
+    const f = await setup(t);
+    await f.render();
+    await f.turn(origin, { exec: false });
+    await f.wake();
+    await assert.rejects(f.share(), { status: 403 }, JSON.stringify(origin));
+    assert.deepEqual(f.sources(), []);
+  }
+});
+
+test("a restricted user's message after the render ends it", async (t) => {
+  const userAccess = {
+    mode: "shared",
+    members: [{ userId: "anna", level: "chat" }],
+    released: [],
+  };
+  for (const later of [{ kind: "user", userId: "anna" }, { kind: "owner" }]) {
+    const f = await setup(t, { userAccess });
+    await f.turn({ kind: "user", userId: "anna" });
+    await f.turn(later, { exec: false });
+    await f.wake();
+    // On a user agent only the latest turn may continue, as before.
+    await assert.rejects(f.share(), { status: 403 }, JSON.stringify(later));
+  }
+});
+
+test("a clock step back never hides newer forwarded content", async (t) => {
   const f = await setup(t);
   await f.render();
-  const owner = await f.turn({ kind: "owner" }, { exec: false });
+  const owner = await f.turn({ kind: "owner", forwarded: true }, { exec: false });
   await f.followUp("r2");
-  // The clock stepped back before the owner's message: by its time it looks older
+  // The clock stepped back before the forwarded message: by its time it looks older
   // than the render's turn, by its row it is newer.
   const past = new Date(Date.now() - 3600000).toISOString();
   const { requestId } = f.assistants.ledger.getAttempt(owner);

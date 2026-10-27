@@ -1560,15 +1560,19 @@ was compacted and the plan was gone. Four rules close that gap:
     (`continuationWindowMs`, four times OpenClaw's default exec timeout of 30
     minutes). The source turn is the chat's latest ledger request (`latestRequest`,
     one row), or the earlier request whose attempt started every process the
-    completion reports when each request after it is a lead's follow-up on its
-    member's result that completed unreviewed and that `resultTurn` proves
-    (`sourceRequest`, AGENTPIER-261: such follow-ups arrive on their own while a
-    render runs, and the lead's completion run used to be refused with `PROCESS`).
-    Later means later by row (`requestsAfter`), never by time, so a clock step
-    cannot hide a newer owner message.
-    Any other newer request (the owner's own message, forwarded content, a reminder,
-    a lead's task, a hook report, an interrupted turn) ends the continuation, and
-    the completion run is never a ledger turn's own run.
+    completion reports when each request after it completed unreviewed and is
+    either a lead's follow-up on its member's result that `resultTurn` proves or
+    the owner's own direct message (`owner` or `telegram`, never forwarded, never
+    on a user agent) (`sourceRequest`, AGENTPIER-261: such follow-ups arrive on
+    their own while a render runs, and the lead's completion run used to be refused
+    with `PROCESS`; the owner decided that his own newer message does not end the
+    command's follow-up either). The run keeps the source turn's rights, chat and
+    Telegram target, and the window counts from the source turn. Later means later
+    by row (`requestsAfter`), never by time, so a clock step cannot hide newer
+    forwarded content. Any other newer request (forwarded content, a restricted
+    user's message, a reminder, a routine, a lead's task, a hook report, an
+    interrupted turn) ends the continuation, and the completion run is never a
+    ledger turn's own run.
   - The call names its run: the write hook's `runId`, or for `agentpier_workspace`
     and `agentpier_share_file` the run of its tool call (looked up by session and tool call id). A call without
     a run continues nothing. The run is not that turn's own run, and
@@ -1669,7 +1673,7 @@ was compacted and the plan was gone. Four rules close that gap:
   a completion without a readable process list (delivery off, only empty
   successes, a truncated list; OpenClaw's fixed timeout guidance after a process
   line is read verbatim), a heartbeat poll, a reminder and a completion after
-  a newer request (other than a lead's proven member-result follow-up) stay read-only. So does every completion of a lead-request,
+  a newer request (other than a lead's proven member-result follow-up or the owner's own direct message) stay read-only. So does every completion of a lead-request,
   team-member, forwarded, routine, team-result, coding-result or memory-result
   turn, and of any other turn without the owner's own work behind it (a webhook or
   hook run, a reminder, a check-in). Only a 2026.10.7 event turn makes the proof read the transcript, once per

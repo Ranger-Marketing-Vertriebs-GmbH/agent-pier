@@ -22,10 +22,10 @@
 //   work-goal continuation, which is recorded as one, or a lead's follow-up on its
 //   member's result, member-result-writes.js) at most `continuationWindowMs` ago. It
 //   is the chat's latest ledger request, or the one whose run started the reported
-//   processes when only a lead's completed, proven follow-ups on its members'
-//   results came after it (sourceRequest, AGENTPIER-261: they arrive on their own
-//   while a render runs and act like the lead's own work); any other newer request
-//   ends the continuation;
+//   processes when only completed lead follow-ups on its members' results (proven)
+//   and the owner's own direct messages came after it (sourceRequest,
+//   AGENTPIER-261: the owner decided neither ends the command's follow-up); any
+//   other newer request ends the continuation;
 // - the call names its run (the write hook's `runId`; a workspace call the run of
 //   its tool call), it is not that turn's run, and either the Gateway's agent events
 //   mark it heartbeat-driven in this session (CompletionRuns), or the plugin saw it
@@ -47,10 +47,10 @@
 // actions (workspace-calls.js). A shared file goes to the source turn's chat, and to
 // Telegram only when that turn came from the owner's paired chat (agent-shares.js).
 // Each write is audited with `via: "exec-completion"`.
-import { directTurn } from "./memory-write-policy.js";
+import { directOrigin, directTurn } from "./memory-write-policy.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { isMemory } from "./lead-request-writes.js";
-import { isShared } from "../users/user-access.js";
+import { isShared, isUserAgent } from "../users/user-access.js";
 import { isDeepStrictEqual } from "node:util";
 import { completedProcesses } from "./team-plugin/exec-processes.js";
 import { resultTurn } from "./member-result-writes.js";
@@ -184,7 +184,7 @@ export function continuationSource(bridge, input) {
       bridge.bound(sessionKey).length
     )
       return refuse(bridge, input, "CHAT");
-    const request = sourceRequest(bridge, input, conversation.id);
+    const request = sourceRequest(bridge, input, conversation.id, agent);
     const attempt = request && ledger.attemptFor(request.id);
     if (attempt?.state !== "completed" || attempt.reviewedAt)
       return refuse(bridge, input, "REQUEST");
@@ -220,12 +220,15 @@ export function continuationSource(bridge, input) {
 /**
  * The request a completion run may continue: the chat's latest one, or the earlier
  * request whose attempt started every process the completion reports when each
- * request after it is a lead's follow-up on its member's result that completed
- * unreviewed and that AgentPier submitted (resultTurn). Those follow-ups arrive on
- * their own while the command runs and act like the lead's own work; the owner's
- * own newer message, forwarded content and every other turn still end it.
+ * request after it completed unreviewed and is either a lead's follow-up on its
+ * member's result that AgentPier submitted (resultTurn), or the owner's own direct
+ * message (in the chat or from his paired Telegram chat, never forwarded, never on a
+ * user agent). The owner decided neither ends the command's follow-up, which keeps
+ * the source turn's rights, chat and Telegram target. Forwarded content, a
+ * restricted user's message, reminders, hooks, lead tasks and every other turn still
+ * end it.
  */
-function sourceRequest(bridge, input, conversationId) {
+function sourceRequest(bridge, input, conversationId, agent) {
   const { ledger } = bridge.assistants;
   const latest = ledger.latestRequest(conversationId);
   const starter = starterAttempt(ledger, execEvidence(input.exec));
@@ -234,7 +237,9 @@ function sourceRequest(bridge, input, conversationId) {
   if (request.conversationId !== conversationId) return latest;
   // By row, not time: a clock step back never hides a newer owner message.
   const later = ledger.requestsAfter(conversationId, request.id);
-  return later.length && later.every((r) => resultFollowUp(bridge, r)) ? request : latest;
+  return later.length && later.every((r) => laterTurn(bridge, r, agent))
+    ? request
+    : latest;
 }
 // The one attempt whose run started the processes a completion reports, or null.
 function starterAttempt(ledger, evidence) {
@@ -245,15 +250,19 @@ function starterAttempt(ledger, evidence) {
   );
   return runs.size === 1 ? ledger.attemptForRun([...runs][0]) : null;
 }
-// A completed, unreviewed lead follow-up on its member's result that AgentPier sent.
-function resultFollowUp(bridge, request) {
+// A completed, unreviewed turn after the source that does not end its continuation:
+// a lead's follow-up on its member's result that AgentPier sent, or the owner's own
+// direct message (directOrigin without a restricted user's turn).
+function laterTurn(bridge, request, agent) {
   const attempt = bridge.assistants.ledger.attemptFor(request.id);
   const origin = bridge.teams?.store?.context?.(request.id);
+  if (attempt?.state !== "completed" || attempt.reviewedAt) return false;
+  if (origin?.kind === "member-result")
+    return !!resultTurn(bridge.assistants, origin.requestId, attempt.id);
   return (
-    attempt?.state === "completed" &&
-    !attempt.reviewedAt &&
-    origin?.kind === "member-result" &&
-    !!resultTurn(bridge.assistants, origin.requestId, attempt.id)
+    ["owner", "telegram"].includes(origin?.kind) &&
+    directOrigin(origin) &&
+    !isUserAgent(agent)
   );
 }
 

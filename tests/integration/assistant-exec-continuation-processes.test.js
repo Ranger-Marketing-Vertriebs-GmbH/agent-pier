@@ -281,9 +281,11 @@ test("refusals are logged once per run and reason, by code only", async (t) => {
     false,
   );
   t.diagnostic(JSON.stringify(warnings));
+  // The owner's newer message does not end the forwarded turn's command
+  // (AGENTPIER-261), which continues nothing.
   assert.deepEqual(
     warnings.map((w) => w.match(/\((\w+)\)\.$/)?.[1]),
-    ["PROCESS"],
+    ["ORIGIN"],
   );
   assert.ok(warnings.every((w) => !w.includes("secret-plan")));
 });

@@ -224,7 +224,7 @@ test("completion runs of other turns never share", async (t) => {
   await h.turn({ kind: "owner" });
   await h.wake();
   await assert.rejects(h.share({ path: "episode.mp4" }, "made-up"), { status: 403 });
-  await h.turn({ kind: "owner" }, { exec: false });
+  await h.turn({ kind: "owner", forwarded: true }, { exec: false });
   await assert.rejects(h.share({ path: "episode.mp4" }), { status: 403 });
   assert.deepEqual([...g.sent(), ...h.sent()], []);
 });
@@ -277,8 +277,7 @@ test("an owner turn's render shares after a member-result follow-up", async (t) 
 
 test("any other later turn still ends a render's share", async (t) => {
   const later = [
-    // The owner's own newer message, forwarded content, a reminder, a lead's task.
-    ["owner", { kind: "owner" }],
+    // Forwarded content, a reminder, a lead's task.
     ["forwarded", { kind: "owner", forwarded: true }],
     ["reminder", { kind: "reminder" }],
     ["lead-request", { kind: "lead-request", requestId: "r2" }],
