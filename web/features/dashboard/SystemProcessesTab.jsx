@@ -6,7 +6,8 @@ import Segment from "../../components/Segment.jsx";
 import { isPlainClick } from "../../components/link-click.js";
 import { routePath } from "../../app/routes.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
-import { PROCESS_SORTS, processGroups } from "./system-processes.js";
+import useAssistants from "../assistants/useAssistants.js";
+import { gatewayAgentCount, PROCESS_SORTS, processGroups } from "./system-processes.js";
 import { statusBytes, statusPercent } from "./system-status-format.js";
 
 export function processLabel(item) {
@@ -15,9 +16,11 @@ export function processLabel(item) {
   return copy.session(item.name);
 }
 
-function processSub(item) {
+// `agents` is the gateway's agent count, null while unknown or off.
+function processSub(item, agents) {
   if (item.kind === "server") return copy.serverSub;
-  if (item.kind === "gateway") return copy.gatewaySub;
+  if (item.kind === "gateway")
+    return agents === null ? copy.gatewaySub : copy.gatewayAgents(agents);
   const tool = copy.sessionTool[item.tool] || item.tool;
   return [tool, item.project].filter(Boolean).join(" · ");
 }
@@ -68,6 +71,7 @@ function OpenLink({ item, openSession }) {
 export default function SystemProcessesTab({ data, openSession }) {
   const [sort, setSort] = useState("cpu");
   const phone = useMobileLayout();
+  const agents = gatewayAgentCount(useAssistants());
   const { core, sessions, largest } = processGroups(data.processes, sort, processLabel);
   const groups = [
     { id: "core", label: copy.groupCore, ...core },
@@ -124,7 +128,7 @@ export default function SystemProcessesTab({ data, openSession }) {
                     <div className="system-process-card-text">
                       <strong>{processLabel(item)}</strong>
                       <small>
-                        {[processSub(item), copy.processes(item.processes)]
+                        {[processSub(item, agents), copy.processes(item.processes)]
                           .filter(Boolean)
                           .join(" · ")}
                       </small>
@@ -182,7 +186,7 @@ export default function SystemProcessesTab({ data, openSession }) {
                         <Mark item={item} />
                         <span>
                           {processLabel(item)}
-                          <small>{processSub(item)}</small>
+                          <small>{processSub(item, agents)}</small>
                         </span>
                       </span>
                     </th>

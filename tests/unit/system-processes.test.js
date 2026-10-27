@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { processGroups } from "../../web/features/dashboard/system-processes.js";
+import {
+  gatewayAgentCount,
+  processGroups,
+} from "../../web/features/dashboard/system-processes.js";
 
 const rows = [
   { kind: "server", processes: 3, cpuPercent: 0.2, rssBytes: 300 },
@@ -65,4 +68,22 @@ test("the bars scale to the largest row of both groups", () => {
     sessions: { rows: [], cpuPercent: 0, rssBytes: 0, processes: 0 },
     largest: { cpuPercent: 0, rssBytes: 0 },
   });
+});
+
+test("the gateway row counts the live agents once they are loaded", () => {
+  assert.equal(gatewayAgentCount({ loaded: false, assistants: [] }), null);
+  assert.equal(gatewayAgentCount(undefined), null);
+  assert.equal(
+    gatewayAgentCount({
+      loaded: true,
+      assistants: [
+        { id: "a" },
+        { id: "b", archivedAt: "2026-10-01T00:00:00Z" },
+        { id: "c", teamMemberId: "m1", lifetime: "task" },
+        { id: "d", teamMemberId: "m2", lifetime: "permanent" },
+        { id: "e", userAccess: { mode: "shared" } },
+      ],
+    }),
+    3,
+  );
 });
