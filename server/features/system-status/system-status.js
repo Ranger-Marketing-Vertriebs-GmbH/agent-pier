@@ -1,9 +1,11 @@
 import os from "node:os";
+import path from "node:path";
 import { parseSessionLines, pickSessionNames } from "../sessions/tmux-naming.js";
 import { legacyTmuxSessions } from "../sessions/legacy-tmux-server.js";
 import { cpuBusy, cpuTimes, diskStats, memoryStats } from "./host-stats.js";
 import { processTrees, readProcessTable, treeUsage } from "./process-stats.js";
 import { measureDataAreas } from "./data-areas.js";
+import { BackgroundMeasure } from "./background-measure.js";
 import { DiskWarning, freePercent, WARN_BELOW_PERCENT } from "./disk-warning.js";
 
 const HOUR = 60 * 60 * 1000;
@@ -36,11 +38,17 @@ export async function sessionPanes(sessions) {
     } catch {
       // A session removed since tmux answered still counts under its id.
     }
+    const tool = typeof session.tool === "string" ? session.tool : "";
     result.push({
       id,
       pid,
       name: typeof session.name === "string" ? session.name : "",
-      tool: typeof session.tool === "string" ? session.tool : "",
+      tool,
+      // The folder's name only, never its path; a shell names no project.
+      project:
+        tool !== "shell" && typeof session.cwd === "string" && session.cwd
+          ? path.basename(session.cwd)
+          : "",
     });
   }
   return result;
@@ -99,6 +107,7 @@ export class SystemStatus {
     areasMaxAgeMs = 10 * 60 * 1000,
     primeMs = 300,
     cpus = os.cpus,
+    platform = os.platform,
     loadavg = os.loadavg,
     memory = () => memoryStats(),
     disk = () => diskStats(dataDir),
@@ -117,24 +126,27 @@ export class SystemStatus {
       backgroundMs,
       idleAfterMs,
       diskCheckMs,
-      areasMaxAgeMs,
       primeMs,
       cpus,
+      platform,
       loadavg,
       memory,
       disk,
       processes,
       panes,
       legacySessions,
-      measureAreas,
       serverPid,
       onError,
     });
     this.warning = new DiskWarning({ notifications, now, onError });
     this.history = [];
     this.latest = null;
-    this.areas = null;
-    this.areasRun = null;
+    this.areas = new BackgroundMeasure({
+      measure: measureAreas,
+      maxAgeMs: areasMaxAgeMs,
+      now,
+      onError,
+    });
     this.cpuReading = null;
     this.table = null;
     this.liveTimer = null;
@@ -190,33 +202,26 @@ export class SystemStatus {
   }
   async details() {
     const latest = await this.current();
-    this.refreshAreas();
     return {
       ...latest.summary,
+      host: { platform: this.hostPlatform() },
       processes: latest.processes,
       history: historyPoints(this.history, this.now()),
-      areas: this.areas
-        ? { state: this.areasRun ? "refreshing" : "ready", ...this.areas }
-        : { state: "pending" },
+      areas: this.areas.read(),
     };
+  }
+  /** "darwin", "linux", …; null when unknown, so the dialog leaves it out. */
+  hostPlatform() {
+    try {
+      const value = this.platform();
+      return typeof value === "string" && value ? value : null;
+    } catch {
+      return null;
+    }
   }
   /** After a cleanup: the next view measures again and shows the old sizes meanwhile. */
   staleAreas() {
-    if (this.areas) this.areas = { ...this.areas, computedAt: new Date(0).toISOString() };
-  }
-  refreshAreas() {
-    if (this.closed || this.areasRun) return;
-    const age = this.areas ? this.now() - Date.parse(this.areas.computedAt) : Infinity;
-    if (age < this.areasMaxAgeMs) return;
-    this.areasRun = Promise.resolve()
-      .then(() => this.measureAreas(() => this.closed))
-      .then((areas) => {
-        if (!this.closed) this.areas = areas;
-      })
-      .catch(this.onError)
-      .finally(() => {
-        this.areasRun = null;
-      });
+    this.areas.invalidate();
   }
   sample(options) {
     this.sampling ??= this.collect(options).finally(() => {
@@ -290,11 +295,12 @@ export class SystemStatus {
       ? [
           { kind: "server", ...usage("server") },
           ...(gateway ? [{ kind: "gateway", ...usage("gateway") }] : []),
-          ...panes.map(({ id, name, tool }) => ({
+          ...panes.map(({ id, name, tool, project = "" }) => ({
             kind: "session",
             id,
             name,
             tool,
+            project,
             ...usage(`session:${id}`),
           })),
         ]
@@ -345,6 +351,6 @@ export class SystemStatus {
     clearInterval(this.diskTimer);
     clearInterval(this.backgroundTimer);
     clearTimeout(this.firstCheck);
-    await Promise.allSettled([this.sampling, this.areasRun]);
+    await Promise.allSettled([this.sampling, this.areas.close()]);
   }
 }

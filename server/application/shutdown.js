@@ -41,6 +41,7 @@ export function createShutdown({ services, wss, server }) {
     await services.operationsEvents?.close();
     await services.githubTokenMonitor?.close();
     await services.systemStatus?.close();
+    await services.storageCleanup?.close();
     services.chatEvents?.close();
     await services.operations?.close();
     await services.pipelineQueue?.close();

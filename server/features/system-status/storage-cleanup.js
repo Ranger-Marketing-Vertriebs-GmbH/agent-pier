@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { auditActor } from "../audit/audit-actor.js";
 import { deleteSnapshot, listSnapshots } from "./cleanup-snapshots.js";
 import {
+  CUTOFF_DAYS,
   deleteTranscripts,
   profileTranscripts,
   protectedIds,
@@ -15,6 +16,7 @@ import {
 import { isUserAgent } from "../users/user-access.js";
 import { processCwds } from "./workspace-processes.js";
 import { cleanupProblem } from "./cleanup-problem.js";
+import { BackgroundMeasure } from "./background-measure.js";
 
 const TOOLS = ["claude", "codex"];
 const safeId = (id) =>
@@ -55,16 +57,31 @@ export function agentWorking(services, id) {
 }
 
 /**
- * Cleanup actions of System status › Data directory: update backups, transcripts of
- * ended CLI sessions and the agents' installed dependencies. Sizes are measured only
- * when asked; one deletion runs at a time; every deletion is audited with what was
- * removed and how much, never a path, name or content.
+ * Cleanup actions of System status › Storage: update backups, transcripts of ended
+ * CLI sessions and the agents' installed dependencies. The lists are measured when
+ * asked; their summary in the background and cached until a deletion. One deletion
+ * runs at a time; every deletion is audited with what was removed and how much, never
+ * a path, name or content.
  */
 export class StorageCleanup {
-  constructor({ dataDir, services, audit, cwds = processCwds, now = Date.now }) {
+  constructor({
+    dataDir,
+    services,
+    audit,
+    cwds = processCwds,
+    now = Date.now,
+    summaryMaxAgeMs = 10 * 60 * 1000,
+    onError = () => {},
+  }) {
     this.dataDir = fs.realpathSync(dataDir);
     Object.assign(this, { services, audit, cwds, now });
     this.running = null;
+    this.summaryMeasure = new BackgroundMeasure({
+      measure: () => this.measureSummary(),
+      maxAgeMs: summaryMaxAgeMs,
+      now,
+      onError,
+    });
   }
   updates() {
     return this.services.assistantUpdates || null;
@@ -89,15 +106,61 @@ export class StorageCleanup {
     if (this.running) throw failed(cleanupProblem("busy", 409));
     this.running = operation();
     try {
-      const result = await this.running;
-      // The data directory sizes are measured again on the next view.
-      this.services.systemStatus?.staleAreas?.();
-      return result;
+      return await this.running;
     } catch (error) {
       throw failed(error);
     } finally {
       this.running = null;
+      // Sizes are measured again on the next view, also after a partial failure.
+      this.services.systemStatus?.staleAreas?.();
+      this.summaryMeasure.invalidate();
     }
+  }
+  /** What each group can free, without opening its list (GET …/cleanup/summary). */
+  summary() {
+    return this.summaryMeasure.read();
+  }
+  /**
+   * Sums the three lists: deletable update backups (an unfinished update's own one
+   * stays out), transcripts older than the shortest age, and installed dependencies.
+   */
+  async measureSummary() {
+    const snapshots = await this.snapshots();
+    const backups = snapshots.snapshots.filter((item) => item.reason !== "recovery");
+    const days = CUTOFF_DAYS[0];
+    const profiles = (await this.transcripts()).profiles.map(
+      (profile) => profile.cutoffs.find((cutoff) => cutoff.days === days) || {},
+    );
+    const agents = (await this.dependencies()).agents.filter((agent) => agent.folders);
+    const sum = (items, key) =>
+      items.reduce((total, item) => total + (item[key] || 0), 0);
+    return {
+      computedAt: new Date(this.now()).toISOString(),
+      groups: {
+        updateBackups: {
+          bytes: sum(backups, "bytes"),
+          count: backups.length,
+          blocked: snapshots.blocked,
+          atLeast: backups.some((item) => item.partial),
+          oldestAt: backups.at(-1)?.createdAt ?? null,
+        },
+        transcripts: {
+          bytes: sum(profiles, "bytes"),
+          count: sum(profiles, "count"),
+          olderThanDays: days,
+          profiles: profiles.filter((cutoff) => cutoff.count > 0).length,
+        },
+        dependencies: {
+          bytes: sum(agents, "bytes"),
+          count: sum(agents, "folders"),
+          agents: agents.length,
+          atLeast: agents.some((agent) => agent.partial),
+        },
+      },
+    };
+  }
+  close() {
+    return this.summaryMeasure.close();
   }
   record(principal, resourceId, details, outcome = "success") {
     try {
