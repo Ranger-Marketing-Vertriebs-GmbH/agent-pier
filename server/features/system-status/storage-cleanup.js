@@ -77,7 +77,7 @@ export class StorageCleanup {
     Object.assign(this, { services, audit, cwds, now });
     this.running = null;
     this.summaryMeasure = new BackgroundMeasure({
-      measure: () => this.measureSummary(),
+      measure: (isClosed) => this.measureSummary(isClosed),
       maxAgeMs: summaryMaxAgeMs,
       now,
       onError,
@@ -121,17 +121,24 @@ export class StorageCleanup {
     return this.summaryMeasure.read();
   }
   /**
-   * Sums the three lists: deletable update backups (an unfinished update's own one
-   * stays out), transcripts older than the list's default age (90 days), and installed dependencies.
+   * Sums the three lists: the update backups that may be deleted now (none while an
+   * update runs, which `blocked` says; never the one a recovery needs), transcripts
+   * older than the list's default age (90 days), and installed dependencies. Stops
+   * early, with null, once `isClosed()` says AgentPier shuts down.
    */
-  async measureSummary() {
+  async measureSummary(isClosed = () => false) {
     const snapshots = await this.snapshots();
-    const backups = snapshots.snapshots.filter((item) => item.reason !== "recovery");
+    if (isClosed()) return null;
+    const backups = snapshots.snapshots.filter((item) => !item.reason);
     const days = DEFAULT_CUTOFF_DAYS;
-    const profiles = (await this.transcripts()).profiles.map(
+    const transcripts = await this.transcripts(isClosed);
+    if (isClosed()) return null;
+    const profiles = transcripts.profiles.map(
       (profile) => profile.cutoffs.find((cutoff) => cutoff.days === days) || {},
     );
-    const agents = (await this.dependencies()).agents.filter((agent) => agent.folders);
+    const dependencies = await this.dependencies(isClosed);
+    if (isClosed()) return null;
+    const agents = dependencies.agents.filter((agent) => agent.folders);
     const sum = (items, key) =>
       items.reduce((total, item) => total + (item[key] || 0), 0);
     return {
@@ -219,9 +226,10 @@ export class StorageCleanup {
     const store = this.services.pipelines?.store;
     return store ? [JSON.stringify(store.all())] : [];
   }
-  async transcripts() {
+  async transcripts(isClosed = () => false) {
     const profiles = [];
     for (const account of this.profiles()) {
+      if (isClosed()) break;
       // Read again for each profile, so a long listing never counts on old records.
       const ids = await protectedIds(this.dataDir, () => this.records());
       const { cutoffs } = await profileTranscripts(
@@ -271,9 +279,10 @@ export class StorageCleanup {
       return error?.status === 404 ? { name: "" } : null;
     }
   }
-  async dependencies() {
+  async dependencies(isClosed = () => false) {
     const agents = [];
     for (const id of await workspaceIds(this.dataDir)) {
+      if (isClosed()) break;
       const owner = this.ownerAgent(id);
       if (!owner) continue;
       const { folders, bytes, partial } = await measureDependencies(this.dataDir, id);
