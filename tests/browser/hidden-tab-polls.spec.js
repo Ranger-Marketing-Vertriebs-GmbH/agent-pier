@@ -243,7 +243,7 @@ test("login status is not requested while hidden and is read once on show", asyn
 });
 
 // A codex install dialog over a stubbed installer; `job` is the codex installation.
-async function installerFixture(page, job, stall = false) {
+async function installerFixture(page, job, stall = false, conflict = false) {
   const reads = { count: 0 };
   const installation = {
     tool: "codex",
@@ -273,6 +273,13 @@ async function installerFixture(page, job, stall = false) {
           installations: [installation],
           busy: installation.status === "running",
         },
+      });
+    }
+    if (conflict && path === "/api/tools/codex/install") {
+      Object.assign(installation, { status: "running", message: "Installing" });
+      return route.fulfill({
+        status: 409,
+        json: { error: "Another install is running." },
       });
     }
     return route.fulfill({ json: {} });
@@ -317,4 +324,30 @@ test("a hidden REA dialog sends no REA read while a job runs", async ({ page }) 
   await reaCard(page).getByRole("button", { name: "Install" }).click();
   await expect(page.getByRole("dialog", { name: "REA" })).toBeVisible();
   await pausesWhenHidden(page, requests, /\/api\/rea/);
+});
+
+test("an idle installer reads again on focus and online", async ({ page }) => {
+  const requests = recordApiRequests(page);
+  await installerFixture(page, {});
+  await page.waitForTimeout(500);
+  for (const event of ["focus", "online"]) {
+    requests.clear();
+    await page.evaluate((name) => window.dispatchEvent(new Event(name)), event);
+    await expect
+      .poll(() => requests.list().some((r) => r.path === "/api/tool-installations"), {
+        timeout: 1000,
+      })
+      .toBe(true);
+  }
+});
+
+test("a refused start re-reads the installation and shows the running job", async ({
+  page,
+}) => {
+  await installerFixture(page, {}, false, true);
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Install now", exact: true }).click();
+  await expect(dialog).toContainText("Installing");
+  await expect(dialog).not.toContainText("Another install is running.");
+  await expect(dialog.getByRole("button", { name: "Install now" })).toHaveCount(0);
 });

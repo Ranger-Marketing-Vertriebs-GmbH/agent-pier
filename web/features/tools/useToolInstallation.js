@@ -45,6 +45,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
           setGlobalBusy(Boolean(result.busy));
           setLoading(false);
           setLoadError(found ? "" : copy.installationUnavailable);
+          return found || null;
         }
       } catch (err) {
         // A deadline abort reports the timeout; hiding or stopping stays silent.
@@ -57,6 +58,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
           setLoading(false);
         }
       }
+      return null;
     },
     [tool],
   );
@@ -68,9 +70,14 @@ export default function useToolInstallation({ tool, request, refresh, update = f
     const visible = () => {
       if (!document.hidden && !polling.current) void read();
     };
+    // An idle installer is not polled, so a returning tab or network reads once.
     document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", visible);
+    window.addEventListener("online", visible);
     return () => {
       document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", visible);
+      window.removeEventListener("online", visible);
       controller.abort();
       mounted.current = false;
       invalidateRequests();
@@ -81,7 +88,8 @@ export default function useToolInstallation({ tool, request, refresh, update = f
   // The loop runs only while a job is active, and never from a hidden tab.
   useEffect(() => {
     if (delay === null) return undefined;
-    return startVisiblePolling((signal) => read(signal), delay);
+    // The state that started the loop was just read, so the start run is skipped.
+    return startVisiblePolling((signal) => read(signal), delay, {}, { skipFirst: true });
   }, [delay, read]);
   const synchronize = useCallback(async () => {
     if (synchronizing.current) return;
@@ -124,6 +132,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
       (!update && job.status === "succeeded" && !reinstall)
     )
       return;
+    let conflict = false;
     mutating.current = true;
     generation.current++;
     setSubmitting(true);
@@ -141,11 +150,17 @@ export default function useToolInstallation({ tool, request, refresh, update = f
       }
     } catch (err) {
       if (mounted.current) setError(err.message);
+      conflict = err.status === 409;
     } finally {
       if (mounted.current) {
         mutating.current = false;
         setSubmitting(false);
       }
+    }
+    // Another start won: show what runs now instead of a stale idle view.
+    if (conflict && mounted.current) {
+      const found = await read();
+      if (found?.status === "running" && mounted.current) setError("");
     }
   }
   const running = job?.status === "running";

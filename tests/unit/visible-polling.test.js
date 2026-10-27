@@ -130,3 +130,40 @@ test("a read past the deadline is aborted as a timeout, hiding is not", async (t
   assert.equal(signals[1].aborted, true);
   assert.notEqual(signals[1].reason.name, "TimeoutError");
 });
+
+test("skipFirst skips the start run while visible, then polls on the interval", async (t) => {
+  const fake = fakeEnv({});
+  let calls = 0;
+  const stop = startVisiblePolling(
+    async () => {
+      calls += 1;
+    },
+    1000,
+    fake.env,
+    { skipFirst: true },
+  );
+  t.after(stop);
+  await settle();
+  assert.equal(calls, 0);
+  await fake.advance(1000);
+  assert.equal(calls, 1);
+});
+
+test("skipFirst never skips the run when a hidden start becomes visible", async (t) => {
+  const fake = fakeEnv({ hidden: true });
+  let calls = 0;
+  const stop = startVisiblePolling(
+    async () => {
+      calls += 1;
+    },
+    1000,
+    fake.env,
+    { skipFirst: true },
+  );
+  t.after(stop);
+  await fake.advance(5000);
+  assert.equal(calls, 0);
+  fake.setHidden(false);
+  await settle();
+  assert.equal(calls, 1);
+});

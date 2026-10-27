@@ -44,17 +44,22 @@ export default function McpCodexAccounts({ server, oauth, onChanged }) {
   useEffect(() => {
     if (!pending) return undefined;
     // A hidden tab reads nothing; the loop reads again when the tab is back in view.
-    // The first run is skipped: the login that made it pending just read the status.
-    let first = true;
-    const stop = startVisiblePolling(async () => {
-      if (first) {
-        first = false;
-        return;
+    // The login that made it pending just read the status, so the start run is skipped.
+    // `onChanged` takes no signal, so its read cannot be cut at the deadline; a second
+    // read is not started while one is still in flight.
+    let inFlight = false;
+    const read = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        await onChanged();
+      } finally {
+        inFlight = false;
       }
-      await onChanged();
-    }, pollMs);
+    };
+    const stop = startVisiblePolling(read, pollMs, {}, { skipFirst: true });
     const focused = () => {
-      if (document.visibilityState === "visible") void onChanged();
+      if (document.visibilityState === "visible") void read();
     };
     window.addEventListener("focus", focused);
     return () => {
