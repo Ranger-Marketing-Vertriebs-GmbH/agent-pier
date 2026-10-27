@@ -1,4 +1,5 @@
 import { messageCommands } from "./fake-imap-messages.js";
+import { changeCapabilities, changeCommands } from "./fake-imap-changes.js";
 
 // In-memory folders and the command handlers of the fake IMAP server. Only what
 // imapflow sends is implemented; later mail tasks add their commands to `commands`
@@ -61,7 +62,15 @@ const text = (token) =>
     : token;
 
 function capabilities(session) {
-  const list = ["IMAP4rev1", "ID", "ENABLE", "NAMESPACE", "SPECIAL-USE", "LITERAL+"];
+  const list = [
+    "IMAP4rev1",
+    "ID",
+    "ENABLE",
+    "NAMESPACE",
+    "SPECIAL-USE",
+    "LITERAL+",
+    ...changeCapabilities(session.server.mailbox),
+  ];
   if (!session.authenticated) {
     if (session.server.security === "starttls" && !session.secure) list.push("STARTTLS");
     else list.push(...session.server.authMechanisms.map((name) => `AUTH=${name}`));
@@ -189,6 +198,7 @@ export const commands = {
     session.send(`${tag} OK Lsub completed`);
   },
   ...messageCommands,
+  ...changeCommands,
   LOGOUT(session, tag) {
     session.server.loggedOut++;
     session.send("* BYE Logging out");

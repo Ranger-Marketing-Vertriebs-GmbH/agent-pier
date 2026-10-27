@@ -17,6 +17,11 @@ const errorKeys = Object.freeze({
   MAIL_PLAINTEXT_REFUSED: "mailPlaintextRefused",
   MAIL_NOT_FOUND: "mailNotFound",
   MAIL_SEARCH_UNSUPPORTED: "mailSearchUnsupported",
+  MAIL_NO_TRASH: "mailNoTrash",
+  MAIL_NO_ARCHIVE: "mailNoArchive",
+  MAIL_NO_DRAFTS: "mailNoDrafts",
+  MAIL_ATTACHMENTS_UNSUPPORTED: "mailAttachmentsUnsupported",
+  MAIL_MOVE_UNSUPPORTED: "mailMoveUnsupported",
 });
 
 const unreachableCodes = new Set([

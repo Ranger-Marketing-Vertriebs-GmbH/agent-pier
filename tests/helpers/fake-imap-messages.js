@@ -6,6 +6,7 @@ import {
   partOf,
   searchable,
 } from "./fake-imap-mime.js";
+import { uidChange } from "./fake-imap-changes.js";
 
 // SELECT/EXAMINE, STATUS, UID SEARCH and UID FETCH of the fake IMAP server, over the
 // folders of fake-imap-mailbox.js. `mailbox.served` counts the body bytes FETCH sent;
@@ -86,6 +87,10 @@ function criteria(tokens, folder) {
     } else if (key === "UID") {
       const match = inSet(text(tokens.shift()), maxUid);
       tests.push((m) => match(m.uid));
+    } else if (/^[\d:*,]+$/.test(key)) {
+      // A sequence set (imapflow looks up an appended message's UID this way).
+      const match = inSet(key, folder.messages.length);
+      tests.push((m) => match(folder.messages.indexOf(m) + 1));
     } else throw new Error(`unsupported search key ${key}`);
   }
   return (m) => tests.every((t) => t(m));
@@ -113,6 +118,16 @@ const internal = (date) => {
   return `"${pad(d.getUTCDate())}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} +0000"`;
 };
 
+// The named header fields with their folded lines, and the blank line that ends them.
+function headerFields(header, names) {
+  const wanted = new Set(names.map((n) => n.toLowerCase()));
+  const lines = header.split(/\r\n(?![ \t])/).filter((line) => {
+    const colon = line.indexOf(":");
+    return colon > 0 && wanted.has(line.slice(0, colon).trim().toLowerCase());
+  });
+  return `${lines.map((line) => `${line}\r\n`).join("")}\r\n`;
+}
+
 // BODY[section]<start.length> and BODY.PEEK[...]: the section's bytes as latin1.
 function section(message, spec) {
   const upper = spec.toUpperCase();
@@ -120,6 +135,8 @@ function section(message, spec) {
   if (upper === "") return message.raw.toString("latin1");
   if (upper === "HEADER") return root.header;
   if (upper === "TEXT") return root.body;
+  const fields = upper.match(/^HEADER\.FIELDS \(([^)]*)\)$/);
+  if (fields) return headerFields(root.header, fields[1].split(" "));
   const mime = upper.endsWith(".MIME");
   const part = partOf(message, mime ? upper.slice(0, -5) : upper);
   if (!part) return "";
@@ -206,6 +223,7 @@ export const messageCommands = {
     const name = String(text(command)).toUpperCase();
     if (name === "SEARCH") return search(session, tag, rest);
     if (name === "FETCH") return fetch(session, tag, rest, true);
+    if (uidChange(session, tag, name, rest)) return;
     session.send(`${tag} BAD Unsupported UID command`);
   },
 };

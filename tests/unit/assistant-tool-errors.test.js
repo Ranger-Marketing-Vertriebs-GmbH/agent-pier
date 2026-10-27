@@ -53,6 +53,7 @@ const mailCodes = {
   mailRevoked: "MAIL_REVOKED",
   mailQueryEmpty: "MAIL_QUERY_EMPTY",
   mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
+  mailMoveUnsupported: "MAIL_MOVE_UNSUPPORTED",
 };
 
 test("mail problems carry stable codes, fixed English reasons and owner copy", () => {
