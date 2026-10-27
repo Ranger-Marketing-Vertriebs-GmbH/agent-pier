@@ -123,8 +123,9 @@ npm start
    under **CLIs and extensions › Installation**. **Search** (⌘K or Ctrl+K) finds every
    page, agent and action, also by its old name.
 3. Choose **+** in the sidebar's **Sessions** group (on a phone, **+ › Session** in the
-   header), pick a CLI, an account and a project folder, and start. The native
-   terminal handles CLI logins and menus; the chat shows the saved conversation.
+   header), pick a CLI, an account and a project folder, and start. Next time the
+   dialog preselects the CLI and account you last started with. The native terminal
+   handles CLI logins and menus; the chat shows the saved conversation.
 4. Optional: open **Agents** from the **Menu**, choose **Enable agents** and create one
    with **New agent** ([agents guide](docs/agents.md)).
 

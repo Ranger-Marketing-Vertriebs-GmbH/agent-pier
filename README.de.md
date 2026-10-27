@@ -137,7 +137,8 @@ npm start
    **Suchen** (⌘K oder Strg+K) findet jede Seite, jeden Agenten und jede Aktion, auch
    unter ihrem alten Namen.
 3. Wähle **+** in der Gruppe **Sessions** der Seitenleiste (am Handy **+ › Session** in
-   der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Das
+   der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Beim
+   nächsten Mal wählt der Dialog die zuletzt gestartete CLI und ihren Account vor. Das
    native Terminal übernimmt CLI-Anmeldungen und Menüs; der Chat zeigt den
    gespeicherten Verlauf.
 4. Optional: Öffne **Agenten** im **Menü**, wähle **Agenten aktivieren** und lege mit
