@@ -2019,7 +2019,8 @@ ChatGPT OAuth route through the Codex backend is not qualified without a real ac
 ### Managed agent browser
 
 **Install browser** in an agent's **Agent browser** settings (shown while no separate
-browser app is there) and the **Chrome for Testing** card on the dashboard install a
+browser app is there) and the **Chrome for Testing** card under **CLIs & extensions ›
+Installation** (or its row under **Your tools** on the start page) install a
 pinned [Chrome for Testing](https://github.com/GoogleChromeLabs/chrome-for-testing)
 build without Homebrew or administrator rights (`server/features/tools/`
 `chromium-installer.js`, `chromium-manifest.js`):
@@ -2055,8 +2056,10 @@ build without Homebrew or administrator rights (`server/features/tools/`
   changes the browser block. The agent settings then offer **Restart agent service**
   (`restartNeeded` in `GET /api/assistant-runtime`), with the usual confirmation; an
   agent switching its browser on meanwhile leaves a [pending restart](#pending-restart).
-- The dashboard card shows the installed version, **Update browser** when the
-  pinned version is newer and **Remove** (`DELETE /api/tools/chromium`). Removal is
+- The card under **CLIs & extensions › Installation** shows the installed version,
+  **Update browser** when the pinned version is newer and **Remove**
+  (`DELETE /api/tools/chromium`). The start page's row offers **Update** and keeps
+  **Remove** in its ⋯ menu. Removal is
   refused (409) while an agent browser runs or the running agent service was started
   with the managed browser; stop the agent service first. An update keeps the
   previous version until the next install, so a browser still running from it is not

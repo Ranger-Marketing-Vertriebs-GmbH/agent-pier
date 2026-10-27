@@ -1,7 +1,60 @@
 # System status
 
-The start page shows a compact **System status** row with three bars: **Disk**, **CPU**
-and **RAM**. Select the row to open the details. The dialog names the computer (cores,
+## Start page
+
+The start page (**Overview** in the sidebar **Menu**) shows what runs and what needs
+you, in a column up to about 1180 px wide:
+
+- **Header:** "Overview · <weekday, date>", a greeting by the time of day and a summary
+  such as "5 sessions working · 3 agents working · 2 things need you". Only parts that
+  are known and not zero appear. **New agent** (while agents are on) opens the agent
+  wizard; **New session** opens the launch dialog and stays disabled while no coding CLI
+  is installed.
+- **Needs you:** up to three cards, then "n more items" unfolds the rest. The
+  [Inbox](inbox.md) items come first, in its order; a card's button (**Answer**,
+  **Review**, **Decide**) opens the item in the Inbox, because the Inbox has no quick
+  actions. Then the host's own problems: AgentPier unreachable, [low disk
+  space](#low-disk-space) (**Free up space** opens **Storage**), a stopped agent service,
+  each CLI below its minimum version and each browser update (**Update**), Zugänge with
+  problems, a new AgentPier release and [sessions on the old tmux
+  server](#sessions-on-the-old-tmux-server). The section is hidden while nothing waits.
+  These sources are the ones the sidebar **Menu** reads for its hints; the start page
+  reads them again every 30 seconds while it is visible.
+- **Sessions** with state, since when, CPU, RAM and an open button, beside the
+  **System status** tile (below).
+- **Agents** with their team note ("Lead, 2 members", "shared, 3 users"), current
+  activity and state, and the agent service's state in the footer (absent while agents
+  are off), beside **Pipelines** with up to three runs (running, awaiting a decision,
+  failed), each with a bar per stage, and **All runs**.
+- **Your tools:** one row per CLI and utility with its version and one action:
+  **Install**, **Update** (when a CLI is below its minimum version, or for nono and a
+  Chrome for Testing update), **Start** for CLIs or **Connections** for the GitHub CLI.
+  The ⋯ menu holds every other action (**Update CLI**, **Update browser**, **Remove**).
+  **CLIs & extensions › Installation** keeps the full grid with every action.
+- A footer: your sessions keep running when you close the browser; everything runs
+  locally and only you have access.
+
+The sessions and agents lists sort what needs you first: sessions as waiting, working,
+ready, unknown, then stopped, each most recent first; agents as needs you, working,
+ready, offline. Filter chips with counts (**Running**, the default, **Waiting for you**,
+**Working**, **Ready**, **Stopped**; for agents **All**, **Needs you**, **Working**,
+**Ready**) and a search that matches every word against name, project and tool narrow
+them, and the counts follow the search. The cards show 6 sessions and 5 agents;
+"Show n more" lets the list scroll inside the card with its header in view, and
+changing the filter or the search folds it again. Stopped sessions show only under
+**Stopped**.
+
+On a phone the page is one column: **Session** and **Agent** as two large buttons,
+Needs you as compact rows, the system status as three small bars, four sessions and
+four agents with a row that shows all (the sidebar for sessions, the agents page for
+agents), and Pipelines and Your tools as two tiles that lead to their pages.
+
+### System status tile
+
+The **System status** tile shows CPU and RAM with their value and a sparkline of the
+last 20 minutes, the disk with free of total, and AgentPier's own CPU and RAM. The
+whole tile is one button that opens the details. When the figures cannot be read
+before any have arrived, the tile stays hidden. The dialog names the computer (cores,
 RAM and, when known, the platform), shows **Live · every 5 s**, and has three tabs:
 
 - **Load** (the dialog opens here): cards for CPU with the load average, RAM and disk; a
@@ -182,7 +235,8 @@ the details are open.
 ## Refresh and cost
 
 The start page and the details ask for new figures every five seconds while the page is
-visible. The server then samples every five seconds and returns to its background pace
+visible; the start page's figures (`GET /api/system-status`) include each session's CPU
+and RAM and the last points of the history, so it never reads the details. The server then samples every five seconds and returns to its background pace
 30 seconds after the last request. In the background it takes one sample a minute (CPU
 and memory of the computer and of AgentPier's processes: one `ps` call, plus `vm_stat`
 on macOS and one tmux listing), so the sparkline covers the whole last hour even when
@@ -193,8 +247,8 @@ break the line and are hatched.
 
 ## Low disk space
 
-When less than 10 % of the data directory's volume is free, the start page and the
-**Storage** tab show a warning and AgentPier sends one **Disk space is low** push notification to the devices
+When less than 10 % of the data directory's volume is free, the start page (under
+**Needs you**, and the tile's disk bar turns amber) and the **Storage** tab show a warning and AgentPier sends one **Disk space is low** push notification to the devices
 that [receive notifications](notifications.md). The warning clears when at least 12 % is
 free again; a disk that hovers around the threshold does not notify again, and neither
 does a restart during the same low-space episode.
@@ -203,8 +257,8 @@ does a restart during the same low-space episode.
 
 AgentPier was formerly called "tuiui". A tmux server that a release from before the
 rename started keeps running across updates, and AgentPier keeps using it while one of
-its sessions runs there, so no session is lost. Until then, the start page above the
-**System status** row and the **Sessions** list in the sidebar show a notice such as
+its sessions runs there, so no session is lost. Until then, **Needs you** on the start page
+and the **Sessions** list in the sidebar show a notice such as
 **2 sessions still run on the old tmux server** with the text "Stop these sessions when
 convenient; AgentPier then starts new sessions on the new server." and the names of
 those sessions. Stop them whenever it suits you (**Stop session**); new sessions join
@@ -220,8 +274,10 @@ stopped in the list but still counts in the notice; **Stop session** ends it. Se
 
 ## API
 
-`GET /api/system-status` returns the bars, the warning and the sessions on the old tmux
-server (`legacyTmux.sessions`, id and name only), and
+`GET /api/system-status` returns the bars, the warning, the sessions on the old tmux
+server (`legacyTmux.sessions`, id and name only), each running session's figures
+(`sessions`: `id`, `cpuPercent`, `rssBytes`; no name or folder) and the last 40 points
+of the history (`history`, 30-second buckets), and
 `GET /api/system-status/details` adds the host platform (`host.platform`, such as
 `darwin` or `linux`, or `null`), processes (sessions with their id, name, tool and folder
 name), history and data areas. Both require the workspace login like every other `/api`

@@ -5,7 +5,8 @@ waits for you, wherever it came from, so you do not have to visit each chat, run
 agent to find it. It sits in the sidebar directly under the brand with a live count; on
 a phone the header shows an inbox icon with the same count. The sidebar **Menu** does not
 repeat it. **Agents › All agents** shows how many agent approvals wait, with a link to
-the **Agents** tab here.
+the **Agents** tab here. The start page shows the first items under **Needs you**, and
+each card opens its item here (see [start page](system-status.md#start-page)).
 
 ## What it lists
 
