@@ -43,7 +43,9 @@ export async function unpackZip(file, dest, top, signal, limits = {}) {
           if (failed) return;
           failed = true;
           zip.close();
-          reject(cause?.status ? cause : bad(invalid));
+          // A full disk is passed through so the caller can name it.
+          if (["ENOSPC", "EDQUOT"].includes(cause?.code)) reject(cause);
+          else reject(cause?.status ? cause : bad(invalid));
         };
         zip.on("error", fail);
         zip.on("end", () => {
