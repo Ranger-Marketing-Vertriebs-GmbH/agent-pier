@@ -165,7 +165,8 @@
 .start-row-grid.start-row-agents {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.start-row-grid.single {
+.start-row-grid.single,
+.start-row-sessions:not(:has(> .start-system)) {
   grid-template-columns: minmax(0, 1fr);
 }
 

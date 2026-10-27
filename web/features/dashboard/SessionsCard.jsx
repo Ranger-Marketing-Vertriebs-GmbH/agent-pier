@@ -21,13 +21,18 @@ const dots = {
   stopped: "pending",
 };
 
+/** A short span in words ("3 min", "just now"); "" while unknown. */
+export function spanText(then, now = Date.now()) {
+  const span = shortSpan(then, now);
+  if (!span) return "";
+  return span.unit === "now" ? copy.span.now : copy.span[span.unit](span.value);
+}
+
 /** "for 3 min" while working, else "2 min ago"; nothing while the time is unknown. */
 export function stateTime(item, now = Date.now()) {
   if (item.state === "stopped") return "";
-  const span = shortSpan(item.time, now);
-  if (!span) return "";
-  const text = span.unit === "now" ? copy.span.now : copy.span[span.unit](span.value);
-  if (span.unit === "now") return text;
+  const text = spanText(item.time, now);
+  if (!text || text === copy.span.now) return text;
   return item.state === "working" ? copy.since(text) : copy.ago(text);
 }
 

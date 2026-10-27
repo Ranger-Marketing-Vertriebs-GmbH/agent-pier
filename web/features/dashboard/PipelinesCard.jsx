@@ -4,9 +4,15 @@ import { isPlainClick } from "../../components/link-click.js";
 import { routePath } from "../../app/routes.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { runStatusLabel } from "../pipelines/run-codes.js";
-import { runProgress, runProject, runStatusTone } from "../pipelines/run-presentation.js";
+import {
+  runProgress,
+  runProject,
+  runStatusTone,
+  runUpdatedAt,
+} from "../pipelines/run-presentation.js";
 import { runTitle } from "../pipelines/run-title.js";
 import { runSegments, startRuns } from "./start-agents.js";
+import { spanText } from "./SessionsCard.jsx";
 
 const allRuns = { view: "pipelines" };
 const runRoute = (id) => ({ view: "pipelines", pipelineTab: "runs", pipelineItem: id });
@@ -27,10 +33,18 @@ function Link({ route, navigate, className, children }) {
   );
 }
 
+// "Stage 3 of 5 · Verification · for 18 min"; a failed run says how long ago.
 function detail(run) {
   const { done, total, current } = runProgress(run);
   const stage = current?.profileSnapshot?.name || current?.id || "";
-  return [total ? copy.runStage(Math.min(done + 1, total), total) : "", stage]
+  const span = spanText(Date.parse(runUpdatedAt(run) || ""));
+  const time =
+    !span || span === copy.span.now
+      ? span
+      : run.status === "failed"
+        ? copy.ago(span)
+        : copy.since(span);
+  return [total ? copy.runStage(Math.min(done + 1, total), total) : "", stage, time]
     .filter(Boolean)
     .join(" · ");
 }
