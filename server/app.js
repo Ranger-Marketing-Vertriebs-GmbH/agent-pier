@@ -101,6 +101,7 @@ import { pluginsRoutes } from "./http/routes/plugins.js";
 import { chatRoutes } from "./http/routes/chat.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
+import { reaRoutes } from "./http/routes/rea.js";
 import { agentbusRoutes } from "./http/routes/agentbus.js";
 import {
   detectNetworkAddresses,
@@ -248,14 +249,19 @@ export async function createApplication(config) {
     stageToolchainsInBackground({ dataDir: config.dataDir }),
   );
   // Marks installs a restart interrupted as failed and prunes in the background.
+  // REA's sweep and server-start update follow once the package records settled.
   server.once("listening", () => {
+    let started;
     try {
-      services.mcpPackages?.start();
+      started = services.mcpPackages?.start();
     } catch (error) {
       console.error(
         `AgentPier could not start MCP packages: ${error?.code || "unknown error"}`,
       );
     }
+    Promise.resolve(started)
+      .catch(() => {})
+      .then(() => services.rea?.start());
   });
   server.once("listening", () => {
     const report = (error) =>
@@ -362,6 +368,7 @@ export async function createApplication(config) {
   mount(chatRoutes(services));
   mount(modelsRoutes(services));
   mount(toolsRoutes(services));
+  mount(reaRoutes(services));
   mount(agentbusRoutes(services));
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));

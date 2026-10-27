@@ -47,6 +47,8 @@ export function workspaceRoutes(services) {
         ),
         // The managed agent browser, which only AgentPier installs.
         ...(config.dataDir ? [chromiumUtility(path.join(config.dataDir, "clis"))] : []),
+        // The managed REA tool (rea-tool.js); absent without the MCP server store.
+        ...(services.rea ? [services.rea.utility()] : []),
       ],
       accounts: accounts.list(),
       sharedCliExtensions: true,

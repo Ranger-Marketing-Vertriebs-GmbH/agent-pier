@@ -34,4 +34,17 @@ export const rea = Object.freeze({
   idaConfigRequired:
     "Der Analyseanbieter IDA braucht den Pfad zu einer IDA-MCP-Konfiguration.",
   invalidProvider: "REAs Analyseanbieter muss Ghidra oder IDA sein.",
+  busy: "REA wird gerade installiert, geändert oder entfernt. Warte, bis das fertig ist.",
+  inUse:
+    "REA läuft gerade in einer Session oder bei einem Agenten. Beende sie, bevor du REAs Bestandteile entfernst, änderst oder aktualisierst.",
+  confirmationRequired: "Bestätige zuerst die Installation von REA.",
+  notInstalled: "REA ist nicht installiert.",
+  rowBroken:
+    "Der MCP-Server von REA hat kein installiertes REA Core. Entferne REA und installiere es erneut.",
+  installingCore: "REA Core wird installiert …",
+  removing: (name) => `${name} für REA wird entfernt …`,
+  configuring: "REAs Umgebung wird eingerichtet …",
+  copyingSkill: "REAs Skill wird in die CLIs kopiert …",
+  coreFailed: "REA Core konnte nicht installiert werden.",
+  failed: "REA konnte nicht installiert oder geändert werden.",
 });
