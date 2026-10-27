@@ -17,6 +17,7 @@ import { mcpServersPresent } from "./mcp-server-backup.js";
 import { usersPresent } from "../users/user-backup.js";
 import { sftpHostsOmission, sftpHostsPresent } from "../ssh/sftp-backup.js";
 import { secretsOmission, secretsPresent } from "../secrets/secret-backup.js";
+import { mailAccountsOmission, mailAccountsPresent } from "../mail/mail-backup.js";
 import { applicationVersion } from "./version.js";
 import { privateContentOmissions } from "./private-content.js";
 import { problem } from "../../lib/storage.js";
@@ -62,6 +63,7 @@ export class Backup {
     const users = usersPresent(this.dataDir);
     const sftpHosts = sftpHostsPresent(this.dataDir);
     const secrets = secretsPresent(this.dataDir);
+    const mailAccounts = mailAccountsPresent(this.dataDir);
     const sealing = options.includeHistory && options.withCredentials;
     return {
       components: [
@@ -100,6 +102,7 @@ export class Backup {
               ...(users ? ["encrypted-user-passwords"] : []),
               ...(sftpHosts ? ["sealed-sftp-hosts"] : []),
               ...(secrets ? ["sealed-secrets"] : []),
+              ...(mailAccounts ? ["sealed-mail-accounts"] : []),
             ]
           : []),
       ],
@@ -124,6 +127,7 @@ export class Backup {
         ...(users && !options.withCredentials ? [userPasswordOmission] : []),
         ...(sftpHosts && !options.withCredentials ? [sftpHostsOmission] : []),
         ...(secrets && !options.withCredentials ? [secretsOmission] : []),
+        ...(mailAccounts && !options.withCredentials ? [mailAccountsOmission] : []),
         ...(!options.withCredentials
           ? ["Managed native configuration and credentials"]
           : []),

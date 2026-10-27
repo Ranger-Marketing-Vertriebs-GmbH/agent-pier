@@ -39,6 +39,7 @@ import { stagePath } from "./stage-path.js";
 import { restoreUsers } from "../users/user-backup.js";
 import { restoreSftpHosts } from "../ssh/sftp-backup.js";
 import { restoreSecrets } from "../secrets/secret-backup.js";
+import { restoreMailAccounts } from "../mail/mail-backup.js";
 
 // Histories read line by line: an archived prefix of them stays valid.
 const lineBased = /\.(?:jsonl|screen)$/;
@@ -47,7 +48,7 @@ const lineBased = /\.(?:jsonl|screen)$/;
 const publicPath =
   /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|users\/users\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 const secretPath =
-  /^((?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json|users\/credentials\.json|ssh\/sftp-hosts\.json|secrets\/secrets\.json)$/;
+  /^((?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json|users\/credentials\.json|ssh\/sftp-hosts\.json|secrets\/secrets\.json|mail\/accounts\.json)$/;
 // Version 1 capsules carried whole profile folders.
 const legacyProfilePath = /^profiles\/[A-Za-z0-9_-]+\/.+$/;
 /** Whether `name` may be restored as a public (or, with `credentials`, sealed) member. */
@@ -355,6 +356,7 @@ export class Restore {
       remapClaudeProjects(stage, projectMappings);
       const sftpHosts = restoreSftpHosts(stage, projectMappings);
       const restoredSecrets = restoreSecrets(stage, projectMappings);
+      const mailAccounts = restoreMailAccounts(stage);
       const counts = historicalOnly(stage);
       const usersNeedingPassword = restoreUsers(stage);
       const auditFile = path.join(stage, "audit/events.json");
@@ -409,6 +411,7 @@ export class Restore {
         ...(staged.cachesLeftOut ? { cachesLeftOut: staged.cachesLeftOut } : {}),
         ...(sftpHosts ? { sftpHosts } : {}),
         ...(restoredSecrets ? { secrets: restoredSecrets } : {}),
+        ...(mailAccounts ? { mailAccounts } : {}),
       };
       fs.writeFileSync(
         path.join(stage, "restore-report.json"),

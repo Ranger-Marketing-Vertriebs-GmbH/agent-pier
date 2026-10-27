@@ -239,6 +239,36 @@ Secrets (see [Secrets](secrets.md)) are credentials, so they follow the same rul
   history"). Ordinary backups, and credential backups without secrets, still restore
   on older releases.
 
+## Email accounts in backups
+
+Agents' email accounts (IMAP/SMTP) and their passwords follow the same rule as password
+SFTP hosts:
+
+- An ordinary backup and a backup without **Include encrypted credentials** hold
+  nothing below `mail/`: neither the accounts nor their passwords. When accounts exist,
+  the plan and manifest list "Email accounts and passwords (only in backups with a
+  passphrase, then encrypted)".
+- With **Include encrypted credentials**, the plan lists the component
+  `sealed-mail-accounts`, shown as "Email accounts and their passwords (encrypted)". The
+  accounts and passwords travel only in the passphrase capsule as `mail/accounts.json`
+  (`{ version: 1, accounts, passwords }`).
+- An account whose password could not be read when the backup was taken is left out and
+  named in the plan and manifest: `Email account "<name>" (its password could not be
+read)`. Only the account's name appears there, never the password or the address.
+- A restore checks every account before it writes anything; an invalid one, or one
+  without its password, fails the restore with "Unexpected backup component." It keeps
+  the account ids, so agents' grants work again, writes the passwords with owner-only
+  permissions and leaves the accounts in `mail/mail-restore.json`. The first start of
+  the restored data directory adds them to the catalog and removes that file; an id
+  that already exists there is skipped and keeps its own fields. Until that import, the
+  restored passwords stay pending, so a password never outlives an account that was not
+  imported. The last connection test is not restored. The restore report holds
+  `mailAccounts: { restored }`; the Operations page does not show it.
+- **Older releases cannot restore such a backup.** Releases before email accounts reject
+  a credential backup that holds them with "Unexpected backup component.", because the
+  capsule member is unknown to them. Ordinary backups, and credential backups without
+  email accounts, still restore on older releases.
+
 ## CLI profile allowlists
 
 A managed profile lives in `<data>/profiles/<account>/`; a provider profile keeps its

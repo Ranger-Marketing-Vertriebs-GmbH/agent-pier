@@ -6,6 +6,7 @@ import { privateDirectory, problem, readJSON, writePrivate } from "../../lib/sto
 import { auditActor } from "../audit/audit-actor.js";
 import { SshPasswordStore } from "../ssh/ssh-password-store.js";
 import { accountInput } from "./mail-account-fields.js";
+import { mailRestoreFile, mergeRestoredMailAccounts } from "./mail-backup.js";
 import { smtpSend, testMailAccount, withImap } from "./mail-connection.js";
 
 const VERSION = 1;
@@ -57,18 +58,33 @@ export class MailAccountStore {
     this.ready = Promise.resolve().then(() => this.recover());
   }
 
-  // Drops passwords of writes that crashed before their catalog commit and the
-  // revisions a crashed password change left beside the committed one.
+  // Adds the accounts a restore left, then drops passwords of writes that crashed
+  // before their catalog commit and the revisions a crashed password change left
+  // beside the committed one.
   recover() {
     if (!fs.existsSync(this.root)) return;
     // A failed cleanup only leaves files behind; it never stops startup.
     try {
+      // Before the cleanup: a restored password stays pending until this import.
+      this.importRestored();
       const rows = this.rows();
       this.passwords.removeOrphans(rows.map((row) => row.id));
       for (const row of rows) this.passwords.removeOthers(row.id, row.credentialRevision);
     } catch (error) {
       console.warn(`Mail accounts kept their password files (${error.code || "error"}).`);
     }
+  }
+
+  /** Adds the accounts a restore left behind; repeated after an interruption. */
+  importRestored() {
+    const file = path.join(this.root, mailRestoreFile);
+    if (!fs.existsSync(file)) return;
+    const merged = mergeRestoredMailAccounts(file, {
+      version: VERSION,
+      accounts: this.rows(),
+    });
+    if (merged) this.save(merged.accounts);
+    fs.rmSync(file, { force: true });
   }
 
   rows() {

@@ -21,6 +21,7 @@ import {
   removedOmission,
 } from "../../server/features/operations/archive-v2.js";
 import { secretsOmission } from "../../server/features/secrets/secret-backup.js";
+import { mailAccountsOmission } from "../../server/features/mail/mail-backup.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
 import { backupCopy as de } from "../../web/lib/i18n/de/operations.js";
 import { backupCopy as en } from "../../web/lib/i18n/en/operations.js";
@@ -54,6 +55,9 @@ test("every backup scope entry has a German and an English label", (t) => {
     // Listed only on a host with secrets.
     "sealed-secrets",
     secretsOmission,
+    // Listed only on a host with email accounts.
+    "sealed-mail-accounts",
+    mailAccountsOmission,
     removedOmission,
     changedOmission,
     legacy,
