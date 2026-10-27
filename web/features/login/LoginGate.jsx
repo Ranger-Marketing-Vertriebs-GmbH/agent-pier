@@ -1,6 +1,7 @@
 import { startupStage } from "../../startup/status.js";
 import useLanguage from "../../lib/i18n/useLanguage.js";
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 import { endPushSubscription, knownDevice } from "../notifications/device-identity.js";
@@ -55,10 +56,15 @@ export default function LoginGate({ children }) {
     window.addEventListener("agentpier-login-required", expired);
     window.addEventListener("storage", changed);
     window.addEventListener("focus", refresh);
-    const timer = setInterval(refresh, 60000);
+    // The first run is the explicit refresh above; later runs only while visible.
+    let first = true;
+    const stop = startVisiblePolling(async () => {
+      if (first) first = false;
+      else await refresh();
+    }, 60000);
     return () => {
       invalidate();
-      clearInterval(timer);
+      stop();
       window.removeEventListener("agentpier-login-required", expired);
       window.removeEventListener("storage", changed);
       window.removeEventListener("focus", refresh);

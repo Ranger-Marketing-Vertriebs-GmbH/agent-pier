@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { runStatuses } from "./run-presentation.js";
 
 // Every listing is a full scan on the server, so the pills poll slowly.
@@ -48,9 +49,7 @@ export default function useRunStatusCounts({
   const key = JSON.stringify([projectId, version, changes]);
   useEffect(() => {
     if (!enabled) return;
-    const controller = new AbortController();
-    let timer;
-    const read = async () => {
+    const read = async (signal) => {
       try {
         const totals = await Promise.all(
           runStatuses.map((status) =>
@@ -61,23 +60,17 @@ export default function useRunStatusCounts({
               })}`,
               "GET",
               undefined,
-              controller.signal,
+              signal,
             ).then((data) => [status, data.total || 0]),
           ),
         );
-        if (!controller.signal.aborted)
+        if (!signal.aborted)
           setState({ key, projectId, counts: Object.fromEntries(totals) });
       } catch {
         // The run list reports request failures; the pills keep their last counts.
-      } finally {
-        if (!controller.signal.aborted) timer = setTimeout(read, pillPoll);
       }
     };
-    read();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
+    return startVisiblePolling(read, pillPoll);
   }, [key, enabled, projectId]);
   // A refresh keeps the last counts of the same project until the new ones arrive.
   return state.projectId === projectId ? state.counts : null;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 
@@ -20,17 +21,11 @@ export default function useSessionReload(session, pending) {
     };
   }, []);
   useEffect(() => {
-    const controller = new AbortController();
-    let timer;
-    async function poll() {
+    async function poll(signal) {
       const version = epoch.current;
       try {
-        const result = await api(path, "GET", undefined, controller.signal);
-        if (
-          !controller.signal.aborted &&
-          !mutating.current &&
-          version === epoch.current
-        ) {
+        const result = await api(path, "GET", undefined, signal);
+        if (!signal.aborted && !mutating.current && version === epoch.current) {
           setData(result);
           if (pending.current && pending.current.requestId === result.requestId) {
             pending.current = null;
@@ -40,21 +35,15 @@ export default function useSessionReload(session, pending) {
         }
       } catch (err) {
         if (
-          !controller.signal.aborted &&
+          !signal.aborted &&
           !mutating.current &&
           version === epoch.current &&
           !submissionError.current
         )
           setError(err.message);
-      } finally {
-        if (!controller.signal.aborted) timer = setTimeout(poll, 1500);
       }
     }
-    poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
+    return startVisiblePolling(poll, 1500);
   }, [path, revision, pending]);
   async function submit(mode, interrupt = false, targetAccountId) {
     if (mutating.current) return;

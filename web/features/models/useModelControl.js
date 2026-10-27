@@ -1,4 +1,5 @@
 import { modelRequest } from "./model-request.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react";
 const emptyState = {
@@ -91,42 +92,32 @@ export default function useModelControl({ session, active, request, onPendingCha
   }, [blocked, onPendingChange]);
   useEffect(() => {
     if (!active) return;
-    const controller = new AbortController();
-    let alive = true,
-      timer;
-    const poll = async () => {
+    const poll = async (signal) => {
       const version = generation.current;
-      if (!mutating.current) {
-        try {
-          const result = await modelRequest(
-            requestRef.current,
-            `/sessions/${session.id}/models`,
-            "GET",
-            undefined,
-            copy.refreshTimeout,
-            controller.signal,
-          );
-          if (alive && version === generation.current && !mutating.current) {
-            setReconciling(false);
-            setReadError("");
-            setState({
-              ...emptyState,
-              ...result,
-            });
-          }
-        } catch (err) {
-          if (alive && version === generation.current && !mutating.current)
-            setReadError(err.message);
+      if (mutating.current) return;
+      try {
+        const result = await modelRequest(
+          requestRef.current,
+          `/sessions/${session.id}/models`,
+          "GET",
+          undefined,
+          copy.refreshTimeout,
+          signal,
+        );
+        if (!signal.aborted && version === generation.current && !mutating.current) {
+          setReconciling(false);
+          setReadError("");
+          setState({
+            ...emptyState,
+            ...result,
+          });
         }
+      } catch (err) {
+        if (!signal.aborted && version === generation.current && !mutating.current)
+          setReadError(err.message);
       }
-      if (alive) timer = setTimeout(poll, 3000);
     };
-    poll();
-    return () => {
-      alive = false;
-      controller.abort();
-      clearTimeout(timer);
-    };
+    return startVisiblePolling(poll, 3000);
   }, [active, session.id, revision]);
   useEffect(() => {
     if (!active || !pickerToken) return;

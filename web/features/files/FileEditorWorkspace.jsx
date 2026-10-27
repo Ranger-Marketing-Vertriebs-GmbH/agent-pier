@@ -6,6 +6,7 @@ import FileEditorTabs from "./FileEditorTabs.jsx";
 import { requestNavigation as requestFileNavigation } from "../../lib/navigation-guard.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
@@ -57,30 +58,18 @@ export default function FileEditorWorkspace({
   };
   useEffect(() => {
     if (!current || !tab?.document) return;
-    let controller = null;
-    const poll = () => {
-      if (document.hidden) return;
-      controller?.abort();
-      controller = new AbortController();
-      observe(tab.id, controller.signal);
-    };
-    poll();
-    const timer = window.setInterval(poll, 5000);
+    const stop = startVisiblePolling((signal) => observe(tab.id, signal), 15000);
     const focus = () => {
-      if (!document.hidden) poll();
+      if (!document.hidden) observe(tab.id);
     };
     const visibility = () => {
-      if (document.hidden) {
-        controller?.abort();
-        invalidateObservation(tab.id);
-      } else poll();
+      if (document.hidden) invalidateObservation(tab.id);
     };
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", visibility);
     return () => {
-      controller?.abort();
+      stop();
       invalidateObservation(tab.id);
-      clearInterval(timer);
       window.removeEventListener("focus", focus);
       document.removeEventListener("visibilitychange", visibility);
     };
