@@ -154,6 +154,11 @@ test("the agent proposes a hook only in a direct owner turn", async (t) => {
     key: "invalid",
     status: 400,
   });
+  // So is email.
+  await assert.rejects(f.call({ ...proposal, rights: { mail: true } }), {
+    key: "invalid",
+    status: 400,
+  });
   // An agent with reminders off may not hold hooks at all.
   f.setCaps({ memory: false, reminders: false, webSearch: true });
   await assert.rejects(f.call(proposal), { key: "hookUnavailable", status: 403 });

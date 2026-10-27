@@ -7,7 +7,9 @@ import { validateHeartbeat } from "./heartbeat-schedule.js";
 export const assistantProblem = (key, status = 400) =>
   Object.assign(
     problem(
-      serverMessages.assistants[key] ?? serverMessages.agentCodingSessions[key],
+      serverMessages.assistants[key] ??
+        serverMessages.agentCodingSessions[key] ??
+        serverMessages.mail[key],
       status,
     ),
     { key },

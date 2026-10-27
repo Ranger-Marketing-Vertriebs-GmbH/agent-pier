@@ -22,4 +22,8 @@ export const mail = Object.freeze({
   catalogUnreadable: "Die gespeicherten E-Mail-Kontodaten können nicht gelesen werden.",
   testRateLimited:
     "Zu viele Verbindungstests für E-Mail-Zugänge. Bitte in einer Minute erneut versuchen.",
+  mailAccountUnavailable:
+    "Diesen E-Mail-Zugang gibt es nicht mehr. Lade die Seite neu und wähle erneut.",
+  telegramSendersMail:
+    "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen E-Mail-Zugang haben. Entferne den E-Mail-Zugang oder trenne zuerst den Bot.",
 });

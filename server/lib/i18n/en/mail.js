@@ -18,4 +18,8 @@ export const mail = Object.freeze({
     "Enter the password again when you change a mail server, port or security.",
   catalogUnreadable: "The saved email accounts cannot be read.",
   testRateLimited: "Too many email connection tests. Try again in a minute.",
+  mailAccountUnavailable:
+    "This email account no longer exists. Reload the page and choose again.",
+  telegramSendersMail:
+    "An agent with its own Telegram bot for other people cannot have email access. Remove the email access or disconnect the bot first.",
 });

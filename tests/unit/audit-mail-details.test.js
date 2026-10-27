@@ -68,3 +68,33 @@ test("an assistant mail-grants event keeps its kind", () => {
   });
   assert.deepEqual(audited.details, { kind: "mail-grants" });
 });
+
+test("mail grant changes keep account ids, a rule count and the reason only", () => {
+  const audited = auditEvent({
+    action: "assistant.updated",
+    resourceType: "assistant",
+    resourceId: "agent-1",
+    source: "user",
+    outcome: "success",
+    details: {
+      kind: "mail-grants",
+      revision: 3,
+      added: [accountId, "bob@example.com"],
+      removed: [],
+      changed: [accountId],
+      ruleCount: 2,
+      reason: "account-removed",
+      recipients: ["bob@example.com"],
+      address: "owner@example.com",
+    },
+  });
+  assert.deepEqual(audited.details, {
+    kind: "mail-grants",
+    revision: 3,
+    added: [accountId],
+    removed: [],
+    changed: [accountId],
+    ruleCount: 2,
+    reason: "account-removed",
+  });
+});

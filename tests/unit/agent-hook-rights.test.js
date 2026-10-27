@@ -19,6 +19,7 @@ const none = {
   memory: false,
   mcp: false,
   secrets: false,
+  mail: false,
   webSearch: false,
   webFetch: false,
 };
@@ -224,4 +225,25 @@ test("hookTools offers agentpier_coding_session only with the Coding tick", () =
       "agentpier_coding_session",
     ),
   );
+});
+
+test("the Email tick needs a mail grant and lapses with it", () => {
+  assert.equal(hookDefaults.mail, false);
+  assert.throws(() => rightsInput({ mail: true }, { ...none, mail: false }), {
+    status: 400,
+    key: "hookRightExceeds",
+  });
+  assert.equal(rightsInput({ mail: true }, { ...none, mail: true }).mail, true);
+  const rights = { ...hookDefaults, sshHosts: [], folders: {} };
+  assert.equal(
+    effectiveRights({ ...rights, mail: true }, { ...none, mail: false }).mail,
+    false,
+  );
+  assert.equal(
+    effectiveRights({ ...rights, mail: true }, { ...none, mail: true }).mail,
+    true,
+  );
+  // A hook stored before the right existed runs without mail.
+  const { mail: _mail, ...legacy } = rights;
+  assert.equal(effectiveRights(legacy, { ...none, mail: true }).mail, false);
 });

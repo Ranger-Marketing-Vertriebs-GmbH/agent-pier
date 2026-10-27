@@ -10,7 +10,8 @@ import {
 /**
  * What a new hook may do: it can tell the owner and nothing else. `secrets`: a run may
  * read the agent's secrets file; without it the file is withheld while the run works
- * (AgentHooks.withholdsSecrets, agent-secrets.js).
+ * (AgentHooks.withholdsSecrets, agent-secrets.js). `mail`: a run may use the agent's
+ * email accounts as granted.
  */
 export const hookDefaults = Object.freeze({
   notify: true,
@@ -23,8 +24,9 @@ export const hookDefaults = Object.freeze({
   memory: false,
   mcp: false,
   secrets: false,
+  mail: false,
 });
-const tickKeys = ["telegram", "research", "coding", "memory", "mcp", "secrets"];
+const tickKeys = ["telegram", "research", "coding", "memory", "mcp", "secrets", "mail"];
 const rightKeys = Object.keys(hookDefaults);
 const folderLevels = ["read", "write"];
 const maxHosts = 100;
