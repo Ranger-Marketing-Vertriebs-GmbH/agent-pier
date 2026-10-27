@@ -247,6 +247,22 @@ test("the start compile writes each eligible agent's list over defaults of none"
     assert.equal(entries[id].skills, undefined);
 });
 
+test("every compile scans only the catalog root", () => {
+  const paths = {
+    workspaces: "/d/assistants/workspaces",
+    logs: "/d/l",
+    catalogSkills: "/d/assistants/skill-catalog/skills",
+  };
+  const config = compileOpenClawConfig({
+    existing: { skills: { load: { extraDirs: ["/x"] } } },
+    paths,
+    port: 1,
+    token: "t",
+    teams: null,
+  });
+  assert.deepEqual(config.skills.load, { extraDirs: [paths.catalogSkills], watch: true });
+});
+
 test("skill folders that would replace a bundled skill are found by any name", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "skill-shadows-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

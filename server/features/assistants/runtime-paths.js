@@ -21,5 +21,8 @@ export function runtimePaths(dataDir) {
   for (const name of ["home", "state", "workspaces", "logs", "runtimes", "tmp"])
     paths[name] = privateFolder(path.join(root, name));
   paths.config = path.join(paths.state, "openclaw.json");
+  // AgentPier's skill catalog; only its skills folder is scanned (skills.load).
+  paths.skillCatalog = privateFolder(path.join(root, "skill-catalog"));
+  paths.catalogSkills = privateFolder(path.join(paths.skillCatalog, "skills"));
   return paths;
 }

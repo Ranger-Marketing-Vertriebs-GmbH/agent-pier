@@ -26,15 +26,18 @@ export const confirmFull = { confirmShell: true, confirmFull: true };
  * exec approval intake and decisions (AssistantWorkflows) on the supervisor's own
  * client. The owner account is simulated in the test directory (`h.owner`), never
  * the developer's HOME; its `bin` is the owner's login PATH. The model calls
- * `exec` with the command registered for the `[cmd:<label>]` in the turn's text.
+ * `exec` with the command registered for the `[cmd:<label>]` in the turn's text;
+ * a call the optional `tool(input)` returns wins over that mapping.
  */
-export async function compiledShell(t, installed, { prefix }) {
+export async function compiledShell(t, installed, { prefix, tool: custom }) {
   assert.ok(path.isAbsolute(installed));
   const dataDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   const owner = ownerAccount(dataDir);
   owner.tree = listTree(owner.home);
   const commands = new Map();
   const tool = (input) => {
+    const own = custom?.(input);
+    if (own) return own;
     const text = JSON.stringify(input.messages);
     const label = [...commands.keys()].find((l) => text.includes(`[cmd:${l}]`));
     return label && { name: "exec", arguments: { command: commands.get(label) } };

@@ -163,6 +163,9 @@ export function compileOpenClawConfig({
   // Not a gate: OpenClaw reads an empty allowBundled as "every bundled skill". The
   // agents' own lists are the gate (agents.defaults.skills below, agentEntry).
   config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
+  // Compiler-owned, never from overrides: the only extra skill root is AgentPier's
+  // catalog; each agent's own list decides which of its skills it sees.
+  config.skills.load = { extraDirs: [paths.catalogSkills], watch: true };
   config.agents.defaults.heartbeat = hardened.heartbeat;
   // Compiler-owned: only applyWebTools sets the image model, while an agent creates
   // images and a ChatGPT account is ready; a stale one would keep the tool offered.
