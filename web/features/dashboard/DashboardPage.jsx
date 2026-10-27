@@ -5,7 +5,7 @@ import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { useHintsOf, useMenuHintSources } from "../../app/useMenuHints.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useAssistants, { idleAssistants } from "../assistants/useAssistants.js";
-import useInbox from "../inbox/useInbox.js";
+import useStartInbox from "./useStartInbox.js";
 import useSystemStatus from "./useSystemStatus.js";
 import { attentionItems, systemAttention } from "./attention.js";
 import { startAgents } from "./start-agents.js";
@@ -45,7 +45,7 @@ export default function DashboardPage({
   const status = useSystemStatus("/system-status", !dialog);
   const sources = useMenuHintSources(true, { poll: HINT_POLL_MS });
   const hints = useHintsOf(sources, state, ready);
-  const inbox = useInbox();
+  const inbox = useStartInbox();
   const feature = useAssistantFeature();
   const assistants = useAssistants();
   const agentsEnabled = feature.enabled;
@@ -62,7 +62,7 @@ export default function DashboardPage({
     legacyTmux: state.legacyTmux?.sessions,
   });
   const attention = attentionItems({
-    inbox: inbox.loading || inbox.error ? null : inbox.items,
+    inbox,
     system,
   });
   const counts = {
