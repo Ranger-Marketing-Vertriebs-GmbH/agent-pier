@@ -1,6 +1,8 @@
 import { useProfilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.js";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePagination } from "../../components/Pagination.jsx";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 export default function useProfilePlugins({ account, request, setParentBusy }) {
   const [data, setData] = useState(null),
     [loading, setLoading] = useState(true),
@@ -33,19 +35,29 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
     },
     [catalogAccountId],
   );
-  const load = useCallback(async () => {
-    const read = ++reads.current;
-    setLoading(true);
-    setError("");
-    try {
-      const next = await request(readEndpoint);
-      if (alive.current && reads.current === read) receive(next);
-    } catch (e) {
-      if (alive.current && reads.current === read) setError(e.message);
-    } finally {
-      if (alive.current && reads.current === read) setLoading(false);
-    }
-  }, [request, readEndpoint, receive]);
+  const read = useCallback(
+    async (signal) => {
+      const current = ++reads.current;
+      setLoading(true);
+      setError("");
+      try {
+        const next = await request(readEndpoint, "GET", undefined, signal);
+        if (alive.current && reads.current === current) receive(next);
+      } catch (e) {
+        // A deadline abort reports the timeout; hiding or stopping stays silent.
+        if (
+          alive.current &&
+          reads.current === current &&
+          (!signal?.aborted || timedOut(signal))
+        )
+          setError(timedOut(signal) ? apiCopy.timedOut : e.message);
+      } finally {
+        if (alive.current && reads.current === current) setLoading(false);
+      }
+    },
+    [request, readEndpoint, receive],
+  );
+  const load = useCallback(() => read(), [read]);
   useEffect(() => {
     alive.current = true;
     load();
@@ -54,10 +66,17 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
     };
   }, [load]);
   useEffect(() => {
-    if (!data?.busy || busy) return;
-    const timer = setTimeout(() => load(), 2000);
-    return () => clearTimeout(timer);
-  }, [data, busy, load]);
+    if (!data?.busy || busy) return undefined;
+    // The first run is skipped: the read that showed the busy state just happened.
+    let first = true;
+    return startVisiblePolling((signal) => {
+      if (first) {
+        first = false;
+        return undefined;
+      }
+      return read(signal);
+    }, 2000);
+  }, [data?.busy, busy, read]);
   useEffect(() => {
     if (market && data && !data.marketplaces.some((m) => m.name === market))
       setMarket("");

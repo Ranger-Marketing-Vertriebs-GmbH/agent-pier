@@ -135,7 +135,8 @@ export const assistantApi = {
   resolveMcpCommand: (name) =>
     api(`/mcp-commands/resolve?name=${encodeURIComponent(name)}`),
   previewMcpPackage: (input) => api("/mcp-packages/preview", "POST", input),
-  mcpPackageStatus: (id) => api(`/mcp-servers/${encodeURIComponent(id)}/package`),
+  mcpPackageStatus: (id, signal) =>
+    api(`/mcp-servers/${encodeURIComponent(id)}/package`, "GET", undefined, signal),
   updateMcpPackage: (id, input) =>
     api(`/mcp-servers/${encodeURIComponent(id)}/package/update`, "POST", input),
   reinstallMcpPackage: (id) =>
