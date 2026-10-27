@@ -17,6 +17,7 @@ import { RequestBroker } from "../features/requests/request-broker.js";
 import { Operations } from "../features/operations/operations.js";
 import { ProjectMemory } from "../features/memory/project-memory.js";
 import { AuditStore } from "../features/audit/audit-store.js";
+import { MailAccountStore } from "../features/mail/mail-account-store.js";
 import { MutationBarrier } from "./mutation-barrier.js";
 import { ProjectRebind } from "./project-rebind.js";
 import { MemoryIntegration } from "../features/memory/memory-integration.js";
@@ -110,6 +111,9 @@ export async function createServices(config) {
     throw error;
   }
   const secrets = new SecretStore({ dataDir: config.dataDir, audit });
+  // Agents' email accounts; passwords stay in 0600 files under mail/passwords.
+  const mailAccounts = new MailAccountStore({ dataDir: config.dataDir, audit });
+  await mailAccounts.ready;
   const sshAccesses = sshManagement.store;
   const sshSessions = sshManagement.grants;
   const sshIntegration = new SshIntegration({
@@ -391,6 +395,7 @@ export async function createServices(config) {
     sshIntegration,
     sshManagement,
     secrets,
+    mailAccounts,
     sessionSecrets,
     operationalWarnings,
     onError,

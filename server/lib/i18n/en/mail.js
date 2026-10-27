@@ -7,4 +7,11 @@ export const mail = Object.freeze({
   mailTimeout: "The mail server did not answer in time.",
   mailProtocol: "The mail server sent an unexpected response.",
   mailPlaintextRefused: "Unencrypted connections are not allowed for this account.",
+  accountNotFound: "Email account not found.",
+  invalidAccount:
+    "Invalid email account. Check name, address, hosts, ports and security.",
+  plaintextNeedsConsent:
+    "An unencrypted connection needs the explicit permission on the account.",
+  passwordUnavailable: "The saved email password is unavailable.",
+  invalidPassword: "The password must be 1 to 1024 bytes long without line breaks.",
 });
