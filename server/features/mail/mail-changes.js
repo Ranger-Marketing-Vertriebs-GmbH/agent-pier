@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mailError } from "./mail-connection.js";
-import { resolveFolders } from "./mail-folders.js";
+import { listedPath, resolveFolders } from "./mail-folders.js";
 import { attachmentsOf } from "./mail-messages.js";
 import { composeMessage, replyHeaders } from "./mail-compose.js";
 
@@ -16,8 +16,18 @@ const flagChanges = {
   unflagged: ["remove", "\\Flagged"],
 };
 
-const samePath = (a, b) =>
-  a === b || (a.toUpperCase() === "INBOX" && b.toUpperCase() === "INBOX");
+// The folders as the server lists them, the special ones, and the agent's folder
+// resolved to its listed path (listedPath), else MAIL_NOT_FOUND.
+async function mailboxOf(client, folder) {
+  const listed = await client.list();
+  const folders = await resolveFolders(client, listed);
+  const resolve = (path) => {
+    const found = listedPath(listed, path);
+    if (!found) throw mailError("MAIL_NOT_FOUND");
+    return found;
+  };
+  return { listed, folders, resolve, source: folder && resolve(folder) };
+}
 
 /** Runs `fn` with `path` selected read-write; a folder the server lacks is MAIL_NOT_FOUND. */
 async function inFolder(client, path, fn, { readOnly = false } = {}) {
@@ -56,7 +66,8 @@ async function move(client, uids, destination) {
 /** Sets or clears \Seen or \Flagged; returns how many of the messages exist. */
 export async function markMessages(client, folder, uids, flag) {
   const [operation, name] = flagChanges[flag];
-  return inFolder(client, folder, async () => {
+  const { source } = await mailboxOf(client, folder);
+  return inFolder(client, source, async () => {
     const present = await existing(client, uids);
     const set = present.join(",");
     const done =
@@ -74,20 +85,16 @@ export async function markMessages(client, folder, uids, flag) {
  * many messages moved.
  */
 export async function moveMessages(client, folder, uids, destination) {
-  const folders = await resolveFolders(client);
-  let target = destination;
+  const { folders, resolve, source } = await mailboxOf(client, folder);
+  let target;
   if (destination.toLowerCase() === "archive") {
     target = folders.archive;
     if (!target) throw mailError("MAIL_NO_ARCHIVE");
-  } else {
-    const list = await client.list();
-    target = list.find((f) => samePath(f.path, destination))?.path;
-    if (!target) throw mailError("MAIL_NOT_FOUND");
-  }
+  } else target = resolve(destination);
   requireMove(client);
-  return inFolder(client, folder, async () => {
+  return inFolder(client, source, async () => {
     const present = await existing(client, uids);
-    if (samePath(folder, target)) return { destination: target, moved: 0 };
+    if (source === target) return { destination: target, moved: 0 };
     await move(client, present, target);
     return {
       destination: target,
@@ -103,11 +110,12 @@ export async function moveMessages(client, folder, uids, destination) {
  * (MAIL_NO_TRASH).
  */
 export async function trashMessages(client, folder, uids) {
-  const { trash } = await resolveFolders(client);
+  const { folders, source } = await mailboxOf(client, folder);
+  const { trash } = folders;
   if (!trash) throw mailError("MAIL_NO_TRASH");
-  const inTrash = samePath(folder, trash);
+  const inTrash = source === trash;
   if (!inTrash) requireMove(client);
-  return inFolder(client, folder, async () => {
+  return inFolder(client, source, async () => {
     const present = await existing(client, uids);
     if (inTrash) return { moved: 0, alreadyInTrash: present.length };
     await move(client, present, trash);
@@ -158,10 +166,11 @@ const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
  * Saves `fields` (draftFields) as a new draft in the Drafts folder, flagged \Draft
  * and \Seen, with its Bcc kept. A reply takes its thread headers from the parent
  * message. With `replaceUid` the old draft is checked first and moved to Trash after
- * the new one is stored. Returns the new draft's UID and Message-ID.
+ * the new one is stored. Returns the new draft's UID and Message-ID, and with
+ * `replaceUid` whether the old draft went to Trash (`replaced`; false leaves both).
  */
 export async function saveDraft(client, account, fields, { replaceUid } = {}) {
-  const folders = await resolveFolders(client);
+  const { folders, resolve } = await mailboxOf(client);
   if (!folders.drafts) throw mailError("MAIL_NO_DRAFTS");
   if (replaceUid !== undefined) {
     if (!folders.trash) throw mailError("MAIL_NO_TRASH");
@@ -170,7 +179,9 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
   const thread =
     fields.replyToUid === undefined
       ? {}
-      : replyHeaders(await parentOf(client, fields.replyToFolder, fields.replyToUid));
+      : replyHeaders(
+          await parentOf(client, resolve(fields.replyToFolder), fields.replyToUid),
+        );
   const messageId = `<${randomUUID()}@${domainOf(account.address)}>`;
   const raw = await composeMessage(
     {
@@ -190,7 +201,15 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
     if (replaceUid !== undefined) await checkReplaced(client, replaceUid);
     const appended = await client.append(folders.drafts, raw, ["\\Draft", "\\Seen"]);
     if (!appended) throw mailError("MAIL_PROTOCOL");
-    if (replaceUid !== undefined) await move(client, [replaceUid], folders.trash);
-    return { folder: folders.drafts, draftUid: appended.uid ?? null, messageId };
+    const saved = { folder: folders.drafts, draftUid: appended.uid ?? null, messageId };
+    if (replaceUid === undefined) return saved;
+    // The new draft is stored: a failed move of the old one must not hide it.
+    try {
+      await move(client, [replaceUid], folders.trash);
+    } catch (error) {
+      if (error instanceof TypeError || error instanceof ReferenceError) throw error;
+      return { ...saved, replaced: false };
+    }
+    return { ...saved, replaced: true };
   });
 }

@@ -4,10 +4,11 @@ import { mailError } from "./mail-connection.js";
 
 /**
  * The mailbox's special folders as paths, or null where it has none. The archive is
- * `\Archive`, else Gmail's `\All`, else a folder named Archive.
+ * `\Archive`, else Gmail's `\All`, else a folder named Archive. `listed` is a
+ * `client.list()` result the caller already has.
  */
-export async function resolveFolders(client) {
-  const folders = await client.list();
+export async function resolveFolders(client, listed) {
+  const folders = listed ?? (await client.list());
   // imapflow also guesses special use from folder names ("Archiv", "Sent Items");
   // a flag the server sets itself wins over such a guess.
   const flagged = (flag) =>
@@ -28,6 +29,20 @@ export async function resolveFolders(client) {
       folders.find((f) => f.path.toLowerCase() === "archive")?.path ??
       null,
   };
+}
+
+/**
+ * The server's own path for a folder the agent named: the exact listed path, INBOX
+ * in any case, else the one listed path that matches ignoring case; null when none
+ * or several do.
+ */
+export function listedPath(listed, path) {
+  if (listed.some((f) => f.path === path)) return path;
+  const upper = path.toUpperCase();
+  if (upper === "INBOX")
+    return listed.find((f) => f.path.toUpperCase() === "INBOX")?.path ?? "INBOX";
+  const matches = listed.filter((f) => f.path.toUpperCase() === upper);
+  return matches.length === 1 ? matches[0].path : null;
 }
 
 /**
