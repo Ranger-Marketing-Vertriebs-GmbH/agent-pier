@@ -41,6 +41,18 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.skill-scan-replaces {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.skill-scan-replaces p,
+.skill-scan-replaces ul {
+  margin: 0;
+}
+.skill-scan-replaces ul {
+  padding-left: 18px;
+}
 .skill-scan-findings {
   display: grid;
   gap: 14px;

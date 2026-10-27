@@ -10,6 +10,7 @@ export const agentsHubCopy = {
     all: "All agents",
     teams: "Teams",
     templates: "Templates",
+    skills: "Skills",
     runtime: "Runtime",
   },
   readiness: "Readiness",

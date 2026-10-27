@@ -135,6 +135,14 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
+.agents-hub-skills {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.agents-hub-skills > p {
+  margin: 0;
+}
 .agents-hub-toolbar {
   display: flex;
   flex-wrap: wrap;

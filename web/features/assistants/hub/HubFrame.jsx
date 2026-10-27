@@ -12,7 +12,7 @@ export const newAgentRoute = { view: "agents", creating: true };
 
 /**
  * The agents hub's frame (handoff 5.2): header "Agenten" with its lead, "Aus Vorlage"
- * and the primary "Neuer Agent", and the four underline tabs with counts. Each tab
+ * and the primary "Neuer Agent", and the five underline tabs with counts. Each tab
  * renders it around its content and passes its own save bar. `origin` (from a
  * cross-link's `returnTo`) turns the menu button into the way back.
  */

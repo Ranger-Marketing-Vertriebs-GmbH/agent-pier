@@ -248,6 +248,12 @@ export const assistantApi = {
     api(`/assistants/${encodeURIComponent(id)}/browser/reset`, "POST", {}),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),
   skills: (id) => api(`/assistants/${encodeURIComponent(id)}/skills`),
+  // The owner's skill catalog for all agents (routes/agent-skill-catalog.js).
+  skillCatalog: (signal) => api("/agent-skill-catalog", "GET", undefined, signal),
+  checkCatalogSkill: (id) =>
+    api(`/agent-skill-catalog/skills/${encodeURIComponent(id)}/check`, "POST", {}),
+  removeCatalogSkill: (id) =>
+    api(`/agent-skill-catalog/skills/${encodeURIComponent(id)}`, "DELETE"),
   removeShellAllowlistEntry: (id, entry) =>
     api(
       `/assistants/${encodeURIComponent(id)}/shell-allowlist/${encodeURIComponent(entry)}`,

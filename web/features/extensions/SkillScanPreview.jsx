@@ -20,6 +20,14 @@ export const visibleText = (text = "") =>
         : `<U+${char.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`,
   );
 
+/**
+ * Whether installing needs the warnings checkbox: an update (`replaces`) whose rules
+ * the owner already accepted for the version it replaces (`newRules` empty) does not.
+ */
+export const needsAcceptance = (preview) =>
+  preview.verdict === "warn" &&
+  !(preview.replaces && Array.isArray(preview.newRules) && !preview.newRules.length);
+
 function groupByFile(findings) {
   const groups = new Map();
   for (const finding of findings) {
@@ -110,6 +118,33 @@ function Override({ preview, busy, onInstall }) {
   );
 }
 
+/** An update of a catalog skill: the version it replaces and the rules new since. */
+function Replaces({ preview }) {
+  const { version } = preview.replaces;
+  const fresh = Array.isArray(preview.newRules) ? preview.newRules : [];
+  return (
+    <div className="skill-scan-replaces">
+      <p>
+        <strong>{copy.replaces(version)}</strong>
+      </p>
+      {fresh.length > 0 ? (
+        <>
+          <p>{copy.newRules(version)}</p>
+          <ul>
+            {fresh.map((rule) => (
+              <li key={rule}>{copy.rules[rule] || rule}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        preview.verdict === "warn" && (
+          <p className="field-description">{copy.knownWarnings(version)}</p>
+        )
+      )}
+    </div>
+  );
+}
+
 /**
  * The scan result of a skill import: verdict, what is installed from where and the
  * findings grouped by file with line and excerpt. Warnings need the checkbox
@@ -146,6 +181,7 @@ export default function SkillScanPreview({
         <dt>{copy.filesLabel}</dt>
         <dd>{copy.filesSummary(preview.files.length, size)}</dd>
       </dl>
+      {preview.replaces && <Replaces preview={preview} />}
       {preview.findings.length > 0 && (
         <div className="skill-scan-findings">
           <h4>{copy.findingsHeading}</h4>
@@ -168,7 +204,7 @@ export default function SkillScanPreview({
         </div>
       )}
       <p className="field-description">{copy.offlineNote}</p>
-      {preview.verdict === "warn" && (
+      {needsAcceptance(preview) && (
         <CheckRow
           title={copy.acceptWarnings}
           checked={accepted}

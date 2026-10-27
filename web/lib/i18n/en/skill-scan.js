@@ -63,6 +63,10 @@ export const skillScanCopy = {
     "binary-executable":
       "The file contains machine code you cannot read before installing.",
   },
+  replaces: (version) => `Replaces version ${version}`,
+  newRules: (version) => `New since version ${version}`,
+  knownWarnings: (version) =>
+    `You accepted these warnings for version ${version}; none are new.`,
   acceptWarnings: "I have reviewed the warnings and want to install the skill.",
   overrideAction: "Install anyway …",
   overrideTitle: "Install the blocked skill anyway?",
