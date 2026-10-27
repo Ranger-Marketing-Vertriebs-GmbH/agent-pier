@@ -116,6 +116,9 @@ export function goalWait(goals, conversation) {
       )
   )
     return "team";
+  // A coding session the agent drives is working, or a wake about it is due.
+  if (goals.assistants.workflows?.sessions?.holdsGoal?.(conversation.id))
+    return "coding-session";
   return null;
 }
 

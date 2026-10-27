@@ -92,6 +92,7 @@ export const assistantTeamCopy = {
       "Der Chat eines Mitglieds ist lang geworden. Der Agent wurde informiert.",
     "goal-continuation":
       "AgentPier hat den Agenten gebeten, an seinem Ziel weiterzuarbeiten.",
+    "coding-session": "Eine Coding-Session hat sich geändert. Der Agent macht weiter.",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,
