@@ -116,6 +116,9 @@ export async function fixture(page) {
       result = { accesses: [], keys: [], projects: [] };
     } else if (["/api/connections/usage", "/api/connections/problems"].includes(path)) {
       result = null;
+    } else if (path === "/api/mail/accounts" && method === "GET") {
+      // Connections counts the email accounts; this fixture has none.
+      result = { accounts: [], presets: {} };
     } else if (path === "/api/settings/summary") {
       result = {
         access: { mcp: null, remote: null, ssh: null, github: null },

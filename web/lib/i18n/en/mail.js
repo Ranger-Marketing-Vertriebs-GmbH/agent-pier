@@ -32,7 +32,7 @@ export const mailCopy = {
   blocked: {
     incomplete: "Fill in name, email address, servers and ports to save.",
     password: "Enter the password to save.",
-    plaintext: "Turn on Allow unencrypted connection to save.",
+    plaintext: "Turn on “Allow unencrypted connection” to save.",
   },
   test: "Test connection",
   testing: "Testing …",

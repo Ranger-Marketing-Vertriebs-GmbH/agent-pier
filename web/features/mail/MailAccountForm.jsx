@@ -68,11 +68,12 @@ export default function MailAccountForm({ account = null, close, saved }) {
   const setSide = (side, field, value) =>
     update({ ...values, [side]: { ...values[side], [field]: value } });
   const submit = async () => {
-    if (blocker || busy) return;
+    // Enter in a field submits too: nothing to save without a change.
+    if (blocker || busy || !dirty) return;
     setBusy(true);
     setOutcome(null);
     try {
-      const body = accountBody(values, { editing: Boolean(account) });
+      const body = accountBody(values, { editing: Boolean(account), initial });
       const stored = account
         ? await api(`/mail/accounts/${encodeURIComponent(account.id)}`, "PATCH", body)
         : await api("/mail/accounts", "POST", body);

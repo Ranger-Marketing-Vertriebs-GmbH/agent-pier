@@ -204,6 +204,9 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/connections/usage") result = state.connectionUsage ?? null;
     else if (path === "/connections/problems")
       result = state.connectionProblems ?? connectionProblems(state.summary);
+    // Connections counts the email accounts; this fixture has none.
+    else if (path === "/mail/accounts" && method === "GET")
+      result = { accounts: [], presets: {} };
     // The Menü hints read the pipeline runs when the menu opens; the start page reads
     // the same sources, the agent runtime's updates included, while it is visible.
     else if (path === "/pipeline-runs" && method === "GET")

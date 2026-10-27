@@ -86,6 +86,50 @@ test("the body omits an empty password when editing and sends both servers", () 
   assert.equal(created.smtp.username, "");
 });
 
+test("an edit sends the username only when it changed", () => {
+  // A stored SMTP username that differs from the IMAP one survives an edit.
+  const account = { ...saved, smtp: { ...saved.smtp, username: "relay-user" } };
+  const initial = formValues(account);
+  const renamed = accountBody(
+    { ...initial, name: "Renamed" },
+    { editing: true, initial },
+  );
+  assert.equal(Object.hasOwn(renamed.imap, "username"), false);
+  assert.equal(Object.hasOwn(renamed.smtp, "username"), false);
+  const changed = accountBody(
+    { ...initial, username: "new" },
+    { editing: true, initial },
+  );
+  assert.equal(changed.imap.username, "new");
+  assert.equal(changed.smtp.username, "new");
+  // A new preset drops the stored servers, usernames included: they go along.
+  const moved = accountBody(withPreset(initial, "gmail"), { editing: true, initial });
+  assert.equal(moved.imap.username, "support");
+  assert.equal(testBody({ ...initial, name: "X" }, account).imap.username, undefined);
+  // A username that follows the address moves along with a new address.
+  const follows = formValues({
+    ...saved,
+    imap: { ...saved.imap, username: saved.address },
+  });
+  const readdressed = accountBody(
+    { ...follows, address: "help@example.com" },
+    { editing: true, initial: follows },
+  );
+  assert.equal(readdressed.imap.username, "");
+});
+
+test("ports compare as numbers in the dirty check", () => {
+  const initial = formValues(saved);
+  assert.equal(
+    isDirty({ ...initial, imap: { ...initial.imap, port: "993" } }, initial),
+    false,
+  );
+  assert.equal(
+    isDirty({ ...initial, imap: { ...initial.imap, port: "994" } }, initial),
+    true,
+  );
+});
+
 test("a changed server, port, security or preset needs the password again", () => {
   const values = formValues(saved);
   assert.equal(passwordRequired(values, saved), false);
@@ -144,7 +188,7 @@ test("a test of a saved account names it and reuses its password", () => {
   const values = formValues(saved);
   assert.deepEqual(testBody(values, saved), {
     accountId: "acc-1",
-    ...accountBody(values, { editing: true }),
+    ...accountBody(values, { editing: true, initial: values }),
   });
   const typed = testBody({ ...values, password: "new" }, null);
   assert.equal(typed.accountId, undefined);
