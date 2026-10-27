@@ -52,6 +52,7 @@ const mailCodes = {
   mailSendLimit: "MAIL_SEND_LIMIT",
   mailRevoked: "MAIL_REVOKED",
   mailQueryEmpty: "MAIL_QUERY_EMPTY",
+  mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
 };
 
 test("mail problems carry stable codes, fixed English reasons and owner copy", () => {

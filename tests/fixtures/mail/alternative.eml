@@ -1,0 +1,20 @@
+From: Shop <shop@example.com>
+To: agent@example.com
+Subject: Your order
+Date: Tue, 27 Oct 2026 12:00:00 +0000
+Message-ID: <alt@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt-boundary"
+
+This is a multi-part message in MIME format.
+
+--alt-boundary
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+
+WW91ciBvcmRlciBjb3N0cyAxMCCALiBEYW5rZSBzY2j2bi4=
+--alt-boundary
+Content-Type: text/html; charset=UTF-8
+
+<p>Your order costs 10 &euro;. <b>HTML version</b></p>
+--alt-boundary--

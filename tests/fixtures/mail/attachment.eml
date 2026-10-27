@@ -1,0 +1,19 @@
+From: Accounting <billing@example.com>
+To: agent@example.com
+Subject: Invoice attached
+Date: Tue, 27 Oct 2026 13:00:00 +0000
+Message-ID: <attach@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix"
+
+--mix
+Content-Type: text/plain; charset=UTF-8
+
+Please find the invoice attached.
+--mix
+Content-Type: application/pdf; name="invoice.pdf"
+Content-Disposition: attachment; filename*=UTF-8''Rechnung%20M%C3%A4rz.pdf
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJcOkw7zDtsOfCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCg==
+--mix--

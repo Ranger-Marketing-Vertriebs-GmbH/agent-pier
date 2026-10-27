@@ -91,12 +91,10 @@ test("an agent without a grant gets MAIL_NOT_GRANTED", async (t) => {
     "MAIL_NOT_GRANTED",
   );
   assert.deepEqual(f.notes, [{ sessionKey: routine.sessionKey, note: "mail_refused" }]);
-  // With a grant the gate passes; the action itself comes with a later task.
+  // With a grant the gate passes and the mailbox answers.
   f.grant("read");
-  assert.equal(
-    await code(f.call(f.ownTurn(), { action: "list", accountId: f.account.id })),
-    "INVALID_INPUT",
-  );
+  const listed = await f.call(f.ownTurn(), { action: "list", accountId: f.account.id });
+  assert.deepEqual([listed.messages, listed.untrusted], [[], true]);
   assert.equal(
     await code(f.call(f.ownTurn(), { action: "list", accountId: "unknown" })),
     "MAIL_NOT_GRANTED",

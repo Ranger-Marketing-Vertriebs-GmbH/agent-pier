@@ -1,0 +1,13 @@
+From: =?UTF-8?B?w4RnaWRl?= <aegide@example.net>
+To: agent@example.com, "Bob, the Builder" <bob@example.net>
+Cc: =?UTF-8?Q?Carla_=C3=96?= <carla@example.net>
+Reply-To: replies@example.net
+Subject: =?UTF-8?B?UmVjaG51bmcgZsO8ciBNw6RyeiDinJM=?=
+Date: Tue, 27 Oct 2026 10:00:00 +0000
+Message-ID: <encoded@example.net>
+In-Reply-To: <earlier@example.net>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Plain UTF-8 body with the word Kürbis.

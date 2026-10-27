@@ -43,4 +43,6 @@ export const mail = Object.freeze({
     "Der Agent hat in der letzten Stunde die höchstens erlaubten E-Mails gesendet.",
   mailRevoked: "Der Zugriff des Agenten auf diesen E-Mail-Zugang wurde geändert.",
   mailQueryEmpty: "Eine E-Mail-Suche braucht mindestens ein Kriterium.",
+  mailSearchUnsupported:
+    "Der Mailserver kann nicht nach Text mit Nicht-ASCII-Zeichen suchen.",
 });
