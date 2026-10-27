@@ -38,10 +38,23 @@ export async function reportedSkillNames(runtime) {
   );
 }
 
+/** Checks every catalog copy; an error is logged by its code only, never thrown. */
+export function verifyQuietly(store) {
+  try {
+    const { failed } = store.verify();
+    if (failed.length)
+      console.error(`AgentPier could not check ${failed.length} catalog skill(s).`);
+  } catch (error) {
+    console.error(
+      `AgentPier could not check the skill catalog (${error?.code || "no code"}).`,
+    );
+  }
+}
+
 /**
  * Opens the agent skill catalog below the runtime's `skill-catalog` folder, clears what
  * an interrupted write left behind and hands the store to the services that compile
- * and check skills. Every Gateway spawn verifies the catalog copies first.
+ * and check skills. Every Gateway start verifies the catalog copies before its compile.
  */
 export function connectSkillCatalog(graph) {
   const { assistantRuntime: runtime, assistants } = graph;
@@ -57,12 +70,15 @@ export function connectSkillCatalog(graph) {
   assistants.skills.catalog = store;
   assistants.config.skillCatalog = store;
   runtime.skillCatalog = store;
-  const previous = runtime.beforeSpawn;
-  // A copy that could neither be verified nor restored keeps the Gateway from loading
-  // it: verify throws after it saved the damaged marks, and this start fails.
-  runtime.beforeSpawn = async () => {
-    store.verify();
-    return previous?.();
+  // Every start checks the catalog copies before it compiles the configuration
+  // (teamConfiguration is what the compile reads), so a copy restored or removed here
+  // is what the Gateway loads. A failure never stops the start: a skill that could not
+  // be checked is in store.failed, and dropped() names it.
+  // TODO(Task 6): the compile drops store.dropped(...) names from every agent's list.
+  const compileInputs = runtime.teamConfiguration;
+  runtime.teamConfiguration = async (...args) => {
+    verifyQuietly(store);
+    return compileInputs?.(...args);
   };
   return new SkillCatalog({
     store,

@@ -51,6 +51,8 @@ function auditInstall(audit, { skill, scan, replaced }) {
       importKind: scan.importKind,
       scanRules: scan.rules,
       count: scan.findings,
+      // An update is audited as one; whether it needed the override shows here.
+      ...(replaced && scan.overridden ? { overridden: true } : {}),
     },
   });
 }

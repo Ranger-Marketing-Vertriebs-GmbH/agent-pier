@@ -536,6 +536,8 @@ export function auditEvent(input) {
       event.details.scanRules = SCAN_RULES.filter((rule) =>
         details.scanRules.includes(rule),
       );
+    // A catalog update that needed the override of a blocking rule.
+    if (details.overridden === true) event.details.overridden = true;
   }
   // How a lead's team acted: routines, follow-up writes, shared folders.
   if (input.resourceType === "assistant") {

@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -37,7 +37,16 @@ test("no ready Gateway, or one that fails, reports nothing", async () => {
   assert.equal(await reportedSkillNames({ client: client(new Error("down")) }), null);
 });
 
-test("the catalog store reaches the services and every spawn verifies it first", async (t) => {
+const skillPack = (name) => ({
+  name,
+  description: "Fixture.",
+  files: [
+    ["SKILL.md", Buffer.from(`---\nname: ${name}\ndescription: Fixture.\n---\nHi\n`)],
+  ],
+});
+const meta = { importKind: "skill-md", scan: { verdict: "ok", rules: [] } };
+
+function wired(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-catalog-wiring-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const skillCatalog = path.join(root, "skill-catalog");
@@ -45,12 +54,27 @@ test("the catalog store reaches the services and every spawn verifies it first",
   const order = [];
   const runtime = {
     paths: { root, skillCatalog },
-    beforeSpawn: async () => order.push("previous"),
+    teamConfiguration: async (installed) => {
+      order.push("compile");
+      return { installed };
+    },
   };
   const assistants = { skills: {}, config: {} };
   const catalog = connectSkillCatalog({ assistantRuntime: runtime, assistants });
   t.after(() => catalog.close());
-  const store = catalog.store;
+  return {
+    root,
+    skillCatalog,
+    order,
+    runtime,
+    assistants,
+    catalog,
+    store: catalog.store,
+  };
+}
+
+test("the catalog store reaches the services and every start verifies before its compile", async (t) => {
+  const { skillCatalog, order, runtime, assistants, store } = wired(t);
   assert.equal(assistants.skills.catalog, store);
   assert.equal(assistants.config.skillCatalog, store);
   assert.equal(runtime.skillCatalog, store);
@@ -60,11 +84,43 @@ test("the catalog store reaches the services and every spawn verifies it first",
     order.push("verify");
     return verify(...args);
   };
-  await runtime.beforeSpawn();
-  assert.deepEqual(order, ["verify", "previous"]);
+  assert.deepEqual(await runtime.teamConfiguration("runtime"), { installed: "runtime" });
+  assert.deepEqual(order, ["verify", "compile"]);
+});
+
+test("a catalog skill that cannot be checked never stops the start and is dropped", async (t) => {
+  const { order, runtime, store } = wired(t);
+  store.write(skillPack("probe"), meta);
+  const live = path.join(store.liveRoot, "probe", "SKILL.md");
+  fs.chmodSync(live, 0o600);
+  fs.writeFileSync(live, "tampered");
+  const errors = mock.method(console, "error", () => {});
+  const rename = fs.renameSync;
+  mock.method(fs, "renameSync", (from, to) => {
+    if (String(to).endsWith(".json")) return rename(from, to);
+    throw Object.assign(new Error("EIO /private/path"), { code: "EIO" });
+  });
+  try {
+    assert.deepEqual(await runtime.teamConfiguration("runtime"), {
+      installed: "runtime",
+    });
+  } finally {
+    mock.restoreAll();
+  }
+  assert.deepEqual(order, ["compile"]);
+  assert.deepEqual(store.dropped(["probe"]), ["probe"]);
+  assert.equal(fs.existsSync(live), false);
+  assert.ok(
+    !errors.mock.calls.some((call) => String(call.arguments).includes("/private")),
+  );
+  // A whole-store failure is logged by its code and the start still compiles.
   store.verify = () => {
-    throw new Error("EIO");
+    throw Object.assign(new Error("EACCES /private/path"), { code: "EACCES" });
   };
-  await assert.rejects(runtime.beforeSpawn(), /EIO/);
-  assert.deepEqual(order, ["verify", "previous"]);
+  const logged = mock.method(console, "error", () => {});
+  await runtime.teamConfiguration("runtime");
+  mock.restoreAll();
+  assert.deepEqual(order, ["compile", "compile"]);
+  assert.match(String(logged.mock.calls[0].arguments[0]), /EACCES/);
+  assert.doesNotMatch(String(logged.mock.calls[0].arguments[0]), /private/);
 });
