@@ -143,6 +143,8 @@ before **Create agent**.
 
 ### Message times
 
+![Agent chat with message times next to the speaker](screenshots/agent-chat-timestamps.png)
+
 Every message in an agent's chat shows when it was sent, next to the speaker's name (at
 the top of your own bubble): the time for today, the weekday, date and time for an
 earlier day this year, and the year as well for older messages. Hover the time for the
