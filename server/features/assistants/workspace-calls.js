@@ -11,6 +11,7 @@ import { isUserAgent } from "../users/user-access.js";
 import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
 import { continuedTurn } from "./exec-continuation.js";
+import { liveAttempt } from "./run-confirmation.js";
 import {
   hookActionAllowed,
   hookContext,
@@ -45,9 +46,9 @@ export function workspaceContext(w, inv) {
   if (!inv.attemptId && inv.hook) return hookContext(w, inv);
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
   if (!inv.attemptId && inv.continuation) return continuationContext(w, inv);
-  const attempt = w.a.ledger.getAttempt(inv.attemptId);
-  if (!["pending", "accepted", "running"].includes(attempt.state) || attempt.reviewedAt)
-    throw assistantProblem("invalid", 403);
+  // The call waited for the admission lock, which a send holds until it is
+  // acknowledged or times out: its own run proves a send that timed out meanwhile.
+  const attempt = liveAttempt(w.a, inv);
   const req = w.a.ledger.getRequest(attempt.requestId),
     chat = w.a.store.getConversation(req.conversationId);
   const origin = w.a.teams.store.context(req.id);

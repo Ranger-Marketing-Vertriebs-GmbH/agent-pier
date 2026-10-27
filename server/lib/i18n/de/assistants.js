@@ -502,6 +502,8 @@ export const assistants = {
   browserUploadSlow:
     "Das Kopieren dieser Datei für den Browser hat zu lange gedauert und wurde abgebrochen.",
   invalid: "Ungültige Agenten-Eingabe.",
+  turnUnconfirmed:
+    "Der Start dieser Antwort ist noch nicht bestätigt. Gleich noch einmal versuchen.",
   hookRightExceeds:
     "Ein Hook darf nicht mehr als sein Agent: Dieses Recht hat der Agent nicht.",
   hookOwnerOnly:

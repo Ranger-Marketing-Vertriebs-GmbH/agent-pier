@@ -473,6 +473,7 @@ export const assistants = {
     "There is not enough free disk space, or AgentPier already holds as many prepared browser uploads as allowed.",
   browserUploadSlow: "Copying this file for the browser took too long and was cancelled.",
   invalid: "Invalid agent input.",
+  turnUnconfirmed: "The start of this reply is not confirmed yet. Try again in a moment.",
   hookRightExceeds:
     "A hook cannot hold more than its agent: the agent does not have this right.",
   hookOwnerOnly:

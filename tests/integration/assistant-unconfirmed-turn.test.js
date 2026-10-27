@@ -84,7 +84,8 @@ async function setup(t, { dataDir, sendError = "TIMEOUT" } = {}) {
       });
       return true;
     } catch (error) {
-      assert.equal(error.status, 403);
+      // An unproven unacknowledged send is told to wait (TURN_UNCONFIRMED).
+      assert.ok([403, 409].includes(error.status));
       return false;
     }
   };
@@ -126,6 +127,29 @@ test("a send whose acknowledgement timed out stays confirmable", async (t) => {
   assert.equal(f.tool("workspace"), false);
   assert.equal(f.tool("share_file"), false);
   await f.service.reconcile();
+  assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
+});
+
+test("the Gateway's late acknowledgement of the send confirms it", async (t) => {
+  const f = await setup(t);
+  const { attempt } = await f.send();
+  assert.equal(attempt.unconfirmed, true);
+  assert.equal(f.tool("workspace"), false);
+  // OpenClaw acknowledges sessions.send before it starts the run.
+  f.gateway.sendOptions.onLate(true, { runId: attempt.id, status: "started" });
+  const confirmed = f.service.ledger.getAttempt(attempt.id);
+  assert.equal(confirmed.state, "running");
+  assert.equal(confirmed.unconfirmed, undefined);
+  assert.equal(f.tool("workspace"), true);
+});
+
+test("a late refusal or an acknowledgement on a restarted Gateway proves nothing", async (t) => {
+  const f = await setup(t);
+  const { attempt } = await f.send();
+  f.gateway.sendOptions.onLate(false);
+  assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
+  f.runtime.generationId = "launch-2";
+  f.gateway.sendOptions.onLate(true, { runId: attempt.id, status: "started" });
   assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
 });
 

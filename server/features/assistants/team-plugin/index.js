@@ -361,18 +361,20 @@ export default {
                   return response.json();
                 };
                 context.assertInvocationCurrent();
-                // A workspace or share call of a command completion names its run
-                // and the Gateway's record of the session (exec-continuation.js).
-                const runId = ["workspace", "share_file"].includes(action)
-                  ? callRun(context.sessionKey, toolCallId)
-                  : null;
+                // Every call names its run: it proves a turn whose send went
+                // unacknowledged (run-confirmation.js). A workspace or share call of a
+                // command completion adds the Gateway's record of the session
+                // (exec-continuation.js).
+                const runId = callRun(context.sessionKey, toolCallId);
+                const evidence = ["workspace", "share_file"].includes(action);
                 const { ticket } = await call("/prepare", {
                   agentId: context.agentId,
                   sessionKey: context.sessionKey,
                   toolCallId,
                   action,
-                  ...(runId
-                    ? { runId, exec: execEvidence(context.sessionKey, runId) }
+                  ...(runId ? { runId } : {}),
+                  ...(runId && evidence
+                    ? { exec: execEvidence(context.sessionKey, runId) }
                     : {}),
                 });
                 context.assertInvocationCurrent();
