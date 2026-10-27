@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { shellService } from "../helpers/assistant-shell-service.js";
 import { catalogSource } from "../../server/features/assistants/agent-skills.js";
 import {
@@ -9,6 +11,7 @@ import {
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
 import { settingsPatch } from "../../server/features/users/user-agent-settings.js";
 import { userMayReach } from "../../server/http/route-access.js";
+import { SkillCatalogStore } from "../../server/features/skill-catalog/catalog-store.js";
 
 // Catalog skills switched per agent through AssistantService and AssistantConfig,
 // against the Gateway double of tests/integration/assistant-skills.test.js whose
@@ -48,9 +51,15 @@ function skillGateway(f, skills) {
   };
 }
 
-// The catalog store as AgentSkills reads it (SkillCatalogStore: list, liveRoot, failed).
+// The catalog store as AgentSkills and AssistantConfig read it: SkillCatalogStore's
+// own names and dropped over fixed records, and a check that finds every copy intact.
 function catalogFixture(f, records) {
-  const store = { liveRoot, failed: new Set(), list: () => records };
+  const store = Object.assign(Object.create(SkillCatalogStore.prototype), {
+    liveRoot,
+    failed: new Set(),
+    list: () => records,
+    verify: () => ({ restored: [], damaged: [], failed: [] }),
+  });
   f.service.skills.catalog = store;
   f.config.skillCatalog = store;
   return store;
@@ -86,7 +95,7 @@ function standard(t, names = ["Home"]) {
   return f;
 }
 
-test("a catalog skill switches on live for one agent", { todo: "Task 6" }, async (t) => {
+test("a catalog skill switches on live for one agent", async (t) => {
   const f = standard(t, ["Home", "Other"]);
   const [home, other] = f.agents;
   await save(f, home, ["probe"]);
@@ -228,7 +237,7 @@ test("the owner switches a catalog skill on a shared user agent; the hard lock h
   assert.deepEqual(live.tools.deny, lockedTools);
   assert.equal(live.tools.exec, undefined);
   for (const tool of lockedTools) assert.ok(!(live.tools.allow || []).includes(tool));
-  await t.test("the user agent's entry lists the skill", { todo: "Task 6" }, () => {
+  await t.test("the user agent's entry lists the skill", () => {
     assert.deepEqual(f.live(agent).skills, ["probe"]);
   });
 });
@@ -252,7 +261,7 @@ test("a temporary member inherits its lead's catalog skill", async (t) => {
     catalogUsers(f.service, "probe").map((agent) => agent.id),
     [lead.id],
   );
-  await t.test("the member's entry lists the skill", { todo: "Task 6" }, async () => {
+  await t.test("the member's entry lists the skill", async () => {
     // The Gateway created the member when its team started.
     f.client.effective().agents.entries[member.runtimeAgentId] = {
       id: member.runtimeAgentId,
@@ -280,4 +289,91 @@ test("a user's settings patch with skills is refused", () => {
     ["GET", "/api/assistants/a/skills"],
   ])
     assert.equal(userMayReach(method, path), false, `${method} ${path}`);
+});
+
+// A real catalog below the test's data directory with "probe" installed, the agent
+// folders below it as well, and a Gateway that reports the live copy.
+function installed(t, names = ["Home"]) {
+  const f = shellService(t, names);
+  f.config.workspaces = path.join(f.dataDir, "workspaces");
+  const store = new SkillCatalogStore({ root: path.join(f.dataDir, "skill-catalog") });
+  store.write(
+    {
+      name: "probe",
+      description: "Probe",
+      files: [
+        ["SKILL.md", Buffer.from("---\nname: probe\ndescription: Probe\n---\nv1\n")],
+      ],
+    },
+    { importKind: "upload", scan: { verdict: "clean", rules: [] } },
+  );
+  f.service.skills.catalog = store;
+  f.config.skillCatalog = store;
+  const file = path.join(store.liveRoot, "probe", "SKILL.md");
+  const own = { filePath: file, baseDir: path.dirname(file) };
+  f.report = [bundled("github"), extra("probe", own)];
+  skillGateway(f, () => f.report);
+  return { f, store, file, home: f.agents[0] };
+}
+
+test("a tampered catalog copy is restored before the agent's next turn", async (t) => {
+  const { f, file, home } = installed(t);
+  await save(f, home, ["probe"]);
+  assert.deepEqual(f.live(home).skills, ["probe"]);
+  fs.chmodSync(file, 0o600);
+  fs.writeFileSync(file, "planted");
+  // The configuration is unchanged: the admission's shortcut checks the copy too.
+  await f.config.apply(home.id);
+  assert.match(fs.readFileSync(file, "utf8"), /v1/);
+  assert.deepEqual(f.live(home).skills, ["probe"]);
+});
+
+test("a catalog name the Gateway resolves to the bundled skill is never compiled", async (t) => {
+  const { f, home } = installed(t);
+  forge(f.store, home.id, { skills: ["github", "probe"] });
+  f.report = [bundled("github"), bundled("probe")];
+  await f.config.apply(home.id);
+  assert.deepEqual(f.live(home).skills, ["github"]);
+  // A catalog-source copy outside the catalog's live folder is not the catalog's.
+  f.report = [bundled("github"), extra("probe")];
+  forge(f.store, home.id, { skills: ["probe"] });
+  await f.config.apply(home.id);
+  assert.equal(f.live(home).skills, undefined);
+});
+
+test("a workshop skill of the same name shadows a catalog skill", async (t) => {
+  const { f, home } = installed(t);
+  await save(f, home, ["probe"]);
+  assert.deepEqual(f.live(home).skills, ["probe"]);
+  const folder = path.join(
+    f.dataDir,
+    "state",
+    "agents",
+    home.runtimeAgentId,
+    "agent",
+    "workshop-skills",
+    "probe",
+  );
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(path.join(folder, "SKILL.md"), "---\nname: probe\n---\nmine\n");
+  await f.config.apply(home.id);
+  assert.equal(f.live(home).skills, undefined);
+});
+
+test("a catalog check that fails drops its skills for that apply only", async (t) => {
+  const { f, store, home } = installed(t);
+  await save(f, home, ["github", "probe"]);
+  const verify = store.verify.bind(store);
+  store.verify = () => {
+    throw Object.assign(Error("io"), { code: "EIO" });
+  };
+  await f.config.apply(home.id);
+  assert.deepEqual(f.live(home).skills, ["github"]);
+  store.verify = verify;
+  await f.config.apply(home.id);
+  assert.deepEqual(f.live(home).skills, ["github", "probe"]);
+  // An unreadable catalog.json: the turn is admitted, and no catalog skill compiles.
+  fs.writeFileSync(path.join(store.root, "catalog.json"), "{broken");
+  await f.config.apply(home.id);
+  assert.deepEqual(f.live(home).skills, ["github"]);
 });

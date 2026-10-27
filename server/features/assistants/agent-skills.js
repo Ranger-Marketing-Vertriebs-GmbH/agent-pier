@@ -130,7 +130,7 @@ const inside = (file, root) => {
   const relative = path.relative(root, file);
   return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
 };
-const needsSettings = (entry) =>
+export const needsSettings = (entry) =>
   (Array.isArray(entry.requirements?.env) && entry.requirements.env.length > 0) ||
   (Array.isArray(entry.requirements?.config) && entry.requirements.config.length > 0) ||
   (typeof entry.primaryEnv === "string" && entry.primaryEnv.length > 0);
@@ -149,7 +149,8 @@ const realRoot = (root) => {
     return null;
   }
 };
-const ownCopy = (entry, liveRoot) =>
+/** Whether a report entry is the catalog's own live copy below `liveRoot`. */
+export const ownCopy = (entry, liveRoot) =>
   entry?.source === catalogSource &&
   (inside(entry.filePath, liveRoot) ||
     inside(entry.filePath, liveRoot && realRoot(liveRoot)));
@@ -327,9 +328,7 @@ export class AgentSkills {
       bundled: bundledSkillNames(entryPath),
       assistant,
       roots,
-      shadowed: root
-        ? shadowingSkillNames(skillShadowRoots(root, assistant.id))
-        : new Set(),
+      shadowed: root ? shadowingSkillNames(skillShadowRoots(root, assistant)) : new Set(),
       fallback: report?.fallback === true,
       catalog: this.catalogRecords(),
       liveRoot: this.catalog?.liveRoot,

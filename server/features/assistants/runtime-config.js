@@ -314,7 +314,8 @@ export function compileOpenClawConfig({
   };
   config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
   // No skills for an agent without its own list: OpenClaw reads agents.defaults.skills
-  // `[]` as "none" and agentEntry writes each eligible profile's bundled skills.
+  // `[]` as "none" and agentEntry writes each eligible profile's bundled and catalog
+  // skills.
   // Workspace skill folders would load model-written text as instructions.
   config.agents.defaults = { ...config.agents.defaults, skills: [] };
   // Reserve room for parent conversations as well as the host's member slots.

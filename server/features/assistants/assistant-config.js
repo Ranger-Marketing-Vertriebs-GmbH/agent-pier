@@ -16,6 +16,7 @@ import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
+import { needsSettings, ownCopy } from "./agent-skills.js";
 import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
@@ -76,11 +77,13 @@ export class AssistantConfig {
     this.compiledSkills.clear();
   }
   /**
-   * Keeps only the names the Gateway reports as the bundled skill for this agent.
-   * Fails closed: without a report (an error, or none) nothing is verified, and
-   * `complete` is false so the apply is not cached and asks again next time. A
-   * name the report resolves elsewhere is dropped reliably and the apply is cached:
-   * skills.changed and the ready re-apply bring it back once that changes.
+   * Keeps only the names the Gateway reports as the skill AgentPier means: a catalog
+   * skill only as the catalog's own live copy (`catalogSource`, below its liveRoot,
+   * reported by no other source and needing no settings), any other name only as the
+   * bundled skill. Fails closed: without a report (an error, or none) nothing is
+   * verified, and `complete` is false so the apply is not cached and asks again next
+   * time. A name the report resolves elsewhere is dropped reliably and the apply is
+   * cached: skills.changed and the ready re-apply bring it back once that changes.
    */
   async verifySkills(assistant, names) {
     if (!names.length) return { skills: [], complete: true };
@@ -88,17 +91,57 @@ export class AssistantConfig {
       .call("skills.status", { agentId: assistant.runtimeAgentId })
       .catch(() => null);
     if (!Array.isArray(report?.skills)) return { skills: [], complete: false };
-    const bundled = new Set(
-      report.skills
-        .filter((entry) => entry?.source === "openclaw-bundled")
-        .map((entry) => entry.name),
-    );
-    return { skills: names.filter((name) => bundled.has(name)), complete: true };
+    // A catalog that cannot be read names no skill: none of its copies compiles.
+    let catalog = new Set();
+    try {
+      catalog = this.skillCatalog?.names() || catalog;
+    } catch {
+      /* Fails closed below: a catalog name then needs the bundled skill. */
+    }
+    const liveRoot = this.skillCatalog?.liveRoot;
+    const reported = (name) => report.skills.filter((entry) => entry?.name === name);
+    const kept = (name) => {
+      const entries = reported(name);
+      if (!catalog.has(name))
+        return entries.some((entry) => entry.source === "openclaw-bundled");
+      return (
+        entries.length > 0 &&
+        entries.every((entry) => ownCopy(entry, liveRoot) && !needsSettings(entry))
+      );
+    };
+    return { skills: names.filter(kept), complete: true };
+  }
+  /**
+   * Checks the given names' catalog copies (a tampered one is restored from the store)
+   * and names those the compile must leave out (`dropped`): damaged, needing settings
+   * or not checked. Never throws: a check that fails drops every catalog name it covers
+   * for this apply only. A catalog that cannot be read is `unreadable`, which the
+   * fingerprint carries, so the apply asks verifySkills, which keeps no catalog name.
+   */
+  catalogCheck(names) {
+    const catalog = this.skillCatalog;
+    if (!catalog || !names.length) return { dropped: [], unreadable: false };
+    let checked = true;
+    try {
+      catalog.verify(names);
+    } catch {
+      checked = false;
+    }
+    try {
+      if (checked) return { dropped: catalog.dropped(names), unreadable: false };
+      const known = catalog.names();
+      return { dropped: names.filter((name) => known.has(name)), unreadable: false };
+    } catch {
+      return { dropped: [], unreadable: true };
+    }
   }
   /** The list an apply would compile now (disk scan, then the Gateway's view). */
   async expectedSkills(assistant) {
     const assigned = this.nativeReady?.() ? personalSkills(assistant) : [];
-    const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
+    const shadowed = [
+      ...shadowedSkills(path.dirname(this.workspaces), assistant, assigned),
+      ...this.catalogCheck(assigned).dropped,
+    ];
     return (
       await this.verifySkills(
         assistant,
@@ -209,10 +252,17 @@ export class AssistantConfig {
       ? shellSections({ profiles: this.store.listAssistants?.() || [assistant] })
           .globalTools.length > 0
       : undefined;
-    // The agent's bundled skills (agentEntry), applied hot like tools.allow, without
-    // names a same-named skill in its folders would replace (skill-shadows.js).
+    // The agent's bundled and catalog skills (agentEntry), applied hot like
+    // tools.allow, without names a same-named skill in its folders would replace
+    // (skill-shadows.js). Its catalog copies are checked here, before every turn
+    // admission, the unchanged-configuration shortcut included: a tampered copy is
+    // restored, and one that is damaged or could not be checked is left out.
     const assigned = nativeReady ? personalSkills(assistant) : [];
-    const shadowed = shadowedSkills(path.dirname(this.workspaces), assistant, assigned);
+    const catalog = this.catalogCheck(assigned);
+    const shadowed = [
+      ...shadowedSkills(path.dirname(this.workspaces), assistant, assigned),
+      ...catalog.dropped,
+    ];
     let skills = assigned.filter((name) => !shadowed.includes(name));
     let gatewayDropped = false;
     const guidance = {
@@ -255,6 +305,7 @@ export class AssistantConfig {
           exec,
           shellGlobal,
           skills,
+          catalog.unreadable,
           configured,
           senderFacing,
           ssh,
@@ -308,7 +359,7 @@ export class AssistantConfig {
       await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
       await this.deliverSecrets(assistant);
       // The Gateway's own view decides as well: a name it resolves to any other
-      // source than the bundled skill is never compiled.
+      // source than the bundled skill or the catalog's own copy is never compiled.
       if (skills.length) {
         const verified = await this.verifySkills(assistant, skills);
         shadowed.push(...skills.filter((name) => !verified.skills.includes(name)));

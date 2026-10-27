@@ -101,7 +101,7 @@
     "tests/integration/assistant-telegram-senders-contract.test.js": 168,
     "tests/integration/assistant-telegram-senders-live-contract.test.js": 52,
     "tests/integration/assistant-skills-contract.test.js": 85,
-    "tests/integration/assistant-skill-catalog-contract.test.js": 12,
+    "tests/integration/assistant-skill-catalog-contract.test.js": 20,
     "tests/integration/assistant-voice-reminder-e2e-contract.test.js": 46,
     "tests/integration/assistant-team-coding-e2e-contract.test.js": 55,
     "tests/integration/assistant-user-agent-lock-contract.test.js": 90,

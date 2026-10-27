@@ -33,8 +33,9 @@ export function agentEntry(
     senderFacing = false,
     // The agent holds an SSH grant (agentpier_ssh).
     ssh = false,
-    // Assigned skills a same-named workspace or managed skill would replace
-    // (skill-shadows.js): never compiled, so that skill never loads through them.
+    // Assigned skills a same-named workspace, workshop or managed skill would replace
+    // (skill-shadows.js), and catalog skills that must not load (damaged, needing
+    // settings, not checked or bundled by the runtime): never compiled.
     shadowedSkills = [],
   },
 ) {
@@ -53,8 +54,8 @@ export function agentEntry(
       ).filter((tool) => !senderFacing || !sessionTools.includes(tool)),
       ...(exec && { exec }),
     };
-  // The agent's final skill list (agents.defaults.skills is []): only the bundled
-  // skills the owner switched on, and only once native tools are ready.
+  // The agent's final skill list (agents.defaults.skills is []): only the bundled and
+  // catalog skills the owner switched on, and only once native tools are ready.
   if (toolsManaged) {
     const skills = nativeReady
       ? personalSkills(assistant).filter((name) => !shadowedSkills.includes(name))
