@@ -27,6 +27,9 @@ export function checkInPrompt(person) {
   return [
     `This is a scheduled check-in from AgentPier, not a message from ${who}.`,
     "First read MEMORY.md with memory_get; search your other notes with memory_search where it helps.",
+    // A routine due at the same hour is not the check-in's work: its run has the
+    // tools the check-in lacks and reports on its own.
+    "Scheduled routines run on their own, with their own tools: never perform, repeat or report on a routine's work here, and never report a tool missing for it.",
     `Using this conversation and your memory, check whether anything needs ${person ? "your user's" : "the owner's"} attention right now.`,
     `If something does, write one short message addressed to ${who}.`,
     "If nothing needs attention, reply exactly NO_REPLY and nothing else.",
@@ -267,8 +270,8 @@ export class NativeHeartbeats {
       !["ok", "error"].includes(event.status)
     )
       throw assistantProblem("invalid", 403);
-    // A failed check-in is not news for the owner; its run history keeps it.
-    if (event.status !== "ok" || !this.accepts(binding)) return;
+    if (!this.accepts(binding)) return;
+    if (event.status !== "ok") return this.failed(binding, event);
     if (typeof event.summary !== "string" || silent(event.summary)) return;
     // Only a check-in OpenClaw committed to the conversation counts: an owner's
     // reply must find it there (a lost commit is in the run history).
@@ -324,6 +327,24 @@ export class NativeHeartbeats {
           }),
         )
         .catch(() => {});
+    this.assistants.changed({ conversationId: recorded?.conversation.id });
+  }
+  /**
+   * A failed check-in is not news for the owner: no Telegram, no push; its run
+   * history keeps it. OpenClaw still commits the reply of a run it counts as failed
+   * (the event's `error`; the webhook drops its summary), so it is recorded like a
+   * successful one and the chat badges it as a check-in instead of a plain reply.
+   */
+  failed(binding, event) {
+    const reply = event.error;
+    if (
+      event.deliveryStatus !== "delivered" ||
+      typeof reply !== "string" ||
+      silent(reply) ||
+      reply.length > 65536
+    )
+      return;
+    const recorded = this.reminders.completed(binding, event, reply);
     this.assistants.changed({ conversationId: recorded?.conversation.id });
   }
 }

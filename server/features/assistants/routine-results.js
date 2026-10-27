@@ -56,7 +56,8 @@ export class RoutineResults {
  */
 export function withRoutineResults(messages, results, { from = -Infinity } = {}) {
   if (!results.length) return messages;
-  const committed = results.filter((r) => r.status === "ok" && r.committed);
+  // A failed check-in OpenClaw committed is badged like a successful one.
+  const committed = results.filter((r) => r.committed);
   const marked = messages.map((m) => {
     if (m.role !== "assistant") return m;
     // The history page cuts a long reply; its kept beginning still identifies it.
@@ -72,7 +73,7 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
     return result ? { ...m, scheduled: scheduled(result) } : m;
   });
   const own = results
-    .filter((r) => r.at >= from && !(r.status === "ok" && r.committed))
+    .filter((r) => r.at >= from && !r.committed)
     .map((r) =>
       r.status === "ok"
         ? {

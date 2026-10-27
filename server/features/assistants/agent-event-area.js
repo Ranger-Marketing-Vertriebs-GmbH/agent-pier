@@ -64,8 +64,9 @@ function routineRow(r, runNotes = []) {
     name: r.name || "",
     at: r.at,
     status: ok ? "done" : "failed",
-    firstLine: ok ? firstLine(r.text) : "",
-    ...(ok && r.text ? { reply: r.text } : {}),
+    // A failed check-in can have a reply OpenClaw committed (native-heartbeats.js).
+    firstLine: r.text ? firstLine(r.text) : "",
+    ...(r.text ? { reply: r.text } : {}),
     ...(r.notes?.length ? { notes: r.notes } : {}),
     // Its SSH runs, SFTP jobs and memory note, as the transcript showed them.
     ...(runNotes.length ? { runNotes } : {}),
