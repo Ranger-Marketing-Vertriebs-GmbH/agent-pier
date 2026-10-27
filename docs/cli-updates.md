@@ -21,6 +21,12 @@ installed managed browser is also updated in the background at the first server 
 after an AgentPier update (see "Managed agent browser" in
 [assistant-gateway.md](assistant-gateway.md)).
 
+The **REA** card is a managed MCP server with its analysis tools, not a CLI either: its
+dialog shows **Update** when AgentPier pins a newer REA Core, Ghidra, JDK or Frida, and
+an installed REA follows the new pins at the first server start after an AgentPier
+update, unless a session or an agent uses it at that moment; then the next start tries
+again (see [managed REA](mcp.md#managed-rea)).
+
 The agents' GitHub MCP server is managed the same way but has no card: AgentPier
 installs its pinned release (checked by SHA-256) when an agent first gets GitHub
 access, and an installed one follows a newer pinned version at the first server start

@@ -48,15 +48,18 @@ fails the installation; the result reports `agentBrowser.status`. Every installe
 also brings an installed GitHub MCP server for agents to its pinned version and
 reports `githubMcp.status`; AgentPier installs that server itself when an agent first
 gets GitHub access ([GitHub for agents](assistant-gateway.md#github-for-agents)).
-`--with-rea` sets up REA (reverse-engineering tool for agents). The installer downloads the
-pinned Ghidra and JDK where a download exists (macOS on Apple silicon, Linux x64) and
+`--with-rea` sets up REA (reverse-engineering tools for the coding CLIs, see
+[managed REA](mcp.md#managed-rea)). The installer downloads the pinned Ghidra and JDK
+where a download exists (macOS 15 or newer on Apple silicon, Linux x64) and
 leaves a request in `<data dir>/rea/settings.json`. REA Core and its MCP server row follow
 when AgentPier starts next, because they need its dependencies and the running server;
 the REA card in the tools overview then shows the result. On Intel Macs and Linux arm64
 there is no Ghidra build, so only Core follows. A failed download never fails the
-installation (the result reports `rea.status` as `pending`, `failed` or `unavailable`),
+installation (the result reports `rea.status` as `ready`, `pending`, `failed` or `unavailable`),
 and the server start retries the request. Every installer run brings the Ghidra and JDK
-of an installed REA to the pinned versions.
+of an installed REA to the pinned versions. On an installed REA whose Ghidra was
+deliberately left off, `--with-rea` keeps that choice and downloads neither; add Ghidra
+in the REA dialog instead.
 
 After an interruption, run the same command again. A matching existing setup is
 resumed; an AgentPier version that has already been updated is not downgraded.

@@ -668,12 +668,115 @@ registry name and packages there and its title and points in both catalogs;
 `tests/unit/mcp-curated-hints.test.js` checks the exact matching and the catalog
 parity.
 
+#### Managed REA
+
+AgentPier can install [REA](https://github.com/morluto/rea) itself, with the analysis
+tools it needs, instead of the manual path in the
+[worked example](#worked-example-rea). The **REA** card sits with the other tools on
+the dashboard and under **CLIs and extensions › Installation**. **Install**
+(or **Manage** once REA is installed) opens the REA dialog; the directory note on REA
+links there with **Install REA with AgentPier**.
+
+![REA dialog with its components, sizes and the total](screenshots/rea-dialog.png)
+
+**Components.** Each row shows its version and its download and installed size, and
+the dialog adds up the total before anything is downloaded (about 752 MB download and
+1.3 GB on disk with everything ticked):
+
+| Component                                | Version                      | Download / installed |
+| ---------------------------------------- | ---------------------------- | -------------------- |
+| **REA Core** (always part of REA)        | `rea-agents` 6.8.0           | 82 MB / 163 MB       |
+| **Ghidra with decompiler + Temurin JDK** | Ghidra 12.1.4, JDK 21.0.13+9 | 633 MB / 1.1 GB      |
+| **Frida**                                | `frida` 17.23.2              | 36 MB / 94 MB        |
+
+- REA Core is installed through the [package path](#installing-a-server-package) from
+  `server/features/tools/rea-package-lock.json`, a lockfile that ships with AgentPier,
+  with install scripts off. Its skill `reverse-engineer-anything` comes from the same
+  package.
+- Ghidra comes with a native decompiler, which REA requires. On macOS (Apple silicon,
+  macOS 15 or newer) AgentPier downloads Homebrew's prebuilt Ghidra bottle straight
+  from ghcr.io; `brew` never runs, and Homebrew's launcher scripts are not used. On
+  Linux x64 it uses the official Ghidra zip. Intel Macs and Linux arm64 get no Ghidra
+  yet; the row is disabled and names the reason. The JDK is Adoptium's Temurin build.
+- Frida is the pinned N-API prebuild of the npm binding REA loads, placed into the
+  installed package instead of running frida's install script. Ticking or unticking
+  **Frida** reinstalls Core with or without it.
+
+Every download is pinned with URL, size and SHA-256 per platform in
+`server/features/tools/rea-manifest.js` (its comment records the day the pins were
+checked) and verified before it is unpacked. Ghidra and the JDK live under
+`<data dir>/clis/rea-ghidra` and `<data dir>/clis/rea-jdk`, links that switch
+atomically to the version folders under `<data dir>/clis/.packages/`; REA's settings
+and its own home are under `<data dir>/rea/`. To raise a pin, edit the manifest and,
+for Core, run `node scripts/refresh-rea-lock.mjs`, which writes the lockfile and checks
+it against the registry's integrity.
+
+**Updates.** When an AgentPier release raises a pin, an installed REA follows at the
+next server start, like the managed browser ([CLI updates](cli-updates.md)). While a
+session or an agent uses REA, the start skips the update and tries again at the next
+start. The card shows **Update available** meanwhile, and **Update** in the dialog
+starts it by hand. **Apply changes** installs a newly ticked component or removes an
+unticked one, but never replaces one that is installed. Every installer run with
+or without `--with-rea` also brings an installed Ghidra and JDK to their pins
+([installation](installation.md)).
+
+**The MCP server row.** REA's row is named `rea`, or `rea-agentpier` when you already
+have a server called `rea` (for example one added from the directory, which stays as it
+is). On its first install it is bound to Claude Code; bind it to other CLIs and agents
+like any server. The MCP pages mark it as managed by AgentPier and link to **Manage
+REA** instead of offering **Remove**: its name, command, package and the environment
+keys AgentPier sets cannot be changed there, and those keys show **managed by
+AgentPier**. You can still add your own environment keys; they survive every
+component change.
+
+AgentPier starts REA with a controlled environment, so REA never reads or writes your
+CLIs' own configuration: `HOME`, `TMPDIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`,
+`XDG_DATA_HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` point into
+`<data dir>/rea/home`; `REA_MCP_INPUT_SCHEMA_PROFILE` is `compact`;
+`GHIDRA_INSTALL_DIR` and `JAVA_HOME` point at the installed Ghidra and JDK (only while
+that component is installed). Those keys, plus the four below, are locked.
+
+**Your own tools.** AgentPier never downloads Hopper, IDA or JEB. If you have them, the
+dialog's **Your own tools** section passes them to REA: **Hopper launcher path**
+(`HOPPER_LAUNCHER_PATH`), **IDA MCP bridge configuration** (`REA_IDA_MCP_CONFIG`, an
+absolute path), **JEB MCP URL** (`REA_JEB_MCP_URL`, http or https without credentials)
+and **Analysis provider**, Ghidra or IDA (`REA_ANALYSIS_PROVIDER`; IDA needs the bridge
+configuration). These settings can change while REA is in use.
+
+**Skill copies.** AgentPier copies the skill `reverse-engineer-anything` into every
+skill profile of each CLI REA is bound to, with the ownership tracking of
+[bundled skills](#bundled-skills-of-a-package), and removes its copy when the binding
+or REA goes away; a copy you changed is kept. A skill folder of the same name that you
+created yourself is left alone.
+
+**Removal.** **Uninstall REA** asks **Uninstall REA?** and then removes the MCP server
+row, its skill copies, Ghidra, the JDK, Frida and `<data dir>/rea`. Your own Hopper,
+IDA and JEB stay untouched. Uninstalling, removing Ghidra, switching Frida and
+updating are refused while a session or an agent uses REA, also when that session
+survived an AgentPier restart in tmux: "REA is running in a session or for an agent.
+Stop them before you remove, change or update REA's components."
+
+**Safety.** The dialog repeats REA's dual-use notes and asks you to confirm them before
+the first install: REA's DISCLAIMER forbids circumventing DRM, license checks and
+anti-cheat systems; open untrusted binaries only in a virtual machine or a separate
+user account; only `morluto/rea` is the genuine REA.
+
+**`rea setup` never runs.** It would write into the CLI files AgentPier manages.
+Therefore `rea doctor` reports its `registration` and `skill` checks as
+`config_drift`; that is expected and not an error. With the row's environment,
+`rea doctor --provider ghidra` reports `healthy` once Ghidra is installed.
+
+**Sandbox.** REA does not work in a nono-sandboxed session: Ghidra decompilation fails
+there and the setuid `ps` cannot run. Use REA in an unsandboxed session; see
+[sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed) for what was tested.
+
 #### Worked example: REA
 
 [REA](https://github.com/morluto/rea) ("Reverse Engineer Anything", MIT) is listed as
 `io.github.morluto/rea` and runs as the npm package `rea-agents` with the argument
-`mcp` over stdio, about 172 tools. Search the directory for `rea`, open **REA** and
-check the note before **Use this server**:
+`mcp` over stdio, about 172 tools. The simpler way is the [managed REA](#managed-rea),
+which installs Ghidra, a JDK and Frida with it. To set REA up yourself instead, search
+the directory for `rea`, open **REA** and check the note before **Use this server**:
 
 - **Dual use.** REA analyzes programs and running processes. Its disclaimer forbids
   circumventing DRM, license checks or anti-cheat; use it only on software you may
@@ -687,11 +790,12 @@ check the note before **Use this server**:
   **More options** on the package step.
 - **Tool catalog size.** The tool list is about 496 KB. On the settings step add
   `REA_MCP_INPUT_SCHEMA_PROFILE` with the value `compact` to cut it to about 290 KB.
-- **Bring your own analysers.** Ghidra 12.1 and JDK 21 or newer are not installed by
-  AgentPier; install them yourself and add `GHIDRA_INSTALL_DIR` and `JAVA_HOME`.
-- **No sandbox for runtime tools.** LLDB, Frida attach and the setuid `ps` very likely
-  fail in a nono-sandboxed session (inferred from REA's documentation, not tested).
-  Use REA's runtime tools in an unsandboxed session; see
+- **Bring your own analysers.** A server you set up yourself gets no Ghidra or JDK from
+  AgentPier; install Ghidra 12.1 with its native decompiler and JDK 21 or newer
+  yourself and add `GHIDRA_INSTALL_DIR` and `JAVA_HOME`.
+- **No sandbox.** In a nono-sandboxed session Ghidra decompilation and the setuid `ps`
+  fail, and LLDB and Frida attach need an unsandboxed session too. Use REA in an
+  unsandboxed session; see
   [sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed).
 - **Do not run `rea setup`.** REA's own setup command writes into the CLI configuration
   files that AgentPier manages. Set it up through the wizard and bind it with

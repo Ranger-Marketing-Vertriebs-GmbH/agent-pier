@@ -43,7 +43,7 @@ export const reaCopy = {
   sandboxGhidra: "Ghidra decompilation",
   sandboxFrida: "Frida attach and spawn",
   sandboxLldb: "Debugging with LLDB",
-  sandboxProcesses: "Listing processes",
+  sandboxProcesses: "Listing processes with ps",
   sandboxBridges: "The Hopper, IDA and JEB bridges",
   acknowledge:
     "I understand these notes and use REA only on software I am allowed to analyze.",

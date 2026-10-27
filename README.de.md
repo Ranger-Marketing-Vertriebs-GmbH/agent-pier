@@ -52,7 +52,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   ([Benutzer](docs/users.md), auf Englisch).
 - **Zentrale MCP-Server:** einen Server einmal anlegen und an Agenten und deine
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
-  für lokale Server ([MCP](docs/mcp.md)).
+  für lokale Server; den Reverse-Engineering-Server REA installiert AgentPier mit einem
+  Klick samt Ghidra, JDK und Frida ([MCP](docs/mcp.md),
+  [verwaltetes REA](docs/mcp.md#managed-rea)).
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
   Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und
