@@ -10,6 +10,8 @@ import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { connectionSummary } from "../provider-connections/connection-summary.js";
 import useAssistants from "../assistants/useAssistants.js";
+import ProblemMarker from "../connections/ProblemMarker.jsx";
+import { rowHasProblem } from "../connections/connection-categories.js";
 import AddLabel from "./AddLabel.jsx";
 import { itemRoute } from "./accounts-items.js";
 import { usageEntry, usageValue } from "./account-usage-view.js";
@@ -26,16 +28,29 @@ function HubGroup({ title, hint, action, children }) {
   );
 }
 
-function ItemRow({ section, id, selected, navigate, ...row }) {
+function ItemRow({ section, id, selected, navigate, flagged, label, ...row }) {
   const route = itemRoute(section, id);
   const current = selected?.section === section && selected.item === id;
+  const problem = rowHasProblem(flagged, id);
   return (
     <ListRow
       {...row}
+      label={
+        problem ? (
+          <>
+            {label}
+            <ProblemMarker />
+          </>
+        ) : (
+          label
+        )
+      }
       href={routePath(route)}
       onClick={() => navigate(route)}
       current={current}
-      className={current ? "is-selected" : ""}
+      className={[current ? "is-selected" : "", problem ? "has-problem" : ""]
+        .filter(Boolean)
+        .join(" ")}
     />
   );
 }
@@ -43,7 +58,8 @@ function ItemRow({ section, id, selected, navigate, ...row }) {
 /**
  * The entry lists of model access and services for agents (Zugänge); `groups` names
  * the ones a page shows. Native CLI accounts are listed by Coding › Accounts
- * (web/features/coding/accounts/).
+ * (web/features/coding/accounts/). `flagged` holds per group the row ids with a
+ * problem or warning (problemRowIds), which carry a warning mark.
  */
 export default function AccountsHub({
   state,
@@ -53,11 +69,13 @@ export default function AccountsHub({
   selected,
   navigate,
   groups = ["models", "services"],
+  flagged = {},
 }) {
   const { runtime } = useAssistants();
   const ready = runtime.availability === "ready";
   const connections = state.providerConnections || [];
-  const row = { selected, navigate };
+  const row = { selected, navigate, flagged: flagged.models };
+  const serviceRow = { selected, navigate, flagged: flagged.services };
   const speech = assistantCopy.speech;
   const webSearch = assistantCopy.webSearch;
   return (
@@ -130,7 +148,7 @@ export default function AccountsHub({
                 <ItemRow
                   section="services"
                   id="speech"
-                  {...row}
+                  {...serviceRow}
                   label={speech.title}
                   sub={
                     data.speech
@@ -142,7 +160,7 @@ export default function AccountsHub({
                 <ItemRow
                   section="services"
                   id="web-search"
-                  {...row}
+                  {...serviceRow}
                   label={webSearch.title}
                   sub={
                     data.webSearch
@@ -154,7 +172,7 @@ export default function AccountsHub({
                 <ItemRow
                   section="services"
                   id="pdf-model"
-                  {...row}
+                  {...serviceRow}
                   label={pdfCopy.title}
                   sub={
                     data.pdfModel

@@ -30,6 +30,24 @@ export function flaggedIds(problems, section) {
   );
 }
 
+// Rows whose id differs from their GET /connections/problems id.
+const rowIdAliases = { services: { webSearch: "web-search" } };
+
+/**
+ * The row ids a category's list marks as having a problem or warning, or null while
+ * unknown. The same ids the overview badge counts (categoryCounts), so the highlighted
+ * number and the marked rows always agree.
+ */
+export function problemRowIds(problems, section) {
+  const ids = flaggedIds(problems, section);
+  if (ids === null) return null;
+  const aliases = rowIdAliases[section] || {};
+  return new Set([...ids].map((id) => aliases[id] ?? id));
+}
+
+/** Whether a row is marked: false while the problems are unknown. */
+export const rowHasProblem = (rowIds, id) => Boolean(rowIds?.has(id));
+
 const length = (list) => (Array.isArray(list) ? list.length : null);
 
 /**

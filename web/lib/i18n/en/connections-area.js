@@ -16,6 +16,7 @@ export const connectionsAreaCopy = {
   flagged: (count) => (count === 1 ? "1 with a problem" : `${count} with a problem`),
   problemHint:
     "Highlighted numbers: entries with a problem (test failed, sign-in expired, update needed).",
+  problemMarker: "Problem",
   unknownCount: "Not known yet",
   loading: "Loading …",
   selectHint: "Choose an entry in the list.",

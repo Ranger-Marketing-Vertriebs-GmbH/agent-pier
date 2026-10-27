@@ -7,10 +7,18 @@ import { connectionsAreaCopy as copy } from "../../lib/i18n/messages/connections
 import CategorySection from "./CategorySection.jsx";
 import ConnectionUsedBy from "./ConnectionUsedBy.jsx";
 import EmptyCategory from "./EmptyCategory.jsx";
+import ProblemMarker from "./ProblemMarker.jsx";
+import { problemRowIds, rowHasProblem } from "./connection-categories.js";
 import { auditRoute, connectionsRoute } from "./routes.js";
 
 const SecretsSettings = lazy(() => import("../secrets/SecretsSettings.jsx"));
 const GithubAccessPage = lazy(() => import("../settings/GithubAccessPage.jsx"));
+
+/** The warning mark of an entry the problems count, or nothing. */
+const markerOf = (problems, section) => {
+  const ids = problemRowIds(problems, section);
+  return (entry) => (rowHasProblem(ids, entry.id) ? <ProblemMarker /> : null);
+};
 
 const usageOf = (usage, group, id) =>
   usage ? (usage[group] ? (usage[group][id] ?? null) : null) : undefined;
@@ -44,6 +52,7 @@ export function SecretsCategory({ shared, item, loading }) {
         <SecretsSettings
           item={item || ""}
           onChanged={reloadAll}
+          marker={markerOf(shared.problems, "secrets")}
           emptyState={(openNew) => (
             <EmptyCategory
               icon="shield"
@@ -90,6 +99,7 @@ export function GithubCategory({ shared, item, loading }) {
       <Suspense fallback={loading}>
         <GithubAccessPage
           only={item || undefined}
+          marker={markerOf(shared.problems, "github")}
           onChanged={(_credential, deletedId) => {
             reloadAll();
             if (deletedId && deletedId === item)

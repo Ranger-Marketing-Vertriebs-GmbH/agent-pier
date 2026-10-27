@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   categoryCounts,
   flaggedIds,
+  problemRowIds,
   problemTotal,
+  rowHasProblem,
   visibleSections,
 } from "../../web/features/connections/connection-categories.js";
 import {
@@ -20,6 +22,7 @@ import {
   mcpItems,
   mcpLocation,
   mcpSource,
+  sshItems,
 } from "../../web/features/connections/connection-items.js";
 import { deleteImpact, grantHolders } from "../../web/features/connections/ssh-bulk.js";
 
@@ -95,6 +98,62 @@ test("category counts use loaded lists, then problem totals, and never fake a ze
     null,
   );
   assert.equal(flaggedIds(null, "ssh"), null);
+});
+
+test("marked rows are exactly the entries the highlighted numbers count", () => {
+  const problems = {
+    models: category(4, [
+      { id: "c1", reasons: ["keyMissing"] },
+      { id: "cli", reasons: [] },
+    ]),
+    services: category(1, [], [{ id: "webSearch", reasons: ["notConfigured"] }]),
+    mcp: category(2, [{ id: "m1", reasons: ["loginRequired"] }]),
+    ssh: category(2, [{ id: "h2", reasons: ["testFailed"] }]),
+    secrets: category(2, [{ id: "s1", reasons: ["unreadable"] }]),
+    github: category(2, [], [{ id: "g2", reasons: ["tokenExpiring"] }]),
+  };
+  const rows = {
+    models: ["c1", "c2", "openclaw:1", "chatgpt"],
+    services: ["speech", "web-search", "pdf-model"],
+    "mcp-servers": ["m1", "m2"],
+    ssh: ["h1", "h2"],
+    secrets: ["s1", "s2"],
+    github: ["g1", "g2"],
+  };
+  const counts = categoryCounts({
+    problems,
+    lists: {
+      connections: [{ id: "c1" }, { id: "c2" }],
+      chatgpt: [{ id: "openclaw:1" }],
+      mcpServers: [{ id: "m1" }, { id: "m2" }],
+      ssh: [{ id: "h1" }, { id: "h2" }],
+    },
+    agentsEnabled: true,
+  });
+  for (const [section, ids] of Object.entries(rows)) {
+    const flagged = problemRowIds(problems, section);
+    const marked = ids.filter((id) => rowHasProblem(flagged, id));
+    assert.equal(marked.length, counts[section].flagged, section);
+  }
+  // The services warning names the web search row by its own id.
+  assert.deepEqual([...problemRowIds(problems, "services")], ["web-search"]);
+  // Unknown problems mark nothing and stay unknown.
+  assert.equal(problemRowIds({ ssh: null }, "ssh"), null);
+  assert.equal(rowHasProblem(null, "h1"), false);
+  // Long lists follow the problems once known, their own status only before.
+  const accesses = [
+    { id: "h1", name: "A", host: "a", username: "u", port: 22, lastTest: { ok: false } },
+    { id: "h2", name: "B", host: "b", username: "u", port: 22, lastTest: { ok: false } },
+  ];
+  const ownerName = () => "";
+  assert.deepEqual(
+    sshItems({ accesses, ownerName, problems }).map((item) => item.problem),
+    [false, true],
+  );
+  assert.deepEqual(
+    sshItems({ accesses, ownerName, problems: null }).map((item) => item.problem),
+    [true, true],
+  );
 });
 
 test("grant bodies change one grant and keep the rest of the access policy", () => {
@@ -265,7 +324,7 @@ test("SSH bulk actions name who holds a grant and who a delete affects", () => {
   );
 });
 
-test("MCP items group by source and count updates and sign-ins as problems", () => {
+test("MCP items group by source and mark the problems' updates and sign-ins", () => {
   const servers = [
     { id: "m1", name: "Docs", transport: "http", url: "https://docs.test/mcp", clis: [] },
     {
@@ -295,7 +354,8 @@ test("MCP items group by source and count updates and sign-ins as problems", () 
     items.map((item) => [item.id, item.group.key, item.status, item.problem, item.used]),
     [
       ["m1", "remote", "ok", false, false],
-      ["m2", "package", "updateAvailable", true, true],
+      // A found update the problems do not name yet is shown but not marked.
+      ["m2", "package", "updateAvailable", false, true],
       ["m3", "command", "loginRequired", true, true],
     ],
   );
@@ -305,6 +365,11 @@ test("MCP items group by source and count updates and sign-ins as problems", () 
   assert.equal(mcpLocation(servers[1]), "npm files 1.0.0");
   assert.equal(mcpLocation(servers[2]), "notes");
   assert.equal(mcpSource(servers[0]), "remote");
+  // Before the problems are known, an update marks the row on its own.
+  assert.equal(
+    mcpItems({ servers, updates: new Map([["m2", { version: "1.1.0" }]]) })[1].problem,
+    true,
+  );
   // Unknown usage and no CLI: not counted as unused.
   assert.equal(mcpItems({ servers: [servers[0]] })[0].used, null);
 });

@@ -69,6 +69,21 @@
 .connections-intro {
   display: none;
 }
+/* An entry the highlighted number counts (ProblemMarker): a warning chip beside its
+   name, and on list rows the sub line that names the state in the warning tone. */
+.connections-problem {
+  display: inline-flex;
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.connections-problem .status-chip {
+  font-weight: var(--font-weight-bold);
+  color: var(--warning);
+}
+.list-row.has-problem .list-row-sub {
+  color: var(--warning);
+}
 .connections-category-chevron {
   display: none;
   color: var(--text-faint);

@@ -15,12 +15,13 @@ import { usePageAction } from "../../app/page-action.js";
 /**
  * Zugänge › GitHub-Zugänge: token profiles with check, edit and delete. `only` shows
  * one profile (its full view) with `after(credential)` below it; `rowExtra` adds an
- * action per row; `onChanged` hears saves and deletes (`deletedId` when one went).
+ * action per row; `marker` a mark beside a profile's name; `onChanged` hears saves and deletes (`deletedId` when one went).
  */
 export default function GithubAccessPage({
   only,
   after,
   rowExtra,
+  marker,
   onChanged,
   emptyState,
 } = {}) {
@@ -101,6 +102,7 @@ export default function GithubAccessPage({
               only ? credentials.filter((item) => item.id === only) : credentials
             }
             extra={rowExtra}
+            marker={marker}
             cloning={cloning}
             setModal={setModal}
             label={copy.pageHeadingTitle}

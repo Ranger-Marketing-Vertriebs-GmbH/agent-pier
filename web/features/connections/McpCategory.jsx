@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { names } from "../../lib/providers.js";
 import { connectionsAreaCopy as copy } from "../../lib/i18n/messages/connections-area.js";
@@ -14,6 +14,7 @@ import EmptyCategory from "./EmptyCategory.jsx";
 import LongList from "./LongList.jsx";
 import McpBulkActions from "./McpBulkActions.jsx";
 import McpDetailPane from "./McpDetailPane.jsx";
+import { problemRowIds } from "./connection-categories.js";
 import { mcpItems, mcpSources } from "./connection-items.js";
 
 const statuses = ["installFailed", "cliError", "loginRequired", "updateAvailable", "ok"];
@@ -62,6 +63,22 @@ export default function McpCategory({
   const [bulkOpen, setBulkOpen] = useState(false);
   useEffect(() => setResultShown(true), [oauthResult]);
   const updates = useDirectoryUpdates(data.mcpServers);
+  // An update the list just found that the problems do not name yet: they are read
+  // again once, so the highlighted number and the marked rows take it in together.
+  const flagged = problemRowIds(problems, "mcp-servers");
+  const unseen = flagged
+    ? [...updates]
+        .filter(([id, update]) => update.version && !flagged.has(id))
+        .map(([id]) => id)
+        .sort()
+        .join(" ")
+    : "";
+  const reread = useRef("");
+  useEffect(() => {
+    if (!unseen || reread.current === unseen) return;
+    reread.current = unseen;
+    reloadUsage?.();
+  }, [unseen, reloadUsage]);
   const items = useMemo(
     () =>
       mcpItems({

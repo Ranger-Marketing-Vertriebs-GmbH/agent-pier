@@ -1,8 +1,13 @@
 import { cliSupport, cliTarget } from "../mcp-servers/cli-support.js";
+import { problemRowIds } from "./connection-categories.js";
 
 // Long-list items (long-list.js) for SSH/SFTP accesses and MCP servers, built from the
 // lists, GET /connections/usage, GET /accounts/usage and GET /connections/problems.
-// Unknown usage stays unknown (null), never a fake "not used".
+// Unknown usage stays unknown (null), never a fake "not used". `problem` follows GET
+// /connections/problems (problemRowIds), as the categories' highlighted number does;
+// only while that is unknown does an item's own status decide.
+
+const marked = (ids, id, fallback) => (ids ? ids.has(id) : fallback);
 
 export const globalProject = "__global";
 
@@ -31,8 +36,9 @@ export function sshStatus(access) {
 /** The agent ids an SSH host's usage names (grants, lead shares and hooks). */
 const agentIds = (agents) => [...new Set((agents || []).map((agent) => agent.id))];
 
-export function sshItems({ accesses, usage, ownerName }) {
+export function sshItems({ accesses, usage, ownerName, problems }) {
   const hosts = usage?.ssh ?? null;
+  const flagged = problemRowIds(problems, "ssh");
   return (accesses || []).map((access) => {
     const entry = hosts ? (hosts[access.id] ?? null) : null;
     const status = sshStatus(access);
@@ -43,7 +49,7 @@ export function sshItems({ accesses, usage, ownerName }) {
       kind: access.type === "sftp" ? "sftp" : "ssh",
       group: { key: access.projectId || globalProject, label: ownerName(access) },
       status,
-      problem: status === "failed" || status === "hostKey",
+      problem: marked(flagged, access.id, status === "failed" || status === "hostKey"),
       usage: entry,
       used: entry
         ? usedState([count(entry.agents), count(entry.hooks), entry.sessions])
@@ -103,6 +109,7 @@ export function reasonsById(category) {
 
 export function mcpItems({ servers, accountUsage, connectionUsage, problems, updates }) {
   const reasons = reasonsById(problems?.mcp);
+  const flagged = problemRowIds(problems, "mcp-servers");
   const used = accountUsage?.mcpServers ?? null;
   const changes = connectionUsage?.mcp ?? null;
   return (servers || []).map((server) => {
@@ -120,7 +127,7 @@ export function mcpItems({ servers, accountUsage, connectionUsage, problems, upd
       kind: server.transport,
       group: { key: mcpSource(server), order: mcpSources.indexOf(mcpSource(server)) },
       status,
-      problem: status !== "ok",
+      problem: marked(flagged, server.id, status !== "ok"),
       usage: entry,
       used: clis.length
         ? true

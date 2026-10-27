@@ -16,10 +16,17 @@ const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id
 /**
  * Zugänge › Geheimnisse: values go to the server and never come back. `usedBy(secret)`
  * renders who uses the open secret; `emptyState` replaces the empty sentence; `onChanged`
- * hears every create, edit and delete (to reload counts and usage). `item` (the
+ * hears every create, edit and delete (to reload counts and usage); `marker(secret)` adds
+ * a mark beside a secret's name. `item` (the
  * address's `item=<id|new>`) opens that secret, or the empty form, once the list is in.
  */
-export default function SecretsSettings({ usedBy, emptyState, onChanged, item = "" }) {
+export default function SecretsSettings({
+  usedBy,
+  emptyState,
+  onChanged,
+  marker,
+  item = "",
+}) {
   const [secrets, setSecrets] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState("");
@@ -133,6 +140,7 @@ export default function SecretsSettings({ usedBy, emptyState, onChanged, item = 
           renderItem={(secret) => (
             <span className="secrets-item">
               <strong>{secret.name}</strong>
+              {marker?.(secret)}
               {secret.description && <small>{secret.description}</small>}
               <small>{ownerName(secret)}</small>
             </span>
