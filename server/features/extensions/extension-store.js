@@ -13,6 +13,7 @@ import {
 } from "./skill-packages.js";
 import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 import { skillDigest } from "./skill-digest.js";
+import { writeSkillFiles } from "./skill-files.js";
 import { SkillPreviews } from "./skill-previews.js";
 // The stable scopeKey lets browsers translate the scope; scope keeps the German label.
 const skillScope = (scopeKey) => ({
@@ -26,14 +27,6 @@ const origins = (item) => ({
     ? { package: { name: item.package.name, version: item.package.version } }
     : {}),
 });
-function writeFiles(target, files) {
-  for (const [relative, buffer, mode = 0o600] of files) {
-    const file = path.join(target, relative);
-    safePath(file, target);
-    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(file, buffer, { mode, flag: "wx" });
-  }
-}
 export class ExtensionsStore {
   constructor({
     accounts,
@@ -354,7 +347,7 @@ export class ExtensionsStore {
     }
     const identity = fs.lstatSync(target);
     try {
-      writeFiles(target, pack.files);
+      writeSkillFiles(target, pack.files);
       const item = {
         id: randomUUID(),
         accountId: id,
@@ -433,7 +426,7 @@ export class ExtensionsStore {
     const old = `${staging}-old`;
     fs.mkdirSync(staging, { mode: 0o700 });
     try {
-      writeFiles(staging, pack.files);
+      writeSkillFiles(staging, pack.files);
       fs.renameSync(item.path, old);
       fs.renameSync(staging, item.path);
     } catch (error) {
