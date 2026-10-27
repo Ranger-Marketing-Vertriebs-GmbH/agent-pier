@@ -347,7 +347,7 @@ test("a test of a removed account does not bring it back", async (t) => {
   assert.deepEqual(s.list(), []);
 });
 
-test("testInput checks unsaved fields and reuses a saved password", async (t) => {
+test("testInput checks unsaved fields and reuses a saved password on its servers", async (t) => {
   const calls = [];
   const connect = {
     async testMailAccount(account, password) {
@@ -356,12 +356,17 @@ test("testInput checks unsaved fields and reuses a saved password", async (t) =>
     },
   };
   const s = store(t, { connect });
-  const a = s.create({ ...gmail, password: "pw-saved" }, owner);
+  const a = s.create({ ...generic(993), password: "pw-saved" }, owner);
   await s.testInput({ ...generic(993), password: "pw-typed" });
   assert.equal(calls[0].password, "pw-typed");
-  await s.testInput({ ...generic(995), accountId: a.id });
+  // Same servers, other username: the saved password may be reused.
+  await s.testInput({
+    accountId: a.id,
+    imap: { username: "other" },
+    address: "other@example.com",
+  });
   assert.equal(calls[1].password, "pw-saved");
-  assert.equal(calls[1].account.imap.port, 995);
+  assert.equal(calls[1].account.imap.username, "other");
   await assert.rejects(s.testInput({ ...generic(993, "bogus"), password: "pw" }), {
     status: 400,
   });
@@ -373,6 +378,110 @@ test("testInput checks unsaved fields and reuses a saved password", async (t) =>
   assert.equal(calls.length, 2);
   assert.equal(s.auditLog.events.at(-1).action, "mail.created");
   assert.equal(s.get(a.id).lastTest, null);
+});
+
+// Each change moves the account to another server endpoint.
+const endpointChanges = {
+  imapHost: { imap: { host: "imap.evil.example" } },
+  smtpHost: { smtp: { host: "smtp.evil.example" } },
+  imapPort: { imap: { port: 995 } },
+  smtpPort: { smtp: { port: 587 } },
+  security: { smtp: { security: "starttls" } },
+  preset: {
+    preset: "gmail",
+  },
+};
+
+test("a saved password never goes to a changed server without a new one", async (t) => {
+  let connects = 0;
+  const connect = {
+    async testMailAccount() {
+      connects += 1;
+      return { imap: { ok: true }, smtp: { ok: true } };
+    },
+  };
+  const s = store(t, { connect });
+  const a = s.create({ ...generic(993), password: "pw-saved" }, owner);
+  const before = catalog(s.dataDir);
+  const refused = { status: 400, message: serverMessages.mail.passwordRequiredForServer };
+  for (const [label, change] of Object.entries(endpointChanges)) {
+    await assert.rejects(s.testInput({ accountId: a.id, ...change }), refused, label);
+    assert.throws(() => s.update(a.id, change, owner), refused, label);
+  }
+  assert.equal(connects, 0);
+  assert.deepEqual(catalog(s.dataDir), before);
+  assert.equal(s.auditLog.events.length, 1);
+  for (const [label, change] of Object.entries(endpointChanges)) {
+    await s.testInput({ accountId: a.id, ...change, password: "pw-new" });
+    assert.equal(connects, 1, label);
+    connects = 0;
+  }
+  const moved = s.update(a.id, { imap: { port: 995 }, password: "pw-new" }, owner);
+  assert.equal(moved.imap.port, 995);
+  assert.deepEqual(s.auditLog.events.at(-1).details, {
+    kind: "account",
+    fields: ["imap", "password"],
+  });
+  // The username and address on the same servers stay editable without a password.
+  const renamed = s.update(
+    a.id,
+    { address: "new@example.com", imap: { username: "new" } },
+    owner,
+  );
+  assert.equal(renamed.imap.username, "new");
+});
+
+test("an update without a change writes and audits nothing", async (t) => {
+  const s = store(t);
+  const a = s.create({ ...gmail, password: "pw" }, owner);
+  const before = fs.readFileSync(path.join(s.dataDir, "mail/accounts.json"), "utf8");
+  const same = s.update(a.id, { name: a.name, saveSent: a.saveSent }, owner);
+  assert.deepEqual(same, a);
+  assert.equal(
+    fs.readFileSync(path.join(s.dataDir, "mail/accounts.json"), "utf8"),
+    before,
+  );
+  assert.equal(s.auditLog.events.length, 1);
+});
+
+test("an unreadable catalog fails without echoing its content", async (t) => {
+  for (const content of ["{ broken pw-secret", JSON.stringify({ version: 2 })]) {
+    const s = store(t);
+    s.create({ ...gmail, password: "pw" }, owner);
+    fs.writeFileSync(path.join(s.dataDir, "mail/accounts.json"), content);
+    for (const run of [
+      () => s.list(),
+      () => s.create({ ...gmail, password: "x" }, owner),
+    ])
+      assert.throws(run, (error) => {
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "MAIL_CATALOG_UNREADABLE");
+        assert.equal(error.message, serverMessages.mail.catalogUnreadable);
+        assert.equal(String(error.stack).includes("pw-secret"), false);
+        return true;
+      });
+    // Startup only warns and keeps every password file.
+    const again = store(t, { dataDir: s.dataDir });
+    await again.ready;
+    assert.equal(fs.readdirSync(path.join(s.dataDir, "mail/passwords")).length, 1);
+  }
+});
+
+test("a password directory left by a failed removal is collected on startup", async (t) => {
+  const s = store(t);
+  const a = s.create({ ...gmail, password: "pw" }, owner);
+  s.passwords.removeHost = () => {
+    throw Object.assign(new Error("busy"), { code: "EBUSY" });
+  };
+  assert.throws(() => s.remove(a.id, owner), { code: "EBUSY" });
+  assert.deepEqual(s.list(), []);
+  assert.equal(
+    fs.existsSync(path.join(passwordDirectory(s.dataDir, a.id), ".pending")),
+    true,
+  );
+  const again = store(t, { dataDir: s.dataDir });
+  await again.ready;
+  assert.equal(fs.existsSync(passwordDirectory(s.dataDir, a.id)), false);
 });
 
 test("an unreadable password file is reported without its content", async (t) => {

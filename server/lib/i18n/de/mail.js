@@ -17,4 +17,7 @@ export const mail = Object.freeze({
   passwordUnavailable: "Das gespeicherte E-Mail-Passwort ist nicht verfügbar.",
   invalidPassword:
     "Das Passwort muss 1 bis 1024 Bytes lang sein und darf keine Zeilenumbrüche enthalten.",
+  passwordRequiredForServer:
+    "Bitte das Passwort erneut eingeben, wenn sich Mailserver, Port oder Verschlüsselung ändern.",
+  catalogUnreadable: "Die gespeicherten E-Mail-Kontodaten können nicht gelesen werden.",
 });

@@ -105,10 +105,21 @@ function serverValue(raw, preset, existing, defaultUsername) {
   };
 }
 
+const endpoint = ({ host, port, security }) => JSON.stringify([host, port, security]);
+
+/** Whether `fields` reach the same IMAP and SMTP servers as `existing`. */
+export function sameEndpoints(existing, fields) {
+  return ["imap", "smtp"].every(
+    (side) => endpoint(existing[side]) === endpoint(fields[side]),
+  );
+}
+
 /**
  * The validated fields of a new account, or of `existing` changed by `raw`. Server
  * fields merge per field (preset < existing < input). `password` is only present
- * when given; a new account needs one unless `requirePassword` is false.
+ * when given; a new account needs one unless `requirePassword` is false. A saved
+ * password is bound to its servers: changing an IMAP or SMTP host, port or security
+ * (also through the preset) of `existing` needs a new password.
  */
 export function accountInput(raw, { existing, requirePassword = !existing } = {}) {
   if (!isObject(raw) || Object.keys(raw).some((key) => !accountKeys.has(key)))
@@ -140,5 +151,7 @@ export function accountInput(raw, { existing, requirePassword = !existing } = {}
   if (raw.password !== undefined)
     fields.password = passwordValue(raw.password, serverMessages.mail.invalidPassword);
   else if (requirePassword) throw problem(serverMessages.mail.invalidPassword);
+  else if (existing && !sameEndpoints(existing, fields))
+    throw problem(serverMessages.mail.passwordRequiredForServer);
   return fields;
 }

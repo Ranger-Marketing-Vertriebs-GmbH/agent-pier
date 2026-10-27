@@ -14,4 +14,7 @@ export const mail = Object.freeze({
     "An unencrypted connection needs the explicit permission on the account.",
   passwordUnavailable: "The saved email password is unavailable.",
   invalidPassword: "The password must be 1 to 1024 bytes long without line breaks.",
+  passwordRequiredForServer:
+    "Enter the password again when you change a mail server, port or security.",
+  catalogUnreadable: "The saved email accounts cannot be read.",
 });

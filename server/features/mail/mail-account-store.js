@@ -72,9 +72,15 @@ export class MailAccountStore {
   }
 
   rows() {
-    const catalog = readJSON(this.file, { version: VERSION, accounts: [] });
+    let catalog;
+    try {
+      catalog = readJSON(this.file, { version: VERSION, accounts: [] });
+    } catch {
+      catalog = null;
+    }
+    // Never echoes the file: a parse error would quote its content.
     if (catalog?.version !== VERSION || !Array.isArray(catalog.accounts))
-      throw Object.assign(new Error("Unreadable mail account catalog."), {
+      throw Object.assign(problem(serverMessages.mail.catalogUnreadable, 500), {
         code: "MAIL_CATALOG_UNREADABLE",
       });
     return catalog.accounts;
@@ -149,6 +155,8 @@ export class MailAccountStore {
       (key) => JSON.stringify(fields[key]) !== JSON.stringify(stored[key]),
     );
     if (password !== undefined) changed.push("password");
+    // Nothing changed: no write, no new updatedAt, no audit.
+    if (!changed.length) return this.view(stored);
     const row = {
       ...stored,
       ...fields,
@@ -179,7 +187,15 @@ export class MailAccountStore {
   remove(id, principal) {
     this.row(id);
     this.onRemoved?.(id);
-    this.save(this.rows().filter((item) => item.id !== id));
+    // Pending before the commit: if removing the directory fails below, startup finds
+    // a pending directory without a catalog row and removes it.
+    if (fs.existsSync(this.passwords.hostDirectory(id))) this.passwords.markPending(id);
+    try {
+      this.save(this.rows().filter((item) => item.id !== id));
+    } catch (error) {
+      this.passwords.settle(id);
+      throw error;
+    }
     this.passwords.removeHost(id);
     this.record("mail.deleted", id, principal, {});
   }
@@ -221,7 +237,7 @@ export class MailAccountStore {
   }
 
   /** Tests unsaved fields; with `accountId` they change that account and may reuse
-   * its password. Nothing is stored or audited. */
+   * its password, but only against the same servers. Nothing is stored or audited. */
   async testInput(input) {
     if (!input || typeof input !== "object" || Array.isArray(input))
       throw problem(serverMessages.mail.invalidAccount);
