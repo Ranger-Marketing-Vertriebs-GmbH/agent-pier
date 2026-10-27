@@ -5,6 +5,10 @@ export const mcpServerCopy = {
   loading: "Lädt …",
   add: "MCP-Server hinzufügen",
   remove: "Entfernen",
+  managedNote:
+    "AgentPier verwaltet diesen Server zusammen mit REA. Name, Befehl, Paket und die von AgentPier gesetzten Einstellungen änderst du in der REA-Karte. Eigene Einstellungen kannst du weiterhin hinzufügen und festlegen, wer ihn nutzt.",
+  managedManage: "REA verwalten",
+  managedEnv: "von AgentPier verwaltet",
   removeNamed: (name) => `${name} entfernen`,
   confirmRemove: (name) =>
     `${name} entfernen? Agenten, die ihn nutzen, verlieren sofort den Zugriff. Gespeicherte Header- und Umgebungswerte werden gelöscht.`,

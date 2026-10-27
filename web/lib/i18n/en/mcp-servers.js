@@ -6,6 +6,10 @@ export const mcpServerCopy = {
   add: "Add MCP server",
   remove: "Remove",
   removeNamed: (name) => `Remove ${name}`,
+  managedNote:
+    "AgentPier manages this server together with REA. Its name, command, package and the settings AgentPier sets change on the REA card. You can still add your own settings and choose who uses it.",
+  managedManage: "Manage REA",
+  managedEnv: "managed by AgentPier",
   confirmRemove: (name) =>
     `Remove ${name}? Agents that use it lose access immediately. Stored header and environment values are deleted.`,
   confirmRemoveAction: "Remove server",

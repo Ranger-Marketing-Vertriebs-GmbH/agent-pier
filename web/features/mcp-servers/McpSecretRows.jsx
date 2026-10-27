@@ -8,6 +8,7 @@ import { mcpServerCopy as copy } from "../../lib/i18n/messages/mcp-servers.js";
  * Rows: `{ key, name, value, stored, removed }`. `error` is shown at the rows and
  * describes them (`errorId`); the value inputs of `invalidNames` are marked invalid.
  * Stored `requiredNames` (marked required by the MCP directory) carry a marker.
+ * `lockedNames` are managed by AgentPier: shown, never editable or removable.
  * `templates` show stored agent placeholders, the one kind of value that is no secret.
  */
 export default function McpSecretRows({
@@ -18,6 +19,7 @@ export default function McpSecretRows({
   errorId,
   invalidNames = [],
   requiredNames = [],
+  lockedNames = [],
   templates = {},
 }) {
   const invalid = (row) =>
@@ -34,7 +36,11 @@ export default function McpSecretRows({
       )}
       {rows.map((row) => (
         <div className="mcp-row" key={row.key}>
-          {row.stored ? (
+          {row.stored && lockedNames.includes(row.name) ? (
+            <span className="mcp-row-name">
+              <code>{row.name}</code> <em className="mcp-stored">{copy.managedEnv}</em>
+            </span>
+          ) : row.stored ? (
             <>
               <span className="mcp-row-name">
                 <code>{row.name}</code>{" "}

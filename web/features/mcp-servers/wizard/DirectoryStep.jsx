@@ -224,7 +224,12 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
           </button>
         )}
       </WizardStep>
-      <DirectoryDetail entry={detail} onUse={use} onClose={() => setDetail(null)} />
+      <DirectoryDetail
+        entry={detail}
+        onUse={use}
+        onClose={() => setDetail(null)}
+        navigate={navigate}
+      />
     </>
   );
 }
