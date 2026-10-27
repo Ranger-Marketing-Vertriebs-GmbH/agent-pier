@@ -63,6 +63,17 @@ rest of the session; Keep planning stops Claude in plan mode so you can send fee
 in chat. Switching the permission mode outside such a plan approval stays in the
 terminal (Shift+Tab).
 
+## Questions an agent escalates
+
+A coding session that an agent started (**Started by agent <name>**) shows its open
+questions and approvals in the inbox like any other session. When the agent hands one to
+you with a note, the item is marked **Escalated by <agent>** and shows the note; the
+agent's chat shows the same prompt as the card **Question from a coding session**, and
+the inbox hides that card's action so nothing appears twice. Whoever answers first wins:
+you in AgentPier or Telegram, or the agent. Until the agent escalates a prompt, its push
+notification is held for up to 15 minutes ([notifications](notifications.md#what-notifies-you)),
+but the item is listed at once ([coding sessions](assistant-workflows.md#coding-sessions)).
+
 ## Waiting sessions
 
 A session in the sidebar shows **Waiting** while one of its native requests is open,

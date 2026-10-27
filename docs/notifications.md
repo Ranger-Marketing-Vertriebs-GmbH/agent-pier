@@ -124,6 +124,14 @@ found a saved token invalid, expired or expiring within seven days), **Disk spac
 low** (less than 10 % free on the drive with AgentPier's data, see
 [system status](system-status.md#low-disk-space)) and the test notification.
 
+For a session an agent started and controls, pushes change ([coding
+sessions](assistant-workflows.md#coding-sessions)): **Question from a CLI** and **Approval
+for a CLI** are held until the agent escalates the prompt or 15 minutes pass (the hold
+survives a server restart and a reconnect of the session), **Session waiting in the
+terminal** and **Response ready** are not sent because the agent is woken instead, and
+**Session ended** still notifies. When the agent escalates a prompt, the held push is sent
+at once.
+
 Telegram keeps its own messages and approval buttons for agents; these settings only
 change push notifications.
 

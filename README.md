@@ -38,7 +38,7 @@ and agents that work as a team.
   as templates for
   agents and members, work goals that keep an agent going until the job is done, optional nightly dreaming that tidies each agent's memory, hooks that let monitoring and other systems wake an agent, with @-mentions, Telegram, skills (bundled ones plus an owner-managed skill catalog with a scan before every install), routines, check-ins, files in both
   directions, images created through ChatGPT, PDFs read with the agent's own model (or an optional fallback), read or read-and-write access to project folders and GitHub through your
-  token profiles ([agents](docs/agents.md)).
+  token profiles, and coding sessions they start and steer themselves in their own worktrees, escalating questions to you ([agents](docs/agents.md), [coding sessions](docs/assistant-workflows.md#coding-sessions)).
 - **Users:** add family members who sign in with their own password and chat
   privately with their own or shared agents, locked away from shell, coding and the
   rest of your workspace; you read their chats only when you switch it on
