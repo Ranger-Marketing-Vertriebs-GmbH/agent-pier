@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../lib/api.js";
+import { startVisiblePolling } from "../../../lib/visible-polling.js";
 
 const polledTools = ["claude", "codex", "opencode"];
 
@@ -11,7 +12,7 @@ const polled = (account) =>
   polledTools.includes(account.tool);
 
 /**
- * The CLI sign-in state of every native account, polled every 10 s. The page owns
+ * The CLI sign-in state of every native account, polled every 30 s. The page owns
  * one copy and hands it to the hub rows and the open detail, so an account is never
  * polled twice. Returns `{ [accountId]: "authenticated" | … }`; unknown ids are absent.
  */
@@ -23,37 +24,22 @@ export default function useAccountAuthStates(accounts) {
     .join("\n");
   useEffect(() => {
     if (!key) return undefined;
-    const controller = new AbortController();
-    const timers = new Set();
     const settle = (id, state) =>
       setStates((previous) =>
         previous[id] === state ? previous : { ...previous, [id]: state },
       );
-    async function poll(id) {
+    async function poll(id, signal) {
       try {
-        const result = await api(
-          `/accounts/${id}/auth-status`,
-          "GET",
-          undefined,
-          controller.signal,
-        );
-        if (!controller.signal.aborted) settle(id, result.state || "unknown");
+        const result = await api(`/accounts/${id}/auth-status`, "GET", undefined, signal);
+        if (!signal.aborted) settle(id, result.state || "unknown");
       } catch {
-        if (!controller.signal.aborted) settle(id, "unknown");
-      }
-      if (!controller.signal.aborted) {
-        const timer = setTimeout(() => {
-          timers.delete(timer);
-          poll(id);
-        }, 10000);
-        timers.add(timer);
+        if (!signal.aborted) settle(id, "unknown");
       }
     }
-    key.split("\n").forEach(poll);
-    return () => {
-      controller.abort();
-      timers.forEach(clearTimeout);
-    };
+    const stops = key
+      .split("\n")
+      .map((id) => startVisiblePolling((signal) => poll(id, signal), 30000));
+    return () => stops.forEach((stop) => stop());
   }, [key]);
   return states;
 }

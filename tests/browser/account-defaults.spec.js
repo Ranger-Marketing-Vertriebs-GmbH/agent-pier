@@ -138,9 +138,9 @@ test("local login and logout update without reloading the accounts page", async 
   const local = accountRow(page, "Server Claude");
   await expect(local).toHaveCount(0);
   f.authStates["local-claude"] = "authenticated";
-  await page.clock.fastForward(11000);
+  await page.clock.fastForward(31000);
   await expect(local).toBeVisible();
   f.authStates["local-claude"] = "unauthenticated";
-  await page.clock.fastForward(11000);
+  await page.clock.fastForward(31000);
   await expect(local).toHaveCount(0);
 });

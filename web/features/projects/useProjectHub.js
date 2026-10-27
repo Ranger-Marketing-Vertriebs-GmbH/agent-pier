@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import api from "../../lib/api.js";
+import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 
 // Repositories, project knowledge and AgentBus each keep their own project ids.
@@ -263,10 +264,10 @@ export default function useProjectHub() {
   // most recently started request that has arrived so far is applied.
   const busGate = useRef(latestGate());
   const readBus = useCallback(
-    async (isActive) => {
+    async (isActive, signal) => {
       const ticket = busGate.current.start();
       try {
-        const data = await api("/agentbus");
+        const data = await api("/agentbus", "GET", undefined, signal);
         if (isActive() && busGate.current.apply(ticket)) {
           setBusData({
             version: data.version || "",
@@ -317,33 +318,17 @@ export default function useProjectHub() {
       alive = false;
     };
   }, [version, sourceError, readBus]);
-  // AgentBus refreshes every 4 s while the page is visible; a hidden page pauses the
+  // AgentBus refreshes every 10 s while the page is visible; a hidden page pauses the
   // poll and reads at once when it becomes visible again.
   useEffect(() => {
-    let active = true,
-      reading = false,
-      timer;
-    const schedule = () => {
-      clearTimeout(timer);
-      if (active && !document.hidden) timer = setTimeout(read, 4000);
-    };
-    async function read() {
-      if (!active || reading || document.hidden) return;
-      reading = true;
-      await readBus(() => active);
-      reading = false;
-      schedule();
-    }
-    const visibility = () => {
-      clearTimeout(timer);
-      read();
-    };
-    document.addEventListener("visibilitychange", visibility);
-    schedule();
+    let active = true;
+    const stop = startVisiblePolling(
+      (signal) => readBus(() => active && !signal.aborted, signal),
+      10000,
+    );
     return () => {
       active = false;
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", visibility);
+      stop();
     };
   }, [version, readBus]);
   const repositories = useMemo(
