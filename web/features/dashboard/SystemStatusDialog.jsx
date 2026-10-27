@@ -107,9 +107,11 @@ export default function SystemStatusDialog({ close, cleanup = false, openSession
       <div className="system-status-details">
         <div className="system-status-head">
           <p>{data ? hostFacts(data) : ""}</p>
-          <StatusChip tone="ok" pill>
-            {copy.live}
-          </StatusChip>
+          {data && !error && (
+            <StatusChip tone="ok" pill>
+              {copy.live}
+            </StatusChip>
+          )}
         </div>
         <UnderlineTabs
           label={copy.tabsLabel}
