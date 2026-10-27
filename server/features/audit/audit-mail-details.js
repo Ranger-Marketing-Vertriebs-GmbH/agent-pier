@@ -1,4 +1,5 @@
-// Email audit details (mail-account-store.js, mail/agent-mail-grants.js): the kind, the
+// Email audit details (mail-account-store.js, mail/agent-mail-grants.js,
+// mail/agent-mail-changes.js): the kind, the
 // names of changed account fields, stable result codes and the account ids of grant
 // changes. Never an address, host, username, subject, body, rule or password.
 const kinds = ["account", "message"];
@@ -19,7 +20,7 @@ const grantReasons = ["owner", "account-removed"];
 const resultCode = (value) =>
   typeof value === "string" && (value === "ok" || /^MAIL_[A-Z_]{2,40}$/.test(value));
 
-export function mailAuditDetails(details, event) {
+export function mailAuditDetails(details, event, auditId) {
   if (kinds.includes(details.kind)) event.details.kind = details.kind;
   if (details.kind === "account" && Array.isArray(details.fields))
     event.details.fields = details.fields
@@ -28,6 +29,15 @@ export function mailAuditDetails(details, event) {
   for (const key of ["imap", "smtp"])
     if (resultCode(details[key])) event.details[key] = details[key];
   if (details.kind === "mail-grants") grantDetails(details, event);
+  if (details.kind === "message") messageDetails(details, event, auditId);
+}
+
+// An agent's change to mail (Trash moves): the agent and how many messages.
+function messageDetails(details, event, auditId) {
+  if (details.assistantId !== undefined)
+    event.details.assistantId = auditId(details.assistantId);
+  if (Number.isSafeInteger(details.count) && details.count >= 0 && details.count <= 1000)
+    event.details.count = details.count;
 }
 
 // An agent's grant change: account ids, how many recipient rules it holds and why.

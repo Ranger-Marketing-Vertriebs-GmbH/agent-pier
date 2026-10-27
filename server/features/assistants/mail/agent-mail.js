@@ -6,6 +6,7 @@ import { mailOrigin } from "./agent-mail-origin.js";
 import { mailInput } from "./agent-mail-input.js";
 import { MailCursors } from "./agent-mail-cursors.js";
 import { readingActions, runReading } from "./agent-mail-reading.js";
+import { changingActions, runChanging } from "./agent-mail-changes.js";
 
 // Agent email (agentpier_mail): the bridge hands a call here (team-bridge.js). Every
 // action first passes `gate`: no maintenance, an eligible owner agent or permanent
@@ -141,7 +142,13 @@ export class AgentMail {
           gate,
           input,
         );
-      // The changing actions follow with their own modules.
+      if (changingActions.includes(input.action))
+        return runChanging(
+          { accounts: this.w.s.mailAccounts, services: this.w.s },
+          gate,
+          input,
+        );
+      // send follows with its own module.
       throw assistantProblem("invalid");
     });
   }

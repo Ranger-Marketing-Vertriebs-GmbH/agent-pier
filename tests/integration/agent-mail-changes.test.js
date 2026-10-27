@@ -1,0 +1,331 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mailFixture } from "../helpers/agent-mail-fixture.js";
+import { toolError } from "../../server/features/assistants/tool-errors.js";
+
+const raw = (subject, headers = "") =>
+  `From: Sender <sender@example.org>\r\nTo: agent@example.com\r\nSubject: ${subject}\r\nDate: Tue, 27 Oct 2026 08:00:00 +0000\r\n${headers}MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHello.\r\n`;
+const withAttachment = (subject) =>
+  `From: agent@example.com\r\nTo: bob@example.org\r\nSubject: ${subject}\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="b1"\r\n\r\n--b1\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nSee attached.\r\n--b1\r\nContent-Type: application/pdf; name="a.pdf"\r\nContent-Disposition: attachment; filename="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=\r\n--b1--\r\n`;
+
+const standard = {
+  Drafts: { specialUse: "\\Drafts" },
+  Trash: { specialUse: "\\Trash" },
+  Archive: { specialUse: "\\Archive" },
+};
+
+async function code(promise) {
+  try {
+    await promise;
+  } catch (error) {
+    return toolError(error).code;
+  }
+  assert.fail("the call succeeded");
+}
+
+async function changesFixture(t, folders = standard) {
+  const f = await mailFixture(t);
+  f.grant("read");
+  for (const [path, folder] of Object.entries(folders)) f.imap.mailbox.add(path, folder);
+  const seed = (subject, { folder = "INBOX", flags = [], message } = {}) =>
+    f.imap.mailbox.append(folder, {
+      raw: Buffer.from(message ?? raw(subject), "latin1"),
+      flags,
+    }).uid;
+  const mail = (input, inv = f.ownTurn()) =>
+    f.call(inv, { accountId: f.account.id, ...input });
+  const subjects = (path) =>
+    f.imap
+      .folder(path)
+      .messages.map((m) => m.raw.toString("latin1").match(/^Subject: (.*)$/m)?.[1]);
+  const flags = (path, uid) => [
+    ...f.imap.folder(path).messages.find((m) => m.uid === uid).flags,
+  ];
+  const untouched = () => {
+    assert.deepEqual(f.imap.mailbox.expunges ?? [], []);
+    assert.equal(f.imap.mailbox.deleteFlags ?? 0, 0);
+  };
+  return { ...f, seed, mail, subjects, flags, untouched };
+}
+
+test("mark toggles read, unread, flagged and unflagged", async (t) => {
+  const f = await changesFixture(t);
+  const a = f.seed("One");
+  const b = f.seed("Two");
+  assert.deepEqual(await f.mail({ action: "mark", uids: [a, b], flag: "read" }), {
+    accountId: f.account.id,
+    account: "Private",
+    folder: "INBOX",
+    marked: 2,
+  });
+  assert.deepEqual(f.flags("INBOX", a), ["\\Seen"]);
+  assert.deepEqual(f.flags("INBOX", b), ["\\Seen"]);
+  await f.mail({ action: "mark", uid: a, flag: "unread" });
+  assert.deepEqual(f.flags("INBOX", a), []);
+  await f.mail({ action: "mark", uid: b, flag: "flagged" });
+  assert.deepEqual(f.flags("INBOX", b).sort(), ["\\Flagged", "\\Seen"]);
+  await f.mail({ action: "mark", uid: b, flag: "unflagged" });
+  assert.deepEqual(f.flags("INBOX", b), ["\\Seen"]);
+  // Unknown messages, folders and incomplete input.
+  assert.equal(
+    await code(f.mail({ action: "mark", uid: 99, flag: "read" })),
+    "MAIL_NOT_FOUND",
+  );
+  assert.equal(
+    await code(f.mail({ action: "mark", uid: a, flag: "read", folder: "Nope" })),
+    "MAIL_NOT_FOUND",
+  );
+  assert.equal(await code(f.mail({ action: "mark", uid: a })), "INVALID_INPUT");
+  assert.equal(await code(f.mail({ action: "mark", flag: "read" })), "INVALID_INPUT");
+  assert.equal(
+    await code(f.mail({ action: "mark", uid: a, uids: [b], flag: "read" })),
+    "INVALID_INPUT",
+  );
+  assert.equal(
+    await code(f.mail({ action: "mark", uid: a, flag: "read", destination: "Archive" })),
+    "INVALID_INPUT",
+  );
+  f.untouched();
+});
+
+test("move to archive uses \\Archive, else \\All, else MAIL_NO_ARCHIVE", async (t) => {
+  const f = await changesFixture(t);
+  const a = f.seed("Keep");
+  f.seed("Stay");
+  const result = await f.mail({ action: "move", uid: a, destination: "archive" });
+  assert.deepEqual(result, {
+    accountId: f.account.id,
+    account: "Private",
+    folder: "INBOX",
+    destination: "Archive",
+    moved: 1,
+  });
+  assert.deepEqual(f.subjects("Archive"), ["Keep"]);
+  assert.deepEqual(f.subjects("INBOX"), ["Stay"]);
+  // A named folder; an unknown destination changes nothing.
+  f.imap.mailbox.add("Projects");
+  const [stay] = f.imap.folder("INBOX").messages;
+  await f.mail({ action: "move", uids: [stay.uid], destination: "Projects" });
+  assert.deepEqual(f.subjects("Projects"), ["Stay"]);
+  const back = f.imap.folder("Projects").messages[0].uid;
+  assert.equal(
+    await code(
+      f.mail({ action: "move", uid: back, folder: "Projects", destination: "Gone" }),
+    ),
+    "MAIL_NOT_FOUND",
+  );
+  assert.deepEqual(f.subjects("Projects"), ["Stay"]);
+  assert.equal(await code(f.mail({ action: "move", uid: back })), "INVALID_INPUT");
+  f.untouched();
+
+  const gmail = await changesFixture(t, {
+    "[Gmail]/All Mail": { specialUse: "\\All" },
+    "[Gmail]/Trash": { specialUse: "\\Trash" },
+  });
+  const g = gmail.seed("Gmail");
+  const moved = await gmail.mail({ action: "move", uid: g, destination: "archive" });
+  assert.equal(moved.destination, "[Gmail]/All Mail");
+  assert.deepEqual(gmail.subjects("[Gmail]/All Mail"), ["Gmail"]);
+
+  const bare = await changesFixture(t, { Trash: { specialUse: "\\Trash" } });
+  const n = bare.seed("Nowhere");
+  assert.equal(
+    await code(bare.mail({ action: "move", uid: n, destination: "archive" })),
+    "MAIL_NO_ARCHIVE",
+  );
+  assert.deepEqual(bare.subjects("INBOX"), ["Nowhere"]);
+});
+
+test("delete only moves to Trash, never expunges, and is audited without content", async (t) => {
+  const f = await changesFixture(t);
+  const a = f.seed("Secret subject one");
+  const b = f.seed("Secret subject two");
+  f.seed("Survivor");
+  const result = await f.mail({ action: "delete", uids: [a, b] });
+  assert.deepEqual(result, {
+    accountId: f.account.id,
+    account: "Private",
+    folder: "INBOX",
+    moved: 2,
+    alreadyInTrash: 0,
+  });
+  assert.deepEqual(f.subjects("Trash"), ["Secret subject one", "Secret subject two"]);
+  assert.deepEqual(f.subjects("INBOX"), ["Survivor"]);
+  f.untouched();
+  const records = f.audit.filter((e) => e.action === "mail.deleted");
+  assert.equal(records.length, 1);
+  assert.equal(records[0].resourceType, "mail");
+  assert.equal(records[0].resourceId, f.account.id);
+  assert.deepEqual(records[0].details, { kind: "message", assistantId: f.id, count: 2 });
+
+  // Already in Trash: stays there and counts as such.
+  const trashed = f.imap.folder("Trash").messages[0].uid;
+  assert.deepEqual(await f.mail({ action: "delete", uid: trashed, folder: "Trash" }), {
+    accountId: f.account.id,
+    account: "Private",
+    folder: "Trash",
+    moved: 0,
+    alreadyInTrash: 1,
+  });
+  assert.equal(f.subjects("Trash").length, 2);
+  assert.equal(await code(f.mail({ action: "delete", uid: 99 })), "MAIL_NOT_FOUND");
+  f.untouched();
+  const all = JSON.stringify(f.audit);
+  assert.doesNotMatch(all, /Secret|example\.(com|org)/);
+});
+
+test("delete without a Trash folder or without MOVE changes nothing", async (t) => {
+  const f = await changesFixture(t, { Drafts: { specialUse: "\\Drafts" } });
+  const a = f.seed("Keep me");
+  assert.equal(await code(f.mail({ action: "delete", uid: a })), "MAIL_NO_TRASH");
+  assert.deepEqual(f.subjects("INBOX"), ["Keep me"]);
+  assert.deepEqual(f.flags("INBOX", a), []);
+  assert.equal(f.audit.filter((e) => e.action === "mail.deleted").length, 0);
+  f.untouched();
+
+  // A server without MOVE: no COPY + \Deleted + EXPUNGE fallback.
+  const old = await changesFixture(t);
+  old.imap.mailbox.noMove = true;
+  const b = old.seed("Old server");
+  assert.equal(
+    await code(old.mail({ action: "delete", uid: b })),
+    "MAIL_MOVE_UNSUPPORTED",
+  );
+  assert.equal(
+    await code(old.mail({ action: "move", uid: b, destination: "archive" })),
+    "MAIL_MOVE_UNSUPPORTED",
+  );
+  assert.deepEqual(old.subjects("INBOX"), ["Old server"]);
+  assert.deepEqual(old.subjects("Trash"), []);
+  old.untouched();
+});
+
+test("a routine run and a hook run with the Email tick may delete", async (t) => {
+  const f = await changesFixture(t);
+  const a = f.seed("Routine");
+  const b = f.seed("Hook");
+  assert.equal((await f.mail({ action: "delete", uid: a }, f.routineTurn())).moved, 1);
+  assert.equal((await f.mail({ action: "delete", uid: b }, f.hookTurn())).moved, 1);
+  assert.deepEqual(f.subjects("Trash"), ["Routine", "Hook"]);
+  // Without the tick the hook is refused before anything changes.
+  const c = f.seed("Untouched");
+  f.hook.mail = false;
+  assert.equal(
+    await code(f.mail({ action: "delete", uid: c }, f.hookTurn())),
+    "MAIL_ORIGIN_REFUSED",
+  );
+  assert.deepEqual(f.subjects("INBOX"), ["Untouched"]);
+  f.untouched();
+});
+
+test("draft saves to Drafts, threads replies and refuses its own thread headers", async (t) => {
+  const f = await changesFixture(t);
+  const parent = f.seed("Question", {
+    message: raw(
+      "Question",
+      "Message-ID: <parent@example.org>\r\nReferences: <root@example.org>\r\n",
+    ),
+  });
+  const saved = await f.mail({
+    action: "draft",
+    to: ['"Sender" <sender@example.org>'],
+    bcc: ["boss@example.com"],
+    subject: "Re: Question",
+    body: "Antwort mit Umlauten: äöü",
+    replyToUid: parent,
+    replyToFolder: "INBOX",
+  });
+  assert.equal(saved.folder, "Drafts");
+  assert.equal(saved.draftUid, 1);
+  assert.match(saved.messageId, /^<[0-9a-f-]{36}@example\.com>$/);
+  const [draft] = f.imap.folder("Drafts").messages;
+  assert.deepEqual([...draft.flags].sort(), ["\\Draft", "\\Seen"]);
+  const text = draft.raw.toString("utf8");
+  const head = text.split("\r\n\r\n")[0];
+  assert.match(head, /^In-Reply-To: <parent@example\.org>$/m);
+  assert.match(head, /^References: <root@example\.org> <parent@example\.org>$/m);
+  assert.match(head, /^Bcc: boss@example\.com$/m);
+  assert.match(head, /^From: agent@example\.com$/m);
+  assert.match(head, /^Message-ID: <[0-9a-f-]{36}@example\.com>$/m);
+  assert.match(head, /^Content-Type: text\/plain; charset=utf-8$/m);
+  // The agent cannot set thread or other headers itself.
+  for (const key of ["inReplyTo", "references", "headers", "messageId", "from"])
+    assert.equal(
+      await code(
+        f.mail({ action: "draft", subject: "x", [key]: "<forged@evil.example>" }),
+      ),
+      "INVALID_INPUT",
+    );
+  assert.equal(
+    await code(f.mail({ action: "draft", subject: "Hi\r\nBcc: x@evil.example" })),
+    "INVALID_INPUT",
+  );
+  assert.equal(
+    await code(f.mail({ action: "draft", subject: "x", replyToUid: 99 })),
+    "MAIL_NOT_FOUND",
+  );
+  assert.equal(f.imap.folder("Drafts").messages.length, 1);
+  // Not audited.
+  assert.equal(f.audit.filter((e) => e.details?.kind === "message").length, 0);
+});
+
+test("updating a draft leaves one draft in Drafts and the old one in Trash", async (t) => {
+  const f = await changesFixture(t);
+  const first = await f.mail({ action: "draft", to: ["bob@example.org"], subject: "V1" });
+  const second = await f.mail({
+    action: "draft",
+    draftUid: first.draftUid,
+    to: ["bob@example.org"],
+    subject: "V2",
+  });
+  assert.notEqual(second.draftUid, first.draftUid);
+  assert.notEqual(second.messageId, first.messageId);
+  assert.deepEqual(f.subjects("Drafts"), ["V2"]);
+  assert.deepEqual(f.subjects("Trash"), ["V1"]);
+  f.untouched();
+  // A replaced draft that is gone, or one with attachments, stays as it is.
+  assert.equal(
+    await code(f.mail({ action: "draft", draftUid: first.draftUid, subject: "V3" })),
+    "MAIL_NOT_FOUND",
+  );
+  const attached = f.seed("With file", {
+    folder: "Drafts",
+    flags: ["\\Draft"],
+    message: withAttachment("With file"),
+  });
+  assert.equal(
+    await code(f.mail({ action: "draft", draftUid: attached, subject: "Replace" })),
+    "MAIL_ATTACHMENTS_UNSUPPORTED",
+  );
+  assert.deepEqual(f.subjects("Drafts"), ["V2", "With file"]);
+  assert.deepEqual(f.subjects("Trash"), ["V1"]);
+  f.untouched();
+});
+
+test("draft needs a Drafts folder, and Trash to replace one; UIDs without UIDPLUS", async (t) => {
+  const none = await changesFixture(t, { Trash: { specialUse: "\\Trash" } });
+  assert.equal(
+    await code(none.mail({ action: "draft", subject: "x" })),
+    "MAIL_NO_DRAFTS",
+  );
+
+  const noTrash = await changesFixture(t, { Drafts: { specialUse: "\\Drafts" } });
+  const kept = await noTrash.mail({ action: "draft", subject: "Keep" });
+  assert.equal(
+    await code(
+      noTrash.mail({ action: "draft", draftUid: kept.draftUid, subject: "New" }),
+    ),
+    "MAIL_NO_TRASH",
+  );
+  assert.deepEqual(noTrash.subjects("Drafts"), ["Keep"]);
+
+  const plain = await changesFixture(t);
+  plain.imap.mailbox.noUidplus = true;
+  plain.seed("Older draft", { folder: "Drafts", flags: ["\\Draft"] });
+  const saved = await plain.mail({ action: "draft", subject: "Found" });
+  assert.equal(saved.draftUid, 2);
+  const replaced = await plain.mail({ action: "draft", draftUid: 2, subject: "Again" });
+  assert.equal(replaced.draftUid, 3);
+  assert.deepEqual(plain.subjects("Drafts"), ["Older draft", "Again"]);
+  plain.untouched();
+});

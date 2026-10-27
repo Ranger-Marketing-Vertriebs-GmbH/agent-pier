@@ -503,7 +503,7 @@ export function auditEvent(input) {
   if (input.resourceType === "storage") storageAuditDetails(details, event);
   // Email accounts, sends and grant changes (audit-mail-details.js).
   if (input.resourceType === "mail" || details.kind === "mail-grants")
-    mailAuditDetails(details, event);
+    mailAuditDetails(details, event, auditId);
   userAuditDetails(input, event, auditId);
   return event;
 }

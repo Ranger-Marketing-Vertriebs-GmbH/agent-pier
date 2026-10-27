@@ -803,6 +803,7 @@
   "mail.mailApprovalLimit": "de:c850b332383a en:a77bda2934ee",
   "mail.mailAttachmentsUnsupported": "de:44da4b48508c en:cfb94afe47a4",
   "mail.mailAuthFailed": "de:199bbf64321a en:f57bdfd2ba28",
+  "mail.mailMoveUnsupported": "de:eba7b66f56d3 en:daeb49f4d3d6",
   "mail.mailNoArchive": "de:afff73fe866c en:ede0908346f5",
   "mail.mailNoDrafts": "de:87f18513afec en:f519e9deba0c",
   "mail.mailNoTrash": "de:3fdd93f6da28 en:220557656370",
