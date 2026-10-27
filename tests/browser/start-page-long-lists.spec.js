@@ -134,7 +134,10 @@ test("agents sort needing you first, filter and show five", async ({ page }) => 
   await expect(pipelines.locator(".start-run").first()).toContainText(
     "hoppkit-api · Offline-Karten",
   );
-  await expect(pipelines.locator(".start-run").first()).toContainText("Stage 3 of 5");
+  await expect(pipelines.locator(".start-run").first()).toContainText(
+    "Stage 3 of 5 · Verifikation · for 18 min",
+  );
+  await expect(pipelines.locator(".start-run").nth(2)).toContainText("1 h ago");
 });
 
 test("the gateway row counts the agents in System status", async ({ page }) => {
@@ -144,6 +147,29 @@ test("the gateway row counts the agents in System status", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "System status" });
   await dialog.getByRole("tab", { name: /Processes/ }).click();
   await expect(dialog).toContainText("OpenClaw · 14 agents");
+});
+
+test.describe("in German", () => {
+  test.use({ locale: "de-DE" });
+
+  test("the cards use the app's German state words", async ({ page }, testInfo) => {
+    await serveLongLists(page, { language: "de" });
+    await page.goto("/");
+    await expect(page.locator(".page-header-eyebrow")).toContainText("Übersicht · ");
+    await expect(page.getByRole("region", { name: "Braucht dich" })).toBeVisible();
+    const card = page.getByRole("region", { name: /^Sessions/ });
+    await expect(card.getByRole("heading")).toHaveText("Sessions 18 laufen · 6 gestoppt");
+    for (const chip of ["Laufend 18", "Wartet auf dich 2", "Arbeitet 5", "Bereit 10"])
+      await expect(card.getByRole("button", { name: chip })).toBeVisible();
+    await expect(card).toContainText(
+      "6 von 18 · wartende zuerst, dann nach letzter Aktivität",
+    );
+    await expect(card.getByRole("button", { name: "12 weitere anzeigen" })).toBeVisible();
+    await expect(page.getByRole("region", { name: /^Agenten/ })).toContainText(
+      "Lead, 2 Mitglieder",
+    );
+    await page.screenshot({ path: testInfo.outputPath("start-page-desktop-de.png") });
+  });
 });
 
 test.describe("phone", () => {
@@ -181,6 +207,14 @@ test.describe("phone", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
+    // Every control of the page keeps the phone's 44px target.
+    const small = await page.locator(".start-page").evaluate((node) =>
+      [...node.querySelectorAll("button, a, input")]
+        .filter((item) => item.getClientRects().length)
+        .filter((item) => item.getBoundingClientRect().height < 44)
+        .map((item) => item.textContent.trim() || item.getAttribute("aria-label")),
+    );
+    expect(small).toEqual([]);
     await page.screenshot({
       path: testInfo.outputPath("start-page-phone.png"),
       fullPage: true,

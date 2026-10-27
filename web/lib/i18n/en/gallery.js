@@ -35,7 +35,7 @@ export const galleryCopy = {
     chipWaiting: "Waiting for you",
     chipWorking: "Working",
     chipStopped: "Stopped",
-    pageEyebrow: "Overview · Tuesday, 27 October",
+    pageEyebrow: "Overview · today",
     pageTitle: "Good evening.",
     pageSummary: "5 sessions working · 2 things need you",
     label: "Sample row",

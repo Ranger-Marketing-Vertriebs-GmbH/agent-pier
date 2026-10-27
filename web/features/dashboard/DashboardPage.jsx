@@ -111,12 +111,16 @@ export default function DashboardPage({
           phone={phone}
         />
       </div>
-      <div className={`start-row-grid start-row-agents ${agentsEnabled ? "" : "single"}`}>
-        {agentsEnabled && <AgentsCard navigate={navigate} phone={phone} />}
-        {!phone && (
-          <PipelinesCard runs={sources?.runs} navigate={navigate} phone={false} />
-        )}
-      </div>
+      {(agentsEnabled || !phone) && (
+        <div
+          className={`start-row-grid start-row-agents ${agentsEnabled ? "" : "single"}`}
+        >
+          {agentsEnabled && <AgentsCard navigate={navigate} phone={phone} />}
+          {!phone && (
+            <PipelinesCard runs={sources?.runs} navigate={navigate} phone={false} />
+          )}
+        </div>
+      )}
       {phone ? (
         <div className="start-tiles">
           <PipelinesCard
