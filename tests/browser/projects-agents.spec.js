@@ -102,6 +102,7 @@ test.describe("English project agents", () => {
         expected: { coding: false, folder: "none" },
         coding: true,
         folder: "write",
+        sessions: false,
       });
       // Removing the grant removes the folder level too.
       await coding.uncheck();
