@@ -99,6 +99,19 @@ export function replyHeaders(parent) {
 }
 
 /**
+ * The In-Reply-To and References a stored draft carries, kept only as well-formed
+ * ids (the last 20 references), like replyHeaders.
+ */
+export function threadHeaders({ inReplyTo, references }) {
+  const [id] = messageIds(inReplyTo);
+  const chain = messageIds(references).slice(-maxReferences);
+  return { inReplyTo: id ?? null, references: chain };
+}
+
+/** A Message-ID as stored in a draft, or null when it is not well formed. */
+export const validMessageId = (value) => messageIds(value)[0] ?? null;
+
+/**
  * An RFC 5322 text/plain UTF-8 message. `keepBcc` keeps the Bcc header (a draft that
  * is sent later); without it the recipients only see To and Cc.
  */
@@ -111,6 +124,7 @@ export async function composeMessage(message, { keepBcc }) {
     subject: message.subject,
     text: message.body,
     messageId: message.messageId,
+    ...(message.date && { date: message.date }),
     ...(message.inReplyTo && { inReplyTo: message.inReplyTo }),
     ...(message.references?.length && { references: message.references }),
     disableFileAccess: true,

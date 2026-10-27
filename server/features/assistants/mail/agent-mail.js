@@ -7,6 +7,7 @@ import { mailInput } from "./agent-mail-input.js";
 import { MailCursors } from "./agent-mail-cursors.js";
 import { readingActions, runReading } from "./agent-mail-reading.js";
 import { changingActions, runChanging } from "./agent-mail-changes.js";
+import { MailSends } from "./agent-mail-sends.js";
 
 // Agent email (agentpier_mail): the bridge hands a call here (team-bridge.js). Every
 // action first passes `gate`: no maintenance, an eligible owner agent or permanent
@@ -23,6 +24,8 @@ export class AgentMail {
   constructor(w) {
     this.w = w;
     this.cursors = new MailCursors(w.a.store.db);
+    // Sends by rule or after the owner's approval (action rows `mail_send`).
+    this.sends = new MailSends(this);
     // The only MailAccountStore.onRemoved binding: removing an account revokes every
     // agent's grant first. A store set later (tests) is bound to `hook` by hand.
     this.hook = (accountId) => this.revokeAccount(accountId);
@@ -148,19 +151,22 @@ export class AgentMail {
           gate,
           input,
         );
-      // send follows with its own module.
-      throw assistantProblem("invalid");
+      return this.sends.send(inv, gate.caller, gate.cls, gate.grant, gate.account, input);
     });
   }
   /**
-   * MailAccountStore.onRemoved: every agent's grant and new-mail cursor for the
-   * account go in one transaction, before the catalog changes.
+   * MailAccountStore.onRemoved: every agent's grant, new-mail cursor and open send
+   * card for the account go in one transaction, before the catalog changes.
    */
   revokeAccount(accountId) {
     if (this.closed) return [];
-    return this.w.access.revokeMail(accountId, () =>
-      this.cursors.removeAccount(accountId),
-    );
+    let cancelled = 0;
+    const changed = this.w.access.revokeMail(accountId, () => {
+      this.cursors.removeAccount(accountId);
+      cancelled = this.sends.cancelFor(accountId);
+    });
+    if (cancelled) this.w.a.changed({ feeds: false });
+    return changed;
   }
   close() {
     this.closed = true;

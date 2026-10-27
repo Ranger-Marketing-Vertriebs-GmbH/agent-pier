@@ -98,3 +98,36 @@ test("mail grant changes keep account ids, a rule count and the reason only", ()
     reason: "account-removed",
   });
 });
+
+test("a sent message keeps the agent, action, authorization, recipient count and code", () => {
+  const audited = event(
+    "mail.sent",
+    {
+      kind: "message",
+      assistantId: "agent-1",
+      actionId: "action-1",
+      authorizedBy: "approval",
+      recipients: 3,
+      code: "MAIL_AUTH_FAILED",
+      to: ["bob@example.com"],
+      subject: "Offer",
+      body: "text",
+    },
+    "failure",
+  );
+  assert.deepEqual(audited.details, {
+    kind: "message",
+    assistantId: "agent-1",
+    actionId: "action-1",
+    authorizedBy: "approval",
+    recipients: 3,
+    code: "MAIL_AUTH_FAILED",
+  });
+  const odd = event("mail.sent", {
+    kind: "message",
+    authorizedBy: "chat",
+    recipients: 51,
+    code: "Server said bob@example.com",
+  });
+  assert.deepEqual(odd.details, { kind: "message" });
+});

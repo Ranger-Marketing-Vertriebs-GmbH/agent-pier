@@ -24,6 +24,7 @@ import { sshDecisions } from "./agent-ssh-approvals.js";
 import { sshTelegramApprovable } from "./agent-ssh-notifications.js";
 import { sftpDecisions } from "./agent-sftp-approvals.js";
 import { sftpTelegramApprovable } from "./agent-sftp-notifications.js";
+import { mailDecisions, mailTelegramApprovable } from "./mail/agent-mail-sends.js";
 import { AgentProjectFiles } from "./agent-project-files.js";
 import { AgentBrowserUploads } from "./agent-browser-uploads.js";
 import { LeadShares } from "./lead-shares.js";
@@ -135,7 +136,8 @@ export class AssistantWorkflows {
       return this.list(id, { delegated: true }).actions.filter(
         (a) =>
           a.state === "awaiting_approval" ||
-          (["ssh", "sftp"].includes(a.payload?.action) && a.state === "executing"),
+          (["ssh", "sftp", "mail_send"].includes(a.payload?.action) &&
+            a.state === "executing"),
       );
     } catch {
       return null;
@@ -189,8 +191,9 @@ export class AssistantWorkflows {
     let kind = "action";
     try {
       kind =
-        { exec: "exec", ssh: "ssh", sftp: "sftp" }[this.store.get(id).payload.action] ||
-        "action";
+        { exec: "exec", ssh: "ssh", sftp: "sftp", mail_send: "mail" }[
+          this.store.get(id).payload.action
+        ] || "action";
     } catch {}
     const exec = kind === "exec";
     return decideAudited(
@@ -250,14 +253,17 @@ export class AssistantWorkflows {
       // Exec approvals take the Gateway's decisions; other actions their own.
       const exec = action.payload.action === "exec",
         ssh = action.payload.action === "ssh",
-        sftp = action.payload.action === "sftp";
+        sftp = action.payload.action === "sftp",
+        mail = action.payload.action === "mail_send";
       const allowed = exec
         ? execDecisions
         : ssh
           ? sshDecisions
           : sftp
             ? sftpDecisions
-            : coding;
+            : mail
+              ? mailDecisions
+              : coding;
       if (!allowed.includes(input.decision)) throw assistantProblem("invalid");
       if (input.decision === "review" && origin.kind !== "owner")
         throw assistantProblem("invalid", 403);
@@ -275,6 +281,14 @@ export class AssistantWorkflows {
         input.decision !== "decline" &&
         origin.kind !== "owner" &&
         !sftpTelegramApprovable(action.payload)
+      )
+        throw assistantProblem("invalid", 403);
+      // And only mail it showed in full (mail/agent-mail-sends.js).
+      if (
+        mail &&
+        input.decision === "approve" &&
+        origin.kind !== "owner" &&
+        !mailTelegramApprovable(action.payload)
       )
         throw assistantProblem("invalid", 403);
       // A user's approval is hers alone: the owner never finds it, another user neither.
@@ -311,6 +325,8 @@ export class AssistantWorkflows {
       if (ssh) return this.project(this.ssh.approvals.decide(action, input.decision));
       if (sftp)
         return this.project(this.ssh.sftp.approvals.decide(action, input.decision));
+      // Mail sends re-check grant, account and the card's digests themselves.
+      if (mail) return this.project(this.mail.sends.decide(action, input.decision));
       if (action.payload.action === "member_grant")
         return this.project(this.a.teams.grants.decide(action, input.decision));
       if (action.payload.action === "hook_proposal")
@@ -442,6 +458,7 @@ export class AssistantWorkflows {
   async advanceAction(a) {
     if (a.payload.action === "ssh") return this.ssh.approvals.advance(a);
     if (a.payload.action === "sftp") return this.ssh.sftp.approvals.advance(a);
+    if (a.payload.action === "mail_send") return this.mail.sends.advance(a);
     if (a.payload.action === "member_grant") return this.a.teams?.grants?.advance(a);
     if (a.payload.action === "hook_proposal") return advanceHookProposal(this, a);
     if (a.payload.action === "ssh_access") return advanceSshProposal(this, a);

@@ -61,7 +61,7 @@ export function changingInput(input) {
   return request;
 }
 
-function auditDelete(services, gate, count) {
+export function auditDelete(services, gate, count) {
   try {
     services.audit?.append({
       action: "mail.deleted",
@@ -98,7 +98,11 @@ export async function runChanging({ accounts, services }, gate, input) {
       address: account.address,
       displayName: accounts.get(account.id).displayName,
     };
-    const { folder, ...draft } = await saveDraft(client, sender, request.fields, {
+    const {
+      folder,
+      thread: _thread,
+      ...draft
+    } = await saveDraft(client, sender, request.fields, {
       replaceUid: request.replaceUid,
     });
     return { draftFolder: folder, ...draft };
