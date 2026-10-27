@@ -1,5 +1,5 @@
 import React from "react";
-import useResource from "../../lib/useResource.js";
+import useSessionRequests from "../requests/useSessionRequests.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 import NativeRequest from "../requests/NativeRequest.jsx";
@@ -12,9 +12,7 @@ import NativeRequest from "../requests/NativeRequest.jsx";
  */
 export default function SessionRequestEscalationCard({ action, agentName, onNavigate }) {
   const { sessionId, promptId, sessionName, note } = action.payload;
-  const resource = useResource(`/sessions/${encodeURIComponent(sessionId)}/requests`, {
-    poll: 1500,
-  });
+  const resource = useSessionRequests(sessionId);
   const request = resource.data?.requests?.find((entry) => entry.id === promptId);
   const open = (mode) => onNavigate?.({ view: "workspace", sessionId, mode });
   return (

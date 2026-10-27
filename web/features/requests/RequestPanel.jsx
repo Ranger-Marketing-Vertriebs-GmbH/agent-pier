@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from "react";
-import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import NativeRequest from "./NativeRequest.jsx";
 import { noticeSettled, settleNotice } from "./request-interaction.js";
+import useSessionRequests from "./useSessionRequests.js";
 import "./requests.css";
 export default function RequestPanel({ session, active, openTerminal, onStateChange }) {
-  const resource = useResource(
-    active ? `/sessions/${encodeURIComponent(session.id)}/requests` : null,
-    { poll: 1500, timeoutMs: 5000 },
-  );
+  const resource = useSessionRequests(active ? session.id : null);
   const [, setSettled] = useState(0);
   const blocked =
     resource.loading ||

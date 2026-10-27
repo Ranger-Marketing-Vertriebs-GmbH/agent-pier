@@ -5,6 +5,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
 import NativeRequest from "../requests/NativeRequest.jsx";
+import useSessionRequests from "../requests/useSessionRequests.js";
 import GateDecision, { availableGateActions } from "../pipelines/GateDecision.jsx";
 import { failReasonLabel } from "../pipelines/run-codes.js";
 import { blockedMemberNames } from "../pipelines/run-action-request.js";
@@ -34,9 +35,7 @@ const loading = (
 /** A native CLI question or approval, as in the session's chat. */
 export function InboxRequestDetail({ item, navigate, done }) {
   const sessionId = item.source.id;
-  const resource = useResource(`/sessions/${encodeURIComponent(sessionId)}/requests`, {
-    poll: 1500,
-  });
+  const resource = useSessionRequests(sessionId);
   if (resource.error && !resource.data) return <ErrorMessage error={resource.error} />;
   if (!resource.data) return loading;
   const request = resource.data.requests.find((entry) => entry.id === item.id);
