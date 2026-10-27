@@ -73,7 +73,8 @@ export default function StartListCard({
     >
       <div className="start-card-head">
         <h2 id={`${id}-title`}>
-          {title} {count && <span className="start-card-count">{count}</span>}
+          {title} {/* A count of 0 or nothing renders no text, never a bare "0". */}
+          {count ? <span className="start-card-count">{count}</span> : null}
         </h2>
         {!phone && items.length > 0 && search}
       </div>

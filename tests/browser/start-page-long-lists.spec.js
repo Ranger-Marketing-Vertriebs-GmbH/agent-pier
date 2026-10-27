@@ -266,3 +266,26 @@ test("Open inbox sits beside the Needs you cards while Inbox items wait", async 
   await needs.getByRole("link", { name: "Open inbox" }).click();
   await expect(page).toHaveURL(/\/inbox$/);
 });
+
+test.describe("phone without agents", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("the agents card waits for the list and shows no bare count", async ({ page }) => {
+    const fixture = await serveLongLists(page);
+    fixture.agents.assistants.length = 0;
+    fixture.agents.activity = {};
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    await page.route("**/api/assistants", async (route) => {
+      await held;
+      await route.fallback();
+    });
+    await page.goto("/");
+    await expect(sessionsCard(page)).toBeVisible();
+    await expect(agentsCard(page)).toHaveCount(0);
+    release();
+    const card = agentsCard(page);
+    await expect(card).toContainText("No agent yet");
+    await expect(card.getByRole("heading")).toHaveText("Agents");
+  });
+});
