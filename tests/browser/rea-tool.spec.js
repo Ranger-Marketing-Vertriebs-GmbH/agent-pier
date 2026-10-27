@@ -50,7 +50,11 @@ function reaState(overrides = {}) {
   };
 }
 
-async function fixture(page, rea = reaState(), { uninstall, apply } = {}) {
+async function fixture(
+  page,
+  rea = reaState(),
+  { uninstall, apply, path: start = "/coding/clis" } = {},
+) {
   const state = {
     tools: [{ id: "claude", name: "Claude Code", installed: true }],
     utilities: [
@@ -99,7 +103,8 @@ async function fixture(page, rea = reaState(), { uninstall, apply } = {}) {
     return route.fulfill({ json: {} });
   });
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  await page.goto(base);
+  // The full grid lives on CLIs & extensions › Installation.
+  await page.goto(base + start);
   return controls;
 }
 
@@ -236,6 +241,26 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
   await expect(confirm.getByRole("alert")).toContainText(
     "REA is running in a session or for an agent",
   );
+});
+
+test("the start page row shows REA's update and opens its dialog, never the installer", async ({
+  page,
+}) => {
+  const installed = reaState({
+    installed: true,
+    updateAvailable: true,
+    components: { core: { installed: true, version: "6.7.0", outdated: true } },
+  });
+  const controls = await fixture(page, installed, { path: "/" });
+  const tools = page.getByRole("region", { name: /Your tools/ });
+  const row = tools
+    .locator(".start-tool")
+    .filter({ has: page.getByText("REA", { exact: true }) });
+  await expect(row).toContainText("Update available · 6.7.0");
+  await expect(row.locator(".start-tool-more")).toHaveCount(0);
+  await row.getByRole("button", { name: "Manage: REA", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "REA" })).toBeVisible();
+  expect(controls.generic).toBe(0);
 });
 
 test("the update note names Ghidra and the JDK when only their pins moved", async ({
