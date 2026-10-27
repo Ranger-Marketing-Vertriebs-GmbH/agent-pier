@@ -88,9 +88,12 @@ const workspaceDependencies = (relative, stat) =>
 // The agent skill catalog (skill-catalog/) is configuration the owner installed: a
 // skill's own folders keep any name (a "redis-cache" skill, a bundled node_modules)
 // and come back intact; their digests ignore the 0600 a restore writes, and the
-// catalog re-applies modes before use. Its staging/ holds half-written copies and
-// the old copy during a swap; it is never archived and a restore refuses it.
+// catalog re-applies modes before use. A skill's files keep any name too (yarn.lock,
+// a .tmp, a -wal file) and its databases go byte for byte: the digest covers every
+// file. Its staging/ holds half-written copies and the old copy during a swap; it is
+// never archived and a restore refuses it.
 const catalogTree = /^skill-catalog\//;
+const catalogSkill = /^skill-catalog\/(store|skills)\//;
 const catalogStaging = /^skill-catalog\/staging(\/|$)/;
 const ownNames = (relative) => {
   const [top] = relative.split("/");
@@ -127,7 +130,7 @@ const restorable = (relative) => {
   return (
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
-    !volatile.test(relative) &&
+    (catalogSkill.test(relative) || !volatile.test(relative)) &&
     !catalogStaging.test(relative) &&
     (ownNames(relative) || !legacyVolatileTree.test(relative))
   );
@@ -298,7 +301,7 @@ export async function captureAssistants({
       return;
     }
     const aad = `${id}\0${relative}`;
-    if (stat.size >= 16 && (await sqliteFile(source))) {
+    if (!catalogSkill.test(relative) && stat.size >= 16 && (await sqliteFile(source))) {
       // Databases in private folders are private as a whole.
       const privateDatabase = isPrivateAssistantTree(relative);
       if (privateDatabase && !includeHistory) {

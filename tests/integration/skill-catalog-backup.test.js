@@ -58,6 +58,23 @@ const meta = () => ({
   needsSettings: false,
 });
 const mode = (file) => fs.statSync(file).mode & 0o777;
+// A SQLite database a skill ships as data: it must travel byte for byte.
+function database(temporary) {
+  const file = path.join(temporary, "fixture.sqlite");
+  const db = new DatabaseSync(file);
+  db.exec("CREATE TABLE t(v TEXT); INSERT INTO t VALUES ('kept')");
+  db.close();
+  return fs.readFileSync(file);
+}
+// Names a host backup otherwise treats as caches, locks or temporaries.
+const skillFiles = [
+  "node_modules/x/run.sh",
+  "cache/notes.md",
+  "yarn.lock",
+  "x.tmp",
+  "data-wal",
+  "data.sqlite",
+];
 function catalogStore(dataDir) {
   return new SkillCatalogStore({ root: runtimePaths(dataDir).skillCatalog });
 }
@@ -74,13 +91,16 @@ function storedSkills(root) {
 
 test("a backup carries the catalog, and the restore verifies without damage", async (t) => {
   const { temporary, dataDir, root } = fixture(t);
-  const record = catalogStore(dataDir).write(
-    pack("redis-cache", "v1", {
-      "node_modules/x/run.sh": 0o700,
-      "cache/notes.md": 0o600,
-    }),
-    meta(),
-  );
+  const skill = pack("redis-cache", "v1", {
+    "node_modules/x/run.sh": 0o700,
+    "cache/notes.md": 0o600,
+    "yarn.lock": 0o644,
+    "x.tmp": 0o644,
+    "data-wal": 0o644,
+  });
+  const sqlite = database(temporary);
+  skill.files.push(["data.sqlite", sqlite, 0o644]);
+  const record = catalogStore(dataDir).write(skill, meta());
   // A leftover of an interrupted swap.
   const staged = path.join(root, "skill-catalog/staging/left-over/SKILL.md");
   fs.mkdirSync(path.dirname(staged), { recursive: true, mode: 0o700 });
@@ -90,16 +110,14 @@ test("a backup carries the catalog, and the restore verifies without damage", as
   const names = loadArchive(backup.file).files.map((member) => member.path);
   for (const expected of [
     `${catalog}/catalog.json`,
-    `${catalog}/store/redis-cache/${record.digest}/SKILL.md`,
-    `${catalog}/store/redis-cache/${record.digest}/node_modules/x/run.sh`,
-    `${catalog}/store/redis-cache/${record.digest}/cache/notes.md`,
-    `${catalog}/skills/redis-cache/SKILL.md`,
-    `${catalog}/skills/redis-cache/node_modules/x/run.sh`,
-    `${catalog}/skills/redis-cache/cache/notes.md`,
+    ...["SKILL.md", ...skillFiles].flatMap((file) => [
+      `${catalog}/store/redis-cache/${record.digest}/${file}`,
+      `${catalog}/skills/redis-cache/${file}`,
+    ]),
   ])
     assert.ok(names.includes(expected), expected);
   assert.equal(
-    names.some((name) => name.startsWith(`${catalog}/staging/`)),
+    names.some((name) => name.startsWith(`${catalog}/staging`)),
     false,
     names.join("\n"),
   );
@@ -113,7 +131,13 @@ test("a backup carries the catalog, and the restore verifies without damage", as
   assert.deepEqual(restoredCatalog.verify(), { restored: [], damaged: [], failed: [] });
   assert.equal(mode(path.join(live, "node_modules/x/run.sh")), 0o500);
   assert.equal(mode(path.join(live, "SKILL.md")), 0o400);
-  assert.equal(fs.readFileSync(path.join(live, "cache/notes.md"), "utf8"), "echo v1\n");
+  for (const file of ["cache/notes.md", "yarn.lock", "x.tmp", "data-wal"])
+    assert.equal(fs.readFileSync(path.join(live, file), "utf8"), "echo v1\n", file);
+  assert.deepEqual(fs.readFileSync(path.join(live, "data.sqlite")), sqlite);
+  assert.equal(
+    fs.existsSync(path.join(target, "assistants/skill-catalog/staging")),
+    false,
+  );
   assert.deepEqual([...restoredCatalog.names()], ["redis-cache"]);
   assert.deepEqual(storedSkills(path.join(target, "assistants")), ["redis-cache"]);
 });
@@ -133,7 +157,7 @@ test("host captures keep cache-named catalog folders and never staging", async (
   const names = result.files.map((member) => member.path);
   assert.ok(names.includes(`${catalog}/skills/redis-cache/cache/a.md`), names.join("\n"));
   assert.equal(
-    names.some((name) => name.startsWith(`${catalog}/staging/`)),
+    names.some((name) => name.startsWith(`${catalog}/staging`)),
     false,
   );
   // Restores accept catalog members of any folder name and never as a legacy cache.
@@ -145,7 +169,16 @@ test("host captures keep cache-named catalog folders and never staging", async (
     assert.equal(isAssistantMember(name), true, name);
     assert.equal(isLegacyAssistantCache(name), false, name);
   }
-  assert.equal(isAssistantMember(`${catalog}/staging/x/SKILL.md`), false);
+  for (const name of [
+    `${catalog}/staging`,
+    `${catalog}/staging/x/SKILL.md`,
+    `${catalog}/staging/x/yarn.lock`,
+  ])
+    assert.equal(isAssistantMember(name), false, name);
+  for (const name of ["yarn.lock", "x.tmp", "data-wal", "uv.lock"])
+    assert.equal(isAssistantMember(`${catalog}/skills/redis-cache/${name}`), true, name);
+  // Outside the skill folders the usual temporaries stay out.
+  assert.equal(isAssistantMember(`${catalog}/catalog.json.tmp`), false);
 });
 
 test("a backup taken before the catalog existed still restores", async (t) => {

@@ -29,7 +29,8 @@ Always, as public (unencrypted) members:
   later OpenClaw adds, is private content. The agent skill catalog
   (`skill-catalog/`: `catalog.json`, the stored versions in `store/` and the live
   copies in `skills/`) is configuration too and goes in intact, including a skill's
-  own folders named like a cache or `node_modules`; its `staging/` folder (copies on
+  own folders named like a cache or `node_modules`, lock and temporary files such
+  as `yarn.lock`, and databases byte for byte; its `staging/` folder (copies on
   their way in or out) is never archived. A restore writes every file as 0600; the
   catalog checks each skill against its content digest and re-applies its modes,
   executables included, before an agent uses it. Which catalog skills an agent has
