@@ -32,7 +32,7 @@ cancelled; this is a fresh start.
    unseen), `mark` (read/unread/flag), `move` (to a folder, incl. archive),
    `draft` (create/update a draft in the mailbox's Drafts folder: to/cc/bcc/
    subject/body/in-reply-to), `send` (send a draft or a new message), `delete`
-   (move to Trash; needs approval). Attachments: reading attachment content and
+   (move to Trash; no permanent deletion). Attachments: reading attachment content and
    sending attachments are out of scope for step 1 (names/sizes only).
 4. **Sending rules (owner decision):**
    - By default every `send` creates an approval card (agent chat; Telegram with
@@ -43,9 +43,9 @@ cancelled; this is a fresh start.
      matches a rule goes out without approval. *(Claude's call: no thread-based rule in
      step 1, because "any received thread" would let an outside sender unlock sends.)*
    - A chat message is never an approval: sends without a matching rule are decided only on the approval card or its Telegram buttons, like SSH/SFTP approvals. *(Claude's call after the builder check: no existing proof ties a chat message to one draft, and a mail could otherwise trigger a send during an owner turn.)*
-5. **Changing the mailbox (Claude's call, owner agreed to "passt so"):** mark and
-   move/archive without approval (reversible); `delete` and any move into the
-   special Trash or Junk folder only with approval.
+5. **Changing the mailbox (owner decision 2026-10-27):** mark, move/archive and
+   `delete` need no approval. `delete` only moves the message to the mailbox's Trash
+   folder (reversible); permanent deletion (expunge) is not offered at all.
 6. **New mail:** no push/IDLE in step 1. The owner uses the existing routines
    (e.g. every 15 min) to have the agent check `list` for unseen mail; the tool
    offers an `unseen since last check` cursor per agent+account so routines don't
@@ -62,8 +62,8 @@ cancelled; this is a fresh start.
   bot for other people cannot (same rule as SSH); no lead pass-through.
 - Turn kinds: owner turns (web or paired Telegram), routines and hooks may list, read,
   search, mark, move and draft. `send` from any of them goes out only under a matching
-  standing rule, otherwise it raises a card. `delete`/Trash moves are refused in
-  routines and hooks (they raise nothing) and need a card in owner turns. Forwarded
+  standing rule, otherwise it raises a card. Routines and hooks may also `delete` (move to Trash), like owner turns (owner
+  decision: it is only the Trash). Forwarded
   content turns and team-member turns get no mail actions.
 
 ## Non-goals (step 1)
