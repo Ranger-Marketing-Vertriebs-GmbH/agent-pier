@@ -24,6 +24,7 @@ export const lockedPaths = [
   "browser",
   "memory",
   "skills.allowBundled",
+  "skills.load",
   "skills.workshop",
   "agents.defaults.workspace",
   "agents.defaults.skills",

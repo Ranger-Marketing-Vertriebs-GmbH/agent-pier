@@ -47,6 +47,11 @@ test("locked paths include their children and their parents", () => {
   assert.equal(isLockedPath("agents.defaults.timeoutSeconds"), false);
 });
 
+test("skills.load is locked", () => {
+  assert.equal(isLockedPath("skills.load"), true);
+  assert.equal(isLockedPath("skills.load.extraDirs"), true);
+});
+
 test("mcp, secrets and env are locked against overrides", async () => {
   const { validateOverride } =
     await import("../../server/features/assistants/openclaw-config/overrides.js");
