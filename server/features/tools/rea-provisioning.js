@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { reaManifest, reaPlatform } from "./rea-manifest.js";
 
 const darwinMajor = () =>
@@ -24,9 +25,12 @@ function readSettings(file) {
 }
 
 // What the server finds at its next start (ReaTool.start): Core and the server row
-// need AgentPier's dependencies, so the installers only leave this request.
+// need AgentPier's dependencies, so the installers only leave this request. A link in
+// place of <data>/rea is refused, like prepareReaHome does, so nothing lands elsewhere.
 function writeRequest(directory, file, saved) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  if (!fs.lstatSync(directory).isDirectory())
+    throw Error(serverMessages.tools.installationDirectoryInvalid);
   const body = {
     ...saved,
     requested: {
