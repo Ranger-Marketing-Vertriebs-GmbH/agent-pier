@@ -9,7 +9,12 @@ import ListRow, { unknownValue } from "../../components/ListRow.jsx";
 import { routePath } from "../../app/routes.js";
 import { assistantSshCopy as sshCopy } from "../../lib/i18n/messages/assistant-ssh.js";
 import { connectionsAreaCopy as copy } from "../../lib/i18n/messages/connections-area.js";
-import { githubLevels, grantableAgents, sshGrantModes } from "./agent-grants.js";
+import {
+  githubLevels,
+  grantKinds,
+  grantableAgents,
+  sshGrantModes,
+} from "./agent-grants.js";
 import { runEach } from "./bulk-run.js";
 import { saveGrant } from "./grant-api.js";
 
@@ -63,6 +68,8 @@ export default function ConnectionUsedBy({
   const [errors, setErrors] = useState([]);
   const [confirm, setConfirm] = useState(null);
   const modes = grantModes(kind);
+  // A kind whose grants this page cannot write yet only lists who uses the entry.
+  const writable = grantKinds.includes(kind);
   const sftp = item.type === "sftp";
   const link = (route) => ({ href: routePath(route), onClick: () => navigate(route) });
   const names = new Map((assistants || []).map((agent) => [agent.id, agent.name]));
@@ -108,7 +115,7 @@ export default function ConnectionUsedBy({
         sub={copy.usedBy.agentKinds[agent.kind] ?? copy.usedBy.agentKinds.agent}
         className="connections-used-row"
       >
-        {modes && (
+        {writable && modes && (
           <span className="connections-used-mode">
             <AnchoredSelect
               label={(kind === "github" ? copy.usedBy.level : copy.usedBy.mode)(
@@ -121,15 +128,17 @@ export default function ConnectionUsedBy({
             />
           </span>
         )}
-        <button
-          type="button"
-          className="button destructive compact"
-          aria-label={copy.usedBy.revokeNamed(agent.name)}
-          disabled={busy}
-          onClick={() => setConfirm({ type: "revoke", agent })}
-        >
-          {copy.usedBy.revoke}
-        </button>
+        {writable && (
+          <button
+            type="button"
+            className="button destructive compact"
+            aria-label={copy.usedBy.revokeNamed(agent.name)}
+            disabled={busy}
+            onClick={() => setConfirm({ type: "revoke", agent })}
+          >
+            {copy.usedBy.revoke}
+          </button>
+        )}
       </ListRow>
     )),
     ...shared.map((agent) => (
@@ -189,7 +198,7 @@ export default function ConnectionUsedBy({
           {usage && !rows.length && <p className="accounts-note">{copy.usedBy.none}</p>}
           <ListCard labelledBy={`${id}-label`}>
             {rows}
-            {agentsEnabled && agents !== null && (
+            {writable && agentsEnabled && agents !== null && (
               <AddPicker
                 typeLabel={copy.usedBy.addAgent}
                 candidates={candidates}
@@ -202,7 +211,7 @@ export default function ConnectionUsedBy({
               />
             )}
           </ListCard>
-          {agentsEnabled && agents !== null && (
+          {writable && agentsEnabled && agents !== null && (
             <p className="accounts-note">
               {kind === "github" ? copy.usedBy.githubReplaceHint : copy.usedBy.lockedHint}
             </p>

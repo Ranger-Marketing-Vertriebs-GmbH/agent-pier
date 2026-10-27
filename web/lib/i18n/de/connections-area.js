@@ -10,6 +10,7 @@ export const connectionsAreaCopy = {
     services: "Dienste für Agenten",
     "mcp-servers": "MCP-Server",
     ssh: "SSH/SFTP-Zugänge",
+    mail: "E-Mail-Zugänge",
     secrets: "Geheimnisse",
     github: "GitHub-Zugänge",
   },
@@ -275,6 +276,11 @@ export const connectionsAreaCopy = {
     gone: "Der Eintrag existiert nicht mehr.",
   },
   empty: {
+    mail: {
+      title: "Noch keine E-Mail-Zugänge",
+      body: "Füge ein IMAP/SMTP-Postfach hinzu, damit Agenten deiner Wahl es lesen und mit deiner Freigabe daraus senden können.",
+      primary: "E-Mail-Zugang hinzufügen",
+    },
     ssh: {
       title: "Noch keine SSH- oder SFTP-Zugänge",
       body: "Zugänge mit fixiertem Hostschlüssel, die du Agenten, Hooks und Sessions freigeben kannst.",

@@ -9,6 +9,7 @@ export const connectionsAreaCopy = {
     services: "Services for agents",
     "mcp-servers": "MCP servers",
     ssh: "SSH/SFTP accesses",
+    mail: "Email accounts",
     secrets: "Secrets",
     github: "GitHub connections",
   },
@@ -270,6 +271,11 @@ export const connectionsAreaCopy = {
     gone: "The entry no longer exists.",
   },
   empty: {
+    mail: {
+      title: "No email accounts yet",
+      body: "Add an IMAP/SMTP mailbox so agents you choose can read it and send with your approval.",
+      primary: "Add email account",
+    },
     ssh: {
       title: "No SSH or SFTP accesses yet",
       body: "Accesses with a pinned host key that you can grant to agents, hooks and sessions.",

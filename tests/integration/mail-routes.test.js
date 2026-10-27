@@ -125,6 +125,15 @@ test("tests run against the servers, typed or with the saved password", async (t
     name: "Work",
   });
   assert.deepEqual(reused.json, ok);
+  // The saved password never goes to another server named in the test body.
+  const moved = await send("/api/mail/test", "POST", {
+    accountId: account.id,
+    imap: { host: "imap.other.example" },
+  });
+  assert.equal(moved.status, 400);
+  assert.equal(moved.json.error, serverMessages.mail.passwordRequiredForServer);
+  assert.equal(moved.json.messageKey, "mail.passwordRequiredForServer");
+  noSecrets(moved.text);
   const saved = await send(`/api/mail/accounts/${account.id}/test`, "POST", {});
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json, ok);

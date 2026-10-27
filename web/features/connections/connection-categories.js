@@ -17,6 +17,7 @@ export const problemKeys = {
   services: "services",
   "mcp-servers": "mcp",
   ssh: "ssh",
+  mail: "mail",
   secrets: "secrets",
   github: "github",
 };
@@ -52,7 +53,7 @@ const length = (list) => (Array.isArray(list) ? list.length : null);
 
 /**
  * `{ count, flagged }` per section. `lists` holds what the page has loaded
- * (connections, chatgpt, mcpServers, ssh, secrets, github); a category not loaded
+ * (connections, chatgpt, mcpServers, ssh, mail, secrets, github); a category not loaded
  * yet takes the total of GET /connections/problems. Native CLI accounts are not part
  * of Zugänge, so model access counts provider connections and ChatGPT accounts only.
  */
@@ -73,6 +74,7 @@ export function categoryCounts({ problems, lists = {}, agentsEnabled }) {
     services: agentsEnabled ? 3 : null,
     "mcp-servers": length(lists.mcpServers) ?? total("mcp-servers"),
     ssh: length(lists.ssh) ?? total("ssh"),
+    mail: length(lists.mail) ?? total("mail"),
     secrets: length(lists.secrets) ?? total("secrets"),
     github: length(lists.github) ?? total("github"),
   };

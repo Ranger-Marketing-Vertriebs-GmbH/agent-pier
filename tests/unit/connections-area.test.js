@@ -39,6 +39,7 @@ test("services are a category only while agents are on", () => {
     "services",
     "mcp-servers",
     "ssh",
+    "mail",
     "secrets",
     "github",
   ]);
@@ -62,6 +63,7 @@ test("category counts use loaded lists, then problem totals, and never fake a ze
       ],
     ),
     ssh: category(3, [{ id: "h1", reasons: ["testFailed"] }]),
+    mail: category(2, [], [{ id: "m-plain", reasons: ["plaintext"] }]),
     secrets: null,
     github: category(0),
   };
@@ -71,6 +73,7 @@ test("category counts use loaded lists, then problem totals, and never fake a ze
       connections: [{ id: "c1" }, { id: "c2" }],
       chatgpt: [{ id: "openclaw:1" }],
       ssh: [{ id: "h1" }, { id: "h2" }],
+      mail: [{ id: "m-plain" }],
     },
     agentsEnabled: true,
   });
@@ -80,12 +83,14 @@ test("category counts use loaded lists, then problem totals, and never fake a ze
     services: { count: 3, flagged: 1 },
     "mcp-servers": { count: 4, flagged: 2 },
     ssh: { count: 2, flagged: 1 },
+    // The loaded list wins over the total; a plaintext warning counts as flagged.
+    mail: { count: 1, flagged: 1 },
     // A source that failed stays unknown.
     secrets: { count: null, flagged: null },
     // A real zero stays zero.
     github: { count: 0, flagged: 0 },
   });
-  assert.equal(problemTotal(counts), 5);
+  assert.equal(problemTotal(counts), 6);
   const off = categoryCounts({
     problems,
     lists: { connections: [{ id: "c1" }], chatgpt: null },
