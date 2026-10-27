@@ -69,8 +69,10 @@ label.list-row-main {
   flex-direction: row;
   cursor: pointer;
 }
+/* The text fills the row, so the chevron of a row without a value sits at its end. */
 .list-row-text {
   display: grid;
+  flex: 1 1 auto;
   gap: 2px;
   min-width: 0;
   padding: 12px 0;

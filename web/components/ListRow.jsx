@@ -31,7 +31,9 @@ function Trailing({ value, status }) {
         {status.text}
       </span>
     );
-  if (value === undefined || value === null || value === false) return null;
+  // An empty value (such as "not used") takes no room from the label.
+  if (value === undefined || value === null || value === false || value === "")
+    return null;
   return <span className="list-row-value">{value}</span>;
 }
 

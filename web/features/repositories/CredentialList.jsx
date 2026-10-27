@@ -16,6 +16,7 @@ export default function CredentialList({
   label,
   checked = () => {},
   extra,
+  marker,
 }) {
   const [checking, setChecking] = useState(null);
   const [errors, setErrors] = useState({});
@@ -46,6 +47,7 @@ export default function CredentialList({
         <div className="github-access-row" role="row" key={credential.id}>
           <div role="cell" className="github-access-name">
             <h2>{credential.name}</h2>
+            {marker?.(credential)}
             {credential.agentDefault && (
               <span className="repository-agent-badge">{copy.repositoryAgentBadge}</span>
             )}

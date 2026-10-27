@@ -205,6 +205,14 @@ tab uses (`PUT /api/assistants/:id/work`, MCP servers through `PATCH
 refusal is reported per agent and never retried. Bulk actions call the same per-item
 endpoints (SSH tests at most two at once) and list one result per item.
 
+Every list marks exactly the entries the highlighted number of its category counts:
+both read the problems and warnings of `GET /api/connections/problems` through
+`problemRowIds` (`connection-categories.js`). Model access, services, secrets and
+GitHub profiles show a warning `StatusChip` "Problem" beside the name, and list rows
+show their sub line in the warning tone; the long lists mark such rows in their
+**Status** column and the **With problems** view. Only while the problems are unknown
+does a long list fall back to an entry's own status. Lists keep their order.
+
 Defaults are left out of addresses; `useWorkspaceNavigation` replaces any address whose
 canonical form differs, which is how legacy links redirect.
 

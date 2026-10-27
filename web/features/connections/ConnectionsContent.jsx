@@ -10,6 +10,7 @@ import McpCategory from "./McpCategory.jsx";
 import McpUsedBy from "./McpUsedBy.jsx";
 import SshCategory from "./SshCategory.jsx";
 import SshFullView from "./SshFullView.jsx";
+import { problemRowIds } from "./connection-categories.js";
 import { connectionsRoute } from "./routes.js";
 
 const loadingLine = (
@@ -75,6 +76,7 @@ function AccountsArea({ section, entry, shared, narrow }) {
       selected={entry}
       navigate={shared.navigate}
       groups={[section]}
+      flagged={{ [section]: problemRowIds(shared.problems, section) }}
     />
   );
   const pane = (
@@ -187,6 +189,7 @@ export default function ConnectionsContent({ section, route, entry, shared, narr
       <SshCategory
         catalog={shared.catalog}
         connectionUsage={shared.connectionUsage}
+        problems={shared.problems}
         reloadUsage={shared.reloadAll}
         agentsEnabled={shared.agentsEnabled}
         assistants={shared.assistants}

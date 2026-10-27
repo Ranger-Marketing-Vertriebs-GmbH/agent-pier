@@ -60,6 +60,7 @@ export const lastUseNote = (covers) =>
 export default function SshCategory({
   catalog,
   connectionUsage,
+  problems,
   reloadUsage,
   agentsEnabled,
   assistants,
@@ -83,8 +84,9 @@ export default function SshCategory({
         accesses: catalog.accesses,
         usage: connectionUsage,
         ownerName: catalog.ownerName,
+        problems,
       }),
-    [catalog.accesses, connectionUsage, catalog.ownerName],
+    [catalog.accesses, connectionUsage, catalog.ownerName, problems],
   );
   const groupOf = useCallback(
     (item, groupBy) =>

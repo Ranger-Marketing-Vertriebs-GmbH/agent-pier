@@ -173,7 +173,8 @@ without agents; agent OAuth logins need agents. A local (stdio) command given to
 needs the owner's confirmation, because every session of that CLI starts it.
 
 The list has the views **All**, **With problems** (sign-in expired, installation failed,
-CLI error; an available update counts as a warning) and **Not used**, a search over
+CLI error; an available update counts as a warning, and an update the list finds makes
+it read the problems again, so the row and the category count agree) and **Not used**, a search over
 name, address and command, filters for **Transport**, **CLI**, **Agent** and
 **Status**, and **Group** by **Source** with the first five entries per group and
 **Show n more**. Selecting servers offers **Bind to CLI …**, **Grant agent …**, **Check
