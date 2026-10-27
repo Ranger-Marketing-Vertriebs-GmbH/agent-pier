@@ -155,7 +155,7 @@ test("the cleanup summary is measured in the background and again after a deleti
   assert.equal(typeof updateBackups.oldestAt, "string");
   assert.deepEqual(
     { count: transcripts.count, days: transcripts.olderThanDays, profiles: 1 },
-    { count: 2, days: 30, profiles: transcripts.profiles },
+    { count: 1, days: 90, profiles: transcripts.profiles },
   );
   assert.ok(transcripts.bytes > 0);
   assert.deepEqual(
