@@ -22,8 +22,13 @@ function SkillDetails({ skill, shellOff, on }) {
       <span className={`agent-skill-line agent-skill-state ${tone}`}>
         {statusText(skill, copy)}
       </span>
+      {skill.source === "catalog" && (
+        <span className="agent-skill-line">{copy.fromCatalog(skill.version ?? "")}</span>
+      )}
       {skill.usesShell && shellOff && (
-        <span className="agent-skill-line agent-skill-shell">{copy.needsShell}</span>
+        <span className="agent-skill-line agent-skill-shell">
+          {skill.source === "catalog" ? copy.worksWithLimits : copy.needsShell}
+        </span>
       )}
       {on && skill.assigned && skill.state === "ready" && !skill.active && (
         <span className="agent-skill-line">{copy.pending}</span>
