@@ -26,6 +26,9 @@ test("above the fold: header, Needs you, six sessions with waiting first and the
   await expect(needs.locator(".start-attention-card")).toHaveCount(2);
   await expect(needs).toContainText("Risk-Gate: japanischa · Dependency-Update");
   await expect(needs.getByRole("button", { name: "Decide" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Your tools/ })).toHaveText(
+    "Your tools · 4 of 4 ready · 3 profiles",
+  );
   const card = sessionsCard(page);
   await expect(card.getByRole("heading")).toHaveText("Sessions 18 running · 6 stopped");
   await expect(sessionRows(card)).toHaveCount(6);
@@ -200,7 +203,7 @@ test.describe("phone", () => {
       "1 running",
     );
     await expect(page.getByRole("link", { name: /Your tools/ })).toContainText(
-      "4 of 4 ready",
+      "4 of 4 ready · 3 profiles",
     );
     for (const name of ["Session", "Agent"]) {
       const box = await page

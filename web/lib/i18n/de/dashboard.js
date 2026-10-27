@@ -157,6 +157,7 @@ export const startPageCopy = {
   },
   tools: "Deine Tools",
   toolsReady: (ready, total) => `${ready} von ${total} bereit`,
+  toolsProfiles: (count) => (count === 1 ? "1 Profil" : `${count} Profile`),
   toolsLink: "CLIs und Erweiterungen",
   toolsUpdates: (count) =>
     count === 1 ? "1 Update erforderlich" : `${count} Updates erforderlich`,
