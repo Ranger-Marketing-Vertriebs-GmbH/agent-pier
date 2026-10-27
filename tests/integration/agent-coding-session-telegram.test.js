@@ -312,9 +312,26 @@ test("a long prompt is cut by code point", async (t) => {
     ...permission,
     subject: { tool: "Bash", command: "😀".repeat(2000) },
   });
-  const points = Array.from(notice.text).filter((c) => c === "😀").length;
-  assert.equal(points < 1500, true);
-  assert.equal(points > 1400, true);
-  assert.ok(notice.text.includes("…"));
-  assert.equal(notice.text.includes("\ud83d\n"), false);
+  // The fenced prompt: exactly 1500 code points ("Bash", a blank line, the
+  // command), then the ellipsis; no surrogate pair is split.
+  const asked = notice.text.split("```\n")[1].split("\n```")[0];
+  assert.ok(asked.endsWith("…"));
+  const points = Array.from(asked.slice(0, -1));
+  assert.equal(points.length, 1500);
+  assert.equal(points.slice(6).join(""), "😀".repeat(1494));
+});
+
+test("secrets in the agent's note and the session name never reach Telegram", async (t) => {
+  const f = await setup(t);
+  const secret = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+  const { notice } = await f.escalate(
+    permission,
+    `Needs TOKEN=${secret} and Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456`,
+  );
+  assert.ok(notice.text.includes(de.escalationNote));
+  assert.ok(notice.text.includes("TOKEN="));
+  assert.equal(notice.text.includes(secret), false);
+  assert.equal(notice.text.includes("abcdefghijklmnopqrstuvwxyz123456"), false);
+  const sent = f.calls.find((c) => c.method === "sendMessage").input.text;
+  assert.equal(sent.includes(secret), false);
 });

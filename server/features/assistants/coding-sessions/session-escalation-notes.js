@@ -32,7 +32,7 @@ export const takesText = (entry) => singleQuestion(entry)?.allowOther === true;
 
 // What the prompt asks: each question, or the permission's subject; never secrets.
 function promptText(entry, title) {
-  if (!entry) return title || "";
+  if (!entry) return redactSecrets(title || "");
   const s = entry.subject || {};
   const parts =
     entry.kind === "question"
@@ -75,7 +75,10 @@ export function notifyEscalation(w, action, phase, key, _m, target, entry = null
   try {
     agent = w.a.store.getAssistant(action.assistantId).name;
   } catch {}
-  const heading = c.escalationTelegram(agent, literal(p.sessionName || p.sessionId));
+  const heading = c.escalationTelegram(
+    agent,
+    literal(redactSecrets(p.sessionName || p.sessionId)),
+  );
   const asked = cut(promptText(entry, p.title), promptLimit);
   const actions = phase === "approval" ? buttons(action, entry) : [];
   const hint = takesText(entry)
@@ -89,7 +92,7 @@ export function notifyEscalation(w, action, phase, key, _m, target, entry = null
       ? [
           heading,
           ...(asked ? [fenced(asked)] : []),
-          ...(p.note ? [`${c.escalationNote}\n${fenced(p.note)}`] : []),
+          ...(p.note ? [`${c.escalationNote}\n${fenced(redactSecrets(p.note))}`] : []),
           ...(hint ? [hint] : []),
         ].join("\n\n")
       : [
