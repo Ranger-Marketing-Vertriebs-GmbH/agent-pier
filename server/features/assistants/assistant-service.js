@@ -334,7 +334,7 @@ export class AssistantService {
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
-      // Only bundled skills the running Gateway reports, refused before any change.
+      // Bundled and catalog skills the Gateway reports; refused before any change.
       if (patch.skills) await this.skills.check(current, changes.skills);
       // A change of what a used capability compiles (web-tools-changes.js).
       const restart =
