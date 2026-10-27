@@ -2,9 +2,9 @@ import { Router } from "express";
 import { cleanupProblem } from "../../features/system-status/cleanup-problem.js";
 
 /*
- * Cleanup of the data directory (System status › Data directory). Owner only, like
- * every /api route outside /api/me. The lists measure on request; a deletion answers
- * with how many entries and bytes went, never a path.
+ * Cleanup of the data directory (System status › Storage). Owner only, like every
+ * /api route outside /api/me. The lists measure on request, the summary in the
+ * background; a deletion answers with how many entries and bytes went, never a path.
  */
 export function storageCleanupRoutes({ storageCleanup }) {
   const router = Router();
@@ -15,6 +15,7 @@ export function storageCleanupRoutes({ storageCleanup }) {
   });
   const empty = (body) =>
     body === undefined || (body && !Array.isArray(body) && !Object.keys(body).length);
+  router.get(`${base}/summary`, (_req, res) => res.json(storageCleanup.summary()));
   router.get(`${base}/update-backups`, async (_req, res) =>
     res.json(await storageCleanup.snapshots()),
   );

@@ -73,7 +73,7 @@ test("a data directory larger than the entry bound is reported as partial", asyn
   assert.equal(stopped.partial, true);
 });
 
-test("session panes come from one tmux listing and carry only name and tool", async () => {
+test("session panes come from one tmux listing and carry name, tool and folder name", async () => {
   const calls = [];
   const panes = await sessionPanes({
     tmux: async (args) => {
@@ -87,8 +87,8 @@ test("session panes come from one tmux listing and carry only name and tool", as
   });
   assert.equal(calls.length, 1);
   assert.deepEqual(panes, [
-    { id: "one", pid: 101, name: "Fix tests", tool: "claude" },
-    { id: "two", pid: 201, name: "", tool: "" },
+    { id: "one", pid: 101, name: "Fix tests", tool: "claude", project: "project" },
+    { id: "two", pid: 201, name: "", tool: "", project: "" },
   ]);
   assert.deepEqual(
     await sessionPanes({
@@ -124,7 +124,10 @@ function sampler(overrides = {}) {
       calls.disk++;
       return { totalBytes: 1000, freeBytes: 500, usedBytes: 500 };
     },
-    panes: async () => [{ id: "one", pid: 300, name: "Fix tests", tool: "codex" }],
+    panes: async () => [
+      { id: "one", pid: 300, name: "Fix tests", tool: "codex", project: "agent-pier" },
+    ],
+    platform: () => "linux",
     processes: async ({ pids }) => {
       calls.processes++;
       const parsed = parseProcessTable(table);
@@ -164,6 +167,8 @@ test("the sampler maps the server, the Gateway and each session to its process t
     ],
   );
   assert.equal(details.processes[2].tool, "codex");
+  assert.equal(details.processes[2].project, "agent-pier");
+  assert.deepEqual(details.host, { platform: "linux" });
   assert.equal(details.agentPier.rssBytes, 9000 * 1024);
   assert.equal(details.memory.percent, 25);
   assert.equal(details.disk.freePercent, 50);

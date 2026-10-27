@@ -232,6 +232,10 @@ export async function createApplication(config) {
     services,
     audit: services.audit,
     ...config.storageCleanup,
+    onError: (error) =>
+      console.error(
+        `AgentPier could not measure the storage cleanup: ${error?.code || "unknown error"}`,
+      ),
   });
   // One listener for both monitors keeps the server below the listener warning limit.
   server.once("listening", () => {
