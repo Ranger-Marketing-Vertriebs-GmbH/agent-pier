@@ -267,6 +267,21 @@ test("a live 10.7 completion run holds the nudge", async (t) => {
   assert.equal(await backgroundRunning(f.service, chat.runtimeSessionKey), true);
 });
 
+test("a coding session the agent drives holds the nudge", async (t) => {
+  const { f, chat } = setup(t);
+  let holding = true;
+  const store = new AssistantActionStore(f.store.db);
+  const holdsGoal = (id) => holding && id === chat.id;
+  f.assistants.workflows = { store, sessions: { holdsGoal }, async close() {} };
+  await setGoal(f, chat);
+  assert.equal(goalWait(f.service.goals, chat), "coding-session");
+  await at(f, 0);
+  await at(f, 2 * nudgeDelayMs);
+  assert.equal(sends(f).length, 0);
+  holding = false;
+  assert.equal(goalWait(f.service.goals, chat), null);
+});
+
 test("a member's report to the main chat does not hold the nudge", async (t) => {
   // A colleague's answer for the lead holds it (assistant-work-goal-follow-ups.test.js).
   for (const body of [{ type: "report" }, { type: "report", fromMemberId: "m" }]) {

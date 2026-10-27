@@ -43,7 +43,7 @@ async function activity(w, session) {
 }
 
 // Open permission prompts and questions of the session (side-effect free).
-function pendingPrompts(w, sessionId) {
+export function pendingPrompts(w, sessionId) {
   const all = w.s.requests?.listAll?.() ?? [];
   return all.filter((e) => e.sessionId === sessionId && e.status === "pending").length;
 }

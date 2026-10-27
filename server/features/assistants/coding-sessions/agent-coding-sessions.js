@@ -16,6 +16,7 @@ import {
   answerEscalationText,
   escalatePrompt,
 } from "./session-escalations.js";
+import { holdsGoal, tickWakes, wakeEscalation } from "./session-wakes.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -55,6 +56,8 @@ export class AgentCodingSessions {
     this.waiting = new Set();
     // Who answered each recent prompt: promptId -> { actor, sessionId, at }.
     this.answers = new Map();
+    // When each session last read, by id (session-wakes.js holdsGoal).
+    this.readAt = new Map();
     // Injectable for tests: the clock and the pause between wait polls.
     this.now = () => Date.now();
     this.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -90,8 +93,12 @@ export class AgentCodingSessions {
     const result = await action(ctx, input, inv);
     return () => result;
   }
+  /** Starts the wake watcher (session-wakes.js), once a second besides the action tick. */
   start() {
     this.closed = false;
+    if (this.timer) return;
+    this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
+    this.timer.unref();
   }
   /**
    * A session prompt was answered or handed to the terminal (operations-events.js):
@@ -113,7 +120,19 @@ export class AgentCodingSessions {
   answeredBy(promptId) {
     return this.answers.get(promptId)?.actor ?? "session";
   }
-  async tick() {}
+  /** One pass of the wake watcher; a pass under way is joined. */
+  tick() {
+    if (this.closed || this.w.a.maintenance) return Promise.resolve();
+    return tickWakes(this);
+  }
+  /** Whether a session the chat's agent drives holds its open goal (session-wakes.js). */
+  holdsGoal(conversationId) {
+    return holdsGoal(this, conversationId);
+  }
+  /** Delivers an answered escalation's wake turn; whether it settled. */
+  wakeEscalation(a) {
+    return wakeEscalation(this, a);
+  }
   /** The action tick of a `session_start` action (session-start.js advanceStart). */
   advanceStart(a) {
     return advanceStart(this.w, a);
@@ -132,6 +151,8 @@ export class AgentCodingSessions {
   }
   close() {
     this.closed = true;
+    clearInterval(this.timer);
+    this.timer = null;
   }
   /**
    * The projects the agent may start sessions on: its own grants with the sessions

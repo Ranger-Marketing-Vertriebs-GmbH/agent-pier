@@ -107,6 +107,8 @@ export const internalKinds = new Set([
   "ssh-access-result",
   // AgentPier asks the agent to continue its open work goal (goal-turns.js).
   "goal-continuation",
+  // AgentPier tells the agent one of its coding sessions changed (session-wakes.js).
+  "coding-session",
 ]);
 function hideInternal(messages, requests, contexts, attempts) {
   const kindFor = (id) => {

@@ -118,7 +118,9 @@ test("an escalation waits in the agent chat once and completes when the owner an
   const done = f.workflows.store.get(first.actionId);
   assert.equal(done.state, "completed");
   assert.deepEqual(done.result, { answeredBy: "owner" });
-  assert.deepEqual(done.followUp, { pending: true });
+  // The agent is woken once with who answered (agent-coding-session-wakes.test.js).
+  assert.equal(typeof done.followUp.attemptId, "string");
+  assert.equal(done.settled, true);
   assert.deepEqual(f.workflows.pending(f.id), []);
   // Escalating the answered prompt again returns the finished action.
   assert.equal((await f.call(await f.invocation(), escalate)).state, "completed");

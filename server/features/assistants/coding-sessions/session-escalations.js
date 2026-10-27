@@ -129,8 +129,8 @@ async function promptOpen(w, sessionId, promptId) {
  * The action tick of an escalation (AssistantWorkflows.advanceAction): cancelled
  * once the agent no longer controls the session (GRANT_REVOKED); while the prompt
  * waits, asks on Telegram; once it is gone, completed with who answered it (owner,
- * agent, telegram, or the session itself when it ended or moved on) and the agent's
- * follow-up turn marked pending.
+ * agent, telegram, or the session itself when it ended or moved on), and the agent
+ * woken once with that (session-wakes.js wakeEscalation).
  */
 export async function advanceEscalation(w, a) {
   const { sessionId, promptId } = a.payload;
@@ -156,8 +156,8 @@ export async function advanceEscalation(w, a) {
   }
   if (a.state === "completed") {
     notifyAction(w, a, "result");
-    // One wake turn tells the agent who answered (Task 11 delivers it and settles).
-    if (!a.followUp) w.store.patch(a.id, { followUp: { pending: true } });
+    // One wake turn tells the agent who answered; it settles the action once sent.
+    await w.sessions.wakeEscalation(a);
     return;
   }
   if (!a.settled) w.store.patch(a.id, { settled: true });
