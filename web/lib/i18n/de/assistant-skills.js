@@ -1,12 +1,12 @@
 export const assistantSkillsCopy = {
   title: "Skills",
   intro:
-    "Mit OpenClaw mitgelieferte Skills bringen dem Agenten ein Tool bei, meist ein Kommandozeilenprogramm. Schalte die ein, die dieser Agent nutzen darf.",
-  row: "Mitgelieferte Skills",
+    "Skills bringen dem Agenten ein Tool bei, meist ein Kommandozeilenprogramm. Schalte die mitgelieferten oder Katalog-Skills ein, die dieser Agent nutzen darf; Katalog-Skills installierst du unter Agenten › Skills.",
+  row: "Skills",
   shellOff:
     "Die meisten Skills führen Kommandozeilenprogramme aus und brauchen Shell-Zugriff.",
   pageHint:
-    "Angeboten werden nur Skills, die mit OpenClaw mitgeliefert werden. Ein Skill ist ein Hinweis, keine Berechtigung: Was der Agent ausführen darf, entscheidet der Shell-Zugriff. Die Beschreibungen stammen von OpenClaw und bleiben englisch.",
+    "Angeboten werden mit OpenClaw mitgelieferte Skills und Skills aus dem Skill-Katalog; Katalog-Skills installierst du unter Agenten › Skills. Ein Skill ist ein Hinweis, keine Berechtigung: Was der Agent ausführen darf, entscheidet der Shell-Zugriff. Die Beschreibungen stammen von OpenClaw und bleiben englisch.",
   search: "Skills suchen",
   filter: "Anzeigen",
   filters: {
@@ -14,6 +14,7 @@ export const assistantSkillsCopy = {
     on: "Eingeschaltet",
     ready: "Bereit",
     missing: "Etwas fehlt",
+    catalog: "Aus dem Katalog",
   },
   loading: "Skills werden geladen …",
   empty: "Keine Skills passen.",
@@ -26,6 +27,10 @@ export const assistantSkillsCopy = {
     unsupported: "Auf diesem System nicht verfügbar",
     disabled: "In OpenClaw abgeschaltet",
     unavailable: "In dieser OpenClaw-Version nicht mehr enthalten",
+    needsSettings: "Braucht Einstellungen \u2014 noch nicht unterstützt",
+    damaged: "Beschädigt \u2014 installiere ihn unter Agenten \u203a Skills neu",
+    shadowedCatalog:
+      "Aus: Ein mitgelieferter Skill gleichen Namens ersetzt diesen Katalog-Skill. Entferne einen von beiden, um den anderen zu nutzen.",
     shadowed:
       "Für diesen Agenten aus: Ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
   },
@@ -38,6 +43,9 @@ export const assistantSkillsCopy = {
   },
   missingLine: (parts) => `Fehlt: ${parts}`,
   needsShell: "Braucht Shell-Zugriff",
+  fromCatalog: (version) => `Aus dem Skill-Katalog \u00b7 Version ${version}`,
+  worksWithLimits:
+    "Funktioniert eingeschränkt: Er führt Programme aus, und dieser Agent hat keinen Shell-Zugriff.",
   pending: "Gilt ab der nächsten Antwort des Agenten",
   risks: {
     installsCode:

@@ -15,7 +15,27 @@ const profile = {
   capabilities: { memory: false, reminders: false },
 };
 // What GET /api/assistants/:id/skills answers (server/features/assistants/agent-skills.js).
-const catalog = (on = []) => ({
+const catalogSkills = [
+  {
+    name: "pdf-notes",
+    source: "catalog",
+    version: "2",
+    description: "Summarise PDF files.",
+    state: "ready",
+    missing: none,
+    usesShell: true,
+  },
+  {
+    name: "needs-key",
+    source: "catalog",
+    version: "1",
+    description: "",
+    state: "needsSettings",
+    missing: none,
+    usesShell: false,
+  },
+];
+const catalog = (on = [], extra = []) => ({
   assigned: on,
   shell: "off",
   skills: [
@@ -49,6 +69,7 @@ const catalog = (on = []) => ({
       missing: none,
       usesShell: false,
     },
+    ...extra,
   ].map((skill) => ({
     ...skill,
     assigned: on.includes(skill.name),
@@ -56,7 +77,10 @@ const catalog = (on = []) => ({
   })),
 });
 
-async function setup(page, { language = "en", unavailable = false } = {}) {
+async function setup(
+  page,
+  { language = "en", unavailable = false, withCatalog = false } = {},
+) {
   await fixture(page);
   await page.addInitScript(
     (value) => localStorage.setItem("agentpier-language", value),
@@ -79,7 +103,9 @@ async function setup(page, { language = "en", unavailable = false } = {}) {
             status: 503,
             json: { code: "unavailable", error: "The agent service is not ready." },
           })
-        : route.fulfill({ json: catalog(state.agent.skills || []) });
+        : route.fulfill({
+            json: catalog(state.agent.skills || [], withCatalog ? catalogSkills : []),
+          });
     if (path === "/api/assistants/home" && method === "PATCH") {
       const body = request.postDataJSON();
       state.patches.push(body);
@@ -117,7 +143,7 @@ async function setup(page, { language = "en", unavailable = false } = {}) {
 
 const copy = {
   en: {
-    row: /^Bundled skills/,
+    row: /^Skills/,
     none: "0 on",
     one: "1 on",
     shellOff: "Most skills run command-line programs and need shell access.",
@@ -133,7 +159,7 @@ const copy = {
     unavailable: "Skills can be listed while the agent service runs.",
   },
   de: {
-    row: /^Mitgelieferte Skills/,
+    row: /^Skills/,
     none: "0 an",
     one: "1 an",
     shellOff:
@@ -249,4 +275,26 @@ test("temporary members have no skills", async ({ page }) => {
   await page.goto(baseURL + settingsPath("capabilities", "skills"));
   await expect(page).not.toHaveURL(/page=skills/);
   await expect(group(page)).toHaveCount(0);
+});
+
+test("catalog skills show their origin and limits and can be saved", async ({ page }) => {
+  const state = await setup(page, { withCatalog: true });
+  await page.goto(baseURL + settingsPath("capabilities", "skills"));
+  const row = (name) => subpage(page).locator(".toggle-row", { hasText: name });
+  await expect(row("pdf-notes")).toContainText("From the skill catalog \u00b7 version 2");
+  await expect(row("pdf-notes")).toContainText(
+    "Works with limits: it runs programs and this agent has no shell access.",
+  );
+  await expect(row("pdf-notes")).not.toContainText("Needs shell access");
+  await expect(row("himalaya")).toContainText("Needs shell access");
+  await expect(row("needs-key")).toContainText("Needs settings \u2014 not supported yet");
+  await expect(row("needs-key").getByRole("switch")).toBeDisabled();
+  await subpage(page).getByRole("combobox", { name: "Show" }).selectOption("catalog");
+  await expect(subpage(page).locator(".toggle-row")).toHaveCount(2);
+  await row("pdf-notes").getByRole("switch").check();
+  await saveBar(page, "Unsaved changes")
+    .getByRole("button", { name: "Save agent" })
+    .click();
+  await expect(saveBar(page, "Unsaved changes")).toHaveCount(0);
+  expect(state.patches).toEqual([{ skills: ["pdf-notes"], revision: 1 }]);
 });

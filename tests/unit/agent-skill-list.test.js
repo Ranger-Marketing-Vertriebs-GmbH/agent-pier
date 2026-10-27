@@ -87,3 +87,34 @@ test("the skills subpage belongs to Capabilities and to eligible agents only", (
     },
   );
 });
+
+test("catalog skills that need settings or are damaged cannot be switched on", () => {
+  assert.equal(skillLocked({ state: "needsSettings" }, false), true);
+  assert.equal(skillLocked({ state: "damaged" }, false), true);
+  assert.equal(skillLocked({ state: "damaged" }, true), false);
+});
+
+test("the catalog filter keeps catalog skills only", () => {
+  assert.deepEqual(
+    visibleSkills([{ name: "a", source: "catalog" }, { name: "b" }], {
+      filter: "catalog",
+    }).map((s) => s.name),
+    ["a"],
+  );
+});
+
+test("needs-settings and damaged skills have their own status text", () => {
+  assert.equal(
+    statusText({ state: "needsSettings" }, copy),
+    "Needs settings \u2014 not supported yet",
+  );
+  assert.equal(
+    statusText({ state: "damaged" }, copy),
+    "Damaged \u2014 install it again in Agents \u203a Skills",
+  );
+  assert.match(
+    statusText({ state: "shadowed", source: "catalog" }, copy),
+    /^Off: a bundled/,
+  );
+  assert.match(statusText({ state: "shadowed" }, copy), /^Off for this agent/);
+});

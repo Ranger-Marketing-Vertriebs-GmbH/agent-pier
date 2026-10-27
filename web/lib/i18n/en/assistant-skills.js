@@ -1,11 +1,11 @@
 export const assistantSkillsCopy = {
   title: "Skills",
   intro:
-    "Skills bundled with OpenClaw teach the agent a tool, mostly a command-line program. Switch on the ones this agent may use.",
-  row: "Bundled skills",
+    "Skills teach the agent a tool, mostly a command-line program. Switch on the bundled or catalog skills this agent may use; install catalog skills in Agents › Skills.",
+  row: "Skills",
   shellOff: "Most skills run command-line programs and need shell access.",
   pageHint:
-    "Only skills bundled with OpenClaw are offered. A skill is a hint, not a permission: shell access decides what the agent can run. Descriptions come from OpenClaw and stay in English.",
+    "Skills bundled with OpenClaw and skills from the skill catalog are offered; install catalog skills in Agents › Skills. A skill is a hint, not a permission: shell access decides what the agent can run. Descriptions come from OpenClaw and stay in English.",
   search: "Search skills",
   filter: "Show",
   filters: {
@@ -13,6 +13,7 @@ export const assistantSkillsCopy = {
     on: "Switched on",
     ready: "Ready",
     missing: "Something missing",
+    catalog: "From the catalog",
   },
   loading: "Loading skills …",
   empty: "No skills match.",
@@ -25,6 +26,10 @@ export const assistantSkillsCopy = {
     unsupported: "Not available on this system",
     disabled: "Disabled in OpenClaw",
     unavailable: "No longer bundled with this OpenClaw version",
+    needsSettings: "Needs settings \u2014 not supported yet",
+    damaged: "Damaged \u2014 install it again in Agents \u203a Skills",
+    shadowedCatalog:
+      "Off: a bundled skill of the same name replaces this catalog skill. Remove one of them to use the other.",
     shadowed:
       "Off for this agent: a skill of the same name in the agent's folders would run in its place. Your choice stays saved and applies again once that skill is gone.",
   },
@@ -37,6 +42,9 @@ export const assistantSkillsCopy = {
   },
   missingLine: (parts) => `Missing: ${parts}`,
   needsShell: "Needs shell access",
+  fromCatalog: (version) => `From the skill catalog \u00b7 version ${version}`,
+  worksWithLimits:
+    "Works with limits: it runs programs and this agent has no shell access.",
   pending: "Applies at the agent's next turn",
   risks: {
     installsCode:
