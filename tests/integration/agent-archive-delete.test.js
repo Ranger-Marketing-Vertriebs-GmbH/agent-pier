@@ -11,6 +11,13 @@ test("an own agent is archived and restored unchanged, audited by id", async (t)
   await assert.rejects(f.lifecycle.archive(agent.id, { revision: agent.revision - 1 }), {
     status: 409,
   });
+  // An agent answering people on its own Telegram bot is never archived.
+  f.assistants.telegramSenders.connected = (id) => id === agent.id;
+  await assert.rejects(f.lifecycle.archive(agent.id, { revision: agent.revision }), {
+    status: 409,
+    key: "telegramSendersArchive",
+  });
+  f.assistants.telegramSenders.connected = () => false;
   const archived = await f.lifecycle.archive(agent.id, { revision: agent.revision });
   assert.ok(archived.archivedAt);
   assert.deepEqual(f.disabled, [agent.id]);
