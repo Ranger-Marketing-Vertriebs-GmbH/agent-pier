@@ -165,6 +165,7 @@ export function hookTools(effective, ceiling) {
   }
   if (effective.coding || Object.keys(effective.folders).length)
     tools.push("agentpier_workspace");
+  if (effective.coding) tools.push("agentpier_coding_session");
   if (effective.shell !== "off") tools.push(...shellTools);
   if (effective.sshHosts.length) tools.push("agentpier_ssh");
   if (effective.memory) tools.push("read", "write", "edit");

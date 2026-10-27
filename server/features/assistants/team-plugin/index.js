@@ -6,6 +6,7 @@ import { sshAccessDefinition, sshAccessTimeoutMs } from "./ssh-access-tool.js";
 import { shareDefinition } from "./share-tool.js";
 import { registerBackgroundCommands } from "./background-commands.js";
 import { goalDefinition } from "./goal-tool.js";
+import { codingSessionDefinition } from "./coding-session-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { registerChatTitle } from "./chat-title.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
@@ -33,6 +34,8 @@ export const toolTimeouts = {
   share_file: 30000,
   templates: 65000,
   propose: 95000,
+  // A coding session wait holds the call for up to 100 seconds.
+  coding_session: 125000,
 };
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;
@@ -46,6 +49,7 @@ const ownTools = [
   "goal",
   "hook",
   "ssh_access",
+  "coding_session",
 ];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
@@ -105,6 +109,7 @@ const definitions = {
   ...sshAccessDefinition,
   ...shareDefinition,
   ...goalDefinition,
+  ...codingSessionDefinition,
   ...memberDefinitions,
   reminder: {
     description:

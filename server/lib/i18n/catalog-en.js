@@ -1,4 +1,5 @@
 import { assistants } from "./en/assistants.js";
+import { agentCodingSessions } from "./en/agent-coding-sessions.js";
 import { accounts } from "./en/accounts.js";
 import { agentbus } from "./en/agentbus.js";
 import { artifacts } from "./en/artifacts.js";
@@ -45,6 +46,7 @@ import { storageCleanup } from "./en/storage-cleanup.js";
 // English counterpart of catalog-de.js with identical keys.
 export const englishServerMessages = Object.freeze({
   assistants,
+  agentCodingSessions,
   sessionInput,
   sessionReload,
   sessionTransfer,

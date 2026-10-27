@@ -12,8 +12,9 @@ import { isShared } from "../users/user-access.js";
  * turn, OpenClaw 2026.10.7): it then gets no bridge tools, no writes and no shell.
  */
 // What a hook run may call through the bridge: project folders and coding
-// (agent-hook-workspace.js) and SSH on its chosen hosts.
-export const hookActions = new Set(["workspace", "ssh"]);
+// (agent-hook-workspace.js), SSH on its chosen hosts and, with its Coding tick,
+// coding sessions (coding-sessions/session-turns.js).
+export const hookActions = new Set(["workspace", "ssh", "coding_session"]);
 
 /** The running hook event's origin of this agent's session, or null. */
 export function hookRun(bridge, { agentId, sessionKey }) {

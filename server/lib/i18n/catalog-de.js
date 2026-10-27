@@ -1,4 +1,5 @@
 import { assistants } from "./de/assistants.js";
+import { agentCodingSessions } from "./de/agent-coding-sessions.js";
 import { accounts } from "./de/accounts.js";
 import { agentbus } from "./de/agentbus.js";
 import { artifacts } from "./de/artifacts.js";
@@ -46,6 +47,7 @@ import { storageCleanup } from "./de/storage-cleanup.js";
 // Operator script output (de/scripts.js) is terminal-only and stays out on purpose.
 export const germanServerMessages = Object.freeze({
   assistants,
+  agentCodingSessions,
   sessionInput,
   sessionReload,
   sessionTransfer,

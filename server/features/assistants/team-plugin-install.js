@@ -12,6 +12,7 @@ const files = [
   "ssh-access-tool.js",
   "share-tool.js",
   "goal-tool.js",
+  "coding-session-tool.js",
   "member-tools.js",
   "chat-title.js",
   "tool-guard.js",

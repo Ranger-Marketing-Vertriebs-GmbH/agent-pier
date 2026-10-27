@@ -211,3 +211,17 @@ test("hookTools builds toolsAllow from ticks only", () => {
     ),
   );
 });
+
+test("hookTools offers agentpier_coding_session only with the Coding tick", () => {
+  assert.ok(
+    hookTools({ ...hookDefaults, coding: true }, none).includes(
+      "agentpier_coding_session",
+    ),
+  );
+  assert.ok(!hookTools(hookDefaults, none).includes("agentpier_coding_session"));
+  assert.ok(
+    !hookTools({ ...hookDefaults, folders: { p: "write" } }, none).includes(
+      "agentpier_coding_session",
+    ),
+  );
+});
