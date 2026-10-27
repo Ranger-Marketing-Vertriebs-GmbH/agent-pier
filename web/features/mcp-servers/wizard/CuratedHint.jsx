@@ -1,7 +1,10 @@
 import React, { useId } from "react";
 import { mcpDirectoryCopy as copy } from "../../../lib/i18n/messages/mcp-directory.js";
-import ManagedToolLink from "./ManagedToolLink.jsx";
+import RouteLink from "../../assistants/RouteLink.jsx";
 import { curatedHintFor, curatedManagedTool } from "./curated-hints.js";
+
+// The install tab of Coding › CLIs, where the REA card lives.
+const reaCardRoute = { view: "coding", codingTab: "install" };
 
 /**
  * AgentPier's own note on a known MCP server (curated-hints.js), shown in the
@@ -32,9 +35,9 @@ export default function CuratedHint({
       </ul>
       {curatedManagedTool(key) && (
         <p>
-          <ManagedToolLink navigate={navigate}>
+          <RouteLink route={reaCardRoute} navigate={navigate}>
             {copy.curated.installManaged}
-          </ManagedToolLink>
+          </RouteLink>
         </p>
       )}
     </section>

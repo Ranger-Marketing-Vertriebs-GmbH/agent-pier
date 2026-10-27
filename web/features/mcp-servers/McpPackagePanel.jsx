@@ -27,7 +27,6 @@ import "./mcp-packages.css";
  * or failed, and an update that shows the lock
  * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
-
  * A `managed` package (REA's) is shown read-only: its status, log and skills, but no
  * program choice, reinstall or update, which belong to the tool's own card.
  * `listedVersion` (a newer version the MCP directory lists) is named and offered when the

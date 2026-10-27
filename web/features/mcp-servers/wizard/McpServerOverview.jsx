@@ -5,6 +5,7 @@ import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
 import { mcpWizardCopy as copy } from "../../../lib/i18n/messages/mcp-wizard.js";
 import { names } from "../../../lib/providers.js";
 import AccountDetail from "../../accounts/AccountDetail.jsx";
+import RouteLink from "../../assistants/RouteLink.jsx";
 import UsedByGroup from "../../accounts/UsedByGroup.jsx";
 import { itemRoute } from "../../accounts/accounts-items.js";
 import { assistantApi } from "../../assistants/assistant-api.js";
@@ -14,11 +15,13 @@ import McpRemoveConfirmation from "../McpRemoveConfirmation.jsx";
 import McpServerInfo from "../McpServerInfo.jsx";
 import { savedNotice } from "../mcp-notices.js";
 import AgentFoldersCard from "./AgentFoldersCard.jsx";
-import ManagedToolLink from "./ManagedToolLink.jsx";
 import useDirectoryUpdates from "./useDirectoryUpdates.js";
 import "../mcp-servers.css";
 import "../mcp-cli.css";
 import "./mcp-wizard.css";
+
+// The install tab of Coding › CLIs, where the REA card lives.
+const reaCardRoute = { view: "coding", codingTab: "install" };
 
 function StepCard({ title, lines, onChange }) {
   const id = useId();
@@ -102,12 +105,13 @@ export default function McpServerOverview({
     <AccountDetail
       title={server.name}
       destructive={
+        // A managed server has no Remove; its note takes the destructive slot.
         server.managed ? (
           <p className="mcp-hint">
             {mcpServerCopy.managedNote}{" "}
-            <ManagedToolLink navigate={navigate}>
+            <RouteLink route={reaCardRoute} navigate={navigate}>
               {mcpServerCopy.managedManage}
-            </ManagedToolLink>
+            </RouteLink>
           </p>
         ) : removing ? (
           <McpRemoveConfirmation
