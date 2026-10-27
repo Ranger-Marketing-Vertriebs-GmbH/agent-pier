@@ -14,13 +14,16 @@ import {
 } from "./openclaw-config/skill-shadows.js";
 import { assistantProblem, skillNamePattern } from "./assistant-validation.js";
 
-// Bundled OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner
-// switches skills on per agent; AgentPier compiles the list into
-// agents.entries.<id>.skills, which OpenClaw reads as the agent's final allow list
-// (agents.defaults.skills stays [], so an agent without a list has none). Only
-// skills the runtime bundles are assignable: never ClawHub or workspace skills.
+// OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner switches
+// skills on per agent; AgentPier compiles the list into agents.entries.<id>.skills,
+// which OpenClaw reads as the agent's final allow list (agents.defaults.skills stays
+// [], so an agent without a list has none). Skills the runtime bundles and skills of
+// the owner's agent skill catalog (skill-catalog/) are assignable: never ClawHub or
+// workspace skills.
 
 const bundledSource = "openclaw-bundled";
+/** The source OpenClaw reports for skills from skills.load.extraDirs: the catalog. */
+export const catalogSource = "openclaw-extra";
 const requirementKeys = ["bins", "anyBins", "env", "config", "os"];
 
 /**
@@ -122,15 +125,82 @@ export function sanitizeSkill(entry, roots = []) {
   };
 }
 
+const inside = (file, root) => {
+  if (typeof file !== "string" || !root) return false;
+  const relative = path.relative(root, file);
+  return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+};
+const needsSettings = (entry) =>
+  (Array.isArray(entry.requirements?.env) && entry.requirements.env.length > 0) ||
+  (Array.isArray(entry.requirements?.config) && entry.requirements.config.length > 0) ||
+  (typeof entry.primaryEnv === "string" && entry.primaryEnv.length > 0);
+const emptySkill = (name, state, roots, description = "") => ({
+  name,
+  description: withoutHostPaths(description, roots).slice(0, 1000),
+  state,
+  missing: requirementsOf({}, roots),
+  usesShell: false,
+});
+
+const realRoot = (root) => {
+  try {
+    return fs.realpathSync(root);
+  } catch {
+    return null;
+  }
+};
+const ownCopy = (entry, liveRoot) =>
+  entry?.source === catalogSource &&
+  (inside(entry.filePath, liveRoot) ||
+    inside(entry.filePath, liveRoot && realRoot(liveRoot)));
+
+function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
+  const { name } = record;
+  if (record.damaged) return emptySkill(name, "damaged", roots, record.description);
+  // The runtime bundles the name, another source reports it, or the reported copy is
+  // not the catalog's: whatever runs under this name is not the catalog skill.
+  if (clash || (entry && !ownCopy(entry, liveRoot)))
+    return emptySkill(name, "shadowed", roots);
+  if (shadowed.has(name) || shadowed.has(anyName))
+    return { ...sanitizeSkill(entry || record, roots), state: "shadowed" };
+  if (record.needsSettings || (entry && needsSettings(entry)))
+    return {
+      ...sanitizeSkill(entry || record, roots),
+      state: "needsSettings",
+    };
+  if (!entry || record.failed)
+    return emptySkill(name, "unavailable", roots, record.description);
+  return sanitizeSkill(entry, roots);
+}
+
 /**
- * The agent's skill page from OpenClaw's `skills.status` report for that agent and
- * the runtime's bundled names. A bundled name that the report resolves to another
- * source is `shadowed`: a workspace (or other) skill of that name would run instead,
- * so it is never shown as the bundled one; so is one a skill in the agent's folders
- * would replace (`shadowed`, skill-shadows.js). The compiler drops both from the
- * agent's list while the owner's choice stays stored. A `fallback` report was read
- * for another agent (this one does not exist in the Gateway yet): its other
- * sources and agent filter say nothing about this agent.
+ * A catalog skill's row: `damaged` (install again); `shadowed` when the runtime
+ * bundles the name (`clash`), the report resolves it to another source or outside
+ * the catalog's live folder, or a skill in the agent's folders would replace it;
+ * `needsSettings` (environment or config keys AgentPier cannot set yet);
+ * `unavailable` when the Gateway does not report it or its last check failed.
+ */
+function catalogRow(input) {
+  const { record } = input;
+  return {
+    ...catalogState(input),
+    source: "catalog",
+    ...(Number.isSafeInteger(record.version) ? { version: record.version } : {}),
+  };
+}
+
+/**
+ * The agent's skill page from OpenClaw's `skills.status` report for that agent, the
+ * runtime's bundled names and the catalog's records (`catalog`, live copies below
+ * `liveRoot`). A bundled name that the report resolves to another source is
+ * `shadowed`: a workspace (or other) skill of that name would run instead, so it is
+ * never shown as the bundled one; so is one a skill in the agent's folders would
+ * replace (`shadowed`, skill-shadows.js). The compiler drops both from the agent's
+ * list while the owner's choice stays stored. Catalog skills carry `source:
+ * "catalog"` and their version (catalogRow). A `fallback` report was read for another
+ * agent (this one does not exist in the Gateway yet): its bundled and catalog
+ * entries hold for every agent; its other sources and agent filter say nothing about
+ * this one.
  */
 export function skillCatalog({
   report,
@@ -139,18 +209,37 @@ export function skillCatalog({
   roots = [],
   shadowed = new Set(),
   fallback = false,
+  catalog = [],
+  liveRoot,
 }) {
+  // The catalog's own entries apart: a name reported from another source as well is
+  // shadowed (the runtime would run that one).
   const entries = new Map();
+  const extras = new Map();
+  const others = new Set();
   for (const entry of Array.isArray(report?.skills) ? report.skills : [])
     if (
       typeof entry?.name === "string" &&
       skillNamePattern.test(entry.name) &&
-      (!fallback || entry.source === bundledSource)
-    )
-      entries.set(entry.name, entry);
+      (!fallback || entry.source === bundledSource || entry.source === catalogSource)
+    ) {
+      if (entry.source === catalogSource) extras.set(entry.name, entry);
+      else others.add(entry.name);
+      if (entry.source !== catalogSource || !entries.has(entry.name))
+        entries.set(entry.name, entry);
+    }
+  const records = new Map(
+    catalog
+      .filter(
+        (record) =>
+          typeof record?.name === "string" && skillNamePattern.test(record.name),
+      )
+      .map((record) => [record.name, record]),
+  );
   const assigned = personalSkills(assistant);
   const names = new Set([
     ...bundled,
+    ...records.keys(),
     ...assigned,
     ...[...entries.values()]
       .filter((entry) => entry.source === bundledSource)
@@ -159,26 +248,23 @@ export function skillCatalog({
   const skills = [...names].sort().map((name) => {
     const entry = entries.get(name);
     const on = assigned.includes(name);
-    const hidden = {
-      name,
-      description: "",
-      state: "shadowed",
-      missing: requirementsOf({}, roots),
-      usesShell: false,
-    };
-    const base = entry
-      ? entry.source !== bundledSource
-        ? hidden
-        : shadowed.has(name) || shadowed.has(anyName)
-          ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
-          : sanitizeSkill(entry, roots)
-      : {
-          name,
-          description: "",
-          state: "unavailable",
-          missing: requirementsOf({}, roots),
-          usesShell: false,
-        };
+    const record = records.get(name);
+    const base = record
+      ? catalogRow({
+          record,
+          entry: extras.get(name),
+          clash: bundled.has(name) || others.has(name),
+          shadowed,
+          liveRoot,
+          roots,
+        })
+      : entry
+        ? entry.source !== bundledSource
+          ? emptySkill(name, "shadowed", roots)
+          : shadowed.has(name) || shadowed.has(anyName)
+            ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
+            : sanitizeSkill(entry, roots)
+        : emptySkill(name, "unavailable", roots);
     return {
       ...base,
       assigned: on,
@@ -193,6 +279,9 @@ export function skillCatalog({
   });
   return { skills, assigned, shell: personalShell(assistant) };
 }
+
+// States a skill cannot be switched on in (catalogRow and skillCatalog).
+const refusedStates = ["shadowed", "unavailable", "needsSettings", "damaged"];
 
 // OpenClaw answers INVALID_REQUEST `unknown agent id "<id>"` (gateway-client.js keeps
 // the reason as remoteMessage).
@@ -228,6 +317,7 @@ export class AgentSkills {
       entryPath && path.dirname(path.dirname(path.dirname(entryPath))),
       report?.workspaceDir,
       report?.managedSkillsDir,
+      this.catalog?.liveRoot,
     ].filter((root) => typeof root === "string" && path.isAbsolute(root));
     // Longest first, so a nested directory is cut before its parent.
     roots.sort((a, b) => b.length - a.length);
@@ -241,7 +331,27 @@ export class AgentSkills {
         ? shadowingSkillNames(skillShadowRoots(root, assistant.id))
         : new Set(),
       fallback: report?.fallback === true,
+      catalog: this.catalogRecords(),
+      liveRoot: this.catalog?.liveRoot,
     });
+  }
+  /**
+   * The catalog's records, a skill whose last check failed marked `failed`. A catalog
+   * that cannot be read offers none of its skills; the bundled ones stay listed.
+   */
+  catalogRecords() {
+    if (!this.catalog) return [];
+    try {
+      return this.catalog.list().map((record) => ({
+        ...record,
+        failed: !!this.catalog.failed?.has(record.name),
+      }));
+    } catch (error) {
+      console.error(
+        `AgentPier could not read the skill catalog (${error?.code || "no code"}).`,
+      );
+      return [];
+    }
   }
   /** Runs `apply` once, shortly after the last of a burst of skills.changed events. */
   changed(apply, delayMs = 500) {
@@ -274,8 +384,9 @@ export class AgentSkills {
     }
   }
   /**
-   * Refuses a list with a skill that is not bundled, or that another skill of the
-   * same name shadows, before anything is stored. Names already assigned may stay,
+   * Refuses a list with a skill that is neither bundled nor a catalog skill, that
+   * another skill of the same name shadows, or a catalog skill that needs settings
+   * or is damaged, before anything is stored. Names already assigned may stay,
    * so a runtime that dropped one never blocks other changes.
    */
   async check(current, names) {
@@ -288,7 +399,7 @@ export class AgentSkills {
     const { skills } = await this.list(current.id);
     for (const name of added) {
       const skill = skills.find((s) => s.name === name);
-      if (!skill || ["shadowed", "unavailable"].includes(skill.state))
+      if (!skill || refusedStates.includes(skill.state))
         throw assistantProblem("skillUnavailable", 409);
     }
   }

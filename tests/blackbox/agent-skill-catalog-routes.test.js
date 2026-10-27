@@ -182,3 +182,28 @@ test("the catalog is dormant while agents are switched off", async (t) => {
   assert.equal(response.status, 404);
   assert.equal((await response.json()).code, "ASSISTANTS_DISABLED");
 });
+
+test("the catalog lists the agents using a skill, and removal switches them off", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const { store } = f.application.assistants;
+  const p = await preview(f, skillMd("probe"));
+  const response = await f.request("/api/agent-skill-catalog/skills", post(confirm(p)));
+  const { skill } = await response.json();
+  const model = { connectionId: "c", modelId: "m" };
+  const agent = store.createAssistant({ name: "Home", instructions: "", model });
+  store.updateAssistant(agent.id, { skills: ["probe"] }, agent.revision);
+  const listed = (await (await f.request("/api/agent-skill-catalog")).json()).skills;
+  assert.deepEqual(listed[0].agents, [{ id: agent.id, name: "Home" }]);
+  assert.equal(listed[0].state, "ready");
+  // Without a running agent service the programs it needs are not known yet.
+  assert.equal(listed[0].requirements, undefined);
+
+  const removed = await f.request(`/api/agent-skill-catalog/skills/${skill.id}`, {
+    method: "DELETE",
+  });
+  assert.deepEqual(await removed.json(), { removed: skill.id, switchedOff: [agent.id] });
+  assert.deepEqual(store.getAssistant(agent.id).skills, []);
+  const [, deleted] = await catalogEvents(f);
+  assert.deepEqual(deleted.details, { kind: "catalog-skill", count: 1 });
+  assert.ok(!JSON.stringify(deleted).includes("Home"));
+});
