@@ -79,6 +79,10 @@ export default function DashboardPage({
     attention: attention.total,
   };
   const openStatus = (tab) => setDialog(tab);
+  // CLI profiles (accounts of the coding CLIs, not the shell), once the state is loaded.
+  const profiles = ready
+    ? (state.accounts || []).filter((account) => account.tool !== "shell").length
+    : null;
   return (
     <div className="page dashboard start-page">
       <StartHeader
@@ -132,11 +136,17 @@ export default function DashboardPage({
             navigate={navigate}
             phone
           />
-          <ToolRows tools={availableTools} navigate={navigate} phone />
+          <ToolRows
+            tools={availableTools}
+            profiles={profiles}
+            navigate={navigate}
+            phone
+          />
         </div>
       ) : (
         <ToolRows
           tools={availableTools}
+          profiles={profiles}
           loading={loading}
           navigate={navigate}
           launch={launch}

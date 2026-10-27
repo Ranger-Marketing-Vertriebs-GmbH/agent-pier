@@ -84,8 +84,22 @@ function ToolRow({ tool, effects }) {
  * ⋯ menu that holds every other action of the full grid. Phones show a summary tile
  * that leads to CLIs & extensions.
  */
-export default function ToolRows({ tools, loading, navigate, phone, ...effects }) {
+export default function ToolRows({
+  tools,
+  profiles = null,
+  loading,
+  navigate,
+  phone,
+  ...effects
+}) {
   const ready = tools.filter((tool) => tool.installed).length;
+  // "4 of 7 ready · 3 profiles"; the profiles only once the accounts are known.
+  const facts = [
+    tools.length > 0 ? copy.toolsReady(ready, tools.length) : "",
+    Number.isSafeInteger(profiles) ? copy.toolsProfiles(profiles) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const updates = tools.filter(updateRequired).length;
   const route = codingRoute();
   const link = (className, children) => (
@@ -106,7 +120,7 @@ export default function ToolRows({ tools, loading, navigate, phone, ...effects }
       "start-card start-tile",
       <>
         <strong>{copy.tools}</strong>
-        <small>{copy.toolsReady(ready, tools.length)}</small>
+        {facts && <small>{facts}</small>}
         {updates > 0 && (
           <small className="start-warn">{copy.toolsUpdates(updates)}</small>
         )}
@@ -116,12 +130,8 @@ export default function ToolRows({ tools, loading, navigate, phone, ...effects }
     <section className="start-tools" aria-labelledby="start-tools-title">
       <div className="start-section-head">
         <h2 id="start-tools-title">
-          {copy.tools}{" "}
-          {tools.length > 0 && (
-            <span className="start-card-count">
-              {copy.toolsReady(ready, tools.length)}
-            </span>
-          )}
+          {copy.tools}
+          {facts && <span className="start-card-count"> · {facts}</span>}
         </h2>
         {link("start-head-link", copy.toolsLink)}
       </div>

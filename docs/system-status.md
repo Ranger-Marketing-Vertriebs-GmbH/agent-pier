@@ -27,7 +27,9 @@ you, in a column up to about 1180 px wide:
   activity and state, and the agent service's state in the footer (absent while agents
   are off), beside **Pipelines** with up to three runs (running, awaiting a decision,
   failed), each with a bar per stage, and **All runs**.
-- **Your tools:** one row per CLI and utility with its version and one action:
+- **Your tools:** the heading counts the ready tools and the CLI profiles (once
+  known), such as "Your tools · 4 of 5 ready · 3 profiles". One row per CLI and
+  utility with its version and one action:
   **Install**, **Update** (when a CLI is below its minimum version, or for nono and a
   Chrome for Testing update), **Start** for CLIs or **Connections** for the GitHub CLI.
   The ⋯ menu holds every other action (**Update CLI**, **Update browser**, **Remove**).
