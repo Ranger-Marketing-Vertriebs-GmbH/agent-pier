@@ -54,6 +54,7 @@ export function refuseLockedAccess(agent, input = {}) {
   if (!isUserAgent(agent)) return;
   if (
     filled(input.projectIds) ||
+    filled(input.sessionProjectIds) ||
     filled(input.pipelineIds) ||
     filled(input.sshAccesses) ||
     filled(input.secretIds) ||

@@ -35,6 +35,11 @@ export function auditProjectGrants(services, id, before, after) {
   const to = new Set(after?.projectIds || []);
   const added = [...to].filter((p) => !from.has(p)).sort();
   const removed = [...from].filter((p) => !to.has(p)).sort();
+  const sessions = (policy) => new Set(policy?.sessionProjectIds || []);
+  const sFrom = sessions(before),
+    sTo = sessions(after);
+  const sessionsAdded = [...sTo].filter((p) => !sFrom.has(p)).sort();
+  const sessionsRemoved = [...sFrom].filter((p) => !sTo.has(p)).sort();
   const levels = (policy, p) => policy?.projectFiles?.[p] || "none";
   // A user agent's folders live in projectFiles alone (its projectIds stay empty).
   const folders = (policy) => Object.keys(policy?.projectFiles || {});
@@ -44,7 +49,14 @@ export function auditProjectGrants(services, id, before, after) {
     .sort()
     .filter((p) => levels(before, p) !== levels(after, p))
     .map((p) => ({ projectId: p, from: levels(before, p), to: levels(after, p) }));
-  if (!added.length && !removed.length && !folderChanged.length) return;
+  if (
+    !added.length &&
+    !removed.length &&
+    !folderChanged.length &&
+    !sessionsAdded.length &&
+    !sessionsRemoved.length
+  )
+    return;
   try {
     services.audit?.append({
       action: "assistant.updated",
@@ -57,6 +69,8 @@ export function auditProjectGrants(services, id, before, after) {
         revision: after.revision,
         added,
         removed,
+        sessionsAdded,
+        sessionsRemoved,
         folderChanged,
       },
     });

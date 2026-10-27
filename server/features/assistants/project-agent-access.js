@@ -13,12 +13,21 @@ export const folderChoices = ["none", "read", "write"];
 const view = (policy, projectId) => ({
   coding: policy.projectIds.includes(projectId),
   folder: policy.projectFiles?.[projectId] || "none",
+  sessions: (policy.sessionProjectIds || []).includes(projectId),
 });
-const same = (a, b) => a.coding === b.coding && a.folder === b.folder;
+// `sessions` is compared only when the page sent it (older clients do not).
+const same = (a, b) =>
+  a.coding === b.coding &&
+  a.folder === b.folder &&
+  (b.sessions === undefined || a.sessions === b.sessions);
 
 function choice(value) {
-  exact(value, ["coding", "folder"]);
-  if (typeof value.coding !== "boolean" || !folderChoices.includes(value.folder))
+  exact(value, ["coding", "folder", "sessions"]);
+  if (
+    typeof value.coding !== "boolean" ||
+    !folderChoices.includes(value.folder) ||
+    (value.sessions !== undefined && typeof value.sessions !== "boolean")
+  )
     throw assistantProblem("invalid");
   return value;
 }
@@ -100,14 +109,20 @@ export function projectAgents(
  * reading and writing is retried on the newer record.
  */
 export function setProjectAgent(services, projectId, id, input) {
-  exact(input, ["expected", "coding", "folder"]);
+  exact(input, ["expected", "coding", "folder", "sessions"]);
   const expected = choice(input.expected);
-  const wanted = choice({ coding: input.coding, folder: input.folder });
+  const wanted = choice({
+    coding: input.coding,
+    folder: input.folder,
+    sessions: input.sessions,
+  });
   // A folder level needs the project grant: removing the grant removes the level.
   // A user agent has folders only, never the coding grant (user-agent-lock.js).
   const user = isUserAgent(services.access.eligible(id));
-  if (user && wanted.coding) throw userAgentLocked();
-  const next = wanted.coding || user ? wanted : { coding: false, folder: "none" };
+  // Sessions are a switch inside the grant: on implies coding, no coding clears it.
+  const coding = wanted.coding || wanted.sessions === true;
+  if (user && coding) throw userAgentLocked();
+  const next = coding || user ? { ...wanted, coding } : { coding: false, folder: "none" };
   services.access.s.memory.project(projectId);
   for (let attempt = 0; ; attempt++) {
     const policy = services.access.get(id);
@@ -115,6 +130,14 @@ export function setProjectAgent(services, projectId, id, input) {
     if (!same(current, expected)) throw assistantProblem("conflict", 409);
     const projectIds = policy.projectIds.filter((p) => p !== projectId);
     if (next.coding) projectIds.push(projectId);
+    // Absent `sessions` keeps the stored switch while the grant stays.
+    const sessionProjectIds = (policy.sessionProjectIds || []).filter(
+      (p) => p !== projectId,
+    );
+    if (next.coding && (next.sessions ?? current.sessions)) {
+      sessionProjectIds.push(projectId);
+      sessionProjectIds.sort();
+    }
     const { [projectId]: _old, ...projectFiles } = policy.projectFiles || {};
     if (next.folder !== "none") projectFiles[projectId] = next.folder;
     try {
@@ -123,6 +146,7 @@ export function setProjectAgent(services, projectId, id, input) {
           revision: policy.revision,
           projectIds: projectIds.sort(),
           projectFiles,
+          sessionProjectIds,
           pipelineIds: policy.pipelineIds,
           memoryWrite: policy.memoryWrite,
           autonomous: policy.autonomous,

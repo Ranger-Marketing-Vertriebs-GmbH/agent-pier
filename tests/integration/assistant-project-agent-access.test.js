@@ -239,3 +239,52 @@ test("every save from the project writes exactly one project audit record", asyn
     { projectId: f.project.id, from: "write", to: "none" },
   ]);
 });
+
+test("sessions are a third switch of the project grant", async (t) => {
+  const f = await setup(t);
+  const saved = f.set(f.other.id, {
+    expected: none,
+    coding: true,
+    folder: "none",
+    sessions: true,
+  });
+  assert.deepEqual([saved.coding, saved.folder, saved.sessions], [true, "none", true]);
+  assert.deepEqual(f.workflows.access.get(f.other.id).sessionProjectIds, [f.project.id]);
+  assert.equal(f.list().agents.find((a) => a.id === f.other.id).sessions, true);
+  // An older client sends no `sessions` in `expected`: it still matches.
+  const again = f.set(f.other.id, {
+    expected: { coding: true, folder: "none" },
+    coding: true,
+    folder: "read",
+  });
+  assert.deepEqual([again.coding, again.folder, again.sessions], [true, "read", true]);
+  // A stale `sessions` in `expected` is a conflict.
+  assert.throws(
+    () =>
+      f.set(f.other.id, {
+        expected: { coding: true, folder: "read", sessions: false },
+        coding: true,
+        folder: "read",
+        sessions: false,
+      }),
+    { status: 409 },
+  );
+  // Removing coding clears sessions.
+  const off = f.set(f.other.id, {
+    expected: { coding: true, folder: "read", sessions: true },
+    coding: false,
+    folder: "none",
+  });
+  assert.deepEqual([off.coding, off.sessions], [false, false]);
+});
+
+test("sessions imply coding", async (t) => {
+  const f = await setup(t);
+  const saved = f.set(f.other.id, {
+    expected: none,
+    coding: false,
+    folder: "none",
+    sessions: true,
+  });
+  assert.deepEqual([saved.coding, saved.sessions], [true, true]);
+});

@@ -524,6 +524,8 @@ export function auditEvent(input) {
         : [];
     event.details.added = ids(details.added);
     event.details.removed = ids(details.removed);
+    event.details.sessionsAdded = ids(details.sessionsAdded);
+    event.details.sessionsRemoved = ids(details.sessionsRemoved);
     const levels = ["none", "read", "write"];
     if (Array.isArray(details.folderChanged) && details.folderChanged.length <= 100)
       event.details.folderChanged = details.folderChanged

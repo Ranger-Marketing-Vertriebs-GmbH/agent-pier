@@ -48,6 +48,19 @@ export function folderLevels(value = {}, projectIds = []) {
       .sort(([a], [b]) => (a < b ? -1 : 1)),
   );
 }
+/**
+ * The projects with coding sessions on: a sorted subset of the granted projects.
+ * Absent keeps the stored ones (filtered to the grant); anything else is refused.
+ */
+export function sessionProjects(value, old, projectIds) {
+  if (value === undefined)
+    return (old.sessionProjectIds || []).filter((id) => projectIds.includes(id)).sort();
+  if (!Array.isArray(value) || value.length > 100 || new Set(value).size !== value.length)
+    throw assistantProblem("invalid");
+  for (const id of value) textValue(id, 100);
+  if (value.some((id) => !projectIds.includes(id))) throw assistantProblem("invalid");
+  return [...value].sort();
+}
 export function exact(input, keys) {
   if (
     !input ||
@@ -82,12 +95,19 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? { sshAccesses: [], projectFiles: {}, github: null, ...JSON.parse(row.body) }
+      ? {
+          sshAccesses: [],
+          projectFiles: {},
+          sessionProjectIds: [],
+          github: null,
+          ...JSON.parse(row.body),
+        }
       : {
           github: null,
           revision: 0,
           projectIds: [],
           projectFiles: {},
+          sessionProjectIds: [],
           pipelineIds: [],
           memoryWrite: false,
           autonomous: false,
@@ -97,6 +117,19 @@ export class AssistantAccess {
           definitions: {},
           sshAccesses: [],
         };
+  }
+  /** Whether `id` is an eligible agent with coding sessions on for the project. */
+  sessionsEnabled(id, projectId) {
+    try {
+      this.eligible(id);
+      const policy = this.get(id);
+      return (
+        policy.projectIds.includes(projectId) &&
+        policy.sessionProjectIds.includes(projectId)
+      );
+    } catch {
+      return false;
+    }
   }
   // Granted secrets that still exist (agent-secret-grants.js, agent-secrets.js).
   secretIds(id) {
@@ -179,6 +212,7 @@ export class AssistantAccess {
       "publish",
       "sshAccesses",
       "projectFiles",
+      "sessionProjectIds",
       "github",
       "secretIds",
     ]);
@@ -230,6 +264,9 @@ export class AssistantAccess {
       // Folder access per granted project; absent keeps the stored levels, and a
       // project no longer granted takes its level with it.
       projectFiles: this.folders(agent, input, old, projectIds),
+      // Coding sessions per granted project; absent keeps the stored ones, and a
+      // project no longer granted takes its switch with it.
+      sessionProjectIds: sessionProjects(input.sessionProjectIds, old, projectIds),
       // GitHub through a token profile (agent-github.js); absent keeps the stored one.
       github:
         input.github === undefined ? old.github : this.githubAccess(id, input.github),
@@ -439,8 +476,12 @@ export class AssistantAccess {
     return this.revokeEach(
       (before) =>
         (before.projectIds.includes(projectId) ||
+          (before.sessionProjectIds || []).includes(projectId) ||
           Object.hasOwn(before.projectFiles, projectId)) && {
           projectIds: before.projectIds.filter((id) => id !== projectId),
+          sessionProjectIds: (before.sessionProjectIds || []).filter(
+            (id) => id !== projectId,
+          ),
           projectFiles: Object.fromEntries(
             Object.entries(before.projectFiles).filter(([id]) => id !== projectId),
           ),
@@ -472,6 +513,7 @@ export class AssistantAccess {
         const before = {
           sshAccesses: [],
           projectFiles: {},
+          sessionProjectIds: [],
           github: null,
           ...JSON.parse(row.body),
         };
