@@ -6,6 +6,9 @@ export const projectAgentsCopy = {
   coding: "May start coding sessions in this project",
   codingHint:
     "Project memory and coding tasks on the pipelines allowed in the agent's Access tab. Folder access needs it.",
+  sessions: "Coding sessions",
+  sessionsHint:
+    "Lets the agent start and steer its own coding sessions in this project without asking each time.",
   folderLegend: "Folder access",
   folder: { none: "None", read: "Read", write: "Read and write" },
   noAgents: "No permanent agents yet. Create one under Agents.",

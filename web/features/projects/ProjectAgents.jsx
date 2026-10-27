@@ -30,14 +30,23 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
   const busy = !!pending;
   // The choice shows at once while it saves; a refusal shows the stored state again.
   const shown = pending || agent;
-  const save = async (coding, folder) => {
-    setPending({ coding, folder });
+  const save = async (coding, folder, sessions = shown.sessions === true) => {
+    setPending({ coding, folder, sessions });
     setError("");
     try {
       const saved = await api(
         `${path(projectId)}/${encodeURIComponent(agent.id)}`,
         "PUT",
-        { expected: { coding: agent.coding, folder: agent.folder }, coding, folder },
+        {
+          expected: {
+            coding: agent.coding,
+            folder: agent.folder,
+            ...(agent.sessions !== undefined && { sessions: agent.sessions }),
+          },
+          coding,
+          folder,
+          sessions,
+        },
       );
       onSaved({ ...agent, ...saved });
     } catch (e) {
@@ -60,7 +69,15 @@ function AgentAccess({ projectId, agent, onSaved, onConflict }) {
             checked={shown.coding}
             disabled={busy}
             // Removing the grant removes the folder level as well.
-            onChange={(on) => save(on, on ? shown.folder : "none")}
+            onChange={(on) => save(on, on ? shown.folder : "none", on && shown.sessions)}
+          />
+          <CheckboxRow
+            label={copy.sessions}
+            sub={copy.sessionsHint}
+            checked={shown.sessions === true}
+            disabled={busy}
+            // Coding sessions need the project grant, so ticking them grants it.
+            onChange={(on) => save(on || shown.coding, shown.folder, on)}
           />
         </ListCard>
       )}

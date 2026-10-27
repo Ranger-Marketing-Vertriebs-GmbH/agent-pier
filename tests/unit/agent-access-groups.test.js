@@ -11,7 +11,9 @@ import {
   inlineLimit,
   removeId,
   removeProject,
+  setSessionProject,
 } from "../../web/features/assistants/settings/access/access-groups.js";
+import { accessServer } from "../../web/features/assistants/settings/agent-settings-fields.js";
 import {
   accessSummary,
   automationSummary,
@@ -62,6 +64,7 @@ test("adding projects writes coding and the chosen folder level into the draft",
   assert.deepEqual(removeProject(values, "p1", false), {
     projectIds: [],
     projectFiles: {},
+    sessionProjectIds: [],
   });
   assert.deepEqual(grantedProjectIds(values, false), ["p1"]);
 });
@@ -74,6 +77,7 @@ test("an agent of users gets folders only, at least read", () => {
   assert.deepEqual(removeProject(added, "p1", true), {
     projectIds: [],
     projectFiles: {},
+    sessionProjectIds: [],
   });
 });
 
@@ -143,4 +147,25 @@ test("the overview summarises each tab from known data only", () => {
   );
   assert.equal(channelSummary([], "home"), "Telegram not connected");
   setLanguage("de");
+});
+
+test("the coding sessions grant is added sorted, removed, and dropped with its project", () => {
+  const values = { projectIds: ["a", "p"], projectFiles: {}, sessionProjectIds: ["b"] };
+  assert.deepEqual(setSessionProject(values, "p", true), {
+    sessionProjectIds: ["b", "p"],
+  });
+  assert.deepEqual(setSessionProject(values, "a", true), {
+    sessionProjectIds: ["a", "b"],
+  });
+  assert.deepEqual(setSessionProject(values, "b", false), { sessionProjectIds: [] });
+  assert.deepEqual(setSessionProject({ projectIds: [] }, "p", true), {
+    sessionProjectIds: ["p"],
+  });
+  const withP = { ...values, sessionProjectIds: ["b", "p"] };
+  assert.deepEqual(removeProject(withP, "p", false).sessionProjectIds, ["b"]);
+  assert.deepEqual(accessServer({ sessionProjectIds: ["b", "a"] }).sessionProjectIds, [
+    "a",
+    "b",
+  ]);
+  assert.deepEqual(accessServer({}).sessionProjectIds, []);
 });

@@ -1,4 +1,5 @@
 import React from "react";
+import Switch from "../../../../components/Switch.jsx";
 import ListCard from "../../../../components/ListCard.jsx";
 import { ToggleRow } from "../../../../components/ListRow.jsx";
 import { assistantSettingsCopy } from "../../../../lib/i18n/messages/assistant-settings.js";
@@ -12,6 +13,7 @@ import {
   grantedItems,
   grantedProjectIds,
   removeProject,
+  setSessionProject,
 } from "./access-groups.js";
 
 const copy = assistantSettingsCopy.access;
@@ -62,6 +64,18 @@ export default function ProjectsAccess({
             onChange: (level) =>
               update(addProjects(values, [item.id], level, foldersOnly)),
           }}
+          actions={
+            !foldersOnly && (
+              <Switch
+                className="agent-access-sessions"
+                label={copy.sessions}
+                aria-label={copy.sessionsLabel(item.name)}
+                checked={(values.sessionProjectIds || []).includes(item.id)}
+                disabled={disabled}
+                onChange={(on) => update(setSessionProject(values, item.id, on))}
+              />
+            )
+          }
           onRevoke={() => update(removeProject(values, item.id, foldersOnly))}
         />
       )}

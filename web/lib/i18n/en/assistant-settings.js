@@ -60,6 +60,8 @@ export const assistantSettingsCopy = {
     revokeLabel: (name) => `Revoke ${name}`,
     modeLabel: (name) => `Mode for ${name}`,
     folderLabel: (name) => `Folder access for ${name}`,
+    sessionsLabel: (name) => `Coding sessions for ${name}`,
+    sessions: "Coding sessions",
     projectType: "project",
     sshType: "SSH/SFTP access",
     mcpType: "MCP server",

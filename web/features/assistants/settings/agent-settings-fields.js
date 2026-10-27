@@ -49,6 +49,7 @@ export const permissionKeys = ["memoryWrite", "autonomous", "publish"];
 export const accessKeys = [
   "projectIds",
   "projectFiles",
+  "sessionProjectIds",
   "pipelineIds",
   "sshAccesses",
   "github",
@@ -265,6 +266,8 @@ export function channelPatch({ values, base }) {
 export const accessServer = (policy) => ({
   projectIds: sortedIds(policy?.projectIds),
   projectFiles: sortedLevels(policy?.projectFiles),
+  // Projects where the agent starts coding sessions without asking (server agent access).
+  sessionProjectIds: sortedIds(policy?.sessionProjectIds),
   pipelineIds: sortedIds(policy?.pipelineIds),
   sshAccesses: sortedGrants(policy?.sshAccesses),
   // GitHub through a token profile (server agent-github.js), or null.
@@ -323,10 +326,21 @@ export function workBody({
         accessKeys
           .filter(
             (key) =>
-              !["sshAccesses", "projectFiles", "github", "secretIds"].includes(key),
+              ![
+                "sshAccesses",
+                "projectFiles",
+                "sessionProjectIds",
+                "github",
+                "secretIds",
+              ].includes(key),
           )
           .map((key) => [key, values[key]]),
       ),
+      // Coding session grants likewise; the server keeps the stored ones filtered to the
+      // projects that stay granted.
+      ...(changed.includes("sessionProjectIds") && {
+        sessionProjectIds: values.sessionProjectIds,
+      }),
       // Folder levels likewise go only when changed; the server keeps absent ones
       // for the projects that stay granted.
       ...(changed.includes("projectFiles") && { projectFiles: values.projectFiles }),
