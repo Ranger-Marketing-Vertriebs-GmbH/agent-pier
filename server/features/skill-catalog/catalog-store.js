@@ -20,7 +20,27 @@ const present = (file) => {
     throw error;
   }
 };
-const remove = (file) => fs.rmSync(file, { recursive: true, force: true });
+/** Makes every folder below `file` writable (never following links) so rmSync can empty it. */
+function makeRemovable(file) {
+  let stat;
+  try {
+    stat = fs.lstatSync(file);
+    if (!stat.isDirectory()) return;
+    fs.chmodSync(file, 0o700);
+    for (const name of fs.readdirSync(file)) makeRemovable(path.join(file, name));
+  } catch {
+    /* rmSync reports what still cannot be removed. */
+  }
+}
+/** Removes a file, folder or link; a link goes, its target stays. */
+const remove = (file) => {
+  makeRemovable(file);
+  fs.rmSync(file, { recursive: true, force: true });
+};
+/** Removes whatever is at `file` unless it is a real folder. */
+const clearNonDirectory = (file) => {
+  if (present(file) && !fs.lstatSync(file).isDirectory()) remove(file);
+};
 const quietly = (fn) => {
   try {
     fn();
@@ -95,20 +115,34 @@ export class SkillCatalogStore {
     this.stagingRoot = path.join(root, "staging");
     this.storeRoot = path.join(root, "store");
   }
-  path(...parts) {
-    const target = path.join(this.root, ...parts);
+  /** One of the fixed sub-roots as a real private folder (a planted link is removed). */
+  subRoot(dir) {
+    clearNonDirectory(dir);
+    return privateDirectory(dir);
+  }
+  /**
+   * A single-segment entry below `parent`. A link planted there is removed (the link
+   * only), so it reads as a missing copy instead of failing every later call.
+   */
+  entry(parent, name) {
+    const target = path.join(parent, name);
+    if (!name || name === "." || name === ".." || path.dirname(target) !== parent)
+      throw problem(serverMessages.extensions.targetOutsideProfile, 409);
+    if (present(target) && fs.lstatSync(target).isSymbolicLink()) fs.unlinkSync(target);
     safePath(target, this.root);
     return target;
   }
   livePath(name) {
-    return this.path("skills", name);
+    return this.entry(this.subRoot(this.liveRoot), name);
   }
   storePath(name, digest) {
-    return this.path("store", name, ...(digest ? [digest] : []));
+    const folder = this.entry(this.subRoot(this.storeRoot), name);
+    if (!digest) return folder;
+    clearNonDirectory(folder);
+    return this.entry(folder, digest);
   }
-  stagingPath(name = randomUUID()) {
-    privateDirectory(this.stagingRoot);
-    return this.path("staging", name);
+  stagingPath() {
+    return this.entry(this.subRoot(this.stagingRoot), randomUUID());
   }
   list() {
     return readJSON(this.file, []);
@@ -137,7 +171,6 @@ export class SkillCatalogStore {
    * and the old copy (in staging), which the caller removes once its record is written.
    */
   swapLive(name, storeDir, executables) {
-    privateDirectory(this.liveRoot);
     const live = this.livePath(name);
     const fresh = this.stagingPath();
     const old = `${fresh}-old`;
@@ -159,12 +192,14 @@ export class SkillCatalogStore {
     return { old, rollback };
   }
   /** Rewrites a changed or missing store copy from an intact live copy. */
-  repairStore(name, storeDir, live, executables) {
+  repairStore(name, storeDir, live, record) {
     const fresh = this.stagingPath();
     try {
-      copySkill(live, fresh, executables);
+      copySkill(live, fresh, new Set(record.executables || []));
+      if (!this.intact(fresh, record.digest))
+        throw problem(serverMessages.extensions.skillSaveFailed);
       remove(storeDir);
-      privateDirectory(this.storePath(name));
+      this.subRoot(this.storePath(name));
       fs.renameSync(fresh, storeDir);
     } finally {
       remove(fresh);
@@ -189,7 +224,7 @@ export class SkillCatalogStore {
       const storeDir = this.storePath(name, digest);
       if (!this.intact(storeDir, digest)) {
         remove(storeDir);
-        privateDirectory(this.storePath(name));
+        this.subRoot(this.storePath(name));
         fs.renameSync(stage, storeDir);
         created = storeDir;
       }
@@ -249,47 +284,58 @@ export class SkillCatalogStore {
   }
   /**
    * Checks each live copy against its record: a changed or missing copy is restored from
-   * the store; when the store copy changed too, the live copy goes and the record is
-   * marked `damaged`. Modes are re-applied to every intact copy.
+   * the store; when the store copy does not match either, the live copy goes and the
+   * record is marked `damaged`. Modes are re-applied to every intact copy.
+   *
+   * Only the two digest checks decide `damaged`. An I/O error while re-applying modes,
+   * repairing or restoring deletes nothing: every record is still checked, the marks are
+   * saved, and then the first such error is thrown so the next call retries.
    */
   verify(names) {
     const wanted = names ? new Set(names) : null;
     const restored = [];
     const damaged = [];
-    let records = this.list();
+    const errors = [];
+    const records = this.list();
     for (const record of records) {
       if (record.damaged || (wanted && !wanted.has(record.name))) continue;
-      const executables = new Set(record.executables || []);
-      const live = this.livePath(record.name);
-      const storeDir = this.storePath(record.name, record.digest);
       try {
-        if (this.intact(live, record.digest)) {
-          applyModes(live, executables);
-          if (this.intact(storeDir, record.digest)) applyModes(storeDir, executables);
-          else this.repairStore(record.name, storeDir, live, executables);
-          continue;
-        }
-        if (this.intact(storeDir, record.digest)) {
-          applyModes(storeDir, executables);
-          const { old } = this.swapLive(record.name, storeDir, executables);
-          quietly(() => remove(old));
-          restored.push(record.name);
-          continue;
-        }
-      } catch {
-        /* A copy that cannot be read or restored counts as damaged. */
+        this.verifyOne(record, { restored, damaged });
+      } catch (error) {
+        errors.push(error);
       }
-      remove(live);
-      damaged.push(record.name);
     }
     if (damaged.length) {
       const marked = new Set(damaged);
-      records = records.map((record) =>
-        marked.has(record.name) ? { ...record, damaged: true } : record,
+      writePrivate(
+        this.file,
+        records.map((record) =>
+          marked.has(record.name) ? { ...record, damaged: true } : record,
+        ),
       );
-      writePrivate(this.file, records);
     }
+    if (errors.length) throw errors[0];
     return { restored, damaged };
+  }
+  verifyOne(record, { restored, damaged }) {
+    const executables = new Set(record.executables || []);
+    const live = this.livePath(record.name);
+    const storeDir = this.storePath(record.name, record.digest);
+    const liveIntact = this.intact(live, record.digest);
+    const storeIntact = this.intact(storeDir, record.digest);
+    if (liveIntact) {
+      applyModes(live, executables);
+      if (storeIntact) applyModes(storeDir, executables);
+      else this.repairStore(record.name, storeDir, live, record);
+    } else if (storeIntact) {
+      applyModes(storeDir, executables);
+      const { old } = this.swapLive(record.name, storeDir, executables);
+      quietly(() => remove(old));
+      restored.push(record.name);
+    } else {
+      damaged.push(record.name);
+      remove(live);
+    }
   }
   /** The given names that are catalog skills and bundled, `needsSettings` or damaged. */
   dropped(names, bundled = new Set()) {
@@ -304,20 +350,24 @@ export class SkillCatalogStore {
   /** Removes staging leftovers, unreferenced store versions and live folders without a record. */
   sweep() {
     const records = new Map(this.list().map((record) => [record.name, record]));
-    const entries = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir) : []);
-    for (const entry of entries(this.stagingRoot)) remove(this.path("staging", entry));
+    // Names come from readdir below the fixed sub-roots, which subRoot() keeps real
+    // folders; remove() takes a link itself, never its target.
+    const entries = (dir) => fs.readdirSync(this.subRoot(dir));
+    for (const entry of entries(this.stagingRoot))
+      remove(path.join(this.stagingRoot, entry));
     for (const name of entries(this.storeRoot)) {
+      const folder = path.join(this.storeRoot, name);
       const record = records.get(name);
-      if (!record) {
-        remove(this.storePath(name));
+      if (!record || !fs.lstatSync(folder).isDirectory()) {
+        remove(folder);
         continue;
       }
-      for (const digest of entries(this.storePath(name)))
-        if (digest !== record.digest) remove(this.storePath(name, digest));
+      for (const digest of fs.readdirSync(folder))
+        if (digest !== record.digest) remove(path.join(folder, digest));
     }
     for (const name of entries(this.liveRoot)) {
       const record = records.get(name);
-      if (!record || record.damaged) remove(this.livePath(name));
+      if (!record || record.damaged) remove(path.join(this.liveRoot, name));
     }
   }
 }
