@@ -37,6 +37,8 @@ export const mail = Object.freeze({
   mailQueryEmpty: "A mail search needs at least one criterion.",
   mailSearchUnsupported:
     "The mail server cannot search for text with non-ASCII characters.",
+  mailDraftUnsupported:
+    "An agent can only send a draft with plain text of at most 1 MiB; HTML parts are not sent.",
   mailMoveUnsupported:
     "The mail server does not support moving messages, so nothing was moved or deleted.",
 });

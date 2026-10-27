@@ -4,6 +4,8 @@ import { fakeMailCertificate } from "./fake-imap-server.js";
 /**
  * Starts an in-process SMTP server on 127.0.0.1 (implicit TLS, STARTTLS or plain)
  * that accepts AUTH PLAIN/LOGIN for `users` and records each delivered message.
+ * With `dropAfterData` set it records a message and then drops the connection
+ * instead of answering 250.
  */
 export async function startFakeSmtp({ security = "tls", users = {} } = {}) {
   const { cert, key } = fakeMailCertificate();
@@ -38,17 +40,24 @@ export async function startFakeSmtp({ security = "tls", users = {} } = {}) {
           },
           raw: Buffer.concat(chunks),
         });
+        // The message arrived, but the client never hears so: the connection drops.
+        if (fake.dropAfterData) {
+          const connection = [...server.connections].find((c) => c.id === session.id);
+          return connection?._socket.destroy();
+        }
         callback();
       });
     },
   });
   server.on("error", () => {});
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return {
+  const fake = {
     port: server.server.address().port,
     ca: cert,
     users: accounts,
     messages,
+    dropAfterData: false,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
+  return fake;
 }

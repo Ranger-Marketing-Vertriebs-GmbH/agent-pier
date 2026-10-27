@@ -6,6 +6,8 @@ import { toolError } from "../../server/features/assistants/tool-errors.js";
 const owner = { role: "owner" };
 const withAttachment = `From: agent@example.com\r\nTo: bob@example.org\r\nSubject: With file\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="b1"\r\n\r\n--b1\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nSee attached.\r\n--b1\r\nContent-Type: application/pdf; name="a.pdf"\r\nContent-Disposition: attachment; filename="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=\r\n--b1--\r\n`;
 
+const htmlOnly = `From: agent@example.com\r\nTo: bob@example.org\r\nSubject: Styled\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>Hello</p>\r\n`;
+
 async function code(promise) {
   try {
     await promise;
@@ -234,4 +236,67 @@ test("a failed send keeps the draft and is audited with its code", async (t) => 
   assert.equal(audit.details.code, "MAIL_AUTH_FAILED");
   assert.equal(audit.details.authorizedBy, "rule");
   assert.equal(JSON.stringify(f.audit).includes("pw-secret"), false);
+});
+
+test("a connection dropped after DATA is unknown and never sent again", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  f.smtp.dropAfterData = true;
+  const inv = f.ownTurn();
+  const result = await f.send({ to: ["bob@example.org"] }, inv);
+  assert.equal(result.status, "unknown");
+  assert.match(result.notice, /Do not send it again/);
+  assert.equal(f.workflows.get(result.actionId).state, "unknown");
+  assert.equal(f.smtp.messages.length, 1);
+  assert.equal(f.count("Drafts"), 1, "the draft stays");
+  const [audit] = f.sent();
+  assert.equal(audit.outcome, "failure");
+  assert.match(audit.details.code, /^MAIL_/);
+  // A retry of the call returns the same answer and sends nothing.
+  f.smtp.dropAfterData = false;
+  const retry = await f.send({ to: ["bob@example.org"] }, inv);
+  assert.deepEqual(retry, result);
+  assert.equal(f.smtp.messages.length, 1);
+  await f.workflows.tick();
+  assert.equal(f.smtp.messages.length, 1);
+});
+
+test("rules narrowed between the gate and the send cancel a rule send", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  const withImap = f.mailStore.withImap.bind(f.mailStore);
+  f.mailStore.withImap = async (id, fn) => {
+    const result = await withImap(id, fn);
+    // The owner narrows the rules while the draft is being saved.
+    f.grant("send", ["other.example"]);
+    return result;
+  };
+  const inv = f.ownTurn();
+  assert.equal(await code(f.send({ to: ["bob@example.org"] }, inv)), "MAIL_REVOKED");
+  assert.equal(f.smtp.messages.length, 0);
+  assert.equal(f.count("Drafts"), 1);
+  const [row] = f.workflows.store.list(f.id);
+  assert.equal(row.state, "cancelled");
+  assert.equal(row.diagnostic, "ACCESS_CHANGED");
+});
+
+test("saveSent without a Sent folder still sends and reports savedToSent false", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  f.imap.mailbox.folders.delete("Sent");
+  const result = await f.send({ to: ["bob@example.org"] });
+  assert.equal(result.status, "sent");
+  assert.equal(result.savedToSent, false);
+  assert.equal(f.smtp.messages.length, 1);
+  assert.equal(f.count("Drafts"), 0);
+});
+
+test("a draft without plain text is MAIL_DRAFT_UNSUPPORTED", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  const { uid } = f.imap.mailbox.append("Drafts", {
+    raw: Buffer.from(htmlOnly, "latin1"),
+    flags: ["\\Draft"],
+  });
+  assert.equal(
+    await code(f.mail({ action: "send", draftUid: uid })),
+    "MAIL_DRAFT_UNSUPPORTED",
+  );
+  assert.equal(f.smtp.messages.length, 0);
 });

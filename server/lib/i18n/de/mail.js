@@ -45,6 +45,8 @@ export const mail = Object.freeze({
   mailQueryEmpty: "Eine E-Mail-Suche braucht mindestens ein Kriterium.",
   mailSearchUnsupported:
     "Der Mailserver kann nicht nach Text mit Nicht-ASCII-Zeichen suchen.",
+  mailDraftUnsupported:
+    "Ein Agent kann nur einen Entwurf mit reinem Text von höchstens 1 MiB senden; HTML-Teile werden nicht gesendet.",
   mailMoveUnsupported:
     "Der Mailserver kann keine Nachrichten verschieben, daher wurde nichts verschoben oder gelöscht.",
 });

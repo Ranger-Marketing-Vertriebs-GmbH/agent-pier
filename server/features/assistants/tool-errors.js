@@ -261,6 +261,8 @@ const reasons = {
     "This mail server cannot search for non-ASCII text. Search again with ASCII-only words, or narrow the search with from, since or unseen.",
   MAIL_MOVE_UNSUPPORTED:
     "This mail server cannot move messages safely, so nothing was moved or deleted. Do not retry; tell the owner.",
+  MAIL_DRAFT_UNSUPPORTED:
+    "This draft cannot be sent by you: it has no plain-text part or more than 1 MiB of text. Save a new plain-text draft with action draft, or tell the owner.",
   MAIL_QUERY_EMPTY:
     "A search needs at least one criterion in query (from, to, subject, text, body, attachment, since, unseen or hasAttachment).",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
@@ -379,6 +381,7 @@ const byKey = {
   mailQueryEmpty: "MAIL_QUERY_EMPTY",
   mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
   mailMoveUnsupported: "MAIL_MOVE_UNSUPPORTED",
+  mailDraftUnsupported: "MAIL_DRAFT_UNSUPPORTED",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

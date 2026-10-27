@@ -329,13 +329,59 @@ test("the same tool call retried finds its card; a different body is a conflict"
 test("a send lost to a restart is unknown and never sent again", async (t) => {
   const f = await approvalFixture(t);
   const result = await f.send();
-  // As after a restart: the row is executing, but no send runs for it.
-  f.workflows.store.patch(result.actionId, { state: "executing" });
+  // As after a restart: the row is executing, but no send runs for it, and the
+  // call that approved it within its hold never returned.
+  f.workflows.store.patch(result.actionId, { state: "executing", followUp: false });
   await f.workflows.tick();
   assert.equal(f.workflows.get(result.actionId).state, "unknown");
   assert.equal(f.smtp.messages.length, 0);
+  assert.equal(f.followUps.length, 1, "the agent learns not to send it again");
   const envelope = JSON.parse(f.followUps[0].input.text.split("\n").slice(1).join("\n"));
   assert.equal(envelope.status, "unknown");
+  assert.match(envelope.notice, /Do not send it again/);
   await f.workflows.tick();
   assert.equal(f.smtp.messages.length, 0);
+});
+
+test("hidden characters in a recipient or the sender keep Telegram from approving", async (t) => {
+  const f = await approvalFixture(t);
+  const result = await f.send({ to: ['"Bo\u200bb" <bob@example.org>'] });
+  const card = f.workflows.get(result.actionId);
+  assert.equal(mailTelegramApprovable(card.payload), false);
+  assert.equal(
+    (
+      await f
+        .decide(card, "approve", { kind: "telegram", ...card.telegram })
+        .catch((e) => e)
+    ).status,
+    403,
+  );
+  const plain = { ...card.payload, to: ["bob@example.org"] };
+  assert.equal(mailTelegramApprovable(plain), true);
+  assert.equal(
+    mailTelegramApprovable({ ...plain, from: { name: "Ev\u202ee", address: "a@b.c" } }),
+    false,
+  );
+  assert.equal(mailTelegramApprovable({ ...plain, bcc: ["x\u2060@example.org"] }), false);
+  assert.equal(mailTelegramApprovable({ ...plain, subject: "Hi\u200d" }), false);
+  // The owner can still approve it in AgentPier.
+  await f.decide(card, "approve");
+  await waitFor(() => f.workflows.get(card.id).state === "completed");
+});
+
+test("concurrent sends never open more than 5 cards", async (t) => {
+  const f = await approvalFixture(t);
+  const results = await Promise.allSettled(
+    Array.from({ length: maxOpenMailApprovals + 2 }, () => f.send()),
+  );
+  const waiting = results.filter(
+    (r) => r.status === "fulfilled" && r.value.status === "awaiting_approval",
+  );
+  assert.equal(waiting.length, maxOpenMailApprovals);
+  const refused = results.filter((r) => r.status === "rejected");
+  assert.deepEqual(
+    refused.map((r) => toolError(r.reason).code),
+    ["MAIL_APPROVAL_LIMIT", "MAIL_APPROVAL_LIMIT"],
+  );
+  assert.equal(f.workflows.mail.sends.open(f.id), maxOpenMailApprovals);
 });
