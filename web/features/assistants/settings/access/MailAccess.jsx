@@ -6,7 +6,12 @@ import { routePath } from "../../../../app/routes.js";
 import { useCrossLink } from "../../../../app/cross-link.js";
 import { assistantMailCopy as copy } from "../../../../lib/i18n/messages/assistant-mail.js";
 import { connectionsRoute } from "../../../connections/routes.js";
-import { agentRoute, mailLevels, setMailGrant } from "../agent-settings-fields.js";
+import {
+  agentRoute,
+  invalidMailGrants,
+  mailLevels,
+  setMailGrant,
+} from "../agent-settings-fields.js";
 import AccessGroup from "./AccessGroup.jsx";
 import GrantRow from "./GrantRow.jsx";
 import { addMailGrants, candidatesOf } from "./access-groups.js";
@@ -36,10 +41,12 @@ export default function MailAccess({
     : [];
   const set = (next) => draft.set("mailAccesses", next);
   const levelOptions = mailLevels.map((value) => ({ value, label: copy.levels[value] }));
-  const rules = grants.reduce(
-    (sum, grant) => sum + (grant.level === "send" ? grant.recipients.length : 0),
-    0,
-  );
+  // A send grant names its own rule count; rules the server would refuse block saving.
+  const sub = (entry) =>
+    entry.level === "send"
+      ? `${entry.account.address} · ${copy.rulesCount(entry.recipients.length)}`
+      : entry.account.address;
+  const invalid = new Set(invalidMailGrants(grants));
   const rulesRoute = agentRoute(assistantId, "access", "mail");
   const sending = entries.some((entry) => entry.account && entry.level === "send");
   return (
@@ -57,14 +64,20 @@ export default function MailAccess({
             key={entry.accountId}
             id={entry.accountId}
             name={entry.account.name}
-            sub={entry.account.address}
+            sub={sub(entry)}
+            pill={locked ? copy.levels[entry.level] : undefined}
             disabled={disabled}
-            mode={{
-              label: copy.levelLabel(entry.account.name),
-              value: entry.level,
-              options: levelOptions,
-              onChange: (level) => set(setMailGrant(grants, entry.accountId, level)),
-            }}
+            mode={
+              locked
+                ? undefined
+                : {
+                    label: copy.levelLabel(entry.account.name),
+                    value: entry.level,
+                    options: levelOptions,
+                    onChange: (level) =>
+                      set(setMailGrant(grants, entry.accountId, level)),
+                  }
+            }
             onRevoke={() => set(setMailGrant(grants, entry.accountId, null))}
           />
         ) : (
@@ -106,6 +119,14 @@ export default function MailAccess({
       notes={
         <>
           {accounts === null && <ErrorMessage error={copy.loadError} />}
+          {entries
+            .filter((entry) => entry.account && invalid.has(entry.accountId))
+            .map((entry) => (
+              <ErrorMessage
+                key={entry.accountId}
+                error={copy.rulesInvalid(entry.account.name)}
+              />
+            ))}
           {locked && (
             <p className="agent-locked-notice" role="note">
               {copy.telegramSenders}
@@ -119,7 +140,6 @@ export default function MailAccess({
           <ListRow
             label={copy.rulesRow}
             sub={copy.rulesLabel}
-            value={copy.rulesCount(rules)}
             href={routePath(rulesRoute)}
             onClick={() => go("access", "mail")}
           />

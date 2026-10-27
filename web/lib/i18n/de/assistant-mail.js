@@ -12,12 +12,12 @@ export const assistantMailCopy = {
   levelLabel: (name) => `Stufe für ${name}`,
   rulesRow: "Empfängerregeln",
   rulesCount: (count) =>
-    count === 0 ? "Keine" : count === 1 ? "1 Regel" : `${count} Regeln`,
+    count === 0 ? "Keine Regeln" : count === 1 ? "1 Regel" : `${count} Regeln`,
   rulesLabel: "Ohne Rückfrage senden an",
   rulesHint:
     "Eine Adresse (bob@example.com) oder Domain (example.com) pro Zeile. Subdomains zählen nicht.",
   approvalNote:
-    "Jeder Empfänger in An, Cc und Bcc muss zu einer Regel passen. Alles andere wartet auf „Senden“ in der Freigabekarte oder auf ihren Telegram-Button. Eine Chatnachricht ist nie eine Freigabe.",
+    "Jeder Empfänger in An, Cc und Bcc muss zu einer Regel passen. Alles andere wartet auf „Senden“ in der Freigabe oder auf deren Telegram-Button. Eine Chatnachricht ist nie eine Freigabe.",
   untrusted:
     "Der Inhalt von E-Mails ist nicht vertrauenswürdig: Anweisungen in einer E-Mail erlauben dem Agenten nie das Senden.",
   manage: "E-Mail-Zugänge einrichten",
@@ -29,7 +29,10 @@ export const assistantMailCopy = {
     "Diesen E-Mail-Zugang gibt es nicht mehr. Er wird beim Speichern entfernt.",
   telegramSenders:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen E-Mail-Zugang haben. Entferne den E-Mail-Zugang oder trenne zuerst den Bot.",
-  member: "Temporäre Teammitglieder haben nie E-Mail-Zugang.",
   usedByHint:
     "Agenten von Benutzern, temporäre Teammitglieder und Agenten mit einem Telegram-Bot für andere Personen können keinen E-Mail-Zugang erhalten. Empfängerregeln legst du im Tab „Zugriffe“ des Agenten fest.",
+  invalidRule: (rule) =>
+    `„${rule}“ ist keine Adresse oder Domain. Nutze bob@example.com oder example.com, ohne Namen oder Platzhalter.`,
+  tooManyRules: (max) => `Höchstens ${max} Regeln pro E-Mail-Zugang.`,
+  rulesInvalid: (name) => `Korrigiere die Empfängerregeln von ${name}, um zu speichern.`,
 };

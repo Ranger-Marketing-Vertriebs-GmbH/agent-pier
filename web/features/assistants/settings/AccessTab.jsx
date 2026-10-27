@@ -17,6 +17,7 @@ import { assistantMailCopy as mailCopy } from "../../../lib/i18n/messages/assist
 import useAssistants from "../useAssistants.js";
 import {
   accessServer,
+  invalidMailGrants,
   isPersonal,
   removedProjectCount,
   savedProjectIds,
@@ -178,11 +179,15 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
   };
   const mcpChanged = () =>
     withMcp && !sameValue(draft.values.mcpServers, draft.base.mcpServers);
+  // Recipient rules the server would refuse block the save (shown under their field).
+  const invalid = invalidMailGrants(draft.values.mailAccesses).length > 0;
   const save = async () => {
+    if (invalid) return { status: "invalid" };
     const changed = mcpChanged();
     return after(await draft.save(steps), changed);
   };
   const overwrite = async () => {
+    if (invalid) return { status: "invalid" };
     const changed = mcpChanged();
     return after(await draft.overwrite(steps), changed);
   };
@@ -201,6 +206,7 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
         onOverwrite={overwrite}
         saveLabel={assistantCopy.save}
         note={assistantCopy.pendingConfigShort}
+        saveDisabled={invalid}
       />
       <ConfirmationSheet confirmation={draft.confirmation} />
       <UnsavedChangesSheet {...sheet} />
