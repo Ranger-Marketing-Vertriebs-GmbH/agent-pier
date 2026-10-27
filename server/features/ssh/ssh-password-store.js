@@ -8,14 +8,14 @@ const identifier = /^[0-9a-f-]{36}$/;
 const pending = ".pending";
 
 /** A login password: 1-1024 UTF-8 bytes, no NUL, CR or LF. */
-export function passwordValue(raw) {
+export function passwordValue(raw, message = serverMessages.ssh.invalidPassword) {
   if (
     typeof raw !== "string" ||
     !raw ||
     Buffer.byteLength(raw) > MAX_BYTES ||
     /[\0\r\n]/.test(raw)
   )
-    throw problem(serverMessages.ssh.invalidPassword);
+    throw problem(message);
   return raw;
 }
 
@@ -32,24 +32,32 @@ function syncDirectory(directory) {
   }
 }
 
+const sshMessages = {
+  notFound: serverMessages.ssh.accessNotFound,
+  unavailable: serverMessages.ssh.passwordUnavailable,
+  invalid: serverMessages.ssh.invalidPassword,
+};
+
 /**
  * SFTP passwords live like SSH keys: one 0600 file per credential revision in
  * `ssh/passwords/<hostId>/<revision>`, owned by this user, never followed through links.
+ * Email accounts use the same store under `mail/` with their own `messages`.
  */
 export class SshPasswordStore {
-  constructor({ root }) {
+  constructor({ root, messages = sshMessages }) {
     this.root = root;
     this.directory = path.join(root, "passwords");
+    this.messages = { ...sshMessages, ...messages };
   }
   hostDirectory(hostId) {
     if (typeof hostId !== "string" || !identifier.test(hostId))
-      throw problem(serverMessages.ssh.accessNotFound, 404);
+      throw problem(this.messages.notFound, 404);
     return path.join(this.directory, hostId);
   }
   file(hostId, revision) {
     const directory = this.hostDirectory(hostId);
     if (typeof revision !== "string" || !identifier.test(revision))
-      throw problem(serverMessages.ssh.passwordUnavailable, 409);
+      throw problem(this.messages.unavailable, 409);
     return path.join(directory, revision);
   }
   ownDirectory(directory) {
@@ -60,7 +68,7 @@ export class SshPasswordStore {
       if (error.code !== "ENOENT") throw error;
     }
     if (stat && (!stat.isDirectory() || stat.uid !== process.getuid()))
-      throw problem(serverMessages.ssh.passwordUnavailable, 409);
+      throw problem(this.messages.unavailable, 409);
     privateDirectory(directory);
   }
   // Refuses a linked or replaced directory, so a file never lands outside the store.
@@ -70,10 +78,10 @@ export class SshPasswordStore {
       fs.realpathSync(directory) !==
       path.join(fs.realpathSync(this.root), "passwords", hostId)
     )
-      throw problem(serverMessages.ssh.passwordUnavailable, 409);
+      throw problem(this.messages.unavailable, 409);
   }
   write(hostId, revision, password) {
-    const value = Buffer.from(passwordValue(password));
+    const value = Buffer.from(passwordValue(password, this.messages.invalid));
     const file = this.file(hostId, revision);
     // Check before chmod: privateDirectory would follow a planted link.
     this.ownDirectory(this.directory);
@@ -124,9 +132,12 @@ export class SshPasswordStore {
         if (!read) break;
         offset += read;
       }
-      return passwordValue(buffer.subarray(0, offset).toString("utf8"));
+      return passwordValue(
+        buffer.subarray(0, offset).toString("utf8"),
+        this.messages.invalid,
+      );
     } catch {
-      throw problem(serverMessages.ssh.passwordUnavailable, 409);
+      throw problem(this.messages.unavailable, 409);
     } finally {
       if (fd !== undefined) fs.closeSync(fd);
     }

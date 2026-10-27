@@ -19,6 +19,8 @@ import {
 import { hookAuditDetails } from "./audit-hook-details.js";
 import { storageAuditDetails } from "./audit-storage-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
+import { resources, verbs } from "./audit-vocabulary.js";
+import { mailAuditDetails } from "./audit-mail-details.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -40,80 +42,6 @@ const memberEditKeys = new Set([
   "assignment",
   "extraInstructions",
   "instructions",
-]);
-const resources = new Set([
-  "assistant",
-  "artifact",
-  "ssh",
-  // SFTP transfers and writes on an SSH catalog host (resourceType "ssh").
-  "sftp",
-  "secret",
-  "mcp",
-  "account",
-  "provider",
-  "repository",
-  "project",
-  "session",
-  "request",
-  "pipeline",
-  "profile",
-  "memory",
-  "extension",
-  "plugin",
-  "setting",
-  "backup",
-  "restore",
-  "release",
-  "notification",
-  "diagnostic",
-  "tool",
-  // MCP package installs of an MCP server (resourceType "mcp", the server's id).
-  "package",
-  // Live dictation in the composers: that it was used and for how long, never audio.
-  "speech",
-  // Restricted users' accounts (audit-actor.js).
-  "user",
-  // Data directory cleanups in System status (audit-storage-details.js).
-  "storage",
-]);
-const verbs = new Set([
-  "revoked",
-  "denied",
-  "created",
-  "updated",
-  "deleted",
-  "started",
-  "ended",
-  "stopped",
-  "failed",
-  "completed",
-  "answered",
-  "expired",
-  "handed-off",
-  "staged",
-  "activated",
-  "rolled-back",
-  "subscribed",
-  "unsubscribed",
-  "tested",
-  "installed",
-  "cancelled",
-  "accepted",
-  "overridden",
-  "retried",
-  "reconciled",
-  "archived",
-  "restored",
-  "sent",
-  "refreshed",
-  "inspected",
-  "reinstalled",
-  "detached",
-  "executed",
-  // An agent's proposal waiting for the owner (agent-ssh-proposals.js).
-  "proposed",
-  // A session prompt an agent handed to the owner (coding-sessions/).
-  "escalated",
 ]);
 // Names of the fields an MCP server or agent binding change can send.
 const changeFields = new Set([
@@ -263,6 +191,9 @@ export function auditEvent(input) {
       "budget",
       "queue",
       "queue-settings",
+      // Agent email (audit-mail-details.js): approvals and grant changes.
+      "mail",
+      "mail-grants",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -570,6 +501,9 @@ export function auditEvent(input) {
   if (input.resourceType === "secret" || details.kind === "secret-grants")
     secretAuditDetails(details, event);
   if (input.resourceType === "storage") storageAuditDetails(details, event);
+  // Email accounts, sends and grant changes (audit-mail-details.js).
+  if (input.resourceType === "mail" || details.kind === "mail-grants")
+    mailAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

@@ -9,4 +9,12 @@ export const mail = Object.freeze({
   mailProtocol: "Der Mailserver hat unerwartet geantwortet.",
   mailPlaintextRefused:
     "Unverschlüsselte Verbindungen sind für dieses Konto nicht erlaubt.",
+  accountNotFound: "E-Mail-Konto nicht gefunden.",
+  invalidAccount:
+    "Ungültiges E-Mail-Konto. Bitte Name, Adresse, Server, Ports und Verschlüsselung prüfen.",
+  plaintextNeedsConsent:
+    "Eine unverschlüsselte Verbindung braucht die ausdrückliche Erlaubnis am Konto.",
+  passwordUnavailable: "Das gespeicherte E-Mail-Passwort ist nicht verfügbar.",
+  invalidPassword:
+    "Das Passwort muss 1 bis 1024 Bytes lang sein und darf keine Zeilenumbrüche enthalten.",
 });
