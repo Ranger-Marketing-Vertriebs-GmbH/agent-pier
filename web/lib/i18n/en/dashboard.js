@@ -6,6 +6,8 @@ export const dashboardPageCopy = {
   toolGridGh: "GitHub access for your agents and projects.",
   toolGridNono: "A sandbox for sessions that may only reach what they need.",
   toolGridChromium: "The agents' own browser, apart from your Chrome.",
+  toolGridRea:
+    "Reverse engineering for your agents: binaries, decompiler, dynamic analysis.",
   removeTool: "Remove",
   githubCredentials: "GitHub connections",
   workspaceLoading: "Loading your workspace …",

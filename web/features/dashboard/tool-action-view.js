@@ -2,6 +2,7 @@
 // the start page's compact rows.
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { dashboardPageCopy, startPageCopy } from "../../lib/i18n/messages/dashboard.js";
+import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 
 /** The grid's label of an action, e.g. "Update CLI"; also the ⋯ menu's. */
@@ -21,6 +22,8 @@ export function toolActionLabel(action) {
         : toolInstallerCopy.updateCli;
     case "remove":
       return dashboardPageCopy.removeTool;
+    case "rea":
+      return action.install ? commonCopy.install : reaCopy.manage;
     default:
       return "";
   }
@@ -40,6 +43,7 @@ export function runToolAction(action, tool, { launch, page, setModal }) {
   if (action.id === "install") return setModal({ type: "install", tool: tool.id });
   if (action.id === "credentials") return page(action.page);
   if (action.id === "update") return setModal({ type: "update", tool: tool.id });
+  if (action.id === "rea") return setModal({ type: "rea" });
   if (action.id === "remove")
     return setModal({ type: "removeTool", item: { tool: tool.id, name: tool.name } });
   return undefined;

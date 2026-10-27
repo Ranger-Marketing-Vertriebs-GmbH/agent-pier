@@ -112,3 +112,13 @@ test("every action has a grid label and a short label in both languages", async 
   }
   setLanguage("de", { persist: false, document: null });
 });
+
+test("REA only opens its own dialog, never the generic installer", () => {
+  assert.deepEqual(toolActions({ id: "rea", installed: false, utility: true }), [
+    { id: "rea", install: true },
+  ]);
+  assert.deepEqual(
+    split({ id: "rea", installed: true, utility: true, updateAvailable: true }),
+    { primary: "rea", more: [] },
+  );
+});

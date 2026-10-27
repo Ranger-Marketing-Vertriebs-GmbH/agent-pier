@@ -6,15 +6,21 @@ import { utilityPages } from "../../lib/providers.js";
 const CLI_UPDATES = ["codex", "claude", "opencode", "nono"];
 
 export const updateRequired = (tool) => tool.versionStatus === "update-required";
+// REA updates through its own dialog, so it shows an optional update badge instead.
+export const reaUpdate = (tool) =>
+  tool.id === "rea" && Boolean(tool.installed) && Boolean(tool.updateAvailable);
 
 /**
  * The actions of `tool` in the grid's order: the main action (`start`, `install`,
  * `unavailable` for a missing shell, or `credentials` with its `page`), then `update`
  * (`browser` for Chromium, `required` below the minimum version) and `remove`.
  * A utility with nothing to configure in AgentPier keeps its install action but offers
- * no follow-up action once it is installed.
+ * no follow-up action once it is installed. REA has one action, `rea`, that opens its
+ * own dialog (`install` before the first install): it installs, changes, updates and
+ * removes REA, so the generic installer is never offered for it.
  */
 export function toolActions(tool, pages = utilityPages) {
+  if (tool.id === "rea") return [{ id: "rea", install: !tool.installed }];
   const actions = [];
   if (!tool.installed)
     actions.push(tool.id === "shell" ? { id: "unavailable" } : { id: "install" });

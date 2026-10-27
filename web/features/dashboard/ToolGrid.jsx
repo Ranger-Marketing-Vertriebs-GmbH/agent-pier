@@ -4,8 +4,9 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
+import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
-import { toolActions, updateRequired as outdated } from "./tool-actions.js";
+import { reaUpdate, toolActions, updateRequired as outdated } from "./tool-actions.js";
 import { runToolAction, toolActionLabel } from "./tool-action-view.js";
 
 const descriptions = () => ({
@@ -16,6 +17,7 @@ const descriptions = () => ({
   gh: copy.toolGridGh,
   nono: copy.toolGridNono,
   chromium: copy.toolGridChromium,
+  rea: copy.toolGridRea,
 });
 
 // The grid's classes and icons per action (tests and styles rely on them).
@@ -26,7 +28,10 @@ const looks = {
   credentials: { className: undefined, icon: "arrow" },
   update: { className: "tool-update-button", icon: "refresh" },
   remove: { className: "tool-remove-button", icon: "trash" },
+  rea: { className: undefined, icon: "arrow" },
 };
+// REA updates through its own dialog, so its card shows an update badge instead.
+const warning = (tool) => outdated(tool) || reaUpdate(tool);
 
 /**
  * The coding CLIs and utilities with every install, start, update and remove action,
@@ -41,19 +46,21 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
           <div className="tool-card-top">
             <ProviderMark tool={t.id} />
             <span
-              className={`tool-state ${t.installed ? "available" : ""} ${outdated(t) ? "update-required" : ""}`}
+              className={`tool-state ${t.installed ? "available" : ""} ${warning(t) ? "update-required" : ""}`}
             >
-              <StatusDot tone={outdated(t) ? "warning" : t.installed ? "ok" : "idle"} />
+              <StatusDot tone={warning(t) ? "warning" : t.installed ? "ok" : "idle"} />
               {outdated(t)
                 ? toolInstallerCopy.updateRequiredBadge
-                : t.installed
-                  ? commonCopy.ready
-                  : commonCopy.notInstalled}
+                : reaUpdate(t)
+                  ? reaCopy.updateBadge
+                  : t.installed
+                    ? commonCopy.ready
+                    : commonCopy.notInstalled}
             </span>
           </div>
           <h3>{t.name}</h3>
           {t.installed &&
-            (t.minimumVersion || t.id === "chromium") &&
+            (t.minimumVersion || t.id === "chromium" || t.id === "rea") &&
             t.versionStatus !== "checking" && (
               <small className="tool-version">
                 {t.version
@@ -67,7 +74,10 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
           {toolActions(t).map((action) => {
             const look = looks[action.id];
             const className =
-              [look.className, action.required ? "update-required" : ""]
+              [
+                action.install ? "tool-install-button" : look.className,
+                action.required ? "update-required" : "",
+              ]
                 .filter(Boolean)
                 .join(" ") || undefined;
             return (
