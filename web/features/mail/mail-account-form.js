@@ -73,8 +73,15 @@ export const withPreset = (values, preset) => ({
   ...presetFields(preset),
 });
 
+// Ports compare as numbers: "993" typed back over 993 is no change.
+const comparable = (values) => ({
+  ...values,
+  imap: { ...values.imap, port: Number(values.imap.port) },
+  smtp: { ...values.smtp, port: Number(values.smtp.port) },
+});
+
 export const isDirty = (values, initial) =>
-  JSON.stringify(values) !== JSON.stringify(initial);
+  JSON.stringify(comparable(values)) !== JSON.stringify(comparable(initial));
 
 export const needsPlaintext = (values) =>
   mailSides.some((side) => values[side].security === "none");
@@ -124,16 +131,25 @@ export function saveBlocker(values, account) {
 
 /**
  * The body of POST (create) or PATCH (`editing`) /mail/accounts. One username serves
- * IMAP and SMTP; an empty one lets the server default it to the address. An empty
- * password is left out when editing, so the saved one stays.
+ * IMAP and SMTP; an empty one lets the server default it to the address. An edit
+ * against its `initial` draft leaves the usernames out unless the field or the
+ * preset changed, so a stored SMTP username that differs stays. An empty password
+ * is left out when editing, so the saved one stays.
  */
-export function accountBody(values, { editing = false } = {}) {
+export function accountBody(values, { editing = false, initial } = {}) {
   const username = values.username.trim();
+  const keepUsernames =
+    editing &&
+    Boolean(initial) &&
+    username === initial.username.trim() &&
+    values.preset === initial.preset &&
+    // An empty field follows the address: a new address needs it sent again.
+    (username !== "" || values.address.trim() === initial.address.trim());
   const side = (name) => ({
     host: values[name].host.trim(),
     port: Number(values[name].port),
     security: values[name].security,
-    username,
+    ...(keepUsernames ? {} : { username }),
   });
   const body = {
     name: values.name.trim(),
@@ -152,5 +168,8 @@ export function accountBody(values, { editing = false } = {}) {
 /** The body of POST /mail/test: a saved account is named, so its password is reused. */
 export const testBody = (values, account) =>
   account
-    ? { accountId: account.id, ...accountBody(values, { editing: true }) }
+    ? {
+        accountId: account.id,
+        ...accountBody(values, { editing: true, initial: formValues(account) }),
+      }
     : accountBody(values);
