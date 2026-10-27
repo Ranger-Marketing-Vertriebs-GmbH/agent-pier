@@ -37,3 +37,18 @@ export function pinchView(start, from, to, factor) {
 /** `view` at `scale`, keeping the image point under `point` where it is. */
 export const zoomAt = (view, scale, point) =>
   pinchView(view, point, point, scale / view.scale);
+
+// Wheel deltas come in pixels, lines or pages (WheelEvent.deltaMode 0, 1, 2).
+const lineHeight = 16;
+
+/**
+ * `view` moved by a wheel or trackpad scroll as a page would scroll: down shows more of
+ * the image's bottom, and shift turns a vertical wheel sideways. Unclamped offsets.
+ */
+export function scrollView(view, { deltaX, deltaY, deltaMode = 0, shiftKey }, stage) {
+  const unit = [1, lineHeight, stage.height][deltaMode] ?? 1;
+  const sideways = shiftKey && !deltaX;
+  const dx = (sideways ? deltaY : deltaX) * unit;
+  const dy = (sideways ? 0 : deltaY) * unit;
+  return { ...view, x: view.x - dx, y: view.y - dy };
+}

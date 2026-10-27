@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { imageViewerCopy as copy } from "../lib/i18n/messages/components.js";
 import { observeBuild } from "../lib/build-check.js";
 import FileLink from "./FileLink.jsx";
-import { clampView, pinchView, zoomAt } from "./image-viewer-zoom.js";
+import { clampView, pinchView, scrollView, zoomAt } from "./image-viewer-zoom.js";
 import "./image-viewer.css";
 
 const rest = { scale: 1, x: 0, y: 0 };
@@ -16,9 +16,9 @@ const doubleTap = { time: 300, distance: 30 };
  * An image shown full size inside the app, never by navigating to it: a standalone
  * home-screen app (iOS) has no back button to return from a navigation. Closes with
  * its button, Esc, a tap beside the image or, on touch screens, a swipe down while not
- * zoomed. Pinches (two fingers or a trackpad), ctrl + wheel and double taps zoom around
- * the fingers or the pointer; one finger or the mouse drags a zoomed image, never past
- * its edges. A modal dialog keeps focus inside and gives it back to the element that
+ * zoomed. It fits whole at rest, however tall. Pinches (two fingers or a trackpad),
+ * ctrl + wheel and double taps zoom around the fingers or the pointer; one finger, the
+ * mouse or the wheel pans a zoomed image, never past its edges. A modal dialog keeps focus inside and gives it back to the element that
  * opened it. `name` is the file name a download saves.
  */
 // `opener` is the element that opened it: Safari does not focus a clicked button.
@@ -58,9 +58,13 @@ export default function ImageViewer({ src, alt, title, name, close, opener = nul
     // back Safari's own page zoom (its gesture events) wherever touch-action falls short.
     const hold = (event) => event.preventDefault();
     const wheel = (event) => {
-      // Trackpad pinches arrive as wheel events with ctrlKey set.
-      if (!event.ctrlKey) return;
       event.preventDefault();
+      // A plain wheel or two-finger trackpad scroll pans a zoomed image.
+      if (!event.ctrlKey) {
+        show(scrollView(current.current, event, area.getBoundingClientRect()));
+        return;
+      }
+      // Trackpad pinches arrive as wheel events with ctrlKey set.
       const scale = current.current.scale * Math.exp(-event.deltaY / 100);
       show(zoomAt(current.current, scale, local({ x: event.clientX, y: event.clientY })));
     };

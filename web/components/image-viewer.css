@@ -59,6 +59,10 @@
   display: grid;
   flex: 1;
   min-height: 0;
+  /* One cell the stage's size: the image's max-width and max-height are then the
+     stage's, so even a tall screenshot fits whole and centred at rest (an auto row
+     grows to the image and lets it overflow below the stage, out of the pan's reach). */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   overflow: hidden;
   /* Pinches, drags and swipes are the viewer's own, not the page's. */
