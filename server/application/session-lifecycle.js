@@ -108,6 +108,8 @@ export function createSessionLifecycle(services) {
       throw problem(serverMessages.sessions.sandboxNotForPipeline);
     if (body.agentpierTools && (login || trusted.pipeline))
       throw problem(serverMessages.sessions.toolsStandaloneOnly);
+    if (trusted.startedBy && (login || trusted.pipeline))
+      throw problem(serverMessages.sessions.invalidOptions);
     services.sessionMcp?.validate(body.agentpierTools);
     const resolved = providerAccess.resolve(body, { login });
     // Claim usage synchronously before the first asynchronous launch preparation.
@@ -279,6 +281,7 @@ export function createSessionLifecycle(services) {
         ...(selection ? { access: selection } : {}),
         ...(attachments ? { attachments } : {}),
         ...(trusted.pipeline ? { pipeline: trusted.pipeline } : {}),
+        ...(trusted.startedBy ? { startedBy: trusted.startedBy } : {}),
         ...(login ? { purpose: "login" } : {}),
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);

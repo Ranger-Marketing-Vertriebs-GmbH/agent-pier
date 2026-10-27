@@ -63,6 +63,7 @@ export const sessionWorkspaceCopy = {
   terminalTopbarDisconnected: "Verbindung getrennt · neuer Versuch …",
   chatNotice: "Terminal wird geladen …",
   keyboardToolbarAriaLabel: "Terminal-Tastatur",
+  startedByAgent: (name) => `Gestartet von Agent ${name}`,
   sessionFooterLabel: "Die Session läuft bei geschlossenem Browser weiter.",
 };
 
@@ -130,4 +131,8 @@ export const sessionInterruptionCopy = {
     timeout: "Die CLI hat die Unterhaltung nicht rechtzeitig bestätigt.",
     "attempt-interrupted": "AgentPier wurde während des Versuchs neu gestartet.",
   },
+};
+
+export const sessionListCopy = {
+  agentBadge: (name) => `Agent ${name}`,
 };

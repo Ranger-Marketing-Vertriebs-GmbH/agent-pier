@@ -16,3 +16,5 @@ export const sessionInterruptionCopy = localizedCopy(
   de.sessionInterruptionCopy,
   en.sessionInterruptionCopy,
 );
+
+export const sessionListCopy = localizedCopy(de.sessionListCopy, en.sessionListCopy);
