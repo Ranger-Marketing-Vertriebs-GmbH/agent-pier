@@ -108,14 +108,16 @@ export function mcpPackageRoutes(services, { auditMcp }) {
   const packages = () => packagesOf(services);
   const router = Router();
   // A managed row's package is its tool's: no owner update, reinstall or program (409).
-  router.post(
+  // Middleware, not a second POST route: the route inventory lists each route once.
+  router.use(
     [
       "/mcp-servers/:id/package/update",
       "/mcp-servers/:id/package/reinstall",
       "/mcp-servers/:id/package/program",
     ],
     (req, _res, next) => {
-      requireOwnerPatch(services.mcpServers, req.params.id, { source: true });
+      if (req.method === "POST")
+        requireOwnerPatch(services.mcpServers, req.params.id, { source: true });
       next();
     },
   );
