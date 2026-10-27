@@ -131,7 +131,10 @@ export const startPageCopy = {
     other: "Agent service starting",
   },
   agentsSummary: (needsYou, working) =>
-    [needsYou ? `${needsYou} need you` : "", working ? `${working} working` : ""]
+    [
+      needsYou ? `${needsYou} ${needsYou === 1 ? "needs" : "need"} you` : "",
+      working ? `${working} working` : "",
+    ]
       .filter(Boolean)
       .join(" · "),
   pipelines: "Pipelines",
