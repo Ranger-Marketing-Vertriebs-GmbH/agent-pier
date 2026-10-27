@@ -97,4 +97,8 @@ export const mcpServers = Object.freeze({
     "The Codex account could not be prepared. Try again once no plugin action is running.",
   cliLoginEnded: "The login ended before Codex could start it (cancelled or replaced).",
   cliLoginFailed: "Codex could not start the login. Please try again.",
+  managedLocked:
+    "AgentPier manages this server for a tool. Change its name, command, arguments, working directory, package and managed environment variables on the tool's card under CLIs and extensions › Installation; your own environment variables, timeouts and assignments stay editable here.",
+  managedRemoveThroughTool:
+    "AgentPier manages this server for a tool. Remove it through the tool's card under CLIs and extensions › Installation.",
 });

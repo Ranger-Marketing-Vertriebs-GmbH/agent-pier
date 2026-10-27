@@ -105,4 +105,8 @@ export const mcpServers = {
   cliLoginEnded:
     "Die Anmeldung wurde beendet, bevor Codex sie starten konnte (abgebrochen oder ersetzt).",
   cliLoginFailed: "Codex konnte die Anmeldung nicht starten. Bitte erneut versuchen.",
+  managedLocked:
+    "AgentPier verwaltet diesen Server für ein Tool. Name, Befehl, Argumente, Arbeitsverzeichnis, Paket und die verwalteten Umgebungsvariablen lassen sich nur auf dessen Karte unter CLIs & Erweiterungen › Installation ändern; eigene Umgebungsvariablen, Timeouts und Zuweisungen bleiben hier änderbar.",
+  managedRemoveThroughTool:
+    "AgentPier verwaltet diesen Server für ein Tool. Er lässt sich nur über dessen Karte unter CLIs & Erweiterungen › Installation entfernen.",
 };

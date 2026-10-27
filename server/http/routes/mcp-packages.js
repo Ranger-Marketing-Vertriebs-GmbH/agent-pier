@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { record } from "../../features/extensions/mcp-config.js";
 import { packageProblem } from "../../features/mcp-packages/package-errors.js";
+import { requireOwnerPatch } from "../../features/mcp-servers/managed-servers.js";
 import {
   packageConstraints,
   packageName,
@@ -106,6 +107,18 @@ export async function changeSource(services, { changes, auditMcp }, req, res) {
 export function mcpPackageRoutes(services, { auditMcp }) {
   const packages = () => packagesOf(services);
   const router = Router();
+  // A managed row's package is its tool's: no owner update, reinstall or program (409).
+  router.post(
+    [
+      "/mcp-servers/:id/package/update",
+      "/mcp-servers/:id/package/reinstall",
+      "/mcp-servers/:id/package/program",
+    ],
+    (req, _res, next) => {
+      requireOwnerPatch(services.mcpServers, req.params.id, { source: true });
+      next();
+    },
+  );
   router.get("/mcp-packages/versions", async (req, res) => {
     res.set("Cache-Control", "no-store");
     res.json(

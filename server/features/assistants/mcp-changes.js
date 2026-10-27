@@ -217,6 +217,7 @@ export class McpChanges {
       clis = [],
       pendingCommand = false,
       packageRecord = null,
+      managed = null,
     } = {},
   ) {
     return this.assistants.admit(async () => {
@@ -228,6 +229,7 @@ export class McpChanges {
         bind: clis.map((cli) => ["cli", cli]),
         pendingCommand,
         packageRecord,
+        managed,
       });
       // Unbound servers are not compiled; nothing to apply.
       return server;
