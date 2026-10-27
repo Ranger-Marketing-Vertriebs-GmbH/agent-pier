@@ -45,16 +45,16 @@ function models(s, connection) {
 }
 
 /**
- * What the agent may choose from when it starts a session: its projects with
- * sessions on, the coding CLI accounts and launchable provider connections, launch
- * modes and defaults, secrets, SSH accesses and nono profiles. Names and ids only,
- * never a secret.
+ * What the agent may choose from when it starts a session in this turn (`ctx`): its
+ * projects with sessions on, the coding CLI accounts and launchable provider
+ * connections, launch modes and defaults, secrets, SSH accesses and nono profiles.
+ * Names and ids only, never a secret.
  */
-export async function sessionOptions(w, assistantId) {
+export async function sessionOptions(w, ctx) {
   const s = w.s;
   const executable = listed(() => [s.nonoSandbox?.executable?.()].filter(Boolean))[0];
   return {
-    projects: w.sessions.projects(assistantId).map(({ projectId, name }) => ({
+    projects: w.sessions.projects(ctx.assistantId, ctx).map(({ projectId, name }) => ({
       id: projectId,
       name,
       worktreeDefault: true,

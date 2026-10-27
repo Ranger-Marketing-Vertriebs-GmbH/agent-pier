@@ -351,6 +351,33 @@ test("a start on a lead's share waits for the owner", async (t) => {
   });
 });
 
+// The agent's project list (options, its instructions) names a share's project only
+// where a start could rest on it: never in a turn that uses its own grant only.
+test("a lead's share lists its project except in turns on the agent's own grant", async (t) => {
+  const f = await agentSessionFixture(t, { sessionProjects: false });
+  const lead = f.store.createAssistant({
+    name: "Lead",
+    model: { connectionId: "test", modelId: "fixture" },
+  });
+  const w = f.workflows;
+  w.access.save(lead.id, { ...f.policy, sessionProjectIds: [f.project.id] }, 0);
+  w.shares.coding = () => ({ leadId: lead.id, shareId: "share-1", requestId: null });
+  w.shares.codingProjects = () => [{ leadId: lead.id, projectId: f.project.id }];
+  const listed = [{ projectId: f.project.id, name: f.project.name }];
+  assert.deepEqual(w.sessions.projects(f.id), listed);
+  const owner = sessionContext(w, await f.invocation());
+  assert.deepEqual(w.sessions.projects(f.id, owner), listed);
+  assert.deepEqual(
+    (await w.sessions.actions.options(owner)).projects.map((p) => p.id),
+    [f.project.id],
+  );
+  for (const turn of [{ requestedBy: { leadId: lead.id } }, { memberResult: {} }]) {
+    const ctx = { ...owner, sessionClass: "team", ...turn };
+    assert.deepEqual(w.sessions.projects(f.id, ctx), []);
+    assert.deepEqual((await w.sessions.actions.options(ctx)).projects, []);
+  }
+});
+
 test("an executing start found after a restart becomes running when its session exists", async (t) => {
   const f = await agentSessionFixture(t);
   const ctx = {

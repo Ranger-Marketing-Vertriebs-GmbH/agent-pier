@@ -506,6 +506,8 @@ export function connectAssistantServices(graph) {
     // Its GitHub access, named in its instructions, and its shell's GitHub folder.
     github: (assistant) => workflows.github.describe(assistant),
     githubShellPath: (assistant) => workflows.github.shellPath(assistant),
+    // Projects it may start coding sessions on, named in its instructions.
+    codingSessions: (assistant) => workflows.sessions.projects(assistant.id),
     // A lead's members and team usage level while its team tools are offered.
     teamRoster: (assistant) =>
       bridge.status().ready ? teams.requests.roster(assistant.id) : null,
