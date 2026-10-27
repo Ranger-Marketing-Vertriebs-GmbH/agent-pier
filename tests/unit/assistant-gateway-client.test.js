@@ -372,3 +372,35 @@ test("an answer after the timeout reaches the caller's onLate once", async (t) =
   await assert.rejects(client.call("slow", {}, { timeoutMs: 10 }), { code: "TIMEOUT" });
   assert.equal(client.late.size, 0);
 });
+
+test("closing the connection drops late handlers; a reconnect never fires them", async (t) => {
+  const fixture = await gatewayFixture();
+  t.after(() => fixture.close());
+  const client = new GatewayClient({
+    url: fixture.url,
+    certPath: fixture.certPath,
+    token: "fixture",
+  });
+  t.after(() => client.close());
+  const late = [];
+  const onLate = (...args) => late.push(args);
+  const timedOut = async () => {
+    await client.connect();
+    await assert.rejects(client.call("slow", {}, { timeoutMs: 10, onLate }), {
+      code: "TIMEOUT",
+    });
+    assert.equal(client.late.size, 1);
+  };
+  // Closed while the answer is still due.
+  await timedOut();
+  client.close();
+  assert.equal(client.late.size, 0);
+  // Registered before a restart: the new connection (another Gateway launch) never
+  // delivers the old request's answer.
+  await timedOut();
+  client.close();
+  await client.connect();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(client.late.size, 0);
+  assert.deepEqual(late, []);
+});

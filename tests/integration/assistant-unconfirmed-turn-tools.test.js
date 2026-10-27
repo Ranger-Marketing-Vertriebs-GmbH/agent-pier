@@ -137,3 +137,33 @@ test("a plain uncertain turn ends a running call", async (t) => {
   restarted.assistants.ledger.forgetUnconfirmed();
   assert.throws(restarted.assertCurrent, forbidden);
 });
+
+// A turn whose first action is a native write (no AgentPier tool call before it):
+// the write hook names its run, which proves the turn as a tool call does.
+test("a native write of the unacknowledged turn's own run confirms the turn", async (t) => {
+  const f = await setup(t);
+  const attemptId = await f.unacknowledged();
+  const target = path.join(f.workspace, "notes.md");
+  const write = (runId) =>
+    f.call(target, { ctx: { agentId: f.agentId, sessionKey: "session", runId } });
+  // A foreign run (another session's or none) confirms nothing; the write is held.
+  assert.equal(await write("other-run"), false);
+  assert.equal(await write(undefined), false);
+  assert.equal(f.assistants.ledger.getAttempt(attemptId).state, "uncertain");
+  assert.equal(await write(attemptId), true);
+  assert.equal(f.assistants.ledger.getAttempt(attemptId).state, "running");
+});
+
+test("a native write never confirms a reviewed turn or one of another session", async (t) => {
+  const f = await setup(t);
+  const reviewed = await f.unacknowledged();
+  f.assistants.ledger.review(reviewed);
+  const target = path.join(f.workspace, "notes.md");
+  const ctx = (sessionKey, runId) => ({ ctx: { agentId: f.agentId, sessionKey, runId } });
+  assert.equal(await f.call(target, ctx("session", reviewed)), false);
+  assert.equal(f.assistants.ledger.getAttempt(reviewed).state, "uncertain");
+  f.assistants.ledger.transition(reviewed, "failed");
+  const other = await f.unacknowledged();
+  assert.equal(await f.call(target, ctx("elsewhere", other)), false);
+  assert.equal(f.assistants.ledger.getAttempt(other).state, "uncertain");
+});

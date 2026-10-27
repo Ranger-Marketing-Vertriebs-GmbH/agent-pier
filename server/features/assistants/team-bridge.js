@@ -31,7 +31,12 @@ import {
   personalActions,
   routineActions,
 } from "./team-bridge-actions.js";
-const active = new Set(["pending", "accepted", "running"]);
+import {
+  activeStates as active,
+  agentByRuntimeId,
+  attemptTurn,
+  boundAttempts,
+} from "./session-bindings.js";
 const leavingReady = new Set([
   "reconnecting",
   "stopping",
@@ -301,6 +306,8 @@ export class TeamBridge {
     // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
     if ("runId" in input) textValue(input.runId, 512);
     if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
+    // A write of a turn whose send went unacknowledged proves it, as a tool call does.
+    if (input.runId) confirmFromCall(this.assistants, input.sessionKey, input.runId);
     const settle = (allow) => {
       if (!allow && isMemory(input.path)) noteRefusal(this, input);
       return { allow };
@@ -418,32 +425,15 @@ export class TeamBridge {
     });
     if (added) this.assistants.changed?.();
   }
-  // The active attempts bound to a runtime session (`unresolved`: any unresolved one).
+  // A session's turns and agents (session-bindings.js).
   bound(sessionKey, unresolved = false) {
-    return this.assistants.ledger.pending().filter((a) => {
-      const c = this.assistants.store.getConversation(
-        this.assistants.ledger.getRequest(a.requestId).conversationId,
-      );
-      return c.runtimeSessionKey === sessionKey && (unresolved || active.has(a.state));
-    });
+    return boundAttempts(this.assistants, sessionKey, unresolved);
   }
   turn(attempt, agentId) {
-    const request = this.assistants.ledger.getRequest(attempt.requestId),
-      parent = this.assistants.store.getAssistant(
-        this.assistants.store.getConversation(request.conversationId).assistantId,
-      ),
-      origin = this.teams.store?.context(request.id);
-    const current =
-      !attempt.reviewedAt && parent.runtimeAgentId === agentId && !parent.archivedAt;
-    return { attempt, parent, origin, current };
+    return attemptTurn(this.assistants, this.teams, attempt, agentId);
   }
-  // The agent with this runtime id, or null.
   agentOf(runtimeAgentId) {
-    return (
-      this.assistants.store
-        .listAssistants()
-        .find((a) => a.runtimeAgentId === runtimeAgentId) || null
-    );
+    return agentByRuntimeId(this.assistants, runtimeAgentId);
   }
   // A routine's own run session and its writes (routine-run-origin.js).
   routineWrite(input) {
