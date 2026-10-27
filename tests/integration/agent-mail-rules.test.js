@@ -110,6 +110,12 @@ test("an agent without a grant gets MAIL_NOT_GRANTED", async (t) => {
     await code(f.call(f.ownTurn(), { action: "list", accountId: f.account.id })),
     "MAIL_ACCOUNT_UNAVAILABLE",
   );
+  // The account list says so too, instead of claiming no grant.
+  assert.equal(
+    await code(f.call(f.ownTurn(), { action: "accounts" })),
+    "MAIL_ACCOUNT_UNAVAILABLE",
+  );
+  assert.deepEqual(f.workflows.mail.accounts(f.id), []);
   f.mailStore.list = list;
   // Maintenance answers BUSY before anything else.
   f.assistants.maintenance = { reason: "update" };
@@ -149,6 +155,22 @@ test("a permanent member's lead request turn is refused", async (t) => {
     await code(f.call(continuation, { action: "accounts" })),
     "MAIL_ORIGIN_REFUSED",
   );
+  // A plain goal continuation passes the gate; one carrying a member's result, and a
+  // coding session's wake, are refused.
+  const goal = { id: "g1", anchorRequestId: "r1", title: "Inbox zero" };
+  const continued = await f.call(f.ownTurn({ kind: "owner", goal }), {
+    action: "accounts",
+  });
+  assert.equal(continued.accounts[0].accountId, f.account.id);
+  for (const origin of [
+    { kind: "owner", goal, result: { kind: "member-result", requestId: "q1" } },
+    { kind: "coding-session", sessionId: "s1", state: "idle" },
+  ])
+    assert.equal(
+      await code(f.call(f.ownTurn(origin), { action: "accounts" })),
+      "MAIL_ORIGIN_REFUSED",
+      JSON.stringify(origin),
+    );
   // A temporary member cannot reach mail at all.
   const temporary = f.member({ lifetime: "task", name: "Temp" });
   assert.equal(

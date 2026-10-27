@@ -310,8 +310,6 @@ export function constructAssistantGraph(host, created = {}) {
   // Removing an SSH host revokes agent grants and open approvals first (agent-ssh.js).
   if (host.sshManagement)
     host.sshManagement.onAccessChanged = assistantWorkflows.ssh.hook;
-  // Removing an email account revokes agent grants first (mail/agent-mail.js).
-  if (host.mailAccounts) host.mailAccounts.onRemoved = assistantWorkflows.mail.hook;
   const maintenance = new AssistantMaintenance(scope);
   const assistantUpdates = new RuntimeUpdates({
     dataDir,

@@ -5,7 +5,7 @@ import {
   mailCatalog,
   recipientAllowed,
 } from "../../server/features/assistants/mail/agent-mail-grants.js";
-import { AssistantAccess } from "../../server/features/assistants/assistant-access.js";
+import { AgentMail } from "../../server/features/assistants/mail/agent-mail.js";
 import { MailAccountStore } from "../../server/features/mail/mail-account-store.js";
 import { TelegramSenders } from "../../server/features/assistant-channels/telegram-senders.js";
 
@@ -274,9 +274,9 @@ test("revokeMail removes the account from every agent and audits mail-grants wit
 test("removing a mail account revokes its grants through the store hook", async (t) => {
   const f = await mailFixture(t);
   f.save([{ accountId: a, level: "read" }]);
-  // The access policy binds itself to the store it finds (assistant-workflows.js).
-  new AssistantAccess(f.services);
-  assert.equal(typeof f.services.mailAccounts.onRemoved, "function");
+  // AgentMail binds itself to the store it finds (the only binding).
+  const mail = new AgentMail(f.workflows);
+  assert.equal(f.services.mailAccounts.onRemoved, mail.hook);
   f.services.mailAccounts.onRemoved(a);
   assert.deepEqual(f.access.get(f.id).mailAccesses, []);
 });
@@ -337,7 +337,8 @@ test("closed workflows no longer handle a real store's account removal", async (
   const store = new MailAccountStore({ dataDir: f.dataDir, audit: { append() {} } });
   await store.ready;
   f.services.mailAccounts = store;
-  const access = new AssistantAccess(f.services);
+  const access = f.workflows.access;
+  const older = new AgentMail(f.workflows);
   const kept = store.create(
     { name: "Mail", address: "owner@example.com", preset: "gmail", password: "pw" },
     { role: "owner" },
@@ -355,14 +356,12 @@ test("closed workflows no longer handle a real store's account removal", async (
     access.get(f.id).mailAccesses.map((g) => g.accountId),
     [kept.id],
   );
-  // A replaced binding is never unbound by an older access.
-  const newer = store.onRemoved;
-  await f.workflows.close();
-  assert.equal(store.onRemoved, newer);
-  // Closing the workflows' own access unbinds it; removal still succeeds.
-  store.onRemoved = null;
-  const closing = new AssistantAccess(f.services);
-  f.workflows.access = closing;
+  // A replaced binding is never unbound by an older AgentMail.
+  const newer = new AgentMail(f.workflows);
+  older.close();
+  assert.equal(store.onRemoved, newer.hook);
+  // Closing the workflows' own AgentMail unbinds it; removal still succeeds.
+  f.workflows.mail = newer;
   await f.workflows.close();
   assert.equal(store.onRemoved, null);
   // The agents' database closes (agents switched off); the fixture closed it already.

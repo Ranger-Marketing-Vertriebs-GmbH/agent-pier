@@ -71,4 +71,9 @@ test("mail problems carry stable codes, fixed English reasons and owner copy", (
     }),
   );
   assert.equal(failure.code, "MAIL_AUTH_FAILED");
+  // An account refused plaintext before connecting reads as a TLS failure.
+  assert.equal(
+    toolError(Object.assign(Error("x"), { key: "mailPlaintextRefused" })).code,
+    "MAIL_TLS_FAILED",
+  );
 });

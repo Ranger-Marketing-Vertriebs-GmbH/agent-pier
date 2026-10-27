@@ -359,6 +359,8 @@ const byKey = {
   mailAccountUnavailable: "MAIL_ACCOUNT_UNAVAILABLE",
   mailAuthFailed: "MAIL_AUTH_FAILED",
   mailTlsFailed: "MAIL_TLS_FAILED",
+  // An account without its plaintext consent is refused before connecting.
+  mailPlaintextRefused: "MAIL_TLS_FAILED",
   mailUnreachable: "MAIL_UNREACHABLE",
   mailTimeout: "MAIL_TIMEOUT",
   mailProtocol: "MAIL_PROTOCOL",

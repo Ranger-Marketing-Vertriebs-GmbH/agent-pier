@@ -36,6 +36,15 @@ test("forwarded, lead requests, team members, member results and users are refus
   // A mail-result follow-up inherits only an owner card, never anything else.
   for (const inherited of [null, "routine", "hook", "refused", "delegated"])
     assert.equal(cls({ context: { kind: "mail-result" }, inherited }), "refused");
+  // A goal turn carrying a member's result (lead-requests.js goalResult) is no
+  // owner turn for mail, nor is a coding session's wake.
+  const goal = { id: "g", anchorRequestId: "r", title: "Inbox zero" };
+  assert.equal(
+    cls({ context: { kind: "owner", goal, result: { kind: "member-result" } } }),
+    "refused",
+  );
+  assert.equal(cls({ context: { kind: "owner", result: {} } }), "refused");
+  assert.equal(cls({ context: { kind: "coding-session", sessionId: "s" } }), "refused");
   // A permanent member's lead request stays refused even if asked as an owner.
   assert.equal(cls({ context: { kind: "lead-request" }, inherited: "owner" }), "refused");
 });
