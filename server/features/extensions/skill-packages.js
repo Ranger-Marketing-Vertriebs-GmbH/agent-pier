@@ -11,20 +11,23 @@ export const skillName = (value) =>
   value.length <= 64 &&
   /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) &&
   value !== "synced";
-export function skillMetadata(buffer) {
+/** The parsed YAML frontmatter of a SKILL.md. */
+function frontmatter(buffer) {
   if (buffer.length > 256 * 1024)
     throw problem(serverMessages.extensions.skillDocumentTooLarge);
   const text = buffer.toString("utf8");
   const match = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) throw problem(serverMessages.extensions.skillFrontmatterRequired);
-  let metadata;
   try {
     const doc = parseDocument(match[1], { uniqueKeys: true });
     if (doc.errors.length) throw new Error();
-    metadata = doc.toJS({ maxAliasCount: 0 });
+    return doc.toJS({ maxAliasCount: 0 });
   } catch {
     throw problem(serverMessages.extensions.invalidSkillFrontmatter);
   }
+}
+export function skillMetadata(buffer) {
+  const metadata = frontmatter(buffer);
   if (
     !skillName(metadata?.name) ||
     typeof metadata?.description !== "string" ||
@@ -34,6 +37,29 @@ export function skillMetadata(buffer) {
   )
     throw problem(serverMessages.extensions.invalidSkillIdentity);
   return { name: metadata.name, description: metadata.description.trim() };
+}
+const filled = (value) =>
+  Array.isArray(value)
+    ? value.length > 0
+    : value && typeof value === "object"
+      ? Object.keys(value).length > 0
+      : typeof value === "string" && value.trim() !== "";
+/**
+ * Whether a SKILL.md needs per-skill settings (`skills.entries.<key>.env/apiKey`):
+ * its frontmatter names `metadata.openclaw.requires.env`, `.requires.config` or
+ * `.primaryEnv`.
+ */
+export function skillRequirements(buffer) {
+  const openclaw = frontmatter(buffer)?.metadata?.openclaw;
+  return {
+    needsSettings: Boolean(
+      openclaw &&
+      typeof openclaw === "object" &&
+      (filled(openclaw.requires?.env) ||
+        filled(openclaw.requires?.config) ||
+        filled(openclaw.primaryEnv)),
+    ),
+  };
 }
 function archivePath(value) {
   if (
@@ -264,4 +290,40 @@ export async function downloadSkill(value, fetchImpl, signal) {
     return origin ? { ...pack, origin } : pack;
   }
   throw problem(serverMessages.extensions.skillDownloadRedirectLimit);
+}
+
+/**
+ * Reads a skill source without writing anything: a GitHub link (`input.url`, downloaded
+ * within 30 seconds; `pack.source` keeps the link) or an upload (`contentBase64` of a
+ * SKILL.md or zip named by `fileName`).
+ */
+export async function readSkillPack(
+  input,
+  { fetchImpl = globalThis.fetch, signal } = {},
+) {
+  if (input.url !== undefined) {
+    if (input.contentBase64 !== undefined)
+      throw problem(serverMessages.extensions.skillSourceRequired);
+    const timeout = AbortSignal.timeout(30000);
+    const pack = await downloadSkill(
+      input.url,
+      fetchImpl,
+      signal ? AbortSignal.any([signal, timeout]) : timeout,
+    );
+    return { ...pack, source: { url: input.url } };
+  }
+  if (
+    typeof input.contentBase64 !== "string" ||
+    input.contentBase64.length > Math.ceil(MAX_UPLOAD / 3) * 4 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      input.contentBase64,
+    )
+  )
+    throw problem(serverMessages.extensions.invalidSkillUpload);
+  const buffer = Buffer.from(input.contentBase64, "base64");
+  if (input.fileName === "SKILL.md")
+    return { ...skillMetadata(buffer), files: [["SKILL.md", buffer]] };
+  if (typeof input.fileName === "string" && input.fileName.toLowerCase().endsWith(".zip"))
+    return unpackSkill(buffer);
+  throw problem(serverMessages.extensions.skillFileTypeRequired);
 }

@@ -137,3 +137,44 @@ test("previews beyond the count limit drop the oldest first", () => {
   previews.clear();
   assert.equal(previews.items.size, 0);
 });
+
+test("warnings already accepted by the owner need no new acceptance", () => {
+  const previews = new SkillPreviews();
+  const blob = `payload: ${"Ab3+/Zx9Qr".repeat(24)}\n`;
+  const preview = previews.create(
+    "a",
+    { ...pack(), files: [["SKILL.md", Buffer.from(`${document}${blob}`)]] },
+    "skill-md",
+  );
+  assert.deepEqual(preview.rules, ["encoded-blob"]);
+  assert.throws(
+    () => previews.take("a", confirm(preview), { acceptedRules: ["executable-file"] }),
+    refused(messages.skillWarningsNotAccepted),
+  );
+  assert.equal(
+    previews.take("a", confirm(preview), { acceptedRules: ["encoded-blob"] }).previewId,
+    preview.previewId,
+  );
+  const blocked = previews.create("a", blockPack(), "github");
+  assert.throws(
+    () =>
+      previews.take("a", confirm(blocked, { acceptWarnings: true }), {
+        acceptedRules: [...blocked.rules],
+      }),
+    refused(messages.skillScanBlocked),
+  );
+});
+
+test("extra fields are kept with the preview and shown with it", () => {
+  const previews = new SkillPreviews();
+  const preview = previews.create("a", pack(), "zip", {
+    replaces: { id: "x", version: 2 },
+    newRules: [],
+  });
+  assert.deepEqual(preview.replaces, { id: "x", version: 2 });
+  assert.deepEqual(preview.newRules, []);
+  assert.deepEqual(previews.take("a", confirm(preview)).replaces, {
+    id: "x",
+    version: 2,
+  });
+});
