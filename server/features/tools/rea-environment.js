@@ -26,7 +26,15 @@ export const reaManagedKeys = Object.freeze([
 ]);
 
 const providers = ["ghidra", "ida"];
-const homeDirectories = ["tmp", ".config", ".cache", ".local/share", ".claude", ".codex"];
+const homeDirectories = [
+  "tmp",
+  ".config",
+  ".cache",
+  ".local",
+  ".local/share",
+  ".claude",
+  ".codex",
+];
 
 /** REA's own home below the data directory: `<dataDir>/rea/home`. */
 export function reaHome(dataDir) {
