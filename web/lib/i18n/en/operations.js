@@ -403,6 +403,9 @@ export const backupCopy = {
     "sealed-secrets": "Secrets for agents and sessions (encrypted)",
     "Secrets (only in backups with a passphrase, then encrypted)":
       "Secrets (only in backups with a passphrase, then encrypted)",
+    "sealed-mail-accounts": "Email accounts and their passwords (encrypted)",
+    "Email accounts and passwords (only in backups with a passphrase, then encrypted)":
+      "Email accounts and passwords (only in backups with a passphrase, then encrypted)",
     "MCP server header and environment values and address tokens":
       "MCP server header and environment values and address tokens",
     "Files removed while the backup was written":
