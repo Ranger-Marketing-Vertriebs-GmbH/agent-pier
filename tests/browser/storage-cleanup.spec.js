@@ -80,6 +80,8 @@ async function routeAll(page, { summaryState = "ready" } = {}) {
   await page.route("**/api/system-status/cleanup/**", async (route) => {
     if (route.request().url().endsWith("/cleanup/summary")) {
       calls.summaries++;
+      if (calls.status)
+        return route.fulfill({ status: calls.status, json: { error: "unavailable" } });
       return route.fulfill({ json: cleanupSummary(calls.state || summaryState) });
     }
     const request = route.request();
@@ -273,13 +275,29 @@ test("the cleanup speaks German with the German catalog", async ({ page }) => {
 test.describe("the summary", () => {
   test.use({ locale: "en-GB" });
 
-  test("shows 'measured on open' until it is known and asks again after a deletion", async ({
+  for (const [name, answer] of [
+    ["a failed summary", "failed"],
+    ["an unreadable summary", 500],
+  ])
+    test(`${name} shows 'measured on open'`, async ({ page }) => {
+      const calls = await routeAll(page, { summaryState: "failed" });
+      if (answer === 500) calls.status = 500;
+      const dialog = await openDetails(page);
+      const card = dialog.getByRole("article", { name: en.cleanup.transcripts.title });
+      await expect(card).toContainText(en.cleanup.measuredOnOpen);
+      await expect(dialog.locator(".system-cleanup-total")).toHaveText(
+        en.cleanup.measuredOnOpen,
+      );
+    });
+
+  test("shows 'Updating sizes' until it is known and asks again after a deletion", async ({
     page,
   }) => {
     const calls = await routeAll(page, { summaryState: "pending" });
     const dialog = await openDetails(page);
     const card = dialog.getByRole("article", { name: en.cleanup.transcripts.title });
-    await expect(card).toContainText(en.cleanup.measuredOnOpen);
+    await expect(card).toContainText(en.dataRefreshing);
+    await expect(card).not.toContainText(en.cleanup.measuredOnOpen);
     await expect(dialog.getByRole("tab", { name: /Storage/ })).not.toContainText(
       "reclaimable",
     );

@@ -47,11 +47,13 @@ function hostFacts(data) {
 export default function SystemStatusDialog({ close, cleanup = false, openSession }) {
   const [tab, setTab] = useState(cleanup ? "storage" : "load");
   const { data: answer, error } = useSystemStatus(`/${ID}/details`);
-  const { data: summary } = useSystemStatus(
+  const { data: read, error: summaryError } = useSystemStatus(
     `${CLEANUP_API}/summary`,
     true,
     usableCleanupSummary,
   );
+  // A summary that cannot be read counts as failed: the cards say "Measured on open".
+  const summary = read ?? (summaryError ? { state: "failed" } : null);
   const data = details(answer);
   const measured = summaryGroups(summary);
   const reclaimable = measured

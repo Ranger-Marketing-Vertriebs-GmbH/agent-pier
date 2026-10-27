@@ -165,7 +165,9 @@ Beside the areas (below them on a phone), **Free up space** offers three cleanup
 "Up to … can be deleted". Each card shows what its group can free, how many entries it
 holds and what deleting costs. These sizes come from a summary that the server measures
 in the background like the data directory, keeps for ten minutes and measures again
-after every deletion; until it is known, the cards say **Measured on open**. The
+after every deletion; while it is measured, the cards say **Updating sizes …**, and
+**Measured on open** only when it failed or cannot be read (a failed walk is tried
+again after a minute, or at once after a deletion). The
 summary counts the update backups that may be deleted now (none while an update runs,
 and never the one an unresolved recovery needs), transcripts older than 90 days (the
 age the list preselects), and every installed dependency folder (an agent at work
@@ -293,7 +295,8 @@ The cleanups live under `/api/system-status/cleanup` and are owner-only:
 `POST transcripts/<profile>` with `{ "olderThanDays": 30 | 90 | 180 }`, and
 `GET dependencies` and `DELETE dependencies/<agent>`. A deletion answers with the
 number of entries removed and skipped and the bytes freed. `GET summary` answers at
-once with `{ state: "pending" }` or `{ state: "ready" | "refreshing", computedAt,
+once with `{ state: "pending" }` (or `"failed"` after a failed walk) or
+`{ state: "ready" | "refreshing", computedAt,
 groups }`, where `groups` holds `updateBackups` (`bytes`, `count`, `blocked`,
 `atLeast`, `oldestAt`), `transcripts` (`bytes`, `count`, `olderThanDays`, `profiles`)
 and `dependencies` (`bytes`, `count` of folders, `agents`, `atLeast`); `atLeast` marks a
