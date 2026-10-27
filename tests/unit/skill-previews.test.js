@@ -173,7 +173,7 @@ test("extra fields are kept with the preview and shown with it", () => {
   });
   assert.deepEqual(preview.replaces, { id: "x", version: 2 });
   assert.deepEqual(preview.newRules, []);
-  assert.deepEqual(previews.take("a", confirm(preview)).replaces, {
+  assert.deepEqual(previews.take("a", confirm(preview)).extra.replaces, {
     id: "x",
     version: 2,
   });

@@ -1,6 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { readSkillPack, skillRequirements } from "../extensions/skill-packages.js";
+import { readSkillPackTracked, skillRequirements } from "../extensions/skill-packages.js";
 import { SkillPreviews } from "../extensions/skill-previews.js";
 import { contentHash } from "../extensions/skill-scan.js";
 
@@ -61,18 +61,8 @@ export class SkillCatalog {
     this.queue = run.catch(() => {});
     return run;
   }
-  async read(input) {
-    const controller = new AbortController();
-    const pending = readSkillPack(input, {
-      fetchImpl: this.fetchImpl,
-      signal: controller.signal,
-    });
-    this.active.set(pending, controller);
-    try {
-      return await pending;
-    } finally {
-      this.active.delete(pending);
-    }
+  read(input) {
+    return readSkillPackTracked(this.active, input, this.fetchImpl);
   }
   /** Scans `pack` and keeps it as a preview, as an update when its name is taken. */
   async previewPack(pack, importKind) {
@@ -103,7 +93,7 @@ export class SkillCatalog {
       let current;
       if (entry) {
         current = this.store.byName(entry.pack.name);
-        const shown = entry.replaces;
+        const shown = entry.extra.replaces;
         if (current?.id !== shown?.id || current?.version !== shown?.version) {
           this.previews.discard(entry.previewId);
           throw problem(serverMessages.extensions.skillPreviewChanged, 409);
@@ -156,8 +146,10 @@ export class SkillCatalog {
       throw problem(serverMessages.extensions.catalogUpdateNeedsRepository, 400);
     const pack = await this.read({ url: record.source.url });
     this.assertOpen();
-    if (pack.name === record.name && contentHash(pack.files) === record.contentHash)
-      return { upToDate: true };
+    // The same source now names another skill: an update never becomes a second skill.
+    if (pack.name !== record.name)
+      throw problem(serverMessages.extensions.catalogUpdateRenamed(pack.name), 409);
+    if (contentHash(pack.files) === record.contentHash) return { upToDate: true };
     return this.previewPack(pack, "github");
   }
   async close() {

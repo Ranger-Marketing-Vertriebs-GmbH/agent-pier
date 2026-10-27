@@ -327,3 +327,18 @@ export async function readSkillPack(
     return unpackSkill(buffer);
   throw problem(serverMessages.extensions.skillFileTypeRequired);
 }
+
+/**
+ * readSkillPack with an AbortController kept in `active` while it runs, so the owner's
+ * close() can abort a download in flight and wait for it.
+ */
+export async function readSkillPackTracked(active, input, fetchImpl) {
+  const controller = new AbortController();
+  const pending = readSkillPack(input, { fetchImpl, signal: controller.signal });
+  active.set(pending, controller);
+  try {
+    return await pending;
+  } finally {
+    active.delete(pending);
+  }
+}
