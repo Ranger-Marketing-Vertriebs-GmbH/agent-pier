@@ -90,17 +90,22 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
       return { state: activity.get(session.id) || "idle", source: "fixture" };
     },
   };
+  // At most once per deliveryId, as ChatDelivery: a retry returns the first receipt.
   s.chatDelivery = {
     receipts,
+    sent: [],
     async status(id, deliveryId) {
       if (!sessions.has(id)) throw notFound();
       return receipts.get(deliveryId) || { deliveryId, status: "absent" };
     },
     async send(id, body) {
       if (!sessions.has(id)) throw notFound();
-      const receipt = { deliveryId: body.deliveryId, status: "delivered", sessionId: id };
+      if (receipts.has(body.deliveryId))
+        return structuredClone(receipts.get(body.deliveryId));
+      s.chatDelivery.sent.push({ sessionId: id, body: structuredClone(body) });
+      const receipt = { deliveryId: body.deliveryId, status: "handed-off" };
       receipts.set(body.deliveryId, receipt);
-      return receipt;
+      return structuredClone(receipt);
     },
   };
   s.chat = {

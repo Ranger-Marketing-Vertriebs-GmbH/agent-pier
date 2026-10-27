@@ -7,6 +7,7 @@ import { AgentSessionStore } from "./session-store.js";
 import { sessionContext } from "./session-turns.js";
 import { sessionOptions } from "./session-options.js";
 import { advanceStart, startSession } from "./session-start.js";
+import { readSession, sendToSession, waitForSession } from "./session-steering.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -14,6 +15,9 @@ const toolKeys = Object.keys(
 // What needs a project with coding sessions on; every other action works on the
 // agent's existing records (session-control.js control checks their grant).
 const needsProjects = new Set(["options", "start"]);
+// What runs after admission instead of under it: a wait polls for up to 100 s and a
+// send may wait on the terminal, which must never hold every agent's admission.
+const unlocked = new Set(["send", "read", "wait"]);
 
 /**
  * agentpier_coding_session (AssistantWorkflows.sessions): an agent's interactive
@@ -27,16 +31,26 @@ export class AgentCodingSessions {
     this.store = new AgentSessionStore(w.a.store.db);
     // Starts running in this process, by action key (session-start.js runStart).
     this.starting = new Map();
-    // Each action: (ctx, input) => result. Later actions register here.
+    // Sessions an agent is waiting on right now (session-steering.js waitForSession).
+    this.waiting = new Set();
+    // Injectable for tests: the clock and the pause between wait polls.
+    this.now = () => Date.now();
+    this.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Each action: (ctx, input, inv) => result. Later actions register here.
     this.actions = {
       options: (ctx) => sessionOptions(this.w, ctx.assistantId),
       list: (ctx) => this.list(ctx),
       start: (ctx, input) => startSession(this.w, ctx, input),
+      send: (ctx, input, inv) => sendToSession(this.w, ctx, input, inv),
+      read: (ctx, input) => readSession(this.w, ctx, input),
+      wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
     };
   }
-  invoke(inv, input) {
-    return this.w.a.admit(() => this.call(inv, input));
+  async invoke(inv, input) {
+    const run = await this.w.a.admit(() => this.call(inv, input));
+    return run();
   }
+  // Admits the call; returns its result, or for an unlocked action the run itself.
   async call(inv, input) {
     exact(input, toolKeys);
     const ctx = sessionContext(this.w, inv);
@@ -45,7 +59,9 @@ export class AgentCodingSessions {
       throw assistantProblem("sessionsNotEnabled", 403);
     const action = this.actions[input.action];
     if (!action) throw assistantProblem("invalid");
-    return action(ctx, input);
+    if (unlocked.has(input.action)) return () => action(ctx, input, inv);
+    const result = await action(ctx, input, inv);
+    return () => result;
   }
   start() {
     this.closed = false;
