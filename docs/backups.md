@@ -26,7 +26,14 @@ Always, as public (unencrypted) members:
   copies (secrets sealed or left out, see below), `plugin-skills/`, `credentials/`
   (sealed or left out like other credentials) and each agent's `agents/<agent>/agent/`
   configuration files. Every other file or folder below `state/`, including what a
-  later OpenClaw adds, is private content. Agent databases go in as configuration
+  later OpenClaw adds, is private content. The agent skill catalog
+  (`skill-catalog/`: `catalog.json`, the stored versions in `store/` and the live
+  copies in `skills/`) is configuration too and goes in intact, including a skill's
+  own folders named like a cache or `node_modules`; its `staging/` folder (copies on
+  their way in or out) is never archived. A restore writes every file as 0600; the
+  catalog checks each skill against its content digest and re-applies its modes,
+  executables included, before an agent uses it. Which catalog skills an agent has
+  switched on is part of that agent's settings. Agent databases go in as configuration
   copies (see "Agent databases" below). A restore without private content brings
   back working agents with their settings, channels, team policy, reminders,
   access, schedules and shell approvals, and an empty history. Runtimes, package caches (in any spelling, such
