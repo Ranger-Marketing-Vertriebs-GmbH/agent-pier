@@ -420,3 +420,58 @@ test("a tampered store folder without write permission is still replaced", () =>
   s.write(pack("probe", "v2"), meta());
   assert.ok(!fs.existsSync(stored));
 });
+
+test("verify chmods only entries whose mode differs", () => {
+  const s = new SkillCatalogStore({ root });
+  s.write(pack("probe", "v1", { "bin/run.sh": 0o755 }), meta());
+  const chmod = mock.method(fs, "chmodSync");
+  // The skill's own folders and files; the private sub-roots are not applyModes'.
+  const skillCalls = () =>
+    chmod.mock.calls.filter((call) => String(call.arguments[0]).includes("/probe"));
+  s.verify();
+  assert.equal(skillCalls().length, 0);
+  fs.chmodSync(path.join(s.liveRoot, "probe/SKILL.md"), 0o600);
+  chmod.mock.resetCalls();
+  s.verify();
+  assert.equal(skillCalls().length, 1);
+  assert.equal(mode(path.join(s.liveRoot, "probe/SKILL.md")), 0o400);
+});
+
+test("a cached check re-hashes only a changed copy and still finds tampering", async () => {
+  const s = new SkillCatalogStore({ root, settleMs: 5 });
+  s.write(pack("probe", "v1"), meta());
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 30));
+  await pause(); // past the settle window
+  const hashes = mock.method(s, "digestOf");
+  const cached = () => s.verify(["probe"], { cached: true });
+  assert.deepEqual(cached(), { restored: [], damaged: [], failed: [] });
+  const first = hashes.mock.callCount();
+  assert.ok(first > 0);
+  assert.deepEqual(cached(), { restored: [], damaged: [], failed: [] });
+  assert.equal(hashes.mock.callCount(), first); // unchanged: nothing re-hashed
+  // Same size, modification time put back: the change time still differs.
+  await pause();
+  const file = path.join(s.liveRoot, "probe/SKILL.md");
+  const before = fs.statSync(file);
+  const text = fs.readFileSync(file, "utf8");
+  fs.chmodSync(file, 0o600);
+  fs.writeFileSync(file, text.replace("v1\n---", "x1\n---"));
+  fs.utimesSync(file, before.atime, before.mtime);
+  assert.equal(fs.statSync(file).size, before.size);
+  assert.deepEqual(cached(), { restored: ["probe"], damaged: [], failed: [] });
+  assert.match(fs.readFileSync(file, "utf8"), /description: v1/);
+  // A start check (uncached) always hashes.
+  const counted = hashes.mock.callCount();
+  s.verify();
+  assert.ok(hashes.mock.callCount() > counted);
+});
+
+test("a copy changed within the settle window is not cached", () => {
+  const s = new SkillCatalogStore({ root, settleMs: 60_000 });
+  s.write(pack("probe", "v1"), meta());
+  const hashes = mock.method(s, "digestOf");
+  s.verify(["probe"], { cached: true });
+  const first = hashes.mock.callCount();
+  s.verify(["probe"], { cached: true });
+  assert.equal(hashes.mock.callCount(), first * 2);
+});
