@@ -8,7 +8,10 @@ import { assistantProblem } from "../assistant-validation.js";
  *    origin: { class, bindingId?, hookId? }, inherited: { leadId, shareId } | null,
  *    worktree: { runId, cwd, branch, baseBranch, removed? } | null,
  *    seen: { state, at }, observed: { state, since } | null,
- *    lastSentAt: number | null, wakeSeq: number, ended: boolean, createdAt }`.
+ *    lastSentAt: number | null, wakeSeq: number, ended: boolean, createdAt,
+ *    pending?: true }`. A record is written `pending` before the launch, so a
+ * startup prompt of the session is already held for the agent; the start clears it
+ * once the session runs and deletes the record when the launch fails.
  */
 export class AgentSessionStore {
   constructor(db) {
@@ -49,6 +52,11 @@ export class AgentSessionStore {
       .prepare("SELECT body FROM agent_coding_sessions ORDER BY rowid")
       .all()
       .map((row) => JSON.parse(row.body));
+  }
+  delete(sessionId) {
+    this.db
+      .prepare("DELETE FROM agent_coding_sessions WHERE session_id=?")
+      .run(sessionId);
   }
   /** Merges `values` into the record; the session and its agent never change. */
   patch(sessionId, values) {

@@ -254,3 +254,57 @@ test("English agent chat answers an escalated session prompt in its card", async
   await card.getByRole("button", { name: "Open session" }).click();
   await expect(page).toHaveURL(/\/sessions\/agent-session\/chat$/);
 });
+
+// A start from a team path waits for the owner (AGENTPIER-225): the card shows what
+// the session would launch with, so the owner never approves it blind.
+test("English agent chat shows the launch options of a coding session start", async ({
+  page,
+}) => {
+  await chatFixture(page, {
+    actions: [
+      {
+        id: "start-1",
+        assistantId: "home",
+        revision: 1,
+        state: "awaiting_approval",
+        createdAt: "2026-10-27T08:00:00.000Z",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        projectName: "Shop",
+        payload: {
+          action: "session_start",
+          projectId: "p1",
+          requestId: "r1",
+          options: { tool: "claude", launchMode: "bypass", baseBranch: "develop" },
+        },
+        launch: {
+          launchMode: "bypass",
+          unattended: true,
+          account: "Work",
+          connection: null,
+          model: null,
+          secrets: 2,
+          sshAccesses: 1,
+          sandbox: null,
+          agentpierTools: true,
+          agentbus: false,
+        },
+      },
+    ],
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const card = page.locator(".assistant-approval-card", { hasText: "Coding session" });
+  await expect(card.getByText("Shop · Claude Code")).toBeVisible();
+  const facts = card.locator("[data-session-launch]");
+  const fact = (label) => facts.locator("dt", { hasText: label }).locator("+ dd");
+  await expect(fact("Launch mode")).toHaveText("bypass");
+  await expect(fact("Account")).toHaveText("Work");
+  await expect(fact("Secrets")).toHaveText("2");
+  await expect(fact("SSH accesses")).toHaveText("1");
+  await expect(fact("Sandbox profile")).toHaveText("None");
+  await expect(fact("AgentPier tools")).toHaveText("On");
+  await expect(fact("AgentBus")).toHaveText("Off");
+  await expect(
+    card.getByText("Unattended: the CLI runs commands without asking."),
+  ).toBeVisible();
+  await expect(card.getByRole("button", { name: "Approve action" })).toBeVisible();
+});

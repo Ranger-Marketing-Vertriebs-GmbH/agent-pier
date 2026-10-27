@@ -66,6 +66,8 @@ export async function sendToSession(w, ctx, input, inv) {
     input.requestId ??
     `${ctx.hook?.key || ctx.routine?.key || ctx.attemptId}:${inv?.toolCallId}`;
   const deliveryId = deliveryUuid(`${ctx.assistantId}:${record.sessionId}:${callKey}`);
+  // The turn may have ended while the session was read: never send for a stale turn.
+  inv?.assertCurrent?.();
   const receipt = await w.s.chatDelivery.send(record.sessionId, {
     deliveryId,
     deliveryScope: sessionScope(session),

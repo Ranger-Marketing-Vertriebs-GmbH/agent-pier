@@ -82,6 +82,7 @@ export const approvalSubjects = [
   "exec",
   "ssh",
   "coding",
+  "codingSession",
   "memory",
   "grant",
   "hook",

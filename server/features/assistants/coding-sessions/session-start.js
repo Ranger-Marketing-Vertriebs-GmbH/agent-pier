@@ -33,13 +33,16 @@ const optionKeys = [
   "agentbus",
 ];
 const invalid = () => assistantProblem("invalid");
+// Launch modes in which the CLI runs commands without asking.
+const unattendedModes = new Set(["bypass", "yolo"]);
 const text = (value, max) =>
   typeof value === "string" &&
   value.trim().length > 0 &&
   value.length <= max &&
   !/[\u0000-\u001f\u007f]/.test(value);
 
-// The given options, checked against what `options` offers the agent.
+// The given options, checked against what `options` offers the agent, and what the
+// owner's approval shows of them (launchSummary).
 async function validOptions(w, ctx, input) {
   const options = {};
   for (const key of optionKeys) if (input[key] !== undefined) options[key] = input[key];
@@ -91,7 +94,32 @@ async function validOptions(w, ctx, input) {
     !offered.sandboxProfiles.includes(options.nonoProfile)
   )
     throw invalid();
-  return options;
+  return { options, launch: launchSummary(options, offered, connection) };
+}
+
+/**
+ * What the owner approves besides project and CLI: the launch mode (`unattended`
+ * when the CLI runs without asking), the account or connection and model, how many
+ * secrets and SSH accesses, the sandbox profile, and the AgentPier tools and AgentBus.
+ * Names and counts only, never a secret.
+ */
+export function launchSummary(options, offered, connection) {
+  const launchMode = options.launchMode ?? launchDefaults.launchMode[options.tool];
+  return {
+    launchMode,
+    unattended: unattendedModes.has(launchMode),
+    account:
+      offered.accounts.find((a) => a.id === options.accountId)?.name ??
+      options.accountId ??
+      null,
+    connection: connection?.name ?? null,
+    model: options.providerModelId ?? options.nativeModelId ?? null,
+    secrets: options.secretIds?.length ?? 0,
+    sshAccesses: options.sshAccessIds?.length ?? 0,
+    sandbox: options.nonoProfile ?? null,
+    agentpierTools: options.agentpierTools ?? launchDefaults.agentpierTools,
+    agentbus: options.agentbus ?? launchDefaults.agentbus,
+  };
 }
 
 // What the session record keeps of the turn that started it.
@@ -143,7 +171,7 @@ export function startResult(a) {
  * wait for the owner; every other turn starts right away.
  */
 export async function startSession(w, ctx, input) {
-  const options = await validOptions(w, ctx, input);
+  const { options, launch } = await validOptions(w, ctx, input);
   const { inherited } = sessionGrant(w, ctx, input.projectId);
   const requestId = input.requestId ?? randomUUID();
   const payload = {
@@ -173,6 +201,7 @@ export async function startSession(w, ctx, input) {
     sessionId: randomUUID(),
     sessionOrigin: sessionOrigin(w, ctx),
     projectName: project.name,
+    launch,
     ...(inherited ? { inherited } : {}),
     ...(ctx.telegram ? { telegram: ctx.telegram } : {}),
     ...(task
@@ -244,6 +273,9 @@ async function execute(w, a) {
       agentpierTools: options.agentpierTools ?? launchDefaults.agentpierTools,
     };
     const agent = w.a.store.getAssistant(a.assistantId);
+    // Owned before it launches: a startup or trust prompt the CLI asks while it
+    // starts is held for the agent like any later one (operations-events.js).
+    insertRecord(w, a, { pending: true });
     let session;
     try {
       session = await w.s.launch(body, false, {
@@ -251,6 +283,7 @@ async function execute(w, a) {
         startedBy: { kind: "agent", assistantId: a.assistantId, name: agent.name },
       });
     } catch (error) {
+      dropPending(w, a.sessionId);
       if (error?.message === serverMessages.sessions.sessionLimitReached)
         throw assistantProblem("sessionLimit", 409);
       throw error;
@@ -268,26 +301,47 @@ async function execute(w, a) {
   }
 }
 
+// The session's ownership record (session-store.js), once.
+function insertRecord(w, a, extra = {}) {
+  const records = w.sessions.store;
+  if (records.get(a.sessionId)) return;
+  records.insert({
+    sessionId: a.sessionId,
+    assistantId: a.assistantId,
+    conversationId: a.conversationId,
+    projectId: a.payload.projectId,
+    actionId: a.id,
+    requestId: a.payload.requestId,
+    origin: a.sessionOrigin,
+    inherited: a.inherited ?? null,
+    worktree: a.worktree ?? null,
+    seen: { state: "idle", at: Date.now() },
+    observed: null,
+    lastSentAt: null,
+    wakeSeq: 0,
+    ended: false,
+    createdAt: Date.now(),
+    ...extra,
+  });
+}
+
+// The record of a session that never launched.
+function dropPending(w, sessionId) {
+  try {
+    if (w.sessions.store.get(sessionId)?.pending) w.sessions.store.delete(sessionId);
+  } catch (error) {
+    console.error("Dropping a pending session record failed:", error?.message);
+  }
+}
+
 /** The started session's ownership record, audit and running action. */
 async function settleRunning(w, a, session) {
   const records = w.sessions.store;
-  if (!records.get(a.sessionId))
-    records.insert({
-      sessionId: a.sessionId,
-      assistantId: a.assistantId,
-      conversationId: a.conversationId,
-      projectId: a.payload.projectId,
-      actionId: a.id,
-      requestId: a.payload.requestId,
-      origin: a.sessionOrigin,
-      inherited: a.inherited ?? null,
-      worktree: a.worktree ?? null,
+  insertRecord(w, a);
+  if (records.get(a.sessionId).pending)
+    records.patch(a.sessionId, {
+      pending: undefined,
       seen: { state: "idle", at: Date.now() },
-      observed: null,
-      lastSentAt: null,
-      wakeSeq: 0,
-      ended: false,
-      createdAt: Date.now(),
     });
   let signedIn = false;
   try {
@@ -370,12 +424,14 @@ export async function advanceStart(w, a) {
       if (error?.status !== 404) throw error;
     }
     if (session) await settleRunning(w, a, session);
-    else
+    else {
+      dropPending(w, a.sessionId);
       w.store.patch(a.id, {
         state: "failed",
         settled: true,
         diagnostic: "START_INTERRUPTED",
       });
+    }
     return;
   }
   if (!a.settled) w.store.patch(a.id, { settled: true });

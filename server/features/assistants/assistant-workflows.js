@@ -2,6 +2,7 @@ import { AssistantAccess, exact } from "./assistant-access.js";
 import {
   AssistantActionStore,
   actionTerminal as terminal,
+  expired,
 } from "./assistant-action-store.js";
 import { AssistantMemoryForget } from "./assistant-memory-forget.js";
 import { AssistantCoding } from "./assistant-coding.js";
@@ -96,6 +97,7 @@ export class AssistantWorkflows {
         "leadAssistantId",
         "memberName",
         "diagnostic",
+        "launch",
       ]
         .filter((k) => k in a)
         .map((k) => [k, a[k]]),
@@ -298,7 +300,7 @@ export class AssistantWorkflows {
         action.revision !== input.revision ||
         action.state !==
           (input.decision === "review" ? "unknown" : "awaiting_approval") ||
-        (input.decision !== "review" && action.expiresAt < Date.now())
+        (input.decision !== "review" && expired(action.expiresAt))
       )
         throw assistantProblem("conflict", 409);
       // SSH approvals re-check grant, host and pin themselves (agent-ssh-approvals.js),
@@ -456,7 +458,7 @@ export class AssistantWorkflows {
         Date.now() < a.expiresAt + execExpiryGraceMs
       )
         return this.exec.expired();
-      if (a.expiresAt < Date.now()) a = this.store.patch(a.id, { state: "expired" });
+      if (expired(a.expiresAt)) a = this.store.patch(a.id, { state: "expired" });
       else notifyAction(this, a, "approval");
     }
     if (a.state === "approved")

@@ -335,3 +335,43 @@ test("secrets in the agent's note and the session name never reach Telegram", as
   const sent = f.calls.find((c) => c.method === "sendMessage").input.text;
   assert.equal(sent.includes(secret), false);
 });
+
+test("an escalation never expires while its prompt waits: 25 hours later it still asks", async (t) => {
+  const f = await setup(t);
+  // Queued, not sent yet.
+  f.addRequest(f.sessionId, permission);
+  const { actionId } = await f.call(await f.invocation(), {
+    action: "escalate",
+    sessionId: f.sessionId,
+    promptId: "p1",
+  });
+  await f.workflows.tick();
+  const real = Date.now;
+  const later = real() + 25 * 3600 * 1000;
+  Date.now = () => later;
+  t.after(() => {
+    Date.now = real;
+  });
+  const a = f.workflows.store.get(actionId);
+  assert.equal(a.expiresAt, null);
+  assert.deepEqual(
+    f.workflows.store.awaiting(later).map((x) => x.id),
+    [actionId],
+  );
+  await f.workflows.tick();
+  assert.equal(f.workflows.store.get(actionId).state, "awaiting_approval");
+  // The inbox still marks the request as escalated.
+  const { collectItems } = await import("../../server/features/inbox/inbox-sources.js");
+  const items = await collectItems(f.services, { now: later });
+  assert.equal(items.find((i) => i.id === "p1").escalation.agentId, f.id);
+  // The Telegram message is still sent, and its buttons still answer.
+  await f.deliver();
+  assert.ok(f.calls.some((c) => c.method === "sendMessage"));
+  const notice = f.service.outbox
+    .all(f.channel.id)
+    .find((e) => e.key === `action-approval:${actionId}`);
+  assert.equal(notice.state === "reviewed", false);
+  assert.equal(notice.actions[0].expiresAt, null);
+  await f.service.teamActions.receive(f.channel.id, f.press(notice.actions[0].handle));
+  assert.equal(f.services.requests.answers.length, 1);
+});

@@ -10,7 +10,10 @@ import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 import { notifyHookProposal } from "./agent-hook-proposals.js";
 import { notifySshProposal } from "./agent-ssh-proposal-notes.js";
 import { codingToolNames } from "./coding-sessions/session-options.js";
-import { notifyEscalation } from "./coding-sessions/session-escalation-notes.js";
+import {
+  notifyEscalation,
+  sessionMessages,
+} from "./coding-sessions/session-escalation-notes.js";
 // The Telegram chat bound to an action: its own Telegram origin, or for a team
 // member's request the owner chat recorded when the request was made.
 export function telegramTarget(action) {
@@ -43,7 +46,7 @@ export function notifyAction(w, action, phase, prompt = null) {
     (action.payload.action === "coding_start"
       ? `${action.projectName} · ${action.pipelineName}\n${action.payload.task}${action.payload.baseBranch ? `\n${action.payload.baseBranch}` : ""}`
       : action.payload.action === "session_start"
-        ? sessionStartDetail(action)
+        ? sessionStartDetail(action, sessionMessages(store.get(target.channelId)))
         : `${action.projectName}\n${action.payload.title}\n\n${action.payload.content}`);
   const text =
     phase === "approval"
@@ -76,10 +79,32 @@ export function notifyAction(w, action, phase, prompt = null) {
   });
 }
 // An agent's coding session start (coding-sessions/session-start.js): the project,
-// the CLI and, for a worktree, the base branch the agent chose.
-function sessionStartDetail(action) {
+// the CLI, for a worktree the base branch the agent chose, and what it would launch
+// with (launchSummary). Agent-chosen values are inline code.
+function sessionStartDetail(action, c) {
   const { tool, baseBranch } = action.payload.options;
-  return `${action.projectName} · ${codingToolNames[tool] || tool}${baseBranch ? `\n${baseBranch}` : ""}`;
+  const lines = [
+    `${action.projectName} · ${codingToolNames[tool] || tool}${baseBranch ? `\n${baseBranch}` : ""}`,
+  ];
+  const l = action.launch;
+  if (!l) return lines[0];
+  const s = c.startLaunch,
+    onOff = (value) => (value ? s.on : s.off),
+    model = l.model ? literal(l.model) : null;
+  lines.push(
+    "",
+    `${s.mode(l.launchMode)}${l.unattended ? ` (${s.unattended})` : ""}`,
+    ...(l.account ? [s.account(l.account)] : []),
+    ...(l.connection
+      ? [s.connection(model ? `${l.connection} · ${model}` : l.connection)]
+      : model
+        ? [s.model(model)]
+        : []),
+    s.access(l.secrets, l.sshAccesses),
+    l.sandbox ? s.sandbox(l.sandbox) : s.noSandbox,
+    s.tools(onOff(l.agentpierTools), onOff(l.agentbus)),
+  );
+  return lines.join("\n");
 }
 const commandLimit = 1500;
 // A model-chosen name as inline code: inside it the Markdown renderer escapes

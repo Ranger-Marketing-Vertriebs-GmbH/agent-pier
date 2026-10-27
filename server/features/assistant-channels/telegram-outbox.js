@@ -1,3 +1,4 @@
+import { expired } from "../assistants/assistant-action-store.js";
 import { telegramMessages } from "./telegram-messages.js";
 import { grantLabels, holdsShellSsh } from "../assistants/member-grant-notes.js";
 import { sendTelegramParts } from "./telegram-send-parts.js";
@@ -280,7 +281,7 @@ export class TelegramOutbox {
         // An escalation that only links to AgentPier carries no buttons.
         ((!entry.source.escalation || entry.actions.length) &&
           action.revision !== entry.actions[0]?.revision) ||
-        action.expiresAt < Date.now()
+        expired(action.expiresAt)
       ) {
         c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
         return;

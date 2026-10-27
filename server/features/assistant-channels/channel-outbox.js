@@ -99,7 +99,8 @@ export class ChannelOutbox {
       actions: actions.map((a) => ({
         ...a,
         handle: randomBytes(24).toString("base64url"),
-        expiresAt: Date.now() + 86400000,
+        // A button given `expiresAt: null` never expires (an escalated prompt's).
+        expiresAt: a.expiresAt === null ? null : Date.now() + 86400000,
       })),
       fingerprint: hash,
       createdAt: new Date().toISOString(),

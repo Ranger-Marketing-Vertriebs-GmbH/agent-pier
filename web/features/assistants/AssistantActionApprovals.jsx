@@ -9,6 +9,7 @@ import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 import HookProposalCard, { HookCreatedNote } from "./HookProposalCard.jsx";
 import SshAccessProposalCard, { SshAccessCreatedNote } from "./SshAccessProposalCard.jsx";
 import SessionRequestEscalationCard from "./SessionRequestEscalationCard.jsx";
+import SessionLaunchFacts from "./SessionLaunchFacts.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
@@ -154,6 +155,9 @@ export default function AssistantActionApprovals({
             <p>
               {copy.branch}: {branchOf(a)}
             </p>
+          )}
+          {a.payload.action === "session_start" && (
+            <SessionLaunchFacts launch={a.launch} />
           )}
           <div className="assistant-card-actions">
             {["approve", "decline"].map((decision) => (

@@ -146,6 +146,38 @@ test("a waiting hook proposal sends the agent-approval push without its content"
   assert.doesNotMatch(JSON.stringify(notifications.sent), /Zabbix|zabbix01|Disk/);
 });
 
+test("a coding session start waiting for approval sends the agent-approval push", async () => {
+  const notifications = fakeNotifications();
+  const assistants = fakeAssistants();
+  const events = new AgentApprovalEvents({ services: { assistants }, notifications });
+  await events.poll();
+  // A start from a team path or on a lead's share (session-start.js).
+  assistants.actions.push({
+    id: "start-one",
+    assistantId: "mira",
+    conversationId: "chat-main",
+    projectName: "Shop",
+    payload: {
+      action: "session_start",
+      projectId: "p",
+      requestId: "r",
+      options: { tool: "claude", launchMode: "bypass" },
+    },
+  });
+  await events.poll();
+  assert.deepEqual(notifications.sent, [
+    {
+      kind: "agent-approval",
+      eventId: "agent-action-start-one",
+      subject: "codingSession",
+      assistantId: "mira",
+      conversationId: "chat-main",
+      label: "Mira",
+      inbox: { type: "action", id: "start-one" },
+    },
+  ]);
+});
+
 test("native requests, waits and runs name their session or pipeline", async (t) => {
   const notifications = fakeNotifications();
   const session = {

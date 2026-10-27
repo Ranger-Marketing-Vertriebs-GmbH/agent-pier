@@ -18,7 +18,6 @@ const answerers = {
   owner: "the owner",
   telegram: "the owner on Telegram",
   agent: "you",
-  session: "no one (the session ended or moved on)",
 };
 
 // A value as the wake text quotes it: one line, no secrets, bounded.
@@ -38,9 +37,13 @@ function quoted(value, fallback, max = 200) {
  */
 export function wakeText(sessionId, wake) {
   let now;
-  if (wake.event === "prompt-answered")
-    now = `the prompt ${quoted(wake.promptId, "unknown", 100)} you escalated was answered by ${answerers[wake.answeredBy] ?? answerers.session}`;
-  else {
+  if (wake.event === "prompt-answered") {
+    const prompt = `the prompt ${quoted(wake.promptId, "unknown", 100)} you escalated`;
+    // Unknown ("session"): answered in the terminal, or the session ended or moved on.
+    now = answerers[wake.answeredBy]
+      ? `${prompt} was answered by ${answerers[wake.answeredBy]}`
+      : `${prompt} is no longer open; who answered it is unknown`;
+  } else {
     const n = wake.pending ?? 0;
     now = `it is now ${stateWords[wake.state]}${n > 0 ? `, ${n} prompt${n === 1 ? "" : "s"} pending` : ""}`;
   }
@@ -173,7 +176,8 @@ async function reading(w, record) {
 async function tickRecord(sessions, record) {
   const w = sessions.w,
     id = record.sessionId;
-  if (record.ended || !stillGranted(w, record)) return;
+  // A record still launching has no session to read yet (session-start.js).
+  if (record.ended || record.pending || !stillGranted(w, record)) return;
   const now = sessions.now();
   const read = await reading(w, record);
   if (!read) return;

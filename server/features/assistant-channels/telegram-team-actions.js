@@ -1,3 +1,4 @@
+import { expired } from "../assistants/assistant-action-store.js";
 import { telegramMessages } from "./telegram-messages.js";
 import { sessionMessages } from "../assistants/coding-sessions/session-escalation-notes.js";
 export class TelegramTeamActions {
@@ -51,7 +52,7 @@ export class TelegramTeamActions {
     const action = entry?.actions.find((a) => a.handle === query.data);
     if (
       !action ||
-      action.expiresAt < Date.now() ||
+      expired(action.expiresAt) ||
       entry.source.chatId !== channel.chatId ||
       entry.source.userId !== channel.userId
     )

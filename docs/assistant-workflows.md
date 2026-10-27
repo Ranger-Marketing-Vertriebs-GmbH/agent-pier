@@ -311,9 +311,14 @@ always wait for you. Agents of restricted users never get the tool.
 AgentPier or in the paired Telegram chat), in goal continuations, in routine runs and in
 agent hooks that have **Coding** ticked, and in wake
 turns of a session started that way. A start from a team path (a lead's task, a member's
-result, a request made by a member) waits for your approval in the agent's chat like a
-coding task. Forwarded messages, messages of other users and command-completion turns
-cannot start or steer sessions.
+result, a request made by a member) or on a lead's share waits for your approval in the
+agent's chat like a coding task, and sends the **Agent approval** push. The card and the
+Telegram approval show what the session would launch with: the project and CLI, the base
+branch, the launch mode (`bypass` and `yolo` are flagged as unattended, because the CLI
+then runs commands without asking), the account or provider connection and model, how
+many secrets and SSH accesses it receives, the sandbox profile, and whether the
+AgentPier tools and AgentBus are on. Forwarded messages, messages of other users and
+command-completion turns cannot start or steer sessions.
 
 **Actions.** `options` lists what the agent may pick: accounts, provider connections and
 models, launch modes, secrets, SSH accesses and sandbox profiles. `start` launches a
@@ -341,7 +346,9 @@ other session id, including your own sessions, answers `NOT_FOUND`.
 - **Prompts.** The agent sees the session's open questions and approvals with `requests`
   and may `answer` them itself, decline them or `escalate` them to you. The first answer
   wins: if you, the agent or Telegram answered first, the later one learns who did
-  (`PROMPT_ANSWERED`).
+  (`PROMPT_ANSWERED`). When AgentPier does not know who answered (the prompt was
+  answered in the terminal, or the session ended or moved on), it says only that the
+  prompt is no longer open (`answeredBy: "session"`).
 - **Stopping.** `stop` ends the session; its worktree and branch stay.
 
 ### Escalated questions
@@ -354,8 +361,11 @@ chat card and the inbox item answer through the session's own endpoint. When a T
 arrives there with buttons for permission prompts and for a single-choice question; a
 reply to that message answers a single question that takes free text. Anything else
 links to AgentPier. Secret questions are never answered from Telegram, and tokens and
-other secrets in the question or the note are redacted in Telegram. The first answer
-wins, wherever it comes from; the card and the Telegram message then show who answered.
+other secrets in the question or the note are redacted in Telegram. An escalation never
+expires: it waits, with its Telegram buttons, as long as the prompt does. The first
+answer wins, wherever it comes from; the card and the Telegram message then show who
+answered when AgentPier knows it (the answer is recorded on the escalation, so this
+survives a restart), and otherwise that the session no longer waits for the answer.
 
 ### Wake-ups and goals
 
@@ -371,9 +381,11 @@ a session that was deleted, ended or revoked releases it.
 
 Pushes for a session an agent controls change: a **Question from a CLI** or **Approval
 for a CLI** push is held until the agent escalates the prompt or 15 minutes pass (the
-hold survives a restart and a reconnect of the session), and **Session waiting in the
-terminal** and **Response ready** pushes are dropped, because the agent is woken
-instead. **Session ended** still notifies. See
+hold survives a restart and a reconnect of the session, and covers a startup or trust
+prompt the CLI asks while it launches), and **Session waiting in the terminal** and
+**Response ready** pushes are dropped, because the agent is woken instead. **Session
+ended** still notifies. Once the agent loses control (see below), held pushes are sent
+and the session notifies like your own again. See
 [notifications](notifications.md#what-notifies-you).
 
 ### Revoking and archiving
@@ -381,7 +393,8 @@ instead. **Session ended** still notifies. See
 Switching **Coding sessions** off, revoking the project or the lead's share, or
 archiving the agent does not stop anything: its running sessions continue as plain
 sessions of yours (the marker **Started by agent <name>** stays). The agent answers
-`GRANT_REVOKED` to every further call for them.
+`GRANT_REVOKED` to every further call for them, and their pushes reach you as for your
+own sessions.
 
 ### Audit
 

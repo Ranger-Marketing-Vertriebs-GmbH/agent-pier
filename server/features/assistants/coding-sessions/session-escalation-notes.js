@@ -52,6 +52,8 @@ function buttons(action, entry) {
     decision: "answer",
     answer,
     label: cut(String(label), labelLimit),
+    // As the escalation itself: valid while the prompt waits.
+    expiresAt: null,
   });
   if (entry?.kind === "permission")
     return (entry.options || []).map((o) => button({ choice: o.id }, o.label));

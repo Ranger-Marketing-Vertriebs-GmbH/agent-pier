@@ -9,6 +9,12 @@ export const actionTerminal = new Set([
   "expired",
   "reviewed",
 ]);
+/**
+ * Whether an action's `expiresAt` has passed. Null never expires: an escalated
+ * session prompt waits as long as the prompt does (session-escalations.js).
+ */
+export const expired = (expiresAt, now = Date.now()) =>
+  expiresAt !== null && expiresAt !== undefined && expiresAt < now;
 /** The patch that removes a memory write's title and content. */
 export function memoryRedaction(payload) {
   return {
@@ -159,8 +165,9 @@ export class AssistantActionStore {
       id: randomUUID(),
       revision: 1,
       createdAt: new Date().toISOString(),
-      // An exec approval carries the Gateway's own expiry.
-      expiresAt: record.expiresAt ?? Date.now() + 86400000,
+      // An exec approval carries the Gateway's own expiry; null never expires.
+      expiresAt:
+        record.expiresAt === null ? null : (record.expiresAt ?? Date.now() + 86400000),
     };
     this.db
       .prepare("INSERT INTO assistant_actions VALUES(?,?,?,?)")

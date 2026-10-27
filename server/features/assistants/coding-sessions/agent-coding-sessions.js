@@ -8,7 +8,7 @@ import { sessionContext } from "./session-turns.js";
 import { sessionOptions } from "./session-options.js";
 import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
-import { answerPrompt, listPrompts } from "./session-requests.js";
+import { answerPrompt, escalationKey, listPrompts } from "./session-requests.js";
 import { removeWorktree, stopSession } from "./session-worktrees.js";
 import {
   advanceEscalation,
@@ -17,6 +17,7 @@ import {
   escalatePrompt,
 } from "./session-escalations.js";
 import { holdsGoal, tickWakes, wakeEscalation } from "./session-wakes.js";
+import { stillGranted } from "./session-control.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -115,8 +116,17 @@ export class AgentCodingSessions {
     });
     while (this.answers.size > maxAnswers)
       this.answers.delete(this.answers.keys().next().value);
+    // Kept on a waiting escalation of the prompt too, so it survives a restart.
+    try {
+      if (typeof event.sessionId !== "string") return;
+      const a = this.w.store.byKey(escalationKey(event.sessionId, event.resourceId));
+      if (a?.state === "awaiting_approval")
+        this.w.store.patch(a.id, { answeredBy: actor });
+    } catch (error) {
+      console.error("Recording who answered an escalation failed:", error?.message);
+    }
   }
-  /** Who answered the prompt: owner, agent or telegram; else the session itself. */
+  /** Who answered the prompt: owner, agent or telegram; else "session" (unknown). */
   answeredBy(promptId) {
     return this.answers.get(promptId)?.actor ?? "session";
   }
@@ -174,25 +184,38 @@ export class AgentCodingSessions {
       policy.sessionProjectIds.filter((id) => policy.projectIds.includes(id)),
     );
     const ownOnly = !!(ctx?.requestedBy || ctx?.memberResult);
-    for (const share of ownOnly ? [] : w.shares.codingProjects(assistantId, {}))
-      if (w.access.sessionsEnabled(share.leadId, share.projectId))
-        ids.add(share.projectId);
-    if (!ids.size) return [];
-    return w.s.memory
-      .projects()
-      .projects.filter((p) => ids.has(p.id))
-      .map(({ id, name }) => ({ projectId: id, name }));
+    // A failing read answers none, so applying an agent's configuration never breaks.
+    try {
+      for (const share of ownOnly ? [] : w.shares.codingProjects(assistantId, {}))
+        if (w.access.sessionsEnabled(share.leadId, share.projectId))
+          ids.add(share.projectId);
+      if (!ids.size) return [];
+      return w.s.memory
+        .projects()
+        .projects.filter((p) => ids.has(p.id))
+        .map(({ id, name }) => ({ projectId: id, name }));
+    } catch {
+      return [];
+    }
   }
-  /** Whether an agent controls this session now: a record that has not ended. */
+  /**
+   * Whether an agent controls this session now: a record that has not ended (one
+   * still launching included) whose grant still holds. Never throws.
+   */
   controls(sessionId) {
-    const record = this.store.get(sessionId);
-    return !!record && !record.ended;
+    try {
+      const record = this.store.get(sessionId);
+      return !!record && !record.ended && stillGranted(this.w, record);
+    } catch {
+      return false;
+    }
   }
   // The sessions the agent started, each with its live status ("gone" once removed).
   async list(ctx) {
     const names = new Map(this.w.s.memory.projects().projects.map((p) => [p.id, p.name]));
     const sessions = [];
     for (const record of this.store.forAgent(ctx.assistantId)) {
+      if (record.pending) continue;
       let session = null;
       try {
         session = await this.w.s.sessions.get(record.sessionId);

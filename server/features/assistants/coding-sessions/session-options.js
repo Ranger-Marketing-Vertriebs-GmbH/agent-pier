@@ -63,7 +63,9 @@ export async function sessionOptions(w, ctx) {
       .filter((a) => !a.internal && codingTools.includes(a.tool))
       .map(({ id, name, tool }) => ({ id, name, tool })),
     connections: listed(() => s.providerConnections?.list())
-      .filter((c) => c.launchable && c.tools.some((tool) => codingTools.includes(tool)))
+      .filter(
+        (c) => c.launchable && (c.tools || []).some((tool) => codingTools.includes(tool)),
+      )
       .map((c) => ({
         id: c.id,
         name: c.name,
