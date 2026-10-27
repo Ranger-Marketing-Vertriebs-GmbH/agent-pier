@@ -88,11 +88,15 @@ test("the list carries the agent's ceiling and shell choices before any hook exi
     memory: false,
     mcp: false,
     secrets: false,
+    mail: false,
   });
   assert.deepEqual(shellChoices, ["off"]);
   // Granted secrets let a hook hold the Secrets switch.
   f.grants.access = { ...f.grants.access, secretIds: ["s1"] };
   assert.equal(f.hooks.list(f.id).ceiling.secrets, true);
+  // Any email account granted lets a hook hold the Email tick.
+  f.grants.access = { ...f.grants.access, mailAccesses: [{ accountId: "m1" }] };
+  assert.equal(f.hooks.list(f.id).ceiling.mail, true);
 });
 
 test("a hook stored before the Secrets switch reads as switched off", async (t) => {

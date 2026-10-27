@@ -14,6 +14,7 @@ import {
   withLiveSecrets,
 } from "./agent-secret-grants.js";
 import { auditAccessSave, auditSshGrants } from "./assistant-access-audit.js";
+import * as mail from "./mail/agent-mail-grants.js";
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -21,6 +22,15 @@ export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === tru
 const maxSshAccesses = 30;
 const byAccessId = (a, b) =>
   a.accessId < b.accessId ? -1 : a.accessId > b.accessId ? 1 : 0;
+// Fields older policy rows lack, read as empty.
+const withDefaults = (body) => ({
+  sshAccesses: [],
+  projectFiles: {},
+  sessionProjectIds: [],
+  github: null,
+  mailAccesses: [],
+  ...body,
+});
 export const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 /**
@@ -77,6 +87,7 @@ export class AssistantAccess {
     this.db.exec(
       "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
     );
+    mail.bindAccountRemoval(services, this);
   }
   eligible(id) {
     const a = this.s.assistants.store.getAssistant(id);
@@ -95,13 +106,7 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? {
-          sshAccesses: [],
-          projectFiles: {},
-          sessionProjectIds: [],
-          github: null,
-          ...JSON.parse(row.body),
-        }
+      ? withDefaults(JSON.parse(row.body))
       : {
           github: null,
           revision: 0,
@@ -116,6 +121,7 @@ export class AssistantAccess {
           connectionIds: [],
           definitions: {},
           sshAccesses: [],
+          mailAccesses: [],
         };
   }
   /** Whether `id` is an eligible agent with coding sessions on for the project. */
@@ -171,6 +177,7 @@ export class AssistantAccess {
           }),
         ),
       secrets: secretCatalog(this.s, names),
+      mailAccounts: mail.mailCatalog(this.s),
     };
   }
   /**
@@ -215,6 +222,7 @@ export class AssistantAccess {
       "sessionProjectIds",
       "github",
       "secretIds",
+      "mailAccesses",
     ]);
     // Coding, pipelines, SSH and GitHub stay locked for user agents (user-agent-lock.js).
     refuseLockedAccess(agent, input);
@@ -279,6 +287,11 @@ export class AssistantAccess {
         input.secretIds === undefined
           ? old.secretIds
           : secretGrantList(this.s, id, input.secretIds, this.stored(id).secretIds),
+      // Email accounts (mail/agent-mail-grants.js); absent keeps the stored grants.
+      mailAccesses:
+        input.mailAccesses === undefined
+          ? old.mailAccesses
+          : mail.mailGrantList(this.s, id, input.mailAccesses),
       revision: revision + 1,
       approvalRevision: revision + 1,
       accountIds: [...accountIds],
@@ -466,6 +479,14 @@ export class AssistantAccess {
     if (changed.length) this.s.assistants.changed();
     return changed.map((c) => c.id);
   }
+  /** Takes one email account out of every agent's grants (mail/agent-mail-grants.js). */
+  revokeMail(accountId, during = () => {}) {
+    return mail.revokeMailGrants(this, accountId, during);
+  }
+  /** `id`'s live grant for one email account, or null (mail/agent-mail-grants.js). */
+  mailGrant(id, accountId) {
+    return mail.heldMailGrant(this, id, accountId);
+  }
   /**
    * Removes one project from every agent's grants in one transaction, together with
    * `during`; returns the changed policies. Like an SSH host removal it keeps the
@@ -510,13 +531,7 @@ export class AssistantAccess {
       for (const row of this.db
         .prepare("SELECT assistant_id, body FROM assistant_access")
         .all()) {
-        const before = {
-          sshAccesses: [],
-          projectFiles: {},
-          sessionProjectIds: [],
-          github: null,
-          ...JSON.parse(row.body),
-        };
+        const before = withDefaults(JSON.parse(row.body));
         const fields = change(before);
         if (!fields) continue;
         const after = this.write(row.assistant_id, {

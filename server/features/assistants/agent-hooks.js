@@ -109,6 +109,8 @@ export class AgentHooks {
       mcp: (this.assistants.config.mcpTools?.(agent) || []).length > 0,
       // Granted secrets that still exist (assistant-access.js secretIds).
       secrets: (access.secretIds || []).length > 0,
+      // Any email account granted (mail/agent-mail-grants.js).
+      mail: (access.mailAccesses || []).length > 0,
     };
   }
   /**

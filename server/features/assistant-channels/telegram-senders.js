@@ -52,6 +52,8 @@ export class TelegramSenders {
     sshAgents = () => new Set(),
     // Whether an assistant holds secrets (agent-secret-grants.js); its access policy.
     secretsGranted = (id) => !!assistants.workflows?.access.secretIds(id).length,
+    // Whether an assistant holds an email account (mail/agent-mail-grants.js).
+    mailGranted = (id) => !!assistants.workflows?.access.get(id).mailAccesses.length,
     // The agent ids the next start finds in openclaw.json: the start compiles bots
     // only for these (configuredAgents), so every comparison uses the same set.
     configured = null,
@@ -75,6 +77,7 @@ export class TelegramSenders {
       stdioAgents,
       sshAgents,
       secretsGranted,
+      mailGranted,
       retryMs,
       maxAttempts,
       warn,
@@ -114,6 +117,7 @@ export class TelegramSenders {
       throw assistantProblem("telegramSendersSsh", 409);
     if (this.secretsGranted(assistantId))
       throw assistantProblem("telegramSendersSecrets", 409);
+    if (this.mailGranted(assistantId)) throw assistantProblem("telegramSendersMail", 409);
     return profile;
   }
   /**

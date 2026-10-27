@@ -1,4 +1,5 @@
 import { auditSecretGrants } from "./agent-secret-grants.js";
+import { auditMailGrants } from "./mail/agent-mail-grants.js";
 
 // Audit records of agent access changes (assistant-access.js): ids, levels, modes
 // and secret names; never a token, a value or a description.
@@ -114,4 +115,5 @@ export function auditAccessSave(services, id, before, after) {
   auditProjectGrants(services, id, before, after);
   auditGithubAccess(services, id, before, after);
   auditSecretGrants(services, id, before, after);
+  auditMailGrants(services, id, before, after, "owner");
 }
