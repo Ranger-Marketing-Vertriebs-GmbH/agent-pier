@@ -5,7 +5,8 @@ import { nameValue, problem } from "../../lib/storage.js";
 import { passwordValue } from "../ssh/ssh-password-store.js";
 
 const securities = ["tls", "starttls", "none"];
-const accountKeys = new Set([
+/** The keys an account body may carry (create, update and test). */
+export const accountInputKeys = Object.freeze([
   "name",
   "address",
   "displayName",
@@ -16,6 +17,7 @@ const accountKeys = new Set([
   "saveSent",
   "password",
 ]);
+const accountKeys = new Set(accountInputKeys);
 /** Every field of a stored catalog row; a backup restores exactly these. */
 export const accountRowKeys = Object.freeze([
   "id",

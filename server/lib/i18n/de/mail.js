@@ -20,4 +20,6 @@ export const mail = Object.freeze({
   passwordRequiredForServer:
     "Bitte das Passwort erneut eingeben, wenn sich Mailserver, Port oder Verschlüsselung ändern.",
   catalogUnreadable: "Die gespeicherten E-Mail-Kontodaten können nicht gelesen werden.",
+  testRateLimited:
+    "Zu viele Verbindungstests für E-Mail-Zugänge. Bitte in einer Minute erneut versuchen.",
 });

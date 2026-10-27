@@ -17,4 +17,5 @@ export const mail = Object.freeze({
   passwordRequiredForServer:
     "Enter the password again when you change a mail server, port or security.",
   catalogUnreadable: "The saved email accounts cannot be read.",
+  testRateLimited: "Too many email connection tests. Try again in a minute.",
 });

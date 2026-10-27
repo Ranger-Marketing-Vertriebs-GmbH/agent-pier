@@ -53,7 +53,7 @@ test("users are denied every owner route in the registry", async (t) => {
       .sort(),
     [...beforeLogin].sort(),
   );
-  let probed = 0;
+  const probed = new Set();
   for (const route of routes) {
     if (route.beforeLogin) continue;
     const method = route.method === "ALL" ? "GET" : route.method;
@@ -65,9 +65,19 @@ test("users are denied every owner route in the registry", async (t) => {
     assert.equal(response.status, 404, label);
     assert.notEqual(response.headers.get("content-type"), "text/event-stream", label);
     if (method !== "HEAD") assert.deepEqual(await response.json(), notFound, label);
-    probed++;
+    probed.add(label);
   }
-  assert.ok(probed > 300, `probed ${probed} routes`);
+  assert.ok(probed.size > 300, `probed ${probed.size} routes`);
+  // Mail accounts are the owner's alone: users never see that they exist.
+  for (const label of [
+    "GET /api/mail/accounts",
+    "POST /api/mail/accounts",
+    "PATCH /api/mail/accounts/:id",
+    "DELETE /api/mail/accounts/:id",
+    "POST /api/mail/accounts/:id/test",
+    "POST /api/mail/test",
+  ])
+    assert.ok(probed.has(label), label);
 });
 
 test("every allow-list entry matches a real route", async (t) => {

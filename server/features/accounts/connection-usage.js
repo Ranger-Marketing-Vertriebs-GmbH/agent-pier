@@ -3,8 +3,8 @@ import { inheritsFromLead } from "../assistants/native-capabilities.js";
 import { temporaryMember } from "../assistants/team-presentation.js";
 import { mcpLastChange, sshLastUse, sshLastUseCovers } from "./connection-last-use.js";
 
-// "Used by" for the shared credentials in Zugänge: SSH/SFTP hosts, secrets and GitHub
-// token profiles (docs/settings-pattern.md). Like account-usage.js, agent data is read
+// "Used by" for the shared credentials in Zugänge: SSH/SFTP hosts, secrets, GitHub
+// token profiles and email accounts (docs/settings-pattern.md). Like account-usage.js, agent data is read
 // only while the agents feature runs, and a source that fails to read becomes null,
 // never a fake 0 or an empty list. Nothing here changes a grant.
 const safe = (read, empty) => {
@@ -104,6 +104,7 @@ export async function connectionUsageSources(services) {
       [...Object.values(access), ...Object.values(hooks)].every((v) => v !== null),
     hosts,
     secrets,
+    mailAccounts: safe(() => services.mailAccounts?.list(), []),
     credentials: safe(() => services.repositories?.listCredentials(), []),
     projects: safe(() => services.repositories?.listProjects(), []),
     sessions: sessionHoldings(services, sessions, hosts, secrets),
@@ -167,6 +168,13 @@ export function summarizeConnectionUsage(sources) {
         ]),
       )
     : null;
+  // Absent in sources built before mail accounts existed: an empty list, not unknown.
+  const mailAccounts = sources.mailAccounts === undefined ? [] : sources.mailAccounts;
+  const mail = mailAccounts
+    ? Object.fromEntries(
+        mailAccounts.map((account) => [account.id, { agents: agentList() }]),
+      )
+    : null;
   for (const project of sources.projects || [])
     entry(github, project.credentialId)?.projects?.push({
       id: project.id,
@@ -192,6 +200,9 @@ export function summarizeConnectionUsage(sources) {
           target.hooks.push({ agentId: agent.id, hookId: hook.id, name: hook.name });
         addAgent(target, agent, "hook", { mode: null });
       }
+    // Mail is granted per agent only; a lead never shares it (mailAccesses, Task 6).
+    for (const grant of own.mailAccesses || [])
+      addAgent(entry(mail, grant.accountId), agent, "grant", { mode: grant.level });
     for (const secretId of own.secretIds || [])
       addAgent(entry(secrets, secretId), agent, "grant", { mode: null });
     if (own.github)
@@ -227,6 +238,7 @@ export function summarizeConnectionUsage(sources) {
     secrets,
     github,
     mcp,
+    mail,
   };
 }
 

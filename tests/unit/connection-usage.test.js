@@ -212,3 +212,61 @@ test("a failing read marks only its own source unknown", async () => {
   assert.deepEqual(off.agents, []);
   assert.equal(off.sessions, null);
 });
+
+test("mail accounts list the agents granted read or send", () => {
+  const usage = summarizeConnectionUsage({
+    ...sources,
+    mailAccounts: [{ id: "m1" }, { id: "m2" }],
+    access: {
+      ...sources.access,
+      lead: {
+        ...sources.access.lead,
+        mailAccesses: [
+          { accountId: "m1", level: "send", recipients: ["example.com"] },
+          { accountId: "gone", level: "read", recipients: [] },
+        ],
+      },
+      quiet: { mailAccesses: [{ accountId: "m1", level: "read", recipients: [] }] },
+    },
+  });
+  assert.deepEqual(usage.mail, {
+    m1: {
+      agents: [
+        { id: "lead", name: "Lead", kind: "agent", via: "grant", mode: "send" },
+        { id: "quiet", name: "Quiet", kind: "teamMember", via: "grant", mode: "read" },
+      ],
+    },
+    m2: { agents: [] },
+  });
+  // Policies written before mail access existed carry no mailAccesses.
+  assert.deepEqual(
+    summarizeConnectionUsage({ ...sources, mailAccounts: [{ id: "m1" }] }).mail,
+    {
+      m1: { agents: [] },
+    },
+  );
+  assert.equal(summarizeConnectionUsage({ ...sources, mailAccounts: null }).mail, null);
+  assert.equal(
+    summarizeConnectionUsage({
+      ...sources,
+      agentsKnown: false,
+      mailAccounts: [{ id: "m1" }],
+    }).mail.m1.agents,
+    null,
+  );
+});
+
+test("an unreadable mail account list is null in the usage sources", async () => {
+  const read = await connectionUsageSources({
+    mailAccounts: {
+      list: () => {
+        throw new Error("corrupt");
+      },
+    },
+  });
+  assert.equal(read.mailAccounts, null);
+  const listed = await connectionUsageSources({
+    mailAccounts: { list: () => [{ id: "m" }] },
+  });
+  assert.deepEqual(listed.mailAccounts, [{ id: "m" }]);
+});
