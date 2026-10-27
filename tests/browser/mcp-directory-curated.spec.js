@@ -43,6 +43,10 @@ for (const [label, use] of [
         /Do not run REA’s own “rea setup”/,
       ])
         await expect(note.getByText(text)).toBeVisible();
+      await expect(note.getByText(/AgentPier can install REA for you/)).toBeVisible();
+      await expect(
+        note.getByRole("link", { name: "Install REA with AgentPier" }),
+      ).toHaveAttribute("href", "/coding/clis?tab=install");
       await fits(page);
       if (label === "desktop")
         await detail.screenshot({ path: test.info().outputPath("rea-detail.png") });

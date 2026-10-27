@@ -1,12 +1,19 @@
 import React, { useId } from "react";
 import { mcpDirectoryCopy as copy } from "../../../lib/i18n/messages/mcp-directory.js";
-import { curatedHintFor } from "./curated-hints.js";
+import ManagedToolLink from "./ManagedToolLink.jsx";
+import { curatedHintFor, curatedManagedTool } from "./curated-hints.js";
 
 /**
  * AgentPier's own note on a known MCP server (curated-hints.js), shown in the
  * directory detail and on the package step. Renders nothing for any other server.
  */
-export default function CuratedHint({ serverName, registry, packageName, level = 3 }) {
+export default function CuratedHint({
+  serverName,
+  registry,
+  packageName,
+  level = 3,
+  navigate,
+}) {
   const id = useId();
   const key = curatedHintFor({ serverName, registry, packageName });
   const hint = key ? copy.curated.hints[key] : null;
@@ -23,6 +30,13 @@ export default function CuratedHint({ serverName, registry, packageName, level =
           <li key={point}>{point}</li>
         ))}
       </ul>
+      {curatedManagedTool(key) && (
+        <p>
+          <ManagedToolLink navigate={navigate}>
+            {copy.curated.installManaged}
+          </ManagedToolLink>
+        </p>
+      )}
     </section>
   );
 }

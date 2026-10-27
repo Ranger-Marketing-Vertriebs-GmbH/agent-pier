@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { curatedHintFor } from "../../web/features/mcp-servers/wizard/curated-hints.js";
+import {
+  curatedHintFor,
+  curatedManagedTool,
+} from "../../web/features/mcp-servers/wizard/curated-hints.js";
 import * as de from "../../web/lib/i18n/de/mcp-directory.js";
 import * as en from "../../web/lib/i18n/en/mcp-directory.js";
 
@@ -52,4 +55,21 @@ test("every curated hint has matching DE and EN copy", () => {
   }
   assert.equal(typeof en.mcpDirectoryCopy.curated.label, "string");
   assert.equal(typeof de.mcpDirectoryCopy.curated.label, "string");
+});
+
+test("the REA hint carries the managed install link; look-alikes get none", () => {
+  const id = curatedHintFor({ serverName: "io.github.morluto/rea" });
+  assert.equal(curatedManagedTool(id), "rea");
+  assert.equal(
+    curatedManagedTool(curatedHintFor({ registry: "npm", packageName: "rea-agents" })),
+    "rea",
+  );
+  assert.equal(
+    curatedManagedTool(curatedHintFor({ serverName: "io.github.morIuto/rea" })),
+    null,
+  );
+  assert.equal(curatedManagedTool("constructor"), null);
+  assert.equal(curatedManagedTool(undefined), null);
+  for (const c of [en, de])
+    assert.equal(typeof c.mcpDirectoryCopy.curated.installManaged, "string");
 });

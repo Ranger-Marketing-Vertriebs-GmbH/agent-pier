@@ -14,6 +14,7 @@ import McpRemoveConfirmation from "../McpRemoveConfirmation.jsx";
 import McpServerInfo from "../McpServerInfo.jsx";
 import { savedNotice } from "../mcp-notices.js";
 import AgentFoldersCard from "./AgentFoldersCard.jsx";
+import ManagedToolLink from "./ManagedToolLink.jsx";
 import useDirectoryUpdates from "./useDirectoryUpdates.js";
 import "../mcp-servers.css";
 import "../mcp-cli.css";
@@ -29,14 +30,16 @@ function StepCard({ title, lines, onChange }) {
           {line}
         </p>
       ))}
-      <button
-        type="button"
-        className="button secondary"
-        aria-label={copy.overview.changeNamed(title)}
-        onClick={onChange}
-      >
-        {copy.overview.change}
-      </button>
+      {onChange && (
+        <button
+          type="button"
+          className="button secondary"
+          aria-label={copy.overview.changeNamed(title)}
+          onClick={onChange}
+        >
+          {copy.overview.change}
+        </button>
+      )}
     </section>
   );
 }
@@ -99,7 +102,14 @@ export default function McpServerOverview({
     <AccountDetail
       title={server.name}
       destructive={
-        removing ? (
+        server.managed ? (
+          <p className="mcp-hint">
+            {mcpServerCopy.managedNote}{" "}
+            <ManagedToolLink navigate={navigate}>
+              {mcpServerCopy.managedManage}
+            </ManagedToolLink>
+          </p>
+        ) : removing ? (
           <McpRemoveConfirmation
             server={server}
             busy={busy}
@@ -135,7 +145,7 @@ export default function McpServerOverview({
             `${mcpServerCopy.transports[server.transport]} · ${where}`,
             ...(timeouts ? [timeouts] : []),
           ]}
-          onChange={() => open("setup")}
+          onChange={server.managed ? undefined : () => open("setup")}
         />
         <StepCard
           title={copy.overview.settingsTitle}
@@ -158,6 +168,7 @@ export default function McpServerOverview({
             server={server}
             onChanged={data.reloadMcp}
             listedVersion={update?.version}
+            managed={Boolean(server.managed)}
           />
         )}
         <StepCard

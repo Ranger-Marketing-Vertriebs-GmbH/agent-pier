@@ -7,6 +7,7 @@
 const curated = [
   {
     id: "rea",
+    managed: "rea",
     serverName: "io.github.morluto/rea",
     packages: [{ registry: "npm", name: "rea-agents" }],
   },
@@ -18,6 +19,11 @@ const byPackage = new Map(
     item.packages.map((pkg) => [`${pkg.registry}:${pkg.name}`, item.id]),
   ),
 );
+
+/** The AgentPier-managed tool a curated hint offers to install instead, or null. */
+export function curatedManagedTool(id) {
+  return curated.find((item) => item.id === id)?.managed ?? null;
+}
 
 /** The curated hint id for a registry entry or a package, or null. */
 export function curatedHintFor({ serverName, registry, packageName } = {}) {

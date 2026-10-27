@@ -2,6 +2,8 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 import { reaManifest, reaPlatform } from "../../server/features/tools/rea-manifest.js";
+import { packagedServer } from "./mcp-packages-fixture.js";
+import { wizardSetup } from "./mcp-wizard-fixture.js";
 import { reaComponentStates } from "../../server/features/tools/rea-state.js";
 
 // The REA card and its dialog: components with sizes, safety and sandbox notes, the
@@ -253,4 +255,41 @@ test("a refused install shows the server reason in the dialog", async ({ page })
     "The IDA analysis provider needs the path to an IDA MCP configuration.",
   );
   await expect(alert).toBeInViewport();
+});
+
+test("a managed REA row has no Remove, links to the REA card and locks managed env names", async ({
+  page,
+}) => {
+  const managed = packagedServer("ready", {
+    id: "s1",
+    name: "rea-agentpier",
+    envNames: ["JAVA_HOME", "MY_KEY"],
+    managed: { tool: "rea", lockedEnv: ["JAVA_HOME"] },
+  });
+  await wizardSetup(page, { servers: [managed] });
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(`${base}/accounts?section=mcp-servers&item=s1`);
+  const view = page.locator(".accounts-detail");
+  await expect(
+    view.getByRole("heading", { name: "rea-agentpier" }).first(),
+  ).toBeVisible();
+  await expect(view.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
+  await expect(view.getByText(/AgentPier manages this server/)).toBeVisible();
+  const link = view.getByRole("link", { name: "Manage REA" });
+  await expect(link).toHaveAttribute("href", /\/coding\/clis\?tab=install/);
+  await expect(
+    view.getByRole("region", { name: "Source and name" }).getByRole("button"),
+  ).toHaveCount(0);
+  // The package is REA's: no update check, no reinstall.
+  await expect(view.getByRole("button", { name: "Check update" })).toHaveCount(0);
+  await expect(view.getByRole("button", { name: "Reinstall" })).toHaveCount(0);
+  await view.getByRole("button", { name: "Change: Settings" }).click();
+  const rows = page.locator(".accounts-detail .mcp-row");
+  const locked = rows.filter({ hasText: "JAVA_HOME" });
+  await expect(locked).toContainText("managed by AgentPier");
+  await expect(locked.locator("input")).toHaveCount(0);
+  await expect(locked.getByRole("button")).toHaveCount(0);
+  const own = rows.filter({ hasText: "MY_KEY" });
+  await expect(own.getByLabel("MY_KEY: New value (leave empty to keep)")).toBeEditable();
+  await expect(own.getByRole("button", { name: "Remove" })).toBeVisible();
 });

@@ -56,7 +56,7 @@ function Lookup({ name, registry, versions }) {
   );
 }
 
-export default function PackageStep({ state, dispatch, go, headingRef, data }) {
+export default function PackageStep({ state, dispatch, go, headingRef, data, navigate }) {
   const formId = useId();
   const { draft, fieldError } = state;
   const set = (key) => (value) => dispatch({ type: "set", key, value });
@@ -104,6 +104,7 @@ export default function PackageStep({ state, dispatch, go, headingRef, data }) {
         registry={draft.registry}
         packageName={draft.packageName}
         level={2}
+        navigate={navigate}
       />
       <McpPackageFields
         formId={formId}

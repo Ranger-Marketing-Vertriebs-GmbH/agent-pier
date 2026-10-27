@@ -27,10 +27,18 @@ import "./mcp-packages.css";
  * or failed, and an update that shows the lock
  * diff before it is confirmed; the update keeps the constraints unless edited. While a job
  * runs the status is polled; `onChanged` reloads the servers once it settles.
+
+ * A `managed` package (REA's) is shown read-only: its status, log and skills, but no
+ * program choice, reinstall or update, which belong to the tool's own card.
  * `listedVersion` (a newer version the MCP directory lists) is named and offered when the
  * registry's version list has it.
  */
-export default function McpPackagePanel({ server, onChanged, listedVersion = "" }) {
+export default function McpPackagePanel({
+  server,
+  onChanged,
+  listedVersion = "",
+  managed = false,
+}) {
   useLanguage();
   const id = useId();
   const { status, setStatus, error, setError, source, job, running, shown } =
@@ -163,29 +171,31 @@ export default function McpPackagePanel({ server, onChanged, listedVersion = "" 
         </details>
       )}
       <ErrorMessage error={error} />
-      {choosing && programs.length > 0 && (
+      {!managed && choosing && programs.length > 0 && (
         <McpPackageProgramChoice programs={programs} busy={busy} onChoose={choose} />
       )}
       {/* A choosing record whose program list is gone can only be built again. */}
-      {(shown === "failed" ||
-        shown === "missing" ||
-        (choosing && status && programs.length === 0)) && (
-        <div className="mcp-actions">
-          <button
-            type="button"
-            className="button secondary"
-            disabled={busy}
-            onClick={reinstall}
-          >
-            {copy.reinstall}
-          </button>
-        </div>
-      )}
-      {listedVersion &&
+      {!managed &&
+        (shown === "failed" ||
+          shown === "missing" ||
+          (choosing && status && programs.length === 0)) && (
+          <div className="mcp-actions">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy}
+              onClick={reinstall}
+            >
+              {copy.reinstall}
+            </button>
+          </div>
+        )}
+      {!managed &&
+        listedVersion &&
         versions.versions.some((entry) => entry.version === listedVersion) && (
           <p className="mcp-hint">{directoryCopy.listedVersion(listedVersion)}</p>
         )}
-      {!running && !preview && !choosing && (
+      {!managed && !running && !preview && !choosing && (
         <div className="mcp-package-update">
           <McpVersionPicker
             id={`${id}-update`}

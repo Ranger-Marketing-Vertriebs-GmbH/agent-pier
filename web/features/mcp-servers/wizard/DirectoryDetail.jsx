@@ -23,7 +23,7 @@ const day = (value) => {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString(locale);
 };
 
-function Body({ entry, chosen, setChosen }) {
+function Body({ entry, chosen, setChosen, navigate }) {
   const id = useId();
   const option = entry.options[chosen];
   const inputs = option
@@ -43,7 +43,7 @@ function Body({ entry, chosen, setChosen }) {
       </p>
       {entry.statusMessage && <p className="mcp-warning">{entry.statusMessage}</p>}
       {entry.description && <p className="mcp-directory-text">{entry.description}</p>}
-      <CuratedHint serverName={entry.name} />
+      <CuratedHint serverName={entry.name} navigate={navigate} />
       {[
         ["repositoryUrl", copy.sourceLink],
         ["websiteUrl", copy.website],
@@ -107,7 +107,7 @@ function Body({ entry, chosen, setChosen }) {
   );
 }
 
-function Detail({ entry, onUse, onClose }) {
+function Detail({ entry, onUse, onClose, navigate }) {
   const narrow = useNarrowViewport();
   const [chosen, setChosen] = useState(() => entry.options.findIndex(isSelectable));
   const option = entry.options[chosen];
@@ -122,7 +122,9 @@ function Detail({ entry, onUse, onClose }) {
       {copy.use}
     </button>
   );
-  const body = <Body entry={entry} chosen={chosen} setChosen={setChosen} />;
+  const body = (
+    <Body entry={entry} chosen={chosen} setChosen={setChosen} navigate={navigate} />
+  );
   return narrow ? (
     <Sheet open title={title} onCancel={onClose} className="mcp-directory-sheet">
       {body}
@@ -141,7 +143,15 @@ function Detail({ entry, onUse, onClose }) {
 }
 
 /** The entry's detail: a sheet on phones, a side panel on wider screens. */
-export default function DirectoryDetail({ entry, onUse, onClose }) {
+export default function DirectoryDetail({ entry, onUse, onClose, navigate }) {
   if (!entry) return null;
-  return <Detail key={entry.name} entry={entry} onUse={onUse} onClose={onClose} />;
+  return (
+    <Detail
+      key={entry.name}
+      entry={entry}
+      onUse={onUse}
+      onClose={onClose}
+      navigate={navigate}
+    />
+  );
 }
