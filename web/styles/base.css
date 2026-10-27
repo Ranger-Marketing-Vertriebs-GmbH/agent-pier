@@ -51,6 +51,8 @@
   --amber-400: #e8b765;
   --red-500: #e5796b;
   --red-300: #e7a3a3;
+  --blue-400: #7fb0e0;
+  --blue-200: #b7d3f0;
 
   /* Semantic colours. Alpha tints keep their literal value: a light theme redefines
      them together with their base colour. */
@@ -112,6 +114,14 @@
   --status-ok: var(--green-500);
   --status-error: var(--red-500);
   --status-idle: var(--neutral-20);
+  /* Charts: one colour per series, for HistoryChart, ShareBar and inline bars. RAM
+     differs from the orange CPU in hue and lightness. */
+  --chart-cpu: var(--accent);
+  --chart-memory: var(--blue-400);
+  --chart-memory-text: var(--blue-200);
+  --chart-agentpier: var(--neutral-26);
+  --chart-other: var(--neutral-18);
+  --chart-grid: var(--divider-soft);
 
   /* Spacing: a 4px grid. */
   --space-1: 4px;
