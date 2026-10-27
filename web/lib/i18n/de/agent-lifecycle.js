@@ -30,4 +30,7 @@ export const agentLifecycleCopy = {
     count === 1 ? "1 temporäres Team-Mitglied" : `${count} temporäre Team-Mitglieder`,
   kept: "Projektgedächtnis sowie Coding- und Pipeline-Läufe, die er gestartet hat, bleiben.",
   typeName: (name) => `Gib „${name}“ zur Bestätigung ein`,
+  deletionPending: "Löschen ausstehend",
+  deletionFailed: (code) =>
+    `Löschen ausstehend · letzter Versuch fehlgeschlagen: ${code}`,
 };

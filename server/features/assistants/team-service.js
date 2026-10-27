@@ -232,6 +232,13 @@ export class TeamService {
         throw assistantProblem("invalid");
       const record = this.store.assertLifecycle(id, revision);
       const members = record.kind === "member" ? [record] : this.store.members(id);
+      // A member being deleted is never restored (agent-lifecycle.js).
+      if (
+        members.some(
+          (m) => this.assistants.store.storedAssistant(m.assistantId).deletingAt,
+        )
+      )
+        throw assistantProblem("notFound", 404);
       // An archived agent must not keep answering people on its own Telegram bot.
       if (
         action === "archive" &&

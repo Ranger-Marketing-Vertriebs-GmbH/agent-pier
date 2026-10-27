@@ -1,4 +1,5 @@
 import { assistantProblem, validateDefinition } from "./assistant-validation.js";
+import { listedAgents } from "./agent-lifecycle.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
 import { AgentShares } from "./agent-shares.js";
@@ -156,21 +157,17 @@ export class AssistantService {
     // his settings show it read-only or explain why not (owner-privacy.js).
     // The owner's list: users' chats show only under their opt-in, and only from its
     // since (owner-privacy.js); agents the Gateway refused say so, and their chats.
-    // One being deleted is never listed (agent-lifecycle.js).
-    const deleting = new Set(this.store.deletingAssistants().map((a) => a.id));
+    // One being deleted is listed apart, as a pending delete (agent-lifecycle.js).
+    const live = listedAgents(this.store);
     const { assistants, conversations } = withAdmission(this, {
-      assistants: this.store
-        .listAssistants()
-        .filter((a) => !a.deletingAt)
+      assistants: live.assistants
         .map((a) => this.withMcp(a))
         .map((a) =>
           a.userAccess?.mode === "own"
             ? { ...a, ownerReads: this.privacy?.agentContent?.(a) ?? true }
             : a,
         ),
-      conversations: this.store
-        .listConversations()
-        .filter((c) => !deleting.has(c.assistantId))
+      conversations: live.conversations
         .map((c) => (this.privacy?.view ? this.privacy.view(c) : c))
         .filter(Boolean),
     });
@@ -181,6 +178,7 @@ export class AssistantService {
       }),
       assistants,
       conversations,
+      deletions: live.deletions,
       models: this.models.listCapabilities(),
       activity: assistantActivity({
         assistants,

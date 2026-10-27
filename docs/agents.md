@@ -149,11 +149,15 @@ before **Create agent**.
 Every agent can be archived: your own agents, permanent team members and agents of
 users. **Archive** sits in the ⋯ menu of the agent's settings header and under
 **Overview › Manage**. An archived agent stops completely: it takes no turns, its
-routines and reminders are paused, its check-ins and hooks do not run, nothing is
-delivered over Telegram and it holds no MCP servers. All its data stays: chats,
+routines and reminders are paused, its check-ins and hooks do not run, cron jobs it
+created itself are paused in the agent service, nothing is delivered over Telegram and
+it holds no MCP servers. While the agent service is not running, its own jobs are
+paused at its next start. All its data stays: chats,
 memory, workspace, settings and access. It moves to **Agents › All agents ›
-Archive**; **Restore** brings it back with the same settings. Routines and reminders
-stay paused after a restore until you resume them.
+Archive**; **Restore** brings it back with the same settings and enables the jobs it
+created itself again. Routines and reminders stay paused after a restore until you
+resume them. A user's own agent whose user was deleted cannot be restored, only
+deleted.
 
 - An agent that is still answering, or a team member still at work, cannot be
   archived; wait or stop it first. Disconnect an agent's own Telegram bot for other
@@ -181,9 +185,11 @@ running as yours), as do worktrees, shared projects, the activity log (its entri
 name only ids and counts) and backups made before
 ([Backups](backups.md#what-a-backup-holds)). A delete is refused while the agent
 answers or its settings are being applied, and for a lead that still has permanent
-members (delete those first). The agent service must be running. A delete
-interrupted by a crash or restart finishes at the next start of the agent service;
-until then the agent is neither listed nor restorable and never runs.
+members (delete those first). The agent service must be running. A delete that
+failed or was interrupted shows in **Agents › Archive** as **Deletion pending** (with
+the code of its last failure); it is never restored and never runs. **Delete
+permanently** there retries it after the name confirmation, and every start of the
+agent service tries again.
 
 ### Message times
 

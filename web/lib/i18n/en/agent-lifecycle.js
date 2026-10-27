@@ -28,4 +28,6 @@ export const agentLifecycleCopy = {
     count === 1 ? "1 temporary team member" : `${count} temporary team members`,
   kept: "Project memory, coding runs and pipeline runs it started stay.",
   typeName: (name) => `Type “${name}” to confirm`,
+  deletionPending: "Deletion pending",
+  deletionFailed: (code) => `Deletion pending · last attempt failed: ${code}`,
 };

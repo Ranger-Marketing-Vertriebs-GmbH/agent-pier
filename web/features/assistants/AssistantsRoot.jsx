@@ -16,6 +16,7 @@ const toData = (next) => ({
   loaded: true,
   assistants: next.assistants || none,
   conversations: next.conversations || none,
+  deletions: next.deletions || none,
   models: next.models || none,
   teams: next.teams || none,
   members: next.members || none,

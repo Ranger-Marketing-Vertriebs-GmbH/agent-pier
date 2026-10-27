@@ -18,10 +18,11 @@ import { settingsRoute } from "./AgentRow.jsx";
 /**
  * Alle Agenten › Archiv: archived agents and team members behind one row. Every
  * archived agent is restored, may reset its browser profile (as its settings offer),
- * opens its settings and is deleted permanently after its confirmation.
+ * opens its settings and is deleted permanently after its confirmation. A delete that
+ * did not finish shows as pending, with its last failure, and can be retried.
  */
 export default function ArchiveGroup({ archived, navigate }) {
-  const { members = [], assistants = [], refresh } = useAssistants();
+  const { members = [], assistants = [], deletions = [], refresh } = useAssistants();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +30,7 @@ export default function ArchiveGroup({ archived, navigate }) {
   const [resetting, setResetting] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const id = useId();
-  if (!archived.length) return null;
+  if (!archived.length && !deletions.length) return null;
   const memberOf = (a) => members.find((m) => m.assistantId === a.id) || null;
   const leadName = (member) =>
     assistants.find((x) => x.id === member?.parentAssistantId)?.name ||
@@ -53,7 +54,11 @@ export default function ArchiveGroup({ archived, navigate }) {
     <section aria-labelledby={id}>
       <GroupLabel id={id}>{copy.archive}</GroupLabel>
       <ListCard labelledBy={id}>
-        <ListRow label={copy.archiveRow} sub={copy.archiveSub} value={archived.length}>
+        <ListRow
+          label={copy.archiveRow}
+          sub={copy.archiveSub}
+          value={archived.length + deletions.length}
+        >
           <button
             type="button"
             className="button secondary compact"
@@ -119,6 +124,30 @@ export default function ArchiveGroup({ archived, navigate }) {
                 </ListRow>
               );
             })}
+          {open &&
+            deletions.map((d) => (
+              <ListRow
+                key={d.id}
+                icon={<span className="assistant-avatar">{avatarGlyph(d.name)}</span>}
+                label={d.name}
+                sub={
+                  d.error
+                    ? lifecycleCopy.deletionFailed(d.error)
+                    : lifecycleCopy.deletionPending
+                }
+              >
+                <div className="agents-hub-row-actions">
+                  <button
+                    type="button"
+                    className="button destructive compact"
+                    disabled={busy}
+                    onClick={() => setDeleting(d)}
+                  >
+                    {lifecycleCopy.deletePermanently}
+                  </button>
+                </div>
+              </ListRow>
+            ))}
         </div>
       </ListCard>
       <ErrorMessage error={error} />

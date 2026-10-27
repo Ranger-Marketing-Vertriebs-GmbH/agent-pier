@@ -44,8 +44,8 @@ export function assistantLifecycleRoutes({ assistants }) {
     res.json(await lifecycle().restore(req.params.id, { revision: revision(input) }));
   });
   // What a delete would remove, as counts for the confirmation.
-  router.get("/assistants/:id/deletion", (req, res) =>
-    res.json(lifecycle().deletion(req.params.id)),
+  router.get("/assistants/:id/deletion", async (req, res) =>
+    res.json(await lifecycle().deletion(req.params.id)),
   );
   router.delete("/assistants/:id", async (req, res) => {
     const input = body(req, ["name"], ["name"]);
