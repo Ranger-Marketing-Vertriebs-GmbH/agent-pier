@@ -21,26 +21,28 @@ export class AgentMail {
   constructor(w) {
     this.w = w;
     mailCursorTable(w.a.store.db);
-    // MailAccountStore.onRemoved, bound by the application graph (assistant-graph.js).
+    // The only MailAccountStore.onRemoved binding: removing an account revokes every
+    // agent's grant first. A store set later (tests) is bound to `hook` by hand.
     this.hook = (accountId) => this.revokeAccount(accountId);
+    if (w.s.mailAccounts) w.s.mailAccounts.onRemoved = this.hook;
   }
   /**
    * The agent's granted accounts that still exist, with level and recipient rules
    * (its AGENTS.md section and the `accounts` action); [] for an agent that cannot
-   * hold mail.
+   * hold mail or while the catalog cannot be read. The catalog is read once.
    */
-  accounts(assistantId) {
+  accounts(assistantId, catalog = mailCatalog(this.w.s)) {
     let grants;
     try {
-      grants = this.w.access.get(assistantId).mailAccesses;
+      grants = this.w.access.stored(assistantId).mailAccesses;
     } catch {
       return [];
     }
-    if (!grants.length) return [];
-    const catalog = new Map((mailCatalog(this.w.s) || []).map((a) => [a.id, a]));
+    if (!grants.length || !catalog) return [];
+    const byId = new Map(catalog.map((a) => [a.id, a]));
     return grants.flatMap(({ accountId }) => {
-      const grant = this.w.access.mailGrant(assistantId, accountId);
-      const account = catalog.get(accountId);
+      const grant = this.w.access.mailGrant(assistantId, accountId, catalog);
+      const account = byId.get(accountId);
       if (!grant || !account) return [];
       return [
         {
@@ -126,7 +128,9 @@ export class AgentMail {
         throw assistantProblem("invalid");
       const gate = this.gate(inv, input);
       if (input.action === "accounts") {
-        const accounts = this.accounts(gate.agent.id);
+        const catalog = mailCatalog(this.w.s);
+        if (!catalog) throw this.refuse(inv, gate.caller, "mailAccountUnavailable", 503);
+        const accounts = this.accounts(gate.agent.id, catalog);
         if (!accounts.length) throw this.refuse(inv, gate.caller, "mailNotGranted");
         return { accounts };
       }

@@ -164,15 +164,16 @@ export function revokeMailGrants(access, accountId, during) {
  * An agent's grant for one email account, read live: only the owner's own agents and
  * permanent members (AssistantAccess.eligible), never a user agent, a temporary
  * member through its lead, or an agent with its own Telegram bot for other people.
+ * `catalog` (mailCatalog) lets a caller that checks several grants read it once.
  */
-export function heldMailGrant(access, id, accountId) {
+export function heldMailGrant(access, id, accountId, catalog = mailCatalog(access.s)) {
   try {
     const agent = access.eligible(id);
     if (isUserAgent(agent) || access.s.assistantTelegramSenders?.connected(id))
       return null;
     // The account must still be listed: an unreadable catalog grants nothing.
-    if (!mailCatalog(access.s)?.some((account) => account.id === accountId)) return null;
-    return access.get(id).mailAccesses.find((g) => g.accountId === accountId) || null;
+    if (!catalog?.some((account) => account.id === accountId)) return null;
+    return access.stored(id).mailAccesses.find((g) => g.accountId === accountId) || null;
   } catch {
     return null;
   }
@@ -192,24 +193,4 @@ export function withLiveMail(services, policy) {
     ...policy,
     mailAccesses: policy.mailAccesses.filter((g) => known.has(g.accountId)),
   };
-}
-
-const removals = new WeakMap();
-/** A removed email account leaves every agent's grants (mail-account-store.js). */
-export function bindAccountRemoval(services, access) {
-  if (!services.mailAccounts) return;
-  const removed = (accountId) => access.revokeMail(accountId);
-  removals.set(access, removed);
-  services.mailAccounts.onRemoved = removed;
-}
-
-/**
- * Unbinds `access` when its database closes (AssistantWorkflows.close), but only
- * while the store still calls it: a newer AssistantAccess keeps its own binding.
- */
-export function unbindAccountRemoval(services, access) {
-  const removed = removals.get(access);
-  if (removed && services.mailAccounts?.onRemoved === removed)
-    services.mailAccounts.onRemoved = null;
-  removals.delete(access);
 }

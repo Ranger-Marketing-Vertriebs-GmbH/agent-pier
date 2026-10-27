@@ -20,8 +20,9 @@ const levels = ["read", "send"];
  * `hook` only for the run session of a running hook event and `hookMail` for that
  * hook's live Email tick, and `inherited` is the class stored on the card a
  * `mail-result` follow-up continues. Everything the owner did not ask for directly
- * (forwarded content, lead requests, team-member turns, member results, users'
- * turns, reminders, command completions, unknown) is refused.
+ * (forwarded content, lead requests, team-member turns, member results, also as a
+ * goal turn, coding-session wakes, users' turns, reminders, command completions,
+ * unknown) is refused.
  */
 export function mailOrigin({
   context,
@@ -33,7 +34,9 @@ export function mailOrigin({
   if (hook) return { class: hookMail === true ? "hook" : "refused" };
   if (routine) return { class: "routine" };
   const kind = context?.kind;
-  if (["owner", "telegram"].includes(kind) && !context.forwarded)
+  // A goal turn that carries a result (lead-requests.js goalResult: a member's
+  // result) is text the owner did not write: mail stays off, whatever the anchor.
+  if (["owner", "telegram"].includes(kind) && !context.forwarded && !context.result)
     return { class: "owner" };
   if (kind === "mail-result" && inherited === "owner") return { class: "owner" };
   return { class: "refused" };

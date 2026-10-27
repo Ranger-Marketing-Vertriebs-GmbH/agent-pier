@@ -87,7 +87,6 @@ export class AssistantAccess {
     this.db.exec(
       "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
     );
-    mail.bindAccountRemoval(services, this);
   }
   eligible(id) {
     const a = this.s.assistants.store.getAssistant(id);
@@ -484,8 +483,8 @@ export class AssistantAccess {
     return mail.revokeMailGrants(this, accountId, during);
   }
   /** `id`'s live grant for one email account, or null (mail/agent-mail-grants.js). */
-  mailGrant(id, accountId) {
-    return mail.heldMailGrant(this, id, accountId);
+  mailGrant(id, accountId, catalog) {
+    return mail.heldMailGrant(this, id, accountId, catalog);
   }
   /**
    * Removes one project from every agent's grants in one transaction, together with
