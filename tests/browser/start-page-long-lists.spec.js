@@ -239,12 +239,12 @@ test.describe("phone", () => {
   });
 });
 
-test("Open Inbox sits beside the Needs you cards while Inbox items wait", async ({
+test("Open inbox sits beside the Needs you cards while Inbox items wait", async ({
   page,
 }) => {
   await serveLongLists(page);
   await page.goto("/");
   const needs = page.getByRole("region", { name: "Needs you" });
-  await needs.getByRole("link", { name: "Open Inbox" }).click();
+  await needs.getByRole("link", { name: "Open inbox" }).click();
   await expect(page).toHaveURL(/\/inbox$/);
 });

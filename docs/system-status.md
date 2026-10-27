@@ -11,7 +11,7 @@ you, in a column up to about 1180 px wide:
   wizard; **New session** opens the launch dialog and stays disabled while no coding CLI
   is installed.
 - **Needs you:** up to three cards, then "n more items" unfolds the rest; while Inbox
-  items wait, **Open Inbox** beside it leads to the Inbox. The
+  items wait, **Open inbox** beside it leads to the Inbox. The
   [Inbox](inbox.md) items come first, in its order; a card's button (**Answer**,
   **Review**, **Decide**) opens the item in the Inbox, because the Inbox has no quick
   actions. Then the host's own problems: AgentPier unreachable, [low disk
