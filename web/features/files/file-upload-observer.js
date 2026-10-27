@@ -100,6 +100,7 @@ export class UploadJobObserver {
       cursors: new Set(),
     };
     this.watched.set(id, watch);
+    this.session.resume();
     return watch;
   }
   reconcile() {

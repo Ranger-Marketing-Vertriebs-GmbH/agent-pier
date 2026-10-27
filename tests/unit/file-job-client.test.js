@@ -173,11 +173,88 @@ test("polling schedules by visibility and serializes delayed reads and write act
   gate.resolve();
   assert.equal((await started).id, "new");
   await tick();
-  assert.equal([...f.timers.values()][0].delay, 10000);
+  assert.equal(f.timers.size, 0);
   f.visibility(false);
+  await tick();
+  await tick();
   assert.equal([...f.timers.values()][0].delay, 1500);
+  f.visibility(true);
+  assert.equal(f.timers.size, 0);
   f.unsubscribe();
   assert.equal(f.timers.size, 0);
+});
+
+test("an idle explorer reads /jobs once and arms no timer", async () => {
+  const reads = [];
+  const f = fixture({
+    get: async (suffix) => {
+      reads.push(suffix);
+      return { jobs: [], nextCursor: null };
+    },
+  });
+  await tick();
+  await tick();
+  assert.deepEqual(reads, ["/jobs"]);
+  assert.equal(f.timers.size, 0);
+  f.visibility(false);
+  await tick();
+  assert.equal(reads.length, 2);
+  assert.equal(f.timers.size, 0);
+  f.unsubscribe();
+});
+
+test("a hidden explorer arms no timer even with a tracked job", async () => {
+  const reads = [];
+  const f = fixture({
+    get: async (suffix) => {
+      reads.push(suffix);
+      return suffix === "/jobs"
+        ? { jobs: [job("busy", { kind: "copy" })], nextCursor: null }
+        : job("busy", { kind: "copy" });
+    },
+  });
+  await tick();
+  await tick();
+  assert.equal(f.timers.size, 1);
+  f.visibility(true);
+  assert.equal(f.timers.size, 0);
+  const count = reads.length;
+  await tick();
+  assert.equal(reads.length, count);
+  f.visibility(false);
+  await tick();
+  await tick();
+  assert.ok(reads.length > count);
+  assert.equal(f.timers.size, 1);
+  f.unsubscribe();
+});
+
+test("a started job resumes polling until it retires", async () => {
+  let status = "running";
+  const f = fixture({
+    get: async (suffix) => {
+      if (suffix === "/jobs") return { jobs: [], nextCursor: null };
+      if (suffix.endsWith("/entries")) return { entries: [], nextCursor: null };
+      return job("started", { kind: "copy", status });
+    },
+    mutate: async () => job("started", { kind: "copy" }),
+  });
+  await tick();
+  await tick();
+  assert.equal(f.timers.size, 0);
+  await f.session.start("scope", { kind: "copy" });
+  await tick();
+  await tick();
+  assert.equal(f.timers.size, 1);
+  status = "completed";
+  const [timer] = [...f.timers.values()];
+  f.timers.clear();
+  timer.callback();
+  await tick();
+  await tick();
+  assert.equal(f.session.tracked.size, 0);
+  assert.equal(f.timers.size, 0);
+  f.unsubscribe();
 });
 
 test("delayed start completion cannot publish after client replacement", async () => {

@@ -507,3 +507,15 @@ test("German extraction errors and unknown totals remain explicit on desktop and
     f.requests.filter((item) => item.suffix.endsWith("/retry") && item.method === "POST"),
   ).toHaveLength(0);
 });
+
+test("an idle explorer sends one jobs read in six seconds", async ({ page }) => {
+  const f = await jobsFixture(page);
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  await openExplorerPanel(page, "activity");
+  await expect(
+    page.getByRole("region", { name: "File jobs", exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(6000);
+  expect(f.requests.filter((item) => item.suffix === "/jobs")).toHaveLength(1);
+});
