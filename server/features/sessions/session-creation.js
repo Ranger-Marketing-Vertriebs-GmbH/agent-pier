@@ -22,6 +22,22 @@ function sessionSecretsRecord({ projectId, assignedIds }) {
   return { projectId, assignedIds: [...assignedIds] };
 }
 
+/** Who started a session on its own: only the server sets it (agents, AGENTPIER-225). */
+function startedByRecord(value) {
+  if (value === undefined) return undefined;
+  if (
+    !value ||
+    typeof value !== "object" ||
+    value.kind !== "agent" ||
+    typeof value.assistantId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value.assistantId) ||
+    typeof value.name !== "string" ||
+    value.name.length > 100
+  )
+    throw failure(serverMessages.sessions.invalidOptions);
+  return { kind: "agent", assistantId: value.assistantId, name: value.name };
+}
+
 /**
  * Validates a session creation request, then persists the launch description the
  * spawned process reads (`${id}.launch.json`, the `terminal-launcher.js` boundary)
@@ -44,6 +60,7 @@ export async function buildSessionLaunch(manager, options) {
   validId(accountId);
   const pipeline = pipelineIdentity(options.pipeline);
   const input = nativeInput(options);
+  const startedBy = startedByRecord(options.startedBy);
   const name = validName(options.name);
   if (!["codex", "claude", "opencode", "shell"].includes(tool))
     throw failure(serverMessages.sessions.invalidTool);
@@ -137,6 +154,7 @@ export async function buildSessionLaunch(manager, options) {
     // Only this launch's adapter may write `<id>.adapter.json` (adapter-diagnostics.js).
     ...(adapter ? { adapterGeneration: adapter.generation } : {}),
     ...(pipeline ? { pipeline } : {}),
+    ...(startedBy ? { startedBy } : {}),
     ...(options.launchMode ? { launchMode: options.launchMode } : {}),
     ...(options.purpose === "login" ? { purpose: "login" } : {}),
     ...(options.agentbus

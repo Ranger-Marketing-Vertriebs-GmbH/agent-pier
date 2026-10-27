@@ -164,3 +164,25 @@ test("English Access tab switches coding sessions for a granted project and save
   await expect.poll(() => saves.length).toBe(2);
   expect(saves[1]).toMatchObject({ projectIds: [], sessionProjectIds: [] });
 });
+
+test("English session list and header mark a session an agent started", async ({
+  page,
+}) => {
+  await fixture(page, {
+    session: {
+      id: "agent-session",
+      name: "Agent task",
+      accountId: "local-claude",
+      tool: "claude",
+      status: "running",
+      cwd: "/fixture/demo",
+      startedBy: { kind: "agent", assistantId: "home", name: "Home" },
+    },
+  });
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/sessions/agent-session/chat");
+  await expect(
+    page.locator(".session-item", { hasText: "Agent task" }).locator("small"),
+  ).toContainText("· Agent Home");
+  await expect(page.locator(".session-title")).toContainText("Started by agent Home");
+});

@@ -2,6 +2,7 @@ import React from "react";
 import ProviderMark from "../components/ProviderMark.jsx";
 import StatusDot from "../components/StatusDot.jsx";
 import { activityTone } from "../components/status-tones.js";
+import { sessionListCopy } from "../lib/i18n/messages/sessions.js";
 import { sessionActivity, sandboxBadge } from "./SidebarGroup.jsx";
 
 // Sessions may lack a working directory (cwd null); they then show no location.
@@ -35,6 +36,8 @@ export default function SessionRow({ session, selected, onSelect, names }) {
         <small>
           <span className={`activity-label ${activity.state}`}>{activity.label}</span>
           {location && ` · ${location}`}
+          {session.startedBy?.kind === "agent" &&
+            ` · ${sessionListCopy.agentBadge(session.startedBy.name)}`}
           {session.sandbox && ` · ${sandboxBadge(session)}`}
         </small>
       </span>

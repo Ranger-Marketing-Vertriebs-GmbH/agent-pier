@@ -120,6 +120,11 @@ export default function SessionWorkspace({
                 </span>
               )}
             </p>
+            {session.startedBy?.kind === "agent" && (
+              <p className="session-started-by">
+                {copy.startedByAgent(session.startedBy.name)}
+              </p>
+            )}
           </div>
         </div>
         <div className="session-actions">
