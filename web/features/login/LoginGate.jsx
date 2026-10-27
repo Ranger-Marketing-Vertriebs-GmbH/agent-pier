@@ -42,7 +42,6 @@ export default function LoginGate({ children }) {
     }
   }, [invalidate]);
   useEffect(() => {
-    refresh();
     const expired = () => {
       invalidate();
       forgetUser();
@@ -56,10 +55,12 @@ export default function LoginGate({ children }) {
     window.addEventListener("agentpier-login-required", expired);
     window.addEventListener("storage", changed);
     window.addEventListener("focus", refresh);
-    // The first run is the explicit refresh above; later runs only while visible.
-    let first = true;
+    // Visible: the explicit refresh is the first read and the poll's first run is
+    // skipped. Hidden: nothing is requested until the poll's first visible run.
+    let skip = !document.hidden;
+    if (skip) refresh();
     const stop = startVisiblePolling(async () => {
-      if (first) first = false;
+      if (skip) skip = false;
       else await refresh();
     }, 60000);
     return () => {

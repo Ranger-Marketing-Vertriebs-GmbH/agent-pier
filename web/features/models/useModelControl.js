@@ -1,5 +1,5 @@
 import { modelRequest } from "./model-request.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react";
 const emptyState = {
@@ -113,8 +113,15 @@ export default function useModelControl({ session, active, request, onPendingCha
           });
         }
       } catch (err) {
-        if (!signal.aborted && version === generation.current && !mutating.current)
+        // A deadline abort reports the timeout; hiding or stopping stays silent.
+        if (
+          (!signal.aborted || timedOut(signal)) &&
+          version === generation.current &&
+          !mutating.current
+        ) {
+          setReconciling(false);
           setReadError(err.message);
+        }
       }
     };
     return startVisiblePolling(poll, 3000);

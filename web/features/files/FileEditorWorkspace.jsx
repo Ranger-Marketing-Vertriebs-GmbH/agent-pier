@@ -59,8 +59,12 @@ export default function FileEditorWorkspace({
   useEffect(() => {
     if (!current || !tab?.document) return;
     const stop = startVisiblePolling((signal) => observe(tab.id, signal), 15000);
+    let focusRead = null;
     const focus = () => {
-      if (!document.hidden) observe(tab.id);
+      if (document.hidden) return;
+      focusRead?.abort();
+      focusRead = new AbortController();
+      observe(tab.id, focusRead.signal);
     };
     const visibility = () => {
       if (document.hidden) invalidateObservation(tab.id);
@@ -69,6 +73,7 @@ export default function FileEditorWorkspace({
     document.addEventListener("visibilitychange", visibility);
     return () => {
       stop();
+      focusRead?.abort();
       invalidateObservation(tab.id);
       window.removeEventListener("focus", focus);
       document.removeEventListener("visibilitychange", visibility);

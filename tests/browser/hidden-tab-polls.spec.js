@@ -41,7 +41,8 @@ test("hidden run list pills pause and resume", async ({ page }) => {
   await pausesWhenHidden(page, requests, /\/api\/pipeline-runs/);
 });
 
-test("a hidden session chat pauses the model and reload reads", async ({ page }) => {
+// A codex chat; `stall` lets a test hold the model or reload read after the first.
+async function sessionFixture(page, stall = {}) {
   const session = {
     id: "hidden-demo",
     name: "Hidden demo",
@@ -50,7 +51,8 @@ test("a hidden session chat pauses the model and reload reads", async ({ page })
     cwd: "/home/test/project",
     status: "running",
   };
-  await page.route("**/api/**", (route) => {
+  const seen = { models: 0, reload: 0 };
+  await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     let json = {};
     if (path === "/api/state")
@@ -60,12 +62,17 @@ test("a hidden session chat pauses the model and reload reads", async ({ page })
         sessions: [session],
         home: "/home/test",
       };
-    else if (path.endsWith("/models"))
+    else if (path.endsWith("/models")) {
+      if (stall.models && ++seen.models > 1)
+        await new Promise((r) => setTimeout(r, 17000));
       json = { currentModel: "gpt-5.6-sol", currentSource: "cli", pending: false };
-    else if (path.endsWith("/requests")) json = { requests: [] };
-    else if (path.endsWith("/reload"))
+    } else if (path.endsWith("/requests")) json = { requests: [] };
+    else if (path.endsWith("/reload")) {
+      if (stall.reload && ++seen.reload > 1)
+        await new Promise((r) => setTimeout(r, 17000));
       json = { eligible: true, reason: null, state: "idle", activity: { state: "busy" } };
-    return route.fulfill({ json });
+    }
+    return route.fulfill({ json }).catch(() => {});
   });
   await page.routeWebSocket("**/api/sessions/*/terminal", () => {});
   await mockChatStream(page, () => ({
@@ -75,6 +82,10 @@ test("a hidden session chat pauses the model and reload reads", async ({ page })
     tasks: [],
   }));
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+}
+
+test("a hidden session chat pauses the model and reload reads", async ({ page }) => {
+  await sessionFixture(page);
   const requests = recordApiRequests(page);
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
@@ -176,4 +187,56 @@ test("hidden Accounts pause the CLI sign-in reads", async ({ page }) => {
   await page.goto(baseURL + "/accounts?section=cli&item=managed-codex");
   await expect(page.locator(".accounts-detail")).toBeVisible();
   await pausesWhenHidden(page, requests, /\/auth-status$/);
+});
+
+test("a stalled model read reports its timeout while hidden stays silent", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await sessionFixture(page, { models: true });
+  await page.goto(baseURL + "/sessions/hidden-demo/chat");
+  await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
+    "gpt-5.6-sol",
+  );
+  await expect(page.getByText(/The model status request timed out/)).toBeVisible({
+    timeout: 25000,
+  });
+  // The chat stays usable.
+  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
+});
+
+test("a stalled reload read shows a timeout in the dialog", async ({ page }) => {
+  test.setTimeout(60000);
+  await sessionFixture(page, { reload: true });
+  await page.goto(baseURL + "/sessions/hidden-demo/chat");
+  await page.getByRole("button", { name: "Reload & resume", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "The server did not answer in time.",
+    { timeout: 25000 },
+  );
+});
+
+test("login status is not requested while hidden and is read once on show", async ({
+  page,
+}) => {
+  const statuses = [];
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+  });
+  await page.route("**/auth/status", (route) => {
+    statuses.push(route.request().url());
+    return route.fulfill({
+      json: { configured: true, authenticated: true, canSetup: false },
+    });
+  });
+  await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  await page.goto(baseURL + "/settings");
+  await page.waitForTimeout(2000);
+  expect(statuses).toEqual([]);
+  await setTabHidden(page, false);
+  await expect.poll(() => statuses.length, { timeout: 1000 }).toBe(1);
 });

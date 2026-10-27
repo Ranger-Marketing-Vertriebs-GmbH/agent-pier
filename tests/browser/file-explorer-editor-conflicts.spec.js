@@ -117,7 +117,7 @@ test("document metadata polling pauses while hidden and resumes when visible", a
   page,
 }) => {
   await page.addInitScript(() => {
-    window.__documentVisible = false;
+    window.__documentVisible = true;
     Object.defineProperty(Document.prototype, "hidden", {
       configurable: true,
       get: () => !window.__documentVisible,
@@ -145,20 +145,26 @@ test("document metadata polling pauses while hidden and resumes when visible", a
     `${baseURL}/files?path=%2Fhome%2Ftest&file=${encodeURIComponent(path)}`,
   );
   await page.getByRole("button", { name: "Open in editor", exact: true }).click();
+  // The app only loads in a visible tab, so the editor opens visible and is then hidden.
+  await expect.poll(() => metadataReads).toBe(1);
+  await page.evaluate(() => {
+    window.__documentVisible = false;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   await page.waitForTimeout(300);
-  expect(metadataReads).toBe(0);
+  expect(metadataReads).toBe(1);
   await page.evaluate(() => {
     window.__documentVisible = true;
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  await expect.poll(() => metadataReads).toBe(1);
+  await expect.poll(() => metadataReads).toBe(2);
   await page.evaluate(() => {
     window.__documentVisible = false;
     document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("focus"));
   });
   await page.waitForTimeout(5200);
-  expect(metadataReads).toBe(1);
+  expect(metadataReads).toBe(2);
 });
 
 test("manual conflict resolution adopts disk text and format as the dirty baseline", async ({
