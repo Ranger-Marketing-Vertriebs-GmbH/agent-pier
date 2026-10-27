@@ -146,6 +146,8 @@ before **Create agent**.
 
 ### Archive and delete
 
+![Confirmation before an archived agent is deleted permanently](screenshots/agent-delete-confirm.png)
+
 Every agent can be archived: your own agents, permanent team members and agents of
 users. **Archive** sits in the ⋯ menu of the agent's settings header and under
 **Overview › Manage**. An archived agent stops completely: it takes no turns, its
