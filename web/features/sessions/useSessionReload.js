@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
+import { apiCopy } from "../../lib/i18n/messages/components.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 
 export default function useSessionReload(session, pending) {
@@ -35,12 +36,12 @@ export default function useSessionReload(session, pending) {
         }
       } catch (err) {
         if (
-          !signal.aborted &&
+          (!signal.aborted || timedOut(signal)) &&
           !mutating.current &&
           version === epoch.current &&
           !submissionError.current
         )
-          setError(err.message);
+          setError(timedOut(signal) ? apiCopy.timedOut : err.message);
       }
     }
     return startVisiblePolling(poll, 1500);
