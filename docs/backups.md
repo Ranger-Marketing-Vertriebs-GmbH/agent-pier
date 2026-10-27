@@ -252,9 +252,13 @@ SFTP hosts:
   `sealed-mail-accounts`, shown as "Email accounts and their passwords (encrypted)". The
   accounts and passwords travel only in the passphrase capsule as `mail/accounts.json`
   (`{ version: 1, accounts, passwords }`).
-- An account whose password could not be read when the backup was taken is left out and
-  named in the plan and manifest: `Email account "<name>" (its password could not be
-read)`. Only the account's name appears there, never the password or the address.
+- An account whose password could not be read when the backup was taken is left out
+  and named in the plan and manifest as
+  `Email account "<name>" (its password could not be read)`. Only the account's name
+  appears there, never the password or the address.
+- When the account list itself cannot be read, no account is backed up and the plan
+  and manifest list "Email accounts (their list could not be read)", with and without
+  **Include encrypted credentials**.
 - A restore checks every account before it writes anything; an invalid one, or one
   without its password, fails the restore with "Unexpected backup component." It keeps
   the account ids, so agents' grants work again, writes the passwords with owner-only

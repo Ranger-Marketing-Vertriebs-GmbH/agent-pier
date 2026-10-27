@@ -413,6 +413,8 @@ export const backupCopy = {
     "Secrets (only in backups with a passphrase, then encrypted)":
       "Geheimnisse (nur in Sicherungen mit Passphrase, dann verschlüsselt)",
     "sealed-mail-accounts": "E-Mail-Zugänge und ihre Passwörter (verschlüsselt)",
+    "Email accounts (their list could not be read)":
+      "E-Mail-Zugänge (ihre Liste konnte nicht gelesen werden)",
     "Email accounts and passwords (only in backups with a passphrase, then encrypted)":
       "E-Mail-Zugänge und Passwörter (nur in Sicherungen mit Passphrase, dann verschlüsselt)",
     "MCP server header and environment values and address tokens":

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { privateDirectory, problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { SshPasswordStore } from "../ssh/ssh-password-store.js";
-import { accountInput } from "./mail-account-fields.js";
+import { accountInput, accountRowKeys } from "./mail-account-fields.js";
 
 /**
  * Email accounts in backups (docs/backups.md): the accounts and their passwords travel
@@ -13,40 +13,44 @@ import { accountInput } from "./mail-account-fields.js";
 export const mailAccountsMember = "mail/accounts.json";
 export const mailAccountsOmission =
   "Email accounts and passwords (only in backups with a passphrase, then encrypted)";
+/** Named when the account list itself cannot be read: never left out silently. */
+export const mailCatalogUnreadableOmission =
+  "Email accounts (their list could not be read)";
 /** Accounts a restore left for the first start to add to the mail catalog. */
 export const mailRestoreFile = "mail-restore.json";
 
 const identifier = /^[0-9a-f-]{36}$/;
-const rowKeys = new Set([
-  "id",
-  "name",
-  "address",
-  "displayName",
-  "preset",
-  "imap",
-  "smtp",
-  "allowPlaintext",
-  "saveSent",
-  "credentialRevision",
-  "createdAt",
-  "updatedAt",
-  "lastTest",
-]);
+const rowKeys = new Set(accountRowKeys);
 
-function accountRows(dataDir) {
+// The catalog's rows; `unreadable` when the file exists but is no version 1 catalog.
+function catalogState(dataDir) {
   let catalog;
   try {
     catalog = readJSON(path.join(dataDir, mailAccountsMember), null);
   } catch {
-    return [];
+    return { rows: [], unreadable: true };
   }
-  return catalog?.version === 1 && Array.isArray(catalog.accounts)
-    ? catalog.accounts.filter((row) => row && typeof row === "object")
-    : [];
+  if (catalog === null) return { rows: [], unreadable: false };
+  if (catalog?.version !== 1 || !Array.isArray(catalog.accounts))
+    return { rows: [], unreadable: true };
+  return {
+    rows: catalog.accounts.filter((row) => row && typeof row === "object"),
+    unreadable: false,
+  };
 }
+const accountRows = (dataDir) => catalogState(dataDir).rows;
 
-/** Whether this data folder holds email accounts. */
-export const mailAccountsPresent = (dataDir) => accountRows(dataDir).length > 0;
+/** Whether the account list of this data folder cannot be read. */
+export const mailCatalogUnreadable = (dataDir) => catalogState(dataDir).unreadable;
+
+/**
+ * Whether this data folder holds email accounts. An account list that cannot be read
+ * counts as present, so a backup never leaves the accounts out silently.
+ */
+export function mailAccountsPresent(dataDir) {
+  const { rows, unreadable } = catalogState(dataDir);
+  return unreadable || rows.length > 0;
+}
 
 /** The omission of an account whose password could not be read; names only its label. */
 export const unreadableMailAccountOmission = (name) =>
@@ -55,9 +59,12 @@ export const unreadableMailAccountOmission = (name) =>
 /**
  * The accounts of the published catalog with their current passwords, and the
  * omissions of accounts whose password could not be read; null without any account.
+ * An account list that cannot be read seals nothing and is named as omitted.
  */
 export function captureMailAccounts(dataDir) {
-  const rows = accountRows(dataDir);
+  const { rows, unreadable } = catalogState(dataDir);
+  if (unreadable)
+    return { accounts: [], passwords: {}, omissions: [mailCatalogUnreadableOmission] };
   if (!rows.length) return null;
   const store = new SshPasswordStore({ root: path.join(dataDir, "mail") });
   const read = (row) => {
