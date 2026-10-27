@@ -99,6 +99,17 @@ export class ChannelService {
     );
   }
   /**
+   * Whether a message of the paired chat replied to an agent's escalated session
+   * prompt (coding-sessions/session-escalations.js): such a reply is answered or
+   * refused there and never reaches the model.
+   */
+  async escalationReply(channel, message) {
+    const sessions = this.assistants.workflows?.sessions;
+    if (!sessions || !Number.isSafeInteger(message?.reply_to_message?.message_id))
+      return false;
+    return (await sessions.answerEscalationText(channel, message)) === true;
+  }
+  /**
    * The agent's check-ins send to its paired chat as an extra: pairing, re-pairing,
    * disabling and disconnecting move or stop that extra at once, never the job
    * (native-heartbeats.js). Not awaited: it takes the assistants' admission, which a

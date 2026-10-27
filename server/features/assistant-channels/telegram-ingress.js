@@ -108,6 +108,11 @@ export class TelegramIngress {
         await this.stranger(channel, message, signal);
         continue;
       }
+      // A reply to an agent's escalated session prompt answers it, never the model.
+      if (allowed && (await this.service.escalationReply(channel, message))) {
+        store.advance(id, update.update_id + 1);
+        continue;
+      }
       let full = false;
       store.transaction(() => {
         if (

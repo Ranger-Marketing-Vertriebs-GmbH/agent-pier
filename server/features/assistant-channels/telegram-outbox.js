@@ -277,7 +277,9 @@ export class TelegramOutbox {
       if (
         !action ||
         action.state !== "awaiting_approval" ||
-        action.revision !== entry.actions[0]?.revision ||
+        // An escalation that only links to AgentPier carries no buttons.
+        ((!entry.source.escalation || entry.actions.length) &&
+          action.revision !== entry.actions[0]?.revision) ||
         action.expiresAt < Date.now()
       ) {
         c.outbox.transition(entry.id, entry.state, { state: "reviewed" });
