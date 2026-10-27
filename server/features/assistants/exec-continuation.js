@@ -232,9 +232,8 @@ function sourceRequest(bridge, input, conversationId) {
   if (!latest || !starter || starter.requestId === latest.id) return latest;
   const request = ledger.getRequest(starter.requestId);
   if (request.conversationId !== conversationId) return latest;
-  const since = ledger.requestsSince(conversationId, request.createdAt);
-  const at = since.findIndex((r) => r.id === request.id);
-  const later = at < 0 ? [] : since.slice(at + 1);
+  // By row, not time: a clock step back never hides a newer owner message.
+  const later = ledger.requestsAfter(conversationId, request.id);
   return later.length && later.every((r) => resultFollowUp(bridge, r)) ? request : latest;
 }
 // The one attempt whose run started the processes a completion reports, or null.
