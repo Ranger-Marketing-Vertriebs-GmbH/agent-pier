@@ -9,6 +9,7 @@ import { runInstaller } from "../../scripts/release-install.mjs";
 import { installerArguments, resolveSetupOptions } from "../../scripts/setup-options.mjs";
 import { provisionRea } from "../../server/features/tools/rea-provisioning.js";
 import { reaManifest } from "../../server/features/tools/rea-manifest.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 
 function dataDir(t) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rea-provision-")));
@@ -110,6 +111,18 @@ test("--with-rea keeps an installed REA's choice to leave Ghidra off", async (t)
   assert.deepEqual(result, { status: "ready", ghidra: null });
   assert.equal(fs.existsSync(path.join(dir, "clis", "rea-ghidra")), false);
   assert.equal(request(dir), undefined);
+});
+
+test("--with-rea never writes its request through a linked <data>/rea", async (t) => {
+  const dir = dataDir(t);
+  const elsewhere = path.join(dir, "elsewhere");
+  fs.mkdirSync(elsewhere);
+  fs.symlinkSync(elsewhere, path.join(dir, "rea"));
+  const install = async () => assert.fail("must not download for a linked folder");
+  const result = await provisionRea({ dataDir: dir, enable: true, ...host }, { install });
+  assert.equal(result.status, "failed");
+  assert.equal(result.message, serverMessages.tools.installationDirectoryInvalid);
+  assert.deepEqual(fs.readdirSync(elsewhere), []);
 });
 
 test("a failed download never fails the installation", async (t) => {
