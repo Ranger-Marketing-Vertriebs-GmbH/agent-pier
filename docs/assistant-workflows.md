@@ -400,7 +400,13 @@ like any other long message (see the agent chat history in `assistant-gateway.md
 and keeps its "Scheduled · <name>" badge; Telegram gets it whole. A failed routine or
 check-in run is a **Failed** row of the Events area (a failed reminder a quiet line in
 the chat); a result that OpenClaw could not commit is still shown from AgentPier's own
-record. On every Gateway
+record. OpenClaw still commits the reply of a check-in run it counts as failed; the
+webhook then carries it as `error` without a summary. AgentPier records it like a
+committed check-in (status `error`, `committed`) so the chat moves that reply into
+the check-in's **Failed** row instead of showing it as a plain agent message; it sends
+no Telegram message and no push notice. The check-in prompt leaves routine work to the
+routines, which run with their own tools, so a check-in does not take on a routine due
+at the same hour. On every Gateway
 start AgentPier migrates existing routine jobs to these settings in place
 (`NativeRoutines.reconcile`), including jobs that ran isolated because their agent
 had no conversation then; reminders keep their tool-less isolated jobs. A routine

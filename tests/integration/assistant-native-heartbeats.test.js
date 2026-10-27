@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
-import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
+import {
+  NativeHeartbeats,
+  checkInPrompt,
+} from "../../server/features/assistants/native-heartbeats.js";
+import { withRoutineResults } from "../../server/features/assistants/routine-results.js";
+import { areaResult } from "../../server/features/assistants/agent-event-area.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 
 const heartbeat = {
@@ -227,6 +232,57 @@ test("only a check-in with content reaches the paired chat, plus a push notice",
     (await f.deliver(binding.id, { ...event(6, "x"), jobId: "foreign" })).status,
     403,
   );
+});
+
+test("a check-in leaves routine work to the routines and their own tools", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  for (const person of [null, "user-1"]) {
+    const prompt = person
+      ? checkInPrompt(person)
+      : [...f.jobs.values()][0].payload.message;
+    // A routine due now runs on its own: the check-in never does it or reports on it.
+    assert.match(prompt, /routines run on their own, with their own tools/i);
+    assert.match(prompt, /never perform, repeat or report on a routine's work/i);
+    assert.match(prompt, /never report a tool missing for it/i);
+  }
+});
+
+test("an errored check-in OpenClaw committed is labelled, but never sent", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  const { nativeId, id } = f.reminders.bindings.list(f.id)[0];
+  // OpenClaw reports the reply of a run it counts as failed as `error`, no summary.
+  const reply = "The 8 o'clock security check could not be completed: no web access.";
+  const failed = (runAtMs, deliveryStatus, error = reply) => ({
+    jobId: nativeId,
+    runAtMs,
+    status: "error",
+    error,
+    deliveryStatus,
+  });
+  for (const event of [
+    failed(1, "delivered"),
+    failed(1, "delivered"),
+    failed(2, "not-delivered"),
+    failed(3, "delivered", "NO_REPLY"),
+  ])
+    assert.equal((await f.deliver(id, event)).status, 204);
+  const conversationId = f.channel.conversationId;
+  const results = f.reminders.results.forConversation(conversationId);
+  assert.deepEqual(
+    results.map((r) => [r.kind, r.runAtMs, r.status, r.text, r.committed]),
+    [["heartbeat", 1, "error", reply, true]],
+  );
+  // The chat badges its committed reply as a check-in, which then leaves the
+  // transcript for the event area, with no extra failure line.
+  const message = { id: "m", role: "assistant", text: reply, timestamp: 5 };
+  const shown = withRoutineResults([message], results);
+  assert.deepEqual(shown, [{ ...message, scheduled: { name: "", kind: "heartbeat" } }]);
+  assert.ok(areaResult(shown[0]));
+  // A failed check-in is still not news: no Telegram message, no push notice.
+  assert.equal(f.service.outbox.all(f.channel.id).length, 0);
+  assert.equal(f.pushes.length, 0);
 });
 
 test("a paused or ineligible agent loses its job and pending check-ins stay unsent", async (t) => {

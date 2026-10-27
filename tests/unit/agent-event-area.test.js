@@ -185,3 +185,30 @@ test("the owner reading a user's chat sees only events from her opt-in on", () =
     ["new"],
   );
 });
+
+test("a failed check-in's committed reply shows in its event row", () => {
+  const conversation = { id: "c", assistantId: "a", channel: "agentpier", main: true };
+  const results = [
+    {
+      id: "r",
+      kind: "heartbeat",
+      name: "",
+      at: 10,
+      status: "error",
+      text: "**No web access**\nmore",
+      committed: true,
+    },
+  ];
+  const service = { routines: { results: { forConversation: () => results } } };
+  assert.deepEqual(eventArea(service, conversation), [
+    {
+      id: "routine:r",
+      source: "checkin",
+      name: "",
+      at: 10,
+      status: "failed",
+      firstLine: "No web access",
+      reply: "**No web access**\nmore",
+    },
+  ]);
+});

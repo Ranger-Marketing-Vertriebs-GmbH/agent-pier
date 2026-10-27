@@ -531,8 +531,9 @@ export class NativeReminders {
       at: Date.now(),
       status: ok ? "ok" : "error",
       // Committed: OpenClaw wrote it into the conversation, whose history shows it.
-      // A reminder's isolated run reports its webhook delivery, never a commit.
-      ...(ok && {
+      // A reminder's isolated run reports its webhook delivery, never a commit. A
+      // failed check-in's committed reply comes with its text (native-heartbeats.js).
+      ...((ok || typeof text === "string") && {
         text: text.trim(),
         committed: kind !== "reminder" && event.deliveryStatus === "delivered",
       }),
