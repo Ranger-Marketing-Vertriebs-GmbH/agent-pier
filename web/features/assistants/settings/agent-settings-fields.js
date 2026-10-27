@@ -54,11 +54,14 @@ export const accessKeys = [
   "sshAccesses",
   "github",
   "secretIds",
+  "mailAccesses",
   ...permissionKeys,
 ];
 // Direct folder access per granted project (server assistant-access.js projectFiles).
 export const folderLevels = ["none", "read", "write"];
 export const sshModes = ["approval", "trusted", "routines"];
+// Email levels per account (server agent-mail-grants.js); rules only for "send".
+export const mailLevels = ["read", "send"];
 // The team usage levels the server accepts (team-policy.js); "suggest" is its default.
 export const teamUsageLevels = ["onRequest", "suggest", "autonomous"];
 export const teamKeys = [
@@ -102,7 +105,10 @@ export function agentPageAllowed(assistant, page) {
       : !!assistant.inherited && !assistant.archivedAt;
   if (!isPersonal(assistant)) return false;
   // An agent of users never has these grants (user-agent-lock.js).
-  if (assistant.userAccess && ["ssh", "github", "pipelines", "secrets"].includes(page))
+  if (
+    assistant.userAccess &&
+    ["ssh", "github", "pipelines", "secrets", "mail"].includes(page)
+  )
     return false;
   if (page === "allowlist" || page === "skills") return shellEligible(assistant);
   return true;
@@ -166,6 +172,35 @@ export function setSshGrant(grants, accessId, mode) {
   const rest = grants.filter((g) => g.accessId !== accessId);
   return sortedGrants(mode ? [...rest, { accessId, mode }] : rest);
 }
+// The server keeps mail grants sorted by account id, rules only for "send".
+export const sortedMailGrants = (grants) =>
+  (grants || [])
+    .map(({ accountId, level, recipients }) => ({
+      accountId,
+      level,
+      recipients: level === "send" ? [...(recipients || [])] : [],
+    }))
+    .sort((a, b) => (a.accountId < b.accountId ? -1 : a.accountId > b.accountId ? 1 : 0));
+/**
+ * The mail grants with `accountId` at `level` (null removes it). `recipients` replaces
+ * the rules of a send grant; left out, a send grant keeps its rules. Read has none.
+ */
+export function setMailGrant(grants, accountId, level, recipients) {
+  const old = (grants || []).find((g) => g.accountId === accountId);
+  const rest = (grants || []).filter((g) => g.accountId !== accountId);
+  if (!level) return sortedMailGrants(rest);
+  const kept = old?.level === "send" ? old.recipients : [];
+  return sortedMailGrants([
+    ...rest,
+    { accountId, level, recipients: recipients ?? kept },
+  ]);
+}
+/** Recipient rules of a text field: one per line, trimmed, lower case, no blanks. */
+export const recipientLines = (text) =>
+  String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim().toLowerCase())
+    .filter(Boolean);
 /** Granted hosts that still exist, and how many of them run without asking. */
 export function sshSummary(grants, hosts) {
   const known = grants.filter((g) => hosts.some((h) => h.id === g.accessId));
@@ -276,6 +311,8 @@ export const accessServer = (policy) => ({
     : null,
   // Secrets the agent receives in .agentpier/secrets.env (server agent-secret-grants.js).
   secretIds: sortedIds(policy?.secretIds),
+  // Email accounts with level and recipient rules (server agent-mail-grants.js).
+  mailAccesses: sortedMailGrants(policy?.mailAccesses),
   memoryWrite: policy?.memoryWrite === true,
   autonomous: policy?.autonomous === true,
   publish: policy?.publish === true,
@@ -317,6 +354,7 @@ export function workBody({
   withAccess = true,
   withTeam,
   sshHostIds = null,
+  mailAccountIds = null,
 }) {
   const body = {};
   if (withAccess && accessKeys.some((key) => changed.includes(key)))
@@ -332,6 +370,7 @@ export function workBody({
                 "sessionProjectIds",
                 "github",
                 "secretIds",
+                "mailAccesses",
               ].includes(key),
           )
           .map((key) => [key, values[key]]),
@@ -348,6 +387,13 @@ export function workBody({
       ...(changed.includes("github") && { github: values.github }),
       // Likewise only when changed: an unreadable secrets store never fails a save.
       ...(changed.includes("secretIds") && { secretIds: values.secretIds }),
+      // Likewise: an unreadable mail catalog never fails a save of other grants.
+      // Grants of removed accounts drop on save, like SSH grants of removed hosts.
+      ...(changed.includes("mailAccesses") && {
+        mailAccesses: mailAccountIds
+          ? values.mailAccesses.filter((g) => mailAccountIds.includes(g.accountId))
+          : values.mailAccesses,
+      }),
       // Only changed grants are sent (the server keeps absent ones), so an unreadable
       // SSH catalog cannot fail other saves. Grants of removed hosts drop on save; an
       // unreadable catalog drops nothing.

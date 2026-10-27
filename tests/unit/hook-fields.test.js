@@ -8,6 +8,7 @@ import {
   hookDraft,
   hookPatch,
   hookState,
+  hookTicks,
   tickLock,
 } from "../../web/features/assistants/settings/hook-fields.js";
 
@@ -46,6 +47,7 @@ test("hookDraft flattens a hook into stable draft values", () => {
     memory: false,
     mcp: false,
     secrets: false,
+    mail: false,
     shell: "off",
     sshHosts: ["a", "b"],
     folders: { p1: "read", p2: "write" },
@@ -83,6 +85,7 @@ test("hookPatch sends every right when one changed, stored ones unchanged", () =
       memory: false,
       mcp: false,
       secrets: false,
+      mail: false,
     },
   });
 });
@@ -172,6 +175,7 @@ test("clampRights caps a proposal's edited ticks to the agent's ceiling", () => 
       memory: false,
       mcp: false,
       secrets: false,
+      mail: false,
       shell: "off",
       sshHosts: ["nas"],
       folders: { web: "read", api: "read" },
@@ -219,4 +223,17 @@ test("exceedsCeiling tells whether a proposal asks for more than the agent holds
     { folders: { web: "read", lost: "read" } },
   ])
     assert.equal(exceedsCeiling({ ...within, ...above }, ceiling, choices), true);
+});
+
+test("the Email tick needs a mail grant on the agent", () => {
+  assert.ok(hookTicks.includes("mail"));
+  assert.deepEqual(tickLock("mail", { mail: false }, { mail: false }), {
+    reason: "missing",
+    locked: true,
+  });
+  assert.deepEqual(tickLock("mail", { mail: true }, { mail: false }), {
+    reason: null,
+    locked: false,
+  });
+  assert.equal(hookDraft({ ...hook, rights: { ...hook.rights, mail: true } }).mail, true);
 });

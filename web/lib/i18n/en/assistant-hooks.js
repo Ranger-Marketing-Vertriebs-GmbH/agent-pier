@@ -33,6 +33,7 @@ export const hookCopy = {
     memory: "Write memory",
     mcp: "MCP servers",
     secrets: "Secrets",
+    mail: "Email",
   },
   tickHints: {
     notify: "A push notice with the result.",
@@ -43,6 +44,7 @@ export const hookCopy = {
     mcp: "Uses the agent's MCP servers.",
     secrets:
       "Reads the agent's secrets file. Off: a run never reads it; with Shell, Coding CLI or MCP servers, the file is withheld from all the agent's chats while the run works.",
+    mail: "Reads, drafts and sends mail with the agent's email access. Sending follows its recipient rules.",
   },
   missing: {
     telegram: "The agent has no paired Telegram chat.",
@@ -51,6 +53,7 @@ export const hookCopy = {
     memory: "The agent's memory is off.",
     mcp: "The agent has no MCP servers.",
     secrets: "The agent receives no secrets.",
+    mail: "Grant an email account in Access first.",
   },
   telegramNeedsNotify: "Switch on Notify first.",
   shell: "Shell",

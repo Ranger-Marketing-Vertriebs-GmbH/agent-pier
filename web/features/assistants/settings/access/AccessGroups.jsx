@@ -15,6 +15,7 @@ import { githubChoice } from "../agent-github-fields.js";
 import LockedNotice from "../LockedNotice.jsx";
 import ProjectsAccess from "./ProjectsAccess.jsx";
 import SshAccess from "./SshAccess.jsx";
+import MailAccess from "./MailAccess.jsx";
 import McpAccess from "./McpAccess.jsx";
 import ListAccess from "./ListAccess.jsx";
 
@@ -60,7 +61,7 @@ function GithubAccess({ assistantId, catalog, value, go, navigate }) {
 
 /**
  * The Access tab's groups with inline add (handoff 5.4, 5.5): Projekte, SSH/SFTP,
- * MCP-Server, Pipelines, GitHub, Geheimnisse. An agent of users keeps project folders
+ * MCP-Server, Pipelines, GitHub, Geheimnisse, E-Mail. An agent of users keeps project folders
  * and MCP servers; the rest stays locked as before.
  */
 export default function AccessGroups({
@@ -178,9 +179,20 @@ export default function AccessGroups({
           }
         />
       )}
+      {!userAgent && (
+        <MailAccess
+          assistantId={assistant.id}
+          accounts={catalog ? catalog.mailAccounts : unread}
+          draft={draft}
+          disabled={disabled}
+          locked={Boolean(assistant.telegramSenders)}
+          go={go}
+          navigate={navigate}
+        />
+      )}
       {userAgent && (
         <LockedNotice
-          items={["pipelines", "ssh", "github", "secrets", "coding", "teams"]}
+          items={["pipelines", "ssh", "github", "secrets", "mail", "coding", "teams"]}
         />
       )}
     </>

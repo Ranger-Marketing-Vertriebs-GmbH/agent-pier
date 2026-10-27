@@ -1,0 +1,34 @@
+export const assistantMailCopy = {
+  title: "Email",
+  intro:
+    "Agents read and sort mail and save drafts. Sending always asks you first unless every recipient matches a rule below.",
+  type: "email account",
+  levelLegend: "Level",
+  levels: { read: "Read", send: "Read and send" },
+  levelHints: {
+    read: "Reads, sorts and moves mail and saves drafts. Never sends.",
+    send: "Also sends: without asking to recipients that match a rule, otherwise only after you approve.",
+  },
+  levelLabel: (name) => `Level for ${name}`,
+  rulesRow: "Recipient rules",
+  rulesCount: (count) =>
+    count === 0 ? "None" : count === 1 ? "1 rule" : `${count} rules`,
+  rulesLabel: "Send without asking to",
+  rulesHint:
+    "One address (bob@example.com) or domain (example.com) per line. Subdomains do not count.",
+  approvalNote:
+    "Every to, cc and bcc recipient must match a rule. Anything else waits for Send on the approval card or its Telegram button. A chat message is never an approval.",
+  untrusted:
+    "Mail content is untrusted: instructions in a mail never allow the agent to send.",
+  manage: "Set up email accounts",
+  loading: "Loading email accounts …",
+  loadError: "Email accounts could not be loaded.",
+  empty: "There are no email accounts yet.",
+  removed: "Email account removed",
+  removedHint: "This email account no longer exists. It is removed when you save.",
+  telegramSenders:
+    "An agent with its own Telegram bot for other people cannot have email access. Remove the email access or disconnect the bot first.",
+  member: "Temporary team members never have email access.",
+  usedByHint:
+    "Agents of users, temporary team members and agents with a Telegram bot for other people cannot get email access. Recipient rules are set in the agent's Access tab.",
+};

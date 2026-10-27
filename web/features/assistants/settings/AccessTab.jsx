@@ -13,6 +13,7 @@ import { assistantSshCopy as sshCopy } from "../../../lib/i18n/messages/assistan
 import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import { assistantSecretsCopy as secretsCopy } from "../../../lib/i18n/messages/assistant-secrets.js";
 import { mcpServerCopy } from "../../../lib/i18n/messages/mcp-servers.js";
+import { assistantMailCopy as mailCopy } from "../../../lib/i18n/messages/assistant-mail.js";
 import useAssistants from "../useAssistants.js";
 import {
   accessServer,
@@ -38,6 +39,7 @@ const conflictLabels = {
   sshAccesses: () => sshCopy.row,
   github: () => githubCopy.row,
   secretIds: () => secretsCopy.row,
+  mailAccesses: () => mailCopy.title,
   memoryWrite: () => wf.memoryWrite,
   autonomous: () => wf.autonomous,
   publish: () => wf.publish,
@@ -45,14 +47,17 @@ const conflictLabels = {
 };
 
 // Pages an agent of users never has (user-agent-lock.js).
-const lockedPages = ["ssh", "github", "pipelines", "secrets"];
+const lockedPages = ["ssh", "github", "pipelines", "secrets", "mail"];
 
-// `sshHosts` and `secrets` are null when their catalog could not be read (never "none").
+// `sshHosts`, `secrets` and `mailAccounts` are null when their catalog could not be
+// read (never "none").
 const catalogOf = (list) => ({
   projects: list.projects || [],
   pipelines: list.pipelines || [],
   sshHosts: list.sshHosts ?? null,
   secrets: list.secrets ?? null,
+  // A catalog without the field predates email accounts: none, not unreadable.
+  mailAccounts: list.mailAccounts === undefined ? [] : list.mailAccounts,
   // Token profiles and the managed MCP server (server agent-github.js).
   github: list.github ?? { profiles: [], server: null },
 });
@@ -140,8 +145,17 @@ function PersonalAccess({ assistant, page: asked, go, navigate }) {
   // One row per folder; an older row the saved access holds stays listed to revoke.
   const projects = catalog && listedProjects(catalog.projects, savedProjectIds(policy));
   const sshHostIds = catalog?.sshHosts ? catalog.sshHosts.map((h) => h.id) : null;
+  const mailAccountIds = catalog?.mailAccounts
+    ? catalog.mailAccounts.map((a) => a.id)
+    : null;
   const steps = [
-    workStep({ assistantId: assistant.id, label, withTeam: false, sshHostIds }),
+    workStep({
+      assistantId: assistant.id,
+      label,
+      withTeam: false,
+      sshHostIds,
+      mailAccountIds,
+    }),
     ...(withMcp ? [mcpStep({ assistantId: assistant.id, label })] : []),
   ];
   // A granted project that no longer exists (an older row merged away) is dropped by

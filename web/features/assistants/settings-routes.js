@@ -26,6 +26,7 @@ export const agentPages = {
   ssh: "access",
   github: "access",
   secrets: "access",
+  mail: "access",
   hook: "automation",
   "telegram-activity": "channels",
   "telegram-connection": "channels",

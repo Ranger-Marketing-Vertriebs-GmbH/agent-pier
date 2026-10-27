@@ -1,7 +1,12 @@
 // Pure rules of the Access tab's groups (handoff 5.4, 5.5): which granted entries a
 // group shows inline, the candidates its inline add field offers, and how adding
 // writes into the tab draft. Kept free of React for tests/unit/agent-access-groups.test.js.
-import { setFolderLevel, setSshGrant, sortedIds } from "../agent-settings-fields.js";
+import {
+  setFolderLevel,
+  setMailGrant,
+  setSshGrant,
+  sortedIds,
+} from "../agent-settings-fields.js";
 
 /** Granted entries a group shows before "n weitere · Alle anzeigen". */
 export const inlineLimit = 5;
@@ -65,6 +70,15 @@ export function addSshGrants(grants, ids, mode) {
   return ids.reduce(
     (next, id) =>
       next.some((g) => g.accessId === id) ? next : setSshGrant(next, id, mode),
+    grants,
+  );
+}
+
+/** The mail grants after adding `ids` at `level`; existing grants keep theirs. */
+export function addMailGrants(grants, ids, level) {
+  return ids.reduce(
+    (next, id) =>
+      next.some((g) => g.accountId === id) ? next : setMailGrant(next, id, level),
     grants,
   );
 }

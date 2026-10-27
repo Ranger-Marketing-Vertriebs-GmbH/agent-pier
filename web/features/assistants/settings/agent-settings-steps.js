@@ -81,6 +81,7 @@ export const workStep = ({
   withAccess = true,
   withTeam,
   sshHostIds = null,
+  mailAccountIds = null,
   save = assistantApi.saveWork,
 }) => ({
   id: "work",
@@ -89,7 +90,15 @@ export const workStep = ({
   run: ({ values, changed, revisions }) =>
     save(
       assistantId,
-      workBody({ values, changed, revisions, withAccess, withTeam, sshHostIds }),
+      workBody({
+        values,
+        changed,
+        revisions,
+        withAccess,
+        withTeam,
+        sshHostIds,
+        mailAccountIds,
+      }),
     ),
   revisions: (result) => ({
     ...(result?.access ? { access: result.access.revision } : {}),
