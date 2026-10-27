@@ -5,6 +5,11 @@ const browser = () => ({
   clearTimeout: globalThis.clearTimeout,
   AbortController: globalThis.AbortController,
 });
+// The reason a read past its deadline is aborted with; hiding and disposing abort
+// without one, so a consumer can tell a slow server from a cancelled read.
+export const timeoutError = () => new DOMException("The read timed out.", "TimeoutError");
+export const timedOut = (signal) =>
+  Boolean(signal?.aborted && signal.reason?.name === "TimeoutError");
 // Foregrounding must not wait for a request suspended by the operating system.
 // A hidden tab runs nothing: hiding aborts the running request and drops the timer.
 export function startVisiblePolling(run, interval, env = {}) {
@@ -26,7 +31,7 @@ export function startVisiblePolling(run, interval, env = {}) {
     if (disposed || document.hidden) return;
     const current = new AbortController();
     controller = current;
-    const deadline = setTimeout(() => current.abort(), 15000);
+    const deadline = setTimeout(() => current.abort(timeoutError()), 15000);
     timeout = deadline;
     try {
       await run(current.signal);

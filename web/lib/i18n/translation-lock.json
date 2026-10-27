@@ -2905,6 +2905,7 @@
   "components:addPickerCopy.searchFailed": "de:8b4936c888ca en:0c5e483f2138",
   "components:addPickerCopy.searching": "de:eba2fb7998e2 en:799ede97b431",
   "components:apiCopy.requestFailed": "de:028cacfbba55 en:940486bf252c",
+  "components:apiCopy.timedOut": "de:91c9d68d6c1f en:8392b0448963",
   "components:copyButtonCopy.copied": "de:c2756e0294f8 en:8d525e5f158b",
   "components:copyButtonCopy.failed": "de:35b849e4dd89 en:2582b9b21931",
   "components:fileLinkCopy.failed": "de:6262f09d5bd4 en:5a8bd38d1575",

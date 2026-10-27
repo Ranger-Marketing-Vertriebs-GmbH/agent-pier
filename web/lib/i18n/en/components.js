@@ -7,6 +7,7 @@ export const paginationCopy = {
 };
 export const apiCopy = {
   requestFailed: (value1) => `Request failed (${value1})`,
+  timedOut: "The server did not answer in time.",
 };
 export const imageViewerCopy = {
   title: "Image viewer",
