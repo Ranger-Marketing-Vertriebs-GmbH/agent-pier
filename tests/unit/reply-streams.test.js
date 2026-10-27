@@ -153,6 +153,40 @@ test("a run that goes quiet expires and nothing is kept without viewers", async 
   assert.equal(value.sessions.size, 0);
 });
 
+test("a quiet run expires while another reply keeps streaming", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1000 });
+  const { value, ended } = streams(t, { idleMs: 100 });
+  let browser = new Map();
+  value.subscribe("s", (frame) => {
+    browser = nextReplies(browser, frame);
+  });
+  value.streamText("s", "stuck", { text: "Unfinished reply" });
+  t.mock.timers.tick(50);
+  value.streamText("s", "active", { text: "Still" });
+  t.mock.timers.tick(40);
+  value.streamText("s", "active", { text: "Still writing" });
+  t.mock.timers.tick(10);
+
+  assert.equal(browser.get("stuck").ended, true);
+  assert.deepEqual([...withoutEnded(browser).keys()], ["active"]);
+  assert.deepEqual(Object.keys(value.runs("s")), ["active"]);
+  assert.deepEqual(ended, ["s"], "expiry refreshes the transcript");
+
+  // A reconnect must not replay the stale draft, and the active run gets its
+  // own full idle interval after its last update.
+  const reconnected = [];
+  value.subscribe("s", (frame) => reconnected.push(frame));
+  assert.deepEqual(
+    reconnected.map((frame) => frame.runId),
+    ["active"],
+  );
+  t.mock.timers.tick(89);
+  assert.equal(browser.get("active").ended, undefined);
+  t.mock.timers.tick(1);
+  assert.equal(browser.get("active").ended, true);
+  assert.deepEqual(value.runs("s"), {});
+});
+
 test("the browser folds frames by offset and refuses a gap", () => {
   let runs = new Map();
   runs = nextReplies(runs, { type: "stream", runId: "r", from: 0, text: "Hi", order: 0 });
