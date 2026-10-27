@@ -398,6 +398,9 @@ sessions of yours (the marker **Started by agent <name>** stays). The agent answ
 `GRANT_REVOKED` to every further call for them, and their pushes reach you as for your
 own sessions.
 
+Deleting an archived agent permanently removes its records of which sessions it
+started; the sessions keep running as yours, without the marker.
+
 ### Audit
 
 Each start, prompt sent, answer, escalation, stop and worktree removal is recorded in

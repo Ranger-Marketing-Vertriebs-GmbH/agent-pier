@@ -7,7 +7,8 @@ import { configWrite } from "./openclaw-config/live-patch.js";
  * What a permanent delete of an archived agent removes (AGENTPIER-260), store by
  * store. Every step may run again: a start resumes a delete a crash interrupted
  * (agent-lifecycle.js resume), so each one removes what is still there and never
- * fails on what is gone. Project memory, pipeline and coding runs it started,
+ * fails on what is gone. Project memory, pipeline and coding runs and the coding
+ * sessions it started (only its ownership records go),
  * worktrees, shared projects, the audit log and backups are not the agent's and stay.
  */
 
@@ -41,6 +42,7 @@ export const agentTables = [
   "assistant_access",
   "assistant_lead_shares",
   "assistant_team_records",
+  "agent_coding_sessions",
 ];
 export const channelTables = ["channel_follow_ups"];
 
@@ -205,6 +207,8 @@ function removeRows(db, id) {
     // Grants: projects, SSH, secrets and GitHub.
     remove(db, "assistant_access", "assistant_id=?", id);
     remove(db, "assistant_lead_shares", "member_assistant_id=? OR lead_id=?", id, id);
+    // Which coding sessions it started; the sessions keep running as the owner's.
+    remove(db, "agent_coding_sessions", "assistant_id=?", id);
     // A lead's teams, member records and requests with their texts; its policy; a
     // member's own record and the lead's requests to it or from it.
     const toMember =

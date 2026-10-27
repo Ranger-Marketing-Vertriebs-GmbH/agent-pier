@@ -224,6 +224,7 @@ A delete removes:
 - its routines, reminders, check-ins and hooks with their cron jobs, its Telegram
   channel with pending deliveries, its browser profile, its access grants and lead
   shares, waiting approvals and its SSH and SFTP job records;
+- its records of the coding sessions it started (the sessions themselves stay);
 - its OpenClaw agent state (`state/agents/<runtime agent>`) and its Gateway entry.
 
 Project memory and the pipeline and coding runs it started stay (coding sessions keep
