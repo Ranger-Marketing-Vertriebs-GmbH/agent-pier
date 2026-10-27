@@ -1,5 +1,17 @@
+const browser = () => ({
+  document: globalThis.document,
+  window: globalThis.window,
+  setTimeout: globalThis.setTimeout,
+  clearTimeout: globalThis.clearTimeout,
+  AbortController: globalThis.AbortController,
+});
 // Foregrounding must not wait for a request suspended by the operating system.
-export function startVisiblePolling(run, interval) {
+// A hidden tab runs nothing: hiding aborts the running request and drops the timer.
+export function startVisiblePolling(run, interval, env = {}) {
+  const { document, window, setTimeout, clearTimeout, AbortController } = {
+    ...browser(),
+    ...env,
+  };
   let disposed = false,
     timer,
     timeout,

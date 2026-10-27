@@ -4,9 +4,12 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { serverText } from "../../lib/server-messages.js";
 import { reportValue } from "./restore-report.js";
+import { terminalJob } from "./operation-job-status.js";
+const finished = (data) => terminalJob(data?.job);
 export default function OperationJob({ id, onComplete, onState }) {
   const resource = useResource(id ? `/operations/jobs/${encodeURIComponent(id)}` : null, {
       poll: 1500,
+      until: finished,
     }),
     job = resource.data?.job;
   useEffect(() => {
