@@ -2,7 +2,13 @@ import React from "react";
 import Icon from "../../components/Icon.jsx";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import { readRoute } from "../../app/routes.js";
-import { itemContext, itemIcon, itemTime, kindLabel } from "./inbox-presentation.js";
+import {
+  itemAgentLine,
+  itemContext,
+  itemIcon,
+  itemTime,
+  kindLabel,
+} from "./inbox-presentation.js";
 import {
   InboxActionDetail,
   InboxGateDetail,
@@ -26,7 +32,8 @@ const details = {
 export default function InboxDetail({ type, id, item, navigate, reload }) {
   const Detail = details[type];
   if (!item || !Detail) return <InboxStale type={type} id={id} />;
-  const time = itemTime(item);
+  const time = itemTime(item),
+    agent = itemAgentLine(item);
   const context = () => {
     const url = new URL(item.link, window.location.origin);
     navigate(readRoute(url));
@@ -40,6 +47,7 @@ export default function InboxDetail({ type, id, item, navigate, reload }) {
         <div>
           <h2>{kindLabel(item)}</h2>
           <p>{itemContext(item)}</p>
+          {agent && <p className="inbox-detail-agent">{agent}</p>}
           <small className={`inbox-row-time${time.urgent ? " urgent" : ""}`}>
             {time.text}
           </small>

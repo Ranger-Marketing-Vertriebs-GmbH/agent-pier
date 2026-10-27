@@ -174,3 +174,10 @@
     height: 40px;
   }
 }
+/* An agent's note on a session prompt it escalated to the owner. */
+.inbox-escalation-note {
+  margin-bottom: 12px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

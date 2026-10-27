@@ -7,13 +7,20 @@ import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import InboxDetail from "./InboxDetail.jsx";
-import { itemContext, itemIcon, itemTime, itemTitle } from "./inbox-presentation.js";
+import {
+  itemAgentLine,
+  itemContext,
+  itemIcon,
+  itemTime,
+  itemTitle,
+} from "./inbox-presentation.js";
 import { inboxTabs, itemKey } from "./routes.js";
 import useInbox from "./useInbox.js";
 import "./inbox.css";
 
 function InboxRow({ item }) {
-  const time = itemTime(item);
+  const time = itemTime(item),
+    agent = itemAgentLine(item);
   return (
     <>
       <span className={`inbox-row-icon ${item.type}`} aria-hidden="true">
@@ -22,6 +29,7 @@ function InboxRow({ item }) {
       <span className="inbox-row-text">
         <strong>{itemTitle(item)}</strong>
         <small>{itemContext(item)}</small>
+        {agent && <small className="inbox-row-agent">{agent}</small>}
         <small className={`inbox-row-time${time.urgent ? " urgent" : ""}`}>
           {time.text}
         </small>

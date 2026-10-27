@@ -240,6 +240,8 @@ export class AssistantWorkflows {
       if (![...coding, ...execDecisions].includes(input.decision))
         throw assistantProblem("invalid");
       const action = this.store.get(id);
+      // An escalated session prompt is answered in its session, never decided here.
+      if (action.payload.action === "session_request") throw assistantProblem("invalid");
       // Exec approvals take the Gateway's decisions; other actions their own.
       const exec = action.payload.action === "exec",
         ssh = action.payload.action === "ssh",
@@ -439,6 +441,7 @@ export class AssistantWorkflows {
     if (a.payload.action === "hook_proposal") return advanceHookProposal(this, a);
     if (a.payload.action === "ssh_access") return advanceSshProposal(this, a);
     if (a.payload.action === "session_start") return this.sessions.advanceStart(a);
+    if (a.payload.action === "session_request") return this.sessions.advanceEscalation(a);
     // An exec decision being sent finishes the action itself.
     if (a.payload.action === "exec" && this.exec.deciding.has(a.payload.approvalId))
       return;

@@ -1,4 +1,17 @@
 import { actionItem, gateItem, requestItem, teamItem } from "./inbox-items.js";
+import { escalationKey } from "../assistants/coding-sessions/session-requests.js";
+
+// The escalation of a session prompt (coding-sessions/session-escalations.js) while
+// it waits, with its agent's name and note, or null.
+function escalationOf(assistants, entry) {
+  const a = assistants?.workflows?.store.byKey(escalationKey(entry.sessionId, entry.id));
+  if (a?.state !== "awaiting_approval") return null;
+  let name = "";
+  try {
+    name = assistants.store.getAssistant(a.assistantId).name;
+  } catch {}
+  return { agentId: a.assistantId, agentName: name, note: a.payload.note ?? null };
+}
 
 // Reads every place a decision can wait, without changing any of them. A source that
 // fails to read is reported and left out, so the others still show.
@@ -25,7 +38,13 @@ export async function collectItems(
     return services.requests
       .listAll()
       .filter((entry) => running.has(entry.sessionId))
-      .map((entry) => requestItem(entry, running.get(entry.sessionId)));
+      .map((entry) =>
+        requestItem(
+          entry,
+          running.get(entry.sessionId),
+          escalationOf(services.assistants, entry),
+        ),
+      );
   });
   await read("pipelines", () =>
     (services.pipelines?.store?.withStatus("awaiting-human") || [])
@@ -47,7 +66,10 @@ export async function collectItems(
   );
   await read("actions", () =>
     (assistants.workflows?.store.awaiting(now) || [])
-      .filter((a) => !users.has(a.conversationId))
+      // An escalated session prompt shows as the request itself (above), once.
+      .filter(
+        (a) => !users.has(a.conversationId) && a.payload?.action !== "session_request",
+      )
       .map((a) => actionItem(a, agents, conversations)),
   );
   await read("teams", () =>

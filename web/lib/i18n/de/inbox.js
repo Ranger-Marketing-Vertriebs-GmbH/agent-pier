@@ -43,6 +43,8 @@ export const inboxCopy = {
   },
   waitingSince: (time) => `Wartet seit ${time}`,
   expires: (relative) => `Läuft ${relative} ab`,
+  escalatedBy: (name) => `Eskaliert von ${name}`,
+  agentSession: (name) => `Session von Agent ${name}`,
   requestedBy: (name) => `Angefragt von ${name}`,
   members: (count) => (count === 1 ? "1 Mitglied" : `${count} Mitglieder`),
   done: {

@@ -199,3 +199,28 @@ test("an agent's coding session start names the project and the CLI", () => {
   assert.equal(item.kind, "session_start");
   assert.equal(item.title, "Shop · Claude Code");
 });
+
+test("a session request names the agent that started the session and its escalation", () => {
+  const request = {
+    id: "p1",
+    sessionId: "s1",
+    kind: "permission",
+    source: "claude",
+    status: "pending",
+    revision: 1,
+    subject: { tool: "Bash" },
+    createdAt: at(0),
+  };
+  const item = requestItem(
+    request,
+    { name: "Fix", startedBy: { kind: "agent", assistantId: "a", name: "Home" } },
+    { agentId: "a", agentName: "Home", note: "n" },
+  );
+  assert.deepEqual(item.escalation, { agentId: "a", agentName: "Home", note: "n" });
+  assert.deepEqual(item.agent, { id: "a", name: "Home" });
+  const own = requestItem(request, { name: "Mine" });
+  assert.equal(own.escalation, null);
+  assert.equal(own.agent, null);
+  // Escalating changes the item, so the inbox reads it again.
+  assert.notEqual(itemsSignature([item]), itemsSignature([own]));
+});

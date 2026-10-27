@@ -29,6 +29,16 @@ export function itemContext(item) {
   return parts.filter(Boolean).join(" · ");
 }
 
+/**
+ * Which agent a session request concerns: the one that escalated it to the owner,
+ * else the one that started the session; empty for the owner's own sessions.
+ */
+export function itemAgentLine(item) {
+  if (item.escalation) return copy.escalatedBy(item.escalation.agentName);
+  if (item.agent) return copy.agentSession(item.agent.name);
+  return "";
+}
+
 function relative(time, now) {
   const seconds = Math.round((time - now) / 1000);
   const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });

@@ -4,7 +4,7 @@ import { control } from "./session-control.js";
 const invalid = () => assistantProblem("invalid");
 const notFound = () => assistantProblem("notFound", 404);
 const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-const promptIdValue = (value) =>
+export const promptIdValue = (value) =>
   typeof value === "string" &&
   value.length > 0 &&
   value.length <= 100 &&
@@ -14,7 +14,7 @@ const promptIdValue = (value) =>
 export const escalationKey = (sessionId, promptId) => `escalate:${sessionId}:${promptId}`;
 
 // The session's open prompts as the broker lists them: pending ones only.
-async function openPrompts(w, sessionId) {
+export async function openPrompts(w, sessionId) {
   const { requests = [] } = await w.s.requests.list(sessionId);
   return requests.filter((e) => e.sessionId === sessionId && e.status === "pending");
 }
@@ -40,6 +40,22 @@ export async function listPrompts(w, ctx, input) {
   const state = reading === "stopped" ? "ended" : reading;
   w.sessions.store.patch(record.sessionId, { seen: { state, at: w.sessions.now() } });
   return { prompts };
+}
+
+/**
+ * Who answered a prompt that is no longer open in the agent's session: owner, agent
+ * or telegram as the broker's events named it, else the session itself. A prompt of
+ * another session throws NOT_FOUND, so it is never confirmed to exist.
+ */
+export function promptGone(w, sessionId, promptId) {
+  const other = w.s.requests.listAll?.().find((e) => e.id === promptId);
+  const known = w.sessions.answers.get(promptId);
+  if (
+    (other && other.sessionId !== sessionId) ||
+    (known && known.sessionId !== sessionId)
+  )
+    throw notFound();
+  return known?.actor ?? "session";
 }
 
 // Exactly one of choice, answers or decline: true; notes only beside answers or decline.
@@ -77,16 +93,7 @@ export async function answerPrompt(w, ctx, input, inv) {
     return Object.assign(assistantProblem("promptAnswered", 409), { answeredBy: by });
   };
   const entry = (await openPrompts(w, sessionId)).find((e) => e.id === promptId);
-  if (!entry) {
-    const other = w.s.requests.listAll?.().find((e) => e.id === promptId);
-    const known = w.sessions.answers.get(promptId);
-    if (
-      (other && other.sessionId !== sessionId) ||
-      (known && known.sessionId !== sessionId)
-    )
-      throw notFound();
-    throw answered(known?.actor ?? "session");
-  }
+  if (!entry) throw answered(promptGone(w, sessionId, promptId));
   // The turn may have ended while the list was read: never answer for a stale turn.
   inv?.assertCurrent?.();
   try {

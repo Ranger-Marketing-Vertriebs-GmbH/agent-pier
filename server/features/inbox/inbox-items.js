@@ -36,8 +36,18 @@ function item(type, values) {
   };
 }
 
-/** A native CLI question or approval (request-broker.js listAll). */
-export function requestItem(entry, session) {
+// The agent that started a session (session-creation.js startedBy), or null.
+const agentOf = (session) =>
+  session?.startedBy?.kind === "agent" && session.startedBy.assistantId
+    ? { id: session.startedBy.assistantId, name: text(session.startedBy.name) }
+    : null;
+
+/**
+ * A native CLI question or approval (request-broker.js listAll). `agent` names the
+ * agent that started the session, `escalation` the agent that handed this prompt
+ * to the owner, with its note.
+ */
+export function requestItem(entry, session, escalation = null) {
   const question = entry.kind === "question";
   const first = entry.questions?.[0];
   const subject = entry.subject || {};
@@ -58,6 +68,14 @@ export function requestItem(entry, session) {
       : entry.presentation
         ? ""
         : subject.description || subject.tool || subject.name,
+    agent: agentOf(session),
+    escalation: escalation
+      ? {
+          agentId: escalation.agentId,
+          agentName: text(escalation.agentName),
+          note: typeof escalation.note === "string" ? escalation.note : null,
+        }
+      : null,
     createdAt: entry.createdAt,
     expiresAt: null,
     link: `/sessions/${segment(entry.sessionId)}/chat`,
@@ -176,7 +194,10 @@ export function countItems(items) {
 /** Changes whenever an item comes, goes or changes its state. */
 export function itemsSignature(items) {
   return items
-    .map((i) => `${i.type}:${i.id}:${i.status ?? ""}:${i.revision ?? ""}`)
+    .map(
+      (i) =>
+        `${i.type}:${i.id}:${i.status ?? ""}:${i.revision ?? ""}${i.escalation ? ":escalated" : ""}`,
+    )
     .sort()
     .join("|");
 }
