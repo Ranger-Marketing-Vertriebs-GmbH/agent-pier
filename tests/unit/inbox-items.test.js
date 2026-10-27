@@ -174,3 +174,28 @@ test("a stage held at the token budget dates its gate from the hold", () => {
   assert.equal(item.createdAt, at(-60000));
   assert.equal(item.kind, "decision");
 });
+
+test("an agent's coding session start names the project and the CLI", () => {
+  const agents = new Map([["a1", { id: "a1", name: "Helper" }]]);
+  const item = actionItem(
+    {
+      id: "s1",
+      assistantId: "a1",
+      state: "awaiting_approval",
+      revision: 1,
+      projectName: "Shop",
+      payload: {
+        action: "session_start",
+        projectId: "p1",
+        requestId: "r1",
+        options: { tool: "claude", name: "Private name" },
+      },
+      createdAt: at(0),
+      expiresAt: now + 86400000,
+    },
+    agents,
+    [],
+  );
+  assert.equal(item.kind, "session_start");
+  assert.equal(item.title, "Shop · Claude Code");
+});
