@@ -84,8 +84,8 @@ async function installRequested(rea, requested) {
 /**
  * At a server start (`rea` is a ReaTool): sweeps interrupted installs while no REA job
  * runs or is being claimed, installs what the installer requested, brings an outdated
- * REA to the pins unless it is in use (then the next start tries again) and syncs the
- * skill copies. Never throws.
+ * REA to the pins unless it is in use (then the next start tries again), points the
+ * row env at the current Ghidra and JDK homes and syncs the skill copies. Never throws.
  */
 export async function startRea(rea) {
   try {
@@ -96,6 +96,8 @@ export async function startRea(rea) {
       await rea.update({ source: "system" });
       await rea.settled();
     }
+    // An installer run may have switched Ghidra or the JDK without anything outdated.
+    await rea.syncEnvironment();
   } catch (error) {
     logFailure("start REA", error);
   }

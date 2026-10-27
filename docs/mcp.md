@@ -718,7 +718,10 @@ start. The card shows **Update available** meanwhile, and **Update** in the dial
 starts it by hand. **Apply changes** installs a newly ticked component or removes an
 unticked one, but never replaces one that is installed. Every installer run with
 or without `--with-rea` also brings an installed Ghidra and JDK to their pins
-([installation](installation.md)).
+([installation](installation.md)); the next server start then points
+`GHIDRA_INSTALL_DIR` and `JAVA_HOME` at the new versions, also while REA is in use. A
+running REA keeps its environment and the previous version folder, which the next
+install removes; sessions started afterwards use the new versions.
 
 **The MCP server row.** REA's row is named `rea`, or `rea-agentpier` when you already
 have a server called `rea` (for example one added from the directory, which stays as it

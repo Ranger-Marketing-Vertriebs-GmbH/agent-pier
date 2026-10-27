@@ -167,6 +167,8 @@ export async function reaFixture(t) {
       args: ["mcp"],
     };
   };
+  const run = async (command, args, ...rest) =>
+    ["/usr/bin/xattr", "ldd"].includes(command) ? "" : realRun(command, args, ...rest);
   const audits = [];
   const busy = { value: false };
   /** A ReaTool as the wiring builds it, with `afterInstall` hooked into McpPackages. */
@@ -184,10 +186,7 @@ export async function reaFixture(t) {
       arch: "arm64",
       darwinMajor: 25,
       fetchImpl,
-      run: async (command, args, ...rest) =>
-        ["/usr/bin/xattr", "ldd"].includes(command)
-          ? ""
-          : realRun(command, args, ...rest),
+      run,
       env: {},
       ...options,
     });
@@ -224,6 +223,9 @@ export async function reaFixture(t) {
     s,
     tool,
     install,
+    manifest,
+    fetchImpl,
+    run,
     busy,
     audits,
     downloads,
