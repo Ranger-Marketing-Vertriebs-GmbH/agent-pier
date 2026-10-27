@@ -6,7 +6,10 @@ import path from "node:path";
 import { createECDH, randomBytes } from "node:crypto";
 import { NotificationService } from "../../server/features/notifications/notification-service.js";
 import { AuditStore } from "../../server/features/audit/audit-store.js";
-import { OperationsEvents } from "../../server/application/operations-events.js";
+import {
+  OperationsEvents,
+  agentRequestHoldMs,
+} from "../../server/application/operations-events.js";
 import { pushPayload } from "../../server/features/notifications/push-validation.js";
 test("closed browser observes completion and every pipeline gate without replaying history on restart", async (t) => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-event-test-"));
@@ -169,7 +172,14 @@ function waitingFixture(t) {
     kinds: () => sent.map((item) => item.kind),
   };
   const audit = { append() {} };
+  // The sessions an agent controls (AgentCodingSessions.controls).
+  ctx.controlled = new Set();
   ctx.events = new OperationsEvents({
+    assistants: {
+      workflows: {
+        sessions: { controls: (id) => ctx.controlled.has(id), requestEvent() {} },
+      },
+    },
     audit,
     notifications,
     sessions: { list: async () => [ctx.session] },
@@ -183,11 +193,11 @@ function waitingFixture(t) {
     intervalMs: 0,
     now: () => ctx.clock,
   });
-  ctx.request = () =>
+  ctx.request = (id = `r${ctx.clock}`) =>
     ctx.events.emit({
       action: "request.created",
       resourceType: "request",
-      resourceId: `r${ctx.clock}`,
+      resourceId: id,
       sessionId: ctx.session.id,
       kind: "permission",
       source: "system",
@@ -280,4 +290,125 @@ test("a remembered request is forgotten once its session stops waiting, even wit
     "permission",
     "session-waiting",
   ]);
+});
+
+const flush = () => new Promise(setImmediate);
+const answered = (ctx, id, action = "request.answered") =>
+  ctx.events.emit({
+    action,
+    resourceType: "request",
+    resourceId: id,
+    sessionId: ctx.session.id,
+    kind: "permission",
+    source: "user",
+    outcome: "success",
+    details: { kind: "permission" },
+  });
+
+test("an owner session's request notifies at once, as before", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.request("owner-prompt");
+  await flush();
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "owner-prompt"]],
+  );
+  assert.equal(ctx.events.held.size, 0);
+});
+
+test("a controlled session's request is held until the agent escalates it", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  ctx.request("held-prompt");
+  await flush();
+  assert.deepEqual(ctx.sent, []);
+  assert.equal(ctx.events.held.has("held-prompt"), true);
+  await ctx.events.releaseRequest("held-prompt");
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "held-prompt"]],
+  );
+  assert.equal(ctx.events.held.size, 0);
+  // Released once: a second release and later polls send nothing more.
+  await ctx.events.releaseRequest("held-prompt");
+  await ctx.events.releaseRequest("unknown-prompt");
+  ctx.clock += agentRequestHoldMs;
+  await ctx.poll();
+  assert.equal(ctx.sent.length, 1);
+});
+
+test("a held request notifies once after fifteen minutes", async (t) => {
+  assert.equal(agentRequestHoldMs, 15 * 60 * 1000);
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  ctx.request("slow-prompt");
+  await flush();
+  ctx.clock += agentRequestHoldMs - 2501;
+  await ctx.poll();
+  assert.deepEqual(ctx.sent, [], "the hold has not run out yet");
+  await ctx.poll();
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "slow-prompt"]],
+  );
+  await ctx.poll();
+  await ctx.events.releaseRequest("slow-prompt");
+  assert.equal(ctx.sent.length, 1);
+});
+
+test("revoking control releases a held request on the next collect", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  ctx.request("revoked-prompt");
+  await flush();
+  await ctx.poll();
+  assert.deepEqual(ctx.sent, []);
+  ctx.controlled.delete(ctx.session.id);
+  await ctx.poll();
+  assert.deepEqual(
+    ctx.sent.map(({ kind, eventId }) => [kind, eventId]),
+    [["permission", "revoked-prompt"]],
+  );
+  assert.equal(ctx.events.held.size, 0);
+});
+
+test("an answered or handed-off request is never pushed", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  ctx.request("agent-answered");
+  ctx.request("handed-off");
+  await flush();
+  answered(ctx, "agent-answered");
+  answered(ctx, "handed-off", "request.handed-off");
+  assert.equal(ctx.events.held.size, 0);
+  ctx.clock += agentRequestHoldMs;
+  await ctx.poll();
+  ctx.controlled.delete(ctx.session.id);
+  await ctx.poll();
+  await ctx.events.releaseRequest("agent-answered");
+  assert.deepEqual(ctx.sent, []);
+});
+
+test("a controlled session sends no completion or wait push, but its end", async (t) => {
+  const ctx = waitingFixture(t);
+  ctx.controlled.add(ctx.session.id);
+  await ctx.poll("working");
+  await ctx.poll("idle");
+  await ctx.poll("working");
+  await ctx.poll("waiting");
+  await ctx.poll();
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), []);
+  ctx.session.status = "stopped";
+  await ctx.poll();
+  assert.deepEqual(ctx.kinds(), ["session-ended"]);
+  // Once control ends, the session notifies as an owner session again.
+  ctx.controlled.delete(ctx.session.id);
+  ctx.session.status = "running";
+  await ctx.poll("working");
+  await ctx.poll("idle");
+  assert.deepEqual(ctx.kinds(), ["session-ended", "session-completed"]);
 });
