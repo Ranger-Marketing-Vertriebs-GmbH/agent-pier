@@ -310,7 +310,11 @@ export async function installChromium({
       executable: path.join(directory, entry.executable),
     };
   } catch (error) {
-    if (error?.code === "ENOSPC" || error?.cause?.code === "ENOSPC")
+    if (
+      [error?.code, error?.cause?.code].some((code) =>
+        ["ENOSPC", "EDQUOT"].includes(code),
+      )
+    )
       throw bad(serverMessages.tools.chromiumDiskFull);
     throw error;
   } finally {

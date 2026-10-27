@@ -11,4 +11,17 @@ export const rea = Object.freeze({
   ghidraLinuxArm64:
     "Ghidra for REA is not available on Linux arm64 yet; REA Core and frida can be installed.",
   fridaUnavailable: "frida for REA is not available on this platform.",
+  downloading: (name, percent) => `Downloading ${name} for REA … ${percent}%`,
+  unpacking: (name) => `Unpacking ${name} for REA …`,
+  checking: (name) => `Checking ${name} for REA …`,
+  layoutInvalid: (name) => `The downloaded ${name} does not have the expected layout.`,
+  ghidraVersionMismatch: (version) => `The unpacked Ghidra is not version ${version}.`,
+  ghidraDecompilerMissing:
+    "The unpacked Ghidra has no native decompiler for this platform.",
+  ghidraMissingLibraries: (libraries) =>
+    `Ghidra's decompiler is missing system libraries: ${libraries}.`,
+  jdkNotStarting: "The Java runtime for REA does not start.",
+  jdkVersionMismatch: (version) =>
+    `The Java runtime for REA does not report version ${version}.`,
+  diskFull: "There is not enough free disk space for this REA component.",
 });
