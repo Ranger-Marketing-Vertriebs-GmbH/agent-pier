@@ -17,6 +17,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 
 ## Was du bekommst
 
+- **Startseite:** auf einen Blick, was läuft und was dich braucht: Fragen, Freigaben und
+  Probleme des Rechners zuerst, Sessions mit Zustand, CPU und RAM, Agenten, die
+  letzten Pipeline-Läufe, ein Live-Systemstatus und deine Tools, mit Filtern und Suche
+  für lange Listen ([Startseite](docs/system-status.md#start-page), auf Englisch).
 - **Native CLI-Sessions:** echte tmux-Terminals mit Anmeldung, Modellen und
   Rückfragen der jeweiligen CLI, dazu eine Chat-Ansicht, die Antworten schon beim
   Schreiben zeigt, die eigenen Slash-Befehle, Skills und Plugin-Befehle der CLI

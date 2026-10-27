@@ -15,6 +15,10 @@ and agents that work as a team.
 
 ## What you get
 
+- **Start page:** what runs and what needs you at a glance: questions, approvals and
+  host problems first, sessions with their state, CPU and RAM, agents, the latest
+  pipeline runs, a live system status and your tools, with filters and search for long
+  lists ([start page](docs/system-status.md#start-page)).
 - **Native CLI sessions:** real tmux-backed terminals with each CLI's own login,
   models and prompts, plus a chat view that shows replies while they are written,
   completes the CLI's own slash commands, skills and plugin commands, recovers on the
@@ -65,7 +69,7 @@ and agents that work as a team.
 - **Phone-first:** install as an app, push notifications, and delivery and upload
   recovery ([notifications](docs/notifications.md), [mobile recovery](docs/mobile-recovery.md)).
 - **Operations:** backups, updates with Stable and Preview channels, an activity log,
-  and a system status on the start page with disk, CPU and RAM, AgentPier's own share,
+  and a system status with disk, CPU and RAM on the start page, AgentPier's own share,
   a low-disk warning and cleanups for old update backups, transcripts and agent
   dependencies ([backups](docs/backups.md),
   [release channels](docs/release-channels.md), [system status](docs/system-status.md)).
