@@ -54,10 +54,10 @@ export async function stopSession(w, ctx, input, inv) {
   const state =
     after.status === "stopped" ? "ended" : (await w.s.activity.read(after)).state;
   w.sessions.store.patch(sessionId, { seen: { state, at: w.sessions.now() } });
-  audit(w, record, session, {
+  audit(w, {
     action: "session.stopped",
     resourceType: "session",
-    op: "stop",
+    ...auditFields(record, session, "stop"),
   });
   return { stopped: true, state };
 }
@@ -90,30 +90,34 @@ export async function removeWorktree(w, ctx, input, inv) {
     await manager.remove({ workspace: stored, confirmLocalCommits: true });
   }
   w.sessions.store.patch(record.sessionId, { worktree: { ...worktree, removed: true } });
-  audit(w, record, session, {
+  // The schema has no worktree resource: the removal deletes a working copy of the
+  // project's repository (its branch stays), so it is a repository deletion.
+  audit(w, {
     action: "repository.deleted",
     resourceType: "repository",
-    op: "worktree-remove",
+    ...auditFields(record, session, "worktree-remove"),
   });
   w.a.changed?.({ feeds: false });
   return done;
 }
 
 // Ids and enums only (audit-agent-session-details.js); never paths or branch names.
-function audit(w, record, session, { action, resourceType, op }) {
+// The literal action and resourceType stay at the call site (audit-actions-guard).
+function auditFields(record, session, op) {
+  return {
+    source: "system",
+    outcome: "success",
+    sessionId: record.sessionId,
+    projectId: record.projectId,
+    details: {
+      tool: session.tool,
+      agentSession: { assistantId: record.assistantId, op },
+    },
+  };
+}
+function audit(w, event) {
   try {
-    w.s.audit?.append({
-      action,
-      resourceType,
-      source: "system",
-      outcome: "success",
-      sessionId: record.sessionId,
-      projectId: record.projectId,
-      details: {
-        tool: session.tool,
-        agentSession: { assistantId: record.assistantId, op },
-      },
-    });
+    w.s.audit?.append(event);
   } catch (error) {
     console.error("Agent session audit failed:", error?.message);
   }
