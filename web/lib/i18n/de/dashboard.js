@@ -35,6 +35,7 @@ export const startPageCopy = {
   needsYou: "Braucht dich",
   moreAttention: (count) =>
     count === 1 ? "1 weiterer Hinweis" : `${count} weitere Hinweise`,
+  openInbox: "Eingang öffnen",
   fewerAttention: "Weniger anzeigen",
   attentionKind: {
     cliUpdate: "Update erforderlich",

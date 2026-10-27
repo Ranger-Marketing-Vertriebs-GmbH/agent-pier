@@ -34,6 +34,7 @@ export const startPageCopy = {
   newSessionShort: "Session",
   needsYou: "Needs you",
   moreAttention: (count) => (count === 1 ? "1 more item" : `${count} more items`),
+  openInbox: "Open Inbox",
   fewerAttention: "Show fewer",
   attentionKind: {
     cliUpdate: "Update required",

@@ -13,7 +13,11 @@ import {
   kindLabel,
 } from "../inbox/inbox-presentation.js";
 import { ATTENTION_LIMIT } from "./attention.js";
+import { isPlainClick } from "../../components/link-click.js";
+import { routePath } from "../../app/routes.js";
 import { statusPercent } from "./system-status-format.js";
+
+const inboxRoute = { view: "inbox" };
 
 /**
  * One card's words and action: `{ kind, title, sub, time, list, action }`, where
@@ -199,17 +203,33 @@ export default function NeedsYou({ items, phone, ...effects }) {
     <section className="start-attention" aria-labelledby="start-attention-title">
       <div className="start-section-head">
         <h2 id="start-attention-title">{copy.needsYou}</h2>
-        {hidden > 0 && (
-          <button
-            type="button"
-            className="start-head-link"
-            aria-expanded={expanded}
-            aria-controls="start-attention-items"
-            onClick={() => setExpanded((open) => !open)}
-          >
-            {expanded ? copy.fewerAttention : copy.moreAttention(hidden)}
-          </button>
-        )}
+        <span className="start-head-actions">
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="start-head-link"
+              aria-expanded={expanded}
+              aria-controls="start-attention-items"
+              onClick={() => setExpanded((open) => !open)}
+            >
+              {expanded ? copy.fewerAttention : copy.moreAttention(hidden)}
+            </button>
+          )}
+          {items.some((entry) => entry.kind === "inbox") && (
+            <a
+              className="start-head-link"
+              href={routePath(inboxRoute)}
+              onClick={(event) => {
+                if (!isPlainClick(event)) return;
+                event.preventDefault();
+                effects.navigate(inboxRoute);
+              }}
+            >
+              {copy.openInbox}
+              <Icon name="chevron" size={14} />
+            </a>
+          )}
+        </span>
       </div>
       <ul
         id="start-attention-items"
