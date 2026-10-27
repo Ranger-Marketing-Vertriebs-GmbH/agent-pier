@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  recentFailures,
   runSegments,
   startAgents,
   startRuns,
@@ -74,5 +75,32 @@ test("a run's stages become passed, current, failed and open segments", () => {
       ],
     }).map((segment) => segment.state),
     ["passed", "failed", "current", "open"],
+  );
+});
+
+test("failed runs show only when they failed in the last 24 hours", () => {
+  const now = Date.parse("2026-10-27T18:00:00Z");
+  const failed = [
+    { id: "fresh", status: "failed", finishedAt: "2026-10-27T10:00:00Z" },
+    { id: "old", status: "failed", finishedAt: "2026-10-26T17:00:00Z" },
+    {
+      id: "nodes",
+      status: "failed",
+      createdAt: "2026-10-20T10:00:00Z",
+      nodes: [{ id: "a", finishedAt: "2026-10-27T17:00:00Z" }],
+    },
+    { id: "unknown", status: "failed" },
+  ];
+  assert.deepEqual(
+    recentFailures(failed, now).map((run) => run.id),
+    ["fresh", "nodes"],
+  );
+  assert.deepEqual(
+    startRuns({ running: [], decisions: [], failed }, 3, now).map((run) => run.id),
+    ["nodes", "fresh"],
+  );
+  assert.deepEqual(
+    startRuns({ running: [], decisions: [], failed: failed.slice(1, 2) }, 3, now),
+    [],
   );
 });

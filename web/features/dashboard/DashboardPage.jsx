@@ -8,7 +8,7 @@ import useAssistants, { idleAssistants } from "../assistants/useAssistants.js";
 import useStartInbox from "./useStartInbox.js";
 import useSystemStatus from "./useSystemStatus.js";
 import { attentionItems, systemAttention } from "./attention.js";
-import { startAgents } from "./start-agents.js";
+import { recentFailures, startAgents } from "./start-agents.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import StartHeader from "./StartHeader.jsx";
 import NeedsYou from "./NeedsYou.jsx";
@@ -131,7 +131,10 @@ export default function DashboardPage({
             counts={{
               running: sources?.running,
               decisions: sources?.decisions,
-              failed: sources?.failed,
+              // Like the card: only failures of the last 24 hours (first page).
+              failed: sources?.runs?.failed
+                ? recentFailures(sources.runs.failed).length
+                : null,
             }}
             navigate={navigate}
             phone
