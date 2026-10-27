@@ -114,8 +114,8 @@ test("ambiguous archive requests retain their immutable identity until an explic
   assert.deepEqual(f.session.state.uncertain, []);
   f.unsubscribe();
 });
-function fixture(client) {
-  let hidden = false,
+function fixture(client, { hidden: startHidden = false } = {}) {
+  let hidden = startHidden,
     visibility;
   const timers = new Map();
   let sequence = 0;
@@ -254,6 +254,46 @@ test("a started job resumes polling until it retires", async () => {
   await tick();
   assert.equal(f.session.tracked.size, 0);
   assert.equal(f.timers.size, 0);
+  f.unsubscribe();
+});
+
+test("a history page with an active job resumes polling", async () => {
+  const f = fixture({ get: async () => ({ jobs: [], nextCursor: null }) });
+  await tick();
+  await tick();
+  assert.equal(f.timers.size, 0);
+  f.session.observeHistory({ jobs: [job("hist", { kind: "copy" })] }, null);
+  assert.equal(f.timers.size, 1);
+  f.unsubscribe();
+});
+
+test("a newly watched upload group resumes polling", async () => {
+  const f = fixture({ get: async () => ({ jobs: [], nextCursor: null }) });
+  await tick();
+  await tick();
+  assert.equal(f.timers.size, 0);
+  f.session.uploads.known.set("group", { id: "group" });
+  f.session.uploads.watch("group");
+  assert.equal(f.timers.size, 1);
+  f.unsubscribe();
+});
+
+test("an explorer mounted hidden reads nothing until it becomes visible", async () => {
+  let reads = 0;
+  const f = fixture(
+    {
+      get: async () => {
+        reads++;
+        return { jobs: [], nextCursor: null };
+      },
+    },
+    { hidden: true },
+  );
+  await tick();
+  assert.equal(reads, 0);
+  f.visibility(false);
+  await tick();
+  assert.equal(reads, 1);
   f.unsubscribe();
 });
 

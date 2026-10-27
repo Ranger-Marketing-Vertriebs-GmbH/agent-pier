@@ -236,7 +236,7 @@ export class FileJobClient {
     if (this.listeners.size === 1) {
       this.generation++;
       this.unlisten = this.timing.listen(() => this.wake());
-      this.poll();
+      if (!this.timing.hidden()) this.poll();
     }
     return () => {
       this.listeners.delete(listener);
@@ -329,6 +329,7 @@ export class FileJobClient {
       history: { ...page, cursor },
       jobs: this.boundedJobs([...this.state.jobs, ...page.jobs]),
     });
+    if (this.tracked.size) this.resume();
   }
   invalidateManifest(job) {
     const version = job.manifestVersion || job.conflict?.manifestVersion;
