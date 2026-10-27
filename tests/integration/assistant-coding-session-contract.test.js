@@ -191,6 +191,12 @@ test(
       .map((m) => String(m.content))
       .at(-1);
     t.diagnostic(`wait=${done.status} after ${elapsed} ms: ${result}`);
+    // The turn as AgentPier recorded it: an acknowledgement that timed out shows as
+    // `uncertain` with `unconfirmed` (run-confirmation.js).
+    const attempt = h.assistants.ledger.getAttempt(turn.attempt.id);
+    t.diagnostic(
+      `turn sent=${turn.attempt.state} unconfirmed=${!!turn.attempt.unconfirmed} now=${attempt.state} unconfirmed=${!!attempt.unconfirmed}`,
+    );
     assert.equal(done.status, "ok");
     assert.ok(elapsed >= 99000, "the wait used its 100 s");
     assert.match(result, /"state":\s*"working"/);
