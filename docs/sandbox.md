@@ -204,7 +204,12 @@ projects you trust, and preferably together with a nono sandbox profile: the san
 still limits which files and paths the CLI can reach, even when nothing asks first. The
 dialog remembers the last launch mode per CLI in the browser and preselects it next
 time; a remembered mode the CLI no longer offers falls back to the default (Codex YOLO,
-Claude Code and OpenCode Auto).
+Claude Code and OpenCode Auto). It also remembers the CLI of the last plain launch and
+the account or provider connection per CLI: **New session** without a chosen CLI (for
+example from a project) starts on that CLI, and each CLI starts on its last access
+ahead of the configured default account. A CLI that is no longer installed or an
+access that was removed falls back to the first CLI and the default account. Launches
+with a task profile are not remembered.
 
 ## Why the boundary is partial
 
