@@ -501,6 +501,9 @@ it up. An agent of users gets project folders only; the other groups show a lock
   (which ones, whether it may start them without another approval, and whether it may
   publish pull requests). What it proposed and what waits for your decision is under
   **Overview › Actions and coding tasks** ([agent workflows](assistant-workflows.md)).
+  Under each granted project, **Coding sessions** lets the agent start and steer its own
+  coding CLI sessions there; the same switch is in **Projects › <project> › Agents**
+  ([coding sessions](assistant-workflows.md#coding-sessions)).
 - **Direct folder access:** under **Projects**, each allowed project offers
   **None**, **Read** or **Read and write** for its folder. With **Read** the agent
   lists, reads and searches files there; with **Read and write** it also creates and
@@ -1001,7 +1004,8 @@ done: <title>** with a **Stop** button under the chat header.
   approval card, a team proposal or one of your queued messages waits for you, while
   the chat's own questions and tasks to members are open (in a permanent member's
   chat also its questions and tasks to colleagues whose answer comes back there), and
-  while a background command of the agent runs (for up to 2 hours). Members' reports
+  while a background command of the agent runs (for up to 2 hours), and while one of
+  its [coding sessions](assistant-workflows.md#coding-sessions) is working. Members' reports
   do not hold it. A turn whose outcome is uncertain, or any other interrupted turn,
   waits for your review and holds the goal until then. An interrupted continuation is
   reviewed by AgentPier itself and counts as a technical failure.
@@ -1502,6 +1506,13 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   remote MCP servers.
 - A lead's questions and tasks run without approval and use its members'
   capabilities.
+- **Coding sessions** let an agent start coding CLIs in a project with the CLI's
+  default launch mode (Codex `yolo`), without an approval per start in your own
+  messages, routines and hooks with **Coding**. Those sessions run as your operating-system
+  user like any session you start; the agent reads their replies as untrusted data. Grant the
+  switch only for projects where you accept that, and see [coding
+  sessions](assistant-workflows.md#coding-sessions) for worktrees, escalation and revoking.
+  Agents of restricted users never get the tool.
 - Leads and their temporary members work unattended. Content they read can steer a
   lead into granting its members more (never more than it has itself) and a member
   into using what it was granted; with **Team members may use shell and SSH** on,

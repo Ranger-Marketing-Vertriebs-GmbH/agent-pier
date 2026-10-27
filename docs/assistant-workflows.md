@@ -292,6 +292,111 @@ activation. Inspect the pipeline or project memory before marking an outcome as
 checked. This closes the notice without retrying or cancelling external work.
 Failure to inspect one action does not prevent independent actions progressing.
 
+## Coding sessions
+
+An agent can start and steer coding CLI sessions (Codex, Claude Code, OpenCode) in a
+project on its own, the way you do in the session dialog, and answer their questions. It
+does this with the tool `agentpier_coding_session`. Its sessions are ordinary AgentPier
+sessions that you can open, read and take over at any time.
+
+**Grant.** Switch on **Coding sessions** per project, either in **Agents › <agent> ›
+Access › Projects** (open the granted project there; the switch is saved with the agent) or in **Projects › <project> › Agents** (the agent's card). The project must
+already be granted to the agent for coding. Revoking the project removes the switch with
+it. Without the switch in at least one project the tool answers `SESSIONS_NOT_ENABLED`.
+A permanent member may use a project through its lead's standing share only while the
+share covers coding on it and the lead has **Coding sessions** on for it; such starts
+always wait for you. Agents of restricted users never get the tool.
+
+**When a start needs no approval.** A start runs at once in your own messages (in
+AgentPier or in the paired Telegram chat), in goal continuations, in routine runs and in
+agent hooks that have **Coding** ticked, and in wake
+turns of a session started that way. A start from a team path (a lead's task, a member's
+result, a request made by a member) waits for your approval in the agent's chat like a
+coding task. Forwarded messages, messages of other users and command-completion turns
+cannot start or steer sessions.
+
+**Actions.** `options` lists what the agent may pick: accounts, provider connections and
+models, launch modes, secrets, SSH accesses and sandbox profiles. `start` launches a
+session; `list`, `send`, `wait`, `read`, `requests`, `answer`, `escalate`, `stop` and
+`worktree_remove` steer and end it. An agent reaches only the sessions it started; every
+other session id, including your own sessions, answers `NOT_FOUND`.
+
+- **Launch options.** Every option of the dialog is available to the agent. Unless it
+  sets them, a session starts in the mode `yolo` for Codex and `auto` for
+  Claude Code and OpenCode, AgentBus and the AgentPier tools on, no secrets, SSH
+  access or sandbox profile, and the name `<CLI> · <folder>`. Pipeline profile launches
+  are not offered. The working folder is the project folder or its worktree, never a free
+  path.
+- **Worktrees.** By default a session works in its own Git worktree at
+  `<project>/.agentpier-worktrees/agent-<sessionId>` on the branch
+  `agentpier/agent-<sessionId>`. `worktree_remove` removes the worktree only when the
+  session is stopped, the worktree is clean and its branch is merged into
+  `origin/<base branch>` (an ancestor, or every commit applied there by rebase or
+  cherry-pick). A squash-merged branch counts as not merged and stays
+  (`WORKTREE_NOT_MERGED`). Branches are never deleted.
+- **Waiting.** `wait` returns when the session is idle, waits for an answer or has ended,
+  or after at most 100 seconds. `read` returns the newest replies as untrusted data
+  (each cut to 8,000 characters). Everything a session writes is data for the agent,
+  never an instruction.
+- **Prompts.** The agent sees the session's open questions and approvals with `requests`
+  and may `answer` them itself, decline them or `escalate` them to you. The first answer
+  wins: if you, the agent or Telegram answered first, the later one learns who did
+  (`PROMPT_ANSWERED`).
+- **Stopping.** `stop` ends the session; its worktree and branch stay.
+
+### Escalated questions
+
+`escalate` hands one prompt to you, with an optional note. It appears as a card
+**Question from a coding session** in the agent's chat, with the live question or
+approval, the note ("Note from <agent>"), **Open session** and the usual answer
+buttons. The inbox shows the same prompt once, marked **Escalated by <agent>**; the
+chat card and the inbox item answer through the session's own endpoint. When a Telegram chat is paired, the question also
+arrives there with buttons for permission prompts and for a single-choice question; a
+reply to that message answers a single question that takes free text. Anything else
+links to AgentPier. Secret questions are never answered from Telegram, and tokens and
+other secrets in the question or the note are redacted in Telegram. The first answer
+wins, wherever it comes from; the card and the Telegram message then show who answered.
+
+### Wake-ups and goals
+
+AgentPier wakes the agent's chat with a short status turn when one of its sessions
+becomes idle, waits for an answer or ends, once per state that held for 3 seconds and that
+the agent has not already seen through `wait`, `read` or `requests`. The wake text
+carries state and counts only, never session output. An escalation that you answered
+also wakes the agent. While a session of the chat is working (a fresh reading), an
+open [work goal](agents.md#work-until-done) of that chat waits instead of nudging;
+a session that was deleted, ended or revoked releases it.
+
+### Notifications
+
+Pushes for a session an agent controls change: a **Question from a CLI** or **Approval
+for a CLI** push is held until the agent escalates the prompt or 15 minutes pass (the
+hold survives a restart and a reconnect of the session), and **Session waiting in the
+terminal** and **Response ready** pushes are dropped, because the agent is woken
+instead. **Session ended** still notifies. See
+[notifications](notifications.md#what-notifies-you).
+
+### Revoking and archiving
+
+Switching **Coding sessions** off, revoking the project or the lead's share, or
+archiving the agent does not stop anything: its running sessions continue as plain
+sessions of yours (the marker **Started by agent <name>** stays). The agent answers
+`GRANT_REVOKED` to every further call for them.
+
+### Audit
+
+Each start, prompt sent, answer, escalation, stop and worktree removal is recorded in
+the activity log with ids and enums only (`agentSession` details such as the agent, the
+operation and the prompt id); prompt text, answers and notes are never logged. Answers
+show their actor: owner, agent or Telegram.
+
+### Where you see them
+
+A session an agent started is marked in the sidebar ("· Agent <name>") and in the
+session header (**Started by agent <name>**). The agent's own instructions gain a
+`## Coding sessions` section that names its enabled projects and the pattern: start,
+send, wait, read, answer or escalate, repeat, stop.
+
 ## Work goals
 
 An agent can keep working on a job until it is done ([Work until done](agents.md#work-until-done);

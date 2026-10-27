@@ -41,7 +41,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   abstimmen und ihrem Lead berichten, Agency-Agenten
   als Vorlagen für Agenten und Mitglieder, Arbeitsziele, mit denen ein Agent weiterarbeitet, bis die Aufgabe erledigt ist, nächtliches Träumen (Dreaming) auf Wunsch, das das Gedächtnis jedes Agenten ordnet, Hooks, mit denen Monitoring und andere Systeme einen Agenten wecken, mit @-Erwähnungen, Telegram, Skills (mitgelieferte und ein Skill-Katalog des Eigentümers, jeder Skill wird vor der Installation geprüft), Routinen, Check-ins,
   Dateien in beide Richtungen, über ChatGPT erstellte Bilder, PDFs gelesen mit dem eigenen Modell des Agenten (oder einem optionalen Ersatzmodell), Lese- oder Schreibzugriff auf Projektordner und GitHub
-  über deine Tokenprofile ([Agenten](docs/agents.md)).
+  über deine Tokenprofile sowie Coding-Sessions, die sie selbst in eigenen Worktrees starten und steuern und deren Rückfragen sie an dich eskalieren ([Agenten](docs/agents.md), [Coding-Sessions](docs/assistant-workflows.md#coding-sessions), auf Englisch).
 - **Benutzer:** Familienmitglieder melden sich mit eigenem Passwort an und chatten
   privat mit eigenen oder geteilten Agenten, gesperrt für Shell, Coding und den Rest
   deines Arbeitsbereichs; ihre Chats liest du nur, wenn du es einschaltest

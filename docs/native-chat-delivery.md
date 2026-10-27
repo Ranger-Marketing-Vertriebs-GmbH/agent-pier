@@ -2,6 +2,8 @@
 
 AgentPier distinguishes a durable terminal handoff from an observed native queue and native consumption. Transport receipts and retry guards remain independent from display observations. No observation sends input, retries Enter or changes a delivery's custody status.
 
+Agents that steer a coding session through [`agentpier_coding_session`](assistant-workflows.md#coding-sessions) send through this same delivery path; nothing about delivery changes.
+
 ## Slash-command completion
 
 Typing `/` at the start of the chat composer opens the session CLI's commands. Continue
