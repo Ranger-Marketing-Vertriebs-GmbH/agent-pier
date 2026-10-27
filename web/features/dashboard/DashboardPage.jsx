@@ -84,6 +84,14 @@ export default function DashboardPage({
   const profiles = ready
     ? (state.accounts || []).filter((account) => account.tool !== "shell").length
     : null;
+  const systemTile = (
+    <SystemStatusTile
+      data={status.data}
+      error={status.error}
+      onOpen={() => openStatus("load")}
+      phone={phone}
+    />
+  );
   return (
     <div className="page dashboard start-page">
       <StartHeader
@@ -101,6 +109,8 @@ export default function DashboardPage({
         setModal={setModal}
         openStorage={() => openStatus("storage")}
       />
+      {/* Phones show the system status right after Needs you (handoff mockup). */}
+      {phone && systemTile}
       <div className="start-row-grid start-row-sessions">
         <SessionsCard
           sessions={state.sessions}
@@ -109,12 +119,7 @@ export default function DashboardPage({
           openNavigation={openNavigation}
           phone={phone}
         />
-        <SystemStatusTile
-          data={status.data}
-          error={status.error}
-          onOpen={() => openStatus("load")}
-          phone={phone}
-        />
+        {!phone && systemTile}
       </div>
       {(agentsEnabled || !phone) && (
         <div

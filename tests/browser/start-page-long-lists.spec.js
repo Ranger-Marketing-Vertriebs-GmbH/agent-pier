@@ -184,7 +184,9 @@ test.describe("phone", () => {
     const card = agentsCard(page);
     await card.locator(".start-agent-row").filter({ hasText: "Recherche" }).click();
     await expect(card.getByRole("alert")).toContainText("read-only fixture");
-    expect(fixture.writes).toEqual(["POST /api/assistants/agent-recherche/conversations"]);
+    expect(fixture.writes).toEqual([
+      "POST /api/assistants/agent-recherche/conversations",
+    ]);
   });
 
   test("four rows each and show all, compact Needs you and summary tiles", async ({
@@ -208,6 +210,13 @@ test.describe("phone", () => {
     await expect(agents.getByRole("button", { name: "All 14 agents" })).toBeVisible();
     const needs = page.getByRole("region", { name: "Needs you" });
     await expect(needs.locator(".start-attention-row")).toHaveCount(2);
+    // Needs you, then the system status, then the sessions.
+    const tops = await Promise.all(
+      [needs, page.getByRole("button", { name: /System status/ }), card].map(
+        async (part) => (await part.boundingBox()).y,
+      ),
+    );
+    expect(tops).toEqual([...tops].sort((a, b) => a - b));
     await expect(page.getByRole("link", { name: /Pipelines/ })).toContainText(
       "1 running",
     );
