@@ -45,7 +45,13 @@ export function leafParts(structure) {
   const stack = structure ? [structure] : [];
   while (stack.length && leaves.length < mailBounds.parts) {
     const node = stack.pop();
-    if (node.childNodes?.length) {
+    // An attached mail (message/rfc822) or attached multipart is one attachment: its
+    // own parts are neither listed nor read as the message's text.
+    if (
+      node.childNodes?.length &&
+      node.type !== "message/rfc822" &&
+      node.disposition !== "attachment"
+    ) {
       for (let i = node.childNodes.length - 1; i >= 0; i--)
         stack.push(node.childNodes[i]);
     } else leaves.push(node);
@@ -58,11 +64,12 @@ export const fileName = (node) =>
   node.dispositionParameters?.filename || node.parameters?.name || null;
 
 /**
- * A part counts as an attachment when it is marked so, or when it carries a file
- * name and is no text part (an inline image with a name, for instance).
+ * A part counts as an attachment when it is marked so, is an attached mail, or
+ * carries a file name and is no text part (an inline image with a name, for instance).
  */
 export const isAttachment = (node) =>
   node.disposition === "attachment" ||
+  node.type === "message/rfc822" ||
   (!!fileName(node) && !String(node.type).startsWith("text/"));
 
 export const attachmentsOf = (structure) => leafParts(structure).filter(isAttachment);
@@ -181,17 +188,31 @@ async function download(client, uid, part) {
     uid: true,
     maxBytes: mailBounds.partBytes,
   });
-  if (!content) return { body: "", limited: false };
+  if (!content) return { bytes: Buffer.alloc(0), limited: false };
   const chunks = [];
-  let bytes = 0;
+  let size = 0;
   for await (const chunk of content) {
     chunks.push(chunk);
-    bytes += chunk.length;
+    size += chunk.length;
   }
-  return {
-    body: Buffer.concat(chunks).toString("utf8"),
-    limited: bytes >= mailBounds.partBytes,
-  };
+  return { bytes: Buffer.concat(chunks), limited: size >= mailBounds.partBytes };
+}
+
+const metaCharset = /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i;
+
+/**
+ * The part's text. imapflow converts a declared charset to UTF-8; an HTML part
+ * without one may name its charset in a `<meta>` tag within its first 4 KiB.
+ */
+function decodeText(bytes, part) {
+  if (part.type === "text/html" && !part.parameters?.charset) {
+    const label = bytes.subarray(0, 4096).toString("latin1").match(metaCharset)?.[1];
+    if (label)
+      try {
+        return new TextDecoder(label).decode(bytes);
+      } catch {}
+  }
+  return bytes.toString("utf8");
 }
 
 /** One message with its text (plain, or HTML as text) and attachment names only. */
@@ -203,7 +224,8 @@ export async function readMessage(client, folder, uid) {
   const part = textPart(row.bodyStructure);
   let text = { text: "", truncated: false };
   if (part) {
-    const { body, limited } = await download(client, uid, part.part || "1");
+    const { bytes, limited } = await download(client, uid, part.part || "1");
+    const body = decodeText(bytes, part);
     text =
       part.type === "text/html"
         ? htmlToText(body, mailBounds.textChars)

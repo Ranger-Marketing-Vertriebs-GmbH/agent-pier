@@ -234,6 +234,7 @@ test("the tool input is checked against its schema", async (t) => {
     { action: "mark", accountId: f.account.id, uids: Array(51).fill(1) },
     { action: "mark", accountId: f.account.id, flag: "deleted" },
     { action: "search", accountId: f.account.id, query: { since: "2026-1-1" } },
+    { action: "read", accountId: f.account.id, uid: 4294967296 },
     { action: "search", accountId: f.account.id, query: { from: "a", other: "b" } },
     { action: "search", accountId: f.account.id, query: { subject: "x".repeat(201) } },
     { action: "send", accountId: f.account.id, to: Array(51).fill("a@b.de") },
