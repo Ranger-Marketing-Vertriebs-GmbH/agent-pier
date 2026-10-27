@@ -138,6 +138,11 @@ export async function serveLongLists(page, { agents = true, language } = {}) {
           })),
           sessions,
           home: "/work",
+          inbox: {
+            instance: "long",
+            revision: 1,
+            counts: { all: 2, questions: 0, approvals: 1, gates: 1, agents: 0 },
+          },
         },
       });
     if (path === "/api/inbox")
@@ -148,11 +153,6 @@ export async function serveLongLists(page, { agents = true, language } = {}) {
           counts: { all: 2, questions: 0, approvals: 1, gates: 1, agents: 0 },
           items: inboxItems(),
         },
-      });
-    if (path === "/api/inbox/events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"instance":"long","revision":1,"counts":{"all":2}}\n\n',
       });
     if (path === "/api/assistant-feature")
       return route.fulfill({ json: { enabled: agents, error: null } });
