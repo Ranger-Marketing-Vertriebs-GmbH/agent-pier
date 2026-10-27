@@ -1,0 +1,244 @@
+/* HistoryChart and ShareBar (docs/ui-guide.md#feedback): series colours come from the
+   --chart-* tokens of base.css. */
+.history-chart {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  min-width: 0;
+}
+.history-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.history-chart-head > :last-child:not(.history-chart-legend) {
+  margin-left: auto;
+}
+.history-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.history-chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-row);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.history-chart-toggle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.history-chart-toggle[aria-pressed="false"] {
+  color: var(--text-faint);
+  border-style: dashed;
+}
+.history-chart-toggle i {
+  width: 12px;
+  border-top: 2px solid var(--series);
+}
+.history-chart-toggle.dashed i {
+  border-top-style: dashed;
+}
+.history-chart-toggle[aria-pressed="false"] i {
+  opacity: 0.35;
+}
+.chart-tone-cpu {
+  --series: var(--chart-cpu);
+  --series-text: var(--accent-text);
+}
+.chart-tone-memory {
+  --series: var(--chart-memory);
+  --series-text: var(--chart-memory-text);
+}
+.chart-tone-agentpier {
+  --series: var(--chart-agentpier);
+  --series-text: var(--text);
+}
+.chart-tone-other {
+  --series: var(--chart-other);
+  --series-text: var(--text-meta);
+}
+.chart-tone-free {
+  --series: transparent;
+  --series-text: var(--text-meta);
+}
+.history-chart-body {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: var(--history-chart-height, 240px) auto;
+  column-gap: 8px;
+  row-gap: 6px;
+}
+.history-chart-y {
+  position: relative;
+}
+.history-chart-y span,
+.history-chart-x span {
+  position: absolute;
+  font-size: var(--font-size-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.history-chart-y span {
+  right: 0;
+  transform: translateY(-50%);
+}
+.history-chart-plot {
+  position: relative;
+  min-width: 0;
+  border-left: 1px solid var(--chart-grid);
+  touch-action: pan-y;
+}
+.history-chart-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.history-chart-plot svg:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+.history-chart-grid {
+  stroke: var(--chart-grid);
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+.history-chart-line {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.history-chart-line.dashed {
+  stroke-dasharray: 4 4;
+}
+.history-chart-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--chart-grid) 0 2px,
+    transparent 2px 8px
+  );
+}
+.history-chart-crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-faint);
+  pointer-events: none;
+}
+.history-chart-tooltip {
+  position: absolute;
+  top: 8px;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  margin-left: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--popover-bg);
+  box-shadow: var(--elevation-2);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+.history-chart-tooltip.flip {
+  transform: translateX(calc(-100% - 24px));
+}
+.history-chart-tooltip strong {
+  font-weight: var(--font-weight-regular);
+  color: var(--text-meta);
+}
+.history-chart-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--series-text);
+}
+.history-chart-tooltip b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.history-chart-x {
+  position: relative;
+  grid-column: 2;
+  height: 16px;
+}
+.history-chart-x span {
+  transform: translateX(-50%);
+}
+.history-chart-x span:first-child {
+  transform: none;
+}
+.history-chart-x span:last-child {
+  transform: translateX(-100%);
+}
+
+.share-bar {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.share-bar-track {
+  display: flex;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--divider);
+  overflow: hidden;
+}
+.share-bar-track i {
+  display: block;
+  height: 100%;
+  background: var(--series);
+}
+.share-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--text-meta);
+}
+.share-bar-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.share-bar-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--series);
+}
+.share-bar-legend .chart-tone-free i {
+  border: 1px solid var(--chart-other);
+}
+@media (max-width: 700px) {
+  .history-chart {
+    --history-chart-height: 150px;
+  }
+  .history-chart-toggle {
+    min-height: var(--touch-target);
+  }
+}

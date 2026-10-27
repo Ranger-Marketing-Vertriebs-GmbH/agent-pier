@@ -4,13 +4,25 @@ import ActivityRow from "../../components/ActivityRow.jsx";
 import CodeBlock from "../../components/CodeBlock.jsx";
 import CopyButton from "../../components/CopyButton.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
+import HistoryChart from "../../components/HistoryChart.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
+import ShareBar from "../../components/ShareBar.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
-import { pageItems } from "./gallery-fixtures.js";
+import { historySample, pageItems } from "./gallery-fixtures.js";
+import { formatNumber, locale } from "../../lib/i18n/index.js";
+
+// The chart's sample hour ends when the gallery opens.
+const end = Date.now();
+const percent = (value) =>
+  Number.isFinite(value)
+    ? formatNumber(value / 100, { style: "percent", maximumFractionDigits: 0 })
+    : "–";
+const clock = (value) =>
+  new Date(value).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
 const dotTones = [
   "working",
@@ -110,6 +122,56 @@ export default function FeedbackSection() {
             </ActivityRow>
           ))}
         </ActivityGroup>
+      </Specimen>
+      <Specimen label="HistoryChart" wide>
+        <HistoryChart
+          label={s.chartLabel}
+          heading={<strong>{s.chartHeading}</strong>}
+          series={[
+            { id: "first", label: s.chartFirst, field: "first", tone: "cpu" },
+            { id: "second", label: s.chartSecond, field: "second", tone: "memory" },
+            {
+              id: "third",
+              label: s.chartThird,
+              field: "third",
+              tone: "agentpier",
+              dashed: true,
+            },
+          ]}
+          points={historySample(end)}
+          start={end - 60 * 60_000}
+          end={end}
+          xLabels={[60, 30, 0].map((minutes) => ({
+            at: end - minutes * 60_000,
+            label: minutes ? s.chartAgo(minutes) : s.chartNow,
+          }))}
+          formatValue={percent}
+          formatTime={clock}
+          timeLabel={s.chartTime}
+        />
+      </Specimen>
+      <Specimen label="ShareBar" wide>
+        <ShareBar
+          label={s.shareLabel}
+          total={100}
+          segments={[
+            { id: "own", label: s.shareOwn, value: 6, tone: "cpu", text: percent(6) },
+            {
+              id: "other",
+              label: s.shareOther,
+              value: 12,
+              tone: "other",
+              text: percent(12),
+            },
+            {
+              id: "free",
+              label: s.shareFree,
+              value: 82,
+              tone: "free",
+              text: percent(82),
+            },
+          ]}
+        />
       </Specimen>
       <Specimen label="Pagination" wide>
         <Pagination paging={paging} label={s.pagination} />

@@ -17,6 +17,7 @@
 @import "../components/status-dot.css";
 @import "../components/status-chip.css";
 @import "../components/segment.css";
+@import "../components/history-chart.css";
 @import "../components/choice.css";
 @import "settings-pattern.css";
 @import "../features/agentbus/agentbus.css";

@@ -78,3 +78,13 @@ export const mcpServers = () =>
     "sentry",
     "linear",
   ].map((name) => ({ id: name, name, sub: `@modelcontextprotocol/server-${name}` }));
+
+/** An hour of sample load, one point a minute, with ten minutes nobody measured. */
+export function historySample(end) {
+  return Array.from({ length: 61 }, (_, index) => ({
+    t: end - (60 - index) * 60_000,
+    first: 20 + 10 * Math.sin(index / 5),
+    second: 60 + 3 * Math.cos(index / 7),
+    third: 5 + 2 * Math.sin(index / 3),
+  })).filter((_, index) => index < 25 || index > 35);
+}
