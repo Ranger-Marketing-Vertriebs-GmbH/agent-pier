@@ -7,13 +7,16 @@ import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
-import { formatMessageTime } from "../../lib/i18n/index.js";
+import { formatChatTime } from "../../lib/i18n/index.js";
+import ChatTime from "./ChatTime.jsx";
 import { remarkMemberMentions } from "./mention-markdown.js";
 import RouteLink from "./RouteLink.jsx";
 import "./member-mentions.css";
 
 // Memoized so a streamed delta re-parses only the streaming message, not the history.
 // The owner's own name stays for screen readers only; the bubble already says who.
+// A message with a timestamp shows its time beside the speaker's name, or at the top of
+// the owner's bubble. Where the meta line below already names the time, it stays there.
 // An owner message that reached the agent through Telegram, and a question or task
 // the member's lead agent sent, get a quiet meta line under the bubble, which also
 // describes the message for screen readers. In a lead's chat the owner's @mentions
@@ -70,6 +73,7 @@ export default memo(function AssistantMessage({
       {role === "assistant" && scheduled ? (
         <div className="assistant-message-head">
           <strong>{name}</strong>
+          <ChatTime timestamp={timestamp} />
           <span className="assistant-scheduled-badge">
             {scheduled.kind === "heartbeat"
               ? routineCopy.checkInBadge
@@ -80,9 +84,11 @@ export default memo(function AssistantMessage({
           )}
         </div>
       ) : (
-        <strong className={role === "user" ? "sr-only" : undefined}>
-          {lead ? sender.name : name}
-        </strong>
+        <Speaker
+          hidden={role === "user"}
+          name={lead ? sender.name : name}
+          timestamp={marked ? 0 : timestamp}
+        />
       )}
       <AgentMessageAttachments files={attachments} shared={shared} />
       {unavailable && (
@@ -141,9 +147,20 @@ const leadWords = (name) => ({
   spokenAt: leadRequestCopy.spokenAt,
 });
 
+function Speaker({ hidden, name, timestamp }) {
+  const label = <strong className={hidden ? "sr-only" : undefined}>{name}</strong>;
+  if (!(timestamp > 0)) return label;
+  return (
+    <div className="assistant-message-head">
+      {label}
+      <ChatTime timestamp={timestamp} />
+    </div>
+  );
+}
+
 function SourceMeta({ words, timestamp }) {
   if (!(timestamp > 0)) return words.via;
-  const time = formatMessageTime(new Date(timestamp));
+  const time = formatChatTime(timestamp);
   return (
     <>
       <span aria-hidden="true">{words.at(words.via, time)}</span>

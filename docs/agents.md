@@ -141,6 +141,16 @@ attachments, Telegram, hooks, reminders, routines, always allowed commands, the
 browser profile, users and the template's provenance are not copied. Review every step
 before **Create agent**.
 
+### Message times
+
+Every message in an agent's chat shows when it was sent, next to the speaker's name (at
+the top of your own bubble): the time for today, the weekday, date and time for an
+earlier day this year, and the year as well for older messages. Hover the time for the
+full date. Messages without a stored time show none. Your messages that came through
+Telegram, and a lead agent's requests, show the time in the line below the bubble. In a
+lead's chat the lead's messages carry their time too, and the centred notices about
+members asking each other end with theirs.
+
 ## Agent settings
 
 **Settings** in the agent's chat header (or on its row on the agents page)

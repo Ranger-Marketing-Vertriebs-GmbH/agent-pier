@@ -128,6 +128,34 @@ export function formatMessageTime(value, now = new Date()) {
     ? date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
     : date.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
 }
+// A chat message's time beside its speaker: the clock time today; weekday, day, month
+// and time on an earlier day this year; the year too in any other year.
+export function formatChatTime(value, now = new Date()) {
+  const date = new Date(value);
+  const clock = { hour: "2-digit", minute: "2-digit" };
+  if (date.toDateString() === now.toDateString())
+    return new Intl.DateTimeFormat(locale, clock).format(date);
+  // German reads 26.10.; English spells the month, as a bare 10/26 is ambiguous.
+  const month = language === "de" ? "2-digit" : "short";
+  const day = {
+    weekday: "short",
+    day: language === "de" ? "2-digit" : "numeric",
+    month,
+    ...clock,
+  };
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return new Intl.DateTimeFormat(
+    locale,
+    sameYear ? day : { ...day, year: "numeric" },
+  ).format(date);
+}
+// The full date and time, for a tooltip.
+export function formatChatTimeTitle(value) {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 export function formatNumber(value, options) {
   return new Intl.NumberFormat(locale, options).format(value);
 }

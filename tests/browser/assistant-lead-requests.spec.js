@@ -504,8 +504,8 @@ test("the lead sees its members' exchanges and reports", async ({ page }) => {
   await page.goto(baseURL + "/agents/home/chats/dinner");
   const notes = page.locator("[data-peer-note]");
   await expect(notes).toHaveText([
-    "Learning asked Head Writer a question",
-    "Head Writer answered Learning",
+    /^Learning asked Head Writer a question · 11:41 AM$/,
+    /^Head Writer answered Learning · 11:41 AM$/,
   ]);
   await expect(
     page
