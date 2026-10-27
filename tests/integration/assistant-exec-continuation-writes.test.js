@@ -245,9 +245,15 @@ test("a completion of a telegram turn writes too, a forwarded or delegated one n
 test("a newer request ends the continuation", async (t) => {
   const f = await setup(t);
   await f.turn({ kind: "owner" });
-  // The owner wrote again before the command finished; that turn started nothing.
-  await f.turn({ kind: "owner" }, { exec: false });
+  // Forwarded content arrived before the command finished; that turn started nothing.
+  await f.turn({ kind: "owner", forwarded: true }, { exec: false });
   assert.equal(await f.call("notes.md", { ctx: await f.wake() }), false);
+  // The owner's own newer message does not end it (AGENTPIER-261).
+  const o = await setup(t);
+  const source = await o.turn({ kind: "owner" });
+  await o.turn({ kind: "owner" }, { exec: false });
+  assert.equal(await o.call("notes.md", { ctx: await o.wake() }), true);
+  assert.deepEqual(o.writes(), [["notes.md", source]]);
   // A newer request still running binds the session to its own turn instead.
   const g = await setup(t);
   await g.turn({ kind: "owner" });
