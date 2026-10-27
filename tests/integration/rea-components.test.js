@@ -374,6 +374,27 @@ test("an update keeps the previous version until the next install, then prunes i
   );
 });
 
+test("an install never prunes another process's recent unpublished version folder", async (t) => {
+  const f = await fixture(t);
+  const one = jdkArchive();
+  await f.install("rea-jdk", jdkEntry(one, "one.tar.gz"), one);
+  const first = managedReaComponent(f.root, "rea-jdk").directory;
+  const packages = path.join(f.root, ".packages");
+  // Another process (an installer run beside the server) is still unpacking here.
+  fs.mkdirSync(path.join(packages, "rea-jdk-inflight", "jdk"), { recursive: true });
+  // Left by a crash long ago: no record and untouched for an hour.
+  fs.mkdirSync(path.join(packages, "rea-jdk-stale"));
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  fs.utimesSync(path.join(packages, "rea-jdk-stale"), hourAgo, hourAgo);
+  const two = jdkArchive();
+  await f.install("rea-jdk", jdkEntry(two, "two.tar.gz"), two);
+  const second = managedReaComponent(f.root, "rea-jdk").directory;
+  assert.deepEqual(
+    f.packages(),
+    [path.basename(first), path.basename(second), "rea-jdk-inflight"].sort(),
+  );
+});
+
 test("a failed install keeps the previous version active and leaves no version folder", async (t) => {
   const f = await fixture(t);
   const good = jdkArchive();
