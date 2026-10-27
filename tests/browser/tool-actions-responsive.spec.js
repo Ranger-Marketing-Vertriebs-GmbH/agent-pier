@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-async function fixture(page, path = "/") {
+const TOOLS = [
+  { id: "codex", name: "Codex", installed: true },
+  { id: "shell", name: "Shell", installed: true },
+];
+
+async function fixture(page, path = "/", tools = TOOLS) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   const calls = [];
   await page.route("**/api/**", async (route) => {
@@ -13,10 +18,7 @@ async function fixture(page, path = "/") {
     const json =
       pathname === "/api/state"
         ? {
-            tools: [
-              { id: "codex", name: "Codex", installed: true },
-              { id: "shell", name: "Shell", installed: true },
-            ],
+            tools,
             accounts: [
               { id: "local-codex", tool: "codex", name: "Codex", kind: "local" },
               { id: "local-shell", tool: "shell", name: "Shell", kind: "local" },
@@ -87,6 +89,33 @@ for (const width of [390, 780, 1440]) {
     }
   });
 }
+
+test("an outdated CLI's version line uses the text column on a phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await fixture(page, "/coding/clis", [
+    {
+      id: "claude",
+      name: "Claude Code",
+      installed: true,
+      version: "2.0.9",
+      minimumVersion: "2.1.0",
+      versionStatus: "update-required",
+    },
+  ]);
+  const card = page
+    .locator(".tool-card")
+    .filter({ has: page.getByRole("heading", { name: "Claude Code", exact: true }) });
+  const version = card.locator(".tool-version");
+  await expect(version).toHaveText("Version 2.0.9 · Requires 2.1.0 or later");
+  const title = await card.getByRole("heading").boundingBox();
+  const line = await version.boundingBox();
+  // Below the title, in its column, on one line instead of a 40px column.
+  expect(line.x).toBe(title.x);
+  expect(line.y).toBeGreaterThanOrEqual(title.y + title.height);
+  expect(line.height).toBeLessThan(20);
+});
 
 test("the general launch dialog can switch between Codex and Shell and launch the shell", async ({
   page,

@@ -122,9 +122,15 @@
     font-size: 13px;
     margin: 0 0 5px;
   }
+  /* The version sits under the title; without a place it fell into the icon column. */
+  .tool-card .tool-version {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    margin: 0 0 4px;
+  }
   .tool-card p {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
     font-size: var(--font-size-xs);
     min-height: 0;
   }
@@ -148,7 +154,7 @@
   }
   .tool-card > .tool-remove-button {
     grid-column: 2 / 4;
-    grid-row: 4;
+    grid-row: 5;
     width: 100%;
     min-height: 36px;
     margin-top: 6px;
@@ -158,7 +164,7 @@
   }
   .tool-card > .tool-update-button {
     grid-column: 2 / 4;
-    grid-row: 3;
+    grid-row: 4;
     width: 100%;
     min-height: 36px;
     margin-top: 10px;
