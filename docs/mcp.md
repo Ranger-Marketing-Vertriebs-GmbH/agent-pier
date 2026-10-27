@@ -708,8 +708,8 @@ checked) and verified before it is unpacked. Ghidra and the JDK live under
 `<data dir>/clis/rea-ghidra` and `<data dir>/clis/rea-jdk`, links that switch
 atomically to the version folders under `<data dir>/clis/.packages/`; REA's settings
 and its own home are under `<data dir>/rea/`. To raise a pin, edit the manifest and,
-for Core, run `node scripts/refresh-rea-lock.mjs`, which writes the lockfile and checks
-it against the registry's integrity.
+for Core, run `node scripts/refresh-rea-lock.mjs`, which writes the lockfile only when
+the registry's integrity for the pinned version equals the manifest's.
 
 **Updates.** When an AgentPier release raises a pin, an installed REA follows at the
 next server start, like the managed browser ([CLI updates](cli-updates.md)). While a
