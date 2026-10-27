@@ -315,7 +315,9 @@ on the result may still change files, memory and granted project folders like th
 message did and [hand you files](#files-from-agents): for up to two hours, and only
 until a newer message arrives in that chat. The same holds for a command started in a
 [work goal](#work-until-done) continuation and for one a lead agent started while
-handling its member's result. A command started for forwarded content,
+handling its member's result. A lead's follow-up on another member's result that
+arrives while the command runs does not end this; your own newer message does.
+A command started for forwarded content,
 a reminder or a lead's task stays read-only,
 and the command's output never counts as your message. When a write is refused, the chat shows a quiet line such as
 **Memory not saved: only your own messages can change memory.** Right after the
@@ -1304,8 +1306,9 @@ follow-up on the result can hand you the file itself: in that chat, and in Teleg
 when the message that started the command came from your paired Telegram chat. This
 holds for a command started for your own message, a work-goal continuation or a lead's
 follow-up on its member's result, for up to two hours and only until a newer message
-arrives in that chat; a command started for forwarded content, a reminder or a lead's
-task shares nothing. Images an agent creates with
+arrives in that chat (a lead's follow-ups on its members' results that arrive while the
+command runs do not count; your own newer message does); a command started for
+forwarded content, a reminder or a lead's task shares nothing. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
 the agent sharing them. There is no daily limit on created images; an agent uses reference
 images from the web only when it may also read web pages, and with several ChatGPT accounts any
