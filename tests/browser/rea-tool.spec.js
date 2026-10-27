@@ -276,7 +276,7 @@ test("a managed REA row has no Remove, links to the REA card and locks managed e
   await expect(view.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(view.getByText(/AgentPier manages this server/)).toBeVisible();
   const link = view.getByRole("link", { name: "Manage REA" });
-  await expect(link).toHaveAttribute("href", /\/coding\/clis\?tab=install/);
+  await expect(link).toHaveAttribute("href", /\/coding\/clis$/);
   await expect(
     view.getByRole("region", { name: "Source and name" }).getByRole("button"),
   ).toHaveCount(0);
