@@ -178,6 +178,15 @@ test.describe("in German", () => {
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
+  test("a failed agent open shows its error on the phone too", async ({ page }) => {
+    const fixture = await serveLongLists(page);
+    await page.goto("/");
+    const card = agentsCard(page);
+    await card.locator(".start-agent-row").filter({ hasText: "Recherche" }).click();
+    await expect(card.getByRole("alert")).toContainText("read-only fixture");
+    expect(fixture.writes).toEqual(["POST /api/assistants/agent-recherche/conversations"]);
+  });
+
   test("four rows each and show all, compact Needs you and summary tiles", async ({
     page,
   }, testInfo) => {
