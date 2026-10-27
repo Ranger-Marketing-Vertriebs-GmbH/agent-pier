@@ -42,7 +42,12 @@ export function lifecycleFixture(t) {
     unbound = [],
     disabled = [],
     synced = [];
-  const fail = { agentsDelete: 0, forget: new Set() };
+  const fail = {
+    agentsDelete: 0,
+    forget: new Set(),
+    cronUpdate: new Set(),
+    jobs: new Set(),
+  };
   // The Gateway's roster: what agents.delete removes, with the agent's cron jobs
   // (OpenClaw 2026.10.7 agents.delete, agent-deletion-contract.test.js).
   const roster = new Set();
@@ -67,6 +72,10 @@ export function lifecycleFixture(t) {
       return { ok: true };
     }
     if (method === "cron.update") {
+      if (fail.cronUpdate.has(input.id)) {
+        fail.cronUpdate.delete(input.id);
+        throw Object.assign(Error("Cron unavailable"), { code: "UNAVAILABLE" });
+      }
       updatedJobs.push([input.id, input.patch.enabled]);
       const job = cron.find((j) => j.id === input.id);
       if (job) job.enabled = input.patch.enabled;
@@ -81,6 +90,8 @@ export function lifecycleFixture(t) {
       disabled.push(id);
     },
     async jobs(agent) {
+      if (fail.jobs.has(agent.runtimeAgentId))
+        throw Object.assign(Error("Cron unavailable"), { code: "UNAVAILABLE" });
       return cron.filter((j) => j.agentId === agent.runtimeAgentId);
     },
     heartbeats: {
@@ -162,6 +173,16 @@ export function lifecycleFixture(t) {
   function fill(agent, chat, request, attempt) {
     const id = agent.id;
     insert("INSERT INTO attempt_reviews VALUES(?,?)", attempt.id, "2026-10-27");
+    insert(
+      "INSERT INTO agent_attachments VALUES(?,?,?,?,?,?,?)",
+      `file-${id}`,
+      id,
+      chat.id,
+      request.id,
+      0,
+      "{}",
+      1,
+    );
     if (!f.service.store.find(`context:${request.id}`))
       f.service.store.recordContext(request.id, { kind: "owner" });
     insert(
@@ -317,6 +338,7 @@ export function lifecycleFixture(t) {
     const counts = {
       assistants: q("SELECT 1 FROM assistants WHERE id=?", id),
       conversations: q("SELECT 1 FROM conversations WHERE assistant_id=?", id),
+      attachments: q("SELECT 1 FROM agent_attachments WHERE assistant_id=?", id),
       requests: q(
         "SELECT 1 FROM requests WHERE conversation_id IN (SELECT id FROM conversations WHERE assistant_id=?)",
         id,

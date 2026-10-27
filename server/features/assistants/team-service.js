@@ -24,6 +24,7 @@ import { MemberPromotions } from "./member-promotion.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
 import { WorkGoals } from "./work-goals.js";
+import { followArchive, refuseDeleting } from "./agent-own-jobs.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -232,13 +233,7 @@ export class TeamService {
         throw assistantProblem("invalid");
       const record = this.store.assertLifecycle(id, revision);
       const members = record.kind === "member" ? [record] : this.store.members(id);
-      // A member being deleted is never restored (agent-lifecycle.js).
-      if (
-        members.some(
-          (m) => this.assistants.store.storedAssistant(m.assistantId).deletingAt,
-        )
-      )
-        throw assistantProblem("notFound", 404);
+      refuseDeleting(this.assistants.store, members);
       // An archived agent must not keep answering people on its own Telegram bot.
       if (
         action === "archive" &&
@@ -280,6 +275,8 @@ export class TeamService {
             ?.sync(member.assistantId)
             .catch(() => {});
         }
+      // Their own cron jobs pause or come back (agent-own-jobs.js).
+      await followArchive(this.assistants, action, members);
       this.assistants.changed();
       return result;
     });
