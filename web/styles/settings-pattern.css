@@ -88,19 +88,31 @@ label.list-row-main {
   display: inline-flex;
   flex: none;
 }
+/* A trailing value or status never squeezes the label below its words: the label keeps
+   its width up to 70 % of the row, and a long value wraps beside it instead. */
+.list-row-main:has(> .list-row-value, > .list-row-status) > .list-row-text {
+  flex: 1 0 auto;
+  max-width: 70%;
+}
 .list-row-value {
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
   font-size: 13px;
   color: #92949d;
-  white-space: nowrap;
+  text-align: end;
+  overflow-wrap: anywhere;
 }
 .list-row-status {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   margin-left: auto;
   font-size: 13px;
-  white-space: nowrap;
+  text-align: end;
+  overflow-wrap: anywhere;
 }
 .list-row-status.ok {
   color: var(--success);
