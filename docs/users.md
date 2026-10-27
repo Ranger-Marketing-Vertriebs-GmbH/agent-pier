@@ -102,6 +102,12 @@ offers **Rename**, **Archive** and **Delete**. The main chat cannot be archived 
 deleted; reminders, routines, check-ins and Telegram deliver into it
 ([Chats](agents.md#chats)).
 
+Only the owner archives, restores or deletes an agent of users, own or shared, from
+its settings (⋯ menu or **Overview › Manage**) or **Agents › Archive**. An archived
+agent leaves its users' **My agents** and takes no turns until it is restored; a user
+cannot archive, restore or delete an agent herself. **Delete permanently** removes it
+with all users' chats on it ([Archive and delete](agents.md#archive-and-delete)).
+
 ## What stays locked
 
 Every agent for users runs under a hard lock, whatever its stored settings say. It

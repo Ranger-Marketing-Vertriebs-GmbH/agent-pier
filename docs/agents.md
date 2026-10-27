@@ -60,8 +60,9 @@ On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
   **Update ready**, web search not set up, approvals waiting in the inbox), **Your
   agents** with model, status and what each may use, **Agents of users** with
   **Manage users**, and **Archive** with archived agents and members (**Restore**,
-  reset the browser profile). An agent without provider access shows **Provider access
-  missing** and **Choose model**.
+  reset the browser profile, **Delete permanently**; see
+  [Archive and delete](#archive-and-delete)). An agent without provider access shows
+  **Provider access missing** and **Choose model**.
 - **Teams:** the teams of all leads, active or archived, with proposals, team cards,
   coding requests and member requests, and the host-wide limit of concurrently active
   members ([teams](#teams-asks-and-tasks)).
@@ -141,6 +142,49 @@ attachments, Telegram, hooks, reminders, routines, always allowed commands, the
 browser profile, users and the template's provenance are not copied. Review every step
 before **Create agent**.
 
+<a id="archive-and-delete"></a>
+
+### Archive and delete
+
+Every agent can be archived: your own agents, permanent team members and agents of
+users. **Archive** sits in the ⋯ menu of the agent's settings header and under
+**Overview › Manage**. An archived agent stops completely: it takes no turns, its
+routines and reminders are paused, its check-ins and hooks do not run, nothing is
+delivered over Telegram and it holds no MCP servers. All its data stays: chats,
+memory, workspace, settings and access. It moves to **Agents › All agents ›
+Archive**; **Restore** brings it back with the same settings. Routines and reminders
+stay paused after a restore until you resume them.
+
+- An agent that is still answering, or a team member still at work, cannot be
+  archived; wait or stop it first. Disconnect an agent's own Telegram bot for other
+  people before you archive it.
+- A lead with temporary team members asks first and archives them with it. Its
+  permanent members stay.
+- Only you archive, restore or delete agents. Users never do, also not on their own
+  or shared agents.
+
+Only an archived agent can be deleted for good: **Delete permanently** in
+**Agents › Archive** or in the archived agent's ⋯ menu. The confirmation lists what is
+lost (chats, routines, reminders and hooks, notes and memory files, workspace files,
+and a lead's temporary members) and stays off until you type the agent's name exactly.
+A delete removes:
+
+- the agent with its settings, its chats with their OpenClaw transcripts, its workspace
+  with attachments, notes and memory, dreaming's memory copies and shared files;
+- its routines, reminders, check-ins and hooks with their cron jobs, its Telegram
+  channel with pending deliveries, its browser profile, its access grants and lead
+  shares, waiting approvals and its SSH and SFTP job records;
+- its OpenClaw agent state (`state/agents/<runtime agent>`) and its Gateway entry.
+
+Project memory and the pipeline and coding runs it started stay (coding sessions keep
+running as yours), as do worktrees, shared projects, the activity log (its entries
+name only ids and counts) and backups made before
+([Backups](backups.md#what-a-backup-holds)). A delete is refused while the agent
+answers or its settings are being applied, and for a lead that still has permanent
+members (delete those first). The agent service must be running. A delete
+interrupted by a crash or restart finishes at the next start of the agent service;
+until then the agent is neither listed nor restorable and never runs.
+
 ### Message times
 
 ![Agent chat with message times next to the speaker](screenshots/agent-chat-timestamps.png)
@@ -158,7 +202,8 @@ members asking each other end with theirs.
 **Settings** in the agent's chat header (or on its row on the agents page)
 opens seven tabs: **Overview**, **Identity**, **Capabilities**, **Access**, **Team**,
 **Automation** and **Channels**. The header has **Open chat** and a ⋯ menu with
-**Duplicate** and, for team members, **Archive** or **Restore**. Each tab keeps its own
+**Duplicate**, **Archive** or **Restore**, and for an archived agent **Delete
+permanently** ([Archive and delete](#archive-and-delete)). Each tab keeps its own
 draft and save bar; leaving with unsaved changes asks first. A temporary team member
 shows Overview, Identity, Capabilities and Access; an agent of users has no Team tab.
 Old links with `tab=profile`, `tab=work`, `tab=routines` or `tab=telegram` open the
@@ -177,7 +222,8 @@ proposed and what waits for your decision, see
 [agent workflows](assistant-workflows.md)); **At a glance**, one read-only row per tab
 that opens it; **Chat attachments** ([attachments](#attachments)); for a team member
 the member group (where it came from, its history, **Stop member**, **Keep as permanent
-agent**); and **Manage** with **Duplicate** and, for team members, archive or restore.
+agent**); and **Manage** with **Duplicate**, **Archive** or **Restore** and, once
+archived, **Delete permanently**.
 On a phone the agent service summary sits here too.
 
 <a id="profile"></a>
@@ -619,7 +665,8 @@ notice if the lead has a paired chat. The new agent keeps what it worked with as
 own settings (web and image tools, skills, MCP servers, reminders), but never shell,
 SSH, project folder or GitHub access, which you set yourself. It keeps only its own memory, which it can write;
 the copy of the lead's memory is removed. Its name and
-instructions stay, and it stays under its lead. You can archive it at any time.
+instructions stay, and it stays under its lead. You can archive it at any time, and
+delete it once archived ([Archive and delete](#archive-and-delete)).
 
 A lead also talks to its members directly:
 
@@ -1341,7 +1388,8 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   older chats), their agents with a level each (**Chat only**, **Personalize**,
   **Extended**), **Add agent for this person**, **Add to a shared agent** and **Delete
   user** (choose whether their own agents are archived or kept under your account;
-  their private chats go unless you may read them).
+  their private chats go unless you may read them). Agents of users are archived,
+  restored and deleted like your own ([Archive and delete](#archive-and-delete)).
 - An agent of users is **own** (one user) or **shared** (several users, each with their
   own chats; memory, profile (USER.md) and browser are shared, and their chat says so:
   what is written in any of its chats, also word for word, can be carried into the

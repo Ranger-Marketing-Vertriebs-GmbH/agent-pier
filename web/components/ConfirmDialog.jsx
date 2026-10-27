@@ -12,7 +12,8 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
  * (`focusCancel` also starts a risky but not destructive change on Cancel).
  * Cancel comes first and the action last; on phones the action sits on top.
  * `onConfirm` may be async: the dialog shows its busy state and error and stays open
- * until it settles. `children` adds details below the body.
+ * until it settles. `children` adds details below the body. `confirmDisabled` keeps the
+ * action off until the details are complete (a typed name for a permanent delete).
  */
 export default function ConfirmDialog({
   title,
@@ -23,6 +24,7 @@ export default function ConfirmDialog({
   destructive = false,
   focusCancel = destructive,
   cancelLabel = commonCopy.cancel,
+  confirmDisabled = false,
   busy: outerBusy = false,
   error: outerError = "",
   className = "",
@@ -57,7 +59,7 @@ export default function ConfirmDialog({
           <button
             type="button"
             className={`button ${destructive ? "danger" : "primary"}`}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             data-autofocus={focusCancel ? undefined : true}
             onClick={() => mutation.run(onConfirm)}
           >

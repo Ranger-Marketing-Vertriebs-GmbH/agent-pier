@@ -442,6 +442,15 @@ export function auditEvent(input) {
       if (auditableSettingValue(details.setting, details[key]))
         event.details[key] = details[key];
   }
+  // An agent's archive and permanent delete (agent-lifecycle.js): what was lost as
+  // counts and the temporary members that went with a lead, never names or content.
+  if (input.resourceType === "assistant") {
+    for (const key of ["chats", "routines", "memoryFiles", "workspaceFiles", "members"])
+      if (Number.isSafeInteger(details[key]) && details[key] >= 0 && details[key] <= 1e9)
+        event.details[key] = details[key];
+    if (Array.isArray(details.memberIds) && details.memberIds.length <= 100)
+      event.details.memberIds = details.memberIds.map((id) => auditId(id));
+  }
   // Agent proactivity changes name the switched opt-in as a flag (proactivity-changes.js).
   if (input.resourceType === "assistant" && typeof details.heartbeat === "boolean")
     event.details.heartbeat = details.heartbeat;

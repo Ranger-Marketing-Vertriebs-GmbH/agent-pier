@@ -103,7 +103,7 @@ test("the header opens the chat and duplicates the agent", async ({ page }) => {
   await page.goto(baseURL + settingsPath());
   await page.getByRole("button", { name: "More actions" }).click();
   const menu = page.getByRole("menu", { name: "More actions" });
-  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate"]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate", "Archive"]);
   await menu.getByRole("menuitem", { name: "Duplicate" }).click();
   // The wizard that consumes it follows; the address keeps the agent to copy.
   await expect(page).toHaveURL(/\/agents\?new=1&duplicate=home$/);

@@ -233,6 +233,17 @@ export const assistantApi = {
     ),
   clearAttachments: (id) =>
     api(`/assistants/${encodeURIComponent(id)}/attachments`, "DELETE"),
+  // Archive, restore and permanent delete of any agent (agent-lifecycle.js).
+  archiveAgent: (id, revision, members = false) =>
+    api(`/assistants/${encodeURIComponent(id)}/archive`, "POST", {
+      revision,
+      ...(members ? { members: true } : {}),
+    }),
+  restoreAgent: (id, revision) =>
+    api(`/assistants/${encodeURIComponent(id)}/restore`, "POST", { revision }),
+  agentDeletion: (id) => api(`/assistants/${encodeURIComponent(id)}/deletion`),
+  deleteAgent: (id, name) =>
+    api(`/assistants/${encodeURIComponent(id)}`, "DELETE", { name }),
   browserReset: (id) =>
     api(`/assistants/${encodeURIComponent(id)}/browser/reset`, "POST", {}),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),

@@ -11,7 +11,10 @@ import { assistantSettingsCopy as copy } from "../../../lib/i18n/messages/assist
 import useAssistants from "../useAssistants.js";
 import { agentRoute, isPersonal, visibleAgentTabs } from "./agent-settings-fields.js";
 import useActionHistory from "./useActionHistory.js";
-import useMemberLifecycle from "./useMemberLifecycle.js";
+import useAgentLifecycle from "./useAgentLifecycle.js";
+import AgentLifecycleDialogs from "./AgentLifecycleDialogs.jsx";
+import { agentsHubRoute } from "../hub-routes.js";
+import { agentLifecycleCopy as lifecycleCopy } from "../../../lib/i18n/messages/agent-lifecycle.js";
 import ActionHistory from "./ActionHistory.jsx";
 import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
 import MemberGroup from "./MemberGroup.jsx";
@@ -64,13 +67,17 @@ function AtAGlance({ assistant, go }) {
   );
 }
 
-/** Verwalten: Duplizieren and, for a team member, Archivieren/Wiederherstellen. */
+/** Verwalten: Duplizieren, Archivieren/Wiederherstellen and Endgültig löschen. */
 function ManageGroup({ assistant, navigate }) {
   const id = useId();
-  const lifecycle = useMemberLifecycle(assistant);
+  const lifecycle = useAgentLifecycle(assistant);
   const items = manageItems({ assistant, lifecycle, navigate });
   if (!items.length) return null;
-  const hints = { duplicate: copy.duplicateHint, archive: copy.archiveHint };
+  const hints = {
+    duplicate: copy.duplicateHint,
+    archive: copy.archiveHint,
+    delete: lifecycleCopy.deleteHint,
+  };
   return (
     <section id="agent-manage" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.overviewGroups.manage}</GroupLabel>
@@ -86,6 +93,11 @@ function ManageGroup({ assistant, navigate }) {
           />
         ))}
       </ListCard>
+      <AgentLifecycleDialogs
+        assistant={assistant}
+        lifecycle={lifecycle}
+        onDeleted={() => navigate(agentsHubRoute())}
+      />
     </section>
   );
 }

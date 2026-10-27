@@ -66,6 +66,7 @@ export class AssistantConfig {
       roster,
     });
     this.queue = Promise.resolve();
+    this.pending = new Map();
     this.applied = new Map();
     // The skill list each agent's last apply wrote (AgentSkills.reapply).
     this.compiledSkills = new Map();
@@ -155,7 +156,19 @@ export class AssistantConfig {
   apply(id) {
     const task = this.queue.catch(() => {}).then(() => this.applyOnce(id));
     this.queue = task;
+    // Waiting or running applies per agent: a delete waits for them (agent-lifecycle.js).
+    this.pending.set(id, (this.pending.get(id) || 0) + 1);
+    const settle = () => {
+      const left = this.pending.get(id) - 1;
+      if (left) this.pending.set(id, left);
+      else this.pending.delete(id);
+    };
+    task.then(settle, settle);
     return task;
+  }
+  /** Whether an apply of the agent waits or runs now. */
+  applying(id) {
+    return this.pending.has(id);
   }
   async applyOnce(id) {
     assertWired(this);

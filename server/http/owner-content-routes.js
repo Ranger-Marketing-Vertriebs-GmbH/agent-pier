@@ -105,6 +105,11 @@ export const ownerMetadataRoutes = new Set([
   "GET /api/assistants/:id/skills",
   "GET /api/assistants/:id/attachment-usage",
   "GET /api/assistant-conversations/:id/attachment-policy",
+  // The owner archives, restores and deletes any agent, a user's private one too; the
+  // delete preview names counts only (agent-lifecycle.js).
+  "POST /api/assistants/:id/archive",
+  "POST /api/assistants/:id/restore",
+  "GET /api/assistants/:id/deletion",
 ]);
 
 /** Paths of routes that belong to one agent or one of its chats, turns or files. */

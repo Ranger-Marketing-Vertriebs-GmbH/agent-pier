@@ -38,7 +38,7 @@ export const agentsHubCopy = {
   },
   archive: "Archiv",
   archiveRow: "Archivierte Agenten und Mitglieder",
-  archiveSub: "Wiederherstellen, Browserprofil zurücksetzen",
+  archiveSub: "Wiederherstellen, Browserprofil zurücksetzen, endgültig löschen",
   showArchive: "Anzeigen",
   hideArchive: "Ausblenden",
   archivedMember: (lead) => `Team-Mitglied von ${lead}`,
