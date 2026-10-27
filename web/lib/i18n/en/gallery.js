@@ -119,6 +119,10 @@ export const galleryCopy = {
     confirmOtherTitle: "Activate version 2.3.0?",
     confirmOtherBody: "The web service restarts; running sessions are kept.",
     deleteNow: "Delete now",
+    confirmTyped: "Confirm with a typed name",
+    confirmTypedTitle: "Delete “Helper” permanently?",
+    confirmTypedBody: "Its chats and memory are deleted. This cannot be undone.",
+    confirmTypedField: "Type “Helper” to confirm",
     activateNow: "Activate now",
   },
   addPicker: {

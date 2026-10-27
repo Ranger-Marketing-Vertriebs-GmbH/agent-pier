@@ -166,7 +166,8 @@ export class TeamService {
   }
   assertMemberTurn(id, context) {
     const assistant = this.assistants.store.getAssistant(id);
-    if (assistant.archivedAt) throw assistantProblem("active", 409);
+    if (assistant.archivedAt || assistant.deletingAt)
+      throw assistantProblem("active", 409);
     if (!assistant.teamMemberId) return;
     const m = this.store.member(id);
     if (

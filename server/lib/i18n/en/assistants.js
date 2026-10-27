@@ -405,6 +405,14 @@ export const assistants = {
     `${member} answered, but the agent's summary has no text. Check the chat.`,
   telegramSendersArchive:
     "Disconnect the agent's own Telegram bot before you archive it.",
+  leadHasMembers: "This lead has temporary team members. Archive them with it.",
+  agentNotArchived: "Archive the agent before you delete it permanently.",
+  agentDeleteName: "Type the agent's name exactly to delete it.",
+  agentDeleteBusy:
+    "The agent is still running a request or applying its settings. Try again once it is done.",
+  agentDeleteMembers: "This lead still has permanent team members. Delete them first.",
+  agentDeleteService:
+    "The agent service must be running to delete an agent. Start it and try again.",
   telegramSendersRestartRequired:
     "This Telegram change restarts the agents' Gateway; confirm the restart.",
 

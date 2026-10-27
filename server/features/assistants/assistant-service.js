@@ -156,9 +156,12 @@ export class AssistantService {
     // his settings show it read-only or explain why not (owner-privacy.js).
     // The owner's list: users' chats show only under their opt-in, and only from its
     // since (owner-privacy.js); agents the Gateway refused say so, and their chats.
+    // One being deleted is never listed (agent-lifecycle.js).
+    const deleting = new Set(this.store.deletingAssistants().map((a) => a.id));
     const { assistants, conversations } = withAdmission(this, {
       assistants: this.store
         .listAssistants()
+        .filter((a) => !a.deletingAt)
         .map((a) => this.withMcp(a))
         .map((a) =>
           a.userAccess?.mode === "own"
@@ -167,6 +170,7 @@ export class AssistantService {
         ),
       conversations: this.store
         .listConversations()
+        .filter((c) => !deleting.has(c.assistantId))
         .map((c) => (this.privacy?.view ? this.privacy.view(c) : c))
         .filter(Boolean),
     });

@@ -120,6 +120,11 @@ export const galleryCopy = {
     confirmOtherTitle: "Version 2.3.0 aktivieren?",
     confirmOtherBody: "Der Webdienst startet neu; laufende Sessions bleiben erhalten.",
     deleteNow: "Jetzt löschen",
+    confirmTyped: "Mit eingegebenem Namen bestätigen",
+    confirmTypedTitle: "„Helper“ endgültig löschen?",
+    confirmTypedBody:
+      "Seine Chats und sein Gedächtnis werden gelöscht. Das lässt sich nicht rückgängig machen.",
+    confirmTypedField: "Gib „Helper“ zur Bestätigung ein",
     activateNow: "Jetzt aktivieren",
   },
   addPicker: {

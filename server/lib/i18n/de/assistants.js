@@ -426,6 +426,15 @@ export const assistants = {
     `${member} hat geantwortet, aber die Zusammenfassung des Agenten enthält keinen Text. Sieh im Chat nach.`,
   telegramSendersArchive:
     "Trenne zuerst den eigenen Telegram-Bot des Agenten, bevor du ihn archivierst.",
+  leadHasMembers: "Dieser Lead hat temporäre Team-Mitglieder. Archiviere sie mit ihm.",
+  agentNotArchived: "Archiviere den Agenten, bevor du ihn endgültig löschst.",
+  agentDeleteName: "Gib den Namen des Agenten genau ein, um ihn zu löschen.",
+  agentDeleteBusy:
+    "Der Agent bearbeitet noch eine Anfrage oder übernimmt seine Einstellungen. Versuche es danach erneut.",
+  agentDeleteMembers:
+    "Dieser Lead hat noch dauerhafte Team-Mitglieder. Lösche sie zuerst.",
+  agentDeleteService:
+    "Der Agentendienst muss laufen, um einen Agenten zu löschen. Starte ihn und versuche es erneut.",
   telegramSendersRestartRequired:
     "Diese Telegram-Änderung startet das Gateway der Agenten neu; bestätige den Neustart.",
 

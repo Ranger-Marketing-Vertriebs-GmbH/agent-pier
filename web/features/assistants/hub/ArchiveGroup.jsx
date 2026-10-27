@@ -8,15 +8,17 @@ import { routePath } from "../../../app/routes.js";
 import { agentsHubCopy as copy } from "../../../lib/i18n/messages/agents-hub.js";
 import { assistantBrowserCopy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
+import { agentLifecycleCopy as lifecycleCopy } from "../../../lib/i18n/messages/agent-lifecycle.js";
+import { AgentDeleteDialog } from "../settings/AgentLifecycleDialogs.jsx";
 import { assistantApi } from "../assistant-api.js";
 import { avatarGlyph } from "../avatar-glyph.js";
 import useAssistants from "../useAssistants.js";
 import { settingsRoute } from "./AgentRow.jsx";
 
 /**
- * Alle Agenten › Archiv: archived agents and team members behind one row. A member
- * is restored through its team endpoint; every archived agent may reset its browser
- * profile (as its settings offer) and opens its settings.
+ * Alle Agenten › Archiv: archived agents and team members behind one row. Every
+ * archived agent is restored, may reset its browser profile (as its settings offer),
+ * opens its settings and is deleted permanently after its confirmation.
  */
 export default function ArchiveGroup({ archived, navigate }) {
   const { members = [], assistants = [], refresh } = useAssistants();
@@ -25,6 +27,7 @@ export default function ArchiveGroup({ archived, navigate }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [resetting, setResetting] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const id = useId();
   if (!archived.length) return null;
   const memberOf = (a) => members.find((m) => m.assistantId === a.id) || null;
@@ -76,25 +79,16 @@ export default function ArchiveGroup({ archived, navigate }) {
                   }
                 >
                   <div className="agents-hub-row-actions">
-                    {member && (
-                      <button
-                        type="button"
-                        className="button secondary compact"
-                        disabled={busy}
-                        onClick={() =>
-                          run(() =>
-                            assistantApi.teamAction(
-                              "team-members",
-                              member.id,
-                              "restore",
-                              member.revision,
-                            ),
-                          )
-                        }
-                      >
-                        {copy.restore}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="button secondary compact"
+                      disabled={busy}
+                      onClick={() =>
+                        run(() => assistantApi.restoreAgent(a.id, a.revision))
+                      }
+                    >
+                      {copy.restore}
+                    </button>
                     <button
                       type="button"
                       className="button secondary compact"
@@ -113,6 +107,14 @@ export default function ArchiveGroup({ archived, navigate }) {
                     >
                       {assistantCopy.settings}
                     </a>
+                    <button
+                      type="button"
+                      className="button destructive compact"
+                      disabled={busy}
+                      onClick={() => setDeleting(a)}
+                    >
+                      {lifecycleCopy.deletePermanently}
+                    </button>
                   </div>
                 </ListRow>
               );
@@ -140,6 +142,13 @@ export default function ArchiveGroup({ archived, navigate }) {
               assistantBrowserCopy.resetDone,
             );
           }}
+        />
+      )}
+      {deleting && (
+        <AgentDeleteDialog
+          assistant={deleting}
+          onCancel={() => setDeleting(null)}
+          onDeleted={() => setDeleting(null)}
         />
       )}
     </section>

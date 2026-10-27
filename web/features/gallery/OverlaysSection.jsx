@@ -42,6 +42,31 @@ function InlineConfirm({ onCancel, onConfirm }) {
   );
 }
 
+// A permanent delete: the action stays off until the name is typed exactly.
+function TypedConfirm({ close }) {
+  const [name, setName] = useState("");
+  return (
+    <ConfirmDialog
+      destructive
+      title={s().confirmTypedTitle}
+      body={s().confirmTypedBody}
+      confirmLabel={s().deleteNow}
+      confirmDisabled={name !== "Helper"}
+      onCancel={close}
+      onConfirm={close}
+    >
+      <label>
+        {s().confirmTypedField}
+        <input
+          value={name}
+          autoComplete="off"
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+    </ConfirmDialog>
+  );
+}
+
 function Overlay({ open, close }) {
   const body = <p>{s().dialogBody}</p>;
   if (open === "modal")
@@ -91,6 +116,7 @@ function Overlay({ open, close }) {
         onConfirm={close}
       />
     );
+  if (open === "confirmTyped") return <TypedConfirm close={close} />;
   if (open === "confirmOther")
     return (
       <ConfirmDialog
@@ -134,6 +160,7 @@ export default function OverlaysSection() {
       <Specimen label="ConfirmDialog" wide>
         {opener("confirmDelete", s().confirmDelete)}
         {opener("confirmOther", s().confirmOther)}
+        {opener("confirmTyped", s().confirmTyped)}
       </Specimen>
       <Specimen label="Modal · AsyncForm · SidePanel · ImageViewer" wide>
         {opener("modal", s().modal)}

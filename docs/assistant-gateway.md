@@ -2449,6 +2449,12 @@ at busy work: it runs after it unless that one restarted.
 
 The global `tools.allow` lists every available web tool, so OpenClaw's own `main`
 agent, which is no AgentPier agent, gets an explicit `tools.allow: ["session_status"]`.
+A permanent delete ([Archive and delete](agents.md#archive-and-delete)) removes the
+agent with OpenClaw's own `agents.delete` (`deleteFiles: false`): it drops the entry,
+every cron job of the agent and its exec approvals; AgentPier deletes the agent's
+folders itself, since `deleteFiles: true` would move them into a `.Trash` folder. A
+`config.patch` that drops an entry is refused by OpenClaw 2026.10.7. The delete
+therefore needs a running Gateway (`tests/integration/agent-deletion-contract.test.js`).
 
 A user's own switch on her agent still never restarts the Gateway: when it would
 need one, it is refused (`USER_AGENT_RESTART_NEEDED`) and the owner decides. A native

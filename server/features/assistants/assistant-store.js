@@ -256,6 +256,44 @@ export class AssistantStore {
       .run(JSON.stringify(result), result.revision, id);
     return result;
   }
+  /**
+   * Archives (`at`) or restores (null) an agent at `revision` (agent-lifecycle.js);
+   * an agent being deleted is unknown.
+   */
+  setArchived(id, revision, at) {
+    const current = this.storedAssistant(id);
+    if (current.deletingAt) throw assistantProblem("notFound", 404);
+    if (!Number.isSafeInteger(revision) || current.revision !== revision)
+      throw assistantProblem("conflict", 409);
+    return this.changeUserAgent(id, { archivedAt: at });
+  }
+  /**
+   * Marks archived agents for deletion in one transaction (agent-deletion.js): from
+   * then on they are never listed, restored or run, and a start finishes the delete.
+   * `deletion` is what the audit names once they are gone (ids and counts).
+   */
+  markDeleting(ids, deletion) {
+    const at = new Date().toISOString();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const id of ids)
+        if (!this.storedAssistant(id).deletingAt)
+          this.changeUserAgent(id, { deletingAt: at, deletion });
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+  /** Agents whose deletion has not finished yet. */
+  deletingAssistants() {
+    return this.db
+      .prepare(
+        "SELECT body FROM assistants WHERE json_extract(body,'$.deletingAt') IS NOT NULL ORDER BY rowid",
+      )
+      .all()
+      .map((r) => JSON.parse(r.body));
+  }
   /** Changes a conversation's record (archive, title, a deleted user's mark). */
   updateConversation(id, fields) {
     const result = { ...this.storedConversation(id), ...fields };

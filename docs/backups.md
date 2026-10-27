@@ -34,6 +34,12 @@ Always, as public (unencrypted) members:
   material, backup keys and the agents' browser profiles are never public members
   (see `docs/assistant-gateway.md`).
 
+An archived agent is backed up like any other. An agent deleted with **Delete
+permanently** ([Archive and delete](agents.md#archive-and-delete)) is in no backup
+made afterwards, but every backup made before keeps it with its chats, memory and
+workspace: restoring such a backup into a new data directory brings it back there.
+Delete older backups too when the agent's data must be gone everywhere.
+
 With **Include history** and **Include encrypted credentials** together, the
 histories and private content, always encrypted (see "Sealed history"):
 

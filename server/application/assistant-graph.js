@@ -11,6 +11,7 @@ import {
   retireReleased,
 } from "../features/users/user-release.js";
 import { TeamBridge } from "../features/assistants/team-bridge.js";
+import { AgentLifecycle } from "../features/assistants/agent-lifecycle.js";
 import { WriteGuardReapply } from "../features/assistants/write-guard-reapply.js";
 import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
@@ -281,8 +282,7 @@ export function constructAssistantGraph(host, created = {}) {
   const assistantRoutines = new NativeRoutines({ reminders: assistantReminders });
   // Check-ins (assistantReminders.heartbeats) and hooks (assistantRoutines.hooks).
   attachWakeups({ reminders: assistantReminders, routines: assistantRoutines, host });
-  // The workflow layer looks services up by name: assistant services from this graph,
-  // everything else (sessions, projects, configuration) from the application.
+  // Workflows and agent lifecycle find services by name: this graph's, else the host's.
   const scope = Object.assign(Object.create(host), {
     assistantRuntime,
     assistants,
@@ -300,6 +300,7 @@ export function constructAssistantGraph(host, created = {}) {
     assistantReminders,
     assistantRoutines,
   });
+  assistants.lifecycle = new AgentLifecycle(scope);
   // Its timer starts after recovery (see recoverAssistantServices).
   const assistantWorkflows = (created.workflows = new AssistantWorkflows({
     services: scope,
@@ -590,8 +591,9 @@ export function connectAssistantServices(graph) {
       if (!assistants.maintenance) reminders.routines?.reconcile().catch(() => {});
       // Jobs a user took with her, left behind while this Gateway was away.
       if (!assistants.maintenance) retireReleased({ assistants });
-      // Transcripts of deleted users' chats, likewise.
+      // Transcripts of deleted users' chats, and deletes of agents, likewise.
       if (!assistants.maintenance) deleteReleasedSessions({ assistants });
+      if (!assistants.maintenance) assistants.lifecycle.resume().catch(() => {});
     },
   });
   return graph;
