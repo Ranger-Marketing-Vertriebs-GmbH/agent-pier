@@ -160,17 +160,23 @@ export class ReaTool {
         (digest !== null && row.lockDigest !== digest))
     );
   }
-  /** Whether an installed part differs from the pins of this AgentPier. */
-  outdated() {
-    const coreOld = this.coreOutdated(this.record());
+  /** Which installed parts differ from the pins of this AgentPier: Core, Ghidra/JDK. */
+  outdatedParts() {
     const ghidra = this.component("rea-ghidra");
     const jdk = this.component("rea-jdk");
-    const componentsOld =
-      this.stored().components.ghidra &&
-      !!this.host().ghidra &&
-      (ghidra?.version !== this.manifest.ghidra.version ||
-        jdk?.version !== this.manifest.jdk.version);
-    return coreOld || componentsOld;
+    return {
+      core: this.coreOutdated(this.record()),
+      ghidra:
+        this.stored().components.ghidra &&
+        !!this.host().ghidra &&
+        (ghidra?.version !== this.manifest.ghidra.version ||
+          jdk?.version !== this.manifest.jdk.version),
+    };
+  }
+  /** Whether an installed part differs from the pins of this AgentPier. */
+  outdated() {
+    const parts = this.outdatedParts();
+    return parts.core || parts.ghidra;
   }
   state() {
     const host = this.host();
@@ -182,6 +188,14 @@ export class ReaTool {
     const jdk = this.component("rea-jdk");
     const message = host.available ? this.message : "";
     const server = id ? this.servers.get(id) : null;
+    const outdated = installed ? this.outdatedParts() : { core: false, ghidra: false };
+    const parts = reaComponentStates({
+      host,
+      manifest: this.manifest,
+      ghidra,
+      jdk,
+      frida: installed && stored.components.frida,
+    });
     return {
       available: host.available,
       reason: host.reason,
@@ -193,7 +207,7 @@ export class ReaTool {
       installed,
       serverId: id,
       serverName: server?.name ?? null,
-      updateAvailable: installed && this.outdated(),
+      updateAvailable: outdated.core || outdated.ghidra,
       components: {
         core: {
           installed,
@@ -202,14 +216,10 @@ export class ReaTool {
           packageStatus: row ? this.packages.records.computedStatus(row) : null,
           downloadSize: this.manifest.core.downloadSize,
           installedSize: this.manifest.core.installedSize,
+          outdated: outdated.core,
         },
-        ...reaComponentStates({
-          host,
-          manifest: this.manifest,
-          ghidra,
-          jdk,
-          frida: installed && stored.components.frida,
-        }),
+        ghidra: { ...parts.ghidra, outdated: outdated.ghidra },
+        frida: parts.frida,
       },
       settings: stored.settings,
     };

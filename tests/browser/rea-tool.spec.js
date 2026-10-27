@@ -130,6 +130,10 @@ test("the REA dialog lists components with sizes and totals, safety and sandbox 
   await expect(dialog).toContainText("DRM");
   await expect(dialog).toContainText("morluto/rea");
   await expect(dialog).toContainText("unsandboxed");
+  await expect(dialog).toContainText(
+    "registers it with the CLIs it is bound to (Claude Code by default)",
+  );
+  await expect(dialog).toContainText("including the host's default profile");
   await expect(dialog.getByRole("checkbox", { name: "REA Core" })).toBeDisabled();
   await expect(dialog.getByRole("checkbox", { name: "REA Core" })).toBeChecked();
   const total = dialog.locator(".rea-total");
@@ -201,7 +205,7 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
     serverName: "rea",
     updateAvailable: true,
     components: {
-      core: { installed: true, version: "6.7.0", packageStatus: "ready" },
+      core: { installed: true, version: "6.7.0", packageStatus: "ready", outdated: true },
       ghidra: { installed: true, version: "12.1.4", jdkVersion: "21.0.13+9" },
       frida: { installed: true, version: "17.23.2" },
     },
@@ -219,6 +223,9 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
   await expect(card(page)).toContainText("6.7.0");
   await expect(card(page)).toContainText("Update available");
   const dialog = await openDialog(page, "Manage");
+  await expect(dialog).toContainText(
+    `An update is available: REA Core ${reaManifest.core.version}.`,
+  );
   await expect(dialog.getByRole("checkbox", { name: /I understand/ })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Update", exact: true }).click();
   await expect.poll(() => controls.updates).toBe(1);
@@ -229,6 +236,38 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
   await expect(confirm.getByRole("alert")).toContainText(
     "REA is running in a session or for an agent",
   );
+});
+
+test("the update note names Ghidra and the JDK when only their pins moved", async ({
+  page,
+}) => {
+  const installed = reaState({
+    installed: true,
+    serverId: "srv-rea",
+    serverName: "rea",
+    updateAvailable: true,
+    components: {
+      core: {
+        installed: true,
+        version: "6.8.0",
+        packageStatus: "ready",
+        outdated: false,
+      },
+      ghidra: {
+        installed: true,
+        version: "12.1.3",
+        jdkVersion: "21.0.12+7",
+        outdated: true,
+      },
+    },
+  });
+  await fixture(page, installed);
+  const dialog = await openDialog(page, "Manage");
+  const note = dialog.getByText(/^An update is available:/);
+  await expect(note).toHaveText(
+    `An update is available: Ghidra ${reaManifest.ghidra.version} with JDK ${reaManifest.jdk.version}.`,
+  );
+  await expect(note).not.toContainText("REA Core");
 });
 
 test("a refused install shows the server reason in the dialog", async ({ page }) => {
