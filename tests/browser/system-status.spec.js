@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { details, summary } from "../helpers/system-status-fixture.js";
+import { cleanupSummary, details, summary } from "../helpers/system-status-fixture.js";
 
 test.use({ locale: "en-GB" });
 
@@ -13,6 +13,9 @@ async function routeStatus(page, options) {
     calls.details++;
     return route.fulfill({ json: details(options) });
   });
+  await page.route("**/api/system-status/cleanup/summary", (route) =>
+    route.fulfill({ json: cleanupSummary() }),
+  );
   return calls;
 }
 
@@ -49,22 +52,65 @@ for (const [name, viewport] of [
     await row.click();
     const dialog = page.getByRole("dialog", { name: "System status" });
     await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("This computer · 12 cores · 48 GB RAM · macOS");
+    await expect(dialog).toContainText("Live · every 5 s");
+    // The dialog opens on Load.
+    const tabs = dialog.getByRole("tablist", { name: "System status sections" });
+    await expect(tabs.getByRole("tab", { name: "Load" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(tabs.getByRole("tab", { name: /Processes/ })).toContainText("13");
+    await expect(tabs.getByRole("tab", { name: /Storage/ })).toContainText(
+      "2.8 GB reclaimable",
+    );
+    await expect(
+      dialog.getByRole("img", {
+        name: "CPU, RAM and AgentPier CPU over the last hour; now 39%, 75% and 2%",
+      }),
+    ).toBeVisible();
+    await expect(dialog.locator(".history-chart-gap")).toHaveCount(1);
     await expect(
       dialog.getByRole("heading", { name: "AgentPier's share" }),
     ).toBeVisible();
-    const table = dialog.getByRole("table");
     await expect(
-      table.getByRole("rowheader", { name: "AgentPier server" }),
+      dialog.getByRole("img", { name: "Computer CPU: 2.5% of 34%" }),
     ).toBeVisible();
-    await expect(table.getByRole("rowheader", { name: "Agent gateway" })).toBeVisible();
-    await expect(
-      table.getByRole("rowheader", { name: /Fix the login flow/ }),
-    ).toContainText("Claude Code");
-    await expect(dialog.getByRole("img", { name: "CPU: currently 39%" })).toBeVisible();
-    await expect(dialog.getByText("CLI profiles", { exact: true })).toBeVisible();
-    await expect(dialog.getByText("Agent attachments")).toBeVisible();
-    await expect(dialog.getByText("15 GB in total")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`details-${name}.png`) });
+    await tabs.getByRole("tab", { name: /Processes/ }).click();
+    if (name === "desktop") {
+      const table = dialog.getByRole("table");
+      await expect(
+        table.getByRole("rowheader", { name: /AgentPier server/ }),
+      ).toBeVisible();
+      await expect(table.getByRole("rowheader", { name: /Agent gateway/ })).toBeVisible();
+      await expect(
+        table.getByRole("rowheader", { name: /Fix the login flow/ }),
+      ).toContainText("Claude Code · agent-pier");
+    } else {
+      await expect(dialog.getByRole("table")).toHaveCount(0);
+      await expect(
+        dialog.getByRole("listitem").filter({ hasText: "Fix the login flow" }),
+      ).toContainText("Claude Code · agent-pier · 4 processes");
+    }
+    await page.screenshot({ path: testInfo.outputPath(`processes-${name}.png`) });
+    await tabs.getByRole("tab", { name: /Storage/ }).click();
+    await expect(dialog.getByText("CLI profiles", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("15 GB in total")).toBeVisible();
+    await expect(dialog.getByText("Logs")).toBeHidden();
+    await dialog.getByRole("button", { name: "2 more · 973 MB" }).click();
+    await expect(dialog.getByText("Logs")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`storage-${name}.png`) });
+    if (name === "phone") {
+      // Every control of the sheet keeps the phone's 44px target.
+      const small = await dialog.evaluate((node) =>
+        [...node.querySelectorAll("button, a, [role=tab], .segment label")]
+          .filter((item) => item.getClientRects().length)
+          .filter((item) => item.getBoundingClientRect().height < 44)
+          .map((item) => item.textContent.trim() || item.getAttribute("aria-label")),
+      );
+      expect(small).toEqual([]);
+    }
     const dialogBox = await dialog.boundingBox();
     expect(dialogBox.width).toBeLessThanOrEqual(viewport.width);
     await page.keyboard.press("Escape");
@@ -157,7 +203,7 @@ for (const [name, viewport] of [
     await page.goto("/");
     await page.getByRole("button", { name: /System status/ }).click();
     const dialog = page.getByRole("dialog", { name: "System status" });
-    await expect(dialog.getByText("15 GB in total")).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "History" })).toBeVisible();
     const pageTop = await page.evaluate(() => {
       window.__statusDialog = document.querySelector("dialog");
       return document.documentElement.scrollTop;
@@ -201,3 +247,109 @@ for (const [name, viewport] of [
     await page.screenshot({ path: testInfo.outputPath(`details-open-${name}.png`) });
   });
 }
+
+async function openDialog(page) {
+  await routeStatus(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: /System status/ }).click();
+  const dialog = page.getByRole("dialog", { name: "System status" });
+  await expect(dialog.getByRole("heading", { name: "History" })).toBeVisible();
+  return dialog;
+}
+
+test("the tabs work by keyboard", async ({ page }) => {
+  const dialog = await openDialog(page);
+  const load = dialog.getByRole("tab", { name: "Load" });
+  await load.focus();
+  await page.keyboard.press("ArrowRight");
+  const processes = dialog.getByRole("tab", { name: /Processes/ });
+  await expect(processes).toBeFocused();
+  await expect(processes).toHaveAttribute("aria-selected", "true");
+  await expect(dialog.getByRole("tabpanel", { name: /Processes/ })).toContainText(
+    "AgentPier core",
+  );
+  await page.keyboard.press("End");
+  await expect(dialog.getByRole("tab", { name: /Storage/ })).toBeFocused();
+  await expect(dialog.getByRole("heading", { name: "Free up space" })).toBeVisible();
+  await page.keyboard.press("Home");
+  await expect(load).toHaveAttribute("aria-selected", "true");
+});
+
+test("the history toggles its lines, switches range and shows values by key and pointer", async ({
+  page,
+}) => {
+  const dialog = await openDialog(page);
+  const chart = dialog.locator(".history-chart");
+  await expect(chart.locator(".history-chart-line.chart-tone-memory")).toHaveCount(2);
+  const ram = chart.getByRole("button", { name: "RAM" });
+  await expect(ram).toHaveAttribute("aria-pressed", "true");
+  await ram.click();
+  await expect(ram).toHaveAttribute("aria-pressed", "false");
+  await expect(chart.locator(".history-chart-line.chart-tone-memory")).toHaveCount(0);
+  await ram.click();
+  await expect(chart.locator(".history-chart-line.chart-tone-memory")).toHaveCount(2);
+
+  // 15 minutes is a slice of the same data: the old run and its gap fall out.
+  await dialog.getByRole("radio", { name: "15 min" }).check();
+  await expect(chart.locator(".history-chart-gap")).toHaveCount(0);
+  await expect(chart).toContainText("−15 min");
+  await dialog.getByRole("radio", { name: "1 h" }).check();
+  await expect(chart.locator(".history-chart-gap")).toHaveCount(1);
+
+  const image = chart.getByRole("img");
+  await image.focus();
+  await page.keyboard.press("End");
+  const tooltip = chart.locator(".history-chart-tooltip");
+  await expect(tooltip).toContainText("CPU39%");
+  await expect(chart.locator("[aria-live]")).toContainText("CPU 39%, RAM 75%");
+  await page.keyboard.press("ArrowLeft");
+  await expect(tooltip).toContainText("CPU38%");
+  await page.keyboard.press("Escape");
+  await expect(tooltip).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+
+  const box = await chart.locator(".history-chart-plot").boundingBox();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  await expect(tooltip).toContainText("CPU39%");
+  await expect(tooltip).toContainText("AgentPier CPU2%");
+  await page.mouse.move(box.x + box.width / 2, box.y - 40);
+  await expect(tooltip).toHaveCount(0);
+});
+
+test("the processes sort inside each group and Open selects the session", async ({
+  page,
+}) => {
+  const dialog = await openDialog(page);
+  await dialog.getByRole("tab", { name: /Processes/ }).click();
+  const table = dialog.getByRole("table");
+  const cpu = table.getByRole("columnheader", { name: "CPU" });
+  await expect(cpu).toHaveAttribute("aria-sort", "descending");
+  const sessions = table
+    .getByRole("rowgroup")
+    .filter({ hasText: "Sessions · 3 running" });
+  await expect(sessions.getByRole("rowheader").nth(1)).toContainText("Kanji quiz");
+  await dialog.getByRole("radio", { name: "RAM" }).check();
+  await expect(table.getByRole("columnheader", { name: "RAM" })).toHaveAttribute(
+    "aria-sort",
+    "descending",
+  );
+  await expect(cpu).not.toHaveAttribute("aria-sort", /.*/);
+  await expect(sessions.getByRole("rowheader").nth(1)).toContainText(
+    "Fix the login flow",
+  );
+  await dialog.getByRole("radio", { name: "Name" }).check();
+  await expect(table.getByRole("columnheader", { name: "Part" })).toHaveAttribute(
+    "aria-sort",
+    "ascending",
+  );
+  await expect(sessions.getByRole("rowheader").nth(1)).toContainText(
+    "Fix the login flow",
+  );
+  await expect(sessions.getByRole("rowheader").nth(3)).toContainText("Shell");
+  await expect(
+    table.getByRole("row").filter({ hasText: "AgentPier server" }).getByRole("link"),
+  ).toHaveCount(0);
+  await table.getByRole("link", { name: "Open Kanji quiz" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/s2/);
+});

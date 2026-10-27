@@ -1,90 +1,101 @@
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import { systemStatusCopy as copy } from "../../lib/i18n/messages/system-status.js";
 import Modal from "../../components/Modal.jsx";
-import { lineSegments } from "../../components/history-chart.js";
+import StatusChip from "../../components/StatusChip.jsx";
+import StatusDot from "../../components/StatusDot.jsx";
+import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import useSystemStatus from "./useSystemStatus.js";
-import StorageCleanup from "./StorageCleanup.jsx";
-import { DiskWarning, SystemMeter } from "./SystemMeter.jsx";
-import {
-  clampPercent,
-  statusBytes,
-  statusNumber,
-  statusPercent,
-  statusTime,
-  diskUsedPercent,
-} from "./system-status-format.js";
+import { CLEANUP_API } from "./useCleanup.jsx";
+import { summaryGroups } from "./StorageCleanup.jsx";
+import SystemLoadTab from "./SystemLoadTab.jsx";
+import SystemProcessesTab from "./SystemProcessesTab.jsx";
+import SystemStorageTab from "./SystemStorageTab.jsx";
+import { statusBytes, usableCleanupSummary } from "./system-status-format.js";
 
-const WIDTH = 240,
-  HEIGHT = 44,
-  HOUR = 60 * 60 * 1000;
+const ID = "system-status";
 
-/** One series of the last hour as SVG polylines, with a text value for readers. */
-export function Sparkline({ name, points, field, now }) {
-  const segments = lineSegments(points, field).map((items) =>
-    items.map((point) => {
-      const x = Math.max(0, WIDTH - ((now - point.t) / HOUR) * WIDTH);
-      const y = HEIGHT - (clampPercent(point[field]) / 100) * (HEIGHT - 2) - 1;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }),
-  );
-  const last = points.at(-1)?.[field];
+// The details tolerate a missing part, such as process rows after a failed ps.
+function details(answer) {
   return (
-    <figure className="system-sparkline">
-      <figcaption>
-        <span>{name}</span>
-        <strong>{statusPercent(last)}</strong>
-      </figcaption>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={copy.historyLabel(name, statusPercent(last))}
-      >
-        {segments
-          .filter((items) => items.length)
-          .map((items, index) =>
-            items.length === 1 ? (
-              <circle
-                key={index}
-                cx={items[0].split(",")[0]}
-                cy={items[0].split(",")[1]}
-                r="1.5"
-              />
-            ) : (
-              <polyline key={index} points={items.join(" ")} />
-            ),
-          )}
-      </svg>
-    </figure>
+    answer && {
+      ...answer,
+      processes: Array.isArray(answer.processes) ? answer.processes : [],
+      history: Array.isArray(answer.history) ? answer.history : [],
+      areas: Array.isArray(answer.areas?.areas) ? answer.areas : { state: "pending" },
+    }
   );
 }
 
-function processLabel(item) {
-  if (item.kind === "server") return copy.server;
-  if (item.kind === "gateway") return copy.gateway;
-  return copy.session(item.name);
+// "This computer · 16 cores · 64 GB RAM · macOS"; the platform only when known.
+function hostFacts(data) {
+  const platform = data.host?.platform;
+  return [
+    copy.host.computer,
+    copy.host.cores(data.cpu.cores),
+    copy.host.memory(statusBytes(data.memory.totalBytes)),
+    platform && (copy.host.platforms[platform] || platform),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-/** `cleanup` (Einstellungen › Betrieb › Speicher) scrolls to the clean-up once shown. */
-export default function SystemStatusDialog({ close, cleanup = false }) {
-  const { data: answer, error } = useSystemStatus("/system-status/details");
-  const loaded = Boolean(answer);
-  useEffect(() => {
-    if (cleanup && loaded)
-      document
-        .getElementById("system-cleanup-heading")
-        ?.scrollIntoView({ block: "start" });
-  }, [cleanup, loaded]);
-  // The details tolerate a missing part, such as process rows after a failed ps.
-  const data = answer && {
-    ...answer,
-    processes: Array.isArray(answer.processes) ? answer.processes : [],
-    history: Array.isArray(answer.history) ? answer.history : [],
-    areas: Array.isArray(answer.areas?.areas) ? answer.areas : { state: "pending" },
-  };
-  const now = Date.parse(data?.sampledAt) || Date.now();
-  const largest = Math.max(1, ...(data?.areas?.areas || []).map((item) => item.bytes));
-  const sessions = data?.processes.filter((item) => item.kind === "session") || [];
+/**
+ * The system status in three tabs: Load, Processes and Storage. `cleanup` (Settings ›
+ * Operations › Storage) opens the Storage tab. `openSession(route)` navigates to a
+ * session; the dialog closes first.
+ */
+export default function SystemStatusDialog({ close, cleanup = false, openSession }) {
+  const [tab, setTab] = useState(cleanup ? "storage" : "load");
+  const { data: answer, error } = useSystemStatus(`/${ID}/details`);
+  const { data: summary } = useSystemStatus(
+    `${CLEANUP_API}/summary`,
+    true,
+    usableCleanupSummary,
+  );
+  const data = details(answer);
+  const measured = summaryGroups(summary);
+  const reclaimable = measured
+    ? Object.values(measured).reduce((sum, group) => sum + (group?.bytes || 0), 0)
+    : null;
+  const tabs = [
+    { id: "load", label: copy.tabs.load },
+    {
+      id: "processes",
+      label: copy.tabs.processes,
+      count: data
+        ? data.processes.reduce((sum, item) => sum + (item.processes || 0), 0)
+        : undefined,
+    },
+    {
+      id: "storage",
+      label: (
+        <>
+          {copy.tabs.storage}
+          {data?.warning.diskLow && (
+            <StatusDot tone="warning" label={copy.diskLowTitle} />
+          )}
+        </>
+      ),
+      count:
+        reclaimable === null ? undefined : copy.reclaimable(statusBytes(reclaimable)),
+    },
+  ];
+  const panel = {
+    load: () => <SystemLoadTab data={data} showProcesses={() => setTab("processes")} />,
+    processes: () => (
+      <SystemProcessesTab
+        data={data}
+        openSession={
+          openSession &&
+          ((route) => {
+            close();
+            openSession(route);
+          })
+        }
+      />
+    ),
+    storage: () => <SystemStorageTab data={data} summary={summary} />,
+  }[tab];
   return (
     <Modal
       title={copy.title}
@@ -94,134 +105,33 @@ export default function SystemStatusDialog({ close, cleanup = false }) {
       className="system-status-dialog"
     >
       <div className="system-status-details">
-        {!data ? (
-          <p className="system-status-empty" role="status">
-            {error ? copy.unavailable : copy.loading}
-          </p>
-        ) : (
-          <>
-            <DiskWarning status={data} />
-            <section aria-labelledby="system-status-host">
-              <h3 id="system-status-host">{copy.hostHeading}</h3>
-              <div className="system-status-meters">
-                <SystemMeter
-                  label={copy.disk}
-                  percent={diskUsedPercent(data.disk)}
-                  value={copy.diskValue(
-                    statusBytes(data.disk.freeBytes),
-                    statusBytes(data.disk.totalBytes),
-                  )}
-                  tone={data.warning.diskLow ? "low" : ""}
-                />
-                <SystemMeter
-                  label={copy.cpu}
-                  percent={data.cpu.percent}
-                  value={copy.load(...data.cpu.load.map((value) => statusNumber(value)))}
-                />
-                <SystemMeter
-                  label={copy.memory}
-                  percent={data.memory.percent}
-                  value={copy.usedValue(
-                    statusBytes(data.memory.usedBytes),
-                    statusBytes(data.memory.totalBytes),
-                  )}
-                />
-              </div>
-            </section>
-            <section aria-labelledby="system-status-history">
-              <h3 id="system-status-history">{copy.historyHeading}</h3>
-              <div className="system-sparklines">
-                <Sparkline
-                  name={copy.historyCpu}
-                  points={data.history}
-                  field="cpu"
-                  now={now}
-                />
-                <Sparkline
-                  name={copy.historyMemory}
-                  points={data.history}
-                  field="memory"
-                  now={now}
-                />
-                <Sparkline
-                  name={copy.historyAgentPier}
-                  points={data.history}
-                  field="agentCpu"
-                  now={now}
-                />
-              </div>
-              {data.history.length < 3 && <p className="hint">{copy.historyEmpty}</p>}
-            </section>
-            <section aria-labelledby="system-status-share">
-              <h3 id="system-status-share">{copy.shareHeading}</h3>
-              <p className="system-status-total">
-                {copy.shareTotal(
-                  statusPercent(data.agentPier.cpuPercent, 1),
-                  statusBytes(data.agentPier.rssBytes),
-                )}
-              </p>
-              <table className="system-process-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{copy.processName}</th>
-                    <th scope="col">{copy.processCount}</th>
-                    <th scope="col">{copy.processCpu}</th>
-                    <th scope="col">{copy.processMemory}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.processes.map((item) => (
-                    <tr key={item.id || item.kind}>
-                      <th scope="row">
-                        {processLabel(item)}
-                        {item.kind === "session" && item.tool && (
-                          <small>{copy.sessionTool[item.tool] || item.tool}</small>
-                        )}
-                      </th>
-                      <td>{item.processes}</td>
-                      <td>{statusPercent(item.cpuPercent, 1)}</td>
-                      <td>{statusBytes(item.rssBytes)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!sessions.length && <p className="hint">{copy.noSessions}</p>}
-              <p className="hint">{copy.cpuNote}</p>
-            </section>
-            <section aria-labelledby="system-status-data">
-              <h3 id="system-status-data">{copy.dataHeading}</h3>
-              {data.areas.state === "pending" ? (
-                <p className="hint" role="status">
-                  {copy.dataPending}
-                </p>
-              ) : (
-                <>
-                  <p className="system-status-total">
-                    {copy.dataTotal(statusBytes(data.areas.totalBytes))}
-                    <small>
-                      {data.areas.state === "refreshing"
-                        ? copy.dataRefreshing
-                        : copy.dataMeasured(statusTime(data.areas.computedAt))}
-                    </small>
-                  </p>
-                  {data.areas.partial && <p className="hint">{copy.dataPartial}</p>}
-                  <ul className="system-area-list">
-                    {data.areas.areas.map((item) => (
-                      <li key={item.id}>
-                        <span>{copy.areas[item.id] || item.id}</span>
-                        <strong>{statusBytes(item.bytes)}</strong>
-                        <div className="system-meter-bar" aria-hidden="true">
-                          <i style={{ width: `${(item.bytes / largest) * 100}%` }} />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <StorageCleanup />
-            </section>
-          </>
-        )}
+        <div className="system-status-head">
+          <p>{data ? hostFacts(data) : ""}</p>
+          <StatusChip tone="ok" pill>
+            {copy.live}
+          </StatusChip>
+        </div>
+        <UnderlineTabs
+          label={copy.tabsLabel}
+          tabs={tabs}
+          selected={tab}
+          onSelect={setTab}
+          idPrefix={ID}
+        />
+        <div
+          role="tabpanel"
+          id={`${ID}-tabpanel-${tab}`}
+          aria-labelledby={`${ID}-tab-${tab}`}
+          className="system-status-panel"
+        >
+          {data ? (
+            panel()
+          ) : (
+            <p className="system-status-empty" role="status">
+              {error ? copy.unavailable : copy.loading}
+            </p>
+          )}
+        </div>
       </div>
     </Modal>
   );

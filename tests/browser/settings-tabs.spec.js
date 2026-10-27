@@ -220,6 +220,10 @@ for (const locale of ["de-DE", "en-GB"]) {
         name: t("Systemstatus", "System status"),
       });
       await expect(dialog).toBeVisible();
+      // The link opens the Storage tab instead of Load.
+      await expect(
+        dialog.getByRole("tab", { name: new RegExp(`^${t("Speicher", "Storage")}`) }),
+      ).toHaveAttribute("aria-selected", "true");
       await expect(
         dialog.getByRole("heading", { name: t("Speicher freigeben", "Free up space") }),
       ).toBeInViewport();

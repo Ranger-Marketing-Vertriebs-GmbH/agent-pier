@@ -399,6 +399,7 @@ function Application() {
                     launch,
                     page,
                     setModal,
+                    navigate,
                   }}
                 />
               )}

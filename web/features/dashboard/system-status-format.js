@@ -1,4 +1,4 @@
-import { formatNumber, formatTimestamp } from "../../lib/i18n/index.js";
+import { formatNumber, formatTimestamp, locale } from "../../lib/i18n/index.js";
 
 const UNITS = [
   ["terabyte", 1024 ** 4, 1],
@@ -24,6 +24,12 @@ export function statusNumber(value, digits = 2) {
   return formatNumber(value, { maximumFractionDigits: digits });
 }
 export const statusTime = (value) => formatTimestamp(value);
+/** A clock time such as "21:01", for the history chart. */
+export const statusClock = (value) =>
+  new Date(value).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+/** A day such as "3 Aug 2026", for the oldest update backup. */
+export const statusDate = (value) =>
+  new Date(value).toLocaleDateString(locale, { dateStyle: "medium" });
 /** The used share of the disk bar; an unknown free share stays unknown ("–"). */
 export const diskUsedPercent = (disk) =>
   Number.isFinite(disk?.freePercent) ? 100 - disk.freePercent : null;
@@ -38,3 +44,6 @@ export const usableStatus = (data) =>
     : null;
 export const clampPercent = (value) =>
   Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
+/** A cleanup summary answer (GET /system-status/cleanup/summary), else null. */
+export const usableCleanupSummary = (data) =>
+  data && typeof data === "object" && typeof data.state === "string" ? data : null;
