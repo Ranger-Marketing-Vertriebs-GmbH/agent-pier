@@ -31,12 +31,12 @@ const entryFor = (buffer = body, extra = {}) => ({
 // handler; fetchImpl rewrites https://host/path to it and records every request.
 async function harness(t, routes) {
   const server = http.createServer((req, res) => {
-    const handler = routes[req.url.slice(1)];
-    if (!handler) {
+    const key = req.url.slice(1);
+    if (!Object.hasOwn(routes, key) || typeof routes[key] !== "function") {
       res.writeHead(404);
       return res.end();
     }
-    handler(req, res);
+    routes[key](req, res);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => {
