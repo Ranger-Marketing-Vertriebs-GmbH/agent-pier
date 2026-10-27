@@ -427,6 +427,8 @@ export const assistants = {
   telegramSendersArchive:
     "Trenne zuerst den eigenen Telegram-Bot des Agenten, bevor du ihn archivierst.",
   leadHasMembers: "Dieser Lead hat temporäre Team-Mitglieder. Archiviere sie mit ihm.",
+  userAgentUserGone:
+    "Die Person, für die dieser Agent da war, gibt es nicht mehr. Er kann nicht wiederhergestellt werden; lösche ihn stattdessen endgültig.",
   agentNotArchived: "Archiviere den Agenten, bevor du ihn endgültig löschst.",
   agentDeleteName: "Gib den Namen des Agenten genau ein, um ihn zu löschen.",
   agentDeleteBusy:

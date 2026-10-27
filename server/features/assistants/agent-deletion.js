@@ -14,11 +14,49 @@ import { configWrite } from "./openclaw-config/live-patch.js";
 const managed = new Set(["AGENTS.md", "SOUL.md", "IDENTITY.md", "BOOTSTRAP.md"]);
 const memoryNames = new Set(["MEMORY.md", "USER.md"]);
 
+/**
+ * The tables a delete reaches, per database. Several are created by their feature on
+ * first use, so a database may lack one; a table outside these lists is never touched
+ * (tests/integration/agent-archive-delete.test.js checks the lists against the real
+ * schemas).
+ */
+export const agentTables = [
+  "assistants",
+  "conversations",
+  "requests",
+  "attempts",
+  "attempt_reviews",
+  "messages",
+  "queued_messages",
+  "agent_attachments",
+  "assistant_memory_notes",
+  "assistant_routine_results",
+  "assistant_routine_events",
+  "assistant_long_chat_dismissals",
+  "assistant_member_long_chats",
+  "assistant_reminder_bindings",
+  "assistant_hooks",
+  "assistant_hook_events",
+  "assistant_actions",
+  "assistant_access",
+  "assistant_lead_shares",
+  "assistant_team_records",
+];
+export const channelTables = ["channel_follow_ups"];
+
 const hasTable = (db, table) =>
   !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
-const remove = (db, table, where, ...args) => {
+function remove(db, table, where, ...args) {
+  if (![...agentTables, ...channelTables].includes(table))
+    throw new Error(`Unknown table ${table}`);
   if (hasTable(db, table)) db.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...args);
-};
+}
+// Agent ids are UUIDs and their runtime ids `ap-<uuid>`; nothing else names a folder.
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function assertAgentIds(agent) {
+  if (!uuid.test(agent?.id || "") || agent.runtimeAgentId !== `ap-${agent.id}`)
+    throw Object.assign(new Error("Invalid agent id"), { code: "AGENT_ID_INVALID" });
+}
 const count = (db, table, where, ...args) =>
   hasTable(db, table)
     ? db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`).get(...args).n
@@ -39,19 +77,23 @@ export function agentFolders(paths, agent) {
   ];
 }
 
-// Regular files below `dir`, never through a link.
-function files(dir, relative = "") {
+// Regular files below `dir`, never through a link; read without blocking.
+async function files(dir, relative = "") {
   let entries = [];
   try {
-    entries = fs.readdirSync(path.join(dir, relative), { withFileTypes: true });
+    entries = await fs.promises.readdir(path.join(dir, relative), {
+      withFileTypes: true,
+    });
   } catch {
     return [];
   }
-  return entries.flatMap((entry) => {
+  const found = [];
+  for (const entry of entries) {
     const name = path.join(relative, entry.name);
-    if (entry.isDirectory()) return files(dir, name);
-    return entry.isFile() ? [name] : [];
-  });
+    if (entry.isDirectory()) found.push(...(await files(dir, name)));
+    else if (entry.isFile()) found.push(name);
+  }
+  return found;
 }
 
 /**
@@ -59,7 +101,7 @@ function files(dir, relative = "") {
  * and hooks), notes and memory files, other workspace files, and the temporary
  * members deleted with a lead.
  */
-export function deletionCounts({ assistants, paths }, agents) {
+export async function deletionCounts({ assistants, paths }, agents) {
   const db = assistants.store.db;
   const totals = { chats: 0, routines: 0, memoryFiles: 0, workspaceFiles: 0 };
   for (const agent of agents) {
@@ -74,7 +116,7 @@ export function deletionCounts({ assistants, paths }, agents) {
         agent.id,
       ) + count(db, "assistant_hooks", "assistant_id=?", agent.id);
     if (!paths?.workspaces) continue;
-    for (const file of files(path.join(paths.workspaces, agent.id))) {
+    for (const file of await files(path.join(paths.workspaces, agent.id))) {
       const [top] = file.split(path.sep);
       if (memoryNames.has(file) || top === "memory") totals.memoryFiles++;
       else if (!managed.has(file) && top !== ".agentpier") totals.workspaceFiles++;
@@ -99,7 +141,7 @@ export async function removeFromGateway(client, runtimeAgentId) {
 }
 
 // Its rows in the agents' database, children before the rows they reference.
-function removeRows(db, id, channelIds) {
+function removeRows(db, id) {
   const chats = "SELECT id FROM conversations WHERE assistant_id=?";
   const requests = `SELECT id FROM requests WHERE conversation_id IN (${chats})`;
   db.exec("BEGIN IMMEDIATE");
@@ -139,8 +181,6 @@ function removeRows(db, id, channelIds) {
       `kind='work-goal' AND json_extract(body,'$.conversationId') IN (${chats})`,
       id,
     );
-    for (const channelId of channelIds)
-      remove(db, "channel_follow_ups", "channel_id=?", channelId);
     remove(db, "agent_attachments", "assistant_id=?", id);
     remove(db, "conversations", "assistant_id=?", id);
     remove(
@@ -152,13 +192,32 @@ function removeRows(db, id, channelIds) {
     remove(db, "assistant_reminder_bindings", "assistant_id=?", id);
     remove(db, "assistant_hook_events", "assistant_id=?", id);
     remove(db, "assistant_hooks", "assistant_id=?", id);
-    // Pending approvals, and its SSH and SFTP jobs with their results.
-    remove(db, "assistant_actions", "assistant_id=?", id);
+    // Pending approvals, and its SSH and SFTP jobs with their results; a member's
+    // requests waiting on its lead (member grants, coding) as well.
+    remove(
+      db,
+      "assistant_actions",
+      "assistant_id=? OR json_extract(body,'$.payload.memberId')=? OR json_extract(body,'$.memberId')=?",
+      id,
+      id,
+      id,
+    );
     // Grants: projects, SSH, secrets and GitHub.
     remove(db, "assistant_access", "assistant_id=?", id);
     remove(db, "assistant_lead_shares", "member_assistant_id=? OR lead_id=?", id, id);
     // A lead's teams, member records and requests with their texts; its policy; a
-    // member's own record.
+    // member's own record and the lead's requests to it or from it.
+    const toMember =
+      "kind='lead-request' AND (json_extract(body,'$.memberId')=? OR json_extract(body,'$.memberAssistantId')=? OR json_extract(body,'$.fromMemberId')=?)";
+    remove(
+      db,
+      "assistant_team_records",
+      `kind='text' AND parent_id IN (SELECT id FROM assistant_team_records WHERE ${toMember})`,
+      id,
+      id,
+      id,
+    );
+    remove(db, "assistant_team_records", toMember, id, id, id);
     remove(
       db,
       "assistant_team_records",
@@ -182,12 +241,17 @@ function removeRows(db, id, channelIds) {
 }
 
 /** Removes one agent marked `deleting` everywhere; safe to run again. */
-export async function purgeAgent(services, agent) {
+export async function purgeAgent(services, agent, channelIds = []) {
   const { assistants, channels, mcpServers, paths, dataDir } = services;
+  assertAgentIds(agent);
   await assistants.browsers?.stopAgent?.(agent.id).catch(() => {});
   await removeFromGateway(assistants.runtime.client, agent.runtimeAgentId);
-  // Its Telegram channels with their inbox and pending outbox.
+  // Its Telegram channels with their inbox, pending outbox and follow-ups
+  // (channels.sqlite); the ids were recorded with the mark, so a resume finds them.
   const own = (channels?.store.list() || []).filter((c) => c.assistantId === agent.id);
+  for (const channelId of new Set([...channelIds, ...own.map((c) => c.id)]))
+    if (channels?.store.db)
+      remove(channels.store.db, "channel_follow_ups", "channel_id=?", channelId);
   for (const channel of own) await channels.forget(channel.id);
   try {
     mcpServers?.setBindings("agent", agent.id, []);
@@ -204,10 +268,6 @@ export async function purgeAgent(services, agent) {
       fs.rmSync(path.join(dataDir, "ssh", "agents", `${agent.id}.lock.sqlite${suffix}`), {
         force: true,
       });
-  removeRows(
-    assistants.store.db,
-    agent.id,
-    own.map((c) => c.id),
-  );
+  removeRows(assistants.store.db, agent.id);
   assistants.config?.applied?.delete(agent.id);
 }

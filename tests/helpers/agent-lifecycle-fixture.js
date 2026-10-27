@@ -4,15 +4,27 @@ import { teamFixture } from "./assistant-team-fixture.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { ReminderBindings } from "../../server/features/assistants/reminder-bindings.js";
 import { HookStore } from "../../server/features/assistants/agent-hook-store.js";
+import { HookEvents } from "../../server/features/assistants/agent-hook-events.js";
+import { RoutineResults } from "../../server/features/assistants/routine-results.js";
+import { RoutineEvents } from "../../server/features/assistants/routine-events.js";
+import { dismissalTable } from "../../server/features/assistants/long-chats.js";
+import { LeadShares } from "../../server/features/assistants/lead-shares.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle.js";
+import { ChannelStore } from "../../server/features/assistant-channels/channel-store.js";
+import { TelegramFollowUps } from "../../server/features/assistant-channels/telegram-follow-ups.js";
+import { RunStore } from "../../server/features/pipelines/run-store.js";
+import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 
 const model = { connectionId: "c", modelId: "m" };
 
 /**
- * The team fixture with what archive and delete reach (agent-lifecycle.js): runtime
- * folders, reminder bindings with native cron jobs, hooks, actions, a Telegram
- * channel, MCP bindings and an audit log that checks every event against the schema.
+ * The team fixture with what archive and delete reach (agent-lifecycle.js), on the
+ * real schemas: runtime folders, reminder bindings with native cron jobs, hooks and
+ * their events, routine results and events, memory notes, long-chat tables, lead
+ * shares, actions, access, Telegram channels with follow-ups (channels.sqlite), MCP
+ * bindings, project memory and pipeline runs that stay, and an audit log that checks
+ * every event against the schema. `fail` injects Gateway and step failures.
  */
 export function lifecycleFixture(t) {
   const f = teamFixture(t);
@@ -24,11 +36,13 @@ export function lifecycleFixture(t) {
   const cron = [],
     removedJobs = [],
     deletedAgents = [],
+    updatedJobs = [],
     audit = [],
     forgotten = [],
     unbound = [],
     disabled = [],
     synced = [];
+  const fail = { agentsDelete: 0, forget: new Set() };
   // The Gateway's roster: what agents.delete removes, with the agent's cron jobs
   // (OpenClaw 2026.10.7 agents.delete, agent-deletion-contract.test.js).
   const roster = new Set();
@@ -37,6 +51,12 @@ export function lifecycleFixture(t) {
     if (method === "agents.list")
       return { agents: [...new Set([...roster, ...f.profiles])].map((id) => ({ id })) };
     if (method === "agents.delete") {
+      if (fail.agentsDelete > 0) {
+        fail.agentsDelete--;
+        throw Object.assign(Error("Assistant Gateway unavailable"), {
+          code: "UNAVAILABLE",
+        });
+      }
       deletedAgents.push(input);
       roster.delete(input.agentId);
       f.profiles.delete(input.agentId);
@@ -45,6 +65,12 @@ export function lifecycleFixture(t) {
         cron.splice(cron.indexOf(job), 1);
       }
       return { ok: true };
+    }
+    if (method === "cron.update") {
+      updatedJobs.push([input.id, input.patch.enabled]);
+      const job = cron.find((j) => j.id === input.id);
+      if (job) job.enabled = input.patch.enabled;
+      return job || {};
     }
     return call(method, input);
   };
@@ -64,15 +90,35 @@ export function lifecycleFixture(t) {
     },
     async close() {},
   };
-  const hooks = new HookStore(f.store.db);
-  const actions = new AssistantActionStore(f.store.db);
-  f.store.db.exec(
+  const db = f.store.db;
+  // Every table a delete reaches, made by its own feature.
+  const hooks = new HookStore(db);
+  new HookEvents(db);
+  new RoutineResults(db);
+  new RoutineEvents(db);
+  db.exec(dismissalTable);
+  new LeadShares({ a: { store: f.store } });
+  const actions = new AssistantActionStore(db);
+  db.exec(
     "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
   );
+  const channelStore = new ChannelStore({ dataDir: f.dataDir });
+  new TelegramFollowUps({ store: channelStore });
+  const runs = new RunStore(f.dataDir);
+  const memory = new ProjectMemory({ dataDir: f.dataDir, home: f.dataDir });
+  t.after(() => {
+    channelStore.close?.();
+    runs.close?.();
+    memory.close?.();
+  });
   const channels = {
     list: [],
-    store: { list: () => channels.list },
+    store: { list: () => channels.list, db: channelStore.db },
     async forget(id) {
+      if (fail.forget.has(id)) {
+        fail.forget.delete(id);
+        throw Object.assign(Error("Channel busy"), { code: "CHANNEL_BUSY" });
+      }
       forgotten.push(id);
       channels.list = channels.list.filter((c) => c.id !== id);
     },
@@ -92,6 +138,7 @@ export function lifecycleFixture(t) {
   };
   f.assistants.telegramSenders = { connected: () => false };
   f.assistants.config.applying = () => false;
+  const users = { known: new Set(["anna"]) };
   const services = {
     assistants: f.assistants,
     teams: f.service,
@@ -99,10 +146,89 @@ export function lifecycleFixture(t) {
     mcpServers,
     paths,
     dataDir: f.dataDir,
+    users: {
+      get(id) {
+        if (!users.known.has(id)) throw Error("User not found");
+        return { id };
+      },
+    },
     audit: { append: (event) => audit.push(auditEvent(event)) },
   };
   const lifecycle = new AgentLifecycle(services);
   f.assistants.lifecycle = lifecycle;
+  const insert = (sql, ...args) => db.prepare(sql).run(...args);
+
+  /** Fills every store a delete cleans with rows and files of `agent`. */
+  function fill(agent, chat, request, attempt) {
+    const id = agent.id;
+    insert("INSERT INTO attempt_reviews VALUES(?,?)", attempt.id, "2026-10-27");
+    if (!f.service.store.find(`context:${request.id}`))
+      f.service.store.recordContext(request.id, { kind: "owner" });
+    insert(
+      "INSERT INTO assistant_team_records VALUES(?,?,?,?,?,?,?)",
+      `goal-${id}`,
+      "work-goal",
+      null,
+      null,
+      "open",
+      1,
+      JSON.stringify({ id: `goal-${id}`, kind: "work-goal", conversationId: chat.id }),
+    );
+    insert(
+      "INSERT INTO assistant_memory_notes VALUES(?,?,?)",
+      `note-${id}`,
+      chat.id,
+      JSON.stringify({ text: "Private note" }),
+    );
+    insert(
+      "INSERT INTO assistant_routine_results VALUES(?,?,?)",
+      `result-${id}`,
+      chat.id,
+      "{}",
+    );
+    insert(
+      "INSERT INTO assistant_long_chat_dismissals VALUES(?,?,?,?)",
+      chat.id,
+      "owner",
+      1,
+      "2026-10-27",
+    );
+    insert(
+      "INSERT INTO assistant_member_long_chats VALUES(?,?,?,?,?,?,?,?)",
+      chat.id,
+      id,
+      1,
+      null,
+      "pending",
+      0,
+      0,
+      "2026-10-27",
+    );
+    insert(
+      "INSERT INTO assistant_lead_shares VALUES(?,?,?,?)",
+      `share-${id}`,
+      crypto.randomUUID(),
+      id,
+      "{}",
+    );
+    const channelId = `channel-${id}`;
+    channels.list.push({ id: channelId, assistantId: id });
+    channelStore.db
+      .prepare("INSERT INTO channel_follow_ups VALUES(?,?,?,?)")
+      .run(`run-${id}`, channelId, "pending", "{}");
+    for (const folder of [
+      path.join(root, "memory-backups", agent.runtimeAgentId),
+      path.join(root, "shares", id),
+      path.join(f.dataDir, "ssh", "agents"),
+    ])
+      fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "memory-backups", agent.runtimeAgentId, "MEMORY-1.md"),
+      "Copy",
+    );
+    fs.writeFileSync(path.join(root, "shares", id, "report.txt"), "Shared");
+    fs.writeFileSync(path.join(f.dataDir, "ssh", "agents", `${id}.lock.sqlite`), "");
+  }
 
   /** An agent with something in every store that a delete cleans. */
   function populated(name = "Helper", origin = null) {
@@ -111,6 +237,7 @@ export function lifecycleFixture(t) {
       assistantId: agent.id,
       runtimeSessionKey: `chat-${agent.id}`,
       main: true,
+      ...(origin?.userAccess && { userId: origin.userAccess.members[0].userId }),
     });
     const request = f.assistants.ledger.accept(chat.id, {
       clientRequestId: crypto.randomUUID(),
@@ -129,22 +256,38 @@ export function lifecycleFixture(t) {
       },
     );
     bindings.patch(binding.id, { state: "bound" });
-    cron.push({ id: `job-${agent.id}`, agentId: agent.runtimeAgentId });
+    insert("INSERT INTO assistant_routine_events VALUES(?,?,?)", binding.id, "e1", "{}");
+    cron.push({
+      id: `job-${agent.id}`,
+      agentId: agent.runtimeAgentId,
+      declarationKey: `agentpier-reminder:${binding.id}`,
+      enabled: true,
+    });
     // A job the agent created itself, never bound in AgentPier.
-    cron.push({ id: `own-${agent.id}`, agentId: agent.runtimeAgentId });
-    hooks.create({ assistantId: agent.id, name: "Deploys" });
-    actions.db
-      .prepare("INSERT INTO assistant_actions VALUES(?,?,?,?)")
-      .run(
-        `action-${agent.id}`,
-        agent.id,
-        `op-${agent.id}`,
-        JSON.stringify({ id: `action-${agent.id}`, state: "awaiting_approval" }),
-      );
-    f.store.db
-      .prepare("INSERT INTO assistant_access VALUES(?,?)")
-      .run(agent.id, JSON.stringify({ projectIds: ["p1"] }));
-    channels.list.push({ id: `channel-${agent.id}`, assistantId: agent.id });
+    cron.push({ id: `own-${agent.id}`, agentId: agent.runtimeAgentId, enabled: true });
+    const hook = hooks.create({ assistantId: agent.id, name: "Deploys" });
+    insert(
+      "INSERT INTO assistant_hook_events(id,hook_id,assistant_id,event_id,received_at,body) VALUES(?,?,?,?,?,?)",
+      `hook-event-${agent.id}`,
+      hook.id,
+      agent.id,
+      "e1",
+      1,
+      "{}",
+    );
+    insert(
+      "INSERT INTO assistant_actions VALUES(?,?,?,?)",
+      `action-${agent.id}`,
+      agent.id,
+      `op-${agent.id}`,
+      JSON.stringify({ id: `action-${agent.id}`, state: "awaiting_approval" }),
+    );
+    insert(
+      "INSERT INTO assistant_access VALUES(?,?)",
+      agent.id,
+      JSON.stringify({ projectIds: ["p1"] }),
+    );
+    fill(agent, chat, request, attempt);
     const workspace = path.join(paths.workspaces, agent.id);
     fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
     fs.writeFileSync(path.join(workspace, "MEMORY.md"), "Notes");
@@ -159,6 +302,79 @@ export function lifecycleFixture(t) {
     roster.add(agent.runtimeAgentId);
     return { agent: f.store.getAssistant(agent.id), chat, request, attempt, workspace };
   }
+
+  /** What is left of agent `id` in each store, by store; empty arrays once deleted. */
+  function remains(id) {
+    const q = (sql, ...args) => db.prepare(sql).all(...args).length;
+    const files = [
+      path.join(paths.workspaces, id),
+      path.join(root, "shares", id),
+      path.join(root, "memory-backups", `ap-${id}`),
+      path.join(paths.state, "agents", `ap-${id}`),
+      path.join(paths.state, "browser", `agent-${id}`),
+      path.join(f.dataDir, "ssh", "agents", `${id}.lock.sqlite`),
+    ].filter((file) => fs.existsSync(file));
+    const counts = {
+      assistants: q("SELECT 1 FROM assistants WHERE id=?", id),
+      conversations: q("SELECT 1 FROM conversations WHERE assistant_id=?", id),
+      requests: q(
+        "SELECT 1 FROM requests WHERE conversation_id IN (SELECT id FROM conversations WHERE assistant_id=?)",
+        id,
+      ),
+      attempts: q(
+        "SELECT 1 FROM attempts a JOIN requests r ON a.request_id=r.id JOIN conversations c ON r.conversation_id=c.id WHERE c.assistant_id=?",
+        id,
+      ),
+      reviews: q(
+        "SELECT 1 FROM attempt_reviews WHERE attempt_id NOT IN (SELECT id FROM attempts)",
+      ),
+      messages: q(
+        "SELECT 1 FROM messages WHERE conversation_id NOT IN (SELECT id FROM conversations)",
+      ),
+      notes: q("SELECT 1 FROM assistant_memory_notes WHERE id=?", `note-${id}`),
+      routineResults: q(
+        "SELECT 1 FROM assistant_routine_results WHERE id=?",
+        `result-${id}`,
+      ),
+      routineEvents: q(
+        "SELECT 1 FROM assistant_routine_events WHERE binding_id NOT IN (SELECT id FROM assistant_reminder_bindings)",
+      ),
+      bindings: q("SELECT 1 FROM assistant_reminder_bindings WHERE assistant_id=?", id),
+      hooks: q("SELECT 1 FROM assistant_hooks WHERE assistant_id=?", id),
+      hookEvents: q("SELECT 1 FROM assistant_hook_events WHERE assistant_id=?", id),
+      dismissals: q(
+        "SELECT 1 FROM assistant_long_chat_dismissals WHERE conversation_id NOT IN (SELECT id FROM conversations)",
+      ),
+      memberLongChats: q(
+        "SELECT 1 FROM assistant_member_long_chats WHERE member_id=?",
+        id,
+      ),
+      actions: q("SELECT 1 FROM assistant_actions WHERE assistant_id=?", id),
+      access: q("SELECT 1 FROM assistant_access WHERE assistant_id=?", id),
+      leadShares: q(
+        "SELECT 1 FROM assistant_lead_shares WHERE lead_id=? OR member_assistant_id=?",
+        id,
+        id,
+      ),
+      teamRecords: q(
+        "SELECT 1 FROM assistant_team_records WHERE id=? OR parent_id=? OR id=? OR id=?",
+        id,
+        id,
+        `goal-${id}`,
+        `policy:${id}`,
+      ),
+      contexts: q(
+        "SELECT 1 FROM assistant_team_records WHERE kind='context' AND substr(id,9) NOT IN (SELECT id FROM requests)",
+      ),
+      followUps: channelStore.db
+        .prepare("SELECT 1 FROM channel_follow_ups WHERE channel_id=?")
+        .all(`channel-${id}`).length,
+    };
+    return {
+      files,
+      rows: Object.fromEntries(Object.entries(counts).filter(([, n]) => n)),
+    };
+  }
   return {
     ...f,
     paths,
@@ -168,16 +384,37 @@ export function lifecycleFixture(t) {
     hooks,
     actions,
     channels,
+    channelStore,
+    runs,
+    memory,
     cron,
     removedJobs,
     deletedAgents,
+    updatedJobs,
     roster,
     audit,
     forgotten,
     unbound,
     disabled,
     synced,
+    fail,
+    users,
     populated,
+    fill,
+    remains,
     model,
   };
+}
+
+/** A lead with `count` finished task members; `keep` of them kept as permanent agents.*/
+export async function leadWithMembers(f, { count = 2, keep = 0 } = {}) {
+  const { team, parent, attempt } = await f.proposal({ count });
+  await f.service.reconcile();
+  for (const m of f.service.store.members(team.id)) f.complete(m.attemptId);
+  await f.service.reconcile();
+  const members = f.service.store.members(team.id);
+  for (const m of members.slice(0, keep)) f.service.store.promote(m.id, m.revision);
+  // The lead's own turn that proposed the team ends too.
+  f.assistants.ledger.transition(attempt.id, "completed");
+  return { lead: f.store.getAssistant(parent.id), team, members };
 }

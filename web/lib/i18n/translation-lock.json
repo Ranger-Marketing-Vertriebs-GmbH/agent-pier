@@ -124,6 +124,8 @@
   "agent-lifecycle:agentLifecycleCopy.deleteHint": "de:72971774957f en:00dbc8f4c134",
   "agent-lifecycle:agentLifecycleCopy.deletePermanently": "de:6c1fd39216fe en:280b10c89cc4",
   "agent-lifecycle:agentLifecycleCopy.deleteTitle": "de:4ca1a47aa028 en:c7e9d95af250",
+  "agent-lifecycle:agentLifecycleCopy.deletionFailed": "de:8f95d9be4aa8 en:25d1fd931762",
+  "agent-lifecycle:agentLifecycleCopy.deletionPending": "de:44b3e7cf34dd en:6145243bf47e",
   "agent-lifecycle:agentLifecycleCopy.kept": "de:d164c5728d79 en:1f1557e87f51",
   "agent-lifecycle:agentLifecycleCopy.lost": "de:2379dced87ff en:74c4360f62dc",
   "agent-lifecycle:agentLifecycleCopy.members": "de:16dc6bae6d77 en:2826c8fd7e9f",

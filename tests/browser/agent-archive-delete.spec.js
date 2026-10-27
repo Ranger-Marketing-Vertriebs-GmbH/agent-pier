@@ -110,3 +110,60 @@ test("an own agent is archived from its menu, restored and deleted permanently",
     { name: "Home" },
   ]);
 });
+
+test("a delete that did not finish is listed as pending and retried", async ({
+  page,
+}) => {
+  const state = await setupAssistantSettings(page);
+  let deletions = [{ id: "gone", name: "Old helper", error: "UNAVAILABLE" }];
+  const deleted = [];
+  await page.route(/\/api\/assistants(\/gone(\/deletion)?)?$/, (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/assistants" && request.method() === "GET")
+      return route.fulfill({
+        json: {
+          assistants: state.assistants,
+          conversations: [],
+          policies: state.policies,
+          models: [{ id: "router", name: "Router", available: true }],
+          deletions,
+        },
+      });
+    if (path === "/api/assistants/gone/deletion")
+      return route.fulfill({
+        json: {
+          id: "gone",
+          name: "Old helper",
+          pending: true,
+          error: "UNAVAILABLE",
+          counts: {
+            chats: 1,
+            routines: 0,
+            memoryFiles: 0,
+            workspaceFiles: 0,
+            members: 0,
+          },
+        },
+      });
+    if (path === "/api/assistants/gone" && request.method() === "DELETE") {
+      deleted.push(request.postDataJSON());
+      deletions = [];
+      return route.fulfill({ status: 204, body: "" });
+    }
+    return route.fallback();
+  });
+  await page.goto(baseURL + "/agents");
+  await page.getByRole("button", { name: "Show" }).click();
+  const archive = page.locator(".agents-hub-archive");
+  await expect(
+    archive.getByText("Deletion pending · last attempt failed: UNAVAILABLE"),
+  ).toBeVisible();
+  await archive.getByRole("button", { name: "Delete permanently" }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete Old helper permanently?" });
+  await expect(dialog).toContainText("1 chat");
+  await dialog.getByLabel("Type “Old helper” to confirm").fill("Old helper");
+  await dialog.getByRole("button", { name: "Delete permanently" }).click();
+  await expect.poll(() => deleted).toEqual([{ name: "Old helper" }]);
+  await expect(page.getByText("Deletion pending", { exact: false })).toHaveCount(0);
+});
