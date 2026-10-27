@@ -13,6 +13,7 @@ import { recoverAssistantServices } from "./assistant-recovery.js";
 import { stageRuntimeInBackground } from "../features/assistants/runtime-provisioning.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
+import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 
 /** Every service the assistant subsystem contributes; all are null while it is dormant. */
 export const assistantServiceNames = [
@@ -41,6 +42,8 @@ export const assistantServiceNames = [
   "assistantTelegramSenders",
   // Granted secrets delivered to agent workspaces (agent-secrets.js).
   "assistantAgentSecrets",
+  // Skills the owner adds for agents (skill-catalog-wiring.js).
+  "assistantSkillCatalog",
 ];
 
 /**
@@ -52,6 +55,7 @@ export function createAssistantServices(options) {
   try {
     const graph = connectAssistantServices(constructAssistantGraph(options, created));
     graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
+    graph.assistantSkillCatalog = connectSkillCatalog(graph);
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one
@@ -139,10 +143,13 @@ export function createAssistantFeature(services) {
       assistantMcpServers,
       assistantMcpOAuth,
       assistantAgentSecrets,
+      assistantSkillCatalog,
     } = services;
     recovered = false;
     assistantAgentSecrets?.close();
     for (const name of assistantServiceNames) services[name] = null;
+    // Aborts catalog downloads and waits for a running install.
+    await assistantSkillCatalog?.close().catch(() => {});
     await assistantChannels?.close().catch(() => {});
     try {
       assistantWebSearch?.close();
