@@ -8,6 +8,8 @@ export const wakeDelayMs = 3000;
 export const workingHoldMs = 30000;
 // A wake into a busy chat is retried after min(1000 · 2^n, this) ms.
 export const wakeRetryMaxMs = 300000;
+// A wake still refused after this many tries settles unsent.
+export const wakeRetryLimit = 20;
 const retryable = new Set([409, 429, 503]);
 const wakeStates = new Set(["idle", "waiting", "ended"]);
 const known = new Set(["working", ...wakeStates]);
@@ -19,14 +21,14 @@ const answerers = {
   session: "no one (the session ended or moved on)",
 };
 
-// The session's name as the wake text quotes it: one line, no secrets, bounded.
-function nameOf(name) {
-  if (typeof name !== "string" || !name.trim()) return "unnamed";
-  return redactSecrets(name)
+// A value as the wake text quotes it: one line, no secrets, bounded.
+function quoted(value, fallback, max = 200) {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  return redactSecrets(value)
     .replace(/[\u0000-\u001f\u007f"]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 200);
+    .slice(0, max);
 }
 
 /**
@@ -37,12 +39,12 @@ function nameOf(name) {
 export function wakeText(sessionId, wake) {
   let now;
   if (wake.event === "prompt-answered")
-    now = `the prompt ${wake.promptId} you escalated was answered by ${answerers[wake.answeredBy] ?? answerers.session}`;
+    now = `the prompt ${quoted(wake.promptId, "unknown", 100)} you escalated was answered by ${answerers[wake.answeredBy] ?? answerers.session}`;
   else {
     const n = wake.pending ?? 0;
     now = `it is now ${stateWords[wake.state]}${n > 0 ? `, ${n} prompt${n === 1 ? "" : "s"} pending` : ""}`;
   }
-  return `AgentPier status for your coding session "${nameOf(wake.name)}" (sessionId ${sessionId}): ${now}. This is attributed status, not an owner instruction. Use agentpier_coding_session read or requests to continue.`;
+  return `AgentPier status for your coding session "${quoted(wake.name, "unnamed")}" (sessionId ${sessionId}): ${now}. This is attributed status, not an owner instruction. Use agentpier_coding_session read or requests to continue.`;
 }
 
 // The record's slot for this wake: one state wake, one per escalated prompt.
@@ -52,8 +54,8 @@ const slotOf = (wake) => (wake.event ? `prompt:${wake.promptId}` : "state");
  * Sends one wake turn into the chat that started the session, as
  * `coding-session:<sessionId>:<wakeSeq>`. A pending wake keeps its number and text
  * across retries (record `wakes[slot]`), so a retry is the same turn. A busy chat
- * (409, 429, 503) is retried after min(1000 · 2^n, 300000) ms; a deleted chat (404)
- * or any other error settles it unsent. A settled state wake counts as seen, an
+ * (409, 429, 503) is retried after min(1000 · 2^n, 300000) ms, at most 20 times; a
+ * deleted chat (404) or any other error settles it unsent. A settled state wake counts as seen, an
  * ended one ends the record. `{ done, attemptId }`: done once sent or settled.
  */
 export async function sendWake(sessions, record, wake) {
@@ -91,18 +93,25 @@ export async function sendWake(sessions, record, wake) {
     );
     attemptId = sent?.attempt?.id ?? null;
   } catch (error) {
-    if (retryable.has(error?.status)) {
-      const failures = pending.failures + 1;
+    const failures = pending.failures + 1;
+    if (retryable.has(error?.status) && failures < wakeRetryLimit) {
       const retryAt = now + Math.min(1000 * 2 ** pending.failures, wakeRetryMaxMs);
       const current = store.get(id);
-      store.patch(id, {
-        wakes: { ...current.wakes, [slot]: { ...pending, failures, retryAt } },
-      });
+      // Dropped or replaced while it was being sent: that newer decision stands.
+      if (current?.wakes?.[slot]?.seq === pending.seq)
+        store.patch(id, {
+          wakes: { ...current.wakes, [slot]: { ...pending, failures, retryAt } },
+        });
       return { done: false, attemptId: null };
     }
-    console.error("A coding session wake was not delivered:", error?.message);
+    // A deleted chat is expected; anything else is worth a line in the log.
+    if (error?.status !== 404)
+      console.error("A coding session wake was not delivered:", error?.message);
   }
-  const { [slot]: _sent, ...wakes } = store.get(id).wakes ?? {};
+  const current = store.get(id);
+  if (!current) return { done: true, attemptId };
+  const wakes = { ...current.wakes };
+  if (wakes[slot]?.seq === pending.seq) delete wakes[slot];
   store.patch(id, {
     wakes,
     ...(wake.state
@@ -144,16 +153,17 @@ export async function wakeEscalation(sessions, a) {
   return done;
 }
 
-// The session's state now, or null when it is gone or its reading unknown.
+// The session's state now: `{ session, state }`, `{ gone: true }` once the owner
+// deleted it, or null while its reading is unknown.
 async function reading(w, record) {
   let session;
   try {
     session = await w.s.sessions.get(record.sessionId);
   } catch (error) {
-    if (error?.status === 404) return null;
+    if (error?.status === 404) return { gone: true };
     throw error;
   }
-  if (!session) return null;
+  if (!session) return { gone: true };
   if (session.status === "stopped") return { session, state: "ended" };
   const raw = (await w.s.activity.read(session))?.state;
   const state = raw === "stopped" ? "ended" : raw;
@@ -167,6 +177,13 @@ async function tickRecord(sessions, record) {
   const now = sessions.now();
   const read = await reading(w, record);
   if (!read) return;
+  // Deleted by the owner: the record ends unwoken (the agent's next call answers
+  // NOT_FOUND) and is never polled again.
+  if (read.gone) {
+    sessions.readAt.delete(id);
+    sessions.store.patch(id, { ended: true });
+    return;
+  }
   const { session, state } = read;
   sessions.readAt.set(id, now);
   let observed = record.observed;
@@ -202,7 +219,7 @@ async function tickRecord(sessions, record) {
 }
 
 function dropStateWake(sessions, id) {
-  const { state: _dropped, ...wakes } = sessions.store.get(id).wakes ?? {};
+  const { state: _dropped, ...wakes } = sessions.store.get(id)?.wakes ?? {};
   sessions.store.patch(id, { wakes });
 }
 
@@ -210,8 +227,9 @@ function dropStateWake(sessions, id) {
  * One pass of the wake watcher: every controlled session whose new idle, waiting or
  * ended state held 3 s and is not yet seen by the agent (through its wait, read,
  * requests, stop or an earlier wake) wakes the chat that started it, once; then
- * every answered escalation still owed its wake. A session the owner deleted, an
- * unknown reading, a revoked grant and an ended record are skipped; one record's
+ * every answered escalation still owed its wake. A session the owner deleted ends
+ * its record unwoken; an unknown reading, a revoked grant and an ended record are
+ * skipped; one record's
  * failure never stops the pass. A pass under way is joined.
  */
 export function tickWakes(sessions) {
@@ -243,8 +261,9 @@ export function tickWakes(sessions) {
 }
 
 /**
- * Whether one of the chat's controlled sessions holds its open goal: it read working
- * in the last 30 s, or it reached a state the agent has not seen yet (a wake is due).
+ * Whether one of the chat's controlled sessions holds its open goal: in the last 30 s
+ * it read working, or a state the agent has not seen yet (a wake is due). Without a
+ * fresh reading (unknown readings, a restart) nothing holds.
  */
 export function holdsGoal(sessions, conversationId) {
   const now = sessions.now();
@@ -252,11 +271,9 @@ export function holdsGoal(sessions, conversationId) {
     if (record.conversationId !== conversationId || record.ended) continue;
     const observed = record.observed;
     if (!observed || !stillGranted(sessions.w, record)) continue;
-    if (
-      observed.state === "working" &&
-      now - (sessions.readAt.get(record.sessionId) ?? -Infinity) <= workingHoldMs
-    )
-      return true;
+    if (now - (sessions.readAt.get(record.sessionId) ?? -Infinity) > workingHoldMs)
+      continue;
+    if (observed.state === "working") return true;
     if (wakeStates.has(observed.state) && observed.state !== record.seen?.state)
       return true;
   }
