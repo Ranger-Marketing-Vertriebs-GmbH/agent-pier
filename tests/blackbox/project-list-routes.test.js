@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { projectScope } from "../../server/features/memory/project-scope.js";
 import { applicationFixture } from "../helpers/application.js";
 
 async function register(app, cwd) {
@@ -92,4 +93,54 @@ test("listed projects carry their live origin remote without credentials", async
   assert.ok(Array.isArray(repositories.projects));
   const bus = await (await app.request("/api/agentbus?remotes=1")).json();
   assert.ok(Array.isArray(bus.projects));
+});
+
+test("legacy home and collection rows stay stored but disappear from project lists", async (t) => {
+  const app = await applicationFixture(t);
+  const memory = app.application.memory;
+  const collection = path.join(app.home, "workspace");
+  for (const name of ["one", "two"]) {
+    await fs.mkdir(path.join(collection, name), { recursive: true });
+    execFileSync("git", ["init", "-q", path.join(collection, name)]);
+  }
+  const legacy = [];
+  for (const cwd of [app.home, collection]) {
+    const scope = await projectScope(cwd);
+    memory.db
+      .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
+      .run(
+        scope.id,
+        scope.name,
+        scope.cwd,
+        scope.kind,
+        scope.identity,
+        new Date().toISOString(),
+      );
+    legacy.push(memory.project(scope.id));
+  }
+  const local = await memory.register(app.project);
+  const git = await memory.register(path.join(collection, "one"));
+  t.mock.method(app.application.agentbus, "list", async () => ({
+    bundled: true,
+    projects: [...legacy, local, git].map((row) => ({ ...row, sessions: [] })),
+  }));
+  for (const endpoint of [
+    "/api/memory/projects",
+    "/api/memory/projects?remotes=1&duplicates=1",
+    "/api/agentbus?remotes=1",
+  ]) {
+    const response = await app.request(endpoint);
+    assert.equal(response.status, 200);
+    const { projects } = await response.json();
+    assert.deepEqual(new Set(projects.map((row) => row.id)), new Set([local.id, git.id]));
+  }
+  assert.equal(memory.projects().projects.length, 4);
+  for (const row of legacy) assert.equal(memory.project(row.id).cwd, row.cwd);
+
+  // Existing knowledge, even archived, must remain reachable through the list.
+  const entry = memory.write(legacy[0].id, { title: "Home notes", content: "Keep me" });
+  memory.archive(legacy[0].id, entry.id, { expectedRevision: entry.revision });
+  const { projects } = await (await app.request("/api/memory/projects")).json();
+  assert.ok(projects.some((row) => row.id === legacy[0].id));
+  assert.ok(!projects.some((row) => row.id === legacy[1].id));
 });

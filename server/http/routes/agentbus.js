@@ -3,10 +3,11 @@ import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { wantsRemotes } from "../../features/repositories/git-remote.js";
 export function agentbusRoutes(services) {
-  const { agentbus, gitRemotes } = services;
+  const { agentbus, gitRemotes, memory } = services;
   const router = Router();
   router.get("/agentbus", async (req, res) => {
     const listed = await agentbus.list();
+    listed.projects = await memory.listedProjects(listed.projects);
     if (gitRemotes && wantsRemotes(req))
       listed.projects = await gitRemotes.annotate(listed.projects, "cwd");
     res.json(listed);

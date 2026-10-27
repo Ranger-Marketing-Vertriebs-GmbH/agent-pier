@@ -14,6 +14,8 @@ For a non-Git project, the selected canonical working directory is its root. No 
 
 Running `git init` in a non-Git project root keeps the project. See [Git initialization in a session folder](ssh-access.md#git-initialization-in-a-session-folder) for the rebind rule. Its entries, request receipts and session capabilities move to the Git identity, along with its pipeline verification steps. The move is recorded, so session and OAuth grants that named the old project follow it. Agent project access does not follow; see [agent workflows](assistant-workflows.md#project-access-and-actions).
 
+The Projects list excludes the home folder and collection folders, including entries saved by older releases. A collection has no project files or Git repository of its own, is outside a Git work tree, and contains at least two direct child Git projects. Ordinary local project folders remain listed. Home and collection folders with existing knowledge (including archived entries) remain accessible. Filtering the list does not delete stored rows, session grants or files.
+
 The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge. If its registered checkout has been removed or now belongs to another project, registering a valid checkout of the same repository repairs the stored path while preserving entries and revisions. A still-valid registered checkout is retained.
 
 ## Agent access

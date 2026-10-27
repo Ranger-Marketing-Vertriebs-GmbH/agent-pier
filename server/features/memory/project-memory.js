@@ -205,6 +205,16 @@ export class ProjectMemory {
         .map((row) => ({ ...row })),
     };
   }
+  /** Hide legacy home/collection rows without deleting their data or session grants. */
+  async listedProjects(rows = this.projects().projects) {
+    const listed = [];
+    const folders = new Map();
+    for (const row of rows) {
+      if (!folders.has(row.cwd)) folders.set(row.cwd, await this.classifyFolder(row.cwd));
+      if (folders.get(row.cwd).kind === "project") listed.push(row);
+    }
+    return listed;
+  }
   /** One page of entries, ranked when searching; see searchEntries. */
   list(projectId, options = {}) {
     this.project(projectId);

@@ -27,7 +27,7 @@ export function memoryRoutes({ memory, directory, gitRemotes, projectDuplicates 
   router.get("/memory/projects", async (request, response) => {
     // Only the projects hub asks (?duplicates=1) which row of a shared folder is
     // current; that reads the folder's Git identity, which other readers skip.
-    const listed = memory.projects().projects;
+    const listed = await memory.listedProjects();
     const projects =
       request.query?.duplicates === "1"
         ? await projectDuplicates.describe(listed)
