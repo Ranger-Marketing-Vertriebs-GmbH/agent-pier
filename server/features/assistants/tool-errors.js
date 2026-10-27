@@ -334,6 +334,8 @@ const sftpCode = (error) =>
   !error?.key && /^SFTP_[A-Z_]+$/.test(error?.code ?? "") && reasons[error.code]
     ? error.code
     : null;
+// Who answered a coding session's prompt first (coding-sessions/session-requests.js).
+const answerers = ["owner", "agent", "telegram", "session"];
 export function toolError(error) {
   const status = Number.isInteger(error?.status) ? error.status : 503;
   const code =
@@ -344,6 +346,9 @@ export function toolError(error) {
   return {
     status: status >= 400 && status < 600 ? status : 503,
     code,
-    reason: reasons[code],
+    reason:
+      code === "PROMPT_ANSWERED" && answerers.includes(error.answeredBy)
+        ? `${reasons[code]} Answered by: ${error.answeredBy}.`
+        : reasons[code],
   };
 }

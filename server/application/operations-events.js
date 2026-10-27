@@ -15,6 +15,8 @@ const turnStarts = new Set(["UserPromptSubmit", "turn/started"]);
 /** Observe durable metadata and native activity without attaching a terminal client. */
 export class OperationsEvents {
   constructor(options) {
+    // The services, read late: agents' coding sessions learn who answered a prompt.
+    this.host = options;
     this.init(options);
     // Agents' approvals and team proposals, for the agent-approval push.
     this.agentApprovals = new AgentApprovalEvents({
@@ -69,6 +71,12 @@ export class OperationsEvents {
       this.requested.set(event.sessionId, this.now());
     if (event.action === "request.created")
       this.requestCreated(event).catch(this.onError);
+    if (event.action === "request.answered" || event.action === "request.handed-off")
+      try {
+        this.host.assistants?.workflows?.sessions?.requestEvent(event);
+      } catch (error) {
+        this.onError(error);
+      }
   }
   /** A native question or approval: its session, and the question as a preview. */
   async requestCreated(event) {
