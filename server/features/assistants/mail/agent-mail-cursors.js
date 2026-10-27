@@ -31,9 +31,4 @@ export class MailCursors {
   removeAccount(accountId) {
     this.db.prepare("DELETE FROM agent_mail_cursors WHERE account_id=?").run(accountId);
   }
-  removeAgent(assistantId) {
-    this.db
-      .prepare("DELETE FROM agent_mail_cursors WHERE assistant_id=?")
-      .run(assistantId);
-  }
 }

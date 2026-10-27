@@ -19,6 +19,8 @@ const dropped = new Set([
   "svg",
   "math",
   "title",
+  "textarea",
+  "plaintext",
 ]);
 // Blocks separated by a blank line, and blocks that only start a new line.
 const paragraphs = new Set([
@@ -83,6 +85,7 @@ class TextSink {
     if (this.out) this.pending = Math.max(this.pending, breaks);
   }
   newline() {
+    this.afterLink = false;
     this.flush();
     this.out += "\n";
   }
@@ -96,8 +99,16 @@ class TextSink {
     if (!pre && (!this.out || this.pending || /[\n ]$/.test(this.out)))
       chunk = chunk.replace(/^ /, "");
     if (!chunk) return;
+    // "site (https://…)" never runs into the word that follows the link.
+    if (this.afterLink && !this.pending && /^[\p{L}\p{N}]/u.test(chunk))
+      chunk = ` ${chunk}`;
+    this.afterLink = false;
     this.flush();
     this.out += chunk;
+  }
+  link(value) {
+    this.text(value, false);
+    this.afterLink = true;
   }
   result() {
     return this.out
@@ -128,8 +139,10 @@ const nodeText = (node) => {
  */
 export function htmlToText(html, maxChars) {
   const sink = new TextSink(maxChars);
-  // An explicit stack: a deeply nested mail must not overflow the call stack.
-  const stack = [{ node: parse(String(html), { scriptingEnabled: false }) }];
+  // An explicit stack: a deeply nested mail must not overflow the call stack. parse5
+  // parses with scripting on, so <noscript> content stays inside it as raw text
+  // (with scripting off, text in a <noscript> in the head leaks into the body).
+  const stack = [{ node: parse(String(html)) }];
   let pre = 0;
   while (stack.length && !sink.full) {
     const { node, exit } = stack.pop();
@@ -139,7 +152,7 @@ export function htmlToText(html, maxChars) {
       if (name === "a") {
         const href = attr(node, "href")?.trim();
         if (href && safeLink.test(href) && nodeText(node) !== href)
-          sink.text(nodeText(node) ? ` (${href})` : href, false);
+          sink.link(nodeText(node) ? ` (${href})` : href);
       }
       if (paragraphs.has(name)) sink.block(2);
       else if (lines.has(name)) sink.block(1);

@@ -381,3 +381,54 @@ test("special folders resolve with the archive fallbacks", async (t) => {
     archive: "Kept",
   });
 });
+
+test("an attached mail is one attachment and never the message's text", async (t) => {
+  const f = await readFixture(t);
+  const fwd = f.seed(eml("forwarded.eml"));
+  f.seed(eml("html-only.eml"));
+  const { message } = await f.mail({ action: "read", uid: fwd });
+  assert.equal(message.text, "See the forwarded mail below.");
+  assert.equal(message.hasAttachments, true);
+  assert.deepEqual(
+    message.attachments.map(({ name, type }) => ({ name, type })),
+    [{ name: "foo.eml", type: "message/rfc822" }],
+  );
+  const any = await f.mail({ action: "search", query: { hasAttachment: true } });
+  assert.deepEqual(f.uids(any), [fwd]);
+  const named = await f.mail({ action: "search", query: { attachment: "foo.eml" } });
+  assert.deepEqual(f.uids(named), [fwd]);
+});
+
+test("an html part without a charset parameter uses its meta charset", async (t) => {
+  const f = await readFixture(t);
+  const html = `<html><head><meta charset="iso-8859-1"></head><body><p>Gr\xfc\xdfe</p></body></html>`;
+  const uid = f.seed(
+    `From: a@example.org\r\nTo: agent@example.com\r\nSubject: meta\r\nMIME-Version: 1.0\r\nContent-Type: text/html\r\n\r\n${html}\r\n`,
+  );
+  assert.equal((await f.mail({ action: "read", uid })).message.text, "Grüße");
+});
+
+test("a server refusing a FETCH is MAIL_PROTOCOL without its text", async (t) => {
+  const f = await readFixture(t);
+  const uid = f.seed(eml("plain-latin1.eml"));
+  for (const failing of [/ENVELOPE/, /BODY\.PEEK\[TEXT\]/]) {
+    f.imap.mailbox.failFetch = (items) => failing.test(items);
+    let error;
+    try {
+      await f.mail({ action: "read", uid });
+    } catch (caught) {
+      error = caught;
+    }
+    assert.equal(toolError(error).code, "MAIL_PROTOCOL", String(failing));
+    assert.doesNotMatch(
+      JSON.stringify({ ...error, message: error.message }),
+      /fake-secret|SERVERBUG/,
+    );
+  }
+  f.imap.mailbox.failFetch = (items) => /ENVELOPE/.test(items);
+  assert.equal(
+    await code(f.mail({ action: "search", query: { hasAttachment: true } })),
+    "MAIL_PROTOCOL",
+  );
+  assert.equal(await code(f.mail({ action: "list" })), "MAIL_PROTOCOL");
+});

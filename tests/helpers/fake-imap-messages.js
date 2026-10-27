@@ -9,7 +9,8 @@ import {
 
 // SELECT/EXAMINE, STATUS, UID SEARCH and UID FETCH of the fake IMAP server, over the
 // folders of fake-imap-mailbox.js. `mailbox.served` counts the body bytes FETCH sent;
-// `mailbox.rejectCharset` makes SEARCH refuse every charset but US-ASCII.
+// `mailbox.rejectCharset` makes SEARCH refuse every charset but US-ASCII, and
+// `mailbox.failFetch(items)` makes a FETCH answer NO.
 
 const text = (token) =>
   token && typeof token === "object" && "literal" in token
@@ -151,6 +152,9 @@ function fetch(session, tag, args, byUid) {
     : folder.messages.length;
   const match = inSet(text(args[0]), max);
   const items = Array.isArray(args[1]) ? args[1] : [args[1]];
+  // A server failing the FETCH, with text that must never reach the agent.
+  if (session.server.mailbox.failFetch?.(items.map(String).join(" ")))
+    return session.send(`${tag} NO [SERVERBUG] internal detail fake-secret-7`);
   folder.messages.forEach((message, index) => {
     if (!match(byUid ? message.uid : index + 1)) return;
     const wanted =

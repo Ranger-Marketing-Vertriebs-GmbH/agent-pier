@@ -1,0 +1,25 @@
+From: Colleague <colleague@example.org>
+To: agent@example.com
+Subject: Fwd: the original
+Date: Tue, 27 Oct 2026 14:00:00 +0000
+Message-ID: <fwd@example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="outer"
+
+--outer
+Content-Type: text/html; charset=UTF-8
+
+<p>See the forwarded mail below.</p>
+--outer
+Content-Type: message/rfc822; name="foo.eml"
+Content-Disposition: attachment; filename="foo.eml"
+
+From: Origin <origin@example.net>
+To: colleague@example.org
+Subject: the original
+Date: Mon, 26 Oct 2026 14:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+INNER TEXT of the attached mail.
+--outer--

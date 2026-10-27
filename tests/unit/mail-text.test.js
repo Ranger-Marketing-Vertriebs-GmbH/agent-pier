@@ -66,3 +66,20 @@ test("clipText never splits a surrogate pair and marks the cut", () => {
   assert.deepEqual(clipText("ab😀c", 3), { text: "ab", truncated: true });
   assert.deepEqual(clipText("abc", 3), { text: "abc", truncated: false });
 });
+
+test("plaintext and textarea content never reaches the text", () => {
+  assert.equal(htmlToText("<p>a</p><plaintext><script>x()</script>", 1000).text, "a");
+  assert.equal(htmlToText("<p>a</p><textarea><b>x</b></textarea>", 1000).text, "a");
+});
+
+test("the word after a link is not glued to its address", () => {
+  const { text } = htmlToText(
+    '<p><a href="https://a.example/">site</a>more, <a href="https://b.example/">b</a>.</p>',
+    1000,
+  );
+  assert.equal(text, "site (https://a.example/) more, b (https://b.example/).");
+});
+
+test("noscript content stays hidden even before the body", () => {
+  assert.equal(htmlToText("<noscript>PAYLOAD</noscript><p>ok</p>", 1000).text, "ok");
+});

@@ -80,6 +80,9 @@ function parsePart(source, path) {
       );
     }
   }
+  // An attached mail: its own header and parts, for ENVELOPE and BODYSTRUCTURE.
+  if (node.type === "message" && node.subtype === "rfc822")
+    node.inner = parsePart(body, path);
   return node;
 }
 
@@ -156,8 +159,9 @@ function addressList(value) {
     .join("")})`;
 }
 
-export function envelope(message) {
-  const h = parsed(message).headers;
+export const envelope = (message) => envelopeOf(parsed(message).headers);
+
+function envelopeOf(h) {
   const from = h.get("from");
   return `(${[
     nstring(h.get("date")),
@@ -184,8 +188,14 @@ function structure(node) {
     : "NIL";
   if (node.children)
     return `(${node.children.map(structure).join("")} ${nstring(node.subtype)} ${paramList(node.params)} ${disposition} NIL NIL)`;
-  const lines = node.type === "text" ? ` ${node.body.split("\n").length}` : "";
-  return `(${nstring(node.type)} ${nstring(node.subtype)} ${paramList(node.params)} NIL NIL ${nstring(node.encoding)} ${node.body.length}${lines} NIL ${disposition} NIL NIL)`;
+  const count = ` ${node.body.split("\n").length}`;
+  // message/rfc822 carries the attached mail's envelope, structure and line count.
+  const extra = node.inner
+    ? ` ${envelopeOf(node.inner.headers)} ${structure(node.inner)}${count}`
+    : node.type === "text"
+      ? count
+      : "";
+  return `(${nstring(node.type)} ${nstring(node.subtype)} ${paramList(node.params)} NIL NIL ${nstring(node.encoding)} ${node.body.length}${extra} NIL ${disposition} NIL NIL)`;
 }
 
 export const bodyStructure = (message) => structure(parsed(message));
