@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
 
 // The dashboard card of the managed agent browser: version, update and removal.
-async function fixture(page) {
+async function fixture(page, path = "/coding/clis") {
   const state = {
     tools: [{ id: "claude", name: "Claude Code", installed: true }],
     utilities: [
@@ -60,7 +60,7 @@ async function fixture(page) {
     return route.fulfill({ json: {} });
   });
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  await page.goto(base);
+  await page.goto(base + path);
   return controls;
 }
 const card = (page) =>
@@ -80,6 +80,26 @@ test("the managed browser card updates and removes Chrome for Testing", async ({
   await expect.poll(() => controls.updates).toBe(1);
   await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
   await card(page).getByRole("button", { name: "Remove" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Remove/ })
+    .click();
+  await expect.poll(() => controls.removes).toBe(1);
+});
+
+test("the start page row updates Chrome for Testing and keeps Remove in its menu", async ({
+  page,
+}) => {
+  const controls = await fixture(page, "/");
+  const tools = page.getByRole("region", { name: /Your tools/ });
+  const row = tools.locator(".start-tool").filter({ hasText: "Chrome for Testing" });
+  await expect(row).toContainText("155.0.8059.84");
+  await row.getByRole("button", { name: "Update: Chrome for Testing" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Installed: 155.0.8059.84 · Available: 156.0.1.2");
+  await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await row.getByRole("button", { name: "More actions for Chrome for Testing" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: /Remove/ })

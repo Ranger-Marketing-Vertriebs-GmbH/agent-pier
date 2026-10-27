@@ -5,13 +5,33 @@ import StatusDot from "../../components/StatusDot.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
-import { utilityPages } from "../../lib/providers.js";
+import { toolActions, updateRequired as outdated } from "./tool-actions.js";
+import { runToolAction, toolActionLabel } from "./tool-action-view.js";
 
-const outdated = (tool) => tool.versionStatus === "update-required";
+const descriptions = () => ({
+  codex: copy.toolGridCodex,
+  claude: copy.toolGridClaude,
+  opencode: copy.toolGridOpencode,
+  shell: copy.toolGridShell,
+  gh: copy.toolGridGh,
+  nono: copy.toolGridNono,
+  chromium: copy.toolGridChromium,
+});
+
+// The grid's classes and icons per action (tests and styles rely on them).
+const looks = {
+  install: { className: "tool-install-button", icon: "arrow" },
+  unavailable: { className: "tool-install-button", icon: "arrow" },
+  start: { className: undefined, icon: "arrow" },
+  credentials: { className: undefined, icon: "arrow" },
+  update: { className: "tool-update-button", icon: "refresh" },
+  remove: { className: "tool-remove-button", icon: "trash" },
+};
 
 /**
- * The coding CLIs and utilities with install, start, update and remove actions. Shown
- * on the dashboard and on Coding › CLIs & Erweiterungen › Installation.
+ * The coding CLIs and utilities with every install, start, update and remove action,
+ * on CLIs & extensions › Installation. The start page shows the same actions as
+ * compact rows (ToolRows.jsx); both resolve them with tool-actions.js.
  */
 export default function ToolGrid({ tools, launch, page, setModal }) {
   return (
@@ -43,70 +63,25 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
                   ` · ${toolInstallerCopy.minimumVersion(t.minimumVersion)}`}
               </small>
             )}
-          <p>
-            {
-              {
-                codex: copy.toolGridCodex,
-                claude: copy.toolGridClaude,
-                opencode: copy.toolGridOpencode,
-                shell: copy.toolGridShell,
-                gh: copy.toolGridGh,
-                nono: copy.toolGridNono,
-                chromium: copy.toolGridChromium,
-              }[t.id]
-            }
-          </p>
-          {/* A utility with nothing to configure in AgentPier keeps its install
-              button, but offers no follow-up action once it is installed. */}
-          {(!t.installed || !t.utility || utilityPages[t.id]) && (
-            <button
-              disabled={t.id === "shell" && !t.installed}
-              className={!t.installed ? "tool-install-button" : undefined}
-              onClick={() =>
-                t.installed
-                  ? t.utility
-                    ? page(utilityPages[t.id])
-                    : launch(t.id)
-                  : setModal({
-                      type: "install",
-                      tool: t.id,
-                    })
-              }
-            >
-              {t.installed
-                ? t.utility
-                  ? copy.githubCredentials
-                  : commonCopy.startSession
-                : t.id === "shell"
-                  ? copy.shellUnavailable
-                  : commonCopy.installCli}
-              <Icon name="arrow" size={16} />
-            </button>
-          )}
-          {t.installed &&
-            (["codex", "claude", "opencode", "nono"].includes(t.id) ||
-              (t.id === "chromium" && t.updateAvailable)) && (
+          <p>{descriptions()[t.id]}</p>
+          {toolActions(t).map((action) => {
+            const look = looks[action.id];
+            const className =
+              [look.className, action.required ? "update-required" : ""]
+                .filter(Boolean)
+                .join(" ") || undefined;
+            return (
               <button
-                className={`tool-update-button${outdated(t) ? " update-required" : ""}`}
-                onClick={() => setModal({ type: "update", tool: t.id })}
+                key={action.id}
+                className={className}
+                disabled={action.id === "unavailable"}
+                onClick={() => runToolAction(action, t, { launch, page, setModal })}
               >
-                {t.id === "chromium"
-                  ? toolInstallerCopy.updateBrowser
-                  : toolInstallerCopy.updateCli}
-                <Icon name="refresh" size={16} />
+                {toolActionLabel(action)}
+                <Icon name={look.icon} size={16} />
               </button>
-            )}
-          {t.installed && t.id === "chromium" && (
-            <button
-              className="tool-remove-button"
-              onClick={() =>
-                setModal({ type: "removeTool", item: { tool: t.id, name: t.name } })
-              }
-            >
-              {copy.removeTool}
-              <Icon name="trash" size={16} />
-            </button>
-          )}
+            );
+          })}
         </article>
       ))}
     </div>

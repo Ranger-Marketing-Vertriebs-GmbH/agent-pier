@@ -208,21 +208,21 @@ test("the Installation tab's GitHub CLI links to GitHub-Zugänge and installs op
   await expect(page).toHaveURL(/\/connections\?section=github$/);
 });
 
-test("the dashboard keeps its CLI grid", async ({ page }) => {
+test("the start page lists every tool with its primary action", async ({ page }) => {
   await fixture(page);
   await page.goto(baseURL + "/");
-  const grid = page.locator(".dashboard .tool-grid");
-  await expect(grid.locator(".tool-card")).toHaveCount(5);
+  const tools = page.getByRole("region", { name: /Deine Tools/ });
+  await expect(tools.locator(".start-tool")).toHaveCount(5);
   await expect(
-    grid
-      .locator(".tool-card")
-      .filter({ hasText: "Claude Code" })
-      .getByRole("button", { name: "CLI installieren" }),
+    tools.getByRole("button", { name: "Installieren: Claude Code", exact: true }),
   ).toBeVisible();
-  await grid
-    .locator(".tool-card")
-    .filter({ hasText: "GitHub CLI" })
-    .getByRole("button", { name: "GitHub-Zugänge" })
-    .click();
+  await tools.getByRole("button", { name: "Zugänge: GitHub CLI", exact: true }).click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
+  await page.goBack();
+  await page
+    .getByRole("region", { name: /Deine Tools/ })
+    .getByRole("link", { name: "CLIs und Erweiterungen" })
+    .click();
+  await expect(page).toHaveURL(/\/coding\/clis$/);
+  await expect(page.locator(".tool-grid .tool-card")).toHaveCount(5);
 });

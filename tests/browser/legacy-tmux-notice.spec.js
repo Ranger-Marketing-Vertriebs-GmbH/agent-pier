@@ -7,6 +7,12 @@ const legacy = [
 ];
 
 // Both notices read their sessions from polled answers; `current.sessions` drives them.
+// The start page shows it as a Needs you card, the sidebar as a notice.
+const startCard = (page, heading = "Needs you") =>
+  page
+    .getByRole("region", { name: heading })
+    .locator(".start-attention-card, .start-attention-row")
+    .filter({ hasText: /tmux/ });
 async function routeLegacy(page, current) {
   await page.route("**/api/system-status", (route) =>
     route.fulfill({ json: { ...summary(), legacyTmux: { sessions: current.sessions } } }),
@@ -36,7 +42,7 @@ test.describe("in English", () => {
     const current = { sessions: legacy };
     await routeLegacy(page, current);
     await page.goto("/");
-    const start = page.getByRole("region", { name: "System status" }).getByRole("status");
+    const start = startCard(page);
     const sidebar = page.locator(".sidebar").getByRole("status");
     for (const notice of [start, sidebar]) {
       await expect(notice).toContainText("2 sessions still run on the old tmux server");
@@ -65,9 +71,7 @@ test.describe("in English", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await routeLegacy(page, { sessions: legacy });
     await page.goto("/");
-    await expect(
-      page.getByRole("region", { name: "System status" }).getByRole("status"),
-    ).toContainText("Review the API docs");
+    await expect(startCard(page)).toContainText("Review the API docs");
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
@@ -77,7 +81,7 @@ test.describe("in English", () => {
 test("the German notice uses the product terms", async ({ page }) => {
   await routeLegacy(page, { sessions: [legacy[0]] });
   await page.goto("/");
-  const notice = page.getByRole("region", { name: "Systemstatus" }).getByRole("status");
+  const notice = startCard(page, "Braucht dich");
   await expect(notice).toContainText("1 Session läuft noch auf dem alten tmux-Server");
   await expect(notice).toContainText(
     "Stoppe diese Session, wenn es dir passt; danach startet AgentPier neue Sessions auf dem neuen Server.",

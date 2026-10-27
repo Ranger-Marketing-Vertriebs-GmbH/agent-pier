@@ -108,7 +108,8 @@ async function fixture(page, configure = () => {}) {
     }
     return route.fulfill({ json: {} });
   });
-  await page.goto(base);
+  // The full grid with every action lives under CLIs & extensions › Installation.
+  await page.goto(base + "/coding/clis");
   return controls;
 }
 const card = (page, name) =>
@@ -236,9 +237,11 @@ test("GitHub CLI installs as a utility and opens GitHub credentials without a se
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(controls.state.sessions).toEqual([]);
+  // The start page's row opens the same page.
   await navigateTo(page, "Übersicht");
-  await card(page, "GitHub CLI")
-    .getByRole("button", { name: "GitHub-Zugänge", exact: true })
+  await page
+    .getByRole("region", { name: /Deine Tools/ })
+    .getByRole("button", { name: "Zugänge: GitHub CLI", exact: true })
     .click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
   // Native CLI accounts are under Coding; gh is no CLI account there either.
@@ -313,9 +316,14 @@ test("an installed utility does not enable session creation when no session tool
       .locator(".sessions-group")
       .getByRole("button", { name: "Neue Session", exact: true }),
   ).toBeDisabled();
+  // The start page counts the ready tools and keeps New session disabled too.
+  await page.goto(base);
+  await expect(page.getByRole("region", { name: /Deine Tools/ })).toContainText(
+    "1 von 5 bereit",
+  );
   await expect(
-    page.getByText("Tools verfügbar", { exact: true }).locator(".."),
-  ).toContainText(/1\s*\/\s*5/);
+    page.locator(".page-header-actions").getByRole("button", { name: "Neue Session" }),
+  ).toBeDisabled();
 });
 
 test("installation failures can retry and pending requests cannot start duplicates", async ({

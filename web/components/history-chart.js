@@ -53,3 +53,24 @@ export function nearestIndex(points, t) {
   });
   return best;
 }
+
+/**
+ * A small sparkline of `field` (0–100 %) over the `width` × `height` box: one SVG path
+ * per run of points (`lineSegments`), so a gap stays a gap. The x axis spans the
+ * points' own time range; a single point draws nothing.
+ */
+export function sparklinePaths(points, field, width, height, gapMs = GAP_MS) {
+  if (points.length < 2) return [];
+  const start = points[0].t;
+  const span = points.at(-1).t - start || 1;
+  const x = (t) => Math.round(((t - start) / span) * width * 10) / 10;
+  const y = (value) =>
+    Math.round((height - (Math.min(100, Math.max(0, value)) / 100) * height) * 10) / 10;
+  return lineSegments(points, field, gapMs)
+    .filter((segment) => segment.length > 1)
+    .map((segment) =>
+      segment
+        .map((point, index) => `${index ? "L" : "M"}${x(point.t)} ${y(point[field])}`)
+        .join(" "),
+    );
+}

@@ -2,10 +2,6 @@
   .page {
     padding-top: 42px;
   }
-  .hero {
-    padding-top: 100px;
-    padding-bottom: 90px;
-  }
   .tool-card {
     padding: 27px 24px 0;
   }
@@ -18,9 +14,6 @@
   .tool-card > button {
     min-height: 53px;
   }
-  .dashboard-footer {
-    margin-top: 75px;
-  }
 }
 @media (max-width: 1150px) {
   .app {
@@ -28,9 +21,6 @@
   }
   .page {
     padding: 30px 32px 24px;
-  }
-  .hero h1 {
-    font-size: 53px;
   }
   .tool-card {
     padding: 17px 14px 0;
@@ -110,10 +100,6 @@
     padding: 0 8px;
     font-size: 11px;
     justify-content: space-between;
-  }
-  .hero {
-    padding-top: 60px;
-    padding-bottom: 45px;
   }
   .page-heading {
     align-items: flex-start;

@@ -168,12 +168,12 @@ for (const status of ["stopped", "running"]) {
     await remove.click();
     await page.getByRole("button", { name: "Jetzt entfernen" }).click();
     await expect(
-      page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+      page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
     ).toBeVisible();
     expect(state.sessions).toHaveLength(0);
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+      page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
     ).toBeVisible();
   });
 }
@@ -184,7 +184,7 @@ test("account creation, directory selection, session lifecycle and reload preser
   const { state } = await fixture(page);
   await page.goto(base);
   await expect(
-    page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
   ).toBeVisible();
   // Native CLI accounts live under Coding (Accounts moved to Zugänge).
   await page.goto(base + "/coding/clis?tab=accounts");
@@ -217,7 +217,7 @@ test("account creation, directory selection, session lifecycle and reload preser
   await page.getByRole("button", { name: "Session entfernen" }).click();
   await page.getByRole("button", { name: "Jetzt entfernen" }).click();
   await expect(
-    page.getByRole("heading", { name: "Dein Terminal. Überall." }),
+    page.getByRole("heading", { level: 1, name: /^Guten (Morgen|Tag|Abend)\.$/ }),
   ).toBeVisible();
 });
 

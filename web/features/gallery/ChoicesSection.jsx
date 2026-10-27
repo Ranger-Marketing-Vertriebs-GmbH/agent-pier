@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
+import FilterChips from "../../components/FilterChips.jsx";
 import LanguageSelect from "../../components/LanguageSelect.jsx";
 import SearchSelect from "../../components/SearchSelect.jsx";
 import Segment from "../../components/Segment.jsx";
@@ -13,6 +14,7 @@ export default function ChoicesSection() {
   const s = copy.sample;
   const choices = options().filter((option) => !option.disabled);
   const [segment, setSegment] = useState("a");
+  const [chip, setChip] = useState("running");
   const [segmented, setSegmented] = useState("b");
   const [tab, setTab] = useState("1");
   const [anchored, setAnchored] = useState("a");
@@ -26,6 +28,19 @@ export default function ChoicesSection() {
   }));
   return (
     <GallerySection id="choices">
+      <Specimen label="FilterChips" wide>
+        <FilterChips
+          label={s.filterChips}
+          value={chip}
+          onChange={setChip}
+          options={[
+            { value: "running", label: s.chipRunning, count: 18 },
+            { value: "waiting", label: s.chipWaiting, count: 2, dot: "waiting" },
+            { value: "working", label: s.chipWorking, count: 5, dot: "working" },
+            { value: "stopped", label: s.chipStopped, count: 6, dot: "pending" },
+          ]}
+        />
+      </Specimen>
       <Specimen label="Segment">
         <Segment
           label={s.segment}
