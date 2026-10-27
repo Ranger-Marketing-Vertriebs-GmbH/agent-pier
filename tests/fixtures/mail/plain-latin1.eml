@@ -1,0 +1,16 @@
+From: =?ISO-8859-1?Q?J=FCrgen_M=FCller?= <juergen@example.org>
+To: Agent <agent@example.com>
+Subject: =?ISO-8859-1?Q?Gr=FC=DFe_aus_K=F6ln?=
+Date: Mon, 26 Oct 2026 09:00:00 +0100
+Message-ID: <latin1@example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Hallo,
+
+sch=F6ne Gr=FC=DFe aus K=F6ln. Die Stra=DFe ist nass.
+Ein sehr langer Satz, der weich umbrochen wird, damit die Zeile nicht zu lan=
+g wird.
+
+J=FCrgen

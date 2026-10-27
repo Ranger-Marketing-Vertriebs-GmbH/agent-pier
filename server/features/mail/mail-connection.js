@@ -15,6 +15,8 @@ const errorKeys = Object.freeze({
   MAIL_TIMEOUT: "mailTimeout",
   MAIL_PROTOCOL: "mailProtocol",
   MAIL_PLAINTEXT_REFUSED: "mailPlaintextRefused",
+  MAIL_NOT_FOUND: "mailNotFound",
+  MAIL_SEARCH_UNSUPPORTED: "mailSearchUnsupported",
 });
 
 const unreachableCodes = new Set([

@@ -813,6 +813,7 @@
   "mail.mailProtocol": "de:8352f0d6a6ea en:707d63d3f216",
   "mail.mailQueryEmpty": "de:0cefb880305c en:b10faa8cd659",
   "mail.mailRevoked": "de:c1853904a6b5 en:26c061dd9395",
+  "mail.mailSearchUnsupported": "de:8ee862424bf7 en:0234b7c06c2f",
   "mail.mailSendLimit": "de:66ec92ece270 en:462d7302e5e3",
   "mail.mailSendNotGranted": "de:195d68f740c6 en:4703953a7f62",
   "mail.mailTimeout": "de:831da4c79f5e en:686094e8d5bd",

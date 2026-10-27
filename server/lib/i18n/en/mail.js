@@ -35,4 +35,6 @@ export const mail = Object.freeze({
   mailSendLimit: "The agent sent the most emails allowed in one hour.",
   mailRevoked: "The agent's access to this email account was changed.",
   mailQueryEmpty: "A mail search needs at least one criterion.",
+  mailSearchUnsupported:
+    "The mail server cannot search for text with non-ASCII characters.",
 });

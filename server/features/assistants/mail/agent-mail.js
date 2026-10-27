@@ -4,7 +4,8 @@ import { userAgentLocked } from "../../users/user-agent-lock.js";
 import { mailCatalog } from "./agent-mail-grants.js";
 import { mailOrigin } from "./agent-mail-origin.js";
 import { mailInput } from "./agent-mail-input.js";
-import { mailCursorTable } from "./agent-mail-cursors.js";
+import { MailCursors } from "./agent-mail-cursors.js";
+import { readingActions, runReading } from "./agent-mail-reading.js";
 
 // Agent email (agentpier_mail): the bridge hands a call here (team-bridge.js). Every
 // action first passes `gate`: no maintenance, an eligible owner agent or permanent
@@ -20,7 +21,7 @@ const statuses = {
 export class AgentMail {
   constructor(w) {
     this.w = w;
-    mailCursorTable(w.a.store.db);
+    this.cursors = new MailCursors(w.a.store.db);
     // The only MailAccountStore.onRemoved binding: removing an account revokes every
     // agent's grant first. A store set later (tests) is bound to `hook` by hand.
     this.hook = (accountId) => this.revokeAccount(accountId);
@@ -134,17 +135,25 @@ export class AgentMail {
         if (!accounts.length) throw this.refuse(inv, gate.caller, "mailNotGranted");
         return { accounts };
       }
-      // The mailbox actions follow with their own modules.
+      if (readingActions.includes(input.action))
+        return runReading(
+          { accounts: this.w.s.mailAccounts, cursors: this.cursors },
+          gate,
+          input,
+        );
+      // The changing actions follow with their own modules.
       throw assistantProblem("invalid");
     });
   }
   /**
-   * MailAccountStore.onRemoved: every agent's grant for the account goes in one
-   * transaction, before the catalog changes.
+   * MailAccountStore.onRemoved: every agent's grant and new-mail cursor for the
+   * account go in one transaction, before the catalog changes.
    */
   revokeAccount(accountId) {
     if (this.closed) return [];
-    return this.w.access.revokeMail(accountId, () => {});
+    return this.w.access.revokeMail(accountId, () =>
+      this.cursors.removeAccount(accountId),
+    );
   }
   close() {
     this.closed = true;

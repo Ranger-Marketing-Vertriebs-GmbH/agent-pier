@@ -257,6 +257,8 @@ const reasons = {
     "You sent the most mail allowed in the last hour. Do not retry now; tell the owner.",
   MAIL_REVOKED:
     "The owner changed your access to this email account. Do not retry; use action accounts again and tell the owner.",
+  MAIL_SEARCH_UNSUPPORTED:
+    "This mail server cannot search for non-ASCII text. Search again with ASCII-only words, or narrow the search with from, since or unseen.",
   MAIL_QUERY_EMPTY:
     "A search needs at least one criterion in query (from, to, subject, text, body, attachment, since, unseen or hasAttachment).",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
@@ -373,6 +375,7 @@ const byKey = {
   mailSendLimit: "MAIL_SEND_LIMIT",
   mailRevoked: "MAIL_REVOKED",
   mailQueryEmpty: "MAIL_QUERY_EMPTY",
+  mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

@@ -1,5 +1,8 @@
+import { messageCommands } from "./fake-imap-messages.js";
+
 // In-memory folders and the command handlers of the fake IMAP server. Only what
-// imapflow sends is implemented; later mail tasks add their commands to `commands`.
+// imapflow sends is implemented; later mail tasks add their commands to `commands`
+// (the selected-mailbox commands live in fake-imap-messages.js).
 
 function normalizeMessage(message, uid) {
   const source =
@@ -185,6 +188,7 @@ export const commands = {
     }
     session.send(`${tag} OK Lsub completed`);
   },
+  ...messageCommands,
   LOGOUT(session, tag) {
     session.server.loggedOut++;
     session.send("* BYE Logging out");
