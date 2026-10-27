@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
+import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
 import NativeRequest from "../requests/NativeRequest.jsx";
 import GateDecision, { availableGateActions } from "../pipelines/GateDecision.jsx";
 import { failReasonLabel } from "../pipelines/run-codes.js";
@@ -40,8 +41,18 @@ export function InboxRequestDetail({ item, navigate, done }) {
   if (!resource.data) return loading;
   const request = resource.data.requests.find((entry) => entry.id === item.id);
   if (!request) return <InboxStale type={item.type} id={item.id} />;
+  const note = item.escalation?.note;
   return (
     <section className="native-requests inbox-card">
+      {note && (
+        <p className="inbox-escalation-note">
+          <strong>
+            {assistantWorkflowCopy.escalation.note(item.escalation.agentName)}
+          </strong>
+          <br />
+          {note}
+        </p>
+      )}
       <NativeRequest
         request={request}
         updated={(result) => {

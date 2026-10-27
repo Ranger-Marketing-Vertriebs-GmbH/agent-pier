@@ -4,6 +4,7 @@ import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fix
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fixture } from "./providers-fixture.js";
 import { hubFixture } from "./projects-fixture.js";
+import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
 const putPath = /^\/api\/assistant-project-access\/([^/]+)\/([^/]+)$/;
 
@@ -185,4 +186,71 @@ test("English session list and header mark a session an agent started", async ({
     page.locator(".session-item", { hasText: "Agent task" }).locator("small"),
   ).toContainText("· Agent Home");
   await expect(page.locator(".session-title")).toContainText("Started by agent Home");
+});
+
+// The agent escalated a permission prompt of its session (AGENTPIER-225): the chat
+// card shows the live prompt and answers it through the session's own endpoint.
+test("English agent chat answers an escalated session prompt in its card", async ({
+  page,
+}) => {
+  const prompt = {
+    id: "p1",
+    sessionId: "agent-session",
+    kind: "permission",
+    source: "codex",
+    status: "pending",
+    revision: 2,
+    options: [
+      { id: "allow", label: "Allow" },
+      { id: "deny", label: "Deny" },
+    ],
+    subject: { tool: "shell", description: "Remove the build folder" },
+  };
+  await chatFixture(page, {
+    actions: [
+      {
+        id: "escalation-1",
+        assistantId: "home",
+        revision: 1,
+        state: "awaiting_approval",
+        createdAt: "2026-10-27T08:00:00.000Z",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        payload: {
+          action: "session_request",
+          sessionId: "agent-session",
+          promptId: "p1",
+          sessionName: "Codex · demo",
+          kind: "permission",
+          title: "shell",
+          note: "It wants to delete build output.",
+        },
+      },
+    ],
+  });
+  let requests = [prompt];
+  const answers = [];
+  await page.route(/\/api\/sessions\/agent-session\/requests/, async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "POST") {
+      expect(url.pathname).toBe("/api/sessions/agent-session/requests/p1/answer");
+      answers.push(route.request().postDataJSON());
+      requests = [];
+    }
+    await route.fulfill({ json: { requests } });
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const card = page.locator("[data-session-escalation]");
+  await expect(card.locator(".assistant-approval-head strong")).toHaveText(
+    "Question from a coding session",
+  );
+  await expect(card.locator(".assistant-approval-head small")).toHaveText("Codex · demo");
+  await expect(card.getByText("Note from Home assistant")).toBeVisible();
+  await expect(card.getByText("It wants to delete build output.")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Deny" })).toBeVisible();
+  await card.getByRole("button", { name: "Allow" }).click();
+  await expect.poll(() => answers.length).toBe(1);
+  expect(answers[0]).toMatchObject({ expectedRevision: 2 });
+  await expect(card.getByText("Answered", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: "Open session" }).click();
+  await expect(page).toHaveURL(/\/sessions\/agent-session\/chat$/);
 });

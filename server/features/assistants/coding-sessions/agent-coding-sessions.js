@@ -10,6 +10,7 @@ import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
 import { answerPrompt, listPrompts } from "./session-requests.js";
 import { removeWorktree, stopSession } from "./session-worktrees.js";
+import { advanceEscalation, escalatePrompt } from "./session-escalations.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -62,6 +63,7 @@ export class AgentCodingSessions {
       wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
       requests: (ctx, input) => listPrompts(this.w, ctx, input),
       answer: (ctx, input, inv) => answerPrompt(this.w, ctx, input, inv),
+      escalate: (ctx, input, inv) => escalatePrompt(this.w, ctx, input, inv),
       stop: (ctx, input, inv) => stopSession(this.w, ctx, input, inv),
       worktree_remove: (ctx, input, inv) => removeWorktree(this.w, ctx, input, inv),
     };
@@ -110,6 +112,10 @@ export class AgentCodingSessions {
   /** The action tick of a `session_start` action (session-start.js advanceStart). */
   advanceStart(a) {
     return advanceStart(this.w, a);
+  }
+  /** The action tick of a `session_request` (session-escalations.js). */
+  advanceEscalation(a) {
+    return advanceEscalation(this.w, a);
   }
   close() {
     this.closed = true;

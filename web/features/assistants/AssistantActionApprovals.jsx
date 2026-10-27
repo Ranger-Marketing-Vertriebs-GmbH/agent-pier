@@ -8,6 +8,7 @@ import SftpApprovalCard from "./SftpApprovalCard.jsx";
 import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 import HookProposalCard, { HookCreatedNote } from "./HookProposalCard.jsx";
 import SshAccessProposalCard, { SshAccessCreatedNote } from "./SshAccessProposalCard.jsx";
+import SessionRequestEscalationCard from "./SessionRequestEscalationCard.jsx";
 
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
@@ -15,6 +16,7 @@ const isSftp = (a) => a.payload.action === "sftp";
 const isGrant = (a) => a.payload.action === "member_grant";
 const isHook = (a) => a.payload.action === "hook_proposal";
 const isSshAccess = (a) => a.payload.action === "ssh_access";
+const isEscalation = (a) => a.payload.action === "session_request";
 const heading = (a) =>
   ({ coding_start: copy.coding, session_start: copy.codingSession })[a.payload.action] ||
   copy.memory;
@@ -61,7 +63,8 @@ export default function AssistantActionApprovals({
       !isSftp(a) &&
       !isGrant(a) &&
       !isHook(a) &&
-      !isSshAccess(a),
+      !isSshAccess(a) &&
+      !isEscalation(a),
   );
   return (
     <section className="assistant-action-approvals" aria-label={copy.pendingApprovals}>
@@ -118,6 +121,14 @@ export default function AssistantActionApprovals({
       ))}
       {accesses.map((a) => (
         <SshAccessCreatedNote key={a.id} action={a} />
+      ))}
+      {actions.filter(isEscalation).map((a) => (
+        <SessionRequestEscalationCard
+          key={a.id}
+          action={a}
+          agentName={assistant?.name}
+          onNavigate={go}
+        />
       ))}
       {others.map((a) => (
         <article className="assistant-approval-card" data-pending="" key={a.id}>

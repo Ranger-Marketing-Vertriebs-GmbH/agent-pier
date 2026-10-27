@@ -39,6 +39,12 @@ export const assistantWorkflowCopy = {
     "Noch keine Aktionen. Bitte diesen Agenten im Chat, Projektwissen nachzuschlagen oder einen Coding-Auftrag vorzuschlagen.",
   coding: "Coding-Auftrag",
   codingSession: "Coding-Session",
+  escalation: {
+    title: "Frage aus einer Coding-Session",
+    note: (agent) => `Hinweis von ${agent}`,
+    answered: "Beantwortet",
+    openSession: "Session öffnen",
+  },
   memory: "Änderung am Projektwissen",
   branch: "Ausgangsbranch",
   revision: "Erwartete Revision",

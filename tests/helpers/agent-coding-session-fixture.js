@@ -62,6 +62,7 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
     const session = {
       id: trusted.id || crypto.randomUUID(),
       status: "running",
+      ...(body.name ? { name: body.name } : {}),
       tool: body.tool,
       accountId: body.accountId || `local-${body.tool}`,
       cwd: body.cwd,

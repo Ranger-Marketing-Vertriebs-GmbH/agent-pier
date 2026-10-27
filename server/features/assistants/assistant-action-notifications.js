@@ -16,6 +16,9 @@ export function telegramTarget(action) {
   return action.origin.kind === "telegram" ? action.origin : action.telegram || null;
 }
 export function notifyAction(w, action, phase) {
+  // An escalated session prompt is answered in its session, never approved or
+  // declined: the generic approval message does not fit it.
+  if (action.payload.action === "session_request") return;
   const target = telegramTarget(action);
   if (!target) return;
   const { outbox, store } = w.s.assistantChannels;
