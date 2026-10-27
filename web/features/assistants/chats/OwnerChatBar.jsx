@@ -4,6 +4,7 @@ import useAssistants from "../useAssistants.js";
 import useAgentChats, { ownerChatApi } from "./useAgentChats.js";
 import ChatListSheet from "./ChatListSheet.jsx";
 import { chatTitle, ownerChatFilter } from "./chat-names.js";
+import SummariseNowButton from "./SummariseNowButton.jsx";
 import { ChatTitleButton } from "./ChatStates.jsx";
 import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.js";
 
@@ -12,8 +13,15 @@ import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.j
  * opens the Chats sheet, and New chat. His list follows the agent list's changes of
  * this agent's chats; an archived or deleted chat leaves the offline cache. A user's
  * own agent's chats are hers: he reads them under her opt-in, never writes or starts one.
+ * `summarise` ({ run, reason }) adds Summarise now (SummariseNowButton); `reason` names
+ * why it is disabled, empty when it can run.
  */
-export default function OwnerChatBar({ assistant, conversationId, navigate }) {
+export default function OwnerChatBar({
+  assistant,
+  conversationId,
+  navigate,
+  summarise = null,
+}) {
   const { conversations = [], histories, refresh } = useAssistants();
   const [open, setOpen] = useState(false);
   const mine = conversations.filter((c) => c.assistantId === assistant.id);
@@ -46,6 +54,7 @@ export default function OwnerChatBar({ assistant, conversationId, navigate }) {
         agentName={assistant.name}
         onClick={() => setOpen(true)}
       />
+      {summarise && <SummariseNowButton {...summarise} />}
       {!readOnly && (
         <button
           type="button"
