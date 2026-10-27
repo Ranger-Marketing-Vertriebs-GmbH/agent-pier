@@ -14,7 +14,17 @@ import { validSession, requestValue, answerValue } from "./request-validation.js
 import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
-const stale = () => problem(copy.stale, 409);
+// A prompt already answered, changed or gone; names who claimed it when known.
+const stale = (entry) =>
+  Object.assign(problem(copy.stale, 409), {
+    stale: true,
+    ...(entry?.claimedBy ? { answeredBy: entry.claimedBy } : {}),
+  });
+// Who answers: the owner (HTTP, the default), an agent of its session or Telegram.
+const actorOf = (actor) =>
+  actor?.kind === "agent" && typeof actor.assistantId === "string"
+    ? { actor: "agent", assistantId: actor.assistantId }
+    : { actor: actor?.kind === "telegram" ? "telegram" : "owner" };
 // A terminal notice describes a moment, not a state; it fades on its own.
 export const terminalNoticeMs = 10 * 60 * 1000;
 const equal = (a, b) =>
@@ -150,7 +160,7 @@ export class RequestBroker {
       return prepareRequests(this, input);
     });
   }
-  emit(entry, action, source = "system", outcome = "success", decision) {
+  emit(entry, action, source = "system", outcome = "success", decision, actor) {
     if (action === "request.created") {
       if (this.created.has(entry.id)) return;
       this.created.add(entry.id);
@@ -174,7 +184,7 @@ export class RequestBroker {
           kind: entry.kind,
           outcome,
           source,
-          details: { kind: entry.kind, ...(decision ? { decision } : {}) },
+          details: { kind: entry.kind, ...(decision ? { decision } : {}), ...actor },
         }),
       ).catch(() => {});
     } catch {}
@@ -378,6 +388,7 @@ export class RequestBroker {
         local: _local,
         interaction: _interaction,
         nativeOutcome: _outcome,
+        claimedBy: _claimed,
         ...entry
       }) => entry,
     );
@@ -406,6 +417,7 @@ export class RequestBroker {
             launchIdentity: _launch,
             local: _local,
             interaction,
+            claimedBy: _claimed,
             ...entry
           }) => ({
             ...entry,
@@ -417,7 +429,14 @@ export class RequestBroker {
         ),
     };
   }
-  async answer(sessionId, id, input, handoff = false) {
+  /**
+   * The first answer wins: the claim (status `responding`) is taken synchronously,
+   * so every later answer, the owner's or an agent's, is stale. `actor`: null for
+   * the owner, `{ kind: "agent", assistantId }` or `{ kind: "telegram" }`.
+   */
+  async answer(sessionId, id, input, handoff = false, actor = null) {
+    const by = actorOf(actor);
+    const source = by.actor === "agent" ? "system" : "user";
     const session = await this.sessions.get(sessionId);
     const entry = this.entries.get(id);
     if (
@@ -433,7 +452,7 @@ export class RequestBroker {
       entry.revision !== input?.expectedRevision ||
       (!entry.local && entry.socket.destroyed)
     )
-      throw stale();
+      throw stale(entry?.sessionId === sessionId ? entry : null);
     if (entry.presentation === "claudeLegacyQuestion" && !handoff)
       throw problem(copy.invalid, 400);
     const answer = handoff ? { handoff: true } : answerValue(entry, input);
@@ -444,6 +463,7 @@ export class RequestBroker {
       claudeFolderTrust: answerFolderTrust,
       claudeStartupPrompt: answerStartupPrompt,
     }[entry.presentation];
+    entry.claimedBy = by.actor;
     if (local && !handoff) {
       entry.status = "responding";
       entry.revision++;
@@ -453,16 +473,18 @@ export class RequestBroker {
         this.emit(
           entry,
           "request.answered",
-          "user",
+          source,
           "success",
           ["exit", "no", "skip", "decline", "cancel"].includes(answer.choice)
             ? "deny"
             : "allow",
+          by,
         );
         return this.list(sessionId);
       } catch (error) {
         // Keep a retryable, visible request after native config-write failures.
         entry.status = "pending";
+        delete entry.claimedBy;
         throw error;
       }
     }
@@ -486,7 +508,7 @@ export class RequestBroker {
       this.emit(
         entry,
         handoff ? "request.handed-off" : "request.answered",
-        "user",
+        source,
         "success",
         handoff
           ? "handoff"
@@ -497,13 +519,14 @@ export class RequestBroker {
             : ["deny", "decline", "reject", "cancel"].includes(input.choice)
               ? "deny"
               : "allow",
+        by,
       );
     } else if (status === "stale") {
       this.entries.delete(id);
       throw stale();
     } else {
       entry.status = "unknown";
-      this.emit(entry, "request.answered", "user", "failure");
+      this.emit(entry, "request.answered", source, "failure", undefined, by);
       throw problem(copy.unknown, 409);
     }
     return this.list(sessionId);

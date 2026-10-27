@@ -18,3 +18,12 @@ export function agentSessionAuditDetails(details, event) {
   if (deliveryStatuses.includes(s.status)) kept.status = s.status;
   event.details.agentSession = kept;
 }
+
+// A session prompt's answer names who answered (request-broker.js): the owner, an
+// agent (with its id) or the owner through Telegram.
+export function requestActorDetails(details, event) {
+  if (!["owner", "agent", "telegram"].includes(details.actor)) return;
+  event.details.actor = details.actor;
+  if (details.actor === "agent" && id(details.assistantId))
+    event.details.assistantId = details.assistantId;
+}

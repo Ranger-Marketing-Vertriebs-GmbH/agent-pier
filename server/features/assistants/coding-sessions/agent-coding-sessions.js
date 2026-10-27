@@ -8,6 +8,7 @@ import { sessionContext } from "./session-turns.js";
 import { sessionOptions } from "./session-options.js";
 import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
+import { answerPrompt, listPrompts } from "./session-requests.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -16,8 +17,12 @@ const toolKeys = Object.keys(
 // agent's existing records (session-control.js control checks their grant).
 const needsProjects = new Set(["options", "start"]);
 // What runs after admission instead of under it: a wait polls for up to 100 s and a
-// send may wait on the terminal, which must never hold every agent's admission.
-const unlocked = new Set(["send", "read", "wait"]);
+// send or an answer may wait on the terminal, which must never hold every agent's
+// admission.
+const unlocked = new Set(["send", "read", "wait", "requests", "answer"]);
+// Who answered a session prompt, as the broker's events name it (requestEvent).
+const answerers = new Set(["owner", "agent", "telegram"]);
+const maxAnswers = 1000;
 
 /**
  * agentpier_coding_session (AssistantWorkflows.sessions): an agent's interactive
@@ -33,6 +38,8 @@ export class AgentCodingSessions {
     this.starting = new Map();
     // Sessions an agent is waiting on right now (session-steering.js waitForSession).
     this.waiting = new Set();
+    // Who answered each recent prompt: promptId -> { actor, sessionId, at }.
+    this.answers = new Map();
     // Injectable for tests: the clock and the pause between wait polls.
     this.now = () => Date.now();
     this.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,6 +51,8 @@ export class AgentCodingSessions {
       send: (ctx, input, inv) => sendToSession(this.w, ctx, input, inv),
       read: (ctx, input) => readSession(this.w, ctx, input),
       wait: (ctx, input, inv) => waitForSession(this.w, ctx, input, inv),
+      requests: (ctx, input) => listPrompts(this.w, ctx, input),
+      answer: (ctx, input, inv) => answerPrompt(this.w, ctx, input, inv),
     };
   }
   async invoke(inv, input) {
@@ -65,6 +74,26 @@ export class AgentCodingSessions {
   }
   start() {
     this.closed = false;
+  }
+  /**
+   * A session prompt was answered or handed to the terminal (operations-events.js):
+   * remembers who did, so an agent that answers too late learns it (PROMPT_ANSWERED).
+   */
+  requestEvent(event) {
+    if (event?.outcome !== "success" || typeof event.resourceId !== "string") return;
+    const actor = answerers.has(event.details?.actor) ? event.details.actor : "owner";
+    this.answers.delete(event.resourceId);
+    this.answers.set(event.resourceId, {
+      actor,
+      sessionId: event.sessionId,
+      at: this.now(),
+    });
+    while (this.answers.size > maxAnswers)
+      this.answers.delete(this.answers.keys().next().value);
+  }
+  /** Who answered the prompt: owner, agent or telegram; else the session itself. */
+  answeredBy(promptId) {
+    return this.answers.get(promptId)?.actor ?? "session";
   }
   async tick() {}
   /** The action tick of a `session_start` action (session-start.js advanceStart). */

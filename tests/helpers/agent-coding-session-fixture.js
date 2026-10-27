@@ -19,7 +19,8 @@ const git = (cwd, args) =>
     },
   });
 const notFound = () => Object.assign(Error("Session not found"), { status: 404 });
-const stale = () => Object.assign(Error("Request changed"), { status: 409 });
+// As the broker's: a prompt already answered, changed or gone.
+const stale = () => Object.assign(Error("Request changed"), { status: 409, stale: true });
 
 /**
  * The workflow fixture with a git project (one commit, a bare `origin`), coding
@@ -200,6 +201,7 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
         ...structuredClone(entry),
         sessionId,
       }),
+    removeRequest: (id) => requests.delete(id),
     call: (inv, input) => f.workflows.sessions.invoke(inv, input),
   };
 }
