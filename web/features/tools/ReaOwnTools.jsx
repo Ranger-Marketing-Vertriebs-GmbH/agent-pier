@@ -48,7 +48,10 @@ export default function ReaOwnTools({ settings, onChange, disabled }) {
         </label>
       ))}
       <div className="rea-provider">
-        <span className="rea-provider-label">{copy.provider}</span>
+        {/* The radiogroup carries the same name; screen readers hear it once. */}
+        <span className="rea-provider-label" aria-hidden="true">
+          {copy.provider}
+        </span>
         <Segmented
           label={copy.provider}
           value={settings.provider}

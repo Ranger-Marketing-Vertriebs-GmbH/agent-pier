@@ -4,7 +4,7 @@ export const reaCopy = {
   updateBadge: "Update available",
   working: "Working …",
   intro:
-    "REA gives Claude Code tools to analyse binaries. AgentPier downloads the parts you choose, checks their size and SHA-256 and keeps them in its own folder, apart from your own configuration.",
+    "REA gives Claude Code tools to analyze binaries. AgentPier downloads the parts you choose, checks their size and SHA-256 and keeps them in its own folder, apart from your own configuration.",
   loading: "Loading REA …",
   loadFailed: "REA's state could not be loaded.",
   componentsLabel: "Components",
@@ -30,9 +30,9 @@ export const reaCopy = {
   providerHint: "IDA needs the path to the IDA MCP bridge configuration.",
   safetyLabel: "Safety",
   safetyDualUse:
-    "REA is dual use: the tools that explain software can also help to break it. Analyse only software you are allowed to analyse.",
+    "REA is dual use: the tools that explain software can also help to break it. Analyze only software you are allowed to analyze.",
   safetyDisclaimer:
-    "REA's DISCLAIMER forbids circumventing DRM, licence checks and anti-cheat systems.",
+    "REA's DISCLAIMER forbids circumventing DRM, license checks and anti-cheat systems.",
   safetyUntrusted:
     "Open untrusted binaries only in a virtual machine or a separate user account, never next to your own data.",
   safetyGenuine:
@@ -46,7 +46,7 @@ export const reaCopy = {
   sandboxProcesses: "Listing processes",
   sandboxBridges: "The Hopper, IDA and JEB bridges",
   acknowledge:
-    "I understand these notes and use REA only on software I am allowed to analyse.",
+    "I understand these notes and use REA only on software I am allowed to analyze.",
   applyChanges: "Apply changes",
   update: "Update",
   updateNote: (version) => `A newer REA is available: ${version}.`,

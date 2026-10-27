@@ -24,7 +24,7 @@ function Sizes({ part }) {
 }
 
 /** The parts the owner ticked that this host has, with Core always included. */
-export function chosenParts(components, chosen) {
+function chosenParts(components, chosen) {
   return [
     components.core,
     ...["ghidra", "frida"]

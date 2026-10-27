@@ -77,6 +77,11 @@ export default function ReaDialog({ request, refresh, close }) {
   const [settings, setSettings] = useState(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // A refused change is reported below the form; bring it into view.
+  const errorRef = useRef(null);
+  useEffect(() => {
+    if (rea.error) errorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [rea.error]);
   // The form starts from the first state the server reports.
   useEffect(() => {
     if (!state || chosen) return;
@@ -172,7 +177,11 @@ export default function ReaDialog({ request, refresh, close }) {
             <Status state={state} />
           </>
         )}
-        <ErrorMessage error={rea.error} as="p" />
+        {rea.error && (
+          <div ref={errorRef}>
+            <ErrorMessage error={rea.error} as="p" />
+          </div>
+        )}
       </Modal>
       {confirming && (
         <ConfirmDialog

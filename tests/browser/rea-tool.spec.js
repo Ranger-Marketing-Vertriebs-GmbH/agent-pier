@@ -1,10 +1,22 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "@playwright/test";
 import { baseURL as base } from "../helpers/browser.js";
+import { reaManifest, reaPlatform } from "../../server/features/tools/rea-manifest.js";
+import { reaComponentStates } from "../../server/features/tools/rea-state.js";
 
 // The REA card and its dialog: components with sizes, safety and sandbox notes, the
 // acknowledgement before the first install, own tools, update and uninstall.
 const screenshot = process.env.AGENTPIER_REA_SCREENSHOT;
+
+// Sizes and versions as the server reports them on an Apple silicon Mac (macOS 15),
+// straight from the manifest, so the fixture cannot drift from the pins.
+const pinned = reaComponentStates({
+  host: reaPlatform({ platform: "darwin", arch: "arm64", darwinMajor: 24 }),
+  manifest: reaManifest,
+  ghidra: null,
+  jdk: null,
+  frida: false,
+});
 
 function reaState(overrides = {}) {
   const { components = {}, ...rest } = overrides;
@@ -22,41 +34,21 @@ function reaState(overrides = {}) {
       core: {
         installed: false,
         version: null,
-        pinnedVersion: "6.8.0",
+        pinnedVersion: reaManifest.core.version,
         packageStatus: null,
-        downloadSize: 86032384,
-        installedSize: 171048960,
+        downloadSize: reaManifest.core.downloadSize,
+        installedSize: reaManifest.core.installedSize,
         ...components.core,
       },
-      ghidra: {
-        available: true,
-        reason: null,
-        installed: false,
-        version: null,
-        pinnedVersion: "12.1.4",
-        jdkVersion: null,
-        jdkPinnedVersion: "21.0.13+9",
-        downloadSize: 664033082,
-        installedSize: 1181116006,
-        ...components.ghidra,
-      },
-      frida: {
-        available: true,
-        reason: null,
-        installed: false,
-        version: null,
-        pinnedVersion: "17.23.2",
-        downloadSize: 38219481,
-        installedSize: 38219481,
-        ...components.frida,
-      },
+      ghidra: { ...pinned.ghidra, ...components.ghidra },
+      frida: { ...pinned.frida, ...components.frida },
     },
     settings: { provider: "ghidra", hopperPath: null, idaConfig: null, jebUrl: null },
     ...rest,
   };
 }
 
-async function fixture(page, rea = reaState(), { uninstall } = {}) {
+async function fixture(page, rea = reaState(), { uninstall, apply } = {}) {
   const state = {
     tools: [{ id: "claude", name: "Claude Code", installed: true }],
     utilities: [
@@ -90,6 +82,7 @@ async function fixture(page, rea = reaState(), { uninstall } = {}) {
     if (path === "/api/rea" && method === "GET") return route.fulfill({ json: rea });
     if (path === "/api/rea" && method === "POST") {
       controls.applied.push(request.postDataJSON());
+      if (apply) return route.fulfill(apply);
       return route.fulfill({ status: 202, json: { ...rea, status: "running" } });
     }
     if (path === "/api/rea/update") {
@@ -234,4 +227,30 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
   await expect(confirm.getByRole("alert")).toContainText(
     "REA is running in a session or for an agent",
   );
+});
+
+test("a refused install shows the server reason in the dialog", async ({ page }) => {
+  // A short window: the dialog body scrolls, and the reason must come into view.
+  await page.setViewportSize({ width: 1280, height: 600 });
+  const controls = await fixture(page, reaState(), {
+    apply: {
+      status: 400,
+      json: {
+        error: "Der Analyseanbieter IDA braucht den Pfad zu einer IDA-MCP-Konfiguration.",
+        messageKey: "rea.idaConfigRequired",
+      },
+    },
+  });
+  const dialog = await openDialog(page);
+  await dialog.getByRole("radio", { name: "IDA" }).check();
+  await dialog.getByRole("checkbox", { name: /I understand/ }).check();
+  // The owner scrolled back up to the components before installing.
+  await dialog.evaluate((element) => (element.scrollTop = 0));
+  await dialog.getByRole("button", { name: "Install", exact: true }).click();
+  await expect.poll(() => controls.applied.length).toBe(1);
+  const alert = dialog.getByRole("alert");
+  await expect(alert).toHaveText(
+    "The IDA analysis provider needs the path to an IDA MCP configuration.",
+  );
+  await expect(alert).toBeInViewport();
 });
