@@ -6,6 +6,7 @@ import {
   recipientAllowed,
 } from "../../server/features/assistants/mail/agent-mail-grants.js";
 import { AssistantAccess } from "../../server/features/assistants/assistant-access.js";
+import { MailAccountStore } from "../../server/features/mail/mail-account-store.js";
 import { TelegramSenders } from "../../server/features/assistant-channels/telegram-senders.js";
 
 const a = "aaaaaaaa-1111-4111-8111-111111111111";
@@ -291,4 +292,82 @@ test("recipientAllowed matches addresses and exact domains only", () => {
   assert.equal(recipientAllowed(["example.com"], "a@b@example.com"), false);
   assert.equal(recipientAllowed(["example.com"], '"Bob" <bob@example.com>'), false);
   assert.equal(recipientAllowed(["example.com"], null), false);
+});
+
+test("an account removed while agents are off leaves no live grant behind", async (t) => {
+  const f = await mailFixture(t);
+  f.save([
+    { accountId: a, level: "send", recipients: ["example.com"] },
+    { accountId: b, level: "read" },
+  ]);
+  // The account disappears without the store hook (agents off, or a restore).
+  f.mail.accounts = f.mail.accounts.filter((x) => x.id !== a);
+  assert.deepEqual(f.access.get(f.id).mailAccesses, [
+    { accountId: b, level: "read", recipients: [] },
+  ]);
+  assert.equal(f.access.mailGrant(f.id, a), null);
+  assert.equal(f.access.mailGrant(f.id, b).level, "read");
+  // While the catalog cannot be read the stored grants stay, but none is usable.
+  f.mail.failing = true;
+  assert.equal(f.access.get(f.id).mailAccesses.length, 2);
+  assert.equal(f.access.mailGrant(f.id, b), null);
+  assert.throws(() => f.save([{ accountId: b, level: "read" }]), {
+    status: 503,
+    key: "catalogUnreadable",
+  });
+  f.mail.failing = false;
+  // With every granted account gone, the bot block lifts.
+  f.mail.accounts = [];
+  const senders = new TelegramSenders({
+    store: { get: () => null },
+    assistants: { store: f.store, workflows: f.workflows, runtime: {} },
+    stdioAgents: () => new Set(),
+    sshAgents: () => new Set(),
+    secretsGranted: () => false,
+    configured: () => new Set(),
+  });
+  assert.equal(senders.eligible(f.id).id, f.id);
+  // A save without the field writes the live list.
+  const kept = f.access.save(f.id, f.policy, f.access.get(f.id).revision);
+  assert.deepEqual(kept.mailAccesses, []);
+});
+
+test("closed workflows no longer handle a real store's account removal", async (t) => {
+  const f = await mailFixture(t);
+  const store = new MailAccountStore({ dataDir: f.dataDir, audit: { append() {} } });
+  await store.ready;
+  f.services.mailAccounts = store;
+  const access = new AssistantAccess(f.services);
+  const kept = store.create(
+    { name: "Mail", address: "owner@example.com", preset: "gmail", password: "pw" },
+    { role: "owner" },
+  );
+  const gone = store.create(
+    { name: "Other", address: "other@example.com", preset: "gmail", password: "pw" },
+    { role: "owner" },
+  );
+  f.save([
+    { accountId: gone.id, level: "read" },
+    { accountId: kept.id, level: "read" },
+  ]);
+  store.remove(gone.id, { role: "owner" });
+  assert.deepEqual(
+    access.get(f.id).mailAccesses.map((g) => g.accountId),
+    [kept.id],
+  );
+  // A replaced binding is never unbound by an older access.
+  const newer = store.onRemoved;
+  await f.workflows.close();
+  assert.equal(store.onRemoved, newer);
+  // Closing the workflows' own access unbinds it; removal still succeeds.
+  store.onRemoved = null;
+  const closing = new AssistantAccess(f.services);
+  f.workflows.access = closing;
+  await f.workflows.close();
+  assert.equal(store.onRemoved, null);
+  // The agents' database closes (agents switched off); the fixture closed it already.
+  f.store.close();
+  f.store.close = () => {};
+  store.remove(kept.id, { role: "owner" });
+  assert.deepEqual(store.list(), []);
 });

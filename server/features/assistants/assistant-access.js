@@ -95,9 +95,9 @@ export class AssistantAccess {
       throw assistantProblem("invalid", 403);
     return a;
   }
-  /** The policy as read: granted secrets that were deleted since drop out. */
+  /** The policy as read: granted secrets and mail accounts deleted since drop out. */
   get(id) {
-    return withLiveSecrets(this.s, this.stored(id));
+    return mail.withLiveMail(this.s, withLiveSecrets(this.s, this.stored(id)));
   }
   // The policy as written, deleted secrets' ids included.
   stored(id) {
