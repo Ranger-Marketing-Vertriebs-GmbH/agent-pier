@@ -30,6 +30,8 @@ test("project grant audits keep only valid project ids and levels", () => {
     revision: 3,
     added: ["p1", "p4"],
     removed: ["p5"],
+    sessionsAdded: ["p1"],
+    sessionsRemoved: [],
     folderChanged: [
       { projectId: "p1", from: "none", to: "write" },
       { projectId: "p4", from: "read", to: "none" },
