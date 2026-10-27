@@ -18,6 +18,7 @@ import AgentsCard from "./AgentsCard.jsx";
 import PipelinesCard from "./PipelinesCard.jsx";
 import ToolRows from "./ToolRows.jsx";
 import "./start-page.css";
+import "./start-cards.css";
 
 const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
 // The menu hint sources change slowly; the start page reads them twice a minute.
