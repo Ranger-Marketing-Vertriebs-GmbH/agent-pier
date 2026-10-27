@@ -247,15 +247,18 @@ test("start() points the row env at the homes an installer update switched to", 
   const { serverId } = await f.install(old);
   const first = old.component("rea-ghidra").directory;
   await old.close();
+  // The fixture's host (darwin-arm64 on macOS 26), never the machine running the test.
+  const host = { platform: "darwin", arch: "arm64", darwinMajor: 25 };
   const installer = async (pins) => {
     const result = await provisionRea(
-      { dataDir: f.s.dataDir, manifest: f.manifest(pins), platform: "darwin" },
+      { dataDir: f.s.dataDir, manifest: f.manifest(pins), ...host },
       {
         fetchImpl: f.fetchImpl,
         install: (options) => installReaComponent({ ...options, run: f.run, env: {} }),
       },
     );
     assert.equal(result.status, "ready", result.message);
+    assert.equal(result.ghidra, pins.ghidra);
   };
   const env = () => f.s.servers.envValues(serverId);
   for (const [index, pins] of [
