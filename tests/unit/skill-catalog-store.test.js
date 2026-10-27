@@ -94,7 +94,7 @@ test("an invalid skill name is refused before anything is written", () => {
   assert.ok(!fs.existsSync(path.join(root, "escape")));
 });
 
-test("a failed swap leaves the old version live", () => {
+test("a pack with an unsafe path fails before the swap and leaves the old version live", () => {
   const s = new SkillCatalogStore({ root });
   const v1 = s.write(pack("probe", "v1"), meta());
   const bad = pack("probe", "v2");
@@ -123,7 +123,7 @@ test("a failed rename into the live root restores the old copy and a retry works
   assert.deepEqual(fs.readdirSync(s.liveRoot), ["probe"]);
   assert.deepEqual(fs.readdirSync(path.join(root, "staging")), []);
   assert.equal(s.byName("probe").version, 1);
-  assert.deepEqual(fs.readdirSync(path.join(root, "store/probe")).length, 1);
+  assert.equal(fs.readdirSync(path.join(root, "store/probe")).length, 1);
   const retry = s.write(pack("probe", "v2"), meta());
   assert.equal(retry.version, 2);
   assert.match(fs.readFileSync(path.join(live, "SKILL.md"), "utf8"), /v2/);
@@ -288,4 +288,126 @@ test("writeSkillFiles writes read-only copies on request", () => {
   assert.throws(() =>
     writeSkillFiles(path.join(root, "x"), [["../y", Buffer.from("x"), 0o644]]),
   );
+});
+
+test("a symlinked live folder is replaced and the other skills are still verified", () => {
+  const s = new SkillCatalogStore({ root });
+  s.write(pack("alpha", "v1"), meta());
+  s.write(pack("probe", "v1"), meta());
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "skill-catalog-outside-"));
+  try {
+    fs.writeFileSync(path.join(outside, "keep.txt"), "keep");
+    const live = path.join(s.liveRoot, "alpha");
+    fs.rmSync(live, { recursive: true });
+    fs.symlinkSync(outside, live);
+    const probe = path.join(s.liveRoot, "probe/SKILL.md");
+    fs.chmodSync(probe, 0o600);
+    fs.writeFileSync(probe, "tampered");
+    assert.deepEqual(s.verify(), { restored: ["alpha", "probe"], damaged: [] });
+    assert.ok(!fs.lstatSync(live).isSymbolicLink());
+    assert.match(fs.readFileSync(path.join(live, "SKILL.md"), "utf8"), /v1/);
+    assert.match(fs.readFileSync(probe, "utf8"), /v1/);
+    assert.ok(fs.existsSync(path.join(outside, "keep.txt")));
+    // A write of the same name works too.
+    fs.rmSync(live, { recursive: true });
+    fs.symlinkSync(outside, live);
+    assert.equal(s.write(pack("alpha", "v2"), meta()).version, 2);
+    assert.ok(fs.existsSync(path.join(outside, "keep.txt")));
+  } finally {
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("a symlinked store version is replaced from the intact live copy", () => {
+  const s = new SkillCatalogStore({ root });
+  const r = s.write(pack("probe", "v1"), meta());
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "skill-catalog-outside-"));
+  try {
+    const stored = path.join(root, "store/probe", r.digest);
+    fs.rmSync(stored, { recursive: true });
+    fs.symlinkSync(outside, stored);
+    assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+    assert.ok(!fs.lstatSync(stored).isSymbolicLink());
+    assert.match(fs.readFileSync(path.join(stored, "SKILL.md"), "utf8"), /v1/);
+    assert.deepEqual(fs.readdirSync(outside), []);
+  } finally {
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("sweep removes planted links without touching their targets", () => {
+  const s = new SkillCatalogStore({ root });
+  s.write(pack("probe", "v1"), meta());
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "skill-catalog-outside-"));
+  try {
+    fs.writeFileSync(path.join(outside, "keep.txt"), "keep");
+    fs.symlinkSync(outside, path.join(root, "staging/link"));
+    fs.symlinkSync(outside, path.join(s.liveRoot, "ghost"));
+    fs.symlinkSync(outside, path.join(root, "store/ghost"));
+    s.sweep();
+    assert.deepEqual(fs.readdirSync(path.join(root, "staging")), []);
+    assert.deepEqual(fs.readdirSync(s.liveRoot), ["probe"]);
+    assert.deepEqual(fs.readdirSync(path.join(root, "store")), ["probe"]);
+    assert.deepEqual(fs.readdirSync(outside), ["keep.txt"]);
+    // A link in place of a whole sub-root is removed, never followed.
+    fs.rmSync(path.join(root, "staging"), { recursive: true });
+    fs.symlinkSync(outside, path.join(root, "staging"));
+    s.sweep();
+    assert.ok(fs.lstatSync(path.join(root, "staging")).isDirectory());
+    assert.deepEqual(fs.readdirSync(outside), ["keep.txt"]);
+  } finally {
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+for (const method of ["renameSync", "writeFileSync"])
+  test(`a failing ${method} during a store repair keeps the live copy`, () => {
+    const s = new SkillCatalogStore({ root });
+    const r = s.write(pack("probe", "v1"), meta());
+    const stored = path.join(root, "store/probe", r.digest, "SKILL.md");
+    fs.chmodSync(stored, 0o600);
+    fs.writeFileSync(stored, "tampered");
+    mock.method(fs, method, () => {
+      throw Object.assign(new Error("EIO"), { code: "EIO" });
+    });
+    assert.throws(() => s.verify(), /EIO/);
+    mock.restoreAll();
+    assert.match(fs.readFileSync(path.join(s.liveRoot, "probe/SKILL.md"), "utf8"), /v1/);
+    assert.equal(s.byName("probe").damaged, undefined);
+    assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+    assert.match(fs.readFileSync(stored, "utf8"), /v1/);
+  });
+
+test("a failing restore deletes nothing and the next verify restores", () => {
+  const s = new SkillCatalogStore({ root });
+  s.write(pack("probe", "v1"), meta());
+  const file = path.join(s.liveRoot, "probe/SKILL.md");
+  fs.chmodSync(file, 0o600);
+  fs.writeFileSync(file, "tampered");
+  const rename = fs.renameSync;
+  // Only the swap fails; the catalog file could still be written.
+  mock.method(fs, "renameSync", (from, to) => {
+    if (String(to).endsWith(".json")) return rename(from, to);
+    throw Object.assign(new Error("EIO"), { code: "EIO" });
+  });
+  assert.throws(() => s.verify(), /EIO/);
+  mock.restoreAll();
+  assert.equal(fs.readFileSync(file, "utf8"), "tampered"); // nothing deleted
+  assert.equal(s.byName("probe").damaged, undefined);
+  assert.deepEqual(s.verify(), { restored: ["probe"], damaged: [] });
+  assert.match(fs.readFileSync(file, "utf8"), /v1/);
+});
+
+test("a tampered store folder without write permission is still replaced", () => {
+  const s = new SkillCatalogStore({ root });
+  const r = s.write(pack("probe", "v1"), meta());
+  const stored = path.join(root, "store/probe", r.digest);
+  fs.chmodSync(path.join(stored, "SKILL.md"), 0o600);
+  fs.writeFileSync(path.join(stored, "SKILL.md"), "tampered");
+  fs.chmodSync(stored, 0o500);
+  assert.deepEqual(s.verify(), { restored: [], damaged: [] });
+  assert.match(fs.readFileSync(path.join(stored, "SKILL.md"), "utf8"), /v1/);
+  fs.chmodSync(stored, 0o500);
+  s.write(pack("probe", "v2"), meta());
+  assert.ok(!fs.existsSync(stored));
 });
