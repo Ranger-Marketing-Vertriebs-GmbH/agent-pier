@@ -44,3 +44,14 @@ test("short spans count minutes, hours and days", () => {
   assert.equal(shortSpan(0, now), null);
   assert.equal(shortSpan(now + 60_000, now), null);
 });
+
+test("the agents summary agrees with its count in both languages", async () => {
+  const { setLanguage } = await import("../../web/lib/i18n/index.js");
+  const { startPageCopy } = await import("../../web/lib/i18n/messages/dashboard.js");
+  setLanguage("en", { persist: false, document: null });
+  assert.equal(startPageCopy.agentsSummary(1, 0), "1 needs you");
+  assert.equal(startPageCopy.agentsSummary(2, 3), "2 need you · 3 working");
+  setLanguage("de", { persist: false, document: null });
+  assert.equal(startPageCopy.agentsSummary(1, 1), "1 braucht dich · 1 arbeitet");
+  assert.equal(startPageCopy.agentsSummary(0, 0), "");
+});
