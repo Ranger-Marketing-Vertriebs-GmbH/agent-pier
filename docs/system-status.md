@@ -110,7 +110,7 @@ holds and what deleting costs. These sizes come from a summary that the server m
 in the background like the data directory, keeps for ten minutes and measures again
 after every deletion; until it is known, the cards say **Measured on open**. The
 summary counts the update backups except the one an unresolved recovery needs,
-transcripts older than 30 days, and every installed dependency folder (an agent at
+transcripts older than 90 days (the age the list preselects), and every installed dependency folder (an agent at
 work included). The list behind **Clean up …** is measured only when you open it, never
 with the five-second refresh, and nothing is deleted without its selection and
 confirmation. Every

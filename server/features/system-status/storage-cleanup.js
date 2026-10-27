@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { auditActor } from "../audit/audit-actor.js";
 import { deleteSnapshot, listSnapshots } from "./cleanup-snapshots.js";
 import {
-  CUTOFF_DAYS,
+  DEFAULT_CUTOFF_DAYS,
   deleteTranscripts,
   profileTranscripts,
   protectedIds,
@@ -122,12 +122,12 @@ export class StorageCleanup {
   }
   /**
    * Sums the three lists: deletable update backups (an unfinished update's own one
-   * stays out), transcripts older than the shortest age, and installed dependencies.
+   * stays out), transcripts older than the list's default age (90 days), and installed dependencies.
    */
   async measureSummary() {
     const snapshots = await this.snapshots();
     const backups = snapshots.snapshots.filter((item) => item.reason !== "recovery");
-    const days = CUTOFF_DAYS[0];
+    const days = DEFAULT_CUTOFF_DAYS;
     const profiles = (await this.transcripts()).profiles.map(
       (profile) => profile.cutoffs.find((cutoff) => cutoff.days === days) || {},
     );

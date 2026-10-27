@@ -104,7 +104,7 @@ export function cleanupSummary(state = "ready") {
         atLeast: false,
         oldestAt: "2026-09-01T10:00:00.000Z",
       },
-      transcripts: { bytes: 2 * GB, count: 41, olderThanDays: 30, profiles: 2 },
+      transcripts: { bytes: 2 * GB, count: 41, olderThanDays: 90, profiles: 2 },
       dependencies: { bytes: 0.25 * GB, count: 4, agents: 2, atLeast: true },
     },
   };

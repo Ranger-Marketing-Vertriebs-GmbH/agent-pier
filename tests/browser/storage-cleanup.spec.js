@@ -285,7 +285,7 @@ test.describe("the summary", () => {
     );
     calls.state = "ready";
     await expect(card).toContainText("2 GB", { timeout: 10_000 });
-    await expect(card).toContainText("41 transcripts older than 30 days · 2 profiles");
+    await expect(card).toContainText("41 transcripts older than 90 days · 2 profiles");
     const reclaimable = dialog.locator(".system-area-list li", {
       hasText: "CLI profiles",
     });

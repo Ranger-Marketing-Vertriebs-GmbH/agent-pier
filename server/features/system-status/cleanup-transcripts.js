@@ -18,6 +18,8 @@ import { cleanupProblem } from "./cleanup-problem.js";
  * its id: stopped sessions that are still listed keep theirs, so they can be resumed.
  */
 export const CUTOFF_DAYS = [30, 90, 180];
+// The age the cleanup list preselects and the storage summary measures.
+export const DEFAULT_CUTOFF_DAYS = 90;
 const DAY = 24 * 60 * 60 * 1000;
 const TOOLS = ["claude", "codex"];
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
