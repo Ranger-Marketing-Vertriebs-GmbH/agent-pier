@@ -86,18 +86,25 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   files, the findings and the programs the skill runs. **Add to catalog** installs
   exactly what was checked. Warnings need your confirmation; a blocked skill can be
   installed only as an explicit override.
-- **Updates.** Uploading a skill with the name of a catalog skill (**Upload new
-  version**) or **Check for update** on a GitHub skill installs a new version. Agents
+- **Updates.** **Upload new version** on a catalog skill, or **Check for update** on a
+  GitHub skill (its panel is titled **Update skill**), installs a new version. Agents
   that use the skill get it at their next turn. If the new version brings warnings you
   have not accepted for the previous version, or is blocked, you confirm again; the
-  preview shows "New since version N". A repository that now names a different skill is
-  refused. There are no automatic update checks.
+  preview shows "New since version N". An uploaded file or a repository that now names
+  a different skill is refused, so an update never becomes a second skill. There are no
+  automatic update checks.
 - **Remove** names the agents that use the skill, switches it off for all of them and
   deletes its files.
 - **Name clashes.** A skill whose name a bundled skill, a plugin skill or a skill in
-  the agents' folders already carries is refused. If a runtime update later bundles a
-  skill of that name, the catalog skill shows "Shadowed by a bundled skill" and stays
-  off until you remove it.
+  the shared skill folders already carries is refused. If a runtime update later
+  bundles a skill of that name, the catalog skill shows "Shadowed by a bundled skill"
+  and stays off until you remove it; a skill of that name the agent service reports
+  from another source shows "Shadowed by another installed skill of the same name". A
+  skill of the same name in one agent's own folders is not refused at install: the
+  catalog skill shows as off for that agent only, on its **Skills** page.
+- "Not available right now — AgentPier will check it again" appears, here and on the
+  agent's **Skills** page, when the running agent service does not report the skill or
+  its last integrity check could not run.
 - Each skill shows its version, its source (upload, or GitHub repository, ref and
   commit), the programs it runs and on how many agents it is on. A skill that needs
   settings installs but is never switched on ("Needs settings — not supported yet").

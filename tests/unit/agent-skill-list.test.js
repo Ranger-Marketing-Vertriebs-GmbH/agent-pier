@@ -58,6 +58,38 @@ test("the status line names what is missing", () => {
   assert.equal(skillLocked(skills[1], false), false);
 });
 
+test("a catalog skill's status names why it is shadowed or unavailable", () => {
+  const row = (state, more = {}) => ({
+    state,
+    source: "catalog",
+    missing: none,
+    ...more,
+  });
+  assert.match(
+    statusText(row("shadowed", { shadowedBy: "bundled" }), copy),
+    /^Off: a bundled skill of the same name replaces this catalog skill/,
+  );
+  // A skill in this agent's own folders: the generic text, never "remove the catalog skill".
+  assert.equal(
+    statusText(row("shadowed", { shadowedBy: "agentFolder" }), copy),
+    copy.states.shadowed,
+  );
+  assert.equal(
+    statusText(row("shadowed", { shadowedBy: "source" }), copy),
+    copy.states.shadowedCatalogSource,
+  );
+  assert.doesNotMatch(
+    statusText(row("shadowed", { shadowedBy: "source" }), copy),
+    /bundled/,
+  );
+  assert.equal(statusText(row("unavailable"), copy), copy.states.unavailableCatalog);
+  assert.doesNotMatch(statusText(row("unavailable"), copy), /OpenClaw version/);
+  assert.equal(
+    statusText({ state: "unavailable", missing: none }, copy),
+    copy.states.unavailable,
+  );
+});
+
 test("the skills subpage belongs to Capabilities and to eligible agents only", () => {
   assert.deepEqual(readAgentSettingsQuery("?page=skills"), {
     agentTab: "capabilities",
@@ -113,7 +145,7 @@ test("needs-settings and damaged skills have their own status text", () => {
     "Damaged \u2014 install it again in Agents \u203a Skills",
   );
   assert.match(
-    statusText({ state: "shadowed", source: "catalog" }, copy),
+    statusText({ state: "shadowed", source: "catalog", shadowedBy: "bundled" }, copy),
     /^Off: a bundled/,
   );
   assert.match(statusText({ state: "shadowed" }, copy), /^Off for this agent/);

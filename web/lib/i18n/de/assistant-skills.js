@@ -29,6 +29,9 @@ export const assistantSkillsCopy = {
     unavailable: "In dieser OpenClaw-Version nicht mehr enthalten",
     needsSettings: "Braucht Einstellungen \u2014 noch nicht unterstützt",
     damaged: "Beschädigt \u2014 installiere ihn unter Agenten \u203a Skills neu",
+    unavailableCatalog: "Gerade nicht verfügbar \u2014 AgentPier prüft ihn erneut",
+    shadowedCatalogSource:
+      "Aus: Ein anderer installierter Skill gleichen Namens läuft an Stelle dieses Katalog-Skills. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
     shadowedCatalog:
       "Aus: Ein mitgelieferter Skill gleichen Namens ersetzt diesen Katalog-Skill. Entferne den Katalog-Skill, um den mitgelieferten zu nutzen.",
     shadowed:

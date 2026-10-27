@@ -658,6 +658,7 @@
   "extensions.catalogSkillNotFound": "de:f0cc0d2fcfe4 en:1dab2646fc5a",
   "extensions.catalogUpdateNeedsRepository": "de:388ba51704c9 en:6923249f944c",
   "extensions.catalogUpdateRenamed": "de:bfc3fc569b7f en:2e92db6c0443",
+  "extensions.catalogUploadOtherSkill": "de:9306633f2c64 en:e6faf8d91edd",
   "extensions.claudeProfileScope": "de:2a0e7d872648 en:55af63677791",
   "extensions.claudeUserScope": "de:bc5b7dbe235a en:7954a3ea056f",
   "extensions.cliConfigChanged": "de:22fa87ea342e en:533f6056ac99",

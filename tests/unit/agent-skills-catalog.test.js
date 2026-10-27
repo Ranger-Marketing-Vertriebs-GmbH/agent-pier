@@ -78,6 +78,7 @@ test("a catalog name the runtime bundles is shadowed", () => {
   assert.equal(skills.length, 1);
   assert.equal(skills[0].source, "catalog");
   assert.equal(skills[0].state, "shadowed");
+  assert.equal(skills[0].shadowedBy, "bundled");
 });
 
 test("a non-catalog skill of a catalog name, or one outside the root, is shadowed", () => {
@@ -109,6 +110,13 @@ test("a non-catalog skill of a catalog name, or one outside the root, is shadowe
     sneaky: "shadowed",
   });
   for (const skill of skills) assert.equal(skill.source, "catalog");
+  // Why each is shadowed: another source, or a skill in this agent's own folders.
+  assert.deepEqual(Object.fromEntries(skills.map((s) => [s.name, s.shadowedBy])), {
+    elsewhere: "source",
+    mine: "source",
+    planted: "agentFolder",
+    sneaky: "source",
+  });
   assert.equal(skills.find((s) => s.name === "mine").description, "");
   assert.equal(skills.find((s) => s.name === "mine").active, false);
 });
@@ -200,7 +208,16 @@ test("the catalog page shows the programs a skill needs and names clashes", () =
   assert.equal(probe.state, "ready");
   assert.ok(!JSON.stringify(probe).includes(host));
   assert.equal(view(record("github")).state, "shadowed");
+  assert.equal(view(record("github")).shadowedBy, "bundled");
   assert.equal(view(record("mine")).state, "shadowed");
+  assert.equal(view(record("mine")).shadowedBy, "source");
+  assert.equal(view(record("probe")).shadowedBy, undefined);
+  // Like the agent page: not reported by a running Gateway, or its last check failed.
+  assert.equal(view(record("absent")).state, "unavailable");
+  assert.equal(
+    catalogView(record("probe"), { entries, failed: new Set(["probe"]) }).state,
+    "unavailable",
+  );
   assert.equal(view(record("mine", { damaged: true })).state, "damaged");
   assert.equal(view(record("envy", { needsSettings: true })).state, "needsSettings");
   // Without a running Gateway: no requirements, no agents given.

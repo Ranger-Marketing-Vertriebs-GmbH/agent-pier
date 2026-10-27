@@ -41,14 +41,19 @@ export function catalogSkillPrograms(skill) {
   return programs.length ? copy.runsPrograms(programs.join(", ")) : null;
 }
 
+// The limits the agent's Skills page shows as well (catalogView on the server).
 const stateLine = (skill) =>
   skill.state === "damaged"
     ? copy.damaged
     : skill.state === "shadowed"
-      ? copy.shadowed
+      ? skill.shadowedBy === "source"
+        ? copy.shadowedSource
+        : copy.shadowed
       : skill.state === "needsSettings" || skill.needsSettings
         ? copy.needsSettings
-        : null;
+        : skill.state === "unavailable"
+          ? copy.unavailable
+          : null;
 
 function Verdict({ scan }) {
   if (!scan?.verdict) return null;
@@ -141,6 +146,8 @@ export default function SkillCatalogTab() {
   const catalog = useSkillCatalog();
   const { skills, panel } = catalog;
   const updating = Boolean(panel?.skill);
+  // Check for update opens with the found version; Upload new version starts empty.
+  const updateTitle = panel?.preview ? copy.checkedUpdateTitle : copy.updateTitle;
   return (
     <div className="agents-hub-skills">
       <p className="field-description">{copy.lead}</p>
@@ -181,11 +188,12 @@ export default function SkillCatalogTab() {
           paths={paths}
           destination={copy.destination}
           destinationLabel={copy.destinationLabel}
-          title={updating ? copy.updateTitle : copy.installTitle}
+          title={updating ? updateTitle : copy.installTitle}
           subtitle={panel.skill?.name}
           installLabel={updating ? copy.updateAction : copy.installAction}
           successNotice={updating ? copy.updatedNotice : copy.installedNotice}
           initialPreview={panel.preview || null}
+          previewFields={updating ? { skillId: panel.skill.id } : null}
         />
       )}
       {catalog.removing && <RemoveDialog catalog={catalog} />}

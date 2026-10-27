@@ -75,11 +75,23 @@ export class SkillCatalog {
       newRules: scan.rules.filter((rule) => !accepted.has(rule)),
     }));
   }
-  /** Reads and scans a source (nothing is written); confirmed through install. */
+  /**
+   * Reads and scans a source (nothing is written); confirmed through install. With
+   * `skillId` (a new version of that catalog skill) a source naming another skill is
+   * refused, so an update never becomes a second skill.
+   */
   async preview(input = {}) {
     this.assertOpen();
+    const expected = input.skillId === undefined ? null : this.store.byId(input.skillId);
+    if (input.skillId !== undefined && !expected)
+      throw problem(serverMessages.extensions.catalogSkillNotFound, 404);
     const pack = await this.read(input);
     this.assertOpen();
+    if (expected && pack.name !== expected.name)
+      throw problem(
+        serverMessages.extensions.catalogUploadOtherSkill(pack.name, expected.name),
+        409,
+      );
     return this.previewPack(pack, importKindOf(input));
   }
   /**
@@ -152,11 +164,22 @@ export class SkillCatalog {
     if (contentHash(pack.files) === record.contentHash) return { upToDate: true };
     return this.previewPack(pack, "github");
   }
-  /** Removes catalog skill `id` after every earlier write; 404 when it is unknown. */
-  remove(id) {
-    return this.serialized(() => {
+  /**
+   * Removes catalog skill `id` after every earlier write; 404 when it is unknown.
+   * `switchOff(name)` (async, returns the changed agent ids) runs in the same turn of
+   * the write queue before and again after the record goes, so a switch-on saved while
+   * the removal waited never leaves the name behind; after the removal no agent can
+   * switch it on again. Returns the record and every agent switched off.
+   */
+  remove(id, switchOff = async () => []) {
+    return this.serialized(async () => {
       this.assertOpen();
-      return this.store.remove(id);
+      const known = this.store.byId(id);
+      if (!known) throw problem(serverMessages.extensions.skillNotInstalledHere, 404);
+      const before = await switchOff(known.name);
+      const record = this.store.remove(id);
+      const after = await switchOff(record.name);
+      return { record, switchedOff: [...new Set([...before, ...after])] };
     });
   }
   async close() {
