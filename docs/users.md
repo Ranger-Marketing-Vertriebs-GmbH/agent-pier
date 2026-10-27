@@ -129,6 +129,11 @@ every settings API. What the owner can still give an agent for users:
 - **MCP servers** he binds to the agent, local (stdio) servers after the usual
   confirmation.
 - Web search, web fetch and the browser, memory, reminders and routines.
+- **Skills** from the [skill catalog](agents.md#skill-catalog) and the bundled ones.
+  The owner installs catalog skills and switches them on for users' agents, shared
+  agents included (**Agent › Capabilities › Skills**). Users never switch skills, at
+  any level, and cannot reach the catalog. A skill never brings back a tool the lock
+  removed: on an agent for users it cannot run programs even if the skill names them.
 
 Details: [Agents of restricted users](assistant-gateway.md#agents-of-restricted-users).
 
