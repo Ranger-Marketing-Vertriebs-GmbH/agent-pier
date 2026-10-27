@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { agentSessionFixture } from "../helpers/agent-coding-session-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
+import { wakeText } from "../../server/features/assistants/coding-sessions/session-wakes.js";
 import { collectItems } from "../../server/features/inbox/inbox-sources.js";
 
 const failure = async (promise) => {
@@ -275,4 +276,37 @@ test("a routine run's escalation waits in the routine chat and shows in the inbo
     note: "Please check",
   });
   assert.deepEqual(items[0].agent, { id: f.id, name: agent.name });
+});
+
+test("who answered an escalation is kept on it, so a restart still names them", async (t) => {
+  const f = await agentSessionFixture(t);
+  const sessionId = await started(f);
+  f.addRequest(sessionId, permission);
+  const { actionId } = await f.call(await f.invocation(), {
+    action: "escalate",
+    sessionId,
+    promptId: "p1",
+  });
+  f.removeRequest("p1");
+  answeredEvent(f, sessionId, "p1", "telegram");
+  // A restart forgets the in-memory answers before the tick sees the prompt gone.
+  f.workflows.sessions.answers.clear();
+  await f.workflows.tick();
+  const a = f.workflows.store.get(actionId);
+  assert.equal(a.state, "completed");
+  assert.deepEqual(a.result, { answeredBy: "telegram" });
+});
+
+test("a wake for an escalation answered by someone unknown claims no one", () => {
+  const text = wakeText("s1", {
+    event: "prompt-answered",
+    promptId: "p1",
+    answeredBy: "session",
+    name: "n",
+  });
+  assert.match(
+    text,
+    /the prompt p1 you escalated is no longer open; who answered it is unknown\./,
+  );
+  assert.equal(/answered by/.test(text), false);
 });

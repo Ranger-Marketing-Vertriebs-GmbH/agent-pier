@@ -88,6 +88,7 @@ self.agentPierNotificationCopy = {
     exec: "Shell-Befehl",
     ssh: "SSH-Befehl",
     coding: "Coding-Auftrag",
+    codingSession: "Coding-Session",
     memory: "Gedächtniseintrag",
     grant: "Berechtigung für ein Mitglied",
     hook: "Hook-Vorschlag",

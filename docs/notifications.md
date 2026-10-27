@@ -99,7 +99,7 @@ the agent's main chat.
 |                 | Approval for a CLI                                 | On      | A session waits for your decision                                                                                                                                                                                                                   |
 |                 | Session waiting in the terminal                    | On      | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds                                                                                                                       |
 |                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                                                                                                                                    |
-|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task, a memory entry, a team member's permission, a hook or an SSH access proposal, or proposes a team                                                                              |
+|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task or coding session start, a memory entry, a team member's permission, a hook or an SSH access proposal, or proposes a team                                                      |
 | Finished        | Response ready                                     | On      | A session finished its reply                                                                                                                                                                                                                        |
 |                 | Session ended                                      | On      | A session stopped                                                                                                                                                                                                                                   |
 |                 | Pipeline completed                                 | Off     | A pipeline run completed                                                                                                                                                                                                                            |
@@ -130,7 +130,8 @@ for a CLI** are held until the agent escalates the prompt or 15 minutes pass (th
 survives a server restart and a reconnect of the session), **Session waiting in the
 terminal** and **Response ready** are not sent because the agent is woken instead, and
 **Session ended** still notifies. When the agent escalates a prompt, the held push is sent
-at once.
+at once. When the agent loses control (coding sessions switched off, the project revoked
+or the agent archived), held pushes are sent and the session notifies like your own.
 
 Telegram keeps its own messages and approval buttons for agents; these settings only
 change push notifications.

@@ -39,6 +39,22 @@ export const assistantWorkflowCopy = {
     "Noch keine Aktionen. Bitte diesen Agenten im Chat, Projektwissen nachzuschlagen oder einen Coding-Auftrag vorzuschlagen.",
   coding: "Coding-Auftrag",
   codingSession: "Coding-Session",
+  // What an agent's coding session start would launch with (SessionLaunchFacts.jsx).
+  sessionLaunch: {
+    mode: "Startmodus",
+    unattended: "Unbeaufsichtigt: Die CLI führt Befehle ohne Rückfrage aus.",
+    account: "Konto",
+    connection: "Verbindung",
+    model: "Modell",
+    secrets: "Secrets",
+    sshAccesses: "SSH-Zugänge",
+    sandbox: "Sandbox-Profil",
+    noSandbox: "Keins",
+    agentpierTools: "AgentPier-Tools",
+    agentbus: "AgentBus",
+    on: "An",
+    off: "Aus",
+  },
   escalation: {
     title: "Frage aus einer Coding-Session",
     note: (agent) => `Hinweis von ${agent}`,

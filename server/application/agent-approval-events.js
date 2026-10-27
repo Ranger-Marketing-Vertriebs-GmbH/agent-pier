@@ -6,6 +6,7 @@ const subjects = {
   exec: "exec",
   ssh: "ssh",
   coding_start: "coding",
+  session_start: "codingSession",
   memory_write: "memory",
   member_grant: "grant",
   hook_proposal: "hook",

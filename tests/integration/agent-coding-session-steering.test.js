@@ -141,6 +141,27 @@ test("send of text over 32000 characters is INVALID_INPUT", async (t) => {
   );
 });
 
+test("a send whose turn ended while the session was read sends nothing", async (t) => {
+  const f = await agentSessionFixture(t);
+  const sessionId = await started(f);
+  // The turn ends while control reads the session.
+  let ended = false;
+  const get = f.services.sessions.get;
+  f.services.sessions.get = async (id) => {
+    ended = true;
+    return get(id);
+  };
+  const inv = {
+    ...(await f.invocation()),
+    assertCurrent() {
+      if (ended) throw Object.assign(Error("stale"), { status: 409 });
+    },
+  };
+  await assert.rejects(f.call(inv, { action: "send", sessionId, text: "Too late" }));
+  assert.equal(f.services.chatDelivery.sent.length, 0);
+  assert.equal(f.workflows.sessions.store.get(sessionId).lastSentAt ?? null, null);
+});
+
 test("a send while a prompt is pending is held, not refused", async (t) => {
   const f = await agentSessionFixture(t);
   const sessionId = await started(f);

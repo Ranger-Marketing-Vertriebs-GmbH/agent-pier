@@ -91,6 +91,8 @@ export async function escalatePrompt(w, ctx, input, inv) {
       note: input.note?.trim() || null,
     },
     state: "awaiting_approval",
+    // Waits as long as the prompt does: the tick completes it once the prompt is gone.
+    expiresAt: null,
     telegram: pairedTelegram(w, ctx.assistantId),
   });
   w.a.changed();
@@ -129,7 +131,8 @@ async function promptOpen(w, sessionId, promptId) {
  * The action tick of an escalation (AssistantWorkflows.advanceAction): cancelled
  * once the agent no longer controls the session (GRANT_REVOKED); while the prompt
  * waits, asks on Telegram; once it is gone, completed with who answered it (owner,
- * agent, telegram, or the session itself when it ended or moved on), and the agent
+ * agent, telegram, or "session" when unknown: answered in the terminal, or the
+ * session ended or moved on), and the agent
  * woken once with that (session-wakes.js wakeEscalation).
  */
 export async function advanceEscalation(w, a) {
@@ -151,7 +154,8 @@ export async function advanceEscalation(w, a) {
     }
     a = w.store.patch(a.id, {
       state: "completed",
-      result: { answeredBy: w.sessions.answeredBy(promptId) },
+      // Kept on the action when the broker named the actor (requestEvent).
+      result: { answeredBy: a.answeredBy ?? w.sessions.answeredBy(promptId) },
     });
   }
   if (a.state === "completed") {

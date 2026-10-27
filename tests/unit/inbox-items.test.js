@@ -10,6 +10,7 @@ import {
   sortItems,
   teamItem,
 } from "../../server/features/inbox/inbox-items.js";
+import { collectItems } from "../../server/features/inbox/inbox-sources.js";
 
 const now = Date.parse("2026-10-18T12:00:00.000Z");
 const at = (offsetMs) => new Date(now + offsetMs).toISOString();
@@ -223,4 +224,44 @@ test("a session request names the agent that started the session and its escalat
   assert.equal(own.agent, null);
   // Escalating changes the item, so the inbox reads it again.
   assert.notEqual(itemsSignature([item]), itemsSignature([own]));
+});
+
+test("one failing escalation lookup never drops the session requests", async () => {
+  const request = (id) => ({
+    id,
+    sessionId: "s1",
+    kind: "permission",
+    source: "claude",
+    status: "pending",
+    revision: 1,
+    subject: { tool: "Bash" },
+    createdAt: at(0),
+  });
+  const items = await collectItems({
+    requests: { listAll: () => [request("p1"), request("p2")] },
+    sessions: { list: async () => [{ id: "s1", status: "running", name: "Fix" }] },
+    assistants: {
+      workflows: {
+        store: {
+          byKey: (key) => {
+            if (key.endsWith(":p1")) throw Error("unreadable");
+            return {
+              assistantId: "a",
+              state: "awaiting_approval",
+              payload: { note: null },
+            };
+          },
+        },
+      },
+      store: { getAssistant: () => ({ name: "Home" }) },
+      closed: true,
+    },
+  });
+  assert.deepEqual(
+    items.map((i) => [i.id, i.escalation?.agentName ?? null]),
+    [
+      ["p1", null],
+      ["p2", "Home"],
+    ],
+  );
 });

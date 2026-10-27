@@ -87,6 +87,20 @@ test("options lists launchable accounts, defaults and only enabled projects", as
   assert.deepEqual(r.sandboxProfiles, []);
 });
 
+test("options leaves out a connection without tools instead of failing", async (t) => {
+  const f = await agentSessionFixture(t);
+  const list = f.services.providerConnections.list;
+  f.services.providerConnections.list = () => [
+    { id: "bare", name: "Bare", providerId: "endpoint", launchable: true },
+    ...list(),
+  ];
+  const r = await f.call(await f.invocation(), { action: "options" });
+  assert.deepEqual(
+    r.connections.map((c) => c.id),
+    ["router"],
+  );
+});
+
 test("without enabled projects the tool answers SESSIONS_NOT_ENABLED", async (t) => {
   const f = await agentSessionFixture(t, { sessionProjects: false });
   assert.equal(

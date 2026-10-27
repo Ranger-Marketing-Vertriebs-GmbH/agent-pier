@@ -2,9 +2,15 @@ import { actionItem, gateItem, requestItem, teamItem } from "./inbox-items.js";
 import { escalationKey } from "../assistants/coding-sessions/session-requests.js";
 
 // The escalation of a session prompt (coding-sessions/session-escalations.js) while
-// it waits, with its agent's name and note, or null.
+// it waits, with its agent's name and note, or null. A lookup that fails is null, so
+// the request still shows.
 function escalationOf(assistants, entry) {
-  const a = assistants?.workflows?.store.byKey(escalationKey(entry.sessionId, entry.id));
+  let a;
+  try {
+    a = assistants?.workflows?.store.byKey(escalationKey(entry.sessionId, entry.id));
+  } catch {
+    return null;
+  }
   if (a?.state !== "awaiting_approval") return null;
   let name = "";
   try {

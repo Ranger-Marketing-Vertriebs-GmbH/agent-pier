@@ -25,4 +25,18 @@ export const agentCodingSessions = Object.freeze({
     session: "The session no longer waits for this answer.",
   }),
   escalationStale: "This prompt was already answered or has changed.",
+  // Telegram: what an agent's coding session start would launch (approval).
+  startLaunch: Object.freeze({
+    mode: (mode) => `Launch mode: ${mode}`,
+    unattended: "unattended: runs commands without asking",
+    account: (name) => `Account: ${name}`,
+    connection: (name) => `Connection: ${name}`,
+    model: (model) => `Model: ${model}`,
+    access: (secrets, ssh) => `Secrets: ${secrets} · SSH accesses: ${ssh}`,
+    sandbox: (profile) => `Sandbox profile: ${profile}`,
+    noSandbox: "Sandbox profile: none",
+    tools: (tools, bus) => `AgentPier tools: ${tools} · AgentBus: ${bus}`,
+    on: "on",
+    off: "off",
+  }),
 });

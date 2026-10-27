@@ -26,4 +26,18 @@ export const agentCodingSessions = Object.freeze({
     session: "Die Session wartet nicht mehr auf diese Antwort.",
   }),
   escalationStale: "Diese Rückfrage wurde bereits beantwortet oder hat sich geändert.",
+  // Telegram: what an agent's coding session start would launch (approval).
+  startLaunch: Object.freeze({
+    mode: (mode) => `Startmodus: ${mode}`,
+    unattended: "unbeaufsichtigt: führt Befehle ohne Rückfrage aus",
+    account: (name) => `Konto: ${name}`,
+    connection: (name) => `Verbindung: ${name}`,
+    model: (model) => `Modell: ${model}`,
+    access: (secrets, ssh) => `Secrets: ${secrets} · SSH-Zugänge: ${ssh}`,
+    sandbox: (profile) => `Sandbox-Profil: ${profile}`,
+    noSandbox: "Sandbox-Profil: keins",
+    tools: (tools, bus) => `AgentPier-Tools: ${tools} · AgentBus: ${bus}`,
+    on: "an",
+    off: "aus",
+  }),
 });
