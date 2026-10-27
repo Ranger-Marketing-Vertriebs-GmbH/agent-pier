@@ -43,8 +43,10 @@ test.describe("phone", () => {
     await open(page);
     const tab = page.getByRole("tab", { name: /^Fähigkeiten/ });
     await expect(tab.locator("small")).toHaveText("3");
+    // The tab is a 44px tap target; the list adds its 1px bottom border.
+    expect(await tab.evaluate((el) => el.getBoundingClientRect().height)).toBe(44);
     const list = page.getByRole("tablist", { name: "Harness tabs" });
-    expect(await list.evaluate((el) => el.getBoundingClientRect().height)).toBe(44);
+    expect(await list.evaluate((el) => el.getBoundingClientRect().height)).toBe(45);
   });
 
   test("run filter chips fade while more chips are hidden", async ({ page }) => {
