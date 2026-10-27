@@ -5,6 +5,8 @@ import path from "node:path";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { writePrivate } from "../../server/lib/storage.js";
 import { reaManagedKeys } from "../../server/features/tools/rea-environment.js";
+import { installReaComponent } from "../../server/features/tools/rea-components.js";
+import { provisionRea } from "../../server/features/tools/rea-provisioning.js";
 import {
   fakeBinding,
   reaFixture,
@@ -230,6 +232,47 @@ test("start() brings an outdated Ghidra, JDK or Core lock to the pins", async (t
   const env = f.s.servers.envValues(serverId);
   assert.equal(env.GHIDRA_INSTALL_DIR, rea.component("rea-ghidra").home);
   assert.equal(env.JAVA_HOME, rea.component("rea-jdk").home);
+});
+
+// The installer (--with-rea, provisionRea) switches the component links to the new
+// pins before the server starts, so start() finds nothing outdated: the row's env
+// must still follow the links, or it names a version folder the next bump prunes.
+test("start() points the row env at the homes an installer update switched to", async (t) => {
+  const f = await reaFixture(t);
+  const old = await f.tool({ pins: { ghidra: "12.1.2", jdk: "21.0.11+9" } });
+  const { serverId } = await f.install(old);
+  const first = old.component("rea-ghidra").directory;
+  await old.close();
+  const installer = async (pins) => {
+    const result = await provisionRea(
+      { dataDir: f.s.dataDir, manifest: f.manifest(pins), platform: "darwin" },
+      {
+        fetchImpl: f.fetchImpl,
+        install: (options) => installReaComponent({ ...options, run: f.run, env: {} }),
+      },
+    );
+    assert.equal(result.status, "ready", result.message);
+  };
+  const env = () => f.s.servers.envValues(serverId);
+  for (const [index, pins] of [
+    { ghidra: "12.1.3", jdk: "21.0.12+7" },
+    { ghidra: "12.1.4", jdk: "21.0.13+9" },
+  ].entries()) {
+    await installer(pins);
+    const rea = await f.tool({ pins });
+    assert.equal(rea.state().updateAvailable, false);
+    f.busy.value = index === 1;
+    await rea.start();
+    assert.equal(rea.state().status, "idle");
+    assert.equal(env().GHIDRA_INSTALL_DIR, rea.component("rea-ghidra").home);
+    assert.equal(env().JAVA_HOME, rea.component("rea-jdk").home);
+    assert.equal(fs.existsSync(env().GHIDRA_INSTALL_DIR), true);
+    assert.equal(fs.existsSync(env().JAVA_HOME), true);
+    await rea.close();
+  }
+  // The second bump pruned the first version; the env never names it.
+  assert.equal(fs.existsSync(first), false);
+  f.busy.value = false;
 });
 
 test("start() skips the update while REA is in use and reports updateAvailable", async (t) => {

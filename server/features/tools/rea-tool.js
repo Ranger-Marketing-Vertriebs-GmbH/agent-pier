@@ -459,6 +459,17 @@ export class ReaTool {
     // Every name REA may set stays REA's, set or not: the owner keeps all others.
     this.servers.managed.setLockedEnv(id, [...reaManagedKeys]);
   }
+  /**
+   * Points an idle, installed REA's row env at the current component homes (an
+   * installer run switched the links). Applied while in use too, like a settings
+   * change: a running REA keeps its environment and the previous version folder,
+   * which the next install prunes; sessions started afterwards get the new homes.
+   */
+  async syncEnvironment() {
+    const id = this.serverId();
+    if (!id || this.job || this.claimed || !this.installed()) return;
+    await this.applyEnvironment(id, this.stored().settings);
+  }
   skillContext(serverId) {
     return {
       serverId,
