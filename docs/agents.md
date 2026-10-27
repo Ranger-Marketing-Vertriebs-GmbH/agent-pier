@@ -1268,7 +1268,7 @@ gives up after a few tries.
 When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
-**Summarise now** has the agent service summarise the chat's history right away. When
+**Summarise now** has the agent service summarise the chat's history right away. The same button always sits in the bar under the chat header, next to **New chat** (icon only on a phone), not only with this hint: it is disabled with a reason while the agent works, a message waits or a summary runs, while the chat is still empty, and while the agent service is unavailable; archived chats and a user's chats have none there. If there is nothing left to summarise, the agent service refuses and the chat says so. When
 the agent may write memory (**Remember information** is on and writing memory is proven
 safe; a shared agent writes its shared memory), AgentPier first runs a hidden memory
 step in that chat: the agent may search its memory and read files; it may write only its

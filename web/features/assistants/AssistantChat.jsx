@@ -43,6 +43,7 @@ import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
+import summariseAction from "./chats/summarise-action.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import {
@@ -388,6 +389,14 @@ export default function AssistantChat({
     refresh,
     onError: setError,
   });
+  const summarise = summariseAction({
+    shown: !readOnly && !assistant.archivedAt,
+    longChat,
+    available,
+    working: Boolean(active || queued || busy || memberBusy),
+    compacting: Boolean(compacting),
+    empty: !history.messages.length && !latest,
+  });
   return (
     <section className="assistant-detail assistant-chat">
       <AssistantHeader
@@ -404,6 +413,7 @@ export default function AssistantChat({
         assistant={assistant}
         conversationId={conversationId}
         navigate={navigate}
+        summarise={summarise}
       />
       <ChatStrips
         entry={activityFor(activity, assistant.id)}

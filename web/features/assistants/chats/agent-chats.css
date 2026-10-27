@@ -120,3 +120,15 @@
     min-height: var(--touch-target);
   }
 }
+.agent-chat-bar .agent-chat-summarise {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+@media (max-width: 700px) {
+  .agent-chat-bar .agent-chat-summarise-label {
+    display: none;
+  }
+}
