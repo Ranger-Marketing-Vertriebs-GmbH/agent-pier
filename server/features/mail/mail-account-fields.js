@@ -16,6 +16,22 @@ const accountKeys = new Set([
   "saveSent",
   "password",
 ]);
+/** Every field of a stored catalog row; a backup restores exactly these. */
+export const accountRowKeys = Object.freeze([
+  "id",
+  "name",
+  "address",
+  "displayName",
+  "preset",
+  "imap",
+  "smtp",
+  "allowPlaintext",
+  "saveSent",
+  "credentialRevision",
+  "createdAt",
+  "updatedAt",
+  "lastTest",
+]);
 const serverKeys = new Set(["host", "port", "security", "username"]);
 
 /** Starting values of the account form; a missing server field takes the preset's. */

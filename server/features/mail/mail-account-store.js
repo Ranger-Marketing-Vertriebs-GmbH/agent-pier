@@ -79,6 +79,14 @@ export class MailAccountStore {
   importRestored() {
     const file = path.join(this.root, mailRestoreFile);
     if (!fs.existsSync(file)) return;
+    let readable;
+    try {
+      readable = Array.isArray(readJSON(file, null)?.accounts);
+    } catch {
+      readable = false;
+    }
+    // Never echoes the file: it is removed with the passwords nobody can import.
+    if (!readable) console.warn("Mail accounts: the restore file could not be read.");
     const merged = mergeRestoredMailAccounts(file, {
       version: VERSION,
       accounts: this.rows(),

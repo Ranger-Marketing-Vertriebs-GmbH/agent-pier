@@ -5200,6 +5200,7 @@
   "operations:backupCopy.descriptions.CLI caches, logs, telemetry and files outside the profile allowlists": "de:dc0c8a86e85c en:d83e5d4329bb",
   "operations:backupCopy.descriptions.CLI conversation histories": "de:67405648dd59 en:3a3e5c7b8568",
   "operations:backupCopy.descriptions.CLI histories are only backed up in backups with a passphrase, and then encrypted": "de:63c1cc21f1fc en:f7ee131670c8",
+  "operations:backupCopy.descriptions.Email accounts (their list could not be read)": "de:e8be8c1b1099 en:03763ee9993d",
   "operations:backupCopy.descriptions.Email accounts and passwords (only in backups with a passphrase, then encrypted)": "de:b02b9ca8d9e4 en:954702ff61ee",
   "operations:backupCopy.descriptions.External local CLI profiles and OS keychains": "de:786f2e1e297c en:f79366ce2564",
   "operations:backupCopy.descriptions.File trash, file journals and transfer bytes": "de:be30de0413b2 en:b1791d2b2578",

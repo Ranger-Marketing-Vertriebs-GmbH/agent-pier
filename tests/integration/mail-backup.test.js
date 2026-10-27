@@ -8,7 +8,9 @@ import { Restore } from "../../server/features/operations/restore.js";
 import { decryptCredentials } from "../../server/features/operations/archive.js";
 import { MailAccountStore } from "../../server/features/mail/mail-account-store.js";
 import {
+  captureMailAccounts,
   mailAccountsMember,
+  mailCatalogUnreadableOmission,
   mailAccountsOmission,
   mailAccountsPresent,
   mailRestoreFile,
@@ -268,9 +270,20 @@ test("an unreadable restore file leaves no password without its account", async 
   const pending = path.join(target, "mail", mailRestoreFile);
   fs.writeFileSync(pending, "{not json", { mode: 0o600 });
   assert.equal(mergeRestoredMailAccounts(pending, { version: 1, accounts: [] }), null);
+  const warn = t.mock.method(console, "warn", () => {});
   const store = await start(target);
   assert.deepEqual(store.list(), []);
   assert.equal(fs.existsSync(pending), false);
+  // The unreadable file is reported without its content.
+  assert.equal(warn.mock.callCount(), 1);
+  assert.equal(JSON.stringify(warn.mock.calls[0].arguments).includes("not json"), false);
+  // A restore file that adds nothing new is no warning.
+  warn.mock.resetCalls();
+  fs.writeFileSync(pending, JSON.stringify({ version: 1, accounts: [] }), {
+    mode: 0o600,
+  });
+  await start(target);
+  assert.equal(warn.mock.callCount(), 0);
   // The pending password of the account that was never imported is removed.
   assert.equal(fs.existsSync(path.join(target, "mail/passwords", account.id)), false);
 });
@@ -290,4 +303,66 @@ test("a wrong passphrase restores nothing", async (t) => {
   );
   assert.equal(fs.existsSync(target), false);
   assert.deepEqual(fs.readdirSync(root).sort(), before);
+});
+
+test("an unreadable account list is named as omitted, never left out silently", async (t) => {
+  const { dataDir } = await setup(t);
+  const file = path.join(dataDir, mailAccountsMember);
+  for (const content of [
+    "{not json",
+    JSON.stringify({ version: 2, accounts: [] }),
+    "[]",
+  ]) {
+    fs.writeFileSync(file, content, { mode: 0o600 });
+    assert.equal(mailAccountsPresent(dataDir), true, content);
+    const backup = new Backup({ dataDir });
+    for (const withCredentials of [false, true]) {
+      const plan = backup.plan({ withCredentials });
+      assert.ok(plan.omissions.includes(mailCatalogUnreadableOmission), content);
+      const made = await (withCredentials
+        ? sealed(dataDir)
+        : backup.create({ includeHistory: false }));
+      assert.equal(
+        made.manifest.omissions.filter((item) => item === mailCatalogUnreadableOmission)
+          .length,
+        1,
+        content,
+      );
+      assert.equal(archiveText(made.file).includes(secret), false);
+      if (withCredentials) {
+        const opened = await decryptCredentials(
+          loadArchive(made.file).credentials,
+          passphrase,
+        );
+        assert.equal(
+          opened.some((entry) => entry.path === mailAccountsMember),
+          false,
+        );
+      }
+    }
+  }
+});
+
+test("every catalog field survives capture and restore", async (t) => {
+  const { dataDir, store, account } = await setup(t);
+  store.update(account.id, {
+    displayName: "Support Team",
+    preset: "generic",
+    imap: { host: "imap.example.com", port: 143, security: "none", username: "imap-u" },
+    smtp: { host: "smtp.example.com", port: 25, security: "none", username: "smtp-u" },
+    allowPlaintext: true,
+    saveSent: false,
+    password: secret,
+  });
+  const row = catalogRow(dataDir, account.id);
+  row.lastTest = { at: new Date().toISOString(), imap: "ok", smtp: "ok" };
+  const catalog = { version: 1, accounts: [row] };
+  fs.writeFileSync(path.join(dataDir, mailAccountsMember), JSON.stringify(catalog));
+  const captured = captureMailAccounts(dataDir);
+  assert.deepEqual(captured.accounts, [row]);
+  const stage = stageWith(dataDir, { version: 1, ...captured });
+  assert.deepEqual(restoreMailAccounts(stage), { restored: 1 });
+  const file = JSON.parse(fs.readFileSync(path.join(stage, "mail", mailRestoreFile)));
+  // Only the last test result is not carried over; any other field must round-trip.
+  assert.deepEqual(file.accounts, [{ ...row, lastTest: null }]);
 });
