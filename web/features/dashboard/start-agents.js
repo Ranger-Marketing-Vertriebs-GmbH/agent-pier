@@ -6,7 +6,7 @@ import {
   sidebarSubline,
 } from "../assistants/assistant-status.js";
 import { serviceDown } from "../assistants/hub/hub-model.js";
-import { runProgress } from "../pipelines/run-presentation.js";
+import { runProgress, runUpdatedAt } from "../pipelines/run-presentation.js";
 import { agentRank, agentState } from "./start-lists.js";
 
 const live = (a) => !a.archivedAt && (!a.teamMemberId || a.lifetime === "permanent");
@@ -70,23 +70,35 @@ export function startAgents({
 }
 
 const runOrder = ["running", "awaiting-human", "failed"];
+/** How long a failed run stays on the start page. */
+export const FAILED_RUN_MS = 24 * 60 * 60 * 1000;
+
+/** The failed runs of `list` whose failure is from the last 24 hours. */
+export function recentFailures(list, now = Date.now()) {
+  return (list || []).filter((run) => {
+    const at = Date.parse(run.finishedAt || runUpdatedAt(run) || "");
+    return Number.isFinite(at) && now - at <= FAILED_RUN_MS;
+  });
+}
 
 /**
  * Up to `limit` runs for the pipelines card: running ones, then those awaiting a
- * decision, then failed ones, each newest first. `runs` are the first pages of the
- * three listings (null: not known); the result is null while none is known.
+ * decision, then those that failed in the last 24 hours, each newest first. `runs` are
+ * the first pages of the three listings (null: not known); the result is null while
+ * none is known.
  */
-export function startRuns(runs, limit = 3) {
+export function startRuns(runs, limit = 3, now = Date.now()) {
   if (!runs || [runs.running, runs.decisions, runs.failed].every((list) => !list))
     return null;
   const all = [
     ...(runs.running || []),
     ...(runs.decisions || []),
-    ...(runs.failed || []),
+    ...recentFailures(runs.failed, now),
   ].filter(
     (run, index, list) => list.findIndex((other) => other.id === run.id) === index,
   );
-  const newest = (run) => latest([run.createdAt, run.finishedAt]);
+  // When each run last moved: its newest start, stage or end time.
+  const newest = (run) => latest([runUpdatedAt(run)]);
   return all
     .sort(
       (a, b) =>

@@ -26,7 +26,7 @@ you, in a column up to about 1180 px wide:
 - **Agents** with their team note ("Lead, 2 members", "shared, 3 users"), current
   activity and state, and the agent service's state in the footer (absent while agents
   are off), beside **Pipelines** with up to three runs (running, awaiting a decision,
-  failed), each with a bar per stage, and **All runs**.
+  failed in the last 24 hours), each with a bar per stage, and **All runs**.
 - **Your tools:** the heading counts the ready tools and the CLI profiles (once
   known), such as "Your tools · 4 of 5 ready · 3 profiles". One row per CLI and
   utility with its version and one action:
