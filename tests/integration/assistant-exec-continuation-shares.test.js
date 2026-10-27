@@ -228,3 +228,97 @@ test("completion runs of other turns never share", async (t) => {
   await assert.rejects(h.share({ path: "episode.mp4" }), { status: 403 });
   assert.deepEqual([...g.sent(), ...h.sent()], []);
 });
+
+// AGENTPIER-261: the lead's render, started in its follow-up on one member result,
+// finished after a second follow-up had arrived (an answer to its question). The
+// completion run was refused (PROCESS): it was proven against that newer turn only.
+test("a later member-result follow-up does not end the lead's render's share", async (t) => {
+  const f = await setup(t);
+  f.file("episode.mp4");
+  f.leadRequests.set("r1", { id: "r1", kind: "lead-request", parentAssistantId: f.id });
+  f.leadRequests.set("r2", { id: "r2", kind: "lead-request", parentAssistantId: f.id });
+  const source = await f.started("lead-request-result:r1", {
+    kind: "member-result",
+    requestId: "r1",
+  });
+  const { attemptId: later } = await f.invocation("lead-request-result:r2", {
+    kind: "member-result",
+    requestId: "r2",
+  });
+  f.assistants.ledger.transition(later, "completed");
+  await f.wake();
+  const result = await f.share({ path: "episode.mp4" });
+  assert.equal(result.status, "shared");
+  // It continues the turn that started the command, not the later follow-up.
+  assert.deepEqual(
+    f.sent().map((e) => e.details.sourceAttemptId),
+    [source],
+  );
+  assert.equal(await f.call("notes/render.md", { ctx: await f.wake("wake-1") }), true);
+});
+
+test("an owner turn's render shares after a member-result follow-up", async (t) => {
+  const f = await setup(t);
+  f.file("episode.mp4");
+  f.leadRequests.set("r1", { id: "r1", kind: "lead-request", parentAssistantId: f.id });
+  const source = await f.turn({ kind: "owner" });
+  const { attemptId: later } = await f.invocation("lead-request-result:r1", {
+    kind: "member-result",
+    requestId: "r1",
+  });
+  f.assistants.ledger.transition(later, "completed");
+  await f.wake();
+  assert.equal((await f.share({ path: "episode.mp4" })).status, "shared");
+  assert.deepEqual(
+    f.sent().map((e) => e.details.sourceAttemptId),
+    [source],
+  );
+});
+
+test("any other later turn still ends a render's share", async (t) => {
+  const later = [
+    // The owner's own newer message, forwarded content, a reminder, a lead's task.
+    ["owner", { kind: "owner" }],
+    ["forwarded", { kind: "owner", forwarded: true }],
+    ["reminder", { kind: "reminder" }],
+    ["lead-request", { kind: "lead-request", requestId: "r2" }],
+    // A follow-up that only claims a member's result, without AgentPier's request.
+    ["claimed", { kind: "member-result", requestId: "r2" }],
+    // A hook report's follow-up, which is handled read-only.
+    ["hook", { kind: "member-result", requestId: "r3" }, "lead-request-result:r3"],
+  ];
+  for (const [name, origin, key] of later) {
+    const f = await setup(t);
+    f.file("episode.mp4");
+    f.leadRequests.set("r1", { id: "r1", kind: "lead-request", parentAssistantId: f.id });
+    f.leadRequests.set("r2", { id: "r2", kind: "lead-request", parentAssistantId: f.id });
+    f.leadRequests.set("r3", {
+      id: "r3",
+      kind: "lead-request",
+      parentAssistantId: f.id,
+      origin: { kind: "member-hook" },
+    });
+    await f.started("lead-request-result:r1", { kind: "member-result", requestId: "r1" });
+    const { attemptId } = await f.invocation(key, origin);
+    f.assistants.ledger.transition(attemptId, "completed");
+    await f.wake();
+    await assert.rejects(f.share({ path: "episode.mp4" }), { status: 403 }, name);
+    assert.deepEqual(f.sent(), [], name);
+  }
+  // A later follow-up the owner must review ends it too.
+  for (const state of ["interrupted", "reviewed"]) {
+    const f = await setup(t);
+    f.file("episode.mp4");
+    f.leadRequests.set("r1", { id: "r1", kind: "lead-request", parentAssistantId: f.id });
+    f.leadRequests.set("r2", { id: "r2", kind: "lead-request", parentAssistantId: f.id });
+    await f.started("lead-request-result:r1", { kind: "member-result", requestId: "r1" });
+    const { attemptId } = await f.invocation("lead-request-result:r2", {
+      kind: "member-result",
+      requestId: "r2",
+    });
+    f.assistants.ledger.transition(attemptId, "interrupted");
+    if (state === "reviewed") f.assistants.ledger.review(attemptId);
+    await f.wake();
+    await assert.rejects(f.share({ path: "episode.mp4" }), { status: 403 }, state);
+  }
+});

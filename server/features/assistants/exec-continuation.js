@@ -17,11 +17,15 @@
 // (continuationSource, processRefusal, provenSource):
 // - the session is a chat of the calling agent, which is active and no temporary
 //   task member;
-// - the chat's latest ledger request is a completed turn that continues the owner's
-//   own work (continuedTurn: a direct turn, read live so a restricted user who lost
-//   the agent gets nothing, a work-goal continuation, which is recorded as one, or a
-//   lead's follow-up on its member's result, member-result-writes.js) at most
-//   `continuationWindowMs` ago, and no newer request exists;
+// - the turn is a completed turn that continues the owner's own work (continuedTurn:
+//   a direct turn, read live so a restricted user who lost the agent gets nothing, a
+//   work-goal continuation, which is recorded as one, or a lead's follow-up on its
+//   member's result, member-result-writes.js) at most `continuationWindowMs` ago. It
+//   is the chat's latest ledger request, or the one whose run started the reported
+//   processes when only a lead's completed, proven follow-ups on its members'
+//   results came after it (sourceRequest, AGENTPIER-261: they arrive on their own
+//   while a render runs and act like the lead's own work); any other newer request
+//   ends the continuation;
 // - the call names its run (the write hook's `runId`; a workspace call the run of
 //   its tool call), it is not that turn's run, and either the Gateway's agent events
 //   mark it heartbeat-driven in this session (CompletionRuns), or the plugin saw it
@@ -180,7 +184,7 @@ export function continuationSource(bridge, input) {
       bridge.bound(sessionKey).length
     )
       return refuse(bridge, input, "CHAT");
-    const request = ledger.latestRequest(conversation.id);
+    const request = sourceRequest(bridge, input, conversation.id);
     const attempt = request && ledger.attemptFor(request.id);
     if (attempt?.state !== "completed" || attempt.reviewedAt)
       return refuse(bridge, input, "REQUEST");
@@ -200,12 +204,58 @@ export function continuationSource(bridge, input) {
           at: bridge.now(),
           pending: true,
         });
-    if (!run || [attempt.id, attempt.runtimeRunId].includes(run.runId))
+    // Never a ledger turn's own run (the source's or a later follow-up's).
+    if (
+      !run ||
+      [attempt.id, attempt.runtimeRunId].includes(run.runId) ||
+      ledger.attemptForRun(run.runId)
+    )
       return refuse(bridge, input, "RUN");
     return { agent, conversation, attempt, runId, run };
   } catch (error) {
     return refuse(bridge, input, `ERROR ${error?.code || error?.name || "unknown"}`);
   }
+}
+
+/**
+ * The request a completion run may continue: the chat's latest one, or the earlier
+ * request whose attempt started every process the completion reports when each
+ * request after it is a lead's follow-up on its member's result that completed
+ * unreviewed and that AgentPier submitted (resultTurn). Those follow-ups arrive on
+ * their own while the command runs and act like the lead's own work; the owner's
+ * own newer message, forwarded content and every other turn still end it.
+ */
+function sourceRequest(bridge, input, conversationId) {
+  const { ledger } = bridge.assistants;
+  const latest = ledger.latestRequest(conversationId);
+  const starter = starterAttempt(ledger, execEvidence(input.exec));
+  if (!latest || !starter || starter.requestId === latest.id) return latest;
+  const request = ledger.getRequest(starter.requestId);
+  if (request.conversationId !== conversationId) return latest;
+  const since = ledger.requestsSince(conversationId, request.createdAt);
+  const at = since.findIndex((r) => r.id === request.id);
+  const later = at < 0 ? [] : since.slice(at + 1);
+  return later.length && later.every((r) => resultFollowUp(bridge, r)) ? request : latest;
+}
+// The one attempt whose run started the processes a completion reports, or null.
+function starterAttempt(ledger, evidence) {
+  const ids = evidence?.completion?.ids;
+  if (!evidence?.complete || !ids?.length) return null;
+  const runs = new Set(
+    evidence.processes.filter((p) => ids.includes(p.id.slice(0, 8))).map((p) => p.runId),
+  );
+  return runs.size === 1 ? ledger.attemptForRun([...runs][0]) : null;
+}
+// A completed, unreviewed lead follow-up on its member's result that AgentPier sent.
+function resultFollowUp(bridge, request) {
+  const attempt = bridge.assistants.ledger.attemptFor(request.id);
+  const origin = bridge.teams?.store?.context?.(request.id);
+  return (
+    attempt?.state === "completed" &&
+    !attempt.reviewedAt &&
+    origin?.kind === "member-result" &&
+    !!resultTurn(bridge.assistants, origin.requestId, attempt.id)
+  );
 }
 
 const maxProcesses = 256;
