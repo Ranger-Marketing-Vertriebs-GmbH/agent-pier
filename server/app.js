@@ -8,6 +8,7 @@ import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
 import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
 import { secretsRoutes } from "./http/routes/secrets.js";
+import { mailRoutes } from "./http/routes/mail.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { UserStore } from "./features/users/user-store.js";
@@ -361,6 +362,7 @@ export async function createApplication(config) {
   mount(sessionsRoutes(services));
   mount(sshRoutes(services));
   mount(secretsRoutes(services));
+  mount(mailRoutes(services));
   mount(repositoriesRoutes(services));
   mount(extensionsRoutes(services));
   mount(agencyRoutes(services));

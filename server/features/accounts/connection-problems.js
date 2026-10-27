@@ -174,6 +174,27 @@ function secretProblems(services) {
   return category(services.secrets.list().length);
 }
 
+// A failed side of the last stored test is a problem; an unencrypted side a warning.
+function mailProblems(services) {
+  if (!services.mailAccounts) return null;
+  const accounts = services.mailAccounts.list();
+  const failed = (code) => typeof code === "string" && code !== "ok";
+  return category(
+    accounts.length,
+    accounts.map((account) => ({
+      id: account.id,
+      problem:
+        failed(account.lastTest?.imap) || failed(account.lastTest?.smtp)
+          ? ["testFailed"]
+          : [],
+      warning:
+        account.imap?.security === "none" || account.smtp?.security === "none"
+          ? ["plaintext"]
+          : [],
+    })),
+  );
+}
+
 function serviceProblems(services, agentsOn) {
   if (!agentsOn) return null;
   const webSearch = services.assistantWebSearch?.get();
@@ -197,5 +218,6 @@ export async function connectionProblems(services) {
     ssh: await attempt(() => sshProblems(services)),
     secrets: await attempt(() => secretProblems(services)),
     github: await attempt(() => githubProblems(services, agentsOn)),
+    mail: await attempt(() => mailProblems(services)),
   };
 }

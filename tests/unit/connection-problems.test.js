@@ -155,3 +155,39 @@ test("while agents are off only shared credentials are counted", async () => {
   assert.deepEqual(result.github.unknown, []);
   assert.deepEqual(ids(result.github.problems), [["dead", ["tokenExpired"]]]);
 });
+
+test("mail accounts report failed tests as problems and plaintext as warnings", async () => {
+  const side = (security) => ({ host: "mail.example.com", port: 993, security });
+  const account = (id, lastTest, imap = "tls", smtp = "tls") => ({
+    id,
+    imap: side(imap),
+    smtp: side(smtp),
+    lastTest,
+  });
+  const result = await connectionProblems(
+    services({
+      mailAccounts: {
+        list: () => [
+          account("fine", { at: "x", imap: "ok", smtp: "ok" }),
+          account("untested", null),
+          account("login", { at: "x", imap: "MAIL_AUTH_FAILED", smtp: "ok" }),
+          account("relay", { at: "x", imap: "ok", smtp: "MAIL_TIMEOUT" }, "tls", "none"),
+          account("open", null, "none", "starttls"),
+        ],
+      },
+    }),
+  );
+  assert.equal(result.mail.total, 5);
+  assert.deepEqual(ids(result.mail.problems), [
+    ["login", ["testFailed"]],
+    ["relay", ["testFailed"]],
+  ]);
+  assert.deepEqual(ids(result.mail.warnings), [
+    ["relay", ["plaintext"]],
+    ["open", ["plaintext"]],
+  ]);
+  assert.deepEqual(result.mail.unknown, []);
+  const unreadable = await connectionProblems(services({ mailAccounts: { list: fail } }));
+  assert.equal(unreadable.mail, null);
+  assert.equal((await connectionProblems(services())).mail, null);
+});
