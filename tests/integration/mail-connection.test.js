@@ -167,6 +167,87 @@ test("a server that never greets is MAIL_TIMEOUT", async (t) => {
     smtp: { ok: false, code: "MAIL_TIMEOUT" },
   });
   assert.ok(Date.now() - started < 5000);
+  // Both clients closed their sockets; the server sees that a moment later.
+  for (let wait = 0; silent.openSockets && wait < 50; wait++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(silent.openSockets, 0);
+});
+
+test("a certificate for another host is MAIL_TLS_FAILED", async (t) => {
+  const { imap, smtp } = await servers(t, "tls");
+  const other = account(imap.port, smtp.port);
+  other.imap.host = "localhost";
+  other.smtp.host = "localhost";
+  const result = await testMailAccount(other, "pw-secret", {
+    ca: imap.ca,
+    timeouts: fast,
+  });
+  assert.deepEqual(result, {
+    imap: { ok: false, code: "MAIL_TLS_FAILED" },
+    smtp: { ok: false, code: "MAIL_TLS_FAILED" },
+  });
+});
+
+test("an untrusted certificate after STARTTLS is MAIL_TLS_FAILED", async (t) => {
+  const { imap, smtp } = await servers(t, "starttls");
+  const result = await testMailAccount(
+    account(imap.port, smtp.port, { security: "starttls" }),
+    "pw-secret",
+    { timeouts: fast },
+  );
+  assert.deepEqual(result, {
+    imap: { ok: false, code: "MAIL_TLS_FAILED" },
+    smtp: { ok: false, code: "MAIL_TLS_FAILED" },
+  });
+});
+
+test("a bug inside the callback surfaces unchanged", async (t) => {
+  const { imap, smtp } = await servers(t, "tls");
+  const bug = new TypeError("bug");
+  const caught = await withImap(
+    account(imap.port, smtp.port),
+    "pw-secret",
+    () => {
+      throw bug;
+    },
+    { ca: imap.ca },
+  ).catch((error) => error);
+  assert.equal(caught, bug);
+  assert.equal(imap.loggedOut, 1);
+  const plain = new Error("application failure");
+  const again = await withImap(
+    account(imap.port, smtp.port),
+    "pw-secret",
+    async () => {
+      throw plain;
+    },
+    { ca: imap.ca },
+  ).catch((error) => error);
+  assert.equal(again, plain);
+});
+
+test("a server refusal inside the callback becomes a mail error", async (t) => {
+  const { imap, smtp } = await servers(t, "tls");
+  const error = await withImap(
+    account(imap.port, smtp.port),
+    "pw-secret",
+    (client) => client.mailboxOpen("Missing"),
+    { ca: imap.ca },
+  ).catch((caught) => caught);
+  assert.equal(error.code, "MAIL_PROTOCOL");
+  assert.equal(error.message, "MAIL_PROTOCOL");
+});
+
+test("smtpSend rejects a bad envelope with a bug, not a mail error", async (t) => {
+  const { imap, smtp } = await servers(t, "tls");
+  const caught = await smtpSend(
+    account(imap.port, smtp.port),
+    "pw-secret",
+    { envelope: { from: "owner@example.com", to: null }, raw: Buffer.from("x") },
+    { ca: smtp.ca },
+  ).catch((error) => error);
+  assert.ok(caught instanceof TypeError);
+  assert.equal(smtp.messages.length, 0);
 });
 
 test("smtpSend delivers the raw message to the envelope", async (t) => {

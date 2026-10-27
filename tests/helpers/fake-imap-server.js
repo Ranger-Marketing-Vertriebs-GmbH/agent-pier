@@ -199,6 +199,9 @@ export async function startFakeImap({
     get loggedOut() {
       return state.loggedOut;
     },
+    get openSockets() {
+      return state.sockets.size;
+    },
     folder: (path) => state.mailbox.folder(path),
     close() {
       for (const socket of state.sockets) socket.destroy();

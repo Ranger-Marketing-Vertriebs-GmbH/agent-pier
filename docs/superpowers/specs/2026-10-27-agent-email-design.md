@@ -40,22 +40,22 @@ cancelled; this is a fresh start.
      is sent only after the owner approves; declining keeps the draft.
    - Standing exceptions are rules the owner sets in the agent's settings, never
      from chat: allowed recipient addresses/domains — a send whose every recipient (to/cc/bcc)
-     matches a rule goes out without approval. *(Claude's call: no thread-based rule in
-     step 1, because "any received thread" would let an outside sender unlock sends.)*
-   - A chat message is never an approval: sends without a matching rule are decided only on the approval card or its Telegram buttons, like SSH/SFTP approvals. *(Claude's call after the builder check: no existing proof ties a chat message to one draft, and a mail could otherwise trigger a send during an owner turn.)*
+     matches a rule goes out without approval. _(Claude's call: no thread-based rule in
+     step 1, because "any received thread" would let an outside sender unlock sends.)_
+   - A chat message is never an approval: sends without a matching rule are decided only on the approval card or its Telegram buttons, like SSH/SFTP approvals. _(Claude's call after the builder check: no existing proof ties a chat message to one draft, and a mail could otherwise trigger a send during an owner turn.)_
 5. **Changing the mailbox (owner decision 2026-10-27):** mark, move/archive and
    `delete` need no approval. `delete` only moves the message to the mailbox's Trash
    folder (reversible); permanent deletion (expunge) is not offered at all.
 6. **New mail:** no push/IDLE in step 1. The owner uses the existing routines
    (e.g. every 15 min) to have the agent check `list` for unseen mail; the tool
    offers an `unseen since last check` cursor per agent+account so routines don't
-   re-report. *(Claude's call.)*
+   re-report. _(Claude's call.)_
 7. **Untrusted content:** mail content is untrusted data; tool descriptions and
    instructions say so; instructions inside mail never authorize sends.
 8. **Audit:** account create/update/delete/test, grants, each send (approved or by
    rule), delete, with ids/counts only — never addresses, subjects or bodies.
 
-## Who may use mail *(Claude's calls after the builder check)*
+## Who may use mail _(Claude's calls after the builder check)_
 
 - Step 1: only the owner's own agents and permanent team members can be granted mail.
   Agents of restricted users, temporary members and agents with their own Telegram
