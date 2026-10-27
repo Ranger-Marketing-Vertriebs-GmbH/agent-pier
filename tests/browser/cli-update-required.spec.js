@@ -124,7 +124,9 @@ test("the start page flags an outdated CLI and offers its update first", async (
   await expect(needs).toContainText("Installed: 2.1.100 · new sessions do not start");
   const tools = page.getByRole("region", { name: /Your tools/ });
   const row = tools.locator(".start-tool").filter({ hasText: "Claude Code" });
-  await expect(row).toContainText("Update required");
+  await expect(row).toContainText(
+    "Update required · 2.1.100 · Requires 2.1.263 or later",
+  );
   await row.getByRole("button", { name: "Update: Claude Code", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Update Claude Code", exact: true }),

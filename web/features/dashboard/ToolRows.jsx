@@ -19,8 +19,16 @@ import {
   toolActionShortLabel,
 } from "./tool-action-view.js";
 
+// "Update required · 2.1.100 · Requires 2.1.263 or later", as the full grid says it.
 function stateLine(tool) {
-  if (updateRequired(tool)) return toolInstallerCopy.updateRequiredBadge;
+  if (updateRequired(tool))
+    return [
+      toolInstallerCopy.updateRequiredBadge,
+      tool.version,
+      tool.minimumVersion && toolInstallerCopy.minimumVersion(tool.minimumVersion),
+    ]
+      .filter(Boolean)
+      .join(" · ");
   if (!tool.installed) return commonCopy.notInstalled;
   return [commonCopy.ready, tool.version].filter(Boolean).join(" · ");
 }
@@ -34,7 +42,7 @@ function ToolRow({ tool, effects }) {
       <ProviderMark tool={tool.id} size="row" />
       <span className="start-row-text">
         <strong>{tool.name}</strong>
-        <small className={outdated ? "start-warn" : ""}>
+        <small className={outdated ? "start-warn" : ""} title={stateLine(tool)}>
           <StatusDot tone={outdated ? "warning" : tool.installed ? "ok" : "idle"} />
           {stateLine(tool)}
         </small>
