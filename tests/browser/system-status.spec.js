@@ -132,7 +132,7 @@ test("low disk space needs you on the start page and opens Storage", async ({ pa
   await expect(card).toContainText("Only 6% is free");
   await expect(card).toContainText("warning below 10%");
   // Nothing waits in the Inbox, so there is no link to it.
-  await expect(needs.getByRole("link", { name: "Open Inbox" })).toHaveCount(0);
+  await expect(needs.getByRole("link", { name: "Open inbox" })).toHaveCount(0);
   await expect(page.locator(".start-disk.low")).toBeVisible();
   await card.getByRole("button", { name: "Free up space" }).click();
   const dialog = page.getByRole("dialog", { name: "System status" });
