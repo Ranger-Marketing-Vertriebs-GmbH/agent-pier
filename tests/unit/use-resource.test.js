@@ -73,7 +73,7 @@ test("a read past the polling deadline reports a timeout and keeps polling", asy
   const loop = reader(fake, [hang, ok({ value: 2 })]);
   t.after(loop.start());
   await fake.advance(15_000);
-  assert.deepEqual(loop.reports, [{ error: apiCopy.timedOut }]);
+  assert.deepEqual(loop.reports, [{ error: apiCopy.timedOut, timedOut: true }]);
   await fake.advance(1000);
   assert.deepEqual(loop.reports.at(-1), { data: { value: 2 } });
 });
@@ -83,7 +83,7 @@ test("timeoutMs shortens the deadline and reports the timeout", async (t) => {
   const loop = reader(fake, [hang], { timeoutMs: 5000 });
   t.after(loop.start());
   await fake.advance(5000);
-  assert.deepEqual(loop.reports, [{ error: apiCopy.timedOut }]);
+  assert.deepEqual(loop.reports, [{ error: apiCopy.timedOut, timedOut: true }]);
 });
 
 test("hiding the tab or stopping cancels a read without a report", async () => {

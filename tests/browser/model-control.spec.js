@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 
 import { baseURL as base } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
-async function fixture(page) {
+async function fixture(page, { nativeRequests = false } = {}) {
   const session = {
     id: "model-demo",
     name: "Modell wechseln",
@@ -12,6 +12,7 @@ async function fixture(page) {
     accountId: "local-codex",
     cwd: "/home/test/project",
     status: "running",
+    ...(nativeRequests && { nativeRequests: { enabled: true, version: 1 } }),
   };
   const state = {
     tools: [{ id: "codex", name: "Codex", installed: true }],
@@ -50,7 +51,14 @@ async function fixture(page) {
         messages: [{ id: "a1", role: "assistant", text: "Bestehende Unterhaltung" }],
         tasks: [],
       };
-    else if (path.includes("/models")) {
+    else if (path.endsWith("/requests")) {
+      // A server slower than the 5 s request deadline, after one quick answer.
+      if (controls.slowRequests) {
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        return route.fulfill({ json: { requests: [] } }).catch(() => {});
+      }
+      result = { requests: [] };
+    } else if (path.includes("/models")) {
       if (!body && controls.readError)
         return route.fulfill({ status: 409, json: { error: controls.readError } });
       if (!body && controls.holdNextGet) {
@@ -202,6 +210,33 @@ test("model selection waits for native effort confirmation and preserves the dra
     { action: "select", body: { token: "model-token", optionId: "astra" } },
     { action: "select", body: { token: "effort-token", optionId: "high" } },
   ]);
+});
+
+// The chat never blocks on a slow server (AGENTPIER-266): timed-out request reads
+// over held empty data leave the model control usable, and Esc closes its dialog.
+test("slow request reads over held data keep the model control and Esc working", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const controls = await fixture(page, { nativeRequests: true });
+  const field = page.getByRole("button", { name: "Modell auswählen", exact: true });
+  await expect(field).toBeEnabled();
+  controls.slowRequests = true;
+  await expect(
+    page.getByText("Der Server hat nicht rechtzeitig geantwortet.", { exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(field).toBeEnabled();
+  await field.click();
+  const dialog = page.getByRole("dialog", { name: "Modellauswahl" });
+  await expect(
+    dialog.getByRole("button", { name: "gpt-5.6-sol", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  expect(controls.calls.at(-1)).toEqual({
+    action: "cancel",
+    body: { token: "model-token" },
+  });
 });
 
 test("model errors remain visible across polling and allow safe cancellation", async ({

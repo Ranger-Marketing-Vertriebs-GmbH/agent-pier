@@ -4,14 +4,12 @@ import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import NativeRequest from "./NativeRequest.jsx";
 import { noticeSettled, settleNotice } from "./request-interaction.js";
 import useSessionRequests from "./useSessionRequests.js";
+import { requestsBlockChat } from "./session-requests-store.js";
 import "./requests.css";
 export default function RequestPanel({ session, active, openTerminal, onStateChange }) {
   const resource = useSessionRequests(active ? session.id : null);
   const [, setSettled] = useState(0);
-  const blocked =
-    resource.loading ||
-    Boolean(resource.error) ||
-    Boolean(resource.data?.requests.length);
+  const blocked = requestsBlockChat(resource);
   useEffect(() => {
     onStateChange?.({ sessionId: session.id, blocked });
   }, [session.id, blocked, onStateChange]);

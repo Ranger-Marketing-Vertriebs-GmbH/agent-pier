@@ -8,7 +8,8 @@ const timers = (env) => ({
 });
 
 /**
- * One read that ends in `{ data }`, `{ error }` or `null` when it was cancelled.
+ * One read that ends in `{ data }`, `{ error }` (with `timedOut: true` for a
+ * deadline) or `null` when it was cancelled.
  * A read past `timeoutMs`, or aborted by the caller's deadline, is an error with
  * a translated text: a slow server is shown, never left loading for good.
  */
@@ -30,7 +31,7 @@ export async function attemptRead(read, { signal, timeoutMs = 0, env = {} } = {}
     clearTimeout(deadline);
     signal?.removeEventListener("abort", abort);
   }
-  return timedOut(attempt.signal) ? { error: apiCopy.timedOut } : null;
+  return timedOut(attempt.signal) ? { error: apiCopy.timedOut, timedOut: true } : null;
 }
 
 /**

@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { operationsFixture } from "./operations-fixture.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
-import { recordApiRequests } from "../helpers/visibility.js";
 const request = {
   id: "request-one",
   sessionId: "fixture-session",
@@ -377,7 +376,8 @@ for (const locale of ["de-DE", "en-GB"]) {
 }
 
 // Every view of one session's requests shares one poll (AGENTPIER-266): two
-// escalation cards of the same session read /requests once per 1.5 s, not twice.
+// escalation cards of the same session read /requests once per 1.5 s, not twice
+// (two loops would put reads of the two cards close together).
 test("escalation cards of one session share one requests poll", async ({ page }) => {
   const escalation = (id, promptId) => ({
     id,
@@ -411,19 +411,22 @@ test("escalation cards of one session share one requests poll", async ({ page })
   await page.route(/\/api\/sessions\/agent-session\/requests$/, (route) =>
     route.fulfill({ json: { requests: [prompt("p1"), prompt("p2")] } }),
   );
-  const recorded = recordApiRequests(page);
+  const reads = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (
+      request.method() === "GET" &&
+      url.pathname === "/api/sessions/agent-session/requests"
+    )
+      reads.push(Date.now());
+  });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   const cards = page.locator("[data-session-escalation]");
   await expect(cards).toHaveCount(2);
   await expect(cards.getByRole("button", { name: "Allow" })).toHaveCount(2);
-  recorded.clear();
+  reads.length = 0;
   await page.waitForTimeout(6000);
-  const reads = recorded
-    .list()
-    .filter(
-      (entry) =>
-        entry.method === "GET" && entry.path === "/api/sessions/agent-session/requests",
-    );
   expect(reads.length).toBeGreaterThanOrEqual(2);
-  expect(reads.length).toBeLessThanOrEqual(5);
+  const gaps = reads.slice(1).map((at, index) => at - reads[index]);
+  expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1400);
 });

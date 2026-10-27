@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createSessionRequestsStore } from "../../web/features/requests/session-requests-store.js";
+import {
+  createSessionRequestsStore,
+  requestsBlockChat,
+} from "../../web/features/requests/session-requests-store.js";
 import { apiCopy } from "../../web/lib/i18n/messages/components.js";
 import { fakeEnv, settle } from "../helpers/fake-browser.js";
 
@@ -104,7 +107,7 @@ test("an error keeps the last data and a later read clears it", async () => {
   assert.equal(requests.get("s1").error, "");
 });
 
-test("a read past 5 s is aborted, reported as a timeout and keeps the data", async () => {
+test("a read past 5 s is aborted and keeps the data", async () => {
   const fake = fakeEnv();
   const polling = fakePolling();
   let hang = false;
@@ -132,7 +135,7 @@ test("a read past 5 s is aborted, reported as a timeout and keeps the data", asy
   assert.equal(signals[1].aborted, true);
   assert.deepEqual(requests.get("s1"), {
     data: { requests: [] },
-    error: apiCopy.timedOut,
+    error: "",
     loading: false,
   });
 });
@@ -163,4 +166,97 @@ test("refresh restarts the session's loop", () => {
   assert.equal(polling.loops.length, 2);
   requests.refresh("unknown");
   assert.equal(polling.loops.length, 2);
+});
+
+test("an old unsubscriber does not stop a loop created after it", () => {
+  const { polling, requests } = store();
+  const old = requests.subscribe("s1", () => {});
+  old();
+  const listener = () => {};
+  requests.subscribe("s1", listener);
+  old();
+  assert.equal(polling.loops[1].stops, 0);
+  assert.equal(requests.get("s1").loading, true);
+});
+
+test("update without listeners changes nothing", () => {
+  const { polling, requests } = store();
+  requests.update("s1", { requests: [{ id: "late" }] });
+  assert.equal(polling.loops.length, 0);
+  assert.deepEqual(requests.get("s1"), { data: null, error: "", loading: true });
+});
+
+test("timeouts over held data stay quiet until the third in a row", async () => {
+  const fake = fakeEnv();
+  const polling = fakePolling();
+  let hang = false;
+  const requests = createSessionRequestsStore({
+    read: (sessionId, signal) =>
+      hang
+        ? new Promise((resolve, reject) =>
+            signal.addEventListener("abort", () => reject(signal.reason)),
+          )
+        : Promise.resolve({ requests: [] }),
+    startPolling: polling.startPolling,
+    env: fake.env,
+  });
+  const seen = [];
+  requests.subscribe("s1", (snapshot) => seen.push(snapshot));
+  const timeout = async () => {
+    const pending = polling.tick(polling.loops[0]);
+    await fake.advance(5000);
+    await pending;
+  };
+  await polling.tick(polling.loops[0]);
+  hang = true;
+  await timeout();
+  await timeout();
+  assert.equal(seen.length, 1);
+  assert.equal(requests.get("s1").error, "");
+  await timeout();
+  assert.equal(requests.get("s1").error, apiCopy.timedOut);
+  assert.deepEqual(requests.get("s1").data, { requests: [] });
+  hang = false;
+  await polling.tick(polling.loops[0]);
+  hang = true;
+  await timeout();
+  assert.equal(requests.get("s1").error, "");
+});
+
+test("a first read that times out is shown at once", async () => {
+  const fake = fakeEnv();
+  const polling = fakePolling();
+  const requests = createSessionRequestsStore({
+    read: (sessionId, signal) =>
+      new Promise((resolve, reject) =>
+        signal.addEventListener("abort", () => reject(signal.reason)),
+      ),
+    startPolling: polling.startPolling,
+    env: fake.env,
+  });
+  requests.subscribe("s1", () => {});
+  const pending = polling.tick(polling.loops[0]);
+  await fake.advance(5000);
+  await pending;
+  assert.deepEqual(requests.get("s1"), {
+    data: null,
+    error: apiCopy.timedOut,
+    loading: false,
+  });
+});
+
+test("only open requests or missing data block the chat", () => {
+  const empty = { requests: [] };
+  assert.equal(requestsBlockChat({ data: null, error: "", loading: true }), true);
+  assert.equal(requestsBlockChat({ data: null, error: "boom", loading: false }), true);
+  assert.equal(
+    requestsBlockChat({ data: empty, error: apiCopy.timedOut, loading: false }),
+    false,
+  );
+  assert.equal(requestsBlockChat({ data: empty, error: "boom", loading: false }), false);
+  assert.equal(
+    requestsBlockChat({ data: { requests: [{ id: "r" }] }, error: "", loading: false }),
+    true,
+  );
+  assert.equal(requestsBlockChat({ data: null, error: "", loading: false }), false);
 });
