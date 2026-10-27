@@ -27,4 +27,11 @@ export const rea = Object.freeze({
     `Die Java-Laufzeit für REA meldet nicht Version ${version}.`,
   diskFull: "Für diesen REA-Bestandteil ist nicht genug Speicherplatz frei.",
   fridaFailed: "frida für REA konnte nicht installiert werden oder lädt nicht.",
+  invalidPath:
+    "Gib für diese REA-Einstellung einen absoluten Pfad ohne Steuerzeichen an.",
+  invalidJebUrl:
+    "Die JEB-MCP-URL muss eine http- oder https-URL ohne Zugangsdaten und Fragment sein.",
+  idaConfigRequired:
+    "Der Analyseanbieter IDA braucht den Pfad zu einer IDA-MCP-Konfiguration.",
+  invalidProvider: "REAs Analyseanbieter muss Ghidra oder IDA sein.",
 });

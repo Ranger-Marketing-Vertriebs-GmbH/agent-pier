@@ -25,4 +25,10 @@ export const rea = Object.freeze({
     `The Java runtime for REA does not report version ${version}.`,
   diskFull: "There is not enough free disk space for this REA component.",
   fridaFailed: "frida for REA could not be installed or does not load.",
+  invalidPath: "Enter an absolute path without control characters for this REA setting.",
+  invalidJebUrl:
+    "The JEB MCP URL must be an http or https URL without credentials or fragment.",
+  idaConfigRequired:
+    "The IDA analysis provider needs the path to an IDA MCP configuration.",
+  invalidProvider: "REA's analysis provider must be Ghidra or IDA.",
 });
