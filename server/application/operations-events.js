@@ -12,6 +12,10 @@ const pipelineEnded = {
 // Pushed events that start a model turn, whatever the poll reads afterwards.
 const turnStarts = new Set(["UserPromptSubmit", "turn/started"]);
 
+// How long a request of a session an agent controls waits for the agent before it
+// notifies the owner anyway.
+export const agentRequestHoldMs = 15 * 60 * 1000;
+
 /** Observe durable metadata and native activity without attaching a terminal client. */
 export class OperationsEvents {
   constructor(options) {
@@ -56,6 +60,9 @@ export class OperationsEvents {
     this.requested = new Map();
     // Each session's current wait: when it began and whether it was handled.
     this.waits = new Map();
+    // Request pushes held while an agent controls their session, by request ID.
+    // Held only in memory: a restart forgets them (the broker does not re-announce).
+    this.held = new Map();
     if (intervalMs > 0) {
       this.timer = setInterval(() => this.poll().catch(onError), intervalMs);
       this.timer.unref();
@@ -71,6 +78,14 @@ export class OperationsEvents {
       this.requested.set(event.sessionId, this.now());
     if (event.action === "request.created")
       this.requestCreated(event).catch(this.onError);
+    // An answered, handed-off or expired request no longer needs its held push.
+    if (
+      ["request.answered", "request.handed-off", "request.expired"].includes(
+        event.action,
+      ) &&
+      event.outcome === "success"
+    )
+      this.held.delete(event.resourceId);
     if (event.action === "request.answered" || event.action === "request.handed-off")
       try {
         this.host.assistants?.workflows?.sessions?.requestEvent(event);
@@ -78,8 +93,42 @@ export class OperationsEvents {
         this.onError(error);
       }
   }
-  /** A native question or approval: its session, and the question as a preview. */
+  /** Whether an agent controls the session now (its pushes are the agent's first). */
+  controlled(sessionId) {
+    try {
+      return !!this.host.assistants?.workflows?.sessions?.controls?.(sessionId);
+    } catch (error) {
+      this.onError(error);
+      return false;
+    }
+  }
+  /**
+   * A native question or approval. A session an agent controls holds the push until
+   * the agent escalates it (releaseRequest), control ends or agentRequestHoldMs pass.
+   */
   async requestCreated(event) {
+    if (this.controlled(event.sessionId)) {
+      this.held.set(event.resourceId, { event, since: this.now() });
+      return;
+    }
+    await this.notifyRequest(event);
+  }
+  /** Notify a held request now with its stored event, then forget it. */
+  async releaseRequest(requestId) {
+    const held = this.held.get(requestId);
+    if (!held) return;
+    this.held.delete(requestId);
+    await this.notifyRequest(held.event);
+  }
+  /** Release each held request whose session left agent control or whose hold ran out. */
+  async releaseHeld() {
+    const now = this.now();
+    for (const [id, { event, since }] of [...this.held])
+      if (now - since >= agentRequestHoldMs || !this.controlled(event.sessionId))
+        await this.releaseRequest(id).catch(this.onError);
+  }
+  /** A request's push: its session, and the question as a preview. */
+  async notifyRequest(event) {
     const session = await Promise.resolve(this.sessions.get?.(event.sessionId)).catch(
       () => null,
     );
@@ -142,6 +191,10 @@ export class OperationsEvents {
     );
     for (const map of [this.requested, this.waits])
       for (const id of map.keys()) if (!running.has(id)) map.delete(id);
+    // A held request of a session that stopped can no longer be answered.
+    for (const [id, { event }] of this.held)
+      if (!running.has(event.sessionId)) this.held.delete(id);
+    if (this.held.size) await this.releaseHeld();
     for (const session of sessions) {
       if (
         session.imported?.historyOnly ||
@@ -191,13 +244,15 @@ export class OperationsEvents {
           outcome: "success",
           details: { kind: "completion", tool: session.tool },
         });
-        await this.notifications.notify({
-          kind: "session-completed",
-          eventId: activity.eventId,
-          ...sessionNotice(session),
-          // Read only when a device shows previews.
-          preview: () => replyPreview(this.chat, session),
-        });
+        // An agent's session wakes the agent instead (session-wakes.js).
+        if (!this.controlled(session.id))
+          await this.notifications.notify({
+            kind: "session-completed",
+            eventId: activity.eventId,
+            ...sessionNotice(session),
+            // Read only when a device shows previews.
+            preview: () => replyPreview(this.chat, session),
+          });
       }
     }
     for (const run of this.pipelines.store.all()) this.pipeline(run);
@@ -225,6 +280,8 @@ export class OperationsEvents {
     if (wait.done || source !== "hook" || now - wait.since < this.waitingGraceMs) return;
     wait.done = true;
     if (this.requested.get(session.id) >= wait.since - this.waitingGraceMs) return;
+    // An agent's session wakes the agent instead (session-wakes.js).
+    if (this.controlled(session.id)) return;
     await this.notifications.notify({
       kind: "session-waiting",
       eventId: wait.eventId,
