@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { header, setup } from "./mcp-cli-fixture.js";
+import { setTabHidden } from "../helpers/visibility.js";
 
 const authorize = "https://as.example.test/authorize?state=abc";
 const port = new URL(baseURL).port;
@@ -310,4 +311,24 @@ test("German: erneut anmelden und Hinweis ohne HTTPS", async ({ page }) => {
       `Die Anmeldung braucht die HTTPS-Adresse von AgentPier (Tailscale) oder einen Browser auf dem AgentPier-Rechner selbst. AgentPier auf einem dieser Wege öffnen und dort anmelden, oder den Port per SSH weiterleiten (ssh -L ${port}:127.0.0.1:${port} <AgentPier-Rechner>) und http://127.0.0.1:${port} öffnen.`,
     ),
   ).toBeVisible();
+});
+
+test("a pending login is read at once when the tab comes back, not after the interval", async ({
+  page,
+}) => {
+  await fakeTabs(page);
+  const state = await setup(page, {
+    servers: [codexServer([{ id: "a2", name: "Private", state: "pending" }])],
+  });
+  handleLogins(state);
+  await page.goto(baseURL + "/connections?section=mcp-servers");
+  await openAccountItem(page, "search");
+  const area = page.getByRole("group", { name: "Codex accounts for search" });
+  await expect(area.getByText("Private: login in progress")).toBeVisible();
+  await setTabHidden(page, true);
+  setState(state, "a2", { state: "connected" });
+  await page.waitForTimeout(4000);
+  await expect(area.getByText("Private: login in progress")).toBeVisible();
+  await setTabHidden(page, false);
+  await expect(area.getByText("Private: logged in")).toBeVisible({ timeout: 1500 });
 });

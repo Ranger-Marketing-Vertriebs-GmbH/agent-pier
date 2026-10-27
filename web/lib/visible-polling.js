@@ -12,7 +12,9 @@ export const timedOut = (signal) =>
   Boolean(signal?.aborted && signal.reason?.name === "TimeoutError");
 // Foregrounding must not wait for a request suspended by the operating system.
 // A hidden tab runs nothing: hiding aborts the running request and drops the timer.
-export function startVisiblePolling(run, interval, env = {}) {
+// `skipFirst` skips only the run at start while visible, for a caller that just read;
+// a run after the tab was hidden at start, or any resume, still happens at once.
+export function startVisiblePolling(run, interval, env = {}, { skipFirst = false } = {}) {
   const { document, window, setTimeout, clearTimeout, AbortController } = {
     ...browser(),
     ...env,
@@ -26,9 +28,13 @@ export function startVisiblePolling(run, interval, env = {}) {
     clearTimeout(timeout);
     controller?.abort();
   };
-  const poll = async () => {
+  const poll = async (initial = false) => {
     cancel();
     if (disposed || document.hidden) return;
+    if (initial && skipFirst) {
+      timer = setTimeout(poll, interval);
+      return;
+    }
     const current = new AbortController();
     controller = current;
     const deadline = setTimeout(() => current.abort(timeoutError()), 15000);
@@ -50,7 +56,7 @@ export function startVisiblePolling(run, interval, env = {}) {
   document.addEventListener("visibilitychange", visibility);
   window.addEventListener("pageshow", resume);
   window.addEventListener("online", resume);
-  poll();
+  poll(true);
   return () => {
     disposed = true;
     cancel();

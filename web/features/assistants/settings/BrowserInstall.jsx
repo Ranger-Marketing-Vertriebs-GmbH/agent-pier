@@ -35,6 +35,7 @@ export default function BrowserInstall({ browser, refresh }) {
         const found = list.installations?.find((item) => item.tool === "chromium");
         if (!alive.current || !found) return;
         setJob(found);
+        setError((current) => (current === apiCopy.timedOut ? "" : current));
         if (found.status !== "running") await refresh?.();
       } catch {
         // The next poll retries; only a deadline abort needs a visible report.

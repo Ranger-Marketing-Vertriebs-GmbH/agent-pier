@@ -67,15 +67,8 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
   }, [load]);
   useEffect(() => {
     if (!data?.busy || busy) return undefined;
-    // The first run is skipped: the read that showed the busy state just happened.
-    let first = true;
-    return startVisiblePolling((signal) => {
-      if (first) {
-        first = false;
-        return undefined;
-      }
-      return read(signal);
-    }, 2000);
+    // The read that showed the busy state just happened, so the start run is skipped.
+    return startVisiblePolling((signal) => read(signal), 2000, {}, { skipFirst: true });
   }, [data?.busy, busy, read]);
   useEffect(() => {
     if (market && data && !data.marketplaces.some((m) => m.name === market))

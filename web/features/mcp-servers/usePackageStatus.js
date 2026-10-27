@@ -34,22 +34,23 @@ export default function usePackageStatus(server, onSettled) {
   useEffect(() => {
     if (!id || !running) return undefined;
     // Only a visible tab reads; a stalled read is cut off and reported.
-    // The first run is skipped: the effect above just read the status.
-    let first = true;
-    return startVisiblePolling(async (signal) => {
-      if (first) {
-        first = false;
-        return;
-      }
-      try {
-        const next = await assistantApi.mcpPackageStatus(id, signal);
-        setStatus(next);
-        if (next.source?.status !== "installing" && next.job?.state !== "running")
-          settled.current?.();
-      } catch {
-        if (timedOut(signal)) setError(apiCopy.timedOut);
-      }
-    }, pollMs);
+    // The effect above just read the status, so the start run is skipped.
+    return startVisiblePolling(
+      async (signal) => {
+        try {
+          const next = await assistantApi.mcpPackageStatus(id, signal);
+          setStatus(next);
+          setError((current) => (current === apiCopy.timedOut ? "" : current));
+          if (next.source?.status !== "installing" && next.job?.state !== "running")
+            settled.current?.();
+        } catch {
+          if (timedOut(signal)) setError(apiCopy.timedOut);
+        }
+      },
+      pollMs,
+      {},
+      { skipFirst: true },
+    );
   }, [running, id]);
   return { status, setStatus, error, setError, source, job, running, shown };
 }
