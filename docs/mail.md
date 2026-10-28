@@ -281,32 +281,31 @@ host, username, subject, body, rule or password):
 
 The agent reports these codes; the form shows the connection ones in plain words.
 
-| Code                           | Meaning and what to do                                                                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MAIL_AUTH_FAILED`             | The server refused the sign-in. Check the username and password; for Gmail create a new app password.                                                         |
-| `MAIL_TLS_FAILED`              | The certificate could not be verified or the server offers no TLS. Check host, port and security; a self-signed certificate is not accepted.                  |
-| `MAIL_UNREACHABLE`             | The server cannot be reached. Check host and port and the network.                                                                                            |
-| `MAIL_TIMEOUT`                 | The server did not answer in time. Try again later; for a send, check Sent first.                                                                             |
-| `MAIL_PROTOCOL`                | The server answered unexpectedly. Run **Test connection**; for a send, check Sent before sending again.                                                       |
-| `MAIL_PLAINTEXT_REFUSED`       | Security **None** without **Allow unencrypted connection**. Choose TLS or STARTTLS, or allow it knowingly.                                                    |
-| `MAIL_NOT_GRANTED`             | The agent has no grant for this account (or has a Telegram bot for other people). Grant it under **Access › Email**.                                          |
-| `MAIL_SEND_NOT_GRANTED`        | The grant is **Read**. Switch it to **Read and send** if the agent should send.                                                                               |
-| `MAIL_ORIGIN_REFUSED`          | The turn may not use mail (see [Which turns may use mail](#which-turns-may-use-mail)). For a hook, tick **Email**.                                            |
-| `MAIL_ACCOUNT_UNAVAILABLE`     | The account was removed, or the saved accounts cannot be read. Check **Connections › Email accounts**.                                                        |
-| `MAIL_REVOKED`                 | You changed the agent's access while it was working. Nothing was sent.                                                                                        |
-| `MAIL_NOT_FOUND`               | The message or folder does not exist (any more).                                                                                                              |
-| `MAIL_NO_TRASH`                | The mailbox has no Trash folder (`\Trash`), so nothing was deleted. Create one, or have the server mark it.                                                   |
-| `MAIL_NO_ARCHIVE`              | The mailbox has no archive folder. Create a folder named Archive, or let the agent move to a named folder.                                                    |
-| `MAIL_NO_DRAFTS`               | The mailbox has no Drafts folder (`\Drafts`), so no draft was saved and nothing was sent.                                                                     |
-| `MAIL_MOVE_UNSUPPORTED`        | The server lacks the MOVE extension (RFC 6851), so nothing was moved or deleted. AgentPier has no copy-and-expunge fallback; use a server that supports MOVE. |
-| `MAIL_SEARCH_UNSUPPORTED`      | The server cannot search for non-ASCII text. The agent searches again with ASCII-only words, or narrows by from, since or unseen.                             |
-| `MAIL_DRAFT_UNSUPPORTED`       | The draft has no plain-text part or more than 1 MiB of text. The agent saves a new plain-text draft, or you send it yourself.                                 |
-| `MAIL_ATTACHMENTS_UNSUPPORTED` | The draft has attachments, which agents cannot send. Send it yourself from your mail program.                                                                 |
-| `MAIL_QUERY_EMPTY`             | A search without any criterion.                                                                                                                               |
-| `MAIL_APPROVAL_LIMIT`          | 5 of the agent's sends already wait. Decide them in the chat or the Inbox.                                                                                    |
-| `MAIL_SEND_LIMIT`              | The agent made 30 sends or cards in the last hour. Wait, or send the mail yourself.                                                                           |
-| `MAIL_CATALOG_UNREADABLE`      | `mail/accounts.json` cannot be read (Connections shows "The saved email accounts cannot be read."). Restore it from a backup.                                 |
-| `MAIL_TEST_RATE_LIMITED`       | More than 30 connection tests in one minute. Wait a minute.                                                                                                   |
+| Code                       | Meaning and what to do                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MAIL_AUTH_FAILED`         | The server refused the sign-in. Check the username and password; for Gmail create a new app password.                                                         |
+| `MAIL_TLS_FAILED`          | The certificate could not be verified or the server offers no TLS. Check host, port and security; a self-signed certificate is not accepted.                  |
+| `MAIL_UNREACHABLE`         | The server cannot be reached. Check host and port and the network.                                                                                            |
+| `MAIL_TIMEOUT`             | The server did not answer in time. Try again later; for a send, check Sent first.                                                                             |
+| `MAIL_PROTOCOL`            | The server answered unexpectedly. Run **Test connection**; for a send, check Sent before sending again.                                                       |
+| `MAIL_PLAINTEXT_REFUSED`   | Security **None** without **Allow unencrypted connection**. Choose TLS or STARTTLS, or allow it knowingly.                                                    |
+| `MAIL_NOT_GRANTED`         | The agent has no grant for this account (or has a Telegram bot for other people). Grant it under **Access › Email**.                                          |
+| `MAIL_SEND_NOT_GRANTED`    | The grant is **Read**. Switch it to **Read and send** if the agent should send.                                                                               |
+| `MAIL_ORIGIN_REFUSED`      | The turn may not use mail (see [Which turns may use mail](#which-turns-may-use-mail)). For a hook, tick **Email**.                                            |
+| `MAIL_ACCOUNT_UNAVAILABLE` | The account was removed, or the saved accounts cannot be read. Check **Connections › Email accounts**.                                                        |
+| `MAIL_REVOKED`             | You changed the agent's access while it was working. Nothing was sent.                                                                                        |
+| `MAIL_NOT_FOUND`           | The message or folder does not exist (any more).                                                                                                              |
+| `MAIL_NO_TRASH`            | The mailbox has no Trash folder (`\Trash`), so nothing was deleted. Create one, or have the server mark it.                                                   |
+| `MAIL_NO_ARCHIVE`          | The mailbox has no archive folder. Create a folder named Archive, or let the agent move to a named folder.                                                    |
+| `MAIL_NO_DRAFTS`           | The mailbox has no Drafts folder (`\Drafts`), so no draft was saved and nothing was sent.                                                                     |
+| `MAIL_MOVE_UNSUPPORTED`    | The server lacks the MOVE extension (RFC 6851), so nothing was moved or deleted. AgentPier has no copy-and-expunge fallback; use a server that supports MOVE. |
+| `MAIL_SEARCH_UNSUPPORTED`  | The server cannot search for non-ASCII text. The agent searches again with ASCII-only words, or narrows by from, since or unseen.                             |
+| `MAIL_DRAFT_UNSUPPORTED`   | The draft has no plain-text part or more than 1 MiB of text. The agent saves a new plain-text draft, or you send it yourself.                                 |
+| `MAIL_QUERY_EMPTY`         | A search without any criterion.                                                                                                                               |
+| `MAIL_APPROVAL_LIMIT`      | 5 of the agent's sends already wait. Decide them in the chat or the Inbox.                                                                                    |
+| `MAIL_SEND_LIMIT`          | The agent made 30 sends or cards in the last hour. Wait, or send the mail yourself.                                                                           |
+| `MAIL_CATALOG_UNREADABLE`  | `mail/accounts.json` cannot be read (Connections shows "The saved email accounts cannot be read."). Restore it from a backup.                                 |
+| `MAIL_TEST_RATE_LIMITED`   | More than 30 connection tests in one minute. Wait a minute.                                                                                                   |
 
 **Not known if sent.** Open the mailbox's Sent folder (or ask a recipient) before you
 or the agent send the mail again. AgentPier never resends it.

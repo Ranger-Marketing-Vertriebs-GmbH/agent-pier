@@ -174,7 +174,7 @@ export async function newMessages(client, cursor, limit) {
 }
 
 /** The first text/plain part not marked as an attachment, else the first text/html. */
-function textPart(structure) {
+export function textPart(structure) {
   const leaves = leafParts(structure).filter((n) => n.disposition !== "attachment");
   return (
     leaves.find((n) => n.type === "text/plain") ||
@@ -183,7 +183,7 @@ function textPart(structure) {
 }
 
 // At most `partBytes` of the part, decoded to UTF-8 by imapflow, never the whole part.
-async function download(client, uid, part) {
+export async function download(client, uid, part) {
   const { content } = await client.download(String(uid), part, {
     uid: true,
     maxBytes: mailBounds.partBytes,
@@ -204,7 +204,7 @@ const metaCharset = /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i;
  * The part's text. imapflow converts a declared charset to UTF-8; an HTML part
  * without one may name its charset in a `<meta>` tag within its first 4 KiB.
  */
-function decodeText(bytes, part) {
+export function decodeText(bytes, part) {
   if (part.type === "text/html" && !part.parameters?.charset) {
     const label = bytes.subarray(0, 4096).toString("latin1").match(metaCharset)?.[1];
     if (label)
@@ -215,7 +215,10 @@ function decodeText(bytes, part) {
   return bytes.toString("utf8");
 }
 
-/** One message with its text (plain, or HTML as text) and attachment names only. */
+/**
+ * One message with its text (plain, or HTML as text) and each attachment's part,
+ * name, type and approximate size, never its content.
+ */
 export async function readMessage(client, folder, uid) {
   await openFolder(client, folder);
   const row = await client.fetchOne(String(uid), summaryQuery, { uid: true });
@@ -243,6 +246,7 @@ export async function readMessage(client, folder, uid) {
     attachments: attachmentsOf(row.bodyStructure)
       .slice(0, mailBounds.attachments)
       .map((node) => ({
+        part: node.part || "1",
         name: cut(fileName(node), mailBounds.nameChars) || null,
         size: partSize(node),
         type: String(node.type || "application/octet-stream"),

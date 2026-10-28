@@ -37,7 +37,6 @@ export const mail = Object.freeze({
     "Dieses Postfach hat keinen Archivordner, daher wurde nichts verschoben.",
   mailNoDrafts:
     "Dieses Postfach hat keinen Entwürfe-Ordner, daher wurde kein Entwurf gespeichert.",
-  mailAttachmentsUnsupported: "Einen Entwurf mit Anhängen kann ein Agent nicht senden.",
   mailApprovalLimit: "Zu viele E-Mails des Agenten warten bereits auf deine Freigabe.",
   mailSendLimit:
     "Der Agent hat in der letzten Stunde die höchstens erlaubten E-Mails gesendet.",

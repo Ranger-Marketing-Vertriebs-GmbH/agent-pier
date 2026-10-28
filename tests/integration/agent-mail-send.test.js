@@ -215,20 +215,20 @@ test("a sent draft moves to Trash and a copy lands in Sent when saveSent", async
   assert.equal(f.count("Drafts"), 0, "the field send's own draft went to Trash");
 });
 
-test("a draft with an attachment is MAIL_ATTACHMENTS_UNSUPPORTED", async (t) => {
-  const f = await sendFixture(t, { rules: ["example.org"] });
+test("a draft with an attachment is no longer refused when it is loaded", async (t) => {
+  // Without a matching rule the send waits for the owner; how its attachments go out
+  // is covered with the approval payload.
+  const f = await sendFixture(t, { rules: ["partner.net"] });
   const { uid } = f.imap.mailbox.append("Drafts", {
     raw: Buffer.from(withAttachment, "latin1"),
     flags: ["\\Draft"],
   });
-  assert.equal(
-    await code(f.mail({ action: "send", draftUid: uid })),
-    "MAIL_ATTACHMENTS_UNSUPPORTED",
-  );
+  const result = await f.mail({ action: "send", draftUid: uid });
+  assert.equal(result.status, "awaiting_approval");
+  assert.equal(f.cards().length, 1);
   assert.equal(await code(f.mail({ action: "send", draftUid: 99 })), "MAIL_NOT_FOUND");
   assert.equal(f.smtp.messages.length, 0);
   assert.equal(f.count("Drafts"), 1);
-  assert.equal(f.workflows.store.list(f.id).length, 0);
 });
 
 test("a failed send keeps the draft and is audited with its code", async (t) => {

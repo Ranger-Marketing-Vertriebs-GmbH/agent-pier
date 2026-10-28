@@ -805,7 +805,6 @@
   "mail.mailApproval": "de:f83f242fc273 en:9b3f5ddcd71a",
   "mail.mailApprovalLimit": "de:c850b332383a en:a77bda2934ee",
   "mail.mailAttachmentTooLarge": "de:5096a6239224 en:94e26bd8d098",
-  "mail.mailAttachmentsUnsupported": "de:44da4b48508c en:cfb94afe47a4",
   "mail.mailAuthFailed": "de:199bbf64321a en:f57bdfd2ba28",
   "mail.mailDecline": "de:435a212742c7 en:11feeff6baec",
   "mail.mailDraftChanged": "de:580d2452ec02 en:9d5e932fb46f",

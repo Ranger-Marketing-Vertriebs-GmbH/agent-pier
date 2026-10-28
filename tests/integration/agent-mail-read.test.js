@@ -191,7 +191,7 @@ test("read lists attachment names and sizes without content and does not mark as
   const result = await f.mail({ action: "read", uid });
   assert.equal(result.message.text.trim(), "Please find the invoice attached.");
   assert.deepEqual(result.message.attachments, [
-    { name: "Rechnung März.pdf", size: 57, type: "application/pdf" },
+    { part: "2", name: "Rechnung März.pdf", size: 57, type: "application/pdf" },
   ]);
   assert.equal(result.message.hasAttachments, true);
   assert.doesNotMatch(JSON.stringify(result), /JVBERi/);

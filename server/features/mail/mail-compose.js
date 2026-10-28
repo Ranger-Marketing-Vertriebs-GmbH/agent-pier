@@ -111,22 +111,42 @@ export function threadHeaders({ inReplyTo, references }) {
 /** A Message-ID as stored in a draft, or null when it is not well formed. */
 export const validMessageId = (value) => messageIds(value)[0] ?? null;
 
+// An attachment as nodemailer takes it: a file's bytes, or a raw MIME part (header and
+// encoded body) written out exactly as given.
+const attachmentOf = (a) =>
+  a.raw
+    ? { raw: a.raw }
+    : { filename: a.filename, content: a.content, contentType: a.contentType };
+
 /**
- * An RFC 5322 text/plain UTF-8 message. `keepBcc` keeps the Bcc header (a draft that
- * is sent later); without it the recipients only see To and Cc.
+ * An RFC 5322 message with a text/plain UTF-8 body. `keepBcc` keeps the Bcc header (a
+ * draft that is sent later); without it the recipients only see To and Cc.
+ * `attachments` are files (`{ filename, content, contentType }`) or raw parts
+ * (`{ raw }`), in this order; `html` adds an HTML alternative and `htmlRaw` one that
+ * is a raw part.
  */
 export async function composeMessage(message, { keepBcc }) {
+  const parts = Boolean(
+    message.attachments?.length || typeof message.html === "string" || message.htmlRaw,
+  );
   const node = new MailComposer({
     from: message.from,
     to: message.to,
     cc: message.cc,
     bcc: message.bcc,
     subject: message.subject,
-    text: message.body,
+    // As an object even when empty: without a text part nodemailer would make the
+    // first attachment, raw or not, the whole message.
+    text: parts ? { content: message.body || Buffer.alloc(0) } : message.body,
     messageId: message.messageId,
     ...(message.date && { date: message.date }),
     ...(message.inReplyTo && { inReplyTo: message.inReplyTo }),
     ...(message.references?.length && { references: message.references }),
+    ...(typeof message.html === "string" && { html: message.html }),
+    ...(message.htmlRaw && { alternatives: [{ raw: message.htmlRaw }] }),
+    ...(message.attachments?.length && {
+      attachments: message.attachments.map(attachmentOf),
+    }),
     disableFileAccess: true,
     disableUrlAccess: true,
   }).compile();

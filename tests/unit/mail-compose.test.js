@@ -135,3 +135,67 @@ test("replyHeaders builds the thread from the parent's ids and drops anything el
     20,
   );
 });
+
+const base = message;
+
+test("raw attachments go out byte for byte", async () => {
+  const raw = Buffer.from(
+    'Content-Type: application/pdf; name="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=\r\n',
+  );
+  const out = (
+    await composeMessage({ ...base, attachments: [{ raw }] }, { keepBcc: false })
+  ).toString();
+  assert.ok(out.includes(raw.toString().trimEnd()));
+  assert.match(headerBlock(Buffer.from(out)), /^Content-Type: multipart\/mixed;/m);
+});
+
+test("composeMessage keeps raw parts before files and adds HTML alternatives", async () => {
+  const raw = Buffer.from(
+    'Content-Type: text/csv; name="kept.csv"\r\nContent-Disposition: attachment; filename="kept.csv"\r\n\r\na;b',
+  );
+  const out = (
+    await composeMessage(
+      {
+        ...base,
+        html: "<p>Hallo</p>",
+        attachments: [
+          { raw },
+          {
+            filename: "new.pdf",
+            content: Buffer.from("%PDF-"),
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      { keepBcc: true },
+    )
+  ).toString();
+  assert.ok(out.indexOf("kept.csv") < out.indexOf("new.pdf"));
+  assert.match(out, /Content-Type: multipart\/alternative/);
+  assert.match(out, /<p>Hallo<\/p>/);
+  assert.match(out, /Content-Disposition: attachment; filename=new\.pdf/);
+  assert.ok(out.includes(Buffer.from("%PDF-").toString("base64")));
+
+  const htmlRaw = Buffer.from(
+    "Content-Type: text/html; charset=ISO-8859-1\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Gr=FC=DFe</p>",
+  );
+  const alt = (await composeMessage({ ...base, htmlRaw }, { keepBcc: false })).toString();
+  assert.ok(alt.includes(htmlRaw.toString()));
+  assert.match(alt, /Content-Type: multipart\/alternative/);
+  assert.match(alt, /Content-Type: text\/plain; charset=utf-8/);
+});
+
+test("an empty body still gets its text part next to a raw attachment", async () => {
+  const raw = Buffer.from(
+    'Content-Type: application/pdf; name="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=',
+  );
+  const out = (
+    await composeMessage({ ...base, body: "", attachments: [{ raw }] }, { keepBcc: true })
+  ).toString();
+  // nodemailer would otherwise send the raw part alone as the whole message.
+  assert.match(out, /^From: /);
+  assert.match(out, /^Subject: /m);
+  assert.match(out, /Content-Type: multipart\/mixed/);
+  assert.match(out, /Content-Type: text\/plain; charset=utf-8/);
+  assert.ok(out.includes(raw.toString()));
+});
