@@ -113,10 +113,21 @@ work and preserves results that already completed. A move can publish its destin
 before source cleanup finishes; inspect the displayed `outputPublished`, `sourceRemoved`,
 and `sourceRemovalPending` outcome before trying it again.
 
-The browser reads the job list once when the explorer opens and again when the tab
-becomes visible or the window gains focus. It polls every 1.5 s only while it tracks a
-running job or a watched upload group, and never from a hidden tab. Starting a job resumes
-the poll until the job retires.
+The job list reaches the browser through the live channel (`/api/live`, topic
+`files.jobs:global` or `files.jobs:session:<id>`): the server pushes the first page of the
+scope's job envelopes, as `GET .../jobs` answers it, after every job write. This includes
+a job started in another tab or by another client. Each envelope carries `updatedAt`, the
+job's version; it rises with every write of the job and of its result rows. Result and
+entry pages are not pushed. The explorer reads them over REST, page by page, only when a
+tracked job's version changes, so an idle explorer sends no request, not on focus either.
+A hidden tab shows pushed envelopes and reads their pages once it is visible again.
+
+Without the live channel the explorer reads the job list once when it opens and again
+when the tab becomes visible or the window gains focus. It then polls every 1.5 s only
+while it tracks a running job or a watched upload group, never from a hidden tab. A
+tracked job that the pushed first page does not carry (a scope with more than 200 jobs in
+the last seven days) is polled the same way, as are part-read result pages and watched
+upload groups.
 
 Recorded operation checkpoints allow AgentPier to reconstruct jobs after a web-service
 restart. Recovery replays durable facts, then observes the current filesystem before a new

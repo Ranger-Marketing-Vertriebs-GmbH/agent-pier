@@ -31,7 +31,7 @@ import { FileListingStore } from "../features/files/file-listing.js";
 import { metadata, preview } from "../features/files/file-reading.js";
 import { FilePreferences } from "../features/files/file-preferences.js";
 
-export function createFileServices({ config, sessions, mutationBarrier }) {
+export function createFileServices({ config, sessions, mutationBarrier, onJobChange }) {
   if (!mutationBarrier) throw new TypeError("File services require a mutation barrier.");
   const limits = Object.freeze(readFileLimits(config.files?.limits));
   const listings = new FileListingStore({ limits });
@@ -100,6 +100,7 @@ export function createFileServices({ config, sessions, mutationBarrier }) {
     limits,
     handlers,
     context,
+    onChange: onJobChange,
     beforeStoreClose: async () => {
       try {
         await ready;

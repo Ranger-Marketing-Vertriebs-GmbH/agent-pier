@@ -7,7 +7,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { liveClient } from "../../lib/live/live-client.js";
+import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 
@@ -91,10 +92,20 @@ export default function useChatDelivery({ session, request, active }) {
     },
     [draft, request, session.id, scope],
   );
+  // Pending deliveries are read once, then again on each `changed` of the live
+  // `session.deliveries` signal; only without the channel every 2.5 s while visible.
   useEffect(() => {
     if (!active || !id) return;
-    return startVisiblePolling(check, 2500);
-  }, [active, id, check]);
+    const reader = startLiveTopic({
+      topicId: `session.deliveries:${session.id}`,
+      // The signal names no route of its own: its "read" is this chat's own reads.
+      path: "deliveries",
+      client: liveClient(),
+      read: (_path, signal) => check(signal),
+      report: () => {},
+    });
+    return () => reader.stop();
+  }, [active, id, check, session.id]);
 
   const send = async (messages = [], context = {}) => {
     if (operation.current) return;

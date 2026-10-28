@@ -44,8 +44,18 @@ function syncDirectory(directory) {
 
 /** Durable at-most-once native input for one owner of the data directory. */
 export class ChatDelivery {
-  constructor({ dataDir, sessions, requests, models, retryMs = 1000, waitLimitMs }) {
+  constructor({
+    dataDir,
+    sessions,
+    requests,
+    models,
+    retryMs = 1000,
+    waitLimitMs,
+    onChange,
+  }) {
     this.directory = path.join(dataDir, "chat-delivery");
+    // Told the session id of every receipt write (session.deliveries live topic).
+    this.onChange = onChange;
     this.sessions = sessions;
     this.requests = requests;
     this.models = models;
@@ -117,6 +127,16 @@ export class ChatDelivery {
       } catch {
         /* Keep original error. */
       }
+    }
+    this.changed(path.basename(path.dirname(file)));
+  }
+
+  /** A delivery of session `id` changed; a failing listener is logged, never thrown. */
+  changed(id) {
+    try {
+      this.onChange?.(id);
+    } catch {
+      console.error("AgentPier could not report a chat delivery change.");
     }
   }
 
@@ -336,5 +356,6 @@ export class ChatDelivery {
 
   async discard(id) {
     fs.rmSync(this.folder(id), { recursive: true, force: true });
+    this.changed(id);
   }
 }

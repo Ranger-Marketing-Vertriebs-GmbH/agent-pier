@@ -38,6 +38,8 @@ import { reaJobChanged, toolJobsChanged } from "../features/tools/live-topics.js
 import { watchPackageJobs } from "../features/mcp-packages/live-topics.js";
 import { pluginJobChanged } from "../features/plugins/live-topics.js";
 import { sshToolsChanged } from "../features/ssh/live-topics.js";
+import { fileJobsChanged } from "../features/files/live-topics.js";
+import { deliveriesChanged } from "../features/chat/live-delivery-topics.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
@@ -153,7 +155,13 @@ export async function createServices(config) {
   });
   const refreshSessionSecrets = () => sessionSecrets.refresh().catch(() => {});
   secrets.onChange(refreshSessionSecrets);
-  const files = createFileServices({ config, sessions, mutationBarrier });
+  const files = createFileServices({
+    config,
+    sessions,
+    mutationBarrier,
+    // Read late: the live hub exists only once the server listens.
+    onJobChange: (scopeId) => fileJobsChanged(services.live, scopeId),
+  });
   const repositories = new RepositoryStore(config);
   // Each listed project's origin remote, read live from its folder.
   const gitRemotes = new GitRemotes();
@@ -362,6 +370,7 @@ export async function createServices(config) {
     sessions,
     requests,
     models,
+    onChange: (sessionId) => deliveriesChanged(services.live, sessionId),
   });
   artifacts = new ArtifactService({
     dataDir: config.dataDir,

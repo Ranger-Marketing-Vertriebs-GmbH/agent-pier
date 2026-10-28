@@ -35,6 +35,7 @@ export class FileJobs {
     now = Date.now,
     context,
     beforeStoreClose = async () => {},
+    onChange,
   }) {
     Object.assign(this, {
       store,
@@ -46,6 +47,9 @@ export class FileJobs {
       context,
       beforeStoreClose,
     });
+    // Every job write reaches the store, also those of uploads, archives and
+    // recovery: it reports them all (files.jobs live topic), with the job's scope.
+    if (onChange) store.onJobChange = onChange;
     this.pending = [];
     this.workers = new Set();
     this.resolutions = new Set();

@@ -117,6 +117,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.tool:codex",
     "job.rea:current",
     `job.mcp-package:${server.id}`,
+    "files.jobs:global",
   ]) {
     ownerLive.send({ op: "sub", topic });
     assert.equal(
@@ -131,12 +132,20 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.ssh-tools:nobody",
     "job.chatgpt-login:current",
     "session.reload:nobody",
+    "files.jobs:session:nobody",
   ]) {
     ownerLive.send({ op: "sub", topic });
     const frame = await ownerLive.next((frame) => frame.topic === topic, 5000);
     assert.equal(frame.type, "error", topic);
     assert.notEqual(frame.code, "unknown-topic", topic);
   }
+  // The chat delivery signal answers the owner like every signal topic.
+  ownerLive.send({ op: "sub", topic: "session.deliveries:nobody" });
+  assert.equal(
+    (await ownerLive.next((frame) => frame.topic === "session.deliveries:nobody", 5000))
+      .type,
+    "same",
+  );
   ownerLive.ws.close();
   const { cookie } = await signedInUser(f);
   const live = openLive(f, cookie);
@@ -168,6 +177,9 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.ssh-tools:x",
     "job.chatgpt-login:current",
     "session.reload:x",
+    "files.jobs:global",
+    "files.jobs:session:x",
+    "session.deliveries:x",
     "operations.release-sessions:1.0.0",
     "artifacts.usage",
     "artifacts.changed",

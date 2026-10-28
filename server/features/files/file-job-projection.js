@@ -63,6 +63,8 @@ export function publicFileJob(row, store) {
     totalBytes: doc.totalBytes,
     conflict: projectConflict(doc.conflict),
     issue: doc.issue,
+    // The job's version: it rises with every write of the job or its result rows.
+    updatedAt: row.updated_at,
     ...(parent ? { uploadGroupId: parent.id } : {}),
     ...(row.kind === "extract" ? { destination: JSON.parse(row.operation).target } : {}),
     ...(row.kind === "archive" ? archiveDetails(row, doc, store) : {}),

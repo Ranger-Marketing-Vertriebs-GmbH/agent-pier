@@ -39,6 +39,8 @@ export class FileArchiveStore {
         "UPDATE jobs SET document=json_set(document,'$.archive',json(?)) WHERE id=?",
       )
       .run(JSON.stringify(archive), id);
+    // The envelope shows the manifest version and destination: a new job version.
+    this.store.touchJob(id);
   }
   rows(id) {
     return this.db

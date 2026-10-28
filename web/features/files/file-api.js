@@ -89,10 +89,17 @@ async function jsonOrEmpty(response) {
   }
 }
 
+// The live topic of the scope's job envelopes (server/features/files/live-topics.js).
+const jobsTopic = (scopeRef) =>
+  scopeRef.kind === "global"
+    ? "files.jobs:global"
+    : `files.jobs:session:${scopeRef.sessionId}`;
+
 export function fileApi(scopeRef) {
   const base = scopedBase(scopeRef);
   return {
     base,
+    jobsTopic: jobsTopic(scopeRef),
     archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
     directDownload: (path) => urlFor(base, "/download", { path }),
     readText: (path, signal) => fileApi(scopeRef).get("/text", { path }, signal),
