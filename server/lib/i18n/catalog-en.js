@@ -1,4 +1,5 @@
 import { assistants } from "./en/assistants.js";
+import { agentProjects } from "./en/agent-projects.js";
 import { agentCodingSessions } from "./en/agent-coding-sessions.js";
 import { accounts } from "./en/accounts.js";
 import { agentbus } from "./en/agentbus.js";
@@ -49,6 +50,7 @@ import { rea } from "./en/rea.js";
 export const englishServerMessages = Object.freeze({
   assistants,
   agentCodingSessions,
+  agentProjects,
   sessionInput,
   sessionReload,
   sessionTransfer,

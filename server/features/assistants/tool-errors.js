@@ -6,6 +6,7 @@ import { autonomousCaps } from "./team-policy.js";
 import { peerCaps } from "./peer-request-rules.js";
 import { reportCaps } from "./member-reports.js";
 import { sshProposalCaps } from "./agent-ssh-proposal-notes.js";
+import { projectCreateCaps } from "./agent-project-rules.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -281,6 +282,19 @@ const reasons = {
     "This file is empty or not a regular file, so it cannot be attached. Do not retry; attach the file that holds the content, or tell the owner.",
   MAIL_SAVE_REFUSED:
     "You may not save the attachment there: only under mail/ in your workspace or in a project folder you may write to, never in instruction, skill, .git or AgentPier folders. Do not retry the same place; save without projectId and path, or tell the owner.",
+  PROJECT_NAME_INVALID:
+    "Give name as a plain folder name: no / or \\, no control characters, not . or .., no leading dot, at most 255 bytes. Fix it and try again.",
+  PROJECT_EXISTS:
+    "The owner's default working directory already has an entry with this name. Pick another name; never reuse an existing folder.",
+  PROJECT_CREATE_LIMIT: `You already created ${projectCreateCaps.perDay} projects in the last 24 hours. Do not retry now; tell the owner.`,
+  PROJECT_OWNER_ONLY:
+    "Projects can only be created, listed or switched in a turn of the owner's own message, not in forwarded, scheduled, hook, team or member-result turns. Do not retry; tell the owner.",
+  PROJECT_NOT_CREATED_BY_YOU:
+    "You can switch coding sessions only for projects you created yourself (see action list). Ask the owner for anything else.",
+  PROJECT_NOT_ELIGIBLE:
+    "Only the owner's own agents that are not team members and have no Telegram bot for other people can create projects. Do not retry; ask your lead or the owner.",
+  PROJECT_FOLDER_UNAVAILABLE:
+    "AgentPier could not create a separate project in the owner's default working directory: it is missing, not writable or inside another project, or git init failed. Nothing was left behind. Do not retry unchanged; tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -370,6 +384,13 @@ const byKey = {
   sessionsNotEnabled: "SESSIONS_NOT_ENABLED",
   grantRevoked: "GRANT_REVOKED",
   sessionLimit: "SESSION_LIMIT",
+  projectNameInvalid: "PROJECT_NAME_INVALID",
+  projectExists: "PROJECT_EXISTS",
+  projectCreateLimit: "PROJECT_CREATE_LIMIT",
+  projectOwnerOnly: "PROJECT_OWNER_ONLY",
+  projectNotCreatedByYou: "PROJECT_NOT_CREATED_BY_YOU",
+  projectNotEligible: "PROJECT_NOT_ELIGIBLE",
+  projectFolderUnavailable: "PROJECT_FOLDER_UNAVAILABLE",
   promptAnswered: "PROMPT_ANSWERED",
   sessionRunning: "SESSION_RUNNING",
   worktreeDirty: "WORKTREE_DIRTY",

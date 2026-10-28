@@ -123,3 +123,22 @@ test("the attachment mail errors keep their codes and the source problems their 
     assert.notEqual(toolReason(code), toolReason("UNAVAILABLE"), code);
   }
 });
+
+test("project tool problems carry their stable codes and English reasons", () => {
+  for (const [key, status, code] of [
+    ["projectNameInvalid", 400, "PROJECT_NAME_INVALID"],
+    ["projectExists", 409, "PROJECT_EXISTS"],
+    ["projectCreateLimit", 429, "PROJECT_CREATE_LIMIT"],
+    ["projectOwnerOnly", 403, "PROJECT_OWNER_ONLY"],
+    ["projectNotCreatedByYou", 403, "PROJECT_NOT_CREATED_BY_YOU"],
+    ["projectNotEligible", 403, "PROJECT_NOT_ELIGIBLE"],
+    ["projectFolderUnavailable", 409, "PROJECT_FOLDER_UNAVAILABLE"],
+  ]) {
+    const e = toolError(assistantProblem(key, status));
+    assert.equal(e.code, code, key);
+    assert.equal(e.reason, toolReason(code), key);
+    assert.notEqual(e.reason, toolReason("UNAVAILABLE"), key);
+    for (const lang of ["de", "en"])
+      assert.equal(typeof serverCatalogs[lang].agentProjects[key], "string", key);
+  }
+});
