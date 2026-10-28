@@ -83,6 +83,28 @@ export const liveTopics = Object.freeze({
     interval: 30000,
     sampled: true,
   }),
+  // An operations job; a running one is sampled (a release helper writes it).
+  "job.operation": Object.freeze({
+    mode: "state",
+    path: under("/operations/jobs"),
+    interval: 1500,
+    sampled: true,
+  }),
+  // An old release's session migration plan, sampled every 3 s.
+  "operations.release-sessions": Object.freeze({
+    mode: "state",
+    path: (version) =>
+      `/operations/releases/cleanup/${encodeURIComponent(version)}/sessions`,
+    interval: 3000,
+    sampled: true,
+  }),
+  "artifacts.usage": Object.freeze({
+    mode: "state",
+    path: () => "/artifacts/usage",
+    interval: 5000,
+  }),
+  // The list and search pages: `changed`, then one read of the caller's query.
+  "artifacts.changed": Object.freeze({ mode: "signal", path: null, interval: 5000 }),
 });
 
 /**

@@ -21,12 +21,14 @@ export class ArtifactService {
     clock = () => new Date(),
     barrier,
     isRebound = () => false,
+    // Every change of the index or the stored files (artifact-store.js).
+    onChange,
   }) {
     this.barrier = barrier;
     // True when a plain project folder became this Git project (see ProjectRebind).
     this.isRebound = isRebound;
     this.dataDir = dataDir;
-    this.store = new ArtifactStore(dataDir);
+    this.store = new ArtifactStore(dataDir, { onChange });
     this.limits = { ...artifactLimits, ...limits };
     this.sessionExists = sessionExists;
     this.onError = onError;

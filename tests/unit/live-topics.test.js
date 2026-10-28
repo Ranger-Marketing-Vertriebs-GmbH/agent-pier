@@ -114,3 +114,25 @@ test("the menu-hint topics name their REST routes; the CLI-facing two are sample
   for (const info of [summary, problems, updates]) assert.equal(info.interval, 30000);
   assert.equal(topicInfo("settings.summary:x"), null);
 });
+
+test("the operations and artifact topics name their routes at their former polls", () => {
+  const job = topicInfo("job.operation:a-1");
+  assert.equal(job.path(job.param), "/operations/jobs/a-1");
+  assert.deepEqual([job.mode, job.interval, job.sampled], ["state", 1500, true]);
+  assert.equal(topicInfo("job.operation"), null);
+  const plan = topicInfo("operations.release-sessions:2.1.0-beta.1");
+  assert.equal(
+    plan.path(plan.param),
+    "/operations/releases/cleanup/2.1.0-beta.1/sessions",
+  );
+  assert.deepEqual([plan.mode, plan.interval, plan.sampled], ["state", 3000, true]);
+  const usage = topicInfo("artifacts.usage");
+  assert.equal(usage.path(), "/artifacts/usage");
+  assert.deepEqual([usage.mode, usage.interval, usage.sampled], ["state", 5000, false]);
+  const changed = topicInfo("artifacts.changed");
+  assert.deepEqual(
+    [changed.mode, changed.path, changed.interval],
+    ["signal", null, 5000],
+  );
+  assert.equal(topicInfo("artifacts.changed:x"), null);
+});

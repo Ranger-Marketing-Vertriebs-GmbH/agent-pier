@@ -15,6 +15,14 @@ import {
 import { settingsSummaryTopic } from "../features/settings/live-topics.js";
 import { connectionProblemsTopic } from "../features/providers/live-topics.js";
 import { runtimeUpdatesTopic } from "../features/assistants/live-runtime-topics.js";
+import {
+  operationJobTopic,
+  releaseSessionsTopic,
+} from "../features/operations/live-topics.js";
+import {
+  artifactsChangedTopic,
+  artifactsUsageTopic,
+} from "../features/artifacts/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -57,6 +65,10 @@ export function createLiveHub(services, options = {}) {
   hub.define(settingsSummaryTopic(services));
   hub.define(connectionProblemsTopic(services));
   hub.define(runtimeUpdatesTopic(services));
+  hub.define(operationJobTopic(services));
+  hub.define(releaseSessionsTopic(services));
+  hub.define(artifactsUsageTopic(services));
+  hub.define(artifactsChangedTopic());
   return hub;
 }
 

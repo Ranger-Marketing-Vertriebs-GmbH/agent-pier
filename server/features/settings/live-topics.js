@@ -4,8 +4,9 @@
 // owner's successful writes signal it (live-wiring.js liveWriteSignals). Owner only.
 // Live, only `operations.updates` is read (the menu's and the start page's update
 // hint); the cached release check changes only through the awaited
-// POST /operations/releases/check, so it is always pushed. Backup and diagnostic jobs
-// that finish after their request answered, and MCP grants that expire, are not
+// POST /operations/releases/check, so it is always pushed. An operations job that
+// ends after its request answered (a backup) signals it at its end
+// (operations/live-topics.js operationJobChanged); MCP grants that expire are not
 // pushed until the next write: the settings tabs read the REST route themselves.
 import { settingsSummary } from "./settings-summary.js";
 
