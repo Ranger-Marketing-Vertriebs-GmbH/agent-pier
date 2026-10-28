@@ -45,8 +45,10 @@ async function readThroughPage(page, path, sampled) {
 
 /**
  * Routes `**\/api/live` of `page` to a stub and returns its controls:
- * subscriptions(), waitForSubscribe(topicId), push(topicId, value), changed(topicId),
- * stale(topicId), revoke(topicId), refuse(), close(code), dispose().
+ * subscriptions(), received(), connections(), waitForSubscribe(topicId),
+ * push(topicId, value), changed(topicId), stale(topicId), revoke(topicId), refuse(),
+ * close(code), dispose(). `received()` lists the frames the page sent, in order;
+ * `connections()` counts the sockets it opened, refused ones included.
  */
 export async function stubLive(page, { mode = "rest" } = {}) {
   const instance = randomUUID();
@@ -55,6 +57,8 @@ export async function stubLive(page, { mode = "rest" } = {}) {
   const sockets = new Set();
   const latest = new Map();
   const waiters = new Set();
+  const received = [];
+  let opened = 0;
   let revision = 0;
   let refusing = false;
   let disposed = false;
@@ -138,6 +142,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     } catch {
       frame = null;
     }
+    if (plain(frame)) received.push(frame);
     const valid = plain(frame) && typeof frame.topic === "string";
     if (plain(frame) && frame.op === "ping") return send(socket, { type: "pong" });
     if (frame?.op === "sub" && valid && (frame.have === undefined || plain(frame.have)))
@@ -157,6 +162,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
 
   await page.routeWebSocket("**/api/live", (route) => {
     const socket = { route, topics: new Map(), closed: false };
+    opened += 1;
     if (refusing || disposed) {
       socket.closed = true;
       route.close().catch(() => {});
@@ -177,6 +183,8 @@ export async function stubLive(page, { mode = "rest" } = {}) {
 
   const stub = {
     subscriptions: subscribed,
+    received: () => [...received],
+    connections: () => opened,
     waitForSubscribe(topic) {
       return new Promise((resolve, reject) => {
         const waiter = {

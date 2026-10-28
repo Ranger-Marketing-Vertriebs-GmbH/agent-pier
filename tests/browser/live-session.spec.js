@@ -72,3 +72,33 @@ test("the session chat reads no requests or models for 10 s after load", async (
   await page.waitForTimeout(10000);
   expect(reads).toEqual([]);
 });
+
+// useModelControl holds a push that arrives during the tab's own model change and
+// applies it once the change settles, so the newer screen state is not lost.
+test("a model push during a model change is applied once the change settles", async ({
+  page,
+  liveStub,
+}) => {
+  await open(page, liveStub);
+  const settled = { currentModel: "gpt-5.6-sol", picker: null, pending: false };
+  liveStub.push(requestsTopic, { requests: [] });
+  liveStub.push(modelsTopic, settled);
+  const trigger = page.getByRole("button", { name: "Choose model", exact: true });
+  await expect(trigger).toContainText("gpt-5.6-sol");
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  let opened = false;
+  await page.route("**/api/sessions/fixture-session/models/open", async (route) => {
+    opened = true;
+    await held;
+    await route.fulfill({ json: settled }).catch(() => {});
+  });
+  await trigger.click();
+  await expect.poll(() => opened).toBe(true);
+  liveStub.push(modelsTopic, { ...settled, currentModel: "gpt-6-astra" });
+  // Held while the change is under way.
+  await page.waitForTimeout(500);
+  await expect(trigger).toContainText("gpt-5.6-sol");
+  release();
+  await expect(trigger).toContainText("gpt-6-astra");
+});
