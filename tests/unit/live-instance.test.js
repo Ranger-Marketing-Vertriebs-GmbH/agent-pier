@@ -246,7 +246,7 @@ test("signal mode answers same and then changed on each change", async (t) => {
   assert.equal(source.reads, 0);
 });
 
-test("a failed read reports the error and keeps the last value", async (t) => {
+test("a failed read reports the error; a late joiner gets a new read", async (t) => {
   const errors = [];
   let fail = false;
   const { clock, source, hooks, instance } = setup(
@@ -267,8 +267,42 @@ test("a failed read reports the error and keeps the last value", async (t) => {
   await clock.advance(200);
   assert.deepEqual(errors, ["gone"]);
   assert.equal(frames.length, 1);
+  // A late joiner is not answered with the stored value: a new read answers it.
   const late = listen(instance);
-  assert.deepEqual(late.frames[0].data, { ok: true });
+  assert.deepEqual(late.frames, []);
+  await clock.advance(200);
+  assert.equal(source.reads, 3);
+  assert.deepEqual(late.frames, [{ type: "error", topic: "demo" }]);
+  assert.equal(frames.length, 1);
+});
+
+test("a late joiner after a good and then a failed read gets a fresh read", async (t) => {
+  let fail = false;
+  const { clock, source, hooks, instance } = setup(t, {
+    read: async () => {
+      source.reads++;
+      if (fail) throw new Error("gone");
+      return structuredClone(source.value);
+    },
+  });
+  const first = listen(instance);
+  await clock.advance(0);
+  assert.deepEqual(first.frames[0].data, { count: 0 });
+  fail = true;
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.equal(source.reads, 2);
+  // The source recovers with a new value before anyone signals it.
+  fail = false;
+  source.value = { count: 1 };
+  const late = listen(instance);
+  assert.deepEqual(late.frames, [], "not the stored value");
+  await clock.advance(200);
+  assert.equal(source.reads, 3);
+  assert.equal(late.frames[0].type, "snapshot");
+  assert.deepEqual(late.frames[0].data, { count: 1 });
+  assert.equal(first.frames.at(-1).type, "state");
+  assert.deepEqual(first.frames.at(-1).data, { count: 1 });
 });
 
 test("a subscriber leaving during sampling() stops the cycle before a read", async (t) => {

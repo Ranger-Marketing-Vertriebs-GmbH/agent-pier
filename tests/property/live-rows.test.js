@@ -4,7 +4,7 @@ import fc from "fast-check";
 import { check } from "../helpers/property.js";
 import { listRows } from "../../server/features/live/live-rows.js";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
-import { applyListSync } from "../../web/features/assistants/agent-list-sync.js";
+import { applyListSync } from "../../web/lib/live/list-sync.js";
 
 const item = fc.record({
   id: fc.constantFrom("a", "b", "c", "d", "e", "f"),

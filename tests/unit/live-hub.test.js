@@ -5,7 +5,7 @@ import {
   MAX_TOPIC_ID,
   unknownTopic,
 } from "../../server/features/live/live-hub.js";
-import { applyListSync } from "../../web/features/assistants/agent-list-sync.js";
+import { applyListSync } from "../../web/lib/live/list-sync.js";
 import { manualTimers } from "../helpers/manual-timers.js";
 
 const owner = { role: "owner" };
