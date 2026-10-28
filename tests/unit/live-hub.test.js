@@ -396,3 +396,15 @@ test("a gate refuses a topic before its own authorize, also on reauthorize", asy
   assert.deepEqual(mine.frames.at(-1), { type: "revoked", topic: "me.counts" });
   assert.equal(hub.resolve(owner, "state").param, undefined);
 });
+
+test("onClose listeners run once when the hub closes", () => {
+  const hub = new LiveHub();
+  const calls = [];
+  hub.onClose(() => calls.push("a"));
+  const off = hub.onClose(() => calls.push("b"));
+  off();
+  hub.close();
+  hub.close();
+  hub.onClose(() => calls.push("late"));
+  assert.deepEqual(calls, ["a", "late"]);
+});

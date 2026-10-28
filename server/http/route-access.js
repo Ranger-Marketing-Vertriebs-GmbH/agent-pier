@@ -92,12 +92,12 @@ export const userRoutes = [
  * only to topic ids matched here, all `me.*`; every other topic answers her like an
  * unknown one. Every task that adds a `me.*` topic adds it here in the same change.
  */
-export const userTopics = [];
+export const userTopics = Object.freeze([]);
 
 /** Whether a restricted user may subscribe to the live topic `topicId`. */
-export function userMayWatch(topicId) {
+export function userMayWatch(topicId, topics = userTopics) {
   if (typeof topicId !== "string" || topicId.length > MAX_TOPIC_ID) return false;
-  return userTopics.some((pattern) => pattern.test(topicId));
+  return topics.some((pattern) => pattern.test(topicId));
 }
 
 const userSpace = /^\/api\/me(?:\/|$)/;

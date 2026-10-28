@@ -48,6 +48,8 @@ export class LiveConnection {
     this.pending = new Map();
     this.flushTimer = null;
     this.closed = false;
+    // A closed hub ends the connection: no timer or subscription outlives it.
+    this.offHub = hub.onClose?.(() => this.close(1012)) || null;
   }
   /** Handles one client text frame; false when the socket must close with 1008. */
   receive(text) {
@@ -87,7 +89,8 @@ export class LiveConnection {
    * base. The topic subscribes again without `have`, which answers a snapshot.
    */
   resync(topic) {
-    if (!this.closed && this.subscriptions.has(topic)) this.subscribe(topic, undefined);
+    if (this.closed || this.hub.closed || !this.subscriptions.has(topic)) return;
+    this.subscribe(topic, undefined);
   }
   deliver(topic, entry, frame) {
     if (this.closed || this.subscriptions.get(topic) !== entry) return;
@@ -142,6 +145,8 @@ export class LiveConnection {
   close(code) {
     if (this.closed) return;
     this.closed = true;
+    this.offHub?.();
+    this.offHub = null;
     this.stopFlush();
     this.pending.clear();
     const held = [...this.subscriptions.values()];
