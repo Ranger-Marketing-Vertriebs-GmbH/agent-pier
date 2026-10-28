@@ -90,10 +90,11 @@ test("an unregistered /api upgrade is refused", async (t) => {
 
 test("a user cannot tell an owner topic from an unknown one on the live channel", async (t) => {
   const f = await applicationFixture(t);
-  // Owner topics whose own authorize lets everyone in: the user allowlist still refuses.
+  // Owner topics whose own authorize lets everyone in: the user allowlist still refuses
+  // them, like the real owner topics (state, session.requests) beside them.
   for (const [name, param] of [
-    ["state", undefined],
-    ["session.requests", /[^:]+/],
+    ["probe.open", undefined],
+    ["probe.param", /[^:]+/],
   ])
     f.application.live.define({
       name,
@@ -105,9 +106,9 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     });
   const ownerLive = openLive(f);
   await ownerLive.next((frame) => frame.type === "hello");
-  ownerLive.send({ op: "sub", topic: "state" });
+  ownerLive.send({ op: "sub", topic: "probe.open" });
   assert.equal(
-    (await ownerLive.next((frame) => frame.topic === "state")).type,
+    (await ownerLive.next((frame) => frame.topic === "probe.open")).type,
     "snapshot",
   );
   ownerLive.ws.close();
@@ -115,7 +116,15 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
   const live = openLive(f, cookie);
   const hello = await live.next((frame) => frame.type === "hello");
   assert.deepEqual(Object.keys(hello).sort(), ["instance", "type"]);
-  const topics = ["state", "session.requests:x", "nope", "a".repeat(300), "state\u202e"];
+  const topics = [
+    "probe.open",
+    "probe.param:x",
+    "state",
+    "session.requests:x",
+    "nope",
+    "a".repeat(300),
+    "state\u202e",
+  ];
   const answers = [];
   for (const topic of topics) {
     live.send({ op: "sub", topic });

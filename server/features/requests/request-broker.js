@@ -14,6 +14,8 @@ import { validSession, requestValue, answerValue } from "./request-validation.js
 import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
+import { RequestNotices } from "./request-notices.js";
+export { terminalNoticeMs } from "./request-notices.js";
 // A prompt already answered, changed or gone; names who claimed it when known.
 const stale = (entry) =>
   Object.assign(problem(copy.stale, 409), {
@@ -25,8 +27,6 @@ const actorOf = (actor) =>
   actor?.kind === "agent" && typeof actor.assistantId === "string"
     ? { actor: "agent", assistantId: actor.assistantId }
     : { actor: actor?.kind === "telegram" ? "telegram" : "owner" };
-// A terminal notice describes a moment, not a state; it fades on its own.
-export const terminalNoticeMs = 10 * 60 * 1000;
 const equal = (a, b) =>
   typeof a === "string" &&
   typeof b === "string" &&
@@ -36,7 +36,9 @@ const equal = (a, b) =>
 export class RequestBroker {
   /**
    * `onNative(sessionId, push)` receives the authenticated owner's push hints
-   * (native-push.js): activity, streamed reply text and its end.
+   * (native-push.js): activity, streamed reply text and its end. `onChange(sessionId)`
+   * hears what a session's request list shows besides its requests (created, ended and
+   * answered ones reach `onEvent`): a touch, a claim, a terminal notice, a reload.
    */
   constructor({
     dataDir,
@@ -44,11 +46,13 @@ export class RequestBroker {
     onEvent = () => {},
     onNative = () => {},
     onLaunch = () => {},
+    onChange = () => {},
   }) {
     this.directory = path.join(dataDir, "requests");
     this.sessions = sessions;
     this.onEvent = onEvent;
     this.onNative = onNative;
+    this.onChange = onChange;
     // A new launch or a discarded session: what its last CLI reported is over.
     this.onLaunch = onLaunch;
     this.entries = new Map();
@@ -57,7 +61,7 @@ export class RequestBroker {
     this.created = new Set();
     this.claudeReloadRequired = new Set();
     // Latest Claude approval per session that left chat for the terminal.
-    this.notices = new Map();
+    this.notices = new RequestNotices({ onChange: (id) => this.changed(id) });
     const hash = createHash("sha256")
       .update(path.resolve(dataDir))
       .digest("hex")
@@ -108,6 +112,7 @@ export class RequestBroker {
     });
     if (active) throw Error("Native request broker already running");
     this.claudeReloadRequired = await refreshClaudeRuntime(this.directory);
+    for (const id of this.claudeReloadRequired) this.changed(id);
     await fs.rm(this.socketPath, { force: true });
     this.server = net.createServer((socket) => this.connection(socket));
     await new Promise((resolve, reject) => {
@@ -191,30 +196,22 @@ export class RequestBroker {
   }
   /** Claude now shows its own approval dialog; chat must not just go blank. */
   terminalNotice(entry) {
-    if (
-      entry.source === "claude" &&
-      entry.kind === "permission" &&
-      !entry.presentation &&
-      !entry.local
-    )
-      this.notices.set(entry.sessionId, {
-        id: entry.id,
-        reason: "terminal",
-        at: Date.now(),
-      });
+    this.notices.terminal(entry);
   }
   /** Chat moved on (a message reached the terminal): the notice is history. */
   clearNotice(sessionId) {
-    this.notices.delete(sessionId);
+    this.notices.clear(sessionId);
   }
   notice(sessionId) {
-    const notice = this.notices.get(sessionId);
-    if (!notice) return undefined;
-    if (Date.now() - notice.at >= terminalNoticeMs) {
-      this.notices.delete(sessionId);
-      return undefined;
+    return this.notices.get(sessionId);
+  }
+  /** What the session's request list shows changed outside `onEvent`. */
+  changed(sessionId) {
+    try {
+      this.onChange(sessionId);
+    } catch {
+      /* Advisory: the next read still sees the change. */
     }
-    return { id: notice.id, reason: notice.reason };
   }
   connection(socket) {
     if (this.clients.size >= 128) {
@@ -312,7 +309,7 @@ export class RequestBroker {
         )
           throw Error("Too many native requests");
         this.entries.set(id, entry);
-        this.notices.delete(owner.id);
+        this.notices.clear(owner.id);
         this.emit(entry, "request.created");
       });
       return queue;
@@ -402,11 +399,12 @@ export class RequestBroker {
       await this.discard(sessionId, { removeLaunch: false });
     await refreshStartupPrompts(this, session);
     const now = Date.now();
+    const notice = this.notice(sessionId);
     return {
       ...(session.status === "running" && this.claudeReloadRequired.has(sessionId)
         ? { integration: { reloadRequired: true } }
         : {}),
-      ...(this.notice(sessionId) ? { notice: this.notice(sessionId) } : {}),
+      ...(notice ? { notice } : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
         .map(
@@ -467,6 +465,7 @@ export class RequestBroker {
     if (local && !handoff) {
       entry.status = "responding";
       entry.revision++;
+      this.changed(sessionId);
       try {
         await local(this, entry, answer.choice);
         this.entries.delete(id);
@@ -485,11 +484,13 @@ export class RequestBroker {
         // Keep a retryable, visible request after native config-write failures.
         entry.status = "pending";
         delete entry.claimedBy;
+        this.changed(sessionId);
         throw error;
       }
     }
     entry.status = "responding";
     entry.revision++;
+    this.changed(sessionId);
     const status = await new Promise((resolve) => {
       const delivery = randomUUID();
       const finish = (value) => {
@@ -523,6 +524,7 @@ export class RequestBroker {
       );
     } else if (status === "stale") {
       this.entries.delete(id);
+      this.changed(sessionId);
       throw stale();
     } else {
       entry.status = "unknown";
@@ -540,6 +542,7 @@ export class RequestBroker {
     if (typeof input?.client !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(input.client))
       throw problem(copy.invalid, 400);
     entry.interaction = { client: input.client, at: Date.now() };
+    this.changed(sessionId);
     return {};
   }
   handoff(sessionId, id, input) {
@@ -556,7 +559,7 @@ export class RequestBroker {
   async discard(sessionId, { removeLaunch = true } = {}) {
     // Only a session id can name launch files; anything else removes nothing.
     if (!validSession(sessionId)) return;
-    this.notices.delete(sessionId);
+    this.notices.clear(sessionId);
     this.modOwners.delete(sessionId);
     this.launched(sessionId);
     for (const socket of this.clients)
@@ -567,7 +570,7 @@ export class RequestBroker {
         this.emit(entry, "request.expired");
       }
     if (removeLaunch) {
-      this.claudeReloadRequired.delete(sessionId);
+      if (this.claudeReloadRequired.delete(sessionId)) this.changed(sessionId);
       await fs.rm(this.sessionPath(sessionId, ".launch.json"), { force: true });
       for (const plugin of [".claude", ".claude-bridge"])
         await fs.rm(this.sessionPath(sessionId, plugin), {
@@ -581,6 +584,7 @@ export class RequestBroker {
     await this.ready;
     if (this.closed) return;
     this.closed = true;
+    this.notices.close();
     for (const socket of this.clients) socket.destroy();
     await this.modServer?.close();
     await new Promise((resolve) => this.server.close(resolve));

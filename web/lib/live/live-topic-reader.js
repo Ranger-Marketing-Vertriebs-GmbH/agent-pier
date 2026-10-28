@@ -22,7 +22,7 @@ const readTimeoutMs = 15000;
 /**
  * Starts following `topicId` on `client`. `read(path, signal)` is the REST GET,
  * `report({data, error, loading, connected})` gets every change. Returns
- * `{ refresh, stop }`; `refresh()` reads over REST and resolves with the data, or
+ * `{ refresh, set, stop }`; `refresh()` reads over REST and resolves with the data, or
  * with null when the read failed (its error is reported) or the tab is hidden.
  */
 export function startLiveTopic({ topicId, client, read, report, env = {} }) {
@@ -146,6 +146,13 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
     // is in the state), the tab is hidden (the read runs once it is visible) or the
     // topic has no REST route; it never rejects, so no caller waits on a failure.
     refresh: () => fetchOnce().then((data) => data ?? null),
+    // A write's own answer replaces the data at once; a REST read already under way
+    // would bring the older state back, so its answer is dropped. Later pushes win.
+    set(data) {
+      if (stopped) return;
+      version += 1;
+      publish({ data, error: "", loading: false });
+    },
     stop() {
       stopped = true;
       unsubscribe();

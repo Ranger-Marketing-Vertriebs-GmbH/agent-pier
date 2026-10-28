@@ -27,12 +27,19 @@ export function touchRequest(request) {
   api(path, "POST", { client: requestClient() }).catch(() => sent.delete(request.id));
 }
 
-export function recentlyUsedElsewhere(entry) {
+/**
+ * Whether another tab or device used the request within `interactionWindow`. The age
+ * is the server's at the moment this tab received the list (`receivedAt`, stamped by
+ * the session requests store); a pushed list is sent only when it changes, so the
+ * time since then counts too.
+ */
+export function recentlyUsedElsewhere(entry, now = Date.now()) {
   const interaction = entry.interaction;
+  const age =
+    (interaction?.age ?? Infinity) +
+    (Number.isFinite(entry.receivedAt) ? Math.max(0, now - entry.receivedAt) : 0);
   return Boolean(
-    interaction &&
-    interaction.client !== requestClient() &&
-    interaction.age < interactionWindow,
+    interaction && interaction.client !== requestClient() && age < interactionWindow,
   );
 }
 

@@ -223,16 +223,24 @@ const localEntry = (broker, id) =>
   [...broker.entries.values()].find(
     (e) => e.sessionId === id && PRESENTATIONS.includes(e.presentation),
   );
+const startupCandidate = (broker, session) =>
+  session?.tool === "claude" &&
+  Boolean(session.nativeRequests?.enabled) &&
+  Boolean(session.nativeBinding?.enabled) &&
+  session.status === "running" &&
+  Boolean(broker.sessions.control);
+/**
+ * Whether a startup dialog may show on the session's screen: only then does a read of
+ * its request list look at the screen, so only then must the live topic sample it.
+ */
+export async function inStartupWindow(broker, session) {
+  return (
+    startupCandidate(broker, session) && Boolean(await startupState(broker, session))
+  );
+}
 /** Publishes the current Claude startup dialog as a local request, or expires it. */
 export async function refreshStartupPrompts(broker, session) {
-  if (
-    session.tool !== "claude" ||
-    !session.nativeRequests?.enabled ||
-    !session.nativeBinding?.enabled ||
-    session.status !== "running" ||
-    !broker.sessions.control
-  )
-    return;
+  if (!startupCandidate(broker, session)) return;
   const current = await startupState(broker, session);
   const previous = localEntry(broker, session.id);
   if (!current) return expire(broker, previous);

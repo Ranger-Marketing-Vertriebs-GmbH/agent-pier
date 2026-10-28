@@ -1,5 +1,4 @@
 export const modelControlCopy = {
-  refreshTimeout: "Die Modellabfrage antwortet nicht. Der Status wird erneut geprüft.",
   changeTimeout:
     "Die Antwort auf den Modellwechsel steht aus. Der Status wird geprüft; die Änderung wird nicht erneut gesendet.",
   modelCaption: "Zuletzt bestätigt",

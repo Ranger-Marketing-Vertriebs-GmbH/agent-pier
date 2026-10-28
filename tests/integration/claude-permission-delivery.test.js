@@ -379,7 +379,7 @@ test("a terminal notice fades after its time-to-live or once chat moves on", asy
   const f = await fixture(t);
   for (const clear of [
     () => {
-      f.broker.notices.get("session").at -= terminalNoticeMs;
+      f.broker.notices.records.get("session").at -= terminalNoticeMs;
     },
     () => f.broker.clearNotice("session"),
   ]) {

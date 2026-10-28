@@ -275,3 +275,19 @@ test("followSignal counts changed frames only", (t) => {
   client.emit({ type: "changed" });
   assert.equal(count, 2);
 });
+
+test("set replaces the data at once and drops a read already under way", async (t) => {
+  let resolve;
+  const late = () => new Promise((done) => (resolve = done));
+  const s = setup("session.requests:a", { responses: [late] });
+  t.after(s.reader.stop);
+  s.client.emit({ type: "stale" });
+  await settle();
+  s.reader.set({ requests: [{ id: "answered" }] });
+  assert.deepEqual(s.last().data, { requests: [{ id: "answered" }] });
+  resolve({ requests: [{ id: "older" }] });
+  await settle();
+  assert.deepEqual(s.last().data, { requests: [{ id: "answered" }] });
+  s.client.emit({ type: "data", data: { requests: [] }, revision: 2 });
+  assert.deepEqual(s.last().data, { requests: [] });
+});

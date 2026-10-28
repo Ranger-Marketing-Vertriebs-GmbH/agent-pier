@@ -376,10 +376,11 @@ for (const locale of ["de-DE", "en-GB"]) {
   });
 }
 
-// Every view of one session's requests shares one poll (AGENTPIER-266): two
-// escalation cards of the same session read /requests once per 1.5 s, not twice
-// (two loops would put reads of the two cards close together).
-test("escalation cards of one session share one requests poll", async ({ page }) => {
+// Every view of one session's requests shares one live topic (AGENTPIER-266): two
+// escalation cards of the same session subscribe `session.requests` once, so the
+// stub reads /requests once per 1.5 s for both (two subscriptions would put reads
+// close together), and the page itself reads nothing.
+test("escalation cards of one session share one requests topic", async ({ page }) => {
   const escalation = (id, promptId) => ({
     id,
     assistantId: "home",
@@ -413,14 +414,14 @@ test("escalation cards of one session share one requests poll", async ({ page })
     route.fulfill({ json: { requests: [prompt("p1"), prompt("p2")] } }),
   );
   const reads = [];
+  const pageReads = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
     if (
       request.method() === "GET" &&
-      url.pathname === "/api/sessions/agent-session/requests" &&
-      !isLiveStubRequest(request)
+      url.pathname === "/api/sessions/agent-session/requests"
     )
-      reads.push(Date.now());
+      (isLiveStubRequest(request) ? reads : pageReads).push(Date.now());
   });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   const cards = page.locator("[data-session-escalation]");
@@ -428,6 +429,7 @@ test("escalation cards of one session share one requests poll", async ({ page })
   await expect(cards.getByRole("button", { name: "Allow" })).toHaveCount(2);
   reads.length = 0;
   await page.waitForTimeout(6000);
+  expect(pageReads).toEqual([]);
   expect(reads.length).toBeGreaterThanOrEqual(2);
   const gaps = reads.slice(1).map((at, index) => at - reads[index]);
   expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1400);
