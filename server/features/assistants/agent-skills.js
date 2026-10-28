@@ -373,16 +373,15 @@ export class AgentSkills {
     this.timer.unref?.();
   }
   /**
-   * Applies every agent with skills again, past the unchanged-config shortcut,
-   * unless the list it would compile now is the one its last apply wrote.
+   * Applies every agent with skills (its own or built in) again, past the
+   * unchanged-config shortcut, unless the list it would compile now is the one its
+   * last apply wrote.
    */
   async reapply(config) {
     for (const assistant of this.store.listAssistants()) {
-      if (
-        !personalSkills(assistant).length &&
-        !config.compiledSkills?.get(assistant.id)?.length
-      )
-        continue;
+      // Built-in skills count too (AssistantConfig#skillNames): they are never stored.
+      const names = config.skillNames?.(assistant) ?? personalSkills(assistant);
+      if (!names.length && !config.compiledSkills?.get(assistant.id)?.length) continue;
       const last = config.compiledSkills?.get(assistant.id);
       const next = await config.expectedSkills?.(assistant).catch(() => null);
       if (last && next && isDeepStrictEqual(last, next)) continue;

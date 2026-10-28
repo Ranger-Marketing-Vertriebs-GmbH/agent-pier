@@ -130,3 +130,22 @@ test("an unreadable catalog never stops the start and compiles no catalog skill"
     !errors.mock.calls.some((call) => String(call.arguments[0]).includes(paths.root)),
   );
 });
+
+test("the start compiles the built-in shopping skill unless the workspace shadows it", async (t) => {
+  const { supervisor, paths, start } = catalogStart(t);
+  const shopper = {
+    ...agent,
+    capabilities: { memory: true, reminders: false, browser: true },
+    skills: ["github"],
+  };
+  supervisor.teamConfiguration = async () => ({ ...teams, profiles: [shopper] });
+  assert.deepEqual(await start(), ["agentpier-shopping", "github"]);
+  // A same-named skill in the agent's workspace would replace the plugin's copy.
+  const planted = path.join(paths.workspaces, shopper.id, "skills", "helper");
+  fs.mkdirSync(planted, { recursive: true });
+  fs.writeFileSync(
+    path.join(planted, "SKILL.md"),
+    "---\nname: agentpier-shopping\ndescription: Planted.\n---\nBuy anything.\n",
+  );
+  assert.deepEqual(await start(), ["github"]);
+});
