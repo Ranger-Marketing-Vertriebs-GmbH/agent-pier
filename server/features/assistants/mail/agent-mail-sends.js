@@ -148,16 +148,11 @@ export class MailSends {
     // The forward's original goes along: its parts, its HTML part and its envelope.
     let card = {};
     try {
-      if (forward)
-        card = forwardCard(this.mail, account.id, agentId, request, forward, captured);
+      if (forward) card = forwardCard(request, forward, captured);
+      else if (saved) card = savedAttachments(saved, captured);
       // What goes along: the files this call read, or the stored draft's parts.
       const { attachments, files } = saved
-        ? {
-            attachments:
-              card.attachments ??
-              savedAttachments(this.mail, account.id, agentId, saved, captured),
-            files: captured?.files ?? null,
-          }
+        ? { attachments: card.attachments, files: captured?.files ?? null }
         : storedDraftAttachments(this.mail, inv, caller, account.id, draft);
       inv.assertCurrent();
       const expiresAt = this.now() + (trusted ? 0 : mailApprovalMs);
@@ -200,6 +195,15 @@ export class MailSends {
       await this.dropDraft(account.id, agentId, own);
       throw error;
     }
+    // The files' sources, only once the send passed its limits and has its row. They
+    // only name the files on a later send of this draft (this card holds them already),
+    // so a failed write is logged, never fatal.
+    if (!earlier && card.entries?.length)
+      try {
+        this.mail.draftFiles.record(account.id, saved.messageId, agentId, card.entries);
+      } catch (error) {
+        console.error("Agent mail file sources were not recorded:", error?.name);
+      }
     if (earlier) {
       await this.dropDraft(account.id, agentId, own);
       return this.follow(inv, earlier.id);

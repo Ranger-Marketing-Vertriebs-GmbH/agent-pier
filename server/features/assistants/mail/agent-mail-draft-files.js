@@ -180,13 +180,16 @@ export function newFileEntries(saved, captured) {
 
 /**
  * The card attachments of a draft a `send` saved with `captured` files (all of them
- * new), recorded as the agent's so a later send of the draft names them too.
+ * new) and their provenance `entries`, which the send records as the agent's once
+ * its row is written, so a later send of the draft names them too.
  */
-export function savedAttachments(mail, accountId, agentId, saved, captured) {
-  if (!captured) return [];
+export function savedAttachments(saved, captured) {
+  if (!captured) return { attachments: [], entries: [] };
   const entries = newFileEntries(saved, captured);
-  mail.draftFiles.record(accountId, saved.messageId, agentId, entries);
-  return cardAttachments(saved.attachments, (_p, i) => entries[i]?.source);
+  return {
+    attachments: cardAttachments(saved.attachments, (_p, i) => entries[i]?.source),
+    entries,
+  };
 }
 
 /**

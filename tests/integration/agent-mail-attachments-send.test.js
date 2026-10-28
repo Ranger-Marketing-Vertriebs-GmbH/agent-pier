@@ -292,3 +292,31 @@ test("a stored draft over the limit once fetched is refused before a card", asyn
   f.workflows.mail.limits.attachments = { ...attachmentLimits, mailBytes: pdf.length };
   assert.equal((await f.send({ draftUid: uid })).status, "awaiting_approval");
 });
+
+test("a send refused at its last limit check records no file sources", async (t) => {
+  const f = await sendFilesFixture(t);
+  fs.writeFileSync(f.ws("offer.pdf"), pdfWith("Offer"));
+  const sources = () =>
+    f.store.db.prepare("SELECT COUNT(*) AS n FROM agent_mail_draft_files").get().n;
+  // The hourly cap is reached while the draft is saved: the check before the row
+  // refuses the send.
+  const sends = f.workflows.mail.sends;
+  const limit = sends.limit.bind(sends);
+  let checks = 0;
+  sends.limit = (inv, caller, permit) => {
+    if (++checks === 2) throw sends.refuse(inv, caller, "mailSendLimit");
+    return limit(inv, caller, permit);
+  };
+  assert.equal(
+    await code(f.send({ attachments: [{ path: "offer.pdf" }] })),
+    "MAIL_SEND_LIMIT",
+  );
+  assert.equal(sources(), 0);
+  // The saved draft went to Trash again.
+  assert.equal(f.count("Drafts"), 0);
+  // A send that gets its row records them.
+  checks = 2;
+  const r = await f.send({ attachments: [{ path: "offer.pdf" }] });
+  assert.equal(r.status, "awaiting_approval");
+  assert.equal(sources(), 1);
+});
