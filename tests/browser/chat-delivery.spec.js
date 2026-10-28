@@ -558,3 +558,21 @@ test("mobile layout does not force composer focus after sending", async ({ page 
   await delivered(page);
   await expect(input(page)).not.toBeFocused();
 });
+
+test("without the live channel a pending delivery is still checked", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await fixture(page, { mode: "uncertain" });
+  liveStub.refuse();
+  await input(page).fill("Ohne Kanal");
+  await send(page).click();
+  await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
+    "Zustellung unklar",
+  );
+  state.receipt = "handed-off";
+  await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
+    "An TUI gesendet",
+    { timeout: 15000 },
+  );
+});

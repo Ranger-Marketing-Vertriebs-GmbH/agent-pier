@@ -169,3 +169,21 @@ test("the package, plugin, SSH, sign-in and reload topics name their routes", ()
     assert.equal(topicInfo(topic.slice(0, topic.indexOf(":"))), null, topic);
   }
 });
+
+test("the file-job topic names both scopes' routes; deliveries need a session", () => {
+  const global = topicInfo("files.jobs:global");
+  assert.equal(global.path(global.param), "/files/jobs");
+  assert.deepEqual(
+    [global.mode, global.interval, global.sampled],
+    ["state", 1500, false],
+  );
+  const project = topicInfo("files.jobs:session:s 1");
+  assert.equal(project.path(project.param), "/sessions/s%201/files/explorer/jobs");
+  assert.equal(topicInfo("files.jobs"), null);
+  const deliveries = topicInfo("session.deliveries:s1");
+  assert.deepEqual(
+    [deliveries.mode, deliveries.path, deliveries.interval, deliveries.param],
+    ["signal", null, 2500, "s1"],
+  );
+  assert.equal(topicInfo("session.deliveries"), null);
+});

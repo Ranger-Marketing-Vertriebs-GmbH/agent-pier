@@ -71,7 +71,8 @@ export class DeliveryQueue {
     const index = queue.indexOf(job);
     if (index >= 0) queue.splice(index, 1);
     if (!queue.length) this.queues.delete(job.id);
-    this.delivery.active.delete(job.file);
+    // A receipt no longer held answers its own status (pending becomes uncertain).
+    if (this.delivery.active.delete(job.file)) this.delivery.changed?.(job.id);
     job.attempted?.();
     // The next message is due at once, not after the retry interval.
     if (queue.length && !queue[0].started) this.wakers.get(job.id)?.abort();

@@ -18,6 +18,7 @@ async function fixture(
     releases: [],
     status: "uncertain",
     attemptId: null,
+    reads: 0,
   };
   await mockChatStream(page, () => ({ availability: "ready", messages: [], tasks: [] }));
   await page.route("**/api/**", async (route) => {
@@ -80,7 +81,8 @@ async function fixture(
         },
       });
     }
-    if (url.pathname.includes("/input/"))
+    if (url.pathname.includes("/input/")) {
+      state.reads += 1;
       return route.fulfill({
         json: {
           deliveryId: url.pathname.split("/").at(-1),
@@ -88,6 +90,7 @@ async function fixture(
           status: state.status,
         },
       });
+    }
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL + "/sessions/recovery/chat");
@@ -236,4 +239,23 @@ test("a handed-off message offers inspection with no retry permission", async ({
   state.release();
   await expect(inspect).toBeEnabled();
   expect(state.inputs).toHaveLength(1);
+});
+
+test("a delivery's state reaches the chat through its pushed change, not a poll", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await fixture(page);
+  await liveStub.waitForSubscribe("session.deliveries:recovery");
+  // Read once to begin with; then nothing in more than the former 2.5 s poll.
+  await expect.poll(() => state.reads).toBeGreaterThan(0);
+  const reads = state.reads;
+  await page.waitForTimeout(3500);
+  expect(state.reads).toBe(reads);
+  state.status = "handed-off";
+  liveStub.changed("session.deliveries:recovery");
+  await expect(page.getByRole("status", { name: "Nachrichtenzustellung" })).toContainText(
+    "An TUI gesendet",
+  );
+  expect(state.reads).toBe(reads + 1);
 });

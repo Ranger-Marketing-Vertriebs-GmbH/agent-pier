@@ -49,9 +49,8 @@ for (const outcome of [
         completedEntries: 1,
         conflict: null,
       });
-      // An idle explorer polls no /jobs; it reads them again when the window
-      // regains focus, which reveals the job another client completed.
-      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      // An idle explorer reads no /jobs: the pushed file-job update (files.jobs,
+      // following the REST mock) reveals the job another client completed.
       await expect.poll(() => reads).toBeGreaterThan(0);
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("/home/test/a.txt");

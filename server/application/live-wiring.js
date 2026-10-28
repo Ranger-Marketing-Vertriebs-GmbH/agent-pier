@@ -26,6 +26,8 @@ import { pluginsJob } from "../features/plugins/live-topics.js";
 import { sshToolsJob } from "../features/ssh/live-topics.js";
 import { chatgptLoginJob } from "../features/assistants/live-login-topics.js";
 import { sessionReloadTopic } from "../features/sessions/live-reload-topic.js";
+import { filesJobsTopic } from "../features/files/live-topics.js";
+import { sessionDeliveriesTopic } from "../features/chat/live-delivery-topics.js";
 import {
   artifactsChangedTopic,
   artifactsUsageTopic,
@@ -79,6 +81,8 @@ export function createLiveHub(services, options = {}) {
   defineJobTopic(hub, sshToolsJob(services));
   defineJobTopic(hub, chatgptLoginJob(services));
   hub.define(sessionReloadTopic(services));
+  hub.define(filesJobsTopic(services));
+  hub.define(sessionDeliveriesTopic());
   hub.define(releaseSessionsTopic(services));
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());

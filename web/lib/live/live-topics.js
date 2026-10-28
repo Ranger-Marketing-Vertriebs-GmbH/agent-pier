@@ -2,9 +2,9 @@
 // how a frame is applied (`rows`: ChatSync rows rebuilt with applyListSync, `state`:
 // the whole value, `signal`: only `changed`, the caller names the route to read), the
 // REST route that answers the same data for `stale` and the fallback, the fallback's
-// poll interval, whether the parameter may be left out (`optionalParam`), and whether
-// the server samples the topic (then a hidden tab unsubscribes it at once). Pure: the
-// Node test stub imports it.
+// poll interval, whether the parameter may be left out (`optionalParam`) or a signal
+// topic needs one (`paramRequired`), and whether the server samples the topic (then a
+// hidden tab unsubscribes it at once). Pure: the Node test stub imports it.
 const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
 const under = (base) => (id) => `${base}/${encodeURIComponent(id)}`;
 // `<projectId|*>:<status|*>`: page 1 of the run list with those filters, as slim
@@ -135,6 +135,24 @@ export const liveTopics = Object.freeze({
     interval: 1500,
     sampled: true,
   }),
+  // A file scope's job envelopes (`global` or `session:<id>`), the first page of its
+  // jobs, pushed on every job write. Entry and result pages stay REST: the explorer
+  // reads them when a job's `updatedAt` changes.
+  "files.jobs": Object.freeze({
+    mode: "state",
+    path: (scope) =>
+      scope === "global"
+        ? "/files/jobs"
+        : `/sessions/${encodeURIComponent(scope.replace(/^session:/, ""))}/files/explorer/jobs`,
+    interval: 1500,
+  }),
+  // A session's chat deliveries: `changed`, then the chat reads its pending ones.
+  "session.deliveries": Object.freeze({
+    mode: "signal",
+    path: null,
+    paramRequired: true,
+    interval: 2500,
+  }),
   // An old release's session migration plan, sampled every 3 s.
   "operations.release-sessions": Object.freeze({
     mode: "state",
@@ -169,8 +187,10 @@ export function topicInfo(topicId) {
     interval,
     sampled = false,
     optionalParam = false,
+    paramRequired = false,
   } = liveTopics[name];
   if (param === "") return null;
-  if (!optionalParam && (path?.length > 0 ? !param : param !== undefined)) return null;
+  const takesParam = paramRequired || path?.length > 0;
+  if (!optionalParam && (takesParam ? !param : param !== undefined)) return null;
   return { name, param, mode, path, interval, sampled };
 }

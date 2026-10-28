@@ -66,6 +66,9 @@ function page(rows, scope, collection, field, project) {
       : null,
   };
 }
+// A job's version: its write time, raised past the previous one when the clock has
+// not moved on, so every write reads differently.
+const nextVersion = (previous, now) => Math.max(Number(previous) + 1, now);
 /** Synchronous private journal. Construction recovers before consumers can register work. */
 export class FileStore {
   constructor({ dataDir, now = Date.now, limits = readFileLimits() }) {
@@ -152,6 +155,7 @@ export class FileStore {
       admit?.(id, operation);
       const job = this.getJob(scope, id);
       this.db.exec("COMMIT");
+      this.jobChanged(scope.id);
       return { job, created: true };
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -183,7 +187,7 @@ export class FileStore {
       .prepare(
         `
       SELECT e.sequence, e.id AS manifest_entry_id,
-        c.id, c.scope_id, c.kind, c.status, c.document
+        c.id, c.scope_id, c.kind, c.status, c.document, c.updated_at
       FROM job_entries e LEFT JOIN jobs c
         ON c.id=json_extract(e.document,'$.currentJobId')
         AND c.scope_id=? AND c.parent_job_id=e.job_id AND c.entry_id=e.id
@@ -247,6 +251,30 @@ export class FileStore {
         "INSERT INTO job_entries(job_id,id,document) VALUES(?,?,?) ON CONFLICT(job_id,id) DO UPDATE SET document=excluded.document",
       )
       .run(jobId, entry.id, encoded);
+    // A result row is a new version of its job: the explorer reads pages per version.
+    this.touchJob(jobId);
+  }
+  /** Raises the job's version (`updatedAt`) and signals its scope. */
+  touchJob(id) {
+    const row = this.db
+      .prepare("SELECT scope_id,updated_at FROM jobs WHERE id=?")
+      .get(id);
+    if (!row) return;
+    this.db
+      .prepare("UPDATE jobs SET updated_at=? WHERE id=?")
+      .run(nextVersion(row.updated_at, this.now()), id);
+    this.jobChanged(row.scope_id);
+  }
+  /**
+   * Tells `onJobChange` (set by FileJobs) that a job of `scopeId` (null: of any
+   * scope) changed. A failing listener is logged; the write it reports stands.
+   */
+  jobChanged(scopeId) {
+    try {
+      this.onJobChange?.(scopeId);
+    } catch {
+      console.error("AgentPier could not report a file job change.");
+    }
   }
   getEntry(jobId, id) {
     const row = this.db
@@ -374,12 +402,16 @@ export class FileStore {
     };
     if (Object.hasOwn(patch, "conflict")) doc.conflict = projectConflict(patch.conflict);
     if (Object.hasOwn(patch, "decision")) doc.decision = patch.decision;
+    const updatedAt = nextVersion(row.updated_at, this.now());
     const result = this.db
       .prepare("UPDATE jobs SET status=?,document=?,updated_at=? WHERE id=? AND status=?")
-      .run(to, JSON.stringify(doc), this.now(), id, from);
-    return result.changes
-      ? publicFileJob({ ...row, status: to, document: JSON.stringify(doc) }, this)
-      : null;
+      .run(to, JSON.stringify(doc), updatedAt, id, from);
+    if (!result.changes) return null;
+    this.jobChanged(row.scope_id);
+    return publicFileJob(
+      { ...row, status: to, document: JSON.stringify(doc), updated_at: updatedAt },
+      this,
+    );
   }
   putPublication(record) {
     this.db
@@ -393,6 +425,9 @@ export class FileStore {
         JSON.stringify(record.document),
         this.now(),
       );
+    // An archive's envelope (artifactReady) reads its publication.
+    const job = this.db.prepare("SELECT scope_id FROM jobs WHERE id=?").get(record.jobId);
+    if (job) this.jobChanged(job.scope_id);
   }
   getPublication(id) {
     const row = this.db.prepare("SELECT * FROM publications WHERE id=?").get(id);
@@ -502,15 +537,18 @@ export class FileStore {
         )
         .run(now - retentionMs);
       // Iteration removes terminal children first; every remaining child conservatively pins its parent.
-      let result;
+      let result,
+        removed = 0;
       do {
         result = this.db
           .prepare(
             `DELETE FROM jobs WHERE updated_at<? AND status IN (${terminal}) AND NOT EXISTS(SELECT 1 FROM publications p WHERE p.job_id=jobs.id) AND NOT EXISTS(SELECT 1 FROM trash_entries t WHERE t.job_id=jobs.id) AND NOT EXISTS(SELECT 1 FROM jobs child WHERE child.parent_job_id=jobs.id)`,
           )
           .run(now - retentionMs);
+        removed += result.changes;
       } while (result.changes);
       this.db.exec("COMMIT");
+      if (removed) this.jobChanged(null);
     } catch (error) {
       this.db.exec("ROLLBACK");
       throw error;

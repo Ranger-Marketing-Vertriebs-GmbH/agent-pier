@@ -3,6 +3,7 @@ import { browserUuid } from "../../lib/browser-uuid.js";
 import { UploadJobObserver } from "./file-upload-observer.js";
 import { FileJobObserver } from "./file-job-observer.js";
 import { uploadOwnedJob, activeFileJob } from "./file-job-ownership.js";
+import { liveClient } from "../../lib/live/live-client.js";
 
 function issue(code) {
   const error = new Error();
@@ -23,12 +24,32 @@ const environment = {
   timer: (callback, delay) => setTimeout(callback, delay),
   clear: (id) => clearTimeout(id),
 };
+// The tab's live channel, made on first use.
+const browserLive = {
+  subscribe: (topic, listener) => liveClient().subscribe(topic, listener),
+  status: () => liveClient().status(),
+};
+const finite = (value) => Number.isFinite(value);
 
-/** One client owns this snapshot, request queue, abort generation and polling timer. */
+/**
+ * One client owns this snapshot, request queue, abort generation and polling timer.
+ * The job envelopes come from the live topic `client.jobsTopic` (files.jobs) when
+ * `live` delivers it: then a pushed envelope needs no read of /jobs or /jobs/<id>, and
+ * a job's result pages are read again only when its version (`updatedAt`) changes.
+ * Without the channel, or for a job the pushed page does not carry, it polls.
+ */
 export class FileJobClient {
-  constructor(client, timing = environment) {
+  constructor(
+    client,
+    timing = environment,
+    live = timing === environment && browserLive,
+  ) {
     this.client = client;
     this.timing = timing;
+    this.live = client.jobsTopic && live ? live : null;
+    // The last pushed first page of /jobs, and the last search version read.
+    this.feed = null;
+    this.searched = new Map();
     this.state = {
       jobs: [],
       entries: {},
@@ -73,34 +94,15 @@ export class FileJobClient {
             options.first === true,
           );
         }
-        const history = await this.client.get("/jobs", {}, signal);
+        const pushed = this.pushed() ? this.feed : null;
+        const history = pushed || (await this.client.get("/jobs", {}, signal));
         if (!owns()) return;
-        if (!Array.isArray(history.jobs) || history.jobs.length > 200)
-          throw issue("FILE_INVALID_RESPONSE");
-        for (const job of history.jobs) {
-          this.invalidateManifest(job);
-          if (
-            !uploadOwnedJob(job) &&
-            !["search", "size"].includes(job.kind) &&
-            activeFileJob(job)
-          )
-            this.tracked.set(job.id, job);
-        }
-        this.update({
-          history: this.overlayHistory(history.jobs),
-          ...(!this.state.history?.cursor
-            ? { history: { ...history, cursor: null } }
-            : {}),
-          jobs: this.boundedJobs([
-            ...this.state.jobs,
-            ...history.jobs,
-            ...this.tracked.values(),
-          ]),
-        });
+        this.observePage(history);
+        const carried = new Map(pushed?.jobs.map((job) => [job.id, job]));
         for (const id of this.tracked.keys()) {
-          let job;
+          let job = carried.get(id);
           try {
-            job = await this.client.get(`/jobs/${encodeURIComponent(id)}`, {}, signal);
+            job ??= await this.client.get(`/jobs/${encodeURIComponent(id)}`, {}, signal);
           } catch (error) {
             if (!owns()) return;
             if (error.code !== "FILE_NOT_FOUND") throw error;
@@ -110,11 +112,18 @@ export class FileJobClient {
           if (!owns()) return;
           this.accept(job, true);
           this.uploads.settled(job);
-          if (job.kind === "search") await this.readEntries(id, undefined, signal, owns);
+          // A pushed search's rows are read again only for a new version.
+          if (job.kind !== "search") continue;
+          if (pushed && finite(job.updatedAt) && this.searched.get(id) === job.updatedAt)
+            continue;
+          await this.readEntries(id, undefined, signal, owns);
+          this.searched.set(id, job.updatedAt);
         }
         this.uploads.reconcile();
+        // A pushed job's pages are swept again only for a new version.
         const mutations = [...this.tracked.values()].filter(
-          (job) => !["search", "size"].includes(job.kind),
+          (job) =>
+            !["search", "size"].includes(job.kind) && (!pushed || this.unswept(job)),
         );
         const tasks = [
           ...mutations.map((job) => ({ job })),
@@ -150,6 +159,7 @@ export class FileJobClient {
           if (!owns()) return;
           sweep.cursor = page.nextCursor;
           if (!page.nextCursor) {
+            sweep.version = job.updatedAt;
             tasks.splice(tasks.indexOf(task), 1);
             const terminal = ![
               "queued",
@@ -194,6 +204,91 @@ export class FileJobClient {
         }
       });
   }
+  // A first page of /jobs, read or pushed: its active jobs are tracked.
+  observePage(history) {
+    if (!Array.isArray(history?.jobs) || history.jobs.length > 200)
+      throw issue("FILE_INVALID_RESPONSE");
+    const jobs = history.jobs.map((job) => this.latest(job));
+    for (const job of jobs) {
+      this.invalidateManifest(job);
+      if (
+        !uploadOwnedJob(job) &&
+        !["search", "size"].includes(job.kind) &&
+        activeFileJob(job)
+      )
+        this.tracked.set(job.id, job);
+    }
+    this.update({
+      history: this.overlayHistory(jobs),
+      ...(!this.state.history?.cursor
+        ? { history: { ...history, jobs, cursor: null } }
+        : {}),
+      jobs: this.boundedJobs([...this.state.jobs, ...jobs, ...this.tracked.values()]),
+    });
+  }
+  // The newer of `job` and the envelope held for it: an answer that left the server
+  // before a pushed write never brings the older state back.
+  latest(job) {
+    const held =
+      this.tracked.get(job.id) || this.state.jobs.find((item) => item.id === job.id);
+    return finite(held?.updatedAt) &&
+      finite(job.updatedAt) &&
+      held.updatedAt > job.updatedAt
+      ? held
+      : job;
+  }
+  // A job whose result pages were not yet read whole at its version.
+  unswept(job) {
+    const sweep = this.sweeps.get(job.id);
+    return (
+      !finite(job.updatedAt) ||
+      !sweep ||
+      sweep.status !== job.status ||
+      Boolean(sweep.cursor) ||
+      sweep.version !== job.updatedAt
+    );
+  }
+  // The pushed page stands in for GET /jobs while the channel delivers it.
+  pushed() {
+    if (!this.live || this.refused || !this.feed) return false;
+    const { connected, fallback } = this.live.status();
+    return connected && !fallback;
+  }
+  // The push alone follows every tracked job: the pushed page carries each one with
+  // its version, and no result or upload page is part-read.
+  followed() {
+    const carried = new Map(this.feed.jobs.map((job) => [job.id, job]));
+    for (const id of this.tracked.keys())
+      if (!finite(carried.get(id)?.updatedAt) || this.sweeps.get(id)?.cursor)
+        return false;
+    return [...this.uploads.watched.values()].every((watch) => !watch.cursor);
+  }
+  // A frame of the files.jobs topic (web/lib/live/live-client.js events).
+  received(event) {
+    if (!this.listeners.size) return;
+    if (event.type === "data") {
+      this.feed = event.data;
+      this.refused = false;
+    } else if (event.type === "status") {
+      // A channel lost before its first page: the list is read over REST instead.
+      if (event.connected || this.state.history || this.timing.hidden())
+        return this.schedule();
+    } else if (event.type === "stale") this.feed = null;
+    else if (event.type === "revoked" || (event.type === "error" && event.code)) {
+      this.refused = true;
+      this.feed = null;
+    } else if (event.type !== "error" || this.feed) return;
+    if (!this.timing.hidden()) return this.polling ? (this.again = true) : this.poll();
+    // A hidden tab shows the pushed envelopes and reads their pages once shown.
+    this.deferred = true;
+    if (this.pushed()) {
+      try {
+        this.observePage(this.feed);
+      } catch (error) {
+        this.update({ error });
+      }
+    }
+  }
   // Retained result pages serve Cut/purge and inspection independently of polling.
   // Keep bounded recent metadata plus active/unresolved/explicitly selected watches.
   boundedJobs(values, completedId) {
@@ -236,7 +331,12 @@ export class FileJobClient {
     if (this.listeners.size === 1) {
       this.generation++;
       this.unlisten = this.timing.listen(() => this.wake());
-      if (!this.timing.hidden()) this.poll();
+      this.unfollow = this.live?.subscribe(this.client.jobsTopic, (event) =>
+        this.received(event),
+      );
+      // A connected channel sends the page itself; otherwise it is read once.
+      if (!this.timing.hidden() && !this.polling && !this.live?.status().connected)
+        this.poll();
     }
     return () => {
       this.listeners.delete(listener);
@@ -244,26 +344,35 @@ export class FileJobClient {
       this.generation++;
       this.timing.clear(this.timer);
       this.unlisten?.();
+      this.unfollow?.();
+      this.unfollow = null;
+      this.feed = null;
+      this.refused = this.deferred = this.again = false;
       for (const controller of this.controllers) controller.abort();
     };
   }
-  // Polling runs only while a job is tracked or an upload group is watched, and
-  // never from a hidden tab. An idle explorer reads /jobs on mount and on return.
-  schedule() {
+  // Polling runs only while a job is tracked or an upload group is watched, never
+  // from a hidden tab, and not while the push alone follows them (`force`: once more).
+  // Without the channel an idle explorer reads /jobs on mount and on return.
+  schedule(force = false) {
     this.timing.clear(this.timer);
     if (!this.listeners.size || this.timing.hidden()) return;
     if (this.tracked.size === 0 && this.uploads.watched.size === 0) return;
+    if (!force && this.pushed() && this.followed()) return;
     this.timer = this.timing.timer(() => this.poll(), 1500);
   }
-  // A started job or a newly watched upload resumes the timer; an in-flight poll
-  // re-arms it itself when it settles.
+  // A started job or a newly watched upload is read once more; an in-flight poll
+  // re-arms the timer itself when it settles.
   resume() {
-    if (!this.polling) this.schedule();
+    if (!this.polling) this.schedule(true);
   }
-  // A visible tab reads once at once; a hidden one stops.
+  // A visible tab reads once at once, unless pushes already follow it; a hidden one
+  // stops.
   wake() {
     if (!this.listeners.size) return;
     if (this.timing.hidden()) return this.timing.clear(this.timer);
+    if (this.pushed() && !this.deferred) return this.schedule();
+    this.deferred = false;
     this.poll();
   }
   poll() {
@@ -274,7 +383,12 @@ export class FileJobClient {
       .catch(() => {})
       .finally(() => {
         this.polling = false;
-        this.schedule();
+        // A push that arrived during this read is read now, or once the tab is shown.
+        const again = this.again;
+        this.again = false;
+        if (again && this.timing.hidden()) this.deferred = true;
+        if (again && !this.deferred) this.poll();
+        else this.schedule();
       });
   }
   enqueue(work) {
@@ -303,6 +417,7 @@ export class FileJobClient {
     return result;
   }
   accept(job, track = false) {
+    job = this.latest(job);
     this.invalidateManifest(job);
     const tracking = track || this.tracked.has(job.id);
     if (tracking) this.tracked.set(job.id, job);
