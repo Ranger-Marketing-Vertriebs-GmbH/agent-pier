@@ -135,13 +135,14 @@ export const decodedRaw = (raw) => decodeTransfer(rawBody(raw), rawEncoding(raw)
  * `{ part, name, type, size, sha256, partSha256 }` (`raw` too with `raw: true`):
  * `size` and `sha256` of the decoded bytes, `partSha256` of the raw part. Attachments
  * that would decode to more than `maxBytes` together are MAIL_ATTACHMENT_TOO_LARGE
- * before any of them is fetched. A message that is one attachment keeps only the
- * Content-* fields of its header.
+ * before any of them is fetched; attachments named exactly in `skipNames` are left
+ * out first, neither counted nor fetched. A message that is one attachment keeps only
+ * the Content-* fields of its header.
  */
 export async function messageParts(
   client,
   uid,
-  { raw = false, maxBytes = attachmentLimits.mailBytes } = {},
+  { raw = false, maxBytes = attachmentLimits.mailBytes, skipNames = [] } = {},
 ) {
   const row = await client.fetchOne(
     String(uid),
@@ -149,7 +150,9 @@ export async function messageParts(
     { uid: true },
   );
   if (!row || row.uid !== uid) throw mailError("MAIL_NOT_FOUND");
-  const infos = attachmentsOf(row.bodyStructure).map(partInfo);
+  const infos = attachmentsOf(row.bodyStructure)
+    .map(partInfo)
+    .filter((info) => !skipNames.includes(info.name));
   const atLeast = infos.reduce((sum, info) => sum + decodedAtLeast(info), 0);
   if (atLeast > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
   const raws = await fetchRawParts(

@@ -158,12 +158,11 @@ async function parentOf(client, folder, uid) {
 }
 
 // The attachments of the draft to replace (selected) that the new one keeps, as raw
-// parts: all but those named exactly in `removeNames`. A draft that is gone is
-// MAIL_NOT_FOUND.
-async function keptParts(client, uid, removeNames) {
-  const parts = await messageParts(client, uid, { raw: true });
-  return parts.filter((p) => !removeNames.includes(p.name));
-}
+// parts: all but those named exactly in `removeNames`, which are left out before the
+// size bound, so removing attachments can bring a draft under it. A draft that is
+// gone is MAIL_NOT_FOUND.
+const keptParts = (client, uid, removeNames) =>
+  messageParts(client, uid, { raw: true, skipNames: removeNames });
 
 // Over `mailBytes` of decoded attachments, or one file over `fileBytes`, is refused.
 function checkSize(kept, rawParts, files) {
