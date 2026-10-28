@@ -1,0 +1,39 @@
+// The live topics the browser knows (server/features/live/live-hub.js serves them):
+// how a frame is applied (`rows`: ChatSync rows rebuilt with applyListSync, `state`:
+// the whole value), the REST route that answers the same data for `stale` and the
+// fallback, the fallback's poll interval, and whether the server samples the topic
+// (then a hidden tab unsubscribes it at once). Pure: the Node test stub imports it.
+const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
+
+export const liveTopics = Object.freeze({
+  state: Object.freeze({ mode: "rows", path: () => "/state", interval: 3000 }),
+  "session.requests": Object.freeze({
+    mode: "state",
+    path: session("requests"),
+    interval: 1500,
+    sampled: true,
+  }),
+  "session.models": Object.freeze({
+    mode: "state",
+    path: session("models"),
+    interval: 3000,
+    sampled: true,
+  }),
+  inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
+});
+
+/**
+ * The registry entry of `topicId` ("name" or "name:param", split at the first ":"),
+ * or null for an unknown name or a parameter the topic does not take or needs.
+ */
+export function topicInfo(topicId) {
+  if (typeof topicId !== "string") return null;
+  const split = topicId.indexOf(":");
+  const name = split < 0 ? topicId : topicId.slice(0, split);
+  const param = split < 0 ? undefined : topicId.slice(split + 1);
+  if (!Object.hasOwn(liveTopics, name)) return null;
+  const { mode, path, interval, sampled = false } = liveTopics[name];
+  const takesParam = path.length > 0;
+  if (takesParam ? !param : param !== undefined) return null;
+  return { name, param, mode, path, interval, sampled };
+}
