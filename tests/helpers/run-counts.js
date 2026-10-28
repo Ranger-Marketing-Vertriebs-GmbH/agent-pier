@@ -6,8 +6,8 @@ import { RUN_STATUSES } from "../../server/features/pipelines/run-counts.js";
  */
 export function runCountsAnswer(runs, projectId) {
   const counts = Object.fromEntries(RUN_STATUSES.map((status) => [status, 0]));
-  for (const run of runs || [])
-    if ((!projectId || run.projectId === projectId) && Object.hasOwn(counts, run.status))
-      counts[run.status] += 1;
-  return { counts };
+  const listed = (runs || []).filter((run) => !projectId || run.projectId === projectId);
+  for (const run of listed)
+    if (Object.hasOwn(counts, run.status)) counts[run.status] += 1;
+  return { counts, total: listed.length };
 }

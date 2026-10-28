@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import api from "../../lib/api.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
   projectDialogsCopy as dialogsCopy,
@@ -20,25 +21,11 @@ import ProjectRuns from "./ProjectRuns.jsx";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
+// The project's run total, pushed with its run counts (`pipeline.counts:<project>`).
 function useRunTotal(memoryId) {
-  const [total, setTotal] = useState(undefined);
-  useEffect(() => {
-    if (!memoryId) {
-      setTotal(0);
-      return;
-    }
-    let alive = true;
-    setTotal(undefined);
-    api(`/pipeline-runs?projectId=${encodeURIComponent(memoryId)}`)
-      .then((data) => {
-        if (alive) setTotal(data.total || 0);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [memoryId]);
-  return total;
+  const { data } = useLiveTopic(memoryId ? `pipeline.counts:${memoryId}` : null);
+  if (!memoryId) return 0;
+  return Number.isFinite(data?.total) ? data.total : undefined;
 }
 
 export default function ProjectDetail({

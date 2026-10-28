@@ -17,6 +17,7 @@ const noOverflow = (page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 test("run pagination and status filters survive reload and retain exact run identity", async ({
   page,
+  liveStub,
 }) => {
   const state = await pipelinesFixture(page);
   state.runs = Array.from({ length: 21 }, (_, index) => ({
@@ -54,6 +55,9 @@ test("run pagination and status filters survive reload and retain exact run iden
   await expect(
     page.getByText("Noch keine passenden Läufe.", { exact: true }),
   ).toBeVisible();
+  // The server pushes the counts after a delete; the stub follows REST only every
+  // 30 s, so it hands the change on as `stale` (one read of the counts route).
+  liveStub.stale("pipeline.counts");
   await expect(statusPill(page, "Fehlgeschlagen")).toHaveAttribute(
     "aria-pressed",
     "true",
