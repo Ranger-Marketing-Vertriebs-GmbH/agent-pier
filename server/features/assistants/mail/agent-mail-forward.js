@@ -43,13 +43,13 @@ export function saveForward(mail, account, from, request, captured) {
 
 /**
  * The card fields of a saved forward: `attachments` (the original's parts first,
- * source `original`, then the captured files with their sources, recorded as the
- * agent's like a send's), `html` (the draft's HTML part) and `forward` (the
+ * source `original`, then the captured files with their sources, whose provenance
+ * `entries` the send records like its own), `html` (the draft's HTML part) and `forward` (the
  * original's sender, subject, date, folder and UID, and whether its HTML version goes
  * along or was omitted). A draft whose parts do not read
  * back as saved is MAIL_PROTOCOL.
  */
-export function forwardCard(mail, accountId, agentId, request, result, captured) {
+export function forwardCard(request, result, captured) {
   const { saved, html, original } = result;
   const count = original.parts.length;
   const files = captured?.read.length ?? 0;
@@ -63,9 +63,9 @@ export function forwardCard(mail, accountId, agentId, request, result, captured)
     throw mailError("MAIL_PROTOCOL");
   if (html !== null && !saved.htmlPart) throw mailError("MAIL_PROTOCOL");
   const entries = newFileEntries(saved, captured);
-  mail.draftFiles.record(accountId, saved.messageId, agentId, entries);
   const { envelope } = original;
   return {
+    entries,
     attachments: cardAttachments(saved.attachments, (_p, i) =>
       i < count ? { kind: "original" } : entries[i - count]?.source,
     ),

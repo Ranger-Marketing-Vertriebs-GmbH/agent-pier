@@ -2732,7 +2732,7 @@ files and 25 MB in all. The files are read when the draft is saved
 only with the shell level Full access; `.git`, the data directory and links refused:
 `MAIL_SOURCE_REFUSED`, `MAIL_SOURCE_NOT_FOUND`, `MAIL_SOURCE_EMPTY`) and stored in the
 draft, so the card's digest covers the exact bytes. `agent_mail_draft_files` remembers
-each part's source and the turn's file context for 30 days; `decide` checks every source
+each part's source and the turn's file context for 30 days (a `send` writes them only once it passed its limits and has its card or rule row, so a refused send leaves none); `decide` checks every source
 again (`sourceAllowed`) and cancels a changed card with `ACCESS_CHANGED`. A part
 without a record, also after the 30 days, shows as "Already in the draft" without a
 path. A changed draft fails with `MAIL_DRAFT_CHANGED`. `forward`
