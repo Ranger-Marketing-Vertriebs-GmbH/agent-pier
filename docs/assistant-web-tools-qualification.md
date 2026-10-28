@@ -321,7 +321,10 @@ Findings:
   into strict mode, which needs Playwright to inspect redirects. Local managed
   profiles do not have that, so every `http(s)` navigation fails with
   `strict browser SSRF policy requires Playwright-backed redirect-hop
-inspection`. `allowedHostnames: ["127.0.0.1"]` allows a host on its own; a
+inspection`. These are historical 2026.9.8 observations; the 2026.10.7 source
+  also selects Playwright for headless managed profiles. See
+  [Internal host exceptions](#internal-host-exceptions) for current limitations.
+  `allowedHostnames: ["127.0.0.1"]` allows a host on its own; a
   hand-patched probe used this to open a local page and read its marker from a
   snapshot. AgentPier compiles no `ssrfPolicy`.
 - **Isolation.** The `openclaw` profile keeps its data in
@@ -441,6 +444,99 @@ manual probe of the same Chrome showed why minimizing had to go: a minimized win
 without focus emulation reported `hidden`, painted no animation frames, and both
 `Accessibility.getFullAXTree` and `Page.captureScreenshot` hit a 20-second timeout,
 also with the anti-throttling flags.
+
+## Internal host exceptions
+
+Qualified on 2026-10-28 against the installed, pinned **OpenClaw 2026.10.7**,
+dependency lock `aba8ef1b9a94`, using its distributed executable JavaScript. An
+internal hostname failing with `browser navigation blocked by policy` after a
+successful browser start is consistent with the default DNS/address policy. This
+qualification does not contact the reported deployment or attempt a login.
+
+**Decision: do not expose an owner host-release setting with this runtime.** Its
+host exception cannot meet per-agent isolation and pre-request redirect denial.
+No exception is persisted or compiled; no reload or restart enables this missing
+capability. Existing profile isolation and sandbox settings remain in place.
+
+The actual policy chain is:
+
+1. AgentPier's `AgentBrowsers.policy` and the team plugin's tool guard bind a tool
+   call to the calling agent's browser profile. Permanent team members retain their
+   own profiles, including delegated work. This is a tool-call boundary, not an
+   observer of every network request, page script or redirect.
+2. AgentPier's `webToolsSections` compiles `browser.profiles` but no `ssrfPolicy`.
+3. OpenClaw's `extensions/browser/src/browser/config.ts` (`resolveBrowserConfig`,
+   `resolveBrowserSsrFPolicy`, `resolveProfile`) resolves one root policy. The strict
+   `browser.profiles` schema rejects a profile-level `ssrfPolicy`. In
+   `server-context.ts`, `getNavigationPolicy` reads `state().resolved.ssrfPolicy`
+   for every profile. Unioning agents' host lists or temporarily patching that
+   global policy would share permission with concurrent profiles and existing tabs.
+4. `navigation-guard.ts` calls `resolvePinnedHostnameWithPolicy`. An exact
+   `allowedHostnames` entry admits an RFC1918 answer; another hostname or subdomain
+   remains denied. A trusted ordinary hostname resolving to loopback, link-local
+   or the tested metadata address remains denied. Explicit loopback hostnames are
+   a separate upstream exception and must never be accepted as product grants.
+5. `pw-tools-core.interactions.navigation.ts` guards document navigation and checks
+   the response's redirect chain after navigation. In the real-browser fixture,
+   a 302 from an explicitly allowed loopback literal reaches a second, unlisted
+   loopback hostname (`localhost`) **before** `assertPageNavigationCompletedSafely` rejects it.
+   Direct navigation to that second hostname is blocked before any request. Result
+   rejection/quarantining therefore does not establish pre-request redirect denial.
+   The action-scoped document guards also do not establish continuous enforcement
+   for all subresources, service workers and idle tabs.
+
+Setting `dangerouslyAllowPrivateNetwork: false` is not a fix. It requires redirect
+inspection, and rejects ordinary public hostname URLs unless explicitly listed
+(the error requires an IP-literal URL because browser DNS rebinding protection is
+unavailable). The 2026.10.7 headless managed path can select Playwright, so the old
+claim that explicit false makes _every_ navigation fail is no longer accurate.
+The browser's DNS check is not proof that Chromium connects to the checked address.
+
+### Reproducing the boundary
+
+With the runtime environment from [Running the contracts](#running-the-contracts):
+
+```sh
+node --test tests/integration/assistant-browser-host-policy-contract.test.js
+```
+
+The contract loads the pinned runtime's real schema, configuration resolver and
+navigation functions. It checks profile-policy rejection, default private denial,
+exact-host matching, special-address denial and the public-host strict-mode
+regression. A real headless Chromium with `chromiumSandbox: true` verifies direct
+denial and counts requests at a denied redirect target. Only disposable loopback
+HTTP fixtures are contacted; DNS-only cases inject fixture answers. No credentials,
+live models, user profiles, running Gateway configuration or deployment are used.
+This is a boundary qualification, not acceptance coverage for an implemented grant
+feature. Public-site compatibility here is a policy check with fixture DNS, not a
+live public-site browser test.
+
+### Required solution
+
+A suitable runtime change must provide a browser-profile policy enforced before
+connections, with checked DNS addresses bound to those connections. A dedicated
+browser network boundary per agent (for example an enforced egress proxy with
+direct egress prevented) is an alternative; merely passing a proxy flag or adding
+a URL check to the tool guard is insufficient. Provision any required component
+through both installation and update paths, and qualify sandboxed Chromium on the
+supported platforms before enabling the UI.
+
+The resulting owner-only setting must validate exact canonical DNS hostnames,
+reject wildcards, URL syntax, IP literals and special targets, and keep loopback,
+link-local and metadata addresses denied even after DNS changes. Store grants per
+permanent agent; delegation must select the recipient's grants, never the caller's
+union. Keep browser grants separate from `web_fetch`, shell and other tools.
+Enforcement must cover every redirect hop and page-initiated connection, including
+new windows and background workers. Tests must count denied-target requests, not
+just assert a tool error, and include public sites and DNS rebinding fixtures.
+
+Owner changes need a visible audit record containing actor, agent, host and change,
+without credentials or URL query strings. Revocation must deny new connections and
+quiesce/close the affected browser's tabs, workers and connections before reporting
+the new policy active. The UI must distinguish saved/pending settings from the
+enforced generation, including any required browser or runtime restart. This
+lifecycle and concurrent permanent-team delegation require acceptance tests before
+the host-release control can safely ship.
 
 ## Boundaries
 

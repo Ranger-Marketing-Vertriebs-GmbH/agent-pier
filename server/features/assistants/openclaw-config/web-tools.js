@@ -142,8 +142,11 @@ export function webToolsSections({ profiles, webTools, port, only }) {
         chrome: { driver: "openclaw", cdpPort: port + 13 },
         ...own,
       },
-      // No ssrfPolicy: the default blocks private targets, while an explicit
-      // dangerouslyAllowPrivateNetwork: false makes every navigation fail.
+      // No ssrfPolicy: direct private navigation is blocked by default. In
+      // 2026.10.7 this policy is global, not per profile; host exceptions cannot
+      // enforce agent isolation or pre-request redirect blocking. Explicit false
+      // also rejects ordinary public hostnames without an exception. See the
+      // "Internal host exceptions" qualification before changing this boundary.
     };
   }
   return sections;
