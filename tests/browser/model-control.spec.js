@@ -1,6 +1,7 @@
 import { ModelController } from "../../server/features/models/model-controller.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 
 import { baseURL as base } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
@@ -290,6 +291,7 @@ test("mobile model picker supports touch and keyboard without overflowing", asyn
     isMobile: true,
     hasTouch: true,
   });
+  await stubContext(context);
   try {
     const page = await context.newPage();
     await fixture(page);
@@ -368,6 +370,7 @@ for (const viewport of [
       hasTouch: viewport.width < 700,
       isMobile: viewport.width < 700,
     });
+    await stubContext(context);
     try {
       const page = await context.newPage();
       const controls = await fixture(page);

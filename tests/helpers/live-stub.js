@@ -18,19 +18,23 @@ export const isLiveStubRequest = (request) => request.headers()[liveStubHeader] 
 
 const waitMs = 10000;
 
-// One REST read in the page; null when the tab is hidden or the page went away.
-async function readThroughPage(page, path) {
+const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+
+// One REST read in the page; null when the page went away, or for a sampled topic
+// while the tab is hidden (the server samples those only while someone watches;
+// `state` and `inbox` keep coming to a hidden tab).
+async function readThroughPage(page, path, sampled) {
   try {
     return await page.evaluate(
-      async ({ path, header }) => {
-        if (document.hidden) return null;
+      async ({ path, header, sampled }) => {
+        if (sampled && document.hidden) return null;
         const response = await fetch(`/api${path}`, {
           headers: { [header]: "1" },
           cache: "no-store",
         });
         return { ok: response.ok, text: response.ok ? await response.text() : "" };
       },
-      { path, header: liveStubHeader },
+      { path, header: liveStubHeader, sampled },
     );
   } catch {
     // Navigation, a closed page or a failed fetch: try again at the next interval.
@@ -90,7 +94,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     let first = true;
     const read = async () => {
       if (entry.stopped || disposed) return;
-      const answer = await readThroughPage(page, path);
+      const answer = await readThroughPage(page, path, info.sampled);
       if (entry.stopped || disposed) return;
       if (answer && !answer.ok && first) send(socket, { type: "error", topic });
       if (answer?.ok && answer.text !== last) {
@@ -127,9 +131,10 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     } catch {
       frame = null;
     }
-    const valid = frame && typeof frame === "object" && typeof frame.topic === "string";
-    if (frame?.op === "ping") return send(socket, { type: "pong" });
-    if (frame?.op === "sub" && valid) return subscribe(socket, frame.topic);
+    const valid = plain(frame) && typeof frame.topic === "string";
+    if (plain(frame) && frame.op === "ping") return send(socket, { type: "pong" });
+    if (frame?.op === "sub" && valid && (frame.have === undefined || plain(frame.have)))
+      return subscribe(socket, frame.topic);
     if (frame?.op === "unsub" && valid) return stopTopic(socket, frame.topic);
     // The server closes on anything else, so a client bug shows up in the spec.
     closeSocket(socket, 1008);
@@ -163,7 +168,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     for (const socket of holders(topic)) send(socket, { topic, revision, ...frame });
   };
 
-  return {
+  const stub = {
     subscriptions: subscribed,
     waitForSubscribe(topic) {
       return new Promise((resolve, reject) => {
@@ -212,6 +217,40 @@ export async function stubLive(page, { mode = "rest" } = {}) {
       }
       for (const waiter of [...waiters]) clearTimeout(waiter.timer);
       waiters.clear();
+    },
+  };
+  // A closed page reads nothing more, also in contexts the spec closes itself.
+  page.once("close", () => stub.dispose());
+  return stub;
+}
+
+/**
+ * Stubs the live socket of every page of `context`, the open ones and every later
+ * one (context.newPage(), popups). For contexts a spec makes with
+ * browser.newContext(); tests/helpers/browser-test.js does the same for the default
+ * context. Returns { stubFor(page): Promise<LiveStub | null>, dispose() }.
+ */
+export async function stubContext(context, { mode = "rest" } = {}) {
+  const stubs = new Map();
+  const add = (page) => {
+    // The route is requested before the spec's next call on the page reaches it.
+    const stub = stubLive(page, { mode });
+    stubs.set(page, stub);
+    return stub;
+  };
+  const listener = (page) => {
+    add(page).catch(() => {});
+  };
+  await Promise.all(context.pages().map(add));
+  context.on("page", listener);
+  return {
+    stubFor: async (page) => (await stubs.get(page)?.catch(() => null)) ?? null,
+    async dispose() {
+      context.off("page", listener);
+      for (const stub of await Promise.all(
+        [...stubs.values()].map((stub) => stub.catch(() => null)),
+      ))
+        stub?.dispose();
     },
   };
 }

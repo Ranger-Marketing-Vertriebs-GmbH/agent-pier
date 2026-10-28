@@ -116,6 +116,7 @@ async function server() {
   };
 }
 async function phone(browser, f, language, cookie) {
+  // Real live channel: the page runs against its own applicationFixture server.
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,

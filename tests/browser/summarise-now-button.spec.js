@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
@@ -68,6 +69,7 @@ test("Summarise now waits for a first message and fits a phone", async ({ browse
     hasTouch: true,
     isMobile: true,
   });
+  await stubContext(context);
   const page = await context.newPage();
   await chatFixture(page, { history: { messages: [], requests: [], stale: false } });
   await page.goto(baseURL + "/agents/home/chats/dinner");

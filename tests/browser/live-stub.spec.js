@@ -1,7 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
-import { isLiveStubRequest } from "../helpers/live-stub.js";
+import { isLiveStubRequest, stubContext } from "../helpers/live-stub.js";
 import { recordApiRequests, setTabHidden } from "../helpers/visibility.js";
 
 // The live socket stub of tests/helpers/live-stub.js (docs/testing.md#live-socket-stub).
@@ -23,23 +23,29 @@ const stateOf = (sessions) => ({
   home: "/work",
 });
 
-async function fixture(page) {
-  const server = { sessions: [session("first", "Projekt Eins")] };
-  await page.route("**/api/**", async (route) => {
+// `target` is a page or a context: both take the same routes.
+async function fixture(target) {
+  const server = {
+    sessions: [session("first", "Projekt Eins")],
+    models: { picker: null, pending: false },
+  };
+  await target.route("**/api/**", async (route) => {
     if (await fulfillDormantAssistantRequest(route)) return;
     const path = new URL(route.request().url()).pathname;
     const data =
       path === "/api/state"
         ? stateOf(server.sessions)
-        : path === "/api/pipeline-runs"
-          ? { runs: [], total: 0, page: 1, pageSize: 20 }
-          : path === "/api/pipelines"
-            ? { pipelines: [] }
-            : path === "/api/pipeline-profiles"
-              ? { profiles: [] }
-              : path === "/api/memory/projects"
-                ? { projects: [] }
-                : {};
+        : path === "/api/sessions/one/models"
+          ? server.models
+          : path === "/api/pipeline-runs"
+            ? { runs: [], total: 0, page: 1, pageSize: 20 }
+            : path === "/api/pipelines"
+              ? { pipelines: [] }
+              : path === "/api/pipeline-profiles"
+                ? { profiles: [] }
+                : path === "/api/memory/projects"
+                  ? { projects: [] }
+                  : {};
     await route.fulfill({ json: data });
   });
   return server;
@@ -139,26 +145,80 @@ test("the stub answers a raw sub from the REST mock and follows it", async ({ pa
   );
 });
 
-test("the stub reads nothing while the tab is hidden", async ({ page }) => {
+test("a hidden tab pauses sampled topics only, as the server does", async ({ page }) => {
   const server = await fixture(page);
   await page.goto(base);
   const raw = await openRaw(page);
   await expect.poll(async () => types(await raw.frames())).toEqual(["hello"]);
   await raw.send({ op: "sub", topic: "state" });
-  await expect.poll(async () => (await raw.frames()).length).toBe(2);
+  await raw.send({ op: "sub", topic: "session.models:one" });
+  await expect.poll(async () => (await raw.frames()).length).toBe(3);
   await setTabHidden(page, true);
   const reads = [];
   page.on("request", (request) => {
-    if (isLiveStubRequest(request)) reads.push(request.url());
+    if (isLiveStubRequest(request)) reads.push(new URL(request.url()).pathname);
   });
   server.sessions = [session("second", "Projekt Zwei")];
-  await page.waitForTimeout(4000);
-  expect(reads).toEqual([]);
-  expect(await raw.frames()).toHaveLength(2);
+  server.models = { picker: null, pending: true };
+  const after = (topic) => async () =>
+    (await raw.frames()).slice(3).filter((frame) => frame.topic === topic);
+  await expect
+    .poll(async () => (await after("state")()).map(rowNames), { timeout: 6000 })
+    .toEqual([["Projekt Zwei"]]);
+  await page.waitForTimeout(3500);
+  expect(reads).not.toContain("/api/sessions/one/models");
+  expect(await after("session.models:one")()).toEqual([]);
   await setTabHidden(page, false);
   await expect
-    .poll(async () => (await raw.frames()).slice(2).map(rowNames), { timeout: 6000 })
-    .toEqual([["Projekt Zwei"]]);
+    .poll(async () => (await after("session.models:one")()).map((frame) => frame.data), {
+      timeout: 6000,
+    })
+    .toEqual([{ picker: null, pending: true }]);
+});
+
+test("later tabs of the default context and a spec's own context are stubbed", async ({
+  page,
+  context,
+  browser,
+}) => {
+  await fixture(context);
+  await page.goto(base);
+  const second = await context.newPage();
+  await second.goto(base);
+  const tab = await openRaw(second);
+  await expect.poll(async () => types(await tab.frames())[0]).toBe("hello");
+  await tab.send({ op: "sub", topic: "state" });
+  await expect
+    .poll(async () => (await tab.frames()).filter((f) => f.type === "snapshot").length)
+    .toBe(1);
+
+  const own = await browser.newContext({ storageState: await context.storageState() });
+  try {
+    const stubs = await stubContext(own, { mode: "manual" });
+    await fixture(own);
+    const phone = await own.newPage();
+    await phone.goto(base);
+    const raw = await openRaw(phone);
+    await expect.poll(async () => types(await raw.frames())).toEqual(["hello"]);
+    await raw.send({ op: "sub", topic: "state" });
+    const stub = await stubs.stubFor(phone);
+    await stub.waitForSubscribe("state");
+    stub.push("state", stateOf([session("pushed", "Projekt Gesendet")]));
+    await expect
+      .poll(async () => (await raw.frames()).slice(1).map(rowNames))
+      .toEqual([["Projekt Gesendet"]]);
+  } finally {
+    await own.close();
+  }
+});
+
+test("a sub whose have is not an object closes with 1008", async ({ page }) => {
+  await fixture(page);
+  await page.goto(base);
+  const raw = await openRaw(page);
+  await expect.poll(async () => types(await raw.frames())).toEqual(["hello"]);
+  await raw.send({ op: "sub", topic: "state", have: "revision-1" });
+  await expect.poll(() => raw.closed()).toBe(1008);
 });
 
 test.describe("manual stub", () => {

@@ -1,5 +1,6 @@
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import { baseURL as base } from "../helpers/browser.js";
 test("mobile tasks open from the left without taking message height and close with Escape", async ({
   page,
@@ -329,6 +330,7 @@ for (const width of [390, 844])
       hasTouch: true,
       isMobile: true,
     });
+    await stubContext(context);
     const page = await context.newPage();
     try {
       const { inputs } = await fixture(page);
