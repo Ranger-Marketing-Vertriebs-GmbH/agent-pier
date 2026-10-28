@@ -138,10 +138,10 @@ test("two users never receive each other's frames", async (t) => {
   // One instance per user and topic, also for the same agent's topic id.
   const keys = [...f.application.live.instances.keys()].map((key) => JSON.parse(key));
   const chatKeys = keys.filter(([id]) => id === `me.chats:${agent.id}`);
-  assert.deepEqual(chatKeys.map(([, scope]) => scope).sort(), [
-    `user:${anna.user.id}`,
-    `user:${ben.user.id}`,
-  ]);
+  assert.deepEqual(
+    chatKeys.map(([, scope]) => scope).sort(),
+    [`user:${anna.user.id}`, `user:${ben.user.id}`].sort(),
+  );
   // Ben starts a chat and writes in it: Anna's frames never name it.
   const benThird = await (
     await as(f, ben.cookie)(`/api/me/agents/${agent.id}/chats`, { method: "POST" })
