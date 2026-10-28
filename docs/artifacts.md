@@ -95,6 +95,11 @@ A publication is an independent copy. Editing or removing the source does not
 change it. Failed replacements preserve the previous publication. File selection
 rejects traversal, symlinks, hard links, special files and changes during copying.
 Absolute source paths must still be inside the session working directory.
+Nothing is published from AgentPier's data directory, also when the session's folder
+is `/`, the home folder or the data directory's parent: every folder from `/` to the
+source and every folder the copy opens is compared with the data directory by device
+and inode, so another case or the macOS firmlink `/System/Volumes/Data` is refused
+too (`ARTIFACT_ACCESS_DENIED`).
 
 Every file in a selected directory must have a supported type. Keep documentation
 such as `README.md` outside the publication copy. Rejections identify unsupported

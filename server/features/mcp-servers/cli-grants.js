@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { executableFile, resolveCommand } from "./command-resolution.js";
+import { grantIdentity } from "./cli-grant-identity.js";
 
 // A `#!` line is short; anything longer is not read.
 const headBytes = 256;
@@ -52,7 +53,9 @@ export function interpreters(file, { pathEnv = "", readHead = head, exists } = {
  * `#!` line or a swapped link must never open a directory or a key file. Full access
  * to its working directory, unless that directory is too broad: `/`, the owner's
  * `home` or the AgentPier `dataDir` or an ancestor of either, or anything inside
- * `dataDir` (real paths compared). Such a cwd gets no grant and a code-only warning;
+ * `dataDir` (real paths and, through cli-grant-identity.js, device and inode
+ * compared, so another case or the /System/Volumes/Data firmlink of `/`'s data
+ * volume counts as too broad as well). Such a cwd gets no grant and a code-only warning;
  * the server may then fail under nono. Remote servers need none.
  */
 export function stdioGrants(
@@ -60,7 +63,7 @@ export function stdioGrants(
   {
     pathEnv = "",
     readHead = head,
-    realpath = fs.realpathSync,
+    realpath = fs.realpathSync.native,
     executable = executableFile,
     exists,
     home = null,
@@ -80,12 +83,16 @@ export function stdioGrants(
     child.startsWith(parent.endsWith(path.sep) ? parent : parent + path.sep);
   const guarded = [home, dataDir].filter(Boolean).map(real);
   const data = dataDir ? real(dataDir) : null;
+  // The same by device and inode: another case or the /System/Volumes/Data firmlink
+  // names the same folders (cli-grant-identity.js).
+  const identity = grantIdentity({ home, dataDir });
   const tooBroad = (cwd) => {
     const dir = real(cwd);
     return (
       dir === path.parse(dir).root ||
       guarded.some((protectedDir) => within(protectedDir, dir)) ||
-      (data !== null && within(dir, data))
+      (data !== null && within(dir, data)) ||
+      identity.tooBroad(dir)
     );
   };
   const grants = [];
@@ -93,7 +100,9 @@ export function stdioGrants(
     if (definition.transport !== "stdio" || !definition.command) continue;
     const paths = new Set();
     const grantable = (file) =>
-      executable(file) && (data === null || !within(real(file), data));
+      executable(file) &&
+      (data === null || !within(real(file), data)) &&
+      !identity.inData(real(file));
     const add = (file) => {
       // A missing or unsuitable file is the command's own problem at start.
       if (!grantable(file)) return;

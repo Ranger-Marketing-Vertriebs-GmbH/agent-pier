@@ -109,7 +109,10 @@ view is audited with its path and size, like a change.
   every folder from the file system root down, so no other spelling of it reaches
   it: another case on a file system that ignores case, or the macOS firmlink
   `/System/Volumes/Data`, which `realpath` does not resolve. A search skips it the
-  same way. If its identity cannot be determined, every call is refused.
+  same way. If its identity cannot be determined, every call is refused and the
+  server logs one line with the code `PROTECTED_ROOT_UNAVAILABLE`. Writes also stay
+  out of the installed application (`AGENTPIER_INSTALL_ROOT`, for example
+  `~/.local/share/agentpier-app`); reading it is allowed.
   Pipeline run checkouts (`.agentpier-worktrees`) can be read but not changed.
 - **Writes:** go to a temporary file beside the target and replace it by rename. A
   link inside the folder is resolved first, so the write lands at its real target;

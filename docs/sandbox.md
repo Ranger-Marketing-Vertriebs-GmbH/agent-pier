@@ -115,7 +115,11 @@ file outside the AgentPier data directory: a `#!` line naming a directory, or a 
 linked to a non-executable file such as a key, gets no grant. No allow grant is
 declared for a working directory that is `/`, the owner's home or an ancestor of it,
 the AgentPier data directory or an ancestor of it, or anything inside the data
-directory; such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
+directory. These folders are compared by device and inode as well, so another case
+or the macOS firmlink `/System/Volumes/Data` (the data volume's root counts as `/`)
+gets no broader grant, and a mount's root on the device that holds the home or the
+data directory counts as too broad. If the home or the data directory cannot be
+identified, no working directory and no read grant is declared. Such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
 under nono. A server whose name the owner's own entry holds, whose entry the owner
 edited, or that could not be written (for example _layout_ or an unreadable file) gets
 no grant: the CLI runs the owner's command or none. Remote servers need no grant. A packaged MCP server is the one exception
