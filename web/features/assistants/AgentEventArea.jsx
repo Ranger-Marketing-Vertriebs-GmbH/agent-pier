@@ -13,11 +13,13 @@ import { hookCopy } from "../../lib/i18n/messages/assistant-hooks.js";
 import { agentRunStepsCopy as stepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 import { assistantWorkflowCopy as workflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
 import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
+import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { toolName } from "./AgentRunState.jsx";
 import RouteLink from "./RouteLink.jsx";
 import SftpRunNote from "./SftpRunNote.jsx";
 import SshRunNote from "./SshRunNote.jsx";
 import { hookApi } from "./settings/hook-api.js";
+import { agentRoute } from "./settings/agent-settings-fields.js";
 import {
   eventAreaView,
   eventRowView,
@@ -187,8 +189,10 @@ function RunNotes({ notes }) {
 }
 
 // A routine's or check-in's body: its time, readable notes, what it did, its reply.
-function ResultBody({ event }) {
+// A write refused because "May write" is off links to the routine settings.
+function ResultBody({ assistantId, event, navigate }) {
   const notes = noteTexts(event.notes);
+  const writesOff = event.notes?.includes("writes_refused") && assistantId && navigate;
   return (
     <>
       <dl className="activity-row-facts">
@@ -200,6 +204,13 @@ function ResultBody({ event }) {
           {note}
         </p>
       ))}
+      {writesOff && (
+        <p className="activity-row-note">
+          <RouteLink route={agentRoute(assistantId, "automation")} navigate={navigate}>
+            {routineCopy.writesSettings}
+          </RouteLink>
+        </p>
+      )}
       {event.runNotes?.length > 0 && <RunNotes notes={event.runNotes} />}
       {event.reply && <EventReply text={event.reply} />}
     </>
@@ -284,7 +295,7 @@ export default function AgentEventArea({
                   navigate={navigate}
                 />
               ) : (
-                <ResultBody event={event} />
+                <ResultBody assistantId={assistantId} event={event} navigate={navigate} />
               )}
             </ActivityRow>
           );

@@ -118,6 +118,26 @@ export class AgentProjectFiles {
     if (ctx.memberResult) return this.held(ctx.assistantId);
     return this.ownAndShared(ctx.assistantId);
   }
+  /**
+   * The levels a call is told about: a routine without "May write" changes no
+   * folder, so it sees read access even where the grant is write (AGENTPIER-269).
+   */
+  effective(ctx, level) {
+    return level === "write" && ctx.routine && !ctx.routine.writable ? "read" : level;
+  }
+  visible(ctx) {
+    const levels = this.levels(ctx);
+    for (const id in levels) levels[id] = this.effective(ctx, levels[id]);
+    return levels;
+  }
+  /**
+   * A routine's change refused because "May write" is off: the run's result says
+   * so for the owner (NativeRoutines.noteRefusal), and the agent is told how to go on.
+   */
+  routineReadOnly(ctx) {
+    this.w.a.routines?.noteRefusal?.(ctx.routine.sessionKey, "writes_refused");
+    return assistantProblem("projectRoutineReadOnly", 403);
+  }
   /** The levels an agent holds outside any turn: its own, or a task member's grant. */
   standing(assistant) {
     return inheritsFromLead(assistant)
@@ -175,7 +195,7 @@ export class AgentProjectFiles {
       this.assertImages(ctx);
       const result = await viewImage(root, at, options);
       this.audit(ctx, projectId, input.action, result);
-      return { projectId, access: level, ...result };
+      return { projectId, access: this.effective(ctx, level), ...result };
     }
     if (!changing.has(input.action)) {
       const result =
@@ -188,7 +208,7 @@ export class AgentProjectFiles {
                 limit: count(input.limit, 2000),
               })
             : await searchFolder(root, at, textValue(input.query, 300), options);
-      return { projectId, access: level, ...result };
+      return { projectId, access: this.effective(ctx, level), ...result };
     }
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
     // In a lead's task a write level comes from the member's own grant only when the
@@ -198,8 +218,7 @@ export class AgentProjectFiles {
     // grant; the task's permission also governs the member's own workspace
     // (TeamBridge.writeAllowed).
     // A routine changes files only when the owner marked it "May write".
-    if (ctx.routine && !ctx.routine.writable)
-      throw assistantProblem("projectRoutineReadOnly", 403);
+    if (ctx.routine && !ctx.routine.writable) throw this.routineReadOnly(ctx);
     // Like native writes: only while the running Gateway's tool guard is proven.
     if (!this.w.a.config?.writeGuard?.())
       throw assistantProblem("projectWriteUnavailable", 503);

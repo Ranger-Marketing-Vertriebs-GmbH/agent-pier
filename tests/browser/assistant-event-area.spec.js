@@ -313,3 +313,45 @@ test("routine SSH screenshot", async ({ page }, info) => {
   await expect(row.locator(".ssh-run-note")).toBeVisible();
   await page.screenshot({ path: info.outputPath("g-routine-ssh-open.png") });
 });
+
+for (const [language, note, link] of [
+  ["en", "Changes refused: “May write” is off for this routine", "Open routine settings"],
+  [
+    "de",
+    "Änderungen abgelehnt: „Darf schreiben“ ist für diese Routine aus",
+    "Routine-Einstellungen öffnen",
+  ],
+])
+  test(`a routine whose change was refused links to its May write switch (${language})`, async ({
+    page,
+  }) => {
+    await chatFixture(page, {
+      language,
+      history: {
+        messages: [{ id: "q", role: "user", text: "Check the stock daily." }],
+        requests: [],
+        events: [
+          {
+            id: "routine:w1",
+            source: "routine",
+            name: "Daily stock check",
+            at: now - 60_000,
+            status: "done",
+            firstLine: "Stock checked",
+            reply: "Stock checked; the plan was not updated.",
+            notes: ["writes_refused"],
+          },
+        ],
+        stale: false,
+      },
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner");
+    await groupHead(page).click();
+    const row = group(page).locator(".agent-event-row").first();
+    // The run ended normally: no failed chip, only the warning.
+    await expect(row).toHaveAttribute("data-event-status", "done");
+    await row.locator(".activity-row-head").click();
+    await expect(row.locator(".activity-row-body")).toContainText(note);
+    await row.getByRole("link", { name: link }).click();
+    await expect(page).toHaveURL(/\/agents\/home\/settings\?.*tab=automation/);
+  });
