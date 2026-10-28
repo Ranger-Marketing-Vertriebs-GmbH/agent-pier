@@ -73,6 +73,7 @@ export const mail = Object.freeze({
   },
   mailHtmlKept: "Includes the original's HTML version, which is not shown here.",
   mailHtmlOmitted: "The original's HTML version is left out; only the text is forwarded.",
+  mailHtmlDraft: "Includes an HTML version, which is not shown here.",
   mailStates: {
     completed: "Email sent",
     declined: "Email not sent — draft kept",

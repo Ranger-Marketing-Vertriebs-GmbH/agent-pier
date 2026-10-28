@@ -326,7 +326,7 @@ test("a mail card item counts attachments and marks a forward", () => {
     mail({ forward: { ...forward, htmlIncluded: false, htmlOmitted: true } }).mail.html,
     "omitted",
   );
-  assert.equal(mail({ html: { part: "1.2" } }).mail.html, "kept");
+  assert.equal(mail({ html: { part: "1.2" } }).mail.html, "draft");
   // The names never reach the inbox list.
   assert.equal(JSON.stringify(mail({ attachments: [file] })).includes("a.pdf"), false);
   // Other actions carry no mail facts.

@@ -64,9 +64,12 @@ export const assistantMailCopy = {
     fromOriginal: "Aus der ursprünglichen E-Mail",
     unnamed: "(ohne Namen)",
     hash: "SHA-256",
-    htmlKept: "Enthält die HTML-Fassung des Originals, die hier nicht angezeigt wird.",
-    htmlOmitted:
-      "Die HTML-Fassung des Originals bleibt weg; nur der Text wird weitergeleitet.",
+    html: {
+      kept: "Enthält die HTML-Fassung des Originals, die hier nicht angezeigt wird.",
+      omitted:
+        "Die HTML-Fassung des Originals bleibt weg; nur der Text wird weitergeleitet.",
+      draft: "Enthält eine HTML-Fassung, die hier nicht angezeigt wird.",
+    },
     hidden: "Enthält versteckte Zeichen. Sie werden als Codes gezeigt.",
     showAll: "Alles zeigen",
     showLess: "Weniger zeigen",

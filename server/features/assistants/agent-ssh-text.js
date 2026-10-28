@@ -13,8 +13,15 @@ import { redactSecrets } from "../../lib/secret-redaction.js";
 export const hiddenCharacterSource =
   "(?![\\t\\n])[\\p{Cc}\\p{Cf}\\p{Default_Ignorable_Code_Point}\\u2028\\u2029\\u115f\\u1160\\u3164\\uffa0]";
 const hidden = new RegExp(hiddenCharacterSource, "u");
+// In a single-line field (a file name, a path, a header) tab and line feed hide too.
+export const lineHiddenCharacterSource = hiddenCharacterSource.replace(
+  "(?![\\t\\n])",
+  "",
+);
+const lineHidden = new RegExp(lineHiddenCharacterSource, "u");
 
 export const hasHiddenCharacters = (text) => hidden.test(String(text));
+export const hasLineHiddenCharacters = (text) => lineHidden.test(String(text));
 
 /** Correlates an audit record with the transcript's tool call without the text. */
 export const commandDigest = (command) =>

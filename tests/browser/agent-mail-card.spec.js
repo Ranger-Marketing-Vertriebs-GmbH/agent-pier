@@ -283,3 +283,37 @@ test("in German the card names the attachments and the forward", async ({ page }
   await expect(card).toContainText("Aus der ursprünglichen E-Mail");
   await expect(card).toContainText("Enthält die HTML-Fassung des Originals");
 });
+
+test("a line break in a name or a hidden character in the forward's address is flagged", async ({
+  page,
+}) => {
+  const forged = {
+    attachments: [
+      {
+        ...withFiles.attachments[1],
+        name: "invoice.pdf · 2 kB\nAttachment: harmless.txt",
+      },
+    ],
+    forward: {
+      ...withFiles.forward,
+      from: { name: "", address: "rech​nung@telekom.de" },
+    },
+  };
+  await setup(page, { actions: [mailAction("m4", { payload: forged })] });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card).toContainText("Contains hidden characters.");
+  await expect(card.locator("[data-field=attachment]")).toContainText("U+000A");
+  await expect(card.locator("[data-field=forward] code")).toContainText("U+200B");
+});
+
+test("a draft's own HTML part is named as such", async ({ page }) => {
+  await setup(page, {
+    actions: [mailAction("m5", { payload: { html: { part: "1.2", partSha256: hash } } })],
+  });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card).toContainText("Includes an HTML version, which is not shown here.");
+  await expect(card).not.toContainText("original's HTML");
+  await expect(card).not.toContainText("Contains hidden characters.");
+});

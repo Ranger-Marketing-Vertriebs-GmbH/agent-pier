@@ -4,7 +4,12 @@ import { assistantMailCopy } from "../../lib/i18n/messages/assistant-mail.js";
 import useAssistants from "./useAssistants.js";
 import SshCommandText from "./SshCommandText.jsx";
 import MailCardAttachments from "./MailCardAttachments.jsx";
-import { bodyLines, mailHasHidden, splitRecipient } from "./mail-card-text.js";
+import {
+  bodyLines,
+  mailHasHidden,
+  mailHtmlState,
+  splitRecipient,
+} from "./mail-card-text.js";
 import "./exec-approval-card.css";
 import "./ssh-approval-card.css";
 
@@ -14,16 +19,16 @@ const collapseChars = 3000;
 
 // One address as code, then any display name: a name that looks like an address
 // never stands where the address belongs.
-function Address({ address, name }) {
+function Address({ address, name, line = false }) {
   return (
     <span className="mail-approval-address">
       <code>
-        <SshCommandText command={address} />
+        <SshCommandText command={address} line={line} />
       </code>
       {name && (
         <>
           {" "}
-          (<SshCommandText command={name} />)
+          (<SshCommandText command={name} line={line} />)
         </>
       )}
     </span>
@@ -33,13 +38,15 @@ function Address({ address, name }) {
 /**
  * An agent's email waiting for the owner (Send / Don't send), sending, or its final
  * state. It shows every to, cc and bcc recipient by address, the sender, the subject,
- * the forwarded original, every attachment (MailCardAttachments) and the whole body; only these buttons, or the Telegram ones, send it.
+ * the forwarded original, every attachment (MailCardAttachments) and the whole body;
+ * only these buttons, or the Telegram ones, send it.
  */
 export default function MailApprovalCard({ action, decide }) {
   const card = assistantMailCopy.card;
   const { assistants } = useAssistants();
   const p = action.payload || {};
   const body = String(p.body ?? "");
+  const html = mailHtmlState(p);
   const long = bodyLines(body) > collapseAfter || Array.from(body).length > collapseChars;
   const [expanded, setExpanded] = useState(!long);
   const [busy, setBusy] = useState(false);
@@ -112,10 +119,11 @@ export default function MailApprovalCard({ action, decide }) {
               <Address
                 address={p.forward.from?.address ?? ""}
                 name={p.forward.from?.name ?? ""}
+                line
               />
               <br />
               {p.forward.subject ? (
-                <SshCommandText command={p.forward.subject} />
+                <SshCommandText command={p.forward.subject} line />
               ) : (
                 card.noSubject
               )}
@@ -126,12 +134,7 @@ export default function MailApprovalCard({ action, decide }) {
       </dl>
       {mailHasHidden(p) && <p className="ssh-approval-warning">{card.hidden}</p>}
       <MailCardAttachments attachments={p.attachments} />
-      {(p.html || p.forward?.htmlIncluded) && (
-        <p className="assistant-note">{card.htmlKept}</p>
-      )}
-      {!p.html && !p.forward?.htmlIncluded && p.forward?.htmlOmitted && (
-        <p className="assistant-note">{card.htmlOmitted}</p>
-      )}
+      {html && <p className="assistant-note">{card.html[html]}</p>}
       <pre
         className={`exec-approval-command mail-approval-body${expanded ? "" : " clamped"}`}
         tabIndex={0}

@@ -1,4 +1,5 @@
 import { hiddenCharacterSource } from "../assistants/agent-ssh-text.js";
+import { mailHtmlState } from "../assistants/mail/agent-mail-send-input.js";
 
 // What waits for the owner, as uniform inbox items. Each item names where it comes
 // from and links back there; answering always goes through that source's own
@@ -147,8 +148,7 @@ const actionTitle = (a) => {
 
 /**
  * What an email card carries besides its text: how many attachments, whether it
- * forwards a mail and whether the original's HTML version goes along ("kept") or was
- * left out ("omitted").
+ * forwards a mail and which HTML version goes along (mailHtmlState).
  */
 function mailFacts(p) {
   if (p?.action !== "mail_send") return {};
@@ -156,12 +156,7 @@ function mailFacts(p) {
     mail: {
       attachments: Array.isArray(p.attachments) ? p.attachments.length : 0,
       forward: Boolean(p.forward),
-      html:
-        p.html || p.forward?.htmlIncluded
-          ? "kept"
-          : p.forward?.htmlOmitted
-            ? "omitted"
-            : null,
+      html: mailHtmlState(p),
     },
   };
 }

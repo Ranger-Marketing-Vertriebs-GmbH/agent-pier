@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { assistantProblem } from "../assistant-validation.js";
-import { hasHiddenCharacters } from "../agent-ssh-text.js";
+import { hasHiddenCharacters, hasLineHiddenCharacters } from "../agent-ssh-text.js";
 import { draftFields } from "../../mail/mail-compose.js";
 import { attachmentLimits } from "../../mail/mail-parts.js";
 import { validPath } from "./agent-mail-sources.js";
@@ -173,11 +173,19 @@ export const contentDigest = (p) =>
   );
 
 /**
- * The texts of a card's attachments and forwarded original the owner reads: each
- * attachment's name and source path, the original's sender and subject.
+ * The single-line texts of a card's attachments and forwarded original the owner
+ * reads: each attachment's name, type, source path and project, the original's
+ * sender and subject. Any control character in them counts as hidden, line feed and
+ * tab included. Web mailLineTexts (mail-card-text.js) lists the same fields; a unit
+ * test pins both.
  */
 export const attachmentTexts = (p) => [
-  ...(p.attachments ?? []).flatMap((a) => [a.name, a.source?.path]),
+  ...(p.attachments ?? []).flatMap((a) => [
+    a.name,
+    a.type,
+    a.source?.path,
+    a.source?.projectName,
+  ]),
   p.forward?.from?.name,
   p.forward?.from?.address,
   p.forward?.subject,
@@ -198,12 +206,23 @@ export function mailTelegramApprovable(payload) {
     Array.from(String(payload.body ?? "")).length <= telegramBodyLimit &&
     recipients.length <= telegramRecipientLimit &&
     (payload.attachments?.length ?? 0) <= telegramAttachmentLimit &&
-    ![
-      payload.body,
-      payload.subject,
-      payload.from?.name,
-      ...recipients,
-      ...attachmentTexts(payload),
-    ].some((text) => hasHiddenCharacters(text ?? ""))
+    ![payload.body, payload.subject, payload.from?.name, ...recipients].some((text) =>
+      hasHiddenCharacters(text ?? ""),
+    ) &&
+    !attachmentTexts(payload).some((text) => hasLineHiddenCharacters(text ?? ""))
   );
+}
+
+/**
+ * Which HTML version goes along: the original's in a forward ("kept"), none because
+ * the original's was left out ("omitted"), the draft's own ("draft"), or null.
+ */
+export function mailHtmlState(p) {
+  if (p.forward)
+    return p.forward.htmlIncluded || p.html
+      ? "kept"
+      : p.forward.htmlOmitted
+        ? "omitted"
+        : null;
+  return p.html ? "draft" : null;
 }
