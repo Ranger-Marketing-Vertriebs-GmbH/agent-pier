@@ -9,6 +9,7 @@ import {
   protectedAncestors,
   protectedDirs,
   sameDir,
+  writeProtectedRoots,
 } from "./protected-dirs.js";
 
 // Git internals hold credentials (remote URLs, hooks that run on the owner's next
@@ -130,7 +131,8 @@ function lockedConfig(parts, write, lockToolConfig) {
  * resolved; a protected root is also recognised by device and inode on every folder
  * from the file system root down (protected-dirs.js), so another case or a macOS
  * firmlink (/System/Volumes/Data) never reaches it, from a folder granted at `/`
- * either. A protected root whose identity cannot be determined refuses. Returns the real target (or, for a target that does not exist yet, the
+ * either. A protected root whose identity cannot be determined refuses. A write
+ * also stays out of the installed application (AGENTPIER_INSTALL_ROOT). Returns the real target (or, for a target that does not exist yet, the
  * real parent joined with the missing names), its relative POSIX path and whether
  * it exists. Refuses with `projectPathRefused` (403) otherwise, and with
  * `projectToolConfigLocked` (403) a write into tool configuration when
@@ -171,16 +173,21 @@ export function projectTarget(
   lockedConfig(relative, write, lockToolConfig);
   if (write && lockToolConfig && repoConfig && repoConfigLocked(real, target))
     throw toolConfigLocked();
-  for (const root of protectedRoots) {
+  // A write also stays out of the installed application (writeProtectedRoots).
+  const guardedRoots =
+    write && protectedRoots.length
+      ? [...protectedRoots, ...writeProtectedRoots()]
+      : protectedRoots;
+  for (const root of guardedRoots) {
     const guarded = realpath(root) || root;
     if (inside(guarded, target) || (write && inside(target, guarded))) throw refused();
   }
   // The same by device and inode, for every other spelling of a protected root.
-  if (protectedRoots.length) {
-    assertOutsideDirs(target, protectedDirs(protectedRoots, refused), refused);
+  if (guardedRoots.length) {
+    assertOutsideDirs(target, protectedDirs(guardedRoots, refused), refused);
     if (write && !missing.length) {
       const stat = fs.lstatSync(target, { bigint: true, throwIfNoEntry: false });
-      if (!stat || sameDir(protectedAncestors(protectedRoots, refused), stat))
+      if (!stat || sameDir(protectedAncestors(guardedRoots, refused), stat))
         throw refused();
     }
   }

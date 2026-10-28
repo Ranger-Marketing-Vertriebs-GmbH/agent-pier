@@ -1,4 +1,5 @@
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -159,4 +160,53 @@ test("links and hard links into the data directory stay refused", async (t) => {
     status: 400,
     key: "projectFileUnsuitable",
   });
+});
+
+test("a write never lands in the installed application; a read still may", async (t) => {
+  const h = host(t);
+  const install = path.join(h.base, "agentpier-app");
+  fs.mkdirSync(path.join(install, "current", "server"), { recursive: true });
+  fs.writeFileSync(path.join(install, "current", "server", "index.js"), "// app\n");
+  const previous = process.env.AGENTPIER_INSTALL_ROOT;
+  process.env.AGENTPIER_INSTALL_ROOT = install;
+  t.after(() => {
+    if (previous === undefined) delete process.env.AGENTPIER_INSTALL_ROOT;
+    else process.env.AGENTPIER_INSTALL_ROOT = previous;
+  });
+  const code = path.join(install, "current", "server", "index.js");
+  await assert.rejects(async () => writeFile("/", code, "planted", h.options), refused);
+  await assert.rejects(
+    async () => writeFile(h.base, "agentpier-app/current/new.js", "x", h.options),
+    refused,
+  );
+  assert.equal(fs.readFileSync(code, "utf8"), "// app\n");
+  assert.match((await readFile("/", code, h.options)).content, /app/);
+  // Through the firmlink, when this Mac has one for the temp folder.
+  const spelled = viaFirmlink(code);
+  if (spelled)
+    await assert.rejects(async () => writeFile("/", spelled, "x", h.options), refused);
+  // Writes elsewhere in the project are unaffected.
+  await writeFile(h.project, "src/b.txt", "fine", h.options);
+});
+
+test("a protected root that cannot be identified logs one line naming the cause", (t) => {
+  const h = host(t);
+  const module = new URL(
+    "../../server/features/assistants/protected-dirs.js",
+    import.meta.url,
+  );
+  const script = `
+    const { protectedDirs } = await import(${JSON.stringify(module.href)});
+    for (let i = 0; i < 3; i++) try { protectedDirs([process.argv[1]]); } catch {}
+  `;
+  const run = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", script, path.join(h.base, "missing")],
+    { encoding: "utf8" },
+  );
+  assert.equal(run.status, 0, run.stderr);
+  const lines = run.stderr.trim().split("\n");
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /PROTECTED_ROOT_UNAVAILABLE, ENOENT/);
+  assert.doesNotMatch(lines[0], /missing|\//);
 });

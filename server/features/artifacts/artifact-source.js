@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { FileNative, nativeReadBytes } from "../files/file-native.js";
 import { artifactError } from "./artifact-errors.js";
+import {
+  assertOutsideDirs,
+  protectedDirs,
+  sameDir,
+} from "../assistants/protected-dirs.js";
 const types = {
   ".html": "text/html",
   ".htm": "text/html",
@@ -41,6 +46,8 @@ export async function copyArtifactSource(
   destination,
   limits,
   availableBytes,
+  // AgentPier's data directory: no folder on the way to or below the source may be it.
+  { protectedRoots = [] } = {},
 ) {
   const native = new FileNative();
   let sizeBytes = 0,
@@ -66,17 +73,30 @@ export async function copyArtifactSource(
       throw invalid("ARTIFACT_OUTSIDE_WORKSPACE");
     if (!safeBundlePath(relative))
       throw invalid("ARTIFACT_INVALID_BUNDLE_PATH", relative);
+    // The data directory by device and inode, whatever its spelling (another case, a
+    // macOS firmlink): every folder from `/` to the source, then every folder the copy
+    // opens, as opened.
+    const denied = () => artifactError("ARTIFACT_ACCESS_DENIED", 403);
+    const dirs = protectedDirs(protectedRoots, denied);
+    assertOutsideDirs(path.join(cwd, relative), dirs, denied);
+    const outside = async (handle) => {
+      if (dirs.length && sameDir(dirs, await native.run("stat", { handle })))
+        throw denied();
+    };
     const root = await native.run("openRoot", { path: cwd });
+    await outside(root.handle);
     const selectedParent = await native.run("openLookup", {
       directory: root.handle,
       path: path.dirname(relative) === "." ? "" : path.dirname(relative),
     });
+    await outside(selectedParent.handle);
     async function copy(parent, name, output, depth) {
       if (++visited > 1500 || depth > 32) throw invalid("ARTIFACT_STRUCTURE_LIMIT");
       if (!safeBundlePath(output)) throw invalid("ARTIFACT_INVALID_BUNDLE_PATH", output);
       const info = await native.run("inspect", { directory: parent, name });
       if (info.type === "directory") {
         const lookup = await native.run("openLookup", { directory: parent, path: name });
+        await outside(lookup.handle);
         const stream = await native.run("openDirectory", {
           directory: lookup.handle,
           path: "",
@@ -157,6 +177,7 @@ export async function copyArtifactSource(
         directory: selectedParent.handle,
         path: leaf,
       });
+      await outside(lookup.handle);
       const stream = await native.run("openDirectory", {
         directory: lookup.handle,
         path: "",

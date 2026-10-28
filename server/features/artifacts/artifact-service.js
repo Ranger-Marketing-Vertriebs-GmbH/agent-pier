@@ -25,6 +25,7 @@ export class ArtifactService {
     this.barrier = barrier;
     // True when a plain project folder became this Git project (see ProjectRebind).
     this.isRebound = isRebound;
+    this.dataDir = dataDir;
     this.store = new ArtifactStore(dataDir);
     this.limits = { ...artifactLimits, ...limits };
     this.sessionExists = sessionExists;
@@ -158,6 +159,7 @@ export class ArtifactService {
           folder,
           this.limits,
           this.limits.totalBytes - usage.usedBytes,
+          { protectedRoots: [this.dataDir] },
         );
         await revalidate();
         this.assertSession(context);

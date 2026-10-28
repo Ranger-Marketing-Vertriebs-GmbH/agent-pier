@@ -157,3 +157,62 @@ test("an interpreter or link target inside the data directory is never granted",
   );
   assert.deepEqual(readPaths(grants), [server]);
 });
+
+// HOME and the data directory by device and inode: another case or the macOS
+// /System/Volumes/Data firmlink names the same folders, and the data volume's root is
+// as broad as `/`.
+test(
+  "another spelling of HOME, the data directory or the data volume gets no grant",
+  {
+    skip: process.platform !== "darwin" && "case and firmlink spellings are macOS cases",
+  },
+  (t) => {
+    const { root, home, dataDir, project } = tempTree(t);
+    const firmlink = "/System/Volumes/Data";
+    const spelled = [
+      firmlink,
+      `${firmlink}${root}`,
+      `${firmlink}${home}`,
+      `${firmlink}${dataDir}`,
+      `${firmlink}${path.join(dataDir, "sub")}`,
+      home.toUpperCase(),
+      dataDir.toUpperCase(),
+      path.join(dataDir, "sub").toUpperCase(),
+    ].filter((dir) => fs.existsSync(dir));
+    assert.ok(spelled.length >= 2);
+    const warnings = [];
+    const grants = stdioGrants(
+      [...spelled, project, `${firmlink}${project}`].map((cwd) => ({
+        transport: "stdio",
+        command: "/fake/missing/server",
+        cwd,
+      })),
+      { home, dataDir, warn: (line) => warnings.push(line) },
+    );
+    assert.deepEqual(
+      grants.filter((grant) => grant.access === "allow").map((grant) => grant.path),
+      [project, `${firmlink}${project}`].filter((dir) => fs.existsSync(dir)),
+    );
+    assert.equal(warnings.length, spelled.length);
+    // A program in the data directory under another spelling is never read-granted.
+    const inside = script(path.join(dataDir, "sub", "tool"), "\u007fELF");
+    const reads = readPaths(
+      stdioGrants(
+        [`${firmlink}${inside}`, inside.toUpperCase()]
+          .filter((file) => fs.existsSync(file))
+          .map((command) => ({ transport: "stdio", command })),
+        { home, dataDir },
+      ),
+    );
+    assert.deepEqual(reads, []);
+  },
+);
+
+test("a data directory whose identity cannot be determined grants no cwd (fail closed)", (t) => {
+  const { home, project } = tempTree(t);
+  const grants = stdioGrants(
+    [{ transport: "stdio", command: "/fake/missing/server", cwd: project }],
+    { home, dataDir: path.join(home, "missing-data") },
+  );
+  assert.deepEqual(grants, []);
+});
