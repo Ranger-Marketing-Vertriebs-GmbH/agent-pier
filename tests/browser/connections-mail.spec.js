@@ -155,8 +155,6 @@ test("the Gmail preset guides through the app password", async ({ page }) => {
   await expect(hint).toHaveCount(0);
   await field.fill("abc");
   await expect(hint).toBeVisible();
-  if (process.env.GMAIL_GUIDE_SHOT)
-    await page.screenshot({ path: process.env.GMAIL_GUIDE_SHOT });
   await field.fill(password);
   await expect(field).toHaveValue(stripped);
   await expect(hint).toHaveCount(0);

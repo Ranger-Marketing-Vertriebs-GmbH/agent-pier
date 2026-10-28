@@ -86,7 +86,7 @@ const properNouns = [
   /Z\.ai Coding Plan/g,
   /OpenAI Chat Completions|Chat Completions|OpenAI Responses|Anthropic Messages/g,
   /MCP Registry/g,
-  /Gmail|2-Step Verification/g,
+  /\bGmail\b|\b2-Step Verification\b/g,
   /(Up|Down|Left|Right) Arrow|Escape|Tab|Enter|Control C/g,
   /\b(Telegram|Deepgram|GitHub|Codex|OpenCode|OpenClaw|ChatGPT|AgentPier|CLI|MCP|SSH|API|URL|ID)\b/g,
   /\b(Agency|AgentBus|Claude|Brave|Perplexity|OpenRouter|PyPI|Ed25519|Unicode|KiB|MiB|GiB)\b/g,
