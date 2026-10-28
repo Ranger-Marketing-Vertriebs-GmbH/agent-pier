@@ -528,7 +528,7 @@ it up. An agent of users gets project folders only; the other groups show a lock
   own message, from the web chat or your paired Telegram chat, never in a routine, hook,
   team request or forwarded content. The agent gives a plain folder name; AgentPier
   makes that new, empty folder in your **Default working directory** (**Settings ›
-  Workspace**, or your home folder while it is unset), runs `git init` in it so coding
+  General**, or your home folder while it is unset), runs `git init` in it so coding
   sessions can use worktrees (the agent can skip this) and registers it as a project.
   The agent gets **Read and write** for the folder and the project grant, and may switch
   on **Coding sessions** for a project it created, but only while it still has write
