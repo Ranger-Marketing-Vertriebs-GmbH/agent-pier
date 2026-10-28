@@ -298,3 +298,41 @@ test("an agent's email to send is titled by its account and subject", () => {
   // A hidden character in the subject shows as its code.
   assert.equal(mail({ subject: "Pay\u200b now" }).title, "Private · Pay[U+200B] now");
 });
+
+test("a mail card item counts attachments and marks a forward", () => {
+  const agents = new Map([["a1", { id: "a1", name: "Helper" }]]);
+  const mail = (payload) =>
+    actionItem(
+      {
+        id: "m1",
+        assistantId: "a1",
+        state: "awaiting_approval",
+        revision: 1,
+        payload: { action: "mail_send", accountName: "Private", ...payload },
+        createdAt: at(0),
+      },
+      agents,
+      [],
+    );
+  const file = { name: "a.pdf", source: { kind: "original" } };
+  const forward = { from: { address: "a@b.de" }, htmlIncluded: true };
+  assert.deepEqual(mail({ attachments: [file, file], forward }).mail, {
+    attachments: 2,
+    forward: true,
+    html: "kept",
+  });
+  assert.deepEqual(mail({}).mail, { attachments: 0, forward: false, html: null });
+  assert.equal(
+    mail({ forward: { ...forward, htmlIncluded: false, htmlOmitted: true } }).mail.html,
+    "omitted",
+  );
+  assert.equal(mail({ html: { part: "1.2" } }).mail.html, "kept");
+  // The names never reach the inbox list.
+  assert.equal(JSON.stringify(mail({ attachments: [file] })).includes("a.pdf"), false);
+  // Other actions carry no mail facts.
+  assert.equal(
+    "mail" in
+      actionItem({ id: "x", assistantId: "a1", payload: { action: "exec" } }, agents, []),
+    false,
+  );
+});

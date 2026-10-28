@@ -26,6 +26,10 @@ export function mailHasHidden(p) {
     ...(p.to ?? []),
     ...(p.cc ?? []),
     ...(p.bcc ?? []),
+    ...(p.attachments ?? []).flatMap((a) => [a.name, a.source?.path]),
+    p.forward?.from?.name,
+    p.forward?.from?.address,
+    p.forward?.subject,
   ].some((text) => hasHiddenCharacters(text ?? ""));
 }
 

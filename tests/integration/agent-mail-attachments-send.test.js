@@ -250,3 +250,20 @@ test("an open step-1 card without attachments still verifies", async (t) => {
   await f.decide(r.actionId);
   assert.equal((await f.settled(r.actionId)).state, "completed");
 });
+
+test("the browser's card carries no file access context", async (t) => {
+  const f = await sendFilesFixture(t);
+  fs.writeFileSync(f.ws("offer.pdf"), pdfWith("Offer"));
+  const r = await f.send({ attachments: [{ path: "offer.pdf" }] });
+  // Stored for the approval's re-check, never shown.
+  assert.ok(f.workflows.get(r.actionId).payload.files);
+  const listed = f.workflows.list(f.id, { delegated: true }).actions;
+  const card = listed.find((a) => a.id === r.actionId);
+  assert.equal("files" in card.payload, false);
+  assert.equal(card.payload.attachments[0].name, "offer.pdf");
+  assert.equal("files" in f.workflows.pending(f.id)[0].payload, false);
+  const decided = await f.decide(r.actionId, "decline");
+  assert.equal("files" in decided.payload, false);
+  // The stored row keeps it.
+  assert.ok(f.workflows.get(r.actionId).payload.files);
+});

@@ -67,7 +67,21 @@ export const mail = Object.freeze({
   mailOpenToApprove: "Öffne AgentPier, um diese E-Mail zu lesen und freizugeben.",
   mailAgent: (name) => `Agent: ${name}`,
   mailAccount: (name) => `E-Mail-Zugang: ${name}`,
-  mailFields: { from: "Von", to: "An", cc: "Cc", bcc: "Bcc", subject: "Betreff" },
+  mailFields: {
+    from: "Von",
+    to: "An",
+    cc: "Cc",
+    bcc: "Bcc",
+    subject: "Betreff",
+    forwardOf: "Weiterleitung von",
+    attachment: "Anhang",
+    inDraft: "Schon im Entwurf",
+    fromOriginal: "Aus der ursprünglichen E-Mail",
+    unnamed: "(ohne Namen)",
+  },
+  mailHtmlKept: "Enthält die HTML-Fassung des Originals, die hier nicht angezeigt wird.",
+  mailHtmlOmitted:
+    "Die HTML-Fassung des Originals bleibt weg; nur der Text wird weitergeleitet.",
   mailStates: {
     completed: "E-Mail gesendet",
     declined: "E-Mail nicht gesendet — Entwurf bleibt erhalten",

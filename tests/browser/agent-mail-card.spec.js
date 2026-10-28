@@ -176,3 +176,110 @@ test("a declined card shown here gives way to its note", async ({ page }) => {
   );
   await expect(mailCard(page)).toHaveCount(0);
 });
+
+const hash = "ab".repeat(32);
+const withFiles = {
+  subject: "Fwd: Ihre Rechnung",
+  forward: {
+    from: { name: "Telekom", address: "rechnung@telekom.de" },
+    subject: "Ihre Rechnung",
+    date: "2026-10-27T09:00:00.000Z",
+    folder: "INBOX",
+    uid: 7,
+    htmlIncluded: true,
+    htmlOmitted: false,
+  },
+  html: { part: "1.2", partSha256: "cd".repeat(32) },
+  attachments: [
+    {
+      name: "offer.pdf",
+      size: 12000,
+      type: "application/pdf",
+      sha256: hash,
+      part: "2",
+      partSha256: "ef".repeat(32),
+      source: {
+        kind: "project",
+        projectId: "p1",
+        projectName: "Website",
+        path: "docs/offers/2026/october/offer-for-bob-with-a-rather-long-name.pdf",
+      },
+    },
+    {
+      name: "invoice.pdf",
+      size: 2048,
+      type: "application/pdf",
+      sha256: "12".repeat(32),
+      part: "3",
+      partSha256: "34".repeat(32),
+      source: { kind: "original" },
+    },
+  ],
+};
+
+test("the card lists attachments and a forward", async ({ page }) => {
+  await setup(page, { actions: [mailAction("m2", { payload: withFiles })] });
+  await openChat(page);
+  const card = mailCard(page);
+  const rows = card.locator("[data-field=attachment]");
+  await expect(rows).toHaveCount(2);
+  await expect(card.getByRole("region", { name: "Attachments" })).toBeVisible();
+  await expect(rows.nth(0)).toContainText("offer.pdf");
+  await expect(rows.nth(0)).toContainText("11.7 kB");
+  await expect(rows.nth(0)).toContainText("application/pdf");
+  await expect(rows.nth(0)).toContainText(
+    "docs/offers/2026/october/offer-for-bob-with-a-rather-long-name.pdf (Website)",
+  );
+  await expect(rows.nth(0).locator("code.mail-approval-hash")).toHaveText(hash);
+  await expect(rows.nth(1)).toContainText("From the original mail");
+  await expect(card).toContainText("Forward of");
+  await expect(card.locator("[data-field=forward] code")).toHaveText(
+    "rechnung@telekom.de",
+  );
+  await expect(card.locator("[data-field=forward]")).toContainText("Ihre Rechnung");
+  await expect(card).toContainText(
+    "Includes the original's HTML version, which is not shown here.",
+  );
+  await expect(card).not.toContainText("Contains hidden characters.");
+  // At phone width the hash wraps inside the card; the page never scrolls sideways.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(rows.nth(0).locator("code.mail-approval-hash")).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  const box = await rows.nth(0).locator("code.mail-approval-hash").boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(375);
+});
+
+test("a draft's part, a left-out HTML version and a hidden name show as such", async ({
+  page,
+}) => {
+  const payload = {
+    forward: { ...withFiles.forward, htmlIncluded: false, htmlOmitted: true },
+    attachments: [
+      { ...withFiles.attachments[1], name: "in‮voice.pdf", source: { kind: "draft" } },
+    ],
+  };
+  await setup(page, { actions: [mailAction("m3", { payload })] });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card.locator("[data-field=attachment]")).toContainText(
+    "Already in the draft",
+  );
+  await expect(card.locator("[data-field=attachment]")).toContainText("U+202E");
+  await expect(card).toContainText("Contains hidden characters.");
+  await expect(card).toContainText("The original's HTML version is left out");
+  await expect(card).not.toContainText("Includes the original's HTML version");
+});
+
+test("in German the card names the attachments and the forward", async ({ page }) => {
+  await setup(page, { actions: [mailAction("m2", { payload: withFiles })] });
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "de"));
+  await openChat(page);
+  const card = page.getByRole("article", { name: "E-Mail senden?" });
+  await expect(card.getByRole("region", { name: "Anhänge" })).toBeVisible();
+  await expect(card).toContainText("Weiterleitung von");
+  await expect(card).toContainText("Aus der ursprünglichen E-Mail");
+  await expect(card).toContainText("Enthält die HTML-Fassung des Originals");
+});

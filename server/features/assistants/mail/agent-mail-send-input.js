@@ -19,6 +19,7 @@ const sendKeys = new Set([
 // Telegram shows a card's buttons only when the owner can read all of it there.
 export const telegramBodyLimit = 3000;
 export const telegramRecipientLimit = 20;
+export const telegramAttachmentLimit = 10;
 
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 const sorted = (value) =>
@@ -172,9 +173,20 @@ export const contentDigest = (p) =>
   );
 
 /**
+ * The texts of a card's attachments and forwarded original the owner reads: each
+ * attachment's name and source path, the original's sender and subject.
+ */
+export const attachmentTexts = (p) => [
+  ...(p.attachments ?? []).flatMap((a) => [a.name, a.source?.path]),
+  p.forward?.from?.name,
+  p.forward?.from?.address,
+  p.forward?.subject,
+];
+
+/**
  * Whether Telegram may offer Send for a card: a body of at most 3000 code points, at
- * most 20 recipients, and no character the owner cannot see in the body, the subject,
- * the sender's name or any recipient.
+ * most 20 recipients and 10 attachments, and no character the owner cannot see in the
+ * body, the subject, the sender's name, any recipient or attachmentTexts.
  */
 export function mailTelegramApprovable(payload) {
   const recipients = [
@@ -185,8 +197,13 @@ export function mailTelegramApprovable(payload) {
   return (
     Array.from(String(payload.body ?? "")).length <= telegramBodyLimit &&
     recipients.length <= telegramRecipientLimit &&
-    ![payload.body, payload.subject, payload.from?.name, ...recipients].some((text) =>
-      hasHiddenCharacters(text ?? ""),
-    )
+    (payload.attachments?.length ?? 0) <= telegramAttachmentLimit &&
+    ![
+      payload.body,
+      payload.subject,
+      payload.from?.name,
+      ...recipients,
+      ...attachmentTexts(payload),
+    ].some((text) => hasHiddenCharacters(text ?? ""))
   );
 }
