@@ -1,4 +1,4 @@
-/** Owner-facing copy of agents' email accounts (route problems and tool errors). */
+/** Owner-facing copy of agents' email accounts (route problems, tool errors, Telegram). */
 export const mail = Object.freeze({
   mailAuthFailed:
     "Der Mailserver hat die Anmeldung abgelehnt. Bitte Benutzername und Passwort prüfen.",
@@ -49,4 +49,20 @@ export const mail = Object.freeze({
     "Ein Agent kann nur einen Entwurf mit reinem Text von höchstens 1 MiB senden; HTML-Teile werden nicht gesendet.",
   mailMoveUnsupported:
     "Der Mailserver kann keine Nachrichten verschieben, daher wurde nichts verschoben oder gelöscht.",
+  mailApproval: "Dein Agent möchte eine E-Mail senden:",
+  mailSend: "Senden",
+  mailDecline: "Nicht senden",
+  mailOpenToApprove: "Öffne AgentPier, um diese E-Mail zu lesen und freizugeben.",
+  mailAgent: (name) => `Agent: ${name}`,
+  mailAccount: (name) => `E-Mail-Zugang: ${name}`,
+  mailFields: { from: "Von", to: "An", cc: "Cc", bcc: "Bcc", subject: "Betreff" },
+  mailStates: {
+    completed: "E-Mail gesendet",
+    declined: "E-Mail nicht gesendet — Entwurf bleibt erhalten",
+    expired: "Freigabe abgelaufen — Entwurf bleibt erhalten",
+    cancelled: "E-Mail abgebrochen; der Zugriff hat sich geändert",
+    failed: "Senden fehlgeschlagen; der Entwurf bleibt erhalten",
+    unknown:
+      "Unklar, ob die E-Mail gesendet wurde; vor erneutem Senden den Ordner Gesendet prüfen",
+  },
 });

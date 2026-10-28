@@ -14,6 +14,7 @@ import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.j
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { compactionNoteText } from "./compaction-note.js";
 import { failureText } from "./routine-failure-text.js";
+import { noteTexts } from "./event-area.js";
 
 // Quiet notes join the history between turns (AssistantChat.jsx).
 export const noteEvents = new Set([
@@ -62,7 +63,7 @@ export default function TranscriptItem({
         ? routineCopy.reminderFailed(m.name)
         : routineCopy.chatFailed(m.name)}
       {m.failure ? ` · ${failureText(m.failure)}` : ""}
-      {m.notes?.includes("ssh_refused") ? ` · ${routineCopy.sshRefused}` : ""}
+      {noteTexts(m.notes).map((note) => ` · ${note}`)}
     </p>
   ) : m.event === "memory-note" ? (
     <p className="assistant-note assistant-event" data-memory-note={m.reason}>

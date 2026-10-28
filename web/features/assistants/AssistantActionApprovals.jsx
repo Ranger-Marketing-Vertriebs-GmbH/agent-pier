@@ -5,6 +5,7 @@ import { names as toolNames } from "../../lib/providers.js";
 import ExecApprovalCard from "./ExecApprovalCard.jsx";
 import SshApprovalCard from "./SshApprovalCard.jsx";
 import SftpApprovalCard from "./SftpApprovalCard.jsx";
+import MailApprovalCard from "./MailApprovalCard.jsx";
 import MemberGrantApprovalCard from "./MemberGrantApprovalCard.jsx";
 import HookProposalCard, { HookCreatedNote } from "./HookProposalCard.jsx";
 import SshAccessProposalCard, { SshAccessCreatedNote } from "./SshAccessProposalCard.jsx";
@@ -14,6 +15,7 @@ import SessionLaunchFacts from "./SessionLaunchFacts.jsx";
 const isExec = (a) => a.payload.action === "exec";
 const isSsh = (a) => a.payload.action === "ssh";
 const isSftp = (a) => a.payload.action === "sftp";
+const isMail = (a) => a.payload.action === "mail_send";
 const isGrant = (a) => a.payload.action === "member_grant";
 const isHook = (a) => a.payload.action === "hook_proposal";
 const isSshAccess = (a) => a.payload.action === "ssh_access";
@@ -45,6 +47,10 @@ export default function AssistantActionApprovals({
   const [created, setCreated] = useState([]);
   // SSH accesses he confirmed here, with the public key to install.
   const [accesses, setAccesses] = useState([]);
+  // Mail cards decided here keep their final state (Not sent · draft kept and the
+  // like) after they leave the pending list.
+  const [mails, setMails] = useState([]);
+  const decided = mails.filter((m) => !actions.some((a) => a.id === m.id));
   async function choose(a, decision) {
     setBusy(true);
     try {
@@ -53,7 +59,8 @@ export default function AssistantActionApprovals({
       setBusy(false);
     }
   }
-  if (!actions.length && !error && !created.length && !accesses.length) return null;
+  if (!actions.length && !error && !created.length && !accesses.length && !decided.length)
+    return null;
   // Shell and SSH commands and SFTP operations have their own cards; they decide
   // through `decide(id, decision)`. An SSH or SFTP card stays while its allowed
   // command or job runs.
@@ -62,6 +69,7 @@ export default function AssistantActionApprovals({
       !isExec(a) &&
       !isSsh(a) &&
       !isSftp(a) &&
+      !isMail(a) &&
       !isGrant(a) &&
       !isHook(a) &&
       !isSshAccess(a) &&
@@ -89,6 +97,23 @@ export default function AssistantActionApprovals({
           viewerId={assistantId}
           decide={(_, d) => decide(a, d)}
         />
+      ))}
+      {actions.filter(isMail).map((a) => (
+        <MailApprovalCard
+          key={a.id}
+          action={a}
+          decide={async (_, d) => {
+            const next = await decide(a, d);
+            if (
+              next?.id === a.id &&
+              !["awaiting_approval", "executing"].includes(next.state)
+            )
+              setMails((list) => [...list.filter((m) => m.id !== a.id), next]);
+          }}
+        />
+      ))}
+      {decided.map((a) => (
+        <MailApprovalCard key={a.id} action={a} decide={async () => {}} />
       ))}
       {actions.filter(isGrant).map((a) => (
         <MemberGrantApprovalCard key={a.id} action={a} busy={busy} choose={choose} />

@@ -34,6 +34,7 @@ export const inboxCopy = {
     member_grant: "Permission for a team member",
     hook_proposal: "Hook proposal",
     ssh_access: "SSH access proposal",
+    mail_send: "Email to send",
     gate: "Stage approval",
     decision: "Stage decision",
     claudeFolderTrust: "Trust workspace",

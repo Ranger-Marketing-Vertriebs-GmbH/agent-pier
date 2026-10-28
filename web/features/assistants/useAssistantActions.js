@@ -13,10 +13,12 @@ const own = (a) =>
   !a.teamId &&
   (a.state === "awaiting_approval" ||
     // An allowed SSH command stays visible while it runs, and so does an allowed SFTP
-    // card with its progress (a trusted job shows as its activity row only).
+    // card with its progress or an approved email while it is sent (a trusted job or
+    // rule send shows no card).
     (a.state === "executing" &&
       (a.payload?.action === "ssh" ||
-        (a.payload?.action === "sftp" && a.payload.trusted === false))));
+        (["sftp", "mail_send"].includes(a.payload?.action) &&
+          a.payload.trusted === false))));
 
 /**
  * `pushed` is the list the chat's live feed carries (useAgentConversationStream) while
