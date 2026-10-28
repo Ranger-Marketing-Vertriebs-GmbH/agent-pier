@@ -13,9 +13,15 @@ import { isShared } from "../users/user-access.js";
  */
 // What a hook run may call through the bridge: project folders and coding
 // (agent-hook-workspace.js), SSH on its chosen hosts and, with its Coding tick,
-// coding sessions (coding-sessions/session-turns.js) and, with its Email tick, mail
-// (mail/agent-mail.js).
-export const hookActions = new Set(["workspace", "ssh", "coding_session", "mail"]);
+// coding sessions (coding-sessions/session-turns.js), with its Email tick, mail
+// (mail/agent-mail.js), and always files for the owner's chat (agent-shares.js).
+export const hookActions = new Set([
+  "workspace",
+  "ssh",
+  "coding_session",
+  "mail",
+  "share_file",
+]);
 
 /** The running hook event's origin of this agent's session, or null. */
 export function hookRun(bridge, { agentId, sessionKey }) {

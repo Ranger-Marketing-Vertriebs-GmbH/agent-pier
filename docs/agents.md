@@ -1439,17 +1439,14 @@ file explorer. It
 stays in the history, also while AgentPier is unreachable. When the turn came from your
 paired Telegram chat, the file goes there too, as a photo or as a document. A
 routine's run can share files as well, for example a weekly report: they appear in the
-agent's chat and, when the routine also sends to Telegram, in its Telegram chat. When a
-background command (a long render, for example) finishes after the agent's reply, its
-follow-up on the result can hand you the file itself: in that chat, and in Telegram
-when the message that started the command came from your paired Telegram chat. This
-holds for a command started for your own message, a work-goal continuation or a lead's
-follow-up on its member's result, for up to two hours. Your own newer messages and a
-lead's follow-ups on its members' results that arrive meanwhile do not stop it, and the
-file still goes only where the message that started the command would send it; other
-content arriving in that chat in between (forwarded content, a reminder, a lead's task)
-stops it. A command started for forwarded content, a reminder or a lead's task shares
-nothing. Images an agent creates with
+agent's chat and, when the routine also sends to Telegram, in its Telegram chat. An
+agent can always send you files, in every kind of turn: also when a background command
+(a long render, for example) finishes after its reply, after a member's result, in a
+hook's run or in a check-in. Such a file appears in the chat, and in Telegram when the
+chat's latest message came from your paired Telegram chat. Only the file checks
+(workspace or granted folder, no links, never `.git` or AgentPier's data, at most
+25 MiB) still refuse a share. An agent that serves restricted users shares only in a
+turn or a routine's run. Images an agent creates with
 **Create images** arrive the same way on their own, a moment after its reply, without
 the agent sharing them. There is no daily limit on created images; an agent uses reference
 images from the web only when it may also read web pages, and with several ChatGPT accounts any

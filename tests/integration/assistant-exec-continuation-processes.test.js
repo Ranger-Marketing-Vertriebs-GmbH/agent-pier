@@ -120,16 +120,24 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
   await f.turn({ kind: "owner" });
   assert.equal(await f.call("notes.md", { ctx: await f.wake() }), false);
   // An exec result that may still start a command (an approval) or has an unknown
-  // shape leaves the session uncertain.
+  // shape leaves an unknown process of its run: another run's completion is refused
+  // while that run lasts, the turn's own is not.
   for (const result of [
     { details: { status: "approval-pending", approvalId: "a1" } },
     { details: {} },
     {},
   ]) {
     const g = await setup(t);
-    const attempt = await g.turn({ kind: "owner" });
-    await g.exec(attempt, { result });
-    assert.equal(await g.call("notes.md", { ctx: await g.wake() }), false);
+    await g.turn({ kind: "owner" });
+    await g.exec("other-run", { result });
+    const run = await g.wake();
+    assert.equal(await g.call("notes.md", { ctx: run }), false);
+    await g.emit("agent_end", {}, { sessionKey: "session", runId: "other-run" });
+    assert.equal(await g.call("notes.md", { ctx: { ...run } }), true);
+    const own = await setup(t);
+    const ownAttempt = await own.turn({ kind: "owner" });
+    await own.exec(ownAttempt, { result });
+    assert.equal(await own.call("notes.md", { ctx: await own.wake() }), true);
   }
   // Foreground results and errors leave nothing running. OpenClaw 2026.10.3 passes an
   // errored call as `createErrorToolResult`: its text and `details: {}`.
@@ -144,13 +152,17 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
     'Validation failed for tool "exec":\n  - command: must have required properties command',
     "exec host not allowed (requested node; configured host is gateway; set tools.exec.host=node to allow this override).",
     "This session requires a sandbox, but its sandbox runtime is unavailable.",
+    // OpenClaw 2026.10.7's supervisor, before it spawns (supervisor startRun).
+    "Execution command and arguments must not contain NUL bytes. Remove them and retry.",
+    "spawn argv cannot be empty",
+    "PTY is unavailable when execution requires process-tree cleanup",
   ])
-    await h.exec(attempt, failed(error));
+    await h.exec("other-run", failed(error));
   for (const status of ["completed", "failed", "denied"])
     await h.exec(attempt, { status, sessionId: "other-one" });
   assert.equal(await h.call("notes.md", { ctx: await h.wake() }), true);
   // Any other error may come after the command went to the background (an abort
-  // after the yield): its session is uncertain.
+  // after the yield): another run's completion is refused while its run lasts.
   for (const [error, details] of [
     ["Aborted", {}],
     ["Tool execution was aborted", {}],
@@ -161,11 +173,11 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
     ],
   ]) {
     const g = await setup(t);
-    const attempt = await g.turn({ kind: "owner" });
-    await g.exec(attempt, failed(error, details));
+    await g.turn({ kind: "owner" });
+    await g.exec("other-run", failed(error, details));
     assert.equal(await g.call("notes.md", { ctx: await g.wake() }), false, error);
   }
-  // An exec call whose result never came: refused while pending and after its run.
+  // An exec call whose result never came: refused while pending, not after its run.
   const i = await setup(t);
   await i.turn({ kind: "owner" });
   const ctx = {
@@ -178,7 +190,7 @@ test("an incomplete or uncertain Gateway record proves nothing", async (t) => {
   const run = await i.wake();
   assert.equal(await i.call("notes.md", { ctx: run }), false);
   await i.emit("agent_end", {}, ctx);
-  assert.equal(await i.call("notes.md", { ctx: { ...run } }), false);
+  assert.equal(await i.call("notes.md", { ctx: { ...run } }), true);
 });
 
 test("the evidence is validated and judged by the attempt's run", () => {
@@ -194,6 +206,17 @@ test("the evidence is validated and judged by the attempt's run", () => {
   for (const [value, code] of [
     [null, "EVIDENCE"],
     [evidence({ complete: false }), "UNTRACKED"],
+    [evidence({ complete: false, incomplete: "pending" }), "UNTRACKED: pending"],
+    // Another run's exec call of unknown outcome could have left any listed process.
+    [
+      evidence({
+        processes: [
+          { id: "brisk-orbit", runId: "a1" },
+          { id: "*", runId: "other" },
+        ],
+      }),
+      "UNKNOWN_EXEC",
+    ],
     [evidence({ completion: null }), "NOT_COMPLETION"],
     [evidence({ completion: { runId: "w1", ids: null, at: 2000 } }), "PROCESSES"],
     [evidence({ processes: [] }), "PROCESS"],
@@ -254,6 +277,7 @@ test("the evidence is validated and judged by the attempt's run", () => {
     { ...evidence(), processes: Array(257).fill({ id: "x", runId: "a1" }) },
     { ...evidence(), completion: { runId: "w1", ids: ["toolongid"], at: 2000 } },
     { ...evidence(), complete: "yes" },
+    { ...evidence(), complete: false, incomplete: "a path" },
     // The mark is `true` or absent, nothing else.
     ...[false, "true", 1, null, {}].map((internal) => ({
       ...evidence(),

@@ -280,6 +280,7 @@ test(
     assert.deepEqual(
       [...job.payload.toolsAllow].sort(),
       [
+        "agentpier_share_file",
         "edit",
         "exec",
         "memory_get",

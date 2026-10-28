@@ -1,37 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execContinuationFixture } from "../helpers/exec-continuation-fixture.js";
-import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 // A turn whose sessions.send acknowledgement timed out (a Gateway just restarted)
-// still runs. A project or share call of that very run proves it, as a frame of
-// the run would (run-confirmation.js), so its tools work instead of FORBIDDEN.
+// still runs. A project call of that very run proves it, as a frame of the run
+// would (run-confirmation.js), so its tools work instead of FORBIDDEN. (A file for
+// the owner needs no turn at all: assistant-owner-shares.test.js.)
 async function setup(t) {
   const f = await execContinuationFixture(t);
-  f.assistants.shares = new AgentShares({
-    assistants: f.assistants,
-    channels: f.service,
-  });
-  const target = path.join(f.workspaces, f.id, "renders/episode.mp4");
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, "MP4");
-  // As the plugin prepares and invokes a share, naming the run of its tool call.
-  const share = async (runId) => {
+  // As the plugin prepares and invokes a workspace call, naming its tool call's run.
+  const project = async (runId) => {
     const { ticket } = await f.bridge.prepare({
       agentId: f.agentId,
       sessionKey: "session",
       toolCallId: randomUUID(),
-      action: "share_file",
+      action: "workspace",
       runId,
     });
     return f.bridge.invoke({
       ticket,
-      action: "share_file",
-      input: { path: "renders/episode.mp4" },
+      action: "workspace",
+      input: { action: "catalog" },
     });
   };
   // conversation-turns.js after a sessions.send timeout.
@@ -44,7 +36,7 @@ async function setup(t) {
     });
     return attemptId;
   };
-  return { ...f, share, unacknowledged };
+  return { ...f, project, unacknowledged };
 }
 const forbidden = (error) => toolError(error).code === "FORBIDDEN";
 // An unproven unacknowledged send: retryable after a short wait, not FORBIDDEN.
@@ -54,9 +46,9 @@ test("a call of the unacknowledged turn's own run confirms the turn", async (t) 
   const f = await setup(t);
   const attemptId = await f.unacknowledged();
   // Another run of the session proves nothing.
-  await assert.rejects(f.share("other-run"), unconfirmed);
+  await assert.rejects(f.project("other-run"), unconfirmed);
   assert.equal(f.assistants.ledger.getAttempt(attemptId).state, "uncertain");
-  assert.equal((await f.share(attemptId)).status, "shared");
+  assert.ok(await f.project(attemptId));
   const attempt = f.assistants.ledger.getAttempt(attemptId);
   assert.equal(attempt.state, "running");
   assert.equal(attempt.unconfirmed, undefined);
@@ -65,12 +57,12 @@ test("a call of the unacknowledged turn's own run confirms the turn", async (t) 
 test("a call never confirms a send to an earlier Gateway or a reviewed turn", async (t) => {
   const f = await setup(t);
   const earlier = await f.unacknowledged("earlier-generation");
-  await assert.rejects(f.share(earlier), unconfirmed);
+  await assert.rejects(f.project(earlier), unconfirmed);
   assert.equal(f.assistants.ledger.getAttempt(earlier).state, "uncertain");
   f.assistants.ledger.transition(earlier, "failed");
   const reviewed = await f.unacknowledged();
   f.assistants.ledger.review(reviewed);
-  await assert.rejects(f.share(reviewed), forbidden);
+  await assert.rejects(f.project(reviewed), forbidden);
   assert.equal(f.assistants.ledger.getAttempt(reviewed).state, "uncertain");
 });
 
@@ -87,14 +79,14 @@ async function runningCall(t) {
         agentId: f.agentId,
         sessionKey: "session",
         toolCallId: randomUUID(),
-        action: "share_file",
+        action: "workspace",
       })
     ).ticket;
   const invoke = (ticket) =>
     f.bridge.invoke({
       ticket,
-      action: "share_file",
-      input: { path: "renders/episode.mp4" },
+      action: "workspace",
+      input: { action: "catalog" },
     });
   const ticket = await bind();
   await invoke(ticket);

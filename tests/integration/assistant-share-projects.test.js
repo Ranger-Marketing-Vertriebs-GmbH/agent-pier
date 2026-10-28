@@ -7,7 +7,7 @@ import { assistantProblem } from "../../server/features/assistants/assistant-val
 import { png, run, shareFixture } from "../helpers/agent-share-fixture.js";
 
 // The agent's granted project folders (AGENTPIER-123) as AssistantWorkflows holds
-// them: `levels` per agent, the owner's own turns only, AgentPier's data protected.
+// them: `levels` per agent, AgentPier's data protected.
 function withProjects(f, levels, cwd = (project) => project) {
   const project = path.join(f.dataDir, "project");
   fs.mkdirSync(path.join(project, "docs"), { recursive: true });
@@ -89,13 +89,17 @@ test("project shares refuse other folders, .git, links out and AgentPier's data"
   );
 });
 
-test("project shares need the owner's own turn", async (t) => {
+test("project shares for the owner work in every turn on the agent's own folders", async (t) => {
+  // AGENTPIER-274: the owner decided an agent may always send him files.
   const f = await shareFixture(t);
   withProjects(f, { p1: "read" });
   await f.turn(f.chat, "forwarded", { kind: "lead-request", requestId: "r1" });
+  const tool = f.tool(f.agent, f.chat);
+  const shared = await run(tool, { projectId: "p1", path: "docs/chart.png" });
+  assert.equal(shared.status, "shared");
   await assert.rejects(
-    run(f.tool(f.agent, f.chat), { projectId: "p1", path: "docs/chart.png" }),
-    /^Error: FORBIDDEN: /,
+    run(tool, { projectId: "p2", path: "docs/chart.png" }),
+    /^Error: PROJECT_NOT_GRANTED: /,
   );
 });
 

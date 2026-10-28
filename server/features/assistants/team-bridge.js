@@ -11,6 +11,7 @@ import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-to
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
+import { assertOwnerShare, ownerShare } from "./owner-shares.js";
 import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
@@ -125,8 +126,9 @@ export class TeamBridge {
       return record;
     }
     // A command's completion run continues the turn that started it
-    // (exec-continuation.js).
+    // (exec-continuation.js); a share goes to the owner's chat from any run.
     if (record.continuation) return continuation.assertContinuation(this, record);
+    if (record.owner) return assertOwnerShare(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     // A call under way outlives a send whose acknowledgement timed out meanwhile;
     // a call starts only on a live turn (an unproven one: TURN_UNCONFIRMED).
@@ -170,7 +172,7 @@ export class TeamBridge {
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "toolCallId"]) textValue(input[k], 512);
-    // A workspace call's run and the Gateway's record (team-plugin/exec-processes.js).
+    // A call's run, and a workspace call's Gateway record (team-plugin/exec-processes.js).
     if (input.runId !== undefined && input.runId !== null) textValue(input.runId, 512);
     for (const [key, value] of this.tickets)
       if (value.expires < this.now() && (!value.promise || value.settled))
@@ -208,6 +210,9 @@ export class TeamBridge {
       // routine's run.
       const routine = this.routineRun(input);
       if (routine) return issue({ attemptId: null, routine });
+      // Every run of the owner's chat sends him files (owner-shares.js).
+      const owner = input.action === "share_file" && ownerShare(this, input);
+      if (owner) return issue({ attemptId: null, owner });
       // A command's completion run; 2026.10.7's is read from the transcript first.
       const resume = (resumed) => {
         if (!resumed) throw refuse();
@@ -466,6 +471,7 @@ export class TeamBridge {
       routine: record.routine || null,
       hook: record.hook || null,
       continuation: record.continuation || null,
+      owner: record.owner || null,
       sessionKey: record.sessionKey,
       runId: record.runId || null,
     };

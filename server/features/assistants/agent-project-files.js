@@ -118,12 +118,15 @@ export class AgentProjectFiles {
     if (ctx.memberResult) return this.held(ctx.assistantId);
     return this.ownAndShared(ctx.assistantId);
   }
-  /** Named folders with paths for an agent's instructions; never throws. */
-  forAgent(assistant) {
-    const levels = inheritsFromLead(assistant)
+  /** The levels an agent holds outside any turn: its own, or a task member's grant. */
+  standing(assistant) {
+    return inheritsFromLead(assistant)
       ? this.memberLevels(assistant.teamMemberId)
       : this.ownAndShared(assistant.id);
-    return this.describe(levels);
+  }
+  /** Named folders with paths for an agent's instructions; never throws. */
+  forAgent(assistant) {
+    return this.describe(this.standing(assistant));
   }
   describe(levels) {
     return Object.entries(levels).flatMap(([id, access]) => {
@@ -136,12 +139,17 @@ export class AgentProjectFiles {
     });
   }
   /**
-   * The folder a file is shared from (agent-shares.js) in a workspace call's context:
-   * reading it is enough. The path is resolved with projectTarget like every read.
+   * The folder a file is shared from (agent-shares.js) in a workspace call's context
+   * (`ctx`, or null), or for the owner's chat (`owner`: the agent, whose standing
+   * folders count in every turn): reading it is enough. The path is resolved with
+   * projectTarget like every read.
    */
-  shareRoot(ctx, projectId) {
+  shareRoot(ctx, projectId, owner = null) {
     textValue(projectId, 100);
-    if (!this.levels(ctx)[projectId])
+    if (
+      !(ctx && this.levels(ctx)[projectId]) &&
+      !(owner && this.standing(owner)[projectId])
+    )
       throw assistantProblem("projectFolderNotGranted", 403);
     return {
       root: this.w.s.memory.project(projectId).cwd,

@@ -11,9 +11,9 @@
 //   `ctx.trigger: "event"` (which the team plugin records with the completion as
 //   `internal`) and the transcript entry's provenance tell it apart.
 // Both write the completion's user entry with the input provenance
-// `{ kind: "internal_system", sourceTool: "exec" }`. Its writes, project folder file
-// actions and shared files (agentpier_share_file) continue the turn that started the
-// command, with that turn's limits, only when AgentPier proves all of this
+// `{ kind: "internal_system", sourceTool: "exec" }`. Its writes and project folder file
+// actions continue the turn that started the command, with that turn's limits, only
+// when AgentPier proves all of this
 // (continuationSource, processRefusal, provenSource):
 // - the session is a chat of the calling agent, which is active and no temporary
 //   task member;
@@ -38,28 +38,29 @@
 //   with the call) is complete and shows that the run's prompt is an exec
 //   completion listing only processes whose every possible owner, by the first
 //   eight characters OpenClaw reports, is that turn's own run: each listed id must
-//   be the prefix of at least one background process the turn started, and of no
-//   process of any other run in that session. A foreground exec, a command of a
+//   be the prefix of at least one background process the turn started (or a
+//   completion run of it started: the plugin credits it to the turn), and of no
+//   process of any other run in that session; another run's exec call whose outcome
+//   is unknown refuses until that run ended. A foreground exec, a command of a
 //   forwarded, routine or other turn, an approval's command, a reminder, a heartbeat
 //   poll or an unreadable list refuses.
 // The command's output stays data: it never proves an owner request, unlocks SSH,
 // grants, routines or other owner-only switches, and project folders take only file
-// actions (workspace-calls.js). A shared file goes to the source turn's chat, and to
-// Telegram only when that turn came from the owner's paired chat (agent-shares.js).
-// Each write is audited with `via: "exec-completion"`.
+// actions (workspace-calls.js). Each write is audited with `via: "exec-completion"`.
+// Sharing a file with the owner needs none of this (owner-shares.js).
 import { directOrigin, directTurn } from "./memory-write-policy.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { isMemory } from "./lead-request-writes.js";
 import { isShared, isUserAgent } from "../users/user-access.js";
 import { isDeepStrictEqual } from "node:util";
-import { completedProcesses } from "./team-plugin/exec-processes.js";
+import { completedProcesses, unknownId } from "./team-plugin/exec-processes.js";
 import { resultTurn } from "./member-result-writes.js";
 
 /** How long after the owner turn its command's completion may still write. */
 export const continuationWindowMs = 2 * 3600000;
 const maxRuns = 64;
 /** The bridge actions a completion run is bound for (TeamBridge.prepare). */
-export const continuationActions = new Set(["workspace", "share_file"]);
+export const continuationActions = new Set(["workspace"]);
 
 /**
  * Whether a completed turn's command completion may continue it: a direct turn of
@@ -140,10 +141,10 @@ function eventTurn(input) {
     : null;
 }
 
-// A refusal is logged once per session, run and reason, with a code only (never a
-// path, the prompt or the command's output), and only for a completion run of that
-// session (a live one, or an event turn the plugin reports): an ordinary refused
-// write elsewhere is not a continuation and stays quiet.
+// A refusal is logged once per session, run and reason, with its time and a code only
+// (never a path, the prompt or the command's output), and only for a completion run
+// of that session (a live one, or an event turn the plugin reports): an ordinary
+// refused write elsewhere is not a continuation and stays quiet.
 const logged = new Set();
 function refuse(bridge, input, code) {
   const candidate =
@@ -154,8 +155,9 @@ function refuse(bridge, input, code) {
   if (candidate && !logged.has(key)) {
     if (logged.size > 1000) logged.clear();
     logged.add(key);
+    const at = new Date(bridge.now?.() ?? Date.now()).toISOString();
     (bridge.warn || console.warn)(
-      `Exec completion continuation refused for ${String(input.agentId).slice(0, 80)} (${code}).`,
+      `[${at}] Exec completion continuation refused for ${String(input.agentId).slice(0, 80)} (${code}).`,
     );
   }
   return null;
@@ -246,7 +248,9 @@ function starterAttempt(ledger, evidence) {
   const ids = evidence?.completion?.ids;
   if (!evidence?.complete || !ids?.length) return null;
   const runs = new Set(
-    evidence.processes.filter((p) => ids.includes(p.id.slice(0, 8))).map((p) => p.runId),
+    evidence.processes
+      .filter((p) => p.id === unknownId || ids.includes(p.id.slice(0, 8)))
+      .map((p) => p.runId),
   );
   return runs.size === 1 ? ledger.attemptForRun([...runs][0]) : null;
 }
@@ -267,14 +271,17 @@ function laterTurn(bridge, request, agent) {
 }
 
 const maxProcesses = 256;
+// Why the plugin's record may miss a process (exec-processes.js gap), for the log.
+const gaps = ["late-start", "forgotten", "too-many", "pending"];
 const shortText = (value, max) =>
   typeof value === "string" && value.length > 0 && value.length <= max;
 /** The Gateway's evidence as the plugin sends it (exec-processes.js), or null. */
 export function execEvidence(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const { complete, processes, completion } = value;
+  const { complete, processes, completion, incomplete } = value;
   if (
     typeof complete !== "boolean" ||
+    !(incomplete === undefined || gaps.includes(incomplete)) ||
     !Array.isArray(processes) ||
     processes.length > maxProcesses ||
     !processes.every((p) => shortText(p?.id, 128) && shortText(p?.runId, 512))
@@ -297,6 +304,7 @@ export function execEvidence(value) {
     return null;
   return {
     complete,
+    ...(incomplete && { incomplete }),
     processes: processes.map(({ id, runId }) => ({ id, runId })),
     completion: completion && {
       runId: completion.runId,
@@ -316,7 +324,8 @@ export function execEvidence(value) {
  */
 export function processRefusal(evidence, attempt, runId, live = false) {
   if (!evidence) return "EVIDENCE";
-  if (evidence.complete !== true) return "UNTRACKED";
+  if (evidence.complete !== true)
+    return evidence.incomplete ? `UNTRACKED: ${evidence.incomplete}` : "UNTRACKED";
   const completion = evidence.completion;
   if (!completion || completion.runId !== runId) return "NOT_COMPLETION";
   if (!live && completion.internal !== true) return "NOT_COMPLETION";
@@ -327,6 +336,9 @@ export function processRefusal(evidence, attempt, runId, live = false) {
     if (!candidates.length || candidates.some((p) => !keys.includes(p.runId)))
       return "PROCESS";
   }
+  // Another run's exec call left a process nobody knows: it could be any listed one.
+  const unknown = evidence.processes.filter((p) => p.id === unknownId);
+  if (unknown.some((p) => !keys.includes(p.runId))) return "UNKNOWN_EXEC";
   const start = Date.parse(attempt.createdAt);
   return completion.at >= start && completion.at - start <= continuationWindowMs
     ? null
@@ -475,7 +487,7 @@ function write(bridge, input, source) {
   return true;
 }
 
-/** A workspace or share ticket's binding for such a run, or null (TeamBridge.prepare). */
+/** A workspace ticket's binding for such a run, or null (TeamBridge.prepare). */
 export function continuationBinding(bridge, input) {
   if (!continuationActions.has(input.action)) return null;
   return then(
