@@ -56,7 +56,16 @@ export class MailAccountStore {
     });
     // Extracted attachment text per account (the attachment-text search); under the
     // data folder, never in a backup, removed with its account.
-    this.textCache = new MailTextCache({ root: path.join(this.root, "text-cache") });
+    this.textCache = new MailTextCache({
+      root: path.join(this.root, "text-cache"),
+      identity: (id) => {
+        try {
+          return mailboxIdentity(this.row(id));
+        } catch {
+          return null;
+        }
+      },
+    });
     /** Called with an account id before the account is removed (grants, cards). */
     this.onRemoved = null;
     this.ready = Promise.resolve().then(() => this.recover());

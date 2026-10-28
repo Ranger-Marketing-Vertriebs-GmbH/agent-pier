@@ -107,3 +107,26 @@ test("an unchanged account keeps what the search extracted", async (t) => {
   await f.search;
   await until(() => f.entries().length === 1);
 });
+
+test("the store keys cached text by the mailbox its account reaches", async (t) => {
+  const f = await mailFixture(t);
+  const cache = f.mailStore.textCache;
+  const fields = {
+    accountId: f.account.id,
+    folder: "INBOX",
+    uidValidity: "1",
+    uid: 1,
+    part: "2",
+  };
+  const before = cache.key(fields);
+  assert.equal(cache.set(f.account.id, before, { text: "old", truncated: false }), true);
+  f.mailStore.update(f.account.id, { name: "Renamed" }, owner);
+  assert.equal(cache.key(fields), before);
+  f.mailStore.update(
+    f.account.id,
+    { imap: { username: "other@example.com" }, password: "pw-other" },
+    owner,
+  );
+  assert.notEqual(cache.key(fields), before);
+  assert.equal(cache.get(f.account.id, cache.key(fields)), null);
+});

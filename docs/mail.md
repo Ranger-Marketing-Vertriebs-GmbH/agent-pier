@@ -372,7 +372,10 @@ agents' database. Deleting an agent removes its cursors.
 Text extracted from attachments for the attachment-text search is cached at
 `mail/text-cache/` in the data directory, up to 256 MiB in all. The cache is
 never part of a backup, is cleared when an account's IMAP server, port, security or
-username changes, and is removed with the account. Attachments you save and files
+username changes, and is removed with the account. Its entries are keyed by that
+mailbox, so text of an earlier mailbox is never served, even when clearing it failed.
+Only a file's own failure (damaged, encrypted, too complex) is cached; a size refusal,
+a busy queue or an extraction ended from outside is tried again next time. Attachments you save and files
 agents attach are ordinary files in the agent's workspace or project; they are not
 part of the mail backup.
 

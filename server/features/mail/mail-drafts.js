@@ -1,7 +1,7 @@
 import { mailError } from "./mail-connection.js";
 import { openFolder, resolveFolders } from "./mail-folders.js";
 import { download, isAttachment, leafParts } from "./mail-messages.js";
-import { fetchRawParts, messageParts, sha256 } from "./mail-parts.js";
+import { attachmentLimits, fetchRawParts, messageParts, sha256 } from "./mail-parts.js";
 import { draftFields, threadHeaders, validMessageId } from "./mail-compose.js";
 
 // A stored draft read back for sending (agent `send` with `draftUid`): its envelope,
@@ -33,9 +33,14 @@ async function openDrafts(client) {
  * the fields as draftFields returns them, the thread headers it carries, its own
  * Message-ID (null when malformed) and its attachments as messageParts lists them.
  * Without Drafts MAIL_NO_DRAFTS, an unknown UID MAIL_NOT_FOUND, no plain text or too
- * much of it MAIL_DRAFT_UNSUPPORTED.
+ * much of it MAIL_DRAFT_UNSUPPORTED, attachments of more than `maxBytes` decoded in
+ * all MAIL_ATTACHMENT_TOO_LARGE (estimated before they are fetched, counted after).
  */
-export async function loadDraft(client, uid) {
+export async function loadDraft(
+  client,
+  uid,
+  { maxBytes = attachmentLimits.mailBytes } = {},
+) {
   await openDrafts(client);
   const row = await client.fetchOne(
     String(uid),
@@ -60,11 +65,14 @@ export async function loadDraft(client, uid) {
   const references = String(row.headers ?? "")
     .replace(/\r?\n[ \t]+/g, " ")
     .match(/^references:(.*)$/im)?.[1];
+  const attachments = await messageParts(client, uid, { maxBytes });
+  if (attachments.reduce((sum, a) => sum + a.size, 0) > maxBytes)
+    throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
   return {
     fields,
     thread: threadHeaders({ inReplyTo: envelope.inReplyTo, references }),
     messageId: validMessageId(envelope.messageId),
-    attachments: await messageParts(client, uid),
+    attachments,
   };
 }
 

@@ -133,9 +133,17 @@ function track(child) {
   });
 }
 
+// The signals that end a child for its document: V8's heap limit aborts it, the
+// watchdog's memory (RSS) limit sends SIGUSR2 (mail-extract-child.js). Any other end
+// (SIGKILL from a time limit or the OOM killer, SIGTERM or SIGINT at shutdown) can
+// pass another time.
+const documentSignals = new Set(["SIGABRT", "SIGUSR2"]);
+
 // One process for one document. It is killed with SIGKILL at the time limit, and
 // the promise settles only once it has exited (and was reaped). Only a reply followed
-// by a clean exit counts; any signal or non-zero exit is MAIL_TEXT_FAILED.
+// by a clean exit counts; any signal or non-zero exit is MAIL_TEXT_FAILED, marked as
+// the document's (`document: true`) only for the child's own `{ failed, document }`
+// reply or a documentSignals end.
 function runChild(bytes, kind, limits, scriptUrl) {
   return new Promise((resolve, reject) => {
     let child;
@@ -158,37 +166,40 @@ function runChild(bytes, kind, limits, scriptUrl) {
     track(child);
     let reply = null;
     let settled = false;
-    // Set when the process ends for a reason other than the document.
-    let timedOut = false;
+    // The child said the document could not be read.
+    let unreadable = false;
     const kill = () => child.kill("SIGKILL");
-    const timer = setTimeout(() => {
-      timedOut = true;
-      kill();
-    }, limits.timeoutMs);
-    // Any end but the time limit or a failed start is the document's doing: a parse
-    // error, the heap or memory limit, or an answer that is no text.
-    const settle = (result, started = true) => {
+    const timer = setTimeout(kill, limits.timeoutMs);
+    const settle = (result, byDocument = false) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (result) resolve(result);
-      else reject(timedOut || !started ? failed() : documentFailed());
+      else reject(byDocument ? documentFailed() : failed());
     };
     child.on("message", (message) => {
-      if (!reply && typeof message?.text === "string")
+      if (!reply && !unreadable && typeof message?.text === "string")
         reply = { text: message.text, truncated: message.truncated === true };
+      else if (!reply && !unreadable && message?.failed === true)
+        unreadable = message.document === true;
       else kill();
     });
-    child.once("exit", (code, signal) => settle(code === 0 && !signal ? reply : null));
+    child.once("exit", (code, signal) => {
+      if (code === 0 && !signal && reply) settle(reply);
+      else
+        settle(
+          null,
+          (code === 1 && !signal && unreadable) || documentSignals.has(signal),
+        );
+    });
     child.once("error", () => {
       kill();
-      if (child.pid === undefined) settle(null, false);
+      if (child.pid === undefined) settle(null);
     });
+    // A document that never reached the process is not its failure: killed, the
+    // process ends with SIGKILL.
     child.send({ bytes, kind, limits: { ...limits } }, (error) => {
-      if (!error) return;
-      // The document never reached the process: not its failure.
-      timedOut = true;
-      kill();
+      if (error) kill();
     });
   });
 }
@@ -198,7 +209,9 @@ function runChild(bytes, kind, limits, scriptUrl) {
  * characters. Throws MAIL_TEXT_UNSUPPORTED for a kind without text and
  * MAIL_TEXT_FAILED for damaged, encrypted, oversized or too complex documents (both
  * with `document: true`), and MAIL_TEXT_FAILED without it when the time limit ran
- * out or the process did not start, or with `busy: true` when the queue is full.
+ * out, the process did not start or was ended from outside (a signal, the OOM
+ * killer) or could not load its extractor, or with `busy: true` when the queue is
+ * full.
  */
 export async function extractText(
   bytes,

@@ -307,6 +307,23 @@ test("a download that outlasts the deadline stops the search", async (t) => {
   assert.equal(f.cache.get(f.account.id, f.cacheKey(1)), null);
 });
 
+test("an attachment too large for this call's limit is not cached", async (t) => {
+  const f = await searchFixture(t);
+  const pdf = pdfWith("Total: EUR 49.99");
+  f.seed([f.file("a.pdf", pdf)], "a");
+  // Its base64 size estimate fits the limit, its decoded bytes do not.
+  const tight = await scanWith(f, { uids: [1], maxFileBytes: pdf.length - 1 });
+  assert.equal(f.fetched.length, 1);
+  assert.deepEqual(tight.messages, []);
+  assert.equal(f.cache.get(f.account.id, f.cacheKey(1)), null);
+  const roomy = await scanWith(f, { uids: [1] });
+  assert.deepEqual(
+    roomy.messages.map((m) => m.uid),
+    [1],
+  );
+  assert.equal(f.fetched.length, 2);
+});
+
 test("only failures of the document are cached; bugs fail the search", async (t) => {
   const f = await searchFixture(t);
   f.seed([f.file("a.pdf", pdfWith("49.99"))], "a");
