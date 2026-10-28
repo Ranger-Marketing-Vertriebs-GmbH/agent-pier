@@ -7,6 +7,7 @@ import { mailMessages, mailNotes, notifyMail } from "./mail/agent-mail-notificat
 import { sftpNotes } from "./agent-sftp-notes.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
+import { projectNotes } from "./agent-project-notes.js";
 import { grantNotes, notifyMemberGrant } from "./member-grant-notes.js";
 import { notifyHookProposal } from "./agent-hook-proposals.js";
 import { notifySshProposal } from "./agent-ssh-proposal-notes.js";
@@ -346,15 +347,17 @@ export function actionNotes(actions, conversationId) {
           ? sftpNotes(a)
           : a.payload.action === "mail_send"
             ? mailNotes(a)
-            : [
-                  "member_grant",
-                  "member_reminder",
-                  "member_update",
-                  "member_promote",
-                  "member_summarise",
-                ].includes(a.payload.action)
-              ? grantNotes(a)
-              : codingNotes(a),
+            : a.payload.action === "agent_project"
+              ? projectNotes(a)
+              : [
+                    "member_grant",
+                    "member_reminder",
+                    "member_update",
+                    "member_promote",
+                    "member_summarise",
+                  ].includes(a.payload.action)
+                ? grantNotes(a)
+                : codingNotes(a),
     )
     .sort((x, y) => x.timestamp - y.timestamp);
 }

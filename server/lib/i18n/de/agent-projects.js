@@ -13,4 +13,13 @@ export const agentProjects = Object.freeze({
     "Projekte anlegen können nur eigene Agenten, die kein Teammitglied sind und keinen Telegram-Bot für andere Personen haben.",
   projectFolderUnavailable:
     "Im Standard-Arbeitsverzeichnis kann kein eigenes Projekt angelegt werden: Es fehlt, ist nicht beschreibbar oder liegt in einem anderen Projekt.",
+  telegram: {
+    created: (agent, name, path, coding) =>
+      `${agent} hat das Projekt ${name} in ${path} angelegt.` +
+      (coding ? " Coding-Sessions sind eingeschaltet." : ""),
+    codingOn: (agent, name) =>
+      `${agent} hat Coding-Sessions für das Projekt ${name} eingeschaltet.`,
+    codingOff: (agent, name) =>
+      `${agent} hat Coding-Sessions für das Projekt ${name} ausgeschaltet.`,
+  },
 });
