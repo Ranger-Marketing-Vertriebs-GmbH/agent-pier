@@ -6,7 +6,7 @@ import { ownerTelegram, pairedTelegram } from "../team-coding.js";
 import { toolError } from "../tool-errors.js";
 import { mailError } from "../../mail/mail-connection.js";
 import { composeMessage, recipientsOf } from "../../mail/mail-compose.js";
-import { fileSent, saveDraft } from "../../mail/mail-changes.js";
+import { fileSent, saveDraft, trashDraft } from "../../mail/mail-changes.js";
 import { loadDraft } from "../../mail/mail-drafts.js";
 import { mailCatalog, recipientAllowed } from "./agent-mail-grants.js";
 import { mailPermits } from "./agent-mail-origin.js";
@@ -26,9 +26,11 @@ export { mailTelegramApprovable } from "./agent-mail-send-input.js";
 // Telegram buttons, never by a chat message), like an SSH command
 // (agent-ssh-approvals.js): the call holds for 110 s, a later outcome arrives as a
 // `mail-result` follow-up turn. A send of new fields saves a draft first, so a
-// declined or failed send keeps it. The card holds exactly what is sent; approving
-// checks grant, account and the card's digests again, and the row's state change
-// makes a second decision a conflict, so a mail goes out at most once.
+// declined or failed send keeps it; a call refused before its row (or beaten to it
+// by a concurrent call with the same key) moves that draft to Trash again. The card
+// holds exactly what is sent; approving checks grant, account and the card's digests
+// again, and the row's state change makes a second decision a conflict, so a mail
+// goes out at most once.
 export const mailApprovalMs = 86400000;
 export const mailHoldMs = 110000;
 export const maxOpenMailApprovals = 5;
@@ -122,45 +124,61 @@ export class MailSends {
         thread: saved.thread,
       });
     } else draft.draftUid = request.draftUid;
-    inv.assertCurrent();
+    // A draft this call saved goes to Trash again when the send is refused from here
+    // on, or when a concurrent call with the same key already wrote the row.
+    const own = request.draftUid ? null : draft.draftUid;
     const trusted = permit === "run";
-    const expiresAt = this.now() + (trusted ? 0 : mailApprovalMs);
-    const { replyToUid: _uid, replyToFolder: _folder, ...fields } = draft.fields;
-    const payload = {
-      action: "mail_send",
-      accountId: account.id,
-      accountName: account.name,
-      from,
-      ...fields,
-      bodySha256: bodyDigest(fields.body),
-      inReplyTo: draft.thread?.inReplyTo ?? null,
-      references: draft.thread?.references ?? [],
-      draftMessageId: draft.messageId ?? `<${randomUUID()}@${domainOf(from)}>`,
-      draftUid: draft.draftUid ?? null,
-      originClass: cls,
-      trusted,
-      inputSha256,
-      expiresAt,
-    };
-    payload.contentSha256 = contentDigest(payload);
-    const telegram = trusted
-      ? null
-      : (ownerTelegram(caller.origin) ?? pairedTelegram(this.w, agentId));
-    // No await from here to the row: a concurrent call with the same key, or one
-    // that took the last free slot, is seen now.
-    if (retried()) return this.follow(inv, retried().id);
-    this.limit(inv, caller, permit);
-    const action = this.w.store.reserve({
-      assistantId: agentId,
-      conversationId: caller.conversationId,
-      attemptId: caller.attemptId,
-      origin: caller.origin,
-      key,
-      state: trusted ? "executing" : "awaiting_approval",
-      expiresAt,
-      payload,
-      ...(telegram ? { telegram } : {}),
-    });
+    let action;
+    let earlier;
+    try {
+      inv.assertCurrent();
+      const expiresAt = this.now() + (trusted ? 0 : mailApprovalMs);
+      const { replyToUid: _uid, replyToFolder: _folder, ...fields } = draft.fields;
+      const payload = {
+        action: "mail_send",
+        accountId: account.id,
+        accountName: account.name,
+        from,
+        ...fields,
+        bodySha256: bodyDigest(fields.body),
+        inReplyTo: draft.thread?.inReplyTo ?? null,
+        references: draft.thread?.references ?? [],
+        draftMessageId: draft.messageId ?? `<${randomUUID()}@${domainOf(from)}>`,
+        draftUid: draft.draftUid ?? null,
+        originClass: cls,
+        trusted,
+        inputSha256,
+        expiresAt,
+      };
+      payload.contentSha256 = contentDigest(payload);
+      const telegram = trusted
+        ? null
+        : (ownerTelegram(caller.origin) ?? pairedTelegram(this.w, agentId));
+      // No await from here to the row: a concurrent call with the same key, or one
+      // that took the last free slot, is seen now.
+      earlier = retried();
+      if (!earlier) {
+        this.limit(inv, caller, permit);
+        action = this.w.store.reserve({
+          assistantId: agentId,
+          conversationId: caller.conversationId,
+          attemptId: caller.attemptId,
+          origin: caller.origin,
+          key,
+          state: trusted ? "executing" : "awaiting_approval",
+          expiresAt,
+          payload,
+          ...(telegram ? { telegram } : {}),
+        });
+      }
+    } catch (error) {
+      await this.dropDraft(account.id, agentId, own);
+      throw error;
+    }
+    if (earlier) {
+      await this.dropDraft(account.id, agentId, own);
+      return this.follow(inv, earlier.id);
+    }
     if (!trusted) {
       notifyAction(this.w, action, "approval");
       this.w.a.changed({ feeds: false });
@@ -179,6 +197,19 @@ export class MailSends {
       await this.start(action, "rule");
     }
     return this.outcome(this.w.store.get(action.id));
+  }
+  /** Moves a draft `send` saved for a refused call to Trash, best effort and audited. */
+  async dropDraft(accountId, agentId, draftUid) {
+    if (!draftUid) return;
+    try {
+      const trashed = await this.accounts.withImap(accountId, (c) =>
+        trashDraft(c, draftUid),
+      );
+      if (trashed)
+        auditDelete(this.w.s, { account: { id: accountId }, agent: { id: agentId } }, 1);
+    } catch (error) {
+      if (isBug(error)) console.error("Agent mail draft cleanup failed:", error?.name);
+    }
   }
   // The row of an earlier call with the same key, or null; another call's row is a
   // conflict.

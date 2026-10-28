@@ -241,16 +241,30 @@ export async function fileSent(client, { raw, saveSent, draftUid }) {
     } catch (error) {
       if (isBug(error)) throw error;
     }
-  if (draftUid && folders.drafts && folders.trash && client.capabilities.has("MOVE"))
-    try {
-      draftTrashed = await inFolder(client, folders.drafts, async () => {
-        const found = await client.search({ uid: String(draftUid) }, { uid: true });
-        if (!Array.isArray(found) || !found.includes(draftUid)) return false;
-        await move(client, [draftUid], folders.trash);
-        return true;
-      });
-    } catch (error) {
-      if (isBug(error)) throw error;
-    }
+  if (draftUid) draftTrashed = await draftToTrash(client, folders, draftUid);
   return { savedToSent, draftTrashed };
+}
+
+/**
+ * Moves the draft `draftUid` from Drafts to Trash, best effort: false when it is gone,
+ * a folder is missing, the server cannot move or the move failed.
+ */
+export async function trashDraft(client, draftUid) {
+  const { folders } = await mailboxOf(client);
+  return draftToTrash(client, folders, draftUid);
+}
+
+async function draftToTrash(client, folders, draftUid) {
+  if (!folders.drafts || !folders.trash || !client.capabilities.has("MOVE")) return false;
+  try {
+    return await inFolder(client, folders.drafts, async () => {
+      const found = await client.search({ uid: String(draftUid) }, { uid: true });
+      if (!Array.isArray(found) || !found.includes(draftUid)) return false;
+      await move(client, [draftUid], folders.trash);
+      return true;
+    });
+  } catch (error) {
+    if (isBug(error)) throw error;
+    return false;
+  }
 }

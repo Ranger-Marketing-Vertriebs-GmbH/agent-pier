@@ -288,6 +288,42 @@ test("rules narrowed between the gate and the send cancel a rule send", async (t
   assert.equal(row.diagnostic, "ACCESS_CHANGED");
 });
 
+test("a send refused after its draft was saved moves that draft to Trash", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  const inv = f.ownTurn();
+  const withImap = f.mailStore.withImap.bind(f.mailStore);
+  f.mailStore.withImap = async (id, fn) => {
+    const result = await withImap(id, fn);
+    // The turn ends while the draft is being saved.
+    inv.assertCurrent = () => {
+      throw Object.assign(Error("stale"), { status: 403, key: "invalid" });
+    };
+    return result;
+  };
+  await assert.rejects(f.send({ to: ["bob@example.org"] }, inv));
+  assert.equal(f.count("Drafts"), 0);
+  assert.equal(f.count("Trash"), 1);
+  assert.equal(f.workflows.store.list(f.id).length, 0);
+  assert.equal(f.smtp.messages.length, 0);
+  const [trashed] = f.audit.filter((e) => e.action === "mail.deleted");
+  assert.equal(trashed.details.count, 1);
+});
+
+test("a concurrent duplicate send trashes its own draft and shares the row", async (t) => {
+  const f = await sendFixture(t, { rules: ["example.org"] });
+  const inv = f.ownTurn();
+  const [first, second] = await Promise.all([
+    f.send({ to: ["bob@example.org"] }, inv),
+    f.send({ to: ["bob@example.org"] }, inv),
+  ]);
+  assert.equal(first.status, "sent");
+  assert.equal(second.actionId, first.actionId);
+  assert.equal(f.smtp.messages.length, 1);
+  // The sent draft and the duplicate both went to Trash.
+  assert.equal(f.count("Drafts"), 0);
+  assert.equal(f.count("Trash"), 2);
+});
+
 test("saveSent without a Sent folder still sends and reports savedToSent false", async (t) => {
   const f = await sendFixture(t, { rules: ["example.org"] });
   f.imap.mailbox.folders.delete("Sent");

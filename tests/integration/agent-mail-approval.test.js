@@ -393,4 +393,7 @@ test("concurrent sends never open more than 5 cards", async (t) => {
     ["MAIL_APPROVAL_LIMIT", "MAIL_APPROVAL_LIMIT"],
   );
   assert.equal(f.workflows.mail.sends.open(f.id), maxOpenMailApprovals);
+  // The refused calls' drafts went to Trash; the cards keep theirs.
+  assert.equal(f.count("Drafts"), maxOpenMailApprovals);
+  assert.equal(f.count("Trash"), 2);
 });

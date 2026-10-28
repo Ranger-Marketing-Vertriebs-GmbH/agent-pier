@@ -2639,7 +2639,9 @@ it showed in full (`mailTelegramApprovable`: a body of at most 3,000 code points
 most 20 recipients, no hidden characters). The row's state change makes a second
 decision a conflict, so a mail goes out at most once. The SMTP envelope holds exactly
 the card's recipients and the sent message carries no Bcc header; the copy in Sent
-(with `saveSent`) keeps Bcc, and the draft moves to Trash.
+(with `saveSent`) keeps Bcc, and the draft moves to Trash. A draft a `send` saved
+for a call refused before its row, or for a concurrent call with the same key, goes
+to Trash too (`dropDraft`, best effort).
 
 Send outcomes: `completed` (the agent sees `sent`), `declined` and `expired` (the
 draft is kept), `cancelled` (`ACCOUNT_REMOVED` or `ACCESS_CHANGED`), `failed` (only an
