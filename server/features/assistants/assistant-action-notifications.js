@@ -3,7 +3,7 @@ import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { notifySftp } from "./agent-sftp-notifications.js";
-import { mailMessages, notifyMail } from "./mail/agent-mail-notifications.js";
+import { mailMessages, mailNotes, notifyMail } from "./mail/agent-mail-notifications.js";
 import { sftpNotes } from "./agent-sftp-notes.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
@@ -344,15 +344,17 @@ export function actionNotes(actions, conversationId) {
         ? sshNotes(a)
         : a.payload.action === "sftp"
           ? sftpNotes(a)
-          : [
-                "member_grant",
-                "member_reminder",
-                "member_update",
-                "member_promote",
-                "member_summarise",
-              ].includes(a.payload.action)
-            ? grantNotes(a)
-            : codingNotes(a),
+          : a.payload.action === "mail_send"
+            ? mailNotes(a)
+            : [
+                  "member_grant",
+                  "member_reminder",
+                  "member_update",
+                  "member_promote",
+                  "member_summarise",
+                ].includes(a.payload.action)
+              ? grantNotes(a)
+              : codingNotes(a),
     )
     .sort((x, y) => x.timestamp - y.timestamp);
 }

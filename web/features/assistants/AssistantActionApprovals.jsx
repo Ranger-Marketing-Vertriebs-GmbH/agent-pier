@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantWorkflowCopy as copy } from "../../lib/i18n/messages/assistant-workflows.js";
 import { names as toolNames } from "../../lib/providers.js";
@@ -41,6 +41,7 @@ export default function AssistantActionApprovals({
   assistant,
   assistantId = assistant?.id,
   go,
+  notedMail,
 }) {
   const [busy, setBusy] = useState(false);
   // Hooks the owner approved here: they leave the list, their secret waits in settings.
@@ -48,9 +49,16 @@ export default function AssistantActionApprovals({
   // SSH accesses he confirmed here, with the public key to install.
   const [accesses, setAccesses] = useState([]);
   // Mail cards decided here keep their final state (Not sent · draft kept and the
-  // like) after they leave the pending list.
+  // like) after they leave the pending list, until the chat notes their outcome
+  // (`notedMail`, MailRunNote).
   const [mails, setMails] = useState([]);
-  const decided = mails.filter((m) => !actions.some((a) => a.id === m.id));
+  useEffect(() => {
+    if (mails.some((m) => notedMail?.has(m.id)))
+      setMails((list) => list.filter((m) => !notedMail.has(m.id)));
+  }, [mails, notedMail]);
+  const decided = mails.filter(
+    (m) => !actions.some((a) => a.id === m.id) && !notedMail?.has(m.id),
+  );
   async function choose(a, decision) {
     setBusy(true);
     try {

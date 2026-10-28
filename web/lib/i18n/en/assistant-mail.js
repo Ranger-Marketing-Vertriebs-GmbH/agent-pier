@@ -65,4 +65,10 @@ export const assistantMailCopy = {
     onlyButtons:
       "Only Send here or on Telegram sends this email. A chat message never does.",
   },
+  note: {
+    label: "Email",
+    account: "Email access",
+    recipients: "Recipients",
+    code: "Code",
+  },
 };

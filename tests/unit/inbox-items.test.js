@@ -266,7 +266,7 @@ test("one failing escalation lookup never drops the session requests", async () 
   );
 });
 
-test("an agent's email to send is titled by its subject, else its account", () => {
+test("an agent's email to send is titled by its account and subject", () => {
   const agents = new Map([["a1", { id: "a1", name: "Helper" }]]);
   const mail = (payload) =>
     actionItem(
@@ -291,8 +291,10 @@ test("an agent's email to send is titled by its subject, else its account", () =
     );
   const item = mail({ subject: "Offer" });
   assert.equal(item.kind, "mail_send");
-  assert.equal(item.title, "Offer");
+  assert.equal(item.title, "Private · Offer");
   assert.equal(item.link, "/agents/a1/chats/c1");
   assert.equal(JSON.stringify(item).includes("Never in the inbox list"), false);
   assert.equal(mail({ subject: "" }).title, "Private");
+  // A hidden character in the subject shows as its code.
+  assert.equal(mail({ subject: "Pay\u200b now" }).title, "Private · Pay[U+200B] now");
 });

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mailFixture } from "../helpers/agent-mail-fixture.js";
 import { waitFor } from "../helpers/agent-ssh-fixture.js";
+import { telegramParts } from "../../server/features/assistant-channels/telegram-format.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 
 // The channel fixture's owner speaks German (assistant-channel-fixture.js).
@@ -66,6 +67,14 @@ test("a Telegram owner turn's card shows every address, the mail in full and bot
   assert.match(approval.text, /eve@evil\.net.*bob@example\.org/);
   // A fence inside the body cannot end the block it is shown in.
   assert.doesNotMatch(approval.text, /^```\nnot a fence end/m);
+  // As Telegram renders it: the whole body is one code block, the fence line inside.
+  const html = telegramParts(approval.text)
+    .map((part) => part.html)
+    .join("");
+  const blocks = html.match(/<pre>[\s\S]*?<\/pre>/g);
+  const body = blocks.filter((b) => b.includes("Dear Bob"));
+  assert.equal(body.length, 1);
+  assert.match(body[0], /here is the offer\.\n\u200b```\nnot a fence end/);
   assert.equal(approval.text.includes(m.mailOpenToApprove), false);
   assert.deepEqual(
     approval.actions.map((a) => [a.decision, a.label, a.proposalId]),
