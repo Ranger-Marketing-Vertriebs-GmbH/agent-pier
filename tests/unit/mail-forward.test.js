@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   forwardFields,
   forwardSubject,
+  quotedHtml,
 } from "../../server/features/mail/mail-forward.js";
 import { forwardInput } from "../../server/features/assistants/mail/agent-mail-send-input.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
@@ -148,4 +149,31 @@ test("forwardInput checks the forward's fields before anything is read", () => {
       "INVALID_INPUT",
       JSON.stringify(bad),
     );
+});
+
+test("the quoted HTML keeps only the body and cannot restyle the agent's text", () => {
+  const hostile = [
+    '<html><head><base href="https://evil.example/"><style>p { display: none }</style>',
+    '<meta http-equiv="refresh" content="0;url=https://evil.example/">',
+    '<link rel="stylesheet" href="https://evil.example/x.css"><title>T</title></head>',
+    "<body><style>body { color: white }</style><script>steal()</script>",
+    '<div style="position:fixed;top:0;left:0;width:100%;height:100%">cover</div>',
+    '<p style="color: red">Rechnung</p><meta charset="x"></body></html>',
+  ].join("");
+  const quoted = quotedHtml(hostile);
+  assert.equal(quoted, '<div>cover</div><p style="color: red">Rechnung</p>');
+  assert.equal(quotedHtml("<p>Original</p>"), "<p>Original</p>");
+  const { html } = forwardFields(
+    { ...original, html: hostile },
+    { body: "Bitte zahlen", to: ["bob@example.org"] },
+  );
+  // The agent's text and the header block come first, outside the quote, and nothing
+  // in the forward can style, move or hide them.
+  assert.match(html, /^<p>Bitte zahlen<\/p>\n<p>---------- Forwarded message/);
+  assert.ok(html.indexOf("Bitte zahlen") < html.indexOf('<blockquote type="cite">'));
+  assert.ok(html.endsWith(`<blockquote type="cite">${quoted}</blockquote>`));
+  assert.doesNotMatch(
+    html,
+    /<(style|script|base|meta|link|head|body|html)\b|position\s*:/i,
+  );
 });

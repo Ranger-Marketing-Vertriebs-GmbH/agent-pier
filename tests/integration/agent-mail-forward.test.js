@@ -71,6 +71,8 @@ test("a forward sends the original attachments byte for byte after approval", as
     date: "2026-10-27T13:00:00.000Z",
     folder: "INBOX",
     uid,
+    htmlIncluded: false,
+    htmlOmitted: false,
   });
   assert.equal(p.subject, "Fwd: Rechnung September");
   assert.match(
@@ -177,7 +179,9 @@ test("an HTML-only Latin-1 original is quoted as text and kept as HTML", async (
   assert.match(p.body, /\n\nSchöne Grüße aus Köln\n\nBis bald$/);
   assert.match(p.html.partSha256, /^[0-9a-f]{64}$/);
   assert.equal(p.forward.from.name, "Jürgen");
-  assert.equal(r.html, undefined);
+  assert.equal(p.forward.htmlIncluded, true);
+  assert.equal(p.forward.htmlOmitted, false);
+  assert.equal(r.htmlNote, undefined);
 
   const plain = await forward({ uid: latin1.uid });
   const q = f.workflows.get(plain.actionId).payload;
@@ -191,10 +195,10 @@ test("an HTML-only Latin-1 original is quoted as text and kept as HTML", async (
   const sent = f.smtp.messages[0].raw;
   assert.match(sent.toString("latin1"), /multipart\/alternative/);
   const alternative = htmlOf(sent);
-  // The original markup unchanged, its line end included.
+  // The content of the original's body, its markup kept, its line end included.
   assert.match(
     alternative,
-    /<blockquote type="cite"><html><body><p>Schöne Grüße aus Köln<\/p><p>Bis <b>bald<\/b><\/p><\/body><\/html>\r?\n<\/blockquote>/,
+    /<blockquote type="cite"><p>Schöne Grüße aus Köln<\/p><p>Bis <b>bald<\/b><\/p>\r?\n<\/blockquote>/,
   );
   assert.match(alternative, /From: Jürgen &lt;juergen@example.org&gt;/);
 });
@@ -204,13 +208,51 @@ test("an HTML part over 1 MiB is left out and the result says so", async (t) => 
   const { uid } = original(f, { html: `<p>${"x".repeat(1_100_000)}</p>` });
   const r = await forwardOf(f)({ uid });
   assert.equal(r.status, "awaiting_approval");
-  assert.match(r.html, /over 1 MiB/);
+  assert.match(r.htmlNote, /over 1 MiB/);
+  assert.equal(r.html, undefined);
   const p = f.workflows.get(r.actionId).payload;
   assert.equal(p.html, null);
+  assert.equal(p.forward.htmlIncluded, false);
+  assert.equal(p.forward.htmlOmitted, true);
   assert.match(p.body, /Ihre Rechnung liegt bei\.$/);
   await f.decide(r.actionId);
   assert.equal((await f.settled(r.actionId)).state, "completed");
   assert.equal(htmlOf(f.smtp.messages[0].raw), null);
+});
+
+test("an HTML part of exactly 1 MiB goes along, one byte more is left out", async (t) => {
+  const f = await sendFilesFixture(t);
+  const sized = (bytes) => `<p>${"x".repeat(bytes - 7)}</p>`;
+  assert.equal(Buffer.byteLength(sized(1_048_576)), 1_048_576);
+  const exact = original(f, { html: sized(1_048_576) });
+  const over = original(f, { html: sized(1_048_577) });
+  const forward = forwardOf(f);
+  const kept = await forward({ uid: exact.uid });
+  const p = f.workflows.get(kept.actionId).payload;
+  assert.equal(kept.htmlNote, undefined);
+  assert.match(p.html.partSha256, /^[0-9a-f]{64}$/);
+  assert.equal(p.forward.htmlIncluded, true);
+  assert.equal(p.forward.htmlOmitted, false);
+  const dropped = await forward({ uid: over.uid });
+  const q = f.workflows.get(dropped.actionId).payload;
+  assert.match(dropped.htmlNote, /over 1 MiB/);
+  assert.equal(q.html, null);
+  assert.equal(q.forward.htmlOmitted, true);
+});
+
+test("an HTML-only original over 1 MiB is MAIL_DRAFT_UNSUPPORTED and saves nothing", async (t) => {
+  const f = await sendFilesFixture(t);
+  const big = f.imap.mailbox.append(
+    "INBOX",
+    Buffer.from(
+      `From: news@example.com\r\nTo: agent@example.com\r\nSubject: Big\r\nDate: Mon, 26 Oct 2026 09:00:00 +0100\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n<p>${"y".repeat(1_100_000)}</p>\r\n`,
+      "latin1",
+    ),
+  );
+  assert.equal(await code(forwardOf(f)({ uid: big.uid })), "MAIL_DRAFT_UNSUPPORTED");
+  assert.equal(f.count("Drafts"), 0);
+  assert.equal(f.workflows.mail.sends.hourSends(f.id), 0);
+  assert.equal(f.smtp.messages.length, 0);
 });
 
 test("forward needs the send level and counts against the hourly limit", async (t) => {

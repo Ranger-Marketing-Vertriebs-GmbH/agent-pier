@@ -1,3 +1,4 @@
+import { parse, serialize } from "parse5";
 import { mailError } from "./mail-connection.js";
 import { openFolder } from "./mail-folders.js";
 import {
@@ -110,6 +111,38 @@ export async function loadOriginal(
   };
 }
 
+// Elements of the original's HTML that could reach beyond its quote (a base URL,
+// styles of the whole forward, refreshes, scripts) are dropped, and so are inline
+// styles that position an element, which could cover the agent's own text.
+const droppedTags = new Set(["base", "script", "style", "meta", "link"]);
+const positioned = /(^|;|\s)position\s*:/i;
+
+/**
+ * The original's HTML as quoted: only the content of its `<body>`, without
+ * `<base>`, `<script>`, `<style>`, `<meta>` and `<link>` and without positioning
+ * inline styles, so it cannot restyle or hide what stands above the quote.
+ */
+export function quotedHtml(html) {
+  const document = parse(String(html));
+  const root = document.childNodes.find((n) => n.nodeName === "html");
+  const body = root?.childNodes.find((n) => n.nodeName === "body");
+  if (!body) return "";
+  const stack = [body];
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node.childNodes) continue;
+    node.childNodes = node.childNodes.filter((child) => !droppedTags.has(child.nodeName));
+    for (const child of node.childNodes) {
+      if (child.attrs)
+        child.attrs = child.attrs.filter(
+          (a) => !(a.name === "style" && positioned.test(a.value)),
+        );
+      stack.push(child.content ?? child);
+    }
+  }
+  return serialize(body);
+}
+
 const escapeHtml = (text) =>
   text.replace(
     /[&<>"']/g,
@@ -128,7 +161,7 @@ export function forwardSubject(original) {
  * (loadOriginal): the agent's `body`, a blank line, the header block and the original
  * text; `subject` the agent's, else forwardSubject. `html` (null without an original
  * HTML part) is the agent's text escaped, the header block, then the original markup
- * unchanged in `<blockquote type="cite">`. A body over `forwardBodyChars` is
+ * as quotedHtml in `<blockquote type="cite">`. A body over `forwardBodyChars` is
  * MAIL_DRAFT_UNSUPPORTED; bad recipients or subject 400 `invalid`.
  */
 export function forwardFields(original, { body = "", subject, to, cc, bcc }) {
@@ -154,6 +187,6 @@ export function forwardFields(original, { body = "", subject, to, cc, bcc }) {
   const html =
     original.html === null
       ? null
-      : `${own ? `<p>${htmlLines(own)}</p>\n` : ""}<p>${htmlLines(header)}</p>\n<blockquote type="cite">${original.html}</blockquote>`;
+      : `${own ? `<p>${htmlLines(own)}</p>\n` : ""}<p>${htmlLines(header)}</p>\n<blockquote type="cite">${quotedHtml(original.html)}</blockquote>`;
   return { fields, html };
 }

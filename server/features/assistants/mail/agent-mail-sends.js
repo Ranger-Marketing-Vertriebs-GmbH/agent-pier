@@ -201,7 +201,7 @@ export class MailSends {
     }
     // The agent hears that a forward left the original's HTML part out.
     const noted = (result) =>
-      forward?.original.htmlOmitted ? { ...result, html: htmlOmittedNote } : result;
+      forward?.original.htmlOmitted ? { ...result, htmlNote: htmlOmittedNote } : result;
     if (!trusted) {
       notifyAction(this.w, action, "approval");
       this.w.a.changed({ feeds: false });
