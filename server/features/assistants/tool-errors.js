@@ -271,6 +271,8 @@ const reasons = {
     "No text can be read from this attachment type; only PDF, DOCX, XLSX, PPTX, text and CSV are read. Do not retry; save it with mode save if you need the file, or tell the owner.",
   MAIL_TEXT_FAILED:
     "The text of this attachment could not be read: it is damaged, encrypted or too complex. Do not retry; save it with mode save if you need the file, or tell the owner.",
+  MAIL_BUSY:
+    "AgentPier is reading other mail HTML right now, so nothing was saved or sent. Try again in a moment.",
   MAIL_SOURCE_REFUSED:
     "You may not attach this file: it is outside your workspace and granted project folders, or it is a link, inside .git or AgentPier's data. Do not retry; copy the file into your workspace with your own tools only if you may, or tell the owner.",
   MAIL_SOURCE_NOT_FOUND:
@@ -399,6 +401,7 @@ const byKey = {
   mailDraftChanged: "MAIL_DRAFT_CHANGED",
   mailTextUnsupported: "MAIL_TEXT_UNSUPPORTED",
   mailTextFailed: "MAIL_TEXT_FAILED",
+  mailBusy: "MAIL_BUSY",
   mailSourceRefused: "MAIL_SOURCE_REFUSED",
   mailSourceNotFound: "MAIL_SOURCE_NOT_FOUND",
   mailSourceEmpty: "MAIL_SOURCE_EMPTY",

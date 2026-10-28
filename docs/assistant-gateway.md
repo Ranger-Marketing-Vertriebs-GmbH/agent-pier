@@ -2748,7 +2748,9 @@ over 1 MiB, 20,000 tags or 500 levels is left out (`htmlNote` in the result, "om
 on the card), and an HTML-only original over the bounds is `MAIL_DRAFT_UNSUPPORTED`.
 `read` returns a placeholder with `htmlTooComplex: true` for such HTML. Mail HTML is parsed in the same kind of
 child process with a 5-second deadline, from a pool of its own (one at a time, four
-waiting), so a `read` never waits behind attachment documents; an HTML-only forward
+waiting), so a `read` never waits behind attachment documents. When that pool is full, `read`
+returns `htmlBusy: true` with a placeholder asking to read again, and a forward that
+needs the HTML fails with the retryable `MAIL_BUSY` before any draft is saved; an HTML-only forward
 gets its quote and its text from one process.
 `mailTelegramApprovable` also needs at most 10 attachments and no hidden or control
 characters in attachment names, paths, types, project names or the forward's sender,

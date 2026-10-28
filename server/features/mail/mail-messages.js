@@ -247,6 +247,8 @@ export async function readMessage(client, folder, uid) {
     truncated: text.truncated,
     // The HTML-only text could not be read: too many tags or nested too deeply.
     ...(text.tooComplex && { htmlTooComplex: true }),
+    // The HTML could not be read now: other HTML was being read. Worth another read.
+    ...(text.busy && { htmlBusy: true }),
     attachments: attachmentsOf(row.bodyStructure)
       .slice(0, mailBounds.attachments)
       .map((node) => ({

@@ -128,6 +128,9 @@ export function parseMailHtml(html) {
 
 /** What an agent reads instead of HTML beyond htmlBounds. */
 export const tooComplexText = "[The HTML of this mail is too complex to read.]";
+/** What a read gets while the HTML pool is full: retryable, unlike tooComplexText. */
+export const htmlBusyText =
+  "[AgentPier is reading other mail HTML right now. Read this message again in a moment.]";
 
 /** Cuts `text` at `maxChars` code units, never inside a surrogate pair. */
 export function clipText(text, maxChars) {
