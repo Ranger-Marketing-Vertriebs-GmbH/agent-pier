@@ -113,8 +113,9 @@ test("an account keeps its password in a 0600 file and never shows it", async (t
   assert.equal(created.resourceType, "mail");
   assert.equal(created.resourceId, a.id);
   assert.deepEqual(created.details, { kind: "account" });
-  assert.equal(JSON.stringify(s.auditLog.events).includes("pw-secret"), false);
-  assert.equal(JSON.stringify(s.auditLog.events).includes("example.com"), false);
+  const logged = JSON.stringify(s.auditLog.events);
+  assert.doesNotMatch(logged, /pw-secret/);
+  assert.doesNotMatch(logged, /example\.com/);
 });
 
 test("an unknown account is 404", async (t) => {
