@@ -113,6 +113,13 @@ test("the approval lists every attachment with path, size, type and hash", () =>
       }),
       attachment("invoice.pdf", { kind: "original" }),
       attachment(null, { kind: "draft" }),
+      // Another agent's file in the draft: its path and project, for the owner.
+      attachment("brief.pdf", {
+        kind: "draft",
+        from: "project",
+        projectName: "Site",
+        path: "docs/brief.pdf",
+      }),
     ],
   });
   assert.match(
@@ -126,6 +133,7 @@ test("the approval lists every attachment with path, size, type and hash", () =>
     text,
   );
   assert.ok(text.includes(`Attachment: docs/plan.pdf (Site) · plan.pdf ·`), text);
+  assert.ok(text.includes(`Attachment: docs/brief.pdf (Site) · brief.pdf ·`), text);
   assert.ok(text.includes(`Attachment: ${m.mailFields.fromOriginal} · invoice.pdf`));
   assert.ok(
     text.includes(`Attachment: ${m.mailFields.inDraft} · ${m.mailFields.unnamed}`),
