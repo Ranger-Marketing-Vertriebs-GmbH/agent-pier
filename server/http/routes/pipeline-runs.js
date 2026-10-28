@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
+import { runCountsView } from "../../features/pipelines/live-topics.js";
 
 function pageValue(value) {
   if (value === undefined) return 1;
@@ -23,11 +24,12 @@ export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
   const router = Router();
   // The count of each status, of all runs or of one project (the pills and hints).
   router.get("/pipeline-run-counts", (req, res) =>
-    res.json({
-      counts: pipelineRunCounts.counts(
+    res.json(
+      runCountsView(
+        pipelineRunCounts,
         filter(req.query.projectId, serverMessages.pipelines.invalidProjectFilter),
       ),
-    }),
+    ),
   );
   router.get("/pipeline-runs", (req, res) => {
     const status = filter(req.query.status, serverMessages.pipelines.invalidStatusFilter);
@@ -44,6 +46,8 @@ export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
           req.query.projectId,
           serverMessages.pipelines.invalidProjectFilter,
         ),
+        // `list`: each run in its slim list view (the run tables).
+        view: filter(req.query.view, serverMessages.pipelines.invalidView),
       }),
     );
   });

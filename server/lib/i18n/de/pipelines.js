@@ -9,6 +9,7 @@ export const pipelines = Object.freeze({
   invalidPageFilter: "Ungültige Pipeline-Seite",
   invalidStatusFilter: "Ungültiger Status-Filter",
   invalidProjectFilter: "Ungültiger Projekt-Filter",
+  invalidView: "Ungültige Listenansicht",
   invalidStatusValue: "Ungültiger Pipeline-Status",
   artifactPathRequired: "Ein Artefaktpfad ist erforderlich",
   invalidVerificationStepFilter: "Ungültiger Prüfschritt",

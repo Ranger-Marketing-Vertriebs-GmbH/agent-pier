@@ -180,6 +180,14 @@ export class LiveHub {
   invalidate(name, param) {
     for (const instance of this.named(name, param)) instance.invalidate();
   }
+  /**
+   * Like invalidate, for the instances of `name` whose parameter (undefined for the
+   * bare name) passes `predicate`.
+   */
+  invalidateWhere(name, predicate) {
+    for (const instance of this.named(name))
+      if (predicate(instance.param)) instance.invalidate();
+  }
   /** A sampled source of `name` may have changed: sample it before the next tick. */
   nudge(name, param) {
     for (const instance of this.named(name, param)) instance.nudge();

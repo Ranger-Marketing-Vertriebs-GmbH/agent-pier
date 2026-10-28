@@ -69,6 +69,23 @@ export class RunStore {
         .get(projectId),
     );
   }
+  /**
+   * One page of runs, newest first, with optional status and project filters, and
+   * how many runs match: SQLite filters the stored JSON, only the page is parsed.
+   */
+  page({ status, projectId, offset = 0, limit = 20 } = {}) {
+    const where =
+      "WHERE (?1 IS NULL OR json_extract(doc,'$.status')=?1) AND (?2 IS NULL OR json_extract(doc,'$.projectId')=?2)";
+    const filters = [status ?? null, projectId ?? null];
+    const { total } = this.db
+      .prepare(`SELECT COUNT(*) AS total FROM runs ${where}`)
+      .get(...filters);
+    const runs = this.db
+      .prepare(`SELECT doc FROM runs ${where} ORDER BY rowid DESC LIMIT ?3 OFFSET ?4`)
+      .all(...filters, limit, offset)
+      .map((r) => normalizeRun(JSON.parse(r.doc)));
+    return { runs, total: Number(total) };
+  }
   all() {
     return this.db
       .prepare("SELECT doc FROM runs ORDER BY rowid DESC")

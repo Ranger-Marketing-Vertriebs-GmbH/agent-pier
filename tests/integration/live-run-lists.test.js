@@ -70,17 +70,20 @@ test("counts equal GET /api/pipeline-run-counts, for all runs and one project", 
     await json(f, "/api/pipeline-run-counts?projectId=project-one"),
   );
   assert.equal(first["pipeline.counts:project-one"].data.counts.running, 1);
+  assert.equal(first["pipeline.counts"].data.total, 3);
+  assert.equal(first["pipeline.counts:project-one"].data.total, 2);
   live.ws.close();
 });
 
 test("page 1 of each filter equals GET /api/pipeline-runs", async (t) => {
   const { f } = await seeded(t);
   const lists = {
-    "pipeline.runs:*:*": "/api/pipeline-runs?page=1",
-    "pipeline.runs:project-one:*": "/api/pipeline-runs?page=1&projectId=project-one",
-    "pipeline.runs:*:running": "/api/pipeline-runs?page=1&status=running",
+    "pipeline.runs:*:*": "/api/pipeline-runs?view=list&page=1",
+    "pipeline.runs:project-one:*":
+      "/api/pipeline-runs?view=list&page=1&projectId=project-one",
+    "pipeline.runs:*:running": "/api/pipeline-runs?view=list&page=1&status=running",
     "pipeline.runs:project-two:running":
-      "/api/pipeline-runs?page=1&projectId=project-two&status=running",
+      "/api/pipeline-runs?view=list&page=1&projectId=project-two&status=running",
   };
   const { live, first } = await listening(f, ...Object.keys(lists));
   for (const [topic, path] of Object.entries(lists)) {
@@ -125,7 +128,7 @@ test("a run finishing changes the counts and page 1 within 1 s", async (t) => {
   });
   assert.deepEqual(
     frames["pipeline.runs:*:*"].data,
-    await json(f, "/api/pipeline-runs?page=1"),
+    await json(f, "/api/pipeline-runs?view=list&page=1"),
   );
   live.ws.close();
 });
@@ -239,4 +242,29 @@ test("the counts route refuses an invalid project filter", async (t) => {
   assert.equal(response.status, 400);
   const missing = await json(f, "/api/pipeline-run-counts?projectId=nothing-here");
   assert.equal(missing.counts.running, 0);
+});
+
+test("a save that only adds to the execution log wakes no list or count", async (t) => {
+  const { f, store } = await seeded(t);
+  const reads = [];
+  const list = f.application.pipelines.list.bind(f.application.pipelines);
+  f.application.pipelines.list = (query) => {
+    reads.push(query);
+    return list(query);
+  };
+  const topics = ["pipeline.runs:*:*", "pipeline.runs.changed", "pipeline.counts"];
+  const { live } = await listening(f, ...topics);
+  reads.length = 0;
+  const current = store.get("run-a");
+  current.executionLog = [{ id: "turn-1", nodeId: "build", status: "passed" }];
+  store.save(current);
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.deepEqual(reads, []);
+  assert.deepEqual(
+    live.frames
+      .filter((frame) => topics.includes(frame.topic))
+      .map((frame) => frame.type),
+    ["snapshot", "same", "snapshot"],
+  );
+  live.ws.close();
 });
