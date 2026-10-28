@@ -211,6 +211,14 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     // the same sources, the agent runtime's updates included, while it is visible.
     else if (path === "/pipeline-runs" && method === "GET")
       result = { runs: [], total: 0, page: 1, pageSize: 20 };
+    // The start page follows the live `inbox` topic; nothing waits here.
+    else if (path === "/inbox" && method === "GET")
+      result = {
+        instance: "fixture",
+        revision: 0,
+        counts: { all: 0, questions: 0, approvals: 0, gates: 0, agents: 0 },
+        items: [],
+      };
     else if (path === "/assistant-runtime/updates" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     // Agents are off: the users page lists users without agents.
