@@ -6,7 +6,6 @@ import {
   memoryEnabled,
   personalCapabilities,
   personalShell,
-  personalSkills,
   profileTools,
   senderLockedTools,
 } from "./native-capabilities.js";
@@ -17,6 +16,12 @@ import { mirrorLeadMemory } from "./member-memory.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { needsSettings, ownCopy } from "./agent-skills.js";
+import {
+  builtInSkillNames,
+  compiledSkillNames,
+  pluginSkillReported,
+  pluginSkillsDir,
+} from "./built-in-skills.js";
 import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
@@ -77,8 +82,20 @@ export class AssistantConfig {
     this.compiledSkills.clear();
   }
   /**
-   * Keeps only the names the Gateway reports as the skill AgentPier means: a catalog
-   * skill only as the catalog's own live copy (`catalogSource`, below its liveRoot,
+   * The skill names an apply compiles for the agent (agentEntry): its bundled and
+   * catalog skills plus the built-in ones it is eligible for, once native tools are
+   * ready.
+   */
+  skillNames(assistant) {
+    if (!this.nativeReady?.()) return [];
+    return compiledSkillNames(assistant, {
+      senderFacing: !!this.senderFacing?.(assistant),
+    });
+  }
+  /**
+   * Keeps only the names the Gateway reports as the skill AgentPier means: a built-in
+   * skill only as the team plugin's own copy (built-in-skills.js), a catalog skill
+   * only as the catalog's own live copy (`catalogSource`, below its liveRoot,
    * reported by no other source and needing no settings), any other name only as the
    * bundled skill. Fails closed: without a report (an error, or none) nothing is
    * verified, and `complete` is false so the apply is not cached and asks again next
@@ -100,8 +117,13 @@ export class AssistantConfig {
     }
     const liveRoot = this.skillCatalog?.liveRoot;
     const reported = (name) => report.skills.filter((entry) => entry?.name === name);
+    // The Gateway's state folder sits beside the workspaces (runtime-paths.js).
+    const pluginSkills =
+      this.workspaces && pluginSkillsDir(path.dirname(this.workspaces));
     const kept = (name) => {
       const entries = reported(name);
+      if (builtInSkillNames.includes(name))
+        return pluginSkillReported(entries, pluginSkills);
       if (!catalog.has(name))
         return entries.some((entry) => entry.source === "openclaw-bundled");
       return (
@@ -137,7 +159,7 @@ export class AssistantConfig {
   }
   /** The list an apply would compile now (disk scan, then the Gateway's view). */
   async expectedSkills(assistant) {
-    const assigned = this.nativeReady?.() ? personalSkills(assistant) : [];
+    const assigned = this.skillNames(assistant);
     const shadowed = [
       ...shadowedSkills(path.dirname(this.workspaces), assistant, assigned),
       ...this.catalogCheck(assigned).dropped,
@@ -253,12 +275,12 @@ export class AssistantConfig {
       ? shellSections({ profiles: this.store.listAssistants?.() || [assistant] })
           .globalTools.length > 0
       : undefined;
-    // The agent's bundled and catalog skills (agentEntry), applied hot like
+    // The agent's bundled, catalog and built-in skills (agentEntry), applied hot like
     // tools.allow, without names a same-named skill in its folders would replace
     // (skill-shadows.js). Its catalog copies are checked here, before every turn
     // admission, the unchanged-configuration shortcut included: a tampered copy is
     // restored, and one that is damaged or could not be checked is left out.
-    const assigned = nativeReady ? personalSkills(assistant) : [];
+    const assigned = this.skillNames(assistant);
     const catalog = this.catalogCheck(assigned);
     const shadowed = [
       ...shadowedSkills(path.dirname(this.workspaces), assistant, assigned),

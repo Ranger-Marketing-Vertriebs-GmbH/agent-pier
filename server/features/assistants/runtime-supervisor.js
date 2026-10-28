@@ -11,6 +11,7 @@ import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
 import { personalSkills } from "./native-capabilities.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { bundledSkillNames } from "./agent-skills.js";
+import { builtInSkillNames } from "./built-in-skills.js";
 import { GatewayClient } from "./gateway-client.js";
 import { prepareGatewayTls } from "./gateway-tls.js";
 import { openConsoleLog, rotateConsoleLog } from "./gateway-log.js";
@@ -326,7 +327,11 @@ export class RuntimeSupervisor extends EventEmitter {
         (teams?.profiles || []).map((profile) => [
           profile.runtimeAgentId,
           [
-            ...shadowedSkills(this.paths.root, profile, personalSkills(profile)),
+            // Built-in names are candidates unconditionally: a candidate only drops.
+            ...shadowedSkills(this.paths.root, profile, [
+              ...personalSkills(profile),
+              ...builtInSkillNames,
+            ]),
             ...this.catalogDrops(personalSkills(profile), bundled),
           ],
         ]),
