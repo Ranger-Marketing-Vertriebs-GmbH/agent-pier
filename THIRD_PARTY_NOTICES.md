@@ -90,6 +90,18 @@ credentials and message content never reach its logger.
   `safe-stable-stringify` 2.5.0, `sonic-boom` 4.2.1 and `thread-stream` 4.2.0 (MIT) and
   `split2` 4.2.0 (ISC).
 
+Text extraction from PDF attachments uses `unpdf` 1.8.1 (MIT, Copyright (c)
+2023-PRESENT Johann Schopplich, <https://github.com/unjs/unpdf>). It bundles a
+serverless build of Mozilla's PDF.js 6.1.200 (Apache-2.0, Copyright Mozilla
+Foundation, <https://github.com/mozilla/pdf.js/tree/v6.1.200>) in
+`node_modules/unpdf/dist/pdfjs.mjs`; the bundle carries no license header of its own,
+and the Apache-2.0 text is AgentPier's `LICENSE`. `unpdf` is pinned to that exact
+version, has no runtime dependencies and no install scripts; its optional
+`@napi-rs/canvas` peer is not installed. AgentPier passes PDF.js no `wasmUrl`, so the
+OpenJPEG and QCMS WebAssembly decoders PDF.js can load are neither shipped nor used.
+Extraction runs in a worker thread with time and memory limits. DOCX, XLSX and PPTX
+text is read with `yauzl` (see below).
+
 Tests use `smtp-server` 3.19.21 (MIT-0, Copyright (c) 2015-2025 Andris Reinman,
 <https://github.com/nodemailer/smtp-server>) as a development
 dependency with `punycode.js` 2.3.1 and `ipv6-normalize` 1.0.1 (MIT). It is not part
@@ -138,7 +150,8 @@ and update packages. Source: https://github.com/thejoshwolfe/yazl/tree/3.3.1
 
 ## yauzl and buffer-crc32
 
-ZIP extraction uses yauzl 3.4.0 (MIT), Copyright (c) 2014 Josh Wolfe, and the
+ZIP extraction, and reading the text of DOCX, XLSX and PPTX mail attachments, use
+yauzl 3.4.0 (MIT), Copyright (c) 2014 Josh Wolfe, and the
 direct buffer-crc32 1.0.0 dependency (MIT), Copyright (c) 2013-2024 Brian J.
 Brennan. Their locked runtime packages and complete MIT license files are included
 in installation and update packages. Sources:
