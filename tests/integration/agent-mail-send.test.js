@@ -311,12 +311,17 @@ test("a send refused after its draft was saved moves that draft to Trash", async
 
 test("a concurrent duplicate send trashes its own draft and shares the row", async (t) => {
   const f = await sendFixture(t, { rules: ["example.org"] });
+  // Either call may write the row first; the other waits on it. The fixture's 30 ms
+  // hold has passed by the time both drafts are saved, so the waiting call would
+  // answer "sending" while the row is executing: hold long enough for the outcome.
+  f.workflows.mail.sends.holdMs = 10000;
   const inv = f.ownTurn();
   const [first, second] = await Promise.all([
     f.send({ to: ["bob@example.org"] }, inv),
     f.send({ to: ["bob@example.org"] }, inv),
   ]);
   assert.equal(first.status, "sent");
+  assert.equal(second.status, "sent");
   assert.equal(second.actionId, first.actionId);
   assert.equal(f.smtp.messages.length, 1);
   // The sent draft and the duplicate both went to Trash.
