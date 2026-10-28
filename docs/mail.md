@@ -270,7 +270,10 @@ host, username, subject, body, rule or password):
   account ids and the number of recipient rules), also when an account removal
   revokes them;
 - every send (`mail.sent`: the agent, `authorizedBy` rule or approval, the number of
-  recipients and a failure's code);
+  recipients, `delivery` and a failure's code). `delivery` is `sent`, `failed` (nothing
+  went out) or `unknown` (it may have gone out: a broken SMTP session or a send cut
+  off by a restart). The log's outcome is **Failure** for both `failed` and
+  `unknown`, so check `delivery` before reading a failure as "not sent".
 - every move to Trash (`mail.deleted`: the agent and the count), also a replaced or
   sent draft going there.
 

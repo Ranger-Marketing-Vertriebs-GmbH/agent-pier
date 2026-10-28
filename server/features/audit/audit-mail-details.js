@@ -17,6 +17,9 @@ const accountFields = new Set([
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const isId = (value) => typeof value === "string" && idPattern.test(value);
 const grantReasons = ["owner", "account-removed"];
+// Whether a send went out; `unknown` when AgentPier cannot tell (an outcome of
+// "failure" alone would read as not sent).
+const deliveries = ["sent", "failed", "unknown"];
 const resultCode = (value) =>
   typeof value === "string" && (value === "ok" || /^MAIL_[A-Z_]{2,40}$/.test(value));
 
@@ -33,7 +36,8 @@ export function mailAuditDetails(details, event, auditId) {
 }
 
 // An agent's change to mail (Trash moves) or send: the agent, how many messages, and
-// for a send what authorized it, how many recipients it had and a failure's code.
+// for a send what authorized it, how many recipients it had, whether it went out and
+// a failure's code.
 function messageDetails(details, event, auditId) {
   if (details.assistantId !== undefined)
     event.details.assistantId = auditId(details.assistantId);
@@ -47,6 +51,7 @@ function messageDetails(details, event, auditId) {
     details.recipients <= 50
   )
     event.details.recipients = details.recipients;
+  if (deliveries.includes(details.delivery)) event.details.delivery = details.delivery;
   if (resultCode(details.code) && details.code !== "ok")
     event.details.code = details.code;
 }

@@ -101,6 +101,7 @@ test("a card holds the call; approve within the hold sends exactly what it shows
     actionId: card.id,
     authorizedBy: "approval",
     recipients: 3,
+    delivery: "sent",
   });
   assert.ok(
     f.audit.some((e) => e.action === "assistant.answered" && e.details.kind === "mail"),
@@ -335,12 +336,20 @@ test("a send lost to a restart is unknown and never sent again", async (t) => {
   await f.workflows.tick();
   assert.equal(f.workflows.get(result.actionId).state, "unknown");
   assert.equal(f.smtp.messages.length, 0);
+  // Audited, since the mail may have gone out before the restart.
+  const audited = f.audit.filter((e) => e.action === "mail.sent");
+  assert.equal(audited.length, 1);
+  assert.equal(audited[0].outcome, "failure");
+  assert.equal(audited[0].details.delivery, "unknown");
+  assert.equal(audited[0].details.authorizedBy, "approval");
+  assert.equal(audited[0].details.actionId, result.actionId);
   assert.equal(f.followUps.length, 1, "the agent learns not to send it again");
   const envelope = JSON.parse(f.followUps[0].input.text.split("\n").slice(1).join("\n"));
   assert.equal(envelope.status, "unknown");
   assert.match(envelope.notice, /Do not send it again/);
   await f.workflows.tick();
   assert.equal(f.smtp.messages.length, 0);
+  assert.equal(f.audit.filter((e) => e.action === "mail.sent").length, 1);
 });
 
 test("hidden characters in a recipient or the sender keep Telegram from approving", async (t) => {

@@ -70,6 +70,7 @@ test("every recipient matching a rule sends without a card", async (t) => {
     actionId: result.actionId,
     authorizedBy: "rule",
     recipients: 2,
+    delivery: "sent",
   });
   assert.equal(audit.outcome, "success");
   assert.equal(audit.resourceId, f.account.id);
@@ -239,6 +240,7 @@ test("a failed send keeps the draft and is audited with its code", async (t) => 
   const [audit] = f.sent();
   assert.equal(audit.outcome, "failure");
   assert.equal(audit.details.code, "MAIL_AUTH_FAILED");
+  assert.equal(audit.details.delivery, "failed");
   assert.equal(audit.details.authorizedBy, "rule");
   assert.equal(JSON.stringify(f.audit).includes("pw-secret"), false);
 });
@@ -254,8 +256,11 @@ test("a connection dropped after DATA is unknown and never sent again", async (t
   assert.equal(f.smtp.messages.length, 1);
   assert.equal(f.count("Drafts"), 1, "the draft stays");
   const [audit] = f.sent();
+  // May have gone out: audited as unknown, not as a plain failure.
   assert.equal(audit.outcome, "failure");
-  assert.match(audit.details.code, /^MAIL_/);
+  assert.equal(audit.details.delivery, "unknown");
+  assert.equal(audit.details.code, "MAIL_PROTOCOL");
+  assert.equal(f.workflows.get(result.actionId).result.code, "MAIL_PROTOCOL");
   // A retry of the call returns the same answer and sends nothing.
   f.smtp.dropAfterData = false;
   const retry = await f.send({ to: ["bob@example.org"] }, inv);
