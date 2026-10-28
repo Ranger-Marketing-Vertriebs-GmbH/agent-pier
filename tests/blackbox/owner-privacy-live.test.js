@@ -102,3 +102,49 @@ test("a frame a slow socket held back from before the withdrawal is never sent",
   assert.doesNotMatch(JSON.stringify(later), hers);
   assert.equal(later.at(-1).data.channels[0].assistantId, agent.id);
 });
+
+test("the agent list never shows a late joiner her chat after the withdrawal", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: user.id, level: "chat" }],
+  });
+  const opened = await as(f, cookie)(`/api/me/agents/${agent.id}/conversation`, {
+    method: "POST",
+  });
+  const { id } = await opened.json();
+  assert.equal((await optIn(f, user.id, true)).status, 200);
+  const written = await as(f, cookie)(`/api/me/conversations/${id}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "after-opt-in", text: "Secret-title-text" },
+  });
+  assert.ok(written.status < 300, await written.clone().text());
+  const listed = await (await f.request("/api/assistants")).json();
+  assert.ok(
+    listed.conversations.some((c) => c.id === id),
+    "listed under the opt-in",
+  );
+  const first = openLive(f);
+  await first.next((frame) => frame.type === "hello");
+  first.send({ op: "sub", topic: "agent.list" });
+  const shown = await first.next((frame) => frame.topic === "agent.list", 5000);
+  assert.match(JSON.stringify(shown), new RegExp(id));
+  const late = openLive(f);
+  await late.next((frame) => frame.type === "hello");
+  const mark = first.frames.length;
+  assert.equal((await optIn(f, user.id, false)).status, 200);
+  late.send({ op: "sub", topic: "agent.list" });
+  const joined = await late.next((frame) => frame.topic === "agent.list", 5000);
+  assert.equal(joined.type, "snapshot");
+  assert.doesNotMatch(JSON.stringify(late.frames), new RegExp(id));
+  // The first socket's next frame is a fresh snapshot without her chat.
+  const after = await first.next(
+    (frame) => frame.topic === "agent.list" && first.frames.indexOf(frame) >= mark,
+    3000,
+  );
+  assert.equal(after.type, "snapshot");
+  assert.doesNotMatch(JSON.stringify(after), new RegExp(id));
+  first.ws.close();
+  late.ws.close();
+});

@@ -10,6 +10,7 @@ import {
   agentRunChanged,
   followReminderWrites,
 } from "../../server/features/assistants/live-topics.js";
+import { retireReleased } from "../../server/features/users/user-release.js";
 
 const timeout = 20000;
 
@@ -408,4 +409,33 @@ test("reminder writes signal their agent, a run result every agent", async (t) =
   assert.deepEqual(errors, [
     "AgentPier could not report a change of the agent reminders.",
   ]);
+});
+
+test("exactly the topics that read through owner privacy are reset by it", async (t) => {
+  const f = await fixture(t);
+  const scoped = [...f.application.live.topics.values()]
+    .filter(({ definition }) => definition.privacy === true)
+    .map(({ definition }) => definition.name)
+    .sort();
+  assert.deepEqual(scoped, [
+    "agent.actions",
+    "agent.channels",
+    "agent.coding-requests",
+    "agent.list",
+    "agent.reminders",
+  ]);
+});
+
+test("a user's released reminders signal their agents' reminder topics", async () => {
+  const signals = [];
+  const live = { invalidate: (name, id) => signals.push(`${name}:${id}`) };
+  const assistants = {
+    reminders: { bindings: { list: () => [] } },
+    store: { listAssistants: () => [{ id: "a" }, { id: "b" }] },
+    admit: async (operation) => operation(),
+    runtime: { client: { ready: false } },
+    changed() {},
+  };
+  await retireReleased({ assistants, live }, [{ id: "a" }]);
+  assert.deepEqual(signals, ["agent.reminders:a"]);
 });

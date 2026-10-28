@@ -5,6 +5,7 @@ import {
   forgetChat,
   markArchivePurges,
 } from "../assistants/chat-removal.js";
+import { agentRemindersChanged } from "../assistants/live-topics.js";
 
 /**
  * Everything of a deleted user's on the agents (UserAgents.releaseUser): her own
@@ -59,10 +60,15 @@ export async function releaseUserData(services, userId, mode, optIn) {
 export function forgetUserBindings(services, userId) {
   const reminders = services.assistants?.reminders;
   if (!reminders) return;
-  for (const agent of services.assistants.store.listAssistants())
+  const agents = services.assistants.store.listAssistants();
+  for (const agent of agents)
     for (const binding of reminders.bindings.list(agent.id))
       if (audienceOf(binding) === userId && revoked(binding))
         reminders.bindings.patch(binding.id, { definition: null, fingerprint: null });
+  agentRemindersChanged(
+    services.live,
+    agents.map((a) => a.id),
+  );
 }
 
 /**
@@ -210,4 +216,9 @@ export async function retireReleased(services, agents) {
       assistants.changed();
     })
     .catch(() => {});
+  // Revoked here or by endBindings, removed above: the owner's reminder lists show it.
+  agentRemindersChanged(
+    services.live,
+    (agents || assistants.store.listAssistants()).map((a) => a.id),
+  );
 }

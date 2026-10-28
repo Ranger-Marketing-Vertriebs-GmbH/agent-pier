@@ -60,6 +60,8 @@ export function agentListTopic(services) {
   return {
     name: "agent.list",
     mode: "rows",
+    // Her chats show only under her opt-in (OwnerPrivacy#view in the list).
+    privacy: true,
     maxBytes: AGENT_LIST_MAX_BYTES,
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
@@ -298,13 +300,7 @@ const REMINDER_WRITES = ["create", "update", "remove", "review", "disable", "com
  * agent's topic for a write, every agent's for a run result. A failing hub is logged.
  */
 export function followReminderWrites(reminders, hub) {
-  const signal = (id) => {
-    try {
-      hub()?.invalidate("agent.reminders", id);
-    } catch {
-      console.error("AgentPier could not report a change of the agent reminders.");
-    }
-  };
+  const signal = (id) => agentRemindersChanged(hub(), id === undefined ? [] : [id]);
   for (const name of REMINDER_WRITES) {
     const write = reminders[name];
     if (typeof write !== "function") continue;
@@ -314,5 +310,18 @@ export function followReminderWrites(reminders, hub) {
       Promise.resolve(result).then(settled, settled);
       return result;
     };
+  }
+}
+
+/**
+ * The reminders of agents `ids` changed (all watched ones for an empty list): signals
+ * `agent.reminders` on `hub`. A failing hub is logged; the write stands.
+ */
+export function agentRemindersChanged(hub, ids) {
+  try {
+    if (!ids.length) hub?.invalidate("agent.reminders");
+    for (const id of ids) hub?.invalidate("agent.reminders", id);
+  } catch {
+    console.error("AgentPier could not report a change of the agent reminders.");
   }
 }
