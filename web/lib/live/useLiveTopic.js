@@ -7,10 +7,23 @@ const restRead = (path, signal) => api(path, "GET", undefined, signal);
 const idle = { data: null, error: "", loading: false, connected: false };
 
 /**
+ * The hook's state updater when the subscription of `key` ends: what it held is
+ * dropped, so a later subscription to the same topic starts from loading and never
+ * shows the previous subscription's value (an earlier job's end, say).
+ */
+export const releaseHeld = (key) => (held) => (held?.key === key ? null : held);
+
+/** What the hook shows of `current` (`{key, ...state}`) for `key` and `topicId`. */
+export const shownState = (current, key, topicId) =>
+  current?.key === key ? current : topicId ? { ...idle, loading: true } : idle;
+
+/**
  * Data of a live topic (web/lib/live/live-topics.js) in the shape of useResource:
  * `{data, error, loading, connected, refresh}`. `refresh()` reads the topic's REST
  * route and resolves with the data, or null when that read failed or the tab is
- * hidden, for a caller that must await fresh data after a write. `path` replaces the
+ * hidden, for a caller that must await fresh data after a write. A topic followed
+ * again (null, then the same id) starts from loading, never from what the previous
+ * subscription held. `path` replaces the
  * topic's REST route; a signal topic's data is that route, read again per `changed`.
  */
 export default function useLiveTopic(topicId, path) {
@@ -30,14 +43,14 @@ export default function useLiveTopic(topicId, path) {
     return () => {
       if (reader.current === started) reader.current = null;
       started.stop();
+      setCurrent(releaseHeld(key));
     };
   }, [topicId, path, key]);
   const refresh = useCallback(
     () => reader.current?.refresh() ?? Promise.resolve(null),
     [],
   );
-  const shown =
-    current?.key === key ? current : topicId ? { ...idle, loading: true } : idle;
+  const shown = shownState(current, key, topicId);
   return {
     data: shown.data,
     error: shown.error,

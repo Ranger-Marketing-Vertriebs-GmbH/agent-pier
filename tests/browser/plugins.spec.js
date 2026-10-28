@@ -379,3 +379,37 @@ test("a plugin change running elsewhere is followed until it ends", async ({
     [],
   );
 });
+
+// A second change shown after the first one ended follows its own end: the first
+// follow's pushed end (busy gone) is not applied again when the topic is followed anew.
+test("a second change elsewhere is not ended by the first change's pushed end", async ({
+  page,
+  liveStub,
+}) => {
+  const topic = "job.plugins:fixture-claude";
+  const { data } = await setup(page);
+  const notice = page
+    .getByRole("status")
+    .filter({ hasText: "CLI führt die Änderung aus" });
+  const reload = () =>
+    page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  data.busy = true;
+  await reload();
+  await liveStub.waitForSubscribe(topic);
+  data.busy = false;
+  await expect(notice).toHaveCount(0);
+  await expect.poll(() => liveStub.subscriptions()).not.toContain(topic);
+  // The second change: the page shows it running and follows the topic again.
+  data.busy = true;
+  await reload();
+  await expect(notice).toBeVisible();
+  await liveStub.waitForSubscribe(topic);
+  await page.waitForTimeout(1500);
+  await expect(notice).toBeVisible();
+  Object.assign(data, {
+    busy: false,
+    installed: [{ id: "demo@fixture", name: "Demo", version: "1.0.0", removable: true }],
+  });
+  await expect(extensionRow(page, "Demo")).toBeVisible();
+  await expect(notice).toHaveCount(0);
+});
