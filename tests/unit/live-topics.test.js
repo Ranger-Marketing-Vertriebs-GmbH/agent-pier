@@ -226,7 +226,7 @@ test("the agent detail topics name their routes at their former polls", () => {
     "agent.actions": ["/assistants/a%2Fb/actions", 3000, false],
     "agent.coding-requests": ["/assistants/a%2Fb/actions", 3000, false],
     "agent.channels": ["/assistant-channels", 2000, false],
-    "agent.reminders": ["/assistants/a%2Fb/reminders", 10000, false],
+    "agent.reminders": ["/assistants/a%2Fb/reminders", 10000, true],
     "agent.senders": ["/assistant-telegram-senders/a%2Fb", 5000, true],
   };
   for (const [name, [path, interval, sampled]] of Object.entries(routes)) {

@@ -48,6 +48,9 @@ export class LiveInstance {
     this.sampleDue = false;
     this.running = false;
     this.closed = false;
+    // Raised by reset(): a read that began before it is discarded.
+    this.generation = 0;
+    this.urgent = false;
   }
   get revision() {
     return this.record.revision;
@@ -121,6 +124,27 @@ export class LiveInstance {
     this.dirty = true;
     this.schedule();
   }
+  /**
+   * The access behind the value changed: forget it, discard what each subscriber's
+   * connection still holds back, and read again now. Every subscriber is answered
+   * afresh (a snapshot), as if it had just joined.
+   */
+  reset() {
+    this.generation += 1;
+    this.value = this.rows = undefined;
+    this.settled = false;
+    this.record.digest = undefined;
+    if (this.closed || !this.subscribers.size) return;
+    for (const subscriber of this.subscribers) {
+      subscriber.discard?.();
+      subscriber.waiting = true;
+      subscriber.failed = false;
+      subscriber.have = subscriber.cursor = undefined;
+    }
+    this.dirty = true;
+    if (this.running) this.urgent = true;
+    else this.flush();
+  }
   /** The sampled source may have changed: sample before the next tick (coalesced). */
   nudge() {
     if (this.closed || !this.subscribers.size) return;
@@ -165,7 +189,10 @@ export class LiveInstance {
       .finally(() => {
         this.running = false;
         if (this.closed || !this.subscribers.size) return;
-        if (this.dirty || this.sampleDue) this.schedule();
+        if (this.urgent) {
+          this.urgent = false;
+          this.flush();
+        } else if (this.dirty || this.sampleDue) this.schedule();
         else this.arm();
       });
   }
@@ -192,10 +219,12 @@ export class LiveInstance {
       if (!sampling || this.closed) return;
     }
     const [reader] = this.subscribers;
+    const generation = this.generation;
     let value;
     try {
       value = await this.definition.read(reader.principal, this.param);
     } catch (error) {
+      if (generation !== this.generation) return;
       this.failed = true;
       this.report(error);
       if (this.closed) return;
@@ -207,7 +236,8 @@ export class LiveInstance {
         }
       return;
     }
-    if (this.closed) return;
+    // Read before a reset: the access it was read under is gone.
+    if (this.closed || generation !== this.generation) return;
     this.failed = false;
     const digest = digestOf(
       this.definition.digest ? this.definition.digest(value) : value,

@@ -20,7 +20,7 @@ const copy = assistantCopy.team;
 export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
   const { teams = [], members = [], requests = [] } = useAssistants();
   const own = teams.filter((t) => t.parentAssistantId === assistant.id);
-  const coding = useTeamCodingRequests(assistant.id, own.length > 0, teams);
+  const coding = useTeamCodingRequests(assistant.id, own.length > 0);
   const { busy, error, act } = useTeamActions();
   const labelId = useId();
   const focus = own.find((t) => t.id === focusTeamId);

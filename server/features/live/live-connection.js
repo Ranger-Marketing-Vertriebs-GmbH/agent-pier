@@ -73,8 +73,17 @@ export class LiveConnection {
     this.subscriptions.set(topic, entry);
     // Subscribe first, then drop the earlier subscription, so a shared instance
     // stays and answers from its settled value.
-    entry.unsubscribe = this.hub.subscribe(this.principal, topic, have, (frame) =>
-      this.deliver(topic, entry, frame),
+    entry.unsubscribe = this.hub.subscribe(
+      this.principal,
+      topic,
+      have,
+      (frame) => this.deliver(topic, entry, frame),
+      {
+        // A frame held back from before an access change is never written.
+        discard: () => {
+          if (this.subscriptions.get(topic) === entry) this.pending.delete(topic);
+        },
+      },
     );
     held?.unsubscribe();
   }

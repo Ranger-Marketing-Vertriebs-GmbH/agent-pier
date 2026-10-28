@@ -408,3 +408,76 @@ test("onClose listeners run once when the hub closes", () => {
   hub.onClose(() => calls.push("late"));
   assert.deepEqual(calls, ["a", "late"]);
 });
+
+test("resetWhere answers nobody from the old value and drops a read begun before it", async (t) => {
+  const { hub, clock } = setup(t);
+  let value = { chatId: "42" };
+  let gate = null;
+  const base = { mode: "state", authorize: () => true, scopeKey: () => "owner" };
+  hub.define({
+    name: "agent.channels",
+    param: /[a-z]+/,
+    privacy: true,
+    ...base,
+    read: () => (gate ? gate.then(() => value) : value),
+  });
+  hub.define({ name: "other", ...base, read: () => "same" });
+  const discarded = [];
+  const first = [];
+  hub.subscribe(owner, "agent.channels:a", undefined, (f) => first.push(f), {
+    discard: () => discarded.push("first"),
+  });
+  const other = listen(hub, owner, "other");
+  await clock.advance(0);
+  assert.deepEqual(first.at(-1).data, { chatId: "42" });
+  // A slow read starts, then access changes: its pre-change answer is dropped.
+  let open;
+  gate = new Promise((resolve) => (open = resolve));
+  hub.invalidate("agent.channels");
+  await clock.advance(200);
+  value = { chatId: null };
+  hub.resetWhere((definition) => definition.privacy === true);
+  assert.deepEqual(discarded, ["first"]);
+  // A late joiner right after the change waits for the fresh read.
+  const late = listen(hub, owner, "agent.channels:a");
+  assert.deepEqual(late.frames, []);
+  open();
+  await clock.advance(0);
+  assert.ok(first.every((frame, i) => i === 0 || frame.data?.chatId !== "42"));
+  assert.deepEqual(first.at(-1), {
+    type: "snapshot",
+    topic: "agent.channels:a",
+    revision: first.at(-1).revision,
+    data: { chatId: null },
+  });
+  assert.deepEqual(
+    late.frames.map((f) => [f.type, f.data]),
+    [["snapshot", { chatId: null }]],
+  );
+  // Topics outside the predicate keep theirs.
+  assert.equal(other.frames.length, 1);
+});
+
+test("resetWhere makes a resubscribe with an old revision get a snapshot", async (t) => {
+  const { hub, clock } = setup(t);
+  hub.define({
+    name: "agent.actions",
+    param: /[a-z]+/,
+    privacy: true,
+    mode: "state",
+    authorize: () => true,
+    scopeKey: () => "owner",
+    read: () => ({ actions: [] }),
+  });
+  const before = listen(hub, owner, "agent.actions:a");
+  await clock.advance(0);
+  const { revision } = before.frames[0];
+  before.unsubscribe();
+  hub.resetWhere(() => true);
+  const again = listen(hub, owner, "agent.actions:a", {
+    instance: hub.instance,
+    revision,
+  });
+  await clock.advance(0);
+  assert.equal(again.frames[0].type, "snapshot");
+});

@@ -66,11 +66,17 @@ test("the channel follows its live topic: no poll, visible or hidden", async ({
   expect(state.counts.channels).toBe(settled);
 });
 
-test("slow polls never overlap", async ({ page }) => {
-  const state = await setup(page, { actionDelay: 4500 });
+// The Work tab's action history polled every 3 s, and slow reads must not overlap;
+// it now follows `agent.actions:<id>`, so the app itself reads nothing at all.
+test("the action history follows its live topic, without reads of its own", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page);
   await page.goto(baseURL + settingsPath("work"));
-  await page.waitForTimeout(10500);
-  expect(state.inflight.maxActions).toBe(1);
+  await liveStub.waitForSubscribe("agent.actions:home");
+  await page.waitForTimeout(7000);
+  expect(state.counts.actions).toBe(0);
 });
 
 test("links to Accounts and Settings navigate inside the app", async ({ page }) => {

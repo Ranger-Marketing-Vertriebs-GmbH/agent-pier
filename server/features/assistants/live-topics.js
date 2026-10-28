@@ -99,6 +99,9 @@ export const AGENT_PARAM = /[A-Za-z0-9][A-Za-z0-9_-]{0,99}/;
 // The bot's state lives in the Gateway (channels.status), which announces nothing:
 // it is sampled while a visible tab watches, at the settings' former poll.
 export const AGENT_SENDERS_SAMPLE_MS = 5000;
+// The cron jobs behind the reminders live in the Gateway too: an agent's own cron
+// tool changes them, and a next run moves on without AgentPier hearing of it.
+export const AGENT_REMINDERS_SAMPLE_MS = 30000;
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -151,13 +154,19 @@ const assistantUnavailable = () =>
 
 /**
  * One detail topic. `content`: the owner-content guard decides it, checked when
- * subscribing, on every privacy or agent change and before every read.
+ * subscribing, on every privacy or agent change and before every read. `privacy`:
+ * its value depends on owner privacy, so a privacy change resets it at once
+ * (live-wiring.js, LiveHub#resetWhere).
  */
-function detailTopic(services, { name, content = false, read, watch, sampleMs }) {
+function detailTopic(
+  services,
+  { name, content = false, privacy = content, read, watch, sampleMs },
+) {
   return {
     name,
     mode: "state",
     param: AGENT_PARAM,
+    privacy,
     ...(sampleMs && { sampleMs }),
     authorize: (principal, id) =>
       owner(principal) && (!content || ownerReadsAgent(services, id)),
@@ -195,16 +204,11 @@ export function agentDetailTopics(services) {
     }),
     detailTopic(services, {
       name: "agent.channels",
+      // The list hides a user's channel without her opt-in: a privacy change
+      // resets it before anything else is sent.
+      privacy: true,
       read: (id) => channelsOf(services, id),
-      // The list hides a user's channel without her opt-in: a change re-reads it.
-      watch: (listener) => {
-        const unswitch = switched(listener);
-        services.ownerPrivacy?.on("changed", listener);
-        return () => {
-          unswitch?.();
-          services.ownerPrivacy?.off("changed", listener);
-        };
-      },
+      watch: switched,
     }),
     detailTopic(services, {
       name: "agent.reminders",
@@ -215,9 +219,11 @@ export function agentDetailTopics(services) {
           userId: agentPerson(assistants.store.getAssistant(id)),
         });
       },
-      // Every reminder write ends with an agent change, after the Gateway's cron job
-      // has changed too; so does a run's result (native-reminders.js).
-      watch: (listener) => followAgentList(services, listener),
+      // Reminder writes and run results signal it once they are done
+      // (followReminderWrites), channel writes its Telegram delivery state; what
+      // changes inside the Gateway only is sampled.
+      sampleMs: AGENT_REMINDERS_SAMPLE_MS,
+      watch: switched,
     }),
     detailTopic(services, {
       name: "agent.senders",
@@ -280,4 +286,33 @@ export function agentChannelsChanged(hub) {
   hub?.invalidate("agent.channels");
   // A reminder's Telegram delivery state is an outbox entry.
   hub?.invalidate("agent.reminders");
+}
+
+// The reminder service's writes: an agent's reminders, or (a run's result, `complete`)
+// any agent's.
+const REMINDER_WRITES = ["create", "update", "remove", "review", "disable", "complete"];
+
+/**
+ * Signals `agent.reminders` on `hub()` once each reminder write of `reminders`
+ * (NativeReminders) has settled, after its cron job changed in the Gateway too: the
+ * agent's topic for a write, every agent's for a run result. A failing hub is logged.
+ */
+export function followReminderWrites(reminders, hub) {
+  const signal = (id) => {
+    try {
+      hub()?.invalidate("agent.reminders", id);
+    } catch {
+      console.error("AgentPier could not report a change of the agent reminders.");
+    }
+  };
+  for (const name of REMINDER_WRITES) {
+    const write = reminders[name];
+    if (typeof write !== "function") continue;
+    reminders[name] = function (id, ...rest) {
+      const settled = () => signal(name === "complete" ? undefined : id);
+      const result = write.call(this, id, ...rest);
+      Promise.resolve(result).then(settled, settled);
+      return result;
+    };
+  }
 }

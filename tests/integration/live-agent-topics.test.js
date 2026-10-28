@@ -8,6 +8,7 @@ import {
   AGENT_DETAIL_TOPICS,
   agentActionsChanged,
   agentRunChanged,
+  followReminderWrites,
 } from "../../server/features/assistants/live-topics.js";
 
 const timeout = 20000;
@@ -113,7 +114,8 @@ test("agent.coding-requests carries the team requests only", { timeout }, async 
     /no matching frame/,
   );
   f.service.workflows.store.patch(team.id, { state: "approved" });
-  const frame = await live.next((frame) => frame.topic === topic, 1000);
+  // Not a latency check (the actions test has one): room for a loaded machine.
+  const frame = await live.next((frame) => frame.topic === topic, 3000);
   assert.equal(frame.data.actions[0].state, "approved");
   live.ws.close();
 });
@@ -336,3 +338,74 @@ test(
     }
   },
 );
+
+test(
+  "a change made in the Gateway alone reaches agent.reminders by sampling",
+  { timeout },
+  async (t) => {
+    const f = await fixture(t, { gateway: true });
+    const path = `/api/assistants/${f.assistant.id}/reminders`;
+    const created = await f.request(path, {
+      method: "POST",
+      body: {
+        clientRequestId: "sampled-reminder",
+        name: "Water",
+        message: "Water the plants",
+        schedule: { kind: "at", at: new Date(Date.now() + 3600000).toISOString() },
+      },
+    });
+    assert.equal(created.status, 201);
+    const topic = `agent.reminders:${f.assistant.id}`;
+    const { live, first } = await subscribe(f, topic);
+    assert.equal(first.data.reminders[0].name, "Water");
+    assert.equal(
+      f.application.live.topics.get("agent.reminders").definition.sampleMs,
+      30000,
+    );
+    // The agent's own cron tool renames the job: AgentPier hears nothing of it.
+    const [job] = f.gateway.jobs.values();
+    f.gateway.jobs.set(job.id, { ...job, name: "Water the garden", updatedAtMs: 3 });
+    f.application.live.nudge("agent.reminders");
+    const frame = await live.next((frame) => frame.topic === topic, 2000);
+    assert.equal(frame.data.reminders[0].name, "Water the garden");
+    live.ws.close();
+  },
+);
+
+test("reminder writes signal their agent, a run result every agent", async (t) => {
+  const errors = errorsOf(t);
+  const signals = [];
+  let failing = false;
+  const hub = {
+    invalidate: (name, id) => {
+      if (failing) throw new Error("boom");
+      signals.push(`${name}:${id ?? "*"}`);
+    },
+  };
+  const reminders = {
+    create: async (id) => ({ id }),
+    remove: async () => {
+      throw new Error("refused");
+    },
+    complete: async () => {},
+    list: async () => ({ reminders: [] }),
+  };
+  followReminderWrites(reminders, () => hub);
+  assert.deepEqual(await reminders.create("a1", {}), { id: "a1" });
+  await assert.rejects(reminders.remove("a2", "b"), /refused/);
+  await reminders.complete("binding", {});
+  await reminders.list("a3");
+  await new Promise((resolve) => setImmediate(resolve));
+  // A failed write may have changed the job half way: it signals too.
+  assert.deepEqual(signals, [
+    "agent.reminders:a1",
+    "agent.reminders:a2",
+    "agent.reminders:*",
+  ]);
+  failing = true;
+  await reminders.create("a4");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(errors, [
+    "AgentPier could not report a change of the agent reminders.",
+  ]);
+});

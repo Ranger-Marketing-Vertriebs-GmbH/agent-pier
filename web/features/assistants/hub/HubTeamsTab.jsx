@@ -17,8 +17,8 @@ const copy = () => agentsHubCopy.teams;
 const teamCopy = () => assistantCopy.team;
 
 /** One lead's started teams, with the coding requests of its members. */
-function LeadTeams({ lead, teams, allTeams, members, busy, act, navigate }) {
-  const coding = useTeamCodingRequests(lead.id, teams.length > 0, allTeams);
+function LeadTeams({ lead, teams, members, busy, act, navigate }) {
+  const coding = useTeamCodingRequests(lead.id, teams.length > 0);
   const id = useId();
   return (
     <section className="agents-hub-lead" aria-labelledby={id}>
@@ -120,7 +120,6 @@ export default function HubTeamsTab({ navigate }) {
               key={lead.id}
               lead={lead}
               teams={own}
-              allTeams={teams}
               members={members}
               busy={busy}
               act={act}

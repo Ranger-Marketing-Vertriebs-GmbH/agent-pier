@@ -16,7 +16,7 @@ import useTeamCodingRequests from "./useTeamCodingRequests.js";
 export default function TeamApprovals({ assistant, navigate, pushed = null }) {
   const { teams = [], members = [] } = useAssistants();
   const own = teams.filter((t) => t.parentAssistantId === assistant.id);
-  const coding = useTeamCodingRequests(assistant.id, own.length > 0, teams, pushed);
+  const coding = useTeamCodingRequests(assistant.id, own.length > 0, pushed);
   const { busy, error, act } = useTeamActions();
   const proposals = own.filter((t) => t.phase === "awaiting_approval" && !t.archivedAt);
   const requests = coding.actions.filter((a) => a.state === "awaiting_approval");

@@ -13,6 +13,7 @@ import {
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 import { dispatchQueued } from "../../server/features/assistants/queued-dispatch.js";
+import { telegramMessage } from "../helpers/assistant-channel-fixture.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -407,6 +408,15 @@ test("the owner's list says whether he may read a user's own agent", async (t) =
   assert.equal((await listed()).ownerReads, true);
 });
 
+// What a channel shows of her Telegram, and how it looks without her opt-in.
+const herTelegram = ({ chatId, userId, inputs, notifications }) => ({
+  chatId,
+  userId,
+  inputs,
+  notifications,
+});
+const hiddenTelegram = { chatId: null, userId: null, inputs: [], notifications: [] };
+
 // The owner's subscription to `topic` on `live`: its first frame.
 async function follow(live, topic) {
   live.send({ op: "sub", topic });
@@ -437,28 +447,38 @@ test("the agent detail topics of her own agent follow her opt-in", async (t) => 
       code: "unknown-topic",
     });
   const hidden = await follow(live, channels);
-  assert.equal(hidden.data.channels[0].chatId, null);
+  assert.deepEqual(herTelegram(hidden.data.channels[0]), hiddenTelegram);
   // Under the opt-in he reads them ...
   assert.equal((await optIn(f, user.id, true)).status, 200);
+  // What she writes from now on is his to read (opt-in is not retroactive).
+  await f.application.assistantChannels.ingress.receive(channel.id, [
+    telegramMessage(2, "Private-telegram"),
+  ]);
   const shown = await live.next(
-    (frame) => frame.topic === channels && frame.data?.channels?.[0]?.chatId,
+    (frame) =>
+      frame.topic === channels && /Private-telegram/.test(JSON.stringify(frame.data)),
     3000,
   );
   assert.equal(shown.data.channels[0].chatId, channel.chatId);
+  assert.equal(shown.data.channels[0].userId, channel.userId);
+  assert.match(JSON.stringify(shown.data.channels[0].inputs), /Private-telegram/);
   for (const topic of content) {
     live.send({ op: "unsub", topic });
     assert.equal((await follow(live, topic)).type, "snapshot", topic);
   }
   // ... until she withdraws it: every content topic is revoked, the channel hidden.
+  const mark = live.frames.length;
+  const after = (topic) => (frame) =>
+    frame.topic === topic && live.frames.indexOf(frame) >= mark;
   assert.equal((await optIn(f, user.id, false)).status, 200);
   for (const topic of content)
     assert.deepEqual(
-      await live.next((frame) => frame.topic === topic, 2000),
+      await live.next(after(topic), 2000),
       { type: "revoked", topic },
       topic,
     );
-  const rehidden = await live.next((frame) => frame.topic === channels, 2000);
-  assert.equal(rehidden.data.channels[0].chatId, null);
+  const rehidden = await live.next(after(channels), 2000);
+  assert.deepEqual(herTelegram(rehidden.data.channels[0]), hiddenTelegram);
   // Nothing more of hers arrives on the revoked topics.
   f.application.assistants.workflows.store.reserve({
     assistantId: agent.id,
