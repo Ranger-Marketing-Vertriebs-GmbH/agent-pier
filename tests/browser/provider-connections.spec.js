@@ -1,5 +1,5 @@
 import { openNewSession } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
 import {

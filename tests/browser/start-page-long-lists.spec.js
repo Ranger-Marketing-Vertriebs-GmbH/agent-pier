@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { serveLongLists } from "../helpers/long-lists-browser.js";
 
 // The start page with a busy host: 24 sessions (18 running, 6 stopped) and 14 agents

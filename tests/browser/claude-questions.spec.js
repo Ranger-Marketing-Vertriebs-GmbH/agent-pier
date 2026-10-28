@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { claudeRequest } from "../../server/features/requests/claude-hook.js";
 import { operationsFixture } from "./operations-fixture.js";
 

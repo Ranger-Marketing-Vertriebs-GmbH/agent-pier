@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";

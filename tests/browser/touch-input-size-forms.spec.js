@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { createApplication } from "../../server/app.js";
 import { baseURL } from "../helpers/browser.js";
 import { openNewSession } from "../helpers/navigation.js";

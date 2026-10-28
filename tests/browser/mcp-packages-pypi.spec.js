@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";

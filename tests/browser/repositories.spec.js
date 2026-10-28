@@ -1,5 +1,5 @@
 import { navigateTo } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 import {
   fixture,

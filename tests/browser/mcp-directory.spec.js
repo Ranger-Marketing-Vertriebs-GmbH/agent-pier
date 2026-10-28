@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fits, openWizard, phone, primary, writes } from "./mcp-wizard-fixture.js";
 import { directorySetup, dto } from "./mcp-directory-fixture.js";
 

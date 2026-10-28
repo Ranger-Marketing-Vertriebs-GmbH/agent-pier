@@ -2,7 +2,7 @@
 // terminal, the code editor or a text field; it finds areas, tabs, agents, old names
 // and actions; arrows, Enter and Escape work; the sidebar button and the phone menu
 // row open the same dialog.
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture } from "../helpers/file-explorer-browser.js";
 

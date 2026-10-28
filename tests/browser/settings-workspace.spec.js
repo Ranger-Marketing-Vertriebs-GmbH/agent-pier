@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { settingsBar, settingsRow } from "../helpers/settings.js";
 import { operationsFixture } from "./operations-fixture.js";

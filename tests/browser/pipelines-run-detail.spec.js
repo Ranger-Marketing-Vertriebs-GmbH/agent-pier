@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 const stageRail = (page) => page.getByRole("navigation", { name: "Stufen", exact: true });
 const stageButtons = (page) => stageRail(page).getByRole("button");

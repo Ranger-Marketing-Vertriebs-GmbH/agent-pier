@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { subagentFixture } from "./subagent-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";

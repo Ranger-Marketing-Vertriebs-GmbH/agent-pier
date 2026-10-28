@@ -1,6 +1,6 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 import { baseURL as base } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";

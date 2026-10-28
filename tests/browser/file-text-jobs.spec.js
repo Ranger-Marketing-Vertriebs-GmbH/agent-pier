@@ -1,5 +1,5 @@
 import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { jobsFixture } from "../helpers/file-jobs-browser.js";
 import { selectEnglish } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";

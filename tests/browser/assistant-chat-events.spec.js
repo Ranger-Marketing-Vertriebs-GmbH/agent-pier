@@ -1,5 +1,5 @@
 // The agent chat follows its live feed (agent-feed-fake.js stands in for the server's).
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 

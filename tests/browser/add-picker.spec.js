@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 // AddPicker (docs/ui-guide.md#rows-and-controls, handoff 5.5, AC-AS-3 component part) in
 // Settings › Operations › Development › Components, operated by keyboard only: type to

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { fakeGateway, userAgent } from "../helpers/user-chats.js";
 import { userRequestLog } from "../helpers/user-request-log.js";

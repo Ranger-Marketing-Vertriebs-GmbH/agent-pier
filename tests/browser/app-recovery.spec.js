@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { startupCopy } from "../../web/lib/i18n/de/startup.js";
 import { baseURL } from "../helpers/browser.js";
 

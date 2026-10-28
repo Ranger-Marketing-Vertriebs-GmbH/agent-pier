@@ -156,6 +156,16 @@ Concurrent local Playwright invocations need distinct `AGENTPIER_TEST_PORT` valu
 
 Chat fixtures must mock both HTTP and the chat WebSocket using `mockChatStream`; an HTTP-only fixture otherwise connects its invented session ID to the real test backend and can show unrelated errors. For geometry checks, read related bounds in one browser evaluation and retry the complete invariant after viewport changes. To test concurrent operations in two tabs, queue sequential pointer clicks behind a shared lock instead of racing mouse actions across pages.
 
+### Live socket stub
+
+Every browser spec imports `test` and `expect` from `tests/helpers/browser-test.js`, never from `@playwright/test` (`tests/unit/browser-spec-imports.test.js` enforces this). Its `page` fixture routes the page's live channel, `/api/live`, to `stubLive(page, { mode })` from `tests/helpers/live-stub.js` before the spec runs, so live topics answer from the spec's own mocks instead of the test server. Choose the mode with the `live` option:
+
+- `test.use({ live: "rest" })` (default): each `sub` is answered from the topic's REST route (`topicInfo(topic).path(param)` in `web/lib/live/live-topics.js`). The stub reads it through the page with `fetch("/api" + path)`, so the spec's `page.route` mocks answer, sends a `snapshot`, then re-reads at the topic's interval and sends a frame only when the JSON changed. A mock that changes mid-test therefore reaches the page as a push. While the tab is hidden the stub reads nothing. Its reads carry the `x-agentpier-live-stub` header; `recordApiRequests` and the user request logs skip them, and a spec that counts requests itself skips them with `isLiveStubRequest(request)`.
+- `test.use({ live: "manual" })`: the stub sends nothing until the test calls `liveStub.push(topic, value)`; a later subscription gets the last pushed value.
+- `test.use({ live: "real" })`: no stub; the page talks to the test server's live channel, and `liveStub` is `null`.
+
+The `liveStub` fixture returns the stub's controls: `subscriptions()`, `waitForSubscribe(topic)`, `push(topic, value)`, `changed(topic)`, `stale(topic)`, `revoke(topic)`, `refuse()` (every later socket closes before `hello`, so the client falls back to polling after three failed handshakes) and `close(code)`. Row topics are sent as full ChatSync rows (`listRows` with `sync: { mode: "full", cursor: null }`), and an unknown topic gets the `unknown-topic` error. A spec's own `page.routeWebSocket("**/api/**", ...)` registered later takes precedence over the stub, as does any socket route that matches `/api/live`. Pages opened with `context.newPage()` or a new browser context are not stubbed.
+
 Configure a scenario's initial fixture state before navigating. A setup-only reload can interrupt the first authentication request before the application has initialized; retain reloads when reload behavior is itself under test.
 
 Reproduce asynchronous backend races with explicit gates around the relevant handoff, rather than sleeps. Upload retry coverage holds an older directory-preparation pass while admitting a new attempt, then verifies that receiving bytes waits for the pass that prepares its parent. Native filesystem failures retain operation and errno in the server-side error cause; HTTP responses continue to expose only the public error contract.

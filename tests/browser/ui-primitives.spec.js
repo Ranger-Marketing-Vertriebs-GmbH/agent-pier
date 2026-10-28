@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 // ConfirmDialog, Switch, Checkbox and CopyButton through the component gallery
 // (docs/ui-guide.md#components): one order, danger only for destructive actions,

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { setupAssistantSettings as setup } from "../helpers/assistant-settings-browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";

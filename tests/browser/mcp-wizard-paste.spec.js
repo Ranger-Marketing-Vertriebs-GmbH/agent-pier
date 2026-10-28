@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import fs from "node:fs";
 import { fits, openWizard, phone, primary, wizardSetup } from "./mcp-wizard-fixture.js";
 

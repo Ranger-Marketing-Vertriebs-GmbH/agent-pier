@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 // Settings › Operations › Development › Components (docs/ui-guide.md#component-gallery):
 // every section renders with the real components and nothing overflows the viewport.

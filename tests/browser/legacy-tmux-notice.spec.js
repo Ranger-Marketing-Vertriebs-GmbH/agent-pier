@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { summary } from "../helpers/system-status-fixture.js";
 
 const legacy = [

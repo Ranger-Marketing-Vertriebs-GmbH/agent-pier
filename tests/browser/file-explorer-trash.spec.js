@@ -1,5 +1,5 @@
 import { actionsFixture, trashEntry } from "../helpers/file-actions-browser.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
 

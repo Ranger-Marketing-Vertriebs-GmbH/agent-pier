@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { startSettingsHarness } from "../helpers/settings-pattern-harness.js";
 
 test.describe.configure({ timeout: 90000 });

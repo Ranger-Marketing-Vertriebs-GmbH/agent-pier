@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { packagedServer, versions } from "./mcp-packages-fixture.js";
 import { directorySetup, dto } from "./mcp-directory-fixture.js";

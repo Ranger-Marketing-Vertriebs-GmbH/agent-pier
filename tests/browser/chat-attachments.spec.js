@@ -1,5 +1,5 @@
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 
 const png = Buffer.from(

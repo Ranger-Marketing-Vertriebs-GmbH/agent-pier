@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
 
 test("a small confirmation opens as a short bottom sheet on a phone", async ({

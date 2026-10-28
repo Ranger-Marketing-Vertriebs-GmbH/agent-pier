@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { phone } from "./touch-input-size.js";
 import { fixture } from "./providers-fixture.js";

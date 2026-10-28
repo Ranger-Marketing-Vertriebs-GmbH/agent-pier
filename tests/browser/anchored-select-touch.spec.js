@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture, createForm } from "./providers-fixture.js";
 
 test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });

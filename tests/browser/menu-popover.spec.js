@@ -1,7 +1,7 @@
 // The Menü popover, variant A (handoff §5.1, AC-NAV-1…6): groups Arbeiten and
 // Einrichten, the active area, hints from their sources, agents off, the group head
 // icons of the sidebar and the phone drawer.
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { openMenu } from "../helpers/navigation.js";
 

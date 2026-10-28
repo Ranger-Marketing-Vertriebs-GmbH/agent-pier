@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { hubFixture, repositoryPath } from "./projects-fixture.js";
