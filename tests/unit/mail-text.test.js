@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clipText, htmlToText } from "../../server/features/mail/mail-text.js";
+import {
+  clipText,
+  htmlBounds,
+  htmlToText,
+  tooComplexText,
+} from "../../server/features/mail/mail-text.js";
 
 test("html loses scripts and styles but keeps text and links", () => {
   const { text } = htmlToText(
@@ -58,8 +63,12 @@ test("a link whose text is its address shows it once", () => {
 });
 
 test("deeply nested markup does not overflow the stack", () => {
+  // Nesting this deep is never parsed (htmlBounds); at the bound it is read.
   const html = `${"<div>".repeat(50000)}deep${"</div>".repeat(50000)}`;
-  assert.equal(htmlToText(html, 100).text, "deep");
+  assert.equal(htmlToText(html, 100).text, tooComplexText);
+  const depth = htmlBounds.depth;
+  const bounded = `${"<div>".repeat(depth)}deep${"</div>".repeat(depth)}`;
+  assert.equal(htmlToText(bounded, 100).text, "deep");
 });
 
 test("clipText never splits a surrogate pair and marks the cut", () => {
@@ -82,4 +91,27 @@ test("the word after a link is not glued to its address", () => {
 
 test("noscript content stays hidden even before the body", () => {
   assert.equal(htmlToText("<noscript>PAYLOAD</noscript><p>ok</p>", 1000).text, "ok");
+});
+
+test("hostile nesting is never parsed and gives the placeholder within a second", () => {
+  for (const [name, html] of [
+    ["deep div", "<div>".repeat(200_000)],
+    ["adoption agency", "<a><b><i>".repeat(100_000)],
+    ["many b", "<b>".repeat(300_000)],
+    ["many tags", "<br>".repeat(htmlBounds.tags + 1)],
+    ["just too deep", "<div>".repeat(htmlBounds.depth + 1)],
+  ]) {
+    const started = performance.now();
+    assert.deepEqual(
+      htmlToText(html, 32_000),
+      { text: tooComplexText, truncated: false, tooComplex: true },
+      name,
+    );
+    assert.ok(performance.now() - started < 1000, name);
+  }
+  // Within the bounds it is read as before.
+  assert.deepEqual(htmlToText(`${"<div>".repeat(htmlBounds.depth)}deep`, 100), {
+    text: "deep",
+    truncated: false,
+  });
 });

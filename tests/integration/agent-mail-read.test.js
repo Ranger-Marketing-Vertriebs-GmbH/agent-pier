@@ -432,3 +432,27 @@ test("a server refusing a FETCH is MAIL_PROTOCOL without its text", async (t) =>
   );
   assert.equal(await code(f.mail({ action: "list" })), "MAIL_PROTOCOL");
 });
+
+test("read of hostile nested HTML returns a placeholder quickly, never parsing it", async (t) => {
+  const f = await readFixture(t);
+  const html = (body) =>
+    `From: Sender <sender@example.org>\r\nTo: agent@example.com\r\nSubject: Deep\r\nDate: Tue, 27 Oct 2026 08:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${body}\r\n`;
+  for (const body of [
+    "<div>".repeat(200_000),
+    "<a><b><i>".repeat(100_000),
+    "<b>".repeat(300_000),
+  ]) {
+    const uid = f.seed(html(body));
+    const started = Date.now();
+    const { message } = await f.mail({ action: "read", uid });
+    assert.ok(Date.now() - started < 5000);
+    assert.equal(message.text, "[The HTML of this mail is too complex to read.]");
+    assert.equal(message.htmlTooComplex, true);
+    assert.equal(message.truncated, false);
+  }
+  // An ordinary HTML mail carries no such flag.
+  const uid = f.seed(html("<p>Hello <b>there</b></p>"));
+  const { message } = await f.mail({ action: "read", uid });
+  assert.equal(message.text, "Hello there");
+  assert.equal(Object.hasOwn(message, "htmlTooComplex"), false);
+});
