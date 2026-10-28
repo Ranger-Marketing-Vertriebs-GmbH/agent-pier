@@ -15,6 +15,7 @@ import {
   decodeTransfer,
 } from "../../server/features/mail/mail-parts.js";
 import { maxSendsPerHour } from "../../server/features/assistants/mail/agent-mail-sends.js";
+import { extractionQueues } from "../../server/features/mail/mail-extract.js";
 
 const pdfType = "application/pdf";
 const fixtures = path.join(
@@ -173,7 +174,10 @@ test("an HTML-only Latin-1 original is quoted as text and kept as HTML", async (
   );
   const forward = forwardOf(f);
 
+  const before = extractionQueues().html.started;
   const r = await forward({ uid: html.uid });
+  // Its quote and its text came from one child process.
+  assert.equal(extractionQueues().html.started - before, 1);
   const p = f.workflows.get(r.actionId).payload;
   assert.match(p.body, /\nFrom: Jürgen <juergen@example.org>\n/);
   assert.match(p.body, /\n\nSchöne Grüße aus Köln\n\nBis bald$/);

@@ -2713,7 +2713,8 @@ Subject, never the body. The Inbox titles the card `<account> · <subject>`.
 Attachments and forwards (AGENTPIER-265). `attachment` (`agent-mail-attachments.js`)
 runs at the `read` level in every turn the gate lets through: mode `text` returns up
 to 32,000 characters from the account's text cache or from a download extracted in a
-killable child process (20 seconds; PDF, DOCX, XLSX, PPTX, text, CSV), mode `save`
+killable child process (20 seconds; PDF, DOCX, XLSX, PPTX, text, CSV; two at once,
+16 waiting), mode `save`
 writes through `agent-mail-files.js`. `path` is the workspace folder (only `mail/`
 or below, default `mail/<account name>/`) or, with `projectId`, a folder in a project
 with write access under the SFTP reserved paths and the tool-configuration lock; the
@@ -2744,7 +2745,10 @@ out and `cid:` images are plain attachments. The original's HTML goes along as a
 second part, reduced to the body content without scripts, styles and comments; HTML
 over 1 MiB, 20,000 tags or 500 levels is left out (`htmlNote` in the result, "omitted"
 on the card), and an HTML-only original over the bounds is `MAIL_DRAFT_UNSUPPORTED`.
-`read` returns a placeholder with `htmlTooComplex: true` for such HTML.
+`read` returns a placeholder with `htmlTooComplex: true` for such HTML. Mail HTML is parsed in the same kind of
+child process with a 5-second deadline, from a pool of its own (one at a time, four
+waiting), so a `read` never waits behind attachment documents; an HTML-only forward
+gets its quote and its text from one process.
 `mailTelegramApprovable` also needs at most 10 attachments and no hidden or control
 characters in attachment names, paths, types, project names or the forward's sender,
 subject and date; Telegram shortens paths to 120 characters in the middle.
@@ -2752,7 +2756,9 @@ subject and date; Telegram shortens paths to 120 characters in the middle.
 
 `search` with `attachmentText` (`mail-attachment-search.js`) scans at most 500
 candidates, 60 seconds and 200 MB; `partial: true` carries `reason` and `scanned`, or
-`skipped` alone when extraction was busy or timed out under load. Extracted text is
+`skipped` alone when extraction was busy or timed out under load. An extraction
+still waiting for a place when the search gives up leaves the queue with its bytes;
+one already running finishes and is cached. Extracted text is
 cached in `<dataDir>/mail/text-cache` (256 MiB), excluded from backups and cleared
 when an account's IMAP host, port, security or username changes and when the account
 is removed.

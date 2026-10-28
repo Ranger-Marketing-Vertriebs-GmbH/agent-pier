@@ -9,8 +9,10 @@ import { scanLimit } from "./mail-search.js";
 // extracted on demand. One search looks at most at `candidates` messages, until its
 // deadline (the whole search call, a download and the wait for an extraction slot
 // included) and with at most `bytes` fetched, then ends with `partial` and the
-// `reason`; what it extracted stays cached, so the next search continues faster.
-// Only failures the document caused are cached. Neither text nor needle is logged.
+// `reason`; what it extracted stays cached, so the next search continues faster. An
+// extraction still waiting for a place when the search gives up is dropped from the
+// queue with its bytes; one already running finishes and is cached. Only failures
+// the document caused are cached. Neither text nor needle is logged.
 
 export const searchBudget = Object.freeze({
   candidates: scanLimit,
@@ -115,8 +117,15 @@ export async function scanAttachmentText(
     // A folder that changed its UIDs meanwhile: the result belongs to no cache key.
     const storeKey = file.uidValidity === uidValidity ? key : null;
     let abandoned = false;
+    // Aborted when the search gives up: a job still queued leaves the queue.
+    const giveUp = new AbortController();
     const job = Promise.resolve()
-      .then(() => extract(file.bytes, extractableKind(info), { charset: info.charset }))
+      .then(() =>
+        extract(file.bytes, extractableKind(info), {
+          charset: info.charset,
+          signal: giveUp.signal,
+        }),
+      )
       .then(
         (value) => ({ text: value.text, truncated: value.truncated === true }),
         (error) => {
@@ -134,6 +143,7 @@ export async function scanAttachmentText(
     const outcome = await inTime(job);
     if (outcome === late) {
       abandoned = true;
+      giveUp.abort();
       return { stop: "time" };
     }
     if (outcome.bug) throw outcome.bug;

@@ -14,7 +14,11 @@ import {
 import { mailFileTypes } from "../../server/features/mail/mail-file-types.js";
 import { mailError } from "../../server/features/mail/mail-connection.js";
 import { scanAttachmentText } from "../../server/features/mail/mail-attachment-search.js";
-import { extractLimits, extractText } from "../../server/features/mail/mail-extract.js";
+import {
+  extractionQueues,
+  extractLimits,
+  extractText,
+} from "../../server/features/mail/mail-extract.js";
 
 const inbox = { folder: "INBOX", uidValidity: "1000" };
 
@@ -286,10 +290,17 @@ test("waiting for an extraction slot counts against the time limit", async (t) =
   });
   assert.deepEqual([waiting.partial, waiting.reason, waiting.scanned], [true, "time", 0]);
   assert.ok(Date.now() - started < 1_400, "the search did not wait for the slot");
+  // The extraction that waited left the queue with its bytes: nothing is held for a
+  // search that gave up.
+  assert.equal(extractionQueues().document.waiting, 0);
   await Promise.all(held);
-  // The extraction that waited still ran, and its text is cached for the next search.
-  for (let i = 0; i < 100 && !f.cache.get(f.account.id, f.cacheKey(1)); i++)
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(f.cache.get(f.account.id, f.cacheKey(1)), null);
+  // The next search extracts it.
+  const found = await scanWith(f, { uids: [1] });
+  assert.deepEqual(
+    found.messages.map((m) => m.uid),
+    [1],
+  );
   assert.match(f.cache.get(f.account.id, f.cacheKey(1)).text, /49\.99/);
 });
 

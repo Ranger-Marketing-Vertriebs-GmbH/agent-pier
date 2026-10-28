@@ -7,8 +7,10 @@ import { clipText } from "./mail-text.js";
 // Text of mail attachments for agents. Plain text is decoded here; PDF and Office
 // documents are parsed in a separate Node.js process with a heap limit, a memory
 // (RSS) limit, a time limit and an empty environment, at most `concurrency` at once
-// with at most `queue` waiting. A hostile document can only kill that process, which
-// becomes MAIL_TEXT_FAILED; it can neither hang nor crash the server.
+// with at most `queue` waiting. Mail HTML (mail-html.js) runs in the same kind of
+// process from a pool of its own (`htmlPool`), so a read never waits behind
+// attachment documents. A hostile document can only kill that process, which becomes
+// MAIL_TEXT_FAILED; it can neither hang nor crash the server.
 
 export const extractLimits = Object.freeze({
   timeoutMs: 20_000,
@@ -22,6 +24,11 @@ export const extractLimits = Object.freeze({
   rssMb: 512,
   queue: 16,
 });
+
+// The HTML pool: one process at a time, a short queue. A bounded mail parses in well
+// under a second, so a read waits at most a few of them.
+export const htmlPool = Object.freeze({ concurrency: 1, queue: 4 });
+const htmlKinds = new Set(["html-text", "html-quote", "html-forward"]);
 
 const kindsByType = new Map([
   [mailFileTypes[".pdf"], "pdf"],
@@ -99,26 +106,60 @@ function plainText(bytes, charset) {
 const startsWith = (bytes, magic) =>
   bytes.length >= magic.length && magic.equals(bytes.subarray(0, magic.length));
 
-// The module-wide queue: a finished extraction hands its place to the next caller.
-let running = 0;
-const waiting = [];
+// Busy, not broken: a search skips the attachment without caching a failure.
+const busy = (extra) => Object.assign(failed(), { busy: true }, extra);
 
-async function acquire() {
-  if (running < extractLimits.concurrency) {
-    running++;
-    return;
+// A module-wide pool of processes: a finished extraction hands its place to the next
+// caller. A caller whose `signal` aborts while it waits leaves the queue at once, so
+// the bytes of a search that gave up are not held until a place frees.
+class Pool {
+  constructor(size) {
+    this.size = size;
+    this.running = 0;
+    this.waiting = [];
+    // Places taken so far (tests count the processes a call started).
+    this.started = 0;
   }
-  // Busy, not broken: a search skips the attachment without caching a failure.
-  if (waiting.length >= extractLimits.queue)
-    throw Object.assign(failed(), { busy: true });
-  await new Promise((resolve) => waiting.push(resolve));
+  async acquire(signal) {
+    if (signal?.aborted) throw busy({ cancelled: true });
+    if (this.running < this.size.concurrency) {
+      this.running++;
+      this.started++;
+      return;
+    }
+    if (this.waiting.length >= this.size.queue) throw busy();
+    await new Promise((resolve, reject) => {
+      const leave = () => {
+        const at = this.waiting.indexOf(entry);
+        if (at >= 0) this.waiting.splice(at, 1);
+        reject(busy({ cancelled: true }));
+      };
+      const entry = () => {
+        signal?.removeEventListener("abort", leave);
+        this.started++;
+        resolve();
+      };
+      this.waiting.push(entry);
+      signal?.addEventListener("abort", leave, { once: true });
+    });
+  }
+  release() {
+    const next = this.waiting.shift();
+    if (next) next();
+    else this.running--;
+  }
 }
 
-function release() {
-  const next = waiting.shift();
-  if (next) next();
-  else running--;
-}
+const pools = { document: new Pool(extractLimits), html: new Pool(htmlPool) };
+
+/** Each pool's running and waiting processes and the places taken so far. */
+export const extractionQueues = () =>
+  Object.fromEntries(
+    Object.entries(pools).map(([name, pool]) => [
+      name,
+      { running: pool.running, waiting: pool.waiting.length, started: pool.started },
+    ]),
+  );
 
 // Children still running are killed when the server process exits.
 const children = new Set();
@@ -183,6 +224,7 @@ function runChild(bytes, kind, limits, scriptUrl) {
           text: message.text,
           truncated: message.truncated === true,
           ...(message.tooComplex === true && { tooComplex: true }),
+          ...(typeof message.quote === "string" && { quote: message.quote }),
         };
       else if (!reply && !unreadable && message?.failed === true)
         unreadable = message.document === true;
@@ -215,12 +257,12 @@ function runChild(bytes, kind, limits, scriptUrl) {
  * with `document: true`), and MAIL_TEXT_FAILED without it when the time limit ran
  * out, the process did not start or was ended from outside (a signal, the OOM
  * killer) or could not load its extractor, or with `busy: true` when the queue is
- * full.
+ * full (and `cancelled: true` when `signal` aborted while it waited for a place).
  */
 export async function extractText(
   bytes,
   kind,
-  { charset, limits = extractLimits, scriptUrl = defaultScript } = {},
+  { charset, limits = extractLimits, scriptUrl = defaultScript, signal } = {},
 ) {
   if (kind === "text") {
     const end = byteCut(bytes, 4 * limits.textChars);
@@ -230,25 +272,27 @@ export async function extractText(
   }
   if (!childKinds.has(kind)) throw documentFailed("MAIL_TEXT_UNSUPPORTED");
   if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw documentFailed();
-  const result = await inChild(bytes, kind, { limits, scriptUrl });
+  const result = await inChild(bytes, kind, { limits, scriptUrl, signal });
   const clipped = clipText(result.text, limits.textChars);
   return { text: clipped.text, truncated: result.truncated || clipped.truncated };
 }
 
 /**
- * Runs `kind` on `input` in a child process (mail-extract-child.js) within one of the
- * queue's slots: its `{ text, truncated, tooComplex? }`, or MAIL_TEXT_FAILED as
- * runChild and acquire throw it.
+ * Runs `kind` on `input` in a child process (mail-extract-child.js) within one of
+ * its pool's places (the HTML kinds in `htmlPool`, documents in the other): its
+ * `{ text, truncated, tooComplex?, quote? }`, or MAIL_TEXT_FAILED as runChild and
+ * the pool throw it. `signal` takes a caller that gave up out of the queue.
  */
 export async function inChild(
   input,
   kind,
-  { limits = extractLimits, scriptUrl = defaultScript } = {},
+  { limits = extractLimits, scriptUrl = defaultScript, signal } = {},
 ) {
-  await acquire();
+  const pool = htmlKinds.has(kind) ? pools.html : pools.document;
+  await pool.acquire(signal);
   try {
     return await runChild(input, kind, limits, scriptUrl);
   } finally {
-    release();
+    pool.release();
   }
 }
