@@ -7,6 +7,7 @@ import "./assistant-message-source.css";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
+import { noteTexts } from "./event-area.js";
 import { formatChatTime } from "../../lib/i18n/index.js";
 import ChatTime from "./ChatTime.jsx";
 import { remarkMemberMentions } from "./mention-markdown.js";
@@ -79,9 +80,11 @@ export default memo(function AssistantMessage({
               ? routineCopy.checkInBadge
               : routineCopy.chatBadge(scheduled.name)}
           </span>
-          {scheduled.notes?.includes("ssh_refused") && (
-            <span className="assistant-note">{routineCopy.sshRefused}</span>
-          )}
+          {noteTexts(scheduled.notes).map((note) => (
+            <span key={note} className="assistant-note">
+              {note}
+            </span>
+          ))}
         </div>
       ) : (
         <Speaker

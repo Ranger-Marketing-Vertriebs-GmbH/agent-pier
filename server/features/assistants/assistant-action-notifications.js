@@ -3,6 +3,7 @@ import { allowAlwaysByAgentPier, execPlan } from "./exec-decisions.js";
 import { actionPath, fenced } from "./action-text.js";
 import { notifySsh } from "./agent-ssh-notifications.js";
 import { notifySftp } from "./agent-sftp-notifications.js";
+import { mailMessages, notifyMail } from "./mail/agent-mail-notifications.js";
 import { sftpNotes } from "./agent-sftp-notes.js";
 import { commandPreview, noteCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
@@ -35,9 +36,16 @@ export function notifyAction(w, action, phase, prompt = null) {
   if (action.payload.action === "ssh") return notifySsh(w, action, phase, key, m, target);
   if (action.payload.action === "sftp")
     return notifySftp(w, action, phase, key, m, target);
-  // Mail cards get their own Telegram text with the mail in full (Task 12); never
-  // the generic action text.
-  if (action.payload.action === "mail_send") return;
+  // A mail card names every recipient by address; never the generic action text.
+  if (action.payload.action === "mail_send")
+    return notifyMail(
+      w,
+      action,
+      phase,
+      key,
+      mailMessages(store.get(target.channelId)),
+      target,
+    );
   if (action.payload.action === "member_grant")
     return notifyMemberGrant(w, action, phase, key, m, target);
   if (action.payload.action === "hook_proposal")

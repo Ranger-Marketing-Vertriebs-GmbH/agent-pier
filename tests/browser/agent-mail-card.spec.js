@@ -1,0 +1,104 @@
+import { test, expect } from "@playwright/test";
+import { setup } from "./assistant-shell-fixture.js";
+import { openChat } from "./assistant-ssh-fixture.js";
+
+// The agent chat's mail card (MailApprovalCard), in English, on an intercepted feed.
+const mailAction = (id, extra = {}) => ({
+  id,
+  revision: 3,
+  assistantId: "home",
+  state: "awaiting_approval",
+  createdAt: "2026-10-27T10:00:00.000Z",
+  expiresAt: "2026-10-28T10:00:00.000Z",
+  ...extra,
+  payload: {
+    action: "mail_send",
+    accountId: "acc-1",
+    accountName: "Private",
+    from: { name: "Home Agent", address: "agent@example.com" },
+    // A display name that looks like another address: the card shows the real one.
+    to: ['"bob@example.org" <eve@evil.net>'],
+    cc: [],
+    bcc: ["dana@example.net"],
+    subject: "Offer",
+    body: "Dear Bob,\nhere is the offer.",
+    originClass: "owner",
+    trusted: false,
+    ...extra.payload,
+  },
+});
+const mailCard = (page) => page.getByRole("article", { name: "Send email?" });
+
+test("the card shows the mail and Send posts the decision with its revision", async ({
+  page,
+}) => {
+  const state = await setup(page, { actions: [mailAction("m1")] });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card.getByRole("status")).toHaveText("Waiting for you");
+  await expect(card).toContainText("Private");
+  await expect(card).toContainText("agent@example.com");
+  await expect(card.locator("[data-field=to] code")).toHaveText("eve@evil.net");
+  await expect(card.locator("[data-field=to]")).toContainText("(bob@example.org)");
+  await expect(card.locator("[data-field=bcc] code")).toHaveText("dana@example.net");
+  await expect(card.locator("[data-field=cc]")).toHaveCount(0);
+  await expect(card.locator("[data-field=subject]")).toHaveText("Offer");
+  await expect(card.getByLabel("Message")).toHaveText("Dear Bob,\nhere is the offer.");
+  await expect(card).toContainText("A chat message never does.");
+  const buttons = card.locator(".assistant-card-actions").getByRole("button");
+  await expect(buttons).toHaveText(["Send", "Don't send"]);
+  await card.getByRole("button", { name: "Send", exact: true }).click();
+  await expect
+    .poll(() => state.decisions)
+    .toEqual([["m1", { revision: 3, decision: "approve" }]]);
+});
+
+test("after Don't send the card reads Not sent · draft kept", async ({ page }) => {
+  const state = await setup(page, { actions: [mailAction("m1")] });
+  await page.route(/\/api\/assistant-actions\/m1\/decision$/, (route) => {
+    state.decisions.push(["m1", route.request().postDataJSON()]);
+    state.actions = [];
+    return route.fulfill({
+      json: mailAction("m1", { revision: 4, state: "declined" }),
+    });
+  });
+  await openChat(page);
+  const card = mailCard(page);
+  await card.getByRole("button", { name: "Don't send" }).click();
+  await expect(card.getByRole("status")).toHaveText("Not sent · draft kept");
+  await expect(card.getByRole("button")).toHaveCount(0);
+  expect(state.decisions).toEqual([["m1", { revision: 3, decision: "decline" }]]);
+});
+
+test("hidden characters show as codes and a long body must be shown before Send", async ({
+  page,
+}) => {
+  const body = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n");
+  await setup(page, {
+    actions: [mailAction("m1", { payload: { subject: "Hi​ there", body } })],
+  });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card.locator("[data-field=subject]")).toContainText("U+200B");
+  await expect(card).toContainText("Contains hidden characters.");
+  const send = card.getByRole("button", { name: "Send", exact: true });
+  await expect(send).toBeDisabled();
+  await card.getByRole("button", { name: "Show all" }).click();
+  await expect(send).toBeEnabled();
+});
+
+test("an approved email shows Sending while it goes out; a rule send shows no card", async ({
+  page,
+}) => {
+  await setup(page, {
+    actions: [
+      mailAction("m1", { state: "executing" }),
+      mailAction("m2", { state: "executing", payload: { trusted: true } }),
+    ],
+  });
+  await openChat(page);
+  const card = mailCard(page);
+  await expect(card).toHaveCount(1);
+  await expect(card.getByRole("status")).toHaveText("Sending …");
+  await expect(card.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
+});

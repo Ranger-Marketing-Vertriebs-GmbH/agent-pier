@@ -34,6 +34,7 @@ export const inboxCopy = {
     member_grant: "Recht für ein Teammitglied",
     hook_proposal: "Hook-Vorschlag",
     ssh_access: "SSH-Zugangsvorschlag",
+    mail_send: "E-Mail zum Senden",
     gate: "Freigabe einer Stufe",
     decision: "Entscheidung zu einer Stufe",
     claudeFolderTrust: "Arbeitsordner vertrauen",

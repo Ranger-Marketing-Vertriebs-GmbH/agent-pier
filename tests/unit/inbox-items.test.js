@@ -265,3 +265,34 @@ test("one failing escalation lookup never drops the session requests", async () 
     ],
   );
 });
+
+test("an agent's email to send is titled by its subject, else its account", () => {
+  const agents = new Map([["a1", { id: "a1", name: "Helper" }]]);
+  const mail = (payload) =>
+    actionItem(
+      {
+        id: "m1",
+        assistantId: "a1",
+        conversationId: "c1",
+        state: "awaiting_approval",
+        revision: 1,
+        payload: {
+          action: "mail_send",
+          accountName: "Private",
+          to: ["bob@example.org"],
+          body: "Never in the inbox list",
+          ...payload,
+        },
+        createdAt: at(0),
+        expiresAt: now + 86400000,
+      },
+      agents,
+      [{ id: "c1", assistantId: "a1", archivedAt: null }],
+    );
+  const item = mail({ subject: "Offer" });
+  assert.equal(item.kind, "mail_send");
+  assert.equal(item.title, "Offer");
+  assert.equal(item.link, "/agents/a1/chats/c1");
+  assert.equal(JSON.stringify(item).includes("Never in the inbox list"), false);
+  assert.equal(mail({ subject: "" }).title, "Private");
+});

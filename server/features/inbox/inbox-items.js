@@ -131,6 +131,7 @@ const actionTitle = (a) => {
   if (p.action === "member_grant") return p.memberName;
   if (p.action === "hook_proposal") return p.name;
   if (p.action === "ssh_access") return p.name;
+  if (p.action === "mail_send") return p.subject || p.accountName;
   return "";
 };
 

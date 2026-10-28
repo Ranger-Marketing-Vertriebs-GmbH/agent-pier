@@ -98,6 +98,18 @@ test("a failed routine row names a known note and a check-in its kind", () => {
     routine(1, { status: "failed", firstLine: "", notes: ["ssh_refused"] }),
   );
   assert.equal(failed.detail, "SSH refused: host not trusted for routines");
+  assert.equal(
+    eventRowView(routine(1, { status: "failed", firstLine: "", notes: ["mail_refused"] }))
+      .detail,
+    "Email refused: no access or a limit was reached",
+  );
+  setLanguage("de");
+  assert.equal(
+    eventRowView(routine(1, { status: "failed", firstLine: "", notes: ["mail_refused"] }))
+      .detail,
+    "E-Mail abgelehnt: kein Zugriff oder ein Limit erreicht",
+  );
+  setLanguage("en");
   // Unknown machine codes never show.
   assert.equal(
     eventRowView(routine(1, { status: "failed", firstLine: "", notes: ["x_y"] })).detail,

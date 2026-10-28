@@ -39,6 +39,7 @@ export const routineCopy = {
   chatBadge: (name) => (name ? `Geplant · ${name}` : "Geplant"),
   checkInBadge: "Check-in",
   sshRefused: "SSH abgelehnt: Host ist für Routinen nicht freigegeben",
+  mailRefused: "E-Mail abgelehnt: kein Zugriff oder ein Limit erreicht",
   chatFailed: (name) =>
     name
       ? `Routine „${name}“ konnte nicht abgeschlossen werden.`

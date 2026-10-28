@@ -82,3 +82,8 @@
     min-height: 44px;
   }
 }
+/* An agent's email body wraps like text; a long one is clamped until shown in full. */
+.exec-approval-command.mail-approval-body.clamped {
+  max-height: 20em;
+  overflow-y: hidden;
+}

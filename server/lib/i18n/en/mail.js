@@ -1,4 +1,4 @@
-/** Owner-facing copy of agents' email accounts (route problems and tool errors). */
+/** Owner-facing copy of agents' email accounts (route problems, tool errors, Telegram). */
 export const mail = Object.freeze({
   mailAuthFailed: "The mail server refused the login. Check the username and password.",
   mailTlsFailed:
@@ -41,4 +41,20 @@ export const mail = Object.freeze({
     "An agent can only send a draft with plain text of at most 1 MiB; HTML parts are not sent.",
   mailMoveUnsupported:
     "The mail server does not support moving messages, so nothing was moved or deleted.",
+  mailApproval: "Your agent wants to send an email:",
+  mailSend: "Send",
+  mailDecline: "Don't send",
+  mailOpenToApprove: "Open AgentPier to read and approve this email.",
+  mailAgent: (name) => `Agent: ${name}`,
+  mailAccount: (name) => `Email access: ${name}`,
+  mailFields: { from: "From", to: "To", cc: "Cc", bcc: "Bcc", subject: "Subject" },
+  mailStates: {
+    completed: "Email sent",
+    declined: "Email not sent — draft kept",
+    expired: "Approval expired — draft kept",
+    cancelled: "Email cancelled; the access changed",
+    failed: "Sending failed; the draft is kept",
+    unknown:
+      "Not known whether the email went out; check the Sent folder before sending again",
+  },
 });
