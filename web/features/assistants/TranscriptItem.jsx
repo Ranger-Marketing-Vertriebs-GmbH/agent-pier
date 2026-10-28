@@ -7,6 +7,7 @@ import SshRunNote from "./SshRunNote.jsx";
 import SftpRunNote from "./SftpRunNote.jsx";
 import MailRunNote from "./MailRunNote.jsx";
 import RemoteActivityGroup from "./RemoteActivityGroup.jsx";
+import AgentProjectNote from "./AgentProjectNote.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
@@ -52,6 +53,8 @@ export default function TranscriptItem({
     <SftpRunNote note={m} />
   ) : m.event === "mail-run" ? (
     <MailRunNote note={m} />
+  ) : m.event === "agent-project" ? (
+    <AgentProjectNote note={m} />
   ) : [
       "member-grant",
       "member-reminder",

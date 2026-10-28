@@ -13,6 +13,7 @@ import SshCommandText from "../SshCommandText.jsx";
 import { sshHistoryText } from "../ssh-run-note.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 import MemberGrantApprovalCard from "../MemberGrantApprovalCard.jsx";
+import AgentProjectNote from "../AgentProjectNote.jsx";
 import MemberGrantNote from "../MemberGrantNote.jsx";
 import { grantNote } from "../member-grants.js";
 import HookProposalCard from "../HookProposalCard.jsx";
@@ -163,6 +164,13 @@ function ActionCard({ action: a, assistantId, busy, act }) {
     return <HookProposalRow action={a} act={act} />;
   if (a.payload.action === "ssh_access")
     return <SshAccessProposalRow action={a} act={act} />;
+  // An agent's new project or coding switch: its chat line.
+  if (a.payload.action === "agent_project")
+    return (
+      <article className="assistant-card assistant-reminder-row">
+        <AgentProjectNote note={{ ...a.payload, event: "agent-project" }} />
+      </article>
+    );
   // A lead's edit of a member, or a member's reminder on its lead: its chat line.
   if (
     ["member_update", "member_reminder", "member_promote", "member_summarise"].includes(

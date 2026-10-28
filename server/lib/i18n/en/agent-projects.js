@@ -12,4 +12,13 @@ export const agentProjects = Object.freeze({
     "Only your own agents that are not team members and have no Telegram bot for other people can create projects.",
   projectFolderUnavailable:
     "No separate project can be created in the default working directory: it is missing, not writable or inside another project.",
+  telegram: {
+    created: (agent, name, path, coding) =>
+      `${agent} created the project ${name} in ${path}.` +
+      (coding ? " Coding sessions are on." : ""),
+    codingOn: (agent, name) =>
+      `${agent} switched coding sessions on for the project ${name}.`,
+    codingOff: (agent, name) =>
+      `${agent} switched coding sessions off for the project ${name}.`,
+  },
 });

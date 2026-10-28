@@ -10,6 +10,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { AgentProjectStore } from "./agent-project-store.js";
 import { grantCreatedProject, setCreatedProjectCoding } from "./agent-project-grants.js";
 import { projectCreateLimit, projectName } from "./agent-project-rules.js";
+import { notifyAgentProject } from "./agent-project-notes.js";
 import { directOwnerTurn, mayCreateProjects } from "./goal-turns.js";
 
 const run = promisify(execFile);
@@ -144,7 +145,7 @@ export class AgentProjects {
       granted = true;
       grantCreatedProject(w.access, agent.id, project.id, { coding });
       const result = { projectId: project.id, name: project.name, path: target, coding };
-      this.settle(inv, agent, conversation, {
+      const row = this.settle(inv, agent, conversation, {
         change: "create",
         projectId: project.id,
         projectName: project.name,
@@ -160,6 +161,7 @@ export class AgentProjects {
         coding,
         git,
       });
+      notifyAgentProject(w, agent, row);
       this.refresh(agent);
       return result;
     } catch (error) {
@@ -175,7 +177,7 @@ export class AgentProjects {
     const result = { projectId, coding: enabled };
     if (!changed) return result;
     const project = this.project(projectId);
-    this.settle(inv, agent, conversation, {
+    const row = this.settle(inv, agent, conversation, {
       change: "coding",
       projectId,
       projectName: project?.name ?? null,
@@ -189,6 +191,7 @@ export class AgentProjects {
       change: "coding",
       coding: enabled,
     });
+    notifyAgentProject(w, agent, row);
     this.refresh(agent);
     return result;
   }
