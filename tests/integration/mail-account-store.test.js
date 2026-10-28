@@ -295,6 +295,36 @@ test("remove calls onRemoved before deleting the password", async (t) => {
   assert.throws(() => s.remove(a.id, owner), { status: 404 });
 });
 
+test("removing an account removes its text cache", async (t) => {
+  const s = store(t);
+  await s.ready;
+  const a = s.create({ ...gmail, password: "pw-secret" }, owner);
+  const b = s.create({ ...gmail, name: "Other", password: "pw-other" }, owner);
+  const root = path.join(s.dataDir, "mail/text-cache");
+  assert.equal(s.textCache.root, root);
+  const entry = { text: "Invoice total 49.99", truncated: false };
+  const keyOf = (accountId) =>
+    s.textCache.key({ accountId, folder: "INBOX", uidValidity: "1", uid: 1, part: "2" });
+  for (const id of [a.id, b.id])
+    assert.equal(s.textCache.set(id, keyOf(id), entry), true);
+  s.remove(a.id, owner);
+  assert.equal(fs.existsSync(path.join(root, a.id)), false);
+  assert.deepEqual(s.textCache.get(b.id, keyOf(b.id)), entry);
+  // Neither the audit nor the catalog carries cached text.
+  assert.doesNotMatch(JSON.stringify(s.auditLog.events), /49\.99/);
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(s.dataDir, "mail/accounts.json"), "utf8"),
+    /49\.99/,
+  );
+  // Text of an account that no longer exists (a crash, a search still running at the
+  // removal) is collected on startup.
+  const orphan = "9e8d7c6b-5a49-4382-9716-0f1e2d3c4b5a";
+  s.textCache.set(orphan, keyOf(orphan), entry);
+  const again = store(t, { dataDir: s.dataDir });
+  await again.ready;
+  assert.deepEqual(fs.readdirSync(root), [b.id]);
+});
+
 test("test stores lastTest codes and audits mail.tested without host or address", async (t) => {
   const calls = [];
   const connect = {

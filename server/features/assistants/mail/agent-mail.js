@@ -8,6 +8,8 @@ import { MailCursors } from "./agent-mail-cursors.js";
 import { readingActions, runReading } from "./agent-mail-reading.js";
 import { changingActions, runChanging } from "./agent-mail-changes.js";
 import { MailSends } from "./agent-mail-sends.js";
+import { attachmentLimits } from "../../mail/mail-parts.js";
+import { searchBudget } from "../../mail/mail-attachment-search.js";
 
 // Agent email (agentpier_mail): the bridge hands a call here (team-bridge.js). Every
 // action first passes `gate`: no maintenance, an eligible owner agent or permanent
@@ -24,6 +26,8 @@ export class AgentMail {
   constructor(w) {
     this.w = w;
     this.cursors = new MailCursors(w.a.store.db);
+    // Bounds of the attachment-text search and of attachments; tests lower them.
+    this.limits = { search: { ...searchBudget }, attachments: attachmentLimits };
     // Sends by rule or after the owner's approval (action rows `mail_send`).
     this.sends = new MailSends(this);
     // The only MailAccountStore.onRemoved binding: removing an account revokes every
@@ -141,7 +145,7 @@ export class AgentMail {
       }
       if (readingActions.includes(input.action))
         return runReading(
-          { accounts: this.w.s.mailAccounts, cursors: this.cursors },
+          { accounts: this.w.s.mailAccounts, cursors: this.cursors, limits: this.limits },
           gate,
           input,
         );

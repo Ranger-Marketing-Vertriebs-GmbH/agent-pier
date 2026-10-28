@@ -1,6 +1,7 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { listMessages, newMessages, readMessage } from "../../mail/mail-messages.js";
 import { searchMessages } from "../../mail/mail-search.js";
+import { scanAttachmentText } from "../../mail/mail-attachment-search.js";
 
 // The reading actions of agentpier_mail: list (a page, or new mail since the agent's
 // last check), read and search. Each runs on one IMAP connection of the granted
@@ -52,23 +53,34 @@ export function readingInput(input) {
   if (Object.values(query).some((v) => typeof v === "string" && controls.test(v)))
     throw invalid();
   if (query.since !== undefined && !validDay(query.since)) throw invalid();
-  // Until the attachment text search exists, refuse it rather than widen the search.
-  if (query.attachmentText !== undefined) throw invalid();
   return { action: "search", folder, limit, query };
 }
 
 /**
  * Runs one reading action for the gated agent; `cursors` keeps the new-mail position
- * (advanced only after the server answered).
+ * (advanced only after the server answered). The attachment-text search uses the
+ * account's text cache within `limits` (AgentMail.limits).
  */
-export async function runReading({ accounts, cursors }, gate, input) {
+export async function runReading({ accounts, cursors, limits }, gate, input) {
   const request = readingInput(input);
   const { agent, account } = gate;
+  const textScan = (client, scan) =>
+    scanAttachmentText(client, {
+      ...scan,
+      accountId: account.id,
+      cache: accounts.textCache ?? null,
+      ...(limits && {
+        budget: limits.search,
+        maxFileBytes: limits.attachments.fileBytes,
+      }),
+    });
   const result = await accounts.withImap(account.id, async (client) => {
     if (request.action === "read")
       return { message: await readMessage(client, request.folder, request.uid) };
     if (request.action === "search")
-      return searchMessages(client, request.folder, request.query, request.limit);
+      return searchMessages(client, request.folder, request.query, request.limit, {
+        textScan,
+      });
     if (request.action === "list") return listMessages(client, request);
     const { messages, remaining, next } = await newMessages(
       client,

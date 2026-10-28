@@ -8,6 +8,7 @@ import { SshPasswordStore } from "../ssh/ssh-password-store.js";
 import { accountInput } from "./mail-account-fields.js";
 import { mailRestoreFile, mergeRestoredMailAccounts } from "./mail-backup.js";
 import { smtpSend, testMailAccount, withImap } from "./mail-connection.js";
+import { MailTextCache } from "./mail-text-cache.js";
 
 const VERSION = 1;
 // Field names in the order an update audit lists them.
@@ -53,6 +54,9 @@ export class MailAccountStore {
       root: this.root,
       messages: mailPasswordMessages,
     });
+    // Extracted attachment text per account (the attachment-text search); under the
+    // data folder, never in a backup, removed with its account.
+    this.textCache = new MailTextCache({ root: path.join(this.root, "text-cache") });
     /** Called with an account id before the account is removed (grants, cards). */
     this.onRemoved = null;
     this.ready = Promise.resolve().then(() => this.recover());
@@ -70,6 +74,7 @@ export class MailAccountStore {
       const rows = this.rows();
       this.passwords.removeOrphans(rows.map((row) => row.id));
       for (const row of rows) this.passwords.removeOthers(row.id, row.credentialRevision);
+      this.textCache.removeOrphans(rows.map((row) => row.id));
     } catch (error) {
       console.warn(`Mail accounts kept their password files (${error.code || "error"}).`);
     }
@@ -220,6 +225,8 @@ export class MailAccountStore {
       this.passwords.settle(id);
       throw error;
     }
+    // Never throws, so the cached text goes even if the password removal fails.
+    this.textCache.removeAccount(id);
     this.passwords.removeHost(id);
     this.record("mail.deleted", id, principal, {});
   }

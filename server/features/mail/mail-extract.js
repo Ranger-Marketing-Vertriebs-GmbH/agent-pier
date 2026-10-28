@@ -103,7 +103,9 @@ async function acquire() {
     running++;
     return;
   }
-  if (waiting.length >= extractLimits.queue) throw failed();
+  // Busy, not broken: a search skips the attachment without caching a failure.
+  if (waiting.length >= extractLimits.queue)
+    throw Object.assign(failed(), { busy: true });
   await new Promise((resolve) => waiting.push(resolve));
 }
 
@@ -177,7 +179,8 @@ function runChild(bytes, kind, limits, scriptUrl) {
 /**
  * The text of one attachment as `{ text, truncated }`, at most `limits.textChars`
  * characters. Throws MAIL_TEXT_UNSUPPORTED for a kind without text and
- * MAIL_TEXT_FAILED for damaged, encrypted, oversized or too complex documents.
+ * MAIL_TEXT_FAILED for damaged, encrypted, oversized or too complex documents, or
+ * with `busy: true` when the queue is full.
  */
 export async function extractText(
   bytes,
