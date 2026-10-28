@@ -437,15 +437,17 @@ test("returning to the app reconnects the suspended chat stream and preserves th
   await expect(input).toHaveValue("Mein ungesendeter Entwurf");
 });
 
-test("mobile connection errors leave the composer reachable", async ({ page }) => {
+test("mobile connection errors leave the composer reachable", async ({
+  page,
+  liveStub,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await fixture(page);
   await page.route("**/api/state", (route) =>
     route.fulfill({ status: 503, json: { error: "Verbindung unterbrochen" } }),
   );
-  await page.evaluate(() =>
-    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })),
-  );
+  // The pushed state is gone, and reading it over REST fails.
+  liveStub.stale("state");
   await expect(page.locator(".global-error")).toBeVisible();
   const composer = await page.locator(".chat-composer-shell").boundingBox();
   expect(composer.y + composer.height).toBeLessThanOrEqual(844);

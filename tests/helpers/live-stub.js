@@ -7,6 +7,7 @@
 //   "manual" sends nothing until the test calls push().
 // The frames follow server/features/live/live-connection.js.
 import { randomUUID } from "node:crypto";
+import { ChatSync } from "../../server/features/chat/chat-sync.js";
 import { listRows } from "../../server/features/live/live-rows.js";
 import { topicInfo } from "../../web/lib/live/live-topics.js";
 
@@ -49,6 +50,8 @@ async function readThroughPage(page, path, sampled) {
  */
 export async function stubLive(page, { mode = "rest" } = {}) {
   const instance = randomUUID();
+  // Row baselines, as the server keeps them: a subscription's later frames are deltas.
+  const sync = new ChatSync({});
   const sockets = new Set();
   const latest = new Map();
   const waiters = new Set();
@@ -68,16 +71,20 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     if (!socket.closed) socket.route.send(JSON.stringify(frame));
   };
 
-  // A snapshot first, then `state` (state topics) or another full rows snapshot.
+  // A snapshot first, then `state` (state topics) or a rows `delta` onto the
+  // subscription's last frame.
   const dataFrame = (socket, topic, value) => {
     const entry = socket.topics.get(topic);
-    const rows = topicInfo(topic)?.mode === "rows";
-    const type = !entry.sent || rows ? "snapshot" : "state";
+    if (topicInfo(topic)?.mode === "rows") {
+      const data = sync.encodeScoped([topic], listRows(value), entry.cursor);
+      entry.cursor = data.sync.cursor || undefined;
+      entry.sent = true;
+      const type = data.sync.mode === "delta" ? "delta" : "snapshot";
+      return send(socket, { type, topic, revision: ++revision, data });
+    }
+    const type = entry.sent ? "state" : "snapshot";
     entry.sent = true;
-    const data = rows
-      ? { ...listRows(value), sync: { mode: "full", cursor: null } }
-      : value;
-    send(socket, { type, topic, revision: ++revision, data });
+    send(socket, { type, topic, revision: ++revision, data: value });
   };
 
   const stopTopic = (socket, topic) => {

@@ -283,6 +283,8 @@ for (const [language, copy] of Object.entries(languages))
       });
       await users(page);
       await page.goto(baseURL + "/agents");
+      // The app's own header button shows until the agents page replaces it.
+      await expect(page.getByRole("heading", { name: copy.ofUsers })).toBeVisible();
       await page.getByRole("button", { name: copy.openNavigation, exact: true }).click();
       await expect(
         page.locator(".assistant-sidebar-section", { hasText: copy.ofUsers }),

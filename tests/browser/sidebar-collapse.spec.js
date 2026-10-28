@@ -133,6 +133,10 @@ for (const [language, copy] of Object.entries(translations)) {
       await page.getByRole("button", { name: copy.collapse }).focus();
       await page.keyboard.press("Enter");
       await expect(page.getByRole("button", { name: copy.expand })).toBeFocused();
+      // "New" is enabled once the workspace state names an installed CLI.
+      await expect(
+        page.locator(".sidebar-float").getByRole("button", { name: copy.newSession }),
+      ).toBeEnabled();
       // The floating controls stay reachable in the tab order behind the toggle.
       // WebKit follows Safari, where Alt+Tab walks the buttons.
       await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");

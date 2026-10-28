@@ -5,8 +5,8 @@ import { isLiveStubRequest, stubContext } from "../helpers/live-stub.js";
 import { recordApiRequests, setTabHidden } from "../helpers/visibility.js";
 
 // The live socket stub of tests/helpers/live-stub.js (docs/testing.md#live-socket-stub).
-// The sidebar tests need a page that follows the `state` topic; they are enabled once
-// useWorkspaceState reads it (Task 1.5). The raw-socket tests drive the stub directly.
+// The sidebar tests follow the `state` topic through the app; the raw-socket tests
+// drive the stub directly.
 const session = (id, name) => ({
   id,
   name,
@@ -52,7 +52,7 @@ async function fixture(target) {
 }
 const sessionList = (page) => page.locator(".sessions-group .session-list");
 
-test.fixme("rest mode follows a REST mock that changes mid-test", async ({
+test("rest mode follows a REST mock that changes mid-test", async ({
   page,
   liveStub,
 }) => {
@@ -66,7 +66,7 @@ test.fixme("rest mode follows a REST mock that changes mid-test", async ({
   });
 });
 
-test.fixme("a spec that closes every /api socket still gets data through the fallback", async ({
+test("a spec that closes every /api socket still gets data through the fallback", async ({
   page,
   liveStub,
 }) => {
@@ -81,10 +81,7 @@ test.fixme("a spec that closes every /api socket still gets data through the fal
 test.describe("manual mode", () => {
   test.use({ live: "manual" });
 
-  test.fixme("manual mode pushes exactly what the test sends", async ({
-    page,
-    liveStub,
-  }) => {
+  test("manual mode pushes exactly what the test sends", async ({ page, liveStub }) => {
     await fixture(page);
     await page.goto(base);
     await liveStub.waitForSubscribe("state");
@@ -112,8 +109,9 @@ async function openRaw(page) {
   };
 }
 const types = (frames) => frames.map((frame) => frame.type);
+// The session names a snapshot carries, or a delta adds or changes.
 const rowNames = (frame) =>
-  frame.data.messages
+  (frame.data.messages || frame.data.upserts)
     .filter((row) => row.section === "sessions")
     .map((row) => row.value.name);
 
@@ -132,13 +130,18 @@ test("the stub answers a raw sub from the REST mock and follows it", async ({ pa
   await expect.poll(async () => (await raw.frames()).length).toBe(2);
   const [, snapshot] = await raw.frames();
   expect(snapshot).toMatchObject({ type: "snapshot", topic: "state" });
-  expect(snapshot.data.sync).toEqual({ mode: "full", cursor: null });
+  expect(snapshot.data.sync).toEqual({ mode: "full", cursor: expect.any(String) });
   expect(rowNames(snapshot)).toEqual(["Projekt Eins"]);
   server.sessions = [session("second", "Projekt Zwei")];
   await expect
     .poll(async () => (await raw.frames()).slice(2).map(rowNames), { timeout: 6000 })
     .toEqual([["Projekt Zwei"]]);
-  // The recorder sees the app's own reads (it still polls), never the stub's.
+  // A later frame of a rows topic is a delta onto the subscription's last one.
+  expect((await raw.frames())[2]).toMatchObject({
+    type: "delta",
+    data: { removed: ["sessions/first"] },
+  });
+  // The recorder sees the app's own reads, never the stub's.
   expect(reads.stub).toBeGreaterThanOrEqual(2);
   expect(recorder.list().filter(({ path }) => path === "/api/state")).toHaveLength(
     reads.app,
@@ -239,7 +242,8 @@ test.describe("manual stub", () => {
     await expect
       .poll(async () => types(await raw.frames()))
       .toEqual(["hello", "error", "pong"]);
-    expect(liveStub.subscriptions()).toEqual(["session.models:one"]);
+    // The app's own page follows `state`.
+    expect(liveStub.subscriptions().sort()).toEqual(["session.models:one", "state"]);
     liveStub.push("session.models:one", { picker: null, pending: true });
     liveStub.push("session.models:one", { picker: null, pending: false });
     liveStub.changed("session.models:one");
@@ -263,7 +267,7 @@ test.describe("manual stub", () => {
     });
     liveStub.revoke("session.models:one");
     await expect.poll(async () => types(await raw.frames()).at(-1)).toBe("revoked");
-    expect(liveStub.subscriptions()).toEqual([]);
+    expect(liveStub.subscriptions()).toEqual(["state"]);
     liveStub.close(1012);
     await expect.poll(() => raw.closed()).toBe(1012);
   });

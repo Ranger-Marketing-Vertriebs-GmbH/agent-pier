@@ -1,46 +1,53 @@
 import { useWorkspaceStateCopy as copy } from "../lib/i18n/messages/app.js";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { chatCacheKey, retainCachedChats } from "../features/chat/chat-session-cache.js";
 import api from "../lib/api.js";
-import { startVisiblePolling } from "../lib/visible-polling.js";
+import useLiveTopic from "../lib/live/useLiveTopic.js";
+
+const empty = {
+  tools: [],
+  utilities: [],
+  accounts: [],
+  sessions: [],
+  home: "",
+  remoteUrl: null,
+};
+
+/**
+ * The workspace state from the live `state` topic (pushed rows, REST while the
+ * channel falls back). `refresh()` reads GET /api/state for a caller that must see
+ * a write it just made: it resolves with the data, rejects on failure, and its
+ * answer shows until the topic pushes something newer.
+ */
 export default function useWorkspaceState() {
-  const [state, setState] = useState({
-    tools: [],
-    utilities: [],
-    accounts: [],
-    sessions: [],
-    home: "",
-    remoteUrl: null,
-  });
-  const [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [ready, setReady] = useState(false);
-  const refresh = useCallback(async ({ signal } = {}) => {
+  const live = useLiveTopic("state");
+  const pushed = useRef(live.data);
+  pushed.current = live.data;
+  // The last refresh, with the pushed value it started from: a push after it wins.
+  const [read, setRead] = useState(null);
+  const refresh = useCallback(async () => {
+    const basis = pushed.current;
     try {
-      const data = await api("/state", "GET", undefined, signal);
-      if (signal?.aborted) return;
-      setState(data);
-      if (Array.isArray(data?.sessions))
-        retainCachedChats(new Set(data.sessions.map(chatCacheKey)));
-      setReady(true);
-      setError("");
-      setLoading(false);
+      const data = await api("/state", "GET");
+      setRead({ basis, data, error: "" });
       return data;
     } catch (err) {
-      if (signal?.aborted) return;
-      setError(copy.serviceConnectionError(err.message));
-      setLoading(false);
+      setRead({ basis, data: null, error: err.message });
       throw err;
     }
   }, []);
+  const current = read && read.basis === live.data ? read : null;
+  const data = current?.data || live.data || read?.data || null;
+  const failure = current ? current.error : live.error;
   useEffect(() => {
-    return startVisiblePolling((signal) => refresh({ signal }), 3000);
-  }, [refresh]);
+    if (Array.isArray(data?.sessions))
+      retainCachedChats(new Set(data.sessions.map(chatCacheKey)));
+  }, [data]);
   return {
-    state,
-    loading,
-    error,
-    ready,
+    state: data || empty,
+    loading: !data && !failure && live.loading,
+    error: failure ? copy.serviceConnectionError(failure) : "",
+    ready: Boolean(data),
     refresh,
   };
 }

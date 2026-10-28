@@ -9,6 +9,7 @@ export class ChatEvents {
     this.sequence = new Map();
     this.history = new Map();
     this.subscribers = new Map();
+    this.everywhere = new Set();
   }
   publish(sessionId, type = "changed", details = {}) {
     const sequence = (this.sequence.get(sessionId) || 0) + 1;
@@ -25,6 +26,7 @@ export class ChatEvents {
       this.sequence.delete(id);
     }
     for (const subscriber of this.subscribers.get(sessionId) || []) subscriber(event);
+    for (const subscriber of [...this.everywhere]) subscriber(event);
     return event;
   }
   since(sessionId, sequence = 0) {
@@ -45,8 +47,14 @@ export class ChatEvents {
       if (!rows.size) this.subscribers.delete(sessionId);
     };
   }
+  /** Calls `subscriber(event)` for every session's events; returns a stop function. */
+  subscribeAll(subscriber) {
+    this.everywhere.add(subscriber);
+    return () => this.everywhere.delete(subscriber);
+  }
   close() {
     this.subscribers.clear();
+    this.everywhere.clear();
     this.history.clear();
     this.sequence.clear();
   }

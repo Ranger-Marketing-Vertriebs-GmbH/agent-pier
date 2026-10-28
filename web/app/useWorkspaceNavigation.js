@@ -65,13 +65,32 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     },
     [setMobileNav, setModal, setRoute],
   );
+  // Page navigations still waiting to commit. A normalization computed from the
+  // address before them must not replace them (the coordinator lets the last request
+  // win): a page's redirect and the address normalization can run in one commit.
+  const pagePending = useRef(0);
   const runNavigation = useCallback(
-    (next, replace = false, normalization = false) =>
-      requestFileNavigation({
+    (next, replace = false, normalization = false) => {
+      if (normalization && pagePending.current) return Promise.resolve(false);
+      let waiting = !normalization;
+      // Counts until it commits (the normalization of its route may follow at once)
+      // or is dropped.
+      const done = () => {
+        if (waiting) pagePending.current -= 1;
+        waiting = false;
+      };
+      if (waiting) pagePending.current += 1;
+      const result = requestFileNavigation({
         next,
         reason: navigationReason({ normalization }),
-        commit: () => commitWorkspaceNavigation(next, replace),
-      }),
+        commit: () => {
+          done();
+          commitWorkspaceNavigation(next, replace);
+        },
+      });
+      result.then(done, done);
+      return result;
+    },
     [commitWorkspaceNavigation],
   );
   const navigate = useCallback(
