@@ -95,7 +95,10 @@ screen decide only when none is open (see [architecture](architecture.md)).
 - The live channel's `inbox` topic (owner only) pushes the same value as
   `GET /api/inbox` whenever the waiting set changes; the start page's **Needs you** and
   the inbox page take their list from it and send no request of their own while the
-  channel works. Restricted users cannot subscribe to it.
+  channel works. Restricted users cannot subscribe to it. A hidden tab keeps the
+  subscription, so the counts are current when it is shown again. Without the live
+  channel the page polls `GET /api/inbox` every 5 s while its tab is visible (see
+  [live channel](architecture.md#live-channel)).
 - `GET /api/inbox/events` is a server-sent event stream. It sends the counts and the
   revision when it connects and whenever the waiting set changes; the page reads
   `GET /api/inbox` again when the list it holds is behind. The workspace state (the

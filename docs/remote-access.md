@@ -115,7 +115,7 @@ Die Hostliste in `network.hosts` ergänzt die automatisch erlaubten Namen: die z
 - **IP-Adresse:** die im eigenen Netz zugewiesene Adresse, zum Beispiel `192.168.1.42` — wird meist bereits automatisch erkannt und muss dann nicht eingetragen werden.
 - **`.local`-Name:** `macmini.local`, sofern mDNS/Bonjour im Netz funktioniert.
 - **Eigener DNS-Name:** ein selbst vergebener Name wie `agentpier.home.arpa`, wenn im Heimnetz ein eigener DNS-Eintrag existiert.
-- **Reverse-Proxy-Host:** der öffentlich sichtbare Name des eigenen Proxys, zum Beispiel `proxy.example.net`. Der Proxy zeigt dabei auf `http://127.0.0.1:<Port>`; `x-forwarded-*`- und `forwarded`-Header werden im Netzwerkmodus ignoriert, nicht ausgewertet, und der Proxy-Hostname muss deshalb selbst in der Hostliste stehen.
+- **Reverse-Proxy-Host:** der öffentlich sichtbare Name des eigenen Proxys, zum Beispiel `proxy.example.net`. Der Proxy zeigt dabei auf `http://127.0.0.1:<Port>`; `x-forwarded-*`- und `forwarded`-Header werden im Netzwerkmodus ignoriert, nicht ausgewertet, und der Proxy-Hostname muss deshalb selbst in der Hostliste stehen. Der Proxy muss WebSocket-Upgrades (`Upgrade`- und `Connection`-Header) wie für die Terminals auch für den Live-Kanal `/api/live` durchreichen; ohne sie fällt die Oberfläche auf Abfragen zurück, die nur im sichtbaren Tab laufen.
 
 Jeder Eintrag ist ein Name oder eine IP ohne Schema, Pfad oder Port; es sind höchstens 20 Einträge erlaubt. Änderungen an Bind-Adresse oder Hostliste wirken erst nach einem Neustart des Diensts.
 
