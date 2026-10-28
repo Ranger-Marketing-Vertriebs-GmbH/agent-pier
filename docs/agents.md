@@ -97,8 +97,9 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   automatic update checks.
 - **Remove** names the agents that use the skill, switches it off for all of them and
   deletes its files.
-- **Name clashes.** A skill whose name a bundled skill, a plugin skill or a skill in
-  the shared skill folders already carries is refused. If a runtime update later
+- **Name clashes.** A skill whose name a bundled skill, a plugin skill, one of
+  AgentPier's built-in skills (`agentpier-shopping`, see [Shopping](shopping.md)) or
+  a skill in the shared skill folders already carries is refused. If a runtime update later
   bundles a skill of that name, the catalog skill shows "Shadowed by a bundled skill"
   and stays off until you remove it; a skill of that name the agent service reports
   from another source shows "Shadowed by another installed skill of the same name". A
@@ -337,6 +338,12 @@ its own, also shows whether its model changed since it took it over from the lea
   **Browser running** while it runs. Temporary team members get a browser profile
   that is discarded when they end. See "Browser isolation" in
   `docs/assistant-gateway.md`.
+- **Shopping** (while **Use a browser** and **Remember information** are on, for your
+  own agents only): the agent gets AgentPier's built-in Shopping skill. It finds deals
+  and parts on Amazon and AliExpress, builds carts, and buys with the shop accounts you
+  signed in to through **Take over** only after your yes in the chat or a standing
+  order you gave there. The guard is the agent's instructions, not AgentPier
+  ([Shopping for agents](shopping.md)).
 - **Uploads with the browser** (while **Use a browser** is on): the agent can upload a
   file from a project folder it may at least read, or from its own workspace, to a
   website, for example a finished episode to YouTube Studio. AgentPier prepares a copy

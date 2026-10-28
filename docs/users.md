@@ -120,7 +120,8 @@ never gets:
 - OpenClaw's session tools (access to its other chats),
 - project memory,
 - the visible browser window (its browser runs headless),
-- a Telegram bot for other people.
+- a Telegram bot for other people,
+- the built-in Shopping skill ([Shopping for agents](shopping.md)).
 
 The lock applies where the agent's tools are compiled, again when a tool runs, and at
 every settings API. What the owner can still give an agent for users:
