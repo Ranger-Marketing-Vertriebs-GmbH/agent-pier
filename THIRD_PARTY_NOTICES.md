@@ -98,8 +98,9 @@ Foundation, <https://github.com/mozilla/pdf.js/tree/v6.1.200>) in
 and the Apache-2.0 text is AgentPier's `LICENSE`. `unpdf` is pinned to that exact
 version, has no runtime dependencies and no install scripts; its optional
 `@napi-rs/canvas` peer is not installed. AgentPier passes PDF.js no `wasmUrl`, so the
-OpenJPEG and QCMS WebAssembly decoders PDF.js can load are neither shipped nor used.
-Extraction runs in a worker thread with time and memory limits. DOCX, XLSX and PPTX
+WebAssembly decoders PDF.js can load (`openjpeg.wasm`, `jbig2.wasm` and the QCMS colour
+module) are neither shipped nor used. Extraction runs in a separate process with time
+and memory limits. DOCX, XLSX and PPTX
 text is read with `yauzl` (see below).
 
 Tests use `smtp-server` 3.19.21 (MIT-0, Copyright (c) 2015-2025 Andris Reinman,

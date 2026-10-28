@@ -1,12 +1,14 @@
-import { Worker } from "node:worker_threads";
+import { fork } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { mailError } from "./mail-connection.js";
 import { mailFileType, mailFileTypes } from "./mail-file-types.js";
 import { clipText } from "./mail-text.js";
 
 // Text of mail attachments for agents. Plain text is decoded here; PDF and Office
-// documents are parsed in a worker thread with its own heap, a time limit and at most
-// `concurrency` workers at once, so a hostile document can neither hang nor crash the
-// server.
+// documents are parsed in a separate Node.js process with a heap limit, a memory
+// (RSS) limit, a time limit and an empty environment, at most `concurrency` at once
+// with at most `queue` waiting. A hostile document can only kill that process, which
+// becomes MAIL_TEXT_FAILED; it can neither hang nor crash the server.
 
 export const extractLimits = Object.freeze({
   timeoutMs: 20_000,
@@ -17,6 +19,8 @@ export const extractLimits = Object.freeze({
   zipEntries: 2_000,
   zipBytes: 104_857_600,
   entryBytes: 52_428_800,
+  rssMb: 512,
+  queue: 16,
 });
 
 const kindsByType = new Map([
@@ -27,8 +31,8 @@ const kindsByType = new Map([
   [mailFileTypes[".txt"], "text"],
   [mailFileTypes[".csv"], "text"],
 ]);
-const workerKinds = new Set(["pdf", "docx", "xlsx", "pptx"]);
-const defaultWorker = new URL("./mail-extract-worker.js", import.meta.url);
+const childKinds = new Set(["pdf", "docx", "xlsx", "pptx"]);
+const defaultScript = new URL("./mail-extract-child.js", import.meta.url);
 const pdfMagic = Buffer.from("%PDF-", "latin1");
 const zipMagic = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
@@ -65,6 +69,15 @@ function decoderFor(label) {
   }
 }
 
+// The end of the first `max` bytes, moved back to the start of a UTF-8 character and
+// to an even length, so a cut neither turns valid UTF-8 invalid nor splits UTF-16.
+function byteCut(bytes, max) {
+  if (bytes.length <= max) return bytes.length;
+  let end = max - (max % 2);
+  for (let back = 0; back < 3 && end > 0 && (bytes[end] & 0xc0) === 0x80; back++) end--;
+  return end;
+}
+
 /** Plain text: a BOM wins, then the charset label; invalid UTF-8 is read as latin1. */
 function plainText(bytes, charset) {
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
@@ -81,7 +94,7 @@ function plainText(bytes, charset) {
 const startsWith = (bytes, magic) =>
   bytes.length >= magic.length && magic.equals(bytes.subarray(0, magic.length));
 
-// The module-wide worker queue: a finished worker hands its place to the next caller.
+// The module-wide queue: a finished extraction hands its place to the next caller.
 let running = 0;
 const waiting = [];
 
@@ -90,6 +103,7 @@ async function acquire() {
     running++;
     return;
   }
+  if (waiting.length >= extractLimits.queue) throw failed();
   await new Promise((resolve) => waiting.push(resolve));
 }
 
@@ -99,58 +113,64 @@ function release() {
   else running--;
 }
 
-const mebibyte = 1024 * 1024;
-const memoryCheckMs = 100;
+// Children still running are killed when the server process exits.
+const children = new Set();
+let exitHook = false;
+function track(child) {
+  children.add(child);
+  child.once("exit", () => children.delete(child));
+  if (exitHook) return;
+  exitHook = true;
+  process.once("exit", () => {
+    for (const running of children) running.kill("SIGKILL");
+  });
+}
 
-// One worker for one document; it is terminated once it answered, failed, ran out of
-// time or held more than `heapMb` outside its heap (typed arrays, which the heap limit
-// does not cover: a PDF stream inflates into them), and the promise settles only
-// after it has exited.
-function runWorker(bytes, kind, limits, workerUrl) {
+// One process for one document. It is killed with SIGKILL at the time limit, and
+// the promise settles only once it has exited (and was reaped). Only a reply followed
+// by a clean exit counts; any signal or non-zero exit is MAIL_TEXT_FAILED.
+function runChild(bytes, kind, limits, scriptUrl) {
   return new Promise((resolve, reject) => {
-    const copy = new Uint8Array(bytes);
-    let worker;
+    let child;
     try {
-      worker = new Worker(workerUrl, {
-        workerData: { bytes: copy, kind, limits: { ...limits } },
-        transferList: [copy.buffer],
-        resourceLimits: {
-          maxOldGenerationSizeMb: limits.heapMb,
-          maxYoungGenerationSizeMb: 32,
-          stackSizeMb: 4,
-        },
+      child = fork(fileURLToPath(scriptUrl), [], {
+        execArgv: [
+          `--max-old-space-size=${limits.heapMb}`,
+          "--max-semi-space-size=16",
+          "--disallow-code-generation-from-strings",
+          "--no-addons",
+        ],
+        env: {},
+        stdio: ["ignore", "ignore", "ignore", "ipc"],
+        serialization: "advanced",
       });
     } catch {
       reject(failed());
       return;
     }
+    track(child);
+    let reply = null;
     let settled = false;
-    const finish = (result) => {
+    const kill = () => child.kill("SIGKILL");
+    const timer = setTimeout(kill, limits.timeoutMs);
+    const settle = (result) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      clearInterval(memory);
-      worker
-        .terminate()
-        .catch(() => {})
-        .finally(() => (result ? resolve(result) : reject(failed())));
+      if (result) resolve(result);
+      else reject(failed());
     };
-    const timer = setTimeout(() => finish(null), limits.timeoutMs);
-    const memory = setInterval(() => {
-      worker.getHeapStatistics().then(
-        (stats) => stats.external_memory > limits.heapMb * mebibyte && finish(null),
-        () => {},
-      );
-    }, memoryCheckMs);
-    worker.once("message", (message) =>
-      finish(
-        typeof message?.text === "string"
-          ? { text: message.text, truncated: message.truncated === true }
-          : null,
-      ),
-    );
-    worker.once("error", () => finish(null));
-    worker.once("exit", () => finish(null));
+    child.on("message", (message) => {
+      if (!reply && typeof message?.text === "string")
+        reply = { text: message.text, truncated: message.truncated === true };
+      else kill();
+    });
+    child.once("exit", (code, signal) => settle(code === 0 && !signal ? reply : null));
+    child.once("error", () => {
+      kill();
+      if (child.pid === undefined) settle(null);
+    });
+    child.send({ bytes, kind, limits: { ...limits } }, (error) => error && kill());
   });
 }
 
@@ -162,17 +182,19 @@ function runWorker(bytes, kind, limits, workerUrl) {
 export async function extractText(
   bytes,
   kind,
-  { charset, limits = extractLimits, workerUrl = defaultWorker } = {},
+  { charset, limits = extractLimits, scriptUrl = defaultScript } = {},
 ) {
   if (kind === "text") {
-    const text = plainText(bytes, charset).replace(/\r\n?/g, "\n");
-    return clipText(text, limits.textChars);
+    const end = byteCut(bytes, 4 * limits.textChars);
+    const text = plainText(bytes.subarray(0, end), charset).replace(/\r\n?/g, "\n");
+    const clipped = clipText(text, limits.textChars);
+    return end < bytes.length ? { ...clipped, truncated: true } : clipped;
   }
-  if (!workerKinds.has(kind)) throw mailError("MAIL_TEXT_UNSUPPORTED");
+  if (!childKinds.has(kind)) throw mailError("MAIL_TEXT_UNSUPPORTED");
   if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw failed();
   await acquire();
   try {
-    const result = await runWorker(bytes, kind, limits, workerUrl);
+    const result = await runChild(bytes, kind, limits, scriptUrl);
     const clipped = clipText(result.text, limits.textChars);
     return { text: clipped.text, truncated: result.truncated || clipped.truncated };
   } finally {
