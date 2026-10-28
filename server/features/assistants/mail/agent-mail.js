@@ -166,8 +166,9 @@ export class AgentMail {
           input,
         );
       if (input.action === "attachment") return runAttachment(this, inv, gate, input);
-      // forward has no handler yet: never let it reach send.
-      if (input.action !== "send") throw assistantProblem("invalid");
+      // A forward is a send of a draft made from the original.
+      if (input.action !== "send" && input.action !== "forward")
+        throw assistantProblem("invalid");
       return this.sends.send(inv, gate.caller, gate.cls, gate.grant, gate.account, input);
     });
   }

@@ -260,7 +260,7 @@ const reasons = {
   MAIL_MOVE_UNSUPPORTED:
     "This mail server cannot move messages safely, so nothing was moved or deleted. Do not retry; tell the owner.",
   MAIL_DRAFT_UNSUPPORTED:
-    "This draft cannot be sent by you: it has no plain-text part or more than 1 MiB of text. Save a new plain-text draft with action draft, or tell the owner.",
+    "This draft or forward cannot be sent by you: it has no plain-text part or too much text (over 1 MiB, or a forward over 100,000 characters). Save a new plain-text draft with action draft, or tell the owner.",
   MAIL_QUERY_EMPTY:
     "A search needs at least one criterion in query (from, to, subject, text, body, attachment, attachmentText, since, unseen or hasAttachment).",
   MAIL_ATTACHMENT_TOO_LARGE:

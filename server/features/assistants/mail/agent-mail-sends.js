@@ -10,7 +10,8 @@ import { storedFiles } from "./agent-mail-sources.js";
 import { recipientAllowed } from "./agent-mail-grants.js";
 import { mailPermits } from "./agent-mail-origin.js";
 import { auditDelete } from "./agent-mail-changes.js";
-import { inputDigest, sendInput } from "./agent-mail-send-input.js";
+import { forwardInput, inputDigest, sendInput } from "./agent-mail-send-input.js";
+import { forwardCard, htmlOmittedNote, saveForward } from "./agent-mail-forward.js";
 import { cardPayload, staleReason } from "./agent-mail-card.js";
 import { auditSend, deliverMail, isBug } from "./agent-mail-delivery.js";
 import {
@@ -76,10 +77,15 @@ export class MailSends {
   refuse(inv, caller, key) {
     return this.mail.refuse(inv, caller, key);
   }
-  /** One `send` call after AgentMail.gate; returns the brief's results. */
+  /**
+   * One `send` or `forward` call after AgentMail.gate; returns the brief's results.
+   * A forward saves its draft from the original (agent-mail-forward.js) and is a send
+   * from there on.
+   */
   async send(inv, caller, cls, grant, account, input) {
-    const request = sendInput(input);
-    if (mailPermits(grant.level, cls, "send", false) === "refuse")
+    const forwarding = input.action === "forward";
+    const request = forwarding ? forwardInput(input) : sendInput(input);
+    if (mailPermits(grant.level, cls, input.action, false) === "refuse")
       throw this.refuse(inv, caller, "mailSendNotGranted");
     const key = `mail:${inv.attemptId || inv.sessionKey}:${inv.toolCallId}`;
     const inputSha256 = inputDigest(input);
@@ -99,7 +105,7 @@ export class MailSends {
     if (!recipients.length) throw assistantProblem("invalid");
     const rules = grant.recipients ?? [];
     const ruled = recipients.every((address) => recipientAllowed(rules, address));
-    const permit = mailPermits(grant.level, cls, "send", ruled);
+    const permit = mailPermits(grant.level, cls, input.action, ruled);
     const agentId = caller.assistant.id;
     // Checked before the draft is saved, and again just before the row is written.
     this.limit(inv, caller, permit);
@@ -109,12 +115,19 @@ export class MailSends {
       ? null
       : await captureFiles(this.w, this.mail.limits, inv, caller, request.attachments);
     let saved = null;
-    if (!request.draftUid) {
+    let forward = null;
+    if (forwarding) {
+      forward = await saveForward(this.mail, account, from, request, captured);
+      ({ saved } = forward);
+      draft.fields = forward.fields;
+    } else if (!request.draftUid) {
       saved = await this.accounts.withImap(account.id, (c) =>
         saveDraft(c, { address: account.address, displayName: from.name }, draft.fields, {
           files: captured?.entries ?? [],
         }),
       );
+    }
+    if (saved) {
       Object.assign(draft, {
         draftUid: saved.draftUid,
         messageId: saved.messageId,
@@ -127,17 +140,17 @@ export class MailSends {
     const trusted = permit === "run";
     let action;
     let earlier;
+    // The forward's original goes along: its parts, its HTML part and its envelope.
+    let card = {};
     try {
+      if (forward)
+        card = forwardCard(this.mail, account.id, agentId, request, forward, captured);
       // What goes along: the files this call read, or the stored draft's parts.
       const { attachments, files } = saved
         ? {
-            attachments: savedAttachments(
-              this.mail,
-              account.id,
-              agentId,
-              saved,
-              captured,
-            ),
+            attachments:
+              card.attachments ??
+              savedAttachments(this.mail, account.id, agentId, saved, captured),
             files: captured?.files ?? null,
           }
         : storedDraftAttachments(this.mail, inv, caller, account.id, draft);
@@ -155,6 +168,8 @@ export class MailSends {
         expiresAt,
         attachments,
         files: files && storedFiles(files),
+        html: card.html ?? null,
+        forward: card.forward ?? null,
       });
       const telegram = trusted
         ? null
@@ -184,10 +199,13 @@ export class MailSends {
       await this.dropDraft(account.id, agentId, own);
       return this.follow(inv, earlier.id);
     }
+    // The agent hears that a forward left the original's HTML part out.
+    const noted = (result) =>
+      forward?.original.htmlOmitted ? { ...result, html: htmlOmittedNote } : result;
     if (!trusted) {
       notifyAction(this.w, action, "approval");
       this.w.a.changed({ feeds: false });
-      return this.follow(inv, action.id);
+      return noted(await this.follow(inv, action.id));
     }
     // Rights may have changed while the draft was saved.
     const reason = this.stale(action);
@@ -201,7 +219,7 @@ export class MailSends {
       // A rule send is bounded by the SMTP timeouts, not by the approval hold.
       await this.start(action, "rule");
     }
-    return this.outcome(this.w.store.get(action.id));
+    return noted(this.outcome(this.w.store.get(action.id)));
   }
   /** Moves a draft `send` saved for a refused call to Trash, best effort and audited. */
   async dropDraft(accountId, agentId, draftUid) {
