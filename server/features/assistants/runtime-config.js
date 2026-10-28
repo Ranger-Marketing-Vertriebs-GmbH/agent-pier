@@ -59,6 +59,7 @@ export const nativeTools = [
   "agentpier_ssh_access",
   "agentpier_coding_session",
   "agentpier_mail",
+  "agentpier_project",
 ];
 
 function freshDefaults(paths) {

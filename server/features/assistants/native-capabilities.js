@@ -1,5 +1,5 @@
 import { isUserAgent } from "../users/user-access.js";
-import { goalAgent } from "./goal-turns.js";
+import { goalAgent, mayCreateProjects } from "./goal-turns.js";
 
 export const capabilityKeys = [
   "memory",
@@ -87,8 +87,9 @@ export const sessionTools = [
   "sessions_spawn",
 ];
 // What an agent with its own Telegram bot for other people never holds: the session
-// tools and email (its grants are refused too, mail/agent-mail-grants.js).
-export const senderLockedTools = [...sessionTools, "agentpier_mail"];
+// tools, email (its grants are refused too, mail/agent-mail-grants.js) and project
+// creation (goal-turns.js mayCreateProjects).
+export const senderLockedTools = [...sessionTools, "agentpier_mail", "agentpier_project"];
 /**
  * What an agent of restricted users never holds, whatever its stored settings say:
  * shell, SSH, team tools and the session tools that read its other users' chats
@@ -102,6 +103,7 @@ export const lockedTools = [
   "agentpier_ssh_access",
   "agentpier_coding_session",
   "agentpier_mail",
+  "agentpier_project",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -280,6 +282,9 @@ export function profileTools(
     // Email: own agents and permanent members; without a grant the tool answers
     // MAIL_NOT_GRANTED, so a grant needs no recompile (mail/agent-mail.js).
     ...(nativeReady && goalAgent(assistant) ? ["agentpier_mail"] : []),
+    // Own projects: own agents and leads, never members (agent-projects.js). An
+    // agent with its own bot for other people loses it with senderLockedTools.
+    ...(nativeReady && mayCreateProjects(assistant) ? ["agentpier_project"] : []),
     ...(nativeReady
       ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
           // `available` withholds a tool whose browser or search provider is absent;

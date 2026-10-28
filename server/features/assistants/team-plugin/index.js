@@ -8,6 +8,7 @@ import { registerBackgroundCommands } from "./background-commands.js";
 import { goalDefinition } from "./goal-tool.js";
 import { codingSessionDefinition } from "./coding-session-tool.js";
 import { mailDefinition } from "./mail-tool.js";
+import { projectDefinition } from "./project-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { registerChatTitle } from "./chat-title.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
@@ -40,6 +41,8 @@ export const toolTimeouts = {
   // A mail send waits up to 110 seconds for the owner (like SSH); IMAP and SMTP
   // connect within 15 seconds each.
   mail: 125000,
+  // A project creation initializes Git and registers the folder before it answers.
+  project: 30000,
 };
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;
@@ -55,6 +58,7 @@ const ownTools = [
   "ssh_access",
   "coding_session",
   "mail",
+  "project",
 ];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
@@ -116,6 +120,7 @@ const definitions = {
   ...goalDefinition,
   ...codingSessionDefinition,
   ...mailDefinition,
+  ...projectDefinition,
   ...memberDefinitions,
   reminder: {
     description:

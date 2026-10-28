@@ -16,7 +16,10 @@ import {
 } from "../../server/features/assistants/native-capabilities.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
+import {
+  nativeTools,
+  prepareRuntimeConfig,
+} from "../../server/features/assistants/runtime-config.js";
 
 const OFF = {
   memory: false,
@@ -324,4 +327,36 @@ test("an agent with its own Telegram bot for other people is compiled without ma
   assert.ok(allow(false).includes("agentpier_mail"));
   assert.ok(!allow(true).includes("agentpier_mail"));
   assert.ok(!allow(true).includes("sessions_send"));
+});
+
+test("agentpier_project: own agents and leads only, never members, user agents or routines", () => {
+  const tool = "agentpier_project";
+  const tools = (agent, nativeReady = true) => profileTools(agent, true, nativeReady);
+  const own = { id: "a", capabilities: { memory: true, reminders: true } };
+  // A lead is an own agent that has members; it holds the tool like any own agent.
+  const lead = { id: "l", name: "Lead" };
+  assert.ok(tools(own).includes(tool));
+  assert.ok(tools(lead).includes(tool));
+  assert.ok(tools({ id: "b" }).includes(tool));
+  for (const agent of [
+    { id: "p", teamMemberId: "t", lifetime: "permanent" },
+    { id: "m", teamMemberId: "t", lifetime: "task" },
+    { ...own, userAccess: { mode: "own", members: [], released: [] } },
+    { ...own, archivedAt: "today" },
+  ])
+    assert.ok(!tools(agent).includes(tool), JSON.stringify(agent));
+  assert.ok(!tools(own, false).includes(tool));
+  assert.ok(senderLockedTools.includes(tool));
+  assert.ok(lockedTools.includes(tool));
+  assert.ok(!routineTools.includes(tool));
+  assert.ok(nativeTools.includes(tool));
+});
+
+test("an agent with its own Telegram bot for other people is compiled without agentpier_project", () => {
+  const own = { id: "a" };
+  const allow = (senderFacing) =>
+    agentEntry({}, own, { teamsReady: true, nativeReady: true, senderFacing }).tools
+      .allow;
+  assert.ok(allow(false).includes("agentpier_project"));
+  assert.ok(!allow(true).includes("agentpier_project"));
 });

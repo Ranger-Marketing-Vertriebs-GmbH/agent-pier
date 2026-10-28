@@ -253,3 +253,29 @@ test("an agent with email accounts learns the mail pattern and that mail is untr
   ])
     assert.doesNotMatch(assistantBootstrap(profile, {}, { mailAccounts }), /## Email/);
 });
+
+test("eligible agents learn they can create a project and share it with their team", () => {
+  const text = assistantBootstrap(assistant, {}, { projectCreation: true });
+  assert.match(text, /\n## Projects\n/);
+  for (const line of [
+    "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless he asked for them.",
+    "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
+  ])
+    assert.ok(text.includes(`${line}\n`), line);
+  assert.doesNotMatch(assistantBootstrap(assistant, {}), /agentpier_project/);
+  assert.doesNotMatch(
+    assistantBootstrap(assistant, {}, { projectCreation: false }),
+    /agentpier_project/,
+  );
+  // Agents never offered the tool get no section, whatever the option says.
+  for (const profile of [
+    { ...assistant, teamMemberId: "m1", lifetime: "task" },
+    { ...assistant, teamMemberId: "m1", lifetime: "permanent" },
+    { ...assistant, archivedAt: "2026-10-27T00:00:00.000Z" },
+    { ...assistant, userAccess: { mode: "own", members: [], released: [] } },
+  ])
+    assert.doesNotMatch(
+      assistantBootstrap(profile, {}, { projectCreation: true }),
+      /## Projects/,
+    );
+});

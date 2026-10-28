@@ -16,6 +16,11 @@ const visibleLine = (text) =>
     (c) => `\\u{${c.codePointAt(0).toString(16).toUpperCase()}}`,
   );
 
+// A name or path the agent chose, as inline code: inside it the Telegram Markdown
+// renderer escapes everything (**, __, links), and a backtick, which would end it,
+// becomes a look-alike.
+const literal = (text) => `\`${visibleLine(text).replaceAll("`", "\u02cb")}\``;
+
 /**
  * The chat notes of an agent's project change (actionNotes): the creation of a project
  * or the agent's switch of its coding sessions, once the action row is settled.
@@ -50,7 +55,7 @@ export function notifyAgentProject(w, agent, action) {
     const p = action.payload,
       m = projectMessages(channels.store.get(target.channelId)).telegram,
       who = visibleLine(agent.name),
-      name = visibleLine(p.projectName);
+      name = literal(p.projectName);
     channels.outbox.enqueue({
       key: `agent-project:${action.id}`,
       source: target,
@@ -58,7 +63,7 @@ export function notifyAgentProject(w, agent, action) {
       localized: true,
       text:
         p.change === "create"
-          ? (p.coding ? m.createdWithCoding : m.created)(who, name, visibleLine(p.path))
+          ? (p.coding ? m.createdWithCoding : m.created)(who, name, literal(p.path))
           : (p.coding ? m.codingOn : m.codingOff)(who, name),
       path: `/projects/${encodeURIComponent(p.projectId)}?tab=agents`,
     });
