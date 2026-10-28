@@ -93,7 +93,7 @@ test("a completion run without its agent_end stops counting after its bound", (t
   assert.equal(liveProcesses("s").completing, 0);
 });
 
-test("a session with an unknown exec result is not complete", (t) => {
+test("an unknown exec result leaves an unknown process of its run, not a gap", (t) => {
   fresh(t);
   recordExec(
     execRecord(),
@@ -103,7 +103,14 @@ test("a session with an unknown exec result is not complete", (t) => {
       runId: "r",
     },
   );
-  assert.equal(liveProcesses("s").complete, false);
+  // It refuses other runs' completions until its run ends (exec-processes.js).
+  assert.equal(liveProcesses("s").complete, true);
+  assert.deepEqual(
+    execRecord()
+      .sessions.get("s")
+      .unknown.map((u) => u.runId),
+    ["r"],
+  );
 });
 
 test("the method answers counts only, admin scope, and refuses bad input", async (t) => {
