@@ -473,3 +473,17 @@ test("draft replacement: audited as a delete, the old draft survives a failed AP
   assert.equal(deleted().length, 1);
   f.untouched();
 });
+
+test("draft results cut attachment names to 200 characters", async (t) => {
+  const f = await changesFixture(t);
+  const long = `${"n".repeat(250)}.pdf`;
+  const attached = f.seed("Long", {
+    folder: "Drafts",
+    flags: ["\\Draft"],
+    message: withAttachment("Long").replaceAll('"a.pdf"', `"${long}"`),
+  });
+  const result = await f.mail({ action: "draft", draftUid: attached, subject: "Short" });
+  assert.equal(result.attachments.length, 1);
+  assert.equal(result.attachments[0].name.length, 200);
+  assert.ok(long.startsWith(result.attachments[0].name.slice(0, 199)));
+});

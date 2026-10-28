@@ -337,3 +337,140 @@ test("a text file attached to a draft is never taken for its body", async (t) =>
   assert.doesNotMatch(raw, /Body/);
   assert.equal(await code(f.run((c) => loadDraft(c, uid))), "MAIL_DRAFT_UNSUPPORTED");
 });
+
+test("a draft that cannot be read back returns its UID and keeps the old one", async (t) => {
+  const f = await partsFixture(t);
+  const first = await f.run((c) => saveDraft(c, sender, fields, { files: [csv] }));
+  // The kept parts are read, the new draft is stored, then every FETCH fails.
+  let structures = 0;
+  f.imap.mailbox.failFetch = (items) => /BODYSTRUCTURE/i.test(items) && ++structures > 1;
+  const second = await f.run((c) =>
+    saveDraft(c, sender, fields, { replaceUid: first.draftUid, files: [pdf("x")] }),
+  );
+  f.imap.mailbox.failFetch = null;
+  assert.equal(second.unreadable, true);
+  assert.equal(second.replaced, false);
+  assert.equal(second.attachments, null);
+  assert.equal(typeof second.draftUid, "number");
+  assert.deepEqual(
+    f.drafts().map((m) => m.uid),
+    [first.draftUid, second.draftUid],
+  );
+  assert.equal(f.imap.folder("Trash").messages.length, 0);
+});
+
+test("kept parts count toward the 25 MB limit", async (t) => {
+  const f = await partsFixture(t);
+  const first = await f.run((c) =>
+    saveDraft(c, sender, fields, { files: [pdf("kept")] }),
+  );
+  const keptSize = first.attachments[0].size;
+  const filler = {
+    filename: "fill.bin",
+    content: Buffer.alloc(26_214_400 - keptSize + 1),
+    contentType: "application/octet-stream",
+  };
+  assert.equal(
+    await code(
+      f.run((c) =>
+        saveDraft(c, sender, fields, { replaceUid: first.draftUid, files: [filler] }),
+      ),
+    ),
+    "MAIL_ATTACHMENT_TOO_LARGE",
+  );
+  assert.deepEqual(
+    f.drafts().map((m) => m.uid),
+    [first.draftUid],
+  );
+  assert.equal(f.imap.folder("Trash").messages.length, 0);
+});
+
+const logo = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]);
+const relatedMail = [
+  "From: owner@example.com\r\nTo: bob@example.org\r\nSubject: Logo\r\nMIME-Version: 1.0",
+  'Content-Type: multipart/mixed; boundary="m"\r\n\r\n--m',
+  'Content-Type: multipart/related; boundary="r"\r\n\r\n--r',
+  'Content-Type: text/html; charset=UTF-8\r\n\r\n<p><img src="cid:logo"></p>\r\n--r',
+  'Content-Type: image/png; name="logo.png"\r\nContent-ID: <logo>\r\nContent-Disposition: inline; filename="logo.png"\r\nContent-Transfer-Encoding: base64',
+  `\r\n${logo.toString("base64")}\r\n--r--\r\n\r\n--m`,
+  'Content-Type: text/csv; name="b.csv"\r\nContent-Disposition: attachment; filename="b.csv"\r\n\r\na;b\r\n--m--\r\n',
+].join("\r\n");
+
+test("a part nested under multipart/related is listed as 1.2", async (t) => {
+  const f = await partsFixture(t);
+  const { uid } = f.imap.mailbox.append("INBOX", {
+    raw: Buffer.from(relatedMail, "latin1"),
+  });
+  const parts = await f.run(async (c) => {
+    await openFolder(c, "INBOX");
+    return messageParts(c, uid, { raw: true });
+  });
+  assert.deepEqual(
+    parts.map(({ part, name, type }) => ({ part, name, type })),
+    [
+      { part: "1.2", name: "logo.png", type: "image/png" },
+      { part: "2", name: "b.csv", type: "text/csv" },
+    ],
+  );
+  assert.equal(parts[0].sha256, sha256(logo));
+  assert.match(parts[0].raw.toString("latin1"), /^Content-Type: image\/png;/);
+  assert.match(parts[0].raw.toString("latin1"), /Content-ID: <logo>/);
+  assert.equal(parts[1].sha256, sha256(Buffer.from("a;b")));
+});
+
+test("an attached message is kept byte for byte when its draft is replaced", async (t) => {
+  const f = await partsFixture(t);
+  const attachedPart =
+    'Content-Type: message/rfc822; name="fwd.eml"\r\nContent-Disposition: attachment; filename="fwd.eml"\r\n\r\n' +
+    "From: carol@example.org\r\nTo: owner@example.com\r\nSubject: Inner\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nInner body.\r\n";
+  const { uid } = f.imap.mailbox.append("Drafts", {
+    raw: Buffer.from(
+      'From: owner@example.com\r\nTo: bob@example.org\r\nSubject: Fwd\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="m"\r\n\r\n--m\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nSee below.\r\n--m\r\n' +
+        `${attachedPart}\r\n--m--\r\n`,
+      "latin1",
+    ),
+    flags: ["\\Draft"],
+  });
+  const loaded = await f.run((c) => loadDraft(c, uid));
+  assert.deepEqual(
+    loaded.attachments.map(({ part, name, type }) => ({ part, name, type })),
+    [{ part: "2", name: "fwd.eml", type: "message/rfc822" }],
+  );
+  assert.equal(
+    loaded.attachments[0].partSha256,
+    sha256(Buffer.from(attachedPart, "latin1")),
+  );
+  const saved = await f.run((c) => saveDraft(c, sender, fields, { replaceUid: uid }));
+  assert.equal(saved.attachments[0].partSha256, loaded.attachments[0].partSha256);
+  assert.ok(f.drafts().at(-1).raw.toString("latin1").includes(attachedPart));
+});
+
+test("a message that is one attachment keeps only its Content fields", async (t) => {
+  const f = await partsFixture(t);
+  const scan = pdfWith("Scan");
+  const { uid } = f.imap.mailbox.append("INBOX", {
+    raw: Buffer.from(
+      'From: scanner@example.org\r\nTo: owner@example.com\r\nSubject: Scan\r\nMIME-Version: 1.0\r\nContent-Type: application/pdf;\r\n name="scan.pdf"\r\nContent-Disposition: attachment; filename="scan.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\n' +
+        scan.toString("base64"),
+      "latin1",
+    ),
+  });
+  const [part] = await f.run(async (c) => {
+    await openFolder(c, "INBOX");
+    return messageParts(c, uid, { raw: true });
+  });
+  const raw = part.raw.toString("latin1");
+  assert.equal(part.part, "1");
+  assert.equal(part.sha256, sha256(scan));
+  assert.match(raw, /^Content-Type: application\/pdf;\r\n name="scan.pdf"\r\n/);
+  assert.match(raw, /\r\nContent-Transfer-Encoding: base64\r\n\r\n/);
+  assert.doesNotMatch(raw, /^(From|To|Subject|MIME-Version):/im);
+  assert.equal(part.partSha256, sha256(part.raw));
+  // As a raw part of a new draft it reads back with the same digests.
+  const saved = await f.run((c) =>
+    saveDraft(c, sender, fields, { rawParts: [part.raw] }),
+  );
+  assert.equal(saved.attachments[0].name, "scan.pdf");
+  assert.equal(saved.attachments[0].sha256, part.sha256);
+  assert.equal(saved.attachments[0].partSha256, part.partSha256);
+});
