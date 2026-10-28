@@ -1,5 +1,6 @@
 import { longListAgents, longListSessions } from "../fixtures/long-lists.js";
 import { systemStatusAnswer } from "./system-status-fixture.js";
+import { runCountsAnswer } from "./run-counts.js";
 
 const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -164,6 +165,10 @@ export async function serveLongLists(page, { agents = true, language } = {}) {
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants") return route.fulfill({ json: agentData });
+    if (path === "/api/pipeline-run-counts")
+      return route.fulfill({
+        json: runCountsAnswer(Object.values(runs).filter(Boolean)),
+      });
     if (path === "/api/pipeline-runs") {
       const run = runs[url.searchParams.get("status")];
       return route.fulfill({

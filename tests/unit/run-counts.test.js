@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { RUN_STATUSES, RunCounts } from "../../server/features/pipelines/run-counts.js";
-import { runListView } from "../../server/features/pipelines/run-list-view.js";
+import {
+  RUN_STATUSES,
+  RunCounts,
+  listDigest,
+} from "../../server/features/pipelines/run-counts.js";
 
 // Where a run was counted, without its list digest.
 const place = (entry) => entry && { projectId: entry.projectId, status: entry.status };
@@ -85,7 +88,7 @@ test("property: counts equal a full scan after any sequence of changes", () => {
             place(removed),
             before ? { projectId: before.projectId, status: before.status } : null,
           );
-          if (before) assert.equal(removed.listed, JSON.stringify(runListView(before)));
+          if (before) assert.equal(removed.listed, listDigest(before));
           runs.delete(run.id);
         } else {
           counts.observe(run);
@@ -118,5 +121,5 @@ test("the list digest changes with a listed field, not with the execution log", 
   const unchanged = counts.observe(logged);
   assert.equal(unchanged.listed, counts.observe(logged).listed);
   const moved = { ...logged, currentNodeId: "n1" };
-  assert.notEqual(counts.observe(moved).listed, JSON.stringify(runListView(moved)));
+  assert.notEqual(counts.observe(moved).listed, listDigest(moved));
 });

@@ -2,6 +2,7 @@ import { emptyInbox } from "../helpers/empty-inbox.js";
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
 const category = (total) => ({ total, problems: [], warnings: [], unknown: [] });
 // GET /connections/problems from the Settings summary's counts; an unknown count is
 // a category that could not be read (null).
@@ -212,6 +213,8 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     // the same sources, the agent runtime's updates included, while it is visible.
     else if (path === "/pipeline-runs" && method === "GET")
       result = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (path === "/pipeline-run-counts" && method === "GET")
+      result = runCountsAnswer([]);
     // The start page follows the live `inbox` topic; nothing waits here.
     else if (path === "/inbox" && method === "GET") result = emptyInbox;
     else if (path === "/assistant-runtime/updates" && method === "GET")

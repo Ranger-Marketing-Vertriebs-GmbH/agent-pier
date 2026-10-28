@@ -1,6 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
 
 test.use({ locale: "en-GB" });
 
@@ -35,6 +36,7 @@ async function fixture(page) {
     else if (url.pathname === "/api/agentbus") data = { version: "test", projects: [] };
     else if (url.pathname === "/api/pipeline-runs")
       data = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (url.pathname === "/api/pipeline-run-counts") data = runCountsAnswer([]);
     else if (url.pathname.endsWith("/entries")) {
       const query = url.searchParams.get("q") || "";
       const sort = url.searchParams.get("sort");

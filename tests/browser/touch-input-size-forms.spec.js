@@ -23,6 +23,7 @@ import { wizardSetup, openWizard, chooseSource } from "./mcp-wizard-fixture.js";
 import { hubFixture } from "./projects-fixture.js";
 import { artifactsFixture } from "./artifacts-fixture.js";
 import { userAgent, userAppFixture, userChat } from "../helpers/user-app-fixture.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
 
 // Dialogs and forms that need data: each step checks the controls it shows.
 test.use(phone);
@@ -242,6 +243,7 @@ test("knowledge editor and forget dialog", async ({ page }) => {
     else if (pathname === "/api/agentbus") json = { version: "test", projects: [] };
     else if (pathname === "/api/pipeline-runs")
       json = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (pathname === "/api/pipeline-run-counts") json = runCountsAnswer([]);
     else if (pathname === "/api/memory/projects") json = { projects: [project] };
     else if (pathname === "/api/memory/migration-backups") json = { count: 1 };
     else if (pathname.endsWith("/entries"))
