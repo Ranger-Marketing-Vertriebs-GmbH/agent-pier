@@ -2,6 +2,7 @@ import React from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 import ProjectRegistration from "./ProjectRegistration.jsx";
@@ -19,17 +20,12 @@ import "./profiles.css";
 import "./verification.css";
 import "./queue.css";
 
-// Started runs change on their own; the queue view follows them.
-const QUEUE_POLL_MS = 3000;
-
 /** Pipelines › Queue: a registered project's run queue and its concurrency limit. */
 export default function QueuePage({ route, navigate, home }) {
   const projects = useResource(listedProjectsPath),
     projectId = route.pipelineItem || "",
-    queue = useResource(
-      projectId ? `/pipeline-queue/${encodeURIComponent(projectId)}` : null,
-      { poll: QUEUE_POLL_MS },
-    );
+    // The live `pipeline.queue` topic pushes the queue and the runs it started.
+    queue = useLiveTopic(projectId ? `pipeline.queue:${projectId}` : null);
   const mobile = useMobileLayout();
   const draft = useDraftGuard(copy.discardDraft, route);
   const parts = useDraftParts(draft, ["settings"]);

@@ -411,6 +411,7 @@ export const pipelineCopy = {
   savedConfiguration: "Gespeicherte Konfiguration",
   definitionUnavailable: "Diese Pipeline ist nicht verfügbar.",
   profileUnavailable: "Dieses Profil ist nicht verfügbar.",
+  runUnavailable: "Dieser Lauf ist nicht verfügbar.",
   loading: "Pipelines werden geladen …",
   allProfiles: "Alle Profile",
   autonomousBadge: "Autonom",
