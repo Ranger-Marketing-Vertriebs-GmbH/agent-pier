@@ -165,7 +165,7 @@ export class AgentProjects {
       this.refresh(agent);
       return result;
     } catch (error) {
-      await this.rollback(agent, target, project, { recorded, granted });
+      await this.rollback(agent, target, made, project, { recorded, granted });
       throw error;
     }
   }
@@ -300,7 +300,7 @@ export class AgentProjects {
       .then(() => a.admit(() => a.config.apply(agent.id)))
       .catch(() => {});
   }
-  async rollback(agent, target, project, { recorded, granted }) {
+  async rollback(agent, target, made, project, { recorded, granted }) {
     try {
       if (granted && this.w.access.revokeProject(project.id).length) this.w.a.changed();
       if (recorded) this.store.remove(project.id, agent.id);
@@ -308,6 +308,17 @@ export class AgentProjects {
       if (project) this.w.s.memory.removeEmpty(project.id);
     } catch (error) {
       console.error("Agent project rollback failed:", error?.message);
+    }
+    // Only the folder this call made goes; whatever was put in its place stays.
+    let now;
+    try {
+      now = await fs.lstat(target, { bigint: true });
+    } catch {
+      return;
+    }
+    if (!now.isDirectory() || now.dev !== made.dev || now.ino !== made.ino) {
+      console.error("Agent project rollback left a replaced folder in place.");
+      return;
     }
     await fs.rm(target, { recursive: true, force: true }).catch(() => {});
   }
