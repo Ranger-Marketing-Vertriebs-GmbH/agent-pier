@@ -484,7 +484,7 @@ Server details: [Dreaming](assistant-gateway.md#dreaming).
 ### Access
 
 Everything the agent may use, in one tab: **Projects**, **SSH/SFTP**, **MCP servers**,
-**Pipelines**, **GitHub** and **Secrets**. You create these once under
+**Pipelines**, **GitHub**, **Secrets** and **Email**. You create these once under
 **Connections** and grant them here: each group ends in an add field
 (**Add <type> …**): type to filter, tick one or more entries (entries the agent already has
 show **already granted**), choose a mode where the group has one, then **Add n** and
@@ -578,6 +578,21 @@ it up. An agent of users gets project folders only; the other groups show a lock
   hook's transfers show in its **Events** entry instead.
   Every command is listed under **Actions and coding tasks** and recorded in the
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
+- **Email:** the mailboxes from **Connections › Email accounts** this agent may use
+  through the `agentpier_mail` tool, each with a level. **Read** lists, reads and
+  searches mail, marks, moves and archives it, moves it to Trash and saves drafts, all
+  without asking; nothing is ever deleted for good. **Read and send** also sends:
+  without asking when every to, cc and bcc recipient matches a rule in **Send without
+  asking to** (one address or domain per line, subdomains do not count), otherwise a
+  **Send email?** card in the chat, in the Inbox and in the paired Telegram chat shows
+  **From**, **To**, **Cc**, **Bcc**, **Subject** and the whole message with **Send**
+  and **Don't send**. A chat message is never an approval, and declining keeps the
+  draft. When a card settles, the chat keeps an **Email** note with the state, the
+  account, the number of recipients and the subject, never the body or an address.
+  Mail content is untrusted: instructions in a mail never let the agent send. Only
+  your own agents and permanent members can get email; agents of users, temporary
+  members and agents with a Telegram bot for other people cannot. Details, limits and
+  error codes in [Email for agents](mail.md).
 - **MCP servers:** the central servers bound to this agent, each with its status and
   **Open** (its entry under **Connections › MCP servers**). Add servers there; the MCP
   wizard's **Connect** step can bind them to agents directly. OAuth servers
@@ -1148,9 +1163,11 @@ own **Enabled** switch is off.
 - A hook's row opens its details: the name, sender and an **Instruction** (what the
   agent should do with an event), and **What a run may use**: **Notify** (a push notice
   with the result), **Also send to Telegram**, **Research** (web search and web pages),
-  **Coding CLI**, **Write memory**, **MCP servers** and **Secrets** (whether a run may
+  **Coding CLI**, **Write memory**, **MCP servers**, **Secrets** (whether a run may
   read the agent's [secrets file](secrets.md#agents); off by default, also for hooks
-  created before the switch existed), the **Shell** (off or the agent's own level),
+  created before the switch existed) and **Email** (whether a run may use the agent's
+  [email accounts](mail.md) as granted; offered only while the agent holds one, off by
+  default, and a send without a matching rule still waits for you), the **Shell** (off or the agent's own level),
   the **SSH hosts** set to **Trusted incl. routines** and each project
   **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
   agent holds: a switch the agent lacks is shown disabled with the reason, and a right
@@ -1520,7 +1537,7 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   that can include the lead's shell level and SSH accesses. Every grant is shown in
   the chats and on the team card, and later shell or SSH grants wait for you.
 - Agents of restricted users run under a hard lock: no shell, SSH, Git or GitHub,
-  coding, teams or OpenClaw session tools (which would reach the agent's other chats,
+  email, coding, teams or OpenClaw session tools (which would reach the agent's other chats,
   on a shared agent the other users'), and no visible browser window. You can give
   them project folders (files only) and MCP servers you registered. Local (stdio)
   servers run commands on the host for those users too, so bind them only where you
@@ -1546,6 +1563,10 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   without your confirmation; keep **With approval** for hosts where that matters. SSH
   for agents is convenience scoping under your user account, not a sandbox: an agent
   with **Full access** shell can read AgentPier's SSH key files.
+- **Email** content is untrusted. A mail can try to mislead the agent, but it can
+  never allow a send: without a matching recipient rule only the card's **Send**
+  button sends. Keep recipient rules to addresses and domains you would send anything
+  to ([Email for agents](mail.md)).
 
 See [SECURITY.md](../SECURITY.md) for the reporting policy and the full trust model.
 

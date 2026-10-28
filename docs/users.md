@@ -115,6 +115,7 @@ never gets:
 
 - shell access (`exec`, `process`) or SSH,
 - Git and GitHub, coding grants or pipelines,
+- email accounts ([Email for agents](mail.md)): not even the owner can grant them,
 - teams (asks, tasks, proposals, membership),
 - OpenClaw's session tools (access to its other chats),
 - project memory,
