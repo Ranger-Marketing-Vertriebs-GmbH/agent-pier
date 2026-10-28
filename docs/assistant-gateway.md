@@ -2626,7 +2626,7 @@ class. Rows hold counts only; completions are audited as `sftp.completed` and
 ## Agent email access (2026-10-27, AGENTPIER-264)
 
 `agentpier_mail` (actions `accounts`, `list`, `read`, `search`, `mark`, `move`,
-`draft`, `send`, `delete`) is compiled for own agents and permanent members
+`draft`, `send`, `delete`, `attachment`, `forward`) is compiled for own agents and permanent members
 (`goalAgent` in `profileTools`) whether or not they hold a grant: without one it
 answers `MAIL_NOT_GRANTED`, so a grant needs no recompile. It is in `routineTools`,
 in a hook run's tools only with the hook's **Email** tick (`agent-hook-rights.js`),
@@ -2686,6 +2686,51 @@ card the turn has no mail actions. Each settled card writes `chatNotes.result` o
 read as a `mail-run` chat event (state, code, account name, recipient count, subject;
 never the body or an address); the Telegram result names state, From, To, Cc, Bcc and
 Subject, never the body. The Inbox titles the card `<account> · <subject>`.
+
+Attachments and forwards (AGENTPIER-265). `attachment` (`agent-mail-attachments.js`)
+runs at the `read` level in every turn the gate lets through: mode `text` returns up
+to 32,000 characters from the account's text cache or from a download extracted in a
+killable child process (20 seconds; PDF, DOCX, XLSX, PPTX, text, CSV), mode `save`
+writes through `agent-mail-files.js`. `path` is the workspace folder (only `mail/`
+or below, default `mail/<account name>/`) or, with `projectId`, a folder in a project
+with write access under the SFTP reserved paths and the tool-configuration lock; the
+repository scan behind that lock fails closed above 10,000 folders
+(`project-config-lock.js`), so such a project refuses saves. The data directory is
+refused by device and inode and links are refused, never resolved (also in parent
+folders, so `/tmp` and `/var` fail on macOS; `/private/tmp` works); an existing file
+is never replaced (a hard-linked temporary file under the first free numbered name).
+Failures: `MAIL_SAVE_REFUSED`, `MAIL_ATTACHMENT_TOO_LARGE`, `MAIL_TEXT_UNSUPPORTED`,
+`MAIL_TEXT_FAILED`. A save is audited as `mail.downloaded` (`kind: "attachment"`,
+bytes, `workspace` or `project`; never a name or path).
+
+`draft`, `send` and `forward` take `attachments: [{ path, projectId? }]`, at most 20
+files and 25 MB in all. The files are read when the draft is saved
+(`agent-mail-sources.js`: the workspace and granted projects; any readable host path
+only with the shell level Full access; `.git`, the data directory and links refused:
+`MAIL_SOURCE_REFUSED`, `MAIL_SOURCE_NOT_FOUND`, `MAIL_SOURCE_EMPTY`) and stored in the
+draft, so the card's digest covers the exact bytes. `agent_mail_draft_files` remembers
+each part's source and the turn's file context for 30 days; `decide` checks every source
+again (`sourceAllowed`) and cancels a changed card with `ACCESS_CHANGED`. A part
+without a record, also after the 30 days, shows as "Already in the draft" without a
+path. A changed draft fails with `MAIL_DRAFT_CHANGED`. `forward`
+(`agent-mail-forward.js`, `mail-forward.js`) quotes the original's header block and text and
+sends its attachments as raw parts; inline `text/*` parts with a file name are left
+out and `cid:` images are plain attachments. The original's HTML goes along as a
+second part, reduced to the body content without scripts, styles and comments; HTML
+over 1 MiB, 20,000 tags or 500 levels is left out (`htmlNote` in the result, "omitted"
+on the card), and an HTML-only original over the bounds is `MAIL_DRAFT_UNSUPPORTED`.
+`read` returns a placeholder with `htmlTooComplex: true` for such HTML.
+`mailTelegramApprovable` also needs at most 10 attachments and no hidden or control
+characters in attachment names, paths, types, project names or the forward's sender,
+subject and date; Telegram shortens paths to 120 characters in the middle.
+`mail.sent` carries the attachment count and bytes.
+
+`search` with `attachmentText` (`mail-attachment-search.js`) scans at most 500
+candidates, 60 seconds and 200 MB; `partial: true` carries `reason` and `scanned`, or
+`skipped` alone when extraction was busy or timed out under load. Extracted text is
+cached in `<dataDir>/mail/text-cache` (256 MiB), excluded from backups and cleared
+when an account's IMAP host, port, security or username changes and when the account
+is removed.
 
 Audit: `mail.created`, `mail.updated` (field names), `mail.deleted`, `mail.tested`
 (result codes) for accounts; `assistant.updated` with `kind: "mail-grants"` (account

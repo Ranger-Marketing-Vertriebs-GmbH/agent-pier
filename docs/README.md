@@ -35,7 +35,7 @@ _(German)_ are not translated yet.
 | --------------------------------------------------- | ------------------------------------------------------------------------ |
 | [Agents](agents.md)                                 | User guide: agents page, wizard, settings tabs and teams                 |
 | [Users](users.md)                                   | Family members, their agents, levels, lock and privacy                   |
-| [Email for agents](mail.md)                         | IMAP/SMTP accounts, grants, recipient rules and approvals                |
+| [Email for agents](mail.md)                         | IMAP/SMTP accounts, attachments, forwarding, grants and approvals        |
 | [Shopping for agents](shopping.md)                  | Deals, carts and purchases with the owner's yes, guarded by instructions |
 | [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                                |
 | [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                                   |

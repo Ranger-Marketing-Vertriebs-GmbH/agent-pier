@@ -135,7 +135,8 @@ ran). Finished jobs stay readable for an hour.
 - **Agents:** a granted project folder (`projectId`) or, when none is given, the
   agent's workspace. Uploads need read access to the project folder; downloads and sync
   down need read-and-write access, and a routine needs **May write**. Links out of the
-  folder and AgentPier's protected roots are refused. Files to upload and the
+  folder and AgentPier's protected roots are refused. The same reserved paths apply when
+  an agent saves a mail attachment into a project ([email](mail.md#attachments)). Files to upload and the
   temporary files of a download are opened without following any link, so a parent
   folder swapped for a link after the checks is refused (`SFTP_PATH_REFUSED`). The
   local walk and local deletes work in the folder as opened, the same way

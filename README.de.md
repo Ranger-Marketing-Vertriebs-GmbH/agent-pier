@@ -67,7 +67,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **E-Mail für Agenten:** IMAP/SMTP-Postfächer (Gmail mit App-Passwort oder jedes
   andere) unter **Zugänge › E-Mail-Zugänge**, die Agenten mit der Stufe **Lesen** oder
   **Lesen und senden** aus **Zugriffe › E-Mail** nach neuen E-Mails durchsehen, lesen,
-  sortieren und für die sie Entwürfe speichern; eine E-Mail geht nur nach deiner
+  sortieren und für die sie Entwürfe speichern; sie durchsuchen auch den Text von PDF-
+  und Office-Anhängen, speichern, versenden und leiten Anhänge weiter, und eine geführte
+  Gmail-Einrichtung begleitet dich durch das App-Passwort; eine E-Mail geht nur nach deiner
   Freigabe im Chat, im Eingang oder in Telegram hinaus oder an Empfänger, die du unter
   **Ohne Rückfrage senden an** erlaubt hast ([E-Mail](docs/mail.md), auf Englisch).
 - **Einkaufen für Agenten:** deine eigenen Agenten mit **Einen Browser nutzen** und

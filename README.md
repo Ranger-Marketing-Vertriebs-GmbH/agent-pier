@@ -59,7 +59,9 @@ and agents that work as a team.
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
 - **Email for agents:** IMAP/SMTP mailboxes (Gmail with an app password, or any other)
-  that agents check for new mail, read, sort and draft in; a mail goes out only after
+  that agents check for new mail, read, search (also inside PDF and Office
+  attachments), sort and draft in, and whose attachments they save, attach and forward;
+  a guided Gmail setup walks you through the app password; a mail goes out only after
   your approval in the chat, the Inbox or Telegram, or to recipients you allowed
   ([email](docs/mail.md)).
 - **Shopping for agents:** your own agents with **Use a browser** and **Remember
