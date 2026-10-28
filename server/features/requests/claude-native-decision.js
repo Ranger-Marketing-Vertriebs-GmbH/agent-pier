@@ -18,8 +18,11 @@ export const recentLines = 10;
 // A subagent's hook names the session transcript, but Claude records the
 // subagent's calls in `<session>/subagents/agent-<agent_id>.jsonl`. Only a plain
 // token is joined into the path, so the result stays inside the session folder.
+// Claude's hook docs show the id both bare (`def456`) and as `agent-abc123`;
+// the file name adds the prefix once, so an existing prefix is dropped first.
 const agentIdPattern = /^[A-Za-z0-9_-]{1,64}$/;
-export function subagentTranscriptPath(transcriptPath, agentId) {
+export function subagentTranscriptPath(transcriptPath, rawId) {
+  const agentId = typeof rawId === "string" ? rawId.replace(/^agent-/, "") : rawId;
   if (
     typeof transcriptPath !== "string" ||
     !path.isAbsolute(transcriptPath) ||

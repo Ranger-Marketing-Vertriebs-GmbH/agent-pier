@@ -109,6 +109,15 @@ test("a subagent's calls are watched in its own transcript beside the session's"
     subagentTranscriptPath("/home/me/.claude/projects/p/s-1.jsonl", "a01f0579e46face77"),
     "/home/me/.claude/projects/p/s-1/subagents/agent-a01f0579e46face77.jsonl",
   );
+  // Claude's hook docs show the id with and without the file's `agent-` prefix.
+  assert.equal(
+    subagentTranscriptPath("/p/s.jsonl", "agent-a01f0579e46face77"),
+    "/p/s/subagents/agent-a01f0579e46face77.jsonl",
+  );
+  assert.equal(
+    subagentTranscriptPath("/p/s.jsonl", "a01f0579e46face77"),
+    "/p/s/subagents/agent-a01f0579e46face77.jsonl",
+  );
   assert.equal(
     subagentTranscriptPath("/p/s.jsonl", "agent_x-1"),
     "/p/s/subagents/agent-agent_x-1.jsonl",
@@ -125,6 +134,9 @@ test("an unsafe agent id or transcript path derives no subagent transcript", () 
     " a1",
     "a1\n",
     "a".repeat(65),
+    "agent-",
+    "agent-../x",
+    "agent-a/b",
     undefined,
     null,
     42,

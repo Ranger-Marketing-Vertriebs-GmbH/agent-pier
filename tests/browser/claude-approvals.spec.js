@@ -124,7 +124,9 @@ for (const locale of ["en-GB", "de-DE"]) {
       await page.goto("/sessions/fixture-session/chat");
       const card = page.locator(".native-request");
       await expect(card.locator("pre").first()).toHaveText("npm test");
-      await expect(card.getByText(en ? /agent$/ : /^Vom Agenten/)).toHaveCount(0);
+      await expect(
+        card.locator("small", { hasText: en ? "From the" : "Vom Agenten" }),
+      ).toHaveCount(0);
     });
 
     test("a plan renders as Markdown with approve and keep-planning answers", async ({

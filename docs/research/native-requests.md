@@ -136,7 +136,9 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   Claude Code writes the subagent's calls to
   `<dirname>/<basename without .jsonl>/subagents/agent-<agent_id>.jsonl`
   instead, beside a `.meta.json` file, and every record there carries the same
-  id as `agentId`. The hook watches only that file, and waits for it to
+  id as `agentId`. Claude's hooks reference shows `agent_id` both bare and
+  with the `agent-` prefix; the hook drops one leading `agent-` before it
+  builds the file name. The hook watches only that file, and waits for it to
   appear. It does not also watch the session transcript, because an identical
   call of the main agent there would settle the wrong request. The id is joined
   into the path only when it matches `^[A-Za-z0-9_-]{1,64}$`; any other value
@@ -145,6 +147,9 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   Until 2026-10-28 the hook watched only the session transcript, so every
   subagent approval left chat after 590 seconds while Claude's dialog kept
   waiting. Verified against the session folders of Claude Code 2.1.285.
+  According to the hooks reference, in-process teammates also carry
+  `agent_id`. Where their transcript lives is unverified; if the derived file
+  never shows their call, their approvals keep the 590-second bound as before.
 - **No matching `tool_use`.** This covers calls found in no watched transcript,
   for example after a future change of the transcript layout. A terminal
   approval cannot be observed, so the hook keeps the earlier 590-second bound.
@@ -168,8 +173,8 @@ Permission subjects name their target:
 
 - A subagent's approval names the agent from `agent_type` (at most 200
   characters): "From the general-purpose agent" ("Vom Agenten
-  general-purpose"). According to Claude Code's hooks reference, sessions
-  started with `--agent` also carry `agent_type`, so they show the same line.
+  general-purpose"). The line needs `agent_id`. A session started with
+  `--agent` carries `agent_type` alone; its main agent asks without the line.
 - `EnterWorktree` shows `EnterWorktree: <tool_input.path>`. Other tools'
   `path` inputs, such as the Glob or Grep search root, are not subjects.
 - `Workflow` shows `Workflow: <meta.name>`, with `meta.description` as the
