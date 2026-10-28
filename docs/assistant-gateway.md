@@ -3709,7 +3709,7 @@ The owner's privacy guard (`server/http/owner-content-guard.js`,
 `owner-content-routes.js` to its conversation or agent. Without the user's opt-in
 **Owner may read chats** (`PUT /api/users/:id/owner-may-read {enabled}`, audited) her
 chats, and the memory, attachments and browser of her own agent, answer 404, and his
-agent list and event stream leave her conversations out. With the opt-in her own
+agent list (also the live `agent.list` topic) leaves her conversations out. With the opt-in her own
 agent's memory, files and browser become readable in full, older entries included,
 and he reads her chats from its `since` on, never earlier, in history, feed snapshots, the chat stream, her
 queued message and chat file downloads; older history pages stay reachable until a
@@ -4680,17 +4680,17 @@ create](assistant-workflows.md#projects-agents-create).
 login and the origin check of the session chat stream. The upgrade is refused with
 404 for an unknown conversation (the check of the history route) and with 503 while
 the agent feature is off; a logout closes the socket (1008). The client sends nothing.
-The agent chat in the browser reads its messages only from this feed; the
-`/api/assistant-events` stream keeps the agent list and the sidebar current (see
-[Live agent list](#live-agent-list)) and no longer carries reply text.
+The agent chat in the browser reads its messages only from this feed; the live
+channel's `agent.list` topic keeps the agent list and the sidebar current (see
+[Live agent list](#live-agent-list)) and carries no reply text.
 
 - `ConversationFeeds` (`server/features/assistants/conversation-feeds.js`) keeps one
   feed per watched conversation, shared by every tab and device. An invalidation is
   debounced for 200 ms and then read once: the latest history window, exactly what
   `GET /api/assistant-conversations/<id>/messages` returns.
 - `AssistantService.changed({ conversationId })` invalidates only that feed; a plain
-  `changed()` invalidates every live feed. Both still publish the `change` event on
-  `/api/assistant-events` for the list and the sidebar. The busy paths name their
+  `changed()` invalidates every live feed. Both still publish the `change` event, which
+  makes the `agent.list` topic read the list and the sidebar again. The busy paths name their
   conversation: a sent turn, the queued message, a confirmed run, a compaction, a
   routine, reminder or check-in result, and Telegram input and reply delivery. A
   run's terminal chat frame invalidates its feed directly. While a turn of the
@@ -4935,41 +4935,39 @@ now** and **Hide** where the person can act ([What the agent is doing](agents.md
 
 ## Live agent list
 
-`/api/assistant-events` (server-sent events, behind the login) carries the agent list
-that the sidebar, the agents page and the settings read, as diffs instead of a full
-`GET /api/assistants` per `change` event in every tab.
+The agent list that the sidebar, the agents page and the settings read travels on the
+live channel (`GET /api/live`, see [Live channel](architecture.md#live-channel)) as the
+owner-only topic `agent.list`, as diffs instead of a full `GET /api/assistants` per
+`change` event in every tab. It replaced the `/api/assistant-events` server-sent event
+stream, which no longer exists (404).
 
-- `AssistantListFeed` (`server/features/assistants/assistant-list-feed.js`) is one
-  feed per service, shared by every tab and device. Each `change` or `runtime` event
-  schedules a read, debounced for 200 ms; a burst of events reads once, and nothing
-  is read without a subscriber. The read is the `GET /api/assistants` body plus
-  `runtime`, the `GET /api/assistant-runtime` answer.
-- The list becomes `ChatSync` rows (`listRows`): one row per item of an array whose
-  items have unique ids (`assistants/<id>`, `conversations/<id>`, ...), one per key
-  of an object (`activity/<agentId>`, ...), and one for any other section; the
-  metadata `shape` names each section's kind, so empty sections survive. Frames are
-  `id: <cursor>` plus `data: {"type":"sync","data":...}` with the encoding of the
-  chat feed (a full list or a delta with `upserts`, `removed` and `order`). A read
-  that changes nothing sends nothing; subscribers on one cursor share one encoding.
-- The stream opens with `{type: "connected", list: true}` and then sends the list
-  against the cursor of `Last-Event-ID` (the browser's own reconnect) or the
-  `cursor` query parameter (a new stream): a delta when the baseline is known, else
-  the whole list. A tab that joins a settled feed gets that value at once and the
-  fresh read after it. Baselines live in the feed's own `ChatSync` (30 minutes, not
-  persisted); after a restart the stream answers with the whole list. A failed read
-  sends `{type: "list-error"}`.
-- `change` and `runtime` events still go out; views with their own data (an
-  agent's waiting actions, a lead's team coding requests) still read on `change`.
-- The browser (`AssistantsRoot.jsx`, `agent-list-sync.js`) applies the frames with
-  the session chat's `applyChatSync` and rebuilds the list; sections without changed
-  rows keep their identity, so views keyed on one (the teams, for example) do not
-  reload. A delta on another base reopens the stream without a cursor for the whole
-  list. The browser reads `GET /api/assistants` once when the page starts (a
-  sync that overtakes the read wins) and otherwise only as the fallback: while the
-  stream fails (which also tells whether AgentPier is reachable), after
-  `list-error`, for a server without `list: true` (on `connected` and `change`),
-  on coming back to a page whose stream is closed, and after the owner's own actions
-  that call `refresh()`.
+- `agentListTopic` (`server/features/assistants/live-topics.js`) reads the
+  `GET /api/assistants` body plus `runtime`, the `GET /api/assistant-runtime` answer.
+  Every `change` or `runtime` event of the agent services reads it again; the live hub
+  shares one read among every tab and device, debounces a burst (150 ms, at most 1 s)
+  and pushes only a list that changed. Agents switched on or off replace the services:
+  the topic binds to the new ones and reads again. Without agent services it refuses
+  like the routes (404 off, 503 not running), marked as expected, so nothing is
+  logged and the browser reads the route once to show its answer.
+- The list becomes `ChatSync` rows (`listRows`, `server/features/live/live-rows.js`):
+  one row per item of an array whose items have unique ids (`assistants/<id>`,
+  `conversations/<id>`, ...), one per key of an object (`activity/<agentId>`, ...),
+  and one for any other section; the metadata `shape` names each section's kind, so
+  empty sections survive. A subscription gets a `snapshot`, later changes a `delta`
+  (`upserts`, `removed` and `order`) onto its cursor; a reconnect resubscribes with
+  the cursor it holds and gets a delta, or the whole list for an unknown cursor (row
+  baselines live 30 minutes in the hub and are not persisted). A list over 1 MiB is
+  sent as `stale`, and the browser reads it over REST.
+- The browser (`AssistantsRoot.jsx`) follows the topic with `startLiveTopic`
+  (`web/lib/live/live-topic-reader.js`); `applyListSync` rebuilds the list, and
+  sections without changed rows keep their identity, so views keyed on one (the
+  teams, for example) do not reload. Its REST reads take `GET /api/assistants` and
+  `GET /api/assistant-runtime` together (the topic's `sections`): after `stale`, in
+  the channel's fallback, when the topic is refused, coming back online, and after
+  the owner's own actions that call `refresh()`; a push that arrives during such a
+  read is newer and stays. Each applied list is also handed to the views that read
+  their own data on agent changes (an agent's waiting actions while its chat feed is
+  down) as a `change` event.
 
 ## Chat attachments (2026-10-13)
 

@@ -139,11 +139,6 @@ test("English Access tab switches coding sessions for a granted project and save
       };
     } else if (url.pathname.endsWith("/access")) body = policy;
     else if (url.pathname.endsWith("/actions")) body = { actions: [] };
-    else if (url.pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else return route.fallback();
     await route.fulfill({ json: body });
   });

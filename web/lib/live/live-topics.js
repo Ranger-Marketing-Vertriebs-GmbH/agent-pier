@@ -2,7 +2,8 @@
 // how a frame is applied (`rows`: ChatSync rows rebuilt with applyListSync, `state`:
 // the whole value, `signal`: only `changed`, the caller names the route to read), the
 // REST route that answers the same data for `stale` and the fallback, the fallback's
-// poll interval, whether the parameter may be left out (`optionalParam`) or a signal
+// poll interval, the `sections` a topic's value adds from routes of their own, whether
+// the parameter may be left out (`optionalParam`) or a signal
 // topic needs one (`paramRequired`), and whether the server samples the topic (then a
 // hidden tab unsubscribes it at once). Pure: the Node test stub imports it.
 const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
@@ -76,6 +77,14 @@ export const liveTopics = Object.freeze({
     path: () => "/connections/problems",
     interval: 30000,
     sampled: true,
+  }),
+  // The agent list (sidebar, agents page, settings) with the agent runtime's status,
+  // which its own route answers: the value is `{...list, runtime}`.
+  "agent.list": Object.freeze({
+    mode: "rows",
+    path: () => "/assistants",
+    sections: Object.freeze({ runtime: () => "/assistant-runtime" }),
+    interval: 5000,
   }),
   "runtime.updates": Object.freeze({
     mode: "state",
@@ -186,11 +195,26 @@ export function topicInfo(topicId) {
     path = null,
     interval,
     sampled = false,
+    sections = null,
     optionalParam = false,
     paramRequired = false,
   } = liveTopics[name];
   if (param === "") return null;
   const takesParam = paramRequired || path?.length > 0;
   if (!optionalParam && (takesParam ? !param : param !== undefined)) return null;
-  return { name, param, mode, path, interval, sampled };
+  return { name, param, mode, path, interval, sampled, sections };
+}
+
+/**
+ * A topic's value over REST: `read(path)` of its route and, for each of `sections`
+ * (topicInfo), that section's route added under its name. One failed read fails all.
+ */
+export async function readTopicValue(path, sections, read, param) {
+  const named = Object.entries(sections || {});
+  const [value, ...parts] = await Promise.all([
+    read(path),
+    ...named.map(([, route]) => read(route(param))),
+  ]);
+  if (!named.length) return value;
+  return { ...value, ...Object.fromEntries(named.map(([name], i) => [name, parts[i]])) };
 }

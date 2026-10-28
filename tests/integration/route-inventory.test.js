@@ -11,7 +11,6 @@ test("inventory lists every registered API route once", async (t) => {
   for (const expected of [
     "GET /api/assistants",
     "POST /api/assistant-conversations/:id/messages",
-    "GET /api/assistant-events",
     "GET /api/health",
     "POST /api/users",
     "GET /api/me",
@@ -27,6 +26,17 @@ test("inventory lists every registered API route once", async (t) => {
     "duplicate routes",
   );
   for (const route of routes) assert.match(route.path, /^\/api\//);
+  // The agent list moved into the live channel (`agent.list`); its stream is gone.
+  assert.ok(!keys.includes("GET /api/assistant-events"));
+});
+
+test("the removed agent event stream answers 404", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const response = await f.request("/api/assistant-events", {
+    headers: { accept: "text/event-stream" },
+  });
+  assert.equal(response.status, 404);
+  assert.doesNotMatch(response.headers.get("content-type") || "", /event-stream/);
 });
 
 test("inventory reports the agent routes only while agents run", async (t) => {

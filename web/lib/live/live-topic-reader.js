@@ -7,7 +7,7 @@
 // once the tab is visible. A hidden tab requests nothing.
 import { attemptRead } from "../resource-reads.js";
 import { startVisiblePolling } from "../visible-polling.js";
-import { topicInfo } from "./live-topics.js";
+import { readTopicValue, topicInfo } from "./live-topics.js";
 
 const browser = () => ({
   document: globalThis.document,
@@ -32,6 +32,9 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const { document } = scope;
   const info = topicInfo(topicId);
   const path = route || (info?.path ? info.path(info.param) : null);
+  // The route and, for a topic with sections, each section's own route.
+  const load = (signal) =>
+    readTopicValue(path, info?.sections, (part) => read(part, signal), info?.param);
   const state = { data: null, error: "", loading: true, connected: false };
   let stopped = false,
     version = 0,
@@ -70,7 +73,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     const controller = new scope.AbortController();
     oneTime = controller;
     const started = version;
-    const result = await attemptRead((signal) => read(path, signal), {
+    const result = await attemptRead(load, {
       signal: controller.signal,
       timeoutMs: readTimeoutMs,
       env: scope,
@@ -97,10 +100,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       stopPolling = startVisiblePolling(
         async (signal) => {
           const started = version;
-          accept(
-            await attemptRead((inner) => read(path, inner), { signal, env: scope }),
-            started,
-          );
+          accept(await attemptRead(load, { signal, env: scope }), started);
         },
         info.interval,
         scope,

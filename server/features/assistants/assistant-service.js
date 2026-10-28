@@ -36,7 +36,6 @@ import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds } from "./conversation-feeds.js";
 import { RunSteps } from "./run-steps.js";
 import { guardStalledRuns } from "./run-stall-guard.js";
-import { assistantListFeed } from "./assistant-list-feed.js";
 import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
 import { AgentChats } from "./agent-chats.js";
@@ -85,8 +84,6 @@ export class AssistantService {
     this.runSteps = new RunSteps({ now: () => this.now() });
     // The open chats' live feeds (conversation-feeds.js).
     this.feeds = conversationFeeds(this);
-    // The agent list as diffs on the event stream (assistant-list-feed.js).
-    this.listFeed = assistantListFeed(this);
     // Several chats per agent, each its own native session (agent-chats.js).
     this.chats = new AgentChats(this);
     // A long chat's hint: summarise now, or hide it (long-chats.js).
@@ -582,7 +579,6 @@ export class AssistantService {
     this.unsubscribe?.();
     this.chatStreams.clear();
     this.feeds.close();
-    this.listFeed.close();
     this.gatewayEvents.unsubscribe?.();
     this.runtime.off("status", this.onStatus);
     await this.workflows?.close();

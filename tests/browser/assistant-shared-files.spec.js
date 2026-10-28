@@ -175,10 +175,7 @@ test("files the agent shares appear in the open chat, download, and stay while o
   await page.getByRole("button", { name: /^Chief of Staff, / }).click();
   await expect(page.getByText("Another chat.")).toBeVisible();
   network.offline = true;
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("offline"));
-    window.assistantTestStream.onerror?.();
-  });
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   await page.getByRole("button", { name: /^Home assistant, / }).click();
   await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner$/);
   await expect(log.getByRole("link", { name: "Download data.csv" })).toBeVisible();

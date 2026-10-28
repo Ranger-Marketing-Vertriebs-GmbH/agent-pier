@@ -4,10 +4,11 @@ import "./assistant-chat.css";
 import "./assistant-teams.css";
 import "./assistant-settings.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { assistantApi } from "./assistant-api.js";
+import api from "../../lib/api.js";
+import { liveClient } from "../../lib/live/live-client.js";
+import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 import { sharedDrafts } from "./useAssistants.js";
 import { AgentHistoryCache, connectionLost } from "./agent-offline.js";
-import { applyListSync } from "./agent-list-sync.js";
 const none = [];
 const nothing = {};
 // The host state from a list read or a list sync; missing sections stay stable.
@@ -25,8 +26,9 @@ const toData = (next) => ({
   teamSettings: next.teamSettings,
   activity: next.activity || nothing,
 });
-// Lazily loaded owner of the assistant data and the event stream. It renders nothing
-// and publishes into the always-mounted gate, so toggling it never remounts the app.
+// Lazily loaded owner of the agent data: the live `agent.list` topic (the list with
+// the runtime status) and the events derived from it. It renders nothing and
+// publishes into the always-mounted gate, so toggling it never remounts the app.
 export default function AssistantsHost({ publishState, publishEvents }) {
   const [data, setData] = useState({
     assistants: [],
@@ -47,136 +49,83 @@ export default function AssistantsHost({ publishState, publishEvents }) {
     listed.current = data.conversations;
   }, [histories, data.conversations]);
   const listeners = useRef(new Set());
-  const alive = useRef(true);
-  // Counts applied list syncs: a read that a sync overtook is not shown.
-  const syncs = useRef(0);
-  const refresh = useCallback(async () => {
-    const seen = syncs.current;
-    try {
-      const [next, status] = await Promise.all([
-        assistantApi.list(),
-        assistantApi.runtime(),
-      ]);
-      if (alive.current) {
-        // A sync that arrived meanwhile is at least as new; it stays.
-        if (syncs.current === seen) {
-          setData(toData(next));
-          setRuntime(status);
+  // The topic's reader: its refresh() reads the list over REST after the owner's own
+  // writes; a push that arrives meanwhile is newer and stays.
+  const reader = useRef(null);
+  const refresh = useCallback(
+    () => reader.current?.refresh() ?? Promise.resolve(null),
+    [],
+  );
+  useEffect(() => {
+    let alive = true,
+      // The list last shown, and whether the live channel was connected.
+      shown = null,
+      linked = false;
+    const emit = (event) => {
+      for (const listener of [...listeners.current]) listener(event);
+    };
+    // A REST read of the list or the runtime (the fallback, `stale`, refresh()) also
+    // tells whether AgentPier is there; the shown agents stay until one succeeds.
+    const read = async (path, signal) => {
+      try {
+        const value = await api(path, "GET", undefined, signal);
+        if (alive) setReachable(true);
+        return value;
+      } catch (e) {
+        if (alive && !signal?.aborted) {
+          if (connectionLost(e)) setReachable(false);
+          else setError(e.message);
         }
+        throw e;
+      }
+    };
+    const client = liveClient();
+    const started = startLiveTopic({
+      topicId: "agent.list",
+      client,
+      read,
+      report: ({ data, connected: live }) => {
+        if (!alive) return;
+        // Disconnected once the channel gave up for now and the list is polled
+        // (LiveClient fallback), not for each reconnect that follows a dropped socket.
+        setConnected(live || !client.status().fallback);
+        // A new connection reaches AgentPier; views with their own data read again.
+        if (live && !linked) {
+          setReachable(true);
+          emit({ type: "connected" });
+        }
+        linked = live;
+        if (!data || data === shown) return;
+        shown = data;
+        const { runtime: status, ...list } = data;
+        setData((old) => {
+          const next = toData(list);
+          // Unchanged sections keep their identity, and so does an unchanged list.
+          return Object.keys(next).every((key) => next[key] === old[key]) ? old : next;
+        });
+        if (status) setRuntime((old) => (old === status ? old : status));
         setError("");
         setReachable(true);
-      }
-    } catch (e) {
-      if (!alive.current) return;
-      if (connectionLost(e)) setReachable(false);
-      else setError(e.message);
-    }
-  }, []);
-  useEffect(() => {
-    alive.current = true;
-    // The first list comes at once, also when the stream is slow to connect.
-    refresh();
-    let stream,
-      timer,
-      attempts = 0,
-      // The list as last synced ({state, list, sections}): its cursor resumes.
-      synced = null,
-      // Whether this stream sends the list as diffs; an older server only says
-      // "change", and the list is read again for each.
-      feed = false;
-    // 2 is EventSource.CLOSED.
-    const closed = () => stream?.readyState === 2;
-    const open = () => {
-      clearTimeout(timer);
-      stream?.close();
-      feed = false;
-      const cursor = synced?.state.sync.cursor;
-      stream = new EventSource(
-        `/api/assistant-events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-      );
-      stream.onopen = () => {
-        attempts = 0;
-        setConnected(true);
-      };
-      stream.onerror = () => {
-        setConnected(false);
-        // Each failed attempt also tries the list, which tells whether AgentPier is
-        // there at all; the shown agents stay until a read succeeds.
-        refresh();
-        // A refused stream (an error page, the service restarting) is closed for good:
-        // open a new one with backoff instead of waiting for a reload.
-        if (closed()) timer = setTimeout(open, Math.min(1000 * 2 ** attempts++, 30000));
-      };
-      stream.onmessage = (message) => {
-        let event;
-        try {
-          event = JSON.parse(message.data);
-        } catch {
-          return;
-        }
-        for (const listener of [...listeners.current]) listener(event);
-        // The browser status and a pending restart come only with the list; the
-        // event keeps the last ones.
-        if (event.type === "runtime")
-          setRuntime((old) => ({
-            browser: old.browser,
-            pendingRestart: old.pendingRestart,
-            ...event,
-          }));
-        if (event.type === "connected") feed = !!event.list;
-        if (event.type === "sync") applySync(event.data);
-        // Without the feed, or when it could not read the list: read it whole.
-        if (
-          event.type === "list-error" ||
-          (!feed && ["change", "connected"].includes(event.type))
-        )
-          refresh();
-      };
-    };
-    const applySync = (data) => {
-      try {
-        synced = applyListSync(synced, data);
-      } catch {
-        // Another base or a malformed frame: start over with the whole list.
-        synced = null;
-        open();
-        return;
-      }
-      syncs.current++;
-      const { runtime: status, ...list } = synced.list;
-      setData((old) => {
-        const next = toData(list);
-        // Unchanged sections keep their identity, and so does an unchanged list.
-        return Object.keys(next).every((key) => next[key] === old[key]) ? old : next;
-      });
-      if (status) setRuntime((old) => (old === status ? old : status));
-      setError("");
-      setReachable(true);
-    };
-    open();
+        // The list follows every change of the agents: an agent's waiting actions,
+        // read while its chat feed is down (useAssistantActions), follow it too.
+        emit({ type: "change" });
+      },
+    });
+    reader.current = started;
     const offline = () => setReachable(false);
-    // Back online or in the foreground again: check now rather than after the backoff.
-    const resume = () => {
-      if (document.hidden) return;
-      // An open feed keeps the list current; otherwise read it now.
-      if (!feed || closed()) refresh();
-      if (closed()) {
-        attempts = 0;
-        open();
-      }
-    };
+    // Back online: one read tells whether AgentPier is there again, also while the
+    // channel's socket outlived the outage and pushes nothing new.
+    const online = () => started.refresh();
     window.addEventListener("offline", offline);
-    window.addEventListener("online", resume);
-    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", online);
     return () => {
-      alive.current = false;
-      clearTimeout(timer);
-      stream.close();
+      alive = false;
+      if (reader.current === started) reader.current = null;
+      started.stop();
       window.removeEventListener("offline", offline);
-      window.removeEventListener("online", resume);
-      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", online);
     };
-  }, [refresh]);
+  }, []);
   const value = useMemo(
     () => ({
       ...data,

@@ -11,7 +11,7 @@
 import { randomUUID } from "node:crypto";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
 import { listRows } from "../../server/features/live/live-rows.js";
-import { topicInfo } from "../../web/lib/live/live-topics.js";
+import { readTopicValue, topicInfo } from "../../web/lib/live/live-topics.js";
 
 /** The header of the stub's own REST reads; request recorders skip them. */
 export const liveStubHeader = "x-agentpier-live-stub";
@@ -20,6 +20,12 @@ export const liveStubHeader = "x-agentpier-live-stub";
 export const isLiveStubRequest = (request) => request.headers()[liveStubHeader] === "1";
 
 const waitMs = 10000;
+
+// The stub of each page, for helpers that get only the page (liveStubOf).
+const stubs = new WeakMap();
+
+/** The live stub of `page` (null without one, as with `live: "real"`). */
+export const liveStubOf = (page) => stubs.get(page) ?? null;
 
 const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -48,7 +54,8 @@ async function readThroughPage(page, path, sampled) {
 /**
  * Routes `**\/api/live` of `page` to a stub and returns its controls:
  * subscriptions(), received(), connections(), waitForSubscribe(topicId),
- * push(topicId, value), changed(topicId), stale(topicId), revoke(topicId), refuse(),
+ * push(topicId, value), pushRest(topicId), reread(topicId), changed(topicId), stale(topicId),
+ * revoke(topicId), refuse(),
  * close(code), dispose(). `received()` lists the frames the page sent, in order;
  * `connections()` counts the sockets it opened, refused ones included.
  */
@@ -101,13 +108,33 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     socket.topics.delete(topic);
   };
 
+  // The topic's REST value as {ok, text}: its route plus each section's own route.
+  const readTopic = async (info) => {
+    const answers = new Map();
+    const value = await readTopicValue(
+      info.path(info.param),
+      info.sections,
+      async (path) => {
+        const answer = await readThroughPage(page, path, info.sampled);
+        answers.set(path, answer);
+        return answer?.ok ? JSON.parse(answer.text) : undefined;
+      },
+      info.param,
+    ).catch(() => undefined);
+    if (!info.sections) return answers.values().next().value ?? null;
+    const all = [...answers.values()];
+    if (all.some((answer) => !answer)) return null;
+    if (all.some((answer) => !answer.ok)) return { ok: false, text: "" };
+    return { ok: true, text: JSON.stringify(value) };
+  };
+
   const follow = (socket, topic, entry, info) => {
-    const path = info.path(info.param);
     let last = null;
     let first = true;
     const read = async () => {
       if (entry.stopped || disposed) return;
-      const answer = await readThroughPage(page, path, info.sampled);
+      clearTimeout(entry.timer);
+      const answer = await readTopic(info);
       if (entry.stopped || disposed) return;
       if (answer && !answer.ok && first) send(socket, { type: "error", topic });
       if (answer?.ok && answer.text !== last) {
@@ -121,8 +148,11 @@ export async function stubLive(page, { mode = "rest" } = {}) {
         if (value !== undefined) dataFrame(socket, topic, value);
       }
       if (answer) first = false;
+      clearTimeout(entry.timer);
       entry.timer = setTimeout(read, info.interval);
     };
+    // A server-side change: read now instead of at the next interval.
+    entry.reread = read;
     read();
   };
 
@@ -212,7 +242,21 @@ export async function stubLive(page, { mode = "rest" } = {}) {
       latest.set(topic, value);
       for (const socket of holders(topic)) dataFrame(socket, topic, value);
     },
+    // "manual" mode: pushes what the topic's REST routes answer now (the spec's mocks).
+    async pushRest(topic) {
+      const info = topicInfo(topic);
+      const answer = info?.path && (await readTopic(info));
+      if (!answer?.ok) throw new Error(`live stub: no REST value for ${topic}`);
+      stub.push(topic, JSON.parse(answer.text));
+    },
     changed: (topic) => each(topic, { type: "changed", revision: ++revision }),
+    // "rest" mode: reads the topic's routes now and pushes what changed, as the
+    // server does after a change event.
+    async reread(topic) {
+      await Promise.all(
+        holders(topic).map((socket) => socket.topics.get(topic)?.reread?.()),
+      );
+    },
     stale: (topic) => each(topic, { type: "stale" }),
     revoke(topic) {
       for (const socket of holders(topic)) {
@@ -239,6 +283,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
   };
   // A closed page reads nothing more, also in contexts the spec closes itself.
   page.once("close", () => stub.dispose());
+  stubs.set(page, stub);
   return stub;
 }
 

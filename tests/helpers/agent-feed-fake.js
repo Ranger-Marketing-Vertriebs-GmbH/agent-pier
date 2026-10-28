@@ -3,15 +3,16 @@
 // with Playwright. It never opens a real socket: every feed socket reads the routed
 // history (`GET …/messages`) and pushes it as a full `sync` frame, like the server
 // after a change. Pushes follow what moves the real feed:
-// - a change or connected event a test hands the fixture's fake event stream
-//   (`window.assistantTestStream.onmessage`), and a `delta` event becomes a whole
-//   `stream` frame of its conversation;
+// - a change or connected event a test hands agentEvent() below, and a `delta` event
+//   becomes a whole `stream` frame of its conversation;
 // - every non-GET request to a conversation or attempt (send, queue, stop, ...);
 // - `window.agentFeed.push(id?)`, `.stream(id, runId, text, from)`, `.send(id, frame)`,
 //   `.drop(id, code)`.
 // `window.agentFeed.synced(id)` tells whether a socket of that chat delivered its
 // first sync: a stream frame sent before it is cleared by that sync when no turn is
 // open, as with the real feed.
+
+import { liveStubOf } from "./live-stub.js";
 
 // `base` is where the feed reads its chat: the user app reads /api/me/conversations.
 function installFeed({ base = "/api/assistant-conversations" } = {}) {
@@ -96,34 +97,6 @@ function installFeed({ base = "/api/assistant-conversations" } = {}) {
         this.stream(event.conversationId, event.runId || "fixture-run", event.text);
     },
   };
-  // A test's events on the fixture's fake event stream reach the feed too.
-  let testStream;
-  Object.defineProperty(window, "assistantTestStream", {
-    configurable: true,
-    get: () => testStream,
-    set(value) {
-      testStream = value;
-      if (!value || typeof value !== "object") return;
-      let handler;
-      Object.defineProperty(value, "onmessage", {
-        configurable: true,
-        get: () =>
-          handler &&
-          ((message) => {
-            const result = handler.call(value, message);
-            try {
-              window.agentFeed.event(JSON.parse(message.data));
-            } catch {
-              /* not an event of this feed */
-            }
-            return result;
-          }),
-        set: (fn) => {
-          handler = fn;
-        },
-      });
-    },
-  });
   // A change the page makes is pushed back, as the server's change hint does.
   const nativeFetch = window.fetch;
   window.fetch = async (...args) => {
@@ -145,3 +118,14 @@ export const installAgentFeedFake = (page) => page.addInitScript(installFeed);
 /** The same fake for the user app, whose chats read /api/me/conversations. */
 export const installUserFeedFake = (page) =>
   page.addInitScript(installFeed, { base: "/api/me/conversations" });
+
+/**
+ * A server-side agent event in a spec: `change`, `connected` or `runtime` makes the
+ * live stub read the agent list's routes again and push what changed (the server's
+ * `agent.list` topic does so on every change), and the fake chat feeds read their
+ * chats again; a `delta` streams into its conversation's feed.
+ */
+export async function agentEvent(page, event) {
+  await page.evaluate((event) => window.agentFeed?.event(event), event);
+  if (event?.type !== "delta") await liveStubOf(page)?.reread("agent.list");
+}

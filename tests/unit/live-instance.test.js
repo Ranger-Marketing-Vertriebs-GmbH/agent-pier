@@ -284,3 +284,32 @@ test("a subscriber leaving during sampling() stops the cycle before a read", asy
   await clock.advance(0);
   assert.equal(source.reads, 1);
 });
+
+test("a subscriber joining while no read succeeded yet is answered by a new read", async (t) => {
+  let fail = true;
+  const { clock, source, instance } = setup(t, {
+    read: async () => {
+      source.reads++;
+      if (fail) throw Object.assign(new Error("off"), { expected: true });
+      return { ok: true };
+    },
+  });
+  const first = listen(instance);
+  await clock.advance(0);
+  assert.deepEqual(first.frames, [{ type: "error", topic: "demo" }]);
+  // A second tab: the instance holds no value, so it reads again for it.
+  const second = listen(instance);
+  await clock.advance(1000);
+  assert.equal(source.reads, 2);
+  assert.deepEqual(second.frames, [{ type: "error", topic: "demo" }]);
+  fail = false;
+  const third = listen(instance);
+  await clock.advance(1000);
+  assert.deepEqual(third.frames[0].data, { ok: true });
+  // Each waiting subscriber heard one error, and the read that succeeded answers all.
+  for (const { frames } of [first, second])
+    assert.deepEqual(
+      frames.map((frame) => frame.type),
+      ["error", "snapshot"],
+    );
+});

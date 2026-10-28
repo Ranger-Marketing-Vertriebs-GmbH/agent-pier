@@ -157,11 +157,6 @@ export async function serveLongLists(page, { agents = true, language } = {}) {
       });
     if (path === "/api/assistant-feature")
       return route.fulfill({ json: { enabled: agents, error: null } });
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants") return route.fulfill({ json: agentData });

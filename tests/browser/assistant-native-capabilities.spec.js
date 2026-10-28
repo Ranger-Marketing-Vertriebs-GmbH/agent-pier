@@ -32,11 +32,6 @@ async function setup(page, reminders = []) {
       body = { availability: "ready", sync: "current" };
     else if (url.pathname === "/api/assistant-channels")
       body = { channels: [connectedChannel()] };
-    else if (url.pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else if (url.pathname.endsWith("/memory/search"))
       body = {
         results: [

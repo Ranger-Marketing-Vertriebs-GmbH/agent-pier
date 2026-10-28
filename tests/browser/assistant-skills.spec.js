@@ -106,11 +106,6 @@ async function setup(
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants/home/skills")
       return unavailable
         ? route.fulfill({

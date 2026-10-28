@@ -177,11 +177,6 @@ for (const [language, label, viewport] of cases) {
             sshAccesses: [],
           };
         else if (url.pathname.endsWith("/actions")) body = { actions: [] };
-        else if (url.pathname === "/api/assistant-events")
-          return route.fulfill({
-            contentType: "text/event-stream",
-            body: 'data: {"type":"connected"}\n\n',
-          });
         else return route.fallback();
         await route.fulfill({ json: body });
       });
@@ -282,11 +277,6 @@ for (const [language, label, viewport] of cases) {
           };
         else if (path === "/api/assistant-runtime")
           body = { availability: "ready", sync: "current" };
-        else if (path === "/api/assistant-events")
-          return route.fulfill({
-            contentType: "text/event-stream",
-            body: 'data: {"type":"connected"}\n\n',
-          });
         else if (path === "/api/assistant-channels") body = { channels: [] };
         else if (path.endsWith("/routines")) body = { routines: [routine] };
         else if (path.endsWith("/routines/r1") && method === "PATCH") {

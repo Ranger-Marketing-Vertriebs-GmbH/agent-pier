@@ -3,6 +3,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import { agentEvent } from "../helpers/agent-feed-fake.js";
 
 // Today at 11:41 in the browser's (the host's) time zone.
 const at = new Date();
@@ -30,15 +31,6 @@ async function setup(page, language) {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
-    const Native = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new Native(url);
-        window.assistantTestStream = this;
-        setTimeout(() => this.onopen?.(), 0);
-      }
-      close() {}
-    };
   }, language);
   const assistant = {
     id: "home",
@@ -69,8 +61,6 @@ async function setup(page, language) {
         members: [],
         activity: {},
       };
-    else if (p === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: "" });
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages"))
@@ -151,9 +141,7 @@ test("a Telegram message arriving in an open chat is marked at once", async ({
       sender: { kind: "owner" },
     },
   ];
-  await page.evaluate(() =>
-    window.assistantTestStream.onmessage({ data: JSON.stringify({ type: "change" }) }),
-  );
+  await agentEvent(page, { type: "change" });
   const live = turn(page, "One more thing: no onions.");
   await expect(live.locator(".assistant-message-meta")).toContainText("via Telegram");
   // Once OpenClaw stored the turn (trailing whitespace trimmed), it shows only once.
@@ -167,9 +155,7 @@ test("a Telegram message arriving in an open chat is marked at once", async ({
       ...telegram,
     },
   ];
-  await page.evaluate(() =>
-    window.assistantTestStream.onmessage({ data: JSON.stringify({ type: "change" }) }),
-  );
+  await agentEvent(page, { type: "change" });
   await expect(bubble(page, "One more thing: no onions.")).toHaveCount(1);
   await expect(page.locator(".assistant-message-meta")).toHaveCount(2);
 });

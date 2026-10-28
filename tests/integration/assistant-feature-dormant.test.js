@@ -99,11 +99,9 @@ test("a dormant application rejects assistant routes and toggles the feature wit
     enabled: false,
     error: null,
   });
-  for (const endpoint of ["/api/assistants", "/api/assistant-events"]) {
-    const response = await f.request(endpoint);
-    assert.equal(response.status, 404, endpoint);
-    assert.equal((await response.json()).code, "ASSISTANTS_DISABLED", endpoint);
-  }
+  const disabledList = await f.request("/api/assistants");
+  assert.equal(disabledList.status, 404);
+  assert.equal((await disabledList.json()).code, "ASSISTANTS_DISABLED");
   assert.equal(fs.existsSync(path.join(f.dataDir, "assistants")), false);
   assert.equal(f.application.assistants, null);
 

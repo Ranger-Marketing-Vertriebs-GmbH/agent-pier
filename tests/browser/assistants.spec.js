@@ -39,11 +39,6 @@ async function assistantFixture(
         conversations,
         models,
       };
-    else if (url.pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else if (url.pathname === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current", version: "2026.10.3" };
     else if (url.pathname.endsWith("/messages"))
@@ -154,8 +149,10 @@ test("uncertain requests remain distinct from a ready runtime and keep drafts", 
   await expect(
     page.getByRole("button", { name: "Stop response", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(/Your draft is preserved/)).toBeVisible();
+  // The draft stays; the channel is connected, so no connection hint shows (the
+  // former event stream stub ended at once and showed it).
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue("Next idea");
+  await expect(page.getByText(/Your draft is preserved/)).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Restart service and acknowledge uncertainty" }),
   ).toBeVisible();

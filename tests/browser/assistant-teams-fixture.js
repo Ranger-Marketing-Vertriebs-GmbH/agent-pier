@@ -62,16 +62,6 @@ export async function setup(page, options = {}) {
   ];
   const policy = { revision: 1, autonomous: false, maxMembers: 4, runTimeoutMinutes: 10 };
   const teamSettings = { revision: 1, hostMaxConcurrent: 8 };
-  await page.addInitScript(() => {
-    const NativeEventSource = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new NativeEventSource(url);
-        window.assistantTestStream = this;
-      }
-      close() {}
-    };
-  });
   const teams = [team, proposal];
   const posted = [];
   const history = {
@@ -89,11 +79,6 @@ export async function setup(page, options = {}) {
       ].includes(p)
     )
       return route.fallback();
-    if (p === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     let body = {};
     if (p === "/api/assistants")
       body = {
