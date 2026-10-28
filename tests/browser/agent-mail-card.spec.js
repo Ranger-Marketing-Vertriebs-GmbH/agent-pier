@@ -102,3 +102,77 @@ test("an approved email shows Sending while it goes out; a rule send shows no ca
   await expect(card.getByRole("status")).toHaveText("Sending …");
   await expect(card.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
 });
+
+test("after Send the chat keeps a note with the outcome", async ({ page }) => {
+  const state = await setup(page, { actions: [mailAction("m1")] });
+  const history = { messages: [] };
+  await page.route(/\/messages(\?|$)/, (route) =>
+    route.fulfill({ json: { messages: history.messages, requests: [], stale: false } }),
+  );
+  await openChat(page);
+  await mailCard(page).getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => state.decisions.length).toBe(1);
+  history.messages = [
+    {
+      id: "mail-run:m1",
+      role: "event",
+      event: "mail-run",
+      actionId: "m1",
+      state: "completed",
+      code: null,
+      accountName: "Private",
+      recipientCount: 2,
+      subject: "Offer",
+      timestamp: 1761559200000,
+      runId: null,
+    },
+  ];
+  await page.evaluate(() => window.agentFeed.push("chat"));
+  const row = page.locator("[data-mail-run]");
+  await expect(row).toHaveAttribute("data-mail-run", "completed");
+  await expect(row.getByRole("button")).toContainText("Offer");
+  await expect(row.getByRole("button")).toContainText("Sent");
+  await expect(mailCard(page)).toHaveCount(0);
+  await row.getByRole("button").click();
+  await expect(row).toContainText("Private");
+  await expect(row).toContainText("2");
+  await expect(row).not.toContainText("eve@evil.net");
+  // The note stays when the feed reads the chat again.
+  await page.evaluate(() => window.agentFeed.push("chat"));
+  await expect(row).toContainText("Sent");
+});
+
+test("a declined card shown here gives way to its note", async ({ page }) => {
+  const state = await setup(page, { actions: [mailAction("m1")] });
+  const history = { messages: [] };
+  await page.route(/\/messages(\?|$)/, (route) =>
+    route.fulfill({ json: { messages: history.messages, requests: [], stale: false } }),
+  );
+  await page.route(/\/api\/assistant-actions\/m1\/decision$/, (route) => {
+    state.actions = [];
+    return route.fulfill({ json: mailAction("m1", { revision: 4, state: "declined" }) });
+  });
+  await openChat(page);
+  await mailCard(page).getByRole("button", { name: "Don't send" }).click();
+  await expect(mailCard(page).getByRole("status")).toHaveText("Not sent · draft kept");
+  history.messages = [
+    {
+      id: "mail-run:m1",
+      role: "event",
+      event: "mail-run",
+      actionId: "m1",
+      state: "declined",
+      code: null,
+      accountName: "Private",
+      recipientCount: 2,
+      subject: "Offer",
+      timestamp: 1761559200000,
+      runId: null,
+    },
+  ];
+  await page.evaluate(() => window.agentFeed.push("chat"));
+  await expect(page.locator("[data-mail-run=declined]")).toContainText(
+    "Not sent · draft kept",
+  );
+  await expect(mailCard(page)).toHaveCount(0);
+});

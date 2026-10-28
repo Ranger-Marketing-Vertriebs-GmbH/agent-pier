@@ -281,9 +281,19 @@ export class MailSends {
     if (!a.followUp && !a.delivered) this.w.store.patch(id, { followUp: true });
   }
   finish(id, values) {
-    const next = this.w.store.patch(id, values);
+    const next = this.w.store.patch(id, { ...values, ...this.noted(id, values.state) });
     this.w.a.changed({ feeds: false });
     return next;
+  }
+  /**
+   * The chat note of a card that reached a final state (mailNotes), written once with
+   * the state change, so the owner sees the outcome without the agent: {} for a rule
+   * send, a state that is not final, or a card already noted.
+   */
+  noted(id, state) {
+    const a = this.w.store.get(id);
+    if (a.payload.trusted || !settledStates.has(state) || a.chatNotes?.result) return {};
+    return { chatNotes: { ...a.chatNotes, result: { at: this.now(), state } } };
   }
   /**
    * Why a card may no longer send, or null: the grant at the send level, the account
@@ -437,7 +447,12 @@ export class MailSends {
         ...(a.delivered ? {} : { followUp: true }),
       });
     }
-    if (!a.payload.trusted) notifyAction(this.w, a, "result");
+    if (!a.payload.trusted) {
+      // A row ended outside finish (made unknown by a restart) gets its note here.
+      const note = this.noted(a.id, a.state);
+      if (note.chatNotes) a = this.w.store.patch(a.id, note);
+      notifyAction(this.w, a, "result");
+    }
     if (a.followUp && !a.followUpSent && !a.delivered && !(await this.followUp(a)))
       return;
     this.w.store.patch(a.id, { settled: true });
@@ -477,7 +492,11 @@ export class MailSends {
         a.payload.accountId === accountId &&
         a.state === "awaiting_approval"
       ) {
-        this.w.store.patch(a.id, { state: "cancelled", diagnostic: "ACCOUNT_REMOVED" });
+        this.w.store.patch(a.id, {
+          state: "cancelled",
+          diagnostic: "ACCOUNT_REMOVED",
+          ...this.noted(a.id, "cancelled"),
+        });
         count++;
       }
     return count;

@@ -5,6 +5,7 @@ import AssistantMessage from "./AssistantMessage.jsx";
 import CodingRunNote from "./CodingRunNote.jsx";
 import SshRunNote from "./SshRunNote.jsx";
 import SftpRunNote from "./SftpRunNote.jsx";
+import MailRunNote from "./MailRunNote.jsx";
 import RemoteActivityGroup from "./RemoteActivityGroup.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
@@ -49,6 +50,8 @@ export default function TranscriptItem({
     <SshRunNote note={m} />
   ) : m.event === "sftp-run" ? (
     <SftpRunNote note={m} />
+  ) : m.event === "mail-run" ? (
+    <MailRunNote note={m} />
   ) : [
       "member-grant",
       "member-reminder",

@@ -1,3 +1,5 @@
+import { hiddenCharacterSource } from "../assistants/agent-ssh-text.js";
+
 // What waits for the owner, as uniform inbox items. Each item names where it comes
 // from and links back there; answering always goes through that source's own
 // endpoint, so an item carries no more than the source's own card shows.
@@ -118,6 +120,12 @@ function chatLink(assistantId, conversationId, conversations) {
     : `/agents/${segment(assistantId)}/settings`;
 }
 
+const hiddenAll = new RegExp(hiddenCharacterSource, "gu");
+const visibleText = (value) =>
+  String(value).replace(
+    hiddenAll,
+    (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}]`,
+  );
 const toolNames = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
 const actionTitle = (a) => {
   const p = a.payload || {};
@@ -131,7 +139,9 @@ const actionTitle = (a) => {
   if (p.action === "member_grant") return p.memberName;
   if (p.action === "hook_proposal") return p.name;
   if (p.action === "ssh_access") return p.name;
-  if (p.action === "mail_send") return p.subject || p.accountName;
+  // The account first; a hidden character in the subject shows as its code.
+  if (p.action === "mail_send")
+    return [p.accountName, visibleText(p.subject ?? "")].filter(Boolean).join(" · ");
   return "";
 };
 

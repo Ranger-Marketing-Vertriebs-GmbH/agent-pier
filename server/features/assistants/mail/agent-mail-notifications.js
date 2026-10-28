@@ -51,8 +51,18 @@ function facts(w, action, m) {
   return [m.mailAgent(agent), m.mailAccount(action.payload.accountName ?? "")].join("\n");
 }
 
+// The final states a result names; anything else reads as unknown.
+const finalStates = new Set([
+  "completed",
+  "declined",
+  "expired",
+  "cancelled",
+  "failed",
+  "unknown",
+]);
+
 function outcome(a, m) {
-  const state = m.mailStates[a.state] || m.mailStates.unknown;
+  const state = m.mailStates[finalStates.has(a.state) ? a.state : "unknown"];
   const code = a.result?.code || a.diagnostic;
   return a.state === "failed" && code ? `${state} · ${code}` : state;
 }
@@ -92,4 +102,34 @@ export function notifyMail(w, action, phase, key, m, target) {
         ? [button("approve", m.mailSend), button("decline", m.mailDecline)]
         : [],
   });
+}
+
+/**
+ * The chat note of a card that reached a final state (chatNotes.result, written by
+ * MailSends.finish): its state and code, the account, how many recipients and the
+ * subject. Never the body or an address.
+ */
+export function mailNotes(a) {
+  const r = a.chatNotes?.result;
+  if (!r) return [];
+  const p = a.payload;
+  const state = finalStates.has(a.state) ? a.state : "unknown";
+  return [
+    {
+      id: `mail-run:${a.id}`,
+      role: "event",
+      event: "mail-run",
+      actionId: a.id,
+      state,
+      code: ["failed", "unknown", "cancelled"].includes(state)
+        ? a.result?.code || a.diagnostic || null
+        : null,
+      accountName: p.accountName ?? "",
+      recipientCount: ["to", "cc", "bcc"].reduce((n, k) => n + (p[k]?.length ?? 0), 0),
+      subject: p.subject ?? "",
+      timestamp: r.at,
+      runId: null,
+      ...(a.memberName ? { memberName: a.memberName } : {}),
+    },
+  ];
 }

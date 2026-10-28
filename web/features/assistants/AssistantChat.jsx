@@ -193,6 +193,14 @@ export default function AssistantChat({
     () => (mentionMembers.length ? { members: mentionMembers, navigate } : null),
     [mentionMembers, navigate],
   );
+  // Mail cards whose outcome the transcript already notes (MailRunNote).
+  const notedMail = useMemo(
+    () =>
+      new Set(
+        history.messages.filter((m) => m.event === "mail-run").map((m) => m.actionId),
+      ),
+    [history.messages],
+  );
   const notes = useMemo(
     () => (member ? [] : teamNotes(teams, { assistantId: assistant.id, conversationId })),
     [member, teams, assistant.id, conversationId],
@@ -540,7 +548,12 @@ export default function AssistantChat({
               pushed={pushedActions}
             />
           )}
-          <AssistantActionApprovals {...ownActions} assistant={assistant} go={navigate} />
+          <AssistantActionApprovals
+            {...ownActions}
+            assistant={assistant}
+            go={navigate}
+            notedMail={notedMail}
+          />
         </div>
         <div
           className="assistant-announcer"
