@@ -332,7 +332,9 @@ for the implementation and remaining native platform/version qualification.
   read any host file for outgoing media. Granted project folders are served by
   `agentpier_workspace` file actions over the team bridge, resolved inside the folder
   on every call (`project-paths.js`: real path, no links out, no `..`, `.git` and
-  AgentPier's data dir locked, case-folded), changed only with the proven guard and
+  AgentPier's data dir locked, case-folded; the data dir also by device and inode on
+  every folder, so another case or the `/System/Volumes/Data` firmlink never reaches
+  it, `protected-dirs.js`), changed only with the proven guard and
   audited with path and size ([folder access](assistant-workflows.md#direct-folder-access)).
   A routine run reads them and changes them only when the owner marked that routine
   **May write**. A browser upload from them goes through a copy AgentPier stages for
@@ -5082,8 +5084,9 @@ person who asked, never the owner.
   a command one of them started, never a routine), read access suffices
   (`AgentProjectFiles.shareRoot`), the path is first resolved with `projectTarget`
   (never `.git`, links out of the folder or AgentPier's data directory; links that
-  stay inside it are resolved, as for folder reads), and the audit event names the
-  project. Below the root no component
+  stay inside it are resolved, as for folder reads), and the read walks every folder
+  again refusing the data directory by device and inode (`refuseDirs`), and the
+  audit event names the project. Below the root no component
   may be a symbolic link (even one pointing back inside). Every folder on the way is
   checked with `lstat` (a real directory), then the file is opened without following
   any link (`project-open.js`: `O_NOFOLLOW_ANY` on macOS, the descriptor's own path

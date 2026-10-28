@@ -3,6 +3,7 @@ import path from "node:path";
 import { assistantProblem } from "../assistant-validation.js";
 import { readShareSource, shareRoots } from "../agent-share-source.js";
 import { projectTarget } from "../project-paths.js";
+import { assertOutsideDirs, protectedDirs } from "../protected-dirs.js";
 import { personalShell } from "../native-capabilities.js";
 import { workspaceContext } from "../workspace-calls.js";
 import { localContext } from "../agent-sftp-local.js";
@@ -55,19 +56,6 @@ const under = (root, target) => {
   const real = realpath(root);
   return within(root, target) || (!!real && within(real, target));
 };
-/** The protected roots (AgentPier's data directory) by device and inode. */
-export const protectedDirs = (w) =>
-  w.folders.protectedRoots.flatMap((root) => {
-    try {
-      const stat = fs.statSync(root, { bigint: true });
-      return [{ dev: stat.dev, ino: stat.ino }];
-    } catch {
-      return [];
-    }
-  });
-/** Whether a folder's stat (bigint) is one of `dirs` (protectedDirs). */
-export const sameDir = (dirs, stat) =>
-  dirs.some((d) => d.dev === stat.dev && d.ino === stat.ino);
 const gitPart = (relative) =>
   relative.split(path.sep).some((part) => fold(part) === fold(".git"));
 
@@ -115,7 +103,8 @@ function read(w, roots, requested, { maxBytes, dataDir = true }) {
   const admit = (relative) => {
     if (gitPart(relative)) throw refused();
   };
-  const refuseDirs = dataDir ? protectedDirs(w) : [];
+  // A protected root whose identity cannot be determined refuses (fail closed).
+  const refuseDirs = dataDir ? protectedDirs(w.folders.protectedRoots, refused) : [];
   return readShareSource(roots, requested, { maxBytes, admit, refuseDirs });
 }
 
@@ -127,20 +116,10 @@ function read(w, roots, requested, { maxBytes, dataDir = true }) {
  * never tells what exists there.
  */
 export function assertOutside(w, root, refuse = refused) {
-  const dirs = protectedDirs(w);
+  const dirs = protectedDirs(w.folders.protectedRoots, refuse);
   const real = realpath(root);
   if (!real) throw assistantProblem("notFound", 404);
-  let current = path.parse(real).root;
-  for (const part of ["", ...real.slice(current.length).split(path.sep)]) {
-    if (part) current = path.join(current, part);
-    let stat;
-    try {
-      stat = fs.lstatSync(current, { bigint: true });
-    } catch {
-      throw refuse();
-    }
-    if (sameDir(dirs, stat)) throw refuse();
-  }
+  assertOutsideDirs(real, dirs, refuse);
 }
 
 async function fromProject(w, files, projectId, requested, maxBytes) {

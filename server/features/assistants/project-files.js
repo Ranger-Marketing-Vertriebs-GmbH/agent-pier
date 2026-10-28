@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { projectTarget } from "./project-paths.js";
+import { protectedDirs, sameDir } from "./protected-dirs.js";
 import { inFolder, openInside, openInsideSync } from "./project-open.js";
 import { fold } from "./team-plugin/tool-guard.js";
 import {
@@ -411,17 +412,20 @@ async function searchable(file, scanned) {
   }
 }
 
+// Whether the folder is a protected root; one that cannot be looked at counts as one.
+async function isProtected(folder, dirs) {
+  if (!dirs.length) return false;
+  const stat = await fs.promises.lstat(folder, { bigint: true }).catch(() => null);
+  return !stat || sameDir(dirs, stat);
+}
+
 /** Lines containing `query` (literal, case-sensitive) below `raw`, capped. */
 export async function searchFolder(root, raw, query, options = {}) {
   const target = projectTarget(root, raw, options);
   if (!target.exists) throw missing();
-  const guarded = (options.protectedRoots || []).map((r) => {
-    try {
-      return fs.realpathSync.native(r);
-    } catch {
-      return r;
-    }
-  });
+  // Protected roots by device and inode: another spelling of one (a firmlink) is
+  // skipped too.
+  const guarded = protectedDirs(options.protectedRoots || []);
   const matches = [];
   const scanned = { bytes: 0 };
   let files = 0,
@@ -442,7 +446,8 @@ export async function searchFolder(root, raw, query, options = {}) {
     for (const entry of entries) {
       const full = path.join(folder, entry.name);
       if (entry.isDirectory()) {
-        if (!skipped.has(fold(entry.name)) && !guarded.includes(full)) queue.push(full);
+        if (!skipped.has(fold(entry.name)) && !(await isProtected(full, guarded)))
+          queue.push(full);
         continue;
       }
       // Links are never followed: their targets may lie outside the folder.

@@ -8,7 +8,7 @@ import { png, run, shareFixture } from "../helpers/agent-share-fixture.js";
 
 // The agent's granted project folders (AGENTPIER-123) as AssistantWorkflows holds
 // them: `levels` per agent, the owner's own turns only, AgentPier's data protected.
-function withProjects(f, levels) {
+function withProjects(f, levels, cwd = (project) => project) {
   const project = path.join(f.dataDir, "project");
   fs.mkdirSync(path.join(project, "docs"), { recursive: true });
   fs.mkdirSync(path.join(project, ".git"));
@@ -24,7 +24,7 @@ function withProjects(f, levels) {
     a: f.service,
     access: { get: () => ({ projectFiles: levels }) },
     s: {
-      memory: { project: (id) => ({ id, name: "Site", cwd: project }) },
+      memory: { project: (id) => ({ id, name: "Site", cwd: cwd(project) }) },
       config: { dataDir: data },
     },
   };
@@ -98,3 +98,38 @@ test("project shares need the owner's own turn", async (t) => {
     /^Error: FORBIDDEN: /,
   );
 });
+
+// A project granted at `/`, or at the project through the macOS firmlink, never shares
+// AgentPier's data: it is recognised by device and inode, not by its spelling.
+test(
+  "project shares refuse AgentPier's data through / and the firmlink",
+  { skip: process.platform !== "darwin" && "the /System/Volumes/Data firmlink is macOS" },
+  async (t) => {
+    const f = await shareFixture(t);
+    let root = "/";
+    const project = withProjects(f, { p1: "read" }, () => root);
+    const real = fs.realpathSync(project);
+    const firmlink = `/System/Volumes/Data${real}`;
+    if (!fs.existsSync(firmlink)) return t.skip("no firmlink for the temp folder");
+    await f.turn(f.chat, "firmlink");
+    const tool = f.tool(f.agent, f.chat);
+    const secret = path.join(firmlink, "agentpier-data", "secret.txt");
+    for (const [cwd, target] of [
+      ["/", secret],
+      ["/", path.join(real, "agentpier-data", "secret.txt")],
+      [firmlink, "agentpier-data/secret.txt"],
+    ]) {
+      root = cwd;
+      await assert.rejects(
+        run(tool, { projectId: "p1", path: target }),
+        /^Error: PROJECT_PATH_REFUSED: /,
+        `${cwd} ${target}`,
+      );
+    }
+    root = firmlink;
+    assert.equal(
+      (await run(tool, { projectId: "p1", path: "docs/chart.png" })).status,
+      "shared",
+    );
+  },
+);

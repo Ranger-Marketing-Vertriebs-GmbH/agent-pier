@@ -10,12 +10,8 @@ import { isSftpProblem } from "../../sftp/sftp-errors.js";
 import { partName } from "../../sftp/sftp-excludes.js";
 import { fallbackFileType } from "../../mail/mail-file-types.js";
 import { numberedName, safeFileName } from "./agent-mail-file-names.js";
-import {
-  assertOutside,
-  protectedDirs,
-  sameDir,
-  validPath,
-} from "./agent-mail-sources.js";
+import { protectedDirs, sameDir } from "../protected-dirs.js";
+import { assertOutside, validPath } from "./agent-mail-sources.js";
 
 // Where an agent saves a mail attachment (agentpier_mail `attachment` with mode
 // `save`), and the write itself. In the workspace only `mail/` or below it (by
@@ -120,7 +116,8 @@ export function saveTarget(w, files, { projectId, path: requested, accountName }
         ? inWorkspace(w, files.ctx, requested, accountName)
         : inProject(w, files.ctx, projectId, requested);
     // The data directory's identity, for every folder writeNewFile walks.
-    return Object.freeze({ ...target, refuseDirs: Object.freeze(protectedDirs(w)) });
+    const dirs = protectedDirs(w.folders.protectedRoots, refused);
+    return Object.freeze({ ...target, refuseDirs: Object.freeze(dirs) });
   } catch (error) {
     throw mapped(error);
   }
