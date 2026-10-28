@@ -8,6 +8,7 @@ import { assistantApi } from "../assistant-api.js";
 import { shellEligible } from "../shell-level.js";
 import { isPersonal } from "./agent-settings-fields.js";
 import BrowserInstall from "./BrowserInstall.jsx";
+import BrowserNetworkRow from "./BrowserNetworkRow.jsx";
 import { routePath } from "../../../app/routes.js";
 
 /**
@@ -78,6 +79,9 @@ export default function BrowserGroup({
           />
         )}
         {!archived && owner && <BrowserInstall browser={browser} refresh={refresh} />}
+        {!archived && owner && (
+          <BrowserNetworkRow network={browser?.network} refresh={refresh} />
+        )}
         {!archived && (
           <ListRow
             label={copy.liveOpen}

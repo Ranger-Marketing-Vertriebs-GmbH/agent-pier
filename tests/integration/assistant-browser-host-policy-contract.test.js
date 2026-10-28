@@ -8,10 +8,95 @@ import { chromium } from "@playwright/test";
 import { importOpenClawExports } from "../helpers/openclaw-dist-exports.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
+import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { e2eGraph } from "../helpers/assistant-e2e-graph.js";
+import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { contractTimeout } from "../helpers/contract-timeout.js";
 
 const installed = process.env.AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME;
 const options = { skip: !installed, timeout: 60000 };
 const allowedHost = "qa.example.test";
+
+test(
+  "owner browser network setting survives real Gateway restarts and revokes open tabs",
+  {
+    skip: !installed,
+    timeout: contractTimeout(240000),
+  },
+  async (t) => {
+    const h = await e2eGraph(t, installed, { prefix: "browser-network-gateway-" });
+    const executablePath =
+      process.env.AGENTPIER_TEST_BROWSER_PATH || detectBrowser().executablePath;
+    assert.ok(executablePath, "this contract requires a sandboxed Chromium browser");
+    h.graph.assistantWebTools.detect = () => ({ available: true, executablePath });
+    const connection = h.connection();
+    const agent = h.graph.store.createAssistant({
+      name: "Browser fixture",
+      instructions: "",
+      model: { connectionId: connection.id, modelId: "fixture-model" },
+      capabilities: { memory: false, reminders: false, browser: true },
+    });
+    let requests = 0;
+    const target = await listen(t, "127.0.0.1", (_req, res) => {
+      requests++;
+      res.end("private gateway fixture");
+    });
+    await h.start();
+    const profile = agentProfileName(agent.id);
+    const request = (method, route, body) =>
+      h.runtime.client.request(
+        "browser.request",
+        {
+          method,
+          path: route,
+          query: { profile },
+          ...(body && { body }),
+        },
+        { timeoutMs: 30000 },
+      );
+    await request("POST", "/start");
+    await assert.rejects(request("POST", "/tabs/open", { url: target }), {
+      code: "INVALID_REQUEST",
+    });
+    assert.equal(requests, 0);
+    await h.http("PUT", "/assistant-browser-network", {
+      revision: 0,
+      allowPrivateNetwork: true,
+    });
+    await h.until(
+      () =>
+        h.graph.assistantWebTools.networkStatus().active === true &&
+        !h.graph.assistants.pendingRestart.status(),
+      "enabled policy restart",
+    );
+    await request("POST", "/start");
+    const tab = await request("POST", "/tabs/open", { url: target });
+    assert.ok(tab.targetId);
+    assert.ok(requests > 0);
+    const before = requests;
+    await h.http("PUT", "/assistant-browser-network", {
+      revision: 1,
+      allowPrivateNetwork: false,
+    });
+    await h.until(
+      () =>
+        h.graph.assistantWebTools.networkStatus().active === false &&
+        !h.graph.assistants.pendingRestart.status(),
+      "revoked policy restart",
+    );
+    const status = await request("GET", "/");
+    assert.equal(
+      status.running,
+      false,
+      "the old browser and its tabs ended during restart",
+    );
+    await request("POST", "/start");
+    await assert.rejects(request("POST", "/tabs/open", { url: target }), {
+      code: "INVALID_REQUEST",
+    });
+    assert.equal(requests, before);
+  },
+);
 
 // Execute the pinned distribution, not a copy of its policy implementation.
 async function runtime() {
@@ -112,6 +197,13 @@ test(
     );
     assert.equal(needsInspection(url, ssrfPolicy), false);
     assert.equal(needsInspection(url, { dangerouslyAllowPrivateNetwork: false }), true);
+    // The explicitly confirmed global opt-in also admits special-use destinations.
+    for (const address of ["10.20.30.40", "127.0.0.1", "169.254.169.254", "fe80::1"])
+      await check({
+        url,
+        ssrfPolicy: { dangerouslyAllowPrivateNetwork: true },
+        lookupFn: async () => [{ address, family: address.includes(":") ? 6 : 4 }],
+      });
   },
 );
 
@@ -198,5 +290,44 @@ test(
       blockedRequests > 0,
       "the redirect target was reached before the result was denied",
     );
+    const compile = (enabled) =>
+      webToolsSections({
+        profiles: [],
+        port: 20000,
+        webTools: {
+          browser: { available: true, executablePath },
+          browserAllowPrivateNetwork: enabled,
+        },
+      }).browser.ssrfPolicy;
+    // Each permanent agent still has its own browser context. Both get the same
+    // global permission; neither receives the other context's cookies.
+    for (let index = 0; index < 2; index++) {
+      const context = await browser.newContext();
+      const agentPage = await context.newPage();
+      const allowed = { ...opts, page: agentPage, ssrfPolicy: compile(true) };
+      const loaded = await native.gotoPageWithNavigationGuard({
+        ...allowed,
+        url: `${source}/`,
+      });
+      await native.assertPageNavigationCompletedSafely({ ...allowed, response: loaded });
+      assert.match(await agentPage.textContent("body"), /blocked target fixture/);
+      assert.deepEqual(await context.cookies(), []);
+      await context.addCookies([{ name: "fixture", value: String(index), url: source }]);
+      await context.close();
+      assert.equal(agentPage.isClosed(), true);
+    }
+    // After closing the allowed contexts, the compiled revoked policy blocks a
+    // fresh browser page before it reaches the fixture. No live policy patch.
+    const count = blockedRequests;
+    await assert.rejects(
+      native.gotoPageWithNavigationGuard({
+        ...opts,
+        page: await browser.newPage(),
+        ssrfPolicy: compile(false),
+        url: `${blocked}/destination`,
+      }),
+      /private|internal/i,
+    );
+    assert.equal(blockedRequests, count);
   },
 );

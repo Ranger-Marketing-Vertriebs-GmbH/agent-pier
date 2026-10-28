@@ -37,6 +37,7 @@ export function browserStatus(webTools) {
       managed: !!managed,
       installable,
       restartNeeded,
+      network: webTools?.networkStatus?.(),
     };
   } catch {
     return {

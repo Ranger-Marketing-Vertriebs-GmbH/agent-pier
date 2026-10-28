@@ -1,4 +1,24 @@
 export const assistantBrowserCopy = {
+  networkTitle: "Private Netzwerke für alle Agent-Browser freigeben",
+  networkDescription:
+    "Globale Einstellung für alle Agenten und Teammitglieder mit Browserzugriff. Schließt localhost, Link-local- und Cloud-Metadatenadressen ein. Browserprofile bleiben getrennt; Webabruf- und Shell-Rechte bleiben unverändert.",
+  networkEnableTitle: "Private Netzwerke für alle Agent-Browser freigeben?",
+  networkEnableBody:
+    "Alle Agent-Browser und ihre Webseiten dürfen private Netzwerke, Dienste auf diesem Rechner, Link-local- und Cloud-Metadatenadressen erreichen, auch über Weiterleitungen. Nur einschalten, wenn du den Agenten und den besuchten Webseiten vertraust. Die Browser-Sandbox bleibt aktiv.",
+  networkDisableTitle: "Private Netzwerkzugriffe für alle Agent-Browser ausschalten?",
+  networkDisableBody:
+    "Stellt OpenClaws Standard-Navigationsrichtlinie wieder her. Direkte private Navigation wird wieder gesperrt; diese Richtlinie ist keine Netzwerk-Firewall und kann Weiterleitungen erst nach einem gesendeten Request ablehnen.",
+  networkRestart:
+    "Speichert global und plant einen Neustart des Agent-Dienstes ein. Bis er abgeschlossen ist, bleibt die bisherige Richtlinie aktiv. Offene Browser-Tabs schließen beim Neustart; gespeicherte Anmeldungen bleiben erhalten. Laufende Arbeit verzögert den Neustart.",
+  networkSave: "Globale Einstellung speichern",
+  networkNextStart: "Gilt beim nächsten Start des Agent-Dienstes.",
+  networkPendingOn:
+    "Gespeichert: freigegeben. Neustart ausstehend; die Standardrichtlinie ist noch aktiv.",
+  networkPendingOff:
+    "Gespeichert: gesperrt. Neustart ausstehend; private Netzwerkzugriffe sind noch freigegeben.",
+  networkActive: "Aktiv: private Netzwerkzugriffe freigegeben.",
+  networkBlocked: "Aktiv: Standard-Navigationsrichtlinie.",
+
   group: "Browser des Agenten",
   visible: "Sichtbarer Browser",
   visibleDescription:
@@ -17,7 +37,7 @@ export const assistantBrowserCopy = {
   restart: "Agentendienst neu starten",
   restartTitle: "Agentendienst neu starten?",
   restartDescription:
-    "Ein neu installierter oder entfernter Browser gilt erst nach einem Neustart des Agentendienstes. Laufende Arbeit wird nicht unterbrochen: Ist ein Agent beschäftigt, wird der Neustart abgelehnt.",
+    "Änderungen an der Browserinstallation oder am globalen Netzwerkzugriff gelten nach einem Neustart des Agent-Dienstes. Laufende Arbeit wird nicht unterbrochen: Ist ein Agent beschäftigt, wird der Neustart abgelehnt.",
   restartConfirm: "Neu starten",
   liveTitle: "Browser",
   liveOpen: "Live-Ansicht öffnen",

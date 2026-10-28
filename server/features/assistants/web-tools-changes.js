@@ -23,6 +23,8 @@ export class WebToolsChanges {
     detect = detectBrowser,
     images = () => ({ ready: false }),
     pdfModel = null,
+    browserNetwork = null,
+    audit = null,
   }) {
     Object.assign(this, {
       assistants,
@@ -31,11 +33,53 @@ export class WebToolsChanges {
       detect,
       images,
       pdfModel,
+      browserNetwork,
+      audit,
     });
   }
   /** What a start compiles for PDF reading: `{ ready, connectionId, modelId }`. */
   pdf() {
     return this.pdfModel?.resolve() || { ready: false };
+  }
+  network() {
+    return this.browserNetwork?.get() || { revision: 0, allowPrivateNetwork: false };
+  }
+  networkStatus() {
+    const saved = this.network();
+    const runtime = this.assistants.runtime;
+    const active =
+      runtime.client?.ready &&
+      runtime.webTools &&
+      runtime.webTools.availability?.browser !== false
+        ? runtime.webTools.browserAllowPrivateNetwork === true
+        : null;
+    return { ...saved, active };
+  }
+  async saveBrowserNetwork(input, { confirmed = false } = {}) {
+    const enabled = this.browserNetwork.validate(input);
+    if (enabled === this.network().allowPrivateNetwork) return this.networkStatus();
+    const save = () => {
+      this.browserNetwork.save(input);
+      this.audit?.append({
+        action: enabled ? "setting.activated" : "setting.revoked",
+        resourceType: "setting",
+        resourceId: "browser-private-network",
+        source: "user",
+        outcome: "success",
+      });
+      this.assistants.changed?.();
+    };
+    // Queue even while starting/reconnecting or no agent currently uses a browser:
+    // a compiled global policy and existing browser tabs can still be present.
+    if (this.pending) {
+      save();
+      this.queue();
+    } else if (this.assistants.runtime.status().availability === "disabled") save();
+    else {
+      this.confirm(confirmed);
+      await this.restart(save);
+    }
+    return this.networkStatus();
   }
   /**
    * True when the running Gateway was started with other global sections than
@@ -60,6 +104,7 @@ export class WebToolsChanges {
       documentExtract: running.documentExtract,
       images: this.images(),
       pdf,
+      browserAllowPrivateNetwork: this.network().allowPrivateNetwork,
     };
     const now = webToolsSignatures({ webTools });
     return keys.some((key) => key in now && now[key] !== running.signatures?.[key]);

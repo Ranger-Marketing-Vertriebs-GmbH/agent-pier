@@ -2119,21 +2119,38 @@ always opened by the same app. The block:
   owner from the service context. The cookies of every profile are then encrypted with
   Chromium's fixed mock key, as they already were for OpenClaw's headless profiles,
   so the profile folders count as credentials (see backups below);
-- sets no `ssrfPolicy`: OpenClaw's default blocks direct navigation to loopback and
-  private networks. This is not a browser-wide network firewall: redirect rejection
-  can occur after a request reached its target. Explicit
-  `dangerouslyAllowPrivateNetwork: false` also rejects ordinary public hostnames
-  without an exception. `browser.noSandbox` is never set.
+- leaves `ssrfPolicy` unset by default, blocking direct navigation to loopback and
+  private networks. This is not a browser-wide firewall: redirect rejection can
+  occur after a request reached its target. `browser.noSandbox` is never set.
 
-There is currently no internal-host release in **agent settings › Capabilities ›
-Agent browser**. A hostname resolving to a private address can therefore produce
-`browser navigation blocked by policy` even when the sandboxed browser starts
-successfully. In the pinned OpenClaw 2026.10.7, `browser.ssrfPolicy.allowedHostnames`
-is global across profiles; adding a host there would grant it to other browser
-agents as well. Do not patch the generated configuration or enable private networks
-globally. A restart cannot supply the missing per-agent enforcement. See
-[Internal host exceptions](assistant-web-tools-qualification.md#internal-host-exceptions)
-for the executable evidence, redirect limitation and required runtime boundary.
+The owner can enable **Allow private networks for all agent browsers** under
+**agent settings › Capabilities › Agent browser**. This is a **global** setting for
+all agents and team members with browser access, including permanent members
+receiving delegated work. It compiles
+`browser.ssrfPolicy.dangerouslyAllowPrivateNetwork: true`. Private addresses,
+localhost, link-local and cloud metadata addresses are then allowed, including
+redirects to them. Only enable it when the agents and the pages they visit are
+trusted. The sandbox and separate browser profiles remain enabled; `web_fetch`,
+shell and other tools receive no additional permission.
+
+![Global browser network setting awaiting restart](screenshots/agent-browser-private-network-en.png)
+
+The owner confirms the global change in a dialog. AgentPier stores it with a
+revision in `assistants/browser-network.json`, records `setting.activated` or
+`setting.revoked` for `browser-private-network` in the activity log, and queues the
+existing [pending restart](#pending-restart). The row shows the saved setting and
+the active policy separately: while the restart waits for work to finish, the old
+policy remains active, also when switching the setting off. A stopped service
+compiles the setting on its next start. The normal Gateway restart closes browser
+tabs and connections while retaining profile data and sign-ins. Failed restarts
+remain visible in the pending-restart status.
+
+Switching off removes the explicit policy at the next start rather than compiling
+`dangerouslyAllowPrivateNetwork: false`, which would also block ordinary public
+hostnames. It restores the existing navigation checks, not a network firewall or
+an exact-host redirect guarantee. See
+[Browser network access](assistant-web-tools-qualification.md#global-private-network-access)
+for qualification and the separate limitations of exact-host releases.
 
 The team plugin's `before_tool_call` guard asks AgentPier (`/browser-policy`, in
 `agent-browsers.js`) before every browser call. The answer pins the call to the

@@ -142,11 +142,11 @@ export function webToolsSections({ profiles, webTools, port, only }) {
         chrome: { driver: "openclaw", cdpPort: port + 13 },
         ...own,
       },
-      // No ssrfPolicy: direct private navigation is blocked by default. In
-      // 2026.10.7 this policy is global, not per profile; host exceptions cannot
-      // enforce agent isolation or pre-request redirect blocking. Explicit false
-      // also rejects ordinary public hostnames without an exception. See the
-      // "Internal host exceptions" qualification before changing this boundary.
+      // The owner's opt-in applies globally, including loopback and metadata.
+      // Omit the policy when off: explicit false also rejects public hostnames.
+      ...(webTools.browserAllowPrivateNetwork === true && {
+        ssrfPolicy: { dangerouslyAllowPrivateNetwork: true },
+      }),
     };
   }
   return sections;
@@ -232,6 +232,7 @@ export function webToolsSnapshot({ profiles, webTools, port = 0 }) {
     visibleBrowser: available && webTools.browser.visible?.available === true,
     // The executable this start compiled (the managed browser may not be removed).
     browserExecutable: available ? webTools.browser.executablePath : null,
+    browserAllowPrivateNetwork: available && webTools.browserAllowPrivateNetwork === true,
     searchPlugins: webTools?.searchPlugins || {},
     // Whether the runtime bundles PDF extraction; a save compares with the same.
     documentExtract: webTools?.documentExtract === true,

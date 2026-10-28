@@ -9,6 +9,7 @@ import { assistantLeadShareRoutes } from "./assistant-lead-shares.js";
 import { assistantCapabilityRoutes } from "./assistant-capabilities.js";
 import { assistantChannelRoutes } from "./assistant-channels.js";
 import { assistantWebSearchRoutes } from "./assistant-web-search.js";
+import { assistantBrowserNetworkRoutes } from "./assistant-browser-network.js";
 import { assistantPdfModelRoutes } from "./assistant-pdf-model.js";
 import { assistantDreamingRoutes } from "./assistant-dreaming.js";
 import { assistantAdvancedSettingsRoutes } from "./assistant-advanced-settings.js";
@@ -109,6 +110,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantRuntimeUpdateRoutes(services));
   router.use(assistantChannelRoutes(services));
   router.use(assistantWebSearchRoutes(services));
+  router.use(assistantBrowserNetworkRoutes(services));
   router.use(assistantPdfModelRoutes(services));
   router.use(assistantDreamingRoutes(services));
   router.use(assistantAdvancedSettingsRoutes(services));
