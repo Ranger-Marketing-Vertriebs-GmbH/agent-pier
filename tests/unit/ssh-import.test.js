@@ -69,3 +69,31 @@ test("SSH import path input never performs shell or alternate-user expansion", (
   ])
     assert.throws(() => sshImportPath(sourcePath, f.home), { code: "SSH_IMPORT_SOURCE" });
 });
+
+// The data directory by device and inode: another case on a file system that ignores
+// case, or the /System/Volumes/Data firmlink on macOS, names it too.
+test(
+  "SSH import refuses the data directory in another case or through a firmlink",
+  {
+    skip: process.platform !== "darwin" && "case and firmlink spellings are macOS cases",
+  },
+  (t) => {
+    const f = fixture(t);
+    const dataDir = fs.realpathSync(f.dataDir);
+    const managed = path.join(dataDir, "agents", "key");
+    fs.mkdirSync(path.dirname(managed));
+    fs.writeFileSync(managed, "not exportable by MCP");
+    const spellings = [
+      managed.toUpperCase(),
+      path.join(path.dirname(dataDir), "DATA", "agents", "key"),
+      `/System/Volumes/Data${managed}`,
+    ].filter((spelled) => fs.existsSync(spelled));
+    if (!spellings.length) return t.skip("this volume is case-sensitive");
+    for (const sourcePath of spellings)
+      assert.throws(
+        () => readSshImport({ ...f, dataDir, sourcePath }),
+        { code: "SSH_IMPORT_SOURCE" },
+        sourcePath,
+      );
+  },
+);

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { assertOutsideDirs, protectedDirs } from "../assistants/protected-dirs.js";
 import { sshPhysicalRoot } from "./ssh-root.js";
 import { sshProblem } from "./ssh-errors.js";
 
@@ -35,6 +36,13 @@ export function readSshImport({ sourcePath, home, dataDir, identityPaths = [] })
       inside(sshPhysicalRoot(dataDir), canonical)
     )
       throw refused();
+    // The same by device and inode on every folder: another case or a macOS
+    // firmlink (/System/Volumes/Data) names the data directory too.
+    assertOutsideDirs(
+      path.dirname(canonical),
+      protectedDirs([dataDir], refused),
+      refused,
+    );
     const parent = fs.statSync(path.dirname(canonical), { bigint: true });
     fd = fs.openSync(
       source,

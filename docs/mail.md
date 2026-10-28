@@ -164,6 +164,8 @@ instructions inside it never allow anything.
     names are cleaned: one plain name, no control or hidden characters, at most 180
     bytes.
   - AgentPier's data directory and links are refused, also links in parent folders.
+    The data directory is recognised by device and inode, so another case or the
+    macOS firmlink `/System/Volumes/Data` does not get past.
     Agents must use real paths, for example `/private/tmp` and not `/tmp` or `/var`,
     which are links on macOS. A place the agent may not save to is `MAIL_SAVE_REFUSED`.
 

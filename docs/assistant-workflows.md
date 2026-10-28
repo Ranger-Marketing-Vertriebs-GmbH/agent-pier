@@ -104,7 +104,12 @@ view is audited with its path and size, like a change.
   resolves the real path again: `..`, `~`, URL forms, control characters and
   backslashes are refused, links may point anywhere inside the folder but never out
   of it, and `.git` (in any spelling, also through a link) is never read or written.
-  AgentPier's own data directory is refused even when it lies inside a project.
+  AgentPier's own data directory is refused even when it lies inside a project,
+  or when the project is granted at `/`. It is recognised by device and inode on
+  every folder from the file system root down, so no other spelling of it reaches
+  it: another case on a file system that ignores case, or the macOS firmlink
+  `/System/Volumes/Data`, which `realpath` does not resolve. A search skips it the
+  same way. If its identity cannot be determined, every call is refused.
   Pipeline run checkouts (`.agentpier-worktrees`) can be read but not changed.
 - **Writes:** go to a temporary file beside the target and replace it by rename. A
   link inside the folder is resolved first, so the write lands at its real target;

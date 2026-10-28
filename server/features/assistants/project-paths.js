@@ -4,6 +4,12 @@ import { assistantProblem } from "./assistant-validation.js";
 import { fold } from "./team-plugin/tool-guard.js";
 import { runFence } from "../memory/project-folders.js";
 import { repoConfigLocked } from "./project-config-lock.js";
+import {
+  assertOutsideDirs,
+  protectedAncestors,
+  protectedDirs,
+  sameDir,
+} from "./protected-dirs.js";
 
 // Git internals hold credentials (remote URLs, hooks that run on the owner's next
 // command): never read or written. Pipeline run worktrees belong to their runs.
@@ -121,7 +127,10 @@ function lockedConfig(parts, write, lockToolConfig) {
  * every call: symbolic links may point anywhere inside the folder, never out of it,
  * into `.git` or into `protectedRoots` (AgentPier's own data directory). Case
  * variants (".GIT") are caught by folding every segment, before and after links are
- * resolved. Returns the real target (or, for a target that does not exist yet, the
+ * resolved; a protected root is also recognised by device and inode on every folder
+ * from the file system root down (protected-dirs.js), so another case or a macOS
+ * firmlink (/System/Volumes/Data) never reaches it, from a folder granted at `/`
+ * either. A protected root whose identity cannot be determined refuses. Returns the real target (or, for a target that does not exist yet, the
  * real parent joined with the missing names), its relative POSIX path and whether
  * it exists. Refuses with `projectPathRefused` (403) otherwise, and with
  * `projectToolConfigLocked` (403) a write into tool configuration when
@@ -165,6 +174,15 @@ export function projectTarget(
   for (const root of protectedRoots) {
     const guarded = realpath(root) || root;
     if (inside(guarded, target) || (write && inside(target, guarded))) throw refused();
+  }
+  // The same by device and inode, for every other spelling of a protected root.
+  if (protectedRoots.length) {
+    assertOutsideDirs(target, protectedDirs(protectedRoots, refused), refused);
+    if (write && !missing.length) {
+      const stat = fs.lstatSync(target, { bigint: true, throwIfNoEntry: false });
+      if (!stat || sameDir(protectedAncestors(protectedRoots, refused), stat))
+        throw refused();
+    }
   }
   return {
     root: real,

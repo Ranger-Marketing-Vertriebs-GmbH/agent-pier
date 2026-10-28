@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { projectTarget } from "../assistants/project-paths.js";
 import { inFolder, openInside } from "../assistants/project-open.js";
+import { protectedDirs, sameDir } from "../assistants/protected-dirs.js";
 import { fold } from "../assistants/team-plugin/tool-guard.js";
 import { sftpProblem } from "./sftp-errors.js";
 import { defaultExcludes, excluded, isPartFile, partName } from "./sftp-excludes.js";
@@ -155,6 +156,8 @@ export async function walkLocal(
   }
   if (!stat.isDirectory()) throw conflict();
   const guarded = (target.rules?.protectedRoots || []).map(realOrSelf);
+  // The same roots by device and inode: another spelling of one is skipped too.
+  const guardedDirs = protectedDirs(target.rules?.protectedRoots || [], refused);
   const prefix = target.relative ? target.relative.split("/") : [];
   const tick = scanGuard(limits);
   const pending = [""];
@@ -189,6 +192,15 @@ export async function walkLocal(
         const info = await lstatOrNull(path.join(base, name));
         if (!info) continue;
         if (info.isDirectory()) {
+          if (guardedDirs.length) {
+            const id = await fs.promises
+              .lstat(path.join(base, name), { bigint: true })
+              .catch(() => null);
+            if (!id || sameDir(guardedDirs, id)) {
+              keep(relative);
+              continue;
+            }
+          }
           dirs.push(child);
           pending.push(child);
           continue;
