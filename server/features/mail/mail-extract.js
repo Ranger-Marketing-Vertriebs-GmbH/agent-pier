@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { mailError } from "./mail-connection.js";
 import { mailFileType, mailFileTypes } from "./mail-file-types.js";
 import { clipText } from "./mail-text.js";
+import { documentKinds, htmlKinds } from "./mail-extract-kinds.js";
 
 // Text of mail attachments for agents. Plain text is decoded here; PDF and Office
 // documents are parsed in a separate Node.js process with a heap limit, a memory
@@ -28,7 +29,6 @@ export const extractLimits = Object.freeze({
 // The HTML pool: one process at a time, a short queue. A bounded mail parses in well
 // under a second, so a read waits at most a few of them.
 export const htmlPool = Object.freeze({ concurrency: 1, queue: 4 });
-const htmlKinds = new Set(["html-text", "html-quote", "html-forward"]);
 
 const kindsByType = new Map([
   [mailFileTypes[".pdf"], "pdf"],
@@ -38,7 +38,6 @@ const kindsByType = new Map([
   [mailFileTypes[".txt"], "text"],
   [mailFileTypes[".csv"], "text"],
 ]);
-const childKinds = new Set(["pdf", "docx", "xlsx", "pptx"]);
 const defaultScript = new URL("./mail-extract-child.js", import.meta.url);
 const pdfMagic = Buffer.from("%PDF-", "latin1");
 const zipMagic = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
@@ -270,7 +269,7 @@ export async function extractText(
     const clipped = clipText(text, limits.textChars);
     return end < bytes.length ? { ...clipped, truncated: true } : clipped;
   }
-  if (!childKinds.has(kind)) throw documentFailed("MAIL_TEXT_UNSUPPORTED");
+  if (!documentKinds.has(kind)) throw documentFailed("MAIL_TEXT_UNSUPPORTED");
   if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw documentFailed();
   const result = await inChild(bytes, kind, { limits, scriptUrl, signal });
   const clipped = clipText(result.text, limits.textChars);
@@ -288,6 +287,9 @@ export async function inChild(
   kind,
   { limits = extractLimits, scriptUrl = defaultScript, signal } = {},
 ) {
+  // Only the known kinds start a process; an unknown one is a caller's bug.
+  if (!htmlKinds.has(kind) && !documentKinds.has(kind))
+    throw new TypeError("Unknown extraction kind.");
   const pool = htmlKinds.has(kind) ? pools.html : pools.document;
   await pool.acquire(signal);
   try {

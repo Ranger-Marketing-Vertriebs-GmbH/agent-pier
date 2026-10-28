@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, fork } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { promisify } from "node:util";
 import {
@@ -10,6 +11,7 @@ import {
   extractionQueues,
   extractLimits,
   extractText,
+  inChild,
 } from "../../server/features/mail/mail-extract.js";
 import {
   docxWith,
@@ -25,6 +27,10 @@ import {
 } from "../helpers/mail-documents.js";
 
 const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
+const childUrl = new URL(
+  "../../server/features/mail/mail-extract-child.js",
+  import.meta.url,
+);
 const greedyUrl = new URL("../fixtures/mail-extract-greedy.mjs", import.meta.url);
 const endsUrl = new URL("../fixtures/mail-extract-ends.mjs", import.meta.url);
 const failed = { code: "MAIL_TEXT_FAILED" };
@@ -459,4 +465,20 @@ test("a caller that gives up leaves the queue at once", async () => {
   });
   await Promise.all(held);
   assert.equal(extractionQueues().document.running, 0);
+});
+
+test("only the known kinds start a process, and the child reads only them", async () => {
+  const before = extractionQueues();
+  for (const kind of ["html-other", "html", "zip", "text"])
+    await assert.rejects(inChild("<p>x</p>", kind), TypeError, kind);
+  assert.deepEqual(extractionQueues(), before);
+  // The child itself refuses an unknown kind as a failure that is not the document's.
+  const child = fork(fileURLToPath(childUrl), [], {
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+    serialization: "advanced",
+  });
+  const reply = new Promise((resolve) => child.once("message", resolve));
+  child.send({ bytes: "<p>x</p>", kind: "html-other", limits: extractLimits });
+  assert.deepEqual(await reply, { failed: true });
+  await new Promise((resolve) => child.once("exit", resolve));
 });

@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import { documentKinds, htmlKinds } from "./mail-extract-kinds.js";
 
 // A child process started by mail-extract.js for one document: it reads the text and
 // answers `{ text, truncated }` over IPC, or `{ failed: true }` with `document: true`
@@ -28,7 +29,7 @@ async function reader(kind) {
     const { pdfText } = await import("./mail-extract-pdf.js");
     return async (bytes, _kind, limits) => pick(await pdfText(bytes, limits));
   }
-  if (kind.startsWith("html-")) {
+  if (htmlKinds.has(kind)) {
     const { htmlToText, quoteHtml } = await import("./mail-text.js");
     if (kind === "html-text")
       return (html, _kind, limits) => htmlToText(html, limits.textChars);
@@ -46,6 +47,7 @@ async function reader(kind) {
         : { text: quote, truncated: false };
     };
   }
+  if (!documentKinds.has(kind)) throw new TypeError("Unknown extraction kind.");
   const { ooxmlText } = await import("./mail-extract-ooxml.js");
   return async (bytes, kind, limits) => pick(await ooxmlText(bytes, kind, limits));
 }
