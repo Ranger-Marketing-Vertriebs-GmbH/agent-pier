@@ -104,16 +104,38 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
       scopeKey: () => "owner",
       read: () => ({ secret: name }),
     });
+  const server = f.application.mcpServers.create({
+    name: "docs",
+    transport: "http",
+    url: "https://mcp.example.test/mcp",
+  });
   const ownerLive = openLive(f);
   await ownerLive.next((frame) => frame.type === "hello");
   // The owner reaches what the user is refused below, the job topics among them.
-  for (const topic of ["probe.open", "job.tool:codex", "job.rea:current"]) {
+  for (const topic of [
+    "probe.open",
+    "job.tool:codex",
+    "job.rea:current",
+    `job.mcp-package:${server.id}`,
+  ]) {
     ownerLive.send({ op: "sub", topic });
     assert.equal(
       (await ownerLive.next((frame) => frame.topic === topic, 5000)).type,
       "snapshot",
       topic,
     );
+  }
+  // These exist for the owner; with nothing behind them their routes refuse.
+  for (const topic of [
+    "job.plugins:nobody",
+    "job.ssh-tools:nobody",
+    "job.chatgpt-login:current",
+    "session.reload:nobody",
+  ]) {
+    ownerLive.send({ op: "sub", topic });
+    const frame = await ownerLive.next((frame) => frame.topic === topic, 5000);
+    assert.equal(frame.type, "error", topic);
+    assert.notEqual(frame.code, "unknown-topic", topic);
   }
   ownerLive.ws.close();
   const { cookie } = await signedInUser(f);
@@ -141,6 +163,11 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.operation:0000aaaa-0000-4000-8000-000000000000",
     "job.tool:codex",
     "job.rea:current",
+    `job.mcp-package:${server.id}`,
+    "job.plugins:local-codex",
+    "job.ssh-tools:x",
+    "job.chatgpt-login:current",
+    "session.reload:x",
     "operations.release-sessions:1.0.0",
     "artifacts.usage",
     "artifacts.changed",

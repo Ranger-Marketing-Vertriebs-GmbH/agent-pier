@@ -1,19 +1,41 @@
 import { packageCode, packageProblem } from "./package-errors.js";
+import { logFailure } from "./package-install-job.js";
 
 const tailLimit = 4000;
 const redact = (text) => String(text).replace(/(\w+:\/\/)[^\s/@]+@/g, "$1***@");
 
-/** Background package jobs, one per server; state lives in memory only. */
+/**
+ * Background package jobs, one per server; state lives in memory only. Every write of
+ * a job (its start, each log line, its end) calls `onChange(serverId)`, assigned by
+ * the wiring (the live `job.mcp-package` topic).
+ */
 export class PackageJobs {
   constructor({ settled = () => {} } = {}) {
     this.settled = settled;
+    this.onChange = null;
     this.jobs = new Map();
     this.running = new Set();
   }
+  /** Calls `onChange(serverId)`; a failing listener is logged, never thrown. */
+  changed(serverId) {
+    try {
+      this.onChange?.(serverId);
+    } catch (error) {
+      logFailure("announce an MCP package job", error);
+    }
+  }
+  // `startedAt` tells one job from the next: a job that ends like the one before it
+  // still reads differently, and a client can ignore an earlier job's answer.
   get(serverId) {
     const job = this.jobs.get(serverId);
     return job
-      ? { kind: job.kind, state: job.state, code: job.code, log: job.log }
+      ? {
+          kind: job.kind,
+          state: job.state,
+          code: job.code,
+          log: job.log,
+          startedAt: job.startedAt,
+        }
       : null;
   }
   /** The server message a failed job ended with: one code can have several wordings. */
@@ -50,11 +72,13 @@ export class PackageJobs {
       code: null,
       message: null,
       log: "",
+      startedAt: new Date().toISOString(),
       controller,
     };
     this.jobs.set(serverId, job);
     const log = (text) => {
       job.log = redact(`${job.log}${text}\n`).slice(-tailLimit);
+      this.changed(serverId);
     };
     const note = ({ toolchainDir } = {}) => {
       if (typeof toolchainDir === "string") job.toolchainDir = toolchainDir;
@@ -83,9 +107,11 @@ export class PackageJobs {
           /* Pruning runs again after the next job and at start. */
         }
         this.running.delete(promise);
+        this.changed(serverId);
       });
     job.promise = promise;
     this.running.add(promise);
+    this.changed(serverId);
     return this.get(serverId);
   }
   /** Aborts the running job of `serverId`; true once it settled, false when none ran. */

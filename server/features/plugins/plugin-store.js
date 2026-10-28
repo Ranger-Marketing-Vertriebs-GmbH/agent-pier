@@ -55,6 +55,17 @@ export class PluginStore {
     this.cache = new Map();
     this.processes = new Set();
     this.closed = false;
+    // Called with the (resolved) account id when a plugin change starts or ends, so
+    // its `busy` flag changes (assigned by the wiring: the live `job.plugins` topic).
+    this.onChange = null;
+  }
+  /** Calls `onChange(id)`; a failing listener is logged, never thrown. */
+  changed(id) {
+    try {
+      this.onChange?.(id);
+    } catch {
+      console.error("AgentPier could not announce a plugin change.");
+    }
   }
   isBusy(id) {
     if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
@@ -352,6 +363,7 @@ export class PluginStore {
       throw problem(serverMessages.plugins.operationAlreadyRunning, 409);
     this.locks.add(id);
     this.sharedProfiles?.busy.add(id);
+    this.changed(id);
     try {
       if (!remote) this.sharedProfiles?.migrate(id, { allowBusy: true });
       await Promise.all(
@@ -438,6 +450,7 @@ export class PluginStore {
     } finally {
       this.locks.delete(id);
       this.sharedProfiles?.busy.delete(id);
+      this.changed(id);
     }
   }
   removeOpenCode(ctx, id) {

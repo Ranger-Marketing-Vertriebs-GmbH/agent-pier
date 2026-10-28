@@ -9,8 +9,7 @@ import SshCopy from "./SshCopy.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { apiCopy } from "../../lib/i18n/messages/components.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import "./ssh.css";
 import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js";
 const toolTones = {
@@ -44,20 +43,15 @@ export default function SessionSshDialog({ session, close, openReload }) {
   useEffect(() => {
     if (data) setTools(data.tools);
   }, [data]);
+  // While the SSH tools start, they follow the live `job.ssh-tools:<id>` topic, which
+  // the server samples until the CLI's SSH server is ready; only the tools' state is
+  // taken, so unsaved choices stay. A read the channel could not push shows.
+  const starting = tools?.state === "starting";
+  const progress = useLiveTopic(starting ? `job.ssh-tools:${session.id}` : null);
   useEffect(() => {
-    if (tools?.state !== "starting") return undefined;
-    // Only a visible tab reads; a stalled read is cut off and reported.
-    return startVisiblePolling(async (signal) => {
-      try {
-        const result = await api(path, "GET", undefined, signal);
-        if (!mounted.current) return;
-        setTools(result.tools);
-        setError((current) => (current === apiCopy.timedOut ? "" : current));
-      } catch {
-        if (mounted.current && timedOut(signal)) setError(apiCopy.timedOut);
-      }
-    }, 1500);
-  }, [path, tools?.state]);
+    if (progress.data?.tools) setTools(progress.data.tools);
+  }, [progress.data]);
+  const shownError = error || (starting ? progress.error : "");
 
   const save = async () => {
     setBusy(true);
@@ -88,9 +82,9 @@ export default function SessionSshDialog({ session, close, openReload }) {
       footer={
         data ? (
           <>
-            {error ? (
+            {shownError ? (
               <p className="dialog-actions-note error" role="alert">
-                {error}
+                {shownError}
               </p>
             ) : (
               (busy || saved) && (

@@ -4,6 +4,7 @@ import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 import { accountRow, openAccountItem } from "../helpers/accounts-browser.js";
+import { recordApiRequests } from "../helpers/visibility.js";
 async function setup(page, ready = true) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -195,4 +196,38 @@ test("an older account fetch cannot restore an account after disconnect", async 
   // Synchronize with the deliberately late response before the final assertion.
   await page.waitForTimeout(200);
   await expect(accountRow(page, "Personal ChatGPT")).toHaveCount(0);
+});
+
+// The sign-in follows the live job.chatgpt-login topic. Another attempt's push (an
+// earlier one) is not taken: the page asks its own attempt once and keeps waiting.
+test.describe("pushed sign-in", () => {
+  test.use({ live: "manual" });
+
+  test("a sign-in follows only its own attempt", async ({ page, liveStub }) => {
+    const state = await setup(page);
+    const topic = "job.chatgpt-login:current";
+    await page.goto(baseURL + "/accounts");
+    await liveStub.waitForSubscribe("state");
+    liveStub.push(
+      "state",
+      await page.evaluate(() => fetch("/api/state").then((r) => r.json())),
+    );
+    const panel = await openAccountItem(page, "ChatGPT for agents");
+    const requests = recordApiRequests(page);
+    await panel.getByRole("button", { name: "Connect ChatGPT" }).click();
+    await expect(panel.getByText("ABCD-EFGHI")).toBeVisible();
+    await liveStub.waitForSubscribe(topic);
+    liveStub.push(topic, { id: "earlier", status: "completed" });
+    const own = (request) => request.path === "/api/assistant-model-login/owned";
+    await expect.poll(() => requests.list().filter(own).length).toBe(1);
+    await expect(panel.getByText("ABCD-EFGHI")).toBeVisible();
+    state.status = "completed";
+    state.accounts = [
+      { id: "openclaw:test", name: "Personal ChatGPT", status: "ok", available: true },
+    ];
+    liveStub.push(topic, { id: "owned", status: "completed" });
+    await expect(accountRow(page, "Personal ChatGPT")).toBeVisible();
+    await expect(panel.getByText("ABCD-EFGHI")).toHaveCount(0);
+    expect(requests.list().filter(own)).toHaveLength(1);
+  });
 });

@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { sessionReloadCopy as copy } from "../../lib/i18n/messages/sessions.js";
-import { apiCopy } from "../../lib/i18n/messages/components.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 
+/**
+ * Whether and how `session` can be reloaded, and the requests that reload it. The
+ * state follows the live `session.reload:<id>` topic: the server pushes every change
+ * of the reload and samples the CLI's activity while a visible tab watches. A push
+ * that arrives while a request or cancel is sent is older than its answer and is
+ * dropped; later pushes win again.
+ */
 export default function useSessionReload(session, pending) {
   const path = `/sessions/${encodeURIComponent(session.id)}/reload`;
+  const live = useLiveTopic(`session.reload:${session.id}`);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [revision, setRevision] = useState(0);
   const mounted = useRef(false);
   const mutating = useRef(false);
-  const epoch = useRef(0);
   const submissionError = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -22,30 +27,19 @@ export default function useSessionReload(session, pending) {
     };
   }, []);
   useEffect(() => {
-    async function poll(signal) {
-      const version = epoch.current;
-      try {
-        const result = await api(path, "GET", undefined, signal);
-        if (!signal.aborted && !mutating.current && version === epoch.current) {
-          setData(result);
-          if (pending.current && pending.current.requestId === result.requestId) {
-            pending.current = null;
-            submissionError.current = false;
-          }
-          if (!submissionError.current) setError("");
-        }
-      } catch (err) {
-        if (
-          (!signal.aborted || timedOut(signal)) &&
-          !mutating.current &&
-          version === epoch.current &&
-          !submissionError.current
-        )
-          setError(timedOut(signal) ? apiCopy.timedOut : err.message);
-      }
+    const result = live.data;
+    if (!result || mutating.current) return;
+    setData(result);
+    if (pending.current && pending.current.requestId === result.requestId) {
+      pending.current = null;
+      submissionError.current = false;
     }
-    return startVisiblePolling(poll, 1500);
-  }, [path, revision, pending]);
+    if (!submissionError.current) setError("");
+  }, [live.data, pending]);
+  // A read the channel could not push (its fallback, a timeout) shows its failure.
+  useEffect(() => {
+    if (live.error && !mutating.current && !submissionError.current) setError(live.error);
+  }, [live.error]);
   async function submit(mode, interrupt = false, targetAccountId) {
     if (mutating.current) return;
     let body;
@@ -62,7 +56,6 @@ export default function useSessionReload(session, pending) {
       return;
     }
     pending.current = body;
-    epoch.current++;
     mutating.current = true;
     setBusy(true);
     submissionError.current = false;
@@ -84,7 +77,6 @@ export default function useSessionReload(session, pending) {
   }
   async function cancel() {
     if (mutating.current) return;
-    epoch.current++;
     mutating.current = true;
     setBusy(true);
     try {
@@ -110,6 +102,6 @@ export default function useSessionReload(session, pending) {
     submit,
     cancel,
     pending: pending.current,
-    refresh: () => setRevision((value) => value + 1),
+    refresh: () => void live.refresh(),
   };
 }

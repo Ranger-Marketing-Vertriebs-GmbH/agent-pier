@@ -150,3 +150,22 @@ test("the tool and REA job topics name their routes at their former polls", () =
   assert.deepEqual([rea.mode, rea.interval, rea.sampled], ["state", 1000, true]);
   assert.equal(topicInfo("job.rea"), null);
 });
+
+test("the package, plugin, SSH, sign-in and reload topics name their routes", () => {
+  const expected = [
+    ["job.mcp-package:s 1", "/mcp-servers/s%201/package", 2000, false],
+    ["job.plugins:local-codex", "/accounts/local-codex/plugins", 2000, false],
+    ["job.ssh-tools:abc", "/sessions/abc/ssh-accesses", 1500, true],
+    ["job.chatgpt-login:current", "/assistant-model-login/current", 1000, false],
+    ["session.reload:abc", "/sessions/abc/reload", 1500, true],
+  ];
+  for (const [topic, path, interval, sampled] of expected) {
+    const info = topicInfo(topic);
+    assert.equal(info.path(info.param), path, topic);
+    assert.deepEqual(
+      [info.mode, info.interval, info.sampled],
+      ["state", interval, sampled],
+    );
+    assert.equal(topicInfo(topic.slice(0, topic.indexOf(":"))), null, topic);
+  }
+});

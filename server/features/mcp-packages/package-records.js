@@ -1,4 +1,5 @@
 import { choosingReceipt, installDirectory, readInstall } from "./package-store.js";
+import { logFailure } from "./package-install-job.js";
 
 const schema = (table) => `
 CREATE TABLE IF NOT EXISTS ${table}(
@@ -84,6 +85,16 @@ export class PackageRecords {
     // McpPackages answers this: an `installing` row no job owns (a restore, a crash
     // before start()) reads as failed instead of installing forever.
     this.orphaned = () => false;
+    // Called with the server id after every write of a record (assigned by the
+    // wiring: the live `job.mcp-package` topic).
+    this.onChange = null;
+  }
+  changed(serverId) {
+    try {
+      this.onChange?.(serverId);
+    } catch (error) {
+      logFailure("announce an MCP package record", error);
+    }
   }
   tableColumns() {
     return new Set(
@@ -146,6 +157,7 @@ export class PackageRecords {
         `INSERT OR REPLACE INTO server_packages(server_id,${keys.map((k) => columns[k]).join(",")},updated_at) VALUES (?,${keys.map(() => "?").join(",")},?)`,
       )
       .run(serverId, ...keys.map((k) => toValue(k, fields[k])), Date.now());
+    this.changed(serverId);
   }
   update(serverId, fields) {
     const current = this.get(serverId);
@@ -153,6 +165,7 @@ export class PackageRecords {
   }
   remove(serverId) {
     this.db.prepare("DELETE FROM server_packages WHERE server_id=?").run(serverId);
+    this.changed(serverId);
   }
   installIds() {
     return new Set(

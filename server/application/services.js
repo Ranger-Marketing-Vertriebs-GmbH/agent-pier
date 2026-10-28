@@ -35,6 +35,9 @@ import { requestsChanged } from "../features/requests/live-topics.js";
 import { artifactsChanged } from "../features/artifacts/live-topics.js";
 import { operationJobChanged } from "../features/operations/live-topics.js";
 import { reaJobChanged, toolJobsChanged } from "../features/tools/live-topics.js";
+import { watchPackageJobs } from "../features/mcp-packages/live-topics.js";
+import { pluginJobChanged } from "../features/plugins/live-topics.js";
+import { sshToolsChanged } from "../features/ssh/live-topics.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
@@ -466,6 +469,9 @@ export async function createServices(config) {
   // Every job write reaches the live job topics (services.live, once listening).
   installer.onChange = () => toolJobsChanged(services.live);
   if (rea) rea.onChange = () => reaJobChanged(services.live);
+  watchPackageJobs(services, mcpPackages);
+  plugins.onChange = () => pluginJobChanged(services.live);
+  sshSessions.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
   // The managed agent browser stays while an agent browser runs, or while the running
   // Gateway was started with it and an agent has a browser profile there. Without
   // one, a later switch-on finds the browser gone and restarts first (web-tools-changes.js).

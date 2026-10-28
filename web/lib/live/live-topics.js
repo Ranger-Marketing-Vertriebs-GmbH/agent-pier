@@ -103,6 +103,38 @@ export const liveTopics = Object.freeze({
     interval: 1000,
     sampled: true,
   }),
+  // A packaged MCP server's package and its last job, pushed on every job write.
+  "job.mcp-package": Object.freeze({
+    mode: "state",
+    path: (id) => `/mcp-servers/${encodeURIComponent(id)}/package`,
+    interval: 2000,
+  }),
+  // A CLI account's plugins (default catalog); start and end of a change are pushed.
+  "job.plugins": Object.freeze({
+    mode: "state",
+    path: (id) => `/accounts/${encodeURIComponent(id)}/plugins`,
+    interval: 2000,
+  }),
+  // A session's SSH hosts and tools; starting tools are sampled every 1.5 s.
+  "job.ssh-tools": Object.freeze({
+    mode: "state",
+    path: session("ssh-accesses"),
+    interval: 1500,
+    sampled: true,
+  }),
+  // The latest ChatGPT sign-in of the agents (`current`), pushed on every change.
+  "job.chatgpt-login": Object.freeze({
+    mode: "state",
+    path: (_current) => "/assistant-model-login/current",
+    interval: 1000,
+  }),
+  // Whether and how a session can be reloaded; sampled every 1.5 s.
+  "session.reload": Object.freeze({
+    mode: "state",
+    path: session("reload"),
+    interval: 1500,
+    sampled: true,
+  }),
   // An old release's session migration plan, sampled every 3 s.
   "operations.release-sessions": Object.freeze({
     mode: "state",

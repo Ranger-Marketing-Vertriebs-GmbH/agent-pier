@@ -97,33 +97,37 @@ async function sessionFixture(page, stall = {}) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
 }
 
-// The model state is a sampled live topic: a hidden tab unsubscribes it, so the
-// server stops sampling, and the page itself never reads /models.
-test("a hidden session chat pauses the model and reload reads", async ({
+// The model state and the reload dialog are sampled live topics: a hidden tab
+// unsubscribes them, so the server stops sampling, and the page itself never reads
+// /models or /reload.
+test("a hidden session chat lets its model and reload topics go", async ({
   page,
   liveStub,
 }) => {
   await sessionFixture(page);
-  const models = "session.models:hidden-demo";
+  const topics = ["session.models:hidden-demo", "session.reload:hidden-demo"];
   const requests = recordApiRequests(page);
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
     "gpt-5.6-sol",
   );
   await page.getByRole("button", { name: "Reload & resume", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Wait until idle");
   await expect
-    .poll(() => requests.list().some((request) => request.path.endsWith("/reload")))
-    .toBe(true);
-  expect(liveStub.subscriptions()).toContain(models);
+    .poll(() => liveStub.subscriptions())
+    .toEqual(expect.arrayContaining(topics));
   await setTabHidden(page, true);
-  await expect.poll(() => liveStub.subscriptions()).not.toContain(models);
+  for (const topic of topics)
+    await expect.poll(() => liveStub.subscriptions()).not.toContain(topic);
+  requests.clear();
+  await page.waitForTimeout(3000);
+  expect(requests.list()).toEqual([]);
   await setTabHidden(page, false);
-  await expect.poll(() => liveStub.subscriptions()).toContain(models);
-  await pausesWhenHidden(page, requests, /\/reload$/);
-  expect(requests.list().some((request) => request.path.endsWith("/models"))).toBe(false);
   await expect
-    .poll(() => requests.list().some((request) => request.path.endsWith("/reload")))
-    .toBe(true);
+    .poll(() => liveStub.subscriptions())
+    .toEqual(expect.arrayContaining(topics));
+  const own = /\/(models|reload)$/;
+  expect(requests.list().some((request) => own.test(request.path))).toBe(false);
 });
 
 test("hidden Projects pause the AgentBus, run count and message reads", async ({
@@ -239,8 +243,13 @@ test("a stalled model read reports its timeout on the live channel", async ({
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
 });
 
-test("a stalled reload read shows a timeout in the dialog", async ({ page }) => {
+// Without the channel the dialog falls back to its former poll, which reports a stall.
+test("a stalled reload read shows a timeout in the dialog", async ({
+  page,
+  liveStub,
+}) => {
   test.setTimeout(60000);
+  liveStub.refuse();
   await sessionFixture(page, { reload: true });
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await page.getByRole("button", { name: "Reload & resume", exact: true }).click();

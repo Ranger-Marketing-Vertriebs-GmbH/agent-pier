@@ -2,7 +2,8 @@ import { useProfilePluginsCopy as copy } from "../../lib/i18n/messages/plugins.j
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePagination } from "../../components/Pagination.jsx";
 import { apiCopy } from "../../lib/i18n/messages/components.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
+import { timedOut } from "../../lib/visible-polling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 export default function useProfilePlugins({ account, request, setParentBusy }) {
   const [data, setData] = useState(null),
     [loading, setLoading] = useState(true),
@@ -65,11 +66,20 @@ export default function useProfilePlugins({ account, request, setParentBusy }) {
       alive.current = false;
     };
   }, [load]);
+  // While a plugin change runs elsewhere, the account follows the live
+  // `job.plugins:<id>` topic: its end (`busy` gone) is pushed. The pushed list is the
+  // default catalog's, so another catalog account reads its own list once then. A
+  // read while nothing runs asks the CLI, so the topic is not followed otherwise.
+  const following = Boolean(data?.busy) && !busy;
+  const pushed = useLiveTopic(following ? `job.plugins:${account.id}` : null).data;
   useEffect(() => {
-    if (!data?.busy || busy) return undefined;
-    // The read that showed the busy state just happened, so the start run is skipped.
-    return startVisiblePolling((signal) => read(signal), 2000, {}, { skipFirst: true });
-  }, [data?.busy, busy, read]);
+    if (!pushed || pushed.busy) return;
+    if (catalogAccountId) void read();
+    else {
+      reads.current++;
+      receive(pushed);
+    }
+  }, [pushed, catalogAccountId, read, receive]);
   useEffect(() => {
     if (market && data && !data.marketplaces.some((m) => m.name === market))
       setMarket("");

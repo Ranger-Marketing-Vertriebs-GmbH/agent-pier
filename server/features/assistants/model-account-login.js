@@ -26,12 +26,24 @@ export function loginReason(text, code) {
 export class AssistantAccountLogin {
   constructor({ runtime, accounts, warn = console.warn }) {
     Object.assign(this, { runtime, accounts, warn });
+    // Called after every change of the attempt status() reports (assigned by the
+    // wiring: the live `job.chatgpt-login` topic).
+    this.onChange = null;
+  }
+  /** Calls `onChange()`; a failing listener is logged, never thrown. */
+  changed() {
+    try {
+      this.onChange?.();
+    } catch {
+      console.error("AgentPier could not announce the ChatGPT sign-in.");
+    }
   }
   // Marks an active attempt failed and logs why; the browser only gets the code.
   fail(attempt, diagnostic, error) {
     if (!active.has(attempt.status)) return;
     attempt.status = "failed";
     attempt.diagnostic = diagnostic;
+    this.changed();
     const details = [
       /^[A-Z_]{1,60}$/.test(error?.gatewayCode) && `Gateway ${error.gatewayCode}`,
       error?.wizardStatus && `wizard ${error.wizardStatus}`,
@@ -60,6 +72,7 @@ export class AssistantAccountLogin {
       status: "starting",
       client: this.runtime.client,
     });
+    this.changed();
     attempt.task = this.run(attempt);
     return this.status();
   }
@@ -113,7 +126,10 @@ export class AssistantAccountLogin {
           await this.accounts.list();
           // The new account's model list loads in the background.
           this.accounts.catalog?.refresh({ force: true }).catch(() => {});
-          if (current()) attempt.status = "completed";
+          if (current()) {
+            attempt.status = "completed";
+            this.changed();
+          }
           return;
         }
         const step = result.step;
@@ -127,6 +143,7 @@ export class AssistantAccountLogin {
           if (step.externalUrl !== loginUrl)
             throw failure("UNSUPPORTED_LOGIN_STEP", { stepType: step.type });
           attempt.url = loginUrl;
+          this.changed();
         }
         if (step.deviceCode) {
           if (!/^[A-Z0-9]{4,8}-[A-Z0-9]{4,8}$/.test(step.deviceCode.code))
@@ -137,6 +154,7 @@ export class AssistantAccountLogin {
             Date.now() + Math.min(step.deviceCode.expiresInMinutes || 15, 15) * 60000,
           ).toISOString();
           attempt.status = "awaiting_user";
+          this.changed();
         }
         if (step.type === "progress") {
           await delay(250);
@@ -176,6 +194,7 @@ export class AssistantAccountLogin {
     const attempt = this.attempt;
     if (active.has(attempt.status)) {
       attempt.status = "cancelled";
+      this.changed();
       await attempt.client
         .call("wizard.cancel", { sessionId: id, closeInput: true }, { timeoutMs: 2000 })
         .catch(() => {});

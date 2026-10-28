@@ -48,6 +48,17 @@ export class SshSessions {
     this.dataDir = path.resolve(dataDir);
     this.store = store;
     this.directory = privateDirectory(path.join(this.dataDir, "ssh", "grants"));
+    // Called with the session id after its assignments changed, with null after a
+    // host was revoked from every session (assigned by the wiring: the live
+    // `job.ssh-tools` topic).
+    this.onChange = null;
+  }
+  changed(sessionId) {
+    try {
+      this.onChange?.(sessionId);
+    } catch {
+      console.error("AgentPier could not announce an SSH assignment.");
+    }
   }
   file(id) {
     return path.join(this.directory, `${identifier(id)}.json`);
@@ -119,16 +130,18 @@ export class SshSessions {
     const accessIds = this.validate(ids);
     if (session.tool === "shell")
       for (const id of accessIds) hostType(this.store.get(id), "ssh");
-    if (accessIds.length)
+    if (accessIds.length) {
       writePrivate(this.file(session.id), {
         identity: identity(session),
         accessIds,
       });
-    else this.discard(session.id);
+      this.changed(session.id);
+    } else this.discard(session.id);
     return this.get(session);
   }
   discard(id) {
     fs.rmSync(this.file(id), { force: true });
+    this.changed(id);
   }
   revokeAccess(id) {
     identifier(id);
@@ -143,6 +156,7 @@ export class SshSessions {
       if (accessIds.length) writePrivate(file, { ...saved, accessIds });
       else fs.rmSync(file, { force: true });
     }
+    this.changed(null);
   }
   /** The connection for a granted host of `type`; another type is `SSH_HOST_TYPE`. */
   async resolve(sessionId, accessId, { type = "ssh" } = {}) {

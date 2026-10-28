@@ -540,6 +540,9 @@ listed in [MCP package qualification](mcp-package-qualification.md).
 The form shows the status: _Installing…_, _Installed_, _Choose program_ (a build
 installed several programs and waits for your choice), _Installation failed_ or
 _Installation missing_ (the files of a ready install are gone or changed).
+The status, the job and its log follow the [live channel](architecture.md#live-channel):
+each log line and the job's end arrive as they happen, also for a job started in another
+tab. Without the live channel they are read every 2 s while the tab is visible.
 
 - **Bindings.** Until the package is ready, the controls for Coding CLIs and agents
   are locked for new bindings ("Coding CLIs and agents can be added once the package

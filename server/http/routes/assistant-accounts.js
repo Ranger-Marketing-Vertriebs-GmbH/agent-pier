@@ -66,8 +66,9 @@ export function assistantAccountRoutes({
   router.post("/assistant-model-login", async (_req, res) =>
     res.status(202).json(await assistants.admit(() => login.start())),
   );
+  // `current` is the latest attempt, whatever its id (the live job.chatgpt-login topic).
   router.get("/assistant-model-login/:id", (req, res) =>
-    res.json(login.status(req.params.id)),
+    res.json(login.status(req.params.id === "current" ? undefined : req.params.id)),
   );
   router.delete("/assistant-model-login/:id", async (req, res) =>
     res.json(await login.cancel(req.params.id)),
