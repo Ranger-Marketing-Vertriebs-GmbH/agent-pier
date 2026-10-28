@@ -176,7 +176,25 @@ export class FileStore {
         "SELECT rowid AS sequence,* FROM jobs WHERE scope_id=? AND rowid>? ORDER BY rowid LIMIT 201",
       )
       .all(scope.id, after);
-    return page(rows, scope, "jobs", "jobs", (row) => publicFileJob(row, this));
+    const result = page(rows, scope, "jobs", "jobs", (row) => publicFileJob(row, this));
+    // Additive: only a first page that more jobs follow can leave running ones out.
+    const active =
+      cursor === undefined || cursor === null
+        ? this.activeJobs(scope, rows.at(199)?.sequence)
+        : [];
+    return active.length ? { ...result, active } : result;
+  }
+  // The first page's running jobs beyond it (oldest first, at most 50), upload children
+  // aside: the explorer follows its jobs from the first page however many came before.
+  activeJobs(scope, beyond) {
+    if (beyond === undefined) return [];
+    const active = jobStates.filter((state) => !terminalStates.includes(state));
+    return this.db
+      .prepare(
+        `SELECT * FROM jobs j WHERE scope_id=? AND rowid>? AND status IN (${active.map(() => "?").join(",")}) AND NOT (kind IN ('upload','create_directory') AND EXISTS(SELECT 1 FROM jobs g WHERE g.id=j.parent_job_id AND g.kind='upload_group')) ORDER BY rowid LIMIT 50`,
+      )
+      .all(scope.id, beyond, ...active)
+      .map((row) => publicFileJob(row, this));
   }
   listUploadChildren(scope, id, cursor) {
     if (this.getJob(scope, id).kind !== "upload_group" || !this.uploads.group(id))
