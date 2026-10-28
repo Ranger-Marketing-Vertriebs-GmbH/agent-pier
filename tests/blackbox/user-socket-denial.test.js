@@ -121,6 +121,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "probe.param:x",
     "state",
     "session.requests:x",
+    "session.models:x",
     "nope",
     "a".repeat(300),
     "state\u202e",

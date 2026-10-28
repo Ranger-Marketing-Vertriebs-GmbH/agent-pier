@@ -1,9 +1,10 @@
 // The live `session.requests:<id>` topic: a session's request list, the same value
 // GET /api/sessions/:id/requests answers. RequestBroker events (created, answered,
-// ended) and its onChange (touch, claim, terminal notice, reload) signal it; a
-// session that starts or stops does so through the OperationsEvents collect. A
-// startup dialog has no signal (it is on the tmux screen), so the topic samples every
-// 1.5 s, but only while the session is in its startup window.
+// ended) and its onChange (touch, claim, terminal notice and its fading, reload)
+// signal it; a session that starts or stops does so through the OperationsEvents
+// collect, and native activity reads it again (a read also looks for a startup dialog
+// on the screen). Until Claude's startup is complete a startup dialog has no signal,
+// so only then does the topic sample the screen every 1.5 s.
 import { inStartupWindow } from "./claude-startup-prompts.js";
 
 export const SESSION_PARAM = /^[a-zA-Z0-9-]{1,64}$/;
@@ -15,27 +16,27 @@ export function requestsChanged(hub, sessionId) {
 }
 
 /**
- * What decides whether a frame is due. `interaction.age` grows with every read, so it
- * gives way to the moment of the interaction in whole seconds: a waiting list sends
- * nothing, while another touch of the same request still does. The frame keeps `age`.
+ * What decides whether a frame is due: the list without what changes with every read
+ * (`sampledAt`, each interaction's `age`). An interaction counts by its moment
+ * (`at`, whole seconds), so a waiting list sends nothing, while another touch of the
+ * same request still does.
  */
-export function requestsDigest(value, now = Date.now()) {
+export function requestsDigest(value) {
   if (!Array.isArray(value?.requests)) return value;
+  const { sampledAt: _sampledAt, ...rest } = value;
   return {
-    ...value,
+    ...rest,
     requests: value.requests.map(({ interaction, ...entry }) =>
       interaction
-        ? {
-            ...entry,
-            interaction: {
-              client: interaction.client,
-              second: Math.round((now - interaction.age) / 1000),
-            },
-          }
+        ? { ...entry, interaction: { client: interaction.client, at: interaction.at } }
         : entry,
     ),
   };
 }
+
+/** A frame's list carries the server time it leaves at, also when it was read earlier. */
+export const stampSampled = (value) =>
+  value && typeof value === "object" ? { ...value, sampledAt: Date.now() } : value;
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -48,7 +49,8 @@ export function sessionRequestsTopic(services, { sampleMs = REQUESTS_SAMPLE_MS }
     authorize: owner,
     scopeKey: () => "owner",
     read: (_principal, id) => services.requests.list(id),
-    digest: (value) => requestsDigest(value),
+    digest: requestsDigest,
+    stamp: stampSampled,
     sampleMs,
     async sampling(id) {
       const session = await services.sessions.get(id).catch(() => null);
@@ -56,11 +58,20 @@ export function sessionRequestsTopic(services, { sampleMs = REQUESTS_SAMPLE_MS }
     },
     watch({ param, invalidate }) {
       let status;
-      return services.operationsEvents?.onSessions((sessions) => {
-        const next = sessions.find((session) => session.id === param)?.status ?? null;
-        if (status !== undefined && next !== status) invalidate();
-        status = next;
-      });
+      const stops = [
+        services.operationsEvents?.onSessions((sessions) => {
+          const next = sessions.find((session) => session.id === param)?.status ?? null;
+          if (status !== undefined && next !== status) invalidate();
+          status = next;
+        }),
+        services.chatEvents?.subscribe(
+          param,
+          (event) => event?.type === "native-activity" && invalidate(),
+        ),
+      ];
+      return () => {
+        for (const stop of stops) stop?.();
+      };
     },
   };
 }

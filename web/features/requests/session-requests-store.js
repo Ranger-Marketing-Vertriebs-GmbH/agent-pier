@@ -23,11 +23,19 @@ export function followSessionRequests(sessionId, report) {
   });
 }
 
-// Each request carries when this tab received it: a pushed list is sent only when it
-// changes, so `interaction.age` is as old as the frame (request-interaction.js).
+// Each request carries the server time of its list (`sampledAt`) and when this tab
+// received it: a pushed list is sent only when it changes, so the age of an
+// interaction grows past the frame (request-interaction.js).
 const stamped = (data, receivedAt) =>
   Array.isArray(data?.requests)
-    ? { ...data, requests: data.requests.map((entry) => ({ ...entry, receivedAt })) }
+    ? {
+        ...data,
+        requests: data.requests.map((entry) => ({
+          ...entry,
+          ...(Number.isFinite(data.sampledAt) ? { sampledAt: data.sampledAt } : {}),
+          receivedAt,
+        })),
+      }
     : data;
 
 /**

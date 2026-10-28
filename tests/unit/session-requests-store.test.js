@@ -128,3 +128,16 @@ test("only open requests or missing data block the chat", () => {
   );
   assert.equal(requestsBlockChat({ data: null, error: "", loading: false }), false);
 });
+
+test("each request carries its list's server time", () => {
+  const { follows, requests } = store();
+  requests.subscribe("s1", () => {});
+  follows[0].report({
+    data: { sampledAt: 42, requests: [{ id: "r" }] },
+    error: "",
+    loading: false,
+  });
+  assert.deepEqual(requests.get("s1").data.requests, [
+    { id: "r", sampledAt: 42, receivedAt: 1000 },
+  ]);
+});

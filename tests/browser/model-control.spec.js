@@ -58,8 +58,9 @@ async function fixture(page, { nativeRequests = false } = {}) {
         await new Promise((resolve) => setTimeout(resolve, 6000));
       result = { requests: [] };
     } else if (path.includes("/models")) {
+      // A failed server read, as the live topic pushes it (`error: {code}`).
       if (!body && controls.readError)
-        return route.fulfill({ status: 409, json: { error: controls.readError } });
+        return route.fulfill({ json: { ...model, error: { code: controls.readError } } });
       if (!body && controls.holdNextGet) {
         controls.holdNextGet = false;
         const previous = structuredClone(model);
@@ -482,18 +483,15 @@ test("a blocked mobile model switch shows its reason without a contradictory ter
   await expect(page.locator(".model-option").first()).toBeVisible();
 });
 
-// Read errors show over REST: refusing the live channel makes the page poll /models.
 test("a transient reload error clears after model reads recover without losing the chat draft", async ({
   page,
-  liveStub,
 }) => {
   const controls = await fixture(page);
-  liveStub.refuse();
   const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
   await draft.fill("Keep this draft after reload");
-  controls.readError = "Session is reloading";
-  await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
-    timeout: 15000,
+  controls.readError = "reloading";
+  await expect(page.locator(".model-error")).toHaveText("Die Session wird neu geladen.", {
+    timeout: 7000,
   });
   controls.readError = null;
   controls.model.currentModel = "gpt-5.6-terra";
@@ -507,16 +505,14 @@ test("a transient reload error clears after model reads recover without losing t
 
 test("returning to mobile chat refreshes a stale reload error and keeps its draft", async ({
   page,
-  liveStub,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const controls = await fixture(page);
-  liveStub.refuse();
   const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
   await draft.fill("Mobile draft");
-  controls.readError = "Session is reloading";
-  await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
-    timeout: 15000,
+  controls.readError = "reloading";
+  await expect(page.locator(".model-error")).toHaveText("Die Session wird neu geladen.", {
+    timeout: 7000,
   });
   await page.getByRole("button", { name: "Terminal", exact: true }).click();
   controls.readError = null;

@@ -228,7 +228,7 @@ export class LiveInstance {
       subscriber.send(known ? same : { ...same, type: "changed" });
     } else if (this.mode === "state") {
       if (current && have.revision === this.revision) subscriber.send(same);
-      else this.deliver(subscriber, { ...same, type: "snapshot", data: this.value });
+      else this.deliver(subscriber, { ...same, type: "snapshot", data: this.sent() });
     } else {
       const cursor =
         current && LIST_CURSOR.test(String(have.cursor ?? "")) ? have.cursor : undefined;
@@ -244,9 +244,16 @@ export class LiveInstance {
         type: "state",
         topic: this.topicId,
         revision: this.revision,
-        data: this.value,
+        data: this.sent(),
       });
     this.deliver(subscriber, encoded.get(null));
+  }
+  /**
+   * The value of a `state` frame as it leaves now: a topic's `stamp(value)` may add
+   * what depends on the moment of sending (a cached value answers late subscribers).
+   */
+  sent() {
+    return this.definition.stamp ? this.definition.stamp(this.value) : this.value;
   }
   /** Encodes once per distinct cursor: subscribers on one baseline share a frame. */
   pushRows(subscriber, encoded, first) {

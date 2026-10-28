@@ -20,3 +20,19 @@ test("without a stamp the server's age alone counts", () => {
   assert.equal(recentlyUsedElsewhere(old), false);
   assert.equal(recentlyUsedElsewhere({ receivedAt: 0 }, 0), false);
 });
+
+test("the age counts from the server moment of the interaction", () => {
+  // Sent 1 s after the touch, a late copy of the list says so by its own sampledAt.
+  const entry = {
+    interaction: { client: "other", at: 10000, age: 0 },
+    sampledAt: 11000,
+    receivedAt: 500,
+  };
+  assert.equal(recentlyUsedElsewhere(entry, 500 + interactionWindow - 1001), true);
+  assert.equal(recentlyUsedElsewhere(entry, 500 + interactionWindow - 1000), false);
+  // A stale age beside the moment is ignored.
+  assert.equal(
+    recentlyUsedElsewhere({ ...entry, sampledAt: 10000 + interactionWindow }, 500),
+    false,
+  );
+});

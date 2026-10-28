@@ -202,20 +202,27 @@ test("hidden Accounts pause the CLI sign-in reads", async ({ page }) => {
   await pausesWhenHidden(page, requests, /\/auth-status$/);
 });
 
-// A model sample that hangs (on the server, here in the live stub's read) sends no
-// frame: the held model stays, no error flaps, and the chat stays usable.
-test("a stalled model sample keeps the held model", async ({ page }) => {
-  test.setTimeout(60000);
-  await sessionFixture(page, { models: true });
+// A model read that hangs on the server reaches the page as a timeout in the pushed
+// value (server/features/models/live-topics.js), beside the held model.
+test("a stalled model read reports its timeout on the live channel", async ({
+  page,
+  liveStub,
+}) => {
+  await sessionFixture(page);
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
     "gpt-5.6-sol",
   );
-  await page.waitForTimeout(8000);
+  liveStub.push("session.models:hidden-demo", {
+    currentModel: "gpt-5.6-sol",
+    currentSource: "cli",
+    pending: false,
+    error: { code: "timeout" },
+  });
+  await expect(page.getByText(/The model status request timed out/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
     "gpt-5.6-sol",
   );
-  await expect(page.locator(".model-error")).toHaveCount(0);
   // The chat stays usable.
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
 });

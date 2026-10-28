@@ -29,15 +29,19 @@ export function touchRequest(request) {
 
 /**
  * Whether another tab or device used the request within `interactionWindow`. The age
- * is the server's at the moment this tab received the list (`receivedAt`, stamped by
- * the session requests store); a pushed list is sent only when it changes, so the
- * time since then counts too.
+ * when the list left the server is `sampledAt - interaction.at` (both server time; a
+ * plain `age` without them); the session requests store stamps each entry with the
+ * list's `sampledAt` and this tab's `receivedAt`, and the time since receipt counts
+ * too, as a pushed list is sent only when it changes.
  */
 export function recentlyUsedElsewhere(entry, now = Date.now()) {
   const interaction = entry.interaction;
+  const sent =
+    Number.isFinite(entry.sampledAt) && Number.isFinite(interaction?.at)
+      ? Math.max(0, entry.sampledAt - interaction.at)
+      : (interaction?.age ?? Infinity);
   const age =
-    (interaction?.age ?? Infinity) +
-    (Number.isFinite(entry.receivedAt) ? Math.max(0, now - entry.receivedAt) : 0);
+    sent + (Number.isFinite(entry.receivedAt) ? Math.max(0, now - entry.receivedAt) : 0);
   return Boolean(
     interaction && interaction.client !== requestClient() && age < interactionWindow,
   );
