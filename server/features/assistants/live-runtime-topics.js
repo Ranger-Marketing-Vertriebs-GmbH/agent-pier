@@ -6,11 +6,15 @@
 // 60 s while a visible tab watches. Owner only.
 export const RUNTIME_UPDATES_SAMPLE_MS = 60000;
 
-// Without agent services the route answers 404 (off) or 503 (unavailable). The
-// topic refuses with a status below 500, which the hub does not log, and the client
-// reads the route once to show its answer: no log line per sample.
-const notRunning = () =>
-  Object.assign(new Error("The agent services are not running."), { status: 404 });
+// Without agent services the route answers 404 (agents off) or 503 (on but not
+// running). The topic refuses with the same status, marked `expected`: the hub does
+// not log it (live-wiring.js), so a sample per minute writes no log line, and the
+// client reads the route once to show its answer.
+const notRunning = (enabled) =>
+  Object.assign(new Error("The agent services are not running."), {
+    status: enabled ? 503 : 404,
+    expected: true,
+  });
 
 /** The topic definition for LiveHub#define. */
 export function runtimeUpdatesTopic(services) {
@@ -21,7 +25,8 @@ export function runtimeUpdatesTopic(services) {
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
     read() {
-      if (!services.assistants || !services.assistantUpdates) throw notRunning();
+      if (!services.assistants || !services.assistantUpdates)
+        throw notRunning(Boolean(services.assistantFeature?.enabled));
       return services.assistantUpdates.status();
     },
     watch: ({ invalidate }) => followAgentSwitch(services, invalidate),
