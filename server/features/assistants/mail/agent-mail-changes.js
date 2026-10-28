@@ -99,7 +99,13 @@ export async function runChanging({ accounts, services, inv, w, mail }, gate, in
     request.action === "draft"
       ? await captureFiles(w, mail.limits, inv, gate.caller, request.attachments)
       : null;
-  const result = await accounts.withImap(account.id, async (client) => {
+  const run = (fn) =>
+    accounts.withImap(account.id, fn).catch((error) => {
+      // A draft that could not be read back went to Trash again.
+      if (error?.draftTrashed) auditDelete(services, gate, 1);
+      throw error;
+    });
+  const result = await run(async (client) => {
     if (request.action === "mark")
       return markMessages(client, request.folder, request.uids, request.flag);
     if (request.action === "delete")
