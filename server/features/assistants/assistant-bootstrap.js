@@ -157,7 +157,7 @@ const mailGuidance = (accounts) =>
 // agentpier_project (own agents and leads without a bot for other people).
 const projectGuidance = [
   "## Projects",
-  "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless he asked for them.",
+  "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
   "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
 ].join("\n");
 

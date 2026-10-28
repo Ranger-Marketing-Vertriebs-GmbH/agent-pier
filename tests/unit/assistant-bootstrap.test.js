@@ -258,7 +258,7 @@ test("eligible agents learn they can create a project and share it with their te
   const text = assistantBootstrap(assistant, {}, { projectCreation: true });
   assert.match(text, /\n## Projects\n/);
   for (const line of [
-    "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless he asked for them.",
+    "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
     "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
   ])
     assert.ok(text.includes(`${line}\n`), line);
