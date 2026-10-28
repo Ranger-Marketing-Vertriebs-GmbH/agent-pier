@@ -129,6 +129,17 @@ export function saveBlocker(values, account) {
   return null;
 }
 
+/** A pasted app password without whitespace (Google shows it in groups of four). */
+export const appPassword = (value) => String(value ?? "").replace(/\s/gu, "");
+
+/** "length" when a typed Gmail app password is not 16 letters long, else null. */
+export const appPasswordHint = (values) =>
+  values.preset === "gmail" &&
+  values.password !== "" &&
+  appPassword(values.password).length !== 16
+    ? "length"
+    : null;
+
 /**
  * The body of POST (create) or PATCH (`editing`) /mail/accounts. One username serves
  * IMAP and SMTP; an empty one lets the server default it to the address. An edit
@@ -161,7 +172,9 @@ export function accountBody(values, { editing = false, initial } = {}) {
     allowPlaintext: needsPlaintext(values) && values.allowPlaintext === true,
     saveSent: values.saveSent === true,
   };
-  if (values.password || !editing) body.password = values.password;
+  const password =
+    values.preset === "gmail" ? appPassword(values.password) : values.password;
+  if (password || !editing) body.password = password;
   return body;
 }
 

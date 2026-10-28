@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   accountBody,
+  appPassword,
+  appPasswordHint,
   formValues,
   isDirty,
   needsPlaintext,
@@ -193,4 +195,22 @@ test("a test of a saved account names it and reuses its password", () => {
   const typed = testBody({ ...values, password: "new" }, null);
   assert.equal(typed.accountId, undefined);
   assert.equal(typed.password, "new");
+});
+
+test("a pasted Gmail app password loses its spaces", () => {
+  assert.equal(appPassword("abcd efgh\u00a0ijkl\tmnop"), "abcdefghijklmnop");
+  const values = {
+    ...withPreset(formValues(null), "gmail"),
+    name: "G",
+    address: "a@gmail.com",
+    password: "abcd efgh ijkl mnop",
+  };
+  assert.equal(accountBody(values).password, "abcdefghijklmnop");
+  assert.equal(testBody(values, null).password, "abcdefghijklmnop");
+  assert.equal(appPasswordHint({ ...values, password: "abc" }), "length");
+  assert.equal(appPasswordHint({ ...values, password: "" }), null);
+  assert.equal(appPasswordHint(values), null);
+  const generic = { ...values, preset: "generic", password: "a b" };
+  assert.equal(accountBody(generic).password, "a b");
+  assert.equal(appPasswordHint(generic), null);
 });

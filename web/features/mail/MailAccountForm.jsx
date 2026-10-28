@@ -7,9 +7,12 @@ import SaveBar from "../../components/SaveBar.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import api from "../../lib/api.js";
 import { mailCopy as copy } from "../../lib/i18n/messages/mail.js";
+import GmailAppPasswordGuide from "./GmailAppPasswordGuide.jsx";
 import MailTestResult from "./MailTestResult.jsx";
 import {
   accountBody,
+  appPassword,
+  appPasswordHint,
   formValues,
   isDirty,
   mailSecurities,
@@ -55,6 +58,7 @@ export default function MailAccountForm({ account = null, close, saved }) {
   const [result, setResult] = useState(null);
   const [testError, setTestError] = useState("");
   const gmail = values.preset === "gmail";
+  const lengthHint = appPasswordHint(values) === "length";
   const required = passwordRequired(values, account);
   const blocker = saveBlocker(values, account);
   const dirty = isDirty(values, initial);
@@ -135,7 +139,7 @@ export default function MailAccountForm({ account = null, close, saved }) {
               }))}
             />
           </div>
-          {gmail && <p className="mail-hint">{copy.gmailHint}</p>}
+          {gmail && <GmailAppPasswordGuide />}
           <Field label={copy.name}>
             <input
               required
@@ -172,14 +176,27 @@ export default function MailAccountForm({ account = null, close, saved }) {
           </Field>
           <Field
             label={gmail ? copy.appPassword : copy.password}
-            hint={account ? (required ? copy.passwordAgain : copy.passwordKeep) : null}
+            hint={
+              lengthHint
+                ? copy.appPasswordLength
+                : account
+                  ? required
+                    ? copy.passwordAgain
+                    : copy.passwordKeep
+                  : null
+            }
           >
             <input
               type="password"
               autoComplete="new-password"
               required={required}
               value={values.password}
-              onChange={(event) => set("password", event.target.value)}
+              onChange={(event) =>
+                set(
+                  "password",
+                  gmail ? appPassword(event.target.value) : event.target.value,
+                )
+              }
             />
           </Field>
           {mailSides.map((side) => (
