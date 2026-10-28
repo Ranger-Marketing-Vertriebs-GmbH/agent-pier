@@ -1,6 +1,8 @@
 import { stripVTControlCharacters } from "node:util";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { folderId, folderTrustScreen, startupState } from "./claude-folder-trust.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
@@ -229,18 +231,35 @@ const startupCandidate = (broker, session) =>
   Boolean(session.nativeBinding?.enabled) &&
   session.status === "running" &&
   Boolean(broker.sessions.control);
+// Claude draws some startup dialogs after its receipt (2.1.304's auto-mode default nudge).
+export const STARTUP_GRACE_MS = 20000;
 /**
  * Whether the session's startup is still under way: Claude has not yet confirmed its
- * launch (no receipt for the binding) or a startup dialog of it is still open. Only
- * then may a dialog appear without any other signal, so only then must the live topic
- * sample the screen; afterwards events read the list again.
+ * launch (no receipt for the binding), confirmed it less than `graceMs` ago, or a
+ * startup dialog of it is still open. Only then may a dialog appear without any other
+ * signal, so only then must the live topic sample the screen; afterwards events read
+ * the list again.
  */
-export async function inStartupWindow(broker, session) {
+export async function inStartupWindow(
+  broker,
+  session,
+  { graceMs = STARTUP_GRACE_MS, now = Date.now() } = {},
+) {
   if (!startupCandidate(broker, session)) return false;
   const current = await startupState(broker, session);
-  return (
-    Boolean(current) && (!current.started || Boolean(localEntry(broker, session.id)))
+  if (!current) return false;
+  if (!current.started || localEntry(broker, session.id)) return true;
+  const receipt = path.join(
+    broker.directory,
+    "..",
+    "native-sessions",
+    `${session.id}.receipt.json`,
   );
+  const confirmed = await fs.stat(receipt).then(
+    (info) => info.mtimeMs,
+    () => -Infinity,
+  );
+  return now - confirmed < graceMs;
 }
 /** Publishes the current Claude startup dialog as a local request, or expires it. */
 export async function refreshStartupPrompts(broker, session) {

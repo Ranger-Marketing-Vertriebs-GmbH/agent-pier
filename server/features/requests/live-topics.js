@@ -3,7 +3,8 @@
 // ended) and its onChange (touch, claim, terminal notice and its fading, reload)
 // signal it; a session that starts or stops does so through the OperationsEvents
 // collect, and native activity reads it again (a read also looks for a startup dialog
-// on the screen). Until Claude's startup is complete a startup dialog has no signal,
+// on the screen). Until Claude's startup is complete, and for STARTUP_GRACE_MS after its
+// receipt, a startup dialog has no signal,
 // so only then does the topic sample the screen every 1.5 s.
 import { inStartupWindow } from "./claude-startup-prompts.js";
 
@@ -40,8 +41,11 @@ export const stampSampled = (value) =>
 
 const owner = (principal) => principal?.role === "owner";
 
-/** The topic definition for LiveHub#define. `sampleMs` is for tests only. */
-export function sessionRequestsTopic(services, { sampleMs = REQUESTS_SAMPLE_MS } = {}) {
+/** The topic definition for LiveHub#define. `sampleMs` and `graceMs` are for tests. */
+export function sessionRequestsTopic(
+  services,
+  { sampleMs = REQUESTS_SAMPLE_MS, graceMs } = {},
+) {
   return {
     name: "session.requests",
     mode: "state",
@@ -54,7 +58,7 @@ export function sessionRequestsTopic(services, { sampleMs = REQUESTS_SAMPLE_MS }
     sampleMs,
     async sampling(id) {
       const session = await services.sessions.get(id).catch(() => null);
-      return Boolean(session) && inStartupWindow(services.requests, session);
+      return Boolean(session) && inStartupWindow(services.requests, session, { graceMs });
     },
     watch({ param, invalidate }) {
       let status;
