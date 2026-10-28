@@ -66,14 +66,19 @@ export function grantCreatedProject(access, id, projectId, { coding = false } = 
 
 /**
  * Switches coding sessions for a project the agent created. Switching on needs the
- * project to be registered and still granted (the owner may have removed it);
- * switching off never does and only drops the project from `sessionProjectIds`.
+ * project to be registered and still granted with its folder for writing (the owner
+ * may have removed or downgraded it); switching off never does and only drops the
+ * project from `sessionProjectIds`.
  * Returns `{ policy, changed }`.
  */
 export function setCreatedProjectCoding(access, id, projectId, enabled) {
   const before = creatorPolicy(access, id);
   if (enabled) {
-    if (!before.projectIds.includes(projectId))
+    // Taken away or downgraded by the owner: never switched back on by the agent.
+    if (
+      !before.projectIds.includes(projectId) ||
+      before.projectFiles[projectId] !== "write"
+    )
       throw assistantProblem("projectFolderNotGranted", 403);
     knownProject(access, projectId);
   }

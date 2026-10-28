@@ -82,6 +82,17 @@ export class ProjectMemory {
     const wanted = JSON.stringify([kind, path, ino]);
     return rows.find((row) => stableIdentity(row.identity) === wanted)?.id ?? null;
   }
+  /**
+   * Whether a project row already names this folder: by its path, or by one of
+   * `identities` (`[kind, path, dev, ino]` JSON) under any device number.
+   */
+  claimsFolder(cwd, identities = []) {
+    const wanted = new Set(identities.map(stableIdentity).filter(Boolean));
+    return this.db
+      .prepare("SELECT cwd, identity FROM projects")
+      .all()
+      .some((row) => row.cwd === cwd || wanted.has(stableIdentity(row.identity)));
+  }
   gitProjectAt(cwd) {
     return Boolean(
       this.db.prepare("SELECT 1 FROM projects WHERE cwd=? AND kind='git'").get(cwd),

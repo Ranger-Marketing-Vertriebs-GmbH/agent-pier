@@ -6,6 +6,11 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { agentProjectFixture } from "../helpers/agent-project-fixture.js";
 import { approvalRevision } from "../../server/features/assistants/assistant-access.js";
+import {
+  directoryProjectId,
+  folderIdentity,
+} from "../../server/features/memory/project-rebind.js";
+import { initRepository } from "../../server/features/assistants/agent-projects.js";
 
 // The agentpier_project service (agent-projects.js): an eligible agent creates an
 // empty project in the owner's default folder in a direct owner turn, gets it granted
@@ -14,30 +19,14 @@ import { approvalRevision } from "../../server/features/assistants/assistant-acc
 const hourMs = 3600000;
 const revisionOf = (f) => approvalRevision(f.workflows.access.stored(f.id));
 const entries = (dir) => fs.readdirSync(dir).sort();
-const ids = (f) =>
-  f.memory
-    .projectNames()
-    .map((p) => p.id)
-    .sort();
-// Rows the creation record would hold, `ago` ms before now.
-const addRows = (f, count, ago) => {
-  for (let i = 0; i < count; i++)
-    f.workflows.projects.store.add({
-      projectId: `earlier-${ago}-${i}`,
-      assistantId: f.id,
-      createdAt: new Date(Date.now() - ago).toISOString(),
-    });
-};
 // The agent's own audit records of a coding switch.
 const agentUpdates = (f) =>
   f.audit.filter((e) => e.action === "assistant.updated" && e.source === "agent");
-const setAgent = (f, field, value) =>
-  f.assistants.store.db
-    .prepare(`UPDATE assistants SET body=json_set(body,'$.${field}',json(?)) WHERE id=?`)
-    .run(JSON.stringify(value), f.id);
 
 test("create makes an empty Git project in the default folder and grants it for writing", async (t) => {
   const f = await agentProjectFixture(t);
+  const at = Date.parse("2026-10-28T09:00:00Z");
+  f.workflows.projects.now = () => at;
   const approvalBefore = revisionOf(f);
   const r = await f.call({ action: "create", name: "Shop" });
   assert.deepEqual(Object.keys(r).sort(), ["coding", "name", "path", "projectId"]);
@@ -73,7 +62,10 @@ test("create makes an empty Git project in the default folder and grants it for 
   assert.equal(row.state, "completed");
   assert.equal(row.settled, true);
   assert.deepEqual(row.origin, { kind: "agent-project" });
-  assert.equal(row.chatNotes.result.state, "completed");
+  assert.deepEqual(row.chatNotes.result, { at, state: "completed" });
+  assert.deepEqual(f.workflows.projects.store.list(f.id), [
+    { projectId: r.projectId, createdAt: new Date(at).toISOString() },
+  ]);
   assert.deepEqual(row.payload, {
     action: "agent_project",
     change: "create",
@@ -135,7 +127,22 @@ test("a pending approval stays valid when the agent creates a project", async (t
 
 test("invalid names are refused before anything is created", async (t) => {
   const f = await agentProjectFixture(t);
-  for (const name of ["../x", ".hidden", "a/b", "..", ".", "", " x", "a\\b", "a\x00b", 7])
+  for (const name of [
+    "../x",
+    ".hidden",
+    "a/b",
+    "..",
+    ".",
+    "",
+    " x",
+    "a\\b",
+    "a\x00b",
+    7,
+    "a\uff0fb",
+    "a\u2215b",
+    "\u202e",
+    "a\u200bb",
+  ])
     assert.equal(
       await f.code(f.call({ action: "create", name })),
       "PROJECT_NAME_INVALID",
@@ -154,7 +161,7 @@ test("an existing folder, file or link of that name is never adopted", async (t)
   // A link to a folder elsewhere is refused as well, and the folder stays untouched.
   const outside = fs.mkdtempSync(path.join(f.dataDir, "outside-"));
   fs.symlinkSync(outside, path.join(f.parent, "Away"));
-  const known = ids(f);
+  const known = f.projectIds();
   for (const name of ["Taken", "File", "Link", "Away"])
     assert.equal(
       await f.code(f.call({ action: "create", name })),
@@ -165,7 +172,7 @@ test("an existing folder, file or link of that name is never adopted", async (t)
   assert.equal(fs.readFileSync(path.join(f.parent, "File"), "utf8"), "data");
   assert.equal(fs.readlinkSync(path.join(f.parent, "Link")), "/nonexistent");
   assert.deepEqual(fs.readdirSync(outside), []);
-  assert.deepEqual(ids(f), known);
+  assert.deepEqual(f.projectIds(), known);
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
   assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
 });
@@ -201,13 +208,13 @@ test("a missing or unwritable default folder answers PROJECT_FOLDER_UNAVAILABLE"
 test("inside a repository without git the folder is refused, removed and nothing is registered", async (t) => {
   const f = await agentProjectFixture(t);
   execFileSync("git", ["init", "--quiet"], { cwd: f.parent });
-  const known = ids(f);
+  const known = f.projectIds();
   assert.equal(
     await f.code(f.call({ action: "create", name: "Sub", git: false })),
     "PROJECT_FOLDER_UNAVAILABLE",
   );
   assert.ok(!fs.existsSync(path.join(f.parent, "Sub")));
-  assert.deepEqual(ids(f), known);
+  assert.deepEqual(f.projectIds(), known);
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
   assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
   assert.deepEqual(f.projectRows(), []);
@@ -251,7 +258,7 @@ test("a registration that lands on an existing project is refused and cleaned up
 
 test("a failed git init fails the call and removes the folder", async (t) => {
   const f = await agentProjectFixture(t);
-  const known = ids(f);
+  const known = f.projectIds();
   f.workflows.projects.gitInit = async () => {
     throw Error("boom");
   };
@@ -260,30 +267,111 @@ test("a failed git init fails the call and removes the folder", async (t) => {
     "PROJECT_FOLDER_UNAVAILABLE",
   );
   assert.deepEqual(fs.readdirSync(f.parent), []);
-  assert.deepEqual(ids(f), known);
+  assert.deepEqual(f.projectIds(), known);
 });
 
-test("a failure after the grant removes the folder, the record and the grant", async (t) => {
+test("a failure after the grant removes the folder, the record, the grant and the project", async (t) => {
   const f = await agentProjectFixture(t);
+  const known = f.projectIds();
+  let notices = 0;
+  f.assistants.changed = () => notices++;
   const reserve = f.workflows.store.reserve.bind(f.workflows.store);
   f.workflows.store.reserve = () => {
     throw Error("disk full");
   };
-  assert.notEqual(await f.code(f.call({ action: "create", name: "Shop" })), null);
+  assert.equal(await f.code(f.call({ action: "create", name: "Shop" })), "UNAVAILABLE");
   assert.deepEqual(fs.readdirSync(f.parent), []);
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
   const policy = f.workflows.access.get(f.id);
   assert.deepEqual(policy.projectIds, []);
   assert.deepEqual(policy.projectFiles, {});
+  assert.deepEqual(f.projectIds(), known, "no orphan project stays registered");
+  assert.equal(notices, 2, "the grant and its removal both reach the agent");
+  assert.ok(!f.audit.some((e) => e.action === "project.created"));
   f.workflows.store.reserve = reserve;
   // The name is free again.
   assert.equal((await f.call({ action: "create", name: "Shop" })).name, "Shop");
 });
 
+test("an older project row naming the new folder is never rebound into it", async (t) => {
+  const f = await agentProjectFixture(t);
+  let oldId;
+  // The owner's earlier plain project whose deleted folder had this inode (inode reuse).
+  f.workflows.projects.gitInit = async (target) => {
+    const id = folderIdentity(target);
+    oldId = directoryProjectId(id);
+    f.memory.db
+      .prepare("INSERT INTO projects VALUES (?,?,?,?,?,?)")
+      .run(
+        oldId,
+        "Notes",
+        id.path,
+        "directory",
+        JSON.stringify(["directory", id.path, id.dev, id.ino]),
+        new Date().toISOString(),
+      );
+    f.memory.write(oldId, { title: "Owner note", content: "owner data" });
+    await initRepository(target);
+  };
+  const known = f.projectIds();
+  assert.equal(
+    await f.code(f.call({ action: "create", name: "Notes" })),
+    "PROJECT_FOLDER_UNAVAILABLE",
+  );
+  assert.ok(!fs.existsSync(path.join(f.parent, "Notes")));
+  assert.deepEqual(f.projectIds(), [...known, oldId].sort(), "nothing new is registered");
+  assert.equal(f.memory.reboundTo(oldId), null);
+  assert.match(JSON.stringify(f.memory.list(oldId)), /Owner note/);
+  assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
+  assert.deepEqual(f.workflows.projects.store.list(f.id), []);
+});
+
+test("a folder swapped for a link or another folder is refused and only it is removed", async (t) => {
+  const f = await agentProjectFixture(t);
+  const outside = fs.mkdtempSync(path.join(f.dataDir, "outside-"));
+  fs.writeFileSync(path.join(outside, "keep"), "x");
+  const known = f.projectIds();
+  const swaps = {
+    link: (target) => fs.symlinkSync(outside, target),
+    folder: (target) => fs.mkdirSync(target),
+  };
+  // Swapped after git init: refused before registering.
+  for (const [kind, swap] of Object.entries(swaps)) {
+    f.workflows.projects.gitInit = async (target) => {
+      fs.rmdirSync(target);
+      swap(target);
+    };
+    assert.equal(
+      await f.code(f.call({ action: "create", name: `After-${kind}` })),
+      "PROJECT_FOLDER_UNAVAILABLE",
+      kind,
+    );
+  }
+  // Swapped before git init: git never runs.
+  let inits = 0;
+  f.workflows.projects.gitInit = async () => inits++;
+  const unchanged = f.workflows.projects.unchanged.bind(f.workflows.projects);
+  f.workflows.projects.unchanged = async (target, made) => {
+    f.workflows.projects.unchanged = unchanged;
+    fs.rmdirSync(target);
+    swaps.link(target);
+    return unchanged(target, made);
+  };
+  assert.equal(
+    await f.code(f.call({ action: "create", name: "Before" })),
+    "PROJECT_FOLDER_UNAVAILABLE",
+  );
+  assert.equal(inits, 0);
+  assert.deepEqual(fs.readdirSync(outside), ["keep"]);
+  assert.deepEqual(fs.readdirSync(f.parent), []);
+  assert.deepEqual(f.projectIds(), known);
+  assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
+});
+
 test("the eleventh project within 24 hours is refused", async (t) => {
   const f = await agentProjectFixture(t);
-  addRows(f, 9, hourMs);
-  addRows(f, 1, 25 * hourMs);
+  f.addRows(9, hourMs);
+  f.addRows(1, 25 * hourMs);
   const tenth = await f.call({ action: "create", name: "Tenth" });
   assert.ok(tenth.projectId);
   assert.equal(
@@ -302,7 +390,7 @@ test("parallel creates are serialized per agent", async (t) => {
   assert.deepEqual(same.filter(Boolean), ["PROJECT_EXISTS"]);
   assert.equal(same.filter((c) => c === null).length, 1);
   // With "Same", nine projects of the last 24 hours exist.
-  addRows(f, 8, hourMs);
+  f.addRows(8, hourMs);
   const limited = await Promise.all([
     f.code(f.call({ action: "create", name: "One" })),
     f.code(f.call({ action: "create", name: "Two" })),
@@ -360,11 +448,11 @@ test("members, user agents and sender-facing agents are not eligible", async (t)
     "PROJECT_NOT_ELIGIBLE",
   );
   delete f.services.assistantTelegramSenders;
-  setAgent(f, "userAccess", { mode: "shared", userIds: ["u"] });
+  f.setAgent("userAccess", { mode: "shared", userIds: ["u"] });
   assert.equal(await f.code(f.call({ action: "list" })), "PROJECT_NOT_ELIGIBLE");
-  setAgent(f, "userAccess", null);
-  setAgent(f, "teamMemberId", "member");
-  setAgent(f, "lifetime", "permanent");
+  f.setAgent("userAccess", null);
+  f.setAgent("teamMemberId", "member");
+  f.setAgent("lifetime", "permanent");
   assert.equal(
     await f.code(f.call({ action: "create", name: "Shop" })),
     "PROJECT_NOT_ELIGIBLE",
@@ -422,6 +510,18 @@ test("coding switches only projects the agent created", async (t) => {
 test("coding never re-grants a project the owner took away", async (t) => {
   const f = await agentProjectFixture(t);
   const r = await f.call({ action: "create", name: "Shop" });
+  // A folder the owner downgraded to reading counts as taken away.
+  const granted = f.workflows.access.stored(f.id);
+  f.workflows.access.write(f.id, {
+    ...granted,
+    projectFiles: { ...granted.projectFiles, [r.projectId]: "read" },
+    revision: granted.revision + 1,
+  });
+  assert.equal(
+    await f.code(f.call({ action: "coding", projectId: r.projectId, enabled: true })),
+    "PROJECT_NOT_GRANTED",
+  );
+  assert.equal(f.workflows.access.sessionsEnabled(f.id, r.projectId), false);
   f.workflows.access.revokeProject(r.projectId);
   const before = f.workflows.access.stored(f.id);
   assert.equal(

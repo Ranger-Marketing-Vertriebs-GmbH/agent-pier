@@ -51,10 +51,34 @@ test("project names follow createDirectory's rules and refuse a leading dot", ()
     );
 });
 
-test("every name createDirectory accepts without a leading dot is a project name", () =>
+test("names with invisible format, separator or slash look-alike characters are refused", () => {
+  for (const bad of [
+    "a\u200bb", // zero-width space (Cf)
+    "\u202e", // right-to-left override (Cf)
+    "shop\u202egpj.exe",
+    "a\u2066b", // isolate (Cf)
+    "a\ufeffb", // byte order mark (Cf)
+    "a\u2028b", // line separator (Zl)
+    "a\u2029b", // paragraph separator (Zp)
+    "a\u2215b", // division slash
+    "a\u2044b", // fraction slash
+    "a\uff0fb", // fullwidth solidus
+    "a\u29f8b", // big solidus
+    "..\uff0fx",
+  ])
+    assert.throws(
+      () => projectName(bad),
+      (e) => e.key === "projectNameInvalid" && e.status === 400,
+      JSON.stringify(bad),
+    );
+  assert.equal(projectName("Café 2 ½"), "Café 2 ½");
+});
+
+const disguising = /[\p{Cf}\p{Zl}\p{Zp}\u2215\u2044\uff0f\u29f8]/u;
+test("every name createDirectory accepts without a leading dot or disguise is a project name", () =>
   fc.assert(
-    fc.property(fc.string({ maxLength: 300 }), (name) =>
-      validDirectoryName(name) && !name.startsWith(".")
+    fc.property(fc.string({ maxLength: 300, unit: "grapheme" }), (name) =>
+      validDirectoryName(name) && !name.startsWith(".") && !disguising.test(name)
         ? projectName(name) === name
         : throwsKey(() => projectName(name), "projectNameInvalid"),
     ),
