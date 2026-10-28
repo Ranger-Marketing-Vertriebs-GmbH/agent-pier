@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { cleanupSummary, details, summary } from "../helpers/system-status-fixture.js";
 import { systemStatusCopy as en } from "../../web/lib/i18n/en/system-status.js";
 import { systemStatusCopy as de } from "../../web/lib/i18n/de/system-status.js";

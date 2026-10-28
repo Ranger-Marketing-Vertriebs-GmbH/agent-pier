@@ -1,5 +1,5 @@
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 
 async function fixture(page) {

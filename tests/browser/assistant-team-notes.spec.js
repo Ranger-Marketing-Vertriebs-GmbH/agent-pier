@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { emit } from "../helpers/assistant-chat-fixture.js";
 import { teamListFixture } from "../helpers/assistant-team-list-fixture.js";

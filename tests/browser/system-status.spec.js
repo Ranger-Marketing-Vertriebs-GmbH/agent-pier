@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { cleanupSummary, details, summary } from "../helpers/system-status-fixture.js";
 
 test.use({ locale: "en-GB" });

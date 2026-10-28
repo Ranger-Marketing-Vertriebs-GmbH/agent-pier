@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 
 // The Projects hub hosting the knowledge tab also reads repositories, AgentBus and runs.

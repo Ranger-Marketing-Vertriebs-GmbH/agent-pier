@@ -1,6 +1,6 @@
 import { accountRow } from "../helpers/accounts-browser.js";
 import { navigateTo } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

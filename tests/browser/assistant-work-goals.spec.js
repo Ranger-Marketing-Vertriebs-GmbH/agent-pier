@@ -1,6 +1,6 @@
 // A work goal in the agent chat (AGENTPIER-208): the open goal with Stop above the
 // transcript, and its notes and continuations as quiet lines.
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 

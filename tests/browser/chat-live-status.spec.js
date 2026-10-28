@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 
 // The Claude Code bridge mod: token-sized `stream` frames grow the live bubble, and

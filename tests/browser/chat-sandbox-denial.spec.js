@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { operationsFixture } from "./operations-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 

@@ -1,3 +1,5 @@
+import { isLiveStubRequest } from "./live-stub.js";
+
 // Pretends the tab is hidden or visible: both flags change, then the event fires.
 export async function setTabHidden(page, hidden) {
   await page.evaluate((value) => {
@@ -10,10 +12,12 @@ export async function setTabHidden(page, hidden) {
   }, hidden);
 }
 
-// Records every request the page sends to /api/, in order, as { method, path }.
+// Records every request the page sends to /api/, in order, as { method, path }; the
+// live stub's own REST reads are not the page's and are skipped.
 export function recordApiRequests(page) {
   let requests = [];
   page.on("request", (request) => {
+    if (isLiveStubRequest(request)) return;
     const url = new URL(request.url());
     if (url.pathname.startsWith("/api/"))
       requests.push({ method: request.method(), path: url.pathname });

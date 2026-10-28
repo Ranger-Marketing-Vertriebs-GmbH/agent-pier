@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture, createForm } from "./providers-fixture.js";
 import { accountDetail } from "../helpers/accounts-browser.js";
 

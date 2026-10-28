@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 
 // A run whose parallel group has one member reported, one failed and one working.

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { agentTab, saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";

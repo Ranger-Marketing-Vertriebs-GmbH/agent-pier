@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { wizardFinish, wizardToIdentity } from "../helpers/agent-wizard-browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";

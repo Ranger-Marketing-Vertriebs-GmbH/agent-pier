@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
 
 const tests = { name: "Tests", command: "npm test", timeoutMs: 120000, blocking: true };

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { reaManifest } from "../../server/features/tools/rea-manifest.js";
 import { packagedServer } from "./mcp-packages-fixture.js";

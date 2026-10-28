@@ -1,5 +1,5 @@
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { home, setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";

@@ -1,6 +1,6 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo, openExtensions } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { profileList } from "../helpers/extensions.js";
 async function fixture(page, { delay = 0, shellFirst = false, extraSessions = [] } = {}) {

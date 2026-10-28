@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { notifications } from "./notifications-fixture.js";
 test("notifications require explicit permission and successful persistence before showing enabled", async ({

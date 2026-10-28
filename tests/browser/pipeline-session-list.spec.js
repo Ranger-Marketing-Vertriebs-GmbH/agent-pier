@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture } from "./pipelines-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 

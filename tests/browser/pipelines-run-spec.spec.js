@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 
 const SPEC_TEXT = "# Spec\n\n## Acceptance criteria\n1. Empty input is rejected.\n";

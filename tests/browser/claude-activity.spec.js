@@ -1,6 +1,6 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { readFileSync } from "node:fs";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { parseSessionActivity } from "../../server/features/sessions/session-activity.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 

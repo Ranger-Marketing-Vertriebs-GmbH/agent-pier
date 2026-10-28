@@ -1,4 +1,5 @@
 import { installUserFeedFake } from "./agent-feed-fake.js";
+import { isLiveStubRequest } from "./live-stub.js";
 import { defaultPreferences } from "../../server/features/notifications/push-preferences.js";
 
 // A routed stand-in for a restricted user's server: /auth/status says she is signed in
@@ -107,6 +108,7 @@ export async function userAppFixture(page, options = {}) {
       .map(([agentId, list]) => [agentId, list.find((c) => c.id === id)])
       .find(([, c]) => c);
   page.on("request", (request) => {
+    if (isLiveStubRequest(request)) return;
     const url = new URL(request.url());
     if (url.origin !== new URL(page.url() || request.url()).origin) return;
     if (

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
 import { teamListFixture, teamRecords } from "../helpers/assistant-team-list-fixture.js";

@@ -1,5 +1,5 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 
 // The dashboard card of the managed agent browser: version, update and removal.

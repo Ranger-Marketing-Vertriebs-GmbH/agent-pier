@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines } from "./pipelines-fixture.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
 test("profile editing preserves drafts on conflict and clones without reusing identity", async ({

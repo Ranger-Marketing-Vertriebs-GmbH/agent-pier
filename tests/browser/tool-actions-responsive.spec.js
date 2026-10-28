@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 const TOOLS = [
   { id: "codex", name: "Codex", installed: true },

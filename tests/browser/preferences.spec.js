@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { navigateTo, openNewSession } from "../helpers/navigation.js";
 test("settings save a default folder and explicit repository launch wins", async ({

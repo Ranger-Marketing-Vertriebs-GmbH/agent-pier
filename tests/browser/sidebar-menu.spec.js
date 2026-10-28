@@ -1,5 +1,5 @@
 // tests/browser/sidebar-menu.spec.js
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { openMenu } from "../helpers/navigation.js";
 

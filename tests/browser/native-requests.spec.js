@@ -1,7 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { operationsFixture } from "./operations-fixture.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { isLiveStubRequest } from "../helpers/live-stub.js";
 const request = {
   id: "request-one",
   sessionId: "fixture-session",
@@ -416,7 +417,8 @@ test("escalation cards of one session share one requests poll", async ({ page })
     const url = new URL(request.url());
     if (
       request.method() === "GET" &&
-      url.pathname === "/api/sessions/agent-session/requests"
+      url.pathname === "/api/sessions/agent-session/requests" &&
+      !isLiveStubRequest(request)
     )
       reads.push(Date.now());
   });

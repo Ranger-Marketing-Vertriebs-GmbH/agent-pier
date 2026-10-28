@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { finds, header, setup, stdioServer } from "./mcp-cli-fixture.js";

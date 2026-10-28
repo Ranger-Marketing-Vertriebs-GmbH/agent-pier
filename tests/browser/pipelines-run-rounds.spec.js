@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 
 const finding = (id, title) => ({ id, severity: "high", title });

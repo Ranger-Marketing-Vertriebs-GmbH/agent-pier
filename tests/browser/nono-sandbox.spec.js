@@ -1,6 +1,6 @@
 import { openNewSession } from "../helpers/navigation.js";
 import { accountDetail, openAccountItem } from "../helpers/accounts-browser.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 
 // These tests assert the presentation of a sandbox profile picker, not a

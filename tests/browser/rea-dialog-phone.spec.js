@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture, openDialog, reaState } from "./rea-fixture.js";
 
 // The REA dialog on a phone while a change runs: the bottom sheet's footer keeps both

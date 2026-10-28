@@ -1,5 +1,5 @@
 import { openExplorerPanel } from "../helpers/file-explorer-layout.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

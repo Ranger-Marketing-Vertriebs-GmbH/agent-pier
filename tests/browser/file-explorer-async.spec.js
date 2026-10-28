@@ -2,7 +2,7 @@ import {
   openExplorerDisclosure,
   openFileDetails,
 } from "../helpers/file-explorer-layout.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture } from "../helpers/repository-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import {

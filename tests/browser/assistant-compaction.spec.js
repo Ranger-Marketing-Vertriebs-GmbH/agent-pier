@@ -1,7 +1,7 @@
 // While a run summarises a long conversation, the chat says so instead of "Working";
 // afterwards a quiet note marks where earlier messages were summarised
 // (server/features/assistants/compactions.js, conversations.js).
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture, emit } from "../helpers/assistant-chat-fixture.js";
 

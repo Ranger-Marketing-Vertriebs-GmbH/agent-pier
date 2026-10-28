@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 
 test.use({ locale: "en-GB", viewport: { width: 390, height: 844 } });
 

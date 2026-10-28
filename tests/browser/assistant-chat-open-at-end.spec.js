@@ -1,4 +1,5 @@
-import { test, expect, devices } from "@playwright/test";
+import { devices } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 

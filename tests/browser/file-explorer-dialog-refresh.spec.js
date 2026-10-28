@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { explorerContext, selectEnglish } from "../helpers/file-explorer-browser.js";
 import { baseURL } from "../helpers/browser.js";

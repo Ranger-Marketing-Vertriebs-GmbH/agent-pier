@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 test("bundled AgentBus status groups this project's sessions without consuming inboxes", async ({
   page,

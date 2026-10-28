@@ -1,3 +1,5 @@
+import { isLiveStubRequest } from "./live-stub.js";
+
 /**
  * Records what a user's page asks the server for: every HTTP request to /api or
  * /auth and every WebSocket. Her app may make HTTP requests only to /auth and /api/me,
@@ -15,6 +17,7 @@ export function userRequestLog(page) {
   const http = [];
   const sockets = [];
   page.on("request", (request) => {
+    if (isLiveStubRequest(request)) return;
     const { pathname } = new URL(request.url());
     if (/^\/(api|auth)(\/|$)/.test(pathname))
       http.push(`${request.method()} ${pathname}`);

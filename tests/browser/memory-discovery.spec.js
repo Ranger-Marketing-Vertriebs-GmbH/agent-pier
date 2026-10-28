@@ -1,5 +1,5 @@
 import { openNewSession } from "../helpers/navigation.js";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture } from "./ssh-fixture.js";
 
 test.use({ locale: "en-GB" });

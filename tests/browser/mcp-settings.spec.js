@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { mcpFixture } from "./mcp-fixture.js";
 test("HTTPS setup copy, CLI deep links and grant pages survive reload without writes", async ({

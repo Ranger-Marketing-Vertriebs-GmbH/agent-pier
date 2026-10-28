@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { openMenu } from "../helpers/navigation.js";
 import { chooseLanguage, settingsBar } from "../helpers/settings.js";
 

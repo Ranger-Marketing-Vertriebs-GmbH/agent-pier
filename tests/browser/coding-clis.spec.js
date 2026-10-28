@@ -1,6 +1,6 @@
 // Coding › CLIs & Erweiterungen (AC-CD-1): four tabs with today's functions, old
 // addresses landing on them, and the dashboard keeping its CLI grid (D-1).
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import { extensionTabList } from "../helpers/extensions.js";

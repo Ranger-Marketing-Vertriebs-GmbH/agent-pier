@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { createHash } from "node:crypto";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";

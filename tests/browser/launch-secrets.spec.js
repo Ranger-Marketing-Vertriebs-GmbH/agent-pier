@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { secretsFixture } from "./secrets-fixture.js";

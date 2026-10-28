@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { fixture as providerFixture } from "./providers-fixture.js";
 import {
   emptyAgency,
