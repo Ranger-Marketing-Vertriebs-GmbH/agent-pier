@@ -26,6 +26,18 @@ const credential = (id, name, tokenCheck = null) => ({
   createdAt: "2026-10-01T00:00:00Z",
   tokenCheck,
 });
+const mailAccount = (id, name, extra = {}) => ({
+  id,
+  name,
+  address: `${id}@example.com`,
+  imap: { host: "imap.example.com", port: 993, security: "tls", username: id },
+  smtp: { host: "smtp.example.com", port: 465, security: "tls", username: id },
+  allowPlaintext: false,
+  saveSent: true,
+  lastTest: { at: "2026-10-20T10:00:00.000Z", imap: "ok", smtp: "ok" },
+  hasPassword: true,
+  ...extra,
+});
 
 async function setup(page) {
   const controls = await fixture(page);
@@ -92,6 +104,32 @@ async function setup(page) {
       },
     }),
   );
+  await page.route("**/api/mail/accounts", (route) =>
+    route.fulfill({
+      json: {
+        presets: {},
+        accounts: [
+          mailAccount("support", "Support"),
+          mailAccount("broken", "Broken box", {
+            lastTest: {
+              at: "2026-10-20T10:00:00.000Z",
+              imap: "ok",
+              smtp: "MAIL_AUTH_FAILED",
+            },
+          }),
+          mailAccount("plain", "Plain box", {
+            allowPlaintext: true,
+            imap: {
+              host: "imap.example.com",
+              port: 143,
+              security: "none",
+              username: "p",
+            },
+          }),
+        ],
+      },
+    }),
+  );
   await page.route("**/api/connections/problems", (route) =>
     route.fulfill({
       json: {
@@ -107,6 +145,11 @@ async function setup(page) {
         ssh: category(4, [entry(hostId(3), ["testFailed"])]),
         secrets: category(2, [entry("s1", ["unreadable"])]),
         github: category(2, [entry("g2", ["tokenExpired"])]),
+        mail: category(
+          3,
+          [entry("broken", ["testFailed"])],
+          [entry("plain", ["plaintext"])],
+        ),
       },
     }),
   );
@@ -119,7 +162,10 @@ const sections = [
   ["ssh", "SSH/SFTP accesses", ["server-003"]],
   ["secrets", "Secrets", ["DEPLOY_TOKEN"]],
   ["github", "GitHub connections", ["Old"]],
+  ["mail", "Email accounts", ["Broken box", "Plain box"]],
 ];
+// List rows whose link names the entry and the mark, with the sub line in warning tone.
+const rowLists = new Set(["models", "services", "mail"]);
 // Long lists mark a row by its status cell; the other lists carry the warning chip.
 const longLists = new Set(["mcp-servers", "ssh"]);
 const markedRows = (page, section) =>
@@ -167,7 +213,7 @@ for (const [name, viewport] of [
         // The status cell names the state for screen readers.
         const open = rows.first().getByRole("button", { name: names[0], exact: true });
         await expect(open).toHaveAccessibleDescription(/Test failed|Sign-in expired/);
-      } else if (section === "models" || section === "services") {
+      } else if (rowLists.has(section)) {
         // The row's link names the entry and the mark; its sub line takes the warning tone.
         for (const entryName of names)
           await expect(

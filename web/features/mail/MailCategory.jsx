@@ -14,6 +14,8 @@ import { mailCopy as copy } from "../../lib/i18n/messages/mail.js";
 import CategorySection from "../connections/CategorySection.jsx";
 import ConnectionUsedBy from "../connections/ConnectionUsedBy.jsx";
 import EmptyCategory from "../connections/EmptyCategory.jsx";
+import ProblemMarker from "../connections/ProblemMarker.jsx";
+import { problemRowIds, rowHasProblem } from "../connections/connection-categories.js";
 import { auditRoute, connectionsRoute } from "../connections/routes.js";
 import MailAccountForm from "./MailAccountForm.jsx";
 import MailTestResult, { testPassed } from "./MailTestResult.jsx";
@@ -197,6 +199,7 @@ export default function MailCategory({ shared, item, loading }) {
   const [form, setForm] = useState(null);
   const account = item ? (accounts || []).find((entry) => entry.id === item) : null;
   const missing = Boolean(item) && accounts !== null && !account;
+  const flagged = problemRowIds(shared.problems, "mail");
   useEffect(() => {
     if (missing) navigate(connectionsRoute("mail"), true);
   }, [missing, navigate]);
@@ -265,14 +268,26 @@ export default function MailCategory({ shared, item, loading }) {
         <ListCard label={areaCopy.sections.mail}>
           {accounts.map((entry) => {
             const route = connectionsRoute("mail", entry.id);
+            // The mark follows GET /connections/problems, as the category's number does.
+            const problem = rowHasProblem(flagged, entry.id);
             return (
               <ListRow
                 key={entry.id}
-                label={entry.name}
+                label={
+                  problem ? (
+                    <>
+                      {entry.name}
+                      <ProblemMarker />
+                    </>
+                  ) : (
+                    entry.name
+                  )
+                }
                 sub={entry.address}
                 status={rowStatus(entry)}
                 href={routePath(route)}
                 onClick={() => navigate(route)}
+                className={problem ? "has-problem" : ""}
               />
             );
           })}
