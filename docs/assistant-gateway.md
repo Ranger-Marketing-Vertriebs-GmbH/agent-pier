@@ -4640,6 +4640,35 @@ reserves an `ssh_access` approval action. The owner's decision may carry `keyId`
 reaches the agent once as an `ssh-access-result` turn. See
 [SSH accesses](ssh-access.md#proposals-from-agents).
 
+## Agent-created projects (2026-10-28, AGENTPIER-273)
+
+`agentpier_project` (actions `create`, `coding` and `list`) is compiled for the owner's
+own agents and leads (`mayCreateProjects`: `goalAgent` without `teamMemberId`) when the
+native capabilities are ready. It is in `lockedTools` (user agents) and
+`senderLockedTools` (agents with their own Telegram bot for other people), and never in
+`routineTools` or `hookTools`. The bootstrap guidance for eligible agents tells them to
+create a project for new work and share it through `agentpier_team_grant`. The bridge
+serves it only in a turn with an active attempt; `AgentProjects.invoke` admits only a
+direct owner turn (`directOwnerTurn`) of an eligible agent, one change at a time per
+agent, and returns the first result for a retried tool call. `create` validates the name,
+checks the limit (10 per rolling 24 hours, from `agent_created_projects`), creates the
+folder in the default folder with `createDirectory`, runs `git init`, registers it with
+`ProjectMemory` (refusing enclosing repositories, home, collection folders and known or
+claimed projects) and records the creator. It writes the grant narrowly
+(`agent-project-grants.js`, like `grantSsh`): `projectIds`, `projectFiles[id] = "write"`
+and, with coding, `sessionProjectIds`; the revision rises, the approval revision stays.
+A failure removes the folder, grant, record and registration. Each change settles an
+`agent_project` row in the agent's chat, is audited with source `agent`
+(`project.created`, `assistant.updated`) and is sent to the owner's Telegram chat
+through the channel outbox.
+
+Codes: `PROJECT_NAME_INVALID` (400), `PROJECT_EXISTS` (409), `PROJECT_CREATE_LIMIT`
+(429), `PROJECT_OWNER_ONLY`, `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE` (403)
+and `PROJECT_FOLDER_UNAVAILABLE` (409). Switching coding on also answers the existing
+`PROJECT_NOT_GRANTED` (403) when the agent no longer holds the project or its folder
+with write access. See [projects agents
+create](assistant-workflows.md#projects-agents-create).
+
 ## Live agent chat feed
 
 `/api/assistant-conversations/<id>/stream?cursor=<cursor>` is a WebSocket behind the

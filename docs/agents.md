@@ -522,6 +522,26 @@ it up. An agent of users gets project folders only; the other groups show a lock
   ([folder access](assistant-workflows.md#direct-folder-access)). The same access can
   be set from the project: **Projects › <project> › Agents**
   ([agent access per project](assistant-workflows.md#agent-access-from-the-project)).
+- **Projects the agent creates:** your own agents and leads (not team members, not
+  user agents and not agents with their own Telegram bot for other people) can create a
+  project for new work themselves, without asking you. This works only in a turn of your
+  own message, from the web chat or your paired Telegram chat, never in a routine, hook,
+  team request or forwarded content. The agent gives a plain folder name; AgentPier
+  makes that new, empty folder in your **Default working directory** (**Settings ›
+  Workspace**, or your home folder while it is unset), runs `git init` in it so coding
+  sessions can use worktrees (the agent can skip this) and registers it as a project.
+  The agent gets **Read and write** for the folder and the project grant, and may switch
+  on **Coding sessions** for a project it created, but only while it still has write
+  access there. It never adopts an existing folder or project, also not inside a Git
+  repository, and it cannot delete, rename or unregister projects. An agent creates at
+  most 10 projects per 24 hours. You are told each time: a note in the agent's chat and
+  under **Overview › Actions and coding tasks**, and a message in Telegram when paired.
+  The activity log records the creation as made by the agent. Afterwards you change the
+  agent's access under **Access › Projects**, or remove the project, as for any other
+  project. To give its team the project, the agent shares it with the lead share
+  described under [Sharing a lead's access with permanent
+  members](#sharing-a-leads-access-with-permanent-members)
+  ([details](assistant-workflows.md#projects-agents-create)).
 - **GitHub:** **No access**, **Read** or **Read and write** through one of your token
   profiles from **Connections › GitHub connections** (the host's **Default for agents** is
   preselected). The agent gets the official GitHub MCP server with that profile:
