@@ -6,10 +6,11 @@ import { Pagination } from "../../components/Pagination.jsx";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { codingRoute, codingRoutePath } from "../coding/routes.js";
-/** Who acted: a user by name, the owner, MCP or the system. */
+/** Who acted: a user by name, an agent on its own, the owner, MCP or the system. */
 function auditActor(event) {
   if (event.actorUserId)
     return event.actorName ? copy.byUser(event.actorName) : copy.byDeletedUser;
+  if (event.source === "agent") return copy.byAgent;
   if (event.source === "user") return copy.byOwner;
   return event.source === "mcp" ? copy.sourceMcp : copy.sourceSystem;
 }

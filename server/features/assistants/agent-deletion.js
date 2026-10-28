@@ -43,6 +43,7 @@ export const agentTables = [
   "assistant_lead_shares",
   "assistant_team_records",
   "agent_coding_sessions",
+  "agent_created_projects",
   "agent_mail_cursors",
   "agent_mail_draft_files",
 ];
@@ -211,6 +212,8 @@ function removeRows(db, id) {
     remove(db, "assistant_lead_shares", "member_assistant_id=? OR lead_id=?", id, id);
     // Which coding sessions it started; the sessions keep running as the owner's.
     remove(db, "agent_coding_sessions", "assistant_id=?", id);
+    // Which projects it created; the projects stay the owner's.
+    remove(db, "agent_created_projects", "assistant_id=?", id);
     // Its "new mail since last check" positions (mail/agent-mail.js).
     remove(db, "agent_mail_cursors", "assistant_id=?", id);
     // Where the files it attached to its mail drafts came from.

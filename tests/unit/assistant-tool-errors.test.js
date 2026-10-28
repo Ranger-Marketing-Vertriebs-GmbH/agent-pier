@@ -138,7 +138,12 @@ test("project tool problems carry their stable codes and English reasons", () =>
     assert.equal(e.code, code, key);
     assert.equal(e.reason, toolReason(code), key);
     assert.notEqual(e.reason, toolReason("UNAVAILABLE"), key);
+    // The limit copy names the cap (agent-project-rules.js projectCreateCaps).
     for (const lang of ["de", "en"])
-      assert.equal(typeof serverCatalogs[lang].agentProjects[key], "string", key);
+      assert.equal(
+        typeof serverCatalogs[lang].agentProjects[key],
+        key === "projectCreateLimit" ? "function" : "string",
+        key,
+      );
   }
 });

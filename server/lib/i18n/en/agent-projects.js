@@ -3,7 +3,8 @@ export const agentProjects = Object.freeze({
   projectNameInvalid:
     "The project name is invalid: no / or \\, no control characters, no leading dot, at most 255 bytes.",
   projectExists: "The default working directory already has an entry with this name.",
-  projectCreateLimit: "This agent already created ten projects in the last 24 hours.",
+  projectCreateLimit: (count) =>
+    `This agent already created ${count} projects in the last 24 hours.`,
   projectOwnerOnly:
     "The agent can create or change projects only in a turn of your own message, not from forwarded, scheduled or hook content.",
   projectNotCreatedByYou: "The agent did not create this project itself.",
