@@ -1,5 +1,6 @@
 import path from "node:path";
 import { bundledSkillNames } from "../features/assistants/agent-skills.js";
+import { builtInSkillNames } from "../features/assistants/built-in-skills.js";
 import { shadowingSkillNames } from "../features/assistants/openclaw-config/skill-shadows.js";
 import { SkillCatalog } from "../features/skill-catalog/catalog-service.js";
 import { SkillCatalogStore } from "../features/skill-catalog/catalog-store.js";
@@ -93,7 +94,13 @@ export function connectSkillCatalog(graph) {
   return new SkillCatalog({
     store,
     bundledNames: () => bundledSkillNames(runtime.runtime?.entryPath),
-    globalNames: () => shadowingSkillNames(globalSkillRoots(runtime.paths.root)),
+    // AgentPier's built-in skill names are taken even before a Gateway has linked
+    // them below plugin-skills, and its report lists them as the catalog's source.
+    globalNames: () =>
+      new Set([
+        ...shadowingSkillNames(globalSkillRoots(runtime.paths.root)),
+        ...builtInSkillNames,
+      ]),
     reportNames: () => reportedSkillNames(runtime),
   });
 }

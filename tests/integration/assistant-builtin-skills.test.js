@@ -20,22 +20,18 @@ const entry = (name, source, filePath) => ({
   missing: { ...none },
   install: [],
 });
+// Where the Gateway links the plugin's copy (built-in-skills.js pluginSkillsDir).
+const pluginCopy = (f) =>
+  path.join(f.dataDir, "state", "plugin-skills", "agentpier-shopping", "SKILL.md");
 const eligible = { memory: true, reminders: false, browser: true };
 
 // The runtime root is the fixture's data folder: workspaces and state below it.
 function fixture(t) {
   const f = shellService(t, ["Home"]);
   f.config.workspaces = path.join(f.dataDir, "workspaces");
-  const pluginCopy = path.join(
-    f.dataDir,
-    "state",
-    "plugin-skills",
-    "agentpier-shopping",
-    "SKILL.md",
-  );
   f.report = [
     entry("github", "openclaw-bundled", "/secret/github/SKILL.md"),
-    entry("agentpier-shopping", "openclaw-extra", pluginCopy),
+    entry("agentpier-shopping", "openclaw-extra", pluginCopy(f)),
   ];
   f.client.answers["skills.status"] = ({ agentId }) => {
     const live = f.client.effective().agents.entries[agentId];
@@ -73,6 +69,9 @@ test("a sender-facing agent never gets the shopping skill", async (t) => {
 
 test("the shopping skill is dropped when the Gateway resolves it elsewhere", async (t) => {
   const { f, home } = fixture(t);
+  // Positive control: with the plugin's copy reported, the same agent compiles it.
+  await update(f, home, { capabilities: eligible });
+  assert.deepEqual(f.live(home).skills, ["agentpier-shopping"]);
   const elsewhere = [
     // A catalog (skills.load.extraDirs) copy: the same source, another folder.
     ["openclaw-extra", path.join(f.dataDir, "skill-catalog", "skills", "x", "SKILL.md")],
@@ -81,18 +80,23 @@ test("the shopping skill is dropped when the Gateway resolves it elsewhere", asy
   ];
   for (const [source, filePath] of elsewhere) {
     f.report = [entry("agentpier-shopping", source, filePath)];
+    // An update of the same choices applies nothing; each turn admission applies.
     f.config.applied.clear();
-    await update(f, home, { capabilities: eligible, name: `Home ${source}` });
+    await f.config.apply(home.id);
     assert.equal(f.live(home).skills, undefined, source);
+    // And it comes back with the plugin's copy: each case starts from compiled.
+    f.report = [entry("agentpier-shopping", "openclaw-extra", pluginCopy(f))];
+    f.config.applied.clear();
+    await f.config.apply(home.id);
+    assert.deepEqual(f.live(home).skills, ["agentpier-shopping"], source);
   }
   // Reported twice, once by the plugin and once elsewhere: still not compiled.
-  const plugin = path.join(f.dataDir, "state", "plugin-skills", "agentpier-shopping");
   f.report = [
-    entry("agentpier-shopping", "openclaw-extra", path.join(plugin, "SKILL.md")),
+    entry("agentpier-shopping", "openclaw-extra", pluginCopy(f)),
     entry("agentpier-shopping", "openclaw-extra", elsewhere[0][1]),
   ];
   f.config.applied.clear();
-  await update(f, home, { name: "Home twice" });
+  await f.config.apply(home.id);
   assert.equal(f.live(home).skills, undefined);
 });
 

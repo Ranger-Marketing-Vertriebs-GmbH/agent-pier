@@ -4,6 +4,7 @@
   "activation": {
     "onStartup": true
   },
+  "skills": ["skills"],
   "contracts": {
     "tools": [
       "agentpier_team_propose",

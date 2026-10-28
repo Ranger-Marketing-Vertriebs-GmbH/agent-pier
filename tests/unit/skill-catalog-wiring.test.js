@@ -124,3 +124,12 @@ test("a catalog skill that cannot be checked never stops the start and is droppe
   assert.match(String(logged.mock.calls[0].arguments[0]), /EACCES/);
   assert.doesNotMatch(String(logged.mock.calls[0].arguments[0]), /private/);
 });
+
+test("a catalog skill can never take a built-in skill's name", async (t) => {
+  const { catalog } = wired(t);
+  // No Gateway has linked the plugin's skills yet: the name is taken all the same.
+  assert.ok(catalog.globalNames().has("agentpier-shopping"));
+  assert.throws(() => catalog.assertLocalName("agentpier-shopping"), { status: 409 });
+  await assert.rejects(catalog.assertFreeName("agentpier-shopping"), { status: 409 });
+  assert.doesNotThrow(() => catalog.assertLocalName("probe"));
+});

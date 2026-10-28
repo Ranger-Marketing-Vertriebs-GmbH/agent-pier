@@ -22,6 +22,15 @@ test("managed plugin assets are private, reproducible and repaired without adopt
       assert.ok(fs.existsSync(path.join(first.directory, target)), target);
   assert.ok(fs.existsSync(path.join(first.directory, "tool-guard.js")));
   assert.equal(fs.statSync(first.directory).mode & 0o777, 0o700);
+  // The shipped shopping skill, in a private folder of its own.
+  const skill = path.join(first.directory, "skills", "agentpier-shopping", "SKILL.md");
+  const shipped = new URL(
+    "../../server/features/assistants/team-plugin/skills/agentpier-shopping/SKILL.md",
+    import.meta.url,
+  );
+  assert.ok(fs.readFileSync(skill).equals(fs.readFileSync(shipped)));
+  assert.equal(fs.statSync(path.dirname(skill)).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(path.join(first.directory, "skills")).mode & 0o777, 0o700);
   assert.deepEqual(provisionTeamPlugin(options), first);
   fs.unlinkSync(path.join(first.directory, "index.js"));
   assert.deepEqual(provisionTeamPlugin(options), first);

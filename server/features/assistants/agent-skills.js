@@ -13,6 +13,7 @@ import {
   skillShadowRoots,
 } from "./openclaw-config/skill-shadows.js";
 import { assistantProblem, skillNamePattern } from "./assistant-validation.js";
+import { insideRoot } from "./skill-paths.js";
 
 // OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner switches
 // skills on per agent; AgentPier compiles the list into agents.entries.<id>.skills,
@@ -125,11 +126,6 @@ export function sanitizeSkill(entry, roots = []) {
   };
 }
 
-const inside = (file, root) => {
-  if (typeof file !== "string" || !root) return false;
-  const relative = path.relative(root, file);
-  return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
-};
 export const needsSettings = (entry) =>
   (Array.isArray(entry.requirements?.env) && entry.requirements.env.length > 0) ||
   (Array.isArray(entry.requirements?.config) && entry.requirements.config.length > 0) ||
@@ -142,18 +138,9 @@ const emptySkill = (name, state, roots, description = "") => ({
   usesShell: false,
 });
 
-const realRoot = (root) => {
-  try {
-    return fs.realpathSync(root);
-  } catch {
-    return null;
-  }
-};
 /** Whether a report entry is the catalog's own live copy below `liveRoot`. */
 export const ownCopy = (entry, liveRoot) =>
-  entry?.source === catalogSource &&
-  (inside(entry.filePath, liveRoot) ||
-    inside(entry.filePath, liveRoot && realRoot(liveRoot)));
+  entry?.source === catalogSource && insideRoot(entry.filePath, liveRoot);
 
 function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
   const { name } = record;
