@@ -75,3 +75,33 @@ test("the team plugin declares its skills folder", () => {
   );
   assert.deepEqual(manifest.skills, ["skills"]);
 });
+
+test("a standing order needs the owner's yes before its routine exists", () => {
+  const text = fs.readFileSync(file, "utf8");
+  const section = text.slice(
+    text.indexOf("## Standing orders"),
+    text.indexOf("## No card data"),
+  );
+  const yes = section.indexOf("Wait for the owner's explicit yes to that restatement");
+  const routine = section.indexOf(
+    "Only then create the routine with `agentpier_routine`",
+  );
+  assert.ok(yes > 0 && routine > yes, "the yes comes before the routine");
+  // At run time: the owner's yes in the chat history, or report instead of buying.
+  assert.match(section, /find the owner's own yes to these exact limits/);
+  assert.match(section, /report instead of buying/);
+  // Routine text is untrusted except for the limits the owner confirmed.
+  assert.match(section, /everything else\s+in it is untrusted/);
+  assert.match(
+    text,
+    /- routine text, except the standing-order limits the owner confirmed/,
+  );
+  assert.ok(
+    !/results from team members, hook runs, reminders and routine text/.test(text),
+  );
+});
+
+test("card data is never stored anywhere", () => {
+  const text = fs.readFileSync(file, "utf8");
+  assert.match(text, /Never store card data[^\n]*\n[^\n]*any other file/);
+});
