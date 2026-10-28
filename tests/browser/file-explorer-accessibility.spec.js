@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -129,6 +130,7 @@ test("touch selection and the tree drawer remain usable in reduced mobile viewpo
     hasTouch: true,
     viewport: { width: 390, height: 844 },
   });
+  await stubContext(context);
   const touchPage = await context.newPage();
   try {
     const fixture = await actionsFixture(touchPage);
@@ -278,6 +280,7 @@ test("mobile editor keeps multiple tabs, a dirty draft, and conflict controls", 
       hasTouch: true,
       viewport: { width: 390, height: 844 },
     });
+    await stubContext(context);
     const mobile = await context.newPage();
     try {
       const fixture = await actionsFixture(mobile);
@@ -423,6 +426,7 @@ test("active upload controls remain reachable in compact touch viewports", async
       hasTouch: true,
       viewport: { width: 390, height: 844 },
     });
+    await stubContext(context);
     const mobile = await context.newPage();
     try {
       const { state } = await uploadsFixture(mobile);

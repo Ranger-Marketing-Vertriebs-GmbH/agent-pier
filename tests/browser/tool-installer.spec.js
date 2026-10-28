@@ -1,6 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { navigateTo } from "../helpers/navigation.js";
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 
 import { baseURL as base } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
@@ -401,6 +402,7 @@ test("mobile unavailable install explains the reason and keeps its destination r
     hasTouch: true,
     isMobile: true,
   });
+  await stubContext(context);
   try {
     const page = await context.newPage();
     const controls = await fixture(page);

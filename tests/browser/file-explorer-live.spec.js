@@ -69,6 +69,7 @@ test("owned live Explorer creates, transfers, edits, resolves and restores", asy
   const fixtureOwner = { after: (cleanup) => cleanups.push(cleanup) };
   try {
     const f = await applicationFixture(fixtureOwner);
+    // Real live channel: the page runs against its own applicationFixture server.
     const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
     // Surface the failed action before the overall timeout starts fixture teardown.
     context.setDefaultTimeout(10000);

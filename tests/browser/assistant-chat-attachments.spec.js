@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -434,6 +435,7 @@ test("touch-only devices do not arm the agent chat drop zone", async ({ browser 
     viewport: { width: 390, height: 844 },
     storageState: `.cache/browser-auth-${new URL(baseURL).port}.json`,
   });
+  await stubContext(context);
   const page = await context.newPage();
   try {
     const state = await openDropChat(page);

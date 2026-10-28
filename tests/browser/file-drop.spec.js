@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import { baseURL } from "../helpers/browser.js";
 
 async function fixture(
@@ -96,6 +97,7 @@ test("touch-only devices do not show a terminal drop area or upload on drop", as
     viewport: { width: 390, height: 844 },
     storageState: `.cache/browser-auth-${new URL(baseURL).port}.json`,
   });
+  await stubContext(context);
   const page = await context.newPage();
   try {
     const state = await fixture(page);

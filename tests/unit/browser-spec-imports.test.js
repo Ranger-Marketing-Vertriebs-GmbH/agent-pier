@@ -39,3 +39,27 @@ test("no browser spec imports test or expect from @playwright/test", () => {
     .map(([name]) => name);
   assert.deepEqual(offenders, []);
 });
+
+// A context of the spec's own gets no stub from the fixture: its pages would read the
+// test server's live channel and skip the spec's context.route mocks. A spec that
+// wants the real channel says why in a "// Real live channel: <reason>" comment.
+const unstubbedContext = (source) =>
+  /\bnewContext\(/.test(source) &&
+  !/\bstubContext\(/.test(source) &&
+  !/\/\/ Real live channel: \S/.test(source);
+
+test("every spec that makes a browser context stubs it or says why not", () => {
+  const offenders = sources
+    .filter(([, source]) => unstubbedContext(source))
+    .map(([name]) => name);
+  assert.deepEqual(offenders, []);
+});
+
+test("the context guard tells stubbed, justified and bare contexts apart", () => {
+  const made = "const context = await browser.newContext({ hasTouch: true });\n";
+  assert.equal(unstubbedContext(made), true);
+  assert.equal(unstubbedContext(made + "await stubContext(context);\n"), false);
+  assert.equal(unstubbedContext("// Real live channel: own server.\n" + made), false);
+  assert.equal(unstubbedContext("// Real live channel:\n" + made), true);
+  assert.equal(unstubbedContext("const page = await context.newPage();\n"), false);
+});

@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { stubContext } from "../helpers/live-stub.js";
 import { actionsFixture } from "../helpers/file-actions-browser.js";
 import { baseURL } from "../helpers/browser.js";
 import { explorerFixture, selectEnglish } from "../helpers/file-explorer-browser.js";
@@ -201,6 +202,7 @@ test("compact touch controls cover multiselect tree favorite menu and confirmati
     hasTouch: true,
     viewport: { width: 390, height: 500 },
   });
+  await stubContext(context);
   const page = await context.newPage();
   try {
     const fixture = await actionsFixture(page);
@@ -270,6 +272,7 @@ test("compact touch retry sends a fresh upload attempt", async ({
     hasTouch: true,
     viewport: { width: 390, height: 500 },
   });
+  await stubContext(context);
   const page = await context.newPage();
   try {
     const { state } = await uploadsFixture(page);
