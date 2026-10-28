@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import useLiveTopic from "../lib/live/useLiveTopic.js";
 import useAssistants, { idleAssistants } from "../features/assistants/useAssistants.js";
 import useAssistantFeature, {
@@ -17,7 +18,9 @@ import { MENU_HINT_RUN_TOPICS, menuHintSources } from "./menu-hint-sources.js";
  * What the menu hints are made of, pushed over the live channel while `active` (the
  * menu is open, or the start page shows): the run counts, page 1 of three run
  * statuses, the connection problems, the settings summary and, with agents on, the
- * agent runtime's update status. Null until each of them has answered.
+ * agent runtime's update status. Null until each of them has answered the first time;
+ * on a later open the last sources stay until the new ones are complete, so the
+ * hints do not blink out and back.
  */
 export function useMenuHintSources(active) {
   const feature = useAssistantFeature();
@@ -30,8 +33,9 @@ export function useMenuHintSources(active) {
   const summary = useLiveTopic(on("settings.summary"));
   // Not followed (null) with agents off: the route answers 404 then.
   const updates = useLiveTopic(feature.enabled ? on("runtime.updates") : null);
+  const last = useRef(null);
   if (!active) return null;
-  return menuHintSources({
+  const sources = menuHintSources({
     counts,
     decisions,
     failed,
@@ -40,6 +44,8 @@ export function useMenuHintSources(active) {
     summary,
     updates,
   });
+  if (sources) last.current = sources;
+  return sources ?? last.current;
 }
 
 /** The hint of every menu entry, by entry id (null: no hint), from `sources`. */

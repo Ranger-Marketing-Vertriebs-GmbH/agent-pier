@@ -8,6 +8,7 @@ import { LiveHub } from "../../server/features/live/live-hub.js";
 import {
   WRITE_SIGNALED_TOPICS,
   liveWriteSignals,
+  reportLiveError,
 } from "../../server/application/live-wiring.js";
 import { settingsSummaryTopic } from "../../server/features/settings/live-topics.js";
 import {
@@ -65,18 +66,17 @@ test("an owner write pushes the summary and the problems within 1 s", async (t) 
   const { live, first } = await listening(f, ...Object.keys(menuTopics));
   assert.deepEqual(first["settings.summary"].data.access.secrets, { count: 0 });
   assert.equal(first["connections.problems"].data.secrets.total, 0);
-  const started = Date.now();
+  // Each frame is awaited from the write on, 1 s apiece.
+  const pushed = Promise.all([
+    live.next((frame) => frame.topic === "settings.summary", 1000),
+    live.next((frame) => frame.topic === "connections.problems", 1000),
+  ]);
   const created = await f.request("/api/secrets", {
     method: "POST",
     body: { name: "API_KEY", description: "", value: "value-1f9" },
   });
   assert.equal(created.status, 201);
-  const summary = await live.next((frame) => frame.topic === "settings.summary", 1000);
-  const problems = await live.next(
-    (frame) => frame.topic === "connections.problems",
-    1000,
-  );
-  assert.ok(Date.now() - started < 1000);
+  const [summary, problems] = await pushed;
   assert.equal(summary.type, "state");
   assert.deepEqual(summary.data, await json(f, "/api/settings/summary"));
   assert.deepEqual(summary.data.access.secrets, { count: 1 });
@@ -194,12 +194,36 @@ test("agents switched on or off read the update status again", async (t) => {
   assert.deepEqual(frames.at(-1).data, { updateAvailable: true });
 });
 
-test("without agent services the update topic refuses quietly, like a 404", async () => {
-  const topic = runtimeUpdatesTopic({ assistants: null, assistantUpdates: null });
+test("without agent services the update topic refuses with the route's status, expected", async () => {
+  const off = runtimeUpdatesTopic({ assistants: null, assistantUpdates: null });
   await assert.rejects(
-    async () => topic.read(owner),
-    (error) => error.status === 404,
+    async () => off.read(owner),
+    (error) => error.status === 404 && error.expected === true,
   );
+  const down = runtimeUpdatesTopic({
+    assistantFeature: { enabled: true },
+    assistants: null,
+    assistantUpdates: null,
+  });
+  await assert.rejects(
+    async () => down.read(owner),
+    (error) => error.status === 503 && error.expected === true,
+  );
+});
+
+test("the hub logs a failed read, but no refusal and no expected failure", (t) => {
+  const errors = errorsOf(t);
+  reportLiveError(Object.assign(new Error("x"), { status: 503, expected: true }), {
+    topic: "runtime.updates",
+  });
+  reportLiveError(Object.assign(new Error("x"), { status: 404 }), { topic: "a" });
+  assert.deepEqual(errors, []);
+  reportLiveError(Object.assign(new Error("x"), { status: 503 }), { topic: "b" });
+  reportLiveError(new Error("x"), { topic: "c" });
+  assert.deepEqual(errors, [
+    "AgentPier could not update the live topic b.",
+    "AgentPier could not update the live topic c.",
+  ]);
 });
 
 test("the problems are sampled every 60 s, only while someone subscribes", async (t) => {
@@ -264,6 +288,10 @@ test("only a successful write outside the frequent areas signals the topics", ()
   send("GET", "/settings/summary", 200);
   send("POST", "/sessions/s1/input", 200);
   send("PATCH", "/me/password", 200);
+  // Chat, native-request answers and agent chats stay quiet.
+  send("POST", "/sessions/s1/chat", 200);
+  send("POST", "/sessions/s1/requests/r1/answer", 200);
+  send("POST", "/assistant-conversations/c1/messages", 200);
   send("POST", "/secrets", 400);
   assert.deepEqual(signaled, []);
   send("DELETE", "/secrets/x", 204);

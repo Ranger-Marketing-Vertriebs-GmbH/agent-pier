@@ -26,16 +26,22 @@ export const liveGate = (principal, topicId, topics = userTopics) =>
   principal?.role === "owner" ||
   (principal?.role === "user" && userMayWatch(topicId, topics));
 
+/**
+ * Logs a topic read that failed. A refusal (a missing project, an invalid id) and a
+ * failure the topic marks `expected` (agents not running) are the answer, not a
+ * fault: the client reads the route once and shows it, so they are not logged.
+ */
+export function reportLiveError(error, { topic } = {}) {
+  if (error?.expected === true) return;
+  if (Number.isInteger(error?.status) && error.status < 500) return;
+  console.error(`AgentPier could not update the live topic ${topic}.`);
+}
+
 /** The hub with its topics. */
 export function createLiveHub(services, options = {}) {
   const hub = new LiveHub({
     gate: (principal, topicId) => liveGate(principal, topicId),
-    onError: (error, { topic } = {}) => {
-      // A refusal (a missing project, an invalid id) is the answer, not a fault: the
-      // client reads the route once and shows it, so it is not logged at all.
-      if (Number.isInteger(error?.status) && error.status < 500) return;
-      console.error(`AgentPier could not update the live topic ${topic}.`);
-    },
+    onError: reportLiveError,
     ...options,
   });
   hub.define(stateTopic(services));
@@ -55,7 +61,8 @@ export function createLiveHub(services, options = {}) {
 }
 
 // Topics whose sources announce no change of their own: any successful write may
-// have changed them. A write without subscribers costs nothing; one that changed
+// have changed them. This middleware is their change source until those stores
+// announce their changes themselves. A write without subscribers costs nothing; one that changed
 // nothing sends nothing (the digest is equal).
 export const WRITE_SIGNALED_TOPICS = Object.freeze([
   "settings.summary",
