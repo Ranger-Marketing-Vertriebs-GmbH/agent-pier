@@ -1,4 +1,4 @@
-import { parse, serialize } from "parse5";
+import { serialize } from "parse5";
 import { mailError } from "./mail-connection.js";
 import { openFolder } from "./mail-folders.js";
 import {
@@ -12,7 +12,7 @@ import {
   textPart,
 } from "./mail-messages.js";
 import { attachmentLimits, messageParts } from "./mail-parts.js";
-import { htmlBounds, htmlToText, htmlWithinBounds } from "./mail-text.js";
+import { htmlBounds, htmlToText, htmlWithinBounds, parseMailHtml } from "./mail-text.js";
 import { draftFields } from "./mail-compose.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 
@@ -142,10 +142,9 @@ const droppedTags = new Set([
  * droppedTags elements, so it cannot restyle or hide what stands above the quote.
  */
 export function quotedHtml(html) {
-  const source = String(html);
-  if (!htmlWithinBounds(source)) return null;
+  const document = parseMailHtml(html);
+  if (!document) return null;
   try {
-    const document = parse(source);
     const root = document.childNodes.find((n) => n.nodeName === "html");
     const body = root?.childNodes.find((n) => n.nodeName === "body");
     if (!body) return "";

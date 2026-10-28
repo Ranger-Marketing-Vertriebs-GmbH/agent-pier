@@ -279,6 +279,31 @@ test("deeply nested HTML is left out quickly; as the only part it is refused", a
   assert.equal(f.count("Drafts"), 1);
 });
 
+test("tags hidden in quoted attributes cannot make a forward parse slowly", async (t) => {
+  const f = await sendFilesFixture(t);
+  const hostile = '<div title="<">'.repeat(60_000);
+  const alternative = original(f, { html: hostile });
+  const only = f.imap.mailbox.append(
+    "INBOX",
+    Buffer.from(
+      `From: news@example.com\r\nTo: agent@example.com\r\nSubject: Quoted\r\nDate: Mon, 26 Oct 2026 09:00:00 +0100\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${hostile}\r\n`,
+      "latin1",
+    ),
+  );
+  const forward = forwardOf(f);
+  let started = Date.now();
+  const r = await forward({ uid: alternative.uid });
+  assert.ok(Date.now() - started < 1000);
+  assert.match(r.htmlNote, /too deeply nested/);
+  const p = f.workflows.get(r.actionId).payload;
+  assert.equal(p.html, null);
+  assert.equal(p.forward.htmlOmitted, true);
+  started = Date.now();
+  assert.equal(await code(forward({ uid: only.uid })), "MAIL_DRAFT_UNSUPPORTED");
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(f.count("Drafts"), 1);
+});
+
 test("forward needs the send level and counts against the hourly limit", async (t) => {
   const f = await sendFilesFixture(t);
   const { uid } = original(f);
