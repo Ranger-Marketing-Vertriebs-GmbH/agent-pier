@@ -1,22 +1,17 @@
-import { randomUUID } from "node:crypto";
 import { actionTerminal } from "../assistant-action-store.js";
 import { notifyAction } from "../assistant-action-notifications.js";
 import { assistantProblem } from "../assistant-validation.js";
 import { ownerTelegram, pairedTelegram } from "../team-coding.js";
-import { toolError } from "../tool-errors.js";
 import { mailError } from "../../mail/mail-connection.js";
-import { composeMessage, recipientsOf } from "../../mail/mail-compose.js";
-import { fileSent, saveDraft, trashDraft } from "../../mail/mail-changes.js";
+import { recipientsOf } from "../../mail/mail-compose.js";
+import { saveDraft, trashDraft } from "../../mail/mail-changes.js";
 import { loadDraft } from "../../mail/mail-drafts.js";
-import { mailCatalog, recipientAllowed } from "./agent-mail-grants.js";
+import { recipientAllowed } from "./agent-mail-grants.js";
 import { mailPermits } from "./agent-mail-origin.js";
 import { auditDelete } from "./agent-mail-changes.js";
-import {
-  bodyDigest,
-  contentDigest,
-  inputDigest,
-  sendInput,
-} from "./agent-mail-send-input.js";
+import { inputDigest, sendInput } from "./agent-mail-send-input.js";
+import { cardPayload, staleReason } from "./agent-mail-card.js";
+import { auditSend, deliverMail, isBug } from "./agent-mail-delivery.js";
 
 export { mailTelegramApprovable } from "./agent-mail-send-input.js";
 
@@ -38,27 +33,10 @@ export const maxOpenMailApprovals = 5;
 export const maxSendsPerHour = 30;
 export const mailDecisions = ["approve", "decline"];
 const hourMs = 3600000;
-// Rule sends kept as rows; well above an hour's cap, which counts them with the cards.
-const trustedMailRows = 200;
 const followUpRetryMs = 300000;
 const retryable = new Set([409, 429, 503]);
 const settledStates = new Set([...actionTerminal, "unknown"]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-// Mail errors that end a send before the server could accept the message. Edge: these
-// codes come from the connection setup (DNS, connect, TLS handshake, sign-in). A TLS
-// or network error code raised mid-session, after DATA (a socket that dies with
-// EHOSTUNREACH, a TLS alert during the transfer), would also map here and read as
-// failed although the mail may have gone out. A session that drops or stalls after
-// DATA usually ends as a reset or a timeout (MAIL_PROTOCOL or MAIL_TIMEOUT, so
-// unknown); the narrower case is accepted as rare.
-const notSent = new Set([
-  "MAIL_AUTH_FAILED",
-  "MAIL_TLS_FAILED",
-  "MAIL_UNREACHABLE",
-  "MAIL_PLAINTEXT_REFUSED",
-]);
-const isMailCode = (code) => typeof code === "string" && code.startsWith("MAIL_");
-const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
 
 export class MailSends {
   constructor(mail, { holdMs = mailHoldMs, pollMs = 100 } = {}) {
@@ -140,23 +118,16 @@ export class MailSends {
       inv.assertCurrent();
       const expiresAt = this.now() + (trusted ? 0 : mailApprovalMs);
       const { replyToUid: _uid, replyToFolder: _folder, ...fields } = draft.fields;
-      const payload = {
-        action: "mail_send",
-        accountId: account.id,
-        accountName: account.name,
+      const payload = cardPayload({
+        account,
         from,
-        ...fields,
-        bodySha256: bodyDigest(fields.body),
-        inReplyTo: draft.thread?.inReplyTo ?? null,
-        references: draft.thread?.references ?? [],
-        draftMessageId: draft.messageId ?? `<${randomUUID()}@${domainOf(from)}>`,
-        draftUid: draft.draftUid ?? null,
-        originClass: cls,
+        draft,
+        fields,
+        cls,
         trusted,
         inputSha256,
         expiresAt,
-      };
-      payload.contentSha256 = contentDigest(payload);
+      });
       const telegram = trusted
         ? null
         : (ownerTelegram(caller.origin) ?? pairedTelegram(this.w, agentId));
@@ -332,30 +303,9 @@ export class MailSends {
     if (a.payload.trusted || !settledStates.has(state) || a.chatNotes?.result) return {};
     return { chatNotes: { ...a.chatNotes, result: { at: this.now(), state } } };
   }
-  /**
-   * Why a card may no longer send, or null: the grant at the send level, the account
-   * with the card's sender address, for a rule send every recipient still within the
-   * rules, and the card's digests unchanged. `UNAVAILABLE` while the catalog cannot be
-   * read.
-   */
+  /** Why a card may no longer send, or null (see staleReason). */
   stale(a) {
-    const p = a.payload;
-    const catalog = mailCatalog(this.w.s);
-    if (!catalog) return "UNAVAILABLE";
-    const account = catalog.find((x) => x.id === p.accountId);
-    if (!account) return "ACCOUNT_REMOVED";
-    if (account.address.toLowerCase() !== p.from?.address?.toLowerCase())
-      return "ACCESS_CHANGED";
-    const grant = this.w.access.mailGrant(a.assistantId, p.accountId, catalog);
-    if (grant?.level !== "send") return "ACCESS_CHANGED";
-    if (
-      p.trusted &&
-      !recipientsOf(p).every((r) => recipientAllowed(grant.recipients ?? [], r))
-    )
-      return "ACCESS_CHANGED";
-    if (bodyDigest(p.body) !== p.bodySha256 || contentDigest(p) !== p.contentSha256)
-      return "ACCESS_CHANGED";
-    return null;
+    return staleReason(this.w, a);
   }
   /** The owner's decision; workflows.decideOnce checked revision, state, expiry, chat. */
   decide(action, decision) {
@@ -373,96 +323,12 @@ export class MailSends {
     this.runs.set(a.id, run);
     return run.catch(() => {});
   }
-  /**
-   * Sends the row's mail once, to exactly its recipients and without Bcc, then files
-   * it (a copy with Bcc in Sent when the account saves sent mail, the draft to Trash).
-   */
-  async deliver(a, authorizedBy) {
-    const p = a.payload;
-    const recipients = recipientsOf(p);
-    const message = {
-      from: p.from,
-      to: p.to,
-      cc: p.cc,
-      bcc: p.bcc,
-      subject: p.subject,
-      body: p.body,
-      messageId: p.draftMessageId,
-      inReplyTo: p.inReplyTo,
-      references: p.references,
-      date: new Date(this.now()),
-    };
-    let sent;
-    let raw;
-    try {
-      raw = await composeMessage(message, { keepBcc: false });
-      sent = await this.accounts.sendRaw(p.accountId, {
-        envelope: { from: p.from.address, to: recipients },
-        raw,
-      });
-    } catch (error) {
-      const { code } = toolError(error);
-      // Only an error before the SMTP session proves nothing went out; a timeout,
-      // reset or odd answer later (after DATA) may have delivered it.
-      const failed = !raw || !isMailCode(error?.code) || notSent.has(error.code);
-      this.audit(a, authorizedBy, recipients.length, failed ? "failed" : "unknown", code);
-      return this.finish(a.id, {
-        state: failed ? "failed" : "unknown",
-        diagnostic: code,
-        result: { code },
-      });
-    }
-    let filed = { savedToSent: false, draftTrashed: false };
-    try {
-      const copy = await composeMessage(message, { keepBcc: true });
-      const saveSent = this.accounts.get(p.accountId).saveSent === true;
-      filed = await this.accounts.withImap(p.accountId, (client) =>
-        fileSent(client, { raw: copy, saveSent, draftUid: p.draftUid }),
-      );
-    } catch (error) {
-      if (isBug(error)) console.error("Agent mail filing failed:", error?.name);
-    }
-    this.audit(a, authorizedBy, recipients.length, "sent");
-    // The sent draft went to Trash, audited like every Trash move.
-    if (filed.draftTrashed)
-      auditDelete(
-        this.w.s,
-        { account: { id: p.accountId }, agent: { id: a.assistantId } },
-        1,
-      );
-    const next = this.finish(a.id, {
-      state: "completed",
-      result: {
-        recipients: recipients.length,
-        savedToSent: filed.savedToSent,
-        ...(sent?.rejected ? { rejected: sent.rejected } : {}),
-      },
-    });
-    if (p.trusted) this.w.store.pruneTrusted(a.assistantId, "mail_send", trustedMailRows);
-    return next;
+  /** Sends the row's mail once and files it (see deliverMail). */
+  deliver(a, authorizedBy) {
+    return deliverMail(this, a, authorizedBy);
   }
-  /** `mail.sent` with `delivery` sent, failed or unknown (outcome failure for both). */
   audit(a, authorizedBy, recipients, delivery, code) {
-    try {
-      this.w.s.audit?.append({
-        action: "mail.sent",
-        resourceType: "mail",
-        resourceId: a.payload.accountId,
-        source: "system",
-        outcome: delivery === "sent" ? "success" : "failure",
-        details: {
-          kind: "message",
-          assistantId: a.assistantId,
-          actionId: a.id,
-          authorizedBy,
-          recipients,
-          delivery,
-          ...(code ? { code } : {}),
-        },
-      });
-    } catch (error) {
-      console.error("Agent mail audit failed:", error?.code || "error");
-    }
+    auditSend(this.w, a, authorizedBy, recipients, delivery, code);
   }
   /**
    * The workflows tick for mail rows: a card whose rights changed or that expired, its
@@ -547,5 +413,3 @@ export class MailSends {
     return count;
   }
 }
-
-const domainOf = (from) => from.address.slice(from.address.lastIndexOf("@") + 1);
