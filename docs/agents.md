@@ -587,16 +587,19 @@ it up. An agent of users gets project folders only; the other groups show a lock
   activity log by its fingerprint, never its text. Agents cannot add hosts or keys.
 - **Email:** the mailboxes from **Connections › Email accounts** this agent may use
   through the `agentpier_mail` tool, each with a level. **Read** lists, reads and
-  searches mail, marks, moves and archives it, moves it to Trash and saves drafts, all
-  without asking; nothing is ever deleted for good. **Read and send** also sends:
+  searches mail (also in the text of attachments), saves attachments, marks, moves and
+  archives mail, moves it to Trash and saves drafts, all without asking; nothing is ever deleted for good. **Read and send** also sends
+  and forwards mail, with attachments from the agent's workspace and granted projects
+  (any file its shell may read with shell level **Full access**):
   without asking when every to, cc and bcc recipient matches a rule in **Send without
   asking to** (one address or domain per line, subdomains do not count), otherwise a
   **Send email?** card in the chat, in the Inbox and in the paired Telegram chat shows
-  **From**, **To**, **Cc**, **Bcc**, **Subject** and the whole message with **Send**
+  **From**, **To**, **Cc**, **Bcc**, **Subject**, the whole message and every attachment (full source path, size, type,
+  SHA-256, and for a forward the original's sender, subject and date) with **Send**
   and **Don't send**. A chat message is never an approval, and declining keeps the
   draft. When a card settles, the chat keeps an **Email** note with the state, the
   account, the number of recipients and the subject, never the body or an address.
-  Mail content is untrusted: instructions in a mail never let the agent send. Only
+  Mail content, attachments included, is untrusted: instructions in a mail never let the agent send. Only
   your own agents and permanent members can get email; agents of users, temporary
   members and agents with a Telegram bot for other people cannot. Details, limits and
   error codes in [Email for agents](mail.md).
