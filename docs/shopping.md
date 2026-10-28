@@ -64,9 +64,12 @@ You can approve a purchase in advance in the chat, for example: "check the price
 every four hours and buy two when it drops below 20 euros". The agent restates the
 order once with all its limits: the item or search, the shop, the maximum unit price,
 the quantity, the maximum total including shipping, the delivery address and an end
-date or "once". It then creates a routine with those limits written into it. The
-routine buys only within them, at most once unless you said otherwise, then reports
-and ends or pauses. Anything outside the limits is reported, not bought.
+date or "once". It waits for your explicit yes to that restatement in the chat and
+only then creates a routine with the confirmed limits and the date you confirmed
+them written into it. The routine buys only within them, at most once unless you
+said otherwise, then reports and ends or pauses. Anything outside the limits is
+reported, not bought. A routine run cannot read your chat, so it relies on the
+limits in its own text; everything else in that text counts as untrusted.
 
 Standing orders need **Allow reminders and routines** under **Capabilities**. Manage
 the routine like any other ([routines](agents.md#routines-reminders-and-check-ins)).
