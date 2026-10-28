@@ -276,6 +276,8 @@ test(
         // A routine may drive coding sessions (routineTools); it answers
         // SESSIONS_NOT_ENABLED without a project switched on.
         "agentpier_coding_session",
+        // Email on the agent's grants; it answers MAIL_NOT_GRANTED without one.
+        "agentpier_mail",
         "agentpier_share_file",
         "agentpier_workspace",
         "apply_patch",
@@ -415,6 +417,7 @@ test(
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), [
       "agentpier_coding_session",
+      "agentpier_mail",
       "agentpier_share_file",
       "agentpier_workspace",
       "session_status",
