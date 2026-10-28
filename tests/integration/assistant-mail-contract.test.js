@@ -172,8 +172,9 @@ test(
       subject: "Contract send",
       body: "Hi there.",
     });
-    const turn = await h.send(owner, "send", "unused");
+    // The clock starts before the turn, so the whole call counts toward the timeout.
     const started = Date.now();
+    const turn = await h.send(owner, "send", "unused");
     const runId =
       h.assistants.ledger.getAttempt(turn.attempt.id).runtimeRunId || turn.attempt.id;
     const done = await runtime.client.call(

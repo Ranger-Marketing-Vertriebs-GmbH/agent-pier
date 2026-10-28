@@ -44,7 +44,13 @@ const followUpRetryMs = 300000;
 const retryable = new Set([409, 429, 503]);
 const settledStates = new Set([...actionTerminal, "unknown"]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-// Mail errors that end a send before the server could accept the message.
+// Mail errors that end a send before the server could accept the message. Edge: these
+// codes come from the connection setup (DNS, connect, TLS handshake, sign-in). A TLS
+// or network error code raised mid-session, after DATA (a socket that dies with
+// EHOSTUNREACH, a TLS alert during the transfer), would also map here and read as
+// failed although the mail may have gone out. A session that drops or stalls after
+// DATA usually ends as a reset or a timeout (MAIL_PROTOCOL or MAIL_TIMEOUT, so
+// unknown); the narrower case is accepted as rare.
 const notSent = new Set([
   "MAIL_AUTH_FAILED",
   "MAIL_TLS_FAILED",
