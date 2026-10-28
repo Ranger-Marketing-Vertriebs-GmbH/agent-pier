@@ -58,6 +58,8 @@ export async function shareFixture(t) {
     },
     config: { apply: async () => {}, reset() {}, workspaces },
   });
+  // The service's own 2 s poll also sweeps shares; tests drive the sweep themselves.
+  clearInterval(service.poll);
   // The trusted turn contexts TeamStore records in the app.
   const contexts = new Map();
   service.teams = {
