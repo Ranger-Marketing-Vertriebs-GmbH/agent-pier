@@ -40,6 +40,16 @@ export class LiveHub {
     // a revision is never reused for a topic id and scope, even after eviction.
     this.highest = 0;
     this.closed = false;
+    this.closeListeners = new Set();
+  }
+  /** Calls `listener` once when the hub closes (at once if it is closed). */
+  onClose(listener) {
+    if (this.closed) {
+      listener();
+      return () => {};
+    }
+    this.closeListeners.add(listener);
+    return () => this.closeListeners.delete(listener);
   }
   /** Registers a topic definition; a second definition of a name throws. */
   define(definition) {
@@ -204,6 +214,15 @@ export class LiveHub {
     this.records.clear();
     // Drops every row baseline; a later cursor is unknown.
     this.sync = new ChatSync({});
+    const listeners = [...this.closeListeners];
+    this.closeListeners.clear();
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch (error) {
+        this.onError(error, {});
+      }
+    }
   }
 }
 

@@ -159,7 +159,7 @@ test("an owner-privacy change revokes a subscription that lost access", async (t
 test("a slow reader gets the newest frame per topic and 1013 above 2 MiB", async (t) => {
   const f = await applicationFixture(t);
   const big = (n, bytes) => ({ n, pad: "x".repeat(bytes) });
-  const topic = fixtureTopic(f, { maxBytes: 16 * 1024 * 1024 });
+  const topic = fixtureTopic(f, { maxBytes: 64 * 1024 * 1024 });
   const { live } = await subscribed(f, topic.name);
   // The reader stops reading: the kernel buffers fill, then the server queues.
   live.ws._socket.pause();
@@ -170,15 +170,19 @@ test("a slow reader gets the newest frame per topic and 1013 above 2 MiB", async
   live.ws._socket.resume();
   const last = await live.next((frame) => frame.data?.n === 24, 5000);
   assert.equal(last.type, "state");
+  // How many frames the kernel buffers absorb differs by platform; what holds
+  // everywhere is that frames never repeat or go back and the newest one arrives.
+  // Which frames a full buffer drops is covered in tests/unit/live-connection.test.js.
   const seen = live.frames.filter(ofType("state")).map((frame) => frame.data.n);
-  assert.ok(seen.length < 24, `latest-wins dropped no frame: ${seen}`);
   assert.deepEqual(
     seen,
-    [...seen].sort((a, b) => a - b),
+    [...new Set(seen)].sort((a, b) => a - b),
   );
-  // One frame the reader cannot take leaves more than 2 MiB buffered.
+  assert.equal(seen.at(-1), 24);
+  // One frame far larger than any kernel socket buffers (Linux autotunes to a few
+  // MiB) leaves more than 2 MiB buffered, whatever the platform.
   live.ws._socket.pause();
-  topic.set(big(25, 8 * 1024 * 1024));
+  topic.set(big(25, 32 * 1024 * 1024));
   await delay(400);
   topic.set(big(26, 16));
   await delay(400);
@@ -202,4 +206,30 @@ test("shutdown closes with 1012 and a restart answers a snapshot with a new inst
   assert.equal(again.first.type, "snapshot");
   assert.deepEqual(again.first.data, { n: 0 });
   again.live.ws.close();
+});
+
+test("agents switched on later, off and on again still re-check subscriptions", async (t) => {
+  const f = await applicationFixture(t);
+  assert.equal(f.application.assistants, null);
+  let allowed = true;
+  const topic = fixtureTopic(f, { authorize: () => allowed });
+  const feature = (enabled) =>
+    f.request("/api/assistant-feature", { method: "PUT", body: { enabled } });
+  const revokedAfter = async (change) => {
+    const { live } = await subscribed(f, topic.name);
+    allowed = false;
+    await change();
+    await live.next(ofType("revoked", topic.name));
+    allowed = true;
+    live.ws.close();
+  };
+  assert.equal((await feature(true)).status, 200);
+  assert.ok(f.application.assistants);
+  // An agent event of the services created after boot re-checks access.
+  await revokedAfter(() => f.application.assistants.events.publish({ type: "probe" }));
+  // Switching off is a change too.
+  await revokedAfter(() => feature(false));
+  assert.equal(f.application.assistants, null);
+  await revokedAfter(() => feature(true));
+  await revokedAfter(() => f.application.assistants.events.publish({ type: "probe" }));
 });

@@ -243,3 +243,36 @@ test("ping answers pong and close drops every subscription", () => {
   assert.equal(hub.subscriptions[0].active, false);
   assert.equal(connection.receive("garbage"), true);
 });
+
+test("a closing hub closes the connection with 1012 and stops its timer", () => {
+  const hub = new LiveHub();
+  const ws = fakeSocket();
+  const clock = fakeIntervals();
+  const connection = new LiveConnection({
+    ws,
+    hub,
+    principal: { role: "owner" },
+    timers: clock.timers,
+  });
+  ws.bufferedAmount = QUEUE_BYTES + 1;
+  connection.reply({ type: "pong" });
+  connection.schedule();
+  assert.equal(clock.running, 1);
+  hub.close();
+  assert.equal(ws.closedWith, 1012);
+  assert.equal(connection.closed, true);
+  assert.equal(clock.running, 0);
+  assert.equal(hub.closeListeners.size, 0);
+});
+
+test("a resync after the hub closed subscribes nothing", async () => {
+  const hub = fakeHub();
+  const { connection, ws } = setup({ hub });
+  connection.receive('{"op":"sub","topic":"rows"}');
+  ws.bufferedAmount = QUEUE_BYTES + 1;
+  hub.subscriptions[0].send({ type: "delta", topic: "rows", data: 1 });
+  hub.subscriptions[0].send({ type: "delta", topic: "rows", data: 2 });
+  hub.closed = true;
+  await new Promise((resolve) => queueMicrotask(resolve));
+  assert.equal(hub.subscriptions.length, 1);
+});

@@ -124,7 +124,8 @@ export function createAssistantFeature(services) {
   let listening = false;
   let recovered = false;
   let queue = Promise.resolve();
-  // "started" once the agent services exist after being switched on.
+  // "started" once the agent services exist after being switched on, "stopped" once
+  // they are gone after being switched off.
   const events = new EventEmitter();
   for (const name of assistantServiceNames) services[name] = null;
   const fail = (cause) => {
@@ -243,6 +244,7 @@ export function createAssistantFeature(services) {
         enabled = false;
         await release();
         error = assistantStorageProblem(dataDir);
+        events.emit("stopped");
         return state();
       }),
     close: () => serialized(release),

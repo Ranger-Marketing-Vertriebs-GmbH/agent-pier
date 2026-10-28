@@ -62,11 +62,9 @@ test("the live gate admits the owner and users only through userTopics", () => {
   assert.equal(liveGate({ role: "user", userId: "u" }, "state"), false);
   assert.equal(liveGate(undefined, "state"), false);
   assert.equal(liveGate({ role: "guest" }, "state"), false);
-  userTopics.push(/^me\.counts$/);
-  try {
-    assert.equal(liveGate({ role: "user", userId: "u" }, "me.counts"), true);
-    assert.equal(userMayWatch("me.counts".padEnd(201, "x")), false);
-  } finally {
-    userTopics.pop();
-  }
+  assert.ok(Object.isFrozen(userTopics));
+  const topics = [/^me\.counts$/, /^me\.c.*$/];
+  assert.equal(liveGate({ role: "user", userId: "u" }, "me.counts", topics), true);
+  assert.equal(liveGate({ role: "owner" }, "me.counts", []), true);
+  assert.equal(userMayWatch("me.c".padEnd(201, "x"), topics), false);
 });
