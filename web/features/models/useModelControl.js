@@ -1,5 +1,5 @@
 import { modelRequest } from "./model-request.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react";
 const emptyState = {
@@ -16,7 +16,6 @@ export default function useModelControl({ session, active, request, onPendingCha
   const [error, setError] = useState(""),
     [query, setQuery] = useState("");
   const [reconciling, setReconciling] = useState(false);
-  const [revision, setRevision] = useState(0);
   const mutationAbort = useRef(null);
   const [readError, setReadError] = useState("");
   const [availableHeight, setAvailableHeight] = useState(540);
@@ -90,42 +89,22 @@ export default function useModelControl({ session, active, request, onPendingCha
   useEffect(() => {
     pendingCallback.current?.(blocked);
   }, [blocked, onPendingChange]);
+  // The model state is pushed (the server samples the screen once per session); a
+  // change of this tab's own is shown from its answer, and a push during it waits.
+  const live = useLiveTopic(active ? `session.models:${session.id}` : null);
+  const refreshLive = useRef(live.refresh);
+  refreshLive.current = live.refresh;
   useEffect(() => {
-    if (!active) return;
-    const poll = async (signal) => {
-      const version = generation.current;
-      if (mutating.current) return;
-      try {
-        const result = await modelRequest(
-          requestRef.current,
-          `/sessions/${session.id}/models`,
-          "GET",
-          undefined,
-          copy.refreshTimeout,
-          signal,
-        );
-        if (!signal.aborted && version === generation.current && !mutating.current) {
-          setReconciling(false);
-          setReadError("");
-          setState({
-            ...emptyState,
-            ...result,
-          });
-        }
-      } catch (err) {
-        // A deadline abort reports the timeout; hiding or stopping stays silent.
-        if (
-          (!signal.aborted || timedOut(signal)) &&
-          version === generation.current &&
-          !mutating.current
-        ) {
-          setReconciling(false);
-          setReadError(err.message);
-        }
-      }
-    };
-    return startVisiblePolling(poll, 3000);
-  }, [active, session.id, revision]);
+    if (!live.data || mutating.current) return;
+    setReconciling(false);
+    setReadError("");
+    setState({ ...emptyState, ...live.data });
+  }, [live.data]);
+  useEffect(() => {
+    if (!live.error || mutating.current) return;
+    setReconciling(false);
+    setReadError(live.error);
+  }, [live.error]);
   useEffect(() => {
     if (!active || !pickerToken) return;
     const selected = panel.current?.querySelector('[data-selected="true"]');
@@ -175,7 +154,10 @@ export default function useModelControl({ session, active, request, onPendingCha
         if (err.code === "MODEL_REQUEST_TIMEOUT") {
           setReconciling(true);
           setReadError(err.message);
-          setRevision((value) => value + 1);
+          // The screen is read again over REST; its answer ends the reconciling.
+          refreshLive.current().then((data) => {
+            if (!data && mounted.current) setReconciling(false);
+          });
         } else setError(err.message);
       }
     } finally {

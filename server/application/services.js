@@ -31,6 +31,7 @@ import { ChatImages } from "../features/chat/chat-images.js";
 import { ChatSync } from "../features/chat/chat-sync.js";
 import { ChatAttachments } from "../features/chat/chat-attachments.js";
 import { ModelController } from "../features/models/model-controller.js";
+import { requestsChanged } from "../features/requests/live-topics.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
@@ -322,7 +323,10 @@ export async function createServices(config) {
     onEvent: (event) => {
       events.current?.emit(event);
       inbox?.changed();
+      requestsChanged(services.live, event.sessionId);
     },
+    // Read late: the live hub exists only once the server listens.
+    onChange: (sessionId) => requestsChanged(services.live, sessionId),
     // A CLI's own report reaches an open chat at once (the same debounced read the
     // file watcher triggers); the activity file stays for restarts.
     onNative: (sessionId, push) => {

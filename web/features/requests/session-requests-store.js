@@ -1,11 +1,8 @@
 import api from "../../lib/api.js";
-import { attemptRead } from "../../lib/resource-reads.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { liveClient } from "../../lib/live/live-client.js";
+import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 
 const LOADING = Object.freeze({ data: null, error: "", loading: true });
-// Timeouts in a row over held data before the error shows: one slow read must
-// not make the chat flap.
-const QUIET_TIMEOUTS = 2;
 
 // Chat waits only for open requests or while no answer has arrived yet. An error
 // over held data never blocks: the chat never blocks on a slow server.
@@ -14,86 +11,80 @@ export function requestsBlockChat({ data, error, loading }) {
 }
 
 /**
- * The open native requests of each session, read by one polling loop per session
- * however many views show them (chat, inbox card, agent escalation card). A loop
- * runs while the session has listeners. A read is aborted after `timeoutMs`; the
- * timeout shows at once without data, after three in a row over held data, which stays.
+ * Follows the live `session.requests:<id>` topic (REST while the channel falls back).
+ * `report({data, error, loading})` gets every change; returns `{ refresh, set, stop }`.
+ */
+export function followSessionRequests(sessionId, report) {
+  return startLiveTopic({
+    topicId: `session.requests:${sessionId}`,
+    client: liveClient(),
+    read: (path, signal) => api(path, "GET", undefined, signal),
+    report,
+  });
+}
+
+// Each request carries when this tab received it: a pushed list is sent only when it
+// changes, so `interaction.age` is as old as the frame (request-interaction.js).
+const stamped = (data, receivedAt) =>
+  Array.isArray(data?.requests)
+    ? { ...data, requests: data.requests.map((entry) => ({ ...entry, receivedAt })) }
+    : data;
+
+/**
+ * The open native requests of each session, followed once per session however many
+ * views show them (chat, inbox card, agent escalation card, terminal handoff). The
+ * topic is followed while the session has listeners.
  */
 export function createSessionRequestsStore({
-  read,
-  startPolling = startVisiblePolling,
-  interval = 1500,
-  timeoutMs = 5000,
-  env,
-}) {
+  follow = followSessionRequests,
+  now = () => Date.now(),
+} = {}) {
   const sessions = new Map();
   const publish = (entry, snapshot) => {
     entry.snapshot = snapshot;
     for (const listener of [...entry.listeners]) listener(snapshot);
   };
-  const start = (sessionId, entry) => {
-    entry.stop = startPolling(async (signal) => {
-      const started = entry.generation;
-      const result = await attemptRead((attempt) => read(sessionId, attempt), {
-        signal,
-        timeoutMs,
-        env,
-      });
-      if (!result || sessions.get(sessionId) !== entry) return;
-      if (started !== entry.generation) return;
-      entry.timeouts = result.timedOut ? entry.timeouts + 1 : 0;
-      if (entry.snapshot.data && entry.timeouts && entry.timeouts <= QUIET_TIMEOUTS)
-        return;
-      publish(
-        entry,
-        "data" in result
-          ? { data: result.data, error: "", loading: false }
-          : { data: entry.snapshot.data, error: result.error, loading: false },
-      );
-    }, interval);
+  const receive = (entry, { data, error, loading }) => {
+    if (sessions.get(entry.sessionId) !== entry) return;
+    const current = entry.snapshot;
+    const fresh = data !== entry.raw;
+    if (!fresh && error === current.error && loading === current.loading) return;
+    entry.raw = data;
+    publish(entry, {
+      data: fresh ? stamped(data, now()) : current.data,
+      error,
+      loading,
+    });
   };
   return {
     subscribe(sessionId, listener) {
       let entry = sessions.get(sessionId);
       if (!entry) {
-        entry = {
-          listeners: new Set(),
-          snapshot: LOADING,
-          generation: 0,
-          timeouts: 0,
-          stop() {},
-        };
+        entry = { sessionId, listeners: new Set(), snapshot: LOADING, raw: null };
         sessions.set(sessionId, entry);
         entry.listeners.add(listener);
-        start(sessionId, entry);
+        const created = entry;
+        entry.reader = follow(sessionId, (state) => receive(created, state));
       } else entry.listeners.add(listener);
       return () => {
         if (!entry.listeners.delete(listener) || entry.listeners.size) return;
         sessions.delete(sessionId);
-        entry.stop();
+        entry.reader.stop();
       };
     },
     get(sessionId) {
       return sessions.get(sessionId)?.snapshot ?? LOADING;
     },
+    /** Reads the session's requests over REST again. */
     refresh(sessionId) {
-      const entry = sessions.get(sessionId);
-      if (!entry) return;
-      entry.stop();
-      start(sessionId, entry);
+      sessions.get(sessionId)?.reader.refresh();
     },
-    // An answer's response replaces the data at once; a read already under way
+    // An answer's response replaces the data at once; a REST read already under way
     // would bring the older state back, so it is dropped.
     update(sessionId, data) {
-      const entry = sessions.get(sessionId);
-      if (!entry) return;
-      entry.generation += 1;
-      publish(entry, { data, error: "", loading: false });
+      sessions.get(sessionId)?.reader.set(data);
     },
   };
 }
 
-export const sessionRequests = createSessionRequestsStore({
-  read: (sessionId, signal) =>
-    api(`/sessions/${encodeURIComponent(sessionId)}/requests`, "GET", undefined, signal),
-});
+export const sessionRequests = createSessionRequestsStore();

@@ -3,6 +3,9 @@ import { operationsFixture } from "./operations-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import { openNewSession } from "../helpers/navigation.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
+import { isLiveStubRequest } from "../helpers/live-stub.js";
+// The chat follows the pushed `session.requests` topic: a stalled REST read of the
+// requests (the page's own) never stands between the startup hook trust and the chat.
 for (const width of [1440, 390])
   test(`a stalled first approval read cannot hide startup hook trust at ${width}px`, async ({
     page,
@@ -64,16 +67,13 @@ for (const width of [1440, 390])
     const stalled = new Promise((resolve) => {
       release = resolve;
     });
-    let fulfilled;
-    const lateResponse = new Promise((resolve) => {
-      fulfilled = resolve;
-    });
-    let reads = 0;
+    // Every REST read the page itself makes stalls; the live stub's reads answer.
+    let pageReads = 0;
     await page.route("**/api/sessions/fixture-session/requests", async (route) => {
-      if (++reads !== 1) return route.fallback();
+      if (isLiveStubRequest(route.request())) return route.fallback();
+      pageReads += 1;
       await stalled;
       await route.fulfill({ json: { requests: [] } }).catch(() => {});
-      fulfilled();
     });
     await page.goto(baseURL);
     await openNewSession(page);
@@ -89,11 +89,10 @@ for (const width of [1440, 390])
     } finally {
       release();
     }
-    await lateResponse;
+    expect(pageReads).toBe(0);
     await expect(
       page.getByRole("button", { name: "Trust hooks and continue", exact: true }),
     ).toBeEnabled();
-    // The aborted HTTP read cannot replace the approval returned by the retry.
     await expect(page.getByText("Review Codex hooks", { exact: true })).toBeInViewport();
     await page.screenshot({ path: test.info().outputPath("startup.png") });
     expect(state.calls.some((call) => call.path.endsWith("/answer"))).toBe(false);

@@ -85,8 +85,14 @@ async function sessionFixture(page, stall = {}) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
 }
 
-test("a hidden session chat pauses the model and reload reads", async ({ page }) => {
+// The model state is a sampled live topic: a hidden tab unsubscribes it, so the
+// server stops sampling, and the page itself never reads /models.
+test("a hidden session chat pauses the model and reload reads", async ({
+  page,
+  liveStub,
+}) => {
   await sessionFixture(page);
+  const models = "session.models:hidden-demo";
   const requests = recordApiRequests(page);
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
@@ -96,7 +102,13 @@ test("a hidden session chat pauses the model and reload reads", async ({ page })
   await expect
     .poll(() => requests.list().some((request) => request.path.endsWith("/reload")))
     .toBe(true);
-  await pausesWhenHidden(page, requests, /\/models$/);
+  expect(liveStub.subscriptions()).toContain(models);
+  await setTabHidden(page, true);
+  await expect.poll(() => liveStub.subscriptions()).not.toContain(models);
+  await setTabHidden(page, false);
+  await expect.poll(() => liveStub.subscriptions()).toContain(models);
+  await pausesWhenHidden(page, requests, /\/reload$/);
+  expect(requests.list().some((request) => request.path.endsWith("/models"))).toBe(false);
   await expect
     .poll(() => requests.list().some((request) => request.path.endsWith("/reload")))
     .toBe(true);
@@ -190,18 +202,20 @@ test("hidden Accounts pause the CLI sign-in reads", async ({ page }) => {
   await pausesWhenHidden(page, requests, /\/auth-status$/);
 });
 
-test("a stalled model read reports its timeout while hidden stays silent", async ({
-  page,
-}) => {
+// A model sample that hangs (on the server, here in the live stub's read) sends no
+// frame: the held model stays, no error flaps, and the chat stays usable.
+test("a stalled model sample keeps the held model", async ({ page }) => {
   test.setTimeout(60000);
   await sessionFixture(page, { models: true });
   await page.goto(baseURL + "/sessions/hidden-demo/chat");
   await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
     "gpt-5.6-sol",
   );
-  await expect(page.getByText(/The model status request timed out/)).toBeVisible({
-    timeout: 25000,
-  });
+  await page.waitForTimeout(8000);
+  await expect(page.getByRole("button", { name: "Choose model" })).toContainText(
+    "gpt-5.6-sol",
+  );
+  await expect(page.locator(".model-error")).toHaveCount(0);
   // The chat stays usable.
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
 });

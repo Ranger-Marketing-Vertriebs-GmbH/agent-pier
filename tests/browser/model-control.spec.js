@@ -53,11 +53,9 @@ async function fixture(page, { nativeRequests = false } = {}) {
         tasks: [],
       };
     else if (path.endsWith("/requests")) {
-      // A server slower than the 5 s request deadline, after one quick answer.
-      if (controls.slowRequests) {
+      // A slow server, after one quick answer.
+      if (controls.slowRequests)
         await new Promise((resolve) => setTimeout(resolve, 6000));
-        return route.fulfill({ json: { requests: [] } }).catch(() => {});
-      }
       result = { requests: [] };
     } else if (path.includes("/models")) {
       if (!body && controls.readError)
@@ -161,7 +159,7 @@ async function fixture(page, { nativeRequests = false } = {}) {
       }
       result = structuredClone(model);
     }
-    await route.fulfill({ json: result });
+    await route.fulfill({ json: result }).catch(() => {});
   });
   await page.routeWebSocket("**/api/sessions/*/terminal", (ws) =>
     ws.send(JSON.stringify({ type: "output", data: "Native Unterhaltung\r\n" })),
@@ -213,8 +211,8 @@ test("model selection waits for native effort confirmation and preserves the dra
   ]);
 });
 
-// The chat never blocks on a slow server (AGENTPIER-266): timed-out request reads
-// over held empty data leave the model control usable, and Esc closes its dialog.
+// The chat never blocks on a slow server (AGENTPIER-266): hanging request reads over
+// held data leave the model control usable, and Esc closes its dialog.
 test("slow request reads over held data keep the model control and Esc working", async ({
   page,
 }) => {
@@ -223,9 +221,7 @@ test("slow request reads over held data keep the model control and Esc working",
   const field = page.getByRole("button", { name: "Modell auswählen", exact: true });
   await expect(field).toBeEnabled();
   controls.slowRequests = true;
-  await expect(
-    page.getByText("Der Server hat nicht rechtzeitig geantwortet.", { exact: true }),
-  ).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(7000);
   await expect(field).toBeEnabled();
   await field.click();
   const dialog = page.getByRole("dialog", { name: "Modellauswahl" });
@@ -486,15 +482,18 @@ test("a blocked mobile model switch shows its reason without a contradictory ter
   await expect(page.locator(".model-option").first()).toBeVisible();
 });
 
+// Read errors show over REST: refusing the live channel makes the page poll /models.
 test("a transient reload error clears after model reads recover without losing the chat draft", async ({
   page,
+  liveStub,
 }) => {
   const controls = await fixture(page);
+  liveStub.refuse();
   const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
   await draft.fill("Keep this draft after reload");
   controls.readError = "Session is reloading";
   await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
-    timeout: 7000,
+    timeout: 15000,
   });
   controls.readError = null;
   controls.model.currentModel = "gpt-5.6-terra";
@@ -508,14 +507,16 @@ test("a transient reload error clears after model reads recover without losing t
 
 test("returning to mobile chat refreshes a stale reload error and keeps its draft", async ({
   page,
+  liveStub,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const controls = await fixture(page);
+  liveStub.refuse();
   const draft = page.getByRole("textbox", { name: "Nachricht", exact: true });
   await draft.fill("Mobile draft");
   controls.readError = "Session is reloading";
   await expect(page.locator(".model-error")).toHaveText("Session is reloading", {
-    timeout: 7000,
+    timeout: 15000,
   });
   await page.getByRole("button", { name: "Terminal", exact: true }).click();
   controls.readError = null;

@@ -111,4 +111,5 @@ export async function confirmClaudeRuntime(broker, owner, version) {
   delete launch.claudeHookReloadRequired;
   await atomic(file, JSON.stringify(launch));
   broker.claudeReloadRequired.delete(owner.id);
+  broker.changed?.(owner.id);
 }
