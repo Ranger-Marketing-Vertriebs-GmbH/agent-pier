@@ -122,7 +122,8 @@ test("a task member's compiled entry carries what its lead granted: web, skills,
     memberTeamTools,
   );
   assert.equal(entry.tools.exec, undefined);
-  assert.deepEqual(entry.skills, ["weather"]);
+  // The granted browser and its own memory bring the built-in Shopping skill.
+  assert.deepEqual(entry.skills, ["agentpier-shopping", "weather"]);
   assert.equal(entry.memory.search.enabled, true);
   // The global network safety stays as the lead's capabilities compile it.
   assert.deepEqual(config.tools.web.fetch, {

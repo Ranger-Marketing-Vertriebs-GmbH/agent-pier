@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  inheritsFromLead,
+  memoryEnabled,
   personalCapabilities,
-  personalEligible,
   personalSkills,
 } from "./native-capabilities.js";
 import { isUserAgent } from "../users/user-access.js";
@@ -10,15 +11,16 @@ import { insideRoot } from "./skill-paths.js";
 import { teamPluginDirectory } from "./team-plugin-install.js";
 
 // AgentPier's own skills, shipped inside the team plugin and compiled into an agent's
-// skill list without the owner switching them on. The shopping gate keeps shopping
-// guidance out of agents that serve other people (users, team members, sender-facing
-// bots); it is not a technical barrier against buying. Buying is guarded only by the
-// skill's own instructions (SKILL.md), never by a check in AgentPier.
+// skill list without the owner switching them on. Shopping reaches the owner's own
+// agents, leads, permanent and task members and agents with their own Telegram bot;
+// agents of users never get it. The skill asks only the owner, in the owner's own
+// chat, before buying (SKILL.md); nothing in AgentPier stops a purchase.
 export const shoppingSkill = "agentpier-shopping";
 export const builtInSkillNames = [shoppingSkill];
 // OpenClaw 2026.10.7 reports a plugin's skill like a `skills.load.extraDirs` one, as
 // `openclaw-extra`; only its path tells them apart. The Gateway links each plugin
 // skill below `<state>/plugin-skills/<name>` (OPENCLAW_STATE_DIR, runtime-paths.js).
+// Every agent of the Gateway, members included, shares that one state folder.
 export const pluginSkillSource = "openclaw-extra";
 
 /** The folder the Gateway publishes plugin skills to, below the runtime root. */
@@ -26,31 +28,41 @@ export const pluginSkillsDir = (runtimeRoot) =>
   path.join(runtimeRoot, "state", "plugin-skills");
 
 /**
- * Whether the agent gets the shopping skill: the owner's own, unarchived agent with
- * browser and memory on. Memory brings the `read` tool, without which OpenClaw lists
- * no skill to the agent (assistant-skill-catalog-contract.test.js).
+ * Why the agent cannot get the shopping skill, or null: `archived`, `userAgent`, or
+ * the missing `browser` or `memory`. Memory brings the `read` tool, without which
+ * OpenClaw lists no skill to the agent (assistant-skill-catalog-contract.test.js); a
+ * task member always has its own memory and the browser only as its lead's grant.
  */
-export function shoppingEligible(assistant, { senderFacing = false } = {}) {
-  if (!personalEligible(assistant) || assistant.teamMemberId) return false;
-  if (isUserAgent(assistant) || senderFacing) return false;
-  const caps = personalCapabilities(assistant);
-  return caps.browser && caps.memory;
+export function shoppingBlocker(assistant) {
+  if (!assistant || assistant.archivedAt) return "archived";
+  if (isUserAgent(assistant)) return "userAgent";
+  if (!personalCapabilities(assistant).browser) return "browser";
+  if (!memoryEnabled(assistant)) return "memory";
+  return null;
 }
+export const shoppingEligible = (assistant) => shoppingBlocker(assistant) === null;
+/**
+ * The owner's per-agent switch, stored on the profile as `shopping: false` and on
+ * otherwise. A task member also follows its lead's switch (memberInheritance).
+ */
+export const shoppingOn = (assistant) =>
+  assistant?.shopping !== false &&
+  (!inheritsFromLead(assistant) || assistant.inherited.shopping !== false);
 
-/** The built-in skills the agent is eligible for. */
-export function builtInSkills(assistant, { senderFacing = false } = {}) {
-  return shoppingEligible(assistant, { senderFacing }) ? [shoppingSkill] : [];
+/** The built-in skills the agent gets. */
+export function builtInSkills(assistant) {
+  return shoppingEligible(assistant) && shoppingOn(assistant) ? [shoppingSkill] : [];
 }
 
 /**
  * The skill names compiled for the agent: its own skills without any built-in name
- * (a stored or inherited one never counts), plus the built-ins it is eligible for.
+ * (a stored or inherited one never counts), plus the built-ins it gets.
  */
-export function compiledSkillNames(assistant, { senderFacing = false } = {}) {
+export function compiledSkillNames(assistant) {
   const own = personalSkills(assistant).filter(
     (name) => !builtInSkillNames.includes(name),
   );
-  return [...new Set([...own, ...builtInSkills(assistant, { senderFacing })])].sort();
+  return [...new Set([...own, ...builtInSkills(assistant)])].sort();
 }
 
 /**

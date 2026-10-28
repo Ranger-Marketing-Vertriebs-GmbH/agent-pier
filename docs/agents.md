@@ -338,11 +338,15 @@ its own, also shows whether its model changed since it took it over from the lea
   **Browser running** while it runs. Temporary team members get a browser profile
   that is discarded when they end. See "Browser isolation" in
   `docs/assistant-gateway.md`.
-- **Shopping** (while **Use a browser** and **Remember information** are on, for your
-  own agents only): the agent gets AgentPier's built-in Shopping skill. It finds deals
-  and parts on Amazon and AliExpress, builds carts, and buys with the shop accounts you
-  signed in to through **Take over** only after your yes in the chat or a standing
-  order you gave there. The guard is the agent's instructions, not AgentPier
+- **Shopping** (on by default while **Use a browser** and **Remember information**
+  are on; never for agents of users): the agent gets AgentPier's built-in Shopping
+  skill. It finds deals and parts on Amazon and AliExpress, builds carts, and buys with
+  the shop accounts you signed in to through **Take over** only after your yes in your
+  own chat or a standing order you gave there. Leads, team members and agents with
+  their own Telegram bot get it too; a yes from anyone else never counts, and a member
+  hands a purchase from its lead back instead of buying. Switch it off per agent here;
+  when the agent cannot shop, the switch says why. A temporary member also follows its
+  lead's switch. The guard is the agent's instructions, not AgentPier
   ([Shopping for agents](shopping.md)).
 - **Uploads with the browser** (while **Use a browser** is on): the agent can upload a
   file from a project folder it may at least read, or from its own workspace, to a
@@ -1526,7 +1530,8 @@ Sign out). They never see sessions, pipelines, projects or system settings.
   or chat actions.
 - Their **Capabilities** and **Access** tabs show "Locked for agents of users: they
   cannot run programs on this computer." instead of shell, the visible browser window
-  (their browser runs headless), SSH, secrets, GitHub, pipelines, coding and teams. Their
+  (their browser runs headless), SSH, secrets, GitHub, pipelines, coding and teams; the
+  **Shopping** switch stays off and says "Agents of users never shop." Their
   **Channels** tab shows **Telegram for other people** as locked; on a user's own agent
   it offers no bot of yours either and says its user connects its bot in their app.
   **Access › Projects**, a project's **Agents** section and **Add folder** offer

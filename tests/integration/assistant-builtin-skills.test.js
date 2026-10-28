@@ -73,11 +73,72 @@ test("an eligible agent gets the shopping skill live and loses it with its brows
   );
 });
 
-test("a sender-facing agent never gets the shopping skill", async (t) => {
+test("a sender-facing agent gets the shopping skill", async (t) => {
   const { f, home } = fixture(t);
   f.config.senderFacing = () => true;
   await update(f, home, { capabilities: eligible });
+  assert.deepEqual(f.live(home).skills, ["agentpier-shopping"]);
+});
+
+test("the shopping switch removes the skill live and at reapply, and adds it back", async (t) => {
+  const { f, home } = fixture(t);
+  await update(f, home, { capabilities: eligible });
+  assert.deepEqual(f.live(home).skills, ["agentpier-shopping"]);
+  assert.equal(f.store.getAssistant(home.id).shopping, undefined, "on by default");
+  // Off: the save applies live and stores the switch on the profile.
+  await update(f, home, { shopping: false });
+  assert.equal(f.store.getAssistant(home.id).shopping, false);
   assert.equal(f.live(home).skills, undefined);
+  // A reapply (skills.changed, the ready re-apply) keeps it out.
+  f.config.applied.clear();
+  await f.service.skills.reapply(f.config);
+  assert.equal(f.live(home).skills, undefined);
+  // On again: the save adds it back live, and a reapply keeps it.
+  await update(f, home, { shopping: true });
+  assert.deepEqual(f.live(home).skills, ["agentpier-shopping"]);
+  f.config.applied.clear();
+  await f.service.skills.reapply(f.config);
+  assert.deepEqual(f.live(home).skills, ["agentpier-shopping"]);
+});
+
+test("the shopping switch is a boolean", async (t) => {
+  const { f, home } = fixture(t);
+  await assert.rejects(update(f, home, { shopping: "no" }), { status: 400 });
+});
+
+test("team members get the shopping skill through the same check", async (t) => {
+  const { f, home } = fixture(t);
+  await update(f, home, { capabilities: eligible });
+  // A permanent and a task member of Home, in the same Gateway state as their lead:
+  // the plugin's one link below <state>/plugin-skills serves every agent.
+  const reserve = (id, lifetime) =>
+    f.store.reserveMember({
+      id,
+      parent: home.id,
+      assignment: { name: id },
+      snapshot: { instructions: "", model: home.model },
+      teamId: "t1",
+      lifetime,
+    });
+  const permanent = reserve("perm", "permanent");
+  f.store.updateAssistant(permanent.id, { capabilities: eligible }, permanent.revision);
+  const task = reserve("task", "temporary");
+  f.store.memberGrants = () => ({ grants: { browser: true }, shellSsh: false });
+  for (const member of [permanent, task])
+    f.client.effective().agents.entries[member.runtimeAgentId] = {
+      id: member.runtimeAgentId,
+      model: "c/m",
+    };
+  for (const member of [permanent, task]) {
+    await f.config.apply(member.id);
+    assert.deepEqual(f.live(member).skills, ["agentpier-shopping"], member.id);
+  }
+  // The lead's switch reaches its task member; the permanent member keeps its own.
+  await update(f, home, { shopping: false });
+  f.config.applied.clear();
+  for (const member of [permanent, task]) await f.config.apply(member.id);
+  assert.deepEqual(f.live(permanent).skills, ["agentpier-shopping"]);
+  assert.equal(f.live(task).skills, undefined);
 });
 
 test("the shopping skill is dropped when the Gateway resolves it elsewhere", async (t) => {

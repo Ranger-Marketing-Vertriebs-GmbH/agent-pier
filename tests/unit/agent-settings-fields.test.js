@@ -236,6 +236,7 @@ test("capability drafts flatten switches and send only what changed", () => {
     browserVisible: false,
     shell: "off",
     skills: [],
+    shopping: true,
   });
   // The visible browser window is sent on its own, and never for a member.
   assert.deepEqual(

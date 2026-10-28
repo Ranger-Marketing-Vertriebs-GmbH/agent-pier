@@ -20,6 +20,8 @@ import { assistantBrowserCopy } from "../../../lib/i18n/messages/assistant-brows
 import { assistantPdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { MemoryGroup, ShellGroup, WebGroup } from "./CapabilityGroups.jsx";
 import BrowserGroup from "./BrowserGroup.jsx";
+import ShoppingGroup from "./ShoppingGroup.jsx";
+import { assistantShoppingCopy } from "../../../lib/i18n/messages/assistant-shopping.js";
 import MemoryPage from "./MemoryPage.jsx";
 import AllowlistPage from "./AllowlistPage.jsx";
 import SkillsGroup from "./SkillsGroup.jsx";
@@ -40,10 +42,12 @@ const conflictLabels = {
   createImages: () => copy.personal.enableCreateImages,
   shell: () => assistantShellCopy.title,
   skills: () => assistantSkillsCopy.title,
+  shopping: () => assistantShoppingCopy.title,
 };
 
 /**
- * Capabilities: memory, web, browser, shell and skills in one draft and one PATCH.
+ * Capabilities: memory, web, browser, shopping, shell and skills in one draft and one
+ * PATCH.
  * MCP servers and a member's grants from its lead live in the Access tab.
  */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
@@ -151,6 +155,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           navigate={navigate}
         />
       )}
+      <ShoppingGroup assistant={assistant} draft={draft} />
       {assistant.userAccess ? (
         <LockedNotice items={["shell", "sessions", "visibleBrowser"]} />
       ) : (

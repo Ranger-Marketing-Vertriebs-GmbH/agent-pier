@@ -72,13 +72,15 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Gmail-Einrichtung begleitet dich durch das App-Passwort; eine E-Mail geht nur nach deiner
   Freigabe im Chat, im Eingang oder in Telegram hinaus oder an Empfänger, die du unter
   **Ohne Rückfrage senden an** erlaubt hast ([E-Mail](docs/mail.md), auf Englisch).
-- **Einkaufen für Agenten:** deine eigenen Agenten mit **Einen Browser nutzen** und
-  **Informationen merken** suchen Angebote und Elektronikbauteile bei Amazon und
-  AliExpress, stellen Warenkörbe für ein Projekt zusammen und kaufen mit den
-  Shop-Anmeldungen, die du über **Übernehmen** im Browser eingerichtet hast, nur nach
-  deinem Ja im Chat oder einem Dauerauftrag, den du dort gegeben hast. Geschützt wird
-  das durch die Anweisungen des Agenten, nicht durch AgentPier
-  ([Einkaufen](docs/shopping.md), auf Englisch).
+- **Einkaufen für Agenten:** Agenten mit **Einen Browser nutzen** und
+  **Informationen merken**, auch Teammitglieder und Agenten mit eigenem Telegram-Bot,
+  suchen Angebote und Elektronikbauteile bei Amazon und AliExpress, stellen Warenkörbe
+  für ein Projekt zusammen und kaufen mit den Shop-Anmeldungen, die du über
+  **Übernehmen** im Browser eingerichtet hast, nur nach deinem Ja in deinem eigenen
+  Chat oder einem Dauerauftrag, den du dort gegeben hast. Ein Schalter pro Agent
+  schaltet das ab; Agenten von Benutzern kaufen nie ein. Geschützt wird das durch die
+  Anweisungen des Agenten, nicht durch AgentPier ([Einkaufen](docs/shopping.md), auf
+  Englisch).
 - **Zugänge:** Modell-Zugänge (Provider-Zugänge und ChatGPT für Agenten), Dienste für
   Agenten, MCP-Server, SSH/SFTP-Zugänge, E-Mail-Zugänge, Geheimnisse und
   GitHub-Zugänge an einer Stelle, einmal angelegt und dort gewährt, wo sie gebraucht werden, jeweils mit

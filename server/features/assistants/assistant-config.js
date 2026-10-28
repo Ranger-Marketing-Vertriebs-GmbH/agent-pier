@@ -88,9 +88,7 @@ export class AssistantConfig {
    */
   skillNames(assistant) {
     if (!this.nativeReady?.()) return [];
-    return compiledSkillNames(assistant, {
-      senderFacing: !!this.senderFacing?.(assistant),
-    });
+    return compiledSkillNames(assistant);
   }
   /**
    * Keeps only the names the Gateway reports as the skill AgentPier means: a built-in

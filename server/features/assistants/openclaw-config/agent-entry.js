@@ -55,13 +55,11 @@ export function agentEntry(
       ...(exec && { exec }),
     };
   // The agent's final skill list (agents.defaults.skills is []): the bundled and
-  // catalog skills the owner switched on, plus AgentPier's built-in skills for eligible
-  // agents (built-in-skills.js), and only once native tools are ready.
+  // catalog skills the owner switched on, plus AgentPier's built-in skills the agent
+  // gets (built-in-skills.js), and only once native tools are ready.
   if (toolsManaged) {
     const skills = nativeReady
-      ? compiledSkillNames(assistant, { senderFacing }).filter(
-          (name) => !shadowedSkills.includes(name),
-        )
+      ? compiledSkillNames(assistant).filter((name) => !shadowedSkills.includes(name))
       : [];
     if (skills.length) next.skills = skills;
     else delete next.skills;

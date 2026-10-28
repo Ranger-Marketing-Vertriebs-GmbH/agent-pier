@@ -121,3 +121,63 @@ test(
     assert.ok(!turnB.prompt.includes(name));
   },
 );
+
+test(
+  "team members and the switch: the same plugin copy, verified per agent",
+  options,
+  async (t) => {
+    const h = await compiledShell(t, installed, { prefix: "shopping-members-" });
+    const lead = h.create("Lead");
+    const off = h.create("Switched off");
+    const set = (agent, fields) =>
+      h.store.updateAssistant(agent.id, fields, h.store.getAssistant(agent.id).revision);
+    const eligible = { capabilities: { memory: true, reminders: false, browser: true } };
+    set(lead, eligible);
+    set(off, { ...eligible, shopping: false });
+    // A permanent member with its own browser and memory, and a task member with its
+    // lead's browser grant: both in the lead's Gateway and its one state folder.
+    const reserve = (id, lifetime) =>
+      h.store.reserveMember({
+        id,
+        parent: lead.id,
+        assignment: { name: id },
+        snapshot: { instructions: "Run it.", model: h.store.getAssistant(lead.id).model },
+        teamId: "team-1",
+        lifetime,
+      });
+    const permanent = reserve("member-permanent", "permanent");
+    set(permanent, eligible);
+    const task = reserve("member-task", "temporary");
+    h.store.memberGrants = () => ({ grants: { browser: true }, shellSsh: false });
+    await h.runtime.start();
+    for (const agent of [lead, off, permanent, task]) await h.config.apply(agent.id);
+    const entries = (await h.running()).agents.entries;
+    for (const agent of [lead, permanent, task])
+      assert.deepEqual(entries[agent.runtimeAgentId].skills, [name], agent.name);
+    assert.equal(entries[off.runtimeAgentId].skills, undefined);
+    // Each member reports the plugin's own link, and the verification keeps it.
+    const linkDir = path.join(pluginSkillsDir(h.runtime.paths.root), name);
+    for (const agent of [permanent, task]) {
+      const report = await h.runtime.client.call("skills.status", {
+        agentId: agent.runtimeAgentId,
+      });
+      const entriesOf = report.skills.filter((s) => s.name === name);
+      assert.equal(entriesOf.length, 1, agent.name);
+      assert.equal(entriesOf[0].source, "openclaw-extra");
+      assert.equal(entriesOf[0].filePath, path.join(linkDir, "SKILL.md"));
+      assert.equal(entriesOf[0].blockedByAgentFilter, false, agent.name);
+      const verified = await h.config.verifySkills(h.store.getAssistant(agent.id), [
+        name,
+      ]);
+      assert.deepEqual(verified, { skills: [name], complete: true }, agent.name);
+    }
+    // Switching the lead off reaches its task member at the next apply.
+    set(lead, { shopping: false });
+    h.config.applied.clear();
+    for (const agent of [lead, task, permanent]) await h.config.apply(agent.id);
+    const after = (await h.running()).agents.entries;
+    assert.equal(after[lead.runtimeAgentId].skills, undefined);
+    assert.equal(after[task.runtimeAgentId].skills, undefined);
+    assert.deepEqual(after[permanent.runtimeAgentId].skills, [name]);
+  },
+);

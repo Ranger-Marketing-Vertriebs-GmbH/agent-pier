@@ -1,4 +1,8 @@
-import { assistantProblem, validateDefinition } from "./assistant-validation.js";
+import {
+  assistantProblem,
+  recompiles,
+  validateDefinition,
+} from "./assistant-validation.js";
 import { listedAgents } from "./agent-lifecycle.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
@@ -362,10 +366,7 @@ export class AssistantService {
       // Saved first, so a request arriving now is denied (exec-approvals.js). A
       // failed live apply stays pending and is retried; never reported as live.
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
-      else if (
-        (patch.capabilities || patch.skills || "browserVisible" in patch) &&
-        this.runtime.client?.ready
-      )
+      else if (recompiles(patch) && this.runtime.client?.ready)
         await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       if (queued) this.webTools.queue();
