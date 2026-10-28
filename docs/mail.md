@@ -152,7 +152,7 @@ by default and lapses with the last grant. An agent cannot propose a hook with i
 ## Sending and approvals
 
 A send without a matching rule shows a **Send email?** card in the agent's chat with
-the agent, the email access, **From**, **To**, **Cc**, **Bcc**, **Subject** and the
+the agent, the email account, **From**, **To**, **Cc**, **Bcc**, **Subject** and the
 whole **Message**. A long message is shortened: **Send** works only after **Show all**,
 so you always see everything that goes out. Hidden characters are shown as codes with
 a warning. The same card appears in the Inbox (**Agents** tab), titled with the
@@ -197,7 +197,7 @@ card for your own turn it may use mail like that turn; after a routine's or a ho
 card it gets no mail actions.
 
 When a card settles, the chat keeps a lasting **Email** note with its state, the email
-access, the number of recipients, the subject and, for a failure, its code; never the
+account, the number of recipients, the subject and, for a failure, its code; never the
 body or an address. The Telegram result repeats From, To, Cc, Bcc and Subject with the
 outcome, never the body.
 
