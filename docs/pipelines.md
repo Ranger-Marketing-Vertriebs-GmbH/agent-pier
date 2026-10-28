@@ -31,6 +31,8 @@ Built-in profiles whose role text changed are updated only when you have not edi
 
 Each run freezes its definition and explicit profile settings. Later template edits affect future runs. Credentials remain in the existing account store and can be rotated; changing an account to an incompatible provider prevents subsequent turns from silently using another provider.
 
+The run list under **Pipelines → Runs**, a project's **Runs** tab and the status pills follow the runs as they change over the [live channel](architecture.md#live-channel); a later page reads again after a change. `GET /api/pipeline-runs` answers 20 whole runs per page; with `view=list` each run comes in a slim list view (id, status, the task's first line, pipeline, folder, project, times, current stage, whether verification runs, and each stage's id, group, status, times and profile name), without the execution log, verdicts, prompts or actions. `GET /api/pipeline-run-counts` (optionally `?projectId=`) answers the count of each status and the total.
+
 Open a run to see the current stage, attempt history, findings, usage and recovery actions. Every native turn has its own AgentPier session, with links to the familiar Chat and Terminal. Pipeline input is owned by the run; feedback is submitted through the pipeline action rather than typed into an active headless process.
 
 ## Outcomes and human decisions

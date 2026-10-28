@@ -45,7 +45,8 @@ export async function createPipelineServices(services) {
       services.operationsEvents?.pipeline(run);
       services.inbox?.changed();
       pipelineRunChanged(services.live, pipelineQueue, run);
-      pipelineListsChanged(services.live, pipelineRunCounts.observe(run), run);
+      const before = pipelineRunCounts.observe(run);
+      pipelineListsChanged(services.live, before, run, pipelineRunCounts.listed(run.id));
       // A run that finished or parked may free a slot of its project's queue.
       pipelineQueue?.changed();
     },

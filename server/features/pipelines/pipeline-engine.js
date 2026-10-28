@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { RunStore, runId } from "./run-store.js";
+import { runListView } from "./run-list-view.js";
 import {
   compileSnapshot,
   activeNode,
@@ -114,7 +115,11 @@ export class PipelineEngine {
     run.memberActions = memberActions(run);
     return run;
   }
-  list({ page = 1, status, projectId } = {}) {
+  /**
+   * One page of 20 runs, newest first. `view: "list"` answers each run in its slim
+   * list view (run-list-view.js) instead of the whole document with its actions.
+   */
+  list({ page = 1, status, projectId, view } = {}) {
     if (!Number.isSafeInteger(page) || page < 1 || page > 100000)
       throw problem(serverMessages.pipelines.invalidPage);
     if (
@@ -122,17 +127,19 @@ export class PipelineEngine {
       !["running", "awaiting-human", "completed", "failed", "cancelled"].includes(status)
     )
       throw problem(serverMessages.pipelines.invalidStatus);
-    const all = this.store
-      .all()
-      .filter(
-        (r) =>
-          (!status || r.status === status) && (!projectId || r.projectId === projectId),
-      );
+    if (view !== undefined && view !== "list")
+      throw problem(serverMessages.pipelines.invalidView);
+    const { runs, total } = this.store.page({
+      status: status || undefined,
+      projectId: projectId || undefined,
+      offset: (page - 1) * 20,
+      limit: 20,
+    });
     return {
-      runs: all
-        .slice((page - 1) * 20, page * 20)
-        .map((r) => ({ ...r, actions: availableActions(r) })),
-      total: all.length,
+      runs: runs.map((r) =>
+        view === "list" ? runListView(r) : { ...r, actions: availableActions(r) },
+      ),
+      total,
       page,
       pageSize: 20,
     };

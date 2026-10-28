@@ -81,17 +81,14 @@ export function pipelineQueueTopic(services) {
 // The run lists and counts. `pipeline.counts[:<projectId>]` is the count of each
 // status, the value GET /api/pipeline-run-counts[?projectId=] answers.
 // `pipeline.runs:<projectId|*>:<status|*>` is page 1 of the run list, the value
-// GET /api/pipeline-runs?page=1 answers with those filters (`*`: none).
+// GET /api/pipeline-runs?page=1&view=list answers with those filters (`*`: none):
+// slim list views, well within the default frame limit.
 // `pipeline.runs.changed[:<projectId>]` sends `changed` on any run change (of that
 // project): later pages refetch once. pipelineListsChanged signals all three from the
 // engine's onChange and from deletes, only where the changed run is or was listed.
 export const RUN_LIST_PARAM = new RegExp(
   `^(?:\\*|${ID}):(?:\\*|${RUN_STATUSES.join("|")})$`,
 );
-
-// Page 1 of 20 runs carries each run whole, like the REST list: up to the run's own
-// bound; a larger page is sent as `stale` and read over REST once per change.
-export const RUN_LIST_MAX_BYTES = RUN_MAX_BYTES;
 
 const listFilter = (param) => {
   const split = param.indexOf(":");
@@ -105,26 +102,37 @@ const listFilter = (param) => {
 
 /**
  * Signals the counts and lists that show a run which was counted as `before`
- * ({projectId, status} or null: new) and is now `after` (the run, or null: deleted).
+ * ({projectId, status, listed} or null: new) and is now `after` (the run, or null:
+ * deleted). `listed` is the digest of the run's list view (`afterListed` for the
+ * run now): a save that changes no listed field (an execution log entry) wakes no
+ * list, and one that keeps the project and status changes no count.
  */
-export function pipelineListsChanged(hub, before, after) {
+export function pipelineListsChanged(hub, before, after, afterListed) {
   if (!hub) return;
   const places = [before, after].filter(Boolean);
   if (!places.length) return;
+  const placed = before && after && before.projectId === (after.projectId ?? null);
+  const counted = placed && before.status === after.status;
+  if (counted && before.listed === afterListed) return;
   const projects = new Set(places.map((place) => place.projectId).filter(Boolean));
   const statuses = new Set(places.map((place) => place.status));
   const ofProject = (param) => param === undefined || projects.has(param);
-  const signal = (name, match) => {
-    for (const instance of hub.named(name))
-      if (match(instance.param)) instance.invalidate();
-  };
-  signal("pipeline.counts", ofProject);
-  signal("pipeline.runs.changed", ofProject);
-  signal("pipeline.runs", (param) => {
+  if (!counted) hub.invalidateWhere("pipeline.counts", ofProject);
+  hub.invalidateWhere("pipeline.runs.changed", ofProject);
+  hub.invalidateWhere("pipeline.runs", (param) => {
     const { projectId, status } = listFilter(param);
     return (!projectId || projects.has(projectId)) && (!status || statuses.has(status));
   });
 }
+
+/**
+ * The counts and the total (every status) of all runs or of `projectId`: the value of
+ * `pipeline.counts` and GET /api/pipeline-run-counts.
+ */
+export const runCountsView = (counts, projectId) => ({
+  counts: counts.counts(projectId),
+  total: counts.total(projectId),
+});
 
 /** The `pipeline.counts` topic definition for LiveHub#define. */
 export function pipelineCountsTopic(services) {
@@ -135,9 +143,7 @@ export function pipelineCountsTopic(services) {
     paramOptional: true,
     authorize: owner,
     scopeKey: () => "owner",
-    read: (_principal, projectId) => ({
-      counts: services.pipelineRunCounts.counts(projectId),
-    }),
+    read: (_principal, projectId) => runCountsView(services.pipelineRunCounts, projectId),
   };
 }
 
@@ -146,12 +152,11 @@ export function pipelineRunsTopic(services) {
   return {
     name: "pipeline.runs",
     mode: "state",
-    maxBytes: RUN_LIST_MAX_BYTES,
     param: RUN_LIST_PARAM,
     authorize: owner,
     scopeKey: () => "owner",
     read: (_principal, param) =>
-      services.pipelines.list({ page: 1, ...listFilter(param) }),
+      services.pipelines.list({ page: 1, view: "list", ...listFilter(param) }),
   };
 }
 
