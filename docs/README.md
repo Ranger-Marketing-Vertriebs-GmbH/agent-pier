@@ -31,15 +31,16 @@ _(German)_ are not translated yet.
 
 ## Agents
 
-| Guide                                               | What it covers                                            |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| [Agents](agents.md)                                 | User guide: agents page, wizard, settings tabs and teams  |
-| [Users](users.md)                                   | Family members, their agents, levels, lock and privacy    |
-| [Email for agents](mail.md)                         | IMAP/SMTP accounts, grants, recipient rules and approvals |
-| [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                 |
-| [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                    |
-| [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime    |
-| [Gateway design](assistant-gateway.md)              | Design and limits of the managed agent service            |
+| Guide                                               | What it covers                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Agents](agents.md)                                 | User guide: agents page, wizard, settings tabs and teams                 |
+| [Users](users.md)                                   | Family members, their agents, levels, lock and privacy                   |
+| [Email for agents](mail.md)                         | IMAP/SMTP accounts, grants, recipient rules and approvals                |
+| [Shopping for agents](shopping.md)                  | Deals, carts and purchases with the owner's yes, guarded by instructions |
+| [Agent workflows](assistant-workflows.md)           | Project access, coding tasks and routines                                |
+| [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                                   |
+| [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime                   |
+| [Gateway design](assistant-gateway.md)              | Design and limits of the managed agent service                           |
 
 ## Operate
 
