@@ -14,6 +14,7 @@ import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle
 import { mailCursorTable } from "../../server/features/assistants/mail/agent-mail-cursors.js";
 import { mailDraftFilesTable } from "../../server/features/assistants/mail/agent-mail-draft-files.js";
 import { AgentSessionStore } from "../../server/features/assistants/coding-sessions/session-store.js";
+import { AgentProjectStore } from "../../server/features/assistants/agent-project-store.js";
 import { ChannelStore } from "../../server/features/assistant-channels/channel-store.js";
 import { TelegramFollowUps } from "../../server/features/assistant-channels/telegram-follow-ups.js";
 import { RunStore } from "../../server/features/pipelines/run-store.js";
@@ -114,6 +115,7 @@ export function lifecycleFixture(t) {
   new LeadShares({ a: { store: f.store } });
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
+  const createdProjects = new AgentProjectStore(db);
   mailCursorTable(db);
   mailDraftFilesTable(db);
   db.exec(
@@ -240,6 +242,12 @@ export function lifecycleFixture(t) {
     );
     // Which coding session it started; the session itself is the owner's to keep.
     codingSessions.insert({ sessionId: `session-${id}`, assistantId: id, ended: false });
+    // A project it created itself; the project stays the owner's.
+    createdProjects.add({
+      projectId: `created-${id}`,
+      assistantId: id,
+      createdAt: new Date().toISOString(),
+    });
     // Its "new mail" position in an email account.
     db.prepare("INSERT INTO agent_mail_cursors VALUES(?,?,?,?)").run(
       id,
@@ -414,6 +422,7 @@ export function lifecycleFixture(t) {
         "SELECT 1 FROM assistant_team_records WHERE kind='context' AND substr(id,9) NOT IN (SELECT id FROM requests)",
       ),
       codingSessions: q("SELECT 1 FROM agent_coding_sessions WHERE assistant_id=?", id),
+      createdProjects: q("SELECT 1 FROM agent_created_projects WHERE assistant_id=?", id),
       mailCursors: q("SELECT 1 FROM agent_mail_cursors WHERE assistant_id=?", id),
       mailDraftFiles: q("SELECT 1 FROM agent_mail_draft_files WHERE assistant_id=?", id),
       followUps: channelStore.db

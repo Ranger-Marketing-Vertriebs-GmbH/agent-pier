@@ -77,6 +77,7 @@ export const operationsCopy = {
   byOwner: "von dir (Besitzer)",
   byUser: (name) => `von ${name}`,
   byDeletedUser: "von einem gelöschten Benutzer",
+  byAgent: "von einem Agenten",
   sourceSystem: "System",
   sourceMcp: "MCP",
   manageMcpAccess: "MCP-Zugriff prüfen oder widerrufen",

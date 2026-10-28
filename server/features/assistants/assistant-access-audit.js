@@ -109,6 +109,33 @@ export function auditSshGrants(services, id, before, after, reason) {
     console.error("Agent SSH grant audit failed:", error?.message);
   }
 }
+/**
+ * A project an agent created itself, or its coding switch for one (agentpier_project):
+ * the agent is the actor (source "agent"), never an owner save. Ids and flags only.
+ */
+export function auditAgentProject(
+  services,
+  { assistantId, projectId, change, coding, git },
+) {
+  try {
+    services.audit?.append({
+      action: change === "create" ? "project.created" : "assistant.updated",
+      resourceType: "assistant",
+      resourceId: assistantId,
+      projectId,
+      source: "agent",
+      outcome: "success",
+      details: {
+        kind: "agent-project",
+        change,
+        coding: coding === true,
+        ...(typeof git === "boolean" && { git }),
+      },
+    });
+  } catch (error) {
+    console.error("Agent project audit failed:", error?.message);
+  }
+}
 /** Every record one owner save of an access policy writes. */
 export function auditAccessSave(services, id, before, after) {
   auditSshGrants(services, id, before, after, "owner");

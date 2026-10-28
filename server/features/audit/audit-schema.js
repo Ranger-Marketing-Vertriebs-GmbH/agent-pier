@@ -21,6 +21,7 @@ import { storageAuditDetails } from "./audit-storage-details.js";
 import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 import { resources, verbs } from "./audit-vocabulary.js";
 import { mailAuditDetails } from "./audit-mail-details.js";
+import { agentProjectAuditDetails } from "./audit-agent-project-details.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -111,7 +112,8 @@ export function auditEvent(input) {
   const action = auditAction(input.action);
   if (
     !resources.has(input.resourceType) ||
-    !["user", "system", "mcp"].includes(input.source) ||
+    // "agent": an agent acted on its own, e.g. created a project (audit-agent-project-details.js).
+    !["user", "system", "mcp", "agent"].includes(input.source) ||
     !["success", "failure"].includes(input.outcome)
   )
     throw problem(serverMessages.audit.invalidEventMetadata);
@@ -194,6 +196,8 @@ export function auditEvent(input) {
       // Agent email (audit-mail-details.js): approvals and grant changes.
       "mail",
       "mail-grants",
+      // A project an agent created itself (audit-agent-project-details.js).
+      "agent-project",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -504,6 +508,7 @@ export function auditEvent(input) {
   // Email accounts, sends and grant changes (audit-mail-details.js).
   if (input.resourceType === "mail" || details.kind === "mail-grants")
     mailAuditDetails(details, event, auditId);
+  agentProjectAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

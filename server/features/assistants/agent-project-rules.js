@@ -17,5 +17,5 @@ export function projectName(value) {
 export function projectCreateLimit(times, now = Date.now()) {
   const recent = times.filter((time) => now - time < projectCreateCaps.windowMs);
   if (recent.length >= projectCreateCaps.perDay)
-    throw assistantProblem("projectCreateLimit", 429);
+    throw assistantProblem("projectCreateLimit", 429, projectCreateCaps.perDay);
 }
