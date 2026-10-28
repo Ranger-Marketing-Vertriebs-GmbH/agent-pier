@@ -50,7 +50,9 @@ password:
 2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords),
    create an app password for AgentPier and copy its 16 characters.
 3. In **Add email account**, choose **Gmail** as the provider and paste the app
-   password into **App password**.
+   password into **App password**. Spaces in the pasted password are removed.
+
+Choosing **Gmail** shows these three steps in the form with links to Google.
 
 IMAP is on by default for Gmail. Revoking the app password in your Google account
 stops AgentPier's access at once; the next test or agent call then fails with
