@@ -243,6 +243,7 @@ test("project folders share on the agent's own grant in every turn of its chat",
   await assert.rejects(f.share({ path: "l" }), { status: 403 });
 });
 
+// The same rule as the follow-up's text reply (follow-up-target.js followUpTelegram).
 test("the file reaches Telegram only when the chat's latest turn came from there", async (t) => {
   const f = await setup(t);
   await f.turn({ kind: "owner" });
@@ -252,6 +253,21 @@ test("the file reaches Telegram only when the chat's latest turn came from there
   await f.turn(f.telegram, { exec: false });
   assert.equal((await f.share()).telegram, "queued");
   assert.equal(f.files().length, 1);
+  // A later turn that only carries the Telegram chat (a member's result) is no
+  // Telegram turn: the reply and the file stay in the web chat.
+  const { attemptId } = await f.invocation("lead-request-result:r1", {
+    kind: "member-result",
+    requestId: "r1",
+    telegram: {
+      channelId: f.channel.id,
+      chatId: f.channel.chatId,
+      userId: f.channel.userId,
+    },
+  });
+  f.assistants.ledger.transition(attemptId, "completed");
+  assert.equal((await f.share()).telegram, undefined);
+  assert.equal(f.files().length, 1);
+  await f.turn(f.telegram, { exec: false });
   // A chat unpaired since gets nothing.
   f.service.store.disconnect(f.channel.id, f.service.store.get(f.channel.id).revision);
   assert.equal((await f.share()).telegram, undefined);

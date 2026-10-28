@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gateway } from "../helpers/exec-gateway.js";
+import { execRecord } from "../../server/features/assistants/team-plugin/exec-processes.js";
 
 // AGENTPIER-274: OpenClaw's refusals before it spawns start nothing, an exec call of
 // unknown outcome refuses other runs' completions only while its run lasts, and a
@@ -99,4 +100,23 @@ test("an incomplete record names why", (t) => {
   for (const id of ["a-1", "a-2"]) g.background("busy", "r1", id);
   assert.equal(g.proof("busy", "w").incomplete, "too-many");
   assert.equal("incomplete" in g.proof("quiet", "w"), false);
+});
+
+test("a session an older plugin recorded survives a reload in the same Gateway", (t) => {
+  const g = gateway(t);
+  // As the plugin before AGENTPIER-274 left it on globalThis: no `unknown` list.
+  const old = { processes: [], dropped: [], uncertain: false };
+  execRecord().sessions.set("s", old);
+  execRecord().sessions.set("o", { processes: [], dropped: [], uncertain: false });
+  g.background("s", "r1", "brisk-orbit");
+  g.exec(
+    "s",
+    "r2",
+    { content: [{ type: "text", text: "Aborted" }], details: {} },
+    "Aborted",
+  );
+  g.complete("s", "w1", ["brisk-or"]);
+  g.emit("agent_end", {}, { runId: "r2" });
+  assert.deepEqual(g.proof("s", "w1").processes, [{ id: "brisk-orbit", runId: "r1" }]);
+  assert.deepEqual(execRecord().sessions.get("o")?.unknown ?? [], []);
 });

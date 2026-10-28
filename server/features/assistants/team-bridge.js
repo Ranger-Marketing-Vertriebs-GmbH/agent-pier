@@ -11,7 +11,7 @@ import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-to
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
 import * as continuation from "./exec-continuation.js";
-import { assertOwnerShare, ownerShare } from "./owner-shares.js";
+import { assertOwnerShare, turnlessBinding } from "./owner-shares.js";
 import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
@@ -198,21 +198,10 @@ export class TeamBridge {
       return { ticket };
     };
     if (matches.length === 1) return issue({ attemptId: matches[0].id });
-    // A hook's run session serves only its own actions while its event runs.
-    if (!matches.length && hooks.hookSession(this, input)) {
-      const hook = hooks.hookActions.has(input.action) && hooks.hookRun(this, input);
-      if (hook) return issue({ attemptId: null, hook });
-      throw assistantProblem("invalid", 403);
-    }
-    if (!matches.length && routineActions.has(input.action)) {
-      // Only SSH (on hosts granted "incl. routines"), shared files, project folders,
-      // the lead's ask, delegate and members, and a member's own tools serve a
-      // routine's run.
-      const routine = this.routineRun(input);
-      if (routine) return issue({ attemptId: null, routine });
-      // Every run of the owner's chat sends him files (owner-shares.js).
-      const owner = input.action === "share_file" && ownerShare(this, input);
-      if (owner) return issue({ attemptId: null, owner });
+    if (!matches.length) {
+      // A hook's or a routine's run, or a share for the owner (owner-shares.js).
+      const bound = turnlessBinding(this, input);
+      if (bound) return issue({ attemptId: null, ...bound });
       // A command's completion run; 2026.10.7's is read from the transcript first.
       const resume = (resumed) => {
         if (!resumed) throw refuse();

@@ -9,7 +9,8 @@ import { isShared } from "../users/user-access.js";
  * of a one-shot job (agent-hook-runs.js); its origin is resolved live on every call
  * through AgentHooks.runOrigin and holds only while its event runs. The run's
  * session keeps being a hook session after the event settled (an exec completion
- * turn, OpenClaw 2026.10.7): it then gets no bridge tools, no writes and no shell.
+ * turn, OpenClaw 2026.10.7): it then gets no writes, no shell and no bridge tool but
+ * a share into the owner's main chat (owner-shares.js).
  */
 // What a hook run may call through the bridge: project folders and coding
 // (agent-hook-workspace.js), SSH on its chosen hosts and, with its Coding tick,
