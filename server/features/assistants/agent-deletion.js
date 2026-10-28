@@ -44,6 +44,7 @@ export const agentTables = [
   "assistant_team_records",
   "agent_coding_sessions",
   "agent_mail_cursors",
+  "agent_mail_draft_files",
 ];
 export const channelTables = ["channel_follow_ups"];
 
@@ -212,6 +213,8 @@ function removeRows(db, id) {
     remove(db, "agent_coding_sessions", "assistant_id=?", id);
     // Its "new mail since last check" positions (mail/agent-mail.js).
     remove(db, "agent_mail_cursors", "assistant_id=?", id);
+    // Where the files it attached to its mail drafts came from.
+    remove(db, "agent_mail_draft_files", "assistant_id=?", id);
     // A lead's teams, member records and requests with their texts; its policy; a
     // member's own record and the lead's requests to it or from it.
     const toMember =

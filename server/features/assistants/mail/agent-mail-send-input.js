@@ -2,12 +2,20 @@ import { createHash } from "node:crypto";
 import { assistantProblem } from "../assistant-validation.js";
 import { hasHiddenCharacters } from "../agent-ssh-text.js";
 import { draftFields } from "../../mail/mail-compose.js";
+import { attachmentLimits } from "../../mail/mail-parts.js";
+import { validPath } from "./agent-mail-sources.js";
 
 // The input of an agent's `send` and the digests that bind an approval card to what
 // goes out (mail/agent-mail-sends.js).
 
 const fieldKeys = ["to", "cc", "bcc", "subject", "body", "replyToUid", "replyToFolder"];
-const sendKeys = new Set(["action", "accountId", "draftUid", ...fieldKeys]);
+const sendKeys = new Set([
+  "action",
+  "accountId",
+  "draftUid",
+  "attachments",
+  ...fieldKeys,
+]);
 // Telegram shows a card's buttons only when the owner can read all of it there.
 export const telegramBodyLimit = 3000;
 export const telegramRecipientLimit = 20;
@@ -25,22 +33,57 @@ const sorted = (value) =>
       : value;
 
 /**
- * `{ draftUid }` for a stored draft, or `{ fields }` (draftFields, the body's line
- * ends as LF) for a new message; fields and draftUid never mix, and a new message
- * needs at least one recipient. Anything else is 400 `invalid`.
+ * The `attachments` list of a draft or send, checked beyond the tool schema: at most
+ * `attachmentLimits.files` entries, each a valid path (validPath) with an optional
+ * string projectId, no entry twice. Returns the entries or [] when absent.
+ */
+export function attachmentList(list) {
+  if (list === undefined) return [];
+  if (!Array.isArray(list) || list.length > attachmentLimits.files)
+    throw assistantProblem("invalid");
+  const seen = new Set();
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object" || !validPath(entry.path))
+      throw assistantProblem("invalid");
+    if (entry.projectId !== undefined) {
+      if (
+        typeof entry.projectId !== "string" ||
+        /[\u0000-\u001f\u007f]/.test(entry.projectId)
+      )
+        throw assistantProblem("invalid");
+    }
+    const key = JSON.stringify([entry.projectId ?? null, entry.path]);
+    if (seen.has(key)) throw assistantProblem("invalid");
+    seen.add(key);
+  }
+  return list.map(({ path, projectId }) => ({
+    path,
+    ...(projectId !== undefined && { projectId }),
+  }));
+}
+
+/**
+ * `{ draftUid }` for a stored draft, or `{ fields, attachments }` (draftFields, the
+ * body's line ends as LF; attachmentList) for a new message; fields, attachments and
+ * draftUid never mix, and a new message needs at least one recipient. Anything else
+ * is 400 `invalid`, before any file or mailbox is read.
  */
 export function sendInput(input) {
   if (Object.keys(input).some((key) => !sendKeys.has(key)))
     throw assistantProblem("invalid");
   if (input.draftUid !== undefined) {
-    if (fieldKeys.some((key) => input[key] !== undefined))
+    if ([...fieldKeys, "attachments"].some((key) => input[key] !== undefined))
       throw assistantProblem("invalid");
     return { draftUid: input.draftUid };
   }
+  const attachments = attachmentList(input.attachments);
   const fields = draftFields(input);
   if (fields.to.length + fields.cc.length + fields.bcc.length === 0)
     throw assistantProblem("invalid");
-  return { fields: { ...fields, body: fields.body.replace(/\r\n?/g, "\n") } };
+  return {
+    fields: { ...fields, body: fields.body.replace(/\r\n?/g, "\n") },
+    attachments,
+  };
 }
 
 /** The digest of the agent's call, so a retry finds its card and nothing else does. */
@@ -48,7 +91,11 @@ export const inputDigest = (input) => sha256(JSON.stringify(sorted(input)));
 
 export const bodyDigest = (body) => sha256(String(body));
 
-/** Everything a card's mail is composed from, as one digest. */
+/**
+ * Everything a card's mail is composed from, as one digest. The attachments, the
+ * forwarded original and the HTML part join it only when the card has any, so a
+ * card raised before them still verifies.
+ */
 export const contentDigest = (p) =>
   sha256(
     JSON.stringify([
@@ -63,6 +110,9 @@ export const contentDigest = (p) =>
       p.references,
       p.draftMessageId,
       p.draftUid,
+      ...(p.attachments?.length || p.forward || p.html
+        ? [p.attachments ?? [], p.forward ?? null, p.html ?? null]
+        : []),
     ]),
   );
 

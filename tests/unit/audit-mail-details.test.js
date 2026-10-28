@@ -162,3 +162,44 @@ test("a saved attachment keeps the agent, its size and destination only", () => 
     kind: "attachment",
   });
 });
+
+test("a sent message keeps attachment counts, bytes and the forward flag only", () => {
+  const audited = event("mail.sent", {
+    kind: "message",
+    assistantId: "agent-1",
+    actionId: "action-1",
+    authorizedBy: "rule",
+    recipients: 1,
+    delivery: "sent",
+    attachments: 2,
+    attachmentBytes: 4096,
+    forward: true,
+    names: ["offer.pdf"],
+    paths: ["/home/owner/offer.pdf"],
+    attachmentNames: ["offer.pdf"],
+  });
+  assert.deepEqual(audited.details, {
+    kind: "message",
+    assistantId: "agent-1",
+    actionId: "action-1",
+    authorizedBy: "rule",
+    recipients: 1,
+    delivery: "sent",
+    attachments: 2,
+    attachmentBytes: 4096,
+    forward: true,
+  });
+  assert.equal(JSON.stringify(audited).includes("offer.pdf"), false);
+  const odd = event("mail.sent", {
+    kind: "message",
+    attachments: "offer.pdf",
+    attachmentBytes: -1,
+    forward: "yes",
+  });
+  assert.deepEqual(odd.details, { kind: "message" });
+  assert.deepEqual(
+    event("mail.sent", { kind: "message", attachments: 1.5, attachmentBytes: 2 ** 31 })
+      .details,
+    { kind: "message" },
+  );
+});

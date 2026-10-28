@@ -8,6 +8,7 @@ import { MailCursors } from "./agent-mail-cursors.js";
 import { readingActions, runReading } from "./agent-mail-reading.js";
 import { changingActions, runChanging } from "./agent-mail-changes.js";
 import { MailSends } from "./agent-mail-sends.js";
+import { MailDraftFiles } from "./agent-mail-draft-files.js";
 import { runAttachment } from "./agent-mail-attachments.js";
 import { attachmentLimits } from "../../mail/mail-parts.js";
 import { searchBudget } from "../../mail/mail-attachment-search.js";
@@ -27,6 +28,8 @@ export class AgentMail {
   constructor(w) {
     this.w = w;
     this.cursors = new MailCursors(w.a.store.db);
+    // Where the files an agent attached to its drafts came from.
+    this.draftFiles = new MailDraftFiles(w.a.store.db, () => w.now());
     // Bounds of the attachment-text search and of attachments; tests lower them.
     this.limits = { search: { ...searchBudget }, attachments: attachmentLimits };
     // Sends by rule or after the owner's approval (action rows `mail_send`).
@@ -152,7 +155,13 @@ export class AgentMail {
         );
       if (changingActions.includes(input.action))
         return runChanging(
-          { accounts: this.w.s.mailAccounts, services: this.w.s },
+          {
+            accounts: this.w.s.mailAccounts,
+            services: this.w.s,
+            inv,
+            w: this.w,
+            mail: this,
+          },
           gate,
           input,
         );
@@ -163,14 +172,15 @@ export class AgentMail {
     });
   }
   /**
-   * MailAccountStore.onRemoved: every agent's grant, new-mail cursor and open send
-   * card for the account go in one transaction, before the catalog changes.
+   * MailAccountStore.onRemoved: every agent's grant, new-mail cursor, draft file
+   * sources and open send card for the account go in one transaction, before the catalog changes.
    */
   revokeAccount(accountId) {
     if (this.closed) return [];
     let cancelled = 0;
     const changed = this.w.access.revokeMail(accountId, () => {
       this.cursors.removeAccount(accountId);
+      this.draftFiles.removeAccount(accountId);
       cancelled = this.sends.cancelFor(accountId);
     });
     if (cancelled) this.w.a.changed({ feeds: false });

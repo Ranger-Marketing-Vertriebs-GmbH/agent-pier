@@ -1,6 +1,7 @@
 import { toolError } from "../tool-errors.js";
 import { composeMessage, recipientsOf } from "../../mail/mail-compose.js";
 import { fileSent } from "../../mail/mail-changes.js";
+import { loadDraftParts } from "../../mail/mail-drafts.js";
 import { auditDelete } from "./agent-mail-changes.js";
 
 // Rule sends kept as rows; well above an hour's cap, which counts them with the cards.
@@ -23,8 +24,27 @@ export const isBug = (error) =>
   error instanceof TypeError || error instanceof ReferenceError;
 
 /**
+ * The card's attachments and HTML part as raw parts of its draft, each exactly as
+ * approved (loadDraftParts: MAIL_DRAFT_CHANGED otherwise), for composeMessage.
+ */
+async function approvedParts(accounts, p) {
+  const attachments = p.attachments ?? [];
+  if (!attachments.length && !p.html) return {};
+  const expected = [...attachments, ...(p.html ? [p.html] : [])];
+  const raws = await accounts.withImap(p.accountId, (client) =>
+    loadDraftParts(client, p.draftUid, expected),
+  );
+  return {
+    attachments: raws.slice(0, attachments.length).map((raw) => ({ raw })),
+    ...(p.html && { htmlRaw: raws.at(-1) }),
+  };
+}
+
+/**
  * Sends the row's mail once, to exactly its recipients and without Bcc, then files
  * it (a copy with Bcc in Sent when the account saves sent mail, the draft to Trash).
+ * Its attachments are read from the draft first: a draft whose parts changed ends
+ * the row failed with MAIL_DRAFT_CHANGED before anything is sent.
  */
 export async function deliverMail(sends, a, authorizedBy) {
   const { w, accounts } = sends;
@@ -45,6 +65,7 @@ export async function deliverMail(sends, a, authorizedBy) {
   let sent;
   let raw;
   try {
+    Object.assign(message, await approvedParts(accounts, p));
     raw = await composeMessage(message, { keepBcc: false });
     sent = await accounts.sendRaw(p.accountId, {
       envelope: { from: p.from.address, to: recipients },
@@ -104,6 +125,12 @@ export function auditSend(w, a, authorizedBy, recipients, delivery, code) {
         authorizedBy,
         recipients,
         delivery,
+        // How many files went along and their bytes, never their names.
+        ...(a.payload.attachments?.length && {
+          attachments: a.payload.attachments.length,
+          attachmentBytes: a.payload.attachmentBytes,
+        }),
+        ...(a.payload.forward && { forward: true }),
         ...(code ? { code } : {}),
       },
     });

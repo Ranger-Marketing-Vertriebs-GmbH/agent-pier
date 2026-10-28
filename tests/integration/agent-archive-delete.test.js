@@ -205,6 +205,7 @@ test("delete removes every store of the agent and keeps everything else", async 
     "leadShares",
     "codingSessions",
     "mailCursors",
+    "mailDraftFiles",
     "followUps",
   ])
     assert.ok(full.rows[key], key);

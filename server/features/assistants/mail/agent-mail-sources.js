@@ -305,11 +305,12 @@ export function storedFiles(files) {
 }
 
 // A hook capture is allowed only within what the hook holds now (its rights capped
-// by the agent's, AgentHooks.liveRights); a deleted or paused hook allows nothing.
+// by the agent's, AgentHooks.liveRights) and while its Email tick is still set; a
+// deleted or paused hook allows nothing.
 function hookAllowed(w, agent, stored, source) {
   const { hookId, folders } = stored.context.hook;
   const live = w.a.routines?.hooks?.liveRights?.(agent, hookId);
-  if (!live) return false;
+  if (!live || live.mail !== true) return false;
   if (source.kind === "workspace") return true;
   if (source.kind === "project")
     return !!folders[source.projectId] && !!live.folders?.[source.projectId];
