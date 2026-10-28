@@ -11,7 +11,7 @@ import {
   textPart,
 } from "./mail-messages.js";
 import { attachmentLimits, messageParts } from "./mail-parts.js";
-import { htmlQuote, htmlText } from "./mail-html.js";
+import { htmlForward, htmlQuote } from "./mail-html.js";
 import { draftFields } from "./mail-compose.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { headerControlChar } from "./mail-shared.js";
@@ -69,25 +69,26 @@ export async function loadOriginal(
     const { bytes, limited } = await download(client, uid, node.part || "1");
     return { content: decodeText(bytes, node), limited };
   };
+  // Only HTML: its text is all there is to quote, so it must be complete and read in
+  // time; quote and text come from one child process (htmlForward).
+  const htmlOnly = part?.type === "text/html";
   // The HTML as sent (htmlQuote), null when over 1 MiB, beyond its bounds or not
   // quoted in time.
-  let source = null;
   let html = null;
+  let converted = null;
   if (htmlNode) {
     const got = await read(htmlNode);
-    if (!got.limited) {
-      html = await htmlQuote(got.content);
-      if (html !== null) source = got.content;
-    }
+    if (!got.limited && htmlOnly && part === htmlNode)
+      ({ quote: html, text: converted } = await htmlForward(
+        got.content,
+        forwardBodyChars + 1,
+      ));
+    else if (!got.limited) html = await htmlQuote(got.content);
   }
   const htmlOmitted = Boolean(htmlNode) && html === null;
   let text = "";
-  if (part?.type === "text/html") {
-    // Only HTML: its text is all there is to quote, so it must be complete and read
-    // in time.
-    if (source === null) throw mailError("MAIL_DRAFT_UNSUPPORTED");
-    const converted = await htmlText(source, forwardBodyChars + 1);
-    if (converted.truncated || converted.tooComplex)
+  if (htmlOnly) {
+    if (html === null || !converted || converted.truncated || converted.tooComplex)
       throw mailError("MAIL_DRAFT_UNSUPPORTED");
     text = converted.text;
   } else if (part) {

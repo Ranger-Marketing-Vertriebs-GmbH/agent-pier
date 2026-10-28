@@ -5,7 +5,8 @@ import { Worker } from "node:worker_threads";
 // when the document could not be read (not when the extractor could not be loaded),
 // then exits. The kinds `html-text` and `html-quote` take mail HTML as a string and
 // answer htmlToText's `{ text, truncated, tooComplex? }` or quoteHtml's quote as
-// `text` (`{ failed, document }` when it is beyond the bounds). Its stdout and
+// `text` (`{ failed, document }` when it is beyond the bounds); `html-forward`
+// answers both in one process, htmlToText's reply with the quote as `quote`. Its stdout and
 // stderr are discarded. A watchdog thread ends the process
 // with SIGUSR2 when its resident memory passes `rssMb` (typed arrays a PDF stream
 // inflates into lie outside the heap limit): the document's doing, as the heap limit's
@@ -27,10 +28,17 @@ async function reader(kind) {
     const { pdfText } = await import("./mail-extract-pdf.js");
     return async (bytes, _kind, limits) => pick(await pdfText(bytes, limits));
   }
-  if (kind === "html-text" || kind === "html-quote") {
+  if (kind.startsWith("html-")) {
     const { htmlToText, quoteHtml } = await import("./mail-text.js");
     if (kind === "html-text")
       return (html, _kind, limits) => htmlToText(html, limits.textChars);
+    if (kind === "html-forward")
+      return (html, _kind, limits) => {
+        const quote = quoteHtml(html);
+        return quote === null
+          ? { failed: true, document: true }
+          : { ...htmlToText(html, limits.textChars), quote };
+      };
     return (html) => {
       const quote = quoteHtml(html);
       return quote === null

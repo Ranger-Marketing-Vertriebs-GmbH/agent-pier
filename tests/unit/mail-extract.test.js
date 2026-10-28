@@ -7,6 +7,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 import {
   extractableKind,
+  extractionQueues,
   extractLimits,
   extractText,
 } from "../../server/features/mail/mail-extract.js";
@@ -433,4 +434,29 @@ test("a running extractor dies with the server process", async (t) => {
   const deadline = Date.now() + 2_000;
   while (alive(pid) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
   assert.equal(alive(pid), false);
+});
+
+test("a caller that gives up leaves the queue at once", async () => {
+  const limits = { ...extractLimits, timeoutMs: 600 };
+  const held = Array.from({ length: extractLimits.concurrency }, () =>
+    extractText(pdfWith("x"), "pdf", { scriptUrl: hangUrl, limits }).catch((e) => e),
+  );
+  const stop = new AbortController();
+  const waiting = extractText(pdfWith("x"), "pdf", { signal: stop.signal });
+  assert.equal(extractionQueues().document.waiting, 1);
+  const startedAt = Date.now();
+  stop.abort();
+  await assert.rejects(waiting, {
+    code: "MAIL_TEXT_FAILED",
+    busy: true,
+    cancelled: true,
+  });
+  assert.ok(Date.now() - startedAt < 300);
+  assert.equal(extractionQueues().document.waiting, 0);
+  // An aborted caller never takes a place.
+  await assert.rejects(extractText(pdfWith("x"), "pdf", { signal: stop.signal }), {
+    cancelled: true,
+  });
+  await Promise.all(held);
+  assert.equal(extractionQueues().document.running, 0);
 });
