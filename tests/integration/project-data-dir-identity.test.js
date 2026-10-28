@@ -210,3 +210,21 @@ test("a protected root that cannot be identified logs one line naming the cause"
   assert.match(lines[0], /PROTECTED_ROOT_UNAVAILABLE, ENOENT/);
   assert.doesNotMatch(lines[0], /missing|\//);
 });
+
+test("an install root that does not exist protects nothing and refuses no write", async (t) => {
+  const h = host(t);
+  const previous = process.env.AGENTPIER_INSTALL_ROOT;
+  process.env.AGENTPIER_INSTALL_ROOT = path.join(h.base, "no-such-install");
+  t.after(() => {
+    if (previous === undefined) delete process.env.AGENTPIER_INSTALL_ROOT;
+    else process.env.AGENTPIER_INSTALL_ROOT = previous;
+  });
+  await writeFile(h.project, "src/c.txt", "fine", h.options);
+  assert.equal(fs.readFileSync(path.join(h.project, "src", "c.txt"), "utf8"), "fine");
+  // The data directory stays fail closed.
+  const missingData = { protectedRoots: [path.join(h.base, "missing-data")] };
+  await assert.rejects(
+    async () => writeFile(h.project, "src/d.txt", "x", missingData),
+    refused,
+  );
+});

@@ -131,9 +131,10 @@ export function protectedAncestors(roots, refuse = refused) {
  * The roots a write must also stay out of: the installed application
  * (AGENTPIER_INSTALL_ROOT, set by the launcher of an installed release), whose code
  * runs with the owner's rights. A source checkout sets none, so a project granted at
- * the checkout keeps working.
+ * the checkout keeps working. A named folder that does not exist protects nothing and
+ * is left out, so it never refuses every write (the data directory stays fail closed).
  */
 export function writeProtectedRoots() {
   const root = process.env.AGENTPIER_INSTALL_ROOT;
-  return root && path.isAbsolute(root) ? [root] : [];
+  return root && path.isAbsolute(root) && fs.existsSync(root) ? [root] : [];
 }
