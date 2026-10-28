@@ -5,6 +5,7 @@ import path from "node:path";
 import { createApplication } from "../../server/app.js";
 import { openMenu } from "../helpers/navigation.js";
 import { baseURL } from "../helpers/browser.js";
+import { setTabHidden } from "../helpers/visibility.js";
 
 test("first user setup, reload, logout and login protect the complete workspace", async ({
   page,
@@ -229,4 +230,21 @@ test("repeated 1008 closes while logged in cause no burst of login reads", async
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toHaveCount(
     0,
   );
+});
+
+test("a 1008 close in a hidden tab reads the login only once it is shown", async ({
+  page,
+  liveStub,
+}) => {
+  const login = await refusedLiveFixture(page);
+  await page.goto(baseURL + "/settings");
+  await liveStub.waitForSubscribe("state");
+  await expect.poll(() => login.reads).toBe(1);
+  await setTabHidden(page, true);
+  liveStub.close(1008);
+  await page.waitForTimeout(1000);
+  expect(login.reads).toBe(1);
+  // The visible-only poll reads at once when the tab is shown again.
+  await setTabHidden(page, false);
+  await expect.poll(() => login.reads, { timeout: 1000 }).toBe(2);
 });

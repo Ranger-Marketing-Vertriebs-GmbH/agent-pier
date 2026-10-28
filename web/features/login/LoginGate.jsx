@@ -55,10 +55,11 @@ export default function LoginGate({ children }) {
     };
     // The live channel refused the socket (1008): one login read, never a second
     // while it runs. Logged out shows the login; logged in leaves the reconnect to
-    // the live client's own backoff.
+    // the live client's own backoff. A hidden tab reads nothing: the visible-only poll
+    // reads at once when it is shown again.
     let checking = null;
     const authCheck = () => {
-      if (checking) return;
+      if (checking || document.hidden) return;
       checking = refresh().finally(() => {
         checking = null;
       });

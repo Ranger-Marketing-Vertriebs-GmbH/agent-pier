@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { applicationFixture } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
 import { signedInUser } from "../helpers/users.js";
+import { inboxTopic } from "../../server/features/inbox/live-topics.js";
 
 const forInbox = (frame) => frame.topic === "inbox";
 
@@ -73,4 +74,13 @@ test("a restricted user cannot subscribe to the inbox", async (t) => {
     code: "unknown-topic",
   });
   live.ws.close();
+});
+
+test("without the inbox service the topic reads null and follows nothing", async () => {
+  const topic = inboxTopic({});
+  assert.equal(await topic.read(), null);
+  assert.equal(
+    topic.watch({ param: undefined, invalidate: () => {}, nudge: () => {} }),
+    undefined,
+  );
 });
