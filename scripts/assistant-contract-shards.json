@@ -59,7 +59,8 @@
     "tests/integration/assistant-coding-session-contract.test.js",
     "tests/integration/assistant-mail-contract.test.js",
     "tests/integration/assistant-browser-host-policy-contract.test.js",
-    "tests/integration/assistant-mail-attachments-contract.test.js"
+    "tests/integration/assistant-mail-attachments-contract.test.js",
+    "tests/integration/assistant-project-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,
@@ -120,6 +121,7 @@
     "tests/integration/assistant-ssh-runtime-contract.test.js": 40,
     "tests/integration/assistant-coding-session-contract.test.js": 112,
     "tests/integration/assistant-mail-contract.test.js": 125,
-    "tests/integration/assistant-mail-attachments-contract.test.js": 30
+    "tests/integration/assistant-mail-attachments-contract.test.js": 30,
+    "tests/integration/assistant-project-contract.test.js": 40
   }
 }
