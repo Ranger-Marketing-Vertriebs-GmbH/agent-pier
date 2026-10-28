@@ -97,6 +97,7 @@ export const requestCopy = {
     keep: "Weiter planen",
   },
   cwd: "Arbeitsverzeichnis",
+  fromAgent: (agent) => `Vom Agenten ${agent}`,
   scopes: {
     turn: "Für diesen Turn",
     once: "Einmal",

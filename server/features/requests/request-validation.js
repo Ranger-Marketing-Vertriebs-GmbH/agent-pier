@@ -42,7 +42,7 @@ export function requestValue(value) {
   }
   if (value.subject) {
     result.subject = Object.fromEntries(
-      ["tool", "command", "path", "name", "cwd", "description"]
+      ["tool", "command", "path", "name", "cwd", "description", "agent"]
         .filter((key) => string(value.subject[key]))
         .map((key) => [key, value.subject[key]]),
     );

@@ -99,6 +99,34 @@ for (const locale of ["en-GB", "de-DE"]) {
       ).toHaveCount(0);
     });
 
+    test("a subagent's approval names the agent that asks", async ({ page }) => {
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [
+        { ...approval, subject: { ...approval.subject, agent: "general-purpose" } },
+      ];
+      await page.goto("/sessions/fixture-session/chat");
+      const card = page.locator(".native-request");
+      await expect(
+        card.getByText(
+          en ? "From the general-purpose agent" : "Vom Agenten general-purpose",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(card.locator("pre").first()).toHaveText("npm test");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+    });
+
+    test("a main-agent approval names no agent", async ({ page }) => {
+      const state = await operationsFixture(page, { tool: "claude" });
+      state.requests = [approval];
+      await page.goto("/sessions/fixture-session/chat");
+      const card = page.locator(".native-request");
+      await expect(card.locator("pre").first()).toHaveText("npm test");
+      await expect(card.getByText(en ? /agent$/ : /^Vom Agenten/)).toHaveCount(0);
+    });
+
     test("a plan renders as Markdown with approve and keep-planning answers", async ({
       page,
     }) => {

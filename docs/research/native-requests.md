@@ -121,8 +121,9 @@ hook is still waiting. Both dialogs are active, so these rules apply:
 - **Deny or Esc in the terminal.** Claude aborts the hook, and the chat request
   disappears.
 - **Approval in the terminal.** Claude does not abort the hook. The waiting
-  hook watches the session transcript (`transcript_path`) for the
-  `tool_use` that matches its tool name and input. Only a call appended after
+  hook watches the transcript that holds the call for the `tool_use` that
+  matches its tool name and input. For the main agent that is the session
+  transcript (`transcript_path`). See below for subagents. Only a call appended after
   the hook started, or one among the last ten lines when it started, can match.
   An older identical call without a result is an orphan of an interrupted run
   and is ignored. The target is re-evaluated on every read. When that call's
@@ -130,10 +131,24 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   request without a notice. Approving a long-running tool in the terminal
   therefore keeps the chat entry until the tool finishes. A chat decision made
   in that window is ignored by Claude.
-- **No matching `tool_use`.** This covers, for example, subagent calls recorded
-  in another transcript. A terminal approval cannot be observed, so the hook
-  keeps the earlier 590-second bound. That bound stops a stale request from
-  holding chat messages for a day.
+- **Subagent calls.** A hook that fires inside a subagent carries `agent_id`
+  and `agent_type`, but `transcript_path` still names the session transcript.
+  Claude Code writes the subagent's calls to
+  `<dirname>/<basename without .jsonl>/subagents/agent-<agent_id>.jsonl`
+  instead, beside a `.meta.json` file, and every record there carries the same
+  id as `agentId`. The hook watches only that file, and waits for it to
+  appear. It does not also watch the session transcript, because an identical
+  call of the main agent there would settle the wrong request. The id is joined
+  into the path only when it matches `^[A-Za-z0-9_-]{1,64}$`; any other value
+  falls back to `transcript_path`. Subagent approvals therefore wait as long
+  as main-agent approvals, and a terminal decision withdraws them the same way.
+  Until 2026-10-28 the hook watched only the session transcript, so every
+  subagent approval left chat after 590 seconds while Claude's dialog kept
+  waiting. Verified against the session folders of Claude Code 2.1.285.
+- **No matching `tool_use`.** This covers calls found in no watched transcript,
+  for example after a future change of the transcript layout. A terminal
+  approval cannot be observed, so the hook keeps the earlier 590-second bound.
+  That bound stops a stale request from holding chat messages for a day.
 
 A focused terminal view hands pending tool approvals to Claude in the same way
 as questions. The "Answer in terminal" action does the same from chat. A
@@ -151,6 +166,10 @@ It can also be dismissed, and the tab that performed the handoff never shows it.
 
 Permission subjects name their target:
 
+- A subagent's approval names the agent from `agent_type` (at most 200
+  characters): "From the general-purpose agent" ("Vom Agenten
+  general-purpose"). According to Claude Code's hooks reference, sessions
+  started with `--agent` also carry `agent_type`, so they show the same line.
 - `EnterWorktree` shows `EnterWorktree: <tool_input.path>`. Other tools'
   `path` inputs, such as the Glob or Grep search root, are not subjects.
 - `Workflow` shows `Workflow: <meta.name>`, with `meta.description` as the

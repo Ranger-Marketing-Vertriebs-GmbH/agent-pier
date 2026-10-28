@@ -15,6 +15,27 @@ const lineChars = 1024 * 1024;
 // an older identical call without a result is an orphan of an earlier run.
 export const recentLines = 10;
 
+// A subagent's hook names the session transcript, but Claude records the
+// subagent's calls in `<session>/subagents/agent-<agent_id>.jsonl`. Only a plain
+// token is joined into the path, so the result stays inside the session folder.
+const agentIdPattern = /^[A-Za-z0-9_-]{1,64}$/;
+export function subagentTranscriptPath(transcriptPath, agentId) {
+  if (
+    typeof transcriptPath !== "string" ||
+    !path.isAbsolute(transcriptPath) ||
+    !transcriptPath.endsWith(".jsonl") ||
+    typeof agentId !== "string" ||
+    !agentIdPattern.test(agentId)
+  )
+    return null;
+  return path.join(
+    path.dirname(transcriptPath),
+    path.basename(transcriptPath, ".jsonl"),
+    "subagents",
+    `agent-${agentId}.jsonl`,
+  );
+}
+
 export function watchNativeDecision({
   transcriptPath,
   toolName,
@@ -111,7 +132,8 @@ export function watchNativeDecision({
     try {
       settled = await read();
     } catch {
-      // A missing or unreadable transcript only disables this shortcut.
+      // A missing or unreadable transcript only disables this shortcut until
+      // it appears: a subagent's file may not exist yet when its hook starts.
     }
     if (stopped) return;
     if (settled) {

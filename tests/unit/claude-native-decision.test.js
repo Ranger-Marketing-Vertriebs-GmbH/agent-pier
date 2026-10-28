@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   watchNativeDecision,
   recentLines,
+  subagentTranscriptPath,
 } from "../../server/features/requests/claude-native-decision.js";
 
 const input = { command: "echo ü€ ready", description: "Write marker" };
@@ -100,5 +101,64 @@ test("a rewritten transcript starts over without reusing what was seen", async (
   await sleep(60);
   assert.equal(seen.settled, 0, "a result for a forgotten call does not settle");
   await fs.appendFile(file, toolResult("toolu_b"));
+  await until(() => seen.settled === 1);
+});
+
+test("a subagent's calls are watched in its own transcript beside the session's", () => {
+  assert.equal(
+    subagentTranscriptPath("/home/me/.claude/projects/p/s-1.jsonl", "a01f0579e46face77"),
+    "/home/me/.claude/projects/p/s-1/subagents/agent-a01f0579e46face77.jsonl",
+  );
+  assert.equal(
+    subagentTranscriptPath("/p/s.jsonl", "agent_x-1"),
+    "/p/s/subagents/agent-agent_x-1.jsonl",
+  );
+});
+
+test("an unsafe agent id or transcript path derives no subagent transcript", () => {
+  for (const agentId of [
+    "../x",
+    "a/b",
+    "a\\b",
+    "..",
+    "",
+    " a1",
+    "a1\n",
+    "a".repeat(65),
+    undefined,
+    null,
+    42,
+    { toString: () => "a1" },
+  ])
+    assert.equal(subagentTranscriptPath("/p/s.jsonl", agentId), null, String(agentId));
+  for (const transcriptPath of ["p/s.jsonl", "/p/s.json", "", undefined, 7])
+    assert.equal(
+      subagentTranscriptPath(transcriptPath, "a1"),
+      null,
+      String(transcriptPath),
+    );
+  assert.equal(subagentTranscriptPath("/p/s.jsonl", "a".repeat(64)) !== null, true);
+});
+
+test("a transcript that appears only after the hook started is still watched", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-native-decision-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const file = path.join(root, "subagents", "agent-a1.jsonl");
+  const seen = { matched: [], settled: 0 };
+  const stop = watchNativeDecision({
+    transcriptPath: file,
+    toolName: "Bash",
+    toolInput: input,
+    interval: 10,
+    onMatched: (id) => seen.matched.push(id),
+    onSettled: () => seen.settled++,
+  });
+  t.after(stop);
+  await sleep(40);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, filler(3) + toolUse("toolu_late"));
+  await until(() => seen.matched.length === 1);
+  assert.deepEqual(seen.matched, ["toolu_late"]);
+  await fs.appendFile(file, toolResult("toolu_late"));
   await until(() => seen.settled === 1);
 });

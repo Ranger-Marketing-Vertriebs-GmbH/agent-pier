@@ -57,6 +57,10 @@ another account. Rules are never written to a project's `.claude/` folder, which
 every account opening the folder would share. Remove a rule with `/permissions` in
 the terminal or in that `settings.json`.
 
+When a subagent asks, the card names it, for example **From the general-purpose
+agent**. A subagent's approval waits in chat as long as the main agent's, and
+approving or denying it in the terminal removes the card.
+
 When Claude leaves plan mode (`ExitPlanMode`), the card shows the proposed plan as
 Markdown with **Approve and auto-accept edits**, **Approve and review each edit** and
 **Keep planning**. Approving switches the session to the chosen permission mode for the

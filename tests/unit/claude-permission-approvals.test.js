@@ -147,3 +147,20 @@ test("ExitPlanMode without a plan stays an ordinary approval", () => {
   );
   assert.equal(requestValue(view).subject.plan, undefined);
 });
+
+test("a subagent's approval names the agent that asks", () => {
+  const view = requestValue(
+    claudeRequest({
+      ...bash(),
+      agent_id: "a0f1e2d3c4b5a6978",
+      agent_type: "  general-purpose ",
+    }).view,
+  );
+  assert.equal(view.subject.agent, "general-purpose");
+  assert.equal(requestValue(claudeRequest(bash()).view).subject.agent, undefined);
+  assert.equal(
+    requestValue(claudeRequest({ ...bash(), agent_type: "x".repeat(500) }).view).subject
+      .agent.length,
+    200,
+  );
+});
