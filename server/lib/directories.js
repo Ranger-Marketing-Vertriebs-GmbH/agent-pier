@@ -47,16 +47,19 @@ export async function listDirectories(directory) {
   };
 }
 
+/** A plain folder name: no separators or control characters, at most 255 bytes. */
+export function validDirectoryName(name) {
+  return (
+    typeof name === "string" &&
+    !!name.trim() &&
+    name === name.trim() &&
+    Buffer.byteLength(name) <= 255 &&
+    !/[/\\\x00-\x1f\x7f]/.test(name) &&
+    ![".", ".."].includes(name)
+  );
+}
 export async function createDirectory(parent, name) {
-  if (
-    typeof name !== "string" ||
-    !name.trim() ||
-    name !== name.trim() ||
-    Buffer.byteLength(name) > 255 ||
-    /[/\\\x00-\x1f\x7f]/.test(name) ||
-    [".", ".."].includes(name)
-  )
-    throw problem(filesCopy.invalidName);
+  if (!validDirectoryName(name)) throw problem(filesCopy.invalidName);
   const target = path.join(parent, name);
   try {
     await fs.mkdir(target, { mode: 0o700 });

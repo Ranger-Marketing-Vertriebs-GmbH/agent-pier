@@ -53,6 +53,11 @@ export function goalAgent(agent) {
   );
 }
 
+/** Own agents and leads create projects; members, user agents and sender-facing agents never. */
+export function mayCreateProjects(agent, senderFacing = false) {
+  return goalAgent(agent) && !agent.teamMemberId && !senderFacing;
+}
+
 export function goalChat(agent, conversation) {
   return (
     goalAgent(agent) &&

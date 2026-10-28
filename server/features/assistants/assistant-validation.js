@@ -9,6 +9,7 @@ export const assistantProblem = (key, status = 400) =>
     problem(
       serverMessages.assistants[key] ??
         serverMessages.agentCodingSessions[key] ??
+        serverMessages.agentProjects[key] ??
         serverMessages.mail[key],
       status,
     ),
