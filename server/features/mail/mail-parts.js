@@ -57,6 +57,9 @@ const estimate = (node) =>
 /** An attachment node of a BODYSTRUCTURE as `{ part, name, type, size, encoding, charset }`. */
 export function partInfo(node) {
   return {
+    // The message itself is the attachment (no multipart): its MIME header is the
+    // message's header, which a raw part must not carry along.
+    ...(!node.part && { root: true }),
     part: node.part || "1",
     name: fileName(node),
     type: String(node.type || "application/octet-stream"),
@@ -64,6 +67,17 @@ export function partInfo(node) {
     encoding: String(node.encoding || "7bit").toLowerCase(),
     charset: node.parameters?.charset ?? null,
   };
+}
+
+/**
+ * The fewest bytes `info` can decode to: base64 estimates count line breaks too, so
+ * lines of 64 characters (the shortest common) are assumed; quoted-printable takes
+ * at most 3 characters per byte.
+ */
+export function decodedAtLeast(info) {
+  if (info.encoding === "base64") return Math.floor((info.size * 64) / 66);
+  if (info.encoding === "quoted-printable") return Math.floor(info.size / 3);
+  return info.size;
 }
 
 /**
@@ -104,15 +118,36 @@ function rawEncoding(raw) {
   return match?.[1] ?? "7bit";
 }
 
+// A message that is one attachment: only its Content-* header fields, then its body.
+function contentOnly(raw) {
+  const text = raw.toString("latin1");
+  const end = /\r?\n\r?\n/.exec(text);
+  const header = end ? text.slice(0, end.index) : text;
+  const fields = header
+    .split(/\r?\n(?![ \t])/)
+    .filter((field) => /^content-[\w-]*:/i.test(field));
+  return Buffer.concat([
+    Buffer.from(`${fields.join("\r\n")}\r\n\r\n`, "latin1"),
+    rawBody(raw),
+  ]);
+}
+
 /** The decoded bytes of a raw part (header and body, as fetchRawParts returns it). */
 export const decodedRaw = (raw) => decodeTransfer(rawBody(raw), rawEncoding(raw));
 
 /**
  * The attachments of message `uid` in the selected folder, in attachmentsOf order, as
  * `{ part, name, type, size, sha256, partSha256 }` (`raw` too with `raw: true`):
- * `size` and `sha256` of the decoded bytes, `partSha256` of the raw part.
+ * `size` and `sha256` of the decoded bytes, `partSha256` of the raw part. Attachments
+ * that would decode to more than `maxBytes` together are MAIL_ATTACHMENT_TOO_LARGE
+ * before any of them is fetched. A message that is one attachment keeps only the
+ * Content-* fields of its header.
  */
-export async function messageParts(client, uid, { raw = false } = {}) {
+export async function messageParts(
+  client,
+  uid,
+  { raw = false, maxBytes = attachmentLimits.mailBytes } = {},
+) {
   const row = await client.fetchOne(
     String(uid),
     { uid: true, bodyStructure: true },
@@ -120,13 +155,15 @@ export async function messageParts(client, uid, { raw = false } = {}) {
   );
   if (!row || row.uid !== uid) throw mailError("MAIL_NOT_FOUND");
   const infos = attachmentsOf(row.bodyStructure).map(partInfo);
+  const atLeast = infos.reduce((sum, info) => sum + decodedAtLeast(info), 0);
+  if (atLeast > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
   const raws = await fetchRawParts(
     client,
     uid,
     infos.map((info) => info.part),
   );
-  return infos.map(({ part, name, type, encoding }) => {
-    const bytes = raws.get(part);
+  return infos.map(({ part, name, type, encoding, root }) => {
+    const bytes = root ? contentOnly(raws.get(part)) : raws.get(part);
     const decoded = decodeTransfer(rawBody(bytes), encoding);
     return {
       part,
@@ -158,11 +195,7 @@ export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
   const node = attachmentsOf(row.bodyStructure).find((n) => (n.part || "1") === part);
   if (!node) throw mailError("MAIL_NOT_FOUND");
   const info = partInfo(node);
-  // The estimate counts base64 line breaks too: refused early only when even lines of
-  // 64 characters (the shortest common) would decode to more than `maxBytes`.
-  const atLeast =
-    info.encoding === "base64" ? Math.floor((info.size * 64) / 66) : info.size;
-  if (atLeast > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
+  if (decodedAtLeast(info) > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
   const raw = (await fetchRawParts(client, uid, [part])).get(part);
   const bytes = decodeTransfer(rawBody(raw), info.encoding);
   if (bytes.length > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");

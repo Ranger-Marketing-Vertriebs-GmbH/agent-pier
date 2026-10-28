@@ -1,5 +1,7 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { draftFields } from "../../mail/mail-compose.js";
+import { mailBounds } from "../../mail/mail-messages.js";
+import { clipText } from "../../mail/mail-text.js";
 import {
   markMessages,
   moveMessages,
@@ -110,7 +112,12 @@ export async function runChanging({ accounts, services }, gate, input) {
     return {
       draftFolder: folder,
       ...draft,
-      attachments: attachments.map(({ name, size, type }) => ({ name, size, type })),
+      attachments:
+        attachments?.map(({ name, size, type }) => ({
+          name: clipText(name ?? "", mailBounds.nameChars).text || null,
+          size,
+          type,
+        })) ?? null,
     };
   });
   if (request.action === "delete" && result.moved)

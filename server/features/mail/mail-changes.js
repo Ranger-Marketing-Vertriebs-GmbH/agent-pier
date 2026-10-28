@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mailError } from "./mail-connection.js";
 import { listedPath, resolveFolders } from "./mail-folders.js";
-import { leafParts } from "./mail-messages.js";
+import { isAttachment, leafParts } from "./mail-messages.js";
 import { composeMessage, replyHeaders } from "./mail-compose.js";
 import {
   attachmentLimits,
@@ -179,7 +179,6 @@ function checkSize(kept, rawParts, files) {
 
 // The stored draft's attachments and its HTML alternative, read back with digests.
 async function readBack(client, uid) {
-  if (!uid) return { attachments: [], htmlPart: null };
   const attachments = await messageParts(client, uid);
   const row = await client.fetchOne(
     String(uid),
@@ -187,13 +186,15 @@ async function readBack(client, uid) {
     { uid: true },
   );
   const html = leafParts(row?.bodyStructure).find(
-    (n) => n.type === "text/html" && n.disposition !== "attachment",
+    (n) => n.type === "text/html" && !isAttachment(n),
   );
   if (!html) return { attachments, htmlPart: null };
   const part = html.part || "1";
   const raw = (await fetchRawParts(client, uid, [part])).get(part);
   return { attachments, htmlPart: { part, partSha256: sha256(raw) } };
 }
+
+const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
 
 const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
 
@@ -209,6 +210,9 @@ const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
  * Message-ID and thread headers (`thread`, what a send of it carries), its
  * attachments and HTML part as read back (`attachments`, `htmlPart`), and with
  * `replaceUid` whether the old draft went to Trash (`replaced`; false leaves both).
+ * A stored draft that cannot be read back is returned with `unreadable: true`,
+ * `attachments: null` and the old draft left in place. Attachments or HTML without
+ * the new draft's UID are MAIL_PROTOCOL.
  */
 export async function saveDraft(
   client,
@@ -256,29 +260,49 @@ export async function saveDraft(
     );
     const appended = await client.append(folders.drafts, raw, ["\\Draft", "\\Seen"]);
     if (!appended) throw mailError("MAIL_PROTOCOL");
-    const saved = {
+    const uid = appended.uid ?? null;
+    // Without the new UID nothing can be read back, and a send could not prove what
+    // it carries.
+    const parts = kept.length || rawParts.length || files.length || html !== null;
+    if (!uid && parts) throw mailError("MAIL_PROTOCOL");
+    const stored = {
       folder: folders.drafts,
-      draftUid: appended.uid ?? null,
+      draftUid: uid,
       messageId,
       thread: {
         inReplyTo: thread.inReplyTo ?? null,
         references: thread.references ?? [],
       },
-      ...(await readBack(client, appended.uid)),
     };
+    let saved;
+    try {
+      saved = {
+        ...stored,
+        ...(uid ? await readBack(client, uid) : { attachments: [], htmlPart: null }),
+      };
+    } catch (error) {
+      if (isBug(error)) throw error;
+      // The new draft is stored but could not be read back: its UID is returned so it
+      // is not saved twice, and the old draft stays.
+      return {
+        ...stored,
+        attachments: null,
+        htmlPart: null,
+        unreadable: true,
+        ...(replaceUid !== undefined && { replaced: false }),
+      };
+    }
     if (replaceUid === undefined) return saved;
     // The new draft is stored: a failed move of the old one must not hide it.
     try {
       await move(client, [replaceUid], folders.trash);
     } catch (error) {
-      if (error instanceof TypeError || error instanceof ReferenceError) throw error;
+      if (isBug(error)) throw error;
       return { ...saved, replaced: false };
     }
     return { ...saved, replaced: true };
   });
 }
-
-const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
 
 /**
  * After a send: appends the copy `raw` to the Sent folder when `saveSent`, flagged
