@@ -176,18 +176,27 @@ export class RequestLedger {
     if (!a) throw assistantProblem("notFound", 404);
     return a;
   }
-  transition(id, state, evidence = {}) {
+  // `from` names the state the caller decided on: the move happens only while the
+  // attempt is still in it, checked in the update itself, so a concurrent move wins.
+  transition(id, state, evidence = {}, { from } = {}) {
     if (!states.has(state)) throw assistantProblem("invalid");
     const current = this.getAttempt(id);
     if (terminal.has(current.state)) return current;
     if (current.state === "running" && ["pending", "accepted"].includes(state))
       return current;
+    if (from !== undefined && current.state !== from) return current;
     const runtimeRunId = evidence.runtimeRunId || current.runtimeRunId;
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db
-        .prepare("UPDATE attempts SET state=?,runtime_run_id=?,evidence=? WHERE id=?")
-        .run(state, runtimeRunId, JSON.stringify(evidence), id);
+      const moved = this.db
+        .prepare(
+          "UPDATE attempts SET state=?,runtime_run_id=?,evidence=? WHERE id=? AND state=?",
+        )
+        .run(state, runtimeRunId, JSON.stringify(evidence), id, from ?? current.state);
+      if (moved.changes === 0) {
+        this.db.exec("ROLLBACK");
+        return this.getAttempt(id);
+      }
       this.db
         .prepare("UPDATE requests SET state=? WHERE id=?")
         .run(state, current.requestId);
