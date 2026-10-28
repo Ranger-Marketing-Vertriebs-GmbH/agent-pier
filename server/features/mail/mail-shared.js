@@ -1,3 +1,5 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 // Small rules the mail modules (and agent mail) share, each defined once.
 
 /** A C0 control character or DEL: never in a folder, name or other agent input. */
@@ -22,3 +24,37 @@ export const decodedEstimate = (node) =>
 /** Whether a node is marked `Content-Disposition: attachment` (any case). */
 export const markedAttachment = (node) =>
   String(node?.disposition ?? "").toLowerCase() === "attachment";
+
+/** What byDeadline answers when the deadline came first. */
+export const late = Symbol("late");
+
+// Resolves after `ms`, or at once when `signal` aborts; never keeps the process up.
+export const deadlineTimer = (ms, signal) =>
+  delay(Math.max(0, ms), undefined, { signal, ref: false }).catch(() => {});
+
+/**
+ * `promise`'s value if it settles before `deadline` (ms on the `now` clock), else
+ * `late`. A promise given up on is left to finish; its later failure is never an
+ * unhandled rejection, and a programming error in it is still logged as `label`.
+ */
+export async function byDeadline(
+  promise,
+  deadline,
+  { now = Date.now, wait = deadlineTimer, label = "Mail step failed:" } = {},
+) {
+  let gaveUp = false;
+  promise.catch((error) => {
+    if (gaveUp && isBug(error)) console.error(label, error?.name);
+  });
+  const stop = new AbortController();
+  try {
+    const result = await Promise.race([
+      promise,
+      wait(deadline - now(), stop.signal).then(() => late),
+    ]);
+    gaveUp = result === late;
+    return result;
+  } finally {
+    stop.abort();
+  }
+}

@@ -8,6 +8,7 @@ import {
   summaryQuery,
   uidSearch,
 } from "./mail-messages.js";
+import { byDeadline, late } from "./mail-shared.js";
 
 // Mail search for agents. from, to, subject, text (headers and text), body (text
 // only), since and unseen are one server-side UID SEARCH (non-ASCII terms go with
@@ -49,9 +50,13 @@ function attachmentFilter(query) {
   };
 }
 
+// `promise` raced against `deadline` (byDeadline), or itself without one.
+const within = (promise, deadline, now) =>
+  deadline === undefined ? promise : byDeadline(promise, deadline, { now });
+
 // The newest messages of `newest` that pass `filter`, at most `max` of them, looking
-// at no more than `scanLimit` and stopping at `deadline` (reason "time");
-// `positions` are their indexes in `newest`.
+// at no more than `scanLimit` and stopping at `deadline` (reason "time"), also in the
+// middle of a batch's FETCH; `positions` are their indexes in `newest`.
 async function filterNewest(client, newest, filter, max, { deadline, now } = {}) {
   const rows = [];
   const positions = [];
@@ -66,7 +71,15 @@ async function filterNewest(client, newest, filter, max, { deadline, now } = {})
       scanned,
       scanned + Math.min(scanBatch, scanLimit - scanned),
     );
-    const fetched = await client.fetchAll(batch.join(","), summaryQuery, { uid: true });
+    const fetched = await within(
+      client.fetchAll(batch.join(","), summaryQuery, { uid: true }),
+      deadline,
+      now,
+    );
+    if (fetched === late) {
+      reason = "time";
+      break;
+    }
     const byUid = new Map(fetched.map((row) => [row.uid, row]));
     for (const uid of batch) {
       const row = byUid.get(uid);
@@ -116,7 +129,8 @@ async function searchText(client, folder, query, limit, newest, filter, scan) {
  * (`partial`, with a `reason` for the attachment text), so the agent can narrow the
  * query. `attachmentText` needs `textScan` (mail-attachment-search.js, bound to the
  * account and its text cache); its time limit `ms` counts from this call, so the
- * server search and the name filter use it up too.
+ * folder's opening, the server search and the name filter use it up too, each given
+ * up on at the deadline (`partial` with `reason` "time").
  */
 export async function searchMessages(
   client,
@@ -125,17 +139,21 @@ export async function searchMessages(
   limit,
   { textScan, ms, now = Date.now } = {},
 ) {
-  const deadline = ms === undefined ? undefined : now() + ms;
-  await openFolder(client, folder);
+  // Only the attachment-text search has a time limit.
+  const deadline =
+    ms === undefined || query.attachmentText === undefined ? undefined : now() + ms;
+  const timeUp = { messages: [], scanned: 0, partial: true, reason: "time" };
+  if ((await within(openFolder(client, folder), deadline, now)) === late) return timeUp;
   const criteria = serverCriteria(query);
   const failure = Object.values(criteria).some((v) => nonAscii.test(String(v)))
     ? "MAIL_SEARCH_UNSUPPORTED"
     : "MAIL_PROTOCOL";
-  const uids = await uidSearch(
-    client,
-    Object.keys(criteria).length ? criteria : { all: true },
-    failure,
+  const uids = await within(
+    uidSearch(client, Object.keys(criteria).length ? criteria : { all: true }, failure),
+    deadline,
+    now,
   );
+  if (uids === late) return timeUp;
   const filter = attachmentFilter(query);
   const newest = [...uids].reverse();
   if (query.attachmentText !== undefined) {

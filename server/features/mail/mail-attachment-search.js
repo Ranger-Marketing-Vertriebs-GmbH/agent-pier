@@ -1,14 +1,16 @@
-import { setTimeout as delay } from "node:timers/promises";
 import { extractableKind, extractText } from "./mail-extract.js";
 import { attachmentLimits, decodedAtLeast, partBytes, partInfo } from "./mail-parts.js";
 import { attachmentsOf, summary, summaryQuery } from "./mail-messages.js";
 import { scanLimit } from "./mail-search.js";
+import { byDeadline, deadlineTimer, late } from "./mail-shared.js";
 
 // The attachment-text search: the text of PDF, Office, text and CSV attachments of
 // the candidates, newest first, from the account's text cache or downloaded and
 // extracted on demand. One search looks at most at `candidates` messages, until its
 // deadline (the whole search call, a download and the wait for an extraction slot
-// included) and with at most `bytes` fetched, then ends with `partial` and the
+// included) and with at most `bytes` fetched (each attachment's size counted before
+// its download, then corrected to what came: a download given up on or refused as
+// too large counts too), then ends with `partial` and the
 // `reason`; what it extracted stays cached, so the next search continues faster. An
 // extraction still waiting for a place when the search gives up is dropped from the
 // queue with its bytes; one already running finishes and is cached. Only failures
@@ -20,7 +22,6 @@ export const searchBudget = Object.freeze({
   bytes: 209_715_200,
 });
 const fetchBatch = 100;
-const late = Symbol("late");
 
 /** NFC, lower case, whitespace runs as one space and trimmed, for needle and text. */
 export const foldText = (value) =>
@@ -28,10 +29,6 @@ export const foldText = (value) =>
 
 const isMailError = (error) =>
   typeof error?.code === "string" && error.code.startsWith("MAIL_");
-
-// Resolves after `ms`, or at once when `signal` aborts; never keeps the process up.
-const timer = (ms, signal) =>
-  delay(Math.max(0, ms), undefined, { signal, ref: false }).catch(() => {});
 
 /**
  * The newest `limit` candidates with an attachment whose text contains `needle`,
@@ -57,7 +54,7 @@ export async function scanAttachmentText(
     budget = searchBudget,
     maxFileBytes = attachmentLimits.fileBytes,
     now = Date.now,
-    wait = timer,
+    wait = deadlineTimer,
     deadline = now() + budget.ms,
     generation = cache?.generation(accountId),
   },
@@ -76,28 +73,18 @@ export async function scanAttachmentText(
   // A write from before the account's text was dropped is dropped too.
   const remember = (key, value) => key && cache.set(accountId, key, value, generation);
   // Whether `promise` settles before the deadline: its value, or `late`.
-  async function inTime(promise) {
-    const stop = new AbortController();
-    try {
-      return await Promise.race([
-        promise,
-        wait(deadline - now(), stop.signal).then(() => late),
-      ]);
-    } finally {
-      stop.abort();
-    }
-  }
+  const inTime = (promise, label) => byDeadline(promise, deadline, { now, wait, label });
 
   async function download(uid, info) {
     const pending = partBytes(client, uid, info, { maxBytes: maxFileBytes });
-    pending.catch(() => {});
     try {
-      return await inTime(pending);
+      return await inTime(pending, "Mail attachment download failed:");
     } catch (error) {
       // Too large only for the limits of this call: never cached, so a higher limit
-      // reads it again.
-      if (error?.code === "MAIL_ATTACHMENT_TOO_LARGE" || error?.code === "MAIL_NOT_FOUND")
-        return { failed: error.code };
+      // reads it again. Its bytes came all the same.
+      if (error?.code === "MAIL_ATTACHMENT_TOO_LARGE")
+        return { failed: error.code, fetched: Number(error.fetched) || 0 };
+      if (error?.code === "MAIL_NOT_FOUND") return { failed: error.code, fetched: 0 };
       throw error;
     }
   }
@@ -110,10 +97,12 @@ export async function scanAttachmentText(
     if (cached) return cached;
     if (now() >= deadline) return { stop: "time" };
     if (fetched + wire > budget.bytes) return { stop: "bytes" };
+    // Counted before the download, so one given up on still counts.
+    fetched += wire;
     const file = await download(uid, info);
     if (file === late) return { stop: "time" };
-    if (file.failed) return file;
-    fetched += file.fetched;
+    fetched += file.fetched - wire;
+    if (file.failed) return { failed: file.failed };
     // A folder that changed its UIDs meanwhile: the result belongs to no cache key.
     const storeKey = file.uidValidity === uidValidity ? key : null;
     let abandoned = false;
@@ -135,11 +124,13 @@ export async function scanAttachmentText(
         },
       );
     // An extraction still running at the deadline is cached when it ends.
-    job.then((value) => {
-      if (value.bug) {
-        if (abandoned) console.error("Mail attachment text failed:", value.bug?.name);
-      } else if (!value.skip) remember(storeKey, value);
-    });
+    job
+      .then((value) => {
+        if (value.bug) {
+          if (abandoned) console.error("Mail attachment text failed:", value.bug?.name);
+        } else if (!value.skip) remember(storeKey, value);
+      })
+      .catch((error) => console.error("Mail attachment text failed:", error?.name));
     const outcome = await inTime(job);
     if (outcome === late) {
       abandoned = true;
@@ -178,7 +169,13 @@ export async function scanAttachmentText(
     const end = Math.min(at + fetchBatch, count);
     const batch = rows
       ? rows.slice(at, end)
-      : await client.fetchAll(uids.slice(at, end).join(","), summaryQuery, { uid: true });
+      : await inTime(
+          client.fetchAll(uids.slice(at, end).join(","), summaryQuery, { uid: true }),
+        );
+    if (batch === late) {
+      reason = "time";
+      break;
+    }
     const byUid = new Map(batch.map((row) => [row.uid, row]));
     for (const uid of rows ? batch.map((row) => row.uid) : uids.slice(at, end)) {
       const row = byUid.get(uid);
