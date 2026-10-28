@@ -65,7 +65,7 @@ test("agents of users and team members never get the shopping skill", () => {
   assert.equal(shoppingEligible(temporary), false);
 });
 
-test("the compiled list stays unique when the owner also names a built-in skill", () => {
+test("a stored built-in name is ignored; an eligible agent gets the built-in once", () => {
   assert.deepEqual(
     compiledSkillNames(own({ skills: ["agentpier-shopping", "github"] })),
     ["agentpier-shopping", "github"],
@@ -90,7 +90,17 @@ test("pluginSkillReported accepts only the plugin's copy below plugin-skills", (
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const dir = pluginSkillsDir(root);
   assert.equal(dir, path.join(root, "state", "plugin-skills"));
-  fs.mkdirSync(path.join(dir, "agentpier-shopping"), { recursive: true });
+  // As the Gateway publishes it: a link into the plugin's own skill folder.
+  const pluginFolder = path.join(
+    root,
+    "plugins",
+    "teams-x",
+    "skills",
+    "agentpier-shopping",
+  );
+  fs.mkdirSync(pluginFolder, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
+  fs.symlinkSync(pluginFolder, path.join(dir, "agentpier-shopping"));
   const at = (filePath, source = "openclaw-extra", name = "agentpier-shopping") => ({
     name,
     source,
@@ -101,6 +111,11 @@ test("pluginSkillReported accepts only the plugin's copy below plugin-skills", (
   // The realpath of the folder counts as well (macOS /var -> /private/var).
   const real = path.join(fs.realpathSync(dir), "agentpier-shopping", "SKILL.md");
   assert.equal(pluginSkillReported([at(real)], dir), true);
+  // The link itself is never followed: its target is not the reported link path.
+  assert.equal(
+    pluginSkillReported([at(path.join(pluginFolder, "SKILL.md"))], dir),
+    false,
+  );
   assert.equal(pluginSkillReported([], dir), false);
   assert.equal(pluginSkillReported([plugin], undefined), false);
   // Another source, a catalog or workspace path, or a sibling folder all fail.

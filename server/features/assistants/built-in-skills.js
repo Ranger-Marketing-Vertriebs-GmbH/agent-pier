@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import {
   personalCapabilities,
@@ -6,6 +5,7 @@ import {
   personalSkills,
 } from "./native-capabilities.js";
 import { isUserAgent } from "../users/user-access.js";
+import { insideRoot } from "./skill-paths.js";
 
 // AgentPier's own skills, shipped inside the team plugin and compiled into an agent's
 // skill list without the owner switching them on. The shopping gate keeps shopping
@@ -50,19 +50,6 @@ export function compiledSkillNames(assistant, { senderFacing = false } = {}) {
   return [...new Set([...own, ...builtInSkills(assistant, { senderFacing })])].sort();
 }
 
-const inside = (file, root) => {
-  if (typeof file !== "string" || !root) return false;
-  const relative = path.relative(root, path.resolve(file));
-  return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
-};
-const realDir = (dir) => {
-  try {
-    return fs.realpathSync(dir);
-  } catch {
-    return null;
-  }
-};
-
 /**
  * Whether the `skills.status` entries of one built-in name are all the plugin's own
  * copy: reported as `pluginSkillSource` with a file below `<pluginSkills>/<name>/`. A
@@ -70,11 +57,10 @@ const realDir = (dir) => {
  */
 export function pluginSkillReported(entries, pluginSkills) {
   if (!Array.isArray(entries) || !entries.length || !pluginSkills) return false;
-  const roots = [pluginSkills, realDir(pluginSkills)].filter(Boolean);
   return entries.every(
     (entry) =>
       entry?.source === pluginSkillSource &&
       builtInSkillNames.includes(entry.name) &&
-      roots.some((root) => inside(entry.filePath, path.join(root, entry.name))),
+      insideRoot(entry.filePath, pluginSkills, entry.name),
   );
 }

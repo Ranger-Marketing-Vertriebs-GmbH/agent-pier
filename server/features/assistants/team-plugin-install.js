@@ -26,6 +26,9 @@ const files = [
   "managed-folder.js",
   "openclaw.plugin.json",
   "package.json",
+  // AgentPier's built-in skills (built-in-skills.js); the manifest's "skills" names
+  // their folder.
+  "skills/agentpier-shopping/SKILL.md",
 ];
 export function provisionTeamPlugin({ paths, runtimeVersion }) {
   // The shipped runtime and its declared rollback targets; nothing else is assumed.
@@ -45,6 +48,12 @@ export function provisionTeamPlugin({ paths, runtimeVersion }) {
   );
   for (let n = 0; n < files.length; n++) {
     const file = path.join(directory, files[n]);
+    // A nested asset's folders are private too, and never a symlink (privateFolder).
+    const nested = path.dirname(files[n]);
+    if (nested !== ".")
+      nested
+        .split("/")
+        .reduce((folder, part) => privateFolder(path.join(folder, part)), directory);
     try {
       const stat = fs.lstatSync(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
