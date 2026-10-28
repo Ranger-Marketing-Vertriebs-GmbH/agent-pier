@@ -84,7 +84,14 @@ export class LiveInstance {
     } catch (error) {
       this.report(error);
     }
-    if (this.mode === "signal") return;
+    if (this.mode === "signal") {
+      // A change while nobody subscribed sent nothing and left no trace: a record
+      // carried over from an earlier instance rises once, so a client holding its
+      // revision refetches (at most one extra GET) instead of hearing `same`.
+      if (this.record.started) this.raise();
+      this.record.started = true;
+      return;
+    }
     this.dirty = true;
     this.flush();
   }
@@ -176,7 +183,7 @@ export class LiveInstance {
       } catch (error) {
         this.report(error);
       }
-      if (!sampling) return;
+      if (!sampling || this.closed) return;
     }
     const [reader] = this.subscribers;
     let value;

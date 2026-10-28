@@ -270,3 +270,17 @@ test("a failed read reports the error and keeps the last value", async (t) => {
   const late = listen(instance);
   assert.deepEqual(late.frames[0].data, { ok: true });
 });
+
+test("a subscriber leaving during sampling() stops the cycle before a read", async (t) => {
+  let release;
+  const { clock, source, instance } = setup(t, {
+    sampleMs: 1000,
+    sampling: () => new Promise((resolve) => (release = resolve)),
+  });
+  const { remove } = listen(instance);
+  await clock.advance(1000);
+  remove();
+  release(true);
+  await clock.advance(0);
+  assert.equal(source.reads, 1);
+});
