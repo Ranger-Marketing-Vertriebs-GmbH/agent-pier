@@ -4,6 +4,7 @@ import { LiveHub } from "../features/live/live-hub.js";
 import { stateTopic, watchStateWrites } from "../features/sessions/live-state-topic.js";
 import { sessionRequestsTopic } from "../features/requests/live-topics.js";
 import { sessionModelsTopic } from "../features/models/live-topics.js";
+import { inboxTopic } from "../features/inbox/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -27,6 +28,7 @@ export function createLiveHub(services, options = {}) {
   watchStateWrites(services, hub);
   hub.define(sessionRequestsTopic(services));
   hub.define(sessionModelsTopic(services));
+  hub.define(inboxTopic(services));
   return hub;
 }
 

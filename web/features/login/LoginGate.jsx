@@ -9,6 +9,7 @@ import LoginPage from "./LoginPage.jsx";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
+import { liveAuthCheckEvent } from "../../lib/live/live-client.js";
 // Everything this page remembers for the signed-in user. Agent data, the agent chat
 // cache and its offline outbox live in the app and go with its unmount.
 const forgetUser = () => {
@@ -52,9 +53,20 @@ export default function LoginGate({ children }) {
       forgetUser();
       refresh();
     };
+    // The live channel refused the socket (1008): one login read, never a second
+    // while it runs. Logged out shows the login; logged in leaves the reconnect to
+    // the live client's own backoff.
+    let checking = null;
+    const authCheck = () => {
+      if (checking) return;
+      checking = refresh().finally(() => {
+        checking = null;
+      });
+    };
     window.addEventListener("agentpier-login-required", expired);
     window.addEventListener("storage", changed);
     window.addEventListener("focus", refresh);
+    window.addEventListener(liveAuthCheckEvent, authCheck);
     // Visible: the explicit refresh is the first read and the poll's first run is
     // skipped. Hidden: nothing is requested until the poll's first visible run.
     let skip = !document.hidden;
@@ -62,13 +74,14 @@ export default function LoginGate({ children }) {
     const stop = startVisiblePolling(async () => {
       if (skip) skip = false;
       else await refresh();
-    }, 60000);
+    }, 300000);
     return () => {
       invalidate();
       stop();
       window.removeEventListener("agentpier-login-required", expired);
       window.removeEventListener("storage", changed);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener(liveAuthCheckEvent, authCheck);
     };
   }, [refresh, invalidate]);
   async function logout() {
