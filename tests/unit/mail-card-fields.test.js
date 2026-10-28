@@ -27,7 +27,7 @@ const payload = {
     },
     { name: "n2", type: "t2", source: { kind: "original" } },
   ],
-  forward: { from: { name: "fn", address: "fa" }, subject: "fs", date: "d" },
+  forward: { from: { name: "fn", address: "fa" }, subject: "fs", date: "fd" },
 };
 
 test("server and web list the same single-line fields", () => {
@@ -44,6 +44,7 @@ test("server and web list the same single-line fields", () => {
     "fn",
     "fa",
     "fs",
+    "fd",
   ]);
 });
 
@@ -53,7 +54,7 @@ test("a control character in any single-line field hides on both sides", () => {
   const texts = attachmentTexts(payload);
   for (let i = 0; i < texts.length; i++) {
     if (texts[i] === undefined) continue;
-    for (const c of ["\n", "\r", "\t", "\u200b"]) {
+    for (const c of ["\n", "\r", "\t", "\u200b", "\u2028", "\u2029", "\u0085"]) {
       const changed = structuredClone(payload);
       const set = (value) => {
         const a = changed.attachments;
@@ -69,6 +70,7 @@ test("a control character in any single-line field hides on both sides", () => {
           (v) => (changed.forward.from.name = v),
           (v) => (changed.forward.from.address = v),
           (v) => (changed.forward.subject = v),
+          (v) => (changed.forward.date = v),
         ];
         slots[i](value);
       };
