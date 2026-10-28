@@ -165,7 +165,7 @@ test("a tool installation pushes its progress and every tool's busy flag", async
   );
 });
 
-test("the managed browser's job pushes on job.chromium:current and job.tool:chromium", async (t) => {
+test("the managed browser's job pushes on job.tool:chromium; job.chromium is gone", async (t) => {
   const { installer, hub } = await installerOf(t, {
     platform: "linux",
     arch: "x64",
@@ -174,10 +174,9 @@ test("the managed browser's job pushes on job.chromium:current and job.tool:chro
       throw new Error("offline");
     },
   });
-  const browser = listen(hub, "job.chromium:current");
-  const tool = listen(hub, "job.tool:chromium");
+  const browser = listen(hub, "job.tool:chromium");
   await frameWhere(browser.frames, (frame) => frame.type === "snapshot");
-  assert.equal(listen(hub, "job.chromium:other").frames[0].code, "unknown-topic");
+  assert.equal(listen(hub, "job.chromium:current").frames[0].code, "unknown-topic");
   installer.start("chromium");
   const running = await frameWhere(
     browser.frames,
@@ -189,11 +188,6 @@ test("the managed browser's job pushes on job.chromium:current and job.tool:chro
     (f) => f.type === "state" && entry(f.data).status === "failed" && !f.data.busy,
   );
   assert.deepEqual(failed.data, await toolInstallations(installer, "chromium"));
-  const same = await frameWhere(
-    tool.frames,
-    (f) => f.type === "state" && entry(f.data).status === "failed" && !f.data.busy,
-  );
-  assert.deepEqual(same.data, failed.data);
 });
 
 test("every write path of the tool installer signals its change", async (t) => {
@@ -212,7 +206,8 @@ test("every write path of the tool installer signals its change", async (t) => {
   assert.deepEqual(changes.at(0), ["chromium", true]);
   assert.ok(changes.length >= 3, JSON.stringify(changes));
   assert.deepEqual(changes.at(-1), ["chromium", false]);
-  // A hook that throws never breaks an installation.
+  // A hook that throws never breaks an installation, and is logged.
+  const errors = errorsOf(t);
   installer.onChange = () => {
     throw new Error("hub gone");
   };
@@ -221,6 +216,10 @@ test("every write path of the tool installer signals its change", async (t) => {
   assert.equal(
     installer.list().installations.find((x) => x.tool === "chromium").status,
     "failed",
+  );
+  assert.ok(
+    errors.some((line) => line.includes("could not announce a tool installation")),
+    JSON.stringify(errors),
   );
 });
 
@@ -258,6 +257,42 @@ test("REA signals the start, every step and the end of its jobs", async (t) => {
   assert.ok(changes.includes("ghidra"), JSON.stringify(changes));
 });
 
+// A job that ends in the state it began with still changes jobCount, so its end is
+// pushed and a dialog holding the start's `running` answer settles.
+for (const [name, work] of [
+  [
+    "a retry that fails fast with the same message",
+    async () => {
+      throw new Error("offline");
+    },
+  ],
+  ["a no-op apply from succeeded to succeeded", async () => {}],
+])
+  test(`REA pushes the end of ${name}`, async (t) => {
+    const rea = await reaOf(t);
+    const hub = new LiveHub({ debounceMs: 10, maxWaitMs: 50 });
+    t.after(() => hub.close());
+    defineToolJobTopics(hub, { rea });
+    rea.onChange = () => reaJobChanged(hub);
+    const errors = errorsOf(t);
+    rea.begin(work);
+    await rea.settled();
+    const { frames } = listen(hub, "job.rea:current");
+    const first = await frameWhere(frames, (frame) => frame.type === "snapshot");
+    assert.notEqual(first.data.status, "running");
+    // The second, identical job starts and ends inside one debounce window.
+    rea.begin(work);
+    const started = rea.state();
+    assert.equal(started.status, "running");
+    await rea.settled();
+    const ended = await frameWhere(frames, (frame) => frame.type === "state");
+    assert.equal(ended.data.status, first.data.status);
+    assert.equal(ended.data.message, first.data.message);
+    assert.equal(ended.data.jobCount, first.data.jobCount + 1);
+    assert.equal(started.jobCount, ended.data.jobCount);
+    assert.ok(errors.length <= 2);
+  });
+
 test("a running REA job is sampled every second; an idle one is not", async (t) => {
   assert.equal(REA_JOB_SAMPLE_MS, 1000);
   const clock = manualTimers();
@@ -293,7 +328,7 @@ test("a running REA job is sampled every second; an idle one is not", async (t) 
 test("the tool, browser and REA topics are the owner's alone", () => {
   const hub = new LiveHub();
   defineToolJobTopics(hub, {});
-  for (const topic of ["job.tool:codex", "job.chromium:current", "job.rea:current"]) {
+  for (const topic of ["job.tool:codex", "job.rea:current"]) {
     assert.equal(hub.resolve(user, topic), null, topic);
     assert.equal(hub.resolve(null, topic), null, topic);
     assert.ok(hub.resolve(owner, topic), topic);
@@ -322,7 +357,7 @@ test("the job topics' snapshots and pushes equal their routes", async (t) => {
   const live = openLive(f);
   await live.next((frame) => frame.type === "hello");
   const first = {};
-  for (const topic of ["job.tool:codex", "job.chromium:current", "job.rea:current"]) {
+  for (const topic of ["job.tool:codex", "job.rea:current"]) {
     live.send({ op: "sub", topic });
     first[topic] = await live.next((frame) => frame.topic === topic, 5000);
     assert.equal(first[topic].type, "snapshot", topic);
@@ -332,10 +367,6 @@ test("the job topics' snapshots and pushes equal their routes", async (t) => {
   while (entry(codex.data).versionStatus === "checking")
     codex = await live.next((frame) => frame.topic === "job.tool:codex", 10000);
   assert.deepEqual(codex.data, await json(f, "/api/tool-installations?tool=codex"));
-  assert.deepEqual(
-    first["job.chromium:current"].data,
-    await json(f, "/api/tool-installations?tool=chromium"),
-  );
   const all = await json(f, "/api/tool-installations");
   assert.deepEqual(
     entry(codex.data),

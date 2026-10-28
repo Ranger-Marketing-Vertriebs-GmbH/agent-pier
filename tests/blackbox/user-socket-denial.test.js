@@ -140,7 +140,6 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "runtime.updates",
     "job.operation:0000aaaa-0000-4000-8000-000000000000",
     "job.tool:codex",
-    "job.chromium:current",
     "job.rea:current",
     "operations.release-sessions:1.0.0",
     "artifacts.usage",

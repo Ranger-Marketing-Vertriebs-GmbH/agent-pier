@@ -23,6 +23,7 @@ export function reaState(overrides = {}) {
     available: true,
     reason: null,
     status: "idle",
+    jobCount: 0,
     step: null,
     message: "",
     installed: false,
@@ -72,7 +73,7 @@ export async function fixture(
     remoteUrl: null,
   };
   const controls = { applied: [], updates: 0, removes: 0, generic: 0 };
-  let started = false;
+  let jobCount = rea.jobCount ?? 0;
   await page.route("**/api/**", async (route) => {
     if (await fulfillDormantAssistantRequest(route)) return;
     const request = route.request();
@@ -83,23 +84,26 @@ export async function fixture(
       controls.generic++;
       return route.fulfill({ status: 404, json: {} });
     }
-    // A started job is read as running once, then as ended, as the server pushes
-    // job.rea: the start, then its end.
-    if (path === "/api/rea" && method === "GET") {
-      if (!started) return route.fulfill({ json: rea });
-      started = false;
-      return route.fulfill({ json: { ...rea, status: "running" } });
-    }
+    // As the server: a started job answers running and raises jobCount; the job here
+    // ends at once, back in the fixture's state, so the next read differs anyway.
+    if (path === "/api/rea" && method === "GET")
+      return route.fulfill({ json: { ...rea, jobCount } });
     if (path === "/api/rea" && method === "POST") {
       controls.applied.push(request.postDataJSON());
       if (apply) return route.fulfill(apply);
-      started = true;
-      return route.fulfill({ status: 202, json: { ...rea, status: "running" } });
+      jobCount += 1;
+      return route.fulfill({
+        status: 202,
+        json: { ...rea, status: "running", jobCount },
+      });
     }
     if (path === "/api/rea/update") {
       controls.updates++;
-      started = true;
-      return route.fulfill({ status: 202, json: { ...rea, status: "running" } });
+      jobCount += 1;
+      return route.fulfill({
+        status: 202,
+        json: { ...rea, status: "running", jobCount },
+      });
     }
     if (path === "/api/rea" && method === "DELETE") {
       controls.removes++;
