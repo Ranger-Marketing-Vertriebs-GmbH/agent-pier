@@ -18,10 +18,18 @@ function timedOut(service, runId, result) {
 }
 export async function reconcileRuns(service) {
   if (!service.runtime.client?.ready || service.closed) return;
-  for (const attempt of service.ledger.unresolved()) {
+  for (const listed of service.ledger.unresolved()) {
     if (service.closed) return;
     // Its send decides first (conversation-turns.js).
-    if (service.sending?.has(attempt.id)) continue;
+    if (service.sending?.has(listed.id)) continue;
+    // The list is a snapshot and every attempt before this one awaited the Gateway:
+    // a send acknowledged meanwhile made this turn live, so decide on its state now.
+    const attempt = service.ledger.getAttempt(listed.id);
+    if (
+      attempt.reviewedAt ||
+      ["completed", "failed", "cancelled"].includes(attempt.state)
+    )
+      continue;
     const request = service.ledger.getRequest(attempt.requestId);
     const conversation = service.store.getConversation(request.conversationId);
     try {
@@ -52,10 +60,17 @@ export async function reconcileRuns(service) {
         const described = await service.runtime.client.call("sessions.describe", {
           key: conversation.runtimeSessionKey,
         });
+        // Only from the state this pass saw: a turn acknowledged or confirmed while
+        // it awaited the Gateway stays live (the bridge refuses tools without one).
         if (described.session?.subagentRunState === "interrupted")
-          service.ledger.transition(attempt.id, "interrupted", {});
+          service.ledger.transition(
+            attempt.id,
+            "interrupted",
+            {},
+            { from: attempt.state },
+          );
         else if (attempt.state === "pending")
-          service.ledger.transition(attempt.id, "uncertain", {});
+          service.ledger.transition(attempt.id, "uncertain", {}, { from: "pending" });
       }
       await service.history(conversation.id);
       // A long member task chat is reported to its lead (member-long-chats.js).
