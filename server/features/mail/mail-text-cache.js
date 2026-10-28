@@ -7,11 +7,13 @@ import { privateDirectory } from "../../lib/storage.js";
 // attachment under `<root>/<accountId>/<key>.json`, kept under the data folder and
 // never in a backup (mail/ only travels as the sealed account list). The files stay
 // within a byte budget: when a write goes over it, the least recently used files are
-// removed. A failed read or write never fails the search; it only misses the cache.
+// removed down to 90 % of it, so a full cache is not scanned again on every write. A
+// failed read or write never fails the search; it only misses the cache.
 
 const accountName = /^[A-Za-z0-9_-]{1,64}$/;
 const keyName = /^[0-9a-f]{64}$/;
 const failureCode = /^MAIL_[A-Z_]{1,40}$/;
+const lowWater = 0.9;
 
 // The entry as stored and as returned: text, or the code of a failed extraction.
 function entryOf(value) {
@@ -28,6 +30,8 @@ export class MailTextCache {
     this.budgetBytes = budgetBytes;
     // Bytes of all entries; counted on the first write, then kept up to date.
     this.total = null;
+    // Accounts removed in this process: a search still running writes nothing more.
+    this.removed = new Set();
   }
 
   /** The cache key of one attachment: SHA-256 hex of its joined fields. */
@@ -66,7 +70,7 @@ export class MailTextCache {
   set(accountId, key, value) {
     const file = this.file(accountId, key);
     const entry = entryOf(value);
-    if (!file || !entry) return false;
+    if (!file || !entry || this.removed.has(accountId)) return false;
     const data = Buffer.from(JSON.stringify(entry), "utf8");
     if (data.length > this.budgetBytes) return false;
     const tmp = `${file}.${randomUUID()}.tmp`;
@@ -119,12 +123,12 @@ export class MailTextCache {
     }
   }
 
-  // Removes the least recently used entries until the rest fit the budget.
+  // Removes the least recently used entries until the rest fit 90 % of the budget.
   evict() {
     const items = this.scan().sort((a, b) => a.used - b.used);
     let total = items.reduce((sum, item) => sum + item.size, 0);
     for (const item of items) {
-      if (total <= this.budgetBytes) break;
+      if (total <= this.budgetBytes * lowWater) break;
       try {
         fs.rmSync(item.file, { force: true });
         total -= item.size;
@@ -133,8 +137,15 @@ export class MailTextCache {
     this.total = total;
   }
 
-  /** Removes the account's cached text (the account was removed). */
+  /** Removes the account's cached text; nothing is written for it any more. */
   removeAccount(accountId) {
+    if (!accountName.test(String(accountId))) return;
+    this.removed.add(accountId);
+    this.clearAccount(accountId);
+  }
+
+  /** Removes the account's cached text (its connection now reaches another mailbox). */
+  clearAccount(accountId) {
     if (!accountName.test(String(accountId))) return;
     try {
       fs.rmSync(path.join(this.root, accountId), { recursive: true, force: true });

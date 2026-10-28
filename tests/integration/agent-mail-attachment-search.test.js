@@ -14,6 +14,7 @@ import {
 import { mailFileTypes } from "../../server/features/mail/mail-file-types.js";
 import { mailError } from "../../server/features/mail/mail-connection.js";
 import { scanAttachmentText } from "../../server/features/mail/mail-attachment-search.js";
+import { extractLimits, extractText } from "../../server/features/mail/mail-extract.js";
 
 const inbox = { folder: "INBOX", uidValidity: "1000" };
 
@@ -130,7 +131,8 @@ test("a second search is served from the cache", async (t) => {
     [4],
   );
   assert.equal(f.fetched.length, 4);
-  assert.ok(f.imap.mailbox.served - served < 10_000);
+  // Summaries carry no body section: not one byte of an attachment came again.
+  assert.equal(f.imap.mailbox.served, served);
   // The entries are this account's 0600 files under the data folder.
   const directory = path.join(f.dataDir, "mail/text-cache", f.account.id);
   const files = fs.readdirSync(directory);
@@ -226,45 +228,149 @@ test("non-text and oversized attachments are never downloaded", async (t) => {
   assert.equal(f.fetched.length, 1);
 });
 
-test("a busy extraction skips the candidate without caching it", async (t) => {
+// scanAttachmentText on its own IMAP connection, for options the tool cannot set.
+const scanWith = (f, options) =>
+  f.mailStore.withImap(f.account.id, async (client) => {
+    await client.mailboxOpen("INBOX", { readOnly: true });
+    return scanAttachmentText(client, {
+      accountId: f.account.id,
+      ...inbox,
+      uids: [2, 1],
+      needle: "49.99",
+      limit: 20,
+      cache: f.cache,
+      ...options,
+    });
+  });
+
+// Extractions that hold their slot until their own time limit ends them.
+const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
+const holdSlots = (count, timeoutMs) =>
+  Array.from({ length: count }, () =>
+    extractText(pdfWith("x"), "pdf", {
+      scriptUrl: hangUrl,
+      limits: { ...extractLimits, timeoutMs },
+    }).catch((error) => error),
+  );
+
+test("a full extraction queue skips candidates without caching them", async (t) => {
   const f = await searchFixture(t);
   f.seed([f.file("a.pdf", pdfWith("49.99"))], "a");
   f.seed([f.file("b.pdf", pdfWith("49.99"))], "b");
-  const busy = async () => {
-    throw Object.assign(mailError("MAIL_TEXT_FAILED"), { busy: true });
-  };
-  const scan = (options) =>
-    f.mailStore.withImap(f.account.id, async (client) => {
-      await client.mailboxOpen("INBOX", { readOnly: true });
-      return scanAttachmentText(client, {
-        accountId: f.account.id,
-        ...inbox,
-        uids: [2, 1],
-        needle: "49.99",
-        limit: 20,
-        cache: f.cache,
-        ...options,
-      });
-    });
-  const skipped = await scan({ extract: busy });
+  // Two running and sixteen waiting: the next extraction is refused as busy.
+  const held = holdSlots(extractLimits.concurrency + extractLimits.queue, 1_500);
+  const skipped = await scanWith(f, {});
   assert.deepEqual(
     [skipped.messages, skipped.scanned, skipped.partial, skipped.skipped],
     [[], 2, true, 2],
   );
+  assert.equal(skipped.reason, undefined);
   assert.equal(f.cache.get(f.account.id, f.cacheKey(1)), null);
-  // Waiting for a slot counts against the time budget.
-  let clock = 0;
-  const waiting = await scan({
-    extract: () => new Promise(() => {}),
-    budget: { candidates: 500, ms: 50, bytes: 209_715_200 },
-    now: () => clock,
-    wait: (ms) => {
-      clock += ms;
-      return new Promise((resolve) => setTimeout(resolve, 5));
-    },
+  await Promise.all(held);
+  // With the queue free again the same search finds both.
+  const found = await scanWith(f, {});
+  assert.deepEqual(
+    found.messages.map((m) => m.uid),
+    [2, 1],
+  );
+});
+
+test("waiting for an extraction slot counts against the time limit", async (t) => {
+  const f = await searchFixture(t);
+  f.seed([f.file("a.pdf", pdfWith("49.99"))], "a");
+  const held = holdSlots(extractLimits.concurrency, 1_500);
+  const started = Date.now();
+  const waiting = await scanWith(f, {
+    uids: [1],
+    budget: { candidates: 500, ms: 300, bytes: 209_715_200 },
   });
   assert.deepEqual([waiting.partial, waiting.reason, waiting.scanned], [true, "time", 0]);
+  assert.ok(Date.now() - started < 1_400, "the search did not wait for the slot");
+  await Promise.all(held);
+  // The extraction that waited still ran, and its text is cached for the next search.
+  for (let i = 0; i < 100 && !f.cache.get(f.account.id, f.cacheKey(1)); i++)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.match(f.cache.get(f.account.id, f.cacheKey(1)).text, /49\.99/);
+});
+
+test("a download that outlasts the deadline stops the search", async (t) => {
+  const f = await searchFixture(t);
+  f.seed([f.file("a.pdf", pdfWith("49.99"))], "a");
+  // The deadline is not reached before the download starts, but passes during it.
+  const result = await scanWith(f, {
+    uids: [1],
+    now: () => 0,
+    deadline: 1,
+    wait: () => Promise.resolve(),
+  });
+  assert.deepEqual([result.partial, result.reason, result.scanned], [true, "time", 0]);
+  assert.equal(f.cache.get(f.account.id, f.cacheKey(1)), null);
+});
+
+test("only failures of the document are cached; bugs fail the search", async (t) => {
+  const f = await searchFixture(t);
+  f.seed([f.file("a.pdf", pdfWith("49.99"))], "a");
+  f.seed([f.file("b.pdf", pdfWith("49.99"))], "b");
+  // A time limit under load or a failed start: skipped, tried again next time.
+  const load = await scanWith(f, {
+    extract: async () => {
+      throw mailError("MAIL_TEXT_FAILED");
+    },
+  });
+  assert.deepEqual([load.partial, load.skipped, load.scanned], [true, 2, 2]);
+  assert.equal(f.cache.get(f.account.id, f.cacheKey(2)), null);
+  await assert.rejects(
+    scanWith(f, {
+      extract: async () => {
+        throw new TypeError("bug");
+      },
+    }),
+    TypeError,
+  );
+  assert.equal(f.cache.get(f.account.id, f.cacheKey(2)), null);
+  const broken = await scanWith(f, {
+    extract: async () => {
+      throw Object.assign(mailError("MAIL_TEXT_FAILED"), { document: true });
+    },
+  });
+  assert.deepEqual([broken.partial, broken.scanned], [false, 2]);
+  assert.deepEqual(f.cache.get(f.account.id, f.cacheKey(2)), {
+    failed: "MAIL_TEXT_FAILED",
+  });
   // A server failure still fails the search.
   f.imap.mailbox.failFetch = (items) => /BODY\.PEEK\[2\]/i.test(items);
-  await assert.rejects(scan({}), { code: "MAIL_PROTOCOL" });
+  await assert.rejects(scanWith(f, { uids: [1], cache: null }), {
+    code: "MAIL_PROTOCOL",
+  });
+});
+
+test("with a name filter, scanned counts up to the last candidate read", async (t) => {
+  const f = await searchFixture(t);
+  f.seed([f.file("a.pdf", pdfWith("Total 12.00"))], "1");
+  f.seed([f.file("b.pdf", pdfWith("Total 49.99"))], "2");
+  f.seed([f.file("c.png", Buffer.from("49.99"))], "3");
+  f.seed([f.file("d.pdf", pdfWith("Total 49.99"))], "4");
+  f.seed([f.file("e.png", Buffer.from("49.99"))], "5");
+  const query = { attachmentText: "49.99", attachment: ".pdf" };
+  // Stopped by the limit at uid 4, the second message from the newest.
+  const one = await f.mail({ action: "search", query, limit: 1 });
+  assert.deepEqual(
+    [one.messages.map((m) => m.uid), one.scanned, one.partial],
+    [[4], 2, false],
+  );
+  // Stopped by the candidate budget after uid 4 and uid 2 (the fourth message).
+  f.workflows.mail.limits.search.candidates = 2;
+  const capped = await f.mail({ action: "search", query });
+  assert.deepEqual(
+    [capped.messages.map((m) => m.uid), capped.scanned, capped.reason],
+    [[4, 2], 4, "candidates"],
+  );
+  f.workflows.mail.limits.search.candidates = 500;
+  const all = await f.mail({ action: "search", query });
+  assert.deepEqual([all.scanned, all.partial], [5, false]);
+  // A needle of only whitespace would match everything: refused.
+  for (const attachmentText of ["   ", "\t\n"])
+    await assert.rejects(f.mail({ action: "search", query: { attachmentText } }), {
+      key: "invalid",
+    });
 });

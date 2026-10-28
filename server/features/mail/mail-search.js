@@ -50,12 +50,18 @@ function attachmentFilter(query) {
 }
 
 // The newest messages of `newest` that pass `filter`, at most `max` of them, looking
-// at no more than `scanLimit`; `positions` are their indexes in `newest`.
-async function filterNewest(client, newest, filter, max) {
+// at no more than `scanLimit` and stopping at `deadline` (reason "time");
+// `positions` are their indexes in `newest`.
+async function filterNewest(client, newest, filter, max, { deadline, now } = {}) {
   const rows = [];
   const positions = [];
   let scanned = 0;
+  let reason;
   while (scanned < newest.length && scanned < scanLimit && rows.length < max) {
+    if (deadline !== undefined && now() >= deadline) {
+      reason = "time";
+      break;
+    }
     const batch = newest.slice(
       scanned,
       scanned + Math.min(scanBatch, scanLimit - scanned),
@@ -72,29 +78,35 @@ async function filterNewest(client, newest, filter, max) {
       if (rows.length >= max) break;
     }
   }
-  return { rows, positions, scanned };
+  return { rows, positions, scanned, reason };
 }
 
 // attachmentText: the other criteria (the name filters too) choose the candidates,
-// `textScan` reads their attachments. `scanned` counts every message looked at.
-async function searchText(client, folder, query, limit, newest, filter, textScan) {
-  const uidValidity = String(client.mailbox?.uidValidity ?? "");
-  const needle = query.attachmentText;
-  if (!filter)
-    return textScan(client, { folder, uidValidity, uids: newest, needle, limit });
-  const named = await filterNewest(client, newest, filter, Infinity);
-  const uids = named.rows.map((row) => row.uid);
-  const result = await textScan(client, { folder, uidValidity, uids, needle, limit });
-  if (result.scanned < uids.length)
-    return {
-      ...result,
-      scanned: result.scanned && named.positions[result.scanned - 1] + 1,
-    };
-  const capped = named.scanned < newest.length && result.messages.length < limit;
+// `textScan` reads their attachments; the rows the name filter fetched are handed on.
+// `scanned` counts every message looked at, the ones the name filter left out too.
+async function searchText(client, folder, query, limit, newest, filter, scan) {
+  const { textScan, deadline, now } = scan;
+  const common = {
+    folder,
+    uidValidity: String(client.mailbox?.uidValidity ?? ""),
+    needle: query.attachmentText,
+    limit,
+    ...(deadline !== undefined && { deadline }),
+  };
+  if (!filter) return textScan(client, { ...common, uids: newest });
+  const named = await filterNewest(client, newest, filter, Infinity, { deadline, now });
+  const result = await textScan(client, { ...common, rows: named.rows });
+  const done = result.scanned >= named.rows.length;
+  const scanned = done
+    ? named.scanned
+    : result.scanned && named.positions[result.scanned - 1] + 1;
+  if (!done || result.messages.length >= limit || named.scanned >= newest.length)
+    return { ...result, scanned };
   return {
     ...result,
-    scanned: named.scanned,
-    ...(capped && { partial: true, reason: result.reason ?? "candidates" }),
+    scanned,
+    partial: true,
+    reason: result.reason ?? named.reason ?? "candidates",
   };
 }
 
@@ -103,9 +115,17 @@ async function searchText(client, folder, query, limit, newest, filter, textScan
  * also says how many candidates were `scanned` and whether a cap stopped it
  * (`partial`, with a `reason` for the attachment text), so the agent can narrow the
  * query. `attachmentText` needs `textScan` (mail-attachment-search.js, bound to the
- * account and its text cache).
+ * account and its text cache); its time limit `ms` counts from this call, so the
+ * server search and the name filter use it up too.
  */
-export async function searchMessages(client, folder, query, limit, { textScan } = {}) {
+export async function searchMessages(
+  client,
+  folder,
+  query,
+  limit,
+  { textScan, ms, now = Date.now } = {},
+) {
+  const deadline = ms === undefined ? undefined : now() + ms;
   await openFolder(client, folder);
   const criteria = serverCriteria(query);
   const failure = Object.values(criteria).some((v) => nonAscii.test(String(v)))
@@ -117,13 +137,16 @@ export async function searchMessages(client, folder, query, limit, { textScan } 
     failure,
   );
   const filter = attachmentFilter(query);
+  const newest = [...uids].reverse();
   if (query.attachmentText !== undefined) {
     if (!textScan) throw mailError("MAIL_SEARCH_UNSUPPORTED");
-    const newest = [...uids].reverse();
-    return searchText(client, folder, query, limit, newest, filter, textScan);
+    return searchText(client, folder, query, limit, newest, filter, {
+      textScan,
+      deadline,
+      now,
+    });
   }
   if (!filter) return { messages: await fetchSummaries(client, uids.slice(-limit)) };
-  const newest = [...uids].reverse();
   const { rows, scanned } = await filterNewest(client, newest, filter, limit);
   return {
     messages: rows.map(summary),

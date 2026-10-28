@@ -26,6 +26,8 @@ import {
 const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
 const greedyUrl = new URL("../fixtures/mail-extract-greedy.mjs", import.meta.url);
 const failed = { code: "MAIL_TEXT_FAILED" };
+// The document's own failure, which a cache may keep.
+const broken = { code: "MAIL_TEXT_FAILED", document: true };
 const wordNs = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 const docxXml = (body, head = "") =>
   zipOf({
@@ -84,6 +86,7 @@ test("an unsupported kind is refused before any work", async () => {
   for (const kind of [null, undefined, "png", "toString"])
     await assert.rejects(extractText(Buffer.from("x"), kind), {
       code: "MAIL_TEXT_UNSUPPORTED",
+      document: true,
     });
 });
 
@@ -108,7 +111,7 @@ test("malformed, encrypted and bomb documents fail cleanly", async () => {
     [await docxWith("x"), "pdf"],
     [Buffer.alloc(0), "xlsx"],
   ])
-    await assert.rejects(extractText(bytes, kind), failed);
+    await assert.rejects(extractText(bytes, kind), broken);
 });
 
 test("zips over the entry count or the uncompressed total are refused", async () => {
@@ -134,7 +137,12 @@ test("a hanging extractor is stopped at the time limit", async () => {
       scriptUrl: hangUrl,
       limits: { ...extractLimits, timeoutMs: 200 },
     }),
-    failed,
+    (error) => {
+      // A time limit can pass under less load: not the document's failure.
+      assert.equal(error.code, "MAIL_TEXT_FAILED");
+      assert.equal(error.document, undefined);
+      return true;
+    },
   );
   assert.ok(Date.now() - started < 5_000);
 });
@@ -145,7 +153,7 @@ test("an extractor over its heap limit dies alone", async () => {
       scriptUrl: greedyUrl,
       limits: { ...extractLimits, heapMb: 32 },
     }),
-    failed,
+    broken,
   );
   assert.match((await extractText(pdfWith("still here"), "pdf")).text, /still here/);
 });
@@ -154,7 +162,7 @@ test("a PDF that inflates past the memory (RSS) limit is stopped", async () => {
   const bomb = await pdfBomb(400);
   assert.ok(bomb.length < 1024 * 1024);
   const started = Date.now();
-  await assert.rejects(extractText(bomb, "pdf"), failed);
+  await assert.rejects(extractText(bomb, "pdf"), broken);
   assert.ok(Date.now() - started < 5_000);
   const roomy = { ...extractLimits, rssMb: 4_096 };
   assert.deepEqual(await extractText(bomb, "pdf", { limits: roomy }), {

@@ -209,6 +209,9 @@ export class MailAccountStore {
       this.passwords.settle(id);
       this.passwords.removeOthers(id, row.credentialRevision);
     }
+    // Another server or login may be another mailbox: its UIDs say nothing about the
+    // text cached for the old one.
+    if (mailboxIdentity(stored) !== mailboxIdentity(row)) this.textCache.clearAccount(id);
     this.record("mail.updated", id, principal, { fields: changed });
     return this.view(row);
   }
@@ -312,6 +315,9 @@ export class MailAccountStore {
     }
   }
 }
+
+const mailboxIdentity = ({ imap }) =>
+  JSON.stringify([imap?.host, imap?.port, imap?.security, imap?.username]);
 
 function connection({ address, imap, smtp, allowPlaintext }) {
   return { address, imap: { ...imap }, smtp: { ...smtp }, allowPlaintext };
