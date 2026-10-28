@@ -4,6 +4,7 @@ import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
 import { projectTarget } from "./project-paths.js";
 import { protectedDirs } from "./protected-dirs.js";
 import { routineOrigin } from "./routine-targets.js";
+import { ownerChat } from "./owner-shares.js";
 
 /**
  * agentpier_share_file: an agent hands the owner a file from its own workspace.
@@ -17,18 +18,19 @@ import { routineOrigin } from "./routine-targets.js";
  * sees a file from any other turn.
  *
  * A routine's run (no attempt; the bridge admits its run session as for SSH) shares
- * into the chat its routine commits to, and to the Telegram chat it delivers to.
+ * into the chat its routine commits to, and to the Telegram chat it delivers to; a
+ * hook's run into the agent's main chat.
  *
- * The completion run of a background command (no attempt; exec-continuation.js
- * proves it on every step) shares as the turn that started the command: into that
- * turn's chat, and to Telegram when that turn came from the owner's paired chat.
+ * The owner decided that an agent may always send him files (owner-shares.js): any
+ * other run of his chat without a turn (OpenClaw's follow-up after a background
+ * command, a check-in) shares into that chat, as the chat's latest turn, so the
+ * file also reaches Telegram when that turn came from the owner's paired chat.
  *
- * With `projectId` the file comes from a granted project folder (AGENTPIER-123)
- * instead of the workspace, in the turns that may use project folders (the owner's
- * own, a work-goal continuation, a task member's team turns, a lead's follow-up on
- * its member's result and the completion run of a command one of them started): read
- * access is enough, and the path is resolved like every folder read (project-paths.js:
- * never .git, never AgentPier's data).
+ * With `projectId` the file comes from a project folder (AGENTPIER-123) instead of
+ * the workspace: read access is enough, and the path is resolved like every folder
+ * read (project-paths.js: never .git, never AgentPier's data). For the owner's chat
+ * every folder the agent holds now counts, in every turn; a routine or hook run
+ * reads what its own rights reach, and a restricted user's turn what that turn may.
  */
 /**
  * What the tool result tells the agent about who sees the file now: the owner in his
@@ -65,7 +67,7 @@ export class AgentShares {
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
     const source = input.projectId
-      ? await this.projectSource(invocation, input.projectId, input.path)
+      ? await this.projectSource(invocation, agent, conversation, input)
       : await readShareSource(
           shareRoots(a.attachments.config?.workspaces, agent),
           input.path,
@@ -91,12 +93,19 @@ export class AgentShares {
     };
   }
   // A file in a granted project folder, resolved inside it, then read like any share.
-  async projectSource(invocation, projectId, requested) {
+  async projectSource(invocation, agent, conversation, { projectId, path: requested }) {
     const workflows = this.assistants.workflows;
-    if (!workflows?.folders || !(invocation.attemptId || invocation.continuation))
-      throw assistantProblem("projectFolderNotGranted", 403);
-    const ctx = workflows.context(invocation);
-    const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId);
+    if (!workflows?.folders) throw assistantProblem("projectFolderNotGranted", 403);
+    // For the owner's chat the agent's own folders count whatever the turn.
+    const owner = !invocation.hook && ownerChat(agent, conversation) ? agent : null;
+    let ctx = null;
+    if (invocation.attemptId || invocation.routine || invocation.hook)
+      try {
+        ctx = workflows.context(invocation);
+      } catch (error) {
+        if (!owner) throw error;
+      }
+    const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId, owner);
     const target = projectTarget(root, requested, { protectedRoots });
     if (!target.exists) throw assistantProblem("shareNotFound", 404);
     // The protected roots again by device and inode on every folder walked.
@@ -116,6 +125,25 @@ export class AgentShares {
   // The chat, request key and trusted origin of the calling turn.
   turn(invocation) {
     const a = this.assistants;
+    if (invocation.hook && !invocation.attemptId) {
+      const { conversation, event } = invocation.hook;
+      return {
+        conversation: a.store.getConversation(conversation.id),
+        requestId: `hook:${event.id}`,
+        origin: { kind: "hook" },
+      };
+    }
+    // A run of the owner's chat without a turn shares as the chat's latest turn.
+    if (invocation.owner && !invocation.attemptId) {
+      const conversation = a.store.getConversation(invocation.owner.conversationId);
+      const latest = a.ledger.latestRequest(conversation.id);
+      return {
+        conversation,
+        requestId: latest?.id ?? `run:${invocation.runId || invocation.toolCallId}`,
+        origin: (latest && a.teams?.store?.context(latest.id)) || { kind: "unknown" },
+        via: { via: "agent-run" },
+      };
+    }
     if (invocation.routine && !invocation.attemptId) {
       const { binding, conversation } = invocation.routine;
       // The run session names the run (agent:<id>:cron:<job>:run:<run id>).
@@ -126,19 +154,13 @@ export class AgentShares {
         origin: routineOrigin(binding),
       };
     }
-    // A command's completion run continues the turn that started the command.
-    const attemptId = invocation.attemptId || invocation.continuation?.attemptId;
-    if (!attemptId) throw assistantProblem("invalid", 403);
-    const attempt = a.ledger.getAttempt(attemptId);
+    if (!invocation.attemptId) throw assistantProblem("invalid", 403);
+    const attempt = a.ledger.getAttempt(invocation.attemptId);
     const request = a.ledger.getRequest(attempt.requestId);
     return {
       conversation: a.store.getConversation(request.conversationId),
       requestId: request.id,
       origin: a.teams?.store?.context(request.id) || { kind: "unknown" },
-      // Audited like the run's writes and folder actions (exec-continuation.js).
-      ...(!invocation.attemptId && {
-        via: { via: "exec-completion", sourceAttemptId: attempt.id },
-      }),
     };
   }
   // The lead's chat a member's turn works for, or null.
@@ -199,7 +221,7 @@ export class AgentShares {
     }
   }
   // `kind` "generated-image" marks an image the agent created (generated-images.js);
-  // `via` names the turn a command's completion run continues.
+  // `via` marks a share of a run without a turn (`agent-run`).
   audit(
     agent,
     origin,

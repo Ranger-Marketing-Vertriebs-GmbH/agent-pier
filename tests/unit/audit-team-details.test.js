@@ -88,6 +88,8 @@ test("writes name how they were authorized: a lead share, a member result or a c
         sourceAttemptId: "attempt-1",
       },
     );
+  // A file shared with the owner from a run without a turn says so.
+  assert.equal(event({ kind: "share", via: "agent-run" }).via, "agent-run");
   assert.equal(
     event({ kind: "native-write", via: "owner", filePath: "a\nb" }).via,
     undefined,

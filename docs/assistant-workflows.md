@@ -74,8 +74,8 @@ larger file is written in parts) and `file_edit` (an exact text that occurs once
 itself; OpenClaw's own `read`, `write` and `edit` tools stay confined to the
 agent's workspace (`tools.fs.workspaceOnly`), because widening them would also let
 outgoing media read any file on the host. With **Read**, `agentpier_share_file` and
-its `projectId` hand the owner a file from the folder in the chat (see
-[files from agents](agents.md#files-from-agents)).
+its `projectId` hand the owner a file from the folder in the chat, in every turn of
+his chat (see [files from agents](agents.md#files-from-agents)).
 
 `image_view` shows the agent one PNG, JPEG, GIF or WebP file of the folder, up to
 6 MiB, as an image the model sees: `file_read` refuses binary files
@@ -627,7 +627,8 @@ secret and throttle are described under
 changed afterwards. The run is a `current` job on the agent's main chat with full
 context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAllow`
 holds only what the hook's ticks switch on, capped by what the agent holds at that
-moment (`agent-hook-rights.js`); memory search and `session_status` are always there.
+moment (`agent-hook-rights.js`); memory search, `session_status` and
+`agentpier_share_file` (files for the owner's main chat) are always there.
 The agent's configuration is applied first, so its live tools and shell level hold.
 When the hook was paused or deleted after the endpoint checked it, the configuration
 cannot be applied, the job cannot be created or OpenClaw refuses the run, the endpoint

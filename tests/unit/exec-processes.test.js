@@ -1,63 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { gateway, prompt } from "../helpers/exec-gateway.js";
 import { openClawError } from "../helpers/exec-continuation-fixture.js";
 import {
   callRun,
   completedProcesses,
   execBounds,
-  execEvidence,
   execRecord,
-  registerExecProcesses,
 } from "../../server/features/assistants/team-plugin/exec-processes.js";
 
 // The Gateway's record of background commands (team-plugin/exec-processes.js): its
 // bounds keep memory small and fail closed for one session only.
-const prompt = (ids) =>
-  "An async command you ran earlier has completed. The command completion details " +
-  `are:\n\n${ids.map((id) => `Exec completed (${id}, code 0) :: ok`).join("\n")}` +
-  "\n\nTreat this completion as an internal continuation.";
 
-function gateway(t, { started = true, bounds = {} } = {}) {
-  delete globalThis[Symbol.for("agentpier.execProcesses")];
-  const saved = { ...execBounds };
-  Object.assign(execBounds, bounds);
-  t.after(() => {
-    Object.assign(execBounds, saved);
-    delete globalThis[Symbol.for("agentpier.execProcesses")];
-  });
-  const hooks = [];
-  registerExecProcesses({ on: (name, handler) => hooks.push({ name, handler }) });
-  const emit = (name, event, ctx) =>
-    hooks.filter((h) => h.name === name).forEach((h) => h.handler(event, ctx));
-  if (started) emit("gateway_start", {}, {});
-  let n = 0;
-  // As OpenClaw 2026.10.3 sends it: `error` for every error-like result.
-  const exec = (
-    sessionKey,
-    runId,
-    result,
-    error = openClawError(result),
-    params = {},
-  ) => {
-    const ctx = { sessionKey, runId, toolCallId: `c${++n}` };
-    emit("before_tool_call", { toolName: "exec", params }, ctx);
-    emit("after_tool_call", { toolName: "exec", result, ...(error && { error }) }, ctx);
-  };
-  const background = (sessionKey, runId, id, params) =>
-    exec(
-      sessionKey,
-      runId,
-      { details: { status: "running", sessionId: id, pid: 1 } },
-      undefined,
-      params,
-    );
-  const complete = (sessionKey, runId, ids) =>
-    emit("llm_input", { runId, prompt: prompt(ids) }, { sessionKey, runId });
-  const proof = (sessionKey, runId) => execEvidence(sessionKey, runId);
-  return { emit, exec, background, complete, proof };
-}
-
-test("an exec refused before it started counts as nothing; an unknown result taints only its session", (t) => {
+test("an exec refused before it started counts as nothing; an unknown result is its run's", (t) => {
   const g = gateway(t);
   const invalid = 'Validation failed for tool "exec":\n  - command: required';
   g.exec(
@@ -68,12 +23,22 @@ test("an exec refused before it started counts as nothing; an unknown result tai
   );
   g.background("s1", "r1", "brisk-orbit");
   g.complete("s1", "w1", ["brisk-or"]);
-  assert.equal(g.proof("s1", "w1").complete, true);
+  assert.deepEqual(g.proof("s1", "w1"), {
+    complete: true,
+    processes: [{ id: "brisk-orbit", runId: "r1" }],
+    completion: { runId: "w1", ids: ["brisk-or"], at: g.proof("s1", "w1").completion.at },
+  });
+  // An approval that may still start a command: an unknown process of its run, which
+  // could be any process a completion of that session reports.
   g.exec("s2", "r2", { details: { status: "approval-pending" } });
   g.background("s2", "r2", "calm-shore");
   g.complete("s2", "w2", ["calm-sho"]);
-  assert.equal(g.proof("s2", "w2").complete, false);
-  assert.equal(g.proof("s1", "w1").complete, true, "another session is unaffected");
+  assert.deepEqual(g.proof("s2", "w2").processes, [
+    { id: "calm-shore", runId: "r2" },
+    { id: "*", runId: "r2" },
+  ]);
+  assert.equal(g.proof("s2", "w2").complete, true);
+  assert.equal(g.proof("s1", "w1").processes.length, 1, "another session is unaffected");
 });
 
 test("a Code Mode cell is no command: its own result never taints the session", (t) => {
@@ -141,7 +106,7 @@ test("only completion runs are recorded, and only while they last", (t) => {
   assert.equal(g.proof("s", "w1").completion, null);
 });
 
-test("an exec call without a result, or one forgotten past the bound, taints its session", (t) => {
+test("an exec call without a result keeps its record open until it reports or its run ends", (t) => {
   const g = gateway(t, { bounds: { maxPending: 1 } });
   g.background("s", "r1", "brisk-orbit");
   g.complete("s", "w1", ["brisk-or"]);
@@ -156,12 +121,16 @@ test("an exec call without a result, or one forgotten past the bound, taints its
     { toolName: "exec" },
     { sessionKey: "o", runId: "r3", toolCallId: "p2" },
   );
-  assert.equal(g.proof("s", "w1").complete, false, "forgotten: uncertain");
+  // Forgotten past the bound: an unknown process of its run.
+  assert.equal(g.proof("s", "w1").complete, true);
+  assert.deepEqual(g.proof("s", "w1").processes.at(-1), { id: "*", runId: "r2" });
+  // Another exec call pushes the open one of r3 out as well.
   g.background("t", "r4", "calm-shore");
   g.complete("t", "w4", ["calm-sho"]);
+  assert.equal(execRecord().sessions.get("o").unknown.length, 1);
   g.emit("agent_end", {}, { runId: "r3" });
   assert.equal(g.proof("t", "w4").complete, true);
-  assert.equal(g.proof("o", "w4").complete, false);
+  assert.equal(execRecord().sessions.get("o")?.unknown.length ?? 0, 0, "its run ended");
 });
 
 test("a record that began after the Gateway started proves nothing", (t) => {
@@ -171,7 +140,7 @@ test("a record that began after the Gateway started proves nothing", (t) => {
   assert.equal(g.proof("s", "w1").complete, false);
 });
 
-test("an error after the command went to the background taints its session", (t) => {
+test("an error after the command went to the background leaves an unknown process", (t) => {
   // OpenClaw's abort wrapper can reject after the exec tool yielded: the process
   // runs on and notifies, but the call ends as an error without its session id.
   const g = gateway(t);
@@ -183,7 +152,10 @@ test("an error after the command went to the background taints its session", (t)
     "Aborted",
   );
   g.complete("s", "w1", ["brisk-or"]);
-  assert.equal(g.proof("s", "w1").complete, false);
+  assert.deepEqual(g.proof("s", "w1").processes, [
+    { id: "brisk-orbit", runId: "r1" },
+    { id: "*", runId: "r2" },
+  ]);
 });
 
 test("an exec call's id is open per session and run", (t) => {
@@ -342,7 +314,7 @@ test("OpenClaw's real host refusal counts as not started", (t) => {
     g.exec("s", "r1", { content: [{ type: "text", text }], details: {} }, text);
   g.background("s", "r1", "brisk-orbit");
   g.complete("s", "w1", ["brisk-or"]);
-  assert.equal(g.proof("s", "w1").complete, true);
+  assert.deepEqual(g.proof("s", "w1").processes, [{ id: "brisk-orbit", runId: "r1" }]);
 });
 
 test("a plugin tool call's run is found by session and call id", (t) => {

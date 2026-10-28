@@ -123,9 +123,10 @@ test("a send whose acknowledgement timed out stays confirmable", async (t) => {
     pendingApprovals: 0,
     team: null,
   });
-  // Without proof the turn has no AgentPier tools.
+  // Without proof the turn has no AgentPier tools; a file for the owner's chat needs
+  // no turn (owner-shares.js).
   assert.equal(f.tool("workspace"), false);
-  assert.equal(f.tool("share_file"), false);
+  assert.equal(f.tool("share_file"), true);
   await f.service.reconcile();
   assert.equal(f.service.ledger.getAttempt(attempt.id).state, "uncertain");
 });

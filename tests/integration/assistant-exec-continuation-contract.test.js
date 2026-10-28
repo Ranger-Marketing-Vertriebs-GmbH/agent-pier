@@ -23,8 +23,8 @@ import {
 // AGENTPIER-185 against the pinned Gateway: an owner turn starts a background exec
 // and ends; when the command exits, OpenClaw's completion run in the same session
 // writes with that turn's rights (exec-continuation.js). The same completion after a
-// newer forwarded request, or outside the window, stays refused; its workspace and
-// share calls are bound to the turn. This pins what the
+// newer forwarded request, or outside the window, stays refused; its workspace calls
+// are bound to the turn, and its shares reach the owner's chat. This pins what the
 // implementation assumes of OpenClaw: the completion's raw transcript entry
 // (`sessions.get`: provenance, the owner turn's idempotency key, the background
 // exec's `sessionId` and the completion's process list), how its run is marked
@@ -111,9 +111,11 @@ test(
       // "List" runs a foreground command; "foreign" starts another background one.
       // "Render" first makes an exec call that fails argument validation (OpenClaw
       // refuses it before anything starts) and a foreground one that exits 3;
-      // "NODEHOST" one whose host fails after the call began; "BLOCKONE" one that a
-      // before_tool_call hook blocks; all then background their command. "DETACH"
-      // backgrounds a shell that exits at once while its child keeps the output.
+      // "NODEHOST" one whose host fails after the call began; "NULBYTE" one whose
+      // command holds a NUL byte (the supervisor refuses it before spawning);
+      // "BLOCKONE" one that a before_tool_call hook blocks; all then background their
+      // command. "DETACH" backgrounds a shell that exits at once while its child keeps
+      // the output.
       const background = { command: "sleep 4; echo RENDERED", background: true };
       const plan = asked.includes("List")
         ? [{ command: "echo LISTED" }]
@@ -121,11 +123,13 @@ test(
           ? [{ command: "sleep 6; echo FOREIGN", background: true }]
           : asked.includes("NODEHOST")
             ? [{ command: "echo HOST", host: "node" }, background]
-            : asked.includes("BLOCKONE")
-              ? [{ command: "echo BLOCKED" }, background]
-              : asked.includes("DETACH")
-                ? [{ command: "(sleep 8; echo LATE) & echo STARTED", background: true }]
-                : [{}, { command: "echo FAILING; exit 3" }, background];
+            : asked.includes("NULBYTE")
+              ? [{ command: "echo A\u0000B" }, background]
+              : asked.includes("BLOCKONE")
+                ? [{ command: "echo BLOCKED" }, background]
+                : asked.includes("DETACH")
+                  ? [{ command: "(sleep 8; echo LATE) & echo STARTED", background: true }]
+                  : [{}, { command: "echo FAILING; exit 3" }, background];
       return steps < plan.length
         ? { tool: { name: "exec", arguments: plan[steps] } }
         : { text: "Started." };
@@ -471,8 +475,8 @@ test(
     assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
 
-    // 5b. Its agentpier_share_file call names its run the same way and hands the
-    // owner the file in the turn's chat (AGENTPIER-237).
+    // 5b. Its agentpier_share_file call hands the owner the file in his chat, with no
+    // proof of the turn (AGENTPIER-274).
     const shares = [];
     f.assistants.audit = { append: (event) => shares.push(event) };
     f.assistants.shares = new AgentShares({ assistants: f.assistants });
@@ -487,18 +491,11 @@ test(
     t.diagnostic(`share prepare=${JSON.stringify(shareCall())}`);
     assert.ok(shareCall(), "the completion run called agentpier_share_file");
     assert.notEqual(shareCall().runId, shareTurn.runId);
-    assert.equal(shareCall().exec.completion.runId, shareCall().runId);
+    assert.equal(shareCall().exec, undefined, "a share sends no exec record");
     assert.equal(shareCall().bound, true, "the completion's share call is bound");
     assert.deepEqual(
       shares.filter((e) => e.action === "assistant.sent").map((e) => e.details),
-      [
-        {
-          kind: "share",
-          channel: "tool",
-          via: "exec-completion",
-          sourceAttemptId: shareTurn.attempt.id,
-        },
-      ],
+      [{ kind: "share", channel: "tool", via: "agent-run" }],
     );
 
     // 6. A blocked exec call leaves nothing open: the next completion is credited.
@@ -534,13 +531,36 @@ test(
     assert.equal(afterDetach.allow, true);
 
     // 8. An exec error OpenClaw does not mark as before the start (a host check that
-    // runs inside the call) leaves the session uncertain: its completion is refused.
+    // runs inside the call) leaves an unknown process of its run only until that run
+    // ends: the completion after it is credited.
     await ownerTurn("Render on NODEHOST.");
     note = "after-node";
     from = decisions.length;
     const node = await completion(from);
     t.diagnostic(`node evidence=${JSON.stringify(node.exec)}`);
-    assert.equal(node.exec.complete, false);
-    assert.equal(node.allow, false);
+    assert.equal(node.exec.complete, true);
+    assert.ok(node.exec.processes.every((p) => p.id !== "*"));
+    assert.equal(node.allow, true);
+
+    // 9. A NUL byte in the command: the supervisor's refusal before it spawns, word
+    // for word as exec-processes.js knows it, starts nothing.
+    const nulTurn = await ownerTurn("Render NULBYTE.");
+    note = "after-nul";
+    from = decisions.length;
+    const nul = await completion(from);
+    const nulResults = (
+      await runtime.client.call("sessions.get", { key: session.key }, long)
+    ).messages.filter((m) => m.toolName === "exec" && text(m).includes("NUL"));
+    t.diagnostic(`nul result=${JSON.stringify(nulResults.at(-1))}`);
+    // The tool's thrown error: JSON text, its message in the details.
+    assert.deepEqual(nulResults.at(-1).details, {
+      status: "error",
+      tool: "exec",
+      error:
+        "Execution command and arguments must not contain NUL bytes. Remove them and retry.",
+    });
+    assert.equal(nul.exec.complete, true);
+    assert.ok(nul.exec.processes.every((p) => p.runId === nulTurn.runId));
+    assert.equal(nul.allow, true);
   },
 );

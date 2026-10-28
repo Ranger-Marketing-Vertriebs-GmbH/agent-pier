@@ -158,9 +158,12 @@ export function effectiveRights(rights, ceiling) {
 export const readsBeyondGuard = (effective) =>
   effective.shell !== "off" || effective.coding === true || effective.mcp === true;
 
-/** The run's toolsAllow: only what the ticks switch on. */
+/**
+ * The run's toolsAllow: what the ticks switch on, and agentpier_share_file, since an
+ * agent may always send its owner files (owner-shares.js).
+ */
 export function hookTools(effective, ceiling) {
-  const tools = [...baseTools];
+  const tools = [...baseTools, "agentpier_share_file"];
   if (effective.research) {
     if (ceiling.webSearch) tools.push(...capabilityTools.webSearch);
     if (ceiling.webFetch) tools.push(...capabilityTools.webFetch);

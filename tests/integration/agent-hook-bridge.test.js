@@ -72,10 +72,11 @@ async function setup(t, { memory = false, shell } = {}) {
 }
 const refused = { status: 403 };
 
-test("a running hook event may prepare workspace and ssh calls only", async (t) => {
+test("a running hook event may prepare workspace, ssh and share calls only", async (t) => {
   const f = await setup(t);
   const running = await f.run(makeHook(f), "p1");
-  for (const action of ["workspace", "ssh"]) {
+  // Files for the owner are always allowed (owner-shares.js).
+  for (const action of ["workspace", "ssh", "share_file"]) {
     const { ticket } = f.prepare(running.sessionKey, action);
     assert.match(ticket, /^[a-f0-9]{64}$/);
     const record = f.bridge.tickets.get(ticket);
@@ -83,12 +84,11 @@ test("a running hook event may prepare workspace and ssh calls only", async (t) 
     assert.equal(record.hook.event.id, running.id);
     assert.equal(record.routine, undefined);
   }
-  // Scheduling, shares, goals and every team tool (a lead's ask, delegate and
-  // members, a member's report) are refused.
+  // Scheduling, goals and every team tool (a lead's ask, delegate and members, a
+  // member's report) are refused.
   for (const action of [
     "routine",
     "reminder",
-    "share_file",
     "goal",
     "ask",
     "delegate",

@@ -1553,8 +1553,10 @@ was compacted and the plan was gone. Four rules close that gap:
   provenance `{ kind: "internal_system", sourceTool: "exec" }` and
   `senderIsOwner: false`. That run has no AgentPier attempt, so every `write` and
   `edit` used to be refused and the agent asked the owner to type "continue". `exec-continuation.js` lets such a run
-  write, use project-folder file actions and share files with the rights of the turn
-  that started the command, only when AgentPier proves all of this:
+  write and use project-folder file actions with the rights of the turn that
+  started the command, only when AgentPier proves all of this. Sending the owner a
+  file needs none of it (AGENTPIER-274, see
+  [Files agents share](#files-agents-share-2026-10-17)):
   - The session is a chat of the calling agent, which is not archived and no
     temporary task member.
   - The source turn is a completed turn that continues the owner's own work
@@ -1581,7 +1583,7 @@ was compacted and the plan was gone. Four rules close that gap:
     interrupted turn) ends the continuation, and the completion run is never a
     ledger turn's own run.
   - The call names its run: the write hook's `runId`, or for `agentpier_workspace`
-    and `agentpier_share_file` the run of its tool call (looked up by session and tool call id). A call without
+    the run of its tool call (looked up by session and tool call id). A call without
     a run continues nothing. The run is not that turn's own run, and
     `CompletionRuns` (cleared on every reconnect and at the run's `lifecycle` end)
     knows it as a completion run in this session in one of two ways:
@@ -1628,7 +1630,11 @@ was compacted and the plan was gone. Four rules close that gap:
     reported id must belong to that turn's run, and at least one must; a shorter id
     must equal a whole id. A completion that batches an earlier turn's process
     with this turn's (OpenClaw can deliver one again when an owner message arrives
-    during its run) is therefore refused.
+    during its run) is therefore refused. A command that a completion run starts
+    is recorded with the run whose processes that completion reports, when they
+    all belong to one run (`creditedRun`, AGENTPIER-274): a render's export and its
+    check, each started by the previous step's completion run, continue the turn
+    that started the render, within its two-hour window.
   - The record is complete. It must exist before `gateway_start`; one that appears
     later may have missed processes. A result with a known end status (`completed`,
     also with a non-zero exit code, `failed`, `denied` and other refusals) left
@@ -1636,10 +1642,19 @@ was compacted and the plan was gone. Four rules close that gap:
     OpenClaw keeps its own "not started" mark private, so any other errored `exec`
     call counts as having started nothing only when its whole message is one
     OpenClaw raises before a command can start: argument validation
-    (`Validation failed for tool "exec":`) or the exec host checks it marks not
-    started (`exec host not allowed …`, the sandbox requirements). Any other error
-    leaves the session uncertain, because OpenClaw can report an error after the
-    command already went to the background (an abort after the yield).
+    (`Validation failed for tool "exec":`), the exec host checks it marks not
+    started (`exec host not allowed …`, the sandbox requirements), or the process
+    supervisor's checks before it spawns (2026.10.7: a NUL byte in the command,
+    an empty argv, a PTY that needs process-tree cleanup). 2026.10.7 reports an
+    error thrown inside the tool as JSON text whose `details` carry
+    `{ status: "error", tool: "exec", error }`; the plugin reads that `error`. Any
+    other error leaves an unknown process of its run (reported as id `*`), because
+    OpenClaw can report an error after the command already went to the background
+    (an abort after the yield). It could be any reported process, so it refuses
+    other runs' completions in that session (`UNKNOWN_EXEC`), but only until its
+    run ends (`agent_end`), and for 30 minutes at most. Before AGENTPIER-274 such an
+    error marked the whole session uncertain until the Gateway restarted, which
+    refused every later completion of that chat.
     Each bound fails closed for one session only:
     - A process leaves the record only when its end is positively observed, never
       by its pid. OpenClaw's exec session and its completion last until the
@@ -1656,12 +1671,13 @@ was compacted and the plan was gone. Four rules close that gap:
       never polled keeps refusing other runs' completions with its prefix in that
       session.
     - A session is uncertain for the Gateway's life after more than 4,096 live
-      processes, after an `exec` result that is neither running nor a known end (an
-      approval may still start a command), or after a run that ended with an `exec`
-      call that never reported a result. It is also uncertain when more than 1,024
-      `exec` calls are open across the Gateway and its call is forgotten.
-    - A session with nothing left (no process, no candidate prefix, not
-      uncertain) is removed. Past 4,096 sessions those go first, then the least
+      processes. An `exec` result that is neither running nor a known end (an
+      approval may still start a command) leaves an unknown process of its run, as
+      does an `exec` call forgotten when more than 1,024 are open across the
+      Gateway. A call that never reports a result keeps the record incomplete until
+      its run ends.
+    - A session with nothing left (no process, no candidate prefix, no unknown
+      process, not uncertain) is removed. Past 4,096 sessions those go first, then the least
       recently used one without a recorded process, then the least recently used
       one; a forgotten one is remembered as described next.
     - Past 4,096 sessions the least recently used one is forgotten. Its key goes
@@ -1686,15 +1702,17 @@ was compacted and the plan was gone. Four rules close that gap:
   hook run, a reminder, a check-in). Only a 2026.10.7 event turn makes the proof read the transcript, once per
   run; the heartbeat path and owner writes never do. A refusal of a completion run
   (heartbeat-driven, or marked as an event turn) in that session is logged once per
-  session, run and reason with a code such as `PROCESS` or `NOT_COMPLETION`, never
-  a path or the command's output; an ordinary refused write elsewhere logs nothing. Each write keeps the
+  session, run and reason, with its time (ISO 8601) and a code such as `PROCESS`,
+  `UNKNOWN_EXEC` or `NOT_COMPLETION`; `UNTRACKED` names why the record is
+  incomplete (`late-start`, `pending`, `too-many` or `forgotten`). It never names a
+  path or the command's output; an ordinary refused write elsewhere logs nothing. Each write keeps the
   turn's limits (a shared agent's memory note, `USER.md` and instruction files) and
   is audited as `kind: "native-write"` with `via: "exec-completion"` and
   `sourceAttemptId`. `agentpier_workspace` follows the same rule for project-folder
   file actions only. Folder changes are audited the same way. `agentpier_share_file`
-  follows the same rule with the share's own file checks (workspace or granted
-  folder, 25 MiB, link-safe open); its `assistant.sent` event adds
-  `via: "exec-completion"` and `sourceAttemptId`. Coding requests,
+  is not part of this proof: the owner decided that an agent may always send him
+  files, so a completion run shares into the owner's chat like any other run of it
+  (see [Files agents share](#files-agents-share-2026-10-17)). Coding requests,
   project memory, SSH, team tools, grants and routines are refused, and the
   command's output never proves an owner request.
   On 2026.10.7 `chat.history` also returns the completion's user entry, which
@@ -1715,14 +1733,17 @@ was compacted and the plan was gone. Four rules close that gap:
   - a backgrounded shell that exits at once while its child keeps the output is
     still credited when the child ends, although its pid is gone;
   - an exec error OpenClaw does not mark as before the start (a node host check)
-    leaves the session uncertain, so its completion is refused;
+    leaves an unknown process only until its run ends, so the next completion is
+    credited;
+  - a NUL byte in the command is refused by the supervisor before it spawns, with
+    exactly the details the plugin reads, and the next completion is credited;
   - the same completion stays refused after a newer forwarded request or past the
     window;
   - a forwarded turn's background command that completes after an owner turn's
     foreground exec is refused;
   - a completion run's workspace call names its run and is bound;
-  - a completion run's `agentpier_share_file` call names its run, is bound and
-    shares the file (AGENTPIER-237).
+  - a completion run's `agentpier_share_file` call is bound to the owner's chat
+    without an exec record and shares the file (AGENTPIER-274).
 
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
@@ -4536,8 +4557,8 @@ the 20-per-hour limit, and only while the goal is still open (a turn running on 
 delegates as it would without a goal); a member named in the anchor does not make it read-only. Trusted
 SSH and SFTP hosts work as in an owner turn (origin `owner`). A background command a goal
 turn starts is continued by its completion run like an owner turn's (see **Command
-completions**): it writes, uses project-folder file actions and shares the result with
-`agentpier_share_file` (AGENTPIER-237).
+completions**): it writes and uses project-folder file actions, and like every run of
+the chat it shares the result with `agentpier_share_file`.
 
 **Exclusions.** Approval cards still wait for the owner. A goal turn cannot use the
 short-yes consent (**Go ahead**), switch **May write**, create or change reminders or
@@ -5063,26 +5084,41 @@ and WebM videos of up to 200 MB (`agent-video-types.js`, `agent-video-uploads.js
 
 ### Files agents share (2026-10-17)
 
-`agentpier_share_file {path, caption?}` is compiled into every non-archived agent's
-`tools.allow`, team members included, and into a routine's `toolsAllow`. The bridge
-serves it in a turn with an active attempt, in a bound routine's run session (as
-for SSH) and in a proven completion run of a background command (see **Command
-completions**: the plugin sends the call's run and the Gateway's exec record, and the
-share acts as the turn that started the command (the owner's own, a work-goal
-continuation or a lead's `member-result` follow-up), into its chat and, for a
-`telegram` turn whose chat is still paired, to that Telegram chat; AGENTPIER-237), never in a sender bot's session, and routes it to `AgentShares`
+`agentpier_share_file {path, caption?, projectId?}` is compiled into every
+non-archived agent's `tools.allow`, team members included, into a routine's
+`toolsAllow` and into every hook run's. The owner decided that an agent may always
+send him files (AGENTPIER-274, `owner-shares.js`), so the share depends on no turn
+origin and on no proof of a background command. The bridge serves it:
+
+- in a turn with an active attempt, into that turn's chat;
+- in a bound routine's run session (as for SSH), into the routine's chat;
+- in a running hook event's session, into the agent's main chat;
+- in any other run of the owner's own chat without a turn (OpenClaw's follow-up
+  after a background command, also one started by a previous follow-up, or after a
+  member's result; a check-in), into that chat. The share counts as the chat's
+  latest turn: its request names the file, and the file also goes to Telegram when
+  that turn came from the owner's paired chat, the same rule as the follow-up's
+  text reply (`telegram-follow-ups.js`). Its `assistant.sent` event adds
+  `via: "agent-run"`.
+
+The owner's own chat is one of an active agent that serves no restricted users
+(`isUserAgent`), without a `userId`. A user agent shares only in a turn or a
+routine's run, by that turn's rules; a sender bot's session, a settled hook's
+session and a memory step never share. The share goes to `AgentShares`
 (`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses. Its
 result tells the agent who sees the file now: the owner, or in a user's chat the
 person who asked, never the owner.
 
 - **Source.** `path` is relative to the agent's workspace or absolute inside it. The
   roots come from `shareRoots()` (`agent-share-source.js`): the agent's own
-  workspace, which must not itself be a link. With `projectId` the root is a granted
-  project folder instead (AGENTPIER-123): only in the turns that may use project
-  folders (`AssistantWorkflows.context`: the owner's own, a work-goal continuation,
-  a task member's team turns, a lead's `member-result` follow-up on its own grants, the completion run of
-  a command one of them started, never a routine), read access suffices
-  (`AgentProjectFiles.shareRoot`), the path is first resolved with `projectTarget`
+  workspace, which must not itself be a link. With `projectId` the root is a project
+  folder instead (AGENTPIER-123), and read access suffices
+  (`AgentProjectFiles.shareRoot`). For the owner's chat that is every folder the
+  agent holds now (its own and its lead's standing shares, or a task member's
+  grant), in every turn, plus what the turn itself reaches
+  (`AssistantWorkflows.context`, for example a lead task's own shares). A routine's
+  run reads its routine's folders, a hook run the hook's, and a restricted user's
+  turn only what that turn may use. The path is first resolved with `projectTarget`
   (never `.git`, links out of the folder or AgentPier's data directory; links that
   stay inside it are resolved, as for folder reads), and the read walks every folder
   again refusing the data directory by device and inode (`refuseDirs`), and the
@@ -5110,7 +5146,8 @@ person who asked, never the owner.
   `FileLink` and `saveBlob` fetch the file and hand it to the share sheet, or open a
   separate window without file sharing. The index row in
   `agent_attachments` names `share:<request id>` (`share:routine:<run id>` for a
-  routine; a completion run names the request of the turn it continues) as its request, so no delivery, claim, history note or upload quota of an
+  routine, `share:hook:<event id>` for a hook; a run without a turn names the chat's
+  latest request) as its request, so no delivery, claim, history note or upload quota of an
   owner turn ever picks it up. The owner deletes a copy with
   `DELETE /api/assistant-conversations/:id/shared-files/:file` from a chat that shows
   it; every message showing it is then marked gone. Copies and index are part of host
@@ -5134,7 +5171,8 @@ person who asked, never the owner.
   `TelegramClient.upload` admits only these two methods; every other method stays
   JSON-only. The caption is stored with the outbox entry, apart from the text the
   activity list shows. A file gone before delivery ends as `FILE_UNAVAILABLE`. A
-  routine's run sends to the chat its routine delivers to. Each share writes an
+  routine's run sends to the chat its routine delivers to; a run without a turn to
+  the paired chat when the chat's latest turn came from there. Each share writes an
   `assistant.sent` audit event with `kind: "share"`.
 
 ## Continuous integration
