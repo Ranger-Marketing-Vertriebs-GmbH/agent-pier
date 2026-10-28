@@ -122,6 +122,12 @@ test(
         "MAIL_SOURCE_REFUSED",
         spelled,
       );
+      // A missing file answers the same: whether it exists stays unknown.
+      assert.equal(
+        await code(f.read({ path: `${relative}.missing`, projectId: project.id })),
+        "MAIL_SOURCE_REFUSED",
+        spelled,
+      );
     }
   },
 );

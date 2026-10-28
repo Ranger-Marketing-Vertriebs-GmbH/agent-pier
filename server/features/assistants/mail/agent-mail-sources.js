@@ -55,8 +55,8 @@ const under = (root, target) => {
   const real = realpath(root);
   return within(root, target) || (!!real && within(real, target));
 };
-// The protected roots (AgentPier's data directory) by device and inode.
-const protectedDirs = (w) =>
+/** The protected roots (AgentPier's data directory) by device and inode. */
+export const protectedDirs = (w) =>
   w.folders.protectedRoots.flatMap((root) => {
     try {
       const stat = fs.statSync(root, { bigint: true });
@@ -65,7 +65,8 @@ const protectedDirs = (w) =>
       return [];
     }
   });
-const sameDir = (dirs, stat) =>
+/** Whether a folder's stat (bigint) is one of `dirs` (protectedDirs). */
+export const sameDir = (dirs, stat) =>
   dirs.some((d) => d.dev === stat.dev && d.ino === stat.ino);
 const gitPart = (relative) =>
   relative.split(path.sep).some((part) => fold(part) === fold(".git"));
@@ -118,27 +119,40 @@ function read(w, roots, requested, { maxBytes, dataDir = true }) {
   return readShareSource(roots, requested, { maxBytes, admit, refuseDirs });
 }
 
-// A project folder inside AgentPier's data directory, by any spelling, is refused:
-// every folder from the file system root down to its real path is checked.
-function assertOutside(w, root) {
+/**
+ * A project folder inside AgentPier's data directory, by any spelling, is refused
+ * (`refuse()`, by default MAIL_SOURCE_REFUSED): every folder from the file system
+ * root down to its real path is checked. A missing folder is `notFound`, as in
+ * projectTarget; one on the way that cannot be looked at is refused, so the answer
+ * never tells what exists there.
+ */
+export function assertOutside(w, root, refuse = refused) {
   const dirs = protectedDirs(w);
   const real = realpath(root);
-  if (!real) throw assistantProblem("mailSourceNotFound", 404);
+  if (!real) throw assistantProblem("notFound", 404);
   let current = path.parse(real).root;
   for (const part of ["", ...real.slice(current.length).split(path.sep)]) {
     if (part) current = path.join(current, part);
-    if (sameDir(dirs, fs.lstatSync(current, { bigint: true }))) throw refused();
+    let stat;
+    try {
+      stat = fs.lstatSync(current, { bigint: true });
+    } catch {
+      throw refuse();
+    }
+    if (sameDir(dirs, stat)) throw refuse();
   }
 }
 
 async function fromProject(w, files, projectId, requested, maxBytes) {
   const found = project(w, files.ctx, projectId);
-  // The folder's own refusals (`.git`, protected roots) before the read.
+  // A folder in the data directory is refused before anything below it is looked
+  // up, so whether a file exists there stays unknown.
+  assertOutside(w, found.cwd);
+  // The folder's own refusals (`.git`, protected roots) before the read. A missing
+  // file is left to the read, which refuses a data directory on the way first.
   const target = projectTarget(found.cwd, requested, {
     protectedRoots: w.folders.protectedRoots,
   });
-  if (!target.exists) throw assistantProblem("mailSourceNotFound", 404);
-  assertOutside(w, found.cwd);
   const file = await read(w, [found.cwd], requested, { maxBytes });
   return {
     file,
@@ -200,7 +214,9 @@ async function resolveSource(w, files, { path: requested, projectId }, maxBytes)
   throw refused();
 }
 
-const validPath = (value) =>
+/** A requested path: a non-blank string of at most 4096 characters without control,
+ * line separator or format characters. */
+export const validPath = (value) =>
   typeof value === "string" &&
   !!value.trim() &&
   value.length <= 4096 &&
