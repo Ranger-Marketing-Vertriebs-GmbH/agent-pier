@@ -164,3 +164,33 @@ test("removeAccount and removeOrphans delete account folders", (t) => {
   cache.removeOrphans([account]);
   cache.removeAccount(account);
 });
+
+test("eviction goes down to 90 % of the budget, not just under it", (t) => {
+  const root = tempRoot(t);
+  const cache = new MailTextCache({ root, budgetBytes: 2_000 });
+  const keys = [1, 2, 3, 4, 5, 6].map((uid) => cache.key(fields(uid)));
+  keys.slice(0, 5).forEach((key, i) => {
+    cache.set(account, key, sized(400));
+    age(fileOf(root, account, key), 60 - i);
+  });
+  // 2 000 bytes fit; the sixth entry makes 2 400 and leaves 1 600 (<= 1 800).
+  cache.set(account, keys[5], sized(400));
+  assert.deepEqual(
+    keys.map((key) => cache.get(account, key) !== null),
+    [false, false, true, true, true, true],
+  );
+});
+
+test("a removed account gets no new entries; a cleared one does", (t) => {
+  const root = tempRoot(t);
+  const cache = new MailTextCache({ root });
+  const key = cache.key(fields(1));
+  cache.set(account, key, sized(100));
+  cache.clearAccount(account);
+  assert.equal(cache.get(account, key), null);
+  assert.equal(cache.set(account, key, sized(100)), true);
+  cache.removeAccount(account);
+  // A search still running for the removed account writes nothing.
+  assert.equal(cache.set(account, key, sized(100)), false);
+  assert.equal(fs.existsSync(path.join(root, account)), false);
+});

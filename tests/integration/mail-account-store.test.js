@@ -325,6 +325,40 @@ test("removing an account removes its text cache", async (t) => {
   assert.deepEqual(fs.readdirSync(root), [b.id]);
 });
 
+test("another IMAP server or login clears the account's text cache", async (t) => {
+  const s = store(t);
+  await s.ready;
+  const a = s.create({ ...generic(993), password: "pw-secret" }, owner);
+  const key = s.textCache.key({
+    accountId: a.id,
+    folder: "INBOX",
+    uidValidity: "1",
+    uid: 1,
+    part: "2",
+  });
+  const entry = { text: "x", truncated: false };
+  const cached = () => s.textCache.get(a.id, key) !== null;
+  s.textCache.set(a.id, key, entry);
+  // Name, SMTP or password changes keep the same mailbox.
+  s.update(
+    a.id,
+    { name: "Renamed", smtp: { host: "127.0.0.2" }, password: "new" },
+    owner,
+  );
+  assert.equal(cached(), true);
+  for (const imap of [
+    { host: "127.0.0.2" },
+    { port: 1993 },
+    { username: "other" },
+    { security: "starttls" },
+  ]) {
+    s.textCache.set(a.id, key, entry);
+    // A changed server needs the password again.
+    s.update(a.id, { imap, password: "pw-again" }, owner);
+    assert.equal(cached(), false, JSON.stringify(imap));
+  }
+});
+
 test("test stores lastTest codes and audits mail.tested without host or address", async (t) => {
   const calls = [];
   const connect = {

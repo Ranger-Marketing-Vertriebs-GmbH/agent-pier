@@ -178,6 +178,24 @@ export async function messageParts(
 }
 
 /**
+ * The decoded bytes of the attachment `info` (partInfo) of message `uid` in the
+ * selected folder, without opening it or fetching its BODYSTRUCTURE again, as
+ * `{ bytes, fetched, uidValidity }`: `fetched` is the size of the encoded body, as
+ * BODYSTRUCTURE gives it before the download,
+ * `uidValidity` is the folder's after the FETCH. More than `maxBytes` decoded is
+ * MAIL_ATTACHMENT_TOO_LARGE, carrying that `uidValidity` too.
+ */
+export async function partBytes(client, uid, info, { maxBytes }) {
+  const raw = (await fetchRawParts(client, uid, [info.part])).get(info.part);
+  const uidValidity = String(client.mailbox?.uidValidity ?? "");
+  const body = rawBody(raw);
+  const bytes = decodeTransfer(body, info.encoding);
+  if (bytes.length > maxBytes)
+    throw Object.assign(mailError("MAIL_ATTACHMENT_TOO_LARGE"), { uidValidity });
+  return { bytes, fetched: body.length, uidValidity };
+}
+
+/**
  * The decoded bytes of attachment `part` of message `uid` in `folder` (opened
  * read-only) as `{ name, type, charset, bytes, uidValidity }`. More than `maxBytes`,
  * estimated or decoded, is MAIL_ATTACHMENT_TOO_LARGE; a part that is no attachment
@@ -185,7 +203,6 @@ export async function messageParts(
  */
 export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
   await openFolder(client, folder);
-  const uidValidity = String(client.mailbox?.uidValidity ?? "");
   const row = await client.fetchOne(
     String(uid),
     { uid: true, bodyStructure: true },
@@ -196,8 +213,6 @@ export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
   if (!node) throw mailError("MAIL_NOT_FOUND");
   const info = partInfo(node);
   if (decodedAtLeast(info) > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
-  const raw = (await fetchRawParts(client, uid, [part])).get(part);
-  const bytes = decodeTransfer(rawBody(raw), info.encoding);
-  if (bytes.length > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
+  const { bytes, uidValidity } = await partBytes(client, uid, info, { maxBytes });
   return { name: info.name, type: info.type, charset: info.charset, bytes, uidValidity };
 }

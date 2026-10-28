@@ -51,6 +51,11 @@ export function extractableKind({ type, name } = {}) {
 }
 
 const failed = () => mailError("MAIL_TEXT_FAILED");
+// A failure the document itself caused (damaged, encrypted, a bomb, no text kind):
+// the same next time, so a cache may keep it. Time limits, a failed start and a
+// full queue are not marked: they can pass under less load.
+const documentFailed = (code = "MAIL_TEXT_FAILED") =>
+  Object.assign(mailError(code), { document: true });
 
 // A UTF-8 decode that refuses invalid bytes, so they can fall back to latin1.
 function strictUtf8(bytes) {
@@ -153,14 +158,21 @@ function runChild(bytes, kind, limits, scriptUrl) {
     track(child);
     let reply = null;
     let settled = false;
+    // Set when the process ends for a reason other than the document.
+    let timedOut = false;
     const kill = () => child.kill("SIGKILL");
-    const timer = setTimeout(kill, limits.timeoutMs);
-    const settle = (result) => {
+    const timer = setTimeout(() => {
+      timedOut = true;
+      kill();
+    }, limits.timeoutMs);
+    // Any end but the time limit or a failed start is the document's doing: a parse
+    // error, the heap or memory limit, or an answer that is no text.
+    const settle = (result, started = true) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (result) resolve(result);
-      else reject(failed());
+      else reject(timedOut || !started ? failed() : documentFailed());
     };
     child.on("message", (message) => {
       if (!reply && typeof message?.text === "string")
@@ -170,17 +182,23 @@ function runChild(bytes, kind, limits, scriptUrl) {
     child.once("exit", (code, signal) => settle(code === 0 && !signal ? reply : null));
     child.once("error", () => {
       kill();
-      if (child.pid === undefined) settle(null);
+      if (child.pid === undefined) settle(null, false);
     });
-    child.send({ bytes, kind, limits: { ...limits } }, (error) => error && kill());
+    child.send({ bytes, kind, limits: { ...limits } }, (error) => {
+      if (!error) return;
+      // The document never reached the process: not its failure.
+      timedOut = true;
+      kill();
+    });
   });
 }
 
 /**
  * The text of one attachment as `{ text, truncated }`, at most `limits.textChars`
  * characters. Throws MAIL_TEXT_UNSUPPORTED for a kind without text and
- * MAIL_TEXT_FAILED for damaged, encrypted, oversized or too complex documents, or
- * with `busy: true` when the queue is full.
+ * MAIL_TEXT_FAILED for damaged, encrypted, oversized or too complex documents (both
+ * with `document: true`), and MAIL_TEXT_FAILED without it when the time limit ran
+ * out or the process did not start, or with `busy: true` when the queue is full.
  */
 export async function extractText(
   bytes,
@@ -193,8 +211,8 @@ export async function extractText(
     const clipped = clipText(text, limits.textChars);
     return end < bytes.length ? { ...clipped, truncated: true } : clipped;
   }
-  if (!childKinds.has(kind)) throw mailError("MAIL_TEXT_UNSUPPORTED");
-  if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw failed();
+  if (!childKinds.has(kind)) throw documentFailed("MAIL_TEXT_UNSUPPORTED");
+  if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw documentFailed();
   await acquire();
   try {
     const result = await runChild(bytes, kind, limits, scriptUrl);

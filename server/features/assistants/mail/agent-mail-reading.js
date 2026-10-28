@@ -1,7 +1,7 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { listMessages, newMessages, readMessage } from "../../mail/mail-messages.js";
 import { searchMessages } from "../../mail/mail-search.js";
-import { scanAttachmentText } from "../../mail/mail-attachment-search.js";
+import { foldText, scanAttachmentText } from "../../mail/mail-attachment-search.js";
 
 // The reading actions of agentpier_mail: list (a page, or new mail since the agent's
 // last check), read and search. Each runs on one IMAP connection of the granted
@@ -53,6 +53,9 @@ export function readingInput(input) {
   if (Object.values(query).some((v) => typeof v === "string" && controls.test(v)))
     throw invalid();
   if (query.since !== undefined && !validDay(query.since)) throw invalid();
+  // Only whitespace would match every attachment with text.
+  if (query.attachmentText !== undefined && !foldText(query.attachmentText))
+    throw invalid();
   return { action: "search", folder, limit, query };
 }
 
@@ -80,6 +83,7 @@ export async function runReading({ accounts, cursors, limits }, gate, input) {
     if (request.action === "search")
       return searchMessages(client, request.folder, request.query, request.limit, {
         textScan,
+        ...(limits && { ms: limits.search.ms }),
       });
     if (request.action === "list") return listMessages(client, request);
     const { messages, remaining, next } = await newMessages(
