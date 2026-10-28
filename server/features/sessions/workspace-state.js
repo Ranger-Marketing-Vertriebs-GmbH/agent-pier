@@ -3,7 +3,9 @@
 // and the inbox count are read each time. The detected CLIs (with their versions),
 // the PATH utilities and the sessions left on a legacy tmux server change rarely and
 // cost a PATH scan or a tmux call, so they come from a cache that lasts `slowMs` or
-// until invalidateSlow().
+// until invalidateSlow(). Every read carries `readStartedAt`, a stamp that rises with
+// each read started (also across a restart, as it follows the clock), so the browser
+// can keep the newer of a pushed value and a REST answer.
 import path from "node:path";
 import { detectUtilities as detectPathUtilities } from "../accounts/account-store.js";
 import { toolBinDirectories } from "../tools/tool-paths.js";
@@ -28,6 +30,7 @@ export function createWorkspaceState(
 ) {
   const projects = new SessionProjects();
   let slow = null;
+  let stamp = 0;
   // The inbox count rides on the state; a failed read never fails the state.
   const inboxSummary = async () => {
     try {
@@ -72,6 +75,8 @@ export function createWorkspaceState(
   };
   return {
     async read({ fresh = false } = {}) {
+      stamp = Math.max(now(), stamp + 1);
+      const readStartedAt = stamp;
       if (fresh) slow = null;
       const { config, sessions, activity, preferences } = services;
       const [{ tools, utilities, legacy }, listed] = await Promise.all([
@@ -100,6 +105,7 @@ export function createWorkspaceState(
         home: config.home,
         ...preferences.get(),
         remoteUrl: config.remoteUrl || null,
+        readStartedAt,
       };
     },
     invalidateSlow() {
@@ -107,6 +113,13 @@ export function createWorkspaceState(
     },
   };
 }
+
+/** The state without its read stamp: what a change is measured on. */
+export const withoutReadStamp = (value) => {
+  if (!value || typeof value !== "object") return value;
+  const { readStartedAt: _stamp, ...rest } = value;
+  return rest;
+};
 
 /** The services' one workspace state, made on first use. */
 export const workspaceStateOf = (services) =>

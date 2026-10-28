@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceState } from "../../server/features/sessions/workspace-state.js";
+import {
+  createWorkspaceState,
+  withoutReadStamp,
+} from "../../server/features/sessions/workspace-state.js";
 
 // The services GET /api/state reads, with counted detectors.
 function fixture({ slowMs = 60000 } = {}) {
@@ -67,7 +70,21 @@ test("the state has the shape of GET /api/state", async () => {
     home: "/home/owner",
     defaultCwd: "/home/owner",
     remoteUrl: null,
+    readStartedAt: 1000,
   });
+});
+
+test("each read is stamped higher than the one started before it", async () => {
+  const { state, advance } = fixture();
+  const first = state.read();
+  const second = state.read();
+  const stamps = [(await first).readStartedAt, (await second).readStartedAt];
+  assert.deepEqual(stamps, [1000, 1001]);
+  advance(5000);
+  assert.equal((await state.read()).readStartedAt, 6000);
+  const { readStartedAt, ...rest } = await state.read();
+  assert.ok(readStartedAt > 6000);
+  assert.deepEqual(withoutReadStamp({ ...rest, readStartedAt }), rest);
 });
 
 test("two reads within slowMs detect tools and utilities once", async () => {
