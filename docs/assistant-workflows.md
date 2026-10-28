@@ -419,9 +419,9 @@ send, wait, read, answer or escalate, repeat, stop.
 
 An agent can keep working on a job until it is done ([Work until done](agents.md#work-until-done);
 design in [Gateway](assistant-gateway.md#work-goals-2026-10-24-agentpier-208)). Workflow
-actions keep their approvals: while an approval card (shell, SSH or SFTP, coding, MCP) waits,
+actions keep their approvals: while an approval card (shell, SSH or SFTP, email, coding, MCP) waits,
 the goal's nudge waits too, and the agent's follow-up after a late approval (for example an
-`ssh-result`) is not a new owner message. A continuation's SSH origin is `owner`, so
+`ssh-result` or `mail-result`) is not a new owner message. A continuation's SSH origin is `owner`, so
 Trusted SSH and SFTP hosts work as in the owner's own turn; routines and reminders stay
 excluded. When a background command started in a continuation (or in the lead's follow-up
 on its member's result) finishes, the follow-up on its result can still save files and
@@ -455,6 +455,17 @@ search/fetch, browser and image reading, shell and MCP servers, as far as the ag
 has them switched on. Shell approvals work as in chat: an approval requested by a
 routine run appears in the agent's chat and, when the routine also sends to Telegram,
 in its Telegram chat.
+
+A routine also uses the agent's granted email accounts through `agentpier_mail`
+([Email for agents](mail.md)): it lists new mail since its last check, reads, searches,
+marks, moves, drafts and moves mail to Trash without asking. A `send` goes out at once
+only when every recipient matches the account's recipient rules; otherwise it raises a
+`mail_send` approval card in the agent's chat (and the paired Telegram chat) like any
+other approval, and the call answers `awaiting_approval`. The outcome reaches the
+agent later as a `mail-result` turn, which gets no mail actions of its own. A refused
+mail call is noted in the routine's result ("Email refused: no access or a limit was
+reached"). A typical routine: a cron trigger of every 15 minutes with the prompt
+"Check new mail and tell me what matters."
 
 A routine is standing work its owner configured, so the write guard admits a
 routine run as its own origin (`TeamBridge.routineWrite`): only the run session of

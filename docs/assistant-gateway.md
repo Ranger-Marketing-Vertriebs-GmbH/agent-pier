@@ -2593,6 +2593,76 @@ and the result returns as an `sftp-result` follow-up turn that keeps the origina
 class. Rows hold counts only; completions are audited as `sftp.completed` and
 `sftp.failed`. See [SFTP access](sftp-access.md).
 
+## Agent email access (2026-10-27, AGENTPIER-264)
+
+`agentpier_mail` (actions `accounts`, `list`, `read`, `search`, `mark`, `move`,
+`draft`, `send`, `delete`) is compiled for own agents and permanent members
+(`goalAgent` in `profileTools`) whether or not they hold a grant: without one it
+answers `MAIL_NOT_GRANTED`, so a grant needs no recompile. It is in `routineTools`,
+in a hook run's tools only with the hook's **Email** tick (`agent-hook-rights.js`),
+in `lockedTools` for user agents and in `senderLockedTools` for an agent with its own
+Telegram bot for other people. The bridge hands the call to `AgentMail`
+(`server/features/assistants/mail/agent-mail.js`); its call budget is 125 seconds (a
+110-second approval hold plus the connection). Owner guide: [Email for agents](mail.md).
+
+Every action passes one gate: no maintenance, an eligible agent that is no user agent
+and has no Telegram bot for other people, an origin class from `mailOrigin`
+(`agent-mail-origin.js`) and a live grant for an account that still exists. Classes:
+`owner` (a direct owner turn in the web or the paired Telegram chat, also a goal
+continuation, never one that carries a member's result), `routine` (a bound routine's
+run session), `hook` (a hook run with its live **Email** tick) and `refused`
+(forwarded content, lead requests, team-member turns, goal turns with a member result,
+coding-session wakes, users' turns, reminders, check-ins, command completions and
+anything unknown, with `MAIL_ORIGIN_REFUSED`). A refusal in a routine notes
+`mail_refused` on the run, so its result says so. `mailPermits` lets every class that
+is not refused run every action except `send`; `send` needs the `send` level and runs
+at once only when every to, cc and bcc recipient matches the grant's rules
+(`recipientAllowed`: an address or the exact domain, never a subdomain), otherwise it
+reserves a `mail_send` action row.
+
+Reading and changing run on one IMAP connection per call (`server/features/mail/`):
+folders open read-only and parts are fetched with `BODY.PEEK`, results carry
+`untrusted: true` and a notice naming the mailbox, and the new-mail cursor
+(`agent_mail_cursors`: UIDVALIDITY and last UID per agent and account) advances only
+after the server answered. Moves and Trash moves need MOVE (RFC 6851,
+`MAIL_MOVE_UNSUPPORTED` otherwise); nothing sets `\Deleted` or expunges.
+
+A `mail_send` row holds the composed fields, the sender, the draft's UID and
+Message-ID, the origin class and SHA-256 digests of the body, of everything the mail
+is composed from and of the agent's input (so a retried tool call finds its row).
+At most 5 cards wait per agent (`MAIL_APPROVAL_LIMIT`) for 24 hours; rule sends are
+`trusted` rows, capped at 30 per agent per hour (`MAIL_SEND_LIMIT`), of which the
+newest 200 are kept. Approving (`decide`, from the web card, the Inbox or a Telegram
+button bound to the card's chat) checks the grant, the account's address and both
+digests again (`stale`) and cancels a changed card; Telegram may approve only a card
+it showed in full (`mailTelegramApprovable`: a body of at most 3,000 code points, at
+most 20 recipients, no hidden characters). The row's state change makes a second
+decision a conflict, so a mail goes out at most once. The SMTP envelope holds exactly
+the card's recipients and the sent message carries no Bcc header; the copy in Sent
+(with `saveSent`) keeps Bcc, and the draft moves to Trash.
+
+Send outcomes: `completed` (the agent sees `sent`), `declined` and `expired` (the
+draft is kept), `cancelled` (`ACCOUNT_REMOVED` or `ACCESS_CHANGED`), `failed` (only an
+error before the server could accept the mail: sign-in, TLS, unreachable, plaintext
+refused) and `unknown` (any later SMTP error, including a timeout, a reset after DATA
+or every recipient rejected). A row still `executing` when the workflow tick finds no
+running send (after a restart) becomes `unknown` with a follow-up and is never sent
+again. An outcome the call no longer waited for reaches the agent as one
+`mail-result` turn (`clientRequestId` `mail-result:<action id>`), attributed data
+whose origin is the card's class when that was `owner`; after a routine's or a hook's
+card the turn has no mail actions. Each settled card writes `chatNotes.result` once,
+read as a `mail-run` chat event (state, code, account name, recipient count, subject;
+never the body or an address); the Telegram result names state, From, To, Cc, Bcc and
+Subject, never the body. The Inbox titles the card `<account> · <subject>`.
+
+Audit: `mail.created`, `mail.updated` (field names), `mail.deleted`, `mail.tested`
+(result codes) for accounts; `assistant.updated` with `kind: "mail-grants"` (account
+ids, rule count, `reason` `owner` or `account-removed`) for grants; `mail.sent`
+(`authorizedBy` `rule` or `approval`, recipient count, failure code) and
+`mail.deleted` with `kind: "message"` (count) for an agent's sends and Trash moves.
+Never an address, host, username, subject, body, rule or password
+(`audit-mail-details.js`).
+
 ## Lead promotions of team members (2026-10-17)
 
 `agentpier_team_promote` (lead-only, `member-promotion.js`) keeps one of the lead's
@@ -3342,7 +3412,7 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
 - **Compiled tools.** `agentEntry` applies `lockedEntry`
   (`server/features/users/user-agent-lock.js`) last, on a Gateway start and on every
   live apply. The entry's `tools.allow` loses `exec`, `process`, `agentpier_ssh`,
-  every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
+  `agentpier_mail`, every team tool and every OpenClaw session tool, its `tools.deny` names all of them,
   and it has no `tools.exec` override. `AgentGithub` compiles no GitHub MCP server
   for it and describes no GitHub access, even when its stored access names one. This
   holds for a forged shell level or GitHub access in the database as well. Its browser
@@ -3360,7 +3430,7 @@ Every agent with `userAccess` runs under a hard lock, whatever its stored settin
   Team and SSH bridge calls of a user agent answer 403.
 - **Settings APIs.** Every write that would switch one of them on answers 409
   `USER_AGENT_LOCKED`: a shell level or the visible browser window, SSH accesses,
-  pipelines, GitHub access, coding grants, project memory rights, a team policy or
+  email accounts, pipelines, GitHub access, coding grants, project memory rights, a team policy or
   proposal, and a Telegram bot for other people. The Gateway compile never builds a
   Telegram account or binding for a user agent either, even from a stored bot, and its
   bot status stays inactive.
