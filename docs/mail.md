@@ -48,7 +48,7 @@ password:
 
 1. Turn on 2-Step Verification for your Google account.
 2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords),
-   create an app password for AgentPier and copy its 16 characters.
+   create an app password for AgentPier and copy its 16 letters.
 3. In **Add email account**, choose **Gmail** as the provider and paste the app
    password into **App password**. Spaces in the pasted password are removed.
 
