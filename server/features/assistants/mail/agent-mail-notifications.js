@@ -29,7 +29,7 @@ const dateFormats = Object.fromEntries(
   ]),
 );
 function mailDate(date, m) {
-  if (!Number.isFinite(Date.parse(date))) return String(date);
+  if (!Number.isFinite(Date.parse(date))) return visibleLine(date);
   const format = m === serverCatalogs.en?.mail ? dateFormats.en : dateFormats.de;
   return `${format.format(new Date(date))} UTC`;
 }

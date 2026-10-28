@@ -175,7 +175,7 @@ export const contentDigest = (p) =>
 /**
  * The single-line texts of a card's attachments and forwarded original the owner
  * reads: each attachment's name, type, source path and project, the original's
- * sender and subject. Any control character in them counts as hidden, line feed and
+ * sender, subject and date. Any control character in them counts as hidden, line feed and
  * tab included. Web mailLineTexts (mail-card-text.js) lists the same fields; a unit
  * test pins both.
  */
@@ -189,6 +189,7 @@ export const attachmentTexts = (p) => [
   p.forward?.from?.name,
   p.forward?.from?.address,
   p.forward?.subject,
+  p.forward?.date,
 ];
 
 /**

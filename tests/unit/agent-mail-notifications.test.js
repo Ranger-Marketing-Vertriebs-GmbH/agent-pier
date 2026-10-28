@@ -237,6 +237,7 @@ test("a line break in a name, path, type or forward field drops the buttons", ()
     { forward: { ...forward, subject: "Pay\nnow" } },
     { forward: { ...forward, from: { name: "Tele\nkom", address: "a@b.de" } } },
     { forward: { ...forward, from: { name: "", address: "a@b.de\nx" } } },
+    { forward: { ...forward, date: "Mon\nAttachment: fake.pdf" } },
   ]) {
     const { text, actions } = approval(payload);
     assert.deepEqual(actions, [], JSON.stringify(payload));

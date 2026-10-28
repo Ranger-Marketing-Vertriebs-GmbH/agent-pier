@@ -32,6 +32,7 @@ export const mailLineTexts = (p) => [
   p.forward?.from?.name,
   p.forward?.from?.address,
   p.forward?.subject,
+  p.forward?.date,
 ];
 
 /**
