@@ -120,11 +120,6 @@ async function setup(page, { serversUnavailable = false } = {}) {
       ].includes(path)
     )
       return route.fallback();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants" && request.method() === "GET")
       return route.fulfill({
         json: {

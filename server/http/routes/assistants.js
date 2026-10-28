@@ -293,45 +293,6 @@ function activeAssistantRoutes(services) {
       res.status(202).json(assistantRuntime.status());
     }),
   );
-  router.get("/assistant-events", (req, res) => {
-    res.status(200).set({
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-store",
-      "X-Accel-Buffering": "no",
-    });
-    res.flushHeaders();
-    // A slow reader is cut off; the browser reconnects with its last list cursor.
-    const send = (event, id) => {
-      if (res.writableEnded) return;
-      if (res.writableLength > 1024 * 1024) return res.end();
-      const line = id === undefined ? "" : `id: ${id}\n`;
-      res.write(`${line}data: ${JSON.stringify(event)}\n\n`);
-      res.flush?.();
-    };
-    // `list: true`: the list comes as `sync` frames (assistant-list-feed.js) whose
-    // id is the cursor a reconnect resumes from (Last-Event-ID, or `cursor`).
-    send({ type: "connected", list: true });
-    const unsubscribe = assistants.events.subscribe((event) => send(event));
-    const cursor = req.get("Last-Event-ID") || req.query.cursor;
-    const unlist = assistants.listFeed.subscribe(
-      { cursor: typeof cursor === "string" ? cursor : undefined },
-      (frame) =>
-        send(frame, frame.type === "sync" ? frame.data.sync.cursor || "" : undefined),
-    );
-    const heartbeat = setInterval(() => {
-      res.write(": heartbeat\n\n");
-      res.flush?.();
-    }, 15000);
-    heartbeat.unref();
-    const close = () => res.end();
-    assistants.events.once("close", close);
-    req.on("close", () => {
-      unsubscribe();
-      unlist();
-      clearInterval(heartbeat);
-      assistants.events.off("close", close);
-    });
-  });
   router.use((error, _req, res, next) => {
     if (error.code === "REVIEW_REQUIRED")
       return reply(res, error.status, error.code, error.message);

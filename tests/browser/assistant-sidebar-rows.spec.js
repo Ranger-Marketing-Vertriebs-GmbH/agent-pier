@@ -22,11 +22,6 @@ async function fixture(page, activity, withMembers = true, assistants = [lead, s
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/assistant-feature")
       return route.fulfill({ json: { enabled: true, error: null } });
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants")

@@ -42,6 +42,8 @@ export class LiveInstance {
     this.subscribers = new Set();
     this.value = undefined;
     this.settled = false;
+    // Whether the last read failed.
+    this.failed = false;
     this.dirty = false;
     this.sampleDue = false;
     this.running = false;
@@ -63,6 +65,9 @@ export class LiveInstance {
     this.subscribers.add(subscriber);
     if (this.subscribers.size === 1) this.start();
     if (this.mode === "signal" || this.settled) this.answer(subscriber);
+    // The last read failed and none succeeded (agents off, say): read again, so this
+    // subscriber hears the answer too instead of waiting for the next change.
+    else if (this.failed) this.invalidate();
   }
   /** Removes a subscriber; the last one stops the change sources and the sampler. */
   remove(subscriber) {
@@ -190,13 +195,19 @@ export class LiveInstance {
     try {
       value = await this.definition.read(reader.principal, this.param);
     } catch (error) {
+      this.failed = true;
       this.report(error);
       if (this.closed) return;
+      // Once per subscriber: it reads the REST route, and a later read answers it.
       for (const subscriber of [...this.subscribers])
-        if (subscriber.waiting) subscriber.send({ type: "error", topic: this.topicId });
+        if (subscriber.waiting && !subscriber.failed) {
+          subscriber.failed = true;
+          subscriber.send({ type: "error", topic: this.topicId });
+        }
       return;
     }
     if (this.closed) return;
+    this.failed = false;
     const digest = digestOf(
       this.definition.digest ? this.definition.digest(value) : value,
     );

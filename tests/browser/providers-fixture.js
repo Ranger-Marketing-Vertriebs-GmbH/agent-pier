@@ -238,11 +238,6 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({ json: { accounts: [] } });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "disabled", sync: "stale" } });
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/state") return route.fulfill({ json: state });
     if (path === "/api/accounts/usage")
       return route.fulfill({ json: controls.usage ?? emptyUsage });

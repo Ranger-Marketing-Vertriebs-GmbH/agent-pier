@@ -104,12 +104,7 @@ test("English project grants and exact action approvals link existing coding run
       cancellations++;
       action = { ...action, state: "unknown", revision: 7 };
       body = action;
-    } else if (url.pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
-    else return route.fallback();
+    } else return route.fallback();
     await route.fulfill({ json: body });
   });
   // Projects and pipelines are added in the Access tab's inline add fields.
@@ -270,12 +265,7 @@ test("pending coding approvals of the agent are decided in the chat", async ({
         a.id === id ? { ...a, state: "declined", revision: 2 } : a,
       );
       body = actions.find((a) => a.id === id);
-    } else if (p === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
-    else return route.fallback();
+    } else return route.fallback();
     await route.fulfill({ json: body });
   });
   await page.goto(baseURL + "/agents/home/chats/chat");
@@ -354,11 +344,6 @@ test("saving Access drops a granted project that no longer exists and says so", 
     } else if (p.endsWith("/access")) body = policy;
     else if (p.endsWith("/actions")) body = { actions: [] };
     else if (p.endsWith("/shell-allowlist")) body = { entries: [] };
-    else if (p === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else return route.fallback();
     await route.fulfill({ json: body });
   });

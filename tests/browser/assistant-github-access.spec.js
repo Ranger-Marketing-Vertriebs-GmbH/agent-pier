@@ -88,11 +88,6 @@ test("English Access tab grants GitHub with the default profile, warns on missin
       };
     } else if (url.pathname.endsWith("/access")) body = policy;
     else if (url.pathname.endsWith("/actions")) body = { actions: [] };
-    else if (url.pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else return route.fallback();
     await route.fulfill({ json: body });
   });

@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { saveBar, settingsPath } from "../helpers/agent-settings-page.js";
 import { setup } from "./assistant-teams-fixture.js";
+import { agentEvent } from "../helpers/agent-feed-fake.js";
 test("nested members open directly, retain drafts and show independent settings", async ({
   page,
 }) => {
@@ -96,9 +97,7 @@ async function refreshFromEvent(page) {
   const refreshed = page.waitForResponse(
     (r) => new URL(r.url()).pathname === "/api/assistants",
   );
-  await page.evaluate(() =>
-    window.assistantTestStream.onmessage({ data: JSON.stringify({ type: "change" }) }),
-  );
+  await agentEvent(page, { type: "change" });
   await refreshed;
 }
 test("policy drafts cannot borrow a newer revision to restore revoked authority", async ({

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 import { WebSocket } from "ws";
+import { openLive } from "../helpers/live-socket.js";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
@@ -49,27 +51,20 @@ const ownerStream = (f, id) =>
     socket.on("error", () => {});
   });
 
-// Reads the owner's agent event stream for `ms` and returns its text.
+// Follows the owner's agent list on the live channel for `ms` after its first frame
+// and returns every frame's text.
 async function capture(f, ms) {
-  const controller = new AbortController();
-  const response = await fetch(`${f.url}/api/assistant-events`, {
-    headers: { cookie: f.cookie, origin: f.url, accept: "text/event-stream" },
-    signal: controller.signal,
-  });
-  const reader = response.body.getReader();
-  let text = "";
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      text += Buffer.from(value).toString();
-    }
-  } catch {
-    // Aborted after `ms`.
-  }
-  clearTimeout(timer);
-  return text;
+  const live = openLive(f);
+  await live.next((frame) => frame.type === "hello");
+  live.send({ op: "sub", topic: "agent.list" });
+  await live.next((frame) => frame.topic === "agent.list", 5000);
+  return {
+    text: async () => {
+      await delay(ms);
+      live.ws.close();
+      return live.frames.map((frame) => JSON.stringify(frame)).join("\n");
+    },
+  };
 }
 
 test("owner cannot read private chats without opt-in", async (t) => {
@@ -90,9 +85,9 @@ test("owner cannot read private chats without opt-in", async (t) => {
     await upgradeStatus(f, `/api/assistant-conversations/${id}/stream`, f.cookie),
     404,
   );
-  const events = capture(f, 1000);
+  const listed = await capture(f, 1000);
   f.application.assistants.changed({ conversationId: id });
-  assert.doesNotMatch(await events, new RegExp(id));
+  assert.doesNotMatch(await listed.text(), new RegExp(id));
 });
 
 test("owner cannot read an own user agent's memory, attachments or browser without opt-in", async (t) => {

@@ -49,11 +49,6 @@ test("owner confirms a global browser policy and sees pending activation and rev
           models: [],
         },
       });
-    if (pathname === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     return route.fulfill({ json: {} });
   });
   await page.goto(settingsPath("capabilities"));

@@ -90,7 +90,7 @@ test("every allow-list entry matches a real route", async (t) => {
     );
 });
 
-test("SSE streams are denied to users", async (t) => {
+test("the removed agent event stream is not found for users either", async (t) => {
   const { as, notFound } = await usersFixture(t);
   for (const endpoint of ["/api/assistant-events"]) {
     const response = await as(endpoint, "GET", { accept: "text/event-stream" });

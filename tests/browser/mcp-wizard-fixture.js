@@ -216,11 +216,6 @@ export async function withAgents(page, state, agents) {
     if (await fulfillEnabledAssistantFeature(route)) return;
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants" && request.method() === "GET")

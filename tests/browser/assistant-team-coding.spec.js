@@ -69,11 +69,6 @@ test("a member's coding request waits in the chat and its team card keeps the ap
       ].includes(p)
     )
       return route.fallback();
-    if (p === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     let body = {};
     if (p === "/api/assistants")
       body = {

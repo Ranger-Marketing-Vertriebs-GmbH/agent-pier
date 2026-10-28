@@ -71,11 +71,6 @@ async function setup(page, { language = "en" } = {}) {
       ].includes(path)
     )
       return route.fallback();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants")
       return route.fulfill({
         json: {

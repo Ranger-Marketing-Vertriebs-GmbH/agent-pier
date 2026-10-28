@@ -212,6 +212,8 @@ test.describe("pushed sign-in", () => {
       "state",
       await page.evaluate(() => fetch("/api/state").then((r) => r.json())),
     );
+    await liveStub.waitForSubscribe("agent.list");
+    await liveStub.pushRest("agent.list");
     const panel = await openAccountItem(page, "ChatGPT for agents");
     const requests = recordApiRequests(page);
     await panel.getByRole("button", { name: "Connect ChatGPT" }).click();

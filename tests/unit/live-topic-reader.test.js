@@ -369,3 +369,17 @@ test("changes during a read read once more after it, never cutting it short", as
   assert.deepEqual(s.last().data, { n: 2 });
   assert.equal(s.reads.length, 2);
 });
+
+test("a topic with sections reads each section's route into its value", async (t) => {
+  const s = setup("agent.list");
+  t.after(s.reader.stop);
+  s.client.emit({ type: "stale" });
+  await settle();
+  assert.deepEqual(s.reads, ["/assistants", "/assistant-runtime"]);
+  assert.deepEqual(s.last().data, {
+    path: "/assistants",
+    runtime: { path: "/assistant-runtime" },
+  });
+  assert.deepEqual(await s.reader.refresh(), s.last().data);
+  assert.equal(s.reads.length, 4);
+});

@@ -131,6 +131,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.plugins:nobody",
     "job.ssh-tools:nobody",
     "job.chatgpt-login:current",
+    "agent.list",
     "session.reload:nobody",
     "files.jobs:session:nobody",
   ]) {
@@ -169,6 +170,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "settings.summary",
     "connections.problems",
     "runtime.updates",
+    "agent.list",
     "job.operation:0000aaaa-0000-4000-8000-000000000000",
     "job.tool:codex",
     "job.rea:current",

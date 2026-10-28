@@ -1,6 +1,5 @@
-// Values as ChatSync rows, shared by the agent list feed and the live hub's `rows`
-// topics; the browser rebuilds them with `applyListSync`
-// (web/features/assistants/agent-list-sync.js).
+// Values as ChatSync rows for the live hub's `rows` topics (`state`, `agent.list`);
+// the browser rebuilds them with `applyListSync` (web/lib/live/list-sync.js).
 import { createHash } from "node:crypto";
 
 /** A ChatSync cursor as the browser may send it back. */

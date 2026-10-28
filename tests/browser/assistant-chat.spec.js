@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { agentEvent } from "../helpers/agent-feed-fake.js";
 
 const filler = Array.from({ length: 24 }, (_, n) => ({
   id: `filler-${n}`,
@@ -14,15 +15,6 @@ async function setup(page, { messages = filler, member = null, requests = [] } =
   await fixture(page);
   await page.addInitScript(() => {
     localStorage.setItem("agentpier-language", "en");
-    const Native = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new Native(url);
-        window.assistantTestStream = this;
-        setTimeout(() => this.onopen?.(), 0);
-      }
-      close() {}
-    };
   });
   const assistant = {
     id: "home",
@@ -65,8 +57,6 @@ async function setup(page, { messages = filler, member = null, requests = [] } =
             }
           : {},
       };
-    else if (p === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: "" });
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) {
@@ -91,10 +81,7 @@ async function setup(page, { messages = filler, member = null, requests = [] } =
 const transcript = (page) => page.locator(".assistant-transcript");
 const gap = (page) =>
   transcript(page).evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight);
-const emit = (page, event) =>
-  page.evaluate((event) => {
-    window.assistantTestStream.onmessage({ data: JSON.stringify(event) });
-  }, event);
+const emit = agentEvent;
 
 for (const [name, size, touch] of [
   ["desktop", { width: 1440, height: 1000 }, false],

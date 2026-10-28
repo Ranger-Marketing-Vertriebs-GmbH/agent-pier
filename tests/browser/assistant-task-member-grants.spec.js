@@ -177,11 +177,6 @@ for (const [language, label, viewport] of cases) {
           };
         else if (url.pathname === "/api/assistant-runtime")
           body = { availability: "ready", sync: "current" };
-        else if (url.pathname === "/api/assistant-events")
-          return route.fulfill({
-            contentType: "text/event-stream",
-            body: 'data: {"type":"connected"}\n\n',
-          });
         else return route.fallback();
         await route.fulfill({ json: body });
       });

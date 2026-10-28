@@ -64,11 +64,6 @@ async function setup(page) {
       };
     else if (path === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
-    else if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     else if (path === "/api/assistant-channels")
       body = { channels: [connectedChannel()] };
     else if (path.endsWith("/routines")) body = { routines: [routine] };

@@ -1,3 +1,4 @@
+import { agentEvent } from "./agent-feed-fake.js";
 import { fulfillEnabledAssistantFeature } from "./assistant-browser-fixture.js";
 import { fixture } from "../browser/providers-fixture.js";
 
@@ -30,14 +31,6 @@ export async function setupAssistantSettings(page, options = {}) {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
-    const Native = window.EventSource;
-    window.__streams = [];
-    window.EventSource = class extends Native {
-      constructor(url) {
-        super(url);
-        window.__streams.push(this);
-      }
-    };
   }, options.language || "en");
   const state = {
     assistants: options.assistants || [home(options.assistant)],
@@ -77,11 +70,6 @@ export async function setupAssistantSettings(page, options = {}) {
     if (await fulfillEnabledAssistantFeature(route)) return;
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants/home" && method === "PATCH") {
       const body = route.request().postDataJSON();
       state.updates.push(body);
@@ -266,9 +254,5 @@ export async function setupAssistantSettings(page, options = {}) {
   });
   return state;
 }
-export const emitChange = (page) =>
-  page.evaluate(() =>
-    window.__streams.forEach((stream) =>
-      stream.onmessage?.({ data: JSON.stringify({ type: "change" }) }),
-    ),
-  );
+// A change event on the server: the agent list is read again and pushed.
+export const emitChange = (page) => agentEvent(page, { type: "change" });

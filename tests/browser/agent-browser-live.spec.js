@@ -55,11 +55,6 @@ async function setup(
   await page.route(/\/api\/assistant/, async (route) => {
     if (await fulfillEnabledAssistantFeature(route)) return;
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants")
       return route.fulfill({
         json: {

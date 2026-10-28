@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
+import { agentEvent } from "../helpers/agent-feed-fake.js";
 
 // An owner turn longer than OpenClaw's 8000-character history page default.
 const lastLine = "ich glaub ich muss die eh alle migrieren";
@@ -22,15 +23,6 @@ async function setup(page, language = "en") {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
-    const Native = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new Native(url);
-        window.assistantTestStream = this;
-        setTimeout(() => this.onopen?.(), 0);
-      }
-      close() {}
-    };
   }, language);
   const assistant = {
     id: "home",
@@ -64,8 +56,6 @@ async function setup(page, language = "en") {
         members: [],
         activity: {},
       };
-    else if (p === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: "" });
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages"))
@@ -78,10 +68,7 @@ async function setup(page, language = "en") {
   return state;
 }
 
-const changed = (page) =>
-  page.evaluate(() =>
-    window.assistantTestStream.onmessage({ data: JSON.stringify({ type: "change" }) }),
-  );
+const changed = (page) => agentEvent(page, { type: "change" });
 const owner = (page) => page.locator(".assistant-message.user");
 
 test("a long owner turn shows once while it runs and whole afterwards", async ({

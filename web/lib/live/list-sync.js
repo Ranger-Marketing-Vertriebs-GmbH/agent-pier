@@ -1,5 +1,5 @@
-// Lists sent as ChatSync rows (server/features/live/live-rows.js): the agent list of
-// /api/assistant-events and the live channel's `rows` topics. Rows are keyed by
+// Lists sent as ChatSync rows (server/features/live/live-rows.js): the live
+// channel's `rows` topics, such as `state` and `agent.list`. Rows are keyed by
 // section and id and applied with the session chat's applyChatSync. Unchanged
 // sections keep their identity, so views that depend on one (the teams, say) do not
 // reload.

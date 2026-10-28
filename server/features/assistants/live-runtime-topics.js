@@ -10,7 +10,7 @@ export const RUNTIME_UPDATES_SAMPLE_MS = 60000;
 // running). The topic refuses with the same status, marked `expected`: the hub does
 // not log it (live-wiring.js), so a sample per minute writes no log line, and the
 // client reads the route once to show its answer.
-const notRunning = (enabled) =>
+export const notRunning = (enabled) =>
   Object.assign(new Error("The agent services are not running."), {
     status: enabled ? 503 : 404,
     expected: true,

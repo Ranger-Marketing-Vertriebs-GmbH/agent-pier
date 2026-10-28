@@ -38,11 +38,6 @@ async function setup(page, { language = "en", pdf = {} } = {}) {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants/home" && method === "PATCH") {
       const body = request.postDataJSON();
       state.patches.push(body);

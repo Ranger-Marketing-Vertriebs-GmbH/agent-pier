@@ -163,6 +163,7 @@ test("a native account refused by the server reports in the bar", async ({ page 
 
 test("the ChatGPT list reloads when the agent runtime becomes ready", async ({
   page,
+  liveStub,
 }) => {
   await setup(page);
   let availability = "disabled";
@@ -172,13 +173,6 @@ test("the ChatGPT list reloads when the agent runtime becomes ready", async ({
   );
   await page.route("**/api/assistant-runtime", (route) =>
     route.fulfill({ json: { availability, sync: "stale" } }),
-  );
-  // The stream ends at once and reconnects quickly; every reconnect reads the runtime.
-  await page.route("**/api/assistant-events", (route) =>
-    route.fulfill({
-      contentType: "text/event-stream",
-      body: 'retry: 200\ndata: {"type":"connected"}\n\n',
-    }),
   );
   await page.route("**/api/assistant-model-accounts", (route) => {
     loads += 1;
@@ -198,6 +192,8 @@ test("the ChatGPT list reloads when the agent runtime becomes ready", async ({
   await expect(accountRow(page, "Team ChatGPT")).toContainText("Service offline");
   const before = loads;
   availability = "ready";
+  // The runtime becomes ready: the server pushes the agent list with it.
+  await liveStub.reread("agent.list");
   await expect(accountRow(page, "Team ChatGPT")).toContainText("Connected");
   expect(loads).toBeGreaterThan(before);
 });

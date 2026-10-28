@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { liveTopics, topicInfo } from "../../web/lib/live/live-topics.js";
+import { liveTopics, readTopicValue, topicInfo } from "../../web/lib/live/live-topics.js";
 import { liveEnvironment } from "../../web/lib/live/live-environment.js";
 
 test("topicInfo resolves registered topics and their REST path", () => {
@@ -15,6 +15,7 @@ test("topicInfo resolves registered topics and their REST path", () => {
       path: undefined,
       interval: 1500,
       sampled: true,
+      sections: null,
     },
   );
   assert.equal(topicInfo("x"), null);
@@ -186,4 +187,36 @@ test("the file-job topic names both scopes' routes; deliveries need a session", 
     ["signal", null, 2500, "s1"],
   );
   assert.equal(topicInfo("session.deliveries"), null);
+});
+
+test("the agent list names its route and reads the runtime from its own", async () => {
+  const info = topicInfo("agent.list");
+  assert.equal(info.mode, "rows");
+  assert.equal(info.path(), "/assistants");
+  assert.equal(info.sections.runtime(), "/assistant-runtime");
+  assert.equal(info.interval, 5000);
+  assert.equal(info.sampled, false);
+  assert.equal(topicInfo("agent.list:x"), null);
+  assert.equal(topicInfo("inbox").sections, null);
+  const reads = [];
+  const read = async (path) => {
+    reads.push(path);
+    return path === "/assistants" ? { assistants: [] } : { availability: "ready" };
+  };
+  assert.deepEqual(await readTopicValue(info.path(), info.sections, read), {
+    assistants: [],
+    runtime: { availability: "ready" },
+  });
+  assert.deepEqual(reads, ["/assistants", "/assistant-runtime"]);
+  assert.deepEqual(await readTopicValue("/inbox", null, async () => ({ n: 1 })), {
+    n: 1,
+  });
+  // One failed route fails the whole read.
+  await assert.rejects(
+    readTopicValue(info.path(), info.sections, async (path) => {
+      if (path === "/assistant-runtime") throw new Error("down");
+      return {};
+    }),
+    /down/,
+  );
 });

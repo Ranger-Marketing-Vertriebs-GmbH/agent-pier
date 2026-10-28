@@ -2,6 +2,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { agentEvent } from "../helpers/agent-feed-fake.js";
 
 const running = {
   messages: [{ id: "u1", role: "user", text: "Plan dinner", timestamp: 1 }],
@@ -60,18 +61,18 @@ test("a change followed at once by another chat's delta still refreshes", async 
   const state = await chatFixture(page, { history: running, conversations: twoChats });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await expect(page.getByText("Plan dinner")).toBeVisible();
-  await page.waitForFunction(() => window.assistantTestStream?.onmessage);
+  await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
   state.history = done;
-  // Two server-sent events from one chunk: two tasks queued back to back.
-  await page.evaluate(() => {
-    const send = (event) =>
-      setTimeout(
-        () => window.assistantTestStream.onmessage({ data: JSON.stringify(event) }),
-        0,
-      );
-    send({ type: "change" });
-    send({ type: "delta", conversationId: "other", runId: "x", text: "member typing" });
-  });
+  // Two server events back to back.
+  await Promise.all([
+    agentEvent(page, { type: "change" }),
+    agentEvent(page, {
+      type: "delta",
+      conversationId: "other",
+      runId: "x",
+      text: "member typing",
+    }),
+  ]);
   await expect(reply(page)).toHaveCount(1, { timeout: 4000 });
 });
 
@@ -79,27 +80,14 @@ test("a lone change event refreshes the history", async ({ page }) => {
   const state = await chatFixture(page, { history: running });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await expect(page.getByText("Plan dinner")).toBeVisible();
-  await page.waitForFunction(() => window.assistantTestStream?.onmessage);
+  await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
   state.history = done;
-  await page.evaluate(() =>
-    setTimeout(
-      () => window.assistantTestStream.onmessage({ data: '{"type":"change"}' }),
-      0,
-    ),
-  );
+  await agentEvent(page, { type: "change" });
   await expect(reply(page)).toHaveCount(1, { timeout: 4000 });
 });
 
-test("list events on the real event stream never read the chat history", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    window.nativeEventSource = window.EventSource;
-  });
+test("agent list pushes never read the chat history", async ({ page, liveStub }) => {
   const state = await chatFixture(page, { history: running, conversations: twoChats });
-  await page.addInitScript(() => {
-    window.EventSource = window.nativeEventSource;
-  });
   let reads = 0;
   page.on("request", (request) => {
     if (
@@ -108,22 +96,15 @@ test("list events on the real event stream never read the chat history", async (
     )
       reads++;
   });
-  let release;
-  const gate = new Promise((resolve) => (release = resolve));
-  await page.route("**/api/assistant-events", async (route) => {
-    await gate;
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
-      body: "retry: 600000\n\n" + 'data: {"type":"change"}\n\n',
-    });
-  });
   await page.goto(baseURL + "/agents/home/chats/dinner");
   await expect(page.getByText("Plan dinner")).toBeVisible();
   await page.waitForTimeout(300);
   const before = reads;
   state.history = done;
-  release();
+  // The list changes and is pushed; the chat follows only its own feed.
+  state.assistants[0].name = "Kitchen assistant";
+  await liveStub.reread("agent.list");
+  await expect(page.getByText("Kitchen assistant").first()).toBeVisible();
   await page.waitForTimeout(800);
   expect(reads).toBe(before);
   await expect(reply(page)).toHaveCount(0);

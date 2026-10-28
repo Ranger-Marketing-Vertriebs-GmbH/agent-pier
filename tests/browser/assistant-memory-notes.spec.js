@@ -59,14 +59,6 @@ async function setup(page, language) {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
-    const Native = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new Native(url);
-        setTimeout(() => this.onopen?.(), 0);
-      }
-      close() {}
-    };
   }, language);
   const assistant = {
     id: "home",
@@ -97,8 +89,6 @@ async function setup(page, language) {
         members: [],
         activity: {},
       };
-    else if (p === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: "" });
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
     else if (p.endsWith("/messages")) body = { messages, requests: [], stale: false };

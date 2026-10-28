@@ -28,8 +28,6 @@ async function activityFixture(page, list = {}) {
       ].includes(p)
     )
       return route.fallback();
-    if (p === "/api/assistant-events")
-      return route.fulfill({ contentType: "text/event-stream", body: "" });
     let body = {};
     if (p === "/api/assistants")
       body = {

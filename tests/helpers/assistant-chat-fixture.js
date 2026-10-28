@@ -1,3 +1,4 @@
+import { agentEvent } from "./agent-feed-fake.js";
 import { fulfillEnabledAssistantFeature } from "./assistant-browser-fixture.js";
 import { fixture } from "../browser/providers-fixture.js";
 
@@ -43,15 +44,6 @@ export async function chatFixture(page, options = {}) {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
-    const Native = window.EventSource;
-    window.EventSource = class {
-      constructor(url) {
-        if (url !== "/api/assistant-events") return new Native(url);
-        window.assistantTestStream = this;
-        setTimeout(() => this.onopen?.(), 0);
-      }
-      close() {}
-    };
   }, state.language);
   await page.route(/\/api\/assistant/, async (route) => {
     if (await fulfillEnabledAssistantFeature(route)) return;
@@ -113,10 +105,5 @@ export async function chatFixture(page, options = {}) {
   return state;
 }
 
-// Waits until the page has opened and wired its event stream.
-export const emit = async (page, event) => {
-  await page.waitForFunction(() => window.assistantTestStream?.onmessage);
-  await page.evaluate((event) => {
-    window.assistantTestStream.onmessage({ data: JSON.stringify(event) });
-  }, event);
-};
+// A server-side agent event (agent-feed-fake.js agentEvent).
+export const emit = agentEvent;

@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./providers-fixture.js";
 import { openMenu } from "../helpers/navigation.js";
+import { isLiveStubRequest } from "../helpers/live-stub.js";
 
 const assistant = (id, extra = {}) => ({
   id,
@@ -26,21 +27,12 @@ async function featureFixture(
 ) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  await page.addInitScript(() => {
-    const Native = window.EventSource;
-    window.__streams = [];
-    window.EventSource = class extends Native {
-      constructor(url) {
-        super(url);
-        window.__streams.push(this);
-      }
-    };
-  });
   const feature = { enabled, error };
   const requests = [];
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
-    if (/^\/api\/assistant/.test(path)) requests.push(`${request.method()} ${path}`);
+    if (/^\/api\/assistant/.test(path) && !isLiveStubRequest(request))
+      requests.push(`${request.method()} ${path}`);
   });
   await page.route(/\/api\/assistant/, async (route) => {
     const request = route.request();
@@ -59,11 +51,6 @@ async function featureFixture(
     }
     if (!feature.enabled)
       return route.fulfill({ status: 404, json: { code: "ASSISTANTS_DISABLED" } });
-    if (path === "/api/assistant-events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body: 'data: {"type":"connected"}\n\n',
-      });
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
@@ -254,8 +241,9 @@ test("toggling agents keeps local application state", async ({ page }) => {
   await expect(agentsNav(page)).toBeVisible();
 });
 
-test("switching agents off removes navigation and closes the event stream", async ({
+test("switching agents off removes navigation and ends the agent list subscription", async ({
   page,
+  liveStub,
 }) => {
   await featureFixture(page, { enabled: true, assistants: [assistant("home")] });
   // The switch moved from Settings › General to Agenten › Laufzeit; a link row stays.
@@ -264,15 +252,13 @@ test("switching agents off removes navigation and closes the event stream", asyn
   await page.getByRole("link", { name: /^Agents.*On/ }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime$/);
   await expect(page.getByRole("button", { name: "Agent chats" })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__streams.length)).toBe(1);
+  await expect.poll(() => liveStub.subscriptions()).toContain("agent.list");
   await page.getByRole("switch", { name: "Enable agents" }).click();
   await saveSettings(page);
   await openMenu(page);
   await expect(agentsOff(page)).toHaveText("off");
   await expect(page.getByRole("button", { name: "Agent chats" })).toHaveCount(0);
-  expect(
-    await page.evaluate(() => window.__streams.map((stream) => stream.readyState)),
-  ).toEqual([2]);
+  await expect.poll(() => liveStub.subscriptions()).not.toContain("agent.list");
 });
 
 test("a rejected switch change reports the problem and stays off", async ({ page }) => {

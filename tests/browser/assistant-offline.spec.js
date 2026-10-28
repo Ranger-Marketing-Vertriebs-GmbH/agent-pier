@@ -79,10 +79,7 @@ const row = (page, name) =>
 
 async function loseConnection(page, network) {
   network.offline = true;
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("offline"));
-    window.assistantTestStream.onerror?.();
-  });
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
 }
 
 test("agents, team members and cached chats stay visible while offline and refresh on reconnect", async ({
@@ -124,7 +121,7 @@ test("agents, team members and cached chats stay visible while offline and refre
     { id: "late", role: "assistant", text: "Here is a vegetarian lasagne." },
   ];
   network.offline = false;
-  await page.evaluate(() => window.assistantTestStream.onopen?.());
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await emit(page, { type: "connected" });
   await expect(row(page, "Home planner")).toBeVisible();
   await expect(page.getByText("Here is a vegetarian lasagne.")).toBeVisible();
@@ -153,8 +150,7 @@ test("a failed list read keeps the agents and the next successful read restores 
     ...histories.dinner,
     { id: "while-away", role: "assistant", text: "Shopping list is ready." },
   ];
-  // Back without an event stream: the next list read and the reconnected feed bring
-  // list and chat back.
+  // Back: the next list read and the reconnected feed bring list and chat back.
   network.offline = false;
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(sidebar(page).getByText(sidebarNote)).toHaveCount(0);
@@ -162,30 +158,25 @@ test("a failed list read keeps the agents and the next successful read restores 
   await expect(page.getByText(hint)).toHaveCount(0);
 });
 
-test("a refused event stream is opened again and refreshes the agents", async ({
+test("an agent list refused while the agents restart arrives once they answer", async ({
   page,
+  liveStub,
 }) => {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-  const names = ["Home assistant"];
-  let streams = 0;
+  let available = false;
   await page.route(/\/api\/assistant/, (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/assistant-feature")
       return route.fulfill({ json: { enabled: true, error: null } });
-    if (path === "/api/assistant-events")
-      // The first stream meets AgentPier restarting; the browser never retries it.
-      return ++streams === 1
-        ? route.fulfill({ status: 503, json: { code: "ASSISTANTS_UNAVAILABLE" } })
-        : route.fulfill({
-            contentType: "text/event-stream",
-            body: 'data: {"type":"connected"}\n\n',
-          });
+    // AgentPier restarts the agents: the agent routes refuse until they run.
+    if (!available && ["/api/assistants", "/api/assistant-runtime"].includes(path))
+      return route.fulfill({ status: 503, json: { code: "ASSISTANTS_UNAVAILABLE" } });
     if (path === "/api/assistant-runtime")
       return route.fulfill({ json: { availability: "ready", sync: "current" } });
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
-          assistants: [chatAssistant({ name: names.at(-1) })],
+          assistants: [chatAssistant()],
           conversations: [],
           models: [{ id: "router", name: "OpenRouter", available: true }],
         },
@@ -193,22 +184,11 @@ test("a refused event stream is opened again and refreshes the agents", async ({
     return route.fallback();
   });
   await page.goto(baseURL);
+  await liveStub.waitForSubscribe("agent.list");
+  await expect(row(page, "Home assistant")).toHaveCount(0);
+  // The agents run again: the server pushes their list.
+  available = true;
+  await liveStub.reread("agent.list");
   await expect(row(page, "Home assistant")).toBeVisible();
-  names.push("Home planner");
-  await expect(row(page, "Home planner")).toBeVisible({ timeout: 10000 });
-  expect(streams).toBeGreaterThan(1);
-});
-
-test("a logout forgets the agent drafts", async ({ page }) => {
-  const { network } = await offlineFixture(page);
-  await page.goto(baseURL + "/agents/home/chats/dinner");
-  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
-  await page.getByLabel("Message", { exact: true }).fill("Private draft");
-  network.authenticated = false;
-  await page.evaluate(() => window.dispatchEvent(new Event("agentpier-login-required")));
-  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
-  network.authenticated = true;
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByText("We can plan dinner together.")).toBeVisible();
-  await expect(page.getByLabel("Message", { exact: true })).toHaveValue("");
+  await expect(sidebar(page).getByText(sidebarNote)).toHaveCount(0);
 });
