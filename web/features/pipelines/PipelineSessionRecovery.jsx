@@ -1,5 +1,5 @@
 import React from "react";
-import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { serverText } from "../../lib/server-messages.js";
 import RunActions from "./RunActions.jsx";
@@ -7,10 +7,8 @@ import GateDecision from "./GateDecision.jsx";
 import "./pipelines.css";
 
 export default function PipelineSessionRecovery({ session }) {
-  const resource = useResource(
-    `/pipeline-runs/${encodeURIComponent(session.pipeline.runId)}`,
-    { poll: 5000 },
-  );
+  // The live `pipeline.run` topic pushes the session's run as it changes.
+  const resource = useLiveTopic(`pipeline.run:${session.pipeline.runId}`);
   const run = resource.data?.run;
   const node = run?.nodes.find((item) => item.id === run.currentNodeId);
   const current = node?.sessionId === session.id;

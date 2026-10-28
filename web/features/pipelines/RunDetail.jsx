@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
-import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import RunHeader from "./RunHeader.jsx";
 import StageRail from "./StageRail.jsx";
 import StageDetail from "./StageDetail.jsx";
@@ -19,11 +19,11 @@ import "./parallel-group.css";
 import RunSpec from "./RunSpec.jsx";
 
 // Run detail: header with run-wide actions, the stage rail on the left and the chosen
-// stage on the right. The chosen stage lives in component state, so polling keeps it.
+// stage on the right. The chosen stage lives in component state, so pushes keep it.
+// The live `pipeline.run` topic pushes every saved change; a deleted run arrives as
+// `{ run: null }`.
 export default function RunDetail({ id, navigate }) {
-  const resource = useResource(`/pipeline-runs/${encodeURIComponent(id)}`, {
-    poll: 5000,
-  });
+  const resource = useLiveTopic(`pipeline.run:${id}`);
   const [chosen, setChosen] = useState("");
   // Owned here so feedback survives browsing other stages; one runner keeps the header
   // actions and the decision from running concurrently.
@@ -47,6 +47,7 @@ export default function RunDetail({ id, navigate }) {
   return (
     <section className="pipeline-run-detail">
       <ErrorMessage error={resource.error} />
+      {resource.data?.run === null && <ErrorMessage error={copy.runUnavailable} />}
       {resource.loading && <p role="status">{copy.loading}</p>}
       {run && (
         <>

@@ -123,6 +123,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "session.requests:x",
     "session.models:x",
     "inbox",
+    "pipeline.run:x",
+    "pipeline.queue:x",
     "nope",
     "a".repeat(300),
     "state\u202e",

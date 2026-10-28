@@ -400,6 +400,7 @@ export const pipelineCopy = {
   savedConfiguration: "Saved configuration",
   definitionUnavailable: "This pipeline is unavailable.",
   profileUnavailable: "This profile is unavailable.",
+  runUnavailable: "This run is unavailable.",
   loading: "Loading pipelines …",
   allProfiles: "All profiles",
   autonomousBadge: "Autonomous",

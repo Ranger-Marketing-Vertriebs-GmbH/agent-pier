@@ -27,6 +27,14 @@ test("topicInfo resolves registered topics and their REST path", () => {
   assert.equal(topicInfo("session.models:s1").path("s1"), "/sessions/s1/models");
   assert.equal(topicInfo("session.models:s1").sampled, true);
   assert.equal(topicInfo("session.models:s1").interval, 3000);
+  assert.equal(topicInfo("pipeline.run:r1").path("r1"), "/pipeline-runs/r1");
+  assert.equal(topicInfo("pipeline.run:r1").interval, 5000);
+  assert.equal(topicInfo("pipeline.run:r1").mode, "state");
+  assert.equal(topicInfo("pipeline.run:r1").sampled, false);
+  assert.equal(topicInfo("pipeline.queue:p1").path("p1"), "/pipeline-queue/p1");
+  assert.equal(topicInfo("pipeline.queue:p1").interval, 3000);
+  assert.equal(topicInfo("pipeline.queue:p1").sampled, false);
+  assert.equal(topicInfo("pipeline.run"), null);
 });
 
 test("topicInfo refuses a missing or unexpected parameter", () => {

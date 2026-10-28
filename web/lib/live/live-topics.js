@@ -4,6 +4,7 @@
 // fallback, the fallback's poll interval, and whether the server samples the topic
 // (then a hidden tab unsubscribes it at once). Pure: the Node test stub imports it.
 const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
+const under = (base) => (id) => `${base}/${encodeURIComponent(id)}`;
 
 export const liveTopics = Object.freeze({
   state: Object.freeze({ mode: "rows", path: () => "/state", interval: 3000 }),
@@ -20,6 +21,16 @@ export const liveTopics = Object.freeze({
     sampled: true,
   }),
   inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
+  "pipeline.run": Object.freeze({
+    mode: "state",
+    path: under("/pipeline-runs"),
+    interval: 5000,
+  }),
+  "pipeline.queue": Object.freeze({
+    mode: "state",
+    path: under("/pipeline-queue"),
+    interval: 3000,
+  }),
 });
 
 /**

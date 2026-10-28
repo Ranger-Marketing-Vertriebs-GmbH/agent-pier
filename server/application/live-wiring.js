@@ -5,6 +5,10 @@ import { stateTopic, watchStateWrites } from "../features/sessions/live-state-to
 import { sessionRequestsTopic } from "../features/requests/live-topics.js";
 import { sessionModelsTopic } from "../features/models/live-topics.js";
 import { inboxTopic } from "../features/inbox/live-topics.js";
+import {
+  pipelineQueueTopic,
+  pipelineRunTopic,
+} from "../features/pipelines/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -29,6 +33,8 @@ export function createLiveHub(services, options = {}) {
   hub.define(sessionRequestsTopic(services));
   hub.define(sessionModelsTopic(services));
   hub.define(inboxTopic(services));
+  hub.define(pipelineRunTopic(services));
+  hub.define(pipelineQueueTopic(services));
   return hub;
 }
 
