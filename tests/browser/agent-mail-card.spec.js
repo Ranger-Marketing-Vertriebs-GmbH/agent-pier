@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/browser-test.js";
 import { setup } from "./assistant-shell-fixture.js";
 import { openChat } from "./assistant-ssh-fixture.js";
 
