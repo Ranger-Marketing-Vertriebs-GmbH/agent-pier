@@ -6,7 +6,6 @@ export const reaCopy = {
   intro:
     "REA gibt Claude Code Tools, um Binärdateien zu analysieren. AgentPier lädt die Teile, die du wählst, prüft Größe und SHA-256 und legt sie in einen eigenen Ordner, getrennt von deiner eigenen Konfiguration. Die Installation trägt REA bei den CLIs ein, an die es gebunden ist (standardmäßig Claude Code), und kopiert seinen Skill in die Profile dieser CLIs, auch ins Standardprofil des Hosts.",
   loading: "REA wird geladen …",
-  loadFailed: "Der Zustand von REA ließ sich nicht laden.",
   componentsLabel: "Bestandteile",
   core: "REA Core",
   coreDescription: "MCP-Server und Skill von REA. Immer dabei.",

@@ -6,8 +6,7 @@ import { serverText } from "../../../lib/server-messages.js";
 import { assistantBrowserCopy as copy } from "../../../lib/i18n/messages/assistant-browser.js";
 import { assistantApi } from "../assistant-api.js";
 import { commonCopy } from "../../../lib/i18n/messages/common.js";
-import { apiCopy } from "../../../lib/i18n/messages/components.js";
-import { startVisiblePolling, timedOut } from "../../../lib/visible-polling.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 
 /**
  * Installs AgentPier's own agent browser (Chrome for Testing, chromium-installer.js)
@@ -18,31 +17,21 @@ export default function BrowserInstall({ browser, refresh }) {
   const [job, setJob] = useState(null);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const alive = useRef(true);
   const running = job?.status === "running";
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  // While its job runs, the installation follows the live `job.chromium:current`
+  // topic: each progress step is pushed, and its end reads the browser state once.
+  const progress = useLiveTopic(running ? "job.chromium:current" : null);
+  const pushed =
+    progress.data?.installations?.find((item) => item.tool === "chromium") ?? null;
   useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  useEffect(() => {
-    if (!running) return undefined;
-    // Only a visible tab reads; a stalled read is cut off and reported.
-    return startVisiblePolling(async (signal) => {
-      try {
-        const list = await api("/tool-installations", "GET", undefined, signal);
-        const found = list.installations?.find((item) => item.tool === "chromium");
-        if (!alive.current || !found) return;
-        setJob(found);
-        setError((current) => (current === apiCopy.timedOut ? "" : current));
-        if (found.status !== "running") await refresh?.();
-      } catch {
-        // The next poll retries; only a deadline abort needs a visible report.
-        if (alive.current && timedOut(signal)) setError(apiCopy.timedOut);
-      }
-    }, 1500);
-  }, [running, refresh]);
+    if (!pushed) return;
+    setJob(pushed);
+    if (pushed.status !== "running") void refreshRef.current?.();
+  }, [pushed]);
+  // A read the channel could not push (its fallback, a timeout) shows while it runs.
+  const shownError = error || (running ? progress.error : "");
   const install = async () => {
     setError("");
     try {
@@ -86,9 +75,9 @@ export default function BrowserInstall({ browser, refresh }) {
           onClick={() => setConfirming(true)}
         />
       )}
-      {error && (
+      {shownError && (
         <p role="alert" className="assistant-notice">
-          {error}
+          {shownError}
         </p>
       )}
       {confirming && (

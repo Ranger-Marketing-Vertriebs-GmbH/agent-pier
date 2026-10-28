@@ -6,8 +6,8 @@
 // operationJobChanged. A release activation or rollback is written by a helper
 // process the server does not hear, so a running job is also sampled every 1.5 s
 // (the former poll); an ended job never changes and is not sampled. An unknown job
-// is the route's 404, which the hub does not log. Phase 3 adds more `job.<kind>`
-// topics of the same shape.
+// is the route's 404, which the hub does not log. It is one kind of the
+// `job.<kind>` family (live/job-topics.js).
 //
 // `operations.release-sessions:<version>` is the session migration plan of an old
 // release, the value GET /api/operations/releases/cleanup/:version/sessions answers.
@@ -15,6 +15,7 @@
 // which announce changes, so it is sampled every 3 s (the former poll) while a
 // visible tab watches; a release job's status change signals it at once.
 import { releaseVersion } from "./release-archive.js";
+import { jobTopic } from "../live/job-topics.js";
 
 export const OPERATION_JOB_SAMPLE_MS = 1500;
 export const RELEASE_SESSIONS_SAMPLE_MS = 3000;
@@ -40,29 +41,20 @@ export function operationJobChanged(hub, job) {
     hub.invalidateWhere("operations.release-sessions", () => true);
 }
 
-/** The `job.operation` topic definition for LiveHub#define. */
-export function operationJobTopic(services) {
-  // The status each watched job had at its last read: sampled while it ran.
-  const statuses = new Map();
+/** The `job.operation` options for defineJobTopic (live/job-topics.js). */
+export function operationJob(services) {
   return {
-    name: "job.operation",
-    mode: "state",
+    kind: "operation",
     param: JOB_ID,
     sampleMs: OPERATION_JOB_SAMPLE_MS,
-    authorize: owner,
-    scopeKey: () => "owner",
-    watch({ param }) {
-      return () => statuses.delete(param);
-    },
-    sampling: (id) => statuses.get(id) === "running",
+    status: (value) => value.job.status,
     // A read may mark a silent helper's job interrupted (OperationJobs#get).
-    read(_principal, id) {
-      const job = services.operations.jobs.get(id);
-      statuses.set(id, job.status);
-      return { job };
-    },
+    read: (id) => ({ job: services.operations.jobs.get(id) }),
   };
 }
+
+/** The `job.operation` topic definition for LiveHub#define. */
+export const operationJobTopic = (services) => jobTopic(operationJob(services));
 
 /** The `operations.release-sessions` topic definition for LiveHub#define. */
 export function releaseSessionsTopic(services) {

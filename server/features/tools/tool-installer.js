@@ -134,6 +134,7 @@ export class ToolInstaller {
       this.platformReason || (!npmCli ? serverMessages.tools.npmUnavailable : null);
     this.records = readJSON(this.file, {});
     this.active = null;
+    this.onChange = null;
     this.closed = false;
     for (const job of Object.values(this.records))
       if (job.status === "running") {
@@ -141,6 +142,22 @@ export class ToolInstaller {
         job.message = serverMessages.tools.installationInterrupted;
         job.finishedAt = new Date().toISOString();
       }
+  }
+  /** Stores the job records; `tool`'s record changed (see changed). */
+  save(tool) {
+    writePrivate(this.file, this.records);
+    this.changed(tool);
+  }
+  /**
+   * Calls `onChange(tool)` (assigned by the wiring: the live job topics) after every
+   * write of a job and when the installer stops being busy. Never throws.
+   */
+  changed(tool) {
+    try {
+      this.onChange?.(tool);
+    } catch {
+      /* A failing listener must not stop an installation. */
+    }
   }
   list() {
     const found = this.detect();
@@ -232,7 +249,7 @@ export class ToolInstaller {
       startedAt: null,
       finishedAt: new Date().toISOString(),
     };
-    writePrivate(this.file, this.records);
+    this.save(tool);
     return this.list().installations.find((x) => x.tool === tool);
   }
   updateAvailability(tool, detected) {
@@ -331,12 +348,14 @@ export class ToolInstaller {
     writePrivate(this.file, this.records);
     const active = { controller, done: null };
     this.active = active;
+    this.changed(tool);
     active.done = this.install(tool, job, controller.signal, updatePlan)
       .catch(() => {
         job.message += serverMessages.tools.statusSaveFailureSuffix;
       })
       .finally(() => {
         if (this.active === active) this.active = null;
+        this.changed(tool);
       });
     return this.list().installations.find((x) => x.tool === tool);
   }
@@ -370,7 +389,7 @@ export class ToolInstaller {
           env,
           progress: (message) => {
             job.message = message;
-            writePrivate(this.file, this.records);
+            this.save(tool);
           },
         });
         job.version = `Chrome for Testing ${result.version}`;
@@ -417,7 +436,7 @@ export class ToolInstaller {
         env.GH_NO_UPDATE_NOTIFIER = "1";
         env.GH_PROMPT_DISABLED = "1";
         job.message = serverMessages.tools.downloadingVerifiedRelease;
-        writePrivate(this.file, this.records);
+        this.save(tool);
         releaseVersion = (
           await prepareGithubCli({
             prefix,
@@ -469,7 +488,7 @@ export class ToolInstaller {
         );
       }
       job.message = serverMessages.tools.checkingInstalledVersion;
-      writePrivate(this.file, this.records);
+      this.save(tool);
       const verify = async (root) => {
         const binary = path.join(root, "bin", tool);
         let real;
@@ -525,7 +544,7 @@ export class ToolInstaller {
       if (work) await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
       job.status = finalStatus;
       job.finishedAt = new Date().toISOString();
-      writePrivate(this.file, this.records);
+      this.save(tool);
     }
   }
   async close() {
