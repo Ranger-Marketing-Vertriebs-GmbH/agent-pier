@@ -196,13 +196,13 @@ export async function partBytes(client, uid, info, { maxBytes }) {
 }
 
 /**
- * The decoded bytes of attachment `part` of message `uid` in `folder` (opened
- * read-only) as `{ name, type, charset, bytes, uidValidity }`. More than `maxBytes`,
- * estimated or decoded, is MAIL_ATTACHMENT_TOO_LARGE; a part that is no attachment
- * MAIL_NOT_FOUND.
+ * The attachment `part` of message `uid` in `folder` (opened read-only), without
+ * downloading it: `{ info, uidValidity }`, `info` as partInfo and `uidValidity` the
+ * folder's once opened. A part that is no attachment is MAIL_NOT_FOUND.
  */
-export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
+export async function attachmentPart(client, folder, uid, part) {
   await openFolder(client, folder);
+  const uidValidity = String(client.mailbox?.uidValidity ?? "");
   const row = await client.fetchOne(
     String(uid),
     { uid: true, bodyStructure: true },
@@ -211,7 +211,17 @@ export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
   if (!row || row.uid !== uid) throw mailError("MAIL_NOT_FOUND");
   const node = attachmentsOf(row.bodyStructure).find((n) => (n.part || "1") === part);
   if (!node) throw mailError("MAIL_NOT_FOUND");
-  const info = partInfo(node);
+  return { info: partInfo(node), uidValidity };
+}
+
+/**
+ * The decoded bytes of attachment `part` of message `uid` in `folder` (opened
+ * read-only) as `{ name, type, charset, bytes, uidValidity }`. More than `maxBytes`,
+ * estimated or decoded, is MAIL_ATTACHMENT_TOO_LARGE; a part that is no attachment
+ * MAIL_NOT_FOUND.
+ */
+export async function attachmentBytes(client, folder, uid, part, { maxBytes }) {
+  const { info } = await attachmentPart(client, folder, uid, part);
   if (decodedAtLeast(info) > maxBytes) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
   const { bytes, uidValidity } = await partBytes(client, uid, info, { maxBytes });
   return { name: info.name, type: info.type, charset: info.charset, bytes, uidValidity };

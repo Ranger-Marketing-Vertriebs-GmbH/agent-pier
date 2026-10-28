@@ -1,8 +1,10 @@
 // Email audit details (mail-account-store.js, mail/agent-mail-grants.js,
-// mail/agent-mail-changes.js): the kind, the
+// mail/agent-mail-changes.js, mail/agent-mail-attachments.js): the kind, the
 // names of changed account fields, stable result codes and the account ids of grant
 // changes. Never an address, host, username, subject, body, rule or password.
-const kinds = ["account", "message"];
+const kinds = ["account", "message", "attachment"];
+const destinations = ["workspace", "project"];
+const maxBytes = 1_073_741_824;
 const accountFields = new Set([
   "name",
   "address",
@@ -33,6 +35,22 @@ export function mailAuditDetails(details, event, auditId) {
     if (resultCode(details[key])) event.details[key] = details[key];
   if (details.kind === "mail-grants") grantDetails(details, event);
   if (details.kind === "message") messageDetails(details, event, auditId);
+  if (details.kind === "attachment") attachmentDetails(details, event, auditId);
+}
+
+// An agent's saved attachment: the agent, its size and whether it went to the
+// workspace or a project; never its name, path or content.
+function attachmentDetails(details, event, auditId) {
+  if (details.assistantId !== undefined)
+    event.details.assistantId = auditId(details.assistantId);
+  if (
+    Number.isSafeInteger(details.bytes) &&
+    details.bytes >= 0 &&
+    details.bytes <= maxBytes
+  )
+    event.details.bytes = details.bytes;
+  if (destinations.includes(details.destination))
+    event.details.destination = details.destination;
 }
 
 // An agent's change to mail (Trash moves) or send: the agent, how many messages, and

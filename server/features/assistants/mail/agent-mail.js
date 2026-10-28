@@ -8,6 +8,7 @@ import { MailCursors } from "./agent-mail-cursors.js";
 import { readingActions, runReading } from "./agent-mail-reading.js";
 import { changingActions, runChanging } from "./agent-mail-changes.js";
 import { MailSends } from "./agent-mail-sends.js";
+import { runAttachment } from "./agent-mail-attachments.js";
 import { attachmentLimits } from "../../mail/mail-parts.js";
 import { searchBudget } from "../../mail/mail-attachment-search.js";
 
@@ -155,7 +156,8 @@ export class AgentMail {
           gate,
           input,
         );
-      // attachment and forward have no handler yet: never let them reach send.
+      if (input.action === "attachment") return runAttachment(this, inv, gate, input);
+      // forward has no handler yet: never let it reach send.
       if (input.action !== "send") throw assistantProblem("invalid");
       return this.sends.send(inv, gate.caller, gate.cls, gate.grant, gate.account, input);
     });
