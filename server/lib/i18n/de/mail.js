@@ -8,18 +8,18 @@ export const mail = Object.freeze({
   mailTimeout: "Der Mailserver hat nicht rechtzeitig geantwortet.",
   mailProtocol: "Der Mailserver hat unerwartet geantwortet.",
   mailPlaintextRefused:
-    "Unverschlüsselte Verbindungen sind für dieses Konto nicht erlaubt.",
-  accountNotFound: "E-Mail-Konto nicht gefunden.",
+    "Unverschlüsselte Verbindungen sind für diesen E-Mail-Zugang nicht erlaubt.",
+  accountNotFound: "E-Mail-Zugang nicht gefunden.",
   invalidAccount:
-    "Ungültiges E-Mail-Konto. Bitte Name, Adresse, Server, Ports und Verschlüsselung prüfen.",
+    "Ungültiger E-Mail-Zugang. Bitte Name, Adresse, Server, Ports und Verschlüsselung prüfen.",
   plaintextNeedsConsent:
-    "Eine unverschlüsselte Verbindung braucht die ausdrückliche Erlaubnis am Konto.",
+    "Eine unverschlüsselte Verbindung braucht die ausdrückliche Erlaubnis am E-Mail-Zugang.",
   passwordUnavailable: "Das gespeicherte E-Mail-Passwort ist nicht verfügbar.",
   invalidPassword:
     "Das Passwort muss 1 bis 1024 Bytes lang sein und darf keine Zeilenumbrüche enthalten.",
   passwordRequiredForServer:
     "Bitte das Passwort erneut eingeben, wenn sich Mailserver, Port oder Verschlüsselung ändern.",
-  catalogUnreadable: "Die gespeicherten E-Mail-Kontodaten können nicht gelesen werden.",
+  catalogUnreadable: "Die gespeicherten E-Mail-Zugänge können nicht gelesen werden.",
   testRateLimited:
     "Zu viele Verbindungstests für E-Mail-Zugänge. Bitte in einer Minute erneut versuchen.",
   mailAccountUnavailable:
