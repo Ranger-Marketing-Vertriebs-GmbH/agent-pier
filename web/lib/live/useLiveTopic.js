@@ -21,10 +21,10 @@ export const shownState = (current, key, topicId) =>
  * Data of a live topic (web/lib/live/live-topics.js) in the shape of useResource:
  * `{data, error, loading, connected, refresh}`. `refresh()` reads the topic's REST
  * route and resolves with the data, or null when that read failed or the tab is
- * hidden, for a caller that must await fresh data after a write. A topic followed
- * again (null, then the same id) starts from loading, never from what the previous
- * subscription held. `path` replaces the
+ * hidden, for a caller that must await fresh data after a write. `path` replaces the
  * topic's REST route; a signal topic's data is that route, read again per `changed`.
+ * A topic followed again (null, then the same id) starts from loading, never from
+ * what the previous subscription held.
  */
 export default function useLiveTopic(topicId, path) {
   const [current, setCurrent] = useState(null);

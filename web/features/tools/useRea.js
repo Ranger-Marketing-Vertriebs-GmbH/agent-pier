@@ -2,6 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { serverMessagesReady } from "../../lib/server-messages.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 
+/** Whether `current` (a pushed state) is later than the answer `next`. */
+export const pushedLater = (current, next) =>
+  Number.isInteger(current?.jobCount) &&
+  Number.isInteger(next?.jobCount) &&
+  (current.jobCount > next.jobCount ||
+    (current.jobCount === next.jobCount &&
+      next.status === "running" &&
+      current.status !== "running"));
+
 /**
  * The managed REA tool (`/api/rea`): its state, which follows the live
  * `job.rea:current` topic (each step of a running job is pushed), and the actions
@@ -21,6 +30,15 @@ export default function useRea({ request }) {
   const settle = useCallback(async (next) => {
     await serverMessagesReady();
     if (alive.current) setState(next);
+    return next;
+  }, []);
+  // An action's answer, unless a push already showed a later state: a later job
+  // (`jobCount`), or the end of the job this answer reports running (a job that
+  // failed fast is pushed before the start's answer arrives).
+  const settleAnswer = useCallback(async (next) => {
+    await serverMessagesReady();
+    if (alive.current)
+      setState((current) => (pushedLater(current, next) ? current : next));
     return next;
   }, []);
   useEffect(() => {
@@ -45,19 +63,19 @@ export default function useRea({ request }) {
     async (path, method, body) => {
       setError("");
       try {
-        await settle(await requestRef.current(path, method, body));
+        await settleAnswer(await requestRef.current(path, method, body));
         return true;
       } catch (err) {
         if (alive.current) setError(err.message);
         return false;
       }
     },
-    [settle],
+    [settleAnswer],
   );
   const apply = useCallback((desired) => act("/rea", "POST", desired), [act]);
   const update = useCallback(() => act("/rea/update", "POST"), [act]);
   const uninstall = useCallback(async () => {
-    await settle(await requestRef.current("/rea", "DELETE"));
-  }, [settle]);
+    await settleAnswer(await requestRef.current("/rea", "DELETE"));
+  }, [settleAnswer]);
   return { state, loading: loading && !state, error, apply, update, uninstall, refresh };
 }
