@@ -5,7 +5,7 @@ import { locale } from "../../lib/i18n/index.js";
 import { formatBytes } from "../../lib/format-bytes.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
-import usePolling from "./usePolling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 
 const endpoint = "/assistant-runtime/updates";
 const byteCount = (value) => Number.isSafeInteger(value) && value >= 0;
@@ -21,9 +21,9 @@ function phaseText({ phase, snapshotProgress: progress }) {
     formatBytes(progress.totalBytes, locale),
   );
 }
-async function loadStatus(signal) {
-  const status = await api(endpoint, "GET", undefined, signal);
-  if (
+// Whether `status` is an update status this panel can show.
+function validStatus(status) {
+  return !(
     !status ||
     !Object.hasOwn(copy.updates.phases, status.phase) ||
     !Array.isArray(status.blockers) ||
@@ -42,24 +42,21 @@ async function loadStatus(signal) {
       typeof status.updateAvailable !== "boolean") ||
     (status.diagnosticPath != null && typeof status.diagnosticPath !== "string") ||
     !validProgress(status.snapshotProgress)
-  )
-    throw Error(apiCopy.requestFailed(503));
-  return status;
+  );
 }
+/**
+ * The agent runtime's update status, following the live `runtime.updates` topic: the
+ * server pushes every phase, busy change and snapshot progress.
+ */
 export default function AssistantRuntimeUpdates({ onChange }) {
-  const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  usePolling(async (signal) => {
-    try {
-      setStatus(await loadStatus(signal));
-    } catch (e) {
-      if (!signal.aborted) {
-        setStatus(null);
-        setError(e.message);
-      }
-    }
-  }, 2000);
+  const topic = useLiveTopic("runtime.updates");
+  const { refresh } = topic;
+  const valid = topic.data !== null && validStatus(topic.data);
+  const status = valid ? topic.data : null;
+  const readError =
+    topic.error || (topic.data !== null && !valid ? apiCopy.requestFailed(503) : "");
   async function operate(action) {
     setBusy(true);
     setError("");
@@ -69,10 +66,9 @@ export default function AssistantRuntimeUpdates({ onChange }) {
       setError(e.message);
     } finally {
       try {
-        setStatus(await loadStatus());
+        await refresh();
         await onChange?.();
       } catch (e) {
-        setStatus(null);
         setError(e.message);
       }
       setBusy(false);
@@ -84,7 +80,7 @@ export default function AssistantRuntimeUpdates({ onChange }) {
     <section className="assistant-runtime-card">
       <h2>{copy.updates.title}</h2>
       <p className="assistant-note">{copy.updates.description}</p>
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || readError} />
       {status && (
         <>
           <dl>

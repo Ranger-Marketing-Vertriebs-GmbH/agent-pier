@@ -220,3 +220,23 @@ test("the agent list names its route and reads the runtime from its own", async 
     /down/,
   );
 });
+
+test("the agent detail topics name their routes at their former polls", () => {
+  const routes = {
+    "agent.actions": ["/assistants/a%2Fb/actions", 3000, false],
+    "agent.coding-requests": ["/assistants/a%2Fb/actions", 3000, false],
+    "agent.channels": ["/assistant-channels", 2000, false],
+    "agent.reminders": ["/assistants/a%2Fb/reminders", 10000, false],
+    "agent.senders": ["/assistant-telegram-senders/a%2Fb", 5000, true],
+  };
+  for (const [name, [path, interval, sampled]] of Object.entries(routes)) {
+    const info = topicInfo(`${name}:a/b`);
+    assert.deepEqual(
+      [info.mode, info.path(info.param), info.interval, info.sampled],
+      ["state", path, interval, sampled],
+      name,
+    );
+    // Each one is an agent's: the parameter is required.
+    assert.equal(topicInfo(name), null, name);
+  }
+});

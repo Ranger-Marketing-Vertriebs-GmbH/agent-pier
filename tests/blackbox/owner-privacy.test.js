@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { WebSocket } from "ws";
 import { openLive } from "../helpers/live-socket.js";
-import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
+import {
+  as,
+  chatFixture,
+  pairedTelegram,
+  sharedAgentOfTwo,
+  userAgent,
+} from "../helpers/user-chats.js";
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 import { dispatchQueued } from "../../server/features/assistants/queued-dispatch.js";
@@ -399,4 +405,74 @@ test("the owner's list says whether he may read a user's own agent", async (t) =
     body: { enabled: true },
   });
   assert.equal((await listed()).ownerReads, true);
+});
+
+// The owner's subscription to `topic` on `live`: its first frame.
+async function follow(live, topic) {
+  live.send({ op: "sub", topic });
+  return live.next((frame) => frame.topic === topic, 5000);
+}
+
+test("the agent detail topics of her own agent follow her opt-in", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: user.id, level: "extended" }],
+  });
+  const channel = await pairedTelegram(f, as(f, cookie), agent.id);
+  const content = ["actions", "coding-requests", "reminders"].map(
+    (name) => `agent.${name}:${agent.id}`,
+  );
+  const channels = `agent.channels:${agent.id}`;
+  const live = openLive(f);
+  await live.next((frame) => frame.type === "hello");
+  // Without her opt-in: refused like the routes' 404, the channel without her chat.
+  for (const path of ["actions", "reminders"])
+    assert.equal((await f.request(`/api/assistants/${agent.id}/${path}`)).status, 404);
+  for (const topic of content)
+    assert.deepEqual(await follow(live, topic), {
+      type: "error",
+      topic,
+      code: "unknown-topic",
+    });
+  const hidden = await follow(live, channels);
+  assert.equal(hidden.data.channels[0].chatId, null);
+  // Under the opt-in he reads them ...
+  assert.equal((await optIn(f, user.id, true)).status, 200);
+  const shown = await live.next(
+    (frame) => frame.topic === channels && frame.data?.channels?.[0]?.chatId,
+    3000,
+  );
+  assert.equal(shown.data.channels[0].chatId, channel.chatId);
+  for (const topic of content) {
+    live.send({ op: "unsub", topic });
+    assert.equal((await follow(live, topic)).type, "snapshot", topic);
+  }
+  // ... until she withdraws it: every content topic is revoked, the channel hidden.
+  assert.equal((await optIn(f, user.id, false)).status, 200);
+  for (const topic of content)
+    assert.deepEqual(
+      await live.next((frame) => frame.topic === topic, 2000),
+      { type: "revoked", topic },
+      topic,
+    );
+  const rehidden = await live.next((frame) => frame.topic === channels, 2000);
+  assert.equal(rehidden.data.channels[0].chatId, null);
+  // Nothing more of hers arrives on the revoked topics.
+  f.application.assistants.workflows.store.reserve({
+    assistantId: agent.id,
+    key: "after-revocation",
+    payload: { action: "coding_start", projectId: "p", pipelineId: "x" },
+    origin: { kind: "owner" },
+    state: "awaiting_approval",
+    teamId: "team",
+  });
+  f.application.assistants.changed();
+  await delay(1200);
+  assert.deepEqual(
+    live.frames.filter((frame) => content.includes(frame.topic)).slice(-3),
+    content.map((topic) => ({ type: "revoked", topic })),
+  );
+  live.ws.close();
 });

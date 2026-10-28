@@ -18,10 +18,13 @@ export class TelegramOutbox {
   failed(key, channelId) {
     if (this.failures.has(key)) return;
     this.failures.set(key, channelId);
+    this.service.written();
     this.service.assistants.changed();
   }
   recovered(key) {
-    if (this.failures.delete(key)) this.service.assistants.changed();
+    if (!this.failures.delete(key)) return;
+    this.service.written();
+    this.service.assistants.changed();
   }
   diagnostic(channelId) {
     return [...this.failures.values()].some((id) => id === null || id === channelId)

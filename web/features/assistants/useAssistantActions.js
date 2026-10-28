@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import api from "../../lib/api.js";
-import usePolling from "./usePolling.js";
-import { useAssistantEvents } from "./useAssistants.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import usePushedDecisions from "./usePushedDecisions.js";
 
 // What waits for the owner in this agent's chat: its own coding tasks, memory
@@ -22,43 +21,26 @@ const own = (a) =>
 
 /**
  * `pushed` is the list the chat's live feed carries (useAgentConversationStream) while
- * its socket is connected, else null. Without it the list is read here: at start, on
- * change events and, because approvals expire, every 5 seconds while one waits.
+ * its socket is connected, else null. Without it the list follows the live
+ * `agent.actions:<id>` topic, which pushes every change (expiries included).
  */
 export default function useAssistantActions(assistantId, pushed = null) {
   const live = Array.isArray(pushed);
-  const [loaded, setLoaded] = useState([]),
-    [error, setError] = useState("");
+  const [error, setError] = useState("");
   const { hidden, hide } = usePushedDecisions(assistantId);
   const liveRef = useRef(live);
   liveRef.current = live;
-  const load = useCallback(
-    async (signal) => {
-      try {
-        const r = await api(`/assistants/${encodeURIComponent(assistantId)}/actions`);
-        if (!signal?.aborted) setLoaded((r.actions || []).filter(own));
-      } catch {
-        // Settings report load failures; the chat keeps the last list.
-      }
-    },
-    [assistantId],
+  const topic = useLiveTopic(
+    !live && assistantId ? `agent.actions:${assistantId}` : null,
   );
-  // Read at start and again whenever the feed stops carrying the list.
-  useEffect(() => {
-    if (!live) load();
-  }, [load, live]);
-  useAssistantEvents((event) => {
-    if (!liveRef.current && ["change", "connected"].includes(event.type)) load();
-  });
+  const { refresh } = topic;
+  // Settings report load failures; the chat keeps the last list.
+  const loaded = useMemo(() => (topic.data?.actions || []).filter(own), [topic.data]);
+  const load = useCallback(() => refresh(), [refresh]);
   const actions = useMemo(
     () => (live ? pushed.filter(own) : loaded).filter((a) => !hidden(a)),
     [live, pushed, loaded, hidden],
   );
-  usePolling(load, 5000, {
-    enabled: !live && actions.length > 0,
-    immediate: false,
-    restartKey: load,
-  });
   const decide = useCallback(
     // `extra` carries the owner's edited rights of a hook proposal; the decided
     // action is returned (null when the decision failed).
@@ -76,7 +58,7 @@ export default function useAssistantActions(assistantId, pushed = null) {
         return decided;
       } catch (e) {
         setError(e.message);
-        // A decided or expired request (409) leaves the list instead of waiting for the poll.
+        // A decided or expired request (409) leaves the list at once.
         if (e.status === 409 && !liveRef.current) await load();
       }
       return null;

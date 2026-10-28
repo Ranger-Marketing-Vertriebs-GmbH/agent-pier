@@ -82,6 +82,17 @@ export class RuntimeUpdates {
     }
     this.busy = false;
     this.progress = null;
+    // Hears every change of status(): a phase, busy, the snapshot's progress (its
+    // live topic, live-runtime-topics.js).
+    this.onChange = null;
+  }
+  /** status() changed; a failing listener is logged, the update goes on. */
+  changed() {
+    try {
+      this.onChange?.();
+    } catch {
+      console.error("AgentPier could not report an agent runtime update change.");
+    }
   }
   status() {
     const selected = readJSON(this.selection, null);
@@ -119,14 +130,17 @@ export class RuntimeUpdates {
     const next = { ...this.journal, ...changes, phase };
     durablePrivate(this.file, next);
     this.journal = next;
+    this.changed();
   }
   async exclusive(operation) {
     if (this.busy || this.isBlocked()) throw failure("UPDATE_BUSY", 409);
     this.busy = true;
+    this.changed();
     try {
       return await operation();
     } finally {
       this.busy = false;
+      this.changed();
     }
   }
   stage() {
@@ -208,7 +222,12 @@ export class RuntimeUpdates {
             this.paths,
             backup,
             { previous, candidate, createdAt: Date.now() },
-            { onProgress: (bytes) => (this.progress.copiedBytes += bytes) },
+            {
+              onProgress: (bytes) => {
+                this.progress.copiedBytes += bytes;
+                this.changed();
+              },
+            },
           );
         } finally {
           this.progress = null;

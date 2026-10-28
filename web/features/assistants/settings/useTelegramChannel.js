@@ -1,45 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { getLanguage } from "../../../lib/i18n/index.js";
-import usePolling from "../usePolling.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 import { assistantApi } from "../assistant-api.js";
 
 // Telegram notices link back to the address the owner uses AgentPier from.
 const browserOrigin = () => window.location.origin;
 
-/** The agent's Telegram channel, polled every 2 s, with its immediate actions. */
+/**
+ * The agent's Telegram channel, following the live `agent.channels:<id>` topic, with
+ * its immediate actions.
+ */
 export default function useTelegramChannel(assistantId) {
-  const [channel, setChannel] = useState(null),
-    [loaded, setLoaded] = useState(false),
-    [token, setToken] = useState(""),
+  const [token, setToken] = useState(""),
     [pairing, setPairing] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const generation = useRef(null);
-  const load = useCallback(async () => {
-    const ticket = {};
-    generation.current = ticket;
-    const result = await assistantApi.channels();
-    if (generation.current !== ticket) return;
-    setChannel(result.channels.find((c) => c.assistantId === assistantId) || null);
-    setLoaded(true);
-  }, [assistantId]);
-  useEffect(
-    () => () => {
-      generation.current = null;
-    },
-    [assistantId],
-  );
-  usePolling(
-    async (signal) => {
-      try {
-        await load();
-      } catch (e) {
-        if (!signal.aborted) setError(e.message);
-      }
-    },
-    2000,
-    { restartKey: assistantId },
-  );
+  const topic = useLiveTopic(assistantId ? `agent.channels:${assistantId}` : null);
+  const { refresh } = topic;
+  // The fallback reads every agent's channels; the push carries this agent's only.
+  const channel =
+    topic.data?.channels?.find((c) => c.assistantId === assistantId) || null;
+  const loaded = topic.data !== null;
+  const load = useCallback(() => refresh(), [refresh]);
   async function act(operation) {
     setBusy(true);
     setError("");
@@ -90,7 +72,7 @@ export default function useTelegramChannel(assistantId) {
     pairing,
     setPairing,
     showPair,
-    error,
+    error: error || topic.error,
     busy,
     act,
     connect,

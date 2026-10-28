@@ -5,7 +5,7 @@ import GroupLabel from "../../components/GroupLabel.jsx";
 import { telegramSendersCopy } from "../../lib/i18n/messages/telegram-senders.js";
 import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
-import usePolling from "./usePolling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
 
 const telegramUserId = /^[1-9]\d{0,19}$/;
@@ -18,30 +18,18 @@ const telegramUserId = /^[1-9]\d{0,19}$/;
  */
 export default function TelegramSendersSettings({ assistantId }) {
   const copy = telegramSendersCopy;
-  const [data, setData] = useState(null),
-    [token, setToken] = useState(""),
+  const [token, setToken] = useState(""),
     [draft, setDraft] = useState([]),
     [personId, setPersonId] = useState(""),
     [personName, setPersonName] = useState(""),
     [error, setError] = useState(""),
-    [pollError, setPollError] = useState(""),
     [busy, setBusy] = useState(false),
     [restart, setRestart] = useState(null);
-  usePolling(
-    async (signal) => {
-      try {
-        const next = await assistantApi.telegramSenders(assistantId, signal);
-        if (!signal.aborted) {
-          setData(next);
-          setPollError("");
-        }
-      } catch (e) {
-        if (!signal.aborted) setPollError(e.message);
-      }
-    },
-    5000,
-    { restartKey: assistantId },
-  );
+  // The live `agent.senders:<id>` topic: every save is pushed, the bot's state in the
+  // Gateway is sampled by the server while this tab is visible.
+  const topic = useLiveTopic(assistantId ? `agent.senders:${assistantId}` : null);
+  const { data, refresh } = topic;
+  const pollError = topic.error;
   const bot = data?.bot || null;
   const people = bot ? bot.people : draft;
   // Runs `operation(confirmRestart)`, then `done()`; asks the owner first when the
@@ -50,9 +38,9 @@ export default function TelegramSendersSettings({ assistantId }) {
     setBusy(true);
     setError("");
     try {
-      const next = await operation(confirmRestart);
-      if (next && "bot" in next) setData(next);
-      else setData(await assistantApi.telegramSenders(assistantId));
+      await operation(confirmRestart);
+      // Read again rather than show the answer: a push that arrived meanwhile is newer.
+      await refresh();
       setRestart(null);
       done();
     } catch (e) {

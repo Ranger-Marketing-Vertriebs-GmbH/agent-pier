@@ -86,6 +86,37 @@ export const liveTopics = Object.freeze({
     sections: Object.freeze({ runtime: () => "/assistant-runtime" }),
     interval: 5000,
   }),
+  // An agent's details, at the settings' and chat's former polls. Actions and team
+  // coding requests read the same route; the pushed coding requests carry the team
+  // requests only (the hook filters both the same way). The channels route lists
+  // every agent's channels; the pushed value only this agent's.
+  "agent.actions": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/actions`,
+    interval: 3000,
+  }),
+  "agent.coding-requests": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/actions`,
+    interval: 3000,
+  }),
+  "agent.channels": Object.freeze({
+    mode: "state",
+    path: (_id) => "/assistant-channels",
+    interval: 2000,
+  }),
+  "agent.reminders": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/reminders`,
+    interval: 10000,
+  }),
+  // The bot's state is sampled by the server while a visible tab watches.
+  "agent.senders": Object.freeze({
+    mode: "state",
+    path: under("/assistant-telegram-senders"),
+    interval: 5000,
+    sampled: true,
+  }),
   "runtime.updates": Object.freeze({
     mode: "state",
     path: () => "/assistant-runtime/updates",

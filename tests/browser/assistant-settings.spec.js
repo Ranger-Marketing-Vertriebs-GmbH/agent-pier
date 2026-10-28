@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
 import { openAccountItem } from "../helpers/accounts-browser.js";
 import {
+  connectedChannel,
   emitChange as change,
   home,
   setupAssistantSettings as setup,
@@ -42,17 +43,27 @@ test("settings edits survive a revision bump and a conflicting change offers a r
   await expect(banner).toHaveCount(0);
 });
 
-test("hidden tabs stop polling and resume when visible again", async ({ page }) => {
-  const state = await setup(page);
+test("the channel follows its live topic: no poll, visible or hidden", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page, { channel: connectedChannel() });
   await page.goto(baseURL + settingsPath("telegram"));
-  await expect.poll(() => state.counts.channels).toBeGreaterThan(1);
+  await liveStub.waitForSubscribe("agent.channels:home");
+  await expect(page.getByText("@bot").first()).toBeVisible();
+  // The former poll read the channels every 2 s; the push needs no page request.
+  const settled = state.counts.channels;
+  await page.waitForTimeout(4500);
+  expect(state.counts.channels).toBe(settled);
   await visibility(page, "hidden");
-  await page.waitForTimeout(500);
-  const quiet = state.counts.channels;
-  await page.waitForTimeout(5000);
-  expect(state.counts.channels).toBe(quiet);
+  await page.waitForTimeout(4500);
+  expect(state.counts.channels).toBe(settled);
+  // A change reaches the visible tab by push.
   await visibility(page, "visible");
-  await expect.poll(() => state.counts.channels).toBeGreaterThan(quiet);
+  state.channel = { ...state.channel, username: "renamed_bot" };
+  await liveStub.reread("agent.channels:home");
+  await expect(page.getByText("@renamed_bot").first()).toBeVisible();
+  expect(state.counts.channels).toBe(settled);
 });
 
 test("slow polls never overlap", async ({ page }) => {

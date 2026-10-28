@@ -1,63 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import api from "../../lib/api.js";
-import usePolling from "./usePolling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import usePushedDecisions from "./usePushedDecisions.js";
-const settled = new Set([
-  "completed",
-  "failed",
-  "cancelled",
-  "declined",
-  "expired",
-  "reviewed",
-]);
-// Coding requests of a parent's team members. Loaded once per assistant change
-// event; polled only while one of them is still open. In the lead's chat, `pushed`
-// is the pending list its live feed carries while connected (useAssistantActions);
-// nothing is read then.
+
+// Coding requests of a parent's team members. They follow the live
+// `agent.coding-requests:<id>` topic, which pushes every change. In the lead's chat,
+// `pushed` is the pending list its live feed carries while connected
+// (useAssistantActions); nothing is followed then. `_changes` is kept for callers
+// that still pass their team list: the push needs no reload on it.
 export default function useTeamCodingRequests(
   assistantId,
   enabled,
-  changes,
+  _changes,
   pushed = null,
 ) {
   const live = Array.isArray(pushed);
-  const [loaded, setLoaded] = useState([]),
-    [error, setError] = useState("");
   const { hidden, hide } = usePushedDecisions(assistantId);
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  const load = useCallback(
-    () =>
-      api(`/assistants/${encodeURIComponent(assistantId)}/actions`)
-        .then((r) => {
-          if (alive.current) {
-            setLoaded((r.actions || []).filter((a) => a.teamId));
-            setError("");
-          }
-        })
-        .catch((e) => {
-          if (alive.current) setError(e.message);
-        }),
-    [assistantId],
+  const topic = useLiveTopic(
+    enabled && !live && assistantId ? `agent.coding-requests:${assistantId}` : null,
   );
-  useEffect(() => {
-    if (enabled && !live) load();
-  }, [enabled, live, load, changes]);
+  const { refresh } = topic;
+  // The fallback reads the whole action list: only team requests count.
+  const loaded = useMemo(
+    () => (topic.data?.actions || []).filter((a) => a.teamId),
+    [topic.data],
+  );
   const actions = useMemo(
     () => (live ? pushed.filter((a) => a.teamId) : loaded).filter((a) => !hidden(a)),
     [live, pushed, loaded, hidden],
   );
-  const open = actions.some((a) => !settled.has(a.state));
-  usePolling(load, 3000, {
-    enabled: enabled && open && !live,
-    immediate: false,
-    restartKey: load,
-  });
   const decide = useCallback(
     async (a, decision) => {
       await api(`/assistant-actions/${encodeURIComponent(a.id)}/decision`, "POST", {
@@ -65,9 +36,9 @@ export default function useTeamCodingRequests(
         decision,
       });
       if (live) hide(a);
-      else await load();
+      else await refresh();
     },
-    [load, live, hide],
+    [refresh, live, hide],
   );
-  return { actions, error: live ? "" : error, decide };
+  return { actions, error: live ? "" : topic.error, decide };
 }

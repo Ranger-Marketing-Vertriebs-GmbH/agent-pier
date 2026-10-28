@@ -133,6 +133,15 @@ export class AssistantActionStore {
       .all(projectId)
       .map((r) => JSON.parse(r.body));
   }
+  /** The agents with an action that started pipeline run `runId`. */
+  agentsOfRun(runId) {
+    return this.db
+      .prepare(
+        "SELECT DISTINCT assistant_id AS id FROM assistant_actions WHERE json_extract(body,'$.runId')=?",
+      )
+      .all(runId)
+      .map((r) => r.id);
+  }
   get(id) {
     const r = this.db.prepare("SELECT body FROM assistant_actions WHERE id=?").get(id);
     if (!r) throw assistantProblem("notFound", 404);

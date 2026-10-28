@@ -89,9 +89,13 @@ test("owner stages and activates an update, then continues recovery on mobile", 
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
 });
+// The server pushes every phase, busy change and progress step (RuntimeUpdates
+// onChange); the live stub reads the mocked status again for it.
 test("update status makes active work and recovery blockers visible", async ({
   page,
+  liveStub,
 }) => {
+  const pushed = () => liveStub.reread("runtime.updates");
   const state = await setup(page);
   Object.assign(state.status, {
     phase: "staged",
@@ -107,6 +111,7 @@ test("update status makes active work and recovery blockers visible", async ({
   ).toBeVisible();
   state.status.busy = true;
   state.status.phase = "draining";
+  await pushed();
   await expect(page.getByText("Draining work", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate update" })).toBeDisabled();
   state.status.phase = "snapshotting";
@@ -114,11 +119,13 @@ test("update status makes active work and recovery blockers visible", async ({
     copiedBytes: Math.round(2.1 * 1024 ** 3),
     totalBytes: 6 * 1024 ** 3,
   };
+  await pushed();
   await expect(
     page.getByText("Creating backup: 2.1 GB of 6 GB", { exact: true }),
   ).toBeVisible();
   // Without progress (another process copies) the phase alone is shown.
   state.status.snapshotProgress = null;
+  await pushed();
   await expect(page.getByText("Creating backup", { exact: true })).toBeVisible();
 });
 test("an installation already on the qualified version cannot stage it again", async ({

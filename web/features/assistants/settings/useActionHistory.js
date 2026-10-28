@@ -1,49 +1,37 @@
 import { useCallback, useState } from "react";
-import api from "../../../lib/api.js";
-import usePolling from "../usePolling.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 import { pendingCount } from "./agent-settings-fields.js";
 
-// Every action of the agent (coding tasks, project memory changes), polled while the
-// Overview tab is open; slow responses never overlap (usePolling). Without an id
-// (a temporary member, which has no actions) nothing is read.
+// Every action of the agent (coding tasks, project memory changes), following the
+// live `agent.actions:<id>` topic while the Overview tab is open. Without an id (a
+// temporary member, which has no actions) nothing is followed.
 export default function useActionHistory(assistantId) {
-  const [actions, setActions] = useState(null),
-    [error, setError] = useState(""),
+  const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const path = `/assistants/${encodeURIComponent(assistantId)}/actions`;
-  usePolling(
-    async (signal) => {
-      try {
-        const result = await api(path);
-        if (!signal.aborted) setActions(result.actions || []);
-      } catch (e) {
-        if (!signal.aborted) setError(e.message);
-      }
-    },
-    3000,
-    { restartKey: assistantId, enabled: Boolean(assistantId) },
-  );
+  const topic = useLiveTopic(assistantId ? `agent.actions:${assistantId}` : null);
+  const { refresh } = topic;
   const act = useCallback(
     async (operation) => {
       setBusy(true);
       setError("");
       try {
         await operation();
-        setActions((await api(path)).actions || []);
+        // An answer older than a push that arrived meanwhile is not shown.
+        await refresh();
       } catch (e) {
         setError(e.message);
       } finally {
         setBusy(false);
       }
     },
-    [path],
+    [refresh],
   );
-  const list = actions || [];
+  const list = topic.data?.actions || [];
   return {
     actions: list,
-    loaded: actions !== null,
+    loaded: topic.data !== null,
     pending: pendingCount(list),
-    error,
+    error: error || topic.error,
     busy,
     act,
   };

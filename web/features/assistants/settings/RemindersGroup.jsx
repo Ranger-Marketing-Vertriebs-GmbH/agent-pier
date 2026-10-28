@@ -12,6 +12,7 @@ import { routineCopy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "../assistant-api.js";
 import { failureText } from "../routine-failure-text.js";
 import usePolling from "../usePolling.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -42,8 +43,7 @@ export default function RemindersGroup({
 }) {
   const copy = assistantCopy.personal;
   const id = useId();
-  const [items, setItems] = useState([]),
-    [runs, setRuns] = useState({}),
+  const [runs, setRuns] = useState({}),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [creating, setCreating] = useState(false),
@@ -57,10 +57,20 @@ export default function RemindersGroup({
     [telegram, setTelegram] = useState(false);
   const identity = useRef(crypto.randomUUID()),
     alive = useRef(true);
+  // The owner's reminders follow the live `agent.reminders:<id>` topic; a user's app
+  // reads hers through its own routes (UserRemindersGroup.jsx).
+  const owner = api === ownerReminderApi;
+  const topic = useLiveTopic(
+    owner && assistantId ? `agent.reminders:${assistantId}` : null,
+  );
+  const { refresh: refreshTopic } = topic;
+  const [polled, setPolled] = useState([]);
+  const items = owner ? topic.data?.reminders || [] : polled;
   const refresh = useCallback(async () => {
+    if (owner) return void (await refreshTopic());
     const result = await api.list(assistantId);
-    if (alive.current) setItems(result.reminders || []);
-  }, [assistantId, api]);
+    if (alive.current) setPolled(result.reminders || []);
+  }, [assistantId, api, owner, refreshTopic]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -73,7 +83,7 @@ export default function RemindersGroup({
         if (alive.current) setError(e.message);
       }),
     10000,
-    { restartKey: assistantId },
+    { restartKey: assistantId, enabled: !owner },
   );
   async function act(operation) {
     setBusy(true);
@@ -141,7 +151,7 @@ export default function RemindersGroup({
       >
         {copy.reminders}
       </GroupLabel>
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || (owner ? topic.error : "")} />
       {creating && (
         <form
           className="list-card agent-fields"

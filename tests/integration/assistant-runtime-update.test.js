@@ -302,3 +302,34 @@ test("a same-version runtime change never runs the migration", async (t) => {
   assert.deepEqual(f.calls, ["start:2026.10.3"]);
   assert.equal(f.updates.status().phase, "complete");
 });
+
+test("an activation reports its phases, busy and snapshot progress to onChange", async (t) => {
+  const candidate = { version: "2026.10.7", nodeVersion: "26.12.1", nodePath: "/n" };
+  const f = await activationFixture(t, { candidate });
+  const seen = [];
+  f.updates.onChange = () => {
+    const status = f.updates.status();
+    seen.push(`${status.phase}:${status.busy}:${status.snapshotProgress ? "p" : "-"}`);
+  };
+  await f.updates.activate();
+  // Busy first, then every persisted phase, snapshot progress, and busy last.
+  assert.equal(seen[0].split(":")[1], "true");
+  assert.ok(seen.some((s) => s.startsWith("snapshotting:true:")));
+  assert.ok(seen.some((s) => s.startsWith("snapshotting:true:p")));
+  assert.ok(seen.includes("complete:true:-"));
+  assert.equal(seen.at(-1), "complete:false:-");
+  // A failing listener is logged; the update goes on.
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args.join(" "));
+  t.after(() => {
+    console.error = original;
+  });
+  f.updates.onChange = () => {
+    throw new Error("boom");
+  };
+  f.updates.changed();
+  assert.deepEqual(errors, [
+    "AgentPier could not report an agent runtime update change.",
+  ]);
+});
