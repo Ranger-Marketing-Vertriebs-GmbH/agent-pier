@@ -6,10 +6,8 @@ import { canonicalRoute, readRoute, routePath } from "./routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
 import { connectionsRoute } from "../features/connections/routes.js";
 import { codingRoute } from "../features/coding/routes.js";
-import {
-  navigationReason,
-  requestNavigation as requestFileNavigation,
-} from "../lib/navigation-guard.js";
+import { requestNavigation as requestFileNavigation } from "../lib/navigation-guard.js";
+import { createNavigationRunner } from "./navigation-runner.js";
 const navigationIndex = "agentPierNavigationIndex";
 export default function useWorkspaceNavigation({ state, ready, setMobileNav, setModal }) {
   const [route, setRouteState] = useState(() => readRoute(window.location));
@@ -65,33 +63,19 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     },
     [setMobileNav, setModal, setRoute],
   );
-  // Page navigations still waiting to commit. A normalization computed from the
-  // address before them must not replace them (the coordinator lets the last request
-  // win): a page's redirect and the address normalization can run in one commit.
-  const pagePending = useRef(0);
-  const runNavigation = useCallback(
-    (next, replace = false, normalization = false) => {
-      if (normalization && pagePending.current) return Promise.resolve(false);
-      let waiting = !normalization;
-      // Counts until it commits (the normalization of its route may follow at once)
-      // or is dropped.
-      const done = () => {
-        if (waiting) pagePending.current -= 1;
-        waiting = false;
-      };
-      if (waiting) pagePending.current += 1;
-      const result = requestFileNavigation({
-        next,
-        reason: navigationReason({ normalization }),
-        commit: () => {
-          done();
-          commitWorkspaceNavigation(next, replace);
-        },
-      });
-      result.then(done, done);
-      return result;
-    },
-    [commitWorkspaceNavigation],
+  // A normalization waits while a page navigation is pending (navigation-runner.js);
+  // `normalizeAgain` re-runs the normalization effect once none is.
+  const [normalizeAgain, setNormalizeAgain] = useState(0);
+  const commitNavigation = useRef(commitWorkspaceNavigation);
+  commitNavigation.current = commitWorkspaceNavigation;
+  const runNavigation = useMemo(
+    () =>
+      createNavigationRunner({
+        request: requestFileNavigation,
+        commit: (next, replace) => commitNavigation.current(next, replace),
+        retry: () => setNormalizeAgain((count) => count + 1),
+      }),
+    [],
   );
   const navigate = useCallback(
     (target, replace = false, normalization = false) => {
@@ -304,6 +288,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   }, [
     ready,
     route,
+    normalizeAgain,
     view,
     activeSession,
     activeProfile,

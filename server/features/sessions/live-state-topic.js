@@ -2,12 +2,12 @@
 // the same value GET /api/state answers. It is read again after every
 // OperationsEvents collect (2.5 s), on native activity of any session, on inbox
 // changes and on writes of accounts, provider connections, preferences and the
-// installer; the hub pushes a frame only when the value changed. The slow parts
-// (CLIs, PATH utilities) are sampled once a minute.
-import { workspaceStateOf } from "./workspace-state.js";
+// installer; the hub pushes a frame only when the value changed. The topic has no
+// hub sampler: the collect reads every 2.5 s, and each read detects the slow parts
+// (CLIs, PATH utilities) again once workspace-state.js's 60 s cache has expired.
+import { withoutReadStamp, workspaceStateOf } from "./workspace-state.js";
 
 export const STATE_MAX_BYTES = 131072;
-export const STATE_SAMPLE_MS = 60000;
 
 /** The topic definition for LiveHub#define. */
 export function stateTopic(services) {
@@ -16,15 +16,11 @@ export function stateTopic(services) {
     name: "state",
     mode: "rows",
     maxBytes: STATE_MAX_BYTES,
-    sampleMs: STATE_SAMPLE_MS,
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
     read: () => state.read(),
-    // The sample reads again with freshly detected CLIs and utilities.
-    sampling: () => {
-      state.invalidateSlow();
-      return true;
-    },
+    // The read stamp (readStartedAt) changes on every read; only the state counts.
+    digest: withoutReadStamp,
     watch({ invalidate }) {
       const changed = () => invalidate();
       const stops = [

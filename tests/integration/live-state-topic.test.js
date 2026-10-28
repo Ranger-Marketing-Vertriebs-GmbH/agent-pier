@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { applicationFixture } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
 import { applyListSync } from "../../web/lib/live/list-sync.js";
+import { withoutReadStamp } from "../../server/features/sessions/workspace-state.js";
 
 const ofType = (type) => (frame) => frame.type === type;
 const forState = (frame) => frame.topic === "state";
@@ -33,7 +34,10 @@ test("the state snapshot equals GET /api/state", async (t) => {
   await settledState(f);
   const { live, snapshot } = await subscribedState(f);
   const body = await (await f.request("/api/state")).json();
-  assert.deepEqual(applyListSync(null, snapshot.data).list, body);
+  const list = applyListSync(null, snapshot.data).list;
+  // The same state; the GET started later, so its read stamp is higher.
+  assert.deepEqual(withoutReadStamp(list), withoutReadStamp(body));
+  assert.ok(body.readStartedAt > list.readStartedAt);
   live.ws.close();
 });
 
@@ -55,11 +59,11 @@ test("PATCH /api/preferences pushes a delta within 1 s", async (t) => {
   assert.ok(delta.revision > snapshot.revision);
   const next = applyListSync(held, delta.data);
   assert.equal(next.list.autoResumeInterrupted, false);
-  // Only the changed row travels.
-  assert.deepEqual(
-    delta.data.upserts.map((row) => row.id),
-    ["autoResumeInterrupted"],
-  );
+  // Only the changed row travels, with the new read stamp.
+  assert.deepEqual(delta.data.upserts.map((row) => row.id).sort(), [
+    "autoResumeInterrupted",
+    "readStartedAt",
+  ]);
   live.ws.close();
 });
 
@@ -82,7 +86,10 @@ test("a new session reaches the topic within one collect, in the shape of GET", 
     list.sessions.map((session) => session.id),
     ["pushed"],
   );
-  assert.deepEqual(list, await (await f.request("/api/state")).json());
+  assert.deepEqual(
+    withoutReadStamp(list),
+    withoutReadStamp(await (await f.request("/api/state")).json()),
+  );
   live.ws.close();
 });
 
