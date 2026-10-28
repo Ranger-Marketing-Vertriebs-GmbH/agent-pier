@@ -140,6 +140,46 @@ test("a passphrase backup seals the accounts with their passwords", async (t) =>
   }
 });
 
+test("the attachment text cache is in no backup", async (t) => {
+  const { dataDir, store, account } = await setup(t);
+  const cached = "cached-invoice-text-8c41";
+  const key = store.textCache.key({
+    accountId: account.id,
+    folder: "INBOX",
+    uidValidity: "1",
+    uid: 1,
+    part: "2",
+  });
+  assert.equal(
+    store.textCache.set(account.id, key, { text: cached, truncated: false }),
+    true,
+  );
+  assert.ok(fs.existsSync(path.join(dataDir, "mail/text-cache", account.id)));
+  const plain = await new Backup({ dataDir }).create({ includeHistory: true });
+  const made = [plain, await sealed(dataDir, true)];
+  for (const backup of made) {
+    const archive = loadArchive(backup.file);
+    assert.equal(archiveText(backup.file).includes(cached), false);
+    assert.equal(
+      archive.files.some((member) => member.path.includes("text-cache")),
+      false,
+    );
+  }
+  const opened = await decryptCredentials(
+    loadArchive(made[1].file).credentials,
+    passphrase,
+  );
+  assert.deepEqual(
+    opened.map((entry) => entry.path).filter((member) => member.startsWith("mail/")),
+    [mailAccountsMember],
+  );
+  for (const entry of opened)
+    assert.equal(
+      Buffer.from(entry.content, "base64").toString("utf8").includes(cached),
+      false,
+    );
+});
+
 test("an account whose password cannot be read is named as omitted", async (t) => {
   const { dataDir, account } = await setup(t);
   const { credentialRevision } = catalogRow(dataDir, account.id);

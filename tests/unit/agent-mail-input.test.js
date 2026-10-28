@@ -117,19 +117,26 @@ test("the schema offers the attachment and forward actions with their fields", (
     assert.ok(description.includes(word), word);
 });
 
-test("a search by attachment text is refused until that search exists", () => {
-  // Without this, the server search would drop the criterion and match every message.
+test("a search by attachment text passes the reading check with its other criteria", () => {
+  const request = readingInput({
+    action: "search",
+    accountId: "a",
+    query: { attachmentText: "49.99", since: "2026-10-01" },
+  });
+  assert.deepEqual(request, {
+    action: "search",
+    folder: "INBOX",
+    limit: 20,
+    query: { attachmentText: "49.99", since: "2026-10-01" },
+  });
+  // Control characters are refused here as in every other criterion.
   assert.throws(
     () =>
       readingInput({
         action: "search",
         accountId: "a",
-        query: { attachmentText: "49.99" },
+        query: { attachmentText: "a\0" },
       }),
     { key: "invalid" },
-  );
-  assert.equal(
-    readingInput({ action: "search", accountId: "a", query: { attachment: "x" } }).action,
-    "search",
   );
 });

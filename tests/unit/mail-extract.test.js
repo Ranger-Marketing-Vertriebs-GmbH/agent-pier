@@ -199,10 +199,16 @@ test("exactly two extractors run at once and the queue is bounded", async (t) =>
     }).catch((error) => error),
   );
   const refusedAt = Date.now();
-  await assert.rejects(extractText(pdfWith("x"), "pdf"), failed);
+  await assert.rejects(extractText(pdfWith("x"), "pdf"), {
+    code: "MAIL_TEXT_FAILED",
+    busy: true,
+  });
   assert.ok(Date.now() - refusedAt < 100);
-  for (const error of await Promise.all(queued))
+  for (const error of await Promise.all(queued)) {
     assert.equal(error.code, "MAIL_TEXT_FAILED");
+    // A document that ran and failed is no busy queue.
+    assert.equal(error.busy, undefined);
+  }
 });
 
 test("the caller's bytes stay intact after the extractor took its copy", async () => {
