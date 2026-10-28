@@ -2658,7 +2658,8 @@ Subject, never the body. The Inbox titles the card `<account> · <subject>`.
 Audit: `mail.created`, `mail.updated` (field names), `mail.deleted`, `mail.tested`
 (result codes) for accounts; `assistant.updated` with `kind: "mail-grants"` (account
 ids, rule count, `reason` `owner` or `account-removed`) for grants; `mail.sent`
-(`authorizedBy` `rule` or `approval`, recipient count, failure code) and
+(`authorizedBy` `rule` or `approval`, recipient count, `delivery` `sent`, `failed` or
+`unknown` (also for a send cut off by a restart), failure code) and
 `mail.deleted` with `kind: "message"` (count) for an agent's sends and Trash moves.
 Never an address, host, username, subject, body, rule or password
 (`audit-mail-details.js`).

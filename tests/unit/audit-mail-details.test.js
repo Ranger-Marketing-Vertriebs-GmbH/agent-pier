@@ -108,6 +108,7 @@ test("a sent message keeps the agent, action, authorization, recipient count and
       actionId: "action-1",
       authorizedBy: "approval",
       recipients: 3,
+      delivery: "unknown",
       code: "MAIL_AUTH_FAILED",
       to: ["bob@example.com"],
       subject: "Offer",
@@ -121,12 +122,14 @@ test("a sent message keeps the agent, action, authorization, recipient count and
     actionId: "action-1",
     authorizedBy: "approval",
     recipients: 3,
+    delivery: "unknown",
     code: "MAIL_AUTH_FAILED",
   });
   const odd = event("mail.sent", {
     kind: "message",
     authorizedBy: "chat",
     recipients: 51,
+    delivery: "maybe",
     code: "Server said bob@example.com",
   });
   assert.deepEqual(odd.details, { kind: "message" });

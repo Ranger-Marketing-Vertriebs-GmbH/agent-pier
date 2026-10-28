@@ -365,10 +365,10 @@ export class MailSends {
       });
     } catch (error) {
       const { code } = toolError(error);
-      this.audit(a, authorizedBy, recipients.length, code);
       // Only an error before the SMTP session proves nothing went out; a timeout,
       // reset or odd answer later (after DATA) may have delivered it.
       const failed = !raw || !isMailCode(error?.code) || notSent.has(error.code);
+      this.audit(a, authorizedBy, recipients.length, failed ? "failed" : "unknown", code);
       return this.finish(a.id, {
         state: failed ? "failed" : "unknown",
         diagnostic: code,
@@ -385,7 +385,7 @@ export class MailSends {
     } catch (error) {
       if (isBug(error)) console.error("Agent mail filing failed:", error?.name);
     }
-    this.audit(a, authorizedBy, recipients.length);
+    this.audit(a, authorizedBy, recipients.length, "sent");
     // The sent draft went to Trash, audited like every Trash move.
     if (filed.draftTrashed)
       auditDelete(
@@ -404,20 +404,22 @@ export class MailSends {
     if (p.trusted) this.w.store.pruneTrusted(a.assistantId, "mail_send", trustedMailRows);
     return next;
   }
-  audit(a, authorizedBy, recipients, code) {
+  /** `mail.sent` with `delivery` sent, failed or unknown (outcome failure for both). */
+  audit(a, authorizedBy, recipients, delivery, code) {
     try {
       this.w.s.audit?.append({
         action: "mail.sent",
         resourceType: "mail",
         resourceId: a.payload.accountId,
         source: "system",
-        outcome: code ? "failure" : "success",
+        outcome: delivery === "sent" ? "success" : "failure",
         details: {
           kind: "message",
           assistantId: a.assistantId,
           actionId: a.id,
           authorizedBy,
           recipients,
+          delivery,
           ...(code ? { code } : {}),
         },
       });
@@ -442,6 +444,12 @@ export class MailSends {
       if (this.runs.has(a.id)) return;
       // Never sent again: the send may have gone out before the restart. The agent
       // hears so even when its call had not returned yet.
+      this.audit(
+        a,
+        a.payload.trusted ? "rule" : "approval",
+        recipientsOf(a.payload).length,
+        "unknown",
+      );
       a = this.finish(a.id, {
         state: "unknown",
         ...(a.delivered ? {} : { followUp: true }),
