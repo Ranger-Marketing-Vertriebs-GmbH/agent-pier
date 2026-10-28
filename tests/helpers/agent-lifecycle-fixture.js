@@ -12,6 +12,7 @@ import { LeadShares } from "../../server/features/assistants/lead-shares.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle.js";
 import { mailCursorTable } from "../../server/features/assistants/mail/agent-mail-cursors.js";
+import { mailDraftFilesTable } from "../../server/features/assistants/mail/agent-mail-draft-files.js";
 import { AgentSessionStore } from "../../server/features/assistants/coding-sessions/session-store.js";
 import { ChannelStore } from "../../server/features/assistant-channels/channel-store.js";
 import { TelegramFollowUps } from "../../server/features/assistant-channels/telegram-follow-ups.js";
@@ -114,6 +115,7 @@ export function lifecycleFixture(t) {
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
   mailCursorTable(db);
+  mailDraftFilesTable(db);
   db.exec(
     "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
   );
@@ -244,6 +246,16 @@ export function lifecycleFixture(t) {
       "account-1",
       7,
       42,
+    );
+    // Where a file it attached to a mail draft came from.
+    db.prepare("INSERT INTO agent_mail_draft_files VALUES(?,?,?,?,?,?,?)").run(
+      "account-1",
+      `<draft-${id}@example.com>`,
+      "a".repeat(64),
+      id,
+      JSON.stringify({ kind: "workspace", path: "offer.pdf" }),
+      "{}",
+      Date.now(),
     );
     const channelId = `channel-${id}`;
     channels.list.push({ id: channelId, assistantId: id });
@@ -403,6 +415,7 @@ export function lifecycleFixture(t) {
       ),
       codingSessions: q("SELECT 1 FROM agent_coding_sessions WHERE assistant_id=?", id),
       mailCursors: q("SELECT 1 FROM agent_mail_cursors WHERE assistant_id=?", id),
+      mailDraftFiles: q("SELECT 1 FROM agent_mail_draft_files WHERE assistant_id=?", id),
       followUps: channelStore.db
         .prepare("SELECT 1 FROM channel_follow_ups WHERE channel_id=?")
         .all(`channel-${id}`).length,

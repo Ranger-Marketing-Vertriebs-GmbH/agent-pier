@@ -192,7 +192,11 @@ test("a hook run's capture stays within the hook's live rights", async (t) => {
     id: "hook-1",
     assistantId: f.id,
     enabled: true,
-    rights: storedRights({ shell: "full", folders: { [f.folderProject.id]: "read" } }),
+    rights: storedRights({
+      shell: "full",
+      mail: true,
+      folders: { [f.folderProject.id]: "read" },
+    }),
   };
   const hooks = f.assistants.routines.hooks;
   const runOrigin = hooks.runOrigin;
@@ -201,6 +205,7 @@ test("a hook run's capture stays within the hook's live rights", async (t) => {
       folders: f.workflows.folders.ownAndShared(agent.id),
       shell: personalShell(agent),
       sshHosts: [],
+      mail: true,
     });
   hooks.runOrigin = (agent, key) => {
     const run = runOrigin(agent, key);
@@ -237,12 +242,16 @@ test("a hook run's capture stays within the hook's live rights", async (t) => {
   assert.equal(allowed(workspace), true);
 
   // The hook loses the folder while the agent keeps it.
-  hook.rights = storedRights({ shell: "full", folders: {} });
+  hook.rights = storedRights({ shell: "full", mail: true, folders: {} });
   assert.ok(f.workflows.folders.ownAndShared(f.id)[f.folderProject.id]);
   assert.equal(allowed(project), false);
   assert.equal(allowed(fromHost), true);
   // The hook loses Full access while the agent keeps it.
-  hook.rights = storedRights({ shell: "off", folders: { [f.folderProject.id]: "read" } });
+  hook.rights = storedRights({
+    shell: "off",
+    mail: true,
+    folders: { [f.folderProject.id]: "read" },
+  });
   assert.equal(personalShell(f.store.getAssistant(f.id)), "full");
   assert.equal(allowed(fromHost), false);
   assert.equal(allowed(project), true);
@@ -252,6 +261,19 @@ test("a hook run's capture stays within the hook's live rights", async (t) => {
     context: { ...stored.context, hook: { hookId: "hook-1", folders: {} } },
   };
   assert.equal(allowed(project, narrower), false);
+  // A hook whose Email tick was taken away allows nothing, the workspace included.
+  hook.rights = storedRights({
+    shell: "full",
+    folders: { [f.folderProject.id]: "read" },
+  });
+  for (const source of [workspace, project, fromHost])
+    assert.equal(allowed(source), false);
+  hook.rights = storedRights({
+    shell: "full",
+    mail: true,
+    folders: { [f.folderProject.id]: "read" },
+  });
+  assert.equal(allowed(workspace), true);
   // A paused or deleted hook allows nothing.
   hook.enabled = false;
   for (const source of [workspace, project, fromHost])

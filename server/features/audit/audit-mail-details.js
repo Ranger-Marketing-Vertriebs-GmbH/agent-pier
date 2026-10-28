@@ -54,8 +54,9 @@ function attachmentDetails(details, event, auditId) {
 }
 
 // An agent's change to mail (Trash moves) or send: the agent, how many messages, and
-// for a send what authorized it, how many recipients it had, whether it went out and
-// a failure's code.
+// for a send what authorized it, how many recipients it had, whether it went out, a
+// failure's code, how many attachments with how many bytes it carried and whether it
+// was a forward; never a name, path or content.
 function messageDetails(details, event, auditId) {
   if (details.assistantId !== undefined)
     event.details.assistantId = auditId(details.assistantId);
@@ -70,6 +71,19 @@ function messageDetails(details, event, auditId) {
   )
     event.details.recipients = details.recipients;
   if (deliveries.includes(details.delivery)) event.details.delivery = details.delivery;
+  if (
+    Number.isSafeInteger(details.attachments) &&
+    details.attachments >= 0 &&
+    details.attachments <= 100
+  )
+    event.details.attachments = details.attachments;
+  if (
+    Number.isSafeInteger(details.attachmentBytes) &&
+    details.attachmentBytes >= 0 &&
+    details.attachmentBytes <= maxBytes
+  )
+    event.details.attachmentBytes = details.attachmentBytes;
+  if (details.forward === true) event.details.forward = true;
   if (resultCode(details.code) && details.code !== "ok")
     event.details.code = details.code;
 }

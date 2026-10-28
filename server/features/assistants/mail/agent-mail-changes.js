@@ -2,12 +2,9 @@ import { assistantProblem } from "../assistant-validation.js";
 import { draftFields } from "../../mail/mail-compose.js";
 import { mailBounds } from "../../mail/mail-messages.js";
 import { clipText } from "../../mail/mail-text.js";
-import {
-  markMessages,
-  moveMessages,
-  saveDraft,
-  trashMessages,
-} from "../../mail/mail-changes.js";
+import { markMessages, moveMessages, trashMessages } from "../../mail/mail-changes.js";
+import { attachmentList } from "./agent-mail-send-input.js";
+import { captureFiles, removeList, saveAgentDraft } from "./agent-mail-draft-files.js";
 
 // The changing actions of agentpier_mail: mark, move, delete (to Trash only) and
 // draft. They need no approval in any turn the gate lets through; only a delete (a
@@ -27,6 +24,8 @@ const fields = {
     "replyToUid",
     "replyToFolder",
     "draftUid",
+    "attachments",
+    "removeAttachments",
   ],
 };
 const controls = /[\x00-\x1f\x7f]/;
@@ -47,8 +46,18 @@ function uidsOf(input) {
 export function changingInput(input) {
   const allowed = new Set(["action", "accountId", ...fields[input.action]]);
   if (Object.keys(input).some((key) => !allowed.has(key))) throw invalid();
-  if (input.action === "draft")
-    return { action: "draft", fields: draftFields(input), replaceUid: input.draftUid };
+  if (input.action === "draft") {
+    // Removing attachments needs the draft they are in.
+    if (input.removeAttachments !== undefined && input.draftUid === undefined)
+      throw invalid();
+    return {
+      action: "draft",
+      fields: draftFields(input),
+      replaceUid: input.draftUid,
+      attachments: attachmentList(input.attachments),
+      removeNames: removeList(input.removeAttachments),
+    };
+  }
   const folder = input.folder ?? "INBOX";
   if (controls.test(folder)) throw invalid();
   const request = { action: input.action, folder, uids: uidsOf(input) };
@@ -78,10 +87,18 @@ export function auditDelete(services, gate, count) {
   }
 }
 
-/** Runs one changing action for the gated agent on one IMAP connection. */
-export async function runChanging({ accounts, services }, gate, input) {
+/**
+ * Runs one changing action for the gated agent on one IMAP connection. A draft's
+ * files are read first, outside it, for the call `inv` with the workflows `w`;
+ * `mail` (AgentMail) gives the size limits and records where the files came from.
+ */
+export async function runChanging({ accounts, services, inv, w, mail }, gate, input) {
   const request = changingInput(input);
   const { account } = gate;
+  const captured =
+    request.action === "draft"
+      ? await captureFiles(w, mail.limits, inv, gate.caller, request.attachments)
+      : null;
   const result = await accounts.withImap(account.id, async (client) => {
     if (request.action === "mark")
       return markMessages(client, request.folder, request.uids, request.flag);
@@ -106,9 +123,7 @@ export async function runChanging({ accounts, services }, gate, input) {
       htmlPart: _html,
       attachments,
       ...draft
-    } = await saveDraft(client, sender, request.fields, {
-      replaceUid: request.replaceUid,
-    });
+    } = await saveAgentDraft(mail, client, gate, sender, request, captured);
     return {
       draftFolder: folder,
       ...draft,

@@ -6,12 +6,18 @@ import { mailError } from "../../mail/mail-connection.js";
 import { recipientsOf } from "../../mail/mail-compose.js";
 import { saveDraft, trashDraft } from "../../mail/mail-changes.js";
 import { loadDraft } from "../../mail/mail-drafts.js";
+import { storedFiles } from "./agent-mail-sources.js";
 import { recipientAllowed } from "./agent-mail-grants.js";
 import { mailPermits } from "./agent-mail-origin.js";
 import { auditDelete } from "./agent-mail-changes.js";
 import { inputDigest, sendInput } from "./agent-mail-send-input.js";
 import { cardPayload, staleReason } from "./agent-mail-card.js";
 import { auditSend, deliverMail, isBug } from "./agent-mail-delivery.js";
+import {
+  captureFiles,
+  savedAttachments,
+  storedDraftAttachments,
+} from "./agent-mail-draft-files.js";
 
 export { mailTelegramApprovable } from "./agent-mail-send-input.js";
 
@@ -98,9 +104,16 @@ export class MailSends {
     // Checked before the draft is saved, and again just before the row is written.
     this.limit(inv, caller, permit);
     const from = { name: stored.displayName || "", address: account.address };
+    // The files are read before the draft is saved: a refusal saves nothing.
+    const captured = request.draftUid
+      ? null
+      : await captureFiles(this.w, this.mail.limits, inv, caller, request.attachments);
+    let saved = null;
     if (!request.draftUid) {
-      const saved = await this.accounts.withImap(account.id, (c) =>
-        saveDraft(c, { address: account.address, displayName: from.name }, draft.fields),
+      saved = await this.accounts.withImap(account.id, (c) =>
+        saveDraft(c, { address: account.address, displayName: from.name }, draft.fields, {
+          files: captured?.entries ?? [],
+        }),
       );
       Object.assign(draft, {
         draftUid: saved.draftUid,
@@ -115,6 +128,19 @@ export class MailSends {
     let action;
     let earlier;
     try {
+      // What goes along: the files this call read, or the stored draft's parts.
+      const { attachments, files } = saved
+        ? {
+            attachments: savedAttachments(
+              this.mail,
+              account.id,
+              agentId,
+              saved,
+              captured,
+            ),
+            files: captured?.files ?? null,
+          }
+        : storedDraftAttachments(this.mail, inv, caller, account.id, draft);
       inv.assertCurrent();
       const expiresAt = this.now() + (trusted ? 0 : mailApprovalMs);
       const { replyToUid: _uid, replyToFolder: _folder, ...fields } = draft.fields;
@@ -127,6 +153,8 @@ export class MailSends {
         trusted,
         inputSha256,
         expiresAt,
+        attachments,
+        files: files && storedFiles(files),
       });
       const telegram = trusted
         ? null
