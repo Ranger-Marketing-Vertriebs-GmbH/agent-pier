@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LiveHub, MAX_TOPIC_ID } from "../../server/features/live/live-hub.js";
+import {
+  LiveHub,
+  MAX_TOPIC_ID,
+  unknownTopic,
+} from "../../server/features/live/live-hub.js";
 import { applyListSync } from "../../web/features/assistants/agent-list-sync.js";
 import { manualTimers } from "../helpers/manual-timers.js";
 
@@ -264,4 +268,97 @@ test("reauthorize sends revoked and stops reads for that subscriber", async (t) 
   assert.equal(reads, before + 1);
   assert.equal(u2.frames.at(-1).type, "state");
   u1.unsubscribe();
+});
+
+test("a signal change while nobody subscribes answers changed on resubscribe", async (t) => {
+  const { hub, clock } = setup(t);
+  hub.define({
+    name: "artifacts",
+    mode: "signal",
+    authorize: () => true,
+    scopeKey: () => "owner",
+  });
+  const first = listen(hub, owner, "artifacts");
+  const { revision } = first.frames[0];
+  first.unsubscribe();
+  hub.invalidate("artifacts");
+  await clock.advance(200);
+  const again = listen(hub, owner, "artifacts", { instance: hub.instance, revision });
+  assert.equal(again.frames[0].type, "changed");
+  assert.ok(again.frames[0].revision > revision);
+  // Its new revision is known afterwards.
+  const third = listen(hub, owner, "artifacts", {
+    instance: hub.instance,
+    revision: again.frames[0].revision,
+  });
+  assert.equal(third.frames[0].type, "same");
+});
+
+test("state and rows topics recompute on resubscribe after an unseen change", async (t) => {
+  const { hub, clock } = setup(t);
+  const source = counter(hub);
+  const rows = { value: { items: [{ id: "a", v: 1 }] } };
+  hub.define({
+    name: "rows",
+    mode: "rows",
+    authorize: () => true,
+    scopeKey: () => "owner",
+    read: () => structuredClone(rows.value),
+  });
+  const state = listen(hub, owner, "state");
+  const list = listen(hub, owner, "rows");
+  await clock.advance(0);
+  const { revision } = state.frames[0];
+  const held = applyListSync(null, list.frames[0].data);
+  state.unsubscribe();
+  list.unsubscribe();
+  source.value = { n: 9 };
+  rows.value = { items: [{ id: "a", v: 2 }] };
+  hub.invalidate("state");
+  hub.invalidate("rows");
+  await clock.advance(200);
+  const stateAgain = listen(hub, owner, "state", { instance: hub.instance, revision });
+  const listAgain = listen(hub, owner, "rows", {
+    instance: hub.instance,
+    cursor: held.state.sync.cursor,
+  });
+  await clock.advance(0);
+  assert.equal(stateAgain.frames[0].type, "snapshot");
+  assert.deepEqual(stateAgain.frames[0].data, { n: 9 });
+  assert.equal(listAgain.frames[0].type, "delta");
+  assert.deepEqual(applyListSync(held, listAgain.frames[0].data).list, rows.value);
+});
+
+test("define drops stateful and multiline flags from param patterns", (t) => {
+  const { hub } = setup(t);
+  hub.define({
+    name: "session.models",
+    param: /[a-z]+/gmy,
+    mode: "state",
+    authorize: () => true,
+    scopeKey: () => "owner",
+    read: () => 1,
+  });
+  assert.equal(hub.resolve(owner, "session.models:ab\ncd"), null);
+  assert.equal(hub.resolve(owner, "session.models:ab").param, "ab");
+  assert.equal(hub.resolve(owner, "session.models:ab").param, "ab");
+});
+
+test("the unknown-topic frame echoes a bounded string topic", (t) => {
+  const { hub } = setup(t);
+  assert.deepEqual(listen(hub, owner, 42).frames[0], unknownTopic(""));
+  const long = listen(hub, owner, "x".repeat(5000)).frames[0];
+  assert.equal(long.topic.length, MAX_TOPIC_ID);
+});
+
+test("close drops kept revisions and row baselines", async (t) => {
+  const { hub, clock } = setup(t);
+  counter(hub);
+  const first = listen(hub, owner, "state");
+  await clock.advance(0);
+  first.unsubscribe();
+  const sync = hub.sync;
+  hub.close();
+  assert.equal(hub.records.size, 0);
+  assert.notEqual(hub.sync, sync);
 });

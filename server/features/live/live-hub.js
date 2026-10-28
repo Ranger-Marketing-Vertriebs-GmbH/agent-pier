@@ -14,7 +14,11 @@ const MODES = new Set(["state", "rows", "signal"]);
 const MAX_RECORDS = 4096;
 
 /** The frame for a topic id that does not resolve: unknown and denied look alike. */
-export const unknownTopic = (topic) => ({ type: "error", topic, error: "unknown-topic" });
+export const unknownTopic = (topic) => ({
+  type: "error",
+  topic: typeof topic === "string" ? topic.slice(0, MAX_TOPIC_ID) : "",
+  error: "unknown-topic",
+});
 
 export class LiveHub {
   constructor({
@@ -51,9 +55,10 @@ export class LiveHub {
       throw new Error(`Live topic ${name} needs read`);
     if (param !== undefined && !(param instanceof RegExp))
       throw new Error(`Live topic ${name} needs a RegExp param`);
-    // The parameter must match whole; flags with state (g, y) are dropped.
+    // The parameter must match whole; flags with state (g, y) and multiline (m),
+    // which would let `$` match before a newline, are dropped.
     const pattern = param
-      ? new RegExp(`^(?:${param.source})$`, param.flags.replace(/[gy]/g, ""))
+      ? new RegExp(`^(?:${param.source})$`, param.flags.replace(/[gmy]/g, ""))
       : null;
     this.topics.set(name, { definition, pattern });
   }
@@ -185,6 +190,9 @@ export class LiveHub {
     for (const instance of this.instances.values()) instance.stop();
     this.instances.clear();
     this.byName.clear();
+    this.records.clear();
+    // Drops every row baseline; a later cursor is unknown.
+    this.sync = new ChatSync({});
   }
 }
 
