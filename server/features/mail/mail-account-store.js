@@ -126,6 +126,8 @@ export class MailAccountStore {
 
   save(rows) {
     privateDirectory(this.root);
+    // Even a failed write may have changed the catalog: identities are read again.
+    this.textCache.forgetIdentities();
     writePrivate(this.file, { version: VERSION, accounts: rows });
   }
 

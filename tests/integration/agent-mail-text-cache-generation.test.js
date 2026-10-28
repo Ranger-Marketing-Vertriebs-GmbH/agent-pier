@@ -130,3 +130,26 @@ test("the store keys cached text by the mailbox its account reaches", async (t) 
   assert.notEqual(cache.key(fields), before);
   assert.equal(cache.get(f.account.id, cache.key(fields)), null);
 });
+
+test("the text-cache key reads the catalog once, and again after it is written", async (t) => {
+  const f = await mailFixture(t);
+  const s = f.mailStore;
+  const id = f.account.id;
+  const keyOf = () =>
+    s.textCache.key({
+      accountId: id,
+      folder: "INBOX",
+      uidValidity: "1",
+      uid: 1,
+      part: "2",
+    });
+  const reads = t.mock.method(s, "rows");
+  const first = keyOf();
+  for (let i = 0; i < 5; i++) assert.equal(keyOf(), first);
+  assert.equal(reads.mock.callCount(), 1);
+  // A written catalog is read again: the same mailbox keeps its key, another one not.
+  s.update(id, { name: "Renamed" }, owner);
+  assert.equal(keyOf(), first);
+  s.update(id, { imap: { username: "other" }, password: "pw-again" }, owner);
+  assert.notEqual(keyOf(), first);
+});

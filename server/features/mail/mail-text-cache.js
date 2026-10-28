@@ -28,8 +28,11 @@ export class MailTextCache {
   constructor({ root, budgetBytes = 268_435_456, identity = () => null }) {
     this.root = path.resolve(root);
     this.budgetBytes = budgetBytes;
-    // The mailbox an account reaches now (server and login), part of every key.
+    // The mailbox an account reaches now (server and login), part of every key; read
+    // once per account and kept until the catalog is written (forgetIdentities) or
+    // the account's text is dropped, not read from disk on every key.
     this.identity = identity;
+    this.identities = new Map();
     // Bytes of all entries; counted on the first write, then kept up to date.
     this.total = null;
     // Accounts removed in this process: a search still running writes nothing more.
@@ -46,12 +49,26 @@ export class MailTextCache {
    * after a restart.
    */
   key({ accountId, folder, uidValidity, uid, part }) {
-    const scope = [this.identity(accountId), this.generation(accountId)];
+    const scope = [this.identityOf(accountId), this.generation(accountId)];
     return createHash("sha256")
       .update(
         JSON.stringify([accountId, folder, uidValidity, uid, part, ...scope].map(String)),
       )
       .digest("hex");
+  }
+
+  // The account's mailbox identity, kept once known (an unknown one is asked again).
+  identityOf(accountId) {
+    if (this.identities.has(accountId)) return this.identities.get(accountId);
+    const identity = this.identity(accountId);
+    if (identity !== null && identity !== undefined)
+      this.identities.set(accountId, identity);
+    return identity;
+  }
+
+  /** Forgets every kept identity: the account catalog was written. */
+  forgetIdentities() {
+    this.identities.clear();
   }
 
   file(accountId, key) {
@@ -168,6 +185,7 @@ export class MailTextCache {
   clearAccount(accountId) {
     if (!accountName.test(String(accountId))) return;
     this.generations.set(accountId, this.generation(accountId) + 1);
+    this.identities.delete(accountId);
     try {
       fs.rmSync(path.join(this.root, accountId), { recursive: true, force: true });
     } catch {}
