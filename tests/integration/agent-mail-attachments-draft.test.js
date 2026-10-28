@@ -224,3 +224,43 @@ test("a replaced draft carries only the replacing agent's file sources", () => {
   assert.equal(files.lookup("acc", "<new@x>", "agent-1").size, 1);
   assert.equal(files.lookup("acc", "<new@x>", "agent-2").size, 0);
 });
+
+test("another agent's draft files show that agent's path, checked as the draft's", async (t) => {
+  const f = await sendFilesFixture(t);
+  const bytes = pdfWith("Offer");
+  fs.writeFileSync(f.ws("offer.pdf"), bytes);
+  fs.writeFileSync(f.ws("own.csv"), "a;b\n");
+  const d = await f.draft({ attachments: [{ path: "offer.pdf" }] });
+  // Agent A saved this draft with the PDF; this agent (B) sends it.
+  f.store.db.prepare("UPDATE agent_mail_draft_files SET assistant_id=?").run("agent-a");
+  const r = await f.send({ draftUid: d.draftUid });
+  const p = f.workflows.get(r.actionId).payload;
+  assert.deepEqual(p.attachments[0].source, {
+    kind: "draft",
+    from: "workspace",
+    path: "offer.pdf",
+  });
+  // Nothing of B's to check again: A's path is shown, never re-checked for B.
+  assert.equal(p.files, null);
+  await f.decide(r.actionId);
+  assert.equal((await f.settled(r.actionId)).state, "completed");
+  assert.ok(carries(f.smtp.messages.at(-1).raw, bytes));
+
+  // B's own files beside A's are still checked against B's access.
+  const both = await f.draft({
+    attachments: [{ path: "offer.pdf" }, { path: "own.csv" }],
+  });
+  f.store.db
+    .prepare("UPDATE agent_mail_draft_files SET assistant_id=? WHERE source LIKE ?")
+    .run("agent-a", '%"offer.pdf"%');
+  const second = await f.send({ draftUid: both.draftUid });
+  const q = f.workflows.get(second.actionId).payload;
+  assert.deepEqual(
+    q.attachments.map((a) => a.source),
+    [
+      { kind: "draft", from: "workspace", path: "offer.pdf" },
+      { kind: "workspace", path: "own.csv" },
+    ],
+  );
+  assert.equal(q.files.context.assistantId, f.id);
+});

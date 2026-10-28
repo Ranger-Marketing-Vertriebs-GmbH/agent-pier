@@ -73,6 +73,25 @@ export class MailDraftFiles {
     return found;
   }
   /**
+   * The draft's parts other agents attached: Map<partSha256, source> (the first
+   * agent's by id where several did), for the owner's card only.
+   */
+  others(accountId, messageId, assistantId) {
+    const found = new Map();
+    if (!messageId) return found;
+    const rows = this.db
+      .prepare(
+        "SELECT part_sha256,source FROM agent_mail_draft_files WHERE account_id=? AND message_id=? AND assistant_id<>? ORDER BY assistant_id",
+      )
+      .all(accountId, messageId, assistantId);
+    for (const row of rows)
+      try {
+        if (!found.has(row.part_sha256))
+          found.set(row.part_sha256, JSON.parse(row.source));
+      } catch {}
+    return found;
+  }
+  /**
    * Copies the rows of `partSha256s` from a replaced draft to its successor, with
    * `assistantId` only that agent's rows.
    */
@@ -192,12 +211,24 @@ export function savedAttachments(saved, captured) {
   };
 }
 
+// A part another agent attached, as the owner's card names it: still the draft's
+// own (`kind: "draft"`, never checked again: the sending agent attaches no file, the
+// bytes already sit in the draft), with that agent's path and project for the owner.
+const attachedByOther = (source) => ({
+  kind: "draft",
+  from: source.kind,
+  ...(typeof source.path === "string" && { path: source.path }),
+  ...(source.projectName && { projectName: source.projectName }),
+});
+
 /**
  * The card attachments of a stored draft (loadDraft) and the file context they are
- * checked against: parts an agent's `draft` call attached carry their recorded
- * source, which must still be within reach of both that call and this turn; all
- * others are the draft's own. `files` is this turn's file context (fileContext), null
- * without such parts. More than `attachmentLimits.files` parts is invalid.
+ * checked against: parts this agent's `draft` call attached carry their recorded
+ * source, which must still be within reach of both that call and this turn; parts
+ * another agent attached show that agent's path (attachedByOther) and are checked
+ * like the draft's own, which all others are. `files` is this turn's file context
+ * (fileContext), null without parts of this agent. More than
+ * `attachmentLimits.files` parts is invalid.
  */
 export function storedDraftAttachments(mail, inv, caller, accountId, draft) {
   const parts = draft.attachments ?? [];
@@ -205,7 +236,15 @@ export function storedDraftAttachments(mail, inv, caller, accountId, draft) {
   const agentId = caller.assistant.id;
   const recorded = mail.draftFiles.lookup(accountId, draft.messageId, agentId);
   const found = parts.map((p) => recorded.get(p.partSha256) ?? null);
-  if (!found.some(Boolean)) return { attachments: cardAttachments(parts), files: null };
+  const others = found.every(Boolean)
+    ? new Map()
+    : mail.draftFiles.others(accountId, draft.messageId, agentId);
+  const other = (p) => {
+    const source = others.get(p.partSha256);
+    return source ? attachedByOther(source) : null;
+  };
+  if (!found.some(Boolean))
+    return { attachments: cardAttachments(parts, other), files: null };
   // The card keeps only this turn's file context, and approval re-checks against it
   // alone. That suffices: the bytes are already in the draft and bound to the card
   // by their digests, the draft-time context is checked once here, and whatever
@@ -222,7 +261,10 @@ export function storedDraftAttachments(mail, inv, caller, accountId, draft) {
       )
     )
       throw assistantProblem("mailSourceRefused", 403);
-  return { attachments: cardAttachments(parts, (_p, i) => found[i]?.source), files };
+  return {
+    attachments: cardAttachments(parts, (p, i) => found[i]?.source ?? other(p)),
+    files,
+  };
 }
 
 // The Message-ID and attachment names of draft `uid`, read before it is replaced.

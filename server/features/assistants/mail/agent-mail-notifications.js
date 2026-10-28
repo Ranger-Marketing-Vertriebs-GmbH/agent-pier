@@ -80,9 +80,7 @@ function sourceText(source, f) {
   if (source?.kind === "original") return f.fromOriginal;
   if (!source?.path) return f.inDraft;
   const path = visibleLine(shortPath(source.path));
-  return source.kind === "project" && source.projectName
-    ? `${path} (${visibleLine(source.projectName)})`
-    : path;
+  return source.projectName ? `${path} (${visibleLine(source.projectName)})` : path;
 }
 
 const htmlNotes = {

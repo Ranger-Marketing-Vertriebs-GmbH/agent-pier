@@ -15,7 +15,7 @@ function Source({ source }) {
       <code>
         <SshCommandText command={source.path} line />
       </code>
-      {source.kind === "project" && source.projectName && (
+      {source.projectName && (
         <>
           {" "}
           (<SshCommandText command={source.projectName} line />)

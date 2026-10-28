@@ -283,6 +283,11 @@ account name and the subject.
   made in Gmail, shows as "Already in the draft", with its name, size, type and hash.
   The same label appears without a path for a part whose source record is gone:
   AgentPier keeps the source of a draft's attachments for 30 days.
+- **A draft another agent prepared.** When one agent sends a draft another of your
+  agents attached files to, the card shows those files' paths (and project) as that
+  agent recorded them. They count as the draft's own parts: the bytes already sit in
+  the draft, so AgentPier does not check them against the sending agent's file access.
+  Files the sending agent attached itself are checked against its own access as usual.
 
 ### Outcomes
 
