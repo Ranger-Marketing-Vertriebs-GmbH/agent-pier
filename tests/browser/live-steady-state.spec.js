@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { recordApiRequests, setTabHidden } from "../helpers/visibility.js";
 import { topicInfo } from "../../web/lib/live/live-topics.js";
 import { emptyInbox } from "../helpers/empty-inbox.js";
+import { liveStubHeader } from "../helpers/live-stub.js";
 import { operationsFixture } from "./operations-fixture.js";
 
 // The steady state of a page on a working live channel is push-only: after the first
@@ -74,9 +75,12 @@ async function openSteady(page, liveStub, { path, topics }) {
     liveStub.push(
       topic,
       snapshots[topic] ??
+        // Marked as the stub's own read, as the server's snapshot would be: the
+        // request log counts only what the app reads.
         (await page.evaluate(
-          (path) => fetch(`/api${path}`).then((r) => r.json()),
-          info.path(info.param),
+          ({ path, header }) =>
+            fetch(`/api${path}`, { headers: { [header]: "1" } }).then((r) => r.json()),
+          { path: info.path(info.param), header: liveStubHeader },
         )),
     );
   }
@@ -97,14 +101,15 @@ for (const [name, target] of Object.entries(pages)) {
   });
 
   // The run lists, the counts and the other menu-hint sources are pushed.
-  test(`the ${name} reads no pipeline runs or menu-hint sources for 10 s`, async ({
+  // Counted from the load on: the sources' former poll (30 s) read them at once, so
+  // a read in any window, the first one included, is a poll.
+  test(`the ${name} reads no pipeline runs or menu-hint sources from load to 10 s after`, async ({
     page,
     liveStub,
   }) => {
-    test.setTimeout(30000);
+    test.setTimeout(40000);
     const requests = recordApiRequests(page);
     await openSteady(page, liveStub, target);
-    requests.clear();
     await page.waitForTimeout(10000);
     expect(reads(requests, menuHints)).toEqual([]);
   });
