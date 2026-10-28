@@ -1,4 +1,4 @@
-import { parse } from "parse5";
+import { defaultTreeAdapter, parse } from "parse5";
 
 // Mail text for agents: HTML becomes plain text (never markup), and every text is cut
 // at a character bound without splitting a surrogate pair.
@@ -64,48 +64,63 @@ const cells = new Set(["td", "th"]);
 const safeLink = /^(https?:|mailto:)/i;
 
 // Parsing is quadratic in the nesting depth and serializing recurses, so a hostile
-// mail could block the server: HTML with more tags or deeper nesting than this is
-// never parsed (htmlToText, mail-forward.js quotedHtml). Ordinary newsletters stay
-// far below both.
-export const htmlBounds = Object.freeze({ tags: 20_000, depth: 500 });
-const voidTags = new Set([
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "source",
-  "track",
-  "wbr",
-]);
-// Elements whose end tag is optional: an unclosed one does not nest deeper.
-const openEnded = new Set(["p", "li", "td", "th", "tr", "dt", "dd", "option"]);
-const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)[^<>]*?(\/?)>/g;
+// mail could block the server. Mail HTML is only parsed with at most `tags` start
+// and `tags` end tags, counted by every `<` or `</` before a letter wherever it
+// stands (in an attribute value, a comment or a script too, so it counts at least
+// every tag parse5 can see), and parsing stops once more than `depth` elements are
+// open or more than `elements` were made (parseMailHtml). Ordinary newsletters stay
+// far below all three.
+export const htmlBounds = Object.freeze({ tags: 20_000, depth: 500, elements: 60_000 });
+const startTags = /<[a-zA-Z]/g;
+const endTags = /<\/[a-zA-Z]/g;
+// html and body are open around the content.
+const rootDepth = 2;
+
+const countOf = (text, pattern) => {
+  let count = 0;
+  pattern.lastIndex = 0;
+  while (pattern.exec(text)) if (++count > htmlBounds.tags) break;
+  return count;
+};
+
+/** Whether `html` has at most `htmlBounds.tags` start and end tags (one linear scan). */
+export function htmlWithinBounds(html) {
+  return (
+    countOf(html, startTags) <= htmlBounds.tags &&
+    countOf(html, endTags) <= htmlBounds.tags
+  );
+}
+
+class TooComplex extends Error {}
 
 /**
- * Whether `html` is within htmlBounds, by one linear scan: at most `tags` start tags
- * and an estimated nesting depth of at most `depth` (start tags that are not void,
- * self-closed or open-ended count up, end tags down).
+ * `html` parsed by parse5 as a document, or null when it is beyond htmlBounds: too
+ * many tags (never parsed), more than `depth` elements open at once or more than
+ * `elements` made (parsing stops there), or a parse that fails.
  */
-export function htmlWithinBounds(html) {
-  let tags = 0;
-  let depth = 0;
-  for (const [, end, name, selfClosed] of html.matchAll(tagPattern)) {
-    const tag = name.toLowerCase();
-    if (end) {
-      if (!voidTags.has(tag) && !openEnded.has(tag)) depth = Math.max(0, depth - 1);
-      continue;
-    }
-    if (++tags > htmlBounds.tags) return false;
-    if (selfClosed || voidTags.has(tag) || openEnded.has(tag)) continue;
-    if (++depth > htmlBounds.depth) return false;
+export function parseMailHtml(html) {
+  const source = String(html);
+  if (!htmlWithinBounds(source)) return null;
+  let open = 0;
+  let made = 0;
+  const treeAdapter = {
+    ...defaultTreeAdapter,
+    createElement(...args) {
+      if (++made > htmlBounds.elements) throw new TooComplex();
+      return defaultTreeAdapter.createElement(...args);
+    },
+    onItemPush() {
+      if (++open > htmlBounds.depth + rootDepth) throw new TooComplex();
+    },
+    onItemPop() {
+      open--;
+    },
+  };
+  try {
+    return parse(source, { treeAdapter });
+  } catch {
+    return null;
   }
-  return true;
 }
 
 /** What an agent reads instead of HTML beyond htmlBounds. */
@@ -184,26 +199,25 @@ const nodeText = (node) => {
  * Plain text of an HTML mail part: scripts, styles, head, templates and comments
  * dropped; blocks and `<br>` become line breaks, list items `- `, links to http(s) or
  * mailto `text (href)`; runs of blank lines collapse. Never returns markup. HTML
- * beyond htmlBounds is never parsed, and HTML whose parsing fails is not converted:
- * both give `tooComplexText` with `tooComplex: true`.
+ * beyond htmlBounds (parseMailHtml) gives `tooComplexText` with `tooComplex: true`.
  */
 export function htmlToText(html, maxChars) {
-  const source = String(html);
   const tooComplex = { text: tooComplexText, truncated: false, tooComplex: true };
-  if (!htmlWithinBounds(source)) return tooComplex;
+  const document = parseMailHtml(html);
+  if (!document) return tooComplex;
   try {
-    return convert(source, maxChars);
+    return convert(document, maxChars);
   } catch {
     return tooComplex;
   }
 }
 
-function convert(html, maxChars) {
+function convert(document, maxChars) {
   const sink = new TextSink(maxChars);
   // An explicit stack: a deeply nested mail must not overflow the call stack. parse5
   // parses with scripting on, so <noscript> content stays inside it as raw text
   // (with scripting off, text in a <noscript> in the head leaks into the body).
-  const stack = [{ node: parse(String(html)) }];
+  const stack = [{ node: document }];
   let pre = 0;
   while (stack.length && !sink.full) {
     const { node, exit } = stack.pop();

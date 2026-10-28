@@ -438,6 +438,7 @@ test("read of hostile nested HTML returns a placeholder quickly, never parsing i
   const html = (body) =>
     `From: Sender <sender@example.org>\r\nTo: agent@example.com\r\nSubject: Deep\r\nDate: Tue, 27 Oct 2026 08:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${body}\r\n`;
   for (const body of [
+    '<div title="<">'.repeat(60_000),
     "<div>".repeat(200_000),
     "<a><b><i>".repeat(100_000),
     "<b>".repeat(300_000),
@@ -445,7 +446,7 @@ test("read of hostile nested HTML returns a placeholder quickly, never parsing i
     const uid = f.seed(html(body));
     const started = Date.now();
     const { message } = await f.mail({ action: "read", uid });
-    assert.ok(Date.now() - started < 5000);
+    assert.ok(Date.now() - started < 1000);
     assert.equal(message.text, "[The HTML of this mail is too complex to read.]");
     assert.equal(message.htmlTooComplex, true);
     assert.equal(message.truncated, false);

@@ -115,3 +115,30 @@ test("hostile nesting is never parsed and gives the placeholder within a second"
     truncated: false,
   });
 });
+
+test("tags hidden in attributes, comments or raw text cannot slip past the bounds", () => {
+  const hostile = {
+    "reviewer: < in a quoted attribute": '<div title="<">'.repeat(60_000),
+    "> in a single-quoted attribute": "<div title='>'>".repeat(19_000),
+    "end tag in an attribute": '<div title="</div>">'.repeat(9_000),
+    "fake self-closing in an attribute": '<div title="/>">'.repeat(19_000),
+    "comment ended by --!>": "<!--x--!><div>".repeat(19_000),
+    "CDATA hiding end tags": `<svg><![CDATA[>${"</div>".repeat(1_000)}]]></svg>${"<div>".repeat(19_000)}`,
+    "style in svg": `<svg><style>${"<div>".repeat(19_000)}`,
+    "end tags in a script": "<div><script></div></script>".repeat(9_000),
+    "formatting rebuilt per div": Array.from(
+      { length: 9_000 },
+      (_, i) => `<div><b a=${i}></div>`,
+    ).join(""),
+  };
+  for (const [name, html] of Object.entries(hostile)) {
+    const started = performance.now();
+    assert.equal(htmlToText(html, 32_000).text, tooComplexText, name);
+    assert.ok(performance.now() - started < 1000, name);
+  }
+  // Within the bounds, ordinary HTML with such attributes is still read.
+  assert.equal(
+    htmlToText("<p title=\"a<b\">Hi</p><!-- x --><p title='>'>there</p>", 100).text,
+    "Hi\n\nthere",
+  );
+});
