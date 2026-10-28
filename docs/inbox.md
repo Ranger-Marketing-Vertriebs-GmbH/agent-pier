@@ -92,10 +92,15 @@ screen decide only when none is open (see [architecture](architecture.md)).
   `type`, `id`, `tab`, `kind`, `source` (`{ kind, id, name }` of the session, run or
   agent), `title`, `createdAt`, `expiresAt` and `link` (the in-context page). Items
   carry no command lines; the cards load them from their own endpoints.
+- The live channel's `inbox` topic (owner only) pushes the same value as
+  `GET /api/inbox` whenever the waiting set changes; the start page's **Needs you** and
+  the inbox page take their list from it and send no request of their own while the
+  channel works. Restricted users cannot subscribe to it.
 - `GET /api/inbox/events` is a server-sent event stream. It sends the counts and the
-  revision when it connects and whenever the waiting set changes; the page then reads
-  `GET /api/inbox` again. The workspace state (the live `state` topic and
-  `GET /api/state`) carries the same summary for the sidebar count.
+  revision when it connects and whenever the waiting set changes; the page reads
+  `GET /api/inbox` again when the list it holds is behind. The workspace state (the
+  live `state` topic and `GET /api/state`) carries the same summary for the sidebar
+  count.
 - `GET /api/inbox/<type>/<id>` resolves a stable address to `pending` (with the
   item), `done` (from the audit log, for 24 hours) or `gone`.
 - The inbox only reads. It is part of the owner's login like every other page; it

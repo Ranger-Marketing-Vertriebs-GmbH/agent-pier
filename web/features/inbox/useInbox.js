@@ -1,53 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import api from "../../lib/api.js";
+import { useCallback, useEffect, useRef } from "react";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { publishInboxSummary, useInboxSummary } from "./inbox-store.js";
 
 /**
- * The inbox list. Loaded once, then again whenever the event stream (or, as a
- * fallback, the polled workspace state) reports another revision, so answered or
- * expired items leave without a reload.
+ * The inbox list from the live `inbox` topic, which pushes every change of the waiting
+ * set. The event stream (until it is retired) and the polled workspace state still
+ * carry the summary: a revision the list does not hold yet reads the list again.
  */
 export default function useInbox() {
-  const [data, setData] = useState(null),
-    [error, setError] = useState("");
-  const loaded = useRef(null);
-  const reading = useRef(null);
-  const load = useCallback(() => {
-    // One read at a time; a change during a read reads once more afterwards.
-    if (reading.current) {
-      reading.current.again = true;
-      return reading.current.promise;
-    }
-    const current = { again: false };
-    current.promise = (async () => {
-      do {
-        current.again = false;
-        try {
-          const next = await api("/inbox");
-          loaded.current = next;
-          setData(next);
-          setError("");
-          publishInboxSummary(next);
-        } catch (e) {
-          setError(e.message);
-        }
-      } while (current.again);
-    })().finally(() => {
-      reading.current = null;
-    });
-    reading.current = current;
-    return current.promise;
+  const { data, error, refresh } = useLiveTopic("inbox");
+  const held = useRef(null);
+  held.current = data;
+  useEffect(() => publishInboxSummary(data), [data]);
+  // Only a list already shown can be behind; the topic's first value is on its way.
+  const stale = useCallback((summary) => {
+    const current = held.current;
+    if (!summary || !current || !Number.isSafeInteger(summary.revision)) return false;
+    return current.instance !== summary.instance || summary.revision > current.revision;
   }, []);
-  const stale = useCallback(
-    (summary) =>
-      summary &&
-      (!loaded.current ||
-        loaded.current.instance !== summary.instance ||
-        loaded.current.revision !== summary.revision),
-    [],
-  );
   useEffect(() => {
-    load();
     let stream,
       timer,
       attempts = 0;
@@ -66,7 +37,7 @@ export default function useInbox() {
           return;
         }
         if (Number.isSafeInteger(event.revision)) publishInboxSummary(event);
-        if (stale(event)) load();
+        if (stale(event)) refresh();
       };
       stream.onerror = () => {
         // 2 is EventSource.CLOSED: a refused stream is reopened with backoff.
@@ -79,17 +50,16 @@ export default function useInbox() {
       clearTimeout(timer);
       stream?.close();
     };
-  }, [load, stale]);
-  // The polled workspace state carries the summary too: a missed event still arrives.
+  }, [refresh, stale]);
   const summary = useInboxSummary();
   useEffect(() => {
-    if (stale(summary)) load();
-  }, [summary, stale, load]);
+    if (stale(summary)) refresh();
+  }, [summary, stale, refresh]);
   return {
     items: data?.items || [],
     counts: data?.counts || null,
     loading: !data && !error,
     error,
-    reload: load,
+    reload: refresh,
   };
 }

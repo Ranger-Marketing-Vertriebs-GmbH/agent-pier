@@ -89,7 +89,7 @@ An owned worktree isolates each run from its source checkout. Cancellation prese
 
 ## Owner inbox
 
-`server/features/inbox/` merges what waits for the owner into one read-only list: the request broker's open native requests of running sessions (`listAll()`, without the side effects of the per-session list), pipeline runs in `awaiting-human`, agent actions in `awaiting_approval` and team proposals. `OwnerInbox` recomputes the list when a source announces a change (broker events, pipeline `onChange`, agent `change` events) and on a timer while an event stream is open, raises its revision only when the waiting set changed, and pushes counts and revision on `/api/inbox/events`. Answers never go through the inbox; the page reuses each source's card and endpoint. Stale item addresses are resolved from the audit log for 24 hours. See [inbox](inbox.md).
+`server/features/inbox/` merges what waits for the owner into one read-only list: the request broker's open native requests of running sessions (`listAll()`, without the side effects of the per-session list), pipeline runs in `awaiting-human`, agent actions in `awaiting_approval` and team proposals. `OwnerInbox` recomputes the list when a source announces a change (broker events, pipeline `onChange`, agent `change` events) and on a timer while an event stream is open, raises its revision only when the waiting set changed, and pushes counts and revision on `/api/inbox/events` and the whole list on the owner-only live `inbox` topic (`server/features/inbox/live-topics.js`). Answers never go through the inbox; the page reuses each source's card and endpoint. Stale item addresses are resolved from the audit log for 24 hours. See [inbox](inbox.md).
 
 ## Persistence and safety boundaries
 

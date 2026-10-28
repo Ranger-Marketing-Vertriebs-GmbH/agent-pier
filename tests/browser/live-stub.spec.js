@@ -242,8 +242,12 @@ test.describe("manual stub", () => {
     await expect
       .poll(async () => types(await raw.frames()))
       .toEqual(["hello", "error", "pong"]);
-    // The app's own page follows `state`.
-    expect(liveStub.subscriptions().sort()).toEqual(["session.models:one", "state"]);
+    // The app's own page follows `state`, its start page `inbox`.
+    expect(liveStub.subscriptions().sort()).toEqual([
+      "inbox",
+      "session.models:one",
+      "state",
+    ]);
     liveStub.push("session.models:one", { picker: null, pending: true });
     liveStub.push("session.models:one", { picker: null, pending: false });
     liveStub.changed("session.models:one");
@@ -267,7 +271,7 @@ test.describe("manual stub", () => {
     });
     liveStub.revoke("session.models:one");
     await expect.poll(async () => types(await raw.frames()).at(-1)).toBe("revoked");
-    expect(liveStub.subscriptions()).toEqual(["state"]);
+    expect(liveStub.subscriptions().sort()).toEqual(["inbox", "state"]);
     liveStub.close(1012);
     await expect.poll(() => raw.closed()).toBe(1012);
   });

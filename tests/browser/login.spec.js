@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createApplication } from "../../server/app.js";
 import { openMenu } from "../helpers/navigation.js";
+import { baseURL } from "../helpers/browser.js";
 
 test("first user setup, reload, logout and login protect the complete workspace", async ({
   page,
@@ -174,4 +175,58 @@ test.describe("English login failures", () => {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+});
+
+// The live channel closes a socket whose login ended with 1008; the login gate then
+// reads /auth/status once instead of waiting for its 5-minute poll.
+async function refusedLiveFixture(page) {
+  const login = { authenticated: true, reads: 0, hold: null };
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.route("**/auth/status", async (route) => {
+    login.reads += 1;
+    await login.hold;
+    await route.fulfill({
+      json: { configured: true, authenticated: login.authenticated, canSetup: false },
+    });
+  });
+  await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  return login;
+}
+
+test("a live socket refused with 1008 reads the login and shows it when logged out", async ({
+  page,
+  liveStub,
+}) => {
+  const login = await refusedLiveFixture(page);
+  await page.goto(baseURL + "/settings");
+  await liveStub.waitForSubscribe("state");
+  await expect.poll(() => login.reads).toBe(1);
+  login.authenticated = false;
+  liveStub.close(1008);
+  await expect.poll(() => login.reads, { timeout: 1000 }).toBe(2);
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+});
+
+test("repeated 1008 closes while logged in cause no burst of login reads", async ({
+  page,
+  liveStub,
+}) => {
+  const login = await refusedLiveFixture(page);
+  await page.goto(baseURL + "/settings");
+  await liveStub.waitForSubscribe("state");
+  await expect.poll(() => login.reads).toBe(1);
+  let release;
+  login.hold = new Promise((resolve) => (release = resolve));
+  // Each close reaches a reconnected socket; the first read is still running.
+  for (let close = 0; close < 3; close++) {
+    liveStub.close(1008);
+    await liveStub.waitForSubscribe("state");
+  }
+  expect(login.reads).toBe(2);
+  release();
+  await page.waitForTimeout(1000);
+  expect(login.reads).toBe(2);
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toHaveCount(
+    0,
+  );
 });

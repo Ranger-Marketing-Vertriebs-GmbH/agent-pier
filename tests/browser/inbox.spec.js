@@ -142,3 +142,45 @@ test("on a phone in English the inbox opens from the header and answers in the d
   await page.getByRole("button", { name: "Open in context" }).click();
   await expect(page).toHaveURL(/\/agents\/helper\/chats\/chat-1$/);
 });
+
+test.describe("the live inbox topic", () => {
+  test.use({ live: "manual" });
+
+  test("the start page shows a pushed Inbox item without GET /api/inbox", async ({
+    page,
+    liveStub,
+  }) => {
+    const state = await inboxFixture(page, { language: "en" });
+    await page.goto(baseURL + "/");
+    await liveStub.waitForSubscribe("state");
+    liveStub.push(
+      "state",
+      await page.evaluate(() => fetch("/api/state").then((r) => r.json())),
+    );
+    await liveStub.waitForSubscribe("inbox");
+    const needs = page.getByRole("region", { name: "Needs you" });
+    liveStub.push("inbox", {
+      instance: "fixture",
+      revision: 7,
+      counts: { all: 1, questions: 0, approvals: 0, gates: 1, agents: 0 },
+      items: [
+        {
+          type: "gate",
+          tab: "gates",
+          id: "run-pushed",
+          kind: "gate",
+          status: "awaiting-human",
+          revision: 3,
+          source: { kind: "pipeline", id: "run-pushed", name: "Pushed", project: "app" },
+          title: "Pushed review",
+          stage: "review",
+          createdAt: new Date(Date.now() - 60000).toISOString(),
+          expiresAt: null,
+          link: "/pipelines/runs/run-pushed",
+        },
+      ],
+    });
+    await expect(needs).toContainText("Pushed review");
+    expect(state.calls.filter((call) => call.path === "/inbox")).toEqual([]);
+  });
+});
