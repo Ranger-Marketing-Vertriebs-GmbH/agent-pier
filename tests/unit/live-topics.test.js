@@ -50,11 +50,11 @@ test("the run counts and lists name their REST routes; the signal has none", () 
   assert.equal(list.interval, 5000);
   assert.equal(
     list.path("p1:failed"),
-    "/pipeline-runs?page=1&projectId=p1&status=failed",
+    "/pipeline-runs?view=list&page=1&projectId=p1&status=failed",
   );
-  assert.equal(list.path("*:*"), "/pipeline-runs?page=1");
-  assert.equal(list.path("*:running"), "/pipeline-runs?page=1&status=running");
-  assert.equal(list.path("p1:*"), "/pipeline-runs?page=1&projectId=p1");
+  assert.equal(list.path("*:*"), "/pipeline-runs?view=list&page=1");
+  assert.equal(list.path("*:running"), "/pipeline-runs?view=list&page=1&status=running");
+  assert.equal(list.path("p1:*"), "/pipeline-runs?view=list&page=1&projectId=p1");
   assert.equal(topicInfo("pipeline.runs"), null);
   for (const id of ["pipeline.runs.changed", "pipeline.runs.changed:p1"]) {
     const signal = topicInfo(id);

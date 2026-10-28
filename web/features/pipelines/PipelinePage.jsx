@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import ProfilesPage from "./ProfilesPage.jsx";
 import DefinitionsPage from "./DefinitionsPage.jsx";
 import RunsPage from "./RunsPage.jsx";
@@ -10,14 +11,13 @@ import QueuePage from "./QueuePage.jsx";
 import { pipelineQueueCopy } from "../../lib/i18n/messages/pipeline-queue.js";
 import "./pipelines.css";
 
-// Tab counters reload whenever the tab or item changes, or after edits. The run list
-// reports the run total it already polls, so the counter needs no poll of its own.
+// The run counter follows the pushed run counts (`pipeline.counts`); the definition
+// and profile counters reload whenever the tab or item changes, or after edits.
 function useTabCounts(tab, item) {
-  const runs = useResource("/pipeline-runs"),
+  const runs = useLiveTopic("pipeline.counts"),
     definitions = useResource("/pipelines"),
     profiles = useResource("/pipeline-profiles");
   const refreshAll = () => {
-    runs.refresh();
     definitions.refresh();
     profiles.refresh();
   };
@@ -27,11 +27,8 @@ function useTabCounts(tab, item) {
     mounted.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, item]);
-  const { update: updateRuns } = runs;
-  const setRunTotal = useCallback((total) => updateRuns({ total }), [updateRuns]);
   return {
     runs: runs.data?.total,
-    setRunTotal,
     definitions: definitions.data?.pipelines?.length,
     profiles: profiles.data?.profiles?.length,
     refresh: refreshAll,
@@ -97,7 +94,7 @@ export default function PipelinePage({
         ) : tab === "queue" ? (
           <QueuePage {...{ route, navigate, home }} />
         ) : (
-          <RunsPage {...{ route, navigate, home }} onTotal={counts.setRunTotal} />
+          <RunsPage {...{ route, navigate, home }} />
         )}
       </div>
     </div>

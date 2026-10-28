@@ -169,12 +169,6 @@ export async function sweepRunCounts(read) {
 // Page 1 of each hint's status listing is pushed (`pipeline.runs:*:<status>`), so the
 // hints follow every run change with no request. Only a status with more runs than
 // page 1 reads the further pages over REST, once per change and only while visible.
-const attentionTopics = {
-  decisions: "pipeline.runs:*:awaiting-human",
-  failed: "pipeline.runs:*:failed",
-};
-const statusOf = { decisions: "awaiting-human", failed: "failed" };
-
 // Resolves once the tab is visible (at once if it is), or never once `active()` ends.
 const whenVisible = (active) =>
   new Promise((resolve) => {
@@ -187,42 +181,24 @@ const whenVisible = (active) =>
     document.addEventListener("visibilitychange", shown);
   });
 
-function useAttention(sweep) {
-  const [attention, setAttention] = useState({
-    decisions: {},
-    failed: {},
-    first: { decisions: {}, failed: {} },
-    capped: { decisions: false, failed: false },
-  });
-  const decisions = useLiveTopic(attentionTopics.decisions);
-  const failed = useLiveTopic(attentionTopics.failed);
-  const refresh = useRef(null);
-  refresh.current = () => {
-    decisions.refresh();
-    failed.refresh();
-  };
+// One hint's status: its pushed first page, swept on its own, so a change of one
+// status never reads the other's further pages. `sweep` (a retry) reads page 1 again.
+function useStatusSweep(status, sweep) {
+  const [result, setResult] = useState({ counts: {}, first: {}, capped: false });
+  const { data, refresh } = useLiveTopic(`pipeline.runs:*:${status}`);
   useEffect(() => {
-    if (sweep) refresh.current();
-  }, [sweep]);
+    if (sweep) refresh();
+  }, [sweep, refresh]);
   useEffect(() => {
-    const pages = { decisions: decisions.data, failed: failed.data };
-    if (!pages.decisions || !pages.failed) return;
+    if (!data) return;
     let active = true;
-    const swept = (key) =>
-      sweepRunCounts(async (page) => {
-        if (page === 1) return pages[key];
-        await whenVisible(() => active);
-        return api(`/pipeline-runs?status=${statusOf[key]}&page=${page}`);
-      });
-    Promise.all([swept("decisions"), swept("failed")])
-      .then(([waiting, broken]) => {
-        if (active)
-          setAttention({
-            decisions: waiting.counts,
-            failed: broken.counts,
-            first: { decisions: waiting.first, failed: broken.first },
-            capped: { decisions: waiting.capped, failed: broken.capped },
-          });
+    sweepRunCounts(async (page) => {
+      if (page === 1) return data;
+      await whenVisible(() => active);
+      return api(`/pipeline-runs?view=list&status=${status}&page=${page}`);
+    })
+      .then((next) => {
+        if (active) setResult(next);
       })
       .catch(() => {
         // The hints are optional; the project list reports its own failures.
@@ -230,8 +206,22 @@ function useAttention(sweep) {
     return () => {
       active = false;
     };
-  }, [decisions.data, failed.data]);
-  return attention;
+  }, [data, status]);
+  return result;
+}
+
+function useAttention(sweep) {
+  const decisions = useStatusSweep("awaiting-human", sweep);
+  const failed = useStatusSweep("failed", sweep);
+  return useMemo(
+    () => ({
+      decisions: decisions.counts,
+      failed: failed.counts,
+      first: { decisions: decisions.first, failed: failed.first },
+      capped: { decisions: decisions.capped, failed: failed.capped },
+    }),
+    [decisions, failed],
+  );
 }
 
 export default function useProjectHub() {

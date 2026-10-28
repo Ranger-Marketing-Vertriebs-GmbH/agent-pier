@@ -1,5 +1,5 @@
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import useSettledReplace from "../../lib/useSettledReplace.js";
 import Icon from "../../components/Icon.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
@@ -17,7 +17,7 @@ import useRunStatusCounts from "./useRunStatusCounts.js";
 import { runsPaging } from "./runs-paging.js";
 import { pipelineRoutePath } from "./routes.js";
 
-export default function RunsPage({ route, navigate, home, onTotal }) {
+export default function RunsPage({ route, navigate, home }) {
   const detail = route.pipelineItem && route.pipelineItem !== "new";
   const page = route.pipelinePage || 1;
   const [version, setVersion] = useState(0);
@@ -33,16 +33,6 @@ export default function RunsPage({ route, navigate, home, onTotal }) {
     enabled: !detail,
     version,
   });
-  // The tab counts all runs: the unfiltered list's total, else the sum of the pills
-  // when no project narrows them.
-  const allRuns = route.projectId
-    ? undefined
-    : route.pipelineStatus
-      ? counts && Object.values(counts).reduce((sum, value) => sum + value, 0)
-      : list.data?.total;
-  useEffect(() => {
-    if (Number.isFinite(allRuns)) onTotal?.(allRuns);
-  }, [allRuns, onTotal]);
   const paging = runsPaging({
     data: list.data,
     page,

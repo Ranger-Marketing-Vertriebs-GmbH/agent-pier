@@ -7,12 +7,14 @@
 // Node test stub imports it.
 const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
 const under = (base) => (id) => `${base}/${encodeURIComponent(id)}`;
-// `<projectId|*>:<status|*>`: page 1 of the run list with those filters.
+// `<projectId|*>:<status|*>`: page 1 of the run list with those filters, as slim
+// list views.
 const runList = (param) => {
   const split = param.indexOf(":");
   const projectId = param.slice(0, split),
     status = param.slice(split + 1);
   return `/pipeline-runs?${new URLSearchParams({
+    view: "list",
     page: "1",
     ...(projectId && projectId !== "*" ? { projectId } : {}),
     ...(status && status !== "*" ? { status } : {}),
