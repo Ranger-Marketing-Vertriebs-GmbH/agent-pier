@@ -41,7 +41,9 @@ const notFound = (error) =>
 
 // Every directory from the root down to the file's folder is a real directory
 // (never a link): the refusal names why before the open.
-async function walk(root, parts) {
+// A directory in `refuseDirs` (by device and inode, so no other spelling of it, in
+// another case or through a firmlink, gets past) refuses the file below it.
+async function walk(root, parts, refuseDirs = []) {
   let current = root;
   for (const part of [null, ...parts]) {
     if (part !== null) current = path.join(current, part);
@@ -50,6 +52,8 @@ async function walk(root, parts) {
     });
     if (stat.isSymbolicLink()) throw assistantProblem("shareOutside", 403);
     if (!stat.isDirectory()) throw assistantProblem("shareNotFound", 404);
+    if (refuseDirs.some((dir) => dir.dev === stat.dev && dir.ino === stat.ino))
+      throw assistantProblem("shareOutside", 403);
   }
 }
 /**
@@ -57,7 +61,7 @@ async function walk(root, parts) {
  * path relative to the first root or absolute inside one. No component may be a
  * symbolic link and the file may have no second hard link, so nothing outside the
  * roots is reachable through the workspace. The bytes are read through the checked
- * descriptor, within MAX_SHARE_BYTES. Returns `{ name, body }`.
+ * descriptor, within MAX_SHARE_BYTES. Returns `{ name, body, identity }`.
  *
  * A folder that an agent with a shell swaps for a link after these checks is
  * refused by the open itself (openInside: no link in any component on macOS, the
@@ -66,8 +70,9 @@ async function walk(root, parts) {
 export async function readShareSource(
   roots,
   requested,
-  // `admit(relative)` may refuse the file by its path below its root.
-  { maxBytes = MAX_SHARE_BYTES, admit = () => {} } = {},
+  // `admit(relative)` may refuse the file by its path below its root; `refuseDirs`
+  // ({ dev, ino } as bigints) are directories no file below may come from.
+  { maxBytes = MAX_SHARE_BYTES, admit = () => {}, refuseDirs = [] } = {},
 ) {
   if (
     typeof requested !== "string" ||
@@ -97,7 +102,7 @@ export async function readShareSource(
   if (managedName(parts.join("/"))) throw assistantProblem("shareOutside", 403);
   admit(inside(realRoot, expected));
   // A link anywhere on the way (even one back into the workspace) is refused.
-  await walk(realRoot, parts.slice(0, -1));
+  await walk(realRoot, parts.slice(0, -1), refuseDirs);
   const leaf = await fs.lstat(expected).catch((error) => {
     throw notFound(error);
   });
@@ -113,6 +118,14 @@ export async function readShareSource(
     const stat = await handle.stat({ bigint: true });
     if (stat.isDirectory()) throw assistantProblem("shareNotFound", 404);
     if (!stat.isFile() || stat.nlink !== 1n) throw assistantProblem("shareOutside", 403);
+    // The opened file's only name still lies below no refused directory: its
+    // folders are walked again and the name still leads to this very file.
+    if (refuseDirs.length) {
+      await walk(realRoot, parts.slice(0, -1), refuseDirs);
+      const named = await fs.lstat(expected, { bigint: true }).catch(() => null);
+      if (named?.dev !== stat.dev || named?.ino !== stat.ino)
+        throw assistantProblem("shareOutside", 403);
+    }
     if (stat.size > BigInt(maxBytes)) throw assistantProblem("shareTooLarge", 413);
     if (stat.size === 0n) throw assistantProblem("shareEmpty", 400);
     const size = Number(stat.size);
@@ -125,7 +138,12 @@ export async function readShareSource(
     }
     // A file still being written is not shared half-way.
     if (read !== size) throw assistantProblem("conflict", 409);
-    return { name: path.basename(expected), body: body.subarray(0, size) };
+    return {
+      name: path.basename(expected),
+      body: body.subarray(0, size),
+      // Which file it was (device and inode), whatever path named it.
+      identity: { dev: stat.dev, ino: stat.ino },
+    };
   } finally {
     await handle.close();
   }

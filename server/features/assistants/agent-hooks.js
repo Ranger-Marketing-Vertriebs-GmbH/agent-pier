@@ -410,6 +410,18 @@ export class AgentHooks {
     };
   }
   /**
+   * A hook's rights capped by what its agent holds now (effectiveRights), outside a
+   * run: what a later approval of a run's capture re-checks (mail attachment
+   * sources). Null for a deleted, paused or another agent's hook and for an agent
+   * no hook may run on.
+   */
+  liveRights(agent, hookId) {
+    const hook = typeof hookId === "string" ? this.store.get(hookId) : null;
+    if (!hook?.enabled || hook.assistantId !== agent?.id || !hookEligible(agent))
+      return null;
+    return effectiveRights(hook.rights, this.ceiling(agent));
+  }
+  /**
    * The hook event a native run session belongs to while it runs, with the rights it
    * holds now; null for any other session, a settled event or a paused or deleted
    * hook.

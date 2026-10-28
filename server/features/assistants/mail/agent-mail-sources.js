@@ -19,8 +19,10 @@ import { mailFileType } from "../../mail/mail-file-types.js";
 // read host files. Refused for every agent: `.git` (any case), AgentPier's data
 // directory (mail passwords, sealed secrets) except the agent's own workspace in
 // it, symbolic links anywhere on the path and files with a second hard link
-// (agent-share-source.js: links are refused, never resolved). When the owner
-// approves later, `sourceAllowed` checks each captured source again.
+// (agent-share-source.js: links are refused, never resolved). The data directory is
+// recognised by device and inode on every folder walked, so no other spelling of it
+// (another case, a macOS firmlink such as /System/Volumes/Data) gets past. When the
+// owner approves later, `sourceAllowed` checks each captured source again.
 
 const refused = () => assistantProblem("mailSourceRefused", 403);
 const shareErrors = {
@@ -53,6 +55,18 @@ const under = (root, target) => {
   const real = realpath(root);
   return within(root, target) || (!!real && within(real, target));
 };
+// The protected roots (AgentPier's data directory) by device and inode.
+const protectedDirs = (w) =>
+  w.folders.protectedRoots.flatMap((root) => {
+    try {
+      const stat = fs.statSync(root, { bigint: true });
+      return [{ dev: stat.dev, ino: stat.ino }];
+    } catch {
+      return [];
+    }
+  });
+const sameDir = (dirs, stat) =>
+  dirs.some((d) => d.dev === stat.dev && d.ino === stat.ino);
 const gitPart = (relative) =>
   relative.split(path.sep).some((part) => fold(part) === fold(".git"));
 
@@ -74,7 +88,7 @@ export function fileContext(w, inv, caller) {
   if (caller.hook) {
     const run = w.a.routines?.hooks?.runOrigin(caller.assistant, inv.sessionKey);
     shell =
-      run?.event?.id === caller.origin.eventId ? (run.effective?.shell ?? "off") : "off";
+      run?.event?.id === caller.origin?.eventId ? (run.effective?.shell ?? "off") : "off";
   } else shell = personalShell(w.a.store.getAssistant(ctx.assistantId));
   return { ctx, shell };
 }
@@ -94,17 +108,27 @@ function project(w, ctx, projectId) {
 }
 
 // The file read through readShareSource with the shared refusals: no `.git` part
-// and, outside the workspace, nothing inside AgentPier's data directory.
-async function read(w, roots, requested, { maxBytes, dataDir = true }) {
-  const data = (dataDir ? w.folders.protectedRoots : [])
-    .flatMap((root) => [path.resolve(root), realpath(root)])
-    .filter(Boolean);
+// and, outside the workspace, no folder on the way that is AgentPier's data
+// directory.
+function read(w, roots, requested, { maxBytes, dataDir = true }) {
   const admit = (relative) => {
-    const target = path.join(realpath(roots[0]) ?? roots[0], relative);
     if (gitPart(relative)) throw refused();
-    if (data.some((root) => target === root || within(root, target))) throw refused();
   };
-  return readShareSource(roots, requested, { maxBytes, admit });
+  const refuseDirs = dataDir ? protectedDirs(w) : [];
+  return readShareSource(roots, requested, { maxBytes, admit, refuseDirs });
+}
+
+// A project folder inside AgentPier's data directory, by any spelling, is refused:
+// every folder from the file system root down to its real path is checked.
+function assertOutside(w, root) {
+  const dirs = protectedDirs(w);
+  const real = realpath(root);
+  if (!real) throw assistantProblem("mailSourceNotFound", 404);
+  let current = path.parse(real).root;
+  for (const part of ["", ...real.slice(current.length).split(path.sep)]) {
+    if (part) current = path.join(current, part);
+    if (sameDir(dirs, fs.lstatSync(current, { bigint: true }))) throw refused();
+  }
 }
 
 async function fromProject(w, files, projectId, requested, maxBytes) {
@@ -114,6 +138,7 @@ async function fromProject(w, files, projectId, requested, maxBytes) {
     protectedRoots: w.folders.protectedRoots,
   });
   if (!target.exists) throw assistantProblem("mailSourceNotFound", 404);
+  assertOutside(w, found.cwd);
   const file = await read(w, [found.cwd], requested, { maxBytes });
   return {
     file,
@@ -179,14 +204,11 @@ const validPath = (value) =>
   typeof value === "string" &&
   !!value.trim() &&
   value.length <= 4096 &&
-  !/[\u0000-\u001f\u007f-\u009f\p{Zl}\p{Zp}]/u.test(value);
+  // Control, line separator and format (bidi, zero-width) characters.
+  !/[\u0000-\u001f\u007f-\u009f\p{Zl}\p{Zp}\p{Cf}]/u.test(value);
 
-/**
- * One attachment source `{ path, projectId? }`, read within `maxBytes`: `{ name,
- * bytes, size, type, sha256, source }`, `source` naming where it came from
- * (`workspace` or `project` with a relative path, `host` with the absolute one).
- */
-export async function readSource(w, files, entry, { maxBytes }) {
+// One source with the identity (device and inode) of the file read.
+async function readOne(w, files, entry, maxBytes) {
   if (!validPath(entry?.path)) throw assistantProblem("invalid");
   if (entry.projectId !== undefined && typeof entry.projectId !== "string")
     throw assistantProblem("invalid");
@@ -197,7 +219,7 @@ export async function readSource(w, files, entry, { maxBytes }) {
     throw mapped(error);
   }
   const { file, source } = resolved;
-  return {
+  const read = {
     name: file.name,
     bytes: file.body,
     size: file.body.length,
@@ -205,15 +227,23 @@ export async function readSource(w, files, entry, { maxBytes }) {
     sha256: sha256(file.body),
     source,
   };
+  return { read, identity: `${file.identity.dev}:${file.identity.ino}` };
 }
 
-const sourceKey = (source) =>
-  JSON.stringify([source.kind, source.projectId ?? null, source.path]);
+/**
+ * One attachment source `{ path, projectId? }`, read within `maxBytes`: `{ name,
+ * bytes, size, type, sha256, source }`, `source` naming where it came from
+ * (`workspace` or `project` with a relative path, `host` with the absolute one).
+ */
+export async function readSource(w, files, entry, { maxBytes }) {
+  return (await readOne(w, files, entry, maxBytes)).read;
+}
 
 /**
  * The listed sources, read one after the other within `maxBytes` in all
  * (MAIL_ATTACHMENT_TOO_LARGE). More than `attachmentLimits.files` entries, or the
- * same file named twice (also once relative and once absolute), is invalid input.
+ * same file named twice (by device and inode, whatever the spelling), is invalid
+ * input.
  */
 export async function readSources(
   w,
@@ -231,10 +261,9 @@ export async function readSources(
   for (const entry of list) {
     const left = maxBytes - total;
     if (left <= 0) throw mailError("MAIL_ATTACHMENT_TOO_LARGE");
-    const file = await readSource(w, files, entry, { maxBytes: left });
-    const key = sourceKey(file.source);
-    if (seen.has(key)) throw assistantProblem("invalid");
-    seen.add(key);
+    const { read: file, identity } = await readOne(w, files, entry, left);
+    if (seen.has(identity)) throw assistantProblem("invalid");
+    seen.add(identity);
     total += file.size;
     read.push(file);
   }
@@ -243,24 +272,49 @@ export async function readSources(
 
 /**
  * What an approval checks again later: the turn's local context (localContext, or
- * the workspace-only marker) and the shell level at capture.
+ * the workspace-only marker), for a hook run its hook and the folders it held, and
+ * the shell level at capture.
  */
 export function storedFiles(files) {
-  return {
-    context: files.ctx.workspaceOnly
-      ? { assistantId: files.ctx.assistantId, workspaceOnly: true }
-      : localContext(files.ctx),
-    shell: files.shell,
-  };
+  const { ctx } = files;
+  let context;
+  if (ctx.workspaceOnly) context = { assistantId: ctx.assistantId, workspaceOnly: true };
+  else if (ctx.hook)
+    context = {
+      assistantId: ctx.assistantId,
+      hook: { hookId: ctx.hook.hookId, folders: { ...ctx.hook.folders } },
+    };
+  else context = localContext(ctx);
+  return { context, shell: files.shell };
+}
+
+// A hook capture is allowed only within what the hook holds now (its rights capped
+// by the agent's, AgentHooks.liveRights); a deleted or paused hook allows nothing.
+function hookAllowed(w, agent, stored, source) {
+  const { hookId, folders } = stored.context.hook;
+  const live = w.a.routines?.hooks?.liveRights?.(agent, hookId);
+  if (!live) return false;
+  if (source.kind === "workspace") return true;
+  if (source.kind === "project")
+    return !!folders[source.projectId] && !!live.folders?.[source.projectId];
+  return (
+    source.kind === "host" &&
+    live.shell === "full" &&
+    personalShell(agent) === "full" &&
+    stored.shell === "full"
+  );
 }
 
 /**
  * Whether a captured source is still allowed when the owner approves: the
  * workspace always; a project while the stored context still holds it; a host file
- * only while the agent and the capture both have Full access. Never throws.
+ * only while the agent and the capture both have Full access; a hook run's capture
+ * also within the hook's live rights. Never throws.
  */
 export function sourceAllowed(w, assistantId, stored, source) {
   try {
+    if (stored.context.hook)
+      return hookAllowed(w, w.a.store.getAssistant(assistantId), stored, source);
     if (source?.kind === "workspace") return true;
     if (source?.kind === "project")
       return (
