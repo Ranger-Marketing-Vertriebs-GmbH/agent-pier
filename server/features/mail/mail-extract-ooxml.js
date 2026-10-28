@@ -6,7 +6,7 @@ import { clipText } from "./mail-text.js";
 // over `entryBytes` and no more than `zipBytes` in all. The XML is scanned, never
 // parsed with a DTD: `<!DOCTYPE>` and `<!ENTITY>` are skipped and only the five
 // predefined entities and character references are decoded. Runs only inside the
-// extraction worker.
+// extraction child process (mail-extract-child.js).
 
 const failure = () => new Error("MAIL_TEXT_FAILED");
 
@@ -166,20 +166,28 @@ export function scanXml(xml, visit) {
 
 const typeAttribute = (tag) => /\st\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag);
 
-// Collects text up to the character limit; `add` answers false once it is reached.
+// Collects text up to one character past the limit (so a cut is noticed); `add`
+// answers false once the limit is passed, and the walk then stops.
 class Sink {
   constructor(limit) {
     this.text = "";
     this.limit = limit;
+    this.truncated = false;
   }
   get full() {
     return this.text.length > this.limit;
   }
   add(text) {
-    this.text += text;
+    const room = this.limit + 1 - this.text.length;
+    if (room > 0) this.text += text.length > room ? text.slice(0, room) : text;
     return !this.full;
   }
 }
+
+// Excel's own limit for the text of one cell.
+const cellChars = 32_767;
+const append = (value, text) =>
+  value.length >= cellChars ? value : value + text.slice(0, cellChars - value.length);
 
 // --- One reader per format.
 
@@ -205,67 +213,83 @@ function wordText(xml, sink) {
   });
 }
 
-function sharedStrings(xml, limit) {
+// The shared string table, each string cut at `cellChars` and all of them at
+// `budget` characters together; strings past the budget are empty and the result is
+// marked truncated.
+function sharedStrings(xml, budget, sink) {
   const strings = [];
+  let stored = 0;
   let current = null;
   let inText = false;
   let phonetic = 0;
+  const keep = (value) => {
+    if (stored + value.length > budget) sink.truncated = true;
+    const kept = stored + value.length > budget ? "" : value;
+    stored += kept.length;
+    strings.push(kept);
+  };
   scanXml(xml, {
     open(local, _tag, empty) {
-      if (local === "si" && empty) strings.push("");
+      if (local === "si" && empty) keep("");
       else if (local === "si") current = "";
       else if (local === "rPh" && !empty) phonetic++;
       else if (local === "t") inText = !empty && !phonetic;
     },
     close(local) {
       if (local === "si" && current !== null) {
-        strings.push(current);
+        keep(current);
         current = null;
       } else if (local === "rPh") phonetic = Math.max(0, phonetic - 1);
       else if (local === "t") inText = false;
     },
     text(raw, cdata) {
-      if (inText && current !== null && current.length <= limit)
-        current += cdata ? raw : decodeEntities(raw);
+      if (inText && current !== null)
+        current = append(current, cdata ? raw : decodeEntities(raw));
     },
   });
   return strings;
 }
 
+// Streams each cell into the sink as it ends (tab-separated, a row per line) and
+// stops the walk once the sink is full.
 function sheetText(xml, strings, sink) {
-  let cells = null;
+  let inRow = false;
+  let firstCell = true;
   let cell = null;
   let collecting = false;
   const endCell = () => {
-    if (!cell || !cells) return;
-    cells.push(
-      cell.type === "s" ? (strings[Number.parseInt(cell.value, 10)] ?? "") : cell.value,
-    );
+    if (!cell || !inRow) return true;
+    const value =
+      cell.type === "s" ? (strings[Number.parseInt(cell.value, 10)] ?? "") : cell.value;
     cell = null;
+    const separated = firstCell ? value : `\t${value}`;
+    firstCell = false;
+    return sink.add(separated);
   };
   scanXml(xml, {
     open(local, tag, empty) {
       if (local === "row") {
         if (empty) return sink.add("\n");
-        cells = [];
+        inRow = true;
+        firstCell = true;
       } else if (local === "c") {
         const match = typeAttribute(tag);
         cell = { type: match ? (match[1] ?? match[2]) : "", value: "" };
-        if (empty) endCell();
+        if (empty) return endCell();
       } else if (cell && (local === "v" || (local === "t" && cell.type === "inlineStr")))
         collecting = !empty;
     },
     close(local) {
       if (local === "v" || local === "t") collecting = false;
-      else if (local === "c") endCell();
-      else if (local === "row" && cells) {
-        const line = `${cells.join("\t")}\n`;
-        cells = null;
-        return sink.add(line);
+      else if (local === "c") return endCell();
+      else if (local === "row" && inRow) {
+        inRow = false;
+        return sink.add("\n");
       }
     },
     text(raw, cdata) {
-      if (collecting && cell) cell.value += cdata ? raw : decodeEntities(raw);
+      if (collecting && cell)
+        cell.value = append(cell.value, cdata ? raw : decodeEntities(raw));
     },
   });
 }
@@ -304,7 +328,7 @@ export async function ooxmlText(bytes, kind, limits) {
     wordText(xml("word/document.xml"), sink);
   } else if (kind === "xlsx") {
     const strings = entries.has("xl/sharedStrings.xml")
-      ? sharedStrings(xml("xl/sharedStrings.xml"), limits.textChars)
+      ? sharedStrings(xml("xl/sharedStrings.xml"), 2 * limits.textChars, sink)
       : [];
     for (const [index, name] of numbered(entries, sheetPart).entries()) {
       if (index && !sink.add("\n")) break;
@@ -318,5 +342,6 @@ export async function ooxmlText(bytes, kind, limits) {
       if (sink.full) break;
     }
   }
-  return clipText(sink.text, limits.textChars);
+  const clipped = clipText(sink.text, limits.textChars);
+  return { text: clipped.text, truncated: clipped.truncated || sink.truncated };
 }

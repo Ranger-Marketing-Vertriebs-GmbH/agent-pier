@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import {
   extractableKind,
   extractLimits,
@@ -126,7 +131,7 @@ test("a hanging extractor is stopped at the time limit", async () => {
   const started = Date.now();
   await assert.rejects(
     extractText(pdfWith("x"), "pdf", {
-      workerUrl: hangUrl,
+      scriptUrl: hangUrl,
       limits: { ...extractLimits, timeoutMs: 200 },
     }),
     failed,
@@ -134,10 +139,10 @@ test("a hanging extractor is stopped at the time limit", async () => {
   assert.ok(Date.now() - started < 5_000);
 });
 
-test("an extractor over its heap limit fails without harming the server", async () => {
+test("an extractor over its heap limit dies alone", async () => {
   await assert.rejects(
     extractText(pdfWith("x"), "pdf", {
-      workerUrl: greedyUrl,
+      scriptUrl: greedyUrl,
       limits: { ...extractLimits, heapMb: 32 },
     }),
     failed,
@@ -145,11 +150,17 @@ test("an extractor over its heap limit fails without harming the server", async 
   assert.match((await extractText(pdfWith("still here"), "pdf")).text, /still here/);
 });
 
-test("a PDF that inflates past the memory limit is stopped", async () => {
+test("a PDF that inflates past the memory (RSS) limit is stopped", async () => {
   const bomb = await pdfBomb(400);
   assert.ok(bomb.length < 1024 * 1024);
-  const limits = { ...extractLimits, heapMb: 64 };
-  await assert.rejects(extractText(bomb, "pdf", { limits }), failed);
+  const started = Date.now();
+  await assert.rejects(extractText(bomb, "pdf"), failed);
+  assert.ok(Date.now() - started < 5_000);
+  const roomy = { ...extractLimits, rssMb: 4_096 };
+  assert.deepEqual(await extractText(bomb, "pdf", { limits: roomy }), {
+    text: "",
+    truncated: false,
+  });
   // The same document, small enough, has no text but is not an error.
   assert.deepEqual(await extractText(await pdfBomb(2), "pdf"), {
     text: "",
@@ -157,21 +168,44 @@ test("a PDF that inflates past the memory limit is stopped", async () => {
   });
 });
 
-test("at most two extractors run at once", async () => {
-  const limits = { ...extractLimits, timeoutMs: 300 };
-  const started = Date.now();
+test("exactly two extractors run at once and the queue is bounded", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mail-extract-"));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const log = path.join(dir, "starts.log");
+  const limits = { ...extractLimits, timeoutMs: 400 };
   const runs = Array.from({ length: 4 }, () =>
-    extractText(pdfWith("x"), "pdf", { workerUrl: hangUrl, limits }),
+    extractText(Buffer.from(`%PDF-log:${log}`), "pdf", { scriptUrl: hangUrl, limits }),
   );
   const results = await Promise.allSettled(runs);
   assert.deepEqual(
     results.map((result) => result.reason?.code),
     Array(4).fill("MAIL_TEXT_FAILED"),
   );
-  assert.ok(Date.now() - started >= 550, "four 300 ms runs need two rounds");
+  const starts = (await fs.readFile(log, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => Number(line.split(" ")[0]));
+  starts.sort((a, b) => a - b);
+  assert.equal(starts.length, 4);
+  assert.ok(starts[1] - starts[0] < 300, "the first two start together");
+  assert.ok(starts[2] - starts[0] >= 350, "the third waits for a free place");
+  assert.ok(starts[3] - starts[1] >= 350, "the fourth waits for a free place");
+
+  // Two running and 16 waiting fill the queue; the next caller is refused at once.
+  const queued = Array.from({ length: 18 }, () =>
+    extractText(pdfWith("x"), "pdf", {
+      scriptUrl: hangUrl,
+      limits: { ...extractLimits, timeoutMs: 100 },
+    }).catch((error) => error),
+  );
+  const refusedAt = Date.now();
+  await assert.rejects(extractText(pdfWith("x"), "pdf"), failed);
+  assert.ok(Date.now() - refusedAt < 100);
+  for (const error of await Promise.all(queued))
+    assert.equal(error.code, "MAIL_TEXT_FAILED");
 });
 
-test("the caller's bytes stay intact after the worker took its copy", async () => {
+test("the caller's bytes stay intact after the extractor took its copy", async () => {
   const bytes = pdfWith("kept");
   const before = Buffer.from(bytes);
   await extractText(bytes, "pdf");
@@ -265,4 +299,96 @@ test("plain text honours BOMs, charsets and falls back to latin1", async () => {
   ];
   for (const [bytes, charset, expected] of cases)
     assert.equal((await extractText(bytes, "text", { charset })).text, expected);
+});
+
+test("a tiny xlsx that repeats a huge shared string is cut, not fatal", async () => {
+  const s = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  const zip = await zipOf({
+    "xl/sharedStrings.xml": `<sst ${s}><si><t>${"a".repeat(900_000)}</t></si></sst>`,
+    "xl/worksheets/sheet1.xml": `<worksheet ${s}><sheetData><row>${'<c t="s"><v>0</v></c>'.repeat(5_000)}</row></sheetData></worksheet>`,
+  });
+  assert.ok(zip.length < 4_096);
+  const { text, truncated } = await extractText(zip, "xlsx");
+  assert.equal(truncated, true);
+  assert.equal(text.length, extractLimits.textChars);
+  assert.match(text, /^a{32767}\ta{32767}\t/);
+  assert.match((await extractText(pdfWith("alive"), "pdf")).text, /alive/);
+});
+
+test("xlsx shared strings past their budget become empty and mark the text cut", async () => {
+  const s = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  const si = (text) => `<si><t>${text}</t></si>`;
+  const zip = await zipOf({
+    "xl/sharedStrings.xml": `<sst ${s}>${si("x".repeat(30))}${si("y".repeat(30))}</sst>`,
+    "xl/worksheets/sheet1.xml": `<worksheet ${s}><sheetData><row><c t="s"><v>0</v></c><c t="s"><v>1</v></c></row></sheetData></worksheet>`,
+  });
+  const limits = { ...extractLimits, textChars: 20 };
+  assert.deepEqual(
+    await extractText(zip, "xlsx", { limits: { ...limits, textChars: 100 } }),
+    {
+      text: `${"x".repeat(30)}\t${"y".repeat(30)}\n`,
+      truncated: false,
+    },
+  );
+  const cut = await extractText(zip, "xlsx", { limits: { ...limits, textChars: 25 } });
+  assert.equal(cut.truncated, true);
+  assert.equal(cut.text, "x".repeat(25));
+});
+
+test("plain text is cut by bytes before decoding, on a character boundary", async () => {
+  const limits = { ...extractLimits, textChars: 4 };
+  const utf8 = await extractText(Buffer.from("ääääääää", "utf8"), "text", { limits });
+  assert.deepEqual(utf8, { text: "ääää", truncated: true });
+  const odd = await extractText(Buffer.from("aaaaaaaaaaaaaaaaaaaaa€", "utf8"), "text", {
+    limits,
+  });
+  assert.deepEqual(odd, { text: "aaaa", truncated: true });
+});
+
+test("the extractor gets no environment and no stdio from the server", async () => {
+  process.env.MAIL_EXTRACT_TEST_SECRET = "s3cret";
+  try {
+    const probe = new URL("../fixtures/mail-extract-env.mjs", import.meta.url);
+    const { text } = await extractText(pdfWith("x"), "pdf", { scriptUrl: probe });
+    const seen = JSON.parse(text);
+    // macOS itself adds __CF_USER_TEXT_ENCODING to every process.
+    assert.deepEqual(
+      seen.env.filter((name) => name !== "__CF_USER_TEXT_ENCODING"),
+      [],
+    );
+    assert.equal(seen.discarded, true);
+  } finally {
+    delete process.env.MAIL_EXTRACT_TEST_SECRET;
+  }
+});
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+test("a running extractor dies with the server process", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mail-extract-"));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const log = path.join(dir, "starts.log");
+  const extract = new URL("../../server/features/mail/mail-extract.js", import.meta.url);
+  const server = `
+    import fs from "node:fs";
+    const { extractText } = await import(${JSON.stringify(extract.href)});
+    extractText(Buffer.from("%PDF-log:" + ${JSON.stringify(log)}), "pdf", {
+      scriptUrl: new URL(${JSON.stringify(hangUrl.href)}),
+    }).catch(() => {});
+    const started = Date.now();
+    while (!fs.existsSync(${JSON.stringify(log)}) && Date.now() - started < 5000)
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    process.exit(0);`;
+  await promisify(execFile)(process.execPath, ["--input-type=module", "-e", server]);
+  const pid = Number((await fs.readFile(log, "utf8")).trim().split(" ")[1]);
+  const deadline = Date.now() + 2_000;
+  while (alive(pid) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(alive(pid), false);
 });

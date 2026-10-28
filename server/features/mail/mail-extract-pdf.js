@@ -2,7 +2,7 @@ import { getDocumentProxy } from "unpdf";
 import { clipText } from "./mail-text.js";
 
 // PDF text through unpdf's bundled PDF.js, without script evaluation, font loading or
-// rendering. Runs only inside the extraction worker.
+// rendering. Runs only inside the extraction child process.
 
 /** The text of pages 1..pdfPages, pages separated by a blank line. */
 export async function pdfText(bytes, limits) {
