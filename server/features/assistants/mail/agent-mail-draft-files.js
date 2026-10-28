@@ -11,6 +11,7 @@ import {
   storedFiles,
 } from "./agent-mail-sources.js";
 import { cardAttachments } from "./agent-mail-card.js";
+import { controlChar } from "../../mail/mail-shared.js";
 
 // Where an agent's draft attachments came from. A file an agent attached with a
 // `draft` call is stored in the draft itself; this table remembers, per draft
@@ -116,13 +117,13 @@ export class MailDraftFiles {
 }
 
 const invalid = () => assistantProblem("invalid");
-const controls = /[\u0000-\u001f\u007f]/;
 
 /** `removeAttachments`: names without control characters, none twice. */
 export function removeList(names) {
   if (names === undefined) return [];
   if (!Array.isArray(names) || names.length > attachmentLimits.files) throw invalid();
-  if (names.some((n) => typeof n !== "string" || !n || controls.test(n))) throw invalid();
+  if (names.some((n) => typeof n !== "string" || !n || controlChar.test(n)))
+    throw invalid();
   if (new Set(names).size !== names.length) throw invalid();
   return names;
 }
@@ -151,16 +152,22 @@ export async function captureFiles(w, limits, inv, caller, list) {
   };
 }
 
+/** MAIL_PROTOCOL for a saved draft that did not read back, with the read's error. */
+export const unreadDraft = (saved) =>
+  Object.assign(mailError("MAIL_PROTOCOL"), saved?.cause && { cause: saved.cause });
+
 /**
  * The provenance rows of the new files in a saved draft. The read-back `attachments`
  * are the kept parts first, then the new files, so the new ones are the last
  * `read.length` entries (with `replaceUid` offset by the kept count); each must hold
  * exactly the bytes read, or the draft cannot prove what it carries (MAIL_PROTOCOL).
  */
-export function newFileEntries(attachments, captured) {
+export function newFileEntries(saved, captured) {
   if (!captured) return [];
   const { read } = captured;
-  if (!attachments || attachments.length < read.length) throw mailError("MAIL_PROTOCOL");
+  const { attachments } = saved;
+  if (!attachments) throw unreadDraft(saved);
+  if (attachments.length < read.length) throw mailError("MAIL_PROTOCOL");
   const added = attachments.slice(attachments.length - read.length);
   if (added.some((a, i) => a.sha256 !== read[i].sha256)) throw mailError("MAIL_PROTOCOL");
   const files = storedFiles(captured.files);
@@ -177,7 +184,7 @@ export function newFileEntries(attachments, captured) {
  */
 export function savedAttachments(mail, accountId, agentId, saved, captured) {
   if (!captured) return [];
-  const entries = newFileEntries(saved.attachments, captured);
+  const entries = newFileEntries(saved, captured);
   mail.draftFiles.record(accountId, saved.messageId, agentId, entries);
   return cardAttachments(saved.attachments, (_p, i) => entries[i]?.source);
 }
@@ -257,9 +264,9 @@ export async function saveAgentDraft(mail, client, gate, sender, request, captur
     // Stored but not read back: the files' sources could not be recorded, so the
     // new draft goes to Trash again and the call fails, as a send's would.
     const trashed = saved.draftUid ? await trashDraft(client, saved.draftUid) : false;
-    throw Object.assign(mailError("MAIL_PROTOCOL"), { draftTrashed: trashed });
+    throw Object.assign(unreadDraft(saved), { draftTrashed: trashed });
   }
-  const entries = newFileEntries(saved.attachments, captured);
+  const entries = newFileEntries(saved, captured);
   mail.draftFiles.record(account.id, saved.messageId, gate.agent.id, entries);
   if (old)
     mail.draftFiles.carry(

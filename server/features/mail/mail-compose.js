@@ -2,6 +2,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import addressparser from "nodemailer/lib/addressparser";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { addressValue } from "./mail-account-fields.js";
+import { headerControlChar } from "./mail-shared.js";
 
 // Drafts and outgoing mail of agents: the agent's fields checked (one addr-spec per
 // entry, no line breaks in headers) and an RFC 5322 text/plain UTF-8 message built
@@ -10,7 +11,6 @@ import { addressValue } from "./mail-account-fields.js";
 
 const maxRecipients = 50;
 const maxReferences = 20;
-const headerControls = /[\u0000-\u001f\u007f\u2028\u2029]/;
 const messageIdPattern = /^<[^\s<>()\u0000-\u001f\u007f]{1,996}>$/;
 
 const invalid = () => assistantProblem("invalid");
@@ -19,7 +19,7 @@ const invalid = () => assistantProblem("invalid");
 const quoteName = (name) => `"${name.replace(/["\\]/g, (c) => `\\${c}`)}"`;
 
 function recipient(value) {
-  if (typeof value !== "string" || headerControls.test(value)) throw invalid();
+  if (typeof value !== "string" || headerControlChar.test(value)) throw invalid();
   const parsed = addressparser(value.trim());
   if (parsed.length !== 1 || parsed[0].group) throw invalid();
   const { name = "", address } = parsed[0];
@@ -50,7 +50,11 @@ export function draftFields(raw) {
   const bcc = recipientList(raw.bcc);
   if (to.length + cc.length + bcc.length > maxRecipients) throw invalid();
   const subject = raw.subject ?? "";
-  if (typeof subject !== "string" || subject.length > 998 || headerControls.test(subject))
+  if (
+    typeof subject !== "string" ||
+    subject.length > 998 ||
+    headerControlChar.test(subject)
+  )
     throw invalid();
   const body = raw.body ?? "";
   if (typeof body !== "string" || body.length > 100_000 || body.includes("\u0000"))
@@ -66,7 +70,7 @@ export function draftFields(raw) {
     raw.replyToUid < 1 ||
     typeof folder !== "string" ||
     !folder ||
-    headerControls.test(folder)
+    headerControlChar.test(folder)
   )
     throw invalid();
   return { ...fields, replyToUid: raw.replyToUid, replyToFolder: folder };

@@ -2,7 +2,7 @@ import { mailError } from "../../mail/mail-connection.js";
 import { saveDraft } from "../../mail/mail-changes.js";
 import { forwardFields, loadOriginal } from "../../mail/mail-forward.js";
 import { cardAttachments } from "./agent-mail-card.js";
-import { newFileEntries } from "./agent-mail-draft-files.js";
+import { newFileEntries, unreadDraft } from "./agent-mail-draft-files.js";
 
 // An agent's `forward` (agentpier_mail) up to its draft; from there it is a send
 // (agent-mail-sends.js): the same level, recipient rules, hourly cap, card and
@@ -53,8 +53,8 @@ export function forwardCard(mail, accountId, agentId, request, result, captured)
   const { saved, html, original } = result;
   const count = original.parts.length;
   const files = captured?.read.length ?? 0;
+  if (!saved.attachments) throw unreadDraft(saved);
   if (
-    !saved.attachments ||
     saved.attachments.length !== count + files ||
     saved.attachments
       .slice(0, count)
@@ -62,7 +62,7 @@ export function forwardCard(mail, accountId, agentId, request, result, captured)
   )
     throw mailError("MAIL_PROTOCOL");
   if (html !== null && !saved.htmlPart) throw mailError("MAIL_PROTOCOL");
-  const entries = newFileEntries(saved.attachments, captured);
+  const entries = newFileEntries(saved, captured);
   mail.draftFiles.record(accountId, saved.messageId, agentId, entries);
   const { envelope } = original;
   return {

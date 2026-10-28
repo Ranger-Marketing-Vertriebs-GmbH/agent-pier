@@ -11,6 +11,7 @@ import {
   sha256,
 } from "./mail-parts.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
+import { isBug } from "./mail-shared.js";
 
 // Changing mail for agents: flags, moves, Trash and drafts. Nothing is ever deleted
 // for good: no \Deleted flag, no EXPUNGE. A move needs the server's MOVE extension
@@ -194,8 +195,6 @@ async function readBack(client, uid) {
   return { attachments, htmlPart: { part, partSha256: sha256(raw) } };
 }
 
-const isBug = (error) => error instanceof TypeError || error instanceof ReferenceError;
-
 const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
 
 /**
@@ -211,7 +210,8 @@ const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
  * attachments and HTML part as read back (`attachments`, `htmlPart`), and with
  * `replaceUid` whether the old draft went to Trash (`replaced`; false leaves both).
  * A stored draft that cannot be read back is returned with `unreadable: true`,
- * `attachments: null` and the old draft left in place. Attachments or HTML without
+ * `attachments: null`, the read's error as a non-enumerable `cause` (never spread
+ * into an agent's result) and the old draft left in place. Attachments or HTML without
  * the new draft's UID are MAIL_PROTOCOL.
  */
 export async function saveDraft(
@@ -284,13 +284,17 @@ export async function saveDraft(
       if (isBug(error)) throw error;
       // The new draft is stored but could not be read back: its UID is returned so it
       // is not saved twice, and the old draft stays.
-      return {
-        ...stored,
-        attachments: null,
-        htmlPart: null,
-        unreadable: true,
-        ...(replaceUid !== undefined && { replaced: false }),
-      };
+      return Object.defineProperty(
+        {
+          ...stored,
+          attachments: null,
+          htmlPart: null,
+          unreadable: true,
+          ...(replaceUid !== undefined && { replaced: false }),
+        },
+        "cause",
+        { value: error },
+      );
     }
     if (replaceUid === undefined) return saved;
     // The new draft is stored: a failed move of the old one must not hide it.

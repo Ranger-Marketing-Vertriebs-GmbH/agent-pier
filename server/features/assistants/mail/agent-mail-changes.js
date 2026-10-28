@@ -5,6 +5,7 @@ import { clipText } from "../../mail/mail-text.js";
 import { markMessages, moveMessages, trashMessages } from "../../mail/mail-changes.js";
 import { attachmentList } from "./agent-mail-send-input.js";
 import { captureFiles, removeList, saveAgentDraft } from "./agent-mail-draft-files.js";
+import { controlChar } from "../../mail/mail-shared.js";
 
 // The changing actions of agentpier_mail: mark, move, delete (to Trash only) and
 // draft. They need no approval in any turn the gate lets through; only a delete (a
@@ -28,7 +29,6 @@ const fields = {
     "removeAttachments",
   ],
 };
-const controls = /[\x00-\x1f\x7f]/;
 
 export const changingActions = Object.keys(fields);
 
@@ -59,14 +59,14 @@ export function changingInput(input) {
     };
   }
   const folder = input.folder ?? "INBOX";
-  if (controls.test(folder)) throw invalid();
+  if (controlChar.test(folder)) throw invalid();
   const request = { action: input.action, folder, uids: uidsOf(input) };
   if (input.action === "mark") {
     if (!input.flag) throw invalid();
     return { ...request, flag: input.flag };
   }
   if (input.action === "move") {
-    if (!input.destination || controls.test(input.destination)) throw invalid();
+    if (!input.destination || controlChar.test(input.destination)) throw invalid();
     return { ...request, destination: input.destination };
   }
   return request;

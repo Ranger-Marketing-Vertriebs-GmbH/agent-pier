@@ -4,6 +4,7 @@ import { hasHiddenCharacters, hasLineHiddenCharacters } from "../agent-ssh-text.
 import { draftFields } from "../../mail/mail-compose.js";
 import { attachmentLimits } from "../../mail/mail-parts.js";
 import { validPath } from "./agent-mail-sources.js";
+import { controlChar } from "../../mail/mail-shared.js";
 
 // The input of an agent's `send` and the digests that bind an approval card to what
 // goes out (mail/agent-mail-sends.js).
@@ -47,10 +48,7 @@ export function attachmentList(list) {
     if (!entry || typeof entry !== "object" || !validPath(entry.path))
       throw assistantProblem("invalid");
     if (entry.projectId !== undefined) {
-      if (
-        typeof entry.projectId !== "string" ||
-        /[\u0000-\u001f\u007f]/.test(entry.projectId)
-      )
+      if (typeof entry.projectId !== "string" || controlChar.test(entry.projectId))
         throw assistantProblem("invalid");
     }
     const key = JSON.stringify([entry.projectId ?? null, entry.path]);
@@ -116,7 +114,7 @@ export function forwardInput(input) {
     input.uid < 1 ||
     typeof folder !== "string" ||
     !folder ||
-    /[\u0000-\u001f\u007f]/.test(folder) ||
+    controlChar.test(folder) ||
     (input.includeAttachments !== undefined &&
       typeof input.includeAttachments !== "boolean")
   )

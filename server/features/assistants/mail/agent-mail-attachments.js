@@ -14,6 +14,7 @@ import { mailPermits } from "./agent-mail-origin.js";
 import { fileContext } from "./agent-mail-sources.js";
 import { saveTarget, writeNewFile } from "./agent-mail-files.js";
 import { safeFileName } from "./agent-mail-file-names.js";
+import { controlChar } from "../../mail/mail-shared.js";
 
 // The `attachment` action of agentpier_mail: one attachment of a stored mail, saved
 // as a new file (mode `save`, agent-mail-files.js decides where) or returned as text
@@ -25,7 +26,6 @@ import { safeFileName } from "./agent-mail-file-names.js";
 // it, and goes there otherwise.
 
 const fields = ["folder", "uid", "part", "mode", "projectId", "path"];
-const controls = /[\x00-\x1f\x7f]/;
 const invalid = () => assistantProblem("invalid");
 
 /** The action's own fields, checked beyond the tool schema. */
@@ -33,7 +33,7 @@ export function attachmentInput(input) {
   const allowed = new Set(["action", "accountId", ...fields]);
   if (Object.keys(input).some((key) => !allowed.has(key))) throw invalid();
   const folder = input.folder ?? "INBOX";
-  if (controls.test(folder)) throw invalid();
+  if (controlChar.test(folder)) throw invalid();
   if (input.uid === undefined || !input.part || !input.mode) throw invalid();
   const request = { folder, uid: input.uid, part: input.part, mode: input.mode };
   if (input.mode !== "save") {

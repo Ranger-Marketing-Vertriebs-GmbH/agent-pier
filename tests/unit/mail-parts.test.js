@@ -10,6 +10,10 @@ import {
 } from "../../server/features/mail/mail-parts.js";
 import { loadDraft } from "../../server/features/mail/mail-drafts.js";
 import { saveDraft } from "../../server/features/mail/mail-changes.js";
+import {
+  newFileEntries,
+  unreadDraft,
+} from "../../server/features/assistants/mail/agent-mail-draft-files.js";
 
 // An imapflow stand-in that records each FETCH query; `structure` is the message's
 // BODYSTRUCTURE and `appendUid` the UID an APPEND reports.
@@ -172,4 +176,26 @@ test("a stored draft without its UID is MAIL_PROTOCOL when it carries parts", as
   assert.equal(plain.draftUid, null);
   assert.deepEqual(plain.attachments, []);
   assert.equal(plain.htmlPart, null);
+});
+
+test("a draft that does not read back keeps the read's error as its cause", async () => {
+  const account = { address: "agent@example.com", displayName: "" };
+  const fields = { to: ["bob@example.org"], cc: [], bcc: [], subject: "x", body: "y" };
+  const failure = Object.assign(new Error("fetch failed"), { code: "ECONNRESET" });
+  const client = stubClient({ appendUid: 5 });
+  client.fetchOne = async () => {
+    throw failure;
+  };
+  const saved = await saveDraft(client, account, fields);
+  assert.equal(saved.unreadable, true);
+  assert.equal(saved.cause, failure);
+  // Never spread into what an agent's result is built from.
+  assert.equal({ ...saved }.cause, undefined);
+  const error = unreadDraft(saved);
+  assert.equal(error.code, "MAIL_PROTOCOL");
+  assert.equal(error.cause, failure);
+  assert.throws(() => newFileEntries(saved, { read: [], files: {} }), {
+    code: "MAIL_PROTOCOL",
+    cause: failure,
+  });
 });

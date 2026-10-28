@@ -1,8 +1,7 @@
-import fs from "node:fs";
 import path from "node:path";
 import { assistantProblem } from "../assistant-validation.js";
 import { readShareSource, shareRoots } from "../agent-share-source.js";
-import { projectTarget } from "../project-paths.js";
+import { projectTarget, realpath } from "../project-paths.js";
 import { assertOutsideDirs, protectedDirs } from "../protected-dirs.js";
 import { personalShell } from "../native-capabilities.js";
 import { workspaceContext } from "../workspace-calls.js";
@@ -43,13 +42,6 @@ const within = (parent, child) => {
     !relative.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(relative)
   );
-};
-const realpath = (value) => {
-  try {
-    return fs.realpathSync.native(value);
-  } catch {
-    return null;
-  }
 };
 // A path inside `root` as configured or as resolved.
 const under = (root, target) => {
