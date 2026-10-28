@@ -1,3 +1,4 @@
+import zlib from "node:zlib";
 import yazl from "yazl";
 
 // Small documents for mail attachment tests: a PDF with one text object and the
@@ -6,16 +7,29 @@ import yazl from "yazl";
 
 const escapePdf = (text) => text.replace(/[\\()]/g, (c) => `\\${c}`);
 
-/** A one-page PDF whose page shows `text` in one `Tj` text object. */
-export function pdfWith(text) {
-  const stream = `BT /F1 12 Tf 72 712 Td (${escapePdf(text)}) Tj ET`;
+/**
+ * A PDF with one page per text (a string is one page), each in one `Tj` object.
+ * `encrypt` adds a standard security handler whose user password is not empty.
+ */
+export function pdfWith(texts, { encrypt = false } = {}) {
+  const pages = [texts].flat();
+  const kids = pages.map((_, i) => `${4 + 2 * i} 0 R`).join(" ");
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-    `<< /Length ${Buffer.byteLength(stream, "latin1")} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ];
+  pages.forEach((text, i) => {
+    const stream = `BT /F1 12 Tf 72 712 Td (${escapePdf(text)}) Tj ET`;
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${5 + 2 * i} 0 R /Resources << /Font << /F1 3 0 R >> >> >>`,
+      `<< /Length ${Buffer.byteLength(stream, "latin1")} >>\nstream\n${stream}\nendstream`,
+    );
+  });
+  if (encrypt)
+    objects.push(
+      `<< /Filter /Standard /V 1 /R 2 /P -4 /O <${"ab".repeat(32)}> /U <${"cd".repeat(32)}> >>`,
+    );
   let out = "%PDF-1.4\n";
   const offsets = [];
   objects.forEach((body, i) => {
@@ -25,8 +39,52 @@ export function pdfWith(text) {
   const xref = Buffer.byteLength(out, "latin1");
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const security = encrypt
+    ? ` /Encrypt ${objects.length} 0 R /ID [<${"01".repeat(16)}> <${"01".repeat(16)}>]`
+    : "";
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R${security} >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(out, "latin1");
+}
+
+/**
+ * A one-page PDF whose content stream is `megabytes` MiB of spaces, compressed with
+ * FlateDecode to about a thousandth of that: a decompression bomb.
+ */
+export async function pdfBomb(megabytes) {
+  const deflate = zlib.createDeflate({ level: 9 });
+  const chunks = [];
+  deflate.on("data", (chunk) => chunks.push(chunk));
+  const done = new Promise((resolve) => deflate.on("end", resolve));
+  const spaces = Buffer.alloc(1024 * 1024, 0x20);
+  for (let i = 0; i < megabytes; i++) deflate.write(spaces);
+  deflate.end();
+  await done;
+  const stream = Buffer.concat(chunks);
+  const parts = [Buffer.from("%PDF-1.4\n", "latin1")];
+  const offsets = [];
+  let size = parts[0].length;
+  const add = (part) => {
+    const bytes = Buffer.isBuffer(part) ? part : Buffer.from(part, "latin1");
+    parts.push(bytes);
+    size += bytes.length;
+  };
+  for (const body of [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>",
+  ]) {
+    offsets.push(size);
+    add(`${offsets.length} 0 obj\n${body}\nendobj\n`);
+  }
+  offsets.push(size);
+  add(`4 0 obj\n<< /Length ${stream.length} /Filter /FlateDecode >>\nstream\n`);
+  add(stream);
+  add("\nendstream\nendobj\n");
+  const xref = size;
+  add(`xref\n0 5\n0000000000 65535 f \n`);
+  for (const offset of offsets) add(`${String(offset).padStart(10, "0")} 00000 n \n`);
+  add(`trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return Buffer.concat(parts);
 }
 
 const xmlText = (text) =>
@@ -55,8 +113,8 @@ const rels = (entries) =>
     )
     .join("")}</Relationships>`;
 
-// The zip of `files` ({ name: text }), as a Buffer.
-function zipOf(files) {
+/** The zip of `files` ({ name: text }), as a Buffer. */
+export function zipOf(files) {
   const zip = new yazl.ZipFile();
   for (const [name, text] of Object.entries(files))
     zip.addBuffer(Buffer.from(text, "utf8"), name);
@@ -152,6 +210,59 @@ export function pptxWith(text) {
     ]),
     "ppt/slides/slide1.xml": `${xmlHead}<p:sld xmlns:p="${p}" xmlns:a="${a}"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>${xmlText(text)}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`,
   });
+}
+
+/** A PDF that needs a password to open. */
+export const encryptedPdf = () => pdfWith("geheim", { encrypt: true });
+
+// --- Hostile zips: the central directory is rewritten after yazl wrote it.
+
+// Calls `edit(buffer, headerOffset)` for each central directory header of `zip`,
+// and `local(buffer, localOffset)` for the local header it points to.
+function patchEntries(zip, edit, local = () => {}) {
+  const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  const count = zip.readUInt16LE(end + 10);
+  let at = zip.readUInt32LE(end + 16);
+  for (let i = 0; i < count; i++) {
+    const name = zip.toString("utf8", at + 46, at + 46 + zip.readUInt16LE(at + 28));
+    edit(zip, at, name);
+    local(zip, zip.readUInt32LE(at + 42), name);
+    at +=
+      46 +
+      zip.readUInt16LE(at + 28) +
+      zip.readUInt16LE(at + 30) +
+      zip.readUInt16LE(at + 32);
+  }
+  return zip;
+}
+
+/**
+ * A .docx whose `word/document.xml` declares an uncompressed size of 64 MiB, over
+ * the 50 MiB entry limit, without the bytes to back it.
+ */
+export async function zipBombDocx() {
+  return patchEntries(await docxWith("bomb"), (zip, at, name) => {
+    if (name === "word/document.xml") zip.writeUInt32LE(64 * 1024 * 1024, at + 24);
+  });
+}
+
+/**
+ * A .docx whose `word/document.xml` inflates to 1 MiB while its headers declare 100
+ * bytes: a bomb that lies about its size.
+ */
+export async function understatedDocx() {
+  const zip = await zipOf({
+    "word/document.xml": `<w:t>${"a".repeat(1024 * 1024)}</w:t>`,
+  });
+  const declare = (offset) => (bytes, at) => bytes.writeUInt32LE(100, at + offset);
+  return patchEntries(zip, declare(24), declare(22));
+}
+
+/** A .docx whose entries all carry the "encrypted" flag (general purpose bit 0). */
+export async function encryptedZipDocx() {
+  const flag = (offset) => (zip, at) =>
+    zip.writeUInt16LE(zip.readUInt16LE(at + offset) | 1, at + offset);
+  return patchEntries(await docxWith("secret"), flag(8), flag(6));
 }
 
 // --- Raw MIME messages.
