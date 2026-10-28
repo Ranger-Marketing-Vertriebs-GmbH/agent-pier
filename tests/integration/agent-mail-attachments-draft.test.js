@@ -190,3 +190,37 @@ test("draft file sources older than 30 days go on the next record", () => {
   files.removeAccount("acc");
   assert.equal(files.lookup("acc", "<later@x>", "agent-1").size, 0);
 });
+
+test("a draft with files that cannot be read back is refused and trashed", async (t) => {
+  const f = await sendFilesFixture(t);
+  fs.writeFileSync(f.ws("a.pdf"), pdfWith("A"));
+  // Every FETCH fails: the new draft is stored but cannot be read back.
+  f.imap.mailbox.failFetch = () => true;
+  assert.equal(
+    await code(f.draft({ attachments: [{ path: "a.pdf" }] })),
+    "MAIL_PROTOCOL",
+  );
+  assert.equal(f.imap.mailbox.appended.length, 1);
+  assert.equal(f.count("Drafts"), 0);
+  assert.equal(f.count("Trash"), 1);
+  assert.deepEqual(rows(f), []);
+  const deleted = f.audit.filter((e) => e.action === "mail.deleted");
+  assert.equal(deleted.length, 1);
+  assert.equal(deleted[0].details.count, 1);
+  // Without files such a draft is still kept, as before.
+  const plain = await f.draft();
+  assert.equal(plain.unreadable, true);
+  assert.equal(f.count("Drafts"), 1);
+});
+
+test("a replaced draft carries only the replacing agent's file sources", () => {
+  const db = new DatabaseSync(":memory:");
+  const files = new MailDraftFiles(db);
+  const source = { kind: "workspace", path: "a.pdf" };
+  const entry = { partSha256: "p1", source, files: {} };
+  files.record("acc", "<old@x>", "agent-1", [entry]);
+  files.record("acc", "<old@x>", "agent-2", [entry]);
+  files.carry("acc", "<old@x>", "<new@x>", ["p1"], "agent-1");
+  assert.equal(files.lookup("acc", "<new@x>", "agent-1").size, 1);
+  assert.equal(files.lookup("acc", "<new@x>", "agent-2").size, 0);
+});

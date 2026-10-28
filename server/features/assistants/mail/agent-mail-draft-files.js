@@ -3,7 +3,7 @@ import { mailError } from "../../mail/mail-connection.js";
 import { openFolder, resolveFolders } from "../../mail/mail-folders.js";
 import { attachmentsOf, fileName } from "../../mail/mail-messages.js";
 import { attachmentLimits } from "../../mail/mail-parts.js";
-import { saveDraft } from "../../mail/mail-changes.js";
+import { saveDraft, trashDraft } from "../../mail/mail-changes.js";
 import {
   fileContext,
   readSources,
@@ -71,8 +71,11 @@ export class MailDraftFiles {
       } catch {}
     return found;
   }
-  /** Copies the rows of `partSha256s` from a replaced draft to its successor. */
-  carry(accountId, fromMessageId, toMessageId, partSha256s) {
+  /**
+   * Copies the rows of `partSha256s` from a replaced draft to its successor, with
+   * `assistantId` only that agent's rows.
+   */
+  carry(accountId, fromMessageId, toMessageId, partSha256s, assistantId) {
     if (!fromMessageId || !toMessageId || !partSha256s.length) return;
     const wanted = new Set(partSha256s);
     const rows = this.db
@@ -80,7 +83,11 @@ export class MailDraftFiles {
         "SELECT part_sha256,assistant_id,source,files FROM agent_mail_draft_files WHERE account_id=? AND message_id=?",
       )
       .all(accountId, fromMessageId)
-      .filter((row) => wanted.has(row.part_sha256));
+      .filter(
+        (row) =>
+          wanted.has(row.part_sha256) &&
+          (assistantId === undefined || row.assistant_id === assistantId),
+      );
     const insert = this.db.prepare(
       "INSERT OR REPLACE INTO agent_mail_draft_files(account_id,message_id,part_sha256,assistant_id,source,files,created_at) VALUES(?,?,?,?,?,?,?)",
     );
@@ -189,6 +196,11 @@ export function storedDraftAttachments(mail, inv, caller, accountId, draft) {
   const recorded = mail.draftFiles.lookup(accountId, draft.messageId, agentId);
   const found = parts.map((p) => recorded.get(p.partSha256) ?? null);
   if (!found.some(Boolean)) return { attachments: cardAttachments(parts), files: null };
+  // The card keeps only this turn's file context, and approval re-checks against it
+  // alone. That suffices: the bytes are already in the draft and bound to the card
+  // by their digests, the draft-time context is checked once here, and whatever
+  // the agent loses later (a project, Full access, a hook's rights) is lost from
+  // its current access too, so approval still cancels the card.
   const files = fileContext(mail.w, inv, caller);
   const turn = storedFiles(files);
   for (const entry of found)
@@ -240,8 +252,13 @@ export async function saveAgentDraft(mail, client, gate, sender, request, captur
     files: captured?.entries ?? [],
     removeNames: request.removeNames,
   });
-  // A draft that could not be read back keeps its files without their sources.
-  if (!saved.attachments) return saved;
+  if (!saved.attachments) {
+    if (!captured) return saved;
+    // Stored but not read back: the files' sources could not be recorded, so the
+    // new draft goes to Trash again and the call fails, as a send's would.
+    const trashed = saved.draftUid ? await trashDraft(client, saved.draftUid) : false;
+    throw Object.assign(mailError("MAIL_PROTOCOL"), { draftTrashed: trashed });
+  }
   const entries = newFileEntries(saved.attachments, captured);
   mail.draftFiles.record(account.id, saved.messageId, gate.agent.id, entries);
   if (old)
@@ -252,6 +269,7 @@ export async function saveAgentDraft(mail, client, gate, sender, request, captur
       saved.attachments
         .slice(0, saved.attachments.length - added)
         .map((a) => a.partSha256),
+      gate.agent.id,
     );
   return saved;
 }
