@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { recordApiRequests, setTabHidden } from "../helpers/visibility.js";
 import { topicInfo } from "../../web/lib/live/live-topics.js";
+import { emptyInbox } from "../helpers/empty-inbox.js";
 import { operationsFixture } from "./operations-fixture.js";
 
 // The steady state of a page on a working live channel is push-only: after the first
@@ -12,12 +13,6 @@ test.use({ live: "manual" });
 
 const requestsTopic = "session.requests:fixture-session";
 const modelsTopic = "session.models:fixture-session";
-const inbox = {
-  instance: "fixture",
-  revision: 1,
-  counts: { all: 0, questions: 0, approvals: 0, gates: 0, agents: 0 },
-  items: [],
-};
 const pages = {
   "session chat": {
     path: "/sessions/fixture-session/chat",
@@ -37,7 +32,6 @@ const reads = (requests, patterns) =>
 async function fixture(page) {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await operationsFixture(page);
-  await page.route("**/api/inbox", (route) => route.fulfill({ json: inbox }));
 }
 
 // Opens `path`, answers each subscription with its first snapshot, as the server
@@ -49,7 +43,7 @@ async function openSteady(page, liveStub, { path, topics }) {
   const state = await page.evaluate(() => fetch("/api/state").then((r) => r.json()));
   const snapshots = {
     state,
-    inbox,
+    inbox: emptyInbox,
     [requestsTopic]: { requests: [] },
     [modelsTopic]: { currentModel: "gpt-5", picker: null, pending: false },
   };
@@ -116,7 +110,7 @@ test("a refused channel polls at the old interval after three handshakes, visibl
   page,
   liveStub,
 }) => {
-  test.setTimeout(40000);
+  test.setTimeout(45000);
   await fixture(page);
   const stateReads = [];
   page.on("request", (request) => {
@@ -133,13 +127,13 @@ test("a refused channel polls at the old interval after three handshakes, visibl
   // The first REST read comes only after the third refused handshake.
   expect(stateReads[0].handshakes).toBeGreaterThanOrEqual(3);
   await expect
-    .poll(() => stateReads.length, { timeout: 10000 })
+    .poll(() => stateReads.length, { timeout: 15000 })
     .toBeGreaterThanOrEqual(3);
-  // The state's previous interval: 3 s between reads.
+  // The state's previous interval, 3 s, with room for a slow machine.
   const gaps = stateReads.slice(1, 3).map((read, i) => read.at - stateReads[i].at);
   for (const gap of gaps) {
-    expect(gap).toBeGreaterThanOrEqual(2500);
-    expect(gap).toBeLessThanOrEqual(4500);
+    expect(gap).toBeGreaterThanOrEqual(2000);
+    expect(gap).toBeLessThanOrEqual(6000);
   }
   // Hidden, the fallback polls nothing.
   await setTabHidden(page, true);

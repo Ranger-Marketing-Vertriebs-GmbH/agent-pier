@@ -1,3 +1,4 @@
+import { emptyInbox } from "../helpers/empty-inbox.js";
 import { systemStatusAnswer } from "../helpers/system-status-fixture.js";
 import { baseURL } from "../helpers/browser.js";
 import { installAgentFeedFake } from "../helpers/agent-feed-fake.js";
@@ -458,12 +459,7 @@ export async function fixture(page, { account, session } = {}) {
     // The start page follows the live `inbox` topic; nothing waits here.
     if (path === "/api/inbox" && method === "GET")
       return route.fulfill({
-        json: {
-          instance: "fixture",
-          revision: 0,
-          counts: { all: 0, questions: 0, approvals: 0, gates: 0, agents: 0 },
-          items: [],
-        },
+        json: emptyInbox,
       });
     if (path === "/api/assistant-runtime/updates" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
