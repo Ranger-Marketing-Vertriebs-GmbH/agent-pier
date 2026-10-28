@@ -57,17 +57,18 @@ export class LiveInstance {
   }
   /**
    * Adds `{principal, have, send}`. The first subscriber starts the change sources
-   * and the first read; later ones are answered from the settled value at once.
+   * and the first read; later ones are answered from the settled value at once,
+   * unless the last read failed: then a new read answers them.
    */
   add(subscriber) {
     if (this.closed) throw new Error("The live topic instance is closed");
     subscriber.waiting = true;
     this.subscribers.add(subscriber);
     if (this.subscribers.size === 1) this.start();
-    if (this.mode === "signal" || this.settled) this.answer(subscriber);
-    // The last read failed and none succeeded (agents off, say): read again, so this
-    // subscriber hears the answer too instead of waiting for the next change.
-    else if (this.failed) this.invalidate();
+    // The last read failed (agents off, say): the stored value may be gone, so read
+    // again and answer this subscriber with that read, never with the stored value.
+    if (this.mode !== "signal" && this.failed) this.invalidate();
+    else if (this.mode === "signal" || this.settled) this.answer(subscriber);
   }
   /** Removes a subscriber; the last one stops the change sources and the sampler. */
   remove(subscriber) {
