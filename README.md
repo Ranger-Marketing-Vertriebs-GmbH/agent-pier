@@ -62,6 +62,11 @@ and agents that work as a team.
   that agents check for new mail, read, sort and draft in; a mail goes out only after
   your approval in the chat, the Inbox or Telegram, or to recipients you allowed
   ([email](docs/mail.md)).
+- **Shopping for agents:** your own agents with **Use a browser** and **Remember
+  information** find deals and electronics parts on Amazon and AliExpress, build carts
+  for a project and buy with the shop accounts you signed in to, only after your yes
+  in the chat or a standing order you gave there. The guard is the agent's
+  instructions, not AgentPier ([shopping](docs/shopping.md)).
 - **Connections:** model access (provider connections and ChatGPT for agents),
   services for agents, MCP servers, SSH/SFTP accesses, email accounts, secrets and
   GitHub connections in one place, created once and granted where they are used, each with **Used by**
@@ -170,12 +175,12 @@ below its minimum version until it is updated. A source checkout updates with `g
 
 The [docs index](docs/README.md) lists every guide.
 
-| Area    | Guides                                                                                                                                                                                                                                                                                                                                  |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [Email](docs/mail.md) · [Secrets](docs/secrets.md) · [Notifications](docs/notifications.md) |
-| Agents  | [Agents](docs/agents.md) · [Users](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                                                                          |
-| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                                                                                   |
-| Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                                                                                                           |
+| Area    | Guides                                                                                                                                                                                                                                                                                                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Use     | [Inbox](docs/inbox.md) · [Providers](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Files](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [Email](docs/mail.md) · [Shopping](docs/shopping.md) · [Secrets](docs/secrets.md) · [Notifications](docs/notifications.md) |
+| Agents  | [Agents](docs/agents.md) · [Users](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Model connections](docs/assistant-model-connections.md) · [Runtime updates](docs/assistant-runtime-updates.md)                                                                                                                                                         |
+| Operate | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Remote access](docs/remote-access.md) · [Backups](docs/backups.md) · [Operations](docs/operations.md) · [System status](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                                                                                                                  |
+| Develop | [Architecture](docs/architecture.md) · [UI guide](docs/ui-guide.md) · [Settings pattern](docs/settings-pattern.md) · [Testing](docs/testing.md) · [Frontend](web/README.md) · [Contributing](CONTRIBUTING.md)                                                                                                                                                          |
 
 ## Data and security boundaries
 

@@ -274,8 +274,9 @@ for the implementation and remaining native platform/version qualification.
   normalization and OpenClaw's path repairs, so alternative spellings are caught.
   Skills are off unless the owner assigns them: `agents.defaults.skills` is `[]`
   (no skills for an agent without its own list), each eligible agent's
-  `agents.entries.<id>.skills` holds only the bundled skills the owner switched on
-  (see [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
+  `agents.entries.<id>.skills` holds only the bundled and catalog skills the owner
+  switched on plus AgentPier's built-in skills for eligible agents (see
+  [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
   is not a gate: OpenClaw reads the empty list AgentPier writes as "every bundled
   skill allowed".
 - **`.agentpier/` is managed by AgentPier.** The folder holds the agent's granted
@@ -4076,6 +4077,24 @@ without any.
   **shadowed** and off for this agent, adding such a skill is refused, and it applies
   again once the other skill is gone. Owner turns apply the agent before they start,
   and the Gateway's `skills.changed` event re-applies every agent with skills.
+- **Built-in skills.** AgentPier ships its own skills inside the team plugin: the
+  plugin manifest's `"skills": ["skills"]` names the folder, and the plugin
+  installer provisions it with the plugin (`team-plugin-install.js`). Today that is
+  `agentpier-shopping` ([Shopping for agents](shopping.md)). It is compiled into the
+  allow list of the owner's own unarchived personal agents with **Use a browser** and
+  **Remember information** on, never into agents of users, team members or agents with
+  a Telegram bot for other people (`built-in-skills.js`). It is not stored on the
+  profile, not listed on the Skills page and not assignable: a save naming it is
+  refused (409 `skillUnavailable`), and a stored or inherited name never compiles.
+  OpenClaw 2026.10.7 links each plugin skill below `<state>/plugin-skills/<name>/` and
+  reports it in `skills.status` as `openclaw-extra`, the same source as the catalog's
+  `skills.load.extraDirs`. AgentPier therefore recognizes the plugin's copy by that
+  link path (its `filePath`, with only the `plugin-skills` folder resolved to its real
+  path, never the link itself). A live apply keeps a built-in name only when every
+  entry of that name is the plugin's copy, so a same-named workspace, managed or catalog
+  skill drops it. Built-in names are also shadow candidates at every Gateway start, and
+  `skills.changed` re-applies agents whose only skill is built in. The skill guards
+  purchases by its instructions only; nothing in AgentPier intercepts an order.
 - **Programs.** OpenClaw checks the programs a skill requires on the Gateway's
   `PATH`, which carries the owner's login `PATH` (see
   [Environment of shell commands](#environment-of-shell-commands)). Most skills run
@@ -4110,8 +4129,13 @@ or out). Nothing from a workspace is ever used for it.
   sources, a skill of the same name in a higher tier wins: bundled, workspace,
   managed, personal, workshop (`workshop-skills` of the agent) or plugin skills
   outrank the catalog. An install is refused for a name the runtime bundles, a shared
-  skill folder (plugin, managed or personal skills) holds, or a running Gateway
-  reports from another source. A name a runtime update later bundles makes the catalog
+  skill folder (plugin, managed or personal skills) holds, a running Gateway
+  reports from another source, or one of AgentPier's [built-in skills](#skills) uses
+  (409 `catalogNameTaken`, at preview and at install, also before any Gateway has
+  linked the plugin's skills). A catalog skill named `agentpier-shopping` installed
+  before AgentPier shipped that skill stays installed, but OpenClaw then reports two
+  copies of the name, and the built-in Shopping skill is dropped for every agent
+  until the owner removes the catalog skill. A name a runtime update later bundles makes the catalog
   skill **shadowed** (`shadowedBy: "bundled"`): it is dropped from every compile and
   stays off until the catalog skill is removed. A name reported from another source is
   shadowed as `"source"`. A workspace or workshop skill of one agent is not refused at
