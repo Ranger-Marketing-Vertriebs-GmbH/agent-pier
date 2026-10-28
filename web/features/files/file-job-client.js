@@ -30,6 +30,9 @@ const browserLive = {
   status: () => liveClient().status(),
 };
 const finite = (value) => Number.isFinite(value);
+// The envelopes a first page carries: its jobs and the running ones beyond it.
+const carriedJobs = (page) =>
+  new Map([...(page?.jobs || []), ...(page?.active || [])].map((job) => [job.id, job]));
 
 /**
  * One client owns this snapshot, request queue, abort generation and polling timer.
@@ -98,7 +101,7 @@ export class FileJobClient {
         const history = pushed || (await this.client.get("/jobs", {}, signal));
         if (!owns()) return;
         this.observePage(history);
-        const carried = new Map(pushed?.jobs.map((job) => [job.id, job]));
+        const carried = carriedJobs(pushed);
         for (const id of this.tracked.keys()) {
           let job = carried.get(id);
           try {
@@ -119,6 +122,9 @@ export class FileJobClient {
           await this.readEntries(id, undefined, signal, owns);
           this.searched.set(id, job.updatedAt);
         }
+        // Versions read are kept only for the searches still tracked.
+        for (const id of this.searched.keys())
+          if (!this.tracked.has(id)) this.searched.delete(id);
         this.uploads.reconcile();
         // A pushed job's pages are swept again only for a new version.
         const mutations = [...this.tracked.values()].filter(
@@ -206,10 +212,17 @@ export class FileJobClient {
   }
   // A first page of /jobs, read or pushed: its active jobs are tracked.
   observePage(history) {
-    if (!Array.isArray(history?.jobs) || history.jobs.length > 200)
+    if (
+      !Array.isArray(history?.jobs) ||
+      history.jobs.length > 200 ||
+      (history.active !== undefined &&
+        (!Array.isArray(history.active) || history.active.length > 50))
+    )
       throw issue("FILE_INVALID_RESPONSE");
     const jobs = history.jobs.map((job) => this.latest(job));
-    for (const job of jobs) {
+    // Running jobs beyond the page are followed like those on it, not listed in it.
+    const active = (history.active || []).map((job) => this.latest(job));
+    for (const job of [...jobs, ...active]) {
       this.invalidateManifest(job);
       if (
         !uploadOwnedJob(job) &&
@@ -223,7 +236,12 @@ export class FileJobClient {
       ...(!this.state.history?.cursor
         ? { history: { ...history, jobs, cursor: null } }
         : {}),
-      jobs: this.boundedJobs([...this.state.jobs, ...jobs, ...this.tracked.values()]),
+      jobs: this.boundedJobs([
+        ...this.state.jobs,
+        ...jobs,
+        ...active,
+        ...this.tracked.values(),
+      ]),
     });
   }
   // The newer of `job` and the envelope held for it: an answer that left the server
@@ -257,7 +275,7 @@ export class FileJobClient {
   // The push alone follows every tracked job: the pushed page carries each one with
   // its version, and no result or upload page is part-read.
   followed() {
-    const carried = new Map(this.feed.jobs.map((job) => [job.id, job]));
+    const carried = carriedJobs(this.feed);
     for (const id of this.tracked.keys())
       if (!finite(carried.get(id)?.updatedAt) || this.sweeps.get(id)?.cursor)
         return false;
@@ -313,6 +331,7 @@ export class FileJobClient {
   }
   expired(id) {
     this.tracked.delete(id);
+    this.searched.delete(id);
     this.sweeps.delete(id);
     this.update({
       jobs: this.state.jobs.filter((job) => job.id !== id),
@@ -347,6 +366,7 @@ export class FileJobClient {
       this.unfollow?.();
       this.unfollow = null;
       this.feed = null;
+      this.searched.clear();
       this.refused = this.deferred = this.again = false;
       for (const controller of this.controllers) controller.abort();
     };

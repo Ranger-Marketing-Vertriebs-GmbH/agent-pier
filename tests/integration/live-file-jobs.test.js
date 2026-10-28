@@ -109,6 +109,42 @@ test("every job write signals its scope and raises the envelope's updatedAt", (t
   assert.equal(signals.length, 6);
 });
 
+test("a first page that more jobs follow carries the running ones beyond it", (t) => {
+  const now = 1_800_000_000_000;
+  const store = new FileStore({ dataDir: temporary(t), now: () => now });
+  t.after(() => store.close());
+  const scope = { id: "f1:scope" };
+  const ids = [];
+  for (let i = 0; i < 201; i++) ids.push(store.request(scope, copyOperation(now)).job.id);
+  // A page that holds every job needs none.
+  assert.equal(store.listJobs({ id: "f1:other" }).active, undefined);
+  for (const id of ids.slice(0, 200)) store.transition(id, "queued", "completed");
+  // Beyond the page: an upload group, its running child and an ended job.
+  const insert = store.db.prepare(
+    "INSERT INTO jobs(id,scope_id,kind,status,operation,document,parent_job_id,created_at,updated_at) VALUES(?,?,?,?,'{}',?,?,?,?)",
+  );
+  const doc = JSON.stringify({ completedEntries: 0, conflict: null, issue: null });
+  insert.run("group", scope.id, "upload_group", "running", doc, null, now, now);
+  insert.run("child", scope.id, "upload", "running", doc, "group", now, now);
+  insert.run("ended", scope.id, "copy", "completed", doc, null, now, now);
+  const first = store.listJobs(scope);
+  assert.equal(first.jobs.length, 200);
+  assert.ok(first.nextCursor);
+  assert.deepEqual(
+    first.active.map((job) => [job.id, job.status]),
+    [
+      [ids[200], "queued"],
+      ["group", "running"],
+    ],
+  );
+  assert.deepEqual(first.active[0], store.getJob(scope, ids[200]));
+  // Later pages list everything themselves.
+  assert.equal(store.listJobs(scope, first.nextCursor).active, undefined);
+  // At most 50.
+  for (let i = 0; i < 60; i++) store.request(scope, copyOperation(now));
+  assert.equal(store.listJobs(scope).active.length, 50);
+});
+
 test("a failing file-job listener is logged and the write still succeeds", (t) => {
   const errors = errorsOf(t);
   const now = 1_800_000_000_000;

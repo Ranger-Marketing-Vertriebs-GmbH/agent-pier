@@ -257,3 +257,51 @@ test("a push during a read is read after it, or once a hidden tab is shown", asy
   assert.equal(f.reads.length, 2);
   f.unsubscribe();
 });
+
+test("a running job beyond the first page is followed by the push alone", async () => {
+  const f = fixture({
+    get: async () => ({ entries: [], nextCursor: null }),
+    mutate: async () => copy("queued", 1),
+  });
+  const old = Array.from({ length: 200 }, (_, index) => ({
+    ...copy("completed", 1),
+    id: `old-${index}`,
+  }));
+  const full = (job) => ({ jobs: old, nextCursor: "next", active: [job] });
+  f.live.push(full(copy("queued", 1)));
+  await settle();
+  assert.ok(f.session.tracked.has("copy"));
+  assert.equal(f.timers.size, 0);
+  f.live.push(full(copy("running", 2, { completedEntries: 1 })));
+  await settle();
+  assert.equal(f.session.state.jobs.find((job) => job.id === "copy").completedEntries, 1);
+  assert.equal(f.reads.includes("/jobs/copy"), false);
+  // The history page lists the page itself, not the running jobs beyond it.
+  assert.equal(f.session.state.history.jobs.length, 200);
+  f.live.push(full(copy("completed", 3)));
+  await settle();
+  assert.equal(f.session.tracked.size, 0);
+  assert.equal(f.timers.size, 0);
+  assert.deepEqual([...new Set(f.reads)], ["/jobs/copy/entries"]);
+  f.unsubscribe();
+});
+
+test("versions read are dropped for searches no longer tracked", async () => {
+  const search = (status, updatedAt) => ({ ...copy(status, updatedAt), kind: "search" });
+  const f = fixture({
+    get: async () => ({ entries: [], nextCursor: null }),
+    mutate: async () => search("running", 1),
+  });
+  f.live.push(page(search("running", 1)));
+  await settle();
+  await f.session.start("scope", { kind: "search" });
+  const [timer] = [...f.timers.values()];
+  f.timers.clear();
+  timer.callback();
+  await settle();
+  assert.equal(f.session.searched.get("copy"), 1);
+  f.session.expired("copy");
+  assert.equal(f.session.searched.size, 0);
+  f.unsubscribe();
+  assert.equal(f.session.searched.size, 0);
+});
