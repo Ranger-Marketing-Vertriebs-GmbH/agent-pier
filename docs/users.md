@@ -48,7 +48,7 @@ after the session check by `server/http/socket-access.js`:
 - `/api/live`: the live channel. Over it she subscribes only her own `me.*` topics,
   which push what her `/api/me` routes answer her: her agents (`me.agents`), her
   account (`me.account`), her approvals (`me.approvals`) and, for each of her agents,
-  her chat list (`me.chats:<agentId>`), her bot (`me.telegram:<agentId>`) and her
+  her chat list (`me.chats:<agentId>`), her bot at Extended (`me.telegram:<agentId>`) and her
   reminders (`me.reminders:<agentId>`). Every other topic, and an agent that does not
   serve her, answers like an unknown one; nothing of another user's or the owner's
   passes, also on a shared agent. Taking an agent away from her ends its topics at
