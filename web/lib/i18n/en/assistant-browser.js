@@ -1,4 +1,24 @@
 export const assistantBrowserCopy = {
+  networkTitle: "Allow private networks for all agent browsers",
+  networkDescription:
+    "Global setting for every agent and team member with browser access. Includes localhost, link-local and cloud metadata addresses. Browser profiles stay separate; web fetch and shell permissions are unchanged.",
+  networkEnableTitle: "Allow private networks for all agent browsers?",
+  networkEnableBody:
+    "Every agent browser and its pages may access private networks, services on this computer, link-local and cloud metadata addresses, including through redirects. Only enable this if you trust the agents and the pages they visit. The browser sandbox remains enabled.",
+  networkDisableTitle: "Disable private network access for all agent browsers?",
+  networkDisableBody:
+    "Restores OpenClaw's default navigation policy. Direct private navigation is blocked again; this policy is not a network firewall and may reject redirects only after a request was sent.",
+  networkRestart:
+    "Saves globally and queues an agent-service restart. Until it completes, the previous policy remains active. Open browser tabs close during the restart; saved logins remain. Running work delays the restart.",
+  networkSave: "Save global setting",
+  networkNextStart: "Applies when the agent service next starts.",
+  networkPendingOn:
+    "Saved: allowed. Restart pending; the default policy is still active.",
+  networkPendingOff:
+    "Saved: blocked. Restart pending; private network access is still active.",
+  networkActive: "Active: private network access allowed.",
+  networkBlocked: "Active: default navigation policy.",
+
   group: "Agent browser",
   visible: "Visible browser",
   visibleDescription:
@@ -17,7 +37,7 @@ export const assistantBrowserCopy = {
   restart: "Restart agent service",
   restartTitle: "Restart the agent service?",
   restartDescription:
-    "A newly installed or removed browser applies only after the agent service restarts. Running work is not interrupted: while an agent is busy, the restart is refused.",
+    "Changes to the browser installation or global network access apply after the agent service restarts. Running work is not interrupted: while an agent is busy, the restart is refused.",
   restartConfirm: "Restart",
   liveTitle: "Browser",
   liveOpen: "Open live view",

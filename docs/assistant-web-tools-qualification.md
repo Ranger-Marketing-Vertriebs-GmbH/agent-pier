@@ -445,6 +445,49 @@ without focus emulation reported `hidden`, painted no animation frames, and both
 `Accessibility.getFullAXTree` and `Page.captureScreenshot` hit a 20-second timeout,
 also with the anti-throttling flags.
 
+## Global private network access
+
+The owner may explicitly enable **Allow private networks for all agent browsers**
+under **agent settings › Capabilities › Agent browser**. Default: off. The setting
+uses the pinned runtime's supported root browser policy:
+
+```json
+{ "ssrfPolicy": { "dangerouslyAllowPrivateNetwork": true } }
+```
+
+This is intentionally broad: it admits private, loopback, link-local and cloud
+metadata destinations for every agent browser, including permanent delegated team
+members and redirects. The confirmation names this scope. It does not disable the
+Chromium sandbox, merge browser profiles or change `tools.web.fetch.ssrfPolicy`.
+No host allowlist or per-agent network permission is claimed.
+
+The owner-only, origin-checked `GET/PUT /api/assistant-browser-network` endpoint
+accepts a boolean `allowPrivateNetwork` and a revision. Persistence, audit and
+pending restart are described in [Browser isolation](assistant-gateway.md#browser-isolation).
+The running snapshot reports `active` independently of the saved value (null while
+the runtime is not ready). Revocation is pending until restart, not immediate.
+The next start omits the policy when off and restores default navigation checks.
+
+`assistant-browser-host-policy-contract.test.js` executes the pinned runtime's
+schema and navigation functions. Real sandboxed Chromium follows the compiled
+opt-in through a local redirect in two isolated contexts; closing those contexts
+and applying the compiled off-policy blocks a new direct request. Injected DNS
+answers qualify RFC1918, loopback, link-local and metadata admission without
+contacting real services. Unit tests cover defaults, persistence, revision conflicts,
+unchanged fetch policy and pending activation/revocation. Blackbox tests cover owner
+access, foreign origins and audit records; the English UI test covers confirmation,
+cancellation and saved-versus-active status, with a screenshot attachment.
+
+A second contract uses the production service graph and a real isolated Gateway:
+the owner saves the setting through HTTP, the pending restart activates it, a local
+page loads, and revocation restarts the Gateway again. It verifies the old browser
+has stopped and direct private navigation is denied before another request. No
+live model is called. Forced-process crash cleanup and real deployment login are
+not exercised.
+Public hostname compatibility is covered with fixture DNS rather than a live site.
+The historical exact-host qualification below remains relevant to the default mode;
+disabling broad access does not turn the native browser policy into an egress firewall.
+
 ## Internal host exceptions
 
 Qualified on 2026-10-28 against the installed, pinned **OpenClaw 2026.10.7**,
@@ -453,10 +496,10 @@ internal hostname failing with `browser navigation blocked by policy` after a
 successful browser start is consistent with the default DNS/address policy. This
 qualification does not contact the reported deployment or attempt a login.
 
-**Decision: do not expose an owner host-release setting with this runtime.** Its
-host exception cannot meet per-agent isolation and pre-request redirect denial.
-No exception is persisted or compiled; no reload or restart enables this missing
-capability. Existing profile isolation and sandbox settings remain in place.
+**Exact-host releases remain unsupported.** The runtime cannot meet per-agent host
+isolation and pre-request redirect denial. The global private-network opt-in below
+is a different, explicitly broader owner permission; it does not provide these
+exact-host guarantees.
 
 The actual policy chain is:
 
@@ -507,11 +550,11 @@ regression. A real headless Chromium with `chromiumSandbox: true` verifies direc
 denial and counts requests at a denied redirect target. Only disposable loopback
 HTTP fixtures are contacted; DNS-only cases inject fixture answers. No credentials,
 live models, user profiles, running Gateway configuration or deployment are used.
-This is a boundary qualification, not acceptance coverage for an implemented grant
-feature. Public-site compatibility here is a policy check with fixture DNS, not a
+The exact-host cases qualify the runtime boundary; the broader global opt-in has
+separate acceptance cases in the same contract. Public-site compatibility here is a policy check with fixture DNS, not a
 live public-site browser test.
 
-### Required solution
+### Requirements for a future exact-host solution
 
 A suitable runtime change must provide a browser-profile policy enforced before
 connections, with checked DNS addresses bound to those connections. A dedicated

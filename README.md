@@ -91,6 +91,8 @@ and agents that work as a team.
 - Optional: Tailscale for remote access, and a Chromium-based browser for the agents'
   browser tool (Brave or Chromium for visible agent browser windows; AgentPier can
   install a managed Chrome for Testing for them with one click).
+  Private network access for all agent browsers is an explicit owner opt-in; see
+  [browser isolation](docs/assistant-gateway.md#browser-isolation).
 - At least one coding CLI or model provider. Provider accounts and their costs are
   your own.
 

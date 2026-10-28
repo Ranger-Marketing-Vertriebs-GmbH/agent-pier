@@ -106,6 +106,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Browser-Tool der Agenten (Brave oder Chromium für sichtbare Browserfenster der
   Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing
   installieren).
+  Private Netzwerkzugriffe für alle Agent-Browser kann der Besitzer ausdrücklich
+  freigeben; siehe [Browser-Isolation](docs/assistant-gateway.md#browser-isolation).
 - Mindestens eine Coding-CLI oder ein Modell-Provider. Provider-Accounts und ihre
   Kosten liegen bei dir.
 

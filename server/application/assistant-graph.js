@@ -57,6 +57,7 @@ import { AssistantWorkflows } from "../features/assistants/assistant-workflows.j
 import { RuntimeUpdates } from "../features/assistants/runtime-updates.js";
 import { AssistantProviderSynchronization } from "../features/assistants/assistant-provider-synchronization.js";
 import { WebToolsChanges } from "../features/assistants/web-tools-changes.js";
+import { BrowserNetworkSettings } from "../features/assistants/browser-network-settings.js";
 import { AdvancedConfig } from "../features/assistants/advanced-config.js";
 import { resolveShellOwner } from "../features/assistants/exec-shell.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
@@ -370,6 +371,8 @@ export function constructAssistantGraph(host, created = {}) {
     // A signed-in ChatGPT account lets agents create images (model-accounts.js).
     images: () => ({ ready: assistantModelAccounts.imageReady() }),
     pdfModel: assistantPdfModel,
+    browserNetwork: new BrowserNetworkSettings({ dataDir }),
+    audit,
   });
   // The owner's advanced OpenClaw settings; restart changes reuse web tools' confirmation.
   const assistantAdvancedConfig = new AdvancedConfig({
@@ -556,13 +559,11 @@ export function connectAssistantServices(graph) {
         githubShell: workflows.github.shellPaths(store.listAssistants()),
         webTools: {
           search: webSearch.resolve(),
-          // The same detection a save compares with (web-tools-changes.js).
           browser: webToolsChanges.detect(),
+          browserAllowPrivateNetwork: webToolsChanges.network().allowPrivateNetwork,
           // A runtime installed before the plugins were bundled reports none.
           searchPlugins: installed.searchPlugins || {},
-          // The same readiness a save compares with (web-tools-changes.js).
           images: webToolsChanges.images(),
-          // The owner's PDF fallback, ids only (pdf-model-settings.js).
           pdf: webToolsChanges.pdf(),
           documentExtract: hasDocumentExtract(installed),
         },
