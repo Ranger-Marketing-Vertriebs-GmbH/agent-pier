@@ -6,9 +6,13 @@ import { assistantProblem } from "./assistant-validation.js";
 
 export const projectCreateCaps = Object.freeze({ perDay: 10, windowMs: 86400000 });
 
+// Invisible format and bidi characters, line and paragraph separators, and slash
+// look-alikes: they could disguise the name in the owner's notice.
+const disguising = /[\p{Cf}\p{Zl}\p{Zp}\u2215\u2044\uff0f\u29f8]/u;
+
 /** A project name: a plain folder name without a leading dot, or a 400. */
 export function projectName(value) {
-  if (!validDirectoryName(value) || value.startsWith("."))
+  if (!validDirectoryName(value) || value.startsWith(".") || disguising.test(value))
     throw assistantProblem("projectNameInvalid");
   return value;
 }

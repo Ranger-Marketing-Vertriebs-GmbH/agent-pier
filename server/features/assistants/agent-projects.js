@@ -109,27 +109,30 @@ export class AgentProjects {
     const w = this.w;
     projectCreateLimit(this.store.times(agent.id), this.now());
     const parent = await this.parent();
-    let target;
+    let target, made;
     try {
       target = (await createDirectory(parent, name)).path;
+      made = await fs.lstat(target, { bigint: true });
     } catch (error) {
       throw error.status === 409 ? assistantProblem("projectExists", 409) : unavailable();
     }
-    // From here on a failure removes this folder, which this call made, and what the
-    // call recorded for it. A project registration cannot be undone here (ProjectMemory
-    // has no unregister for a project another part may already use); its row stays and
-    // points at the removed folder until the owner's project cleanup drops it.
+    // From here on a failure removes this folder, which this call made, and everything
+    // the call recorded for it: the grant, the creation record and the registration
+    // (ProjectMemory#removeEmpty; the project is fresh, so it holds nothing yet).
     let project = null,
       recorded = false,
       granted = false;
     try {
+      // The folder must still be the one this call made, never a link put in its place.
+      await this.unchanged(target, made);
       if (git)
         try {
           await this.gitInit(target);
         } catch {
           throw unavailable();
         }
-      project = await this.register(target);
+      await this.unchanged(target, made);
+      project = await this.register(target, made);
       this.store.add({
         projectId: project.id,
         assistantId: agent.id,
@@ -140,13 +143,6 @@ export class AgentProjects {
       // restores a grant the owner removed.
       granted = true;
       grantCreatedProject(w.access, agent.id, project.id, { coding });
-      auditAgentProject(w.s, {
-        assistantId: agent.id,
-        projectId: project.id,
-        change: "create",
-        coding,
-        git,
-      });
       const result = { projectId: project.id, name: project.name, path: target, coding };
       this.settle(inv, agent, conversation, {
         change: "create",
@@ -155,6 +151,14 @@ export class AgentProjects {
         path: target,
         coding,
         result,
+      });
+      // Audited once nothing can roll the creation back any more.
+      auditAgentProject(w.s, {
+        assistantId: agent.id,
+        projectId: project.id,
+        change: "create",
+        coding,
+        git,
       });
       this.refresh(agent);
       return result;
@@ -170,12 +174,6 @@ export class AgentProjects {
     const { changed } = setCreatedProjectCoding(w.access, agent.id, projectId, enabled);
     const result = { projectId, coding: enabled };
     if (!changed) return result;
-    auditAgentProject(w.s, {
-      assistantId: agent.id,
-      projectId,
-      change: "coding",
-      coding: enabled,
-    });
     const project = this.project(projectId);
     this.settle(inv, agent, conversation, {
       change: "coding",
@@ -185,19 +183,36 @@ export class AgentProjects {
       coding: enabled,
       result,
     });
+    auditAgentProject(w.s, {
+      assistantId: agent.id,
+      projectId,
+      change: "coding",
+      coding: enabled,
+    });
     this.refresh(agent);
     return result;
   }
   /**
    * Registers the new folder as a project of its own: never an enclosing repository
    * (the default folder may lie inside one), the home or a collection folder, nor a
-   * project AgentPier knew before this call.
+   * project AgentPier knew before this call. A project row that already names this
+   * path or folder (an earlier project whose folder was deleted, its inode reused) is
+   * refused too: registering would rebind it and its data into the new project
+   * (ProjectMemory#followGitInit).
    */
-  async register(target) {
+  async register(target, made) {
     const memory = this.w.s.memory;
     let project;
     try {
-      if ((await projectScope(target)).cwd !== target) throw Error();
+      const scope = await projectScope(target);
+      if (scope.cwd !== target) throw Error();
+      const folder = JSON.stringify([
+        "directory",
+        target,
+        String(made.dev),
+        String(made.ino),
+      ]);
+      if (memory.claimsFolder(target, [folder, scope.identity])) throw Error();
       const known = new Set(memory.projectNames().map((p) => p.id));
       project = await memory.register(target);
       if (!project || project.cwd !== target || known.has(project.id)) throw Error();
@@ -234,6 +249,17 @@ export class AgentProjects {
       throw error;
     }
   }
+  // Throws unless `target` is still the directory `made` (same device and inode).
+  async unchanged(target, made) {
+    let now;
+    try {
+      now = await fs.lstat(target, { bigint: true });
+    } catch {
+      throw unavailable();
+    }
+    if (!now.isDirectory() || now.dev !== made.dev || now.ino !== made.ino)
+      throw unavailable();
+  }
   // The owner's default folder, canonical, an existing and writable directory.
   async parent() {
     try {
@@ -250,7 +276,7 @@ export class AgentProjects {
    * point after which the owner notice for the change goes out.
    */
   settle(inv, agent, conversation, payload) {
-    const at = Date.now();
+    const at = this.now();
     return this.w.store.reserve({
       assistantId: agent.id,
       conversationId: conversation.id,
@@ -273,8 +299,10 @@ export class AgentProjects {
   }
   async rollback(agent, target, project, { recorded, granted }) {
     try {
-      if (granted) this.w.access.revokeProject(project.id);
+      if (granted && this.w.access.revokeProject(project.id).length) this.w.a.changed();
       if (recorded) this.store.remove(project.id, agent.id);
+      // Fresh (register refused known and claimed folders), so it holds nothing.
+      if (project) this.w.s.memory.removeEmpty(project.id);
     } catch (error) {
       console.error("Agent project rollback failed:", error?.message);
     }

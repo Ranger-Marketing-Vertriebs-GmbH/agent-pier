@@ -131,6 +131,25 @@ test("switching coding needs the project grant, and switching off never needs it
   assert.equal(changed(), 3);
 });
 
+test("a folder the owner downgraded is never switched to coding by the agent", (t) => {
+  const { access, id } = fixture(t);
+  grantCreatedProject(access, id, "p-new");
+  for (const level of ["read", undefined]) {
+    const stored = access.stored(id);
+    const projectFiles = { ...stored.projectFiles };
+    if (level) projectFiles["p-new"] = level;
+    else delete projectFiles["p-new"];
+    access.write(id, { ...stored, projectFiles, revision: stored.revision + 1 });
+    const before = access.stored(id);
+    assert.throws(
+      () => setCreatedProjectCoding(access, id, "p-new", true),
+      (e) => toolError(e).code === "PROJECT_NOT_GRANTED",
+      String(level),
+    );
+    assert.deepEqual(access.stored(id), before);
+  }
+});
+
 test("only registered projects are granted or switched on", (t) => {
   const { access, id, registered, changed } = fixture(t);
   const before = access.stored(id);
