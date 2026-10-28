@@ -21,9 +21,9 @@ export default function BrowserInstall({ browser, refresh }) {
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
   // While its job runs, the installation follows the live `job.tool:chromium` topic:
-  // each progress step is pushed, and its end reads the browser state once. A topic
-  // switched on again first shows what it held from the previous job, so only the
-  // entry of the job this install started (its `startedAt`) counts.
+  // each progress step is pushed, and its end reads the browser state once. Only the
+  // entry of the job this install started (its `startedAt`) counts, never another
+  // install's entry (an earlier one, or one started elsewhere).
   const progress = useLiveTopic(running ? "job.tool:chromium" : null);
   const found = progress.data?.installations?.find((item) => item.tool === "chromium");
   const pushed = found && found.startedAt === job?.startedAt ? found : null;

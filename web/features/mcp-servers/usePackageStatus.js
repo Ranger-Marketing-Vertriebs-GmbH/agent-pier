@@ -6,13 +6,21 @@ import useLiveTopic from "../../lib/live/useLiveTopic.js";
 const beforeStart = (next, startedAt) =>
   !!startedAt && (!next?.job?.startedAt || next.job.startedAt < startedAt);
 
+// A push of the answer's job or a later one is at least as new as a start's answer:
+// a job that ended fast is pushed before the answer that reports it running.
+const pushedSince = (current, answer) =>
+  !!current?.job?.startedAt &&
+  !!answer?.job?.startedAt &&
+  current.job.startedAt >= answer.job.startedAt;
+
 /**
  * The package of a packaged server: its source, the last job (with its redacted log)
  * and the programs a build offers. It follows the live `job.mcp-package:<id>` topic:
  * every job write and source change is pushed, and `onSettled` is called once a job
  * that ran has ended. A start's own answer (setStatus) is kept until a push of its
  * job or a later one confirms it; after that every push counts, also one without a
- * job (the server restarted and lost its jobs). `server` may be null or unpackaged:
+ * job (the server restarted and lost its jobs). An answer that arrives after such a
+ * push is older than it and is not shown. `server` may be null or unpackaged:
  * nothing is fetched.
  */
 export default function usePackageStatus(server, onSettled) {
@@ -22,6 +30,10 @@ export default function usePackageStatus(server, onSettled) {
   const setStatus = useCallback((next) => {
     replaceStatus((current) => {
       const value = typeof next === "function" ? next(current) : next;
+      if (pushedSince(current, value)) {
+        unconfirmed.current = null;
+        return current;
+      }
       unconfirmed.current = value?.job?.startedAt ?? null;
       return value;
     });

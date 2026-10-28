@@ -541,3 +541,46 @@ test("a package job follows its pushed progress and survives a server restart", 
     [],
   );
 });
+
+// A job that fails at once is pushed before the start's answer arrives: the older
+// answer ("running") does not cover the pushed end.
+test("a job that ends before its start's answer stays ended", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await packageSetup(page, { servers: [packagedServer("failed")] });
+  const started = "2026-10-28T10:00:02.000Z";
+  const job = (state) => ({
+    kind: "reinstall",
+    state,
+    code: null,
+    log: "",
+    startedAt: started,
+  });
+  state.packageStatus = { source: state.servers[0].source, job: null, error: null };
+  state.reply = async ({ path }) => {
+    if (!path.endsWith("/package/reinstall")) return null;
+    state.packageStatus = {
+      source: state.servers[0].source,
+      job: { ...job("failed"), code: "MCP_PACKAGE_INSTALL_FAILED", log: "fast\n" },
+      error: null,
+    };
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    return { status: 202, json: { job: job("running") } };
+  };
+  await page.goto(baseURL + "/connections?section=mcp-servers");
+  const panel = (await openAccountItem(page, "pkg")).getByRole("region", {
+    name: "Package",
+  });
+  const shows = (text) => panel.getByRole("status").filter({ hasText: text });
+  await liveStub.waitForSubscribe("job.mcp-package:s1");
+  await panel.getByRole("button", { name: "Reinstall" }).click();
+  // The pushed end (its log) shows while the answer is still held.
+  await expect(panel.getByText("Installation log")).toBeVisible({ timeout: 3000 });
+  await expect
+    .poll(() => writes(state, "/api/mcp-servers/s1/package/reinstall").length)
+    .toBe(1);
+  await page.waitForTimeout(5000);
+  await expect(shows("Installation failed")).toBeVisible();
+  await expect(shows("Installing …")).toHaveCount(0);
+});
