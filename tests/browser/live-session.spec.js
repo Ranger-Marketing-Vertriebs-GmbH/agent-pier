@@ -25,6 +25,7 @@ const request = {
 };
 
 async function open(page, liveStub) {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await operationsFixture(page);
   const reads = [];
   page.on("request", (sent) => {
@@ -67,9 +68,7 @@ test("the session chat reads no requests or models for 10 s after load", async (
   const reads = await open(page, liveStub);
   liveStub.push(requestsTopic, { requests: [] });
   liveStub.push(modelsTopic, { currentModel: "gpt-5", picker: null, pending: false });
-  await expect(
-    page.getByRole("textbox", { name: "Nachricht", exact: true }),
-  ).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeEnabled();
   await page.waitForTimeout(10000);
   expect(reads).toEqual([]);
 });

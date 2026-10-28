@@ -11,15 +11,11 @@ import {
   requestsChanged,
   sessionRequestsTopic,
 } from "../../server/features/requests/live-topics.js";
-import {
-  MODELS_SAMPLE_MS,
-  sessionModelsTopic,
-} from "../../server/features/models/live-topics.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
 import { ChatEvents } from "../../server/features/chat/chat-events.js";
 import { composerScreen } from "../fixtures/requests/claude-startup-prompts.js";
+import { subscribe, until } from "../helpers/live-hub-subscriber.js";
 
-const owner = { role: "owner" };
 const request = {
   kind: "permission",
   options: [
@@ -28,13 +24,16 @@ const request = {
   ],
   subject: { command: "fixture command" },
 };
+const topic = "session.requests:fixture";
+const listed = (frame) => frame.data?.requests?.length > 0;
+const pushed = (frame) => frame.type === "state";
 
 /**
- * A running Claude session with its native channel and binding (so it is in its
- * startup window until the binding goes), a broker wired to the hub as services.js
- * wires it, and both topics with short samplers.
+ * A running Claude session with its native channel and binding, still in its startup
+ * (Claude has written no receipt yet), a broker wired to the hub as services.js wires
+ * it, and the topic with a short sampler. `startupDone()` writes the receipt.
  */
-async function fixture(t, { requestsSampleMs = 30, modelsSampleMs = 100 } = {}) {
+async function fixture(t, { sampleMs = 30 } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-live-session-"));
   const cwd = path.join(root, "project");
   await fs.mkdir(cwd);
@@ -47,7 +46,7 @@ async function fixture(t, { requestsSampleMs = 30, modelsSampleMs = 100 } = {}) 
     nativeRequests: { enabled: true },
     nativeBinding: { enabled: true },
   };
-  const counts = { screens: 0, models: 0 };
+  const counts = { screens: 0 };
   const services = { live: null, chatEvents: new ChatEvents() };
   const sessions = {
     get: async (id) => {
@@ -75,31 +74,21 @@ async function fixture(t, { requestsSampleMs = 30, modelsSampleMs = 100 } = {}) 
     cwd,
     launch: { command: "/fixture/claude", args: [], env: {} },
   });
-  const bindingFile = path.join(root, "native-sessions", "fixture.launch.json");
-  await fs.mkdir(path.dirname(bindingFile));
+  const bindings = path.join(root, "native-sessions");
+  await fs.mkdir(bindings);
+  const binding = { id: session.id, accountId: "account", tool: "claude", cwd };
   await fs.writeFile(
-    bindingFile,
-    JSON.stringify({
-      id: session.id,
-      accountId: session.accountId,
-      tool: "claude",
-      cwd,
-      token: "binding",
-    }),
+    path.join(bindings, "fixture.launch.json"),
+    JSON.stringify({ ...binding, token: "binding" }),
   );
-  Object.assign(services, {
-    requests: broker,
-    sessions,
-    models: {
-      read: async () => {
-        counts.models += 1;
-        return { currentModel: "opus", picker: null };
-      },
-    },
-  });
+  const startupDone = () =>
+    fs.writeFile(
+      path.join(bindings, "fixture.receipt.json"),
+      JSON.stringify({ token: "binding" }),
+    );
+  Object.assign(services, { requests: broker, sessions });
   const hub = new LiveHub({ debounceMs: 10, maxWaitMs: 50 });
-  hub.define(sessionRequestsTopic(services, { sampleMs: requestsSampleMs }));
-  hub.define(sessionModelsTopic(services, { sampleMs: modelsSampleMs }));
+  hub.define(sessionRequestsTopic(services, { sampleMs }));
   services.live = hub;
   const channel = new NativeRequestChannel({ env: launch.env });
   t.after(async () => {
@@ -109,62 +98,24 @@ async function fixture(t, { requestsSampleMs = 30, modelsSampleMs = 100 } = {}) 
     await fs.rm(root, { recursive: true, force: true });
   });
   await channel.ready;
-  return { broker, channel, hub, counts, services, bindingFile, session };
+  return { broker, channel, hub, counts, services, startupDone };
 }
 
-function subscribe(hub, topicId) {
-  const frames = [];
-  const waiters = [];
-  const stop = hub.subscribe(owner, topicId, undefined, (frame) => {
-    frames.push(frame);
-    for (const waiter of [...waiters])
-      if (waiter.predicate(frame)) {
-        waiters.splice(waiters.indexOf(waiter), 1);
-        waiter.resolve(frame);
-      }
-  });
-  const next = (predicate = () => true, timeout = 2000) => {
-    const found = frames.find((frame) => !frame.taken && predicate(frame));
-    if (found) {
-      found.taken = true;
-      return Promise.resolve(found);
-    }
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("no frame")), timeout);
-      waiters.push({
-        predicate,
-        resolve: (frame) => {
-          clearTimeout(timer);
-          frame.taken = true;
-          resolve(frame);
-        },
-      });
-    });
-  };
-  return { frames, next, stop };
+async function pending(f) {
+  f.channel.publish("native-1", request, async () => {});
+  await until(() => f.broker.hasPending("fixture"));
 }
 
-const listed = (frame) => frame.data?.requests?.length > 0;
-async function until(predicate, timeout = 2000) {
-  const end = Date.now() + timeout;
-  while (!predicate()) {
-    if (Date.now() > end) throw new Error("condition not reached");
-    await delay(5);
-  }
-}
-
-test("the topics keep the planned samplers", () => {
+test("the topic keeps the planned sampler", () => {
   assert.equal(REQUESTS_SAMPLE_MS, 1500);
-  assert.equal(MODELS_SAMPLE_MS, 3000);
-  const services = {};
-  assert.equal(sessionRequestsTopic(services).sampleMs, 1500);
-  assert.equal(sessionModelsTopic(services).sampleMs, 3000);
-  assert.equal(typeof sessionRequestsTopic(services).sampling, "function");
+  const definition = sessionRequestsTopic({});
+  assert.equal(definition.sampleMs, 1500);
+  assert.equal(typeof definition.sampling, "function");
 });
 
 test("a created request reaches a subscriber within 1 s", async (t) => {
-  const f = await fixture(t, { requestsSampleMs: 60000 });
-  const tab = subscribe(f.hub, "session.requests:fixture");
+  const f = await fixture(t, { sampleMs: 60000 });
+  const tab = subscribe(f.hub, topic);
   const snapshot = await tab.next();
   assert.equal(snapshot.type, "snapshot");
   assert.deepEqual(snapshot.data.requests, []);
@@ -180,16 +131,15 @@ test("a created request reaches a subscriber within 1 s", async (t) => {
 
 test("an unchanged request list sends no frame across ten samples", async (t) => {
   const f = await fixture(t);
-  f.channel.publish("native-1", request, async () => {});
-  await until(() => f.broker.hasPending("fixture"));
+  await pending(f);
   const [entry] = (await f.broker.list("fixture")).requests;
   // A touch makes the list carry an age that grows with every read.
   await f.broker.touch("fixture", entry.id, { client: "other" });
-  const tab = subscribe(f.hub, "session.requests:fixture");
+  const tab = subscribe(f.hub, topic);
   const snapshot = await tab.next(listed);
   assert.equal(snapshot.data.requests[0].interaction.client, "other");
   const screens = f.counts.screens;
-  // The session is in its startup window, so every sample reads its screen.
+  // The session is still starting, so every sample reads its screen.
   await until(() => f.counts.screens >= screens + 10);
   assert.deepEqual(
     tab.frames.map((frame) => frame.type),
@@ -198,23 +148,46 @@ test("an unchanged request list sends no frame across ten samples", async (t) =>
   tab.stop();
 });
 
-test("a touch from another client pushes a frame", async (t) => {
-  const f = await fixture(t, { requestsSampleMs: 60000 });
-  f.channel.publish("native-1", request, async () => {});
-  await until(() => f.broker.hasPending("fixture"));
-  const tab = subscribe(f.hub, "session.requests:fixture");
+test("a touch from another client pushes its moment and the frame's server time", async (t) => {
+  const f = await fixture(t, { sampleMs: 60000 });
+  await pending(f);
+  const tab = subscribe(f.hub, topic);
   const snapshot = await tab.next(listed);
   assert.equal(snapshot.data.requests[0].interaction, undefined);
+  const before = Date.now();
   await f.broker.touch("fixture", snapshot.data.requests[0].id, { client: "other" });
-  const frame = await tab.next((next) => next.type === "state", 1000);
-  assert.equal(frame.data.requests[0].interaction.client, "other");
-  assert.equal(typeof frame.data.requests[0].interaction.age, "number");
+  const frame = await tab.next(pushed, 1000);
+  const { interaction } = frame.data.requests[0];
+  assert.equal(interaction.client, "other");
+  assert.equal(interaction.at % 1000, 0);
+  assert.ok(Math.abs(interaction.at - before) <= 1000);
+  assert.ok(frame.data.sampledAt >= before);
   tab.stop();
 });
 
+test("a late subscriber's cached list carries the time it is sent", async (t) => {
+  const f = await fixture(t, { sampleMs: 60000 });
+  await pending(f);
+  const [entry] = (await f.broker.list("fixture")).requests;
+  await f.broker.touch("fixture", entry.id, { client: "other" });
+  const first = subscribe(f.hub, topic);
+  const early = await first.next(listed);
+  await delay(300);
+  const late = subscribe(f.hub, topic);
+  const cached = await late.next(listed);
+  assert.equal(cached.revision, early.revision);
+  assert.equal(
+    cached.data.requests[0].interaction.at,
+    early.data.requests[0].interaction.at,
+  );
+  assert.ok(cached.data.sampledAt - early.data.sampledAt >= 250);
+  first.stop();
+  late.stop();
+});
+
 test("a terminal notice and its clearing push frames", async (t) => {
-  const f = await fixture(t, { requestsSampleMs: 60000 });
-  const tab = subscribe(f.hub, "session.requests:fixture");
+  const f = await fixture(t, { sampleMs: 60000 });
+  const tab = subscribe(f.hub, topic);
   await tab.next();
   f.broker.terminalNotice({
     id: "a".repeat(64),
@@ -222,83 +195,59 @@ test("a terminal notice and its clearing push frames", async (t) => {
     source: "claude",
     kind: "permission",
   });
-  const shown = await tab.next((frame) => frame.type === "state", 1000);
+  const shown = await tab.next(pushed, 1000);
   assert.deepEqual(shown.data.notice, { id: "a".repeat(64), reason: "terminal" });
   f.broker.clearNotice("fixture");
-  const cleared = await tab.next((frame) => frame.type === "state", 1000);
+  const cleared = await tab.next(pushed, 1000);
   assert.equal(cleared.data.notice, undefined);
   tab.stop();
 });
 
-test("the startup sampler stops after the startup window", async (t) => {
+test("the startup sampler stops once startup is complete", async (t) => {
   const f = await fixture(t);
-  const tab = subscribe(f.hub, "session.requests:fixture");
+  const tab = subscribe(f.hub, topic);
   await tab.next();
   const screens = f.counts.screens;
   await until(() => f.counts.screens >= screens + 3);
-  // The window closes once the session's startup state is gone.
-  await fs.rm(f.bindingFile);
+  // Claude confirmed its launch: no screen capture runs on a timer any more.
+  await f.startupDone();
   await delay(100);
+  const settled = f.counts.screens;
+  await delay(400);
+  assert.equal(f.counts.screens, settled);
+  tab.stop();
+});
+
+test("after startup, broker changes and native activity still push", async (t) => {
+  const f = await fixture(t);
+  await f.startupDone();
+  const tab = subscribe(f.hub, topic);
+  await tab.next();
+  await pending(f);
+  const created = await tab.next(listed, 1000);
+  await f.broker.touch("fixture", created.data.requests[0].id, { client: "other" });
+  const touched = await tab.next(pushed, 1000);
+  assert.equal(touched.data.requests[0].interaction.client, "other");
+  // Native activity reads the list again (the read looks at the screen once).
+  const screens = f.counts.screens;
+  f.services.chatEvents.publish("fixture", "native-activity");
+  await until(() => f.counts.screens > screens, 1000);
   const settled = f.counts.screens;
   await delay(300);
   assert.equal(f.counts.screens, settled);
   tab.stop();
 });
 
-// The sampler runs every 300 ms here instead of 3 s; the planned value is checked above.
-test("two tabs on one session cause one models read per 3 s", async (t) => {
-  const f = await fixture(t, { modelsSampleMs: 300 });
-  const first = subscribe(f.hub, "session.models:fixture");
-  const second = subscribe(f.hub, "session.models:fixture");
-  const [a, b] = await Promise.all([first.next(), second.next()]);
-  assert.equal(a.type, "snapshot");
-  assert.deepEqual(a.data, b.data);
-  const started = Date.now();
-  const reads = f.counts.models;
-  await delay(1500);
-  const samples = Math.floor((Date.now() - started) / 300);
-  assert.ok(f.counts.models - reads <= samples + 1, `${f.counts.models - reads} reads`);
-  assert.ok(f.counts.models - reads >= samples - 2, `${f.counts.models - reads} reads`);
-  // The value did not change: no frame after the snapshot.
-  assert.equal(first.frames.length + second.frames.length, 2);
-  first.stop();
-  second.stop();
-});
-
-test("native activity samples the models at once", async (t) => {
-  const f = await fixture(t, { modelsSampleMs: 60000 });
-  const tab = subscribe(f.hub, "session.models:fixture");
-  await tab.next();
-  const reads = f.counts.models;
-  f.services.chatEvents.publish("fixture", "native-activity");
-  await until(() => f.counts.models > reads, 1000);
-  tab.stop();
-});
-
-test("no subscriber, no models read", async (t) => {
-  const f = await fixture(t, { modelsSampleMs: 50 });
-  await delay(300);
-  assert.equal(f.counts.models, 0);
-  const tab = subscribe(f.hub, "session.models:fixture");
-  await tab.next();
-  tab.stop();
-  const reads = f.counts.models;
-  await delay(300);
-  assert.equal(f.counts.models, reads);
-});
-
 test("a user and a malformed id do not resolve", async (t) => {
   const f = await fixture(t);
   const frames = [];
-  f.hub.subscribe({ role: "user" }, "session.models:fixture", undefined, (frame) =>
-    frames.push(frame),
-  );
-  f.hub.subscribe(owner, "session.requests:../x", undefined, (frame) =>
+  f.hub.subscribe({ role: "user" }, topic, undefined, (frame) => frames.push(frame));
+  f.hub.subscribe({ role: "owner" }, "session.requests:../x", undefined, (frame) =>
     frames.push(frame),
   );
   assert.deepEqual(
     frames.map((frame) => frame.code),
     ["unknown-topic", "unknown-topic"],
   );
-  assert.equal(f.counts.models, 0);
+  assert.equal(f.counts.screens, 0);
 });

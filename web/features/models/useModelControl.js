@@ -1,4 +1,5 @@
 import { modelRequest } from "./model-request.js";
+import { modelReadError } from "./model-read-error.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { modelControlCopy as copy } from "../../lib/i18n/messages/models.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useCallback } from "react";
@@ -78,6 +79,7 @@ export default function useModelControl({ session, active, request, onPendingCha
     mutationAbort.current?.abort();
     mutationAbort.current = null;
     mutating.current = false;
+    heldPush.current = null;
     setReconciling(false);
     setState(emptyState);
     setBusy(false);
@@ -90,16 +92,24 @@ export default function useModelControl({ session, active, request, onPendingCha
     pendingCallback.current?.(blocked);
   }, [blocked, onPendingChange]);
   // The model state is pushed (the server samples the screen once per session); a
-  // change of this tab's own is shown from its answer, and a push during it waits.
+  // change of this tab's own is shown from its answer, and a push that arrives during
+  // it is held and applied once the change settles. A failed or hung read on the server
+  // arrives as `error` beside the last model read.
   const live = useLiveTopic(active ? `session.models:${session.id}` : null);
   const refreshLive = useRef(live.refresh);
   refreshLive.current = live.refresh;
-  useEffect(() => {
-    if (!live.data || mutating.current) return;
+  const heldPush = useRef(null);
+  const applyPushed = useCallback((data) => {
+    const { error: failure, ...model } = data;
     setReconciling(false);
-    setReadError("");
-    setState({ ...emptyState, ...live.data });
-  }, [live.data]);
+    setReadError(failure ? modelReadError(failure) : "");
+    if (!failure || Object.keys(model).length) setState({ ...emptyState, ...model });
+  }, []);
+  useEffect(() => {
+    if (!live.data) return;
+    if (mutating.current) heldPush.current = live.data;
+    else applyPushed(live.data);
+  }, [live.data, applyPushed]);
   useEffect(() => {
     if (!live.error || mutating.current) return;
     setReconciling(false);
@@ -165,6 +175,9 @@ export default function useModelControl({ session, active, request, onPendingCha
         mutationAbort.current = null;
         mutating.current = false;
         setBusy(false);
+        const held = heldPush.current;
+        heldPush.current = null;
+        if (held) applyPushed(held);
       }
     }
   }

@@ -230,12 +230,16 @@ const startupCandidate = (broker, session) =>
   session.status === "running" &&
   Boolean(broker.sessions.control);
 /**
- * Whether a startup dialog may show on the session's screen: only then does a read of
- * its request list look at the screen, so only then must the live topic sample it.
+ * Whether the session's startup is still under way: Claude has not yet confirmed its
+ * launch (no receipt for the binding) or a startup dialog of it is still open. Only
+ * then may a dialog appear without any other signal, so only then must the live topic
+ * sample the screen; afterwards events read the list again.
  */
 export async function inStartupWindow(broker, session) {
+  if (!startupCandidate(broker, session)) return false;
+  const current = await startupState(broker, session);
   return (
-    startupCandidate(broker, session) && Boolean(await startupState(broker, session))
+    Boolean(current) && (!current.started || Boolean(localEntry(broker, session.id)))
   );
 }
 /** Publishes the current Claude startup dialog as a local request, or expires it. */

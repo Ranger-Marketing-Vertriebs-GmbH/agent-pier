@@ -15,6 +15,7 @@ import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
 import { RequestNotices } from "./request-notices.js";
+import { inboxEntry, sessionEntry } from "./request-views.js";
 export { terminalNoticeMs } from "./request-notices.js";
 // A prompt already answered, changed or gone; names who claimed it when known.
 const stale = (entry) =>
@@ -376,19 +377,7 @@ export class RequestBroker {
    * carry only what the session's own request list shows.
    */
   listAll() {
-    return [...this.entries.values()].map(
-      ({
-        socket: _socket,
-        key: _key,
-        accountId: _account,
-        launchIdentity: _launch,
-        local: _local,
-        interaction: _interaction,
-        nativeOutcome: _outcome,
-        claimedBy: _claimed,
-        ...entry
-      }) => entry,
-    );
+    return [...this.entries.values()].map(inboxEntry);
   }
   async launchIdentity(id) {
     return hookLaunchIdentity(JSON.parse(await fs.readFile(this.file(id), "utf8")));
@@ -407,24 +396,7 @@ export class RequestBroker {
       ...(notice ? { notice } : {}),
       requests: [...this.entries.values()]
         .filter((e) => e.sessionId === sessionId)
-        .map(
-          ({
-            socket: _socket,
-            key: _key,
-            accountId: _account,
-            launchIdentity: _launch,
-            local: _local,
-            interaction,
-            claimedBy: _claimed,
-            ...entry
-          }) => ({
-            ...entry,
-            // Relative age avoids depending on browser clocks.
-            ...(interaction
-              ? { interaction: { client: interaction.client, age: now - interaction.at } }
-              : {}),
-          }),
-        ),
+        .map((entry) => sessionEntry(entry, now)),
     };
   }
   /**

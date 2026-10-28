@@ -1,4 +1,7 @@
 export const modelControlCopy = {
+  refreshTimeout: "The model status request timed out. Checking the status again.",
+  readReloading: "The session is reloading.",
+  readUnavailable: "The model status is not available right now.",
   changeTimeout:
     "The model change response timed out. Checking its status without sending the change again.",
   modelCaption: "Last confirmed",

@@ -1,4 +1,7 @@
 export const modelControlCopy = {
+  refreshTimeout: "Die Modellabfrage antwortet nicht. Der Status wird erneut geprüft.",
+  readReloading: "Die Session wird neu geladen.",
+  readUnavailable: "Der Modellstatus ist gerade nicht verfügbar.",
   changeTimeout:
     "Die Antwort auf den Modellwechsel steht aus. Der Status wird geprüft; die Änderung wird nicht erneut gesendet.",
   modelCaption: "Zuletzt bestätigt",
