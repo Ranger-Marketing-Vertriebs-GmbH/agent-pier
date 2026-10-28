@@ -210,6 +210,32 @@ export const liveTopics = Object.freeze({
   }),
   // The list and search pages: `changed`, then one read of the caller's query.
   "artifacts.changed": Object.freeze({ mode: "signal", path: null, interval: 5000 }),
+  // A restricted user's app (server live-me-topics.js): each value is what her own
+  // /api/me route answers.
+  "me.agents": Object.freeze({ mode: "state", path: () => "/me/agents", interval: 5000 }),
+  "me.account": Object.freeze({ mode: "state", path: () => "/me", interval: 30000 }),
+  "me.approvals": Object.freeze({
+    mode: "state",
+    path: () => "/me/approvals",
+    interval: 5000,
+  }),
+  "me.chats": Object.freeze({
+    mode: "state",
+    path: (id) => `/me/agents/${encodeURIComponent(id)}/chats`,
+    interval: 5000,
+  }),
+  "me.telegram": Object.freeze({
+    mode: "state",
+    path: (id) => `/me/agents/${encodeURIComponent(id)}/telegram`,
+    interval: 5000,
+  }),
+  // Her reminders' cron jobs are sampled by the server while a visible tab watches.
+  "me.reminders": Object.freeze({
+    mode: "state",
+    path: (id) => `/me/agents/${encodeURIComponent(id)}/reminders`,
+    interval: 10000,
+    sampled: true,
+  }),
 });
 
 /**

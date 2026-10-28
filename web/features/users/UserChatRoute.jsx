@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import useAgentChats from "../assistants/chats/useAgentChats.js";
 import ChatListSheet from "../assistants/chats/ChatListSheet.jsx";
 import { chatTitle } from "../assistants/chats/chat-names.js";
@@ -23,21 +24,13 @@ export default function UserChatRoute({
   conversationId,
   navigate,
   histories,
-  subscribe,
   ownerMayRead,
 }) {
-  const [version, setVersion] = useState(0);
   const [open, setOpen] = useState(false);
-  useEffect(
-    () =>
-      subscribe((event) => {
-        if (event.type === "chats" && event.agentId === agent.id)
-          setVersion((n) => n + 1);
-      }),
-    [subscribe, agent.id],
-  );
+  // Her open chats with the agent, pushed on her live topic `me.chats:<agentId>`.
+  const live = useLiveTopic(`me.chats:${agent.id}`);
   const chats = useAgentChats(userChatApi, agent.id, {
-    version,
+    live,
     onChanged: (chat, kind) => {
       if (kind !== "restored") histories.drop(chat.id);
     },
@@ -71,7 +64,6 @@ export default function UserChatRoute({
         conversationId={conversationId}
         navigate={navigate}
         histories={histories}
-        subscribe={subscribe}
         ownerMayRead={ownerMayRead}
         readOnly={Boolean(archived)}
         onCreated={async (id) => {

@@ -252,14 +252,18 @@ function channelsOf(services, id) {
 
 /**
  * The actions of agents `ids` changed (AssistantWorkflows' onChange): signals their
- * action topics on `hub` (services.live). A failing hub is logged; the write stands.
+ * action topics on `hub` (services.live), and with `approvals` the users' approval
+ * lists. A failing hub is logged; the write stands.
  */
-export function agentActionsChanged(hub, ids) {
+export function agentActionsChanged(hub, ids, { approvals = true } = {}) {
   try {
     for (const id of ids) {
       hub?.invalidate("agent.actions", id);
       hub?.invalidate("agent.coding-requests", id);
     }
+    // A user's approvals are actions too (live-me-topics.js); a run's change leaves
+    // which actions await her as they were.
+    if (approvals) hub?.invalidate("me.approvals");
   } catch {
     console.error("AgentPier could not report a change of the agent actions.");
   }
@@ -280,7 +284,7 @@ export function agentRunChanged(services, runId) {
   } catch {
     // A closed action store has no agents left to show the run.
   }
-  agentActionsChanged(hub, ids);
+  agentActionsChanged(hub, ids, { approvals: false });
 }
 
 /** Something the channel list shows changed (ChannelService's onChange). */
@@ -288,6 +292,9 @@ export function agentChannelsChanged(hub) {
   hub?.invalidate("agent.channels");
   // A reminder's Telegram delivery state is an outbox entry.
   hub?.invalidate("agent.reminders");
+  // A user's own bot (live-me-topics.js); her pairing finishes in Telegram.
+  hub?.invalidate("me.telegram");
+  hub?.invalidate("me.reminders");
 }
 
 // The reminder service's writes: an agent's reminders, or (a run's result, `complete`)
@@ -319,8 +326,11 @@ export function followReminderWrites(reminders, hub) {
  */
 export function agentRemindersChanged(hub, ids) {
   try {
-    if (!ids.length) hub?.invalidate("agent.reminders");
-    for (const id of ids) hub?.invalidate("agent.reminders", id);
+    // Users' own reminder lists too (live-me-topics.js).
+    for (const name of ["agent.reminders", "me.reminders"]) {
+      if (!ids.length) hub?.invalidate(name);
+      for (const id of ids) hub?.invalidate(name, id);
+    }
   } catch {
     console.error("AgentPier could not report a change of the agent reminders.");
   }

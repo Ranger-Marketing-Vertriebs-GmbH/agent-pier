@@ -9,8 +9,8 @@ import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { userApi } from "./user-api.js";
 
 // Her reminders through /api/me: no Telegram extra, review or run history there.
+// The list is her live topic `me.reminders:<agentId>`.
 const reminderApi = {
-  list: (id) => userApi.reminders(id),
   create: (id, input) => userApi.createReminder(id, input),
   update: (id, bindingId, input) => userApi.updateReminder(id, bindingId, input),
   remove: (id, bindingId) => userApi.removeReminder(id, bindingId),
@@ -107,6 +107,7 @@ export default function UserRemindersGroup({ agentId, level }) {
       <RemindersGroup
         assistantId={agentId}
         api={reminderApi}
+        topic="me.reminders"
         readOnly={readOnly}
         canStop
         hint={readOnly ? copy.remindersChatOnly : undefined}

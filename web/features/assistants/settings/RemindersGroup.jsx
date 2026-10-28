@@ -11,14 +11,15 @@ import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/message
 import { routineCopy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { assistantApi } from "../assistant-api.js";
 import { failureText } from "../routine-failure-text.js";
-import usePolling from "../usePolling.js";
 import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** The owner's reminder routes; a user's app passes hers (UserRemindersGroup.jsx). */
+/**
+ * The owner's reminder routes; a user's app passes hers (UserRemindersGroup.jsx).
+ * The list itself is a live topic (`topic`).
+ */
 export const ownerReminderApi = {
-  list: assistantApi.reminders,
   create: assistantApi.createReminder,
   update: assistantApi.updateReminder,
   remove: assistantApi.removeReminder,
@@ -28,15 +29,17 @@ export const ownerReminderApi = {
 
 /**
  * Reminders delivered to the agent's chat with a push notification, and to a
- * `paired` Telegram chat where switched on; every action applies at once. `api`
- * holds the routes (`review` and `runs` are optional); `readOnly` lists them only
- * (with `canStop` it still offers pausing and deleting), and `hint` replaces the
- * group's hint.
+ * `paired` Telegram chat where switched on; every action applies at once. The list
+ * follows the live topic `<topic>:<assistantId>`: the owner's `agent.reminders`, or
+ * a user's `me.reminders`, which carries only hers. `api` holds the write routes
+ * (`review` and `runs` are optional); `readOnly` lists them only (with `canStop` it
+ * still offers pausing and deleting), and `hint` replaces the group's hint.
  */
 export default function RemindersGroup({
   assistantId,
   paired = false,
   api = ownerReminderApi,
+  topic: topicName = "agent.reminders",
   readOnly = false,
   canStop = false,
   hint,
@@ -57,34 +60,18 @@ export default function RemindersGroup({
     [telegram, setTelegram] = useState(false);
   const identity = useRef(crypto.randomUUID()),
     alive = useRef(true);
-  // The owner's reminders follow the live `agent.reminders:<id>` topic; a user's app
-  // reads hers through its own routes (UserRemindersGroup.jsx).
-  const owner = api === ownerReminderApi;
-  const topic = useLiveTopic(
-    owner && assistantId ? `agent.reminders:${assistantId}` : null,
-  );
+  const topic = useLiveTopic(assistantId ? `${topicName}:${assistantId}` : null);
   const { refresh: refreshTopic } = topic;
-  const [polled, setPolled] = useState([]);
-  const items = owner ? topic.data?.reminders || [] : polled;
+  const items = topic.data?.reminders || [];
   const refresh = useCallback(async () => {
-    if (owner) return void (await refreshTopic());
-    const result = await api.list(assistantId);
-    if (alive.current) setPolled(result.reminders || []);
-  }, [assistantId, api, owner, refreshTopic]);
+    await refreshTopic();
+  }, [refreshTopic]);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
     };
   }, [refresh]);
-  usePolling(
-    () =>
-      refresh().catch((e) => {
-        if (alive.current) setError(e.message);
-      }),
-    10000,
-    { restartKey: assistantId, enabled: !owner },
-  );
   async function act(operation) {
     setBusy(true);
     setError("");
@@ -151,7 +138,7 @@ export default function RemindersGroup({
       >
         {copy.reminders}
       </GroupLabel>
-      <ErrorMessage error={error || (owner ? topic.error : "")} />
+      <ErrorMessage error={error || topic.error} />
       {creating && (
         <form
           className="list-card agent-fields"

@@ -3679,14 +3679,14 @@ answers the unknown-route 404.
   `/me/notifications…` mirrors the owner's routes for her own devices. A notice with
   `audience: { kind: "user", userId }` reaches only her devices; system notices only the
   owner's. Presence, its report rate limit and quiet hours count per person.
-- `GET /me/events` streams `agents` (her list or one of her main chats changed; an
-  agent works while any of her chats with it does), `chats` (`agentId`: her chat list
-  with that agent changed, never another person's), `telegram` (`agentId`: her own
-  agent's bot changed, for example its pairing finished in Telegram) and `approvals`
-  (`count`) frames, with a heartbeat every 15 seconds. The count holds the
-  approvals `GET /me/approvals` lists, so one in a chat she left no longer counts. A
-  stream opened while agents are off ends once they start (and when they stop), so
-  her app reconnects to one that follows them.
+- Her app follows her `me.*` live topics over `/api/live` (see
+  [Live channel](architecture.md#live-channel)), which replaced `GET /me/events`:
+  `me.agents` (her list; an agent works while any of her chats with it does),
+  `me.chats:<agentId>` (her chat list with that agent, never another person's),
+  `me.telegram:<agentId>` (her own agent's bot, for example once its pairing finished
+  in Telegram), `me.approvals` (what `GET /me/approvals` lists, so one in a chat she
+  left no longer counts), `me.reminders:<agentId>` and `me.account`. Each carries what
+  its route answers her; they follow agents being switched on or off.
 - At **Extended** she connects her own agent's Telegram bot to her main chat
   (`/me/agents/:id/telegram`, `PUT {token}`, `POST …/pair`, `DELETE`) in her agent's
   settings, under **Telegram**. The token is never returned; `connected` says whether
@@ -3726,7 +3726,7 @@ a notice instead of its notes and browser, with it they show read-only (notes, l
 view); its reminders and routines stay hers to manage in her app.
 Turning it off closes his open chat streams (1008); turning it on again after it was off
 starts a new `since`, while switching it on while on keeps the first. The user
-sees the state in `GET /api/me`; her event stream sends `account` when it changes, so
+sees the state in `GET /api/me`; her live topic `me.account` pushes it when it changes, so
 her open chats, her account page and her agent's browser view say so at once.
 
 Deleting a user (`DELETE /api/users/:id {agents: "archive" | "keep"}`, 400

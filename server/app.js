@@ -22,7 +22,6 @@ import { usersRoutes } from "./http/routes/users.js";
 import { meAccountRoutes } from "./http/routes/me-account.js";
 import { meAgentRoutes } from "./http/routes/me-agents.js";
 import { meNotificationRoutes } from "./http/routes/me-notifications.js";
-import { meEventRoutes } from "./http/routes/me-events.js";
 import { agencyRoutes } from "./http/routes/agency.js";
 import { filesRoutes } from "./http/routes/files.js";
 import { fileOperationsRoutes } from "./http/routes/file-operations.js";
@@ -400,7 +399,6 @@ export async function createApplication(config) {
   mount(meAccountRoutes(services));
   mount(meAgentRoutes(services));
   mount(meNotificationRoutes(services));
-  mount(meEventRoutes(services));
   api.mount(operationsRoutes(services), { guarded: false });
   mount(healthRoutes(services));
   registerResponses(app);
