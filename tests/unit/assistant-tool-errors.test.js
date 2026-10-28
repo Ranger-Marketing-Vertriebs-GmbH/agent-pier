@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
 import { toolError, toolReason } from "../../server/features/assistants/tool-errors.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
+import { mailError } from "../../server/features/mail/mail-connection.js";
 
 const sessionCodes = {
   sessionsNotEnabled: ["SESSIONS_NOT_ENABLED", 403],
@@ -54,6 +55,15 @@ const mailCodes = {
   mailQueryEmpty: "MAIL_QUERY_EMPTY",
   mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
   mailMoveUnsupported: "MAIL_MOVE_UNSUPPORTED",
+  mailDraftUnsupported: "MAIL_DRAFT_UNSUPPORTED",
+  mailAttachmentTooLarge: "MAIL_ATTACHMENT_TOO_LARGE",
+  mailDraftChanged: "MAIL_DRAFT_CHANGED",
+  mailTextUnsupported: "MAIL_TEXT_UNSUPPORTED",
+  mailTextFailed: "MAIL_TEXT_FAILED",
+  mailSourceRefused: "MAIL_SOURCE_REFUSED",
+  mailSourceNotFound: "MAIL_SOURCE_NOT_FOUND",
+  mailSourceEmpty: "MAIL_SOURCE_EMPTY",
+  mailSaveRefused: "MAIL_SAVE_REFUSED",
 };
 
 test("mail problems carry stable codes, fixed English reasons and owner copy", () => {
@@ -78,4 +88,37 @@ test("mail problems carry stable codes, fixed English reasons and owner copy", (
     toolError(Object.assign(Error("x"), { key: "mailPlaintextRefused" })).code,
     "MAIL_TLS_FAILED",
   );
+});
+
+test("the attachment mail errors keep their codes and the source problems their status", () => {
+  // Raised in the mail layer (mail-connection.js mailError): a code and a key only.
+  for (const code of [
+    "MAIL_ATTACHMENT_TOO_LARGE",
+    "MAIL_DRAFT_CHANGED",
+    "MAIL_TEXT_UNSUPPORTED",
+    "MAIL_TEXT_FAILED",
+  ]) {
+    const error = mailError(code);
+    assert.equal(typeof error.key, "string", code);
+    assert.equal(mailCodes[error.key], code);
+    const tool = toolError(error);
+    assert.equal(tool.code, code);
+    assert.equal(tool.reason, toolReason(code));
+  }
+  // Raised by AgentPier's file checks (assistantProblem) with their HTTP status.
+  for (const [key, status, code] of [
+    ["mailSourceRefused", 403, "MAIL_SOURCE_REFUSED"],
+    ["mailSourceNotFound", 404, "MAIL_SOURCE_NOT_FOUND"],
+    ["mailSourceEmpty", 400, "MAIL_SOURCE_EMPTY"],
+    ["mailSaveRefused", 403, "MAIL_SAVE_REFUSED"],
+  ]) {
+    const tool = toolError(assistantProblem(key, status));
+    assert.equal(tool.code, code, key);
+    assert.equal(tool.status, status, key);
+  }
+  // Each new reason tells the agent what to do next.
+  for (const code of Object.values(mailCodes).slice(-8)) {
+    assert.match(toolReason(code), /\b(try|tell the owner)\b/i, code);
+    assert.notEqual(toolReason(code), toolReason("UNAVAILABLE"), code);
+  }
 });

@@ -49,6 +49,19 @@ export const mail = Object.freeze({
     "Ein Agent kann nur einen Entwurf mit reinem Text von höchstens 1 MiB senden; HTML-Teile werden nicht gesendet.",
   mailMoveUnsupported:
     "Der Mailserver kann keine Nachrichten verschieben, daher wurde nichts verschoben oder gelöscht.",
+  mailAttachmentTooLarge:
+    "Die Anhänge sind größer als 25 MB, daher wurde nichts gespeichert oder gesendet.",
+  mailDraftChanged:
+    "Der Entwurf wurde im Postfach geändert, nachdem er erfasst wurde, daher wurde nichts gesendet. Der Entwurf bleibt erhalten.",
+  mailTextUnsupported:
+    "Text lässt sich nur aus PDF-, Word-, Excel-, PowerPoint-, Text- und CSV-Anhängen lesen.",
+  mailTextFailed:
+    "Der Text des Anhangs konnte nicht gelesen werden: Die Datei ist beschädigt, verschlüsselt oder zu komplex.",
+  mailSourceRefused: "Der Agent darf diese Datei nicht anhängen oder speichern.",
+  mailSourceNotFound: "Die anzuhängende Datei wurde nicht gefunden.",
+  mailSourceEmpty: "Die anzuhängende Datei ist leer oder keine normale Datei.",
+  mailSaveRefused:
+    "Der Agent darf den Anhang dort nicht speichern. Er darf nur unter mail/ in seinem Arbeitsbereich oder in einem Projektordner speichern, in den er schreiben darf.",
   mailApproval: "Dein Agent möchte eine E-Mail senden:",
   mailSend: "Senden",
   mailDecline: "Nicht senden",
