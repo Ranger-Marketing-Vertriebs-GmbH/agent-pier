@@ -194,3 +194,17 @@ test("a removed account gets no new entries; a cleared one does", (t) => {
   assert.equal(cache.set(account, key, sized(100)), false);
   assert.equal(fs.existsSync(path.join(root, account)), false);
 });
+
+test("a write from an older generation is dropped", (t) => {
+  const cache = new MailTextCache({ root: tempRoot(t) });
+  const key = cache.key(fields(1));
+  const started = cache.generation(account);
+  assert.equal(started, 0);
+  cache.clearAccount(account);
+  assert.equal(cache.generation(account), 1);
+  assert.equal(cache.set(account, key, sized(100), started), false);
+  assert.equal(cache.get(account, key), null);
+  assert.equal(cache.set(account, key, sized(100), 1), true);
+  // Other accounts keep their own generation.
+  assert.equal(cache.generation(other), 0);
+});

@@ -32,6 +32,9 @@ export class MailTextCache {
     this.total = null;
     // Accounts removed in this process: a search still running writes nothing more.
     this.removed = new Set();
+    // Per account, raised whenever its text is dropped (another mailbox, removal): a
+    // write carrying an older generation comes from a search that began before.
+    this.generations = new Map();
   }
 
   /** The cache key of one attachment: SHA-256 hex of its joined fields. */
@@ -44,6 +47,11 @@ export class MailTextCache {
   file(accountId, key) {
     if (!accountName.test(String(accountId)) || !keyName.test(String(key))) return null;
     return path.join(this.root, accountId, `${key}.json`);
+  }
+
+  /** The account's current generation; a search takes it when it starts. */
+  generation(accountId) {
+    return this.generations.get(accountId) ?? 0;
   }
 
   /** The entry, or null when there is none or it cannot be read. Marks it as used. */
@@ -64,13 +72,15 @@ export class MailTextCache {
 
   /**
    * Stores `{ text, truncated }` or `{ failed: code }` atomically (temporary file,
-   * then rename), then evicts the oldest entries over the budget. Returns whether the
-   * entry was stored; never throws.
+   * then rename), then evicts the oldest entries over the budget. A `generation`
+   * older than the account's drops the write. Returns whether the entry was stored;
+   * never throws.
    */
-  set(accountId, key, value) {
+  set(accountId, key, value, generation = this.generation(accountId)) {
     const file = this.file(accountId, key);
     const entry = entryOf(value);
     if (!file || !entry || this.removed.has(accountId)) return false;
+    if (generation !== this.generation(accountId)) return false;
     const data = Buffer.from(JSON.stringify(entry), "utf8");
     if (data.length > this.budgetBytes) return false;
     const tmp = `${file}.${randomUUID()}.tmp`;
@@ -147,6 +157,7 @@ export class MailTextCache {
   /** Removes the account's cached text (its connection now reaches another mailbox). */
   clearAccount(accountId) {
     if (!accountName.test(String(accountId))) return;
+    this.generations.set(accountId, this.generation(accountId) + 1);
     try {
       fs.rmSync(path.join(this.root, accountId), { recursive: true, force: true });
     } catch {}
