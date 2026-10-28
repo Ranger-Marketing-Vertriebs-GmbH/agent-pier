@@ -480,49 +480,63 @@ test("a new package name clears the chosen version until its list loads", async 
 });
 
 // A job follows the live job.mcp-package topic (answered here from the REST mock): its
-// progress and end arrive without a read of the page, and an earlier job's answer is
-// not taken.
-test("a package job follows its pushed progress and ignores an earlier job", async ({
+// progress arrives without a read of the page. A read from before the start (the
+// earlier job) does not undo the start's answer; once a push confirms the new job,
+// every push counts, also one without a job after a server restart.
+test("a package job follows its pushed progress and survives a server restart", async ({
   page,
   liveStub,
 }) => {
-  const state = await packageSetup(page, { servers: [packagedServer("installing")] });
+  const state = await packageSetup(page, { servers: [packagedServer("failed")] });
   const job = (state, startedAt, log) => ({
-    kind: "update",
+    kind: "reinstall",
     state,
     code: null,
     log,
     startedAt,
   });
+  const failed = {
+    code: "MCP_PACKAGE_INSTALL_FAILED",
+    message: "The installation failed. The log has the details.",
+    messageKey: "mcpPackages.installFailed",
+  };
+  const earlier = "2026-10-28T10:00:01.000Z",
+    started = "2026-10-28T10:00:02.000Z";
   state.packageStatus = {
     source: state.servers[0].source,
-    job: job("running", "2026-10-28T10:00:02.000Z", "step one\n"),
-    error: null,
+    job: job("failed", earlier, "old\n"),
+    error: failed,
   };
+  state.reply = ({ path }) =>
+    path.endsWith("/package/reinstall")
+      ? { status: 202, json: { job: job("running", started, "") } }
+      : null;
   await page.goto(baseURL + "/connections?section=mcp-servers");
   const dialog = await openAccountItem(page, "pkg");
   const panel = dialog.getByRole("region", { name: "Package" });
-  await expect(
-    panel.getByRole("status").filter({ hasText: "Installing …" }),
-  ).toBeVisible();
+  const shows = (text) => panel.getByRole("status").filter({ hasText: text });
+  await expect(shows("Installation failed")).toBeVisible();
   await liveStub.waitForSubscribe("job.mcp-package:s1");
   const requests = recordApiRequests(page);
+  await panel.getByRole("button", { name: "Reinstall" }).click();
+  await expect(shows("Installing …")).toBeVisible();
+  // A read from before the start (the earlier job) is pushed: the start stays.
   state.packageStatus = {
     ...state.packageStatus,
-    job: job("done", "2026-10-28T10:00:01.000Z", "earlier\n"),
+    job: job("failed", earlier, "old\nx\n"),
   };
   await page.waitForTimeout(3000);
-  await expect(
-    panel.getByRole("status").filter({ hasText: "Installing …" }),
-  ).toBeVisible();
-  await expect(panel.getByText("earlier")).toHaveCount(0);
-  state.servers = [packagedServer("ready")];
+  await expect(shows("Installing …")).toBeVisible();
   state.packageStatus = {
-    source: state.servers[0].source,
-    job: job("done", "2026-10-28T10:00:02.000Z", "step one\nstep two\n"),
+    source: { ...state.servers[0].source, status: "installing", errorCode: null },
+    job: job("running", started, "step one\n"),
     error: null,
   };
-  await expect(panel.getByRole("status").filter({ hasText: "Installed" })).toBeVisible();
+  await panel.getByText("Installation log").click();
+  await expect(panel.getByText(/step one/)).toBeVisible();
+  // The server restarts and loses its jobs: the orphaned install reads as failed.
+  state.packageStatus = { source: state.servers[0].source, job: null, error: failed };
+  await expect(shows("Installation failed")).toBeVisible();
   expect(requests.list().filter((request) => request.path.endsWith("/package"))).toEqual(
     [],
   );
