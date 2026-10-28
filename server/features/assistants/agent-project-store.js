@@ -17,6 +17,12 @@ export class AgentProjectStore {
       )
       .run(projectId, assistantId, createdAt);
   }
+  /** Forgets one creation, e.g. when creating the project failed after all. */
+  remove(projectId, assistantId) {
+    this.db
+      .prepare("DELETE FROM agent_created_projects WHERE project_id=? AND assistant_id=?")
+      .run(projectId, assistantId);
+  }
   /** The agent's created projects, oldest first. */
   list(assistantId) {
     return this.db

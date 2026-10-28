@@ -31,8 +31,12 @@ test("a created project's grant keeps pending approvals and pipeline hashes vali
   const before = access.stored(f.id);
 
   const project = await created(f);
-  const granted = grantCreatedProject(access, f.id, project.id, { coding: true });
-  const switched = setCreatedProjectCoding(access, f.id, project.id, false);
+  assert.throws(
+    () => grantCreatedProject(access, f.id, "never-registered"),
+    (e) => e.key === "projectFolderNotGranted",
+  );
+  const granted = grantCreatedProject(access, f.id, project.id, { coding: true }).policy;
+  const switched = setCreatedProjectCoding(access, f.id, project.id, false).policy;
   for (const after of [granted, switched]) {
     assert.deepEqual(after.definitions, before.definitions, "no pipeline re-approved");
     assert.deepEqual(after.pipelineIds, before.pipelineIds);

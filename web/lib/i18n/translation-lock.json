@@ -5465,6 +5465,7 @@
   "operations:operationsCopy.backupPrivacy": "de:f7c22f2d849d en:388a8f4d024c",
   "operations:operationsCopy.backups": "de:e4e68d09eb99 en:3334fee2c77f",
   "operations:operationsCopy.byAgent": "de:e3a119624507 en:0f0358c454ce",
+  "operations:operationsCopy.byAgentName": "de:a17533caa6ef en:04100f6a2adc",
   "operations:operationsCopy.byDeletedUser": "de:7b6c818eaed4 en:c43a44acf8a9",
   "operations:operationsCopy.byOwner": "de:6c34ff443963 en:4fbfce439ade",
   "operations:operationsCopy.byUser": "de:454f4d96e45c en:ea50e43b39f6",
