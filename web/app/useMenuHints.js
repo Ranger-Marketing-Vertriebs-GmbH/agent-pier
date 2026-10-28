@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import api from "../lib/api.js";
-import { startVisiblePolling } from "../lib/visible-polling.js";
+import useLiveTopic from "../lib/live/useLiveTopic.js";
 import useAssistants, { idleAssistants } from "../features/assistants/useAssistants.js";
 import useAssistantFeature, {
   FEATURE_CHECK_FAILED,
@@ -13,61 +11,35 @@ import {
   projectsHint,
   settingsHint,
 } from "./sidebar-menu-model.js";
+import { MENU_HINT_RUN_TOPICS, menuHintSources } from "./menu-hint-sources.js";
 
-// A failed read is null: no hint.
-const read = (path, signal) => api(path, "GET", undefined, signal).catch(() => null);
-const total = (listing) =>
-  listing && Number.isSafeInteger(listing.total) ? listing.total : null;
-const runsOf = (listing) => (Array.isArray(listing?.runs) ? listing.runs : null);
-
-async function loadSources(agentsEnabled, signal) {
-  const [decisions, failed, running, problems, summary, updates] = await Promise.all([
-    read("/pipeline-runs?status=awaiting-human&page=1", signal),
-    read("/pipeline-runs?status=failed&page=1", signal),
-    read("/pipeline-runs?status=running&page=1", signal),
-    read("/connections/problems", signal),
-    read("/settings/summary", signal),
-    agentsEnabled ? read("/assistant-runtime/updates", signal) : null,
-  ]);
-  return {
-    decisions: total(decisions),
-    failed: total(failed),
-    running: total(running),
-    // The first page of each listing, for the start page's pipelines card.
-    runs: {
-      decisions: runsOf(decisions),
-      failed: runsOf(failed),
-      running: runsOf(running),
-    },
+/**
+ * What the menu hints are made of, pushed over the live channel while `active` (the
+ * menu is open, or the start page shows): the run counts, page 1 of three run
+ * statuses, the connection problems, the settings summary and, with agents on, the
+ * agent runtime's update status. Null until each of them has answered.
+ */
+export function useMenuHintSources(active) {
+  const feature = useAssistantFeature();
+  const on = (topic) => (active ? topic : null);
+  const counts = useLiveTopic(on("pipeline.counts"));
+  const decisions = useLiveTopic(on(MENU_HINT_RUN_TOPICS.decisions));
+  const failed = useLiveTopic(on(MENU_HINT_RUN_TOPICS.failed));
+  const running = useLiveTopic(on(MENU_HINT_RUN_TOPICS.running));
+  const problems = useLiveTopic(on("connections.problems"));
+  const summary = useLiveTopic(on("settings.summary"));
+  // Not followed (null) with agents off: the route answers 404 then.
+  const updates = useLiveTopic(feature.enabled ? on("runtime.updates") : null);
+  if (!active) return null;
+  return menuHintSources({
+    counts,
+    decisions,
+    failed,
+    running,
     problems,
     summary,
     updates,
-  };
-}
-
-/**
- * What the menu hints are made of. The menu reads it once each time it opens
- * (`active`); with `poll` (ms) the start page reads it again while it is visible.
- * Null until the first read has answered.
- */
-export function useMenuHintSources(active, { poll = 0 } = {}) {
-  const feature = useAssistantFeature();
-  const [sources, setSources] = useState(null);
-  const agentsEnabled = feature.enabled;
-  useEffect(() => {
-    if (!active) return undefined;
-    if (poll > 0)
-      return startVisiblePolling(async (signal) => {
-        const next = await loadSources(agentsEnabled, signal);
-        if (!signal.aborted) setSources(next);
-      }, poll);
-    const controller = new AbortController();
-    loadSources(agentsEnabled, controller.signal).then((next) => {
-      if (!controller.signal.aborted) setSources(next);
-    });
-    return () => controller.abort();
-  }, [active, agentsEnabled, poll]);
-  return sources;
+  });
 }
 
 /** The hint of every menu entry, by entry id (null: no hint), from `sources`. */
@@ -99,7 +71,7 @@ export function useHintsOf(sources, state, ready) {
   };
 }
 
-/** The menu's hints: its sources are read once each time it opens, never polled. */
+/** The menu's hints: its sources are pushed while it is open, never polled. */
 export default function useMenuHints(open, state, ready) {
   return useHintsOf(useMenuHintSources(open), state, ready);
 }

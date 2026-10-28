@@ -224,6 +224,19 @@ test("a sub whose have is not an object closes with 1008", async ({ page }) => {
   await expect.poll(() => raw.closed()).toBe(1008);
 });
 
+// What the start page follows with agents off: the state, the inbox and the menu-hint
+// sources (web/app/useMenuHints.js).
+const startTopics = [
+  "state",
+  "inbox",
+  "pipeline.counts",
+  "pipeline.runs:*:awaiting-human",
+  "pipeline.runs:*:failed",
+  "pipeline.runs:*:running",
+  "connections.problems",
+  "settings.summary",
+];
+
 test.describe("manual stub", () => {
   test.use({ live: "manual" });
 
@@ -242,12 +255,10 @@ test.describe("manual stub", () => {
     await expect
       .poll(async () => types(await raw.frames()))
       .toEqual(["hello", "error", "pong"]);
-    // The app's own page follows `state`, its start page `inbox`.
-    expect(liveStub.subscriptions().sort()).toEqual([
-      "inbox",
-      "session.models:one",
-      "state",
-    ]);
+    // The app's own page follows `state`, its start page the inbox and the menu hints.
+    expect(liveStub.subscriptions().sort()).toEqual(
+      [...startTopics, "session.models:one"].sort(),
+    );
     liveStub.push("session.models:one", { picker: null, pending: true });
     liveStub.push("session.models:one", { picker: null, pending: false });
     liveStub.changed("session.models:one");
@@ -271,7 +282,7 @@ test.describe("manual stub", () => {
     });
     liveStub.revoke("session.models:one");
     await expect.poll(async () => types(await raw.frames()).at(-1)).toBe("revoked");
-    expect(liveStub.subscriptions().sort()).toEqual(["inbox", "state"]);
+    expect(liveStub.subscriptions().sort()).toEqual([...startTopics].sort());
     liveStub.close(1012);
     await expect.poll(() => raw.closed()).toBe(1012);
   });
