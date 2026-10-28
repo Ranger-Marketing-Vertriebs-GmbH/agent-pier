@@ -187,7 +187,7 @@ The plist saves the Node path, project and data directories, and PATH at install
 
 There are two supported ways to access AgentPier from another device: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) with HTTPS in your own tailnet, or [network mode without Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), which can also be enabled headlessly with `npm run remote` and is protected only by login. Over Tailscale, every member of your tailnet reaches the sign-in page, and the AgentPier login (the owner or a [user](login.md#benutzer) the owner created) decides who they are. The [remote access guide](remote-access.md) provides exact commands for both. To disable your Tailscale exposure when removing the service, use `tailscale serve --https=8443 off` as described below.
 
-A reverse proxy in front of AgentPier must pass WebSocket upgrades (the `Upgrade` and `Connection` headers) for the live channel `/api/live`, as for the terminals. Without them the app falls back to polling, and only while its tab is visible (see [architecture](architecture.md#live-channel)).
+A reverse proxy in front of AgentPier must pass WebSocket upgrades (the `Upgrade` and `Connection` headers) for both the terminal sockets (`/api/sessions/<id>/terminal`) and the live channel `/api/live`. Without them the terminals do not connect, and the app falls back to polling for live data, only while its tab is visible (see [architecture](architecture.md#live-channel)).
 
 ## 6. Updating
 

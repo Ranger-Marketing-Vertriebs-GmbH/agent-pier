@@ -28,11 +28,24 @@ test("a loaded page polls no state and follows a preference written elsewhere", 
   await expect(toggle).toBeChecked();
   await page.waitForTimeout(10000);
   expect(stateReads).toEqual([]);
+  // Later specs share the server: the default is restored in `finally`. A failed
+  // restore is logged there, so it never hides a failure above, and asserted after.
+  let restoreProblem = "";
   try {
     const answer = await setAutoResume(page, false);
     expect(answer.ok()).toBe(true);
     await expect(toggle).not.toBeChecked({ timeout: 2000 });
   } finally {
-    await setAutoResume(page, true);
+    try {
+      const restored = await setAutoResume(page, true);
+      if (!restored.ok()) restoreProblem = `status ${restored.status()}`;
+    } catch (error) {
+      restoreProblem = error.message;
+    }
+    if (restoreProblem)
+      console.error(
+        `live-end-to-end: could not restore the preference: ${restoreProblem}`,
+      );
   }
+  expect(restoreProblem).toBe("");
 });

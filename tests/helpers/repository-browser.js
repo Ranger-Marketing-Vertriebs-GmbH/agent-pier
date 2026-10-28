@@ -1,3 +1,4 @@
+import { emptyInbox } from "./empty-inbox.js";
 import { fulfillDormantAssistantRequest } from "./assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { navigateTo } from "./navigation.js";
@@ -126,12 +127,7 @@ export async function fixture(page) {
       };
     } else if (path === "/api/inbox" && method === "GET") {
       // The start page follows the live `inbox` topic; nothing waits here.
-      result = {
-        instance: "fixture",
-        revision: 0,
-        counts: { all: 0, questions: 0, approvals: 0, gates: 0, agents: 0 },
-        items: [],
-      };
+      result = emptyInbox;
     } else if (path === "/api/sessions") {
       result = {
         id: "session-repo",
