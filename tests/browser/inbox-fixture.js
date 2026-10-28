@@ -207,13 +207,10 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
     state.calls.push({ path, method, body });
     let result = {};
     if (path === "/assistant-feature") result = { enabled: agents, error: null };
-    else if (path === "/assistant-events" || path === "/inbox/events")
+    else if (path === "/assistant-events")
       return route.fulfill({
         contentType: "text/event-stream",
-        body:
-          path === "/inbox/events"
-            ? `retry: 600000\ndata: ${JSON.stringify({ type: "connected", ...summary() })}\n\n`
-            : 'data: {"type":"connected"}\n\n',
+        body: 'data: {"type":"connected"}\n\n',
       });
     else if (path === "/state")
       result = {

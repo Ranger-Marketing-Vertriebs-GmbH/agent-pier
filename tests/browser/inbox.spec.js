@@ -183,4 +183,67 @@ test.describe("the live inbox topic", () => {
     await expect(needs).toContainText("Pushed review");
     expect(state.calls.filter((call) => call.path === "/inbox")).toEqual([]);
   });
+
+  test("a change reaches the inbox page through the topic with no GET /api/inbox", async ({
+    page,
+    liveStub,
+  }) => {
+    const state = await inboxFixture(page, { language: "en" });
+    await page.goto(baseURL + "/inbox");
+    await liveStub.waitForSubscribe("state");
+    const workspace = await page.evaluate(() =>
+      fetch("/api/state").then((r) => r.json()),
+    );
+    liveStub.push("state", workspace);
+    await liveStub.waitForSubscribe("inbox");
+    const item = (id, title) => ({
+      type: "gate",
+      tab: "gates",
+      id,
+      kind: "gate",
+      status: "awaiting-human",
+      revision: 1,
+      source: { kind: "pipeline", id, name: id, project: "app" },
+      title,
+      stage: "review",
+      createdAt: new Date(Date.now() - 60000).toISOString(),
+      expiresAt: null,
+      link: `/pipelines/runs/${id}`,
+    });
+    const list = (revision, items) => ({
+      instance: "fixture",
+      revision,
+      counts: {
+        all: items.length,
+        questions: 0,
+        approvals: 0,
+        gates: items.length,
+        agents: 0,
+      },
+      items,
+    });
+    const rows = page
+      .getByRole("navigation", { name: "Waiting on you" })
+      .getByRole("button");
+    liveStub.push("inbox", list(7, [item("run-a", "First review")]));
+    await expect(rows).toHaveCount(1);
+    // Whatever the page read to begin with is behind it; a change reads nothing more.
+    const reads = () => state.calls.filter((call) => call.path === "/inbox").length;
+    const before = reads();
+    // The workspace state announces the new revision before the list arrives, as the
+    // server pushes both; the page must wait for the topic instead of reading the list.
+    const next = list(8, [item("run-a", "First review"), item("run-b", "Second review")]);
+    liveStub.push("state", {
+      ...workspace,
+      inbox: { instance: "fixture", revision: 8, counts: next.counts },
+    });
+    // The sidebar count shows the summary reached the page; the list follows.
+    await expect(
+      page.getByRole("button", { name: "Inbox, 2 waiting", exact: true }),
+    ).toBeVisible();
+    liveStub.push("inbox", next);
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByText("Second review")).toBeVisible();
+    expect(reads()).toBe(before);
+  });
 });

@@ -12,7 +12,6 @@ test("inventory lists every registered API route once", async (t) => {
     "GET /api/assistants",
     "POST /api/assistant-conversations/:id/messages",
     "GET /api/assistant-events",
-    "GET /api/inbox/events",
     "GET /api/health",
     "POST /api/users",
     "GET /api/me",

@@ -20,7 +20,7 @@ function reportOnce() {
  * Everything waiting for the owner, merged from the native CLI requests, pipeline
  * gates, agent approvals and team proposals. The inbox only reads: answers go through
  * each source's own endpoint. Every change of the waiting set raises the revision and
- * is pushed to subscribers as counts and revision; clients then read the list again.
+ * is announced to subscribers (the live `inbox` topic) as counts and revision.
  * Sources announce changes through changed(); a timer catches what they do not
  * announce (expiry, a request's delivery state) while anyone listens.
  */
