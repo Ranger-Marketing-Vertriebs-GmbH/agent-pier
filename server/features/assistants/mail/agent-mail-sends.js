@@ -32,10 +32,11 @@ export { mailTelegramApprovable } from "./agent-mail-send-input.js";
 export const mailApprovalMs = 86400000;
 export const mailHoldMs = 110000;
 export const maxOpenMailApprovals = 5;
-export const maxRuleSendsPerHour = 30;
+// Rule sends and approval cards together; above it no card is raised either.
+export const maxSendsPerHour = 30;
 export const mailDecisions = ["approve", "decline"];
 const hourMs = 3600000;
-// Rule sends kept as rows; well above an hour's cap, which counts them.
+// Rule sends kept as rows; well above an hour's cap, which counts them with the cards.
 const trustedMailRows = 200;
 const followUpRetryMs = 300000;
 const retryable = new Set([409, 429, 503]);
@@ -75,11 +76,10 @@ export class MailSends {
       (a) => !a.payload.trusted && a.state === "awaiting_approval" && a.expiresAt > now,
     ).length;
   }
-  ruleSends(assistantId) {
+  /** The rule sends and approval cards of the last hour. */
+  hourSends(assistantId) {
     const since = this.now() - hourMs;
-    return this.rows(assistantId).filter(
-      (a) => a.payload.trusted && Date.parse(a.createdAt) > since,
-    ).length;
+    return this.rows(assistantId).filter((a) => Date.parse(a.createdAt) > since).length;
   }
   refuse(inv, caller, key) {
     return this.mail.refuse(inv, caller, key);
@@ -197,7 +197,7 @@ export class MailSends {
     const agentId = caller.assistant.id;
     if (permit === "card" && this.open(agentId) >= maxOpenMailApprovals)
       throw this.refuse(inv, caller, "mailApprovalLimit");
-    if (permit === "run" && this.ruleSends(agentId) >= maxRuleSendsPerHour)
+    if (this.hourSends(agentId) >= maxSendsPerHour)
       throw this.refuse(inv, caller, "mailSendLimit");
   }
   follow(inv, id) {

@@ -147,9 +147,10 @@ test("read level refuses send with MAIL_SEND_NOT_GRANTED", async (t) => {
   );
 });
 
-test("rule sends stop at 30 per hour with MAIL_SEND_LIMIT", async (t) => {
+test("sends and cards stop at 30 per hour together with MAIL_SEND_LIMIT", async (t) => {
   const f = await sendFixture(t, { rules: ["example.org"] });
   const rows = [];
+  // Rule sends and settled cards both count.
   for (let i = 0; i < 30; i++)
     rows.push(
       f.workflows.store.reserve({
@@ -158,18 +159,22 @@ test("rule sends stop at 30 per hour with MAIL_SEND_LIMIT", async (t) => {
         attemptId: null,
         origin: { kind: "owner" },
         key: `mail:seed:${i}`,
-        state: "completed",
-        payload: { action: "mail_send", trusted: true, accountId: f.account.id },
+        state: i % 2 ? "completed" : "declined",
+        payload: { action: "mail_send", trusted: i % 2 === 1, accountId: f.account.id },
       }),
     );
+  const drafts = f.count("Drafts");
   assert.equal(await code(f.send({ to: ["bob@example.org"] })), "MAIL_SEND_LIMIT");
+  // Above the cap no card is raised either, and no draft is left behind.
+  assert.equal(await code(f.send({ to: ["eve@else.net"] })), "MAIL_SEND_LIMIT");
+  assert.equal(f.cards().length, 0);
+  assert.equal(f.count("Drafts"), drafts);
   assert.equal(f.smtp.messages.length, 0);
-  // A card is not a rule send and is not capped by it.
-  assert.equal((await f.send({ to: ["eve@else.net"] })).status, "awaiting_approval");
   // An hour later the window has room again.
   const old = new Date(Date.now() - 3601000).toISOString();
   for (const row of rows) f.workflows.store.patch(row.id, { createdAt: old });
   assert.equal((await f.send({ to: ["bob@example.org"] })).status, "sent");
+  assert.equal((await f.send({ to: ["eve@else.net"] })).status, "awaiting_approval");
 });
 
 test("a sent draft moves to Trash and a copy lands in Sent when saveSent", async (t) => {

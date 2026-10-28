@@ -204,8 +204,11 @@ outcome, never the body.
 ### Rule sends
 
 A send whose every recipient matches a rule goes out at once, with no card and no
-note. The agent may send at most 30 such mails per hour (`MAIL_SEND_LIMIT`); sends
-you approve do not count. AgentPier keeps the newest 200 rule sends per agent.
+note. AgentPier keeps the newest 200 rule sends per agent.
+
+An agent may send at most 30 mails per hour (`MAIL_SEND_LIMIT`), rule sends and
+approval cards together. Above that it gets no card either: wait, or send the mail
+yourself.
 
 ## Checking new mail
 
@@ -213,7 +216,9 @@ There is no push. `list` with `new: true` returns the unseen INBOX mail that arr
 since the agent's last such call, per agent and account, and moves its cursor. The
 first call takes the newest unseen messages as the starting point, so it never floods
 the agent with an old inbox; a mail you read in between is no longer unseen and is
-not reported. A changed UIDVALIDITY of the INBOX starts over the same way.
+not reported. A changed UIDVALIDITY of the INBOX starts over the same way. The cursor
+moves when the list is returned; if that result never reaches the agent, the mail
+stays unread in the mailbox and a search with `unseen` still finds it.
 
 Use a [routine](agents.md#routines-reminders-and-check-ins) to check regularly. Ask
 the agent in your chat, for example:
@@ -232,9 +237,9 @@ the routine sends there). It sends nothing without a rule or your approval.
 | One read message                      | 1 MiB of its text part downloaded, 32,000 characters returned (`truncated: true` beyond)         |
 | Attachments listed per message        | 50, names only                                                                                   |
 | Attachment-name searches              | at most 500 candidates checked; `partial: true` means narrow the search (for example with since) |
-| Recipients per mail                   | 50 per field                                                                                     |
+| Recipients per mail                   | 50 in total across To, Cc and Bcc                                                                |
 | Body of a draft or send               | 100,000 characters from the agent; a stored draft's plain text up to 1 MiB                       |
-| Rule sends                            | 30 per agent per hour                                                                            |
+| Sends (rule sends and cards together) | 30 per agent per hour                                                                            |
 | Waiting approval cards                | 5 per agent, each for 24 hours                                                                   |
 | Accounts per agent; rules per account | 20; 50                                                                                           |
 | Connection tests                      | 30 per minute for the owner                                                                      |
@@ -296,7 +301,7 @@ The agent reports these codes; the form shows the connection ones in plain words
 | `MAIL_ATTACHMENTS_UNSUPPORTED` | The draft has attachments, which agents cannot send. Send it yourself from your mail program.                                                                 |
 | `MAIL_QUERY_EMPTY`             | A search without any criterion.                                                                                                                               |
 | `MAIL_APPROVAL_LIMIT`          | 5 of the agent's sends already wait. Decide them in the chat or the Inbox.                                                                                    |
-| `MAIL_SEND_LIMIT`              | The agent made 30 rule sends in the last hour. Wait, or approve sends individually.                                                                           |
+| `MAIL_SEND_LIMIT`              | The agent made 30 sends or cards in the last hour. Wait, or send the mail yourself.                                                                           |
 | `MAIL_CATALOG_UNREADABLE`      | `mail/accounts.json` cannot be read (Connections shows "The saved email accounts cannot be read."). Restore it from a backup.                                 |
 | `MAIL_TEST_RATE_LIMITED`       | More than 30 connection tests in one minute. Wait a minute.                                                                                                   |
 

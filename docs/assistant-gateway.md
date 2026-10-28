@@ -2631,8 +2631,8 @@ A `mail_send` row holds the composed fields, the sender, the draft's UID and
 Message-ID, the origin class and SHA-256 digests of the body, of everything the mail
 is composed from and of the agent's input (so a retried tool call finds its row).
 At most 5 cards wait per agent (`MAIL_APPROVAL_LIMIT`) for 24 hours; rule sends are
-`trusted` rows, capped at 30 per agent per hour (`MAIL_SEND_LIMIT`), of which the
-newest 200 are kept. Approving (`decide`, from the web card, the Inbox or a Telegram
+`trusted` rows, of which the newest 200 are kept. Rule sends and cards together are
+capped at 30 per agent per hour (`MAIL_SEND_LIMIT`); above it no card is raised. Approving (`decide`, from the web card, the Inbox or a Telegram
 button bound to the card's chat) checks the grant, the account's address and both
 digests again (`stale`) and cancels a changed card; Telegram may approve only a card
 it showed in full (`mailTelegramApprovable`: a body of at most 3,000 code points, at
