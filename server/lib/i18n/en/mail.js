@@ -46,7 +46,7 @@ export const mail = Object.freeze({
   mailDecline: "Don't send",
   mailOpenToApprove: "Open AgentPier to read and approve this email.",
   mailAgent: (name) => `Agent: ${name}`,
-  mailAccount: (name) => `Email access: ${name}`,
+  mailAccount: (name) => `Email account: ${name}`,
   mailFields: { from: "From", to: "To", cc: "Cc", bcc: "Bcc", subject: "Subject" },
   mailStates: {
     completed: "Email sent",

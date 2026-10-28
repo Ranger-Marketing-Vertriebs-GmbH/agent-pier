@@ -37,7 +37,7 @@ export const assistantMailCopy = {
   card: {
     title: "Send email?",
     agent: "Agent",
-    account: "Email access",
+    account: "Email account",
     from: "From",
     to: "To",
     cc: "Cc",
@@ -67,7 +67,7 @@ export const assistantMailCopy = {
   },
   note: {
     label: "Email",
-    account: "Email access",
+    account: "Email account",
     recipients: "Recipients",
     code: "Code",
   },
