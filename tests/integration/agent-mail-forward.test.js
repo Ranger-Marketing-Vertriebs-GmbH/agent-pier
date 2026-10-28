@@ -255,6 +255,30 @@ test("an HTML-only original over 1 MiB is MAIL_DRAFT_UNSUPPORTED and saves nothi
   assert.equal(f.smtp.messages.length, 0);
 });
 
+test("deeply nested HTML is left out quickly; as the only part it is refused", async (t) => {
+  const f = await sendFilesFixture(t);
+  const nested = original(f, { html: "<div>".repeat(200_000) });
+  const only = f.imap.mailbox.append(
+    "INBOX",
+    Buffer.from(
+      `From: news@example.com\r\nTo: agent@example.com\r\nSubject: Deep\r\nDate: Mon, 26 Oct 2026 09:00:00 +0100\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${"<a><b><i>".repeat(100_000)}\r\n`,
+      "latin1",
+    ),
+  );
+  const forward = forwardOf(f);
+  const started = Date.now();
+  const r = await forward({ uid: nested.uid });
+  assert.ok(Date.now() - started < 5000);
+  assert.match(r.htmlNote, /too deeply nested/);
+  const p = f.workflows.get(r.actionId).payload;
+  assert.equal(p.html, null);
+  assert.equal(p.forward.htmlIncluded, false);
+  assert.equal(p.forward.htmlOmitted, true);
+  assert.match(p.body, /Ihre Rechnung liegt bei\.$/);
+  assert.equal(await code(forward({ uid: only.uid })), "MAIL_DRAFT_UNSUPPORTED");
+  assert.equal(f.count("Drafts"), 1);
+});
+
 test("forward needs the send level and counts against the hourly limit", async (t) => {
   const f = await sendFilesFixture(t);
   const { uid } = original(f);

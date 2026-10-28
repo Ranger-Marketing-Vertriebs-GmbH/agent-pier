@@ -33,10 +33,11 @@ const person = (a) =>
 /**
  * Message `uid` of `folder` (opened read-only) as `{ envelope: { from, to, date,
  * subject }, text, html, htmlOmitted, rawParts, parts }`: `text` the plain part (LF
- * line ends), or the HTML part as text; `html` the HTML part of at most 1 MiB, else
- * null with `htmlOmitted` (only the text goes along); with `includeAttachments` its
+ * line ends), or the HTML part as text; `html` the HTML part of at most 1 MiB as
+ * quotedHtml returns it, else null with `htmlOmitted` (only the text goes along); with `includeAttachments` its
  * attachments as raw parts (`rawParts`) and `{ name, type, size, sha256 }` (`parts`).
- * Text over `forwardBodyChars` or only HTML over 1 MiB is MAIL_DRAFT_UNSUPPORTED,
+ * Text over `forwardBodyChars` or only HTML over 1 MiB or beyond quoteBounds is
+ * MAIL_DRAFT_UNSUPPORTED,
  * more than `maxFiles` attachments 400 `invalid` and more than `maxBytes` decoded
  * MAIL_ATTACHMENT_TOO_LARGE, before any attachment is fetched.
  */
@@ -68,18 +69,23 @@ export async function loadOriginal(
     const { bytes, limited } = await download(client, uid, node.part || "1");
     return { content: decodeText(bytes, node), limited };
   };
+  // The HTML as sent (quotedHtml), null when over 1 MiB or not quotable.
+  let source = null;
   let html = null;
-  let htmlOmitted = false;
   if (htmlNode) {
     const got = await read(htmlNode);
-    if (got.limited) htmlOmitted = true;
-    else html = got.content;
+    if (!got.limited) {
+      html = quotedHtml(got.content);
+      if (html !== null) source = got.content;
+    }
   }
+  const htmlOmitted = Boolean(htmlNode) && html === null;
   let text = "";
   if (part?.type === "text/html") {
-    // Only HTML: its text is all there is to quote, so it must be complete.
-    if (html === null) throw mailError("MAIL_DRAFT_UNSUPPORTED");
-    const converted = htmlToText(html, forwardBodyChars + 1);
+    // Only HTML: its text is all there is to quote, so it must be complete and
+    // within quoteBounds.
+    if (source === null) throw mailError("MAIL_DRAFT_UNSUPPORTED");
+    const converted = htmlToText(source, forwardBodyChars + 1);
     if (converted.truncated) throw mailError("MAIL_DRAFT_UNSUPPORTED");
     text = converted.text;
   } else if (part) {
@@ -112,35 +118,95 @@ export async function loadOriginal(
 }
 
 // Elements of the original's HTML that could reach beyond its quote (a base URL,
-// styles of the whole forward, refreshes, scripts) are dropped, and so are inline
-// styles that position an element, which could cover the agent's own text.
-const droppedTags = new Set(["base", "script", "style", "meta", "link"]);
-const positioned = /(^|;|\s)position\s*:/i;
+// styles of the whole forward, refreshes, scripts, embedded or active content) are
+// dropped, and so are comments (Outlook honors conditional ones) and every inline
+// style, which could move, cover or hide the agent's own text.
+const droppedTags = new Set([
+  "base",
+  "script",
+  "style",
+  "meta",
+  "link",
+  "iframe",
+  "form",
+  "object",
+  "embed",
+  "plaintext",
+]);
+// Parsing is quadratic in the nesting depth and the serializer recurses, so a
+// hostile mail could block the server: HTML with more tags or deeper nesting than
+// this is not parsed and goes along as text only. Ordinary newsletters stay far
+// below both.
+export const quoteBounds = Object.freeze({ tags: 20_000, depth: 500 });
+const voidTags = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
+]);
+// Elements whose end tag is optional: an unclosed one does not nest deeper.
+const openEnded = new Set(["p", "li", "td", "th", "tr", "dt", "dd", "option"]);
+const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)[^<>]*?(\/?)>/g;
 
 /**
- * The original's HTML as quoted: only the content of its `<body>`, without
- * `<base>`, `<script>`, `<style>`, `<meta>` and `<link>` and without positioning
- * inline styles, so it cannot restyle or hide what stands above the quote.
+ * Whether `html` is within quoteBounds, by one linear scan: at most `tags` start tags
+ * and an estimated nesting depth of at most `depth` (start tags that are not void,
+ * self-closed or open-ended count up, end tags down).
+ */
+export function quotable(html) {
+  let tags = 0;
+  let depth = 0;
+  for (const [, end, name, selfClosed] of html.matchAll(tagPattern)) {
+    const tag = name.toLowerCase();
+    if (end) {
+      if (!voidTags.has(tag) && !openEnded.has(tag)) depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (++tags > quoteBounds.tags) return false;
+    if (selfClosed || voidTags.has(tag) || openEnded.has(tag)) continue;
+    if (++depth > quoteBounds.depth) return false;
+  }
+  return true;
+}
+
+/**
+ * The original's HTML as quoted, or null when it is not quotable or cannot be
+ * parsed: only the content of its `<body>`, without comments, inline styles and the
+ * droppedTags elements, so it cannot restyle or hide what stands above the quote.
  */
 export function quotedHtml(html) {
-  const document = parse(String(html));
-  const root = document.childNodes.find((n) => n.nodeName === "html");
-  const body = root?.childNodes.find((n) => n.nodeName === "body");
-  if (!body) return "";
-  const stack = [body];
-  while (stack.length) {
-    const node = stack.pop();
-    if (!node.childNodes) continue;
-    node.childNodes = node.childNodes.filter((child) => !droppedTags.has(child.nodeName));
-    for (const child of node.childNodes) {
-      if (child.attrs)
-        child.attrs = child.attrs.filter(
-          (a) => !(a.name === "style" && positioned.test(a.value)),
-        );
-      stack.push(child.content ?? child);
+  const source = String(html);
+  if (!quotable(source)) return null;
+  try {
+    const document = parse(source);
+    const root = document.childNodes.find((n) => n.nodeName === "html");
+    const body = root?.childNodes.find((n) => n.nodeName === "body");
+    if (!body) return "";
+    const stack = [body];
+    while (stack.length) {
+      const node = stack.pop();
+      if (!node.childNodes) continue;
+      node.childNodes = node.childNodes.filter(
+        (child) => !droppedTags.has(child.nodeName) && child.nodeName !== "#comment",
+      );
+      for (const child of node.childNodes) {
+        if (child.attrs) child.attrs = child.attrs.filter((a) => a.name !== "style");
+        stack.push(child.content ?? child);
+      }
     }
+    return serialize(body);
+  } catch {
+    return null;
   }
-  return serialize(body);
 }
 
 const escapeHtml = (text) =>
@@ -161,7 +227,7 @@ export function forwardSubject(original) {
  * (loadOriginal): the agent's `body`, a blank line, the header block and the original
  * text; `subject` the agent's, else forwardSubject. `html` (null without an original
  * HTML part) is the agent's text escaped, the header block, then the original markup
- * as quotedHtml in `<blockquote type="cite">`. A body over `forwardBodyChars` is
+ * (loadOriginal: already quotedHtml) in `<blockquote type="cite">`. A body over `forwardBodyChars` is
  * MAIL_DRAFT_UNSUPPORTED; bad recipients or subject 400 `invalid`.
  */
 export function forwardFields(original, { body = "", subject, to, cc, bcc }) {
@@ -187,6 +253,6 @@ export function forwardFields(original, { body = "", subject, to, cc, bcc }) {
   const html =
     original.html === null
       ? null
-      : `${own ? `<p>${htmlLines(own)}</p>\n` : ""}<p>${htmlLines(header)}</p>\n<blockquote type="cite">${quotedHtml(original.html)}</blockquote>`;
+      : `${own ? `<p>${htmlLines(own)}</p>\n` : ""}<p>${htmlLines(header)}</p>\n<blockquote type="cite">${original.html}</blockquote>`;
   return { fields, html };
 }

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   forwardFields,
   forwardSubject,
+  quotable,
+  quoteBounds,
   quotedHtml,
 } from "../../server/features/mail/mail-forward.js";
 import { forwardInput } from "../../server/features/assistants/mail/agent-mail-send-input.js";
@@ -157,14 +159,18 @@ test("the quoted HTML keeps only the body and cannot restyle the agent's text", 
     '<meta http-equiv="refresh" content="0;url=https://evil.example/">',
     '<link rel="stylesheet" href="https://evil.example/x.css"><title>T</title></head>',
     "<body><style>body { color: white }</style><script>steal()</script>",
-    '<div style="position:fixed;top:0;left:0;width:100%;height:100%">cover</div>',
-    '<p style="color: red">Rechnung</p><meta charset="x"></body></html>',
+    "<!--[if mso]><style>p { display: none }</style><![endif]--><!-- note -->",
+    '<div style="/**/position:fixed;top:0;left:0;width:100%;height:100%">cover</div>',
+    '<p style="color: red">Rechnung</p><img src="cid:logo" alt="Logo">',
+    '<iframe src="https://evil.example/"></iframe><object data="x"></object>',
+    '<embed src="x"><form action="https://evil.example/"><input name="pw"></form>',
+    '<meta charset="x"><plaintext></body></html>',
   ].join("");
   const quoted = quotedHtml(hostile);
-  assert.equal(quoted, '<div>cover</div><p style="color: red">Rechnung</p>');
+  assert.equal(quoted, '<div>cover</div><p>Rechnung</p><img src="cid:logo" alt="Logo">');
   assert.equal(quotedHtml("<p>Original</p>"), "<p>Original</p>");
   const { html } = forwardFields(
-    { ...original, html: hostile },
+    { ...original, html: quoted },
     { body: "Bitte zahlen", to: ["bob@example.org"] },
   );
   // The agent's text and the header block come first, outside the quote, and nothing
@@ -174,6 +180,32 @@ test("the quoted HTML keeps only the body and cannot restyle the agent's text", 
   assert.ok(html.endsWith(`<blockquote type="cite">${quoted}</blockquote>`));
   assert.doesNotMatch(
     html,
-    /<(style|script|base|meta|link|head|body|html)\b|position\s*:/i,
+    /<(style|script|base|meta|link|head|body|html|iframe|object|embed|form|input|plaintext)\b|<!--|style=/i,
   );
+});
+
+test("hostile nesting is not parsed and returns within a second", () => {
+  for (const [name, html] of [
+    ["deep div", "<div>".repeat(200_000)],
+    ["adoption agency", "<a><b><i>".repeat(100_000)],
+    ["many b", "<b>".repeat(300_000)],
+    ["many tags", "<br>".repeat(quoteBounds.tags + 1)],
+    ["just too deep", "<div>".repeat(quoteBounds.depth + 1)],
+  ]) {
+    const started = performance.now();
+    assert.equal(quotedHtml(html), null, name);
+    assert.ok(performance.now() - started < 1000, name);
+  }
+});
+
+test("an ordinary large newsletter is still quoted", () => {
+  // Nested layout tables, unclosed paragraphs and list items: 12,500 start tags.
+  const row = "<tr><td><table><tr><td><p>Item<li>a<li>b<br><img src=x></td></tr></table>";
+  const html = `<html><body><table>${row.repeat(1250)}</table></body></html>`;
+  assert.ok(quotable(html));
+  const started = performance.now();
+  const quoted = quotedHtml(html);
+  assert.ok(performance.now() - started < 1000);
+  assert.match(quoted, /^<table><tbody><tr><td><table>/);
+  assert.ok(quotable("<div>".repeat(quoteBounds.depth)));
 });
