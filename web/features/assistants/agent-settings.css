@@ -95,12 +95,14 @@
 .agent-member-card,
 .agent-pairing {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 10px 14px 12px;
   background: var(--panel);
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .agent-shell-levels {
   padding: 8px 12px;
