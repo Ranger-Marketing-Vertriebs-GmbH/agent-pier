@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 // The inbox summary ({ instance, revision, counts }) the sidebar, the phone header and
-// the inbox page share. It arrives with the polled workspace state and, while the
-// inbox page is open, through its event stream and list reads. A newer revision of
+// the inbox page share. It arrives with the workspace state and, while the
+// inbox page is open, with the list of the live `inbox` topic. A newer revision of
 // the same server process wins; a new process starts its own count.
 let summary = null;
 const listeners = new Set();

@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applicationFixture } from "../helpers/application.js";
 
+const until = async (check) => {
+  for (let i = 0; i < 100 && !check(); i++) await new Promise((r) => setTimeout(r, 20));
+  assert.ok(check(), "the awaited change arrived");
+};
+
 const waitingRun = {
   id: "run-waiting",
   status: "awaiting-human",
@@ -14,32 +19,7 @@ const waitingRun = {
   createdAt: "2026-10-17T10:00:00.000Z",
 };
 
-/** Reads server-sent events from a streamed response until `count` arrived. */
-async function readEvents(response, count) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const events = [];
-  let buffer = "";
-  while (events.length < count) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let end;
-    while ((end = buffer.indexOf("\n\n")) >= 0) {
-      const block = buffer.slice(0, end);
-      buffer = buffer.slice(end + 2);
-      const data = block
-        .split("\n")
-        .filter((line) => line.startsWith("data: "))
-        .map((line) => line.slice(6))
-        .join("");
-      if (data) events.push(JSON.parse(data));
-    }
-  }
-  return { events, reader };
-}
-
-test("the inbox lists, streams revisions and resolves stable item addresses", async (t) => {
+test("the inbox lists, announces revisions and resolves stable item addresses", async (t) => {
   const f = await applicationFixture(t);
   const empty = await (await f.request("/api/inbox")).json();
   assert.deepEqual(empty.items, []);
@@ -57,24 +37,18 @@ test("the inbox lists, streams revisions and resolves stable item addresses", as
     counts: empty.counts,
   });
 
-  const controller = new AbortController();
-  t.after(() => controller.abort());
-  const stream = await f.request("/api/inbox/events", { signal: controller.signal });
-  assert.match(stream.headers.get("content-type"), /^text\/event-stream/);
-  const first = await readEvents(stream, 1);
-  assert.equal(first.events[0].type, "connected");
-  assert.equal(first.events[0].revision, empty.revision);
-
-  // A run that starts waiting reaches the open stream as counts and a new revision.
+  // A run that starts waiting reaches a subscriber as counts and a new revision.
+  const pushed = [];
+  t.after(f.application.inbox.subscribe((event) => pushed.push(event)));
   const store = f.application.pipelines.store;
   const original = store.withStatus.bind(store);
   store.withStatus = (status) =>
     status === "awaiting-human" ? [waitingRun] : original(status);
   f.application.inbox.changed();
-  const next = await readEvents({ body: { getReader: () => first.reader } }, 1);
-  assert.equal(next.events[0].type, "inbox");
-  assert.equal(next.events[0].revision, empty.revision + 1);
-  assert.equal(next.events[0].counts.gates, 1);
+  await until(() => pushed.length > 0);
+  assert.equal(pushed[0].type, "inbox");
+  assert.equal(pushed[0].revision, empty.revision + 1);
+  assert.equal(pushed[0].counts.gates, 1);
 
   const listed = await (await f.request("/api/inbox")).json();
   assert.equal(listed.items[0].type, "gate");
@@ -94,4 +68,11 @@ test("the inbox requires the owner's login", async (t) => {
     headers: { origin: f.url },
   });
   assert.equal(response.status, 401);
+});
+
+test("the inbox event stream is gone: the live inbox topic is the only push", async (t) => {
+  const f = await applicationFixture(t);
+  const response = await f.request("/api/inbox/events");
+  assert.equal(response.status, 404);
+  assert.doesNotMatch(response.headers.get("content-type") || "", /event-stream/);
 });

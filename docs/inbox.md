@@ -99,11 +99,11 @@ screen decide only when none is open (see [architecture](architecture.md)).
   subscription, so the counts are current when it is shown again. Without the live
   channel the page polls `GET /api/inbox` every 5 s while its tab is visible (see
   [live channel](architecture.md#live-channel)).
-- `GET /api/inbox/events` is a server-sent event stream. It sends the counts and the
-  revision when it connects and whenever the waiting set changes; the page reads
-  `GET /api/inbox` again when the list it holds is behind. The workspace state (the
-  live `state` topic and `GET /api/state`) carries the same summary for the sidebar
-  count.
+- There is no inbox event stream: `GET /api/inbox/events` was removed and answers 404.
+  The `inbox` topic is the only push. The workspace state (the live `state` topic and
+  `GET /api/state`) carries the counts and revision for the sidebar count; while the
+  channel works, the inbox page waits for the topic's list when that revision is ahead
+  and sends no extra request. Without the channel it reads `GET /api/inbox` again.
 - `GET /api/inbox/<type>/<id>` resolves a stable address to `pending` (with the
   item), `done` (from the audit log, for 24 hours) or `gone`.
 - The inbox only reads. It is part of the owner's login like every other page; it

@@ -92,7 +92,7 @@ test("every allow-list entry matches a real route", async (t) => {
 
 test("SSE streams are denied to users", async (t) => {
   const { as, notFound } = await usersFixture(t);
-  for (const endpoint of ["/api/assistant-events", "/api/inbox/events"]) {
+  for (const endpoint of ["/api/assistant-events"]) {
     const response = await as(endpoint, "GET", { accept: "text/event-stream" });
     assert.equal(response.status, 404, endpoint);
     assert.doesNotMatch(response.headers.get("content-type") || "", /event-stream/);

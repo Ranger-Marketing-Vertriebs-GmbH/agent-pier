@@ -13,39 +13,6 @@ export function inboxRoutes({ inbox }) {
     res.set("Cache-Control", "no-store");
     res.json(await inbox.snapshot());
   });
-  // Counts and revision on every change; clients read GET /inbox again.
-  router.get("/inbox/events", async (req, res) => {
-    res.status(200).set({
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-store",
-      "X-Accel-Buffering": "no",
-    });
-    res.flushHeaders();
-    const send = (event) => {
-      if (res.writableEnded || res.destroyed) return;
-      if (res.writableLength > 1024 * 1024) return res.end();
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-      res.flush?.();
-    };
-    const unsubscribe = inbox.subscribe(send);
-    const heartbeat = setInterval(() => {
-      res.write(": heartbeat\n\n");
-      res.flush?.();
-    }, 15000);
-    heartbeat.unref();
-    const close = () => res.end();
-    inbox.events.once("close", close);
-    req.on("close", () => {
-      unsubscribe();
-      clearInterval(heartbeat);
-      inbox.events.off("close", close);
-    });
-    try {
-      send({ type: "connected", ...(await inbox.summary()) });
-    } catch {
-      send({ type: "connected" });
-    }
-  });
   router.get("/inbox/:type/:id", async (req, res) => {
     const { type, id } = req.params;
     if (!inboxTypes.includes(type) || !idPattern.test(id))
