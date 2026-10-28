@@ -5092,19 +5092,26 @@ origin and on no proof of a background command. The bridge serves it:
 
 - in a turn with an active attempt, into that turn's chat;
 - in a bound routine's run session (as for SSH), into the routine's chat;
-- in a running hook event's session, into the agent's main chat;
+- in a hook event's session, while the event runs and after it settled (OpenClaw's
+  follow-up of a command the hook run started), into the agent's main chat only,
+  never to Telegram; the request is `hook:<event id>`, and project folders are the
+  hook's own, as its rights resolve now;
 - in any other run of the owner's own chat without a turn (OpenClaw's follow-up
   after a background command, also one started by a previous follow-up, or after a
   member's result; a check-in), into that chat. The share counts as the chat's
-  latest turn: its request names the file, and the file also goes to Telegram when
-  that turn came from the owner's paired chat, the same rule as the follow-up's
-  text reply (`telegram-follow-ups.js`). Its `assistant.sent` event adds
-  `via: "agent-run"`.
+  latest turn (its request names the file). It also goes to Telegram exactly when
+  that run's text reply does: `followUpTelegram` (`follow-up-target.js`), so only
+  when the chat's latest turn is a `telegram` turn of the agent's paired, enabled
+  chat that writes into this conversation with the same ids.
+
+A share in a session without a turn adds `via: "agent-run"` to its `assistant.sent`
+event. `owner-shares.js` (`turnlessBinding`) decides these bindings for
+`TeamBridge.prepare` and re-checks them on every step.
 
 The owner's own chat is one of an active agent that serves no restricted users
 (`isUserAgent`), without a `userId`. A user agent shares only in a turn or a
-routine's run, by that turn's rules; a sender bot's session, a settled hook's
-session and a memory step never share. The share goes to `AgentShares`
+routine's run, by that turn's rules; a sender bot's session and a memory step never
+share. A settled hook's session serves no other bridge tool. The share goes to `AgentShares`
 (`agent-shares.js`). While AgentPier is in maintenance or recovering it refuses. Its
 result tells the agent who sees the file now: the owner, or in a user's chat the
 person who asked, never the owner.
@@ -5117,7 +5124,8 @@ person who asked, never the owner.
   agent holds now (its own and its lead's standing shares, or a task member's
   grant), in every turn, plus what the turn itself reaches
   (`AssistantWorkflows.context`, for example a lead task's own shares). A routine's
-  run reads its routine's folders, a hook run the hook's, and a restricted user's
+  run reads its routine's folders, a hook's session the hook's (also after its event
+  settled; none once the hook is paused or deleted), and a restricted user's
   turn only what that turn may use. The path is first resolved with `projectTarget`
   (never `.git`, links out of the folder or AgentPier's data directory; links that
   stay inside it are resolved, as for folder reads), and the read walks every folder
@@ -5171,8 +5179,8 @@ person who asked, never the owner.
   `TelegramClient.upload` admits only these two methods; every other method stays
   JSON-only. The caption is stored with the outbox entry, apart from the text the
   activity list shows. A file gone before delivery ends as `FILE_UNAVAILABLE`. A
-  routine's run sends to the chat its routine delivers to; a run without a turn to
-  the paired chat when the chat's latest turn came from there. Each share writes an
+  routine's run sends to the chat its routine delivers to; a run without a turn of
+  the owner's chat follows `followUpTelegram` (above); a hook's session never sends. Each share writes an
   `assistant.sent` audit event with `kind: "share"`.
 
 ## Continuous integration

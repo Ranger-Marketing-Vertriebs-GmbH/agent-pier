@@ -1442,8 +1442,10 @@ routine's run can share files as well, for example a weekly report: they appear 
 agent's chat and, when the routine also sends to Telegram, in its Telegram chat. An
 agent can always send you files, in every kind of turn: also when a background command
 (a long render, for example) finishes after its reply, after a member's result, in a
-hook's run or in a check-in. Such a file appears in the chat, and in Telegram when the
-chat's latest message came from your paired Telegram chat. Only the file checks
+hook's run (also when a command it started finishes later) or in a check-in. Such a
+file appears in the chat, and in Telegram exactly when the agent's text reply to that
+follow-up goes there: when the chat's latest message came from your paired Telegram
+chat. A hook's file appears only in the agent's main chat. Only the file checks
 (workspace or granted folder, no links, never `.git` or AgentPier's data, at most
 25 MiB) still refuse a share. An agent that serves restricted users shares only in a
 turn or a routine's run. Images an agent creates with

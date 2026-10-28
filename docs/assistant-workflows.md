@@ -628,7 +628,8 @@ changed afterwards. The run is a `current` job on the agent's main chat with ful
 context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAllow`
 holds only what the hook's ticks switch on, capped by what the agent holds at that
 moment (`agent-hook-rights.js`); memory search, `session_status` and
-`agentpier_share_file` (files for the owner's main chat) are always there.
+`agentpier_share_file` (files for the owner's main chat, from the workspace or the
+hook's folders, also from a follow-up after the event settled) are always there.
 The agent's configuration is applied first, so its live tools and shell level hold.
 When the hook was paused or deleted after the endpoint checked it, the configuration
 cannot be applied, the job cannot be created or OpenClaw refuses the run, the endpoint

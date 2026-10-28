@@ -5,6 +5,7 @@ import { projectTarget } from "./project-paths.js";
 import { protectedDirs } from "./protected-dirs.js";
 import { routineOrigin } from "./routine-targets.js";
 import { ownerChat } from "./owner-shares.js";
+import { followUpTelegram } from "./follow-up-target.js";
 
 /**
  * agentpier_share_file: an agent hands the owner a file from its own workspace.
@@ -19,12 +20,12 @@ import { ownerChat } from "./owner-shares.js";
  *
  * A routine's run (no attempt; the bridge admits its run session as for SSH) shares
  * into the chat its routine commits to, and to the Telegram chat it delivers to; a
- * hook's run into the agent's main chat.
+ * hook's run, also after its event settled, into the agent's main chat only.
  *
  * The owner decided that an agent may always send him files (owner-shares.js): any
  * other run of his chat without a turn (OpenClaw's follow-up after a background
- * command, a check-in) shares into that chat, as the chat's latest turn, so the
- * file also reaches Telegram when that turn came from the owner's paired chat.
+ * command, a check-in) shares into that chat, as the chat's latest turn, and to
+ * Telegram by the rule of that run's text reply (follow-up-target.js).
  *
  * With `projectId` the file comes from a project folder (AGENTPIER-123) instead of
  * the workspace: read access is enough, and the path is resolved like every folder
@@ -63,7 +64,7 @@ export class AgentShares {
     // No workspace reads while a restore or update may replace them.
     if (a.closed || a.maintenance || a.recovering)
       throw assistantProblem("unavailable", 503);
-    const { conversation, requestId, origin, via } = this.turn(invocation);
+    const { conversation, requestId, origin, via, target } = this.turn(invocation);
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
     const source = input.projectId
@@ -82,7 +83,7 @@ export class AgentShares {
       caption,
       mirror: this.leadChat(origin, agent),
     });
-    const telegram = this.telegram(origin, file, caption);
+    const telegram = this.telegram(origin, file, caption, target);
     this.audit(agent, origin, telegram, input.projectId, "share", "success", via);
     a.changed?.();
     return {
@@ -96,9 +97,20 @@ export class AgentShares {
   async projectSource(invocation, agent, conversation, { projectId, path: requested }) {
     const workflows = this.assistants.workflows;
     if (!workflows?.folders) throw assistantProblem("projectFolderNotGranted", 403);
-    // For the owner's chat the agent's own folders count whatever the turn.
-    const owner = !invocation.hook && ownerChat(agent, conversation) ? agent : null;
-    let ctx = null;
+    // For the owner's chat the agent's own folders count whatever the turn; a hook's
+    // session after its event settled keeps that hook's folders, as they are now.
+    const settled = invocation.owner?.hookId;
+    const owner =
+      !invocation.hook && !settled && ownerChat(agent, conversation) ? agent : null;
+    let ctx = settled
+      ? {
+          hook: {
+            folders: {
+              ...this.assistants.routines?.hooks?.liveRights(agent, settled)?.folders,
+            },
+          },
+        }
+      : null;
     if (invocation.attemptId || invocation.routine || invocation.hook)
       try {
         ctx = workflows.context(invocation);
@@ -133,15 +145,28 @@ export class AgentShares {
         origin: { kind: "hook" },
       };
     }
-    // A run of the owner's chat without a turn shares as the chat's latest turn.
+    // A run of the owner's chat without a turn shares as the chat's latest turn, to
+    // Telegram like its reply; a hook's settled session only into the main chat.
     if (invocation.owner && !invocation.attemptId) {
-      const conversation = a.store.getConversation(invocation.owner.conversationId);
+      const { conversationId, eventId } = invocation.owner;
+      const conversation = a.store.getConversation(conversationId);
+      const via = { via: "agent-run" };
+      if (eventId)
+        return {
+          conversation,
+          requestId: `hook:${eventId}`,
+          origin: { kind: "hook" },
+          via,
+          target: null,
+        };
       const latest = a.ledger.latestRequest(conversation.id);
+      const agent = a.store.getAssistant(conversation.assistantId);
       return {
         conversation,
         requestId: latest?.id ?? `run:${invocation.runId || invocation.toolCallId}`,
         origin: (latest && a.teams?.store?.context(latest.id)) || { kind: "unknown" },
-        via: { via: "agent-run" },
+        via,
+        target: followUpTelegram(a, this.channels, agent, conversation),
       };
     }
     if (invocation.routine && !invocation.attemptId) {
@@ -202,9 +227,9 @@ export class AgentShares {
       return null;
     }
   }
-  // Queues the file for Telegram; the chat copy stands even when this fails.
-  telegram(origin, file, caption) {
-    const target = this.target(origin);
+  // Queues the file for Telegram (`target`: the turn's, unless given); the chat copy
+  // stands even when this fails.
+  telegram(origin, file, caption, target = this.target(origin)) {
     if (!target) return null;
     try {
       this.channels.outbox.enqueue({

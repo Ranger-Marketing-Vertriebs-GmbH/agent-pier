@@ -123,8 +123,14 @@ test("hook origin ends when the event settles", async (t) => {
     refused,
   );
   assert.equal(f.invoked.length, 0);
-  for (const action of ["workspace", "ssh", "share_file"])
+  for (const action of ["workspace", "ssh"])
     assert.throws(() => f.prepare(running.sessionKey, action), refused, action);
+  // A file for the owner's main chat still goes (agent-hook-shares.test.js).
+  assert.equal(
+    f.bridge.tickets.get(f.prepare(running.sessionKey, "share_file").ticket).owner
+      .eventId,
+    running.id,
+  );
   // An exec completion turn in that session (OpenClaw 2026.10.7) gets no hook
   // rights: no writes, no shell; session_status stays.
   assert.equal(f.write(running.sessionKey, "MEMORY.md"), false);

@@ -148,8 +148,10 @@ const forgotten = (record, key) =>
 // The entry of a session, most recently used last; created only when needed.
 function session(record, key, create = true) {
   let entry = record.sessions.get(key);
-  if (entry) record.sessions.delete(key);
-  else if (create) {
+  if (entry) {
+    prune(entry);
+    record.sessions.delete(key);
+  } else if (create) {
     // A session forgotten before may have had processes this entry never saw.
     entry = {
       processes: [],
@@ -181,7 +183,10 @@ const bounded = (map, max, key, value) => {
 // against it like before.
 function prune(entry, now = Date.now()) {
   entry.dropped = entry.dropped.filter((d) => now - d.at < execBounds.dropAfterMs);
-  entry.unknown = entry.unknown.filter((u) => now - u.at < execBounds.completingMs);
+  // An entry an older plugin made before a reload in the same Gateway has no list.
+  entry.unknown = (entry.unknown ?? []).filter(
+    (u) => now - u.at < execBounds.completingMs,
+  );
   entry.processes = entry.processes.filter((p) => {
     const gone = p.endedAt
       ? now - p.endedAt >= execBounds.dropAfterMs
@@ -495,7 +500,7 @@ export function registerExecProcesses(api) {
       if (call.runId === ctx?.runId) record.pending.delete(key);
     if (typeof ctx?.runId === "string")
       for (const entry of record.sessions.values())
-        entry.unknown = entry.unknown.filter((u) => u.by !== ctx.runId);
+        entry.unknown = (entry.unknown ?? []).filter((u) => u.by !== ctx.runId);
     // A completion is read only while its run lasts.
     if (typeof ctx?.runId === "string") record.completions.delete(ctx.runId);
   });
