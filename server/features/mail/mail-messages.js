@@ -182,11 +182,12 @@ export function textPart(structure) {
   );
 }
 
-// At most `partBytes` of the part, decoded to UTF-8 by imapflow, never the whole part.
+// At most `partBytes` of the part, decoded to UTF-8 by imapflow, never the whole part;
+// one byte more is fetched so that a part of exactly `partBytes` is not `limited`.
 export async function download(client, uid, part) {
   const { content } = await client.download(String(uid), part, {
     uid: true,
-    maxBytes: mailBounds.partBytes,
+    maxBytes: mailBounds.partBytes + 1,
   });
   if (!content) return { bytes: Buffer.alloc(0), limited: false };
   const chunks = [];
@@ -195,7 +196,10 @@ export async function download(client, uid, part) {
     chunks.push(chunk);
     size += chunk.length;
   }
-  return { bytes: Buffer.concat(chunks), limited: size >= mailBounds.partBytes };
+  const bytes = Buffer.concat(chunks);
+  return size > mailBounds.partBytes
+    ? { bytes: bytes.subarray(0, mailBounds.partBytes), limited: true }
+    : { bytes, limited: false };
 }
 
 const metaCharset = /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i;

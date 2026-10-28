@@ -45,7 +45,8 @@ export function saveForward(mail, account, from, request, captured) {
  * The card fields of a saved forward: `attachments` (the original's parts first,
  * source `original`, then the captured files with their sources, recorded as the
  * agent's like a send's), `html` (the draft's HTML part) and `forward` (the
- * original's sender, subject, date, folder and UID). A draft whose parts do not read
+ * original's sender, subject, date, folder and UID, and whether its HTML version goes
+ * along or was omitted). A draft whose parts do not read
  * back as saved is MAIL_PROTOCOL.
  */
 export function forwardCard(mail, accountId, agentId, request, result, captured) {
@@ -75,6 +76,9 @@ export function forwardCard(mail, accountId, agentId, request, result, captured)
       date: envelope.date,
       folder: request.forward.folder,
       uid: request.forward.uid,
+      // Whether the original's HTML version goes along, or was left out as too large.
+      htmlIncluded: html !== null,
+      htmlOmitted: original.htmlOmitted,
     },
   };
 }
