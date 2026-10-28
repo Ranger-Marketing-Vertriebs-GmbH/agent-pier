@@ -57,7 +57,8 @@
     "tests/integration/assistant-memory-step-code-mode-contract.test.js",
     "tests/integration/assistant-ssh-runtime-contract.test.js",
     "tests/integration/assistant-coding-session-contract.test.js",
-    "tests/integration/assistant-mail-contract.test.js"
+    "tests/integration/assistant-mail-contract.test.js",
+    "tests/integration/assistant-browser-host-policy-contract.test.js"
   ],
   "seconds": {
     "tests/integration/assistant-runtime-contract.test.js": 95,

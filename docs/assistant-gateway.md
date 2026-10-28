@@ -2119,9 +2119,21 @@ always opened by the same app. The block:
   owner from the service context. The cookies of every profile are then encrypted with
   Chromium's fixed mock key, as they already were for OpenClaw's headless profiles,
   so the profile folders count as credentials (see backups below);
-- sets no `ssrfPolicy`: OpenClaw's default already blocks loopback and private
-  networks, while an explicit `dangerouslyAllowPrivateNetwork: false` would make every
-  navigation fail. `browser.noSandbox` is never set.
+- sets no `ssrfPolicy`: OpenClaw's default blocks direct navigation to loopback and
+  private networks. This is not a browser-wide network firewall: redirect rejection
+  can occur after a request reached its target. Explicit
+  `dangerouslyAllowPrivateNetwork: false` also rejects ordinary public hostnames
+  without an exception. `browser.noSandbox` is never set.
+
+There is currently no internal-host release in **agent settings › Capabilities ›
+Agent browser**. A hostname resolving to a private address can therefore produce
+`browser navigation blocked by policy` even when the sandboxed browser starts
+successfully. In the pinned OpenClaw 2026.10.7, `browser.ssrfPolicy.allowedHostnames`
+is global across profiles; adding a host there would grant it to other browser
+agents as well. Do not patch the generated configuration or enable private networks
+globally. A restart cannot supply the missing per-agent enforcement. See
+[Internal host exceptions](assistant-web-tools-qualification.md#internal-host-exceptions)
+for the executable evidence, redirect limitation and required runtime boundary.
 
 The team plugin's `before_tool_call` guard asks AgentPier (`/browser-policy`, in
 `agent-browsers.js`) before every browser call. The answer pins the call to the
