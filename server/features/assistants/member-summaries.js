@@ -17,7 +17,7 @@ const details = {
   already: "The member's chat is being summarised already.",
   nothing: "The member's chat has nothing to summarise.",
   owner:
-    "The owner is talking with this member in its chat himself. Leave summarising this chat to him; he can use Summarise now in that chat. Nothing was summarised or queued.",
+    "The owner is talking with this member in its chat directly. Leave summarising this chat to the owner, who can use Summarise now in that chat. Nothing was summarised or queued.",
 };
 const answer = (status, member) => ({
   status,
