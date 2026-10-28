@@ -20,11 +20,13 @@ export default function BrowserInstall({ browser, refresh }) {
   const running = job?.status === "running";
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
-  // While its job runs, the installation follows the live `job.chromium:current`
-  // topic: each progress step is pushed, and its end reads the browser state once.
-  const progress = useLiveTopic(running ? "job.chromium:current" : null);
-  const pushed =
-    progress.data?.installations?.find((item) => item.tool === "chromium") ?? null;
+  // While its job runs, the installation follows the live `job.tool:chromium` topic:
+  // each progress step is pushed, and its end reads the browser state once. A topic
+  // switched on again first shows what it held from the previous job, so only the
+  // entry of the job this install started (its `startedAt`) counts.
+  const progress = useLiveTopic(running ? "job.tool:chromium" : null);
+  const found = progress.data?.installations?.find((item) => item.tool === "chromium");
+  const pushed = found && found.startedAt === job?.startedAt ? found : null;
   useEffect(() => {
     if (!pushed) return;
     setJob(pushed);

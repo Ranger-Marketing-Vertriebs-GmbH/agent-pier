@@ -18,6 +18,7 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
   await rea.requireUnused(!!rea.serverId());
   let done;
   rea.job = new Promise((resolve) => (done = resolve));
+  rea.jobCount += 1;
   rea.status = "running";
   rea.message = "";
   try {

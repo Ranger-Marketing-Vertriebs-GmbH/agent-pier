@@ -422,6 +422,62 @@ for (const [label, use] of [
       await expect.poll(() => state.restarts).toBe(1);
     });
 
+    // The row follows job.tool:chromium only while its install runs; switched on again,
+    // the topic still holds the failed first job, which must not end the second one.
+    test("a second browser install shows its own progress, not the failed first one", async ({
+      page,
+    }) => {
+      await setup(page, {
+        assistant: { capabilities: { browser: true } },
+        browser: {
+          available: true,
+          name: "Chrome",
+          visible: { available: false, reason: "noApp" },
+          installable: true,
+        },
+      });
+      let installs = 0;
+      const job = (status, message) => ({
+        tool: "chromium",
+        status,
+        message,
+        installer: "chrome-for-testing",
+        startedAt: `2026-10-28T10:00:0${installs}Z`,
+      });
+      await page.route(/\/api\/tool/, (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === "/api/tools/chromium/install") {
+          installs += 1;
+          return route.fulfill({
+            status: 202,
+            json: job("running", "Browser wird entpackt …"),
+          });
+        }
+        return route.fulfill({
+          json: {
+            busy: installs === 2,
+            installations: [
+              installs === 2
+                ? job(
+                    "running",
+                    "Chrome for Testing wird geladen und per SHA-256 geprüft … 40 %",
+                  )
+                : job("failed", "Second install fixture failure"),
+            ],
+          },
+        });
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      const install = page.getByRole("button", { name: /Install browser/ });
+      await install.click();
+      await expect(page.getByText("Second install fixture failure")).toBeVisible();
+      await install.click();
+      await expect(
+        page.getByText(/Downloading Chrome for Testing and checking its SHA-256 … 40 %/),
+      ).toBeVisible();
+      await expect(page.getByText("Second install fixture failure")).toHaveCount(0);
+    });
+
     test("a visible window explains the missing agent browser app", async ({ page }) => {
       await setup(page, {
         assistant: { capabilities: { browser: true } },

@@ -83,6 +83,9 @@ export class ReaTool {
     this.inUse = async () => false;
     // Called on every change of the job state (assigned by the wiring: job.rea).
     this.onChange = null;
+    // Raised by every job, so each job's end reads differently from the state before
+    // it, also when it ends where it began (job.rea pushes on a changed value).
+    this.jobCount = 0;
     this.job = null;
     this.controller = null;
     // Set while a refusal check awaits inUse(): no second job may start meanwhile.
@@ -212,6 +215,7 @@ export class ReaTool {
       reason: host.reason,
       ...keyed("reason", host.reason),
       status: this.job ? "running" : this.status,
+      jobCount: this.jobCount,
       step: this.job ? this.step : null,
       message,
       ...keyed("message", message),
@@ -337,6 +341,7 @@ export class ReaTool {
   begin(work) {
     const controller = new AbortController();
     this.controller = controller;
+    this.jobCount += 1;
     this.status = "running";
     this.step = null;
     this.message = "";

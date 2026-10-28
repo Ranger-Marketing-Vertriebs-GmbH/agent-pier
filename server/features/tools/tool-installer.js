@@ -28,6 +28,7 @@ import {
   sweepChromium,
 } from "./chromium-installer.js";
 import { chromiumManifest } from "./chromium-manifest.js";
+import { logFailure } from "../mcp-packages/package-install-job.js";
 const catalog = {
   codex: {
     name: "Codex",
@@ -155,8 +156,13 @@ export class ToolInstaller {
   changed(tool) {
     try {
       this.onChange?.(tool);
-    } catch {
-      /* A failing listener must not stop an installation. */
+    } catch (error) {
+      // A failing listener must not stop an installation.
+      logFailure(
+        "announce a tool installation",
+        error,
+        "TOOL_INSTALLATION_SIGNAL_FAILED",
+      );
     }
   }
   list() {

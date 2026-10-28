@@ -96,12 +96,6 @@ export const liveTopics = Object.freeze({
     path: (tool) => `/tool-installations?${new URLSearchParams({ tool })}`,
     interval: 1500,
   }),
-  // The managed agent browser's installation (`current`), the same value.
-  "job.chromium": Object.freeze({
-    mode: "state",
-    path: (_current) => "/tool-installations?tool=chromium",
-    interval: 1500,
-  }),
   // The managed REA tool (`current`); a running job is sampled every second.
   "job.rea": Object.freeze({
     mode: "state",
