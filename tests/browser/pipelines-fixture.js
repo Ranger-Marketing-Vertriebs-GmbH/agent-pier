@@ -1,6 +1,7 @@
 import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
 export async function pipelinesFixture(page) {
   const profile = {
     id: "profile-one",
@@ -178,6 +179,8 @@ export async function pipelinesFixture(page) {
         result = id
           ? { pipeline: state.pipelines.find((p) => p.id === id) }
           : { pipelines: state.pipelines };
+    } else if (path === "/pipeline-run-counts") {
+      result = runCountsAnswer(state.runs, url.searchParams.get("projectId"));
     } else if (path === "/pipeline-runs") {
       if (method === "POST") {
         const run = {

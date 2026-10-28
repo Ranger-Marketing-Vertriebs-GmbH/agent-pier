@@ -5,6 +5,8 @@
 //            so the spec's page.route mocks answer, and re-reads it at the topic's
 //            interval, sending a frame only when the JSON changed;
 //   "manual" sends nothing until the test calls push().
+// A signal topic is answered `same` in both modes, as the server does; the page reads
+// its own route, and the test sends `changed` with changed().
 // The frames follow server/features/live/live-connection.js.
 import { randomUUID } from "node:crypto";
 import { ChatSync } from "../../server/features/chat/chat-sync.js";
@@ -131,7 +133,8 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     const entry = { sent: false, stopped: false, timer: null };
     socket.topics.set(topic, entry);
     notify();
-    if (mode === "rest") follow(socket, topic, entry, info);
+    if (info.mode === "signal") send(socket, { type: "same", topic, revision });
+    else if (mode === "rest") follow(socket, topic, entry, info);
     else if (latest.has(topic)) dataFrame(socket, topic, latest.get(topic));
   };
 

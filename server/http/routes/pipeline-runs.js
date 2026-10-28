@@ -19,8 +19,16 @@ function filter(value, message) {
   return value;
 }
 
-export function pipelineRunRoutes({ pipelines }) {
+export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
   const router = Router();
+  // The count of each status, of all runs or of one project (the pills and hints).
+  router.get("/pipeline-run-counts", (req, res) =>
+    res.json({
+      counts: pipelineRunCounts.counts(
+        filter(req.query.projectId, serverMessages.pipelines.invalidProjectFilter),
+      ),
+    }),
+  );
   router.get("/pipeline-runs", (req, res) => {
     const status = filter(req.query.status, serverMessages.pipelines.invalidStatusFilter);
     if (

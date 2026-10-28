@@ -3,7 +3,9 @@ import { PipelineEngine } from "../features/pipelines/pipeline-engine.js";
 import { NativePipelineDriver } from "../features/pipelines/native-driver.js";
 import { PipelineWorkspace } from "../features/pipelines/workspace-manager.js";
 import { RunQueue } from "../features/pipelines/run-queue.js";
+import { RunCounts } from "../features/pipelines/run-counts.js";
 import {
+  pipelineListsChanged,
   pipelineQueueChanged,
   pipelineRunChanged,
 } from "../features/pipelines/live-topics.js";
@@ -29,6 +31,7 @@ export async function createPipelineServices(services) {
     memory,
     sessions,
   });
+  const pipelineRunCounts = new RunCounts();
   const pipelines = new PipelineEngine({
     dataDir: config.dataDir,
     definitions: pipelineDefinitions,
@@ -42,12 +45,15 @@ export async function createPipelineServices(services) {
       services.operationsEvents?.pipeline(run);
       services.inbox?.changed();
       pipelineRunChanged(services.live, pipelineQueue, run);
+      pipelineListsChanged(services.live, pipelineRunCounts.observe(run), run);
       // A run that finished or parked may free a slot of its project's queue.
       pipelineQueue?.changed();
     },
   });
   let pipelineQueue;
   try {
+    // The one full scan; every later save and delete updates the counts.
+    pipelineRunCounts.rebuild(pipelines.store.all());
     await pipelines.recover();
     pipelineQueue = new RunQueue({
       dataDir: config.dataDir,
@@ -63,7 +69,7 @@ export async function createPipelineServices(services) {
         ),
     });
     await pipelineQueue.recover();
-    signalDeletes(pipelines, () => services.live, pipelineQueue);
+    signalDeletes(pipelines, () => services.live, pipelineQueue, pipelineRunCounts);
   } catch (error) {
     await pipelineQueue?.close();
     await pipelines.close();
@@ -75,15 +81,17 @@ export async function createPipelineServices(services) {
     pipelineWorkspace,
     pipelines,
     pipelineQueue,
+    pipelineRunCounts,
   };
 }
 
-// A deleted run leaves the store without a save: its topic and the queue item that
-// started it still learn it.
-function signalDeletes(engine, hub, queue) {
+// A deleted run leaves the store without a save: its topic, the queue item that
+// started it, the counts and the lists that showed it still learn it.
+function signalDeletes(engine, hub, queue, counts) {
   const remove = engine.delete;
   engine.delete = async function (id, ...rest) {
     await remove.call(this, id, ...rest);
     pipelineRunChanged(hub(), queue, { id });
+    pipelineListsChanged(hub(), counts.forget(id), null);
   };
 }

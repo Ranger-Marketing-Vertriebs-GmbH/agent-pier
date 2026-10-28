@@ -4,7 +4,6 @@ import Icon from "../../components/Icon.jsx";
 import { Pagination } from "../../components/Pagination.jsx";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
-import useResource from "../../lib/useResource.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { projectsHubCopy as copy } from "../../lib/i18n/messages/projects.js";
@@ -12,6 +11,7 @@ import NewRunDialog from "../pipelines/NewRunDialog.jsx";
 import RunStatusFilter from "../pipelines/RunStatusFilter.jsx";
 import RunTable from "../pipelines/RunTable.jsx";
 import { runsPaging } from "../pipelines/runs-paging.js";
+import useRunList from "../pipelines/useRunList.js";
 import useRunStatusCounts from "../pipelines/useRunStatusCounts.js";
 import { pipelineRunRoute, projectsRoute, projectsRoutePath } from "./routes.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
@@ -53,18 +53,16 @@ export default function ProjectRuns({ project, route, onNavigate, home, reloadHu
     page = route.pipelinePage || 1;
   const [version, setVersion] = useState(0);
   const [starting, setStarting] = useState(false);
-  const query = new URLSearchParams({
-    page: String(page),
+  const list = useRunList({
     projectId: memoryId || "",
-    ...(status ? { status } : {}),
+    status,
+    page,
+    enabled: Boolean(memoryId),
   });
-  const list = useResource(memoryId ? `/pipeline-runs?${query}` : null, { poll: 5000 });
   const counts = useRunStatusCounts({
     projectId: memoryId || "",
     enabled: Boolean(memoryId),
     version,
-    listKey: JSON.stringify([status, page]),
-    listData: list.data,
   });
   const navigate = (changes) =>
     onNavigate({ ...route, projectId: project.id, projectTab: "runs", ...changes });

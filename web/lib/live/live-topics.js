@@ -1,10 +1,23 @@
 // The live topics the browser knows (server/features/live/live-hub.js serves them):
 // how a frame is applied (`rows`: ChatSync rows rebuilt with applyListSync, `state`:
-// the whole value), the REST route that answers the same data for `stale` and the
-// fallback, the fallback's poll interval, and whether the server samples the topic
-// (then a hidden tab unsubscribes it at once). Pure: the Node test stub imports it.
+// the whole value, `signal`: only `changed`, the caller names the route to read), the
+// REST route that answers the same data for `stale` and the fallback, the fallback's
+// poll interval, whether the parameter may be left out (`optionalParam`), and whether
+// the server samples the topic (then a hidden tab unsubscribes it at once). Pure: the
+// Node test stub imports it.
 const session = (suffix) => (id) => `/sessions/${encodeURIComponent(id)}/${suffix}`;
 const under = (base) => (id) => `${base}/${encodeURIComponent(id)}`;
+// `<projectId|*>:<status|*>`: page 1 of the run list with those filters.
+const runList = (param) => {
+  const split = param.indexOf(":");
+  const projectId = param.slice(0, split),
+    status = param.slice(split + 1);
+  return `/pipeline-runs?${new URLSearchParams({
+    page: "1",
+    ...(projectId && projectId !== "*" ? { projectId } : {}),
+    ...(status && status !== "*" ? { status } : {}),
+  })}`;
+};
 
 export const liveTopics = Object.freeze({
   state: Object.freeze({ mode: "rows", path: () => "/state", interval: 3000 }),
@@ -31,11 +44,30 @@ export const liveTopics = Object.freeze({
     path: under("/pipeline-queue"),
     interval: 3000,
   }),
+  // The pills' former poll; the counts change only with a run's status or project.
+  "pipeline.counts": Object.freeze({
+    mode: "state",
+    path: (projectId) =>
+      projectId
+        ? `/pipeline-run-counts?${new URLSearchParams({ projectId })}`
+        : "/pipeline-run-counts",
+    optionalParam: true,
+    interval: 30000,
+  }),
+  "pipeline.runs": Object.freeze({ mode: "state", path: runList, interval: 5000 }),
+  // Later pages and other filters: `changed`, then one read of the caller's route.
+  "pipeline.runs.changed": Object.freeze({
+    mode: "signal",
+    path: null,
+    optionalParam: true,
+    interval: 5000,
+  }),
 });
 
 /**
  * The registry entry of `topicId` ("name" or "name:param", split at the first ":"),
- * or null for an unknown name or a parameter the topic does not take or needs.
+ * or null for an unknown name or a parameter the topic does not take or needs. A
+ * signal topic's `path` is null.
  */
 export function topicInfo(topicId) {
   if (typeof topicId !== "string") return null;
@@ -43,8 +75,14 @@ export function topicInfo(topicId) {
   const name = split < 0 ? topicId : topicId.slice(0, split);
   const param = split < 0 ? undefined : topicId.slice(split + 1);
   if (!Object.hasOwn(liveTopics, name)) return null;
-  const { mode, path, interval, sampled = false } = liveTopics[name];
-  const takesParam = path.length > 0;
-  if (takesParam ? !param : param !== undefined) return null;
+  const {
+    mode,
+    path = null,
+    interval,
+    sampled = false,
+    optionalParam = false,
+  } = liveTopics[name];
+  if (param === "") return null;
+  if (!optionalParam && (path?.length > 0 ? !param : param !== undefined)) return null;
   return { name, param, mode, path, interval, sampled };
 }
