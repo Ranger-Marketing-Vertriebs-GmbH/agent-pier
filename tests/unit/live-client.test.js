@@ -112,10 +112,10 @@ test("state topics keep the revision as have and pass stale and changed on", asy
       { type: "changed" },
     ],
   );
-  // A later listener of the same topic gets the held data at once.
+  // A later listener is told the pushed value went stale, not shown the old one.
   const late = recorder();
   client.subscribe("inbox", late);
-  assert.deepEqual(late.events, [{ type: "data", data: { n: 2 }, revision: 8 }]);
+  assert.deepEqual(late.events, [{ type: "stale" }]);
   fake.last().drop(1012);
   await fake.advance(0);
   fake.last().hello("i1");
@@ -282,4 +282,109 @@ test("close ends the socket and all timers", (t) => {
   assert.equal(fake.timers.size, 0);
   client.subscribe("inbox", () => {});
   assert.equal(fake.sockets.length, 1);
+});
+
+test("a later listener gets the held data, or the stale or refusal in its place", (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  for (const topic of ["inbox", "session.models:a", "session.requests:a", "nope"])
+    client.subscribe(topic, () => {});
+  fake.last().hello();
+  const socket = fake.last();
+  socket.receive({ type: "snapshot", topic: "inbox", revision: 1, data: { n: 1 } });
+  socket.receive({ type: "error", topic: "session.models:a", code: "limit" });
+  socket.receive({
+    type: "snapshot",
+    topic: "session.requests:a",
+    revision: 1,
+    data: [],
+  });
+  socket.receive({ type: "revoked", topic: "session.requests:a" });
+  socket.receive({ type: "error", topic: "nope", code: "unknown-topic" });
+  const late = (topic) => {
+    const listener = recorder();
+    client.subscribe(topic, listener);
+    return listener.events;
+  };
+  assert.deepEqual(late("inbox"), [{ type: "data", data: { n: 1 }, revision: 1 }]);
+  assert.deepEqual(late("session.models:a"), [{ type: "error", code: "limit" }]);
+  assert.deepEqual(late("session.requests:a"), [{ type: "revoked" }]);
+  assert.deepEqual(late("nope"), [{ type: "error", code: "unknown-topic" }]);
+  socket.receive({ type: "stale", topic: "inbox", revision: 2 });
+  assert.deepEqual(late("inbox"), [{ type: "stale" }]);
+  socket.receive({ type: "state", topic: "inbox", revision: 3, data: { n: 3 } });
+  assert.deepEqual(late("inbox"), [{ type: "data", data: { n: 3 }, revision: 3 }]);
+});
+
+test("a refusal is forgotten by the next connection, which subscribes again", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("nope", () => {});
+  fake.last().hello();
+  fake.last().receive({ type: "error", topic: "nope", code: "unknown-topic" });
+  fake.last().drop(1012);
+  await fake.advance(0);
+  fake.last().hello();
+  assert.deepEqual(fake.last().sent, [{ op: "sub", topic: "nope" }]);
+  const late = recorder();
+  client.subscribe("nope", late);
+  assert.deepEqual(late.events, []);
+});
+
+test("a server that closes right after hello is retried with growing delays", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("state", () => {});
+  const delays = [];
+  for (let i = 0; i < 3; i++) {
+    fake.last().hello();
+    fake.last().drop(1013);
+    delays.push(fake.nextDelay());
+    await fake.advance(fake.nextDelay());
+  }
+  assert.deepEqual(delays, [500, 1000, 2000]);
+  // Ten seconds open count as working: the backoff starts over.
+  fake.last().hello();
+  await fake.advance(10000);
+  fake.last().drop(1013);
+  assert.equal(fake.nextDelay(), 500);
+});
+
+test("subscribing during an outage keeps the pending retry", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("state", () => {});
+  fake.last().drop(1006);
+  client.subscribe("inbox", () => {});
+  assert.equal(fake.sockets.length, 1);
+  await fake.advance(500);
+  assert.equal(fake.sockets.length, 2);
+});
+
+test("sampled comes from the registry whatever the caller passes", (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("session.models:a", () => {});
+  fake.last().hello();
+  fake.setHidden(true);
+  assert.deepEqual(fake.last().sent.at(-1), { op: "unsub", topic: "session.models:a" });
+});
+
+test("waking after sleep with online at once ends with one socket that resubscribes with have", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("inbox", () => {});
+  fake.last().hello("i1");
+  const asleep = fake.last();
+  asleep.answersPings = false;
+  asleep.receive({ type: "snapshot", topic: "inbox", revision: 4, data: { n: 4 } });
+  await fake.advance(50000);
+  assert.notEqual(asleep.closedWith, undefined);
+  fake.fire("online");
+  await fake.advance(60000);
+  assert.equal(fake.sockets.length, 2);
+  fake.last().hello("i1");
+  assert.deepEqual(fake.last().sent, [
+    { op: "sub", topic: "inbox", have: { instance: "i1", revision: 4 } },
+  ]);
 });
