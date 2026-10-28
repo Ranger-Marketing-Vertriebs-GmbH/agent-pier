@@ -78,6 +78,7 @@ export const operationsCopy = {
   byUser: (name) => `by ${name}`,
   byDeletedUser: "by a deleted user",
   byAgent: "by an agent",
+  byAgentName: (name) => `by agent ${name}`,
   sourceSystem: "System",
   sourceMcp: "MCP",
   manageMcpAccess: "Review or revoke MCP access",

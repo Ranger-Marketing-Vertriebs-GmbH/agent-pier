@@ -112,7 +112,8 @@ export function auditEvent(input) {
   const action = auditAction(input.action);
   if (
     !resources.has(input.resourceType) ||
-    // "agent": an agent acted on its own, e.g. created a project (audit-agent-project-details.js).
+    // "agent": an agent acted on its own, e.g. created a project
+    // (audit-agent-project-details.js).
     !["user", "system", "mcp", "agent"].includes(input.source) ||
     !["success", "failure"].includes(input.outcome)
   )

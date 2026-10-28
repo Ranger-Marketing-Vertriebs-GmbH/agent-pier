@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { auditAgentProject } from "../../server/features/assistants/assistant-access-audit.js";
+import { namedAuditEvents } from "../../server/http/routes/audit.js";
+import { auditActor } from "../../web/features/operations/audit-actor.js";
+import { withLanguage } from "../../web/lib/i18n/index.js";
 
 test("an agent's project creation is recorded with the agent as actor", () => {
   const e = auditEvent({
@@ -132,4 +135,55 @@ test("a failing audit store never fails the agent's project change", (t) => {
   });
   auditAgentProject({}, { assistantId: "agent-1", projectId: "p-1", change: "coding" });
   assert.equal(error.mock.callCount(), 1);
+});
+
+test("the audit log names the agent behind its own entries while it exists", () => {
+  const events = [
+    { action: "project.created", source: "agent", resourceId: "agent-1" },
+    { action: "project.created", source: "agent", resourceId: "agent-gone" },
+    { action: "assistant.updated", source: "user", resourceId: "agent-1" },
+    { action: "session.created", source: "user", actorUserId: "u1" },
+  ];
+  const named = namedAuditEvents(events, {
+    users: { list: () => [{ id: "u1", displayName: "Ada" }] },
+    assistants: { store: { listAssistants: () => [{ id: "agent-1", name: "Scout" }] } },
+  });
+  assert.deepEqual(named, [
+    { ...events[0], agentName: "Scout" },
+    { ...events[1], agentName: null },
+    events[2],
+    { ...events[3], actorName: "Ada" },
+  ]);
+  // No agent entry on the page: the agents are not read at all.
+  const unread = {
+    store: {
+      listAssistants() {
+        throw new Error("read");
+      },
+    },
+  };
+  assert.deepEqual(namedAuditEvents([events[2]], { assistants: unread }), [events[2]]);
+  assert.deepEqual(namedAuditEvents([events[0]]), [{ ...events[0], agentName: null }]);
+});
+
+test("the audit page labels an agent's own entries in both languages", () => {
+  const labels = (lang) =>
+    withLanguage(lang, () => [
+      auditActor({ source: "agent", agentName: "Scout" }),
+      auditActor({ source: "agent", agentName: null }),
+      auditActor({ source: "user" }),
+      auditActor({ source: "mcp" }),
+    ]);
+  assert.deepEqual(labels("en"), [
+    "by agent Scout",
+    "by an agent",
+    "by you (owner)",
+    "MCP",
+  ]);
+  assert.deepEqual(labels("de"), [
+    "vom Agenten Scout",
+    "von einem Agenten",
+    "von dir (Besitzer)",
+    "MCP",
+  ]);
 });
