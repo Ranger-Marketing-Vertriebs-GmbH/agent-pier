@@ -76,6 +76,9 @@ export default function NativeRequest({ request, updated, openTerminal }) {
       {plan && pending && <p>{copy.planHint}</p>}
       {request.subject && !startup && !plan && (
         <div>
+          {request.subject.agent && (
+            <small>{copy.fromAgent(request.subject.agent)}</small>
+          )}
           {request.subject.description && <p>{request.subject.description}</p>}
           {(request.subject.command ||
             request.subject.path ||

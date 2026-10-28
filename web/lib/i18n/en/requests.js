@@ -97,6 +97,7 @@ export const requestCopy = {
     keep: "Keep planning",
   },
   cwd: "Working directory",
+  fromAgent: (agent) => `From the ${agent} agent`,
   scopes: {
     turn: "For this turn",
     once: "Once",

@@ -5,7 +5,7 @@ import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers, claudeAnnotations } from "./native-questions.js";
 import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
 import { requestValue } from "./request-validation.js";
-import { watchNativeDecision } from "./claude-native-decision.js";
+import { subagentTranscriptPath, watchNativeDecision } from "./claude-native-decision.js";
 import { workflowMeta } from "./claude-workflow-meta.js";
 import {
   alwaysDecision,
@@ -16,6 +16,7 @@ import {
 
 // Without a transcript match a terminal approval cannot be observed, so such a
 // permission keeps the earlier bounded wait instead of holding chat for a day.
+// Subagent calls are matched in the subagent's own transcript.
 const unmatchedPermissionMs = 590000;
 
 // Model-facing text stays English like Claude's own tool results.
@@ -126,6 +127,8 @@ export function claudeRequest(data) {
               : undefined),
           name: workflow.name,
           cwd: data.cwd,
+          // Set for subagents (and sessions started with --agent).
+          agent: trimmed(data.agent_type, 200),
           description:
             trimmed(data.tool_input?.description, 2000) ?? workflow.description,
         },
@@ -204,10 +207,15 @@ export async function runClaudeHook({
       request.view.kind === "permission" && timeout === undefined
         ? setTimeout(() => finish("timeout"), unmatchedPermissionMs)
         : undefined;
+    // A subagent's call is only in its own transcript. The session transcript is
+    // not watched beside it: an identical main-agent call there would settle the
+    // wrong request. Without a usable agent id the session transcript remains.
     const stopWatching =
       data.hook_event_name === "PermissionRequest"
         ? watchNativeDecision({
-            transcriptPath: data.transcript_path,
+            transcriptPath:
+              subagentTranscriptPath(data.transcript_path, data.agent_id) ??
+              data.transcript_path,
             toolName: data.tool_name,
             toolInput: data.tool_input,
             onMatched: () => clearTimeout(unmatched),

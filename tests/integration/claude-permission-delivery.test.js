@@ -10,6 +10,11 @@ import {
 } from "../../server/features/requests/request-broker.js";
 import { runClaudeHook } from "../../server/features/requests/claude-hook.js";
 import { claudeHookTimeoutSeconds } from "../../server/features/requests/claude-runtime.js";
+import {
+  subagentSession,
+  subagentToolResult,
+  subagentToolUse,
+} from "../fixtures/requests/claude-subagent-permission.js";
 
 const workflow = {
   hook_event_name: "PermissionRequest",
@@ -150,27 +155,115 @@ test("a Claude permission keeps waiting in chat past the old 590 s fallback", as
   assert.deepEqual(after.notice, { id: request.id, reason: "terminal" });
 });
 
-test("a permission whose tool call is not in the transcript keeps the bounded wait", async (t) => {
-  const f = await fixture(t);
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  // A terminal approval cannot be observed here, so chat must not hold it for a day.
-  const run = hook(f, {
-    ...workflow,
-    transcript_path: path.join(f.root, "missing.jsonl"),
+for (const [name, extra] of [
+  ["the main agent", {}],
+  // A subagent whose transcript never shows the call (an unknown layout).
+  ["a subagent", { agent_id: "a0f1e2d3c4b5a6978", agent_type: "general-purpose" }],
+  // An unsafe agent id is never joined into a path; the session transcript stays.
+  ["an unsafe agent id", { agent_id: "../x" }],
+])
+  test(`a permission of ${name} found in no transcript keeps the bounded wait`, async (t) => {
+    const f = await fixture(t);
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    // A terminal approval cannot be observed here, so chat must not hold it for a day.
+    const run = hook(f, {
+      ...workflow,
+      ...extra,
+      transcript_path: path.join(f.root, "missing.jsonl"),
+    });
+    const request = await pending(f);
+    await turns();
+    t.mock.timers.tick(589_000);
+    await turns();
+    assert.equal(run.ended(), false);
+    t.mock.timers.tick(2_000);
+    await run.done;
+    assert.equal(run.output(), "");
+    const after = await waitFor(
+      () => state(f),
+      (value) => !value.requests.length && value.notice,
+    );
+    assert.deepEqual(after.notice, { id: request.id, reason: "terminal" });
   });
+
+test("a subagent permission keeps waiting in chat past 590 s", async (t) => {
+  const f = await fixture(t);
+  // Claude records a subagent's call only in the subagent's own transcript.
+  const { payload } = await subagentSession(f.root);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const run = hook(f, payload);
   const request = await pending(f);
+  assert.equal(request.subject.agent, "general-purpose");
   await turns();
-  t.mock.timers.tick(589_000);
+  t.mock.timers.tick(590_000 + 5_000);
+  await turns();
+  assert.equal(run.ended(), false, "the hook must still own the subagent's permission");
+  const [still] = (await state(f)).requests;
+  assert.equal(still?.id, request.id);
+  assert.equal(still.status, "pending");
+  assert.equal(
+    f.events.some((event) => event.action === "request.expired"),
+    false,
+  );
+  t.mock.timers.tick(claudeHookTimeoutSeconds * 1000 - 10_000 - 595_000);
+  await run.done;
+});
+
+test("a subagent transcript written after the hook started still lifts the bound", async (t) => {
+  const f = await fixture(t);
+  const { payload, file } = await subagentSession(f.root, { write: false });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const run = hook(f, payload);
+  await pending(f);
+  await turns();
+  await fs.writeFile(file, subagentToolUse(payload));
+  // The watcher polls every 500 ms until the file appears.
+  for (let i = 0; i < 4; i++) {
+    t.mock.timers.tick(500);
+    await turns();
+  }
+  t.mock.timers.tick(590_000);
   await turns();
   assert.equal(run.ended(), false);
-  t.mock.timers.tick(2_000);
+  t.mock.timers.tick(claudeHookTimeoutSeconds * 1000);
   await run.done;
-  assert.equal(run.output(), "");
+});
+
+test("a subagent call decided in Claude's own dialog withdraws the chat request", async (t) => {
+  const f = await fixture(t);
+  const { payload, file } = await subagentSession(f.root);
+  const run = hook(f, payload, { timeout: 10_000 });
+  const request = await pending(f);
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(run.ended(), false);
+  // Approved in the terminal: the subagent ran the tool and recorded its result.
+  await fs.appendFile(file, subagentToolResult());
+  await run.done;
+  assert.equal(run.output(), "", "the hook never decides after Claude did");
   const after = await waitFor(
     () => state(f),
-    (value) => !value.requests.length && value.notice,
+    (value) => !value.requests.length,
   );
-  assert.deepEqual(after.notice, { id: request.id, reason: "terminal" });
+  assert.equal(after.notice, undefined);
+  assert.ok(
+    f.events.some(
+      (event) => event.action === "request.expired" && event.resourceId === request.id,
+    ),
+  );
+});
+
+test("a subagent's identical call in the session transcript does not settle its request", async (t) => {
+  const f = await fixture(t);
+  const { payload, transcript, file } = await subagentSession(f.root);
+  // The main agent may run the same command; only the subagent's result counts.
+  await fs.appendFile(transcript, toolUse(payload, "toolu_main"));
+  const run = hook(f, payload, { timeout: 10_000 });
+  await pending(f);
+  await fs.appendFile(transcript, toolResult("toolu_main"));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(run.ended(), false);
+  await fs.appendFile(file, subagentToolResult());
+  await run.done;
 });
 
 test("a decision in Claude's own dialog withdraws the chat request without a notice", async (t) => {
