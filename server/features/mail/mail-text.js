@@ -63,6 +63,54 @@ const lines = new Set([
 const cells = new Set(["td", "th"]);
 const safeLink = /^(https?:|mailto:)/i;
 
+// Parsing is quadratic in the nesting depth and serializing recurses, so a hostile
+// mail could block the server: HTML with more tags or deeper nesting than this is
+// never parsed (htmlToText, mail-forward.js quotedHtml). Ordinary newsletters stay
+// far below both.
+export const htmlBounds = Object.freeze({ tags: 20_000, depth: 500 });
+const voidTags = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
+]);
+// Elements whose end tag is optional: an unclosed one does not nest deeper.
+const openEnded = new Set(["p", "li", "td", "th", "tr", "dt", "dd", "option"]);
+const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)[^<>]*?(\/?)>/g;
+
+/**
+ * Whether `html` is within htmlBounds, by one linear scan: at most `tags` start tags
+ * and an estimated nesting depth of at most `depth` (start tags that are not void,
+ * self-closed or open-ended count up, end tags down).
+ */
+export function htmlWithinBounds(html) {
+  let tags = 0;
+  let depth = 0;
+  for (const [, end, name, selfClosed] of html.matchAll(tagPattern)) {
+    const tag = name.toLowerCase();
+    if (end) {
+      if (!voidTags.has(tag) && !openEnded.has(tag)) depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (++tags > htmlBounds.tags) return false;
+    if (selfClosed || voidTags.has(tag) || openEnded.has(tag)) continue;
+    if (++depth > htmlBounds.depth) return false;
+  }
+  return true;
+}
+
+/** What an agent reads instead of HTML beyond htmlBounds. */
+export const tooComplexText = "[The HTML of this mail is too complex to read.]";
+
 /** Cuts `text` at `maxChars` code units, never inside a surrogate pair. */
 export function clipText(text, maxChars) {
   if (text.length <= maxChars) return { text, truncated: false };
@@ -135,9 +183,22 @@ const nodeText = (node) => {
 /**
  * Plain text of an HTML mail part: scripts, styles, head, templates and comments
  * dropped; blocks and `<br>` become line breaks, list items `- `, links to http(s) or
- * mailto `text (href)`; runs of blank lines collapse. Never returns markup.
+ * mailto `text (href)`; runs of blank lines collapse. Never returns markup. HTML
+ * beyond htmlBounds is never parsed, and HTML whose parsing fails is not converted:
+ * both give `tooComplexText` with `tooComplex: true`.
  */
 export function htmlToText(html, maxChars) {
+  const source = String(html);
+  const tooComplex = { text: tooComplexText, truncated: false, tooComplex: true };
+  if (!htmlWithinBounds(source)) return tooComplex;
+  try {
+    return convert(source, maxChars);
+  } catch {
+    return tooComplex;
+  }
+}
+
+function convert(html, maxChars) {
   const sink = new TextSink(maxChars);
   // An explicit stack: a deeply nested mail must not overflow the call stack. parse5
   // parses with scripting on, so <noscript> content stays inside it as raw text

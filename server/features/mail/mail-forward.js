@@ -12,7 +12,7 @@ import {
   textPart,
 } from "./mail-messages.js";
 import { attachmentLimits, messageParts } from "./mail-parts.js";
-import { htmlToText } from "./mail-text.js";
+import { htmlBounds, htmlToText, htmlWithinBounds } from "./mail-text.js";
 import { draftFields } from "./mail-compose.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 
@@ -117,6 +117,9 @@ export async function loadOriginal(
   };
 }
 
+// The bounds within which mail HTML is parsed at all (mail-text.js).
+export { htmlBounds as quoteBounds, htmlWithinBounds as quotable };
+
 // Elements of the original's HTML that could reach beyond its quote (a base URL,
 // styles of the whole forward, refreshes, scripts, embedded or active content) are
 // dropped, and so are comments (Outlook honors conditional ones) and every inline
@@ -133,51 +136,6 @@ const droppedTags = new Set([
   "embed",
   "plaintext",
 ]);
-// Parsing is quadratic in the nesting depth and the serializer recurses, so a
-// hostile mail could block the server: HTML with more tags or deeper nesting than
-// this is not parsed and goes along as text only. Ordinary newsletters stay far
-// below both.
-export const quoteBounds = Object.freeze({ tags: 20_000, depth: 500 });
-const voidTags = new Set([
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "source",
-  "track",
-  "wbr",
-]);
-// Elements whose end tag is optional: an unclosed one does not nest deeper.
-const openEnded = new Set(["p", "li", "td", "th", "tr", "dt", "dd", "option"]);
-const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)[^<>]*?(\/?)>/g;
-
-/**
- * Whether `html` is within quoteBounds, by one linear scan: at most `tags` start tags
- * and an estimated nesting depth of at most `depth` (start tags that are not void,
- * self-closed or open-ended count up, end tags down).
- */
-export function quotable(html) {
-  let tags = 0;
-  let depth = 0;
-  for (const [, end, name, selfClosed] of html.matchAll(tagPattern)) {
-    const tag = name.toLowerCase();
-    if (end) {
-      if (!voidTags.has(tag) && !openEnded.has(tag)) depth = Math.max(0, depth - 1);
-      continue;
-    }
-    if (++tags > quoteBounds.tags) return false;
-    if (selfClosed || voidTags.has(tag) || openEnded.has(tag)) continue;
-    if (++depth > quoteBounds.depth) return false;
-  }
-  return true;
-}
-
 /**
  * The original's HTML as quoted, or null when it is not quotable or cannot be
  * parsed: only the content of its `<body>`, without comments, inline styles and the
@@ -185,7 +143,7 @@ export function quotable(html) {
  */
 export function quotedHtml(html) {
   const source = String(html);
-  if (!quotable(source)) return null;
+  if (!htmlWithinBounds(source)) return null;
   try {
     const document = parse(source);
     const root = document.childNodes.find((n) => n.nodeName === "html");

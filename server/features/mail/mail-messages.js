@@ -247,6 +247,8 @@ export async function readMessage(client, folder, uid) {
     inReplyTo: cut(envelope.inReplyTo, mailBounds.headerChars) || null,
     text: text.text,
     truncated: text.truncated,
+    // The HTML-only text could not be read: too many tags or nested too deeply.
+    ...(text.tooComplex && { htmlTooComplex: true }),
     attachments: attachmentsOf(row.bodyStructure)
       .slice(0, mailBounds.attachments)
       .map((node) => ({
