@@ -14,6 +14,7 @@ import {
 import { LiveHub } from "../../server/features/live/live-hub.js";
 import { ChatEvents } from "../../server/features/chat/chat-events.js";
 import { composerScreen } from "../fixtures/requests/claude-startup-prompts.js";
+import { STARTUP_GRACE_MS } from "../../server/features/requests/claude-startup-prompts.js";
 import { subscribe, until } from "../helpers/live-hub-subscriber.js";
 
 const request = {
@@ -33,7 +34,7 @@ const pushed = (frame) => frame.type === "state";
  * (Claude has written no receipt yet), a broker wired to the hub as services.js wires
  * it, and the topic with a short sampler. `startupDone()` writes the receipt.
  */
-async function fixture(t, { sampleMs = 30 } = {}) {
+async function fixture(t, { sampleMs = 30, graceMs = 0 } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-live-session-"));
   const cwd = path.join(root, "project");
   await fs.mkdir(cwd);
@@ -88,7 +89,7 @@ async function fixture(t, { sampleMs = 30 } = {}) {
     );
   Object.assign(services, { requests: broker, sessions });
   const hub = new LiveHub({ debounceMs: 10, maxWaitMs: 50 });
-  hub.define(sessionRequestsTopic(services, { sampleMs }));
+  hub.define(sessionRequestsTopic(services, { sampleMs, graceMs }));
   services.live = hub;
   const channel = new NativeRequestChannel({ env: launch.env });
   t.after(async () => {
@@ -216,6 +217,28 @@ test("the startup sampler stops once startup is complete", async (t) => {
   await delay(400);
   assert.equal(f.counts.screens, settled);
   tab.stop();
+});
+
+test("sampling goes on for the grace period after the receipt, then stops", async (t) => {
+  const f = await fixture(t, { graceMs: 600 });
+  const tab = subscribe(f.hub, topic);
+  await tab.next();
+  await f.startupDone();
+  const written = Date.now();
+  // Within the grace period a late startup dialog is still looked for on a timer.
+  const confirmed = f.counts.screens;
+  await until(() => f.counts.screens >= confirmed + 3, 500);
+  assert.ok(Date.now() - written < 600);
+  // Past the grace period (and one sample that may still run), nothing samples.
+  await delay(Math.max(0, written + 700 - Date.now()));
+  const settled = f.counts.screens;
+  await delay(400);
+  assert.equal(f.counts.screens, settled);
+  tab.stop();
+});
+
+test("the planned grace period names 20 s", () => {
+  assert.equal(STARTUP_GRACE_MS, 20000);
 });
 
 test("after startup, broker changes and native activity still push", async (t) => {
