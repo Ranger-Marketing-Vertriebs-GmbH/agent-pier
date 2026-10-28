@@ -661,7 +661,12 @@ The device login uses the supported Gateway wizard and remains tied to its
 originating connection. Only the official OpenAI URL and current device code reach
 the browser. Cancellation, disconnect and expiry terminate or invalidate the
 attempt; navigating away preserves its non-secret ID for resuming the display.
-Sign-in is not a generic proxy for arbitrary native wizard prompts.
+Sign-in is not a generic proxy for arbitrary native wizard prompts. The display follows
+the attempt over the [live channel](architecture.md#live-channel) (the owner-only
+`job.chatgpt-login:current` topic, the same value as
+`GET /api/assistant-model-login/current`); an answer about another attempt makes the
+page read its own attempt once. Without the live channel it reads the attempt every
+second while visible.
 
 OpenClaw offers only the provider logins of plugins that a restrictive
 `plugins.allow` lists, so the team-mode compile always allows the bundled `openai`

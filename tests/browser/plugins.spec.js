@@ -1,5 +1,6 @@
 import { openExtensions } from "../helpers/navigation.js";
 import { test, expect } from "../helpers/browser-test.js";
+import { recordApiRequests } from "../helpers/visibility.js";
 import { baseURL as base } from "../helpers/browser.js";
 import {
   expectNoHorizontalOverflow,
@@ -347,4 +348,34 @@ test("a marketplaces link for OpenCode normalises to Skills without showing the 
   );
   await page.goBack();
   await expect(page).not.toHaveURL(/tab=marketplaces/);
+});
+
+// A change that runs elsewhere (another tab) is followed on the live job.plugins topic
+// (here answered from the REST mock): its end is pushed, the page polls nothing.
+test("a plugin change running elsewhere is followed until it ends", async ({
+  page,
+  liveStub,
+}) => {
+  const { data } = await setup(page);
+  data.busy = true;
+  await page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  const notice = page
+    .getByRole("status")
+    .filter({ hasText: "CLI führt die Änderung aus" });
+  await expect(notice).toBeVisible();
+  await liveStub.waitForSubscribe("job.plugins:fixture-claude");
+  const requests = recordApiRequests(page);
+  await page.waitForTimeout(2500);
+  Object.assign(data, {
+    busy: false,
+    installed: [{ id: "demo@fixture", name: "Demo", version: "1.0.0", removable: true }],
+  });
+  await expect(extensionRow(page, "Demo")).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await expect
+    .poll(() => liveStub.subscriptions())
+    .not.toContain("job.plugins:fixture-claude");
+  expect(requests.list().filter((request) => request.path.endsWith("/plugins"))).toEqual(
+    [],
+  );
 });

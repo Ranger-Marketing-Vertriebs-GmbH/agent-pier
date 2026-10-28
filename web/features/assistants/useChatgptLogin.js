@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assistantApi } from "./assistant-api.js";
-import usePolling from "./usePolling.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 
 const savedLogin = "agentpier-assistant-login";
 export const activeAttempt = (attempt) =>
   ["starting", "awaiting_user"].includes(attempt?.status);
 
-/** The device-code login; a reload of the page resumes a login still waiting. */
+/**
+ * The device-code login; a reload of the page resumes a login still waiting. While
+ * an attempt is active it follows the live `job.chatgpt-login:current` topic (every
+ * change of the attempt is pushed); a REST read, when the channel needs one, asks
+ * for this attempt by its id.
+ */
 export default function useChatgptLogin({ reload }) {
   const [attempt, setAttempt] = useState(() => {
     const id = sessionStorage.getItem(savedLogin);
@@ -15,27 +20,36 @@ export default function useChatgptLogin({ reload }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const id = activeAttempt(attempt) ? attempt.id : null;
-  usePolling(
-    async (signal) => {
-      try {
-        const next = await assistantApi.loginStatus(id);
-        if (signal.aborted) return;
-        setAttempt(next);
-        if (!activeAttempt(next)) {
-          sessionStorage.removeItem(savedLogin);
-          await reload();
-        }
-      } catch (failure) {
-        if (!signal.aborted) {
-          sessionStorage.removeItem(savedLogin);
-          setAttempt({ id, status: "failed" });
-          setError(failure.message);
-        }
-      }
-    },
-    1000,
-    { enabled: !!id, restartKey: id },
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+  const {
+    data,
+    error: readError,
+    refresh,
+  } = useLiveTopic(
+    id ? "job.chatgpt-login:current" : null,
+    id ? `/assistant-model-login/${encodeURIComponent(id)}` : undefined,
   );
+  useEffect(() => {
+    if (!id || !data) return;
+    // Another attempt's answer (an earlier one, or one that replaced this attempt):
+    // this attempt's own route says what became of it (gone: 404, see below).
+    if (data.id !== id) {
+      void refresh();
+      return;
+    }
+    setAttempt(data);
+    if (!activeAttempt(data)) {
+      sessionStorage.removeItem(savedLogin);
+      void reloadRef.current();
+    }
+  }, [data, id, refresh]);
+  useEffect(() => {
+    if (!id || !readError) return;
+    sessionStorage.removeItem(savedLogin);
+    setAttempt({ id, status: "failed" });
+    setError(readError);
+  }, [readError, id]);
   async function perform(operation) {
     setBusy(true);
     setError("");

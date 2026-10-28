@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { problem } from "../../lib/storage.js";
+import { sessionSshAccesses } from "../../features/ssh/session-accesses.js";
 
 export function sshRoutes({
   sshAccesses,
@@ -148,10 +149,8 @@ export function sshRoutes({
     );
     res.status(204).end();
   });
-  const sessionAccesses = async (session, result) => ({
-    ...(await (result ?? sshSessions.get(session))),
-    ...(sshIntegration ? { tools: sshIntegration.status(session) } : {}),
-  });
+  const sessionAccesses = (session, result) =>
+    sessionSshAccesses({ sshSessions, sshIntegration }, session, result);
   router.get("/sessions/:id/ssh-accesses", async (req, res) =>
     res.json(await sessionAccesses(await sessions.get(req.params.id))),
   );

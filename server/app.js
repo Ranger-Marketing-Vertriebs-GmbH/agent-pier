@@ -6,6 +6,7 @@ import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
+import { reloadChanged } from "./features/sessions/live-reload-topic.js";
 import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
 import { secretsRoutes } from "./http/routes/secrets.js";
 import { mailRoutes } from "./http/routes/mail.js";
@@ -149,6 +150,7 @@ export async function createApplication(config) {
   services.directory = directoryResolver(config.home);
   Object.assign(services, createSessionLifecycle(services));
   services.reload = new SessionReload({ services });
+  services.reload.onChange = (id) => reloadChanged(services.live, id);
   await services.reload.initialize();
   services.autoResume = new SessionAutoResume({
     services,

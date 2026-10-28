@@ -35,6 +35,11 @@ remain shared; this is configuration isolation, not an OS security boundary.
 The change ships in ordinary release packages and needs no additional runtime
 installation. Reload or start a session to load changed native plugin configuration.
 
+While a plugin change runs for a profile in another tab, the Plugins tab shows that the
+CLI is applying it and follows its end over the
+[live channel](architecture.md#live-channel), then shows the new list; it reads nothing
+in the meantime. Without the live channel it reads the list every 2 s while visible.
+
 ## Installing skills
 
 **Extensions › Skills › Install skill** installs one skill into the selected CLI

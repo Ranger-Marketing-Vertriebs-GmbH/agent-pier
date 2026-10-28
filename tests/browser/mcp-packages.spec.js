@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { accountDetail, openAccountItem, saveBar } from "../helpers/accounts-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { recordApiRequests } from "../helpers/visibility.js";
 import { openAdd } from "./mcp-cli-fixture.js";
 import {
   acceptCreate,
@@ -476,4 +477,53 @@ test("a new package name clears the chosen version until its list loads", async 
   await expect(version).toHaveValue("");
   release();
   await expect(version).toHaveValue("1.1.0");
+});
+
+// A job follows the live job.mcp-package topic (answered here from the REST mock): its
+// progress and end arrive without a read of the page, and an earlier job's answer is
+// not taken.
+test("a package job follows its pushed progress and ignores an earlier job", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await packageSetup(page, { servers: [packagedServer("installing")] });
+  const job = (state, startedAt, log) => ({
+    kind: "update",
+    state,
+    code: null,
+    log,
+    startedAt,
+  });
+  state.packageStatus = {
+    source: state.servers[0].source,
+    job: job("running", "2026-10-28T10:00:02.000Z", "step one\n"),
+    error: null,
+  };
+  await page.goto(baseURL + "/connections?section=mcp-servers");
+  const dialog = await openAccountItem(page, "pkg");
+  const panel = dialog.getByRole("region", { name: "Package" });
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Installing …" }),
+  ).toBeVisible();
+  await liveStub.waitForSubscribe("job.mcp-package:s1");
+  const requests = recordApiRequests(page);
+  state.packageStatus = {
+    ...state.packageStatus,
+    job: job("done", "2026-10-28T10:00:01.000Z", "earlier\n"),
+  };
+  await page.waitForTimeout(3000);
+  await expect(
+    panel.getByRole("status").filter({ hasText: "Installing …" }),
+  ).toBeVisible();
+  await expect(panel.getByText("earlier")).toHaveCount(0);
+  state.servers = [packagedServer("ready")];
+  state.packageStatus = {
+    source: state.servers[0].source,
+    job: job("done", "2026-10-28T10:00:02.000Z", "step one\nstep two\n"),
+    error: null,
+  };
+  await expect(panel.getByRole("status").filter({ hasText: "Installed" })).toBeVisible();
+  expect(requests.list().filter((request) => request.path.endsWith("/package"))).toEqual(
+    [],
+  );
 });

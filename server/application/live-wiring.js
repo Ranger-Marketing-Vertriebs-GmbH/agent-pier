@@ -21,6 +21,11 @@ import {
 } from "../features/operations/live-topics.js";
 import { defineToolJobTopics } from "../features/tools/live-topics.js";
 import { defineJobTopic } from "../features/live/job-topics.js";
+import { mcpPackageJob } from "../features/mcp-packages/live-topics.js";
+import { pluginsJob } from "../features/plugins/live-topics.js";
+import { sshToolsJob } from "../features/ssh/live-topics.js";
+import { chatgptLoginJob } from "../features/assistants/live-login-topics.js";
+import { sessionReloadTopic } from "../features/sessions/live-reload-topic.js";
 import {
   artifactsChangedTopic,
   artifactsUsageTopic,
@@ -69,6 +74,11 @@ export function createLiveHub(services, options = {}) {
   hub.define(runtimeUpdatesTopic(services));
   defineJobTopic(hub, operationJob(services));
   defineToolJobTopics(hub, services);
+  defineJobTopic(hub, mcpPackageJob(services));
+  defineJobTopic(hub, pluginsJob(services));
+  defineJobTopic(hub, sshToolsJob(services));
+  defineJobTopic(hub, chatgptLoginJob(services));
+  hub.define(sessionReloadTopic(services));
   hub.define(releaseSessionsTopic(services));
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());

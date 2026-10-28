@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
+import { recordApiRequests } from "../helpers/visibility.js";
 
 async function fixture(page, language = "en", configure = () => {}) {
   const state = {
@@ -276,17 +277,27 @@ test("SSH reload requires saved assignments and advanced commands stay collapsed
   expect(state.posts).toEqual([]);
 });
 
-test("SSH readiness updates without losing unsaved choices", async ({ page }) => {
+test("SSH readiness updates without losing unsaved choices", async ({
+  page,
+  liveStub,
+}) => {
   const state = await fixture(page, "de");
   await page.setViewportSize({ width: 390, height: 844 });
   state.tools.state = "starting";
+  const requests = recordApiRequests(page);
   await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
   await expect(dialog(page)).toContainText("Warte auf die Verbindung der CLI");
   await dialog(page)
     .getByRole("checkbox", { name: /Build server/ })
     .check();
+  // Starting tools follow the sampled job.ssh-tools topic; the page reads them once.
+  await liveStub.waitForSubscribe("job.ssh-tools:reload");
   state.tools.state = "ready";
   await expect(dialog(page)).toContainText("SSH-Tools sind für diese Session bereit.");
+  await expect.poll(() => liveStub.subscriptions()).not.toContain("job.ssh-tools:reload");
+  expect(
+    requests.list().filter((request) => request.path.endsWith("/ssh-accesses")),
+  ).toHaveLength(1);
   await expect(
     dialog(page).getByRole("checkbox", { name: /Build server/ }),
   ).toBeChecked();
@@ -431,4 +442,24 @@ test("a started reload opens the terminal automatically for delayed hook approva
   await page.getByRole("button", { name: "Send Enter", exact: true }).click();
   await expect.poll(() => state.terminalInputs).toContain("\r");
   expect(state.posts).toHaveLength(1);
+});
+
+// The dialog follows the live session.reload topic (answered here from the REST mock):
+// a reload queued elsewhere shows without a read of its own.
+test("the reload dialog follows the pushed state and reads nothing itself", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await fixture(page);
+  const requests = recordApiRequests(page);
+  await open(page);
+  await expect(
+    dialog(page).getByRole("button", { name: "Wait until idle", exact: true }),
+  ).toBeVisible();
+  await liveStub.waitForSubscribe("session.reload:reload");
+  state.reload = { ...state.reload, state: "waiting", requestId: "elsewhere" };
+  await expect(dialog(page)).toContainText("Reload queued · waiting until idle");
+  expect(requests.list().filter((request) => request.path.endsWith("/reload"))).toEqual(
+    [],
+  );
 });

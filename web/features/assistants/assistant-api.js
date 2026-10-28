@@ -135,8 +135,6 @@ export const assistantApi = {
   resolveMcpCommand: (name) =>
     api(`/mcp-commands/resolve?name=${encodeURIComponent(name)}`),
   previewMcpPackage: (input) => api("/mcp-packages/preview", "POST", input),
-  mcpPackageStatus: (id, signal) =>
-    api(`/mcp-servers/${encodeURIComponent(id)}/package`, "GET", undefined, signal),
   updateMcpPackage: (id, input) =>
     api(`/mcp-servers/${encodeURIComponent(id)}/package/update`, "POST", input),
   reinstallMcpPackage: (id) =>
@@ -152,7 +150,6 @@ export const assistantApi = {
     api(`/mcp-servers/${encodeURIComponent(id)}/oauth/logout`, "POST", {}),
   accounts: () => api("/assistant-model-accounts"),
   startLogin: () => api("/assistant-model-login", "POST", {}),
-  loginStatus: (id) => api(`/assistant-model-login/${encodeURIComponent(id)}`),
   cancelLogin: (id) => api(`/assistant-model-login/${encodeURIComponent(id)}`, "DELETE"),
   checkAccount: (id) =>
     api(`/assistant-model-accounts/${encodeURIComponent(id)}/check`, "POST", {}),

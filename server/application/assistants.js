@@ -14,6 +14,7 @@ import { stageRuntimeInBackground } from "../features/assistants/runtime-provisi
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
+import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 
 /** Every service the assistant subsystem contributes; all are null while it is dormant. */
 export const assistantServiceNames = [
@@ -56,6 +57,8 @@ export function createAssistantServices(options) {
     const graph = connectAssistantServices(constructAssistantGraph(options, created));
     graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
     graph.assistantSkillCatalog = connectSkillCatalog(graph);
+    // Every change of a ChatGPT sign-in reaches its live topic (services.live).
+    graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one

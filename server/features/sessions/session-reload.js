@@ -33,6 +33,16 @@ export class SessionReload {
     this.pending = new Set();
     this.pollMs = pollMs;
     this.readinessMs = readinessMs;
+    // Called with the session id after every write of its reload state (assigned by
+    // the wiring: the live `session.reload` topic).
+    this.onChange = null;
+  }
+  changed(id) {
+    try {
+      this.onChange?.(id);
+    } catch {
+      console.error("AgentPier could not announce a session reload.");
+    }
   }
   serial(operation) {
     const next = this.queue.then(operation);
@@ -97,6 +107,7 @@ export class SessionReload {
     const current = await this.services.sessions.get(session.id);
     session.reload = { ...current.reload, ...patch, updatedAt: new Date().toISOString() };
     await this.services.sessions.updateReload(session.id, session.reload);
+    this.changed(session.id);
   }
   withAccounts(session, targetAccountId, operation) {
     const reserve = this.services.withAccountUsage || ((_id, run) => run());
