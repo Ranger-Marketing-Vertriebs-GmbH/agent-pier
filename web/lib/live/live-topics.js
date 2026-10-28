@@ -105,10 +105,12 @@ export const liveTopics = Object.freeze({
     path: (_id) => "/assistant-channels",
     interval: 2000,
   }),
+  // The Gateway's cron jobs are sampled by the server while a visible tab watches.
   "agent.reminders": Object.freeze({
     mode: "state",
     path: (id) => `/assistants/${encodeURIComponent(id)}/reminders`,
     interval: 10000,
+    sampled: true,
   }),
   // The bot's state is sampled by the server while a visible tab watches.
   "agent.senders": Object.freeze({

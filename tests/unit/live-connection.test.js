@@ -49,8 +49,8 @@ function fakeHub() {
   const subscriptions = [];
   return {
     subscriptions,
-    subscribe(principal, topic, have, send) {
-      const entry = { topic, have, send, active: true };
+    subscribe(principal, topic, have, send, { discard } = {}) {
+      const entry = { topic, have, send, discard, active: true };
       subscriptions.push(entry);
       return () => (entry.active = false);
     },
@@ -275,4 +275,29 @@ test("a resync after the hub closed subscribes nothing", async () => {
   hub.closed = true;
   await new Promise((resolve) => queueMicrotask(resolve));
   assert.equal(hub.subscriptions.length, 1);
+});
+
+test("discard drops the frame a slow reader still waits for, of its topic only", () => {
+  const { connection, hub, ws, clock } = setup();
+  connection.receive('{"op":"sub","topic":"a"}');
+  connection.receive('{"op":"sub","topic":"b"}');
+  const [a, b] = hub.subscriptions;
+  ws.bufferedAmount = QUEUE_BYTES + 1;
+  a.send({ type: "state", topic: "a", data: "hers" });
+  b.send({ type: "state", topic: "b", data: 1 });
+  a.discard();
+  ws.bufferedAmount = 0;
+  clock.tick();
+  assert.deepEqual(
+    ws.sent.map(({ topic, data }) => `${topic}${data}`),
+    ["b1"],
+  );
+  // A replaced subscription's discard leaves the new one's frame alone.
+  connection.receive('{"op":"sub","topic":"a"}');
+  ws.bufferedAmount = QUEUE_BYTES + 1;
+  hub.subscriptions[2].send({ type: "state", topic: "a", data: "new" });
+  a.discard();
+  ws.bufferedAmount = 0;
+  clock.tick();
+  assert.equal(ws.sent.at(-1).data, "new");
 });

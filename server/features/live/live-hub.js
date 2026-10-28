@@ -110,9 +110,10 @@ export class LiveHub {
    * Subscribes `send` to `topicId`. `have` ({instance, revision} or {instance,
    * cursor}) is what the client holds; the first frame is `same`, `delta` or
    * `snapshot` against it. A topic that does not resolve gets `unknownTopic` and
-   * nothing else. Returns the unsubscribe function.
+   * nothing else. `discard()` drops the frames the caller still holds back for this
+   * subscription (resetWhere). Returns the unsubscribe function.
    */
-  subscribe(principal, topicId, have, send) {
+  subscribe(principal, topicId, have, send, { discard } = {}) {
     if (this.closed) throw new Error("The live hub is closed");
     const resolved = this.resolve(principal, topicId);
     let scopeKey;
@@ -128,7 +129,7 @@ export class LiveHub {
     const key = JSON.stringify([topicId, scopeKey]);
     let instance = this.instances.get(key);
     if (!instance) instance = this.create(key, topicId, scopeKey, resolved);
-    const subscriber = { principal, have: plainHave(have), send, key };
+    const subscriber = { principal, have: plainHave(have), send, discard, key };
     instance.add(subscriber);
     return () => this.drop(instance, subscriber);
   }
@@ -187,6 +188,22 @@ export class LiveHub {
   invalidateWhere(name, predicate) {
     for (const instance of this.named(name))
       if (predicate(instance.param)) instance.invalidate();
+  }
+  /**
+   * The access behind the topics whose definition passes `predicate` changed (owner
+   * privacy): synchronously, each instance forgets its value, its subscribers' held
+   * frames are discarded and it reads again at once, answering every subscriber with
+   * a fresh snapshot; nobody, a late joiner included, gets the earlier value. Records
+   * without an instance forget their digest, so a resubscribe never hears `same`.
+   */
+  resetWhere(predicate) {
+    for (const [key, record] of this.records) {
+      const name = String(JSON.parse(key)[0]).split(":")[0];
+      const definition = this.topics.get(name)?.definition;
+      if (definition && predicate(definition)) record.digest = undefined;
+    }
+    for (const instance of [...this.instances.values()])
+      if (predicate(instance.definition)) instance.reset();
   }
   /** A sampled source of `name` may have changed: sample it before the next tick. */
   nudge(name, param) {

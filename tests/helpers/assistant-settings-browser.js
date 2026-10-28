@@ -45,7 +45,7 @@ export async function setupAssistantSettings(page, options = {}) {
     channelDelay: 0,
     actionDelay: options.actionDelay || 0,
     inflight: { actions: 0, maxActions: 0 },
-    counts: { channels: 0 },
+    counts: { channels: 0, actions: 0 },
     reviews: [],
     updates: [],
     opened: 0,
@@ -124,6 +124,7 @@ export async function setupAssistantSettings(page, options = {}) {
       return route.fulfill({ json: [] });
     }
     if (path === "/api/assistants/home/actions") {
+      if (!isLiveStubRequest(route.request())) state.counts.actions += 1;
       state.inflight.actions += 1;
       state.inflight.maxActions = Math.max(
         state.inflight.maxActions,

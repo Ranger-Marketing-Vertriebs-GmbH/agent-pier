@@ -89,6 +89,13 @@ export function createLiveHub(services, options = {}) {
   hub.define(releaseSessionsTopic(services));
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());
+  // Topics whose value depends on owner privacy start over on every privacy change,
+  // before anything else is sent (live-hub.js resetWhere).
+  const privacyChanged = () => {
+    if (!hub.closed) hub.resetWhere((definition) => definition.privacy === true);
+  };
+  services.ownerPrivacy?.on("changed", privacyChanged);
+  hub.onClose(() => services.ownerPrivacy?.off("changed", privacyChanged));
   return hub;
 }
 

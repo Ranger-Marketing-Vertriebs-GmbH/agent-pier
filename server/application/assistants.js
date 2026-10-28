@@ -18,6 +18,7 @@ import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js
 import {
   agentActionsChanged,
   agentChannelsChanged,
+  followReminderWrites,
 } from "../features/assistants/live-topics.js";
 
 /** Every service the assistant subsystem contributes; all are null while it is dormant. */
@@ -67,6 +68,7 @@ export function createAssistantServices(options) {
     graph.assistantWorkflows.onChange = (ids) => agentActionsChanged(options.live, ids);
     graph.assistantChannels.onChange = () => agentChannelsChanged(options.live);
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
+    followReminderWrites(graph.assistantReminders, () => options.live);
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one

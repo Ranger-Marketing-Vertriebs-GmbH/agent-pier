@@ -34,8 +34,14 @@ export default function useAssistantActions(assistantId, pushed = null) {
     !live && assistantId ? `agent.actions:${assistantId}` : null,
   );
   const { refresh } = topic;
-  // Settings report load failures; the chat keeps the last list.
-  const loaded = useMemo(() => (topic.data?.actions || []).filter(own), [topic.data]);
+  // The feed's last list stays until the topic's first value replaces it, so the
+  // cards never flash empty when the feed drops. Settings report load failures.
+  const [held, setHeld] = useState(null);
+  if (live && held !== pushed) setHeld(pushed);
+  const loaded = useMemo(
+    () => (topic.data ? topic.data.actions || [] : held || []).filter(own),
+    [topic.data, held],
+  );
   const load = useCallback(() => refresh(), [refresh]);
   const actions = useMemo(
     () => (live ? pushed.filter(own) : loaded).filter((a) => !hidden(a)),

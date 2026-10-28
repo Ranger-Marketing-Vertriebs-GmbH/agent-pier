@@ -6,14 +6,8 @@ import usePushedDecisions from "./usePushedDecisions.js";
 // Coding requests of a parent's team members. They follow the live
 // `agent.coding-requests:<id>` topic, which pushes every change. In the lead's chat,
 // `pushed` is the pending list its live feed carries while connected
-// (useAssistantActions); nothing is followed then. `_changes` is kept for callers
-// that still pass their team list: the push needs no reload on it.
-export default function useTeamCodingRequests(
-  assistantId,
-  enabled,
-  _changes,
-  pushed = null,
-) {
+// (useAssistantActions); nothing is followed then.
+export default function useTeamCodingRequests(assistantId, enabled, pushed = null) {
   const live = Array.isArray(pushed);
   const { hidden, hide } = usePushedDecisions(assistantId);
   const topic = useLiveTopic(
