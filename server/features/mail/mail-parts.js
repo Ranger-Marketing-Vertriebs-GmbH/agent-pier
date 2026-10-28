@@ -181,7 +181,7 @@ export async function messageParts(
  * `{ bytes, fetched, uidValidity }`: `fetched` is the size of the encoded body, as
  * BODYSTRUCTURE gives it before the download,
  * `uidValidity` is the folder's after the FETCH. More than `maxBytes` decoded is
- * MAIL_ATTACHMENT_TOO_LARGE, carrying that `uidValidity` too.
+ * MAIL_ATTACHMENT_TOO_LARGE, carrying that `uidValidity` and the `fetched` size too.
  */
 export async function partBytes(client, uid, info, { maxBytes }) {
   const raw = (await fetchRawParts(client, uid, [info.part])).get(info.part);
@@ -189,7 +189,10 @@ export async function partBytes(client, uid, info, { maxBytes }) {
   const body = rawBody(raw);
   const bytes = decodeTransfer(body, info.encoding);
   if (bytes.length > maxBytes)
-    throw Object.assign(mailError("MAIL_ATTACHMENT_TOO_LARGE"), { uidValidity });
+    throw Object.assign(mailError("MAIL_ATTACHMENT_TOO_LARGE"), {
+      uidValidity,
+      fetched: body.length,
+    });
   return { bytes, fetched: body.length, uidValidity };
 }
 

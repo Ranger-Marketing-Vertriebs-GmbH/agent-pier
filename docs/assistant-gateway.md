@@ -2755,7 +2755,9 @@ subject and date; Telegram shortens paths to 120 characters in the middle.
 `mail.sent` carries the attachment count and bytes.
 
 `search` with `attachmentText` (`mail-attachment-search.js`) scans at most 500
-candidates, 60 seconds and 200 MB; `partial: true` carries `reason` and `scanned`, or
+candidates, 60 seconds (opening the folder, the server search and each FETCH are
+given up on at the deadline) and 200 MB (each attachment counted before its download,
+also one given up on or refused as too large); `partial: true` carries `reason` and `scanned`, or
 `skipped` alone when extraction was busy or timed out under load. An extraction
 still waiting for a place when the search gives up leaves the queue with its bytes;
 one already running finishes and is cached. Extracted text is
