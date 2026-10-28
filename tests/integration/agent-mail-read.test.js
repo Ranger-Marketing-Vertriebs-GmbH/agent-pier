@@ -457,3 +457,39 @@ test("read of hostile nested HTML returns a placeholder quickly, never parsing i
   assert.equal(message.text, "Hello there");
   assert.equal(Object.hasOwn(message, "htmlTooComplex"), false);
 });
+
+// One tag with ~130,000 unique attributes (under 1 MiB): parse5's tokenizer takes
+// tens of seconds on it. The server's event loop must keep running meanwhile.
+const attributeProbe = () =>
+  `<a ${Array.from({ length: 130_000 }, (_, i) => `a${i}`).join(" ")}>x</a>`;
+
+/** The longest gap between ticks of a 20 ms interval while `promise` runs. */
+async function longestGap(promise) {
+  let last = performance.now();
+  let gap = 0;
+  const timer = setInterval(() => {
+    const now = performance.now();
+    gap = Math.max(gap, now - last);
+    last = now;
+  }, 20);
+  try {
+    return { value: await promise, gap: () => Math.max(gap, performance.now() - last) };
+  } finally {
+    clearInterval(timer);
+  }
+}
+
+test("read parses mail HTML off the event loop and falls back at its deadline", async (t) => {
+  const f = await readFixture(t);
+  const probe = attributeProbe();
+  assert.ok(Buffer.byteLength(probe) < 1_048_576);
+  const uid = f.seed(
+    `From: Sender <sender@example.org>\r\nTo: agent@example.com\r\nSubject: Attrs\r\nDate: Tue, 27 Oct 2026 08:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${probe}\r\n`,
+  );
+  const started = Date.now();
+  const { value, gap } = await longestGap(f.mail({ action: "read", uid }));
+  assert.ok(gap() < 200, `the event loop stalled for ${gap()} ms`);
+  assert.ok(Date.now() - started < 7_000);
+  assert.equal(value.message.text, "[The HTML of this mail is too complex to read.]");
+  assert.equal(value.message.htmlTooComplex, true);
+});

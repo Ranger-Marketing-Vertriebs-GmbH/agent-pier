@@ -179,7 +179,11 @@ function runChild(bytes, kind, limits, scriptUrl) {
     };
     child.on("message", (message) => {
       if (!reply && !unreadable && typeof message?.text === "string")
-        reply = { text: message.text, truncated: message.truncated === true };
+        reply = {
+          text: message.text,
+          truncated: message.truncated === true,
+          ...(message.tooComplex === true && { tooComplex: true }),
+        };
       else if (!reply && !unreadable && message?.failed === true)
         unreadable = message.document === true;
       else kill();
@@ -226,11 +230,24 @@ export async function extractText(
   }
   if (!childKinds.has(kind)) throw documentFailed("MAIL_TEXT_UNSUPPORTED");
   if (!startsWith(bytes, kind === "pdf" ? pdfMagic : zipMagic)) throw documentFailed();
+  const result = await inChild(bytes, kind, { limits, scriptUrl });
+  const clipped = clipText(result.text, limits.textChars);
+  return { text: clipped.text, truncated: result.truncated || clipped.truncated };
+}
+
+/**
+ * Runs `kind` on `input` in a child process (mail-extract-child.js) within one of the
+ * queue's slots: its `{ text, truncated, tooComplex? }`, or MAIL_TEXT_FAILED as
+ * runChild and acquire throw it.
+ */
+export async function inChild(
+  input,
+  kind,
+  { limits = extractLimits, scriptUrl = defaultScript } = {},
+) {
   await acquire();
   try {
-    const result = await runChild(bytes, kind, limits, scriptUrl);
-    const clipped = clipText(result.text, limits.textChars);
-    return { text: clipped.text, truncated: result.truncated || clipped.truncated };
+    return await runChild(input, kind, limits, scriptUrl);
   } finally {
     release();
   }

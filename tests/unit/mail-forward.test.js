@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {
   forwardFields,
   forwardSubject,
-  quotable,
-  quoteBounds,
-  quotedHtml,
 } from "../../server/features/mail/mail-forward.js";
+import {
+  htmlBounds as quoteBounds,
+  htmlWithinBounds as quotable,
+  quoteHtml as quotedHtml,
+} from "../../server/features/mail/mail-text.js";
 import { forwardInput } from "../../server/features/assistants/mail/agent-mail-send-input.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 

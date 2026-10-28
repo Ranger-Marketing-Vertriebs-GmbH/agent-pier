@@ -1,7 +1,10 @@
-import { defaultTreeAdapter, parse } from "parse5";
+import { defaultTreeAdapter, parse, serialize } from "parse5";
 
 // Mail text for agents: HTML becomes plain text (never markup), and every text is cut
-// at a character bound without splitting a surrogate pair.
+// at a character bound without splitting a surrogate pair. Parsing mail HTML can take
+// long however it is bounded (parse5's cost grows faster than its input in several
+// ways), so htmlToText and quoteHtml never run on the server's event loop for mail
+// content: mail-html.js runs them in the extraction child process.
 
 // Elements whose content is never mail text: scripts, styles, metadata, and raw-text
 // or foreign content that parse5 would hand over as unparsed markup.
@@ -254,4 +257,51 @@ function convert(document, maxChars) {
   const result = clipText(sink.result(), maxChars);
   // Stopped early: the rest of the mail was never read.
   return stack.length ? { ...result, truncated: true } : result;
+}
+
+// Elements of the original's HTML that could reach beyond its quote (a base URL,
+// styles of the whole forward, refreshes, scripts, embedded or active content) are
+// dropped, and so are comments (Outlook honors conditional ones) and every inline
+// style, which could move, cover or hide the agent's own text.
+const droppedTags = new Set([
+  "base",
+  "script",
+  "style",
+  "meta",
+  "link",
+  "iframe",
+  "form",
+  "object",
+  "embed",
+  "plaintext",
+]);
+/**
+ * A forwarded original's HTML as quoted, or null when it is beyond htmlBounds or
+ * cannot be parsed: only the content of its `<body>`, without comments, inline
+ * styles and the droppedTags elements, so it cannot restyle or hide what stands
+ * above the quote. Synchronous: mail-html.js runs it in the extraction child.
+ */
+export function quoteHtml(html) {
+  const document = parseMailHtml(html);
+  if (!document) return null;
+  try {
+    const root = document.childNodes.find((n) => n.nodeName === "html");
+    const body = root?.childNodes.find((n) => n.nodeName === "body");
+    if (!body) return "";
+    const stack = [body];
+    while (stack.length) {
+      const node = stack.pop();
+      if (!node.childNodes) continue;
+      node.childNodes = node.childNodes.filter(
+        (child) => !droppedTags.has(child.nodeName) && child.nodeName !== "#comment",
+      );
+      for (const child of node.childNodes) {
+        if (child.attrs) child.attrs = child.attrs.filter((a) => a.name !== "style");
+        stack.push(child.content ?? child);
+      }
+    }
+    return serialize(body);
+  } catch {
+    return null;
+  }
 }
