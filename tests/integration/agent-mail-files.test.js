@@ -114,7 +114,6 @@ test("a workspace path outside mail/ is refused", async (t) => {
     "attachments/x",
     "../x",
     "mailbox",
-    "Mail",
     ".",
     f.workspace,
     path.join(f.workspaces, "other-agent", "mail"),
@@ -343,14 +342,93 @@ test("a folder walked that is the data directory by identity is refused", async 
   // spelling (as through a firmlink): the walk compares every folder it creates or
   // passes.
   const chosen = f.target();
+  assert.ok(Object.isFrozen(chosen) && Object.isFrozen(chosen.refuseDirs));
   fs.mkdirSync(f.ws("mail/Private"), { recursive: true });
   const stat = fs.statSync(f.ws("mail"), { bigint: true });
-  const target = Object.defineProperty({ ...chosen }, "refuseDirs", {
-    value: [{ dev: stat.dev, ino: stat.ino }],
-  });
+  const target = { ...chosen, refuseDirs: [{ dev: stat.dev, ino: stat.ino }] };
   assert.equal(
     await code(() => writeNewFile(target, "a.txt", Buffer.from("x"))),
     "MAIL_SAVE_REFUSED",
   );
+  // A target without the data directory's identities is never written.
+  const { refuseDirs, ...unchecked } = chosen;
+  assert.ok(refuseDirs.length > 0);
+  await assert.rejects(writeNewFile(unchecked, "a.txt", Buffer.from("x")), TypeError);
+  assert.deepEqual(entries(f.ws("mail/Private")), []);
+});
+
+test("instruction files and tool configuration are refused below mail/", async (t) => {
+  const f = await setup(t);
+  for (const requested of [
+    "mail/x/CLAUDE.md",
+    "mail/GEMINI.md",
+    "mail/AGENTS.md",
+    "mail/.claude/skills",
+    "mail/x/.vscode",
+  ])
+    assert.equal(
+      await code(() => f.save("a.txt", "x", { path: requested })),
+      "MAIL_SAVE_REFUSED",
+      requested,
+    );
+  // Refused before any folder is made.
+  assert.equal(fs.existsSync(f.ws("mail")), false);
+  const target = f.target();
+  for (const name of ["CLAUDE.md", "GEMINI.md", "AGENTS.md", "mise.toml"])
+    assert.equal(
+      await code(() => writeNewFile(target, name, Buffer.from("x"))),
+      "MAIL_SAVE_REFUSED",
+      name,
+    );
+  assert.deepEqual(entries(f.ws("mail/Private")), []);
+});
+
+test("a capitalised Mail/ is the mail folder where case is ignored", async (t) => {
+  const f = await setup(t);
+  fs.mkdirSync(f.ws("Mail"));
+  if (!fs.existsSync(f.ws("mail"))) return t.skip("the file system respects case");
+  assert.deepEqual(await f.save("a.txt", "one"), { path: "Mail/Private/a.txt" });
+  assert.deepEqual(await f.save("b.txt", "two", { path: "mail/in" }), {
+    path: "Mail/in/b.txt",
+  });
+  // The folder renamed in case between choosing the target and the write.
+  fs.rmSync(f.ws("Mail"), { recursive: true });
+  const target = f.target();
+  assert.equal(target.folder.relative, "mail/Private");
+  fs.mkdirSync(f.ws("MAIL"));
+  assert.deepEqual(await writeNewFile(target, "c.txt", Buffer.from("three")), {
+    path: "MAIL/Private/c.txt",
+  });
+  assert.equal(fs.readFileSync(f.ws("MAIL/Private/c.txt"), "utf8"), "three");
+});
+
+test("without hard links the file is created in place, never replacing one", async (t) => {
+  for (const errorCode of ["ENOTSUP", "EPERM", "EMLINK", "EXDEV"]) {
+    const f = await setup(t);
+    const link = t.mock.method(fs.promises, "link", async () => {
+      throw Object.assign(new Error(errorCode), { code: errorCode });
+    });
+    const folder = f.ws("mail/Private");
+    fs.mkdirSync(folder, { recursive: true });
+    const outside = outsideDir(t);
+    fs.symlinkSync(path.join(outside, "planted.txt"), path.join(folder, "a.txt"));
+    assert.deepEqual(await f.save("a.txt", "first"), { path: "mail/Private/a (2).txt" });
+    assert.deepEqual(await f.save("a.txt", "second"), { path: "mail/Private/a (3).txt" });
+    assert.ok(link.mock.callCount() >= 2, errorCode);
+    link.mock.restore();
+    assert.equal(fs.readFileSync(path.join(folder, "a (2).txt"), "utf8"), "first");
+    assert.equal(fs.readFileSync(path.join(folder, "a (3).txt"), "utf8"), "second");
+    assert.equal(fs.statSync(path.join(folder, "a (2).txt")).mode & 0o777, 0o600);
+    assert.deepEqual(entries(folder), ["a (2).txt", "a (3).txt", "a.txt"]);
+    assert.deepEqual(entries(outside), []);
+  }
+});
+
+test("a link error other than a missing hard-link feature is not hidden", async (t) => {
+  const f = await setup(t);
+  t.mock.method(fs.promises, "link", async () => {
+    throw Object.assign(new Error("EIO"), { code: "EIO" });
+  });
+  await assert.rejects(f.save("a.txt", "x"), { code: "EIO" });
   assert.deepEqual(entries(f.ws("mail/Private")), []);
 });
