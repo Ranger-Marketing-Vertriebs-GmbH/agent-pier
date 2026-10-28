@@ -3,6 +3,15 @@ export function createShutdown({ services, wss, server }) {
   const { agentbus, installer, plugins, repositories, extensions, history, sessions } =
     services;
   async function close() {
+    // Live sockets first, with 1012, so every tab reconnects to the next instance at
+    // once; then the hub stops its topics' watchers and samplers.
+    for (const ws of services.liveWss?.clients || []) {
+      ws.close(1012, serverMessages.common.serverRestarting);
+      const timeout = setTimeout(() => ws.terminate(), 1000);
+      timeout.unref();
+      ws.once("close", () => clearTimeout(timeout));
+    }
+    services.live?.close();
     // npm and uv run in their own process groups and must not outlive AgentPier: their
     // stop starts first, so its bound (McpPackages#close) ends well before the forced
     // exit in server/index.js. It is awaited before the server store closes, because
@@ -79,6 +88,7 @@ export function createShutdown({ services, wss, server }) {
       services.chatWss,
       services.assistantChatWss,
       services.browserWss,
+      services.liveWss,
     ])
       if (socketServer) await new Promise((resolve) => socketServer.close(resolve));
     if (server.listening)

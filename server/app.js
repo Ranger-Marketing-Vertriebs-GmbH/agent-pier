@@ -53,6 +53,7 @@ import express from "express";
 import compression from "compression";
 import http from "node:http";
 import { createServices } from "./application/services.js";
+import { attachLive } from "./application/live-wiring.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
 import { cleanUpProjects } from "./application/project-cleanup.js";
@@ -444,6 +445,8 @@ export async function createApplication(config) {
     admit,
     effective,
   });
+  // The live channel (/api/live): services.live and services.liveWss.
+  attachLive(server, services, { admit, effective });
   // Returning the services object itself keeps test seams such as restartService writable.
   return Object.assign(services, {
     app,

@@ -362,3 +362,37 @@ test("close drops kept revisions and row baselines", async (t) => {
   assert.equal(hub.records.size, 0);
   assert.notEqual(hub.sync, sync);
 });
+
+test("the unknown-topic frame carries its reason as code", (t) => {
+  const { hub } = setup(t);
+  assert.deepEqual(listen(hub, owner, "nope").frames, [
+    { type: "error", topic: "nope", code: "unknown-topic" },
+  ]);
+});
+
+test("a gate refuses a topic before its own authorize, also on reauthorize", async (t) => {
+  const clock = manualTimers();
+  let open = true;
+  const gate = (principal, topicId) =>
+    principal.role === "owner" || (open && topicId === "me.counts");
+  const hub = new LiveHub({ timers: clock.timers, gate });
+  t.after(() => hub.close());
+  const definition = (name) => ({
+    name,
+    mode: "state",
+    authorize: () => true,
+    scopeKey: scope,
+    read: () => 1,
+  });
+  hub.define(definition("state"));
+  hub.define(definition("me.counts"));
+  const anna = user("anna");
+  assert.deepEqual(listen(hub, anna, "state").frames, [unknownTopic("state")]);
+  const mine = listen(hub, anna, "me.counts");
+  await clock.advance(0);
+  assert.equal(mine.frames[0].type, "snapshot");
+  open = false;
+  hub.reauthorize();
+  assert.deepEqual(mine.frames.at(-1), { type: "revoked", topic: "me.counts" });
+  assert.equal(hub.resolve(owner, "state").param, undefined);
+});

@@ -17,7 +17,7 @@ const MAX_RECORDS = 4096;
 export const unknownTopic = (topic) => ({
   type: "error",
   topic: typeof topic === "string" ? topic.slice(0, MAX_TOPIC_ID) : "",
-  error: "unknown-topic",
+  code: "unknown-topic",
 });
 
 export class LiveHub {
@@ -26,8 +26,10 @@ export class LiveHub {
     maxWaitMs = 1000,
     timers = { setTimeout, clearTimeout },
     onError = () => {},
+    // Checked before every topic's own authorize: deny by default per principal.
+    gate = () => true,
   } = {}) {
-    Object.assign(this, { debounceMs, maxWaitMs, timers, onError });
+    Object.assign(this, { debounceMs, maxWaitMs, timers, onError, gate });
     this.instance = randomUUID();
     this.sync = new ChatSync({});
     this.topics = new Map();
@@ -69,6 +71,7 @@ export class LiveHub {
   resolve(principal, topicId) {
     if (typeof topicId !== "string" || !topicId || topicId.length > MAX_TOPIC_ID)
       return null;
+    if (!this.admits(principal, topicId)) return null;
     const colon = topicId.indexOf(":");
     const name = colon < 0 ? topicId : topicId.slice(0, colon);
     const param = colon < 0 ? undefined : topicId.slice(colon + 1);
@@ -85,6 +88,13 @@ export class LiveHub {
       return null;
     }
     return { definition, param };
+  }
+  admits(principal, topicId) {
+    try {
+      return this.gate(principal, topicId) === true;
+    } catch {
+      return false;
+    }
   }
   /**
    * Subscribes `send` to `topicId`. `have` ({instance, revision} or {instance,
@@ -175,6 +185,7 @@ export class LiveHub {
         let allowed = false;
         try {
           allowed =
+            this.admits(subscriber.principal, instance.topicId) &&
             definition.authorize(subscriber.principal, param) === true &&
             definition.scopeKey(subscriber.principal, param) === instance.scopeKey;
         } catch {
