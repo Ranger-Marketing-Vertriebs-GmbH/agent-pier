@@ -3,6 +3,7 @@ import { fulfillDormantAssistantRequest } from "./assistant-browser-fixture.js";
 import { expect } from "@playwright/test";
 import { navigateTo } from "./navigation.js";
 import { baseURL as base } from "./browser.js";
+import { runCountsAnswer } from "./run-counts.js";
 export const stamp = "2026-09-06T10:00:00Z";
 export async function fixture(page) {
   const state = {
@@ -57,6 +58,7 @@ export async function fixture(page) {
     else if (path === "/api/agentbus") result = { version: "test", projects: [] };
     else if (path === "/api/pipeline-runs")
       result = { runs: [], total: 0, page: 1, pageSize: 20 };
+    else if (path === "/api/pipeline-run-counts") result = runCountsAnswer([]);
     else if (path === "/api/repositories/discover")
       result = {
         organizations: [],

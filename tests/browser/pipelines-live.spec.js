@@ -115,7 +115,14 @@ test("a status-filtered first page and its pill follow the pushed list and count
   liveStub.push(list, { runs: [failed], total: 1, page: 1, pageSize: 20 });
   liveStub.push("pipeline.counts", {
     counts: { running: 0, "awaiting-human": 0, completed: 0, failed: 1, cancelled: 0 },
+    total: 1,
   });
+  // The tab counter shows the pushed total.
+  await expect(
+    page
+      .getByRole("tablist", { name: "Pipelines", exact: true })
+      .getByRole("tab", { name: /^Läufe/ }),
+  ).toHaveText(/^Läufe\s*1$/);
   await expect(page.getByText("Pushed failed run")).toBeVisible();
   await expect(
     page

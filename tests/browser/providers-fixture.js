@@ -6,6 +6,7 @@ import {
   resolveDraftRoute,
   ROUTE_TOOLS,
 } from "../../web/features/provider-connections/endpoint-routes.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
 const emptyUsage = {
   agentsEnabled: false,
   connections: {},
@@ -451,6 +452,8 @@ export async function fixture(page, { account, session } = {}) {
     // The Menü hints and the settings summary rows; nothing to report here.
     if (path === "/api/pipeline-runs" && method === "GET")
       return route.fulfill({ json: { runs: [], total: 0, page: 1, pageSize: 20 } });
+    if (path === "/api/pipeline-run-counts" && method === "GET")
+      return route.fulfill({ json: runCountsAnswer([]) });
     if (path === "/api/settings/summary" && method === "GET")
       return route.fulfill({ json: { access: {}, operations: {} } });
     // Connections counts the email accounts; fixtures have none.

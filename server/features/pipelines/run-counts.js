@@ -1,9 +1,17 @@
 // The run counts by status, of all runs and of each project, kept in memory: one full
 // scan at start (rebuild), then every saved run (observe) and every deleted one
 // (forget). The pills and menu hints read it instead of one full scan per status.
-// Each run's list view (run-list-view.js) is kept as a digest, so a save that changes
+// Each run's list view (run-list-view.js) is kept as a short digest, so a save that changes
 // nothing a list shows (an execution log entry) wakes no list.
+import { createHash } from "node:crypto";
 import { runListView } from "./run-list-view.js";
+
+/** A short digest of `run`'s list view: equal when no listed field changed. */
+export const listDigest = (run) =>
+  createHash("sha256")
+    .update(JSON.stringify(runListView(run)))
+    .digest("base64url")
+    .slice(0, 22);
 
 // The statuses the run list filters by (GET /api/pipeline-runs?status=).
 export const RUN_STATUSES = Object.freeze([
@@ -41,7 +49,7 @@ export class RunCounts {
     const entry = {
       projectId: typeof run.projectId === "string" ? run.projectId : null,
       status: run.status,
-      listed: JSON.stringify(runListView(run)),
+      listed: listDigest(run),
     };
     this.runs.set(run.id, entry);
     this.add(entry, 1);
