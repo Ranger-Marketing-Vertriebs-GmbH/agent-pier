@@ -30,6 +30,18 @@ const files = [
   // their folder.
   "skills/agentpier-shopping/SKILL.md",
 ];
+// The shipped files and their digest, read afresh each time like every start does.
+function shippedPlugin() {
+  const contents = files.map((name) => fs.readFileSync(path.join(source, name)));
+  const integrity = createHash("sha256").update(Buffer.concat(contents)).digest("hex");
+  return { contents, integrity };
+}
+/**
+ * The folder this AgentPier version provisions its team plugin to, below the runtime
+ * root; it names the shipped files' digest, so another version uses another folder.
+ */
+export const teamPluginDirectory = (root, integrity = shippedPlugin().integrity) =>
+  path.join(root, "plugins", `teams-${integrity.slice(0, 16)}`);
 export function provisionTeamPlugin({ paths, runtimeVersion }) {
   // The shipped runtime and its declared rollback targets; nothing else is assumed.
   if (
@@ -38,14 +50,9 @@ export function provisionTeamPlugin({ paths, runtimeVersion }) {
     )
   )
     throw Error("Incompatible assistant team runtime.");
-  const contents = files.map((name) => fs.readFileSync(path.join(source, name)));
-  const integrity = createHash("sha256").update(Buffer.concat(contents)).digest("hex");
-  const directory = privateFolder(
-    path.join(
-      privateFolder(path.join(paths.root, "plugins")),
-      `teams-${integrity.slice(0, 16)}`,
-    ),
-  );
+  const { contents, integrity } = shippedPlugin();
+  privateFolder(path.join(paths.root, "plugins"));
+  const directory = privateFolder(teamPluginDirectory(paths.root, integrity));
   for (let n = 0; n < files.length; n++) {
     const file = path.join(directory, files[n]);
     // A nested asset's folders are private too, and never a symlink (privateFolder).

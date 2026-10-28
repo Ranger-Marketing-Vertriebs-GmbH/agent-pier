@@ -20,7 +20,6 @@ import {
   builtInSkillNames,
   compiledSkillNames,
   pluginSkillReported,
-  pluginSkillsDir,
 } from "./built-in-skills.js";
 import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
@@ -117,13 +116,12 @@ export class AssistantConfig {
     }
     const liveRoot = this.skillCatalog?.liveRoot;
     const reported = (name) => report.skills.filter((entry) => entry?.name === name);
-    // The Gateway's state folder sits beside the workspaces (runtime-paths.js).
-    const pluginSkills =
-      this.workspaces && pluginSkillsDir(path.dirname(this.workspaces));
+    // The runtime root holds the workspaces, the Gateway's state and the plugins.
+    const runtimeRoot = this.workspaces && path.dirname(this.workspaces);
     const kept = (name) => {
       const entries = reported(name);
       if (builtInSkillNames.includes(name))
-        return pluginSkillReported(entries, pluginSkills);
+        return pluginSkillReported(entries, runtimeRoot);
       if (!catalog.has(name))
         return entries.some((entry) => entry.source === "openclaw-bundled");
       return (

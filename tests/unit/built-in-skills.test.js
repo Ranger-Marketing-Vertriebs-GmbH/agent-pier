@@ -13,6 +13,7 @@ import {
   shoppingSkill,
 } from "../../server/features/assistants/built-in-skills.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+import { teamPluginDirectory } from "../../server/features/assistants/team-plugin-install.js";
 
 const own = (extra = {}) => ({
   id: "a1",
@@ -85,59 +86,90 @@ test("an ineligible agent never compiles a stored built-in name", () => {
   );
 });
 
-test("pluginSkillReported accepts only the plugin's copy below plugin-skills", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "built-in-skills-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const dir = pluginSkillsDir(root);
-  assert.equal(dir, path.join(root, "state", "plugin-skills"));
-  // As the Gateway publishes it: a link into the plugin's own skill folder.
-  const pluginFolder = path.join(
-    root,
-    "plugins",
-    "teams-x",
-    "skills",
-    "agentpier-shopping",
+// A runtime root as the Gateway leaves it: the provisioned team plugin, and its link
+// below plugin-skills, or a real folder there, or a link to `entry(root)`.
+function runtimeRoot(t, entry = "link") {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "built-in-skills-")),
   );
-  fs.mkdirSync(pluginFolder, { recursive: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const plugin = teamPluginDirectory(root);
+  const shipped = path.join(plugin, "skills", "agentpier-shopping");
+  fs.mkdirSync(shipped, { recursive: true });
+  fs.writeFileSync(path.join(shipped, "SKILL.md"), "shipped");
+  const dir = pluginSkillsDir(root);
   fs.mkdirSync(dir, { recursive: true });
-  fs.symlinkSync(pluginFolder, path.join(dir, "agentpier-shopping"));
-  const at = (filePath, source = "openclaw-extra", name = "agentpier-shopping") => ({
-    name,
-    source,
-    filePath,
-  });
+  const link = path.join(dir, "agentpier-shopping");
+  if (entry === "link") fs.symlinkSync(shipped, link);
+  else if (entry === "folder") fs.mkdirSync(link);
+  else {
+    const target = entry(root);
+    fs.mkdirSync(target, { recursive: true });
+    fs.symlinkSync(target, link);
+  }
+  return { root, dir, shipped };
+}
+const at = (filePath, source = "openclaw-extra", name = "agentpier-shopping") => ({
+  name,
+  source,
+  filePath,
+});
+
+test("pluginSkillReported accepts only the plugin's copy below plugin-skills", (t) => {
+  const { root, dir, shipped } = runtimeRoot(t);
+  assert.equal(dir, path.join(root, "state", "plugin-skills"));
   const plugin = at(path.join(dir, "agentpier-shopping", "SKILL.md"));
-  assert.equal(pluginSkillReported([plugin], dir), true);
-  // The realpath of the folder counts as well (macOS /var -> /private/var).
-  const real = path.join(fs.realpathSync(dir), "agentpier-shopping", "SKILL.md");
-  assert.equal(pluginSkillReported([at(real)], dir), true);
-  // The link itself is never followed: its target is not the reported link path.
+  assert.equal(pluginSkillReported([plugin], root), true);
+  assert.equal(pluginSkillReported([], root), false);
+  assert.equal(pluginSkillReported([plugin], undefined), false);
+  // The Gateway reports the link path; the link's target is no reported copy.
+  assert.equal(pluginSkillReported([at(path.join(shipped, "SKILL.md"))], root), false);
+  // Another source, a catalog or workspace path, or a sibling folder all fail.
   assert.equal(
-    pluginSkillReported([at(path.join(pluginFolder, "SKILL.md"))], dir),
+    pluginSkillReported([at(plugin.filePath, "openclaw-plugin")], root),
     false,
   );
-  assert.equal(pluginSkillReported([], dir), false);
-  assert.equal(pluginSkillReported([plugin], undefined), false);
-  // Another source, a catalog or workspace path, or a sibling folder all fail.
-  assert.equal(pluginSkillReported([at(plugin.filePath, "openclaw-plugin")], dir), false);
   assert.equal(
-    pluginSkillReported([at(plugin.filePath, "openclaw-workspace")], dir),
+    pluginSkillReported([at(plugin.filePath, "openclaw-workspace")], root),
     false,
   );
   const catalog = at(path.join(root, "skill-catalog", "skills", "agentpier-shopping"));
-  assert.equal(pluginSkillReported([plugin, catalog], dir), false);
+  assert.equal(pluginSkillReported([plugin, catalog], root), false);
   assert.equal(
-    pluginSkillReported([at(path.join(dir, "other", "SKILL.md"))], dir),
+    pluginSkillReported([at(path.join(dir, "other", "SKILL.md"))], root),
     false,
   );
   assert.equal(
-    pluginSkillReported([at(path.join(dir, "agentpier-shopping", "..", "x"))], dir),
+    pluginSkillReported([at(path.join(dir, "agentpier-shopping", "..", "x"))], root),
     false,
   );
   assert.equal(
-    pluginSkillReported([at(plugin.filePath, undefined, "github")], dir),
+    pluginSkillReported([at(plugin.filePath, undefined, "github")], root),
     false,
   );
+});
+
+test("a real folder or a foreign link at plugin-skills is never the plugin's copy", (t) => {
+  const reported = (root) =>
+    pluginSkillReported(
+      [at(path.join(pluginSkillsDir(root), "agentpier-shopping", "SKILL.md"))],
+      root,
+    );
+  // OpenClaw leaves a planted folder alone and would load it.
+  assert.equal(reported(runtimeRoot(t, "folder").root), false);
+  // A link into another folder: an older plugin version, or the agent's workspace.
+  for (const target of [
+    (root) =>
+      path.join(
+        root,
+        "plugins",
+        "teams-0000000000000000",
+        "skills",
+        "agentpier-shopping",
+      ),
+    (root) => path.join(root, "workspaces", "a1", "skills", "agentpier-shopping"),
+  ])
+    assert.equal(reported(runtimeRoot(t, target).root), false, String(target));
 });
 
 test("agentEntry compiles the built-in skill only for eligible agents", () => {

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { compiledShell } from "../helpers/assistant-shell-compiled.js";
 import { pluginSkillsDir } from "../../server/features/assistants/built-in-skills.js";
+import { teamPluginDirectory } from "../../server/features/assistants/team-plugin-install.js";
 
 // The built-in shopping skill against the pinned OpenClaw: the real team plugin
 // declares its `skills` folder, the Gateway links the skill below
@@ -85,11 +86,16 @@ test(
     assert.equal(onA.filePath, path.join(linkDir, "SKILL.md"));
     assert.equal(onA.blockedByAgentFilter, false);
     assert.equal(onA.eligible, true);
-    // The link leads into the provisioned team plugin, whose file is the shipped one.
+    // A link (never a folder) into this version's provisioned team plugin, whose
+    // file is the shipped one: what pluginSkillReported requires.
+    assert.ok(fs.lstatSync(linkDir).isSymbolicLink());
     const target = fs.realpathSync(linkDir);
     t.diagnostic(`link target=${target}`);
-    assert.ok(
-      target.startsWith(fs.realpathSync(path.join(h.runtime.paths.root, "plugins"))),
+    assert.equal(
+      target,
+      fs.realpathSync(
+        path.join(teamPluginDirectory(h.runtime.paths.root), "skills", name),
+      ),
     );
     assert.ok(
       fs.readFileSync(path.join(target, "SKILL.md")).equals(fs.readFileSync(shipped)),
