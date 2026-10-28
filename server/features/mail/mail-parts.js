@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mailError } from "./mail-connection.js";
 import { openFolder } from "./mail-folders.js";
 import { attachmentsOf, fileName } from "./mail-messages.js";
+import { decodedEstimate } from "./mail-shared.js";
 
 // Attachment parts of stored mail: their raw bytes as the server keeps them (MIME
 // header and encoded body), decoded bytes and digests, within fixed size limits.
@@ -48,12 +49,6 @@ export function decodeTransfer(body, encoding) {
   throw mailError("MAIL_PROTOCOL");
 }
 
-// Decoded size estimate: base64 carries 3 bytes in 4 characters.
-const estimate = (node) =>
-  String(node.encoding).toLowerCase() === "base64"
-    ? Math.floor(((node.size || 0) * 3) / 4)
-    : node.size || 0;
-
 /** An attachment node of a BODYSTRUCTURE as `{ part, name, type, size, encoding, charset }`. */
 export function partInfo(node) {
   return {
@@ -63,7 +58,7 @@ export function partInfo(node) {
     part: node.part || "1",
     name: fileName(node),
     type: String(node.type || "application/octet-stream"),
-    size: estimate(node),
+    size: decodedEstimate(node),
     encoding: String(node.encoding || "7bit").toLowerCase(),
     charset: node.parameters?.charset ?? null,
   };

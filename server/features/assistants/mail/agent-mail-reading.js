@@ -2,6 +2,7 @@ import { assistantProblem } from "../assistant-validation.js";
 import { listMessages, newMessages, readMessage } from "../../mail/mail-messages.js";
 import { searchMessages } from "../../mail/mail-search.js";
 import { foldText, scanAttachmentText } from "../../mail/mail-attachment-search.js";
+import { controlChar } from "../../mail/mail-shared.js";
 
 // The reading actions of agentpier_mail: list (a page, or new mail since the agent's
 // last check), read and search. Each runs on one IMAP connection of the granted
@@ -14,7 +15,6 @@ const fields = {
   read: ["folder", "uid"],
   search: ["folder", "query", "limit"],
 };
-const controls = /[\x00-\x1f\x7f]/;
 
 export const readingActions = Object.keys(fields);
 
@@ -32,7 +32,7 @@ export function readingInput(input) {
   const allowed = new Set(["action", "accountId", ...fields[input.action]]);
   if (Object.keys(input).some((key) => !allowed.has(key))) throw invalid();
   const folder = input.folder ?? "INBOX";
-  if (controls.test(folder)) throw invalid();
+  if (controlChar.test(folder)) throw invalid();
   const limit = input.limit ?? defaultLimit;
   if (input.action === "read") {
     if (input.uid === undefined) throw invalid();
@@ -50,7 +50,7 @@ export function readingInput(input) {
   }
   const query = input.query;
   if (!query || !Object.keys(query).length) throw assistantProblem("mailQueryEmpty");
-  if (Object.values(query).some((v) => typeof v === "string" && controls.test(v)))
+  if (Object.values(query).some((v) => typeof v === "string" && controlChar.test(v)))
     throw invalid();
   if (query.since !== undefined && !validDay(query.since)) throw invalid();
   // Only whitespace would match every attachment with text.

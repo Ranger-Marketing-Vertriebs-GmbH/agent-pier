@@ -74,7 +74,8 @@ const toolConfigLocked = () => assistantProblem("projectToolConfigLocked", 403);
 const inside = (parent, child) =>
   child === parent ||
   child.startsWith(parent.endsWith(path.sep) ? parent : parent + path.sep);
-const realpath = (value) => {
+/** The real path of `value`, or null when it cannot be resolved. */
+export const realpath = (value) => {
   try {
     return fs.realpathSync.native(value);
   } catch {

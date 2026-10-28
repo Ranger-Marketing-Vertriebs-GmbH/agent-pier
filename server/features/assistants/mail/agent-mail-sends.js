@@ -13,7 +13,8 @@ import { auditDelete } from "./agent-mail-changes.js";
 import { forwardInput, inputDigest, sendInput } from "./agent-mail-send-input.js";
 import { forwardCard, htmlOmittedNote, saveForward } from "./agent-mail-forward.js";
 import { cardPayload, staleReason } from "./agent-mail-card.js";
-import { auditSend, deliverMail, isBug } from "./agent-mail-delivery.js";
+import { auditSend, deliverMail } from "./agent-mail-delivery.js";
+import { isBug } from "../../mail/mail-shared.js";
 import {
   captureFiles,
   savedAttachments,

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { assistantProblem } from "../assistant-validation.js";
 import { agentLocalRoot } from "../agent-sftp-local.js";
-import { projectTarget } from "../project-paths.js";
+import { projectTarget, realpath } from "../project-paths.js";
 import { openInside } from "../project-open.js";
 import { fold } from "../team-plugin/tool-guard.js";
 import { caseInsensitiveTarget, ensureDirectory } from "../../sftp/sftp-local.js";
@@ -43,13 +43,6 @@ const maxNumber = 999;
 // Errors of a file system that cannot hard-link here: the file is written in place.
 const noLinks = new Set(["ENOTSUP", "EPERM", "EMLINK", "EXDEV"]);
 const isMail = (top) => fold(top ?? "") === "mail";
-const realpath = (value) => {
-  try {
-    return fs.realpathSync.native(value);
-  } catch {
-    return null;
-  }
-};
 
 function inWorkspace(w, ctx, requested, accountName) {
   const local = agentLocalRoot(w, ctx, { write: true });

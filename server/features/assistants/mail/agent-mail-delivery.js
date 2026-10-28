@@ -3,6 +3,7 @@ import { composeMessage, recipientsOf } from "../../mail/mail-compose.js";
 import { fileSent } from "../../mail/mail-changes.js";
 import { loadDraftParts } from "../../mail/mail-drafts.js";
 import { auditDelete } from "./agent-mail-changes.js";
+import { isBug } from "../../mail/mail-shared.js";
 
 // Rule sends kept as rows; well above an hour's cap, which counts them with the cards.
 const trustedMailRows = 200;
@@ -20,8 +21,6 @@ const notSent = new Set([
   "MAIL_PLAINTEXT_REFUSED",
 ]);
 const isMailCode = (code) => typeof code === "string" && code.startsWith("MAIL_");
-export const isBug = (error) =>
-  error instanceof TypeError || error instanceof ReferenceError;
 
 /**
  * The card's attachments and HTML part as raw parts of its draft, each exactly as

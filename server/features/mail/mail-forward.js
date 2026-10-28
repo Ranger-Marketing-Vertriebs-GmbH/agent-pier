@@ -14,6 +14,7 @@ import { attachmentLimits, messageParts } from "./mail-parts.js";
 import { htmlQuote, htmlText } from "./mail-html.js";
 import { draftFields } from "./mail-compose.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
+import { headerControlChar } from "./mail-shared.js";
 
 // Forwarding a received mail for an agent: the original's envelope, its text (plain,
 // or its HTML as text), its HTML part when one of at most 1 MiB exists, and its
@@ -23,7 +24,7 @@ import { assistantProblem } from "../assistants/assistant-validation.js";
 export const forwardBodyChars = 100_000;
 const separator = "---------- Forwarded message ----------";
 const prefixed = /^\s*(fwd?|wg)\s*:/i;
-const controls = /[\u0000-\u001f\u007f\u2028\u2029]+/g;
+const controls = new RegExp(`${headerControlChar.source}+`, "g");
 
 const oneLine = (value) => String(value ?? "").replace(controls, " ");
 const person = (a) =>

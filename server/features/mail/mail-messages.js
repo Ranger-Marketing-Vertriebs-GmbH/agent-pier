@@ -2,6 +2,7 @@ import { mailError } from "./mail-connection.js";
 import { openFolder } from "./mail-folders.js";
 import { clipText } from "./mail-text.js";
 import { htmlText } from "./mail-html.js";
+import { decodedEstimate, markedAttachment } from "./mail-shared.js";
 
 // Listing and reading mail for agents, always within fixed bounds: a page of at most
 // `limit` summaries, at most 1 MiB of one text part downloaded and 32 000 characters
@@ -51,7 +52,7 @@ export function leafParts(structure) {
     if (
       node.childNodes?.length &&
       node.type !== "message/rfc822" &&
-      node.disposition !== "attachment"
+      !markedAttachment(node)
     ) {
       for (let i = node.childNodes.length - 1; i >= 0; i--)
         stack.push(node.childNodes[i]);
@@ -69,15 +70,11 @@ export const fileName = (node) =>
  * carries a file name and is no text part (an inline image with a name, for instance).
  */
 export const isAttachment = (node) =>
-  node.disposition === "attachment" ||
+  markedAttachment(node) ||
   node.type === "message/rfc822" ||
   (!!fileName(node) && !String(node.type).startsWith("text/"));
 
 export const attachmentsOf = (structure) => leafParts(structure).filter(isAttachment);
-
-// Decoded size estimate: base64 carries 3 bytes in 4 characters.
-const partSize = (node) =>
-  node.encoding === "base64" ? Math.floor(((node.size || 0) * 3) / 4) : node.size || 0;
 
 /** A message's summary from a FETCH of `summaryQuery`. */
 export function summary(row) {
@@ -174,9 +171,9 @@ export async function newMessages(client, cursor, limit) {
   };
 }
 
-/** The first text/plain part not marked as an attachment, else the first text/html. */
+/** The first text/plain part that is no attachment, else the first text/html. */
 export function textPart(structure) {
-  const leaves = leafParts(structure).filter((n) => n.disposition !== "attachment");
+  const leaves = leafParts(structure).filter((n) => !isAttachment(n));
   return (
     leaves.find((n) => n.type === "text/plain") ||
     leaves.find((n) => n.type === "text/html")
@@ -255,7 +252,7 @@ export async function readMessage(client, folder, uid) {
       .map((node) => ({
         part: node.part || "1",
         name: cut(fileName(node), mailBounds.nameChars) || null,
-        size: partSize(node),
+        size: decodedEstimate(node),
         type: String(node.type || "application/octet-stream"),
       })),
   };
