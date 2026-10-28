@@ -199,3 +199,36 @@ test("a draft that does not read back keeps the read's error as its cause", asyn
     cause: failure,
   });
 });
+
+test("removed attachments do not count toward the size bound of a replaced draft", async () => {
+  const account = { address: "agent@example.com", displayName: "" };
+  const fields = { to: ["bob@example.org"], cc: [], bcc: [], subject: "x", body: "y" };
+  const small = Buffer.from("Content-Type: text/csv\r\n\r\na,b");
+  const client = stubClient({
+    appendUid: 6,
+    structure: mixed(huge("2", attachmentLimits.mailBytes * 2), {
+      ...huge("3", small.length, "7bit"),
+      dispositionParameters: { filename: "keep.csv" },
+    }),
+  });
+  const fetchOne = client.fetchOne;
+  client.fetchOne = async (uid, query, options) => {
+    const row = await fetchOne(uid, query, options);
+    row.bodyParts = new Map([
+      ["3.mime", small.subarray(0, 24)],
+      ["3", small.subarray(24)],
+    ]);
+    return row;
+  };
+  const saved = await saveDraft(client, account, fields, {
+    replaceUid: 5,
+    removeNames: ["2.bin"],
+  });
+  assert.equal(saved.draftUid, 6);
+  // The huge part was neither counted nor fetched.
+  assert.ok(client.fetches.every((q) => !q.bodyParts?.includes("2")));
+  // Without removing it the draft stays over the bound.
+  await assert.rejects(saveDraft(client, account, fields, { replaceUid: 5 }), {
+    code: "MAIL_ATTACHMENT_TOO_LARGE",
+  });
+});
