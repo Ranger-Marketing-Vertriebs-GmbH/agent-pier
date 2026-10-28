@@ -99,7 +99,11 @@ export class MailSends {
     }
     if (!stored) throw this.refuse(inv, caller, "mailAccountUnavailable");
     const draft = request.draftUid
-      ? await this.accounts.withImap(account.id, (c) => loadDraft(c, request.draftUid))
+      ? await this.accounts.withImap(account.id, (c) =>
+          loadDraft(c, request.draftUid, {
+            maxBytes: this.mail.limits.attachments.mailBytes,
+          }),
+        )
       : { fields: request.fields };
     const recipients = recipientsOf(draft.fields);
     if (!recipients.length) throw assistantProblem("invalid");

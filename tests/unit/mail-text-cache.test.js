@@ -208,3 +208,31 @@ test("a write from an older generation is dropped", (t) => {
   // Other accounts keep their own generation.
   assert.equal(cache.generation(other), 0);
 });
+
+test("text dropped while its files could not be deleted is never found again", (t) => {
+  const root = tempRoot(t);
+  let mailbox = "imap.a.example agent@a.example";
+  const cache = new MailTextCache({ root, identity: () => mailbox });
+  const old = cache.key(fields(1));
+  assert.equal(cache.set(account, old, sized(100)), true);
+  // The mailbox changes, but its files cannot be deleted.
+  mailbox = "imap.b.example agent@b.example";
+  t.mock.method(fs, "rmSync", () => {
+    throw Object.assign(new Error("busy"), { code: "EBUSY" });
+  });
+  cache.clearAccount(account);
+  t.mock.restoreAll();
+  assert.ok(fs.existsSync(fileOf(root, account, old)));
+  const current = cache.key(fields(1));
+  assert.notEqual(current, old);
+  assert.equal(cache.get(account, current), null);
+  // After a restart the generation starts over, but the mailbox still differs.
+  const restarted = new MailTextCache({ root, identity: () => mailbox });
+  assert.equal(restarted.generation(account), 0);
+  assert.equal(restarted.get(account, restarted.key(fields(1))), null);
+  // Within one mailbox, a cleared generation alone already changes the key.
+  const same = new MailTextCache({ root: tempRoot(t), identity: () => "one" });
+  const before = same.key(fields(1));
+  same.clearAccount(account);
+  assert.notEqual(same.key(fields(1)), before);
+});

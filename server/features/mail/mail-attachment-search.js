@@ -86,17 +86,16 @@ export async function scanAttachmentText(
     }
   }
 
-  async function download(uid, info, key) {
+  async function download(uid, info) {
     const pending = partBytes(client, uid, info, { maxBytes: maxFileBytes });
     pending.catch(() => {});
     try {
       return await inTime(pending);
     } catch (error) {
-      if (error?.code === "MAIL_ATTACHMENT_TOO_LARGE") {
-        if (error.uidValidity === uidValidity) remember(key, { failed: error.code });
+      // Too large only for the limits of this call: never cached, so a higher limit
+      // reads it again.
+      if (error?.code === "MAIL_ATTACHMENT_TOO_LARGE" || error?.code === "MAIL_NOT_FOUND")
         return { failed: error.code };
-      }
-      if (error?.code === "MAIL_NOT_FOUND") return { failed: error.code };
       throw error;
     }
   }
@@ -109,7 +108,7 @@ export async function scanAttachmentText(
     if (cached) return cached;
     if (now() >= deadline) return { stop: "time" };
     if (fetched + wire > budget.bytes) return { stop: "bytes" };
-    const file = await download(uid, info, key);
+    const file = await download(uid, info);
     if (file === late) return { stop: "time" };
     if (file.failed) return file;
     fetched += file.fetched;

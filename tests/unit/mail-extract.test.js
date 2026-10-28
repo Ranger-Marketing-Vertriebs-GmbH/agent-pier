@@ -25,6 +25,7 @@ import {
 
 const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
 const greedyUrl = new URL("../fixtures/mail-extract-greedy.mjs", import.meta.url);
+const endsUrl = new URL("../fixtures/mail-extract-ends.mjs", import.meta.url);
 const failed = { code: "MAIL_TEXT_FAILED" };
 // The document's own failure, which a cache may keep.
 const broken = { code: "MAIL_TEXT_FAILED", document: true };
@@ -156,6 +157,33 @@ test("an extractor over its heap limit dies alone", async () => {
     broken,
   );
   assert.match((await extractText(pdfWith("still here"), "pdf")).text, /still here/);
+});
+
+test("only the child's own report or a memory limit marks the document as failed", async () => {
+  const end = (how) =>
+    extractText(Buffer.from(`%PDF-${how}`), "pdf", { scriptUrl: endsUrl });
+  // Ended from outside (shutdown, the OOM killer, a watchdog deadline under load), or
+  // the extractor could not be loaded: the same document may work next time.
+  for (const how of [
+    "signal:SIGTERM",
+    "signal:SIGINT",
+    "signal:SIGKILL",
+    "exit:1",
+    'reply:{"failed":true}',
+  ])
+    await assert.rejects(end(how), (error) => {
+      assert.equal(error.code, "MAIL_TEXT_FAILED", how);
+      assert.equal(error.document, undefined, how);
+      return true;
+    });
+  // The document could not be read, or ran into the heap (SIGABRT) or RSS (SIGUSR2)
+  // limit.
+  for (const how of [
+    'reply:{"failed":true,"document":true}',
+    "signal:SIGABRT",
+    "signal:SIGUSR2",
+  ])
+    await assert.rejects(end(how), broken, how);
 });
 
 test("a PDF that inflates past the memory (RSS) limit is stopped", async () => {

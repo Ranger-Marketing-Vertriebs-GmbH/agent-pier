@@ -25,9 +25,11 @@ function entryOf(value) {
 }
 
 export class MailTextCache {
-  constructor({ root, budgetBytes = 268_435_456 }) {
+  constructor({ root, budgetBytes = 268_435_456, identity = () => null }) {
     this.root = path.resolve(root);
     this.budgetBytes = budgetBytes;
+    // The mailbox an account reaches now (server and login), part of every key.
+    this.identity = identity;
     // Bytes of all entries; counted on the first write, then kept up to date.
     this.total = null;
     // Accounts removed in this process: a search still running writes nothing more.
@@ -37,10 +39,18 @@ export class MailTextCache {
     this.generations = new Map();
   }
 
-  /** The cache key of one attachment: SHA-256 hex of its joined fields. */
+  /**
+   * The cache key of one attachment: SHA-256 hex of its joined fields with the
+   * account's mailbox identity and generation, so text of another mailbox, or text
+   * dropped while its files could not be deleted, is never found again, not even
+   * after a restart.
+   */
   key({ accountId, folder, uidValidity, uid, part }) {
+    const scope = [this.identity(accountId), this.generation(accountId)];
     return createHash("sha256")
-      .update([accountId, folder, uidValidity, uid, part].map(String).join("\0"))
+      .update(
+        JSON.stringify([accountId, folder, uidValidity, uid, part, ...scope].map(String)),
+      )
       .digest("hex");
   }
 

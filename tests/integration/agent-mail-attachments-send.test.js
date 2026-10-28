@@ -267,3 +267,28 @@ test("the browser's card carries no file access context", async (t) => {
   // The stored row keeps it.
   assert.ok(f.workflows.get(r.actionId).payload.files);
 });
+
+test("a stored draft over the limit once fetched is refused before a card", async (t) => {
+  const f = await sendFilesFixture(t);
+  const pdf = Buffer.concat([pdfWith("Big"), Buffer.alloc(4000, 7)]);
+  const raw = mimeWith({
+    text: "Hello.",
+    attachments: [{ name: "a.pdf", type: pdfType, content: pdf }],
+  });
+  const { uid } = f.imap.mailbox.append("Drafts", {
+    raw: Buffer.from(raw, "latin1"),
+    flags: ["\\Draft"],
+  });
+  // The lower bound BODYSTRUCTURE gives fits the limit; the decoded bytes do not.
+  const encoded = raw.match(/filename="a\.pdf"\r\n[^\r]*\r\n\r\n([^]*?)\r\n--mix--/)[1];
+  const atLeast = Math.floor((Math.floor((encoded.length * 3) / 4) * 64) / 66);
+  const limit = pdf.length - 1;
+  assert.ok(atLeast <= limit);
+  f.workflows.mail.limits.attachments = { ...attachmentLimits, mailBytes: limit };
+  assert.equal(await code(f.send({ draftUid: uid })), "MAIL_ATTACHMENT_TOO_LARGE");
+  assert.equal(f.workflows.mail.sends.hourSends(f.id), 0);
+  assert.equal(f.count("Drafts"), 1);
+  assert.equal(f.smtp.messages.length, 0);
+  f.workflows.mail.limits.attachments = { ...attachmentLimits, mailBytes: pdf.length };
+  assert.equal((await f.send({ draftUid: uid })).status, "awaiting_approval");
+});
