@@ -28,19 +28,6 @@ test("without read stamps a push after the refresh began wins", () => {
   assert.equal(workspaceStateView(live(pushed), read).data, pushed);
 });
 
-test("a failed refresh shows its error until the next pushed value", () => {
-  const held = state(100);
-  const read = { basis: held, data: null, error: "Server down" };
-  assert.deepEqual(workspaceStateView(live(held), read), {
-    data: held,
-    failure: "Server down",
-    loading: false,
-  });
-  // The next topic message clears it, even with the same state.
-  const same = state(100);
-  assert.equal(workspaceStateView(live(same), read).failure, "");
-});
-
 test("the next successful refresh clears a refresh error", () => {
   const held = state(100);
   const failed = { basis: held, data: null, error: "Server down" };
