@@ -14,9 +14,10 @@ export const agentProjects = Object.freeze({
   projectFolderUnavailable:
     "Im Standard-Arbeitsverzeichnis kann kein eigenes Projekt angelegt werden: Es fehlt, ist nicht beschreibbar oder liegt in einem anderen Projekt.",
   telegram: {
-    created: (agent, name, path, coding) =>
-      `${agent} hat das Projekt ${name} in ${path} angelegt.` +
-      (coding ? " Coding-Sessions sind eingeschaltet." : ""),
+    created: (agent, name, path) =>
+      `${agent} hat das Projekt ${name} in ${path} angelegt.`,
+    createdWithCoding: (agent, name, path) =>
+      `${agent} hat das Projekt ${name} in ${path} angelegt. Coding-Sessions sind eingeschaltet.`,
     codingOn: (agent, name) =>
       `${agent} hat Coding-Sessions für das Projekt ${name} eingeschaltet.`,
     codingOff: (agent, name) =>

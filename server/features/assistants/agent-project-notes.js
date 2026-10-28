@@ -58,7 +58,7 @@ export function notifyAgentProject(w, agent, action) {
       localized: true,
       text:
         p.change === "create"
-          ? m.created(who, name, visibleLine(p.path), p.coding)
+          ? (p.coding ? m.createdWithCoding : m.created)(who, name, visibleLine(p.path))
           : (p.coding ? m.codingOn : m.codingOff)(who, name),
       path: `/projects/${encodeURIComponent(p.projectId)}?tab=agents`,
     });
