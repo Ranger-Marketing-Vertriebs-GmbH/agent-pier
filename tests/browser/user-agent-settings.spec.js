@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { userAgent, userAppFixture } from "../helpers/user-app-fixture.js";
+import { liveStubOf } from "../helpers/live-stub.js";
 
 // A user's agent settings by level (user-agent-settings.js) at 390px.
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -181,15 +182,14 @@ for (const [language, copy] of Object.entries(languages))
       const state = await userAppFixture(page, {
         language,
         agents: [userAgent({ level: "extended" })],
-        eventRetry: 200,
       });
       await page.goto(baseURL + "/agents/lotta/settings");
       await page.getByLabel(copy.token, { exact: true }).fill("123:secret");
       await page.getByRole("button", { name: copy.connect, exact: true }).click();
       await expect(page.getByText("/start 123456")).toBeVisible();
-      // She sends the code to her bot: the server pairs it and tells her app.
+      // She sends the code to her bot: the server pairs it and pushes her bot.
       state.telegramChannels.lotta = { ...state.telegramChannels.lotta, paired: true };
-      state.events.push({ type: "telegram", agentId: "lotta" });
+      await liveStubOf(page).reread("me.telegram:lotta");
       await expect(page.getByText("/start 123456")).toHaveCount(0);
       await expect(page.getByText(copy.telegramPaired)).toBeVisible();
       expect(state.telegram.map((call) => call.method)).toEqual(["PUT", "POST"]);

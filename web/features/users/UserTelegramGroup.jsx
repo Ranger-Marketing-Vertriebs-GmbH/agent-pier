@@ -7,52 +7,39 @@ import { getLanguage } from "../../lib/i18n/index.js";
 import { assistantChannelCopy as channelCopy } from "../../lib/i18n/messages/assistant-channel.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { PairingBlock } from "../assistants/settings/TelegramConnection.jsx";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { userApi } from "./user-api.js";
 
 /**
  * Her own agent's Telegram bot at Extended (server me-telegram.js): she connects it
  * with a BotFather token, pairs her private chat and disconnects it. The token never
- * comes back. Pairing finishes in Telegram: her event stream (`telegram`) re-reads the
- * bot, and a paired bot drops the pairing code.
+ * comes back. Pairing finishes in Telegram: her live topic `me.telegram:<agentId>`
+ * pushes the paired bot, which drops the pairing code.
  */
-export default function UserTelegramGroup({ agentId, subscribe }) {
-  const [channel, setChannel] = useState(undefined);
-  const [token, setToken] = useState("");
+export default function UserTelegramGroup({ agentId }) {
+  const topic = useLiveTopic(`me.telegram:${agentId}`);
   const [pairing, setPairing] = useState(null);
+  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [failure, setFailure] = useState("");
+  const { refresh } = topic;
+  // Unknown while the first read runs; none once it failed.
+  const channel = topic.data ? topic.data.channel : topic.loading ? undefined : null;
+  const paired = Boolean(channel?.paired);
   useEffect(() => {
-    let current = true;
-    const read = (first) =>
-      userApi
-        .telegram(agentId)
-        .then((result) => {
-          if (!current) return;
-          setChannel(result.channel);
-          if (result.channel?.paired) setPairing(null);
-        })
-        .catch((e) => {
-          if (!current) return;
-          if (first) setChannel(null);
-          setError(e.message);
-        });
-    read(true);
-    const unsubscribe = subscribe?.((event) => {
-      if (event.type === "telegram" && event.agentId === agentId) read(false);
-    });
-    return () => {
-      current = false;
-      unsubscribe?.();
-    };
-  }, [agentId, subscribe]);
+    if (paired) setPairing(null);
+  }, [paired]);
+  const error = failure || topic.error;
   const act = async (run) => {
     setBusy(true);
-    setError("");
+    setFailure("");
     try {
       await run();
     } catch (e) {
-      setError(e.message);
+      setFailure(e.message);
     } finally {
+      // Her app shows the bot as the server has it now; a push meanwhile is newer.
+      await refresh();
       setBusy(false);
     }
   };
@@ -63,14 +50,13 @@ export default function UserTelegramGroup({ agentId, subscribe }) {
         token,
         language: getLanguage(),
       });
-      setChannel(result.channel);
       setToken("");
       // The same bot connected again is paired already; a new one needs pairing.
       if (!result.channel?.paired) await pair();
     });
   const disconnect = () =>
     act(async () => {
-      setChannel((await userApi.disconnectTelegram(agentId)).channel);
+      await userApi.disconnectTelegram(agentId);
       setPairing(null);
     });
   return (

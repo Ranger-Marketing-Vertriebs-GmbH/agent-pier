@@ -45,7 +45,6 @@ export default function UserChat({
   conversationId,
   navigate,
   histories,
-  subscribe,
   ownerMayRead,
   chatSwitch = null,
   banner = null,
@@ -54,7 +53,7 @@ export default function UserChat({
 }) {
   const chat = useUserConversation(conversationId, { histories, readOnly, onCreated });
   const { history, latest, active } = chat;
-  const approvals = useUserApprovals(agent.id, subscribe);
+  const approvals = useUserApprovals(agent.id);
   const attachments = useAgentAttachments(conversationId);
   const touchInput = useTouchInput();
   const [files, setFiles] = useState(0);

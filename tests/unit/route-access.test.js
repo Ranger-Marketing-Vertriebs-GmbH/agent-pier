@@ -8,6 +8,7 @@ import {
   userTopics,
 } from "../../server/http/route-access.js";
 import { liveGate } from "../../server/application/live-wiring.js";
+import { AGENT_PARAM } from "../../server/features/assistants/live-topics.js";
 
 const decide = (principal, method, path) => {
   let status = null;
@@ -27,6 +28,8 @@ test("users reach only their own /api/me routes", () => {
   assert.equal(userMayReach("GET", "/api/me/%2e%2e/assistants"), false);
   assert.equal(userMayReach("GET", "/api/assistants"), false);
   assert.equal(userMayReach("GET", "/me"), false);
+  // Her former event stream is gone: her app follows the me.* live topics.
+  assert.equal(userMayReach("GET", "/api/me/events"), false);
 });
 
 test("every allow-list entry stays inside /api/me", () => {
@@ -50,11 +53,40 @@ test("the middleware refuses users outside /api/me and the owner inside it", () 
   assert.equal(decide(undefined, "GET", "/me"), 404);
 });
 
-test("users watch only me.* live topics, none of them yet", () => {
+test("users watch only the me.* live topics of their GET routes", () => {
   for (const pattern of userTopics) assert.match(pattern.source, /^\^me\\\./);
-  assert.equal(userTopics.length, 0);
-  for (const topic of ["state", "me", "inbox", "session.requests:x", 7, null])
-    assert.equal(userMayWatch(topic), false);
+  assert.equal(userTopics.length, 6);
+  for (const route of userRoutes.filter((r) => r.topic))
+    assert.equal(route.method, "GET");
+  for (const topic of [
+    "me.agents",
+    "me.account",
+    "me.approvals",
+    "me.chats:a-1",
+    "me.telegram:a_1",
+    "me.reminders:A1",
+  ])
+    assert.equal(userMayWatch(topic), true, topic);
+  for (const topic of [
+    "state",
+    "me",
+    "inbox",
+    "session.requests:x",
+    "me.chats",
+    "me.chats:",
+    "me.chats:a/b",
+    "me.chats:a:b",
+    "me.chats:-a",
+    "me.agents:x",
+    "me.routines:x",
+    "me.events",
+    `me.chats:${"a".repeat(101)}`,
+    7,
+    null,
+  ])
+    assert.equal(userMayWatch(topic), false, String(topic));
+  // The topic's agent id is the hub's (assistants/live-topics.js AGENT_PARAM).
+  assert.ok(userTopics.some((p) => p.source.includes(AGENT_PARAM.source)));
 });
 
 test("the live gate admits the owner and users only through userTopics", () => {

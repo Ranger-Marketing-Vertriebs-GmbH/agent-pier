@@ -3,44 +3,32 @@ import assert from "node:assert/strict";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
 import { telegramMessage } from "../helpers/assistant-channel-fixture.js";
+import { openLive } from "../helpers/live-socket.js";
 
-// Reads a user's event stream; `frames()` are the data frames so far.
-async function stream(f, cookie) {
-  const controller = new AbortController();
-  const response = await fetch(`${f.url}/api/me/events`, {
-    headers: { cookie, origin: f.url, accept: "text/event-stream" },
-    signal: controller.signal,
-  });
-  assert.equal(response.status, 200);
-  const reader = response.body.getReader();
-  let text = "";
-  let ended = false;
-  const done = (async () => {
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        text += Buffer.from(value).toString();
-      }
-    } catch {
-      // Aborted.
-    }
-    ended = true;
-  })();
-  return {
-    frames: () =>
-      text
-        .split("\n")
-        .filter((line) => line.startsWith("data: "))
-        .map((line) => JSON.parse(line.slice(6))),
-    ended: () => ended,
-    done,
-    close: () => controller.abort(),
-  };
+// What a restricted user's app hears of her changes: her `me.*` live topics
+// (live-me-topics.js), which replaced her event stream.
+
+/** A live socket of `cookie`, open and greeted. */
+async function live(t, f, cookie) {
+  const socket = openLive(f, cookie);
+  t.after(() => socket.ws.close());
+  await socket.next((frame) => frame.type === "hello");
+  return socket;
 }
-const settle = () => new Promise((resolve) => setTimeout(resolve, 100));
 
-test("A gets a frame for her conversation and none for B's turn on the shared agent", async (t) => {
+/** Subscribes `topic` and resolves with its first frame. */
+function first(socket, topic) {
+  socket.send({ op: "sub", topic });
+  return socket.next((frame) => frame.topic === topic, 5000);
+}
+
+/** The next pushed value of `topic`. */
+const pushed = (socket, topic) =>
+  socket.next((frame) => frame.topic === topic && frame.type === "state", 5000);
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+test("A's list follows her conversation and nothing of B's turn on the shared agent", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, ben, agent } = await sharedAgentOfTwo(f);
   const open = async (cookie) =>
@@ -51,36 +39,38 @@ test("A gets a frame for her conversation and none for B's turn on the shared ag
     ).id;
   const annaChat = await open(anna.cookie);
   const benChat = await open(ben.cookie);
-  const events = await stream(f, anna.cookie);
-  t.after(events.close);
-  await settle();
-  assert.deepEqual(events.frames(), [{ type: "connected" }]);
+  const socket = await live(t, f, anna.cookie);
+  const shown = await first(socket, "me.agents");
+  assert.equal(shown.data[0].conversationId, annaChat);
   await as(f, ben.cookie)(`/api/me/conversations/${benChat}/messages`, {
     method: "POST",
     body: { clientRequestId: "ben", text: "Mine" },
   });
   f.application.assistants.changed({ conversationId: benChat });
   await settle();
-  assert.deepEqual(events.frames(), [{ type: "connected" }]);
+  // Ben's turn changes nothing she sees: no frame.
+  assert.equal(socket.frames.filter((frame) => frame.topic === "me.agents").length, 1);
+  await as(f, anna.cookie)(`/api/me/conversations/${annaChat}/messages`, {
+    method: "POST",
+    body: { clientRequestId: "anna", text: "Hers" },
+  });
   f.application.assistants.changed({ conversationId: annaChat });
-  await settle();
-  assert.deepEqual(events.frames().at(-1), { type: "agents" });
-  assert.doesNotMatch(JSON.stringify(events.frames()), new RegExp(benChat));
+  const next = await pushed(socket, "me.agents");
+  assert.equal(next.data[0].conversationId, annaChat);
+  assert.doesNotMatch(JSON.stringify(socket.frames), new RegExp(benChat));
 });
 
-test("the stream closes when A is disabled", async (t) => {
+test("her live socket closes when A is disabled", async (t) => {
   const { f } = await chatFixture(t);
   const { anna } = await sharedAgentOfTwo(f);
-  const events = await stream(f, anna.cookie);
-  t.after(events.close);
-  await settle();
+  const socket = await live(t, f, anna.cookie);
+  await first(socket, "me.agents");
   const disabled = await f.request(`/api/users/${anna.user.id}`, {
     method: "PATCH",
     body: { disabled: true },
   });
   assert.equal(disabled.status, 200);
-  await Promise.race([events.done, settle().then(settle).then(settle)]);
-  assert.equal(events.ended(), true);
+  assert.equal((await socket.closed).code, 1008);
 });
 
 test("an approval of a chat she left no longer counts for her", async (t) => {
@@ -91,9 +81,8 @@ test("an approval of a chat she left no longer counts for her", async (t) => {
     method: "POST",
   });
   const conversationId = (await opened.json()).id;
-  const events = await stream(f, anna.cookie);
-  t.after(events.close);
-  await settle();
+  const socket = await live(t, f, anna.cookie);
+  assert.deepEqual((await first(socket, "me.approvals")).data, { actions: [] });
   const assistants = f.application.assistants;
   assistants.workflows.store.reserve({
     key: `approval-${conversationId}`,
@@ -104,8 +93,9 @@ test("an approval of a chat she left no longer counts for her", async (t) => {
     state: "awaiting_approval",
   });
   assistants.changed();
-  await settle();
-  assert.deepEqual(events.frames().at(-1), { type: "approvals", count: 1 });
+  const waiting = await pushed(socket, "me.approvals");
+  assert.equal(waiting.data.actions.length, 1);
+  assert.deepEqual(waiting.data, await (await request("/api/me/approvals")).json());
   const moved = await f.request(`/api/user-agents/${agent.id}/access`, {
     method: "PUT",
     body: {
@@ -114,46 +104,48 @@ test("an approval of a chat she left no longer counts for her", async (t) => {
     },
   });
   assert.equal(moved.status, 200, await moved.clone().text());
-  assistants.changed();
-  await settle();
   // Her badge matches what she can open: nothing.
+  assert.deepEqual((await pushed(socket, "me.approvals")).data, { actions: [] });
   assert.deepEqual(await (await request("/api/me/approvals")).json(), { actions: [] });
-  assert.deepEqual(
-    events.frames().filter((e) => e.type === "approvals"),
-    [
-      { type: "approvals", count: 1 },
-      { type: "approvals", count: 0 },
-    ],
-  );
 });
 
-test("a stream opened while agents are off ends once they start, so she reconnects", async (t) => {
+test("her list subscribed while agents are off follows them once they start", async (t) => {
   const { f } = await chatFixture(t);
-  const { anna } = await sharedAgentOfTwo(f);
+  const { anna, agent } = await sharedAgentOfTwo(f);
   const feature = (enabled) =>
     f.request("/api/assistant-feature", { method: "PUT", body: { enabled } });
   assert.equal((await feature(false)).status, 200);
-  const events = await stream(f, anna.cookie);
-  t.after(events.close);
-  await settle();
-  assert.equal(events.ended(), false);
+  const socket = await live(t, f, anna.cookie);
+  assert.deepEqual((await first(socket, "me.agents")).data, []);
+  // Her agent topics are refused while no agent serves her.
+  assert.equal((await first(socket, `me.chats:${agent.id}`)).code, "unknown-topic");
   assert.equal((await feature(true)).status, 200);
-  await Promise.race([events.done, settle().then(settle).then(settle)]);
-  assert.equal(events.ended(), true);
-  // The new stream follows the started agents.
-  const again = await stream(f, anna.cookie);
-  t.after(again.close);
-  await settle();
-  assert.deepEqual(again.frames(), [{ type: "connected" }]);
-  assert.equal(again.ended(), false);
+  const started = await pushed(socket, "me.agents");
+  assert.deepEqual(
+    started.data.map((a) => a.id),
+    [agent.id],
+  );
+  // The started agents' changes reach her too (the fixture's Gateway stays stopped,
+  // so her chat is stored directly).
+  const { assistants } = f.application;
+  const { id } = assistants.store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: `agent:${agent.runtimeAgentId}:anna-after-start`,
+    userId: anna.user.id,
+  });
+  assistants.changed({ conversationId: id });
+  assert.equal((await pushed(socket, "me.agents")).data[0].conversationId, id);
 });
 
 test("she learns at once when the owner turns reading her chats on or off", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, ben } = await sharedAgentOfTwo(f);
-  const events = await stream(f, anna.cookie);
-  t.after(events.close);
-  await settle();
+  const socket = await live(t, f, anna.cookie);
+  const shown = await first(socket, "me.account");
+  assert.deepEqual(shown.data, {
+    user: { id: anna.user.id, username: "Anna", displayName: "Anna" },
+    ownerMayRead: { enabled: false, since: null },
+  });
   const optIn = (user, enabled) =>
     f.request(`/api/users/${user.id}/owner-may-read`, {
       method: "PUT",
@@ -162,12 +154,15 @@ test("she learns at once when the owner turns reading her chats on or off", asyn
   // Ben's opt-in is not hers.
   assert.equal((await optIn(ben.user, true)).status, 200);
   await settle();
-  assert.equal(events.frames().filter((e) => e.type === "account").length, 0);
+  assert.equal(socket.frames.filter((frame) => frame.topic === "me.account").length, 1);
   assert.equal((await optIn(anna.user, true)).status, 200);
-  await settle();
+  assert.equal((await pushed(socket, "me.account")).data.ownerMayRead.enabled, true);
   assert.equal((await optIn(anna.user, false)).status, 200);
-  await settle();
-  assert.equal(events.frames().filter((e) => e.type === "account").length, 2);
+  assert.deepEqual((await pushed(socket, "me.account")).data.ownerMayRead, {
+    enabled: false,
+    since: null,
+  });
+  assert.doesNotMatch(JSON.stringify(socket.frames), /Ben/);
 });
 
 test("her Telegram pairing finishing in Telegram reaches her app", async (t) => {
@@ -188,16 +183,41 @@ test("her Telegram pairing finishing in Telegram reaches her app", async (t) => 
   const { code } = await (
     await request(`${address}/pair`, { method: "POST", body: {} })
   ).json();
-  const events = await stream(f, cookie);
-  t.after(events.close);
-  await settle();
+  const socket = await live(t, f, cookie);
+  const topic = `me.telegram:${agent.id}`;
+  assert.equal((await first(socket, topic)).data.channel.paired, false);
   await f.application.assistantChannels.ingress.receive(channel.id, [
     telegramMessage(1, `/start ${code}`),
   ]);
-  await settle();
-  assert.ok(
-    events.frames().some((e) => e.type === "telegram" && e.agentId === agent.id),
-    JSON.stringify(events.frames()),
-  );
+  assert.equal((await pushed(socket, topic)).data.channel.paired, true);
   assert.equal((await (await request(address)).json()).channel.paired, true);
+  assert.doesNotMatch(JSON.stringify(socket.frames), /anna-bot-token/);
+});
+
+test("her reminders follow her own writes", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(
+    f,
+    { mode: "own", members: [{ userId: user.id, level: "personalize" }] },
+    { capabilities: { memory: false, reminders: true } },
+  );
+  const socket = await live(t, f, cookie);
+  const topic = `me.reminders:${agent.id}`;
+  assert.deepEqual((await first(socket, topic)).data.reminders, []);
+  const created = await as(f, cookie)(`/api/me/agents/${agent.id}/reminders`, {
+    method: "POST",
+    body: {
+      clientRequestId: "dentist-request",
+      name: "dentist",
+      message: "Remember the dentist",
+      schedule: { kind: "at", at: new Date(Date.now() + 3600000).toISOString() },
+    },
+  });
+  assert.equal(created.status, 201, await created.clone().text());
+  const next = await pushed(socket, topic);
+  assert.deepEqual(
+    next.data.reminders.map((reminder) => reminder.name),
+    ["dentist"],
+  );
 });

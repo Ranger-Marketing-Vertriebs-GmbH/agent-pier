@@ -4,6 +4,7 @@ import { WebSocket } from "ws";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
 import { signedInUser } from "../helpers/users.js";
+import { openLive } from "../helpers/live-socket.js";
 import { agentNotice } from "../../server/application/push-notices.js";
 import { pushLink } from "../../server/features/notifications/push-content.js";
 import { noteBrowserHandBack } from "../../server/features/assistants/browser-hand-back.js";
@@ -48,37 +49,6 @@ async function twoChats(request, agentId, user = false) {
     )
   ).id;
   return { main, second };
-}
-
-// A user's event stream; `frames()` are its data frames so far.
-async function events(f, cookie) {
-  const controller = new AbortController();
-  const response = await fetch(`${f.url}/api/me/events`, {
-    headers: { cookie, origin: f.url, accept: "text/event-stream" },
-    signal: controller.signal,
-  });
-  assert.equal(response.status, 200);
-  const reader = response.body.getReader();
-  let text = "";
-  (async () => {
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        text += Buffer.from(value).toString();
-      }
-    } catch {
-      // Aborted.
-    }
-  })();
-  return {
-    frames: () =>
-      text
-        .split("\n")
-        .filter((line) => line.startsWith("data: "))
-        .map((line) => JSON.parse(line.slice(6))),
-    close: () => controller.abort(),
-  };
 }
 
 test("a turn in chat 2 updates the list without touching chat 1's feed", async (t) => {
@@ -173,17 +143,20 @@ test("archiving closes open viewers of that chat", async (t) => {
   await assert.rejects(open(second), /refused 404/);
 });
 
-test("A's /me/events never announce B's chats", async (t) => {
+test("A's chat list topic never announces B's chats", async (t) => {
   const { f } = await chatFixture(t);
   const { anna, ben, agent } = await sharedAgentOfTwo(f);
   const annaRequest = as(f, anna.cookie);
   const benRequest = as(f, ben.cookie);
   await twoChats(annaRequest, agent.id, true);
   await twoChats(benRequest, agent.id, true);
-  const stream = await events(f, anna.cookie);
-  t.after(stream.close);
-  await settle();
-  const baseline = stream.frames().length;
+  const topic = `me.chats:${agent.id}`;
+  const socket = openLive(f, anna.cookie);
+  t.after(() => socket.ws.close());
+  await socket.next((frame) => frame.type === "hello");
+  socket.send({ op: "sub", topic });
+  await socket.next((frame) => frame.topic === topic, 5000);
+  const baseline = socket.frames.length;
   // Ben starts a chat, writes in it and renames it: nothing reaches Anna.
   const benThird = await json(
     await benRequest(`/api/me/agents/${agent.id}/chats`, { method: "POST" }),
@@ -197,18 +170,20 @@ test("A's /me/events never announce B's chats", async (t) => {
     method: "PATCH",
     body: { title: "Ben's" },
   });
-  await settle();
-  assert.equal(stream.frames().length, baseline);
-  assert.doesNotMatch(JSON.stringify(stream.frames()), new RegExp(benThird.id));
-  // Her own new chat is announced for its agent.
-  await json(
+  await settle(500);
+  assert.equal(socket.frames.length, baseline);
+  assert.doesNotMatch(JSON.stringify(socket.frames), new RegExp(benThird.id));
+  // Her own new chat is pushed in her list.
+  const annaThird = await json(
     await annaRequest(`/api/me/agents/${agent.id}/chats`, { method: "POST" }),
     201,
   );
-  await settle();
-  assert.deepEqual(stream.frames().slice(baseline), [
-    { type: "chats", agentId: agent.id },
-  ]);
+  const pushed = await socket.next(
+    (frame) => frame.topic === topic && frame.type === "state",
+    5000,
+  );
+  assert.ok(pushed.data.some((chat) => chat.id === annaThird.id));
+  assert.doesNotMatch(JSON.stringify(socket.frames), /Ben's/);
 });
 
 test("push deep links name the chat that produced the event", async (t) => {

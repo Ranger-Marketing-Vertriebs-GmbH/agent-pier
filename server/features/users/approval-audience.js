@@ -24,7 +24,7 @@ export const ownerApproval = (action, store) =>
 /**
  * The approvals waiting for a user that she can open and decide: hers, in a chat of
  * hers that is still open on an agent that still serves her (user-scope.js). The list
- * route and her event stream's count use the same set.
+ * route and her `me.approvals` live topic use the same set.
  */
 export function awaitingForUser({ assistants, userScope }, principal) {
   return (assistants?.workflows?.store.awaiting(Date.now()) || []).filter((action) => {

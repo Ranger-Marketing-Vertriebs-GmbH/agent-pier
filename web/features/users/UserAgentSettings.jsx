@@ -89,7 +89,7 @@ function ProfileGroup({ draft, editable, managed }) {
  * reminders and routines, memory, Telegram and the browser. What she may not change
  * shows read-only with who manages it. One draft and save bar, with conflicts.
  */
-export default function UserAgentSettings({ agent, route, navigate, subscribe }) {
+export default function UserAgentSettings({ agent, route, navigate }) {
   const [view, setView] = useState(null);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -213,7 +213,7 @@ export default function UserAgentSettings({ agent, route, navigate, subscribe })
               onClick={() => navigate({ view: "browser", agentId: agent.id })}
             />
           </ListCard>
-          {extendedOwn && <UserTelegramGroup agentId={agent.id} subscribe={subscribe} />}
+          {extendedOwn && <UserTelegramGroup agentId={agent.id} />}
         </>
       )}
       <UnsavedChangesSheet {...sheet} />

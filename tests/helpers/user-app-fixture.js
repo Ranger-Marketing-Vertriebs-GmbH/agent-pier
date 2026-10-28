@@ -94,8 +94,6 @@ export async function userAppFixture(page, options = {}) {
     browser: options.browser || {},
     telegramChannels: options.telegram || {},
     telegram: [],
-    // Events her stream sends on its next reconnect (with `eventRetry` set).
-    events: [],
     password: options.password || "current-password-1",
     posted: [],
     saved: [],
@@ -151,16 +149,6 @@ export async function userAppFixture(page, options = {}) {
       return route.fulfill({ status: 204, body: "" });
     }
     if (path === "/api/me/dictation") return json(route, { available: false });
-    if (path === "/api/me/events")
-      return route.fulfill({
-        contentType: "text/event-stream",
-        body:
-          [
-            `retry: ${options.eventRetry ?? 600000}`,
-            'data: {"type":"connected"}',
-            ...state.events.splice(0).map((event) => `data: ${JSON.stringify(event)}`),
-          ].join("\n\n") + "\n\n",
-      });
     if (path === "/api/me/agents") return json(route, state.agents);
     if (path === "/api/me/approvals") return json(route, { actions: state.approvals });
     if ((m = /^\/api\/me\/approvals\/([^/]+)\/decision$/.exec(path))) {

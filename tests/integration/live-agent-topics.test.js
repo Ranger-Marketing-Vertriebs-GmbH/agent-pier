@@ -398,10 +398,14 @@ test("reminder writes signal their agent, a run result every agent", async (t) =
   await reminders.list("a3");
   await new Promise((resolve) => setImmediate(resolve));
   // A failed write may have changed the job half way: it signals too.
+  // Her own reminder lists (me.reminders) follow the same writes.
   assert.deepEqual(signals, [
     "agent.reminders:a1",
+    "me.reminders:a1",
     "agent.reminders:a2",
+    "me.reminders:a2",
     "agent.reminders:*",
+    "me.reminders:*",
   ]);
   failing = true;
   await reminders.create("a4");
@@ -437,5 +441,5 @@ test("a user's released reminders signal their agents' reminder topics", async (
     changed() {},
   };
   await retireReleased({ assistants, live }, [{ id: "a" }]);
-  assert.deepEqual(signals, ["agent.reminders:a"]);
+  assert.deepEqual(signals, ["agent.reminders:a", "me.reminders:a"]);
 });

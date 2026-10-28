@@ -4,7 +4,7 @@ AgentPier belongs to one owner. The owner can add **users**, such as family memb
 who sign in to the same AgentPier with their own username and password and chat with
 agents he sets up for them. A user sees a slim app of her own and never reaches the
 owner's sessions, pipelines, projects, files or settings: not in the interface, not
-through the API, WebSockets or event streams.
+through the API, WebSockets or live topics.
 
 German copy calls them "Benutzer". The terms used below are fixed in the
 [UI glossary](ui-glossary.md#users-and-their-agents).
@@ -34,7 +34,7 @@ with each agent, her agents' settings within her level, and **Account**: **Chang
 password**, whether the owner may read her chats, the notifications of her devices and
 **Sign out**. The menu holds only **My agents** and **Account**. Her app makes HTTP
 requests only to `/auth` and `/api/me`; an owner address opened in it shows "This page
-does not exist here." It also opens three WebSockets outside `/api/me`, each admitted
+does not exist here." It also opens four WebSockets outside `/api/me`, each admitted
 after the session check by `server/http/socket-access.js`:
 
 - `/api/assistant-conversations/<id>/stream`: the live chat, only for a chat that is
@@ -45,6 +45,15 @@ after the session check by `server/http/socket-access.js`:
   the last ten minutes, or someone else's turn drives it (the owner's own chat
   included) or the owner holds it.
 - `/api/dictation/stream`: dictation through the owner's Deepgram connection.
+- `/api/live`: the live channel. Over it she subscribes only her own `me.*` topics,
+  which push what her `/api/me` routes answer her: her agents (`me.agents`), her
+  account (`me.account`), her approvals (`me.approvals`) and, for each of her agents,
+  her chat list (`me.chats:<agentId>`), her bot (`me.telegram:<agentId>`) and her
+  reminders (`me.reminders:<agentId>`). Every other topic, and an agent that does not
+  serve her, answers like an unknown one; nothing of another user's or the owner's
+  passes, also on a shared agent. Taking an agent away from her ends its topics at
+  once, and signing her out closes the socket. Without the live channel her app reads
+  those routes at intervals while it is visible.
 
 Every other socket is refused like an unknown path (see [Login](login.md)).
 

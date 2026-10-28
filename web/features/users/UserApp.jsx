@@ -80,19 +80,12 @@ export default function UserApp({ status }) {
         conversationId={route.conversationId}
         navigate={navigate}
         histories={histories}
-        subscribe={data.subscribe}
         ownerMayRead={data.me?.ownerMayRead}
       />
     );
   else if (route.view === "settings")
     page = (
-      <UserAgentSettings
-        key={agent.id}
-        agent={agent}
-        route={route}
-        navigate={navigate}
-        subscribe={data.subscribe}
-      />
+      <UserAgentSettings key={agent.id} agent={agent} route={route} navigate={navigate} />
     );
   else if (route.view === "browser")
     page = (

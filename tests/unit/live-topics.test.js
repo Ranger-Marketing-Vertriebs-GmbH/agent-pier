@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { liveTopics, readTopicValue, topicInfo } from "../../web/lib/live/live-topics.js";
 import { liveEnvironment } from "../../web/lib/live/live-environment.js";
+import { userRoutes } from "../../server/http/route-access.js";
+import { ME_TOPICS } from "../../server/features/users/live-me-topics.js";
 
 test("topicInfo resolves registered topics and their REST path", () => {
   const requests = topicInfo("session.requests:abc");
@@ -239,4 +241,20 @@ test("the agent detail topics name their routes at their former polls", () => {
     // Each one is an agent's: the parameter is required.
     assert.equal(topicInfo(name), null, name);
   }
+});
+
+test("a user's me.* topics read her own /api/me routes, each the route it pushes", () => {
+  const routed = userRoutes.filter((route) => route.topic);
+  for (const name of ME_TOPICS) {
+    const id = name === "me.agents" || name === "me.account" || name === "me.approvals";
+    const topicId = id ? name : `${name}:agent-1`;
+    const info = topicInfo(topicId);
+    assert.ok(info, topicId);
+    assert.equal(info.mode, "state");
+    const route = routed.find((r) => r.topic.test(topicId));
+    assert.match(`/api${info.path(info.param)}`, route.pattern, topicId);
+  }
+  assert.equal(topicInfo("me.reminders:a").sampled, true);
+  assert.equal(topicInfo("me.chats"), null);
+  assert.equal(topicInfo("me.agents:x"), null);
 });

@@ -227,6 +227,8 @@ export class LiveHub {
           allowed = false;
         }
         if (allowed) continue;
+        // What was read under the lost access is never answered `same` again.
+        instance.record.digest = undefined;
         this.drop(instance, subscriber);
         subscriber.send({ type: "revoked", topic: instance.topicId });
       }
