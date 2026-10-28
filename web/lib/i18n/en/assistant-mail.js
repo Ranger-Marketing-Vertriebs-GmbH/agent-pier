@@ -61,6 +61,7 @@ export const assistantMailCopy = {
     forwardOf: "Forward of",
     inDraft: "Already in the draft",
     fromOriginal: "From the original mail",
+    fromAgentDraft: (agent) => `from ${agent}'s draft`,
     unnamed: "(no name)",
     hash: "SHA-256",
     html: {

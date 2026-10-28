@@ -80,7 +80,13 @@ function sourceText(source, f) {
   if (source?.kind === "original") return f.fromOriginal;
   if (!source?.path) return f.inDraft;
   const path = visibleLine(shortPath(source.path));
-  return source.projectName ? `${path} (${visibleLine(source.projectName)})` : path;
+  const where = source.projectName
+    ? `${path} (${visibleLine(source.projectName)})`
+    : path;
+  // Another agent's file in the draft says whose it is.
+  return source.agentName
+    ? `${where}, ${f.fromAgentDraft(visibleLine(source.agentName))}`
+    : where;
 }
 
 const htmlNotes = {

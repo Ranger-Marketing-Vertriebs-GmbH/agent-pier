@@ -814,6 +814,7 @@
   "mail.mailFields.cc": "de:b28037e918b6 en:b28037e918b6",
   "mail.mailFields.forwardOf": "de:64355e1ae64b en:d7d239b061b6",
   "mail.mailFields.from": "de:640e86cbc244 en:218197693424",
+  "mail.mailFields.fromAgentDraft": "de:1764b7b9a0f4 en:0777f9544ea4",
   "mail.mailFields.fromOriginal": "de:7e07d988074e en:ce894dd53bcc",
   "mail.mailFields.inDraft": "de:9a1b5ee9788f en:aa1f7bf6fdeb",
   "mail.mailFields.subject": "de:ec93bf685007 en:68971283841a",

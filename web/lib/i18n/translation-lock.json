@@ -1104,6 +1104,7 @@
   "assistant-mail:assistantMailCopy.card.expires": "de:6a9f003ad2c0 en:3af989fe95c9",
   "assistant-mail:assistantMailCopy.card.forwardOf": "de:64355e1ae64b en:d7d239b061b6",
   "assistant-mail:assistantMailCopy.card.from": "de:640e86cbc244 en:218197693424",
+  "assistant-mail:assistantMailCopy.card.fromAgentDraft": "de:1764b7b9a0f4 en:0777f9544ea4",
   "assistant-mail:assistantMailCopy.card.fromOriginal": "de:7e07d988074e en:ce894dd53bcc",
   "assistant-mail:assistantMailCopy.card.hash": "de:bbd07c4fc02c en:bbd07c4fc02c",
   "assistant-mail:assistantMailCopy.card.hidden": "de:ca89f30619bc en:2ade288df80e",
