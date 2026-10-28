@@ -31,7 +31,8 @@ import {
 // is hard-linked under the first free numbered name (`a.pdf`, `a (2).pdf`, ...);
 // on a file system without hard links the file is created exclusively at that name.
 // Tool configuration and instruction files (CLAUDE.md, .claude/, ...) are locked in
-// the workspace too: below mail/ they would still load in a session started there.
+// the workspace too, by their fixed names: below mail/ they would still load in a
+// session started there. The repository scan stays for projects only.
 
 const { O_WRONLY, O_CREAT, O_EXCL } = fs.constants;
 const refused = () => assistantProblem("mailSaveRefused", 403);
@@ -57,7 +58,13 @@ const realpath = (value) => {
 function inWorkspace(w, ctx, requested, accountName) {
   const local = agentLocalRoot(w, ctx, { write: true });
   const raw = requested ?? `mail/${safeFileName(accountName, fallbackFileType)}`;
-  const folder = projectTarget(local.root, raw, { write: true, lockToolConfig: true });
+  // The fixed names only: the repository scan (project-config-lock.js) would refuse
+  // every save in a workspace over its folder limit, and mail/ is no repository.
+  const folder = projectTarget(local.root, raw, {
+    write: true,
+    lockToolConfig: true,
+    repoConfig: false,
+  });
   // `Mail/` is the same folder on a file system that ignores case.
   if (!isMail(folder.relative.split("/")[0])) throw refused();
   return {
@@ -179,6 +186,7 @@ async function linkFree(target, directory, name, file) {
     write: true,
     protectedRoots: target.protectedRoots,
     lockToolConfig: true,
+    repoConfig: !target.workspace,
   };
   for (let n = 1; n <= maxNumber; n++) {
     const candidate = numberedName(name, n);
