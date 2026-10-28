@@ -146,3 +146,63 @@ test("restricted users cannot subscribe to runs or queues", async (t) => {
   }
   live.ws.close();
 });
+
+test("items moved to another project leave the old project's queue", async (t) => {
+  const c = await setup(t);
+  const from = `pipeline.queue:${c.other.id}`;
+  const { live } = await subscribed(c.app, from);
+  const added = await c.app.request(`/api/pipeline-queue/${c.other.id}/items`, {
+    method: "POST",
+    body: { pipelineId: c.pipeline.id, task: "Moving" },
+  });
+  assert.equal(added.status, 201);
+  await live.next((frame) => frame.topic === from && frame.data?.items?.length === 1);
+  c.services.pipelineQueue.moveProject(c.other.id, c.project.id);
+  const frame = await live.next((next) => next.topic === from, 1000);
+  assert.deepEqual(frame.data.items, []);
+  live.ws.close();
+});
+
+test("a refused topic read is not logged, a failing one is", async (t) => {
+  const f = await applicationFixture(t);
+  const logged = t.mock.method(console, "error", () => {});
+  const live = openLive(f);
+  await live.next((frame) => frame.type === "hello");
+  const missing = "pipeline.queue:missing-project";
+  live.send({ op: "sub", topic: missing });
+  assert.equal((await live.next((frame) => frame.topic === missing)).type, "error");
+  assert.equal(logged.mock.callCount(), 0);
+  f.application.pipelines.get = () => {
+    throw new Error("disk failure");
+  };
+  const broken = "pipeline.run:run-broken";
+  live.send({ op: "sub", topic: broken });
+  assert.equal((await live.next((frame) => frame.topic === broken)).type, "error");
+  assert.deepEqual(logged.mock.calls.at(-1).arguments, [
+    `AgentPier could not update the live topic ${broken}.`,
+  ]);
+  live.ws.close();
+});
+
+test("a run of several hundred KiB is pushed, not sent as stale", async (t) => {
+  const f = await applicationFixture(t);
+  const finding = { severity: "high", title: "t".repeat(120), detail: "d".repeat(600) };
+  const verdict = { result: "fail", summary: "s".repeat(400), findings: [] };
+  verdict.findings = Array.from({ length: 10 }, () => finding);
+  const run = {
+    ...structuredClone(waitingRun),
+    executionLog: Array.from({ length: 60 }, (_, i) => ({
+      id: `turn-${i}`,
+      nodeId: "gate",
+      status: "passed",
+      verdict,
+    })),
+  };
+  f.application.pipelines.store.create(run);
+  const topic = "pipeline.run:run-waiting";
+  const { live, snapshot } = await subscribed(f, topic);
+  const size = Buffer.byteLength(JSON.stringify(snapshot));
+  assert.ok(size > 256 * 1024 && size < 1024 * 1024, `${size} bytes`);
+  assert.equal(snapshot.data.run.executionLog.length, 60);
+  live.ws.close();
+});

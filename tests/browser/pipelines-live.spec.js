@@ -37,18 +37,26 @@ test("a pushed run status updates the run header without GET /api/pipeline-runs/
   expect(reads(state, "/pipeline-runs/run-one")).toEqual([]);
 });
 
-test("a run pushed as missing shows that it is unavailable", async ({
-  page,
-  liveStub,
-}) => {
-  const state = await pipelinesFixture(page);
-  await page.goto(baseURL + "/pipelines/runs/run-gone");
-  await pushState(page, liveStub);
-  await liveStub.waitForSubscribe("pipeline.run:run-gone");
-  liveStub.push("pipeline.run:run-gone", { run: null });
-  await expect(page.getByRole("alert")).toHaveText("Dieser Lauf ist nicht verfügbar.");
-  expect(reads(state, "/pipeline-runs/run-gone")).toEqual([]);
-});
+for (const [language, unavailable] of [
+  ["de", "Dieser Lauf ist nicht verfügbar."],
+  ["en", "This run is unavailable."],
+])
+  test(`a run pushed as missing shows that it is unavailable (${language})`, async ({
+    page,
+    liveStub,
+  }) => {
+    await page.addInitScript(
+      (value) => localStorage.setItem("agentpier-language", value),
+      language,
+    );
+    const state = await pipelinesFixture(page);
+    await page.goto(baseURL + "/pipelines/runs/run-gone");
+    await pushState(page, liveStub);
+    await liveStub.waitForSubscribe("pipeline.run:run-gone");
+    liveStub.push("pipeline.run:run-gone", { run: null });
+    await expect(page.getByRole("alert")).toHaveText(unavailable);
+    expect(reads(state, "/pipeline-runs/run-gone")).toEqual([]);
+  });
 
 test("a pushed queue item shows without GET /api/pipeline-queue/<project>", async ({
   page,

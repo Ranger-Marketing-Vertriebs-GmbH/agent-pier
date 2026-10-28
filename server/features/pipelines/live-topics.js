@@ -36,11 +36,18 @@ export function pipelineQueueChanged(hub, projectId) {
   if (typeof projectId === "string") hub?.invalidate("pipeline.queue", projectId);
 }
 
+// A run carries every stage's profile snapshot and verdict and every attempt with its
+// verdict. A six-stage run with some loops measures 300-500 KiB, ten stages with 80
+// attempts about 900 KiB, so runs up to 1 MiB are pushed. The log has no bound, so a
+// larger run is sent as `stale` and read over REST once per change.
+export const RUN_MAX_BYTES = 1024 * 1024;
+
 /** The `pipeline.run` topic definition for LiveHub#define. */
 export function pipelineRunTopic(services) {
   return {
     name: "pipeline.run",
     mode: "state",
+    maxBytes: RUN_MAX_BYTES,
     param: PIPELINE_PARAM,
     authorize: owner,
     scopeKey: () => "owner",

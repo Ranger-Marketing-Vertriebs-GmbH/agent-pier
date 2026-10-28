@@ -24,8 +24,12 @@ export const liveGate = (principal, topicId, topics = userTopics) =>
 export function createLiveHub(services, options = {}) {
   const hub = new LiveHub({
     gate: (principal, topicId) => liveGate(principal, topicId),
-    onError: (_error, { topic } = {}) =>
-      console.error(`AgentPier could not update the live topic ${topic}.`),
+    onError: (error, { topic } = {}) => {
+      // A refusal (a missing project, an invalid id) is the answer, not a fault: the
+      // client reads the route once and shows it, so it is not logged at all.
+      if (Number.isInteger(error?.status) && error.status < 500) return;
+      console.error(`AgentPier could not update the live topic ${topic}.`);
+    },
     ...options,
   });
   hub.define(stateTopic(services));

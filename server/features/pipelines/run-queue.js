@@ -216,6 +216,8 @@ export class RunQueue {
       if (error.status !== 404) throw error;
     }
     this.store.moveProject(fromId, toId, cwd);
+    // The old project's queue lost these items too.
+    this.onChange(fromId);
     this.notify(toId);
   }
   exists(projectId) {
