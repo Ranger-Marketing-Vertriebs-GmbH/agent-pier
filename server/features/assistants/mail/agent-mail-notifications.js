@@ -2,8 +2,8 @@ import addressparser from "nodemailer/lib/addressparser";
 import { serverCatalogs } from "../../../lib/i18n/catalogs.js";
 import { formatBytes } from "../../operations/backup-components.js";
 import { actionPath, fenced } from "../action-text.js";
-import { hiddenCharacterSource } from "../agent-ssh-text.js";
-import { mailTelegramApprovable } from "./agent-mail-send-input.js";
+import { hiddenCharacterSource, lineHiddenCharacterSource } from "../agent-ssh-text.js";
+import { mailHtmlState, mailTelegramApprovable } from "./agent-mail-send-input.js";
 
 // The Telegram text of an agent's mail card (mail/agent-mail-sends.js): every
 // recipient by its addr-spec, the sender, the subject and, when Telegram may decide
@@ -14,13 +14,34 @@ import { mailTelegramApprovable } from "./agent-mail-send-input.js";
 export const mailMessages = (channel) =>
   (serverCatalogs[channel?.language] || serverCatalogs.de).mail;
 
+// A forwarded mail's date in the channel's language, in UTC; anything else as it is.
+const dateFormats = Object.fromEntries(
+  [
+    ["en", "en-US"],
+    ["de", "de-DE"],
+  ].map(([language, locale]) => [
+    language,
+    new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }),
+  ]),
+);
+function mailDate(date, m) {
+  if (!Number.isFinite(Date.parse(date))) return String(date);
+  const format = m === serverCatalogs.en?.mail ? dateFormats.en : dateFormats.de;
+  return `${format.format(new Date(date))} UTC`;
+}
+
 const hiddenAll = new RegExp(hiddenCharacterSource, "gu");
+const lineAll = new RegExp(lineHiddenCharacterSource, "gu");
+const code = (c) => `<U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`;
 // Hidden characters as their code, so Telegram never draws them.
-const visible = (text) =>
-  String(text ?? "").replace(
-    hiddenAll,
-    (c) => `<U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`,
-  );
+const visible = (text) => String(text ?? "").replace(hiddenAll, code);
+// A single-line field (a name, a path, a header): line feed and tab as codes too, so
+// it never breaks into a line of its own.
+const visibleLine = (text) => String(text ?? "").replace(lineAll, code);
 
 /**
  * A recipient as its addr-spec first, then any display name in quotes: a name that
@@ -58,15 +79,21 @@ function shortPath(path) {
 function sourceText(source, f) {
   if (source?.kind === "original") return f.fromOriginal;
   if (!source?.path) return f.inDraft;
-  const path = visible(shortPath(source.path));
+  const path = visibleLine(shortPath(source.path));
   return source.kind === "project" && source.projectName
-    ? `${path} (${visible(source.projectName)})`
+    ? `${path} (${visibleLine(source.projectName)})`
     : path;
 }
 
+const htmlNotes = {
+  kept: "mailHtmlKept",
+  omitted: "mailHtmlOmitted",
+  draft: "mailHtmlDraft",
+};
+
 /**
  * The forwarded original and every attachment, one line each, in one fenced block;
- * then whether the original's HTML version goes along. Empty for a plain mail.
+ * then which HTML version goes along (mailHtmlState). Empty for a plain mail.
  */
 function attachmentsText(p, m) {
   const f = m.mailFields;
@@ -74,24 +101,24 @@ function attachmentsText(p, m) {
   if (p.forward) {
     const { from, subject, date } = p.forward;
     const sender = from?.name ? `${from.address} ("${from.name}")` : from?.address;
-    lines.push(
-      `${f.forwardOf}: ${[visible(sender), visible(subject), date].filter(Boolean).join(" · ")}`,
-    );
+    const parts = [visibleLine(sender), visibleLine(subject), date && mailDate(date, m)];
+    lines.push(`${f.forwardOf}: ${parts.filter(Boolean).join(" · ")}`);
   }
   for (const a of p.attachments ?? [])
     lines.push(
       `${f.attachment}: ${[
         sourceText(a.source, f),
-        a.name ? visible(a.name) : f.unnamed,
+        a.name ? visibleLine(a.name) : f.unnamed,
         formatBytes(a.size || 0),
-        visible(a.type),
+        visibleLine(a.type),
         `sha256 ${a.sha256}`,
       ].join(" · ")}`,
     );
-  const notes = [];
-  if (p.html || p.forward?.htmlIncluded) notes.push(m.mailHtmlKept);
-  else if (p.forward?.htmlOmitted) notes.push(m.mailHtmlOmitted);
-  return [...(lines.length ? [fenced(lines.join("\n"))] : []), ...notes];
+  const html = mailHtmlState(p);
+  return [
+    ...(lines.length ? [fenced(lines.join("\n"))] : []),
+    ...(html ? [m[htmlNotes[html]]] : []),
+  ];
 }
 
 function facts(w, action, m) {

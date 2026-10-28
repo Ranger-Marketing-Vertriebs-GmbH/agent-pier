@@ -82,6 +82,7 @@ export const mail = Object.freeze({
   mailHtmlKept: "Enthält die HTML-Fassung des Originals, die hier nicht angezeigt wird.",
   mailHtmlOmitted:
     "Die HTML-Fassung des Originals bleibt weg; nur der Text wird weitergeleitet.",
+  mailHtmlDraft: "Enthält eine HTML-Fassung, die hier nicht angezeigt wird.",
   mailStates: {
     completed: "E-Mail gesendet",
     declined: "E-Mail nicht gesendet — Entwurf bleibt erhalten",

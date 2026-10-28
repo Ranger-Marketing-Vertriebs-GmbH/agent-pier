@@ -31,6 +31,10 @@ test("an email's kind names a forward, its attachments and the original's HTML",
       itemContext(mailItem({ attachments: 0, forward: true, html: "omitted" })),
       "Email to forward · without the original's HTML version · Helper",
     );
+    assert.equal(
+      kindLabel(mailItem({ attachments: 0, forward: false, html: "draft" })),
+      "Email to send · with an HTML version",
+    );
     setLanguage("de");
     assert.equal(
       kindLabel(mailItem({ attachments: 2, forward: true, html: null })),

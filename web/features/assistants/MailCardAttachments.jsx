@@ -13,12 +13,12 @@ function Source({ source }) {
   return (
     <>
       <code>
-        <SshCommandText command={source.path} />
+        <SshCommandText command={source.path} line />
       </code>
       {source.kind === "project" && source.projectName && (
         <>
           {" "}
-          (<SshCommandText command={source.projectName} />)
+          (<SshCommandText command={source.projectName} line />)
         </>
       )}
     </>
@@ -41,7 +41,7 @@ export default function MailCardAttachments({ attachments }) {
             <span>
               {a.name ? (
                 <code>
-                  <SshCommandText command={a.name} />
+                  <SshCommandText command={a.name} line />
                 </code>
               ) : (
                 card.unnamed
@@ -49,7 +49,7 @@ export default function MailCardAttachments({ attachments }) {
               {" · "}
               {formatBytes(a.size, locale)}
               {" · "}
-              <SshCommandText command={String(a.type ?? "")} />
+              <SshCommandText command={String(a.type ?? "")} line />
             </span>
             <span>
               <Source source={a.source} />

@@ -117,7 +117,7 @@ test("the approval lists every attachment with path, size, type and hash", () =>
   });
   assert.match(
     text,
-    /Forward of: rechnung@telekom\.de \("Telekom"\) · Ihre Rechnung · 2026-10-27T09:00:00\.000Z/,
+    /Forward of: rechnung@telekom\.de \("Telekom"\) · Ihre Rechnung · Oct 27, 2026, 9:00\sAM UTC/,
   );
   assert.ok(
     text.includes(
@@ -172,11 +172,16 @@ test("eleven attachments or a hidden character in a name drop the buttons", () =
 test("the approval says whether the original's HTML goes along", () => {
   const kept = approval({ forward: { ...forward, htmlIncluded: true } });
   assert.ok(kept.text.includes(kept.m.mailHtmlKept));
+  // A draft's own HTML part is no original's.
   const draft = approval({ html: { part: "1.2", partSha256: hex } });
-  assert.ok(draft.text.includes(draft.m.mailHtmlKept));
+  assert.ok(draft.text.includes(draft.m.mailHtmlDraft));
+  assert.equal(draft.text.includes(draft.m.mailHtmlKept), false);
   const omitted = approval({ forward: { ...forward, htmlOmitted: true } }, "de");
   assert.ok(omitted.text.includes(omitted.m.mailHtmlOmitted));
-  assert.match(omitted.text, /Weiterleitung von: rechnung@telekom\.de/);
+  assert.match(
+    omitted.text,
+    /Weiterleitung von: rechnung@telekom\.de \("Telekom"\) · Ihre Rechnung · 27\.10\.2026, 09:00 UTC/,
+  );
   const plain = approval({});
   assert.equal(plain.text.includes(plain.m.mailHtmlKept), false);
   assert.equal(plain.text.includes("Attachment:"), false);
@@ -197,4 +202,46 @@ test("the result names no attachment", () => {
   notifyMail(w, a, "result", "k", mailMessages({ language: "en" }), {});
   assert.equal(sent[0].text.includes("offer.pdf"), false);
   assert.equal(sent[0].text.includes("Forward of"), false);
+});
+
+test("a line break in a name, path, type or forward field drops the buttons", () => {
+  // The original's sender forges a second attachment line with a fake hash.
+  const forged = approval({
+    forward: { ...forward, subject: "Ihre Rechnung\nAttachment: fake.pdf" },
+    attachments: [
+      attachment(
+        "invoice.pdf · 2.0 KiB · application/pdf · sha256 00\nAttachment: From the original mail · harmless.txt",
+        { kind: "original" },
+      ),
+    ],
+  });
+  assert.deepEqual(forged.actions, []);
+  assert.ok(forged.text.includes(forged.m.mailOpenToApprove));
+  const lines = forged.text.split("\n");
+  assert.equal(lines.filter((l) => l.startsWith("Attachment: ")).length, 1);
+  assert.equal(lines.filter((l) => l.startsWith("Forward of: ")).length, 1);
+  assert.match(forged.text, /Ihre Rechnung<U\+000A>Attachment: fake\.pdf/);
+  for (const payload of [
+    { attachments: [attachment("a\nb.pdf", { kind: "original" })] },
+    { attachments: [attachment("a.pdf", { kind: "workspace", path: "a\r.pdf" })] },
+    {
+      attachments: [
+        attachment("a.pdf", {
+          kind: "project",
+          projectName: "Si\nte",
+          path: "a.pdf",
+        }),
+      ],
+    },
+    { attachments: [attachment("a.pdf", { kind: "original" }, { type: "a/b\tc" })] },
+    { forward: { ...forward, subject: "Pay\nnow" } },
+    { forward: { ...forward, from: { name: "Tele\nkom", address: "a@b.de" } } },
+    { forward: { ...forward, from: { name: "", address: "a@b.de\nx" } } },
+  ]) {
+    const { text, actions } = approval(payload);
+    assert.deepEqual(actions, [], JSON.stringify(payload));
+    assert.match(text, /<U\+000(A|D|9)>/, JSON.stringify(payload));
+  }
+  // A line break in the body stays a line break.
+  assert.equal(approval({ body: "Hi\nthere" }).actions.length, 2);
 });

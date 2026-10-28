@@ -53,6 +53,7 @@ export const inboxCopy = {
   mailHtml: {
     kept: "mit der HTML-Fassung des Originals",
     omitted: "ohne die HTML-Fassung des Originals",
+    draft: "mit einer HTML-Fassung",
   },
   done: {
     title: "Bereits erledigt",
