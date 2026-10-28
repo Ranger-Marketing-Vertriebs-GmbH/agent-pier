@@ -216,6 +216,55 @@ run on the lead's grant. You see and revoke each share in the member's **Access 
 Shared by the lead agent** and in the project's Agents section
 ([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).
 
+## Projects agents create
+
+`agentpier_project` lets an agent make a project of its own for new work.
+It has three actions:
+
+- `create` (`name`, optional `git`, optional `coding`) returns `projectId`, `name`,
+  `path` and `coding`;
+- `coding` (`projectId`, `enabled`) switches coding sessions on or off;
+- `list` returns the projects this agent created, each with its folder level and
+  whether coding sessions are on.
+
+- **Who and when:** the owner's own agents and leads that are not archived. Team
+  members, user agents and agents with their own Telegram bot for other people never
+  hold the tool. It works only in a direct owner turn (web chat or the owner's paired
+  Telegram chat); routines, hooks, team requests, forwarded content and goal
+  continuations answer `PROJECT_OWNER_ONLY`.
+- **Where:** the project is a new folder directly in the owner's default working
+  directory (`defaultCwd`, the home folder while unset). The name is a plain folder name:
+  no `/` or `\`, no control or disguising characters, no leading dot, not `.` or `..`, at
+  most 255 bytes. An existing entry of that name is never adopted
+  (`PROJECT_EXISTS`). The folder must be registered as a project of its own: if the
+  default folder lies inside a Git repository, or the folder resolves to a known
+  project, creation fails and nothing is left behind (`PROJECT_FOLDER_UNAVAILABLE`).
+- **Git:** `git init` runs by default; `git: false` skips it. A failing `git init` fails
+  the call.
+- **Grant:** the agent gets the project with **Read and write** for its folder, and
+  coding sessions with `coding: true`. Only these fields are written, without
+  cancelling the agent's pending approvals. `coding` works only for projects this
+  agent created (`PROJECT_NOT_CREATED_BY_YOU`) and, to switch on, only while the agent
+  still holds the project with write access; otherwise it answers
+  `PROJECT_NOT_GRANTED`. Switching off always works.
+- **Limit:** 10 creations per agent in 24 hours (`PROJECT_CREATE_LIMIT`).
+- **Notice:** each creation and each coding change leaves a settled note in the agent's
+  chat and under **Overview › Actions and coding tasks**, and a Telegram message when
+  paired. It names the agent, the project, its path and whether coding sessions are on.
+- **Rollback:** a failure after the folder exists removes the folder, the grant, the
+  creation record and the registration again; a failed call is never half done.
+- **Audit:** creation is `project.created`, a coding change `assistant.updated`, both
+  with source `agent` (kind `agent-project`: `change`, `coding`, `git`; never the name
+  or path) and shown as made by that agent, not by the owner.
+- **Deletion:** the record of which agent created which project goes with the agent. The
+  owner can change the agent's access or remove the project at any time; the agent
+  cannot re-grant itself a removed project.
+- **Sharing:** the agent shares the project with permanent members through
+  `agentpier_team_grant` ([sharing](agents.md#sharing-a-leads-access-with-permanent-members)).
+- **Codes:** `PROJECT_NAME_INVALID`, `PROJECT_EXISTS`, `PROJECT_CREATE_LIMIT`,
+  `PROJECT_OWNER_ONLY`, `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE`,
+  `PROJECT_FOLDER_UNAVAILABLE`.
+
 ## Agent access from the project
 
 **Projects › <project> › Agents** shows the same access from the project's side.
