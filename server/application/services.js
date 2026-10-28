@@ -32,6 +32,8 @@ import { ChatSync } from "../features/chat/chat-sync.js";
 import { ChatAttachments } from "../features/chat/chat-attachments.js";
 import { ModelController } from "../features/models/model-controller.js";
 import { requestsChanged } from "../features/requests/live-topics.js";
+import { artifactsChanged } from "../features/artifacts/live-topics.js";
+import { operationJobChanged } from "../features/operations/live-topics.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
@@ -364,6 +366,9 @@ export async function createServices(config) {
     onError,
     barrier: mutationBarrier,
     isRebound: (from, to) => memory.reboundTo(from) === to,
+    // Read late: the live hub exists only once the server listens (the start-up
+    // reconcile runs before `services` does; the store ignores a throwing listener).
+    onChange: () => artifactsChanged(services.live),
   });
   await artifacts.ready;
   const projectRebind = new ProjectRebind({
@@ -389,6 +394,7 @@ export async function createServices(config) {
       !!services.assistantUpdates?.status().busy ||
       !!services.assistantProviderSynchronization?.changing,
     doctorOptions: { serving: true },
+    onJobChange: (_id, job) => operationJobChanged(services.live, job),
   });
   const services = {
     artifacts,

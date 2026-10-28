@@ -4,8 +4,11 @@ import syncFs from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { readJSON, privateDirectory } from "../../lib/storage.js";
+// `onChange()` follows every saved index and every cleanup that removed files (the
+// live artifact topics); a throwing listener never fails the write.
 export class ArtifactStore {
-  constructor(dataDir) {
+  constructor(dataDir, { onChange = () => {} } = {}) {
+    this.onChange = onChange;
     this.root = path.join(dataDir, "artifacts");
     this.generations = path.join(this.root, "generations");
     privateDirectory(this.generations);
@@ -35,6 +38,12 @@ export class ArtifactStore {
       if (fd !== undefined) syncFs.closeSync(fd);
       syncFs.rmSync(temporary, { force: true });
     }
+    this.changed();
+  }
+  changed() {
+    try {
+      this.onChange();
+    } catch {}
   }
   async syncGeneration(folder) {
     for (const directory of [
@@ -82,11 +91,14 @@ export class ArtifactStore {
         .filter((r) => !r.deleted)
         .map((r) => r.generation),
     );
+    let removed = false;
     for (const entry of await fs.readdir(this.generations)) {
       if (live.has(entry)) continue;
+      removed = true;
       await fs
         .rm(path.join(this.generations, entry), { recursive: true, force: true })
         .catch(onError);
     }
+    if (removed) this.changed();
   }
 }

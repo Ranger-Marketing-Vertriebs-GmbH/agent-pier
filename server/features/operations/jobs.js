@@ -4,11 +4,15 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { folder, atomic, readJson, identifier } from "./files.js";
 import { problem } from "../../lib/storage.js";
+// Every status write after construction calls `onChange(id, job)` (the live
+// `job.operation` topic); the constructor's interrupted marks happen before anyone
+// can watch. A throwing listener never breaks a job.
 export class OperationJobs {
-  constructor(dataDir, { onFailure = () => {} } = {}) {
+  constructor(dataDir, { onFailure = () => {}, onChange = () => {} } = {}) {
     this.directory = folder(path.join(dataDir, "operations/jobs"));
     this.tasks = new Set();
     this.onFailure = onFailure;
+    this.onChange = onChange;
     this.closed = false;
     for (const name of fs
       .readdirSync(this.directory)
@@ -35,7 +39,7 @@ export class OperationJobs {
     ) {
       value.status = "interrupted";
       value.error = serverMessages.operations.releaseHelperSilent;
-      atomic(file, value);
+      this.write(file, value);
     }
     const { external: _external, heartbeatAt: _heartbeatAt, ...job } = value;
     return job;
@@ -50,13 +54,13 @@ export class OperationJobs {
       ...(external ? { external: true } : {}),
     };
     const file = path.join(this.directory, `${job.id}.json`);
-    atomic(file, job);
+    this.write(file, job);
     const task = Promise.resolve()
       .then(() => action(job.id))
       .then(
         (result) => {
           if (!external)
-            atomic(file, {
+            this.write(file, {
               ...job,
               status: "succeeded",
               result,
@@ -64,7 +68,7 @@ export class OperationJobs {
             });
         },
         (error) => {
-          atomic(file, {
+          this.write(file, {
             ...job,
             status: "failed",
             ...(typeof error.code === "string" &&
@@ -89,6 +93,14 @@ export class OperationJobs {
       .finally(() => this.tasks.delete(task));
     this.tasks.add(task);
     return this.get(job.id);
+  }
+  /** Writes `job` to `file` and reports the change. */
+  write(file, job) {
+    atomic(file, job);
+    try {
+      const { external: _external, heartbeatAt: _heartbeatAt, ...view } = job;
+      this.onChange(job.id, view);
+    } catch {}
   }
   running(kindPrefix) {
     return fs

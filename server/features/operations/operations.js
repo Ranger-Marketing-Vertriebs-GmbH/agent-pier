@@ -20,6 +20,8 @@ export class Operations {
     assistantsBusy,
     doctorOptions = {},
     releaseOptions = {},
+    // Every status write of a job (jobs.js): the live job topics.
+    onJobChange,
   }) {
     config = { ...config, dataDir: fs.realpathSync(config.dataDir) };
     // Only the server cleans up, once: work another process (such as
@@ -35,6 +37,7 @@ export class Operations {
     this.doctor = new Doctor({ ...config, ...doctorOptions });
     this.importedHistory = new ImportedHistory(config.dataDir);
     this.jobs = new OperationJobs(config.dataDir, {
+      onChange: onJobChange,
       onFailure: (job) => {
         const resourceType = job.kind.startsWith("release-")
           ? "release"

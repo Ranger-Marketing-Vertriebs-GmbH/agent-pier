@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import api from "../../lib/api.js";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
@@ -34,10 +34,9 @@ export default function ReleaseSessions({
   const [open, setOpen] = useState(false),
     [confirm, setConfirm] = useState(null),
     [cancelError, setCancelError] = useState("");
-  const resource = useResource(
-    open ? `/operations/releases/cleanup/${encodeURIComponent(version)}/sessions` : null,
-    { poll: 3000 },
-  );
+  // Sampled on the server every 3 s while the list is open (without the channel,
+  // its route every 3 s).
+  const resource = useLiveTopic(open ? `operations.release-sessions:${version}` : null);
   const plan = resource.data;
   // The server knows about a migration started elsewhere (or before a reload).
   const running = Boolean(migrating) || plan?.migrating === true;

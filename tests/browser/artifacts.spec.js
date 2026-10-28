@@ -366,3 +366,29 @@ test("a wide window preselects an artifact even when the change event is lost", 
     page.locator(".artifact-detail").getByRole("heading", { name: "Settings QA report" }),
   ).toBeVisible();
 });
+
+// The list follows the live `artifacts.changed` signal instead of polling: nothing is
+// read while nothing changes, and an upload reads the page's query exactly once.
+test("an artifact upload causes one GET /api/artifacts?…", async ({
+  page,
+  context,
+  liveStub,
+}) => {
+  const state = await start(page, context, "en");
+  await page.goto(`${base}/artifacts`);
+  await expect(tab(page, "All")).toContainText("4");
+  await liveStub.waitForSubscribe("artifacts.changed");
+  // Longer than the former 5 s poll.
+  await page.waitForTimeout(5500);
+  const before = state.requests.length;
+  expect(before).toBe(1);
+  state.items = [
+    { ...state.items[0], id: "art-new", title: "Fresh upload" },
+    ...state.items,
+  ];
+  liveStub.changed("artifacts.changed");
+  await expect(row(page, "Fresh upload")).toBeVisible();
+  await expect(tab(page, "All")).toContainText("5");
+  await page.waitForTimeout(1000);
+  expect(state.requests.length).toBe(before + 1);
+});

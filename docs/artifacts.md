@@ -52,6 +52,13 @@ except `pinned`. Search also matches session names (from the stored session meta
 and project names, read at most every 5 seconds; searches share an owner budget of 120
 requests per minute and answer `ARTIFACT_RATE_LIMITED` (429) beyond it.
 
+The Artifacts page and a session's **Artifacts** panel do not poll. The storage usage
+(`GET /api/artifacts/usage`) arrives over the [live channel](architecture.md#live-channel)
+as topic `artifacts.usage`; the list reads its `GET /api/artifacts?…` once when it
+opens and once more on each `changed` of `artifacts.changed`, which follows every
+publish, replacement, pin, deletion and cleanup. Without the live channel both are read
+every 5 seconds while the tab is visible.
+
 `GET /api/artifacts/<id>/download` requires the owner login like every artifact route.
 It answers with `Content-Disposition: attachment` (an RFC 5987 `filename*` from the
 title, without separators or reserved characters), `Cache-Control: no-store`,

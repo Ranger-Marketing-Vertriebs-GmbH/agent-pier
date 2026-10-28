@@ -1,17 +1,25 @@
-import React, { useEffect } from "react";
-import useResource from "../../lib/useResource.js";
+import React, { useEffect, useState } from "react";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { operationsCopy as copy } from "../../lib/i18n/messages/operations.js";
 import { serverText } from "../../lib/server-messages.js";
 import { reportValue } from "./restore-report.js";
 import { terminalJob } from "./operation-job-status.js";
-const finished = (data) => terminalJob(data?.job);
+
+/**
+ * The job `id` follows the live `job.operation:<id>` topic (without the channel, its
+ * route every 1.5 s) until it reaches a terminal status: an ended job never changes,
+ * so it is kept and nothing more is read.
+ */
 export default function OperationJob({ id, onComplete, onState }) {
-  const resource = useResource(id ? `/operations/jobs/${encodeURIComponent(id)}` : null, {
-      poll: 1500,
-      until: finished,
-    }),
-    job = resource.data?.job;
+  const [ended, setEnded] = useState(null);
+  const done = ended?.id === id ? ended : null;
+  const resource = useLiveTopic(id && !done ? `job.operation:${id}` : null);
+  const job = done || resource.data?.job;
+  useEffect(() => {
+    if (terminalJob(resource.data?.job) && resource.data.job.id === id)
+      setEnded(resource.data.job);
+  }, [resource.data, id]);
   useEffect(() => {
     if (job?.status === "succeeded") onComplete?.();
   }, [job?.id, job?.status, onComplete]);
@@ -26,8 +34,8 @@ export default function OperationJob({ id, onComplete, onState }) {
     >
       <h2>{copy.job}</h2>
       <p className="field-description">{copy.jobHelp}</p>
-      {resource.loading && <p role="status">{copy.loading}</p>}
-      {resource.error && (
+      {!done && resource.loading && <p role="status">{copy.loading}</p>}
+      {!done && resource.error && (
         <>
           <p role="status">{copy.reconnecting}</p>
           <ErrorMessage error={resource.error} />

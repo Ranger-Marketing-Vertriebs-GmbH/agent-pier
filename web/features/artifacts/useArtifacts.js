@@ -1,38 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
-import api from "../../lib/api.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { useCallback, useRef } from "react";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { artifactListQuery } from "./artifact-presentation.js";
 
-/** One page of artifacts (newest first) plus storage usage, polled every 5 s. */
+/**
+ * One page of artifacts (newest first) plus storage usage. The usage is pushed
+ * (`artifacts.usage`); the page is read once and again on each `changed` of
+ * `artifacts.changed` (without the live channel, both every 5 s).
+ */
 export default function useArtifacts({ sessionId, projectId, page, q, pinned }) {
-  const [state, setState] = useState(null),
-    [error, setError] = useState("");
-  const [revision, setRevision] = useState(0);
   const key = artifactListQuery({ sessionId, projectId, page, q, pinned });
-  useEffect(
-    () =>
-      startVisiblePolling(async (signal) => {
-        try {
-          const [data, usage] = await Promise.all([
-            api(`/artifacts?${key}`, "GET", undefined, signal),
-            api("/artifacts/usage", "GET", undefined, signal),
-          ]);
-          if (!signal.aborted) {
-            setState({ key, data, usage });
-            setError("");
-          }
-        } catch (failure) {
-          if (!signal.aborted) setError(failure.message);
-        }
-      }, 5000),
-    [key, revision],
-  );
+  const list = useLiveTopic("artifacts.changed", `/artifacts?${key}`);
+  const usage = useLiveTopic("artifacts.usage");
+  // The previous filter's result, so counts and rows do not flash while typing.
+  const last = useRef(null);
+  if (list.data) last.current = list.data;
+  const { refresh: refreshList } = list;
+  const { refresh: refreshUsage } = usage;
   return {
-    data: state?.key === key ? state.data : null,
-    // The previous filter's result, so counts and rows do not flash while typing.
-    stale: state?.data ?? null,
-    usage: state?.usage,
-    error,
-    refresh: useCallback(() => setRevision((value) => value + 1), []),
+    data: list.data,
+    stale: last.current,
+    usage: usage.data ?? undefined,
+    error: list.error || usage.error,
+    refresh: useCallback(() => {
+      refreshList();
+      refreshUsage();
+    }, [refreshList, refreshUsage]),
   };
 }
