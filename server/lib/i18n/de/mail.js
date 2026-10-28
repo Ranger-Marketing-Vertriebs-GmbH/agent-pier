@@ -77,6 +77,7 @@ export const mail = Object.freeze({
     attachment: "Anhang",
     inDraft: "Schon im Entwurf",
     fromOriginal: "Aus der ursprünglichen E-Mail",
+    fromAgentDraft: (agent) => `aus dem Entwurf von ${agent}`,
     unnamed: "(ohne Namen)",
   },
   mailHtmlKept: "Enthält die HTML-Fassung des Originals, die hier nicht angezeigt wird.",

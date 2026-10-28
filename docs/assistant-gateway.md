@@ -2737,7 +2737,8 @@ each part's source and the turn's file context for 30 days (a `send` writes them
 again (`sourceAllowed`) and cancels a changed card with `ACCESS_CHANGED`. A part
 without a record, also after the 30 days, shows as "Already in the draft" without a
 path. A part another agent recorded shows that agent's path as `kind: "draft"` (with
-`from`, the original kind), never checked against the sending agent's access; the
+`from`, the original kind, and `agentName`, shown as "from <name>'s draft" and
+included in the hidden-character check), never checked against the sending agent's access; the
 sending agent's own records are checked as above. A changed draft fails with `MAIL_DRAFT_CHANGED`. `forward`
 (`agent-mail-forward.js`, `mail-forward.js`) quotes the original's header block and text and
 sends its attachments as raw parts; inline `text/*` parts with a file name are left

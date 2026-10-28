@@ -28,6 +28,7 @@ export const mailLineTexts = (p) => [
     a.type,
     a.source?.path,
     a.source?.projectName,
+    a.source?.agentName,
   ]),
   p.forward?.from?.name,
   p.forward?.from?.address,

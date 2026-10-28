@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { carries, code, sendFilesFixture } from "../helpers/mail-send-files-fixture.js";
 import { pdfWith } from "../helpers/mail-documents.js";
@@ -225,42 +226,57 @@ test("a replaced draft carries only the replacing agent's file sources", () => {
   assert.equal(files.lookup("acc", "<new@x>", "agent-2").size, 0);
 });
 
-test("another agent's draft files show that agent's path, checked as the draft's", async (t) => {
+test("another agent's draft files show that agent's path and name", async (t) => {
   const f = await sendFilesFixture(t);
-  const bytes = pdfWith("Offer");
-  fs.writeFileSync(f.ws("offer.pdf"), bytes);
+  // Agent A, a permanent member named Scout, saves a draft with a file of its own
+  // workspace; this agent (B) sends it.
+  const scout = f.member({ name: "Scout" });
+  f.workflows.access.save(
+    scout.id,
+    {
+      projectIds: [],
+      pipelineIds: [],
+      memoryWrite: false,
+      autonomous: false,
+      publish: false,
+      mailAccesses: [{ accountId: f.account.id, level: "send" }],
+    },
+    f.workflows.access.get(scout.id).revision,
+  );
+  const scoutWorkspace = path.join(f.workspaces, scout.id);
+  fs.mkdirSync(scoutWorkspace, { recursive: true });
+  const bytes = pdfWith("Scout's offer");
+  fs.writeFileSync(path.join(scoutWorkspace, "offer.pdf"), bytes);
+  const scoutTurn = () => f.turn(scout.conversationId);
+  const d = await f.draft({ attachments: [{ path: "offer.pdf" }] }, scoutTurn());
+  // B has an offer.pdf of its own, with other bytes.
+  fs.writeFileSync(f.ws("offer.pdf"), pdfWith("B's offer"));
   fs.writeFileSync(f.ws("own.csv"), "a;b\n");
-  const d = await f.draft({ attachments: [{ path: "offer.pdf" }] });
-  // Agent A saved this draft with the PDF; this agent (B) sends it.
-  f.store.db.prepare("UPDATE agent_mail_draft_files SET assistant_id=?").run("agent-a");
   const r = await f.send({ draftUid: d.draftUid });
   const p = f.workflows.get(r.actionId).payload;
   assert.deepEqual(p.attachments[0].source, {
     kind: "draft",
     from: "workspace",
     path: "offer.pdf",
+    agentName: scout.name,
   });
-  // Nothing of B's to check again: A's path is shown, never re-checked for B.
+  // Nothing of B's to check again: Scout's path is shown, never re-checked for B.
   assert.equal(p.files, null);
   await f.decide(r.actionId);
   assert.equal((await f.settled(r.actionId)).state, "completed");
   assert.ok(carries(f.smtp.messages.at(-1).raw, bytes));
 
-  // B's own files beside A's are still checked against B's access.
+  // Scout's file beside B's own: B's is still checked against B's access.
+  const mixed = await f.draft({ attachments: [{ path: "offer.pdf" }] }, scoutTurn());
   const both = await f.draft({
-    attachments: [{ path: "offer.pdf" }, { path: "own.csv" }],
+    draftUid: mixed.draftUid,
+    attachments: [{ path: "own.csv" }],
   });
-  f.store.db
-    .prepare("UPDATE agent_mail_draft_files SET assistant_id=? WHERE source LIKE ?")
-    .run("agent-a", '%"offer.pdf"%');
   const second = await f.send({ draftUid: both.draftUid });
   const q = f.workflows.get(second.actionId).payload;
   assert.deepEqual(
     q.attachments.map((a) => a.source),
-    [
-      { kind: "draft", from: "workspace", path: "offer.pdf" },
-      { kind: "workspace", path: "own.csv" },
-    ],
+    [{ kind: "draft" }, { kind: "workspace", path: "own.csv" }],
   );
   assert.equal(q.files.context.assistantId, f.id);
 });

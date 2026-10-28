@@ -4,8 +4,9 @@ import { formatBytes } from "../../lib/format-bytes.js";
 import { assistantMailCopy } from "../../lib/i18n/messages/assistant-mail.js";
 import SshCommandText from "./SshCommandText.jsx";
 
-// Where an attachment comes from: the file's path (with its project), or the draft
-// or forwarded original it already sits in.
+// Where an attachment comes from: the file's path (with its project, and for another
+// agent's file in the draft that agent), or the draft or forwarded original it
+// already sits in.
 function Source({ source }) {
   const card = assistantMailCopy.card;
   if (source?.kind === "original") return card.fromOriginal;
@@ -19,6 +20,12 @@ function Source({ source }) {
         <>
           {" "}
           (<SshCommandText command={source.projectName} line />)
+        </>
+      )}
+      {source.agentName && (
+        <>
+          {", "}
+          {card.fromAgentDraft(source.agentName)}
         </>
       )}
     </>

@@ -73,21 +73,24 @@ export class MailDraftFiles {
     return found;
   }
   /**
-   * The draft's parts other agents attached: Map<partSha256, source> (the first
-   * agent's by id where several did), for the owner's card only.
+   * The draft's parts other agents attached: Map<partSha256, { assistantId, source }>
+   * (the first agent's by id where several did), for the owner's card only.
    */
   others(accountId, messageId, assistantId) {
     const found = new Map();
     if (!messageId) return found;
     const rows = this.db
       .prepare(
-        "SELECT part_sha256,source FROM agent_mail_draft_files WHERE account_id=? AND message_id=? AND assistant_id<>? ORDER BY assistant_id",
+        "SELECT part_sha256,assistant_id,source FROM agent_mail_draft_files WHERE account_id=? AND message_id=? AND assistant_id<>? ORDER BY assistant_id",
       )
       .all(accountId, messageId, assistantId);
     for (const row of rows)
       try {
         if (!found.has(row.part_sha256))
-          found.set(row.part_sha256, JSON.parse(row.source));
+          found.set(row.part_sha256, {
+            assistantId: row.assistant_id,
+            source: JSON.parse(row.source),
+          });
       } catch {}
     return found;
   }
@@ -213,13 +216,21 @@ export function savedAttachments(saved, captured) {
 
 // A part another agent attached, as the owner's card names it: still the draft's
 // own (`kind: "draft"`, never checked again: the sending agent attaches no file, the
-// bytes already sit in the draft), with that agent's path and project for the owner.
-const attachedByOther = (source) => ({
-  kind: "draft",
-  from: source.kind,
-  ...(typeof source.path === "string" && { path: source.path }),
-  ...(source.projectName && { projectName: source.projectName }),
-});
+// bytes already sit in the draft), with that agent's path, project and name, so the
+// owner sees whose file it is ("from Scout's draft").
+function attachedByOther(w, { assistantId, source }) {
+  let agentName = null;
+  try {
+    agentName = w.a.store.getAssistant(assistantId)?.name ?? null;
+  } catch {}
+  return {
+    kind: "draft",
+    from: source.kind,
+    ...(typeof source.path === "string" && { path: source.path }),
+    ...(source.projectName && { projectName: source.projectName }),
+    agentName: typeof agentName === "string" && agentName ? agentName : "?",
+  };
+}
 
 /**
  * The card attachments of a stored draft (loadDraft) and the file context they are
@@ -240,8 +251,8 @@ export function storedDraftAttachments(mail, inv, caller, accountId, draft) {
     ? new Map()
     : mail.draftFiles.others(accountId, draft.messageId, agentId);
   const other = (p) => {
-    const source = others.get(p.partSha256);
-    return source ? attachedByOther(source) : null;
+    const other = others.get(p.partSha256);
+    return other ? attachedByOther(mail.w, other) : null;
   };
   if (!found.some(Boolean))
     return { attachments: cardAttachments(parts, other), files: null };
