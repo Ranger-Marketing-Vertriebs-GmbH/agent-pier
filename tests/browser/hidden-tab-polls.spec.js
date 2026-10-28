@@ -275,8 +275,19 @@ test("login status is not requested while hidden and is read once on show", asyn
   await expect.poll(() => statuses.length, { timeout: 1000 }).toBe(1);
 });
 
+// In manual mode: the workspace state from the fixture's REST mock, pushed as the
+// server would.
+async function pushState(page, liveStub) {
+  await liveStub.waitForSubscribe("state");
+  liveStub.push(
+    "state",
+    await page.evaluate(() => fetch("/api/state").then((r) => r.json())),
+  );
+}
+
 // A codex install dialog over a stubbed installer; `job` is the codex installation.
-async function installerFixture(page, job, stall = false, conflict = false) {
+// `manual` is the live stub of a manual-mode spec.
+async function installerFixture(page, job, stall = false, conflict = false, manual) {
   const reads = { count: 0 };
   const installation = {
     tool: "codex",
@@ -318,60 +329,45 @@ async function installerFixture(page, job, stall = false, conflict = false) {
     return route.fulfill({ json: {} });
   });
   await page.goto(baseURL + "/coding/clis");
+  if (manual) await pushState(page, manual);
   await page.getByRole("button", { name: "Install CLI", exact: true }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  return installation;
 }
 
-test("an idle tool installation is not polled", async ({ page }) => {
+const installationReads = (requests) =>
+  requests.list().filter((r) => r.path === "/api/tool-installations");
+
+// The live stub answers the topic from the REST mock (its reads are not counted).
+test("an idle tool installation is not read by the page", async ({ page }) => {
   const requests = recordApiRequests(page);
   await installerFixture(page, {});
-  await expect
-    .poll(() => requests.list().some((r) => r.path === "/api/tool-installations"))
-    .toBe(true);
-  await page.waitForTimeout(500);
-  requests.clear();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Install now" }),
+  ).toBeVisible();
   await page.waitForTimeout(6000);
-  expect(requests.list().filter((r) => r.path === "/api/tool-installations")).toEqual([]);
+  expect(installationReads(requests)).toEqual([]);
 });
 
-test("a running tool installation pauses while hidden and reads on show", async ({
+// Without the channel the installation falls back to its former poll: visible only.
+test("a running tool installation's fallback pauses while hidden and reads on show", async ({
   page,
+  liveStub,
 }) => {
+  liveStub.refuse();
   const requests = recordApiRequests(page);
   await installerFixture(page, { status: "running", message: "Installing" });
   await pausesWhenHidden(page, requests, /\/api\/tool-installations/);
 });
 
-test("a stalled tool installation read shows a timeout", async ({ page }) => {
+test("a stalled tool installation read shows a timeout", async ({ page, liveStub }) => {
   test.setTimeout(60000);
+  liveStub.refuse();
   await installerFixture(page, { status: "running", message: "Installing" }, true);
   await expect(page.getByRole("dialog")).toContainText(
     "The server did not answer in time.",
     { timeout: 25000 },
   );
-});
-
-test("a hidden REA dialog sends no REA read while a job runs", async ({ page }) => {
-  const requests = recordApiRequests(page);
-  await reaFixture(page, reaState({ status: "running", step: "core", message: "…" }));
-  await reaCard(page).getByRole("button", { name: "Install" }).click();
-  await expect(page.getByRole("dialog", { name: "REA" })).toBeVisible();
-  await pausesWhenHidden(page, requests, /\/api\/rea/);
-});
-
-test("an idle installer reads again on focus and online", async ({ page }) => {
-  const requests = recordApiRequests(page);
-  await installerFixture(page, {});
-  await page.waitForTimeout(500);
-  for (const event of ["focus", "online"]) {
-    requests.clear();
-    await page.evaluate((name) => window.dispatchEvent(new Event(name)), event);
-    await expect
-      .poll(() => requests.list().some((r) => r.path === "/api/tool-installations"), {
-        timeout: 1000,
-      })
-      .toBe(true);
-  }
 });
 
 test("a refused start re-reads the installation and shows the running job", async ({
@@ -383,4 +379,88 @@ test("a refused start re-reads the installation and shows the running job", asyn
   await expect(dialog).toContainText("Installing");
   await expect(dialog).not.toContainText("Another install is running.");
   await expect(dialog.getByRole("button", { name: "Install now" })).toHaveCount(0);
+});
+
+// While the channel is connected, installations and REA follow their pushed job
+// topics: the page sends no GET for them at all, visible, hidden or shown again.
+test.describe("pushed installation jobs", () => {
+  test.use({ live: "manual" });
+  const topic = "job.tool:codex";
+
+  test("a running tool installation sends no GET, hidden or shown", async ({
+    page,
+    liveStub,
+  }) => {
+    const requests = recordApiRequests(page);
+    const installation = await installerFixture(
+      page,
+      { status: "running", message: "Installing" },
+      false,
+      false,
+      liveStub,
+    );
+    await liveStub.waitForSubscribe(topic);
+    liveStub.push(topic, { installations: [installation], busy: true });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Installing");
+    await setTabHidden(page, true);
+    await page.waitForTimeout(3000);
+    liveStub.push(topic, {
+      installations: [{ ...installation, message: "Checking the version" }],
+      busy: true,
+    });
+    await setTabHidden(page, false);
+    await expect(dialog).toContainText("Checking the version");
+    await page.waitForTimeout(3000);
+    expect(installationReads(requests)).toEqual([]);
+  });
+
+  test("an idle installer reads nothing on focus or online; a job started elsewhere is pushed", async ({
+    page,
+    liveStub,
+  }) => {
+    const requests = recordApiRequests(page);
+    const installation = await installerFixture(page, {}, false, false, liveStub);
+    await liveStub.waitForSubscribe(topic);
+    liveStub.push(topic, { installations: [installation], busy: false });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "Install now" })).toBeVisible();
+    for (const event of ["focus", "online"])
+      await page.evaluate((name) => window.dispatchEvent(new Event(name)), event);
+    await page.waitForTimeout(1500);
+    liveStub.push(topic, {
+      installations: [{ ...installation, status: "running", message: "Installing" }],
+      busy: true,
+    });
+    await expect(dialog).toContainText("Installing");
+    await expect(dialog.getByRole("button", { name: "Install now" })).toHaveCount(0);
+    expect(installationReads(requests)).toEqual([]);
+  });
+
+  test("a REA job's steps are pushed: no REA read, hidden or shown", async ({
+    page,
+    liveStub,
+  }) => {
+    const rea = "job.rea:current";
+    const requests = recordApiRequests(page);
+    const running = reaState({ status: "running", step: "core", message: "Step one" });
+    await reaFixture(page, running);
+    await pushState(page, liveStub);
+    await reaCard(page).getByRole("button", { name: "Install" }).click();
+    const dialog = page.getByRole("dialog", { name: "REA" });
+    await expect(dialog).toBeVisible();
+    await liveStub.waitForSubscribe(rea);
+    liveStub.push(rea, running);
+    await expect(dialog).toContainText("Step one");
+    // The server samples a running REA job: a hidden tab lets the topic go.
+    await setTabHidden(page, true);
+    await expect.poll(() => liveStub.subscriptions()).not.toContain(rea);
+    liveStub.push(rea, { ...running, message: "Step two" });
+    await page.waitForTimeout(2000);
+    await setTabHidden(page, false);
+    await expect.poll(() => liveStub.subscriptions()).toContain(rea);
+    await expect(dialog).toContainText("Step two");
+    await page.waitForTimeout(2000);
+    expect(requests.list().filter((r) => r.path.startsWith("/api/rea"))).toEqual([]);
+  });
 });

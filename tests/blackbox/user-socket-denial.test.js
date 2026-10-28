@@ -106,11 +106,15 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     });
   const ownerLive = openLive(f);
   await ownerLive.next((frame) => frame.type === "hello");
-  ownerLive.send({ op: "sub", topic: "probe.open" });
-  assert.equal(
-    (await ownerLive.next((frame) => frame.topic === "probe.open")).type,
-    "snapshot",
-  );
+  // The owner reaches what the user is refused below, the job topics among them.
+  for (const topic of ["probe.open", "job.tool:codex", "job.rea:current"]) {
+    ownerLive.send({ op: "sub", topic });
+    assert.equal(
+      (await ownerLive.next((frame) => frame.topic === topic, 5000)).type,
+      "snapshot",
+      topic,
+    );
+  }
   ownerLive.ws.close();
   const { cookie } = await signedInUser(f);
   const live = openLive(f, cookie);
@@ -135,6 +139,9 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "connections.problems",
     "runtime.updates",
     "job.operation:0000aaaa-0000-4000-8000-000000000000",
+    "job.tool:codex",
+    "job.chromium:current",
+    "job.rea:current",
     "operations.release-sessions:1.0.0",
     "artifacts.usage",
     "artifacts.changed",

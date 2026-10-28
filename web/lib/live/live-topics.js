@@ -90,6 +90,25 @@ export const liveTopics = Object.freeze({
     interval: 1500,
     sampled: true,
   }),
+  // One tool's installation and the installer's `busy`, pushed on every job write.
+  "job.tool": Object.freeze({
+    mode: "state",
+    path: (tool) => `/tool-installations?${new URLSearchParams({ tool })}`,
+    interval: 1500,
+  }),
+  // The managed agent browser's installation (`current`), the same value.
+  "job.chromium": Object.freeze({
+    mode: "state",
+    path: (_current) => "/tool-installations?tool=chromium",
+    interval: 1500,
+  }),
+  // The managed REA tool (`current`); a running job is sampled every second.
+  "job.rea": Object.freeze({
+    mode: "state",
+    path: (_current) => "/rea",
+    interval: 1000,
+    sampled: true,
+  }),
   // An old release's session migration plan, sampled every 3 s.
   "operations.release-sessions": Object.freeze({
     mode: "state",

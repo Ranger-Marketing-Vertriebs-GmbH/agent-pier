@@ -136,3 +136,22 @@ test("the operations and artifact topics name their routes at their former polls
   );
   assert.equal(topicInfo("artifacts.changed:x"), null);
 });
+
+test("the tool, browser and REA job topics name their routes at their former polls", () => {
+  const tool = topicInfo("job.tool:codex");
+  assert.equal(tool.path(tool.param), "/tool-installations?tool=codex");
+  assert.deepEqual([tool.mode, tool.interval, tool.sampled], ["state", 1500, false]);
+  assert.equal(topicInfo("job.tool"), null);
+  const browser = topicInfo("job.chromium:current");
+  assert.equal(browser.path(browser.param), "/tool-installations?tool=chromium");
+  assert.deepEqual(
+    [browser.mode, browser.interval, browser.sampled],
+    ["state", 1500, false],
+  );
+  assert.equal(topicInfo("job.chromium"), null);
+  // A running REA job is sampled on the server, so a hidden tab lets it go.
+  const rea = topicInfo("job.rea:current");
+  assert.equal(rea.path(rea.param), "/rea");
+  assert.deepEqual([rea.mode, rea.interval, rea.sampled], ["state", 1000, true]);
+  assert.equal(topicInfo("job.rea"), null);
+});

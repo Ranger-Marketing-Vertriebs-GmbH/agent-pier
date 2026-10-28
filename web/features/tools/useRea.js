@@ -1,60 +1,46 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { serverMessagesReady } from "../../lib/server-messages.js";
-import { reaCopy as copy } from "../../lib/i18n/messages/rea.js";
-import { apiCopy } from "../../lib/i18n/messages/components.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
-
-const pollMs = 1000;
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 
 /**
- * The managed REA tool (`/api/rea`): its state, polled while a job runs, and the
- * actions that change it. `apply` and `update` keep their failure in `error`;
- * `uninstall` throws so a confirmation dialog can show why it was refused.
+ * The managed REA tool (`/api/rea`): its state, which follows the live
+ * `job.rea:current` topic (each step of a running job is pushed), and the actions
+ * that change it. `apply` and `update` keep their failure in `error`; `uninstall`
+ * throws so a confirmation dialog can show why it was refused. `refresh()` reads the
+ * route and resolves with the state, or null when that read failed.
  */
 export default function useRea({ request }) {
   const [state, setState] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestRef = useRef(request);
   requestRef.current = request;
   const alive = useRef(true);
+  const resource = useLiveTopic("job.rea:current");
+  const { data, error: readError, loading, refresh: reread } = resource;
   // Loads the English server catalog first, so reasons and progress show localized.
   const settle = useCallback(async (next) => {
     await serverMessagesReady();
     if (alive.current) setState(next);
     return next;
   }, []);
-  const refresh = useCallback(
-    async (signal) => {
-      try {
-        const next = await requestRef.current("/rea", "GET", undefined, signal);
-        await settle(next);
-        if (alive.current) setError("");
-        return next;
-      } catch (err) {
-        // A deadline abort reports the timeout; hiding or stopping stays silent.
-        if (alive.current && (!signal?.aborted || timedOut(signal)))
-          setError(timedOut(signal) ? apiCopy.timedOut : err.message || copy.loadFailed);
-        return null;
-      } finally {
-        if (alive.current) setLoading(false);
-      }
-    },
-    [settle],
-  );
   useEffect(() => {
     alive.current = true;
-    void refresh();
     return () => {
       alive.current = false;
     };
-  }, [refresh]);
-  const running = state?.status === "running";
+  }, []);
   useEffect(() => {
-    if (!running) return undefined;
-    // Only a visible tab reads, and a stalled read is cut off.
-    return startVisiblePolling((signal) => refresh(signal), pollMs);
-  }, [running, refresh]);
+    if (!data) return;
+    void settle(data);
+    setError("");
+  }, [data, settle]);
+  useEffect(() => {
+    if (readError) setError(readError);
+  }, [readError]);
+  const refresh = useCallback(async () => {
+    const next = await reread();
+    return next ? settle(next) : null;
+  }, [reread, settle]);
   const act = useCallback(
     async (path, method, body) => {
       setError("");
@@ -73,5 +59,5 @@ export default function useRea({ request }) {
   const uninstall = useCallback(async () => {
     await settle(await requestRef.current("/rea", "DELETE"));
   }, [settle]);
-  return { state, loading, error, apply, update, uninstall, refresh };
+  return { state, loading: loading && !state, error, apply, update, uninstall, refresh };
 }

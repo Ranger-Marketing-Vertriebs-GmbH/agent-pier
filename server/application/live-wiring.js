@@ -16,9 +16,11 @@ import { settingsSummaryTopic } from "../features/settings/live-topics.js";
 import { connectionProblemsTopic } from "../features/providers/live-topics.js";
 import { runtimeUpdatesTopic } from "../features/assistants/live-runtime-topics.js";
 import {
-  operationJobTopic,
+  operationJob,
   releaseSessionsTopic,
 } from "../features/operations/live-topics.js";
+import { defineToolJobTopics } from "../features/tools/live-topics.js";
+import { defineJobTopic } from "../features/live/job-topics.js";
 import {
   artifactsChangedTopic,
   artifactsUsageTopic,
@@ -65,7 +67,8 @@ export function createLiveHub(services, options = {}) {
   hub.define(settingsSummaryTopic(services));
   hub.define(connectionProblemsTopic(services));
   hub.define(runtimeUpdatesTopic(services));
-  hub.define(operationJobTopic(services));
+  defineJobTopic(hub, operationJob(services));
+  defineToolJobTopics(hub, services);
   hub.define(releaseSessionsTopic(services));
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());

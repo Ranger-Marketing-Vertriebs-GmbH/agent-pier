@@ -42,6 +42,7 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
   } finally {
     rea.job = null;
     rea.step = null;
+    rea.changed();
     done();
   }
   return rea.state();

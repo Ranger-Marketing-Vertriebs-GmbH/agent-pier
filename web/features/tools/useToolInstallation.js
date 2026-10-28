@@ -1,8 +1,6 @@
 import { useToolInstallationCopy as copy } from "../../lib/i18n/messages/tools.js";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { apiCopy } from "../../lib/i18n/messages/components.js";
-import { startVisiblePolling, timedOut } from "../../lib/visible-polling.js";
-import { toolPollDelay } from "./tool-installation-poll.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 export default function useToolInstallation({ tool, request, refresh, update = false }) {
   const [attempted, setAttempted] = useState(false);
   const [job, setJob] = useState(null),
@@ -16,81 +14,47 @@ export default function useToolInstallation({ tool, request, refresh, update = f
     [syncError, setSyncError] = useState("");
   const mounted = useRef(false),
     mutating = useRef(false),
-    generation = useRef(0),
+    missed = useRef(false),
     synchronizing = useRef(false),
-    polling = useRef(false),
     observedRunning = useRef(false);
   const requestRef = useRef(request),
     refreshRef = useRef(refresh);
   requestRef.current = request;
   refreshRef.current = refresh;
-  const invalidateRequests = useCallback(() => {
-    generation.current++;
-  }, []);
-  const read = useCallback(
-    async (signal) => {
-      const version = generation.current;
-      if (mutating.current) return;
-      try {
-        const result = await requestRef.current(
-          "/tool-installations",
-          "GET",
-          undefined,
-          signal,
-        );
-        if (mounted.current && version === generation.current && !mutating.current) {
-          const found = result.installations?.find((item) => item.tool === tool);
-          if (found?.status === "running") observedRunning.current = true;
-          setJob(found || null);
-          setGlobalBusy(Boolean(result.busy));
-          setLoading(false);
-          setLoadError(found ? "" : copy.installationUnavailable);
-          return found || null;
-        }
-      } catch (err) {
-        // A deadline abort reports the timeout; hiding or stopping stays silent.
-        if (
-          mounted.current &&
-          version === generation.current &&
-          (!signal?.aborted || timedOut(signal))
-        ) {
-          setLoadError(timedOut(signal) ? apiCopy.timedOut : err.message);
-          setLoading(false);
-        }
-      }
-      return null;
+  // The installation follows the live `job.tool:<tool>` topic: every job write of the
+  // installer, a job started elsewhere and the busy flag of another tool's job are
+  // pushed, so nothing is polled or read again on focus.
+  const resource = useLiveTopic(`job.tool:${tool}`);
+  const { data, error: readError, refresh: reread } = resource;
+  const apply = useCallback(
+    (result) => {
+      const found = result.installations?.find((item) => item.tool === tool);
+      if (found?.status === "running") observedRunning.current = true;
+      setJob(found || null);
+      setGlobalBusy(Boolean(result.busy));
+      setLoading(false);
+      setLoadError(found ? "" : copy.installationUnavailable);
+      return found || null;
     },
     [tool],
   );
-  // One read on mount and whenever the tab comes back to view.
+  useEffect(() => {
+    if (!data) return;
+    // A start's own answer is newer than a push that arrives while it is sent.
+    if (mutating.current) missed.current = true;
+    else apply(data);
+  }, [data, apply]);
+  useEffect(() => {
+    if (!readError) return;
+    setLoadError(readError);
+    setLoading(false);
+  }, [readError]);
   useEffect(() => {
     mounted.current = true;
-    const controller = new AbortController();
-    if (!document.hidden) void read(controller.signal);
-    const visible = () => {
-      if (!document.hidden && !polling.current) void read();
-    };
-    // An idle installer is not polled, so a returning tab or network reads once.
-    document.addEventListener("visibilitychange", visible);
-    window.addEventListener("focus", visible);
-    window.addEventListener("online", visible);
     return () => {
-      document.removeEventListener("visibilitychange", visible);
-      window.removeEventListener("focus", visible);
-      window.removeEventListener("online", visible);
-      controller.abort();
       mounted.current = false;
-      invalidateRequests();
     };
-  }, [read, invalidateRequests]);
-  const delay = toolPollDelay({ job, busy: globalBusy, submitting });
-  polling.current = delay !== null;
-  // The loop runs only while a job is active, and never from a hidden tab.
-  useEffect(() => {
-    if (delay === null) return undefined;
-    // The state that started the loop was just read, so the start run is skipped.
-    return startVisiblePolling((signal) => read(signal), delay, {}, { skipFirst: true });
-  }, [delay, read]);
+  }, []);
   const synchronize = useCallback(async () => {
     if (synchronizing.current) return;
     synchronizing.current = true;
@@ -134,7 +98,7 @@ export default function useToolInstallation({ tool, request, refresh, update = f
       return;
     let conflict = false;
     mutating.current = true;
-    generation.current++;
+    missed.current = false;
     setSubmitting(true);
     setError("");
     try {
@@ -157,10 +121,14 @@ export default function useToolInstallation({ tool, request, refresh, update = f
         setSubmitting(false);
       }
     }
-    // Another start won: show what runs now instead of a stale idle view.
-    if (conflict && mounted.current) {
-      const found = await read();
-      if (found?.status === "running" && mounted.current) setError("");
+    // Another start won, or the CLI appeared outside AgentPier (no job write tells):
+    // show what is there now instead of a stale idle view. A push missed while the
+    // start was sent is read the same way.
+    if ((conflict || missed.current) && mounted.current) {
+      missed.current = false;
+      const result = await reread();
+      const found = result && mounted.current ? apply(result) : null;
+      if (conflict && found?.status === "running") setError("");
     }
   }
   const running = job?.status === "running";

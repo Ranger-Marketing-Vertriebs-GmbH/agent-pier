@@ -81,6 +81,8 @@ export class ReaTool {
     this.directory = path.join(dataDir, "rea");
     this.file = path.join(this.directory, "settings.json");
     this.inUse = async () => false;
+    // Called on every change of the job state (assigned by the wiring: job.rea).
+    this.onChange = null;
     this.job = null;
     this.controller = null;
     // Set while a refusal check awaits inUse(): no second job may start meanwhile.
@@ -124,6 +126,15 @@ export class ReaTool {
   }
   save(components, settings) {
     writePrivate(this.file, { serverId: this.serverId(), components, settings });
+    this.changed();
+  }
+  /** Calls `onChange()` after a change of state(); never throws. */
+  changed() {
+    try {
+      this.onChange?.();
+    } catch (error) {
+      logFailure("announce REA's state", error);
+    }
   }
   record(id = this.serverId()) {
     const row = id ? this.packages.records.get(id) : null;
@@ -347,8 +358,10 @@ export class ReaTool {
         this.controller = null;
         this.step = null;
         this.wanted = null;
+        this.changed();
       }
     })();
+    this.changed();
   }
   /** Resolves once the running job ended; never rejects. */
   settled() {
@@ -357,6 +370,7 @@ export class ReaTool {
   progress(step, message = "") {
     this.step = step;
     this.message = message;
+    this.changed();
   }
   async converge({ components, settings, update, source, stored }, signal) {
     this.wanted = components;
@@ -396,7 +410,7 @@ export class ReaTool {
         run: this.run,
         env: this.env,
         platform: this.platform,
-        progress: (message) => (this.message = message),
+        progress: (message) => this.progress(step, message),
       });
     }
   }
