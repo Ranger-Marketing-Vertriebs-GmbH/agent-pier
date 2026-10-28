@@ -39,6 +39,20 @@ export class ChatSync {
         if (owner === sessionId) this.drop(cursor);
       }
   }
+  /** True when two known cursors hold the same baseline (scope, rows and metadata). */
+  sameBaseline(a, b) {
+    const entry = (cursor) =>
+      typeof cursor === "string"
+        ? this.cache.get(cursor) || this.parked.get(cursor)
+        : null;
+    const [first, second] = [entry(a), entry(b)];
+    return (
+      !!first &&
+      !!second &&
+      first.scope === second.scope &&
+      first.digest === second.digest
+    );
+  }
   /** Keeps a closed connection's last baseline outside the per-scope active limit. */
   park(cursor) {
     const entry = typeof cursor === "string" ? this.cache.get(cursor) : null;
