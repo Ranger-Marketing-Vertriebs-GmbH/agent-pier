@@ -1,0 +1,151 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  forwardFields,
+  forwardSubject,
+} from "../../server/features/mail/mail-forward.js";
+import { forwardInput } from "../../server/features/assistants/mail/agent-mail-send-input.js";
+import { toolError } from "../../server/features/assistants/tool-errors.js";
+
+const original = {
+  envelope: {
+    from: { name: "Telekom", address: "rechnung@telekom.de" },
+    to: [{ name: "", address: "agent@example.com" }],
+    date: "2026-10-01T08:00:00.000Z",
+    subject: "Rechnung September",
+  },
+  text: "Ihre Rechnung für September liegt bei.",
+  html: "<p>Original</p>",
+  htmlOmitted: false,
+  rawParts: [],
+  parts: [],
+};
+
+const codeOf = (fn) => {
+  try {
+    fn();
+  } catch (error) {
+    return toolError(error).code;
+  }
+  throw new Error("no error");
+};
+
+test("the quote has a header block and the original text", () => {
+  const { fields, html } = forwardFields(original, {
+    body: "FYI",
+    to: ["bob@example.org"],
+  });
+  assert.equal(fields.subject, "Fwd: Rechnung September");
+  assert.match(
+    fields.body,
+    /^FYI\n\n---------- Forwarded message ----------\nFrom: Telekom <rechnung@telekom.de>\nDate: .+\nSubject: Rechnung September\nTo: agent@example.com\n\nIhre Rechnung/,
+  );
+  assert.ok(fields.body.endsWith(original.text));
+  assert.deepEqual(fields.to, ["bob@example.org"]);
+  assert.match(html, /<blockquote type="cite"><p>Original<\/p><\/blockquote>/);
+  assert.match(html, /^<p>FYI<\/p>/);
+  assert.match(html, /From: Telekom &lt;rechnung@telekom.de&gt;/);
+});
+
+test("Fwd and WG subjects are not prefixed twice", () => {
+  for (const subject of [
+    "Fwd: Rechnung",
+    "FW: Rechnung",
+    "WG: Rechnung",
+    "fwd:x",
+    "wg :x",
+  ])
+    assert.equal(forwardSubject(subject), subject.trim());
+  assert.equal(forwardSubject("Re: Rechnung"), "Fwd: Re: Rechnung");
+  assert.equal(forwardSubject("Forward planning"), "Fwd: Forward planning");
+  const wg = { ...original, envelope: { ...original.envelope, subject: "WG: Angebot" } };
+  assert.equal(
+    forwardFields(wg, { to: ["bob@example.org"] }).fields.subject,
+    "WG: Angebot",
+  );
+  // The agent's own subject wins.
+  assert.equal(
+    forwardFields(original, { to: ["bob@example.org"], subject: "Bitte prüfen" }).fields
+      .subject,
+    "Bitte prüfen",
+  );
+});
+
+test("the agent's text is escaped in the HTML and an empty body starts with the quote", () => {
+  const { fields, html } = forwardFields(original, {
+    body: "<b>see</b>\r\nbelow",
+    to: ["bob@example.org"],
+  });
+  assert.match(fields.body, /^<b>see<\/b>\nbelow\n\n----------/);
+  assert.match(html, /^<p>&lt;b&gt;see&lt;\/b&gt;<br>\nbelow<\/p>/);
+  const bare = forwardFields(original, { to: ["bob@example.org"] });
+  assert.match(bare.fields.body, /^---------- Forwarded message ----------\n/);
+  assert.match(bare.html, /^<p>---------- Forwarded message ----------<br>/);
+  const plain = forwardFields({ ...original, html: null }, { to: ["bob@example.org"] });
+  assert.equal(plain.html, null);
+});
+
+test("control characters in the original's header cannot break the quote or subject", () => {
+  const hostile = {
+    ...original,
+    envelope: {
+      ...original.envelope,
+      from: { name: "Eve\r\nTo: boss@corp.example", address: "eve@example.net" },
+      subject: "Hi\r\nBcc: x@y.z",
+    },
+  };
+  const { fields } = forwardFields(hostile, { to: ["bob@example.org"] });
+  assert.equal(fields.subject, "Fwd: Hi Bcc: x@y.z");
+  assert.match(fields.body, /\nFrom: Eve To: boss@corp.example <eve@example.net>\n/);
+});
+
+test("a forward body over 100,000 characters is MAIL_DRAFT_UNSUPPORTED", () => {
+  const long = { ...original, text: "x".repeat(99_950) };
+  assert.equal(
+    codeOf(() => forwardFields(long, { body: "FYI", to: ["bob@example.org"] })),
+    "MAIL_DRAFT_UNSUPPORTED",
+  );
+  const fits = { ...original, text: "x".repeat(90_000) };
+  assert.ok(forwardFields(fits, { body: "FYI", to: ["bob@example.org"] }).fields.body);
+});
+
+test("forwardInput checks the forward's fields before anything is read", () => {
+  const base = { action: "forward", accountId: "a", uid: 7, to: ["bob@example.org"] };
+  assert.deepEqual(forwardInput(base), {
+    forward: { folder: "INBOX", uid: 7, includeAttachments: true },
+    fields: { to: ["bob@example.org"], cc: [], bcc: [], subject: null, body: "" },
+    attachments: [],
+  });
+  const full = forwardInput({
+    ...base,
+    folder: "Archiv",
+    includeAttachments: false,
+    subject: "Zur Info",
+    body: "a\r\nb",
+    attachments: [{ path: "offer.pdf" }],
+  });
+  assert.deepEqual(full.forward, { folder: "Archiv", uid: 7, includeAttachments: false });
+  assert.equal(full.fields.subject, "Zur Info");
+  assert.equal(full.fields.body, "a\nb");
+  assert.deepEqual(full.attachments, [{ path: "offer.pdf" }]);
+  for (const bad of [
+    { ...base, to: [] },
+    { ...base, uid: undefined },
+    { ...base, uid: 0 },
+    { ...base, folder: "IN\nBOX" },
+    { ...base, draftUid: 3 },
+    { ...base, replyToUid: 3 },
+    { ...base, includeAttachments: "yes" },
+    { ...base, attachments: [{ path: "a.pdf" }, { path: "a.pdf" }] },
+    { ...base, attachments: [{ path: "a\u0000.pdf" }] },
+    {
+      ...base,
+      attachments: Array.from({ length: 21 }, (_, i) => ({ path: `${i}.pdf` })),
+    },
+  ])
+    assert.equal(
+      codeOf(() => forwardInput(bad)),
+      "INVALID_INPUT",
+      JSON.stringify(bad),
+    );
+});

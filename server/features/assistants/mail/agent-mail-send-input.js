@@ -86,6 +86,61 @@ export function sendInput(input) {
   };
 }
 
+const forwardKeys = new Set([
+  "action",
+  "accountId",
+  "folder",
+  "uid",
+  "to",
+  "cc",
+  "bcc",
+  "subject",
+  "body",
+  "includeAttachments",
+  "attachments",
+]);
+
+/**
+ * The input of a `forward`: `{ forward: { folder, uid, includeAttachments }, fields,
+ * attachments }` with the folder INBOX by default, `fields` as draftFields (the
+ * subject null when the agent gave none: mail-forward.js forwardFields then derives
+ * it) and attachmentList; at least one recipient. Anything else is 400 `invalid`.
+ */
+export function forwardInput(input) {
+  if (Object.keys(input).some((key) => !forwardKeys.has(key)))
+    throw assistantProblem("invalid");
+  const folder = input.folder ?? "INBOX";
+  if (
+    !Number.isSafeInteger(input.uid) ||
+    input.uid < 1 ||
+    typeof folder !== "string" ||
+    !folder ||
+    /[\u0000-\u001f\u007f]/.test(folder) ||
+    (input.includeAttachments !== undefined &&
+      typeof input.includeAttachments !== "boolean")
+  )
+    throw assistantProblem("invalid");
+  const attachments = attachmentList(input.attachments);
+  const fields = draftFields(input);
+  if (fields.to.length + fields.cc.length + fields.bcc.length === 0)
+    throw assistantProblem("invalid");
+  return {
+    forward: {
+      folder,
+      uid: input.uid,
+      includeAttachments: input.includeAttachments !== false,
+    },
+    fields: {
+      to: fields.to,
+      cc: fields.cc,
+      bcc: fields.bcc,
+      subject: fields.subject || null,
+      body: fields.body.replace(/\r\n?/g, "\n"),
+    },
+    attachments,
+  };
+}
+
 /** The digest of the agent's call, so a retry finds its card and nothing else does. */
 export const inputDigest = (input) => sha256(JSON.stringify(sorted(input)));
 
