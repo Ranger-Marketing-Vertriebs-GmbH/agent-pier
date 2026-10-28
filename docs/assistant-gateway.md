@@ -4752,10 +4752,12 @@ shared `chat-stream-transport.js`):
   requests (`useTeamCodingRequests` in `TeamApprovals`) use the feed's `actions`
   while its socket is connected: no change event reads `/actions` then, and nothing
   polls. A decided card stays hidden until the feed pushes its next state. While the
-  socket is down, or with a server whose window has no `actions`, the chat reads
-  `GET /api/assistants/<id>/actions` at start, on change events and every 5 seconds
-  while an approval waits. **Team › Teams** in the agent's settings still reads the team requests
-  itself.
+  socket is down, or with a server whose window has no `actions`, the chat follows
+  the live `agent.actions:<id>` topic (the lead's team requests
+  `agent.coding-requests:<id>`), which pushes every action write and expiry; only
+  when the live channel is in its fallback does it poll that route. **Team › Teams**
+  in the agent's settings follows `agent.coding-requests:<id>` itself (see
+  [architecture](architecture.md#live-channel)).
 - The chat shows the live window, the rows the window pushed out while the chat is
   open, and the pages "Earlier messages" loaded above them
   (`agent-history-view.js`), each row once. The last window of recently opened chats,

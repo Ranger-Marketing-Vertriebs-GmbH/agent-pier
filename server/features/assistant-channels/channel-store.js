@@ -38,6 +38,9 @@ export function channelLanguage(value) {
 }
 export class ChannelStore {
   constructor({ dataDir }) {
+    // Hears every write the channel list shows (ChannelService#written); not the
+    // poll offset or the stranger notices, which it does not show.
+    this.onWrite = null;
     this.root = path.join(dataDir, "assistants");
     this.db = fencedDatabase(
       privateDatabase(this.root, "channels.sqlite"),
@@ -148,6 +151,7 @@ export class ChannelStore {
         .run(record.id, token);
       this.db.prepare("INSERT INTO channel_offsets VALUES (?,0)").run(record.id);
     });
+    this.onWrite?.();
     return this.get(record.id);
   }
   write(record, revision) {
@@ -158,6 +162,7 @@ export class ChannelStore {
         .run(JSON.stringify(next), next.revision, record.id, revision).changes
     )
       throw assistantProblem("conflict", 409);
+    this.onWrite?.();
     return this.get(record.id);
   }
   requireRevision(id, revision) {
@@ -231,6 +236,7 @@ export class ChannelStore {
       ])
         this.db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);
     });
+    this.onWrite?.();
   }
   pairing(id, revision, appUrl, language) {
     const current = this.requireRevision(id, revision);
@@ -333,6 +339,7 @@ export class ChannelStore {
     this.db
       .prepare("UPDATE channels SET body=? WHERE id=?")
       .run(JSON.stringify({ ...record, diagnostic, pollAfter }), id);
+    this.onWrite?.();
   }
   /**
    * Records that a stranger chat is told the bot is private. Returns false while
@@ -358,6 +365,7 @@ export class ChannelStore {
     this.db
       .prepare("UPDATE channels SET body=? WHERE id=?")
       .run(JSON.stringify({ ...record, ignoredMessages }), id);
+    this.onWrite?.();
   }
   halt(id, diagnostic) {
     const current = this.record(id);

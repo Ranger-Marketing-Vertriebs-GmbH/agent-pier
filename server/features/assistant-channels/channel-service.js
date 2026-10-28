@@ -34,6 +34,9 @@ export class ChannelService {
     this.outbox = new ChannelOutbox(this.store.db, {
       link: (channelId, path) => this.link(channelId, path),
     });
+    // Every write the channel list shows reaches `onChange` (its live topic).
+    this.onChange = null;
+    this.store.onWrite = this.ledger.onWrite = this.outbox.onWrite = () => this.written();
     this.teamOutbox = new TelegramOutbox(this);
     this.teamActions = new TelegramTeamActions(this);
     this.speechService = new SpeechService({ connections: speech });
@@ -126,6 +129,14 @@ export class ChannelService {
     this.routineSync = Promise.resolve()
       .then(() => routines?.resync(assistantId))
       .catch(() => {});
+  }
+  /** Something the channel list shows changed; a failing listener is logged. */
+  written() {
+    try {
+      this.onChange?.();
+    } catch {
+      console.error("AgentPier could not report a Telegram channel change.");
+    }
   }
   list() {
     return {

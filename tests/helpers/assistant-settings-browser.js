@@ -1,4 +1,5 @@
 import { agentEvent } from "./agent-feed-fake.js";
+import { isLiveStubRequest } from "./live-stub.js";
 import { fulfillEnabledAssistantFeature } from "./assistant-browser-fixture.js";
 import { fixture } from "../browser/providers-fixture.js";
 
@@ -113,7 +114,8 @@ export async function setupAssistantSettings(page, options = {}) {
       });
     if (path === "/api/assistant-runtime") return route.fulfill({ json: state.runtime });
     if (path === "/api/assistant-channels") {
-      state.counts.channels += 1;
+      // The page's own reads; the live stub's reads stand for the server's push.
+      if (!isLiveStubRequest(route.request())) state.counts.channels += 1;
       if (state.channelDelay) await new Promise((r) => setTimeout(r, state.channelDelay));
       return route.fulfill({ json: { channels: state.channel ? [state.channel] : [] } });
     }

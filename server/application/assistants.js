@@ -15,6 +15,10 @@ import { assistantProblem } from "../features/assistants/assistant-validation.js
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
+import {
+  agentActionsChanged,
+  agentChannelsChanged,
+} from "../features/assistants/live-topics.js";
 
 /** Every service the assistant subsystem contributes; all are null while it is dormant. */
 export const assistantServiceNames = [
@@ -59,6 +63,10 @@ export function createAssistantServices(options) {
     graph.assistantSkillCatalog = connectSkillCatalog(graph);
     // Every change of a ChatGPT sign-in reaches its live topic (services.live).
     graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
+    // The agent detail topics and the update status (live-topics.js).
+    graph.assistantWorkflows.onChange = (ids) => agentActionsChanged(options.live, ids);
+    graph.assistantChannels.onChange = () => agentChannelsChanged(options.live);
+    graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one

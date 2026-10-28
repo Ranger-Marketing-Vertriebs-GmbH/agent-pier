@@ -27,9 +27,9 @@ const toData = (next) => ({
   activity: next.activity || nothing,
 });
 // Lazily loaded owner of the agent data: the live `agent.list` topic (the list with
-// the runtime status) and the events derived from it. It renders nothing and
-// publishes into the always-mounted gate, so toggling it never remounts the app.
-export default function AssistantsHost({ publishState, publishEvents }) {
+// the runtime status). It renders nothing and publishes into the always-mounted
+// gate, so toggling it never remounts the app.
+export default function AssistantsHost({ publishState }) {
   const [data, setData] = useState({
     assistants: [],
     conversations: [],
@@ -48,7 +48,6 @@ export default function AssistantsHost({ publishState, publishEvents }) {
     histories.forgetVanished(listed.current, data.conversations);
     listed.current = data.conversations;
   }, [histories, data.conversations]);
-  const listeners = useRef(new Set());
   // The topic's reader: its refresh() reads the list over REST after the owner's own
   // writes; a push that arrives meanwhile is newer and stays.
   const reader = useRef(null);
@@ -61,9 +60,6 @@ export default function AssistantsHost({ publishState, publishEvents }) {
       // The list last shown, and whether the live channel was connected.
       shown = null,
       linked = false;
-    const emit = (event) => {
-      for (const listener of [...listeners.current]) listener(event);
-    };
     // A REST read of the list or the runtime (the fallback, `stale`, refresh()) also
     // tells whether AgentPier is there; the shown agents stay until one succeeds.
     const read = async (path, signal) => {
@@ -89,11 +85,8 @@ export default function AssistantsHost({ publishState, publishEvents }) {
         // Disconnected once the channel gave up for now and the list is polled
         // (LiveClient fallback), not for each reconnect that follows a dropped socket.
         setConnected(live || !client.status().fallback);
-        // A new connection reaches AgentPier; views with their own data read again.
-        if (live && !linked) {
-          setReachable(true);
-          emit({ type: "connected" });
-        }
+        // A new connection reaches AgentPier.
+        if (live && !linked) setReachable(true);
         linked = live;
         if (!data || data === shown) return;
         shown = data;
@@ -106,9 +99,6 @@ export default function AssistantsHost({ publishState, publishEvents }) {
         if (status) setRuntime((old) => (old === status ? old : status));
         setError("");
         setReachable(true);
-        // The list follows every change of the agents: an agent's waiting actions,
-        // read while its chat feed is down (useAssistantActions), follow it too.
-        emit({ type: "change" });
       },
     });
     reader.current = started;
@@ -139,23 +129,7 @@ export default function AssistantsHost({ publishState, publishEvents }) {
     }),
     [data, runtime, error, connected, reachable, histories, refresh],
   );
-  const events = useMemo(
-    () => ({
-      subscribe: (listener) => {
-        listeners.current.add(listener);
-        return () => listeners.current.delete(listener);
-      },
-    }),
-    [],
-  );
   useEffect(() => publishState(value), [value, publishState]);
-  useEffect(() => publishEvents(events), [events, publishEvents]);
-  useEffect(
-    () => () => {
-      publishState(null);
-      publishEvents(null);
-    },
-    [publishState, publishEvents],
-  );
+  useEffect(() => () => publishState(null), [publishState]);
   return null;
 }

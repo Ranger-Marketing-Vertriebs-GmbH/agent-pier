@@ -163,6 +163,8 @@ export class AssistantWorkflows {
       this.touched = new Set();
       this.flushing = false;
       this.a.feeds?.invalidateOwners(ids);
+      // Their live action topics (live-topics.js agentActionsChanged).
+      this.onChange?.(ids);
     });
   }
   // The run as it is now; the stored snapshot only covers runs that are gone.

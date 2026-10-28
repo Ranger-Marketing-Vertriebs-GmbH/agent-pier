@@ -9,6 +9,7 @@ import {
   pipelineQueueChanged,
   pipelineRunChanged,
 } from "../features/pipelines/live-topics.js";
+import { agentRunChanged } from "../features/assistants/live-topics.js";
 
 export async function createPipelineServices(services) {
   const { config, accounts, sessions, chat, github, tools, memory, launch } = services;
@@ -45,6 +46,8 @@ export async function createPipelineServices(services) {
       services.operationsEvents?.pipeline(run);
       services.inbox?.changed();
       pipelineRunChanged(services.live, pipelineQueue, run);
+      // An agent's coding action shows its run (live-topics.js).
+      agentRunChanged(services, run.id);
       const before = pipelineRunCounts.observe(run);
       pipelineListsChanged(services.live, before, run, pipelineRunCounts.listed(run.id));
       // A run that finished or parked may free a slot of its project's queue.
@@ -70,7 +73,7 @@ export async function createPipelineServices(services) {
         ),
     });
     await pipelineQueue.recover();
-    signalDeletes(pipelines, () => services.live, pipelineQueue, pipelineRunCounts);
+    signalDeletes(pipelines, services, pipelineQueue, pipelineRunCounts);
   } catch (error) {
     await pipelineQueue?.close();
     await pipelines.close();
@@ -88,11 +91,13 @@ export async function createPipelineServices(services) {
 
 // A deleted run leaves the store without a save: its topic, the queue item that
 // started it, the counts and the lists that showed it still learn it.
-function signalDeletes(engine, hub, queue, counts) {
+function signalDeletes(engine, services, queue, counts) {
+  const hub = () => services.live;
   const remove = engine.delete;
   engine.delete = async function (id, ...rest) {
     await remove.call(this, id, ...rest);
     pipelineRunChanged(hub(), queue, { id });
+    agentRunChanged(services, id);
     pipelineListsChanged(hub(), counts.forget(id), null);
   };
 }

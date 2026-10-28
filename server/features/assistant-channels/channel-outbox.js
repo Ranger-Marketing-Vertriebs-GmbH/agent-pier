@@ -10,6 +10,8 @@ export class ChannelOutbox {
   constructor(db, { link = () => null } = {}) {
     this.db = db;
     this.link = link;
+    // Hears every outbox write (ChannelService#written).
+    this.onWrite = null;
     db.exec(
       "CREATE TABLE IF NOT EXISTS channel_outbox(id TEXT PRIMARY KEY, operation_key TEXT UNIQUE NOT NULL, channel_id TEXT NOT NULL REFERENCES channels(id), state TEXT NOT NULL, body TEXT NOT NULL)",
     );
@@ -108,6 +110,7 @@ export class ChannelOutbox {
     this.db
       .prepare("INSERT INTO channel_outbox VALUES(?,?,?,?,?)")
       .run(entry.id, key, source.channelId, entry.state, JSON.stringify(entry));
+    this.onWrite?.();
     return entry;
   }
   /**
@@ -163,6 +166,7 @@ export class ChannelOutbox {
     } finally {
       this.db.exec(`PRAGMA secure_delete=${previous ? "ON" : "OFF"}`);
     }
+    this.onWrite?.();
   }
   transition(id, expected, patch) {
     const e = this.get(id);
@@ -182,6 +186,7 @@ export class ChannelOutbox {
         .run(next.state, JSON.stringify(next), id, expected).changes
     )
       throw assistantProblem("conflict", 409);
+    this.onWrite?.();
     return next;
   }
   public(channelId) {

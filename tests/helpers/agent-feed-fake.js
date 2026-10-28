@@ -121,11 +121,15 @@ export const installUserFeedFake = (page) =>
 
 /**
  * A server-side agent event in a spec: `change`, `connected` or `runtime` makes the
- * live stub read the agent list's routes again and push what changed (the server's
- * `agent.list` topic does so on every change), and the fake chat feeds read their
- * chats again; a `delta` streams into its conversation's feed.
+ * live stub read the routes of the agent list and of every subscribed agent detail
+ * topic (`agent.actions:<id>`, ...) again and push what changed (on the server, an
+ * agent change or the write behind it signals them), and the fake chat feeds read
+ * their chats again; a `delta` streams into its conversation's feed.
  */
 export async function agentEvent(page, event) {
   await page.evaluate((event) => window.agentFeed?.event(event), event);
-  if (event?.type !== "delta") await liveStubOf(page)?.reread("agent.list");
+  const stub = liveStubOf(page);
+  if (event?.type === "delta" || !stub) return;
+  const agentTopics = stub.subscriptions().filter((topic) => topic.startsWith("agent."));
+  await Promise.all(["agent.list", ...agentTopics].map((topic) => stub.reread(topic)));
 }

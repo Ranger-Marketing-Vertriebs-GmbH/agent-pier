@@ -38,3 +38,18 @@ export function awaitingForUser({ assistants, userScope }, principal) {
     }
   });
 }
+
+/**
+ * The owner's list of an agent's actions (GET /api/assistants/:id/actions): its own
+ * and its members' delegated ones, without the approvals of a user's chat.
+ */
+export function ownerActionList(workflows, store, id) {
+  const { actions } = workflows.list(id, { delegated: true });
+  const hidden = new Set(
+    workflows.store
+      .list(id)
+      .filter((a) => !ownerApproval(a, store))
+      .map((a) => a.id),
+  );
+  return { actions: actions.filter((a) => !hidden.has(a.id)) };
+}

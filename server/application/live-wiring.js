@@ -15,7 +15,7 @@ import {
 import { settingsSummaryTopic } from "../features/settings/live-topics.js";
 import { connectionProblemsTopic } from "../features/providers/live-topics.js";
 import { runtimeUpdatesTopic } from "../features/assistants/live-runtime-topics.js";
-import { agentListTopic } from "../features/assistants/live-topics.js";
+import { agentDetailTopics, agentListTopic } from "../features/assistants/live-topics.js";
 import {
   operationJob,
   releaseSessionsTopic,
@@ -76,6 +76,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(connectionProblemsTopic(services));
   hub.define(runtimeUpdatesTopic(services));
   hub.define(agentListTopic(services));
+  for (const topic of agentDetailTopics(services)) hub.define(topic);
   defineJobTopic(hub, operationJob(services));
   defineToolJobTopics(hub, services);
   defineJobTopic(hub, mcpPackageJob(services));
