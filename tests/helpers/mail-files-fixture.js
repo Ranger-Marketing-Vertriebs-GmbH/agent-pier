@@ -5,20 +5,25 @@ import { mailFixture } from "./agent-mail-fixture.js";
 
 /**
  * The mail fixture plus the agent's workspace and a registered project folder, both
- * outside AgentPier's data directory (as agent-sftp-fixture.js `setup`), with the
+ * outside AgentPier's data directory (as agent-sftp-fixture.js `setup`; with
+ * `workspacesInData` the workspaces lie inside it, as installed), with the
  * write guard live. `access` saves the mail grant and the project grants in one
  * `access.save` and sets the agent's shell level; `ws` and `proj` name absolute
  * paths in the workspace and the project, `file` writes one, and `mail` calls the
  * tool on the owner's own turn by default.
  */
-export async function mailFilesFixture(t) {
+export async function mailFilesFixture(t, { workspacesInData = false } = {}) {
   const f = await mailFixture(t);
   // Real paths: on macOS the temp directory is reached through a link (/var).
   const base = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agent-mail-files-")),
   );
   t.after(() => fs.rmSync(base, { recursive: true, force: true }));
-  const workspaces = path.join(base, "workspaces");
+  // `workspacesInData`: the workspaces below AgentPier's data directory, as installed.
+  const workspaces = path.join(
+    workspacesInData ? fs.realpathSync(f.dataDir) : base,
+    "workspaces",
+  );
   const workspace = path.join(workspaces, f.id);
   fs.mkdirSync(workspace, { recursive: true });
   const folder = path.join(base, "project");
