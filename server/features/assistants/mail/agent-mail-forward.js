@@ -11,7 +11,7 @@ import { newFileEntries } from "./agent-mail-draft-files.js";
 
 /** What the call's result says when the original's HTML part could not go along. */
 export const htmlOmittedNote =
-  "The original's HTML version is over 1 MiB, so only its text is forwarded.";
+  "The original's HTML version is over 1 MiB or too deeply nested, so only its text is forwarded.";
 
 /**
  * The forward's draft, on one IMAP connection: the original (loadOriginal) within
