@@ -4090,9 +4090,14 @@ without any.
   reports it in `skills.status` as `openclaw-extra`, the same source as the catalog's
   `skills.load.extraDirs`. AgentPier therefore recognizes the plugin's copy by that
   link path (its `filePath`, with only the `plugin-skills` folder resolved to its real
-  path, never the link itself). A live apply keeps a built-in name only when every
-  entry of that name is the plugin's copy, so a same-named workspace, managed or catalog
-  skill drops it. Built-in names are also shadow candidates at every Gateway start, and
+  path, never the link itself). That entry must also be a symbolic link that resolves
+  to `skills/<name>` of the team plugin folder this AgentPier version provisions
+  (`plugins/teams-<digest>`, `teamPluginDirectory`): OpenClaw leaves a real folder
+  there alone and would load it, so a planted folder, or a link anywhere else, is no
+  plugin copy. A live apply keeps a built-in name only when every entry of that name
+  is the plugin's copy, so a same-named workspace, managed or catalog skill, or such a
+  folder or link, drops it. AgentPier does not delete a planted folder; the skill
+  stays off until it is gone. Built-in names are also shadow candidates at every Gateway start, and
   `skills.changed` re-applies agents whose only skill is built in. The skill guards
   purchases by its instructions only; nothing in AgentPier intercepts an order.
 - **Programs.** OpenClaw checks the programs a skill requires on the Gateway's

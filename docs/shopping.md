@@ -103,13 +103,33 @@ authority.
 ## What is and is not protected
 
 - **Protected by AgentPier:** only your own agents get the skill; agents for other
-  people never do. The browser keeps your sign-ins to the agent's own profile, and
-  a skill of the same name from the agent's workspace or the skill catalog never
-  replaces the shipped one.
+  people never do. The browser keeps your sign-ins to the agent's own profile.
+  Before every turn AgentPier checks that the agent service loaded the shipped
+  skill: its folder must be the service's own link into AgentPier's installed team
+  plugin. A skill of the same name from the agent's workspace or the skill catalog,
+  or a folder or a different link put in place of that link, drops the Shopping
+  skill instead of replacing it. The service does not replace such a folder itself;
+  the skill stays off until the folder is deleted (see
+  [Troubleshooting](#troubleshooting)).
 - **Not protected by AgentPier:** whether the agent actually asks before buying.
   Nothing intercepts an order. A page that misleads the agent could make it buy
-  without asking. The shop's order history, its order emails and the agent's chat
-  report are how you notice.
+  without asking. A standing order's routine cannot read your chat, so it relies on
+  the limits written into it when you confirmed the order. An agent with **Shell
+  access** runs as your user and can change files, its own instructions and the
+  shipped skill's files included, before the next check
+  ([shell gap](assistant-gateway.md#the-skill-catalog),
+  [security notes](agents.md#security-notes)). Give shell access only to agents you
+  trust. The shop's order history, its order emails and the agent's chat report are
+  how you notice.
+
+## Troubleshooting
+
+- **The agent does not know the shopping rules.** Check that **Use a browser** and
+  **Remember information** are on and that it is your own agent. If they are, look
+  for a folder (not a link) at `assistants/state/plugin-skills/agentpier-shopping` in
+  AgentPier's data folder, or a catalog skill named `agentpier-shopping` under
+  **Agents › Skills**. Delete the folder or remove the catalog skill, then choose
+  **Restart agent service**; the service links the shipped skill again.
 
 How the skill is shipped and checked is described under
 [Skills](assistant-gateway.md#skills) in the gateway reference.
