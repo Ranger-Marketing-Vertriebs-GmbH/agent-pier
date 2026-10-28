@@ -56,7 +56,11 @@ const tlsCodes = new Set([
 ]);
 const isTlsCode = (code) => tlsCodes.has(code) || /^(CERT_|ERR_TLS_|ERR_SSL_)/.test(code);
 
-/** A mail error carries only a stable code and catalog key, never server text. */
+/**
+ * A mail error carries a stable code and catalog key, never server text, for the
+ * agent and the owner. A `cause` added later (unreadDraft) is kept for the server's
+ * own log only; toolError hands an agent nothing but code and reason.
+ */
 export function mailError(code) {
   return Object.assign(new Error(code), { code, key: errorKeys[code] });
 }

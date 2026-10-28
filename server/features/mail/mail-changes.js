@@ -282,7 +282,13 @@ export async function saveDraft(
     } catch (error) {
       if (isBug(error)) throw error;
       // The new draft is stored but could not be read back: its UID is returned so it
-      // is not saved twice, and the old draft stays.
+      // is not saved twice, and the old draft stays. Logged once here, with the
+      // error's code and message only, never the mail.
+      console.error(
+        "Mail draft read-back failed:",
+        error?.code ?? error?.name,
+        String(error?.message ?? "").slice(0, 200),
+      );
       return Object.defineProperty(
         {
           ...stored,

@@ -178,7 +178,7 @@ test("a stored draft without its UID is MAIL_PROTOCOL when it carries parts", as
   assert.equal(plain.htmlPart, null);
 });
 
-test("a draft that does not read back keeps the read's error as its cause", async () => {
+test("a draft that does not read back keeps the read's error as its cause", async (t) => {
   const account = { address: "agent@example.com", displayName: "" };
   const fields = { to: ["bob@example.org"], cc: [], bcc: [], subject: "x", body: "y" };
   const failure = Object.assign(new Error("fetch failed"), { code: "ECONNRESET" });
@@ -186,14 +186,21 @@ test("a draft that does not read back keeps the read's error as its cause", asyn
   client.fetchOne = async () => {
     throw failure;
   };
+  const errors = t.mock.method(console, "error", () => {});
   const saved = await saveDraft(client, account, fields);
   assert.equal(saved.unreadable, true);
+  // Logged once, with its code and message only.
+  assert.deepEqual(
+    errors.mock.calls.map((call) => call.arguments),
+    [["Mail draft read-back failed:", "ECONNRESET", "fetch failed"]],
+  );
   assert.equal(saved.cause, failure);
   // Never spread into what an agent's result is built from.
   assert.equal({ ...saved }.cause, undefined);
   const error = unreadDraft(saved);
   assert.equal(error.code, "MAIL_PROTOCOL");
   assert.equal(error.cause, failure);
+  assert.equal(Object.keys(error).includes("cause"), false);
   assert.throws(() => newFileEntries(saved, { read: [], files: {} }), {
     code: "MAIL_PROTOCOL",
     cause: failure,

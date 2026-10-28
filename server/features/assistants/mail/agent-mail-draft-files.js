@@ -175,8 +175,13 @@ export async function captureFiles(w, limits, inv, caller, list) {
 }
 
 /** MAIL_PROTOCOL for a saved draft that did not read back, with the read's error. */
-export const unreadDraft = (saved) =>
-  Object.assign(mailError("MAIL_PROTOCOL"), saved?.cause && { cause: saved.cause });
+export const unreadDraft = (saved) => {
+  const error = mailError("MAIL_PROTOCOL");
+  // Not enumerable, so no spread or serialization of the error carries it along.
+  if (saved?.cause)
+    Object.defineProperty(error, "cause", { value: saved.cause, configurable: true });
+  return error;
+};
 
 /**
  * The provenance rows of the new files in a saved draft. The read-back `attachments`
