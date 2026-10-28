@@ -10,9 +10,10 @@ export function inboxTopic(services) {
     mode: "state",
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
-    read: () => services.inbox.snapshot(),
+    // Without the inbox service there is nothing to read and nothing to follow.
+    read: async () => (services.inbox ? services.inbox.snapshot() : null),
     watch({ invalidate }) {
-      return services.inbox?.subscribe(() => invalidate());
+      return services.inbox ? services.inbox.subscribe(() => invalidate()) : undefined;
     },
   };
 }
