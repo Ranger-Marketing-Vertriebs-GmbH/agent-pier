@@ -10,9 +10,14 @@ import {
   extractionQueues,
   extractLimits,
   extractText,
+  htmlPool,
 } from "../../server/features/mail/mail-extract.js";
 import { pdfWith } from "../helpers/mail-documents.js";
-import { htmlBounds, tooComplexText } from "../../server/features/mail/mail-text.js";
+import {
+  htmlBounds,
+  htmlBusyText,
+  tooComplexText,
+} from "../../server/features/mail/mail-text.js";
 
 const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
 const endsUrl = new URL("../fixtures/mail-extract-ends.mjs", import.meta.url);
@@ -88,22 +93,35 @@ test("HTML never waits behind attachment documents", async () => {
 });
 
 test("the HTML pool is one process with a short queue of its own", async () => {
-  assert.equal(htmlLimits.concurrency, 1);
-  assert.equal(htmlLimits.queue, 4);
+  assert.deepEqual(htmlPool, { concurrency: 1, queue: 4 });
+  // The pool decides, never the limits a child is given.
+  assert.equal("concurrency" in htmlLimits || "queue" in htmlLimits, false);
   const limits = { ...htmlLimits, timeoutMs: 300 };
   const before = extractionQueues().html.started;
   const runs = Array.from({ length: 6 }, () =>
     htmlText("<p>x</p>", 100, { limits, scriptUrl: hangUrl }),
   );
-  // One running, four waiting: the sixth is refused at once with the placeholder.
+  // One running, four waiting: the sixth is refused at once as busy, not too complex.
   assert.deepEqual(extractionQueues().html, {
     running: 1,
     waiting: 4,
     started: before + 1,
   });
   const results = await Promise.all(runs);
-  assert.ok(results.every((r) => r.tooComplex));
+  // Five ran out of time: too complex; the sixth was busy and may be read again.
+  assert.equal(results.filter((r) => r.tooComplex).length, 5);
+  assert.deepEqual(results[5], { text: htmlBusyText, truncated: false, busy: true });
   assert.equal(extractionQueues().html.started - before, 5);
+});
+
+test("a quote or forward while the HTML pool is full is MAIL_BUSY", async () => {
+  const limits = { ...htmlLimits, timeoutMs: 300 };
+  const held = Array.from({ length: htmlPool.concurrency + htmlPool.queue }, () =>
+    htmlText("<p>x</p>", 100, { limits, scriptUrl: hangUrl }),
+  );
+  await assert.rejects(htmlQuote("<p>x</p>"), { code: "MAIL_BUSY" });
+  await assert.rejects(htmlForward("<p>x</p>", 100), { code: "MAIL_BUSY" });
+  await Promise.all(held);
 });
 
 test("a forward gets quote and text from one process", async () => {

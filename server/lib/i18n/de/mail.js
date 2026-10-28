@@ -56,6 +56,7 @@ export const mail = Object.freeze({
     "Text lässt sich nur aus PDF-, Word-, Excel-, PowerPoint-, Text- und CSV-Anhängen lesen.",
   mailTextFailed:
     "Der Text des Anhangs konnte nicht gelesen werden: Die Datei ist beschädigt, verschlüsselt oder zu komplex.",
+  mailBusy: "AgentPier liest gerade andere E-Mails. Versuche es gleich noch einmal.",
   mailSourceRefused: "Der Agent darf diese Datei nicht anhängen oder speichern.",
   mailSourceNotFound: "Die anzuhängende Datei wurde nicht gefunden.",
   mailSourceEmpty: "Die anzuhängende Datei ist leer oder keine normale Datei.",

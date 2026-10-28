@@ -111,8 +111,10 @@ test("the schema offers the attachment and forward actions with their fields", (
     "MAIL_SOURCE_NOT_FOUND",
     "MAIL_SOURCE_EMPTY",
     "MAIL_SAVE_REFUSED",
+    "MAIL_BUSY",
   ])
     assert.ok(description.includes(code), code);
+  assert.ok(description.includes("htmlBusy"));
   for (const word of ["forward", "attachmentText", "removeAttachments", "untrusted"])
     assert.ok(description.includes(word), word);
 });

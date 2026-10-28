@@ -59,6 +59,7 @@ const mailCodes = {
   mailDraftChanged: "MAIL_DRAFT_CHANGED",
   mailTextUnsupported: "MAIL_TEXT_UNSUPPORTED",
   mailTextFailed: "MAIL_TEXT_FAILED",
+  mailBusy: "MAIL_BUSY",
   mailSourceRefused: "MAIL_SOURCE_REFUSED",
   mailSourceNotFound: "MAIL_SOURCE_NOT_FOUND",
   mailSourceEmpty: "MAIL_SOURCE_EMPTY",
@@ -96,6 +97,7 @@ test("the attachment mail errors keep their codes and the source problems their 
     "MAIL_DRAFT_CHANGED",
     "MAIL_TEXT_UNSUPPORTED",
     "MAIL_TEXT_FAILED",
+    "MAIL_BUSY",
   ]) {
     const error = mailError(code);
     assert.equal(typeof error.key, "string", code);

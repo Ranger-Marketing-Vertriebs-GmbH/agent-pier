@@ -48,6 +48,7 @@ export const mail = Object.freeze({
     "Text can only be read from PDF, Word, Excel, PowerPoint, text and CSV attachments.",
   mailTextFailed:
     "The attachment's text could not be read: the file is damaged, encrypted or too complex.",
+  mailBusy: "AgentPier is reading other email right now. Try again in a moment.",
   mailSourceRefused: "The agent may not attach or save this file.",
   mailSourceNotFound: "The file to attach was not found.",
   mailSourceEmpty: "The file to attach is empty or not a regular file.",

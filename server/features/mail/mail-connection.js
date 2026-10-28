@@ -26,6 +26,7 @@ const errorKeys = Object.freeze({
   MAIL_DRAFT_CHANGED: "mailDraftChanged",
   MAIL_TEXT_UNSUPPORTED: "mailTextUnsupported",
   MAIL_TEXT_FAILED: "mailTextFailed",
+  MAIL_BUSY: "mailBusy",
 });
 
 const unreachableCodes = new Set([

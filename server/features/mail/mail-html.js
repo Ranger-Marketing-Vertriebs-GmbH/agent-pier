@@ -1,5 +1,6 @@
-import { extractLimits, htmlPool, inChild } from "./mail-extract.js";
-import { htmlWithinBounds, tooComplexText } from "./mail-text.js";
+import { extractLimits, inChild } from "./mail-extract.js";
+import { mailError } from "./mail-connection.js";
+import { htmlBusyText, htmlWithinBounds, tooComplexText } from "./mail-text.js";
 
 // Mail HTML for agents (read, forward) turned into text or a sanitized quote in the
 // extraction child process (mail-extract.js), never on the server's event loop: a
@@ -13,32 +14,34 @@ import { htmlWithinBounds, tooComplexText } from "./mail-text.js";
 // slowest bounded input measured took about 0.35 s), and a fork adds about 50 ms, so
 // this leaves ten times the room for a loaded host while a read never waits longer
 // than the deadline for its own HTML.
-export const htmlLimits = Object.freeze({
-  ...extractLimits,
-  ...htmlPool,
-  timeoutMs: 5_000,
-});
+// The pool's size is not a limit of the child: inChild picks the HTML pool by kind.
+const { concurrency: _concurrency, queue: _queue, ...childLimits } = extractLimits;
+export const htmlLimits = Object.freeze({ ...childLimits, timeoutMs: 5_000 });
 
 const tooComplex = () => ({ text: tooComplexText, truncated: false, tooComplex: true });
+const busy = { busy: true };
 
-// One child run of `kind`; null when it failed, ran out of time or the pool was full.
+// One child run of `kind`: its reply, `busy` when the HTML pool was full (worth
+// another try), null when it failed or ran out of time or memory.
 async function run(source, kind, limits, scriptUrl) {
   try {
     return await inChild(source, kind, { limits, ...(scriptUrl && { scriptUrl }) });
-  } catch {
-    return null;
+  } catch (error) {
+    return error?.busy ? busy : null;
   }
 }
 
-const asText = (result) =>
-  !result || result.tooComplex
+const asText = (result) => {
+  if (result === busy) return { text: htmlBusyText, truncated: false, busy: true };
+  return !result || result.tooComplex
     ? tooComplex()
     : { text: result.text, truncated: result.truncated };
+};
 
 /**
  * htmlToText of `html` in the child, as `{ text, truncated }`, or the placeholder with
- * `tooComplex: true` when it is beyond the bounds, ran out of time or memory, or the
- * queue was full.
+ * `tooComplex: true` when it is beyond the bounds or ran out of time or memory, or
+ * htmlBusyText with `busy: true` when the HTML pool was full.
  */
 export async function htmlText(html, maxChars, { limits = htmlLimits, scriptUrl } = {}) {
   const source = String(html);
@@ -50,18 +53,20 @@ export async function htmlText(html, maxChars, { limits = htmlLimits, scriptUrl 
 
 /**
  * quoteHtml of `html` in the child: the sanitized quote, or null when it is beyond the
- * bounds, ran out of time or memory, or the queue was full.
+ * bounds or ran out of time or memory. A full HTML pool is MAIL_BUSY.
  */
 export async function htmlQuote(html, { limits = htmlLimits, scriptUrl } = {}) {
   const source = String(html);
   if (!htmlWithinBounds(source)) return null;
-  return (await run(source, "html-quote", limits, scriptUrl))?.text ?? null;
+  const result = await run(source, "html-quote", limits, scriptUrl);
+  if (result === busy) throw mailError("MAIL_BUSY");
+  return result?.text ?? null;
 }
 
 /**
  * The quote and the text of an HTML-only mail in one child process (a forward needs
  * both): `{ quote, text }`, `quote` as htmlQuote returns it and `text` as htmlText;
- * without a quote the text is the placeholder.
+ * without a quote the text is the placeholder. A full HTML pool is MAIL_BUSY.
  */
 export async function htmlForward(
   html,
@@ -76,6 +81,7 @@ export async function htmlForward(
     { ...limits, textChars: maxChars },
     scriptUrl,
   );
+  if (result === busy) throw mailError("MAIL_BUSY");
   return typeof result?.quote === "string"
     ? { quote: result.quote, text: asText(result) }
     : { quote: null, text: tooComplex() };
