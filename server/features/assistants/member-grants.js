@@ -186,6 +186,8 @@ export function memberInheritance(
     projects: eligible ? memberFolders(grants.projects, folders) : {},
     // `github`: the lead's GitHub access now; the member uses its profile.
     github: eligible ? memberGithub(grants.github, github) : null,
+    // The lead's shopping switch (built-in-skills.js shoppingOn).
+    shopping: eligible && lead.shopping !== false,
   };
 }
 

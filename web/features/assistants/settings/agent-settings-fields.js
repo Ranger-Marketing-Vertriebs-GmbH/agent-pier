@@ -26,6 +26,7 @@ export const capabilityFormKeys = [
   "browserVisible",
   "shell",
   "skills",
+  "shopping",
 ];
 // MCP servers are granted in the Access tab, saved with the agent's PATCH.
 export const mcpKeys = ["mcpServers"];
@@ -271,6 +272,8 @@ export const capabilityServer = (assistant) => ({
   browserVisible: assistant?.browserVisible === true,
   shell: shellLevel(assistant),
   skills: sortedIds(assistant?.skills),
+  // The built-in Shopping skill's switch: on unless stored off (built-in-skills.js).
+  shopping: assistant?.shopping !== false,
 });
 
 /** One PATCH for the Capabilities tab; only changed parts are sent. */
@@ -290,6 +293,7 @@ export function capabilityPatch({ values, base, assistant }) {
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
   if (shellEligible(assistant) && changed("skills")) patch.skills = values.skills;
+  if (changed("shopping")) patch.shopping = values.shopping;
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
     patch.heartbeat = { ...heartbeatForm(assistant), enabled: false };

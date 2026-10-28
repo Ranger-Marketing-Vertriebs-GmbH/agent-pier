@@ -65,6 +65,9 @@ function validateAvatar(value) {
     throw assistantProblem("invalid");
   return value;
 }
+/** Whether a saved patch changes the agent's compiled entry, so it applies live. */
+export const recompiles = (patch) =>
+  ["capabilities", "skills", "browserVisible", "shopping"].some((key) => key in patch);
 export function validateDefinition(input, partial = false) {
   if (
     !input ||
@@ -79,6 +82,7 @@ export function validateDefinition(input, partial = false) {
           "capabilities",
           "shell",
           "browserVisible",
+          "shopping",
           "skills",
           "heartbeat",
           "confirmInstructions",
@@ -97,6 +101,11 @@ export function validateDefinition(input, partial = false) {
   if ("browserVisible" in input) {
     if (typeof input.browserVisible !== "boolean") throw assistantProblem("invalid");
     result.browserVisible = input.browserVisible;
+  }
+  // The per-agent shopping switch (built-in-skills.js shoppingOn).
+  if ("shopping" in input) {
+    if (typeof input.shopping !== "boolean") throw assistantProblem("invalid");
+    result.shopping = input.shopping;
   }
   if ("skills" in input) result.skills = validateSkills(input.skills);
   if ("avatar" in input) result.avatar = validateAvatar(input.avatar);

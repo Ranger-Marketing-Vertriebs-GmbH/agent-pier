@@ -9,7 +9,9 @@ import {
   compiledSkillNames,
   pluginSkillReported,
   pluginSkillsDir,
+  shoppingBlocker,
   shoppingEligible,
+  shoppingOn,
   shoppingSkill,
 } from "../../server/features/assistants/built-in-skills.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
@@ -27,43 +29,86 @@ test("the built-in names hold only the shopping skill", () => {
   assert.equal(shoppingSkill, "agentpier-shopping");
   assert.deepEqual(builtInSkillNames, ["agentpier-shopping"]);
   assert.deepEqual(builtInSkills(own()), ["agentpier-shopping"]);
-  assert.deepEqual(builtInSkills(own(), { senderFacing: true }), []);
 });
 
-test("the owner's own agent with browser and memory gets the shopping skill", () => {
-  assert.equal(shoppingEligible(own()), true);
-  assert.deepEqual(compiledSkillNames(own()), ["agentpier-shopping", "github"]);
-});
-
-test("no shopping skill without browser, without memory, archived or sender-facing", () => {
-  assert.equal(
-    shoppingEligible(own({ capabilities: { memory: true, browser: false } })),
-    false,
-  );
-  assert.equal(
-    shoppingEligible(own({ capabilities: { memory: false, browser: true } })),
-    false,
-  );
-  assert.equal(shoppingEligible(own({ archivedAt: "2026-10-01T00:00:00Z" })), false);
-  assert.equal(shoppingEligible(own(), { senderFacing: true }), false);
-  assert.deepEqual(compiledSkillNames(own(), { senderFacing: true }), ["github"]);
-});
-
-test("agents of users and team members never get the shopping skill", () => {
-  assert.equal(
-    shoppingEligible(own({ userAccess: { mode: "shared", users: [] } })),
-    false,
-  );
-  assert.equal(
-    shoppingEligible(own({ teamMemberId: "t1", lifetime: "permanent" })),
-    false,
-  );
-  const temporary = own({
-    teamMemberId: "t1",
+const lead = own({ id: "lead", teamUsage: "suggest" });
+const permanent = own({ id: "m1", teamMemberId: "m1", lifetime: "permanent" });
+// A task member holds what its lead granted (memberInheritance); its memory is its own.
+const task = (inherited = {}) =>
+  own({
+    id: "m2",
+    teamMemberId: "m2",
     lifetime: "temporary",
-    inherited: { capabilities: { memory: true, browser: true }, skills: [] },
+    capabilities: {},
+    inherited: {
+      capabilities: { browser: true },
+      skills: [],
+      shopping: true,
+      ...inherited,
+    },
   });
-  assert.equal(shoppingEligible(temporary), false);
+// The eligibility matrix: who may get the skill, and why not.
+const matrix = [
+  ["owner agent", own(), {}, null],
+  ["lead", lead, {}, null],
+  ["permanent member", permanent, {}, null],
+  [
+    "permanent member with the lead's shared browser",
+    own({
+      teamMemberId: "m1",
+      lifetime: "permanent",
+      capabilities: { memory: true },
+      leadCapabilities: { browser: true },
+    }),
+    {},
+    null,
+  ],
+  ["task member", task(), {}, null],
+  ["sender-facing", own(), { senderFacing: true }, null],
+  ["user agent", own({ userAccess: { mode: "shared", members: [] } }), {}, "userAgent"],
+  [
+    "restricted user's own agent",
+    own({ userAccess: { mode: "own", members: [{ userId: "u1" }] } }),
+    {},
+    "userAgent",
+  ],
+  ["archived", own({ archivedAt: "2026-10-01T00:00:00Z" }), {}, "archived"],
+  [
+    "archived task member",
+    { ...task(), archivedAt: "2026-10-01T00:00:00Z" },
+    {},
+    "archived",
+  ],
+  ["no browser", own({ capabilities: { memory: true } }), {}, "browser"],
+  ["no memory", own({ capabilities: { browser: true } }), {}, "memory"],
+  ["task member without the browser", task({ capabilities: {} }), {}, "browser"],
+];
+
+test("the eligibility matrix of the shopping skill", () => {
+  for (const [label, assistant, options, blocker] of matrix) {
+    assert.equal(shoppingBlocker(assistant), blocker, label);
+    assert.equal(shoppingEligible(assistant), blocker === null, label);
+    assert.deepEqual(
+      builtInSkills(assistant, options),
+      blocker === null ? ["agentpier-shopping"] : [],
+      label,
+    );
+  }
+});
+
+test("the shopping switch is on by default and off only when stored off", () => {
+  assert.equal(shoppingOn(own()), true);
+  assert.equal(shoppingOn(own({ shopping: true })), true);
+  assert.equal(shoppingOn(own({ shopping: false })), false);
+  assert.deepEqual(builtInSkills(own({ shopping: false })), []);
+  assert.deepEqual(compiledSkillNames(own({ shopping: false })), ["github"]);
+  // Off leaves an eligible agent eligible: the switch, not a missing capability.
+  assert.equal(shoppingEligible(own({ shopping: false })), true);
+  // A task member follows its lead's switch as well as its own.
+  assert.equal(shoppingOn(task()), true);
+  assert.equal(shoppingOn(task({ shopping: false })), false);
+  assert.equal(shoppingOn({ ...task(), shopping: false }), false);
+  assert.deepEqual(builtInSkills(task({ shopping: false })), []);
 });
 
 test("a stored built-in name is ignored; an eligible agent gets the built-in once", () => {
@@ -80,10 +125,7 @@ test("an ineligible agent never compiles a stored built-in name", () => {
     ["github"],
   );
   assert.deepEqual(compiledSkillNames(own({ ...stored, archivedAt: "2026-10-01" })), []);
-  assert.deepEqual(
-    compiledSkillNames(own({ skills: ["agentpier-shopping"] }), { senderFacing: true }),
-    [],
-  );
+  assert.deepEqual(compiledSkillNames(own({ ...stored, shopping: false })), ["github"]);
 });
 
 // A runtime root as the Gateway leaves it: the provisioned team plugin, and its link
@@ -172,26 +214,35 @@ test("a real folder or a foreign link at plugin-skills is never the plugin's cop
     assert.equal(reported(runtimeRoot(t, target).root), false, String(target));
 });
 
-test("agentEntry compiles the built-in skill only for eligible agents", () => {
+test("agentEntry compiles the built-in skill for eligible agents with the switch on", () => {
   const ready = { teamsReady: true, nativeReady: true };
-  assert.deepEqual(agentEntry({}, own(), ready).skills, ["agentpier-shopping", "github"]);
-  assert.deepEqual(agentEntry({}, own(), { ...ready, senderFacing: true }).skills, [
+  const skillsOf = (assistant, options = {}) =>
+    agentEntry({}, assistant, { ...ready, ...options }).skills;
+  assert.deepEqual(skillsOf(own()), ["agentpier-shopping", "github"]);
+  // An agent with its own Telegram bot gets it too: the skill asks only the owner.
+  assert.deepEqual(skillsOf(own(), { senderFacing: true }), [
+    "agentpier-shopping",
     "github",
   ]);
-  assert.deepEqual(
-    agentEntry({}, own(), { ...ready, shadowedSkills: ["agentpier-shopping"] }).skills,
-    ["github"],
-  );
+  assert.deepEqual(skillsOf(own(), { shadowedSkills: ["agentpier-shopping"] }), [
+    "github",
+  ]);
   assert.equal(
     agentEntry({}, own(), { teamsReady: true, nativeReady: false }).skills,
     undefined,
   );
+  assert.deepEqual(skillsOf(own({ shopping: false })), ["github"]);
+  // Team members: permanent and temporary.
+  assert.deepEqual(skillsOf(permanent), ["agentpier-shopping", "github"]);
+  assert.deepEqual(skillsOf(task({ skills: ["github"] })), [
+    "agentpier-shopping",
+    "github",
+  ]);
 });
 
-test("agentEntry compiles no built-in skill for agents serving others", () => {
+test("agentEntry compiles no built-in skill for agents of users", () => {
   const ready = { teamsReady: true, nativeReady: true };
   const skillsOf = (assistant) => agentEntry({}, assistant, ready).skills;
-  // An agent for users, shared or a restricted user's own.
   assert.deepEqual(skillsOf(own({ userAccess: { mode: "shared", members: [] } })), [
     "github",
   ]);
@@ -199,22 +250,4 @@ test("agentEntry compiles no built-in skill for agents serving others", () => {
     skillsOf(own({ userAccess: { mode: "own", members: [{ userId: "u1" }] } })),
     ["github"],
   );
-  // Team members: permanent, temporary, and a permanent one whose lead shares
-  // browser and memory with it.
-  assert.deepEqual(skillsOf(own({ teamMemberId: "t1", lifetime: "permanent" })), [
-    "github",
-  ]);
-  const temporary = own({
-    teamMemberId: "t1",
-    lifetime: "temporary",
-    inherited: { capabilities: { memory: true, browser: true }, skills: ["github"] },
-  });
-  assert.deepEqual(skillsOf(temporary), ["github"]);
-  const shared = own({
-    teamMemberId: "t1",
-    lifetime: "permanent",
-    capabilities: {},
-    leadCapabilities: { browser: true, memory: true },
-  });
-  assert.deepEqual(skillsOf(shared), ["github"]);
 });

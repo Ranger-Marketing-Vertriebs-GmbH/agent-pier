@@ -64,11 +64,13 @@ and agents that work as a team.
   a guided Gmail setup walks you through the app password; a mail goes out only after
   your approval in the chat, the Inbox or Telegram, or to recipients you allowed
   ([email](docs/mail.md)).
-- **Shopping for agents:** your own agents with **Use a browser** and **Remember
-  information** find deals and electronics parts on Amazon and AliExpress, build carts
-  for a project and buy with the shop accounts you signed in to, only after your yes
-  in the chat or a standing order you gave there. The guard is the agent's
-  instructions, not AgentPier ([shopping](docs/shopping.md)).
+- **Shopping for agents:** agents with **Use a browser** and **Remember
+  information**, team members and agents with their own Telegram bot included, find
+  deals and electronics parts on Amazon and AliExpress, build carts for a project and
+  buy with the shop accounts you signed in to, only after your yes in your own chat or
+  a standing order you gave there. A switch per agent turns it off; agents of users
+  never shop. The guard is the agent's instructions, not AgentPier
+  ([shopping](docs/shopping.md)).
 - **Connections:** model access (provider connections and ChatGPT for agents),
   services for agents, MCP servers, SSH/SFTP accesses, email accounts, secrets and
   GitHub connections in one place, created once and granted where they are used, each with **Used by**

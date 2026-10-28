@@ -4199,11 +4199,17 @@ without any.
   plugin manifest's `"skills": ["skills"]` names the folder, and the plugin
   installer provisions it with the plugin (`team-plugin-install.js`). Today that is
   `agentpier-shopping` ([Shopping for agents](shopping.md)). It is compiled into the
-  allow list of the owner's own unarchived personal agents with **Use a browser** and
-  **Remember information** on, never into agents of users, team members or agents with
-  a Telegram bot for other people (`built-in-skills.js`). It is not stored on the
-  profile, not listed on the Skills page and not assignable: a save naming it is
-  refused (409 `skillUnavailable`), and a stored or inherited name never compiles.
+  allow list of every unarchived agent with **Use a browser** and **Remember
+  information** (a permanent member counting its lead's shares, a temporary member its
+  lead's browser grant and its own memory) whose `shopping` switch is not `false`,
+  leads, members and agents with a Telegram bot for other people included, never into
+  agents of users (`built-in-skills.js`). The profile's `shopping` boolean is the
+  owner's per-agent switch (on when absent); a save applies it live, and a temporary
+  member also follows its lead's (`inherited.shopping`). The skill's name is not
+  stored on the profile, not listed on the Skills page and not assignable: a save
+  naming it is refused (409 `skillUnavailable`), and a stored or inherited name never
+  compiles. Members run in the same Gateway and state folder as their lead, so the
+  check below is the same for them.
   OpenClaw 2026.10.7 links each plugin skill below `<state>/plugin-skills/<name>/` and
   reports it in `skills.status` as `openclaw-extra`, the same source as the catalog's
   `skills.load.extraDirs`. AgentPier therefore recognizes the plugin's copy by that

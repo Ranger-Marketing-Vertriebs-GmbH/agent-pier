@@ -6,6 +6,7 @@ import { userProblem } from "./user-errors.js";
 const lockedKeys = new Set([
   "shell",
   "browserVisible",
+  "shopping",
   "confirmShell",
   "confirmFull",
   "confirmInstructions",

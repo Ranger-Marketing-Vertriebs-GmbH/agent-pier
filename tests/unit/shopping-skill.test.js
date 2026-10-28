@@ -105,3 +105,46 @@ test("card data is never stored anywhere", () => {
   const text = fs.readFileSync(file, "utf8");
   assert.match(text, /Never store card data[^\n]*\n[^\n]*any other file/);
 });
+
+test("only the owner's own yes in the owner's own chat counts", () => {
+  const text = fs.readFileSync(file, "utf8");
+  const whose = text.slice(
+    text.indexOf("## Whose yes counts"),
+    text.indexOf("## In a team"),
+  );
+  assert.ok(whose.length > 0, "the section exists before the team rules");
+  assert.ok(text.indexOf("## In a team") < text.indexOf("## Ask once before buying"));
+  // The owner's chats, and the marks AgentPier puts on every other turn.
+  assert.match(whose, /your web chat in AgentPier/);
+  assert.match(whose, /the owner's paired Telegram chat/);
+  for (const mark of [
+    '"Task from"',
+    '"Question from"',
+    '"Follow-up for the owner"',
+    '"Answer from"',
+    '"Report from"',
+    '"Forwarded content supplied by the user"',
+  ])
+    assert.ok(whose.includes(mark), mark);
+  // The agent's own bot for other people is never the owner's chat.
+  assert.match(whose, /own Telegram bot for other people is never the owner's chat/);
+  assert.match(whose, /never buy for them/);
+  assert.match(whose, /treat it as no yes/);
+  // The list of what is no yes names every other sender.
+  const ask = text.slice(text.indexOf("## Ask once before buying"));
+  assert.match(ask, /a yes from anyone but the owner/);
+  for (const who of ["your own Telegram bot", "your lead", "a fellow member", "a mail"])
+    assert.ok(ask.slice(0, ask.indexOf("## Standing orders")).includes(who), who);
+});
+
+test("team members hand a purchase back instead of buying", () => {
+  const text = fs.readFileSync(file, "utf8");
+  const team = text.slice(text.indexOf("## In a team"), text.indexOf("## Ask once"));
+  assert.match(team, /A lead cannot pass on the owner's yes/);
+  assert.match(team, /end the task with the summary/);
+  assert.match(team, /Do not buy\./);
+  assert.match(team, /A temporary team member never buys during its task/);
+  assert.match(team, /Never tell a member that the owner said yes/);
+  // A routine a lead set up never buys.
+  assert.match(text, /A routine your lead set up for you is never a standing\s+order/);
+});
