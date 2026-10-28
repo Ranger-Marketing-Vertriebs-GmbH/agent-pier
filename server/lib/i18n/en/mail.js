@@ -30,7 +30,6 @@ export const mail = Object.freeze({
   mailNoTrash: "This mailbox has no Trash folder, so nothing was deleted.",
   mailNoArchive: "This mailbox has no archive folder, so nothing was moved.",
   mailNoDrafts: "This mailbox has no Drafts folder, so no draft was saved.",
-  mailAttachmentsUnsupported: "A draft with attachments cannot be sent by an agent.",
   mailApprovalLimit: "Too many of the agent's emails already wait for your approval.",
   mailSendLimit: "The agent sent the most emails allowed in one hour.",
   mailRevoked: "The agent's access to this email account was changed.",

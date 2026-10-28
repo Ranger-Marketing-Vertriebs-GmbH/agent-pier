@@ -101,11 +101,17 @@ export async function runChanging({ accounts, services }, gate, input) {
     const {
       folder,
       thread: _thread,
+      htmlPart: _html,
+      attachments,
       ...draft
     } = await saveDraft(client, sender, request.fields, {
       replaceUid: request.replaceUid,
     });
-    return { draftFolder: folder, ...draft };
+    return {
+      draftFolder: folder,
+      ...draft,
+      attachments: attachments.map(({ name, size, type }) => ({ name, size, type })),
+    };
   });
   if (request.action === "delete" && result.moved)
     auditDelete(services, gate, result.moved);

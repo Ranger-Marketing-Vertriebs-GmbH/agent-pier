@@ -249,8 +249,6 @@ const reasons = {
     "This mailbox has no archive folder, so nothing was moved. Move the mail to a named folder instead or tell the owner.",
   MAIL_NO_DRAFTS:
     "This mailbox has no Drafts folder, so no draft could be saved. Do not retry; tell the owner.",
-  MAIL_ATTACHMENTS_UNSUPPORTED:
-    "This draft has attachments, which you cannot send. Do not retry; leave the draft for the owner to send.",
   MAIL_APPROVAL_LIMIT:
     "Too many of your mail sends already wait for the owner's approval. Do not send more now; tell the owner.",
   MAIL_SEND_LIMIT:
@@ -390,7 +388,6 @@ const byKey = {
   mailNoTrash: "MAIL_NO_TRASH",
   mailNoArchive: "MAIL_NO_ARCHIVE",
   mailNoDrafts: "MAIL_NO_DRAFTS",
-  mailAttachmentsUnsupported: "MAIL_ATTACHMENTS_UNSUPPORTED",
   mailApprovalLimit: "MAIL_APPROVAL_LIMIT",
   mailSendLimit: "MAIL_SEND_LIMIT",
   mailRevoked: "MAIL_REVOKED",

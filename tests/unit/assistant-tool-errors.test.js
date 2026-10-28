@@ -48,7 +48,6 @@ const mailCodes = {
   mailNoTrash: "MAIL_NO_TRASH",
   mailNoArchive: "MAIL_NO_ARCHIVE",
   mailNoDrafts: "MAIL_NO_DRAFTS",
-  mailAttachmentsUnsupported: "MAIL_ATTACHMENTS_UNSUPPORTED",
   mailApprovalLimit: "MAIL_APPROVAL_LIMIT",
   mailSendLimit: "MAIL_SEND_LIMIT",
   mailRevoked: "MAIL_REVOKED",

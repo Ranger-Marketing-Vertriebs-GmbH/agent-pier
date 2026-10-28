@@ -1,8 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { mailError } from "./mail-connection.js";
 import { listedPath, resolveFolders } from "./mail-folders.js";
-import { attachmentsOf } from "./mail-messages.js";
+import { leafParts } from "./mail-messages.js";
 import { composeMessage, replyHeaders } from "./mail-compose.js";
+import {
+  attachmentLimits,
+  decodedRaw,
+  fetchRawParts,
+  messageParts,
+  sha256,
+} from "./mail-parts.js";
+import { assistantProblem } from "../assistants/assistant-validation.js";
 
 // Changing mail for agents: flags, moves, Trash and drafts. Nothing is ever deleted
 // for good: no \Deleted flag, no EXPUNGE. A move needs the server's MOVE extension
@@ -148,16 +156,43 @@ async function parentOf(client, folder, uid) {
   );
 }
 
-// The draft to replace exists and carries no attachment AgentPier cannot rebuild.
-async function checkReplaced(client, uid) {
+// The attachments of the draft to replace (selected) that the new one keeps, as raw
+// parts: all but those named exactly in `removeNames`. A draft that is gone is
+// MAIL_NOT_FOUND.
+async function keptParts(client, uid, removeNames) {
+  const parts = await messageParts(client, uid, { raw: true });
+  return parts.filter((p) => !removeNames.includes(p.name));
+}
+
+// Over `mailBytes` of decoded attachments, or one file over `fileBytes`, is refused.
+function checkSize(kept, rawParts, files) {
+  const tooLarge = () => mailError("MAIL_ATTACHMENT_TOO_LARGE");
+  if (files.some((file) => file.content.length > attachmentLimits.fileBytes))
+    throw tooLarge();
+  const total = [
+    ...kept.map((p) => p.size),
+    ...rawParts.map((raw) => decodedRaw(raw).length),
+    ...files.map((file) => file.content.length),
+  ].reduce((sum, size) => sum + size, 0);
+  if (total > attachmentLimits.mailBytes) throw tooLarge();
+}
+
+// The stored draft's attachments and its HTML alternative, read back with digests.
+async function readBack(client, uid) {
+  if (!uid) return { attachments: [], htmlPart: null };
+  const attachments = await messageParts(client, uid);
   const row = await client.fetchOne(
     String(uid),
     { uid: true, bodyStructure: true },
     { uid: true },
   );
-  if (!row || row.uid !== uid) throw mailError("MAIL_NOT_FOUND");
-  if (attachmentsOf(row.bodyStructure).length)
-    throw mailError("MAIL_ATTACHMENTS_UNSUPPORTED");
+  const html = leafParts(row?.bodyStructure).find(
+    (n) => n.type === "text/html" && n.disposition !== "attachment",
+  );
+  if (!html) return { attachments, htmlPart: null };
+  const part = html.part || "1";
+  const raw = (await fetchRawParts(client, uid, [part])).get(part);
+  return { attachments, htmlPart: { part, partSha256: sha256(raw) } };
 }
 
 const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
@@ -165,12 +200,23 @@ const domainOf = (address) => address.slice(address.lastIndexOf("@") + 1);
 /**
  * Saves `fields` (draftFields) as a new draft in the Drafts folder, flagged \Draft
  * and \Seen, with its Bcc kept. A reply takes its thread headers from the parent
- * message. With `replaceUid` the old draft is checked first and moved to Trash after
- * the new one is stored. Returns the new draft's UID, Message-ID and thread headers
- * (`thread`, what a send of it carries), and with
+ * message. Attachments follow in this order: with `replaceUid` the old draft's
+ * attachments not named exactly in `removeNames` (unchanged raw parts), then
+ * `rawParts`, then `files` ({ filename, content, contentType }); `html` adds an HTML
+ * alternative. More than `attachmentLimits.mailBytes` in all is
+ * MAIL_ATTACHMENT_TOO_LARGE before anything is stored. With `replaceUid` the old
+ * draft is moved to Trash after the new one is stored. Returns the new draft's UID,
+ * Message-ID and thread headers (`thread`, what a send of it carries), its
+ * attachments and HTML part as read back (`attachments`, `htmlPart`), and with
  * `replaceUid` whether the old draft went to Trash (`replaced`; false leaves both).
  */
-export async function saveDraft(client, account, fields, { replaceUid } = {}) {
+export async function saveDraft(
+  client,
+  account,
+  fields,
+  { replaceUid, files = [], rawParts = [], html = null, removeNames = [] } = {},
+) {
+  if (removeNames.length && replaceUid === undefined) throw assistantProblem("invalid");
   const { folders, resolve } = await mailboxOf(client);
   if (!folders.drafts) throw mailError("MAIL_NO_DRAFTS");
   if (replaceUid !== undefined) {
@@ -184,22 +230,30 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
           await parentOf(client, resolve(fields.replyToFolder), fields.replyToUid),
         );
   const messageId = `<${randomUUID()}@${domainOf(account.address)}>`;
-  const raw = await composeMessage(
-    {
-      from: { name: account.displayName || "", address: account.address },
-      to: fields.to,
-      cc: fields.cc,
-      bcc: fields.bcc,
-      subject: fields.subject,
-      body: fields.body,
-      messageId,
-      ...thread,
-    },
-    { keepBcc: true },
-  );
   // Appending while Drafts is selected lets imapflow learn the UID without UIDPLUS.
   return inFolder(client, folders.drafts, async () => {
-    if (replaceUid !== undefined) await checkReplaced(client, replaceUid);
+    const kept =
+      replaceUid === undefined ? [] : await keptParts(client, replaceUid, removeNames);
+    checkSize(kept, rawParts, files);
+    const raw = await composeMessage(
+      {
+        from: { name: account.displayName || "", address: account.address },
+        to: fields.to,
+        cc: fields.cc,
+        bcc: fields.bcc,
+        subject: fields.subject,
+        body: fields.body,
+        messageId,
+        ...thread,
+        ...(html !== null && { html }),
+        attachments: [
+          ...kept.map((p) => ({ raw: p.raw })),
+          ...rawParts.map((raw) => ({ raw })),
+          ...files,
+        ],
+      },
+      { keepBcc: true },
+    );
     const appended = await client.append(folders.drafts, raw, ["\\Draft", "\\Seen"]);
     if (!appended) throw mailError("MAIL_PROTOCOL");
     const saved = {
@@ -210,6 +264,7 @@ export async function saveDraft(client, account, fields, { replaceUid } = {}) {
         inReplyTo: thread.inReplyTo ?? null,
         references: thread.references ?? [],
       },
+      ...(await readBack(client, appended.uid)),
     };
     if (replaceUid === undefined) return saved;
     // The new draft is stored: a failed move of the old one must not hide it.

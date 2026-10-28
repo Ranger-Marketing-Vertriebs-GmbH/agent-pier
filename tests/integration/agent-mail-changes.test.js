@@ -283,22 +283,38 @@ test("updating a draft leaves one draft in Drafts and the old one in Trash", asy
   assert.deepEqual(f.subjects("Drafts"), ["V2"]);
   assert.deepEqual(f.subjects("Trash"), ["V1"]);
   f.untouched();
-  // A replaced draft that is gone, or one with attachments, stays as it is.
+  // A replaced draft that is gone stays as it is.
   assert.equal(
     await code(f.mail({ action: "draft", draftUid: first.draftUid, subject: "V3" })),
     "MAIL_NOT_FOUND",
   );
+  assert.deepEqual(second.attachments, []);
+  // A draft with an attachment is replaced with its attachment kept unchanged.
   const attached = f.seed("With file", {
     folder: "Drafts",
     flags: ["\\Draft"],
     message: withAttachment("With file"),
   });
-  assert.equal(
-    await code(f.mail({ action: "draft", draftUid: attached, subject: "Replace" })),
-    "MAIL_ATTACHMENTS_UNSUPPORTED",
+  const replaced = await f.mail({
+    action: "draft",
+    draftUid: attached,
+    to: ["bob@example.org"],
+    subject: "Replace",
+  });
+  assert.deepEqual(replaced.attachments, [
+    { name: "a.pdf", size: 5, type: "application/pdf" },
+  ]);
+  assert.equal(replaced.replaced, true);
+  assert.equal(replaced.htmlPart, undefined);
+  assert.deepEqual(f.subjects("Drafts"), ["V2", "Replace"]);
+  assert.deepEqual(f.subjects("Trash"), ["V1", "With file"]);
+  const stored = f.imap.folder("Drafts").messages.at(-1).raw.toString("latin1");
+  assert.ok(
+    stored.includes(
+      'Content-Type: application/pdf; name="a.pdf"\r\nContent-Disposition: attachment; filename="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=\r\n',
+    ),
+    "the kept part is stored byte for byte",
   );
-  assert.deepEqual(f.subjects("Drafts"), ["V2", "With file"]);
-  assert.deepEqual(f.subjects("Trash"), ["V1"]);
   f.untouched();
 });
 

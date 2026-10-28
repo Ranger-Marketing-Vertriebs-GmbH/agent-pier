@@ -20,7 +20,6 @@ const errorKeys = Object.freeze({
   MAIL_NO_TRASH: "mailNoTrash",
   MAIL_NO_ARCHIVE: "mailNoArchive",
   MAIL_NO_DRAFTS: "mailNoDrafts",
-  MAIL_ATTACHMENTS_UNSUPPORTED: "mailAttachmentsUnsupported",
   MAIL_MOVE_UNSUPPORTED: "mailMoveUnsupported",
   MAIL_DRAFT_UNSUPPORTED: "mailDraftUnsupported",
   MAIL_ATTACHMENT_TOO_LARGE: "mailAttachmentTooLarge",
