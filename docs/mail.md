@@ -119,7 +119,7 @@ name and id (never their addresses) and the pattern: `accounts` → `list` new m
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `accounts`   | The granted accounts with level and recipient rules.                                                                                                                                                                                                                                                              |
 | `list`       | A page of a folder (default INBOX), newest first, with a cursor for older mail; with `new: true`, the unseen INBOX mail since the agent's last check.                                                                                                                                                             |
-| `read`       | One message: headers, the text (an HTML-only mail converted to text; HTML that is too complex returns a placeholder text and `htmlTooComplex: true`) and each attachment's part, name, type and approximate size, never its content. Reading never marks a mail as read.                                          |
+| `read`       | One message: headers, the text (an HTML-only mail converted to text; HTML that is too complex or cannot be read within 5 seconds returns a placeholder text and `htmlTooComplex: true`) and each attachment's part, name, type and approximate size, never its content. Reading never marks a mail as read.       |
 | `search`     | By from, to, subject, text (headers and text), body, attachment name, attachment text, since (a date), unseen and has-attachment. See [Searching attachment text](#searching-attachment-text).                                                                                                                    |
 | `mark`       | Read, unread, flagged or unflagged.                                                                                                                                                                                                                                                                               |
 | `move`       | To a folder, or `archive` for the mailbox's archive folder (`\Archive`, Gmail's All Mail, or a folder named Archive).                                                                                                                                                                                             |
@@ -206,8 +206,8 @@ limit and approval apply.
   `cid:` are sent as plain attachments, not inside `multipart/related`.
 - The original's HTML version goes along, reduced to its body content without
   scripts, styles, comments and inline styles; AgentPier does not re-render it. The
-  card says so. HTML over 1 MiB, or over 20,000 tags or 500 levels of nesting, is left
-  out and the card says so; the result then carries `htmlNote`. An original that has
+  card says so. HTML over 1 MiB, over 20,000 tags or 500 levels of nesting, or that
+  cannot be processed within 5 seconds, is left out and the card says so; the result then carries `htmlNote`. An original that has
   only HTML and is over those bounds cannot be forwarded (`MAIL_DRAFT_UNSUPPORTED`).
 - The forwarded text is limited to 100,000 characters.
 
@@ -351,7 +351,7 @@ the routine sends there). It sends nothing without a rule or your approval.
 | Attachments of one mail                      | 20 files, 25 MB in all                                                                           |
 | One saved or read attachment                 | 25 MB                                                                                            |
 | Forwarded text                               | 100,000 characters                                                                               |
-| Forwarded HTML                               | 1 MiB, 20,000 tags and 500 levels of nesting; beyond that the HTML is left out                   |
+| Forwarded HTML                               | 1 MiB, 20,000 tags, 500 levels of nesting, 5 seconds; beyond that the HTML is left out           |
 | Recipients per mail                          | 50 in total across To, Cc and Bcc                                                                |
 | Body of a draft or send                      | 100,000 characters from the agent; a stored draft's plain text up to 1 MiB                       |
 | Sends (rule sends and cards together)        | 30 per agent per hour                                                                            |

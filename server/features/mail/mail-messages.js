@@ -1,6 +1,7 @@
 import { mailError } from "./mail-connection.js";
 import { openFolder } from "./mail-folders.js";
-import { clipText, htmlToText } from "./mail-text.js";
+import { clipText } from "./mail-text.js";
+import { htmlText } from "./mail-html.js";
 
 // Listing and reading mail for agents, always within fixed bounds: a page of at most
 // `limit` summaries, at most 1 MiB of one text part downloaded and 32 000 characters
@@ -235,7 +236,7 @@ export async function readMessage(client, folder, uid) {
     const body = decodeText(bytes, part);
     text =
       part.type === "text/html"
-        ? htmlToText(body, mailBounds.textChars)
+        ? await htmlText(body, mailBounds.textChars)
         : clipText(body.replace(/\r\n?/g, "\n"), mailBounds.textChars);
     if (limited) text = { ...text, truncated: true };
   }

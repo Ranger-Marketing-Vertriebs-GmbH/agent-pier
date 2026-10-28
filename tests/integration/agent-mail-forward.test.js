@@ -304,6 +304,34 @@ test("tags hidden in quoted attributes cannot make a forward parse slowly", asyn
   assert.equal(f.count("Drafts"), 1);
 });
 
+test("a forward parses the original's HTML off the event loop", async (t) => {
+  const f = await sendFilesFixture(t);
+  // One tag with ~130,000 unique attributes: tens of seconds for parse5.
+  const probe = `<a ${Array.from({ length: 130_000 }, (_, i) => `a${i}`).join(" ")}>x</a>`;
+  assert.ok(Buffer.byteLength(probe) < 1_048_576);
+  const { uid } = original(f, { html: probe });
+  let last = performance.now();
+  let gap = 0;
+  const timer = setInterval(() => {
+    gap = Math.max(gap, performance.now() - last);
+    last = performance.now();
+  }, 20);
+  const started = Date.now();
+  let r;
+  try {
+    r = await forwardOf(f)({ uid });
+  } finally {
+    clearInterval(timer);
+  }
+  assert.ok(gap < 200, `the event loop stalled for ${gap} ms`);
+  assert.ok(Date.now() - started < 7_000);
+  assert.match(r.htmlNote, /too many tags/);
+  const p = f.workflows.get(r.actionId).payload;
+  assert.equal(p.html, null);
+  assert.equal(p.forward.htmlOmitted, true);
+  assert.match(p.body, /Ihre Rechnung liegt bei\.$/);
+});
+
 test("forward needs the send level and counts against the hourly limit", async (t) => {
   const f = await sendFilesFixture(t);
   const { uid } = original(f);
