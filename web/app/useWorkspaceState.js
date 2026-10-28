@@ -4,6 +4,7 @@ import { chatCacheKey, retainCachedChats } from "../features/chat/chat-session-c
 import api from "../lib/api.js";
 import useLiveTopic from "../lib/live/useLiveTopic.js";
 import { workspaceStateView } from "./workspace-state-view.js";
+import { createRefreshRetry } from "./refresh-retry.js";
 
 const empty = {
   tools: [],
@@ -24,10 +25,12 @@ export default function useWorkspaceState() {
   const live = useLiveTopic("state");
   const pushed = useRef(live.data);
   pushed.current = live.data;
+  const connected = useRef(live.connected);
+  connected.current = live.connected;
   // The last refresh, with the pushed value it started from. A failed one keeps the
   // answer before it, so the error never brings back an older state.
   const [read, setRead] = useState(null);
-  const refresh = useCallback(async () => {
+  const attempt = useCallback(async () => {
     const basis = pushed.current;
     try {
       const data = await api("/state", "GET");
@@ -38,6 +41,24 @@ export default function useWorkspaceState() {
       throw err;
     }
   }, []);
+  // A failure while the channel is healthy retries with backoff (refresh-retry.js).
+  const [retry] = useState(() =>
+    createRefreshRetry({ attempt, healthy: () => connected.current }),
+  );
+  useEffect(() => () => retry.stop(), [retry]);
+  // A push clears the error and ends the retries.
+  useEffect(() => {
+    retry.stop();
+  }, [retry, live.data]);
+  const refresh = useCallback(async () => {
+    retry.stop();
+    try {
+      return await attempt();
+    } catch (err) {
+      retry.failed();
+      throw err;
+    }
+  }, [attempt, retry]);
   const { data, failure, loading } = workspaceStateView(live, read);
   useEffect(() => {
     if (Array.isArray(data?.sessions))
