@@ -10,31 +10,34 @@ const idle = { data: null, error: "", loading: false, connected: false };
  * Data of a live topic (web/lib/live/live-topics.js) in the shape of useResource:
  * `{data, error, loading, connected, refresh}`. `refresh()` reads the topic's REST
  * route and resolves with the data, or null when that read failed or the tab is
- * hidden, for a caller that must await fresh data after a write.
+ * hidden, for a caller that must await fresh data after a write. `path` replaces the
+ * topic's REST route; a signal topic's data is that route, read again per `changed`.
  */
-export default function useLiveTopic(topicId) {
+export default function useLiveTopic(topicId, path) {
   const [current, setCurrent] = useState(null);
   const reader = useRef(null);
+  const key = topicId ? JSON.stringify([topicId, path || ""]) : "";
   useEffect(() => {
     if (!topicId) return;
     const started = startLiveTopic({
       topicId,
+      path,
       client: liveClient(),
       read: restRead,
-      report: (state) => setCurrent({ topicId, ...state }),
+      report: (state) => setCurrent({ key, ...state }),
     });
     reader.current = started;
     return () => {
       if (reader.current === started) reader.current = null;
       started.stop();
     };
-  }, [topicId]);
+  }, [topicId, path, key]);
   const refresh = useCallback(
     () => reader.current?.refresh() ?? Promise.resolve(null),
     [],
   );
   const shown =
-    current?.topicId === topicId ? current : topicId ? { ...idle, loading: true } : idle;
+    current?.key === key ? current : topicId ? { ...idle, loading: true } : idle;
   return {
     data: shown.data,
     error: shown.error,

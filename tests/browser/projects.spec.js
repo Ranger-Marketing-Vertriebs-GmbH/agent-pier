@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
-import { hubFixture, repositoryPath } from "./projects-fixture.js";
+import { setTabHidden } from "../helpers/visibility.js";
+import { hubFixture, hubRun, repositoryPath } from "./projects-fixture.js";
 
 const projectList = (page, name = "Projekte") =>
   page.getByRole("navigation", { name, exact: true });
@@ -309,37 +310,51 @@ test("the hub pauses its AgentBus poll while the page is hidden", async ({ page 
   await expect.poll(busReads, { timeout: 1500 }).toBeGreaterThan(hiddenReads);
 });
 
-test("the hub pauses its run hint sweep while the page is hidden", async ({ page }) => {
-  test.setTimeout(45000);
-  await page.clock.install();
-  const calls = await hubFixture(page);
-  const sweeps = () =>
-    calls.filter(
-      (call) => call.path === "/api/pipeline-runs" && call.search.includes("status="),
-    ).length;
-  const setHidden = (hidden) =>
-    page.evaluate((value) => {
-      for (const [key, state] of [
-        ["hidden", value],
-        ["visibilityState", value ? "hidden" : "visible"],
-      ])
-        Object.defineProperty(document, key, { configurable: true, value: state });
-      document.dispatchEvent(new Event("visibilitychange"));
-    }, hidden);
-  await page.goto(base + "/projects");
-  await expect.poll(sweeps).toBe(2);
-  await setHidden(true);
-  // Past the 60 s refresh interval: a hidden page runs no status scans.
-  await page.clock.fastForward(61000);
-  await page.waitForTimeout(500);
-  expect(sweeps()).toBe(2);
-  // Returning after the interval sweeps once at once; a quick hide and show does not.
-  await setHidden(false);
-  await expect.poll(sweeps, { timeout: 2000 }).toBe(4);
-  await setHidden(true);
-  await setHidden(false);
-  await page.waitForTimeout(500);
-  expect(sweeps()).toBe(4);
-  await page.clock.fastForward(61000);
-  await expect.poll(sweeps, { timeout: 2000 }).toBe(6);
+// The hints follow the pushed first page of each status; only a status with more runs
+// than page 1 reads its further pages, once per pushed change and only while visible.
+test.describe("run hints beyond page 1", () => {
+  test.use({ live: "manual" });
+
+  test("the hub reads further pages per pushed change, never while hidden", async ({
+    page,
+    liveStub,
+  }) => {
+    test.setTimeout(30000);
+    const failed = Array.from({ length: 25 }, (_, index) =>
+      hubRun(`f${index}`, "m2", "failed"),
+    );
+    const calls = await hubFixture(page, { runs: failed });
+    const sweeps = () =>
+      calls.filter(
+        (call) =>
+          !call.stub &&
+          call.path === "/api/pipeline-runs" &&
+          call.search.includes("page=2"),
+      ).length;
+    const firstPage = (runs) => ({
+      runs: runs.slice(0, 20),
+      total: runs.length,
+      page: 1,
+      pageSize: 20,
+    });
+    const push = (runs) => {
+      liveStub.push("pipeline.runs:*:awaiting-human", firstPage([]));
+      liveStub.push("pipeline.runs:*:failed", firstPage(runs));
+    };
+    await page.goto(base + "/projects");
+    await liveStub.waitForSubscribe("pipeline.runs:*:failed");
+    await liveStub.waitForSubscribe("pipeline.runs:*:awaiting-human");
+    push(failed);
+    const notes = projectList(page).getByRole("button", { name: /^notes/ });
+    await expect(notes).toContainText("25 Läufe fehlgeschlagen");
+    expect(sweeps()).toBe(1);
+    await setTabHidden(page, true);
+    failed.push(hubRun("f-late", "m2", "failed"));
+    push(failed);
+    await page.waitForTimeout(1500);
+    expect(sweeps()).toBe(1);
+    await setTabHidden(page, false);
+    await expect(notes).toContainText("26 Läufe fehlgeschlagen");
+    expect(sweeps()).toBe(2);
+  });
 });

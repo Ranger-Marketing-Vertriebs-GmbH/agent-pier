@@ -388,3 +388,26 @@ test("waking after sleep with online at once ends with one socket that resubscri
     { op: "sub", topic: "inbox", have: { instance: "i1", revision: 4 } },
   ]);
 });
+
+test("a signal topic keeps its first revision, so a missed change comes back", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  const listener = recorder();
+  client.subscribe("pipeline.runs.changed:p1", listener);
+  fake.last().hello("i1");
+  fake.last().receive({ type: "same", topic: "pipeline.runs.changed:p1", revision: 3 });
+  assert.deepEqual(
+    listener.events.filter((event) => event.type !== "status"),
+    [],
+  );
+  fake.last().drop(1006);
+  await fake.advance(500);
+  fake.last().hello("i1");
+  assert.deepEqual(fake.last().sent, [
+    {
+      op: "sub",
+      topic: "pipeline.runs.changed:p1",
+      have: { instance: "i1", revision: 3 },
+    },
+  ]);
+});

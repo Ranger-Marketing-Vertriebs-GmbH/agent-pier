@@ -23,13 +23,17 @@ function fakeClient({ connected = false, fallback = false } = {}) {
     },
   };
 }
-function setup(topicId, { client = fakeClient(), responses = [], hidden = false } = {}) {
+function setup(
+  topicId,
+  { client = fakeClient(), responses = [], hidden = false, path } = {},
+) {
   const fake = fakeEnv({ hidden });
   let clock = 0;
   const reads = [];
   const reports = [];
   const reader = startLiveTopic({
     topicId,
+    path,
     client,
     env: { ...fake.env, now: () => clock },
     read: (path, signal) => {
@@ -290,4 +294,78 @@ test("set replaces the data at once and drops a read already under way", async (
   assert.deepEqual(s.last().data, { requests: [{ id: "answered" }] });
   s.client.emit({ type: "data", data: { requests: [] }, revision: 2 });
   assert.deepEqual(s.last().data, { requests: [] });
+});
+
+test("a signal topic reads the caller's route at the start and once per changed", async (t) => {
+  const path = "/pipeline-runs?page=2";
+  const s = setup("pipeline.runs.changed:p1", {
+    path,
+    responses: [ok({ page: 2, n: 1 }), ok({ page: 2, n: 2 })],
+  });
+  t.after(s.reader.stop);
+  await settle();
+  assert.deepEqual(s.reads, [path]);
+  assert.deepEqual(s.last().data, { page: 2, n: 1 });
+  s.client.emit({ type: "status", connected: true, fallback: false });
+  await s.fake.advance(60000);
+  assert.deepEqual(s.reads, [path]);
+  s.client.emit({ type: "changed" });
+  await settle();
+  assert.deepEqual(s.reads, [path, path]);
+  assert.deepEqual(s.last().data, { page: 2, n: 2 });
+});
+
+test("a signal topic opened hidden reads once it is visible", async (t) => {
+  const s = setup("pipeline.runs.changed", {
+    path: "/pipeline-runs?page=3",
+    hidden: true,
+  });
+  t.after(s.reader.stop);
+  await settle();
+  s.client.emit({ type: "changed" });
+  await s.fake.advance(10000);
+  assert.deepEqual(s.reads, []);
+  s.fake.setHidden(false);
+  await settle();
+  assert.deepEqual(s.reads, ["/pipeline-runs?page=3"]);
+});
+
+test("a signal topic in fallback polls the caller's route, visible only", async (t) => {
+  const path = "/pipeline-runs?page=2";
+  const s = setup("pipeline.runs.changed", {
+    path,
+    client: fakeClient({ fallback: true }),
+  });
+  t.after(s.reader.stop);
+  await settle();
+  assert.deepEqual(s.reads, [path]);
+  await s.fake.advance(5000);
+  assert.deepEqual(s.reads, [path, path]);
+  s.fake.setHidden(true);
+  await s.fake.advance(20000);
+  assert.equal(s.reads.length, 2);
+});
+
+test("changes during a read read once more after it, never cutting it short", async (t) => {
+  const pending = [];
+  const slow = (signal) =>
+    new Promise((resolve, reject) => {
+      pending.push(resolve);
+      signal.addEventListener("abort", () => reject(signal.reason));
+    });
+  const s = setup("pipeline.runs.changed", { path: "/p", responses: [slow] });
+  t.after(s.reader.stop);
+  await settle();
+  s.client.emit({ type: "changed" });
+  s.client.emit({ type: "changed" });
+  await settle();
+  assert.equal(s.reads.length, 1);
+  pending[0]({ n: 1 });
+  await settle();
+  assert.deepEqual(s.last().data, { n: 1 });
+  assert.equal(s.reads.length, 2);
+  pending[1]({ n: 2 });
+  await settle();
+  assert.deepEqual(s.last().data, { n: 2 });
+  assert.equal(s.reads.length, 2);
 });

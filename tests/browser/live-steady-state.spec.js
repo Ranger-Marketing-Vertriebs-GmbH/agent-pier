@@ -7,8 +7,10 @@ import { operationsFixture } from "./operations-fixture.js";
 
 // The steady state of a page on a working live channel is push-only: after the first
 // snapshots, nothing polls the workspace state, the native requests, the model state
-// or (after Task 2.2) the pipeline runs. A hidden tab sends nothing and subscribes no
-// sampled topic. With the channel refused, the old visible-only polling takes over.
+// or the pipeline runs (on the start page, whose pipelines card reads the menu-hint
+// sources, from Task 2.3 on; the run pages' own steady state is checked in
+// pipelines-run-polling.spec.js). A hidden tab sends nothing and subscribes no sampled
+// topic. With the channel refused, the old visible-only polling takes over.
 test.use({ live: "manual" });
 
 const requestsTopic = "session.requests:fixture-session";
@@ -21,7 +23,7 @@ const pages = {
   "start page": { path: "/", topics: ["state", "inbox"] },
 };
 const polled = [/^\/api\/state$/, /\/requests$/, /\/models$/];
-const pipelineRuns = /^\/api\/pipeline-runs$/;
+const pipelineRuns = /^\/api\/pipeline-run(?:s|-counts)$/;
 const reads = (requests, patterns) =>
   requests
     .list()
@@ -67,17 +69,20 @@ for (const [name, target] of Object.entries(pages)) {
     expect(reads(requests, polled)).toEqual([]);
   });
 
-  // The pipeline runs are pushed from Task 2.2 on; until then they are still polled.
-  test.fixme(`the ${name} reads no pipeline runs for 10 s`, async ({
-    page,
-    liveStub,
-  }) => {
-    const requests = recordApiRequests(page);
-    await openSteady(page, liveStub, target);
-    requests.clear();
-    await page.waitForTimeout(10000);
-    expect(reads(requests, [pipelineRuns])).toEqual([]);
-  });
+  // The run lists and counts are pushed (Task 2.2); the start page's pipelines card
+  // still polls the menu-hint sources until Task 2.3 pushes them.
+  const runsPushed = name !== "start page";
+  (runsPushed ? test : test.fixme)(
+    `the ${name} reads no pipeline runs for 10 s`,
+    async ({ page, liveStub }) => {
+      test.setTimeout(30000);
+      const requests = recordApiRequests(page);
+      await openSteady(page, liveStub, target);
+      requests.clear();
+      await page.waitForTimeout(10000);
+      expect(reads(requests, [pipelineRuns])).toEqual([]);
+    },
+  );
 }
 
 test("a hidden session chat sends no request and subscribes no sampled topic", async ({

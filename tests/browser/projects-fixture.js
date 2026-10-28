@@ -1,3 +1,6 @@
+import { isLiveStubRequest } from "../helpers/live-stub.js";
+import { runCountsAnswer } from "../helpers/run-counts.js";
+
 export const repositoryPath = "/work/agent-pier";
 
 export const hubRun = (id, projectId, status) => ({
@@ -36,7 +39,13 @@ export async function hubFixture(page, controls = {}) {
     const request = route.request(),
       url = new URL(request.url()),
       method = request.method();
-    calls.push({ method, path: url.pathname, search: url.search });
+    // The live stub's own reads (the topics it answers from REST) are marked `stub`.
+    calls.push({
+      method,
+      path: url.pathname,
+      search: url.search,
+      ...(isLiveStubRequest(request) ? { stub: true } : {}),
+    });
     // A test can answer any request itself; it returns true once it has.
     if (await controls.intercept?.(route, url, method)) return;
     let json = {};
@@ -120,6 +129,8 @@ export async function hubFixture(page, controls = {}) {
         hasMore: false,
         truncated: false,
       };
+    else if (url.pathname === "/api/pipeline-run-counts")
+      json = runCountsAnswer(controls.runs || hubRuns, url.searchParams.get("projectId"));
     else if (url.pathname === "/api/pipeline-runs" && method === "POST")
       json = { run: { id: "new-run", ...request.postDataJSON() } };
     else if (url.pathname === "/api/pipeline-runs") {

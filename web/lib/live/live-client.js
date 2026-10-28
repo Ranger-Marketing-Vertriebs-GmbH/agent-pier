@@ -325,7 +325,9 @@ export class LiveClient {
     if (type === "snapshot" || type === "state" || type === "delta")
       return this.apply(entry, frame);
     if (type === "same") {
-      if (entry.mode !== "rows" && entry.have)
+      // A signal holds its revision from the first answer on: a change missed while
+      // the socket was down then comes back as `changed` on the resubscribe.
+      if (entry.mode === "signal" || (entry.mode !== "rows" && entry.have))
         entry.have = { instance: this.instance, revision };
     } else if (type === "changed") {
       entry.have = { instance: this.instance, revision };

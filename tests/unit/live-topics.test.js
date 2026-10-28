@@ -37,6 +37,34 @@ test("topicInfo resolves registered topics and their REST path", () => {
   assert.equal(topicInfo("pipeline.run"), null);
 });
 
+test("the run counts and lists name their REST routes; the signal has none", () => {
+  assert.equal(topicInfo("pipeline.counts").path(), "/pipeline-run-counts");
+  assert.equal(
+    topicInfo("pipeline.counts:p 1").path("p 1"),
+    "/pipeline-run-counts?projectId=p+1",
+  );
+  assert.equal(topicInfo("pipeline.counts:p1").interval, 30000);
+  assert.equal(topicInfo("pipeline.counts:"), null);
+  const list = topicInfo("pipeline.runs:p1:failed");
+  assert.equal(list.mode, "state");
+  assert.equal(list.interval, 5000);
+  assert.equal(
+    list.path("p1:failed"),
+    "/pipeline-runs?page=1&projectId=p1&status=failed",
+  );
+  assert.equal(list.path("*:*"), "/pipeline-runs?page=1");
+  assert.equal(list.path("*:running"), "/pipeline-runs?page=1&status=running");
+  assert.equal(list.path("p1:*"), "/pipeline-runs?page=1&projectId=p1");
+  assert.equal(topicInfo("pipeline.runs"), null);
+  for (const id of ["pipeline.runs.changed", "pipeline.runs.changed:p1"]) {
+    const signal = topicInfo(id);
+    assert.equal(signal.mode, "signal");
+    assert.equal(signal.path, null);
+    assert.equal(signal.sampled, false);
+  }
+  assert.equal(topicInfo("pipeline.runs.changed:p1").param, "p1");
+});
+
 test("topicInfo refuses a missing or unexpected parameter", () => {
   assert.equal(topicInfo("session.models"), null);
   assert.equal(topicInfo("session.models:"), null);

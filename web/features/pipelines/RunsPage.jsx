@@ -12,27 +12,26 @@ import RunDetail from "./RunDetail.jsx";
 import NewRunDialog from "./NewRunDialog.jsx";
 import RunStatusFilter from "./RunStatusFilter.jsx";
 import RunTable from "./RunTable.jsx";
+import useRunList from "./useRunList.js";
 import useRunStatusCounts from "./useRunStatusCounts.js";
 import { runsPaging } from "./runs-paging.js";
 import { pipelineRoutePath } from "./routes.js";
 
 export default function RunsPage({ route, navigate, home, onTotal }) {
   const detail = route.pipelineItem && route.pipelineItem !== "new";
-  const page = route.pipelinePage || 1,
-    query = new URLSearchParams({
-      page: String(page),
-      ...(route.projectId ? { projectId: route.projectId } : {}),
-      ...(route.pipelineStatus ? { status: route.pipelineStatus } : {}),
-    });
+  const page = route.pipelinePage || 1;
   const [version, setVersion] = useState(0);
-  const list = useResource(detail ? null : `/pipeline-runs?${query}`, { poll: 5000 }),
+  const list = useRunList({
+      projectId: route.projectId || "",
+      status: route.pipelineStatus || "",
+      page,
+      enabled: !detail,
+    }),
     projects = useResource(listedProjectsPath);
   const counts = useRunStatusCounts({
     projectId: route.projectId || "",
     enabled: !detail,
     version,
-    listKey: JSON.stringify([route.projectId || "", route.pipelineStatus || "", page]),
-    listData: list.data,
   });
   // The tab counts all runs: the unfiltered list's total, else the sum of the pills
   // when no project narrows them.

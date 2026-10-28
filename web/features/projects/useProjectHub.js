@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import api from "../../lib/api.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 
@@ -165,14 +166,27 @@ export async function sweepRunCounts(read) {
   };
 }
 
-// One status-filtered listing per hint, grouped by the run's project, instead of
-// one request per listed project.
-const runsWithStatus = (status) =>
-  sweepRunCounts((page) => api(`/pipeline-runs?status=${status}&page=${page}`));
+// Page 1 of each hint's status listing is pushed (`pipeline.runs:*:<status>`), so the
+// hints follow every run change with no request. Only a status with more runs than
+// page 1 reads the further pages over REST, once per change and only while visible.
+const attentionTopics = {
+  decisions: "pipeline.runs:*:awaiting-human",
+  failed: "pipeline.runs:*:failed",
+};
+const statusOf = { decisions: "awaiting-human", failed: "failed" };
 
-// The hints are full server-side scans, so they are read on mount, on an explicit
-// retry and slowly while the page is visible, not on every source reload.
-const attentionPoll = 60000;
+// Resolves once the tab is visible (at once if it is), or never once `active()` ends.
+const whenVisible = (active) =>
+  new Promise((resolve) => {
+    if (!document.hidden) return resolve();
+    const shown = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", shown);
+      if (active()) resolve();
+    };
+    document.addEventListener("visibilitychange", shown);
+  });
+
 function useAttention(sweep) {
   const [attention, setAttention] = useState({
     decisions: {},
@@ -180,58 +194,43 @@ function useAttention(sweep) {
     first: { decisions: {}, failed: {} },
     capped: { decisions: false, failed: false },
   });
+  const decisions = useLiveTopic(attentionTopics.decisions);
+  const failed = useLiveTopic(attentionTopics.failed);
+  const refresh = useRef(null);
+  refresh.current = () => {
+    decisions.refresh();
+    failed.refresh();
+  };
   useEffect(() => {
-    let active = true,
-      reading = false,
-      timer = null,
-      last = 0;
-    // Like the AgentBus poll: a hidden page clears the pending sweep and runs none.
-    // Showing it again sweeps at once when the interval has passed, else re-arms the
-    // timer for the rest of it.
-    const arm = (delay) => {
-      clearTimeout(timer);
-      timer = active && !document.hidden ? setTimeout(read, delay) : null;
-    };
-    const read = async () => {
-      timer = null;
-      if (!active || reading || document.hidden) return;
-      reading = true;
-      last = Date.now();
-      try {
-        const [decisions, failed] = await Promise.all([
-          runsWithStatus("awaiting-human"),
-          runsWithStatus("failed"),
-        ]);
+    if (sweep) refresh.current();
+  }, [sweep]);
+  useEffect(() => {
+    const pages = { decisions: decisions.data, failed: failed.data };
+    if (!pages.decisions || !pages.failed) return;
+    let active = true;
+    const swept = (key) =>
+      sweepRunCounts(async (page) => {
+        if (page === 1) return pages[key];
+        await whenVisible(() => active);
+        return api(`/pipeline-runs?status=${statusOf[key]}&page=${page}`);
+      });
+    Promise.all([swept("decisions"), swept("failed")])
+      .then(([waiting, broken]) => {
         if (active)
           setAttention({
-            decisions: decisions.counts,
-            failed: failed.counts,
-            first: { decisions: decisions.first, failed: failed.first },
-            capped: { decisions: decisions.capped, failed: failed.capped },
+            decisions: waiting.counts,
+            failed: broken.counts,
+            first: { decisions: waiting.first, failed: broken.first },
+            capped: { decisions: waiting.capped, failed: broken.capped },
           });
-      } catch {
+      })
+      .catch(() => {
         // The hints are optional; the project list reports its own failures.
-      } finally {
-        reading = false;
-        arm(attentionPoll);
-      }
-    };
-    const visibility = () => {
-      if (reading) return;
-      const remaining = attentionPoll - (Date.now() - last);
-      if (!document.hidden && remaining <= 0) {
-        clearTimeout(timer);
-        read();
-      } else arm(remaining);
-    };
-    document.addEventListener("visibilitychange", visibility);
-    read();
+      });
     return () => {
       active = false;
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", visibility);
     };
-  }, [sweep]);
+  }, [decisions.data, failed.data]);
   return attention;
 }
 

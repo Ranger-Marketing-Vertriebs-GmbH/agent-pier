@@ -6,8 +6,11 @@ import { sessionRequestsTopic } from "../features/requests/live-topics.js";
 import { sessionModelsTopic } from "../features/models/live-topics.js";
 import { inboxTopic } from "../features/inbox/live-topics.js";
 import {
+  pipelineCountsTopic,
   pipelineQueueTopic,
   pipelineRunTopic,
+  pipelineRunsChangedTopic,
+  pipelineRunsTopic,
 } from "../features/pipelines/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
@@ -39,6 +42,9 @@ export function createLiveHub(services, options = {}) {
   hub.define(inboxTopic(services));
   hub.define(pipelineRunTopic(services));
   hub.define(pipelineQueueTopic(services));
+  hub.define(pipelineCountsTopic(services));
+  hub.define(pipelineRunsTopic(services));
+  hub.define(pipelineRunsChangedTopic());
   return hub;
 }
 

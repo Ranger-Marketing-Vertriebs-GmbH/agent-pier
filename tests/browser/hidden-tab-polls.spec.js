@@ -22,24 +22,36 @@ async function pausesWhenHidden(page, requests, resumed) {
     .toBe(true);
 }
 
+// The run detail and the run list follow the live channel. A read the channel asks
+// for while the tab is hidden (`stale`, `changed`) waits until it is shown again.
 test("a hidden run detail sends no API request and resumes when visible", async ({
   page,
+  liveStub,
 }) => {
   const state = await pipelinesFixture(page);
   state.runs.push(sampleRun(state));
   const requests = recordApiRequests(page);
   await openPipelines(page, "runs/run-one");
   await expect(page.getByText("Review the application").first()).toBeVisible();
-  await pausesWhenHidden(page, requests, /\/api\//);
+  await setTabHidden(page, true);
+  liveStub.stale("pipeline.run:run-one");
+  await pausesWhenHidden(page, requests, /\/api\/pipeline-runs\/run-one$/);
 });
 
-test("hidden run list pills pause and resume", async ({ page }) => {
+test("a hidden later run page pauses and reads once when visible", async ({
+  page,
+  liveStub,
+}) => {
   const state = await pipelinesFixture(page);
-  state.runs.push(sampleRun(state));
+  for (let index = 0; index < 21; index += 1)
+    state.runs.push({ ...sampleRun(state, `run-${index}`), task: `Task ${index}` });
   const requests = recordApiRequests(page);
-  await openPipelines(page, "runs");
-  await expect(page.getByText("Review the application").first()).toBeVisible();
-  await pausesWhenHidden(page, requests, /\/api\/pipeline-runs/);
+  await openPipelines(page, "runs?page=2");
+  await expect(page.getByText("Task 20")).toBeVisible();
+  await liveStub.waitForSubscribe("pipeline.runs.changed");
+  await setTabHidden(page, true);
+  liveStub.changed("pipeline.runs.changed");
+  await pausesWhenHidden(page, requests, /\/api\/pipeline-runs$/);
 });
 
 // A codex chat; `stall` lets a test hold the model or reload read after the first.

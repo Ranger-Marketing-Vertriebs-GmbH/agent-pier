@@ -1,5 +1,6 @@
 // The state behind useLiveTopic: data pushed by the LiveClient, one REST GET where
-// the push cannot carry it (`stale`, `changed`, a failed first read on the server),
+// the push cannot carry it (`stale`, `changed`, a failed first read on the server;
+// a signal topic reads the caller's route once at the start and once per `changed`),
 // and the topic's previous poll, visible-only, while the channel is in fallback or
 // refuses the topic. A read past its deadline shows a timeout error; a read cut
 // short by hiding or stopping stays silent and, if it was a one-time read, runs again
@@ -20,21 +21,23 @@ const browser = () => ({
 const readTimeoutMs = 15000;
 
 /**
- * Starts following `topicId` on `client`. `read(path, signal)` is the REST GET,
+ * Starts following `topicId` on `client`. `read(path, signal)` is the REST GET of
+ * `path` (default: the topic's route; a signal topic's data comes only from it),
  * `report({data, error, loading, connected})` gets every change. Returns
  * `{ refresh, set, stop }`; `refresh()` reads over REST and resolves with the data, or
  * with null when the read failed (its error is reported) or the tab is hidden.
  */
-export function startLiveTopic({ topicId, client, read, report, env = {} }) {
+export function startLiveTopic({ topicId, path: route, client, read, report, env = {} }) {
   const scope = { ...browser(), ...env };
   const { document } = scope;
   const info = topicInfo(topicId);
-  const path = info ? info.path(info.param) : null;
+  const path = route || (info?.path ? info.path(info.param) : null);
   const state = { data: null, error: "", loading: true, connected: false };
   let stopped = false,
     version = 0,
     lastRead = null,
     pending = false,
+    again = false,
     refused = false,
     stopPolling = null,
     oneTime = null;
@@ -73,7 +76,18 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
       env: scope,
     });
     if (oneTime === controller) oneTime = null;
-    return accept(result, started);
+    const data = accept(result, started);
+    if (again && !oneTime && !stopped) {
+      again = false;
+      fetchOnce();
+    }
+    return data;
+  };
+  // A change during a read reads once more after it, instead of cutting it short:
+  // changes faster than the read would otherwise never let one finish.
+  const fetchAfterChange = () => {
+    if (oneTime) again = true;
+    else fetchOnce();
   };
   const polling = () => {
     const wanted = Boolean(path) && (refused || client.status().fallback);
@@ -103,6 +117,7 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
         oneTime.abort();
         oneTime = null;
         pending = true;
+        again = false;
       }
     } else if (pending) fetchOnce();
   };
@@ -122,7 +137,7 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
       publish({ connected: event.connected });
       polling();
     } else if (event.type === "stale" || event.type === "changed") {
-      fetchOnce();
+      fetchAfterChange();
       unreadable();
     } else if (event.type === "revoked" || (event.type === "error" && event.code)) {
       refused = true;
@@ -139,6 +154,9 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
   });
   publish({ connected: client.status().connected });
   polling();
+  // A signal brings no data of its own: its route is read once to begin with, unless
+  // the fallback poll already reads it.
+  if (info?.mode === "signal" && !stopPolling) fetchOnce();
   return {
     // Resolves with what the REST route answered, even when a push that arrived
     // during the read is newer (then the state keeps the push, and the caller gets

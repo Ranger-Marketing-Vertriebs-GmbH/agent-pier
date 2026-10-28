@@ -4,9 +4,11 @@ import { hubFixture, hubRun } from "./projects-fixture.js";
 
 const projectList = (page, name = "Projekte") =>
   page.getByRole("navigation", { name, exact: true });
+// The app's own status listings; the hints' page 1 is pushed (the stub reads it).
 const statusCalls = (calls) =>
   calls.filter(
-    (call) => call.path === "/api/pipeline-runs" && call.search.includes("status="),
+    (call) =>
+      !call.stub && call.path === "/api/pipeline-runs" && call.search.includes("status="),
   ).length;
 const reads = (calls, path) =>
   calls.filter((call) => call.method === "GET" && call.path === path).length;
@@ -126,7 +128,8 @@ test("saving a knowledge entry does not sweep the run hints again", async ({ pag
   await expect(projectList(page).getByRole("button", { name: /^notes/ })).toContainText(
     "2 Läufe fehlgeschlagen",
   );
-  expect(statusCalls(calls)).toBe(2);
+  // The hints come from the pushed first pages: the app lists no status itself.
+  expect(statusCalls(calls)).toBe(0);
   const repositoryReads = reads(calls, "/api/repositories");
   await page.getByRole("button", { name: "Neuer Eintrag" }).click();
   const dialog = page.getByRole("dialog", { name: "Neuer Eintrag" });
@@ -139,7 +142,7 @@ test("saving a knowledge entry does not sweep the run hints again", async ({ pag
     .poll(() => reads(calls, "/api/repositories"))
     .toBeGreaterThan(repositoryReads);
   await page.waitForTimeout(500);
-  expect(statusCalls(calls)).toBe(2);
+  expect(statusCalls(calls)).toBe(0);
 });
 
 test("the hub retry sweeps the run hints again", async ({ page }) => {
@@ -147,11 +150,13 @@ test("the hub retry sweeps the run hints again", async ({ page }) => {
   const calls = await hubFixture(page, controls);
   await page.goto(base + "/projects");
   await expect(page.getByRole("alert")).toContainText("Wissen nicht erreichbar");
-  await expect.poll(() => statusCalls(calls)).toBe(2);
+  await page.waitForTimeout(500);
+  expect(statusCalls(calls)).toBe(0);
   controls.failMemory = false;
   await page.getByRole("button", { name: "Erneut versuchen" }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect.poll(() => statusCalls(calls)).toBe(4);
+  // Retry reads both hints' first pages over REST once.
+  await expect.poll(() => statusCalls(calls)).toBe(2);
 });
 
 test("run hints beyond the swept pages read as a lower bound", async ({ page }) => {
