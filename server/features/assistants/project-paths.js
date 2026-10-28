@@ -125,12 +125,20 @@ function lockedConfig(parts, write, lockToolConfig) {
  * real parent joined with the missing names), its relative POSIX path and whether
  * it exists. Refuses with `projectPathRefused` (403) otherwise, and with
  * `projectToolConfigLocked` (403) a write into tool configuration when
- * `lockToolConfig` is set (an agent of restricted users).
+ * `lockToolConfig` is set (an agent of restricted users). `repoConfig` (default:
+ * `lockToolConfig`) adds the places the repository itself names
+ * (project-config-lock.js, a scan of the tree); `false` keeps only the fixed names,
+ * for a folder that is no repository the owner opens (an agent's mail downloads).
  */
 export function projectTarget(
   root,
   raw,
-  { write = false, protectedRoots = [], lockToolConfig = false } = {},
+  {
+    write = false,
+    protectedRoots = [],
+    lockToolConfig = false,
+    repoConfig = lockToolConfig,
+  } = {},
 ) {
   const real = realRoot(root);
   const parts = segments(raw, [...new Set([path.resolve(root), real])]);
@@ -152,7 +160,8 @@ export function projectTarget(
   const relative = path.relative(real, target).split(path.sep).filter(Boolean);
   if (protectedParts(relative, write)) throw refused();
   lockedConfig(relative, write, lockToolConfig);
-  if (write && lockToolConfig && repoConfigLocked(real, target)) throw toolConfigLocked();
+  if (write && lockToolConfig && repoConfig && repoConfigLocked(real, target))
+    throw toolConfigLocked();
   for (const root of protectedRoots) {
     const guarded = realpath(root) || root;
     if (inside(guarded, target) || (write && inside(target, guarded))) throw refused();

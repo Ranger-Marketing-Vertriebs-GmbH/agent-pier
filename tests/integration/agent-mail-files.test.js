@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { mailFilesFixture } from "../helpers/mail-files-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
+import { projectTarget } from "../../server/features/assistants/project-paths.js";
 import { fileContext } from "../../server/features/assistants/mail/agent-mail-sources.js";
 import {
   saveTarget,
@@ -430,5 +432,86 @@ test("a link error other than a missing hard-link feature is not hidden", async 
     throw Object.assign(new Error("EIO"), { code: "EIO" });
   });
   await assert.rejects(f.save("a.txt", "x"), { code: "EIO" });
+  assert.deepEqual(entries(f.ws("mail/Private")), []);
+});
+
+// A Git repository at `dir` whose core.hooksPath is `hooks`.
+function gitRepo(dir, hooks) {
+  fs.mkdirSync(dir, { recursive: true });
+  execFileSync("git", ["init", "-q", dir]);
+  execFileSync("git", ["-C", dir, "config", "core.hooksPath", hooks]);
+}
+
+test("a large workspace or a repository in it never blocks a save to mail/", async (t) => {
+  const f = await setup(t);
+  const root = fs.realpathSync(f.workspace);
+  const scanned = () =>
+    projectTarget(root, "mail/Private", { write: true, lockToolConfig: true });
+  // A repository whose hooks are its parent: the scan locks the whole workspace.
+  gitRepo(f.ws("repo"), "..");
+  assert.throws(
+    scanned,
+    (error) => toolError(error).code === "PROJECT_TOOL_CONFIG_LOCKED",
+  );
+  assert.deepEqual(await f.save("a.txt", "one"), { path: "mail/Private/a.txt" });
+  fs.rmSync(f.ws("repo"), { recursive: true });
+  // More folders than the scan looks at: it fails closed.
+  const many = f.ws("checkout");
+  fs.mkdirSync(many);
+  for (let i = 0; i <= 10_000; i++) fs.mkdirSync(path.join(many, String(i)));
+  assert.throws(
+    scanned,
+    (error) => toolError(error).code === "PROJECT_TOOL_CONFIG_LOCKED",
+  );
+  assert.deepEqual(await f.save("b.txt", "two"), { path: "mail/Private/b.txt" });
+  // The fixed names stay locked.
+  assert.equal(
+    await code(() => f.save("c.txt", "x", { path: "mail/x/CLAUDE.md" })),
+    "MAIL_SAVE_REFUSED",
+  );
+  assert.equal(
+    await code(() => writeNewFile(f.target(), "CLAUDE.md", Buffer.from("x"))),
+    "MAIL_SAVE_REFUSED",
+  );
+  assert.deepEqual(entries(f.ws("mail/Private")), ["a.txt", "b.txt"]);
+});
+
+test("a project save follows the folders its repository names", async (t) => {
+  const f = await setup(t, { projectFiles: {} });
+  const id = f.folderProject.id;
+  f.access({ projectFiles: { [id]: "write" } });
+  // core.hooksPath is no fixed name: only the repository scan knows it.
+  gitRepo(f.folder, "tools/hooks");
+  for (const requested of ["tools/hooks", "tools/hooks/sub", "tools"])
+    assert.equal(
+      await code(() => f.save("a.txt", "x", { projectId: id, path: requested })),
+      "MAIL_SAVE_REFUSED",
+      requested,
+    );
+  assert.equal(fs.existsSync(f.proj("tools")), false);
+  assert.deepEqual(await f.save("a.txt", "x", { projectId: id, path: "docs" }), {
+    path: "docs/a.txt",
+  });
+});
+
+test("a failed write without hard links leaves no file behind", async (t) => {
+  const f = await setup(t);
+  t.mock.method(fs.promises, "link", async () => {
+    throw Object.assign(new Error("ENOTSUP"), { code: "ENOTSUP" });
+  });
+  const probe = await fs.promises.open(f.ws("probe"), "w");
+  const handles = Object.getPrototypeOf(probe);
+  await probe.close();
+  fs.rmSync(f.ws("probe"));
+  const writeFile = handles.writeFile;
+  let calls = 0;
+  t.mock.method(handles, "writeFile", function (...args) {
+    // The temporary file is written first, the file in place second.
+    if (++calls === 2)
+      return Promise.reject(Object.assign(new Error("ENOSPC"), { code: "ENOSPC" }));
+    return writeFile.apply(this, args);
+  });
+  await assert.rejects(f.save("a.txt", "x"), { code: "ENOSPC" });
+  assert.equal(calls, 2);
   assert.deepEqual(entries(f.ws("mail/Private")), []);
 });
