@@ -1,3 +1,4 @@
+import { MAX_TOPIC_ID } from "../features/live/live-hub.js";
 import { notFoundBody } from "./responses.js";
 
 /**
@@ -85,6 +86,19 @@ export const userRoutes = [
     pattern: /^\/api\/me\/conversations\/[^/]+\/shared-files\/[^/]+$/,
   },
 ];
+
+/**
+ * Deny-by-default access to live topics (live-hub.js): a restricted user subscribes
+ * only to topic ids matched here, all `me.*`; every other topic answers her like an
+ * unknown one. Every task that adds a `me.*` topic adds it here in the same change.
+ */
+export const userTopics = [];
+
+/** Whether a restricted user may subscribe to the live topic `topicId`. */
+export function userMayWatch(topicId) {
+  if (typeof topicId !== "string" || topicId.length > MAX_TOPIC_ID) return false;
+  return userTopics.some((pattern) => pattern.test(topicId));
+}
 
 const userSpace = /^\/api\/me(?:\/|$)/;
 // Dot segments, plain or percent-encoded, never name a user route.

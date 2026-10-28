@@ -11,6 +11,7 @@ export const chatPath = /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/;
 export const agentChatPath = /^\/api\/assistant-conversations\/([^/]+)\/stream$/;
 export const browserPath = /^\/api\/assistants\/([A-Za-z0-9_-]+)\/browser-stream$/;
 export const dictationPath = /^\/api\/dictation\/stream$/;
+export const livePath = /^\/api\/live$/;
 
 export const socketPaths = [
   { kind: "terminal", pattern: terminalPath },
@@ -18,6 +19,7 @@ export const socketPaths = [
   { kind: "agent-chat", pattern: agentChatPath },
   { kind: "browser", pattern: browserPath },
   { kind: "dictation", pattern: dictationPath },
+  { kind: "live", pattern: livePath },
 ];
 
 /** Whether another attacher than the terminal one handles this upgrade path. */
@@ -60,14 +62,15 @@ function admitOwner(services, { kind, id }) {
 /**
  * Decides, after the session check, whether a principal may open a socket, and with
  * what limits (`since` for an agent chat the owner reads under a user's opt-in). A
- * user opens an agent chat she owns, a browser view she may watch, and dictation
- * (which uses the owner's speech connection); every other refusal looks like an
- * unknown path.
+ * user opens an agent chat she owns, a browser view she may watch, dictation
+ * (which uses the owner's speech connection) and the live channel, where every topic
+ * passes `userMayWatch` (route-access.js); every other refusal looks like an unknown
+ * path.
  */
 export function admitSocket(services, principal, { kind, id } = {}) {
   if (principal?.role === "owner") return admitOwner(services, { kind, id });
   if (principal?.role !== "user") throw refused();
-  if (kind === "dictation") return {};
+  if (kind === "dictation" || kind === "live") return {};
   const scope = services.userScope;
   if (kind === "agent-chat" && scope?.conversationOf(principal, id)) return {};
   if (kind === "browser" && scope?.mayWatchBrowser(principal, id) === true) return {};
