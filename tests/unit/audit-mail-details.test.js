@@ -15,7 +15,7 @@ const event = (action, details, outcome = "success") =>
   });
 
 test("mail actions are part of the audit vocabulary", () => {
-  for (const verb of ["created", "updated", "deleted", "tested", "sent"])
+  for (const verb of ["created", "updated", "deleted", "tested", "sent", "downloaded"])
     assert.equal(auditAction(`mail.${verb}`), `mail.${verb}`);
   assert.throws(() => auditAction("mail.read"), { status: 400 });
 });
@@ -133,4 +133,32 @@ test("a sent message keeps the agent, action, authorization, recipient count and
     code: "Server said bob@example.com",
   });
   assert.deepEqual(odd.details, { kind: "message" });
+});
+
+test("a saved attachment keeps the agent, its size and destination only", () => {
+  const audited = event("mail.downloaded", {
+    kind: "attachment",
+    assistantId: "agent-1",
+    bytes: 1234,
+    destination: "project",
+    name: "Rechnung.pdf",
+    path: "invoices/Rechnung.pdf",
+    projectId: "project-1",
+    text: "Total: EUR 49.99",
+  });
+  assert.deepEqual(audited.details, {
+    kind: "attachment",
+    assistantId: "agent-1",
+    bytes: 1234,
+    destination: "project",
+  });
+  const odd = event("mail.downloaded", {
+    kind: "attachment",
+    bytes: -1,
+    destination: "/home/owner",
+  });
+  assert.deepEqual(odd.details, { kind: "attachment" });
+  assert.deepEqual(event("mail.downloaded", { kind: "attachment", bytes: 1.5 }).details, {
+    kind: "attachment",
+  });
 });

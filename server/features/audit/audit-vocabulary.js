@@ -74,4 +74,6 @@ export const verbs = new Set([
   "proposed",
   // A session prompt an agent handed to the owner (coding-sessions/).
   "escalated",
+  // An agent saved a mail attachment (audit-mail-details.js).
+  "downloaded",
 ]);
