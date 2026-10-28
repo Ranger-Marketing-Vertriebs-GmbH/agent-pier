@@ -158,9 +158,15 @@ test("a subagent's approval names the agent that asks", () => {
   );
   assert.equal(view.subject.agent, "general-purpose");
   assert.equal(requestValue(claudeRequest(bash()).view).subject.agent, undefined);
+  // A session started with --agent asks as the main agent: agent_type alone.
   assert.equal(
-    requestValue(claudeRequest({ ...bash(), agent_type: "x".repeat(500) }).view).subject
-      .agent.length,
+    requestValue(claudeRequest({ ...bash(), agent_type: "reviewer" }).view).subject.agent,
+    undefined,
+  );
+  assert.equal(
+    requestValue(
+      claudeRequest({ ...bash(), agent_id: "a1", agent_type: "x".repeat(500) }).view,
+    ).subject.agent.length,
     200,
   );
 });

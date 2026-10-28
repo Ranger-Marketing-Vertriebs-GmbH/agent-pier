@@ -127,8 +127,9 @@ export function claudeRequest(data) {
               : undefined),
           name: workflow.name,
           cwd: data.cwd,
-          // Set for subagents (and sessions started with --agent).
-          agent: trimmed(data.agent_type, 200),
+          // Only a subagent (or teammate) carries agent_id; a session started
+          // with --agent has agent_type alone and asks as the main agent.
+          agent: data.agent_id ? trimmed(data.agent_type, 200) : undefined,
           description:
             trimmed(data.tool_input?.description, 2000) ?? workflow.description,
         },

@@ -209,6 +209,32 @@ test("a subagent permission keeps waiting in chat past 590 s", async (t) => {
   await run.done;
 });
 
+test("a session started with --agent watches the session transcript", async (t) => {
+  const f = await fixture(t);
+  // agent_type without agent_id: the main agent of a custom-agent session asks.
+  const payload = { ...(await transcribed(f)), agent_type: "reviewer" };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const run = hook(f, payload);
+  const request = await pending(f);
+  assert.equal(request.subject.agent, undefined, "the main agent is not labelled");
+  await turns();
+  t.mock.timers.tick(590_000 + 5_000);
+  await turns();
+  assert.equal(run.ended(), false, "the session transcript match lifts the bound");
+  await fs.appendFile(payload.transcript_path, toolResult());
+  for (let i = 0; i < 4 && !run.ended(); i++) {
+    t.mock.timers.tick(500);
+    await turns();
+  }
+  await run.done;
+  assert.equal(run.output(), "");
+  const after = await waitFor(
+    () => state(f),
+    (value) => !value.requests.length,
+  );
+  assert.equal(after.notice, undefined, "a terminal decision leaves no notice");
+});
+
 test("a subagent transcript written after the hook started still lifts the bound", async (t) => {
   const f = await fixture(t);
   const { payload, file } = await subagentSession(f.root, { write: false });

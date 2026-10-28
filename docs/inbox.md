@@ -57,7 +57,8 @@ another account. Rules are never written to a project's `.claude/` folder, which
 every account opening the folder would share. Remove a rule with `/permissions` in
 the terminal or in that `settings.json`.
 
-When a subagent asks, the card names it, for example **From the general-purpose
+When a subagent asks, the card names it (a session started with `--agent` asks as
+the main agent and shows no such line), for example **From the general-purpose
 agent**. A subagent's approval waits in chat as long as the main agent's, and
 approving or denying it in the terminal removes the card.
 
