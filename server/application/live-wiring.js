@@ -12,6 +12,9 @@ import {
   pipelineRunsChangedTopic,
   pipelineRunsTopic,
 } from "../features/pipelines/live-topics.js";
+import { settingsSummaryTopic } from "../features/settings/live-topics.js";
+import { connectionProblemsTopic } from "../features/providers/live-topics.js";
+import { runtimeUpdatesTopic } from "../features/assistants/live-runtime-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -45,7 +48,52 @@ export function createLiveHub(services, options = {}) {
   hub.define(pipelineCountsTopic(services));
   hub.define(pipelineRunsTopic(services));
   hub.define(pipelineRunsChangedTopic());
+  hub.define(settingsSummaryTopic(services));
+  hub.define(connectionProblemsTopic(services));
+  hub.define(runtimeUpdatesTopic(services));
   return hub;
+}
+
+// Topics whose sources announce no change of their own: any successful write may
+// have changed them. A write without subscribers costs nothing; one that changed
+// nothing sends nothing (the digest is equal).
+export const WRITE_SIGNALED_TOPICS = Object.freeze([
+  "settings.summary",
+  "connections.problems",
+  "runtime.updates",
+]);
+// Frequent writes that touch none of them: session input and chat, agent chats, the
+// user's own routes, notifications, files, runs and memory.
+const QUIET_WRITE_AREAS = new Set([
+  "sessions",
+  "assistant-conversations",
+  "me",
+  "notifications",
+  "files",
+  "file-operations",
+  "file-transfers",
+  "pipeline-runs",
+  "pipeline-queue",
+  "memory",
+  "artifacts",
+  "presence",
+]);
+const READS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Express middleware for /api: once a write has answered with success, signals
+ * WRITE_SIGNALED_TOPICS on `services.live` (read when the answer is sent).
+ */
+export function liveWriteSignals(services) {
+  return (req, res, next) => {
+    const area = req.path.split("/")[1];
+    if (READS.has(req.method) || QUIET_WRITE_AREAS.has(area)) return next();
+    res.once("finish", () => {
+      if (res.statusCode >= 400) return;
+      for (const topic of WRITE_SIGNALED_TOPICS) services.live?.invalidate(topic);
+    });
+    next();
+  };
 }
 
 /**

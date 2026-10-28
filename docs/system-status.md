@@ -19,8 +19,9 @@ you, in a column up to about 1180 px wide:
   each CLI below its minimum version and each browser update (**Update**), Zugänge with
   problems, a new AgentPier release and [sessions on the old tmux
   server](#sessions-on-the-old-tmux-server). The section is hidden while nothing waits.
-  These sources are the ones the sidebar **Menu** reads for its hints; the start page
-  reads them again every 30 seconds while it is visible.
+  These sources are the ones the sidebar **Menu** shows as hints; the server pushes
+  them over the [live channel](architecture.md) while the start page or the menu is
+  open, so neither polls them.
 - **Sessions** with state, since when, CPU, RAM and an open button, beside the
   **System status** tile (below).
 - **Agents** with their team note ("Lead, 2 members", "shared, 3 users"), current

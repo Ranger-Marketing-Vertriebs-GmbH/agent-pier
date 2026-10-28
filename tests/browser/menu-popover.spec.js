@@ -10,15 +10,27 @@ const popover = (page) => page.locator("#sidebar-menu");
 const entry = (page, name) => popover(page).getByRole("button", { name, exact: true });
 const group = (page, name) => popover(page).getByRole("group", { name, exact: true });
 
+const runTotals = { "awaiting-human": 2, running: 1, failed: 4 };
+
 // Hint sources answered by the test; `fail` lists sources that answer 500.
 async function hintSources(page, { fail = [], agents = false } = {}) {
   const failing = (key) => fail.includes(key);
   await page.route("**/api/pipeline-runs?*", (route) => {
     const status = new URL(route.request().url()).searchParams.get("status");
     if (failing("runs")) return route.fulfill({ status: 500, json: { error: "down" } });
-    const total = { "awaiting-human": 2, running: 1, failed: 4 }[status] ?? 0;
+    const total = runTotals[status] ?? 0;
     return route.fulfill({ json: { runs: [], total, page: 1, pageSize: 20 } });
   });
+  await page.route("**/api/pipeline-run-counts", (route) =>
+    failing("runs")
+      ? route.fulfill({ status: 500, json: { error: "down" } })
+      : route.fulfill({
+          json: {
+            counts: { ...runTotals, completed: 0, cancelled: 0 },
+            total: Object.values(runTotals).reduce((sum, count) => sum + count),
+          },
+        }),
+  );
   await page.route("**/api/connections/problems", (route) =>
     failing("problems")
       ? route.fulfill({ status: 500, json: { error: "down" } })

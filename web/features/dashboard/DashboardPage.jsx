@@ -21,8 +21,6 @@ import "./start-page.css";
 import "./start-cards.css";
 
 const SystemStatusDialog = lazy(() => import("./SystemStatusDialog.jsx"));
-// The menu hint sources change slowly; the start page reads them twice a minute.
-const HINT_POLL_MS = 30_000;
 
 /**
  * The start page: what runs and what needs you. Header, Needs you, sessions beside
@@ -44,7 +42,7 @@ export default function DashboardPage({
   const phone = useMobileLayout();
   const [dialog, setDialog] = useState(null);
   const status = useSystemStatus("/system-status", !dialog);
-  const sources = useMenuHintSources(true, { poll: HINT_POLL_MS });
+  const sources = useMenuHintSources(true);
   const hints = useHintsOf(sources, state, ready);
   const inbox = useStartInbox();
   const feature = useAssistantFeature();

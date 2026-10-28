@@ -6,9 +6,9 @@ import { emptyInbox } from "../helpers/empty-inbox.js";
 import { operationsFixture } from "./operations-fixture.js";
 
 // The steady state of a page on a working live channel is push-only: after the first
-// snapshots, nothing polls the workspace state, the native requests, the model state
-// or the pipeline runs (on the start page, whose pipelines card reads the menu-hint
-// sources, from Task 2.3 on; the run pages' own steady state is checked in
+// snapshots, nothing polls the workspace state, the native requests, the model state,
+// the pipeline runs or the other menu-hint sources (the start page's pipelines card
+// and hints; the run pages' own steady state is checked in
 // pipelines-run-polling.spec.js). A hidden tab sends nothing and subscribes no sampled
 // topic. With the channel refused, the old visible-only polling takes over.
 test.use({ live: "manual" });
@@ -20,10 +20,28 @@ const pages = {
     path: "/sessions/fixture-session/chat",
     topics: ["state", requestsTopic, modelsTopic],
   },
-  "start page": { path: "/", topics: ["state", "inbox"] },
+  "start page": {
+    path: "/",
+    topics: [
+      "state",
+      "inbox",
+      "pipeline.counts",
+      "pipeline.runs:*:awaiting-human",
+      "pipeline.runs:*:failed",
+      "pipeline.runs:*:running",
+      "connections.problems",
+      "settings.summary",
+    ],
+  },
 };
 const polled = [/^\/api\/state$/, /\/requests$/, /\/models$/];
 const pipelineRuns = /^\/api\/pipeline-run(?:s|-counts)$/;
+const menuHints = [
+  pipelineRuns,
+  /^\/api\/connections\/problems$/,
+  /^\/api\/settings\/summary$/,
+  /^\/api\/assistant-runtime\/updates$/,
+];
 const reads = (requests, patterns) =>
   requests
     .list()
@@ -37,7 +55,8 @@ async function fixture(page) {
 }
 
 // Opens `path`, answers each subscription with its first snapshot, as the server
-// would, and waits until the sidebar shows the pushed session.
+// would (a topic without a fixed snapshot gets what its REST route answers), and
+// waits until the sidebar shows the pushed session.
 async function openSteady(page, liveStub, { path, topics }) {
   await fixture(page);
   await page.goto(baseURL + path);
@@ -51,7 +70,15 @@ async function openSteady(page, liveStub, { path, topics }) {
   };
   for (const topic of topics) {
     await liveStub.waitForSubscribe(topic);
-    liveStub.push(topic, snapshots[topic]);
+    const info = topicInfo(topic);
+    liveStub.push(
+      topic,
+      snapshots[topic] ??
+        (await page.evaluate(
+          (path) => fetch(`/api${path}`).then((r) => r.json()),
+          info.path(info.param),
+        )),
+    );
   }
   await expect(page.locator(".session-list").getByText("Fixture session")).toBeVisible();
 }
@@ -69,20 +96,18 @@ for (const [name, target] of Object.entries(pages)) {
     expect(reads(requests, polled)).toEqual([]);
   });
 
-  // The run lists and counts are pushed (Task 2.2); the start page's pipelines card
-  // still polls the menu-hint sources until Task 2.3 pushes them.
-  const runsPushed = name !== "start page";
-  (runsPushed ? test : test.fixme)(
-    `the ${name} reads no pipeline runs for 10 s`,
-    async ({ page, liveStub }) => {
-      test.setTimeout(30000);
-      const requests = recordApiRequests(page);
-      await openSteady(page, liveStub, target);
-      requests.clear();
-      await page.waitForTimeout(10000);
-      expect(reads(requests, [pipelineRuns])).toEqual([]);
-    },
-  );
+  // The run lists, the counts and the other menu-hint sources are pushed.
+  test(`the ${name} reads no pipeline runs or menu-hint sources for 10 s`, async ({
+    page,
+    liveStub,
+  }) => {
+    test.setTimeout(30000);
+    const requests = recordApiRequests(page);
+    await openSteady(page, liveStub, target);
+    requests.clear();
+    await page.waitForTimeout(10000);
+    expect(reads(requests, menuHints)).toEqual([]);
+  });
 }
 
 test("a hidden session chat sends no request and subscribes no sampled topic", async ({

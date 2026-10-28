@@ -98,3 +98,19 @@ test("the browser environment points at /api/live on the page's host", (t) => {
     assert.ok(env.random() >= 0 && env.random() < 1);
   }
 });
+
+test("the menu-hint topics name their REST routes; the CLI-facing two are sampled", () => {
+  const summary = topicInfo("settings.summary");
+  assert.equal(summary.path(), "/settings/summary");
+  assert.equal(summary.mode, "state");
+  assert.equal(summary.sampled, false);
+  const problems = topicInfo("connections.problems");
+  assert.equal(problems.path(), "/connections/problems");
+  assert.equal(problems.sampled, true);
+  const updates = topicInfo("runtime.updates");
+  assert.equal(updates.path(), "/assistant-runtime/updates");
+  assert.equal(updates.sampled, true);
+  // The start page's former poll of these sources.
+  for (const info of [summary, problems, updates]) assert.equal(info.interval, 30000);
+  assert.equal(topicInfo("settings.summary:x"), null);
+});

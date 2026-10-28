@@ -64,6 +64,25 @@ export const liveTopics = Object.freeze({
     optionalParam: true,
     interval: 5000,
   }),
+  // The menu-hint sources, at the start page's former poll. The server samples the
+  // problems and the agent update status (every 60 s), not the summary.
+  "settings.summary": Object.freeze({
+    mode: "state",
+    path: () => "/settings/summary",
+    interval: 30000,
+  }),
+  "connections.problems": Object.freeze({
+    mode: "state",
+    path: () => "/connections/problems",
+    interval: 30000,
+    sampled: true,
+  }),
+  "runtime.updates": Object.freeze({
+    mode: "state",
+    path: () => "/assistant-runtime/updates",
+    interval: 30000,
+    sampled: true,
+  }),
 });
 
 /**

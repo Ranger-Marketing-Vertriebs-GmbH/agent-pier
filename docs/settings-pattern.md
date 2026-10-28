@@ -284,6 +284,7 @@ prefills it from another agent by the copy rules in `wizard-draft.js`.
 - `GET /api/settings/summary` — `{ access: { mcp, remote, ssh, github, secrets }, operations: { diagnostics, backups, updates } }` (the `access` key keeps its old name; the settings tabs and the menu's update hint read it);
   local state only, every part `null` when unknown. `secrets` is `{ count }`. `remote` is
   `{ tailscale, network, restartRequired }` (a saved network change not yet running).
+  The live topic `settings.summary` pushes the same value.
 - `GET /api/connections/usage` — per SSH/SFTP host, secret and GitHub token profile:
   agents (`via` grant, lead or hook, with mode), hooks, projects (GitHub), running
   sessions and the host's last audited use (`lastUseCovers` names what it counts);
@@ -292,7 +293,8 @@ prefills it from another agent by the copy rules in `wizard-draft.js`.
 - `GET /api/connections/problems` — per Zugänge category `{ total, problems,
 warnings, unknown }` from stored state only; a category that cannot be read is null.
   Email accounts (`mail`) report a failed last test as `testFailed` and an
-  unencrypted server as the warning `plaintext`.
+  unencrypted server as the warning `plaintext`. The live topic `connections.problems`
+  pushes the same value.
 - `GET|POST /api/mail/accounts`, `PATCH|DELETE /api/mail/accounts/:id`,
   `POST /api/mail/accounts/:id/test`, `POST /api/mail/test` — the owner's email
   accounts for agents (owner-only, `no-store`); views carry `hasPassword`, never the
