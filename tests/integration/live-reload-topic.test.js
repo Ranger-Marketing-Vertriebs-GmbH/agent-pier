@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
-import { applicationFixture } from "../helpers/application.js";
+import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
 import { manualTimers } from "../helpers/manual-timers.js";
-import { subscribe } from "../helpers/live-hub-subscriber.js";
+import { subscribe, until } from "../helpers/live-hub-subscriber.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
 import { reportLiveError } from "../../server/application/live-wiring.js";
 import { ChatEvents } from "../../server/features/chat/chat-events.js";
@@ -203,4 +203,30 @@ test("the package, SSH and reload topics equal their routes", async (t) => {
     assert.equal((await live.next((frame) => frame.topic === other, 5000)).type, "error");
   }
   live.ws.close();
+});
+
+// The wiring itself (services.js, assistants.js, app.js): each source's hook reaches
+// the application's hub, read when it fires (services.live exists only once listening).
+test("the plugin, SSH, sign-in and reload hooks are wired to the hub", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const app = f.application;
+  await until(() => app.assistantModelLogin, 20000);
+  const signals = [];
+  const invalidate = app.live.invalidate.bind(app.live);
+  app.live.invalidate = (name, param) => {
+    signals.push([name, param]);
+    return invalidate(name, param);
+  };
+  app.plugins.changed("local-codex");
+  app.sshSessions.changed("session-one");
+  app.sshSessions.changed(null);
+  app.assistantModelLogin.changed();
+  app.reload.changed("session-one");
+  assert.deepEqual(signals, [
+    ["job.plugins", undefined],
+    ["job.ssh-tools", "session-one"],
+    ["job.ssh-tools", undefined],
+    ["job.chatgpt-login", undefined],
+    ["session.reload", "session-one"],
+  ]);
 });

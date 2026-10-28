@@ -317,6 +317,15 @@ test("job.chatgpt-login pushes each change of the attempt and nothing secret", a
   assert.equal(awaiting.data.id, attempt.id);
   assert.equal(awaiting.data.code, "ABCD-EFGHI");
   assert.ok(!JSON.stringify(awaiting.data).includes("private"));
+  // The whole payload is the route's: a field added to status() must show here.
+  assert.deepEqual(awaiting.data, login.status(attempt.id));
+  assert.deepEqual(Object.keys(awaiting.data).sort(), [
+    "code",
+    "expiresAt",
+    "id",
+    "status",
+    "url",
+  ]);
   const done = await live.next((frame) => frame.data?.status === "completed");
   assert.deepEqual(done.data, login.status(attempt.id));
   // A new attempt is pushed under its own id.
