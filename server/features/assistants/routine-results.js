@@ -112,3 +112,18 @@ export function withRoutineResults(messages, results, { from = -Infinity } = {})
     .sort(([x, i], [y, j]) => x.timestamp - y.timestamp || i - j)
     .map(([m]) => m);
 }
+
+// The notes AgentPier left on a run (NativeRoutines.noteRefusal), as the agent reads
+// them in its routine list (English, like every tool result).
+const warnings = {
+  writes_refused:
+    "Project folder changes were refused because 'May write' is off for this routine. If it should change files, ask the owner to switch on 'May write' for it (agent settings, Automation, Routines).",
+  ssh_refused:
+    "SSH was refused because the host is not trusted for routines. The owner can mark it 'Trusted incl. routines'.",
+  mail_refused: "Email was refused: no access or a limit was reached.",
+};
+
+/** The readable warnings of a routine's last recorded run; none without notes. */
+export function runWarnings(result) {
+  return (result?.notes || []).map((note) => warnings[note]).filter(Boolean);
+}

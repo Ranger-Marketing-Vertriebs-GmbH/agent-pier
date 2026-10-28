@@ -6,7 +6,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
 import { agentFailure } from "./routine-failures.js";
-import { routineWriteHint, runWarnings } from "./routine-write-hint.js";
+import { runWarnings } from "./routine-results.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
 export const permanentReasons = {
   400: "INVALID",
@@ -18,6 +18,14 @@ export const permanentReasons = {
 const runSession = /^agent:([^:]+):cron:([^:]+)(?::run:[^:]+)?$/i;
 // Run settings, also the target existing jobs are brought to (reconcile).
 export const routineTimeoutSeconds = 300;
+/** A created routine without "May write" tells the agent so, in one sentence. */
+export const readOnlyNote = (routine) =>
+  routine?.writes === false
+    ? {
+        ...routine,
+        note: "This routine can only read project folders. If it should change files, ask the owner to switch on 'May write' for it (agent settings, Automation, Routines).",
+      }
+    : routine;
 const destination = (delivery) => delivery?.completionDestination?.to ?? delivery?.to;
 // Compared field by field: OpenClaw may add its own payload fields.
 const current = (job, want) =>
@@ -378,9 +386,9 @@ export class NativeRoutines extends NativeReminders {
       boundTo(this.bindings, id, input.id, userId);
     if (["create", "update"].includes(input.action))
       this.mayWrite(id, userId, input.writes);
-    // A task that suggests writing without "May write": the agent asks the owner.
+    // Without "May write" the agent learns that it only reads (readOnlyNote).
     if (input.action === "create")
-      return this.createOwn(id, invocation, input, origin, userId).then(routineWriteHint);
+      return this.createOwn(id, invocation, input, origin, userId).then(readOnlyNote);
     if (input.action === "update")
       return this.update(
         id,
@@ -393,7 +401,7 @@ export class NativeRoutines extends NativeReminders {
         },
         invocation.assertCurrent,
         "assistant",
-      ).then(routineWriteHint);
+      );
     if (input.action === "remove")
       return this.remove(id, input.id, invocation.assertCurrent);
     throw assistantProblem("invalid");
