@@ -20,6 +20,9 @@ export default function useSessionReload(session, pending) {
   const mounted = useRef(false);
   const mutating = useRef(false);
   const submissionError = useRef(false);
+  // A push arrived while a request or cancel was sent (and was dropped).
+  const dropped = useRef(false);
+  const { refresh: reread } = live;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -28,7 +31,11 @@ export default function useSessionReload(session, pending) {
   }, []);
   useEffect(() => {
     const result = live.data;
-    if (!result || mutating.current) return;
+    if (!result) return;
+    if (mutating.current) {
+      dropped.current = true;
+      return;
+    }
     setData(result);
     if (pending.current && pending.current.requestId === result.requestId) {
       pending.current = null;
@@ -40,6 +47,16 @@ export default function useSessionReload(session, pending) {
   useEffect(() => {
     if (live.error && !mutating.current && !submissionError.current) setError(live.error);
   }, [live.error]);
+  // The write's answer is shown; a push dropped meanwhile may be newer than it, so the
+  // reload is read once more (its answer arrives as the topic's data).
+  function settle() {
+    mutating.current = false;
+    if (mounted.current) setBusy(false);
+    if (dropped.current && mounted.current) {
+      dropped.current = false;
+      void reread();
+    }
+  }
   async function submit(mode, interrupt = false, targetAccountId) {
     if (mutating.current) return;
     let body;
@@ -71,8 +88,7 @@ export default function useSessionReload(session, pending) {
       submissionError.current = true;
       if (mounted.current) setError(rejected ? err.message : copy.requestFailed);
     } finally {
-      mutating.current = false;
-      if (mounted.current) setBusy(false);
+      settle();
     }
   }
   async function cancel() {
@@ -91,8 +107,7 @@ export default function useSessionReload(session, pending) {
       submissionError.current = true;
       if (mounted.current) setError(err.message);
     } finally {
-      mutating.current = false;
-      if (mounted.current) setBusy(false);
+      settle();
     }
   }
   return {

@@ -463,3 +463,26 @@ test("the reload dialog follows the pushed state and reads nothing itself", asyn
     [],
   );
 });
+
+// A push that arrives while the request is sent is dropped; when it was newer than
+// the request's answer, the dialog reads the reload once more afterwards.
+test("a newer state pushed during the request is shown after its answer", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await fixture(page);
+  await page.route("**/api/sessions/reload/reload", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const { requestId } = route.request().postDataJSON();
+    // The queued reload already ran: the stub pushes `completed` during the request.
+    state.reload = { ...state.reload, state: "completed", requestId };
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.fulfill({ json: { ...state.reload, state: "waiting" } });
+  });
+  await open(page);
+  await liveStub.waitForSubscribe("session.reload:reload");
+  await dialog(page)
+    .getByRole("button", { name: "Wait until idle", exact: true })
+    .click();
+  await expect(dialog(page)).toContainText("Conversation resumed", { timeout: 8000 });
+});
