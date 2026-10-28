@@ -67,6 +67,8 @@ export class OperationsEvents {
     this.held = new Map();
     // The requests this process has notified, so reconciliation never holds them again.
     this.announced = new Set();
+    // Called with the listed sessions on every collect (the live `state` topic).
+    this.sessionListeners = new Set();
     if (intervalMs > 0) {
       this.timer = setInterval(() => this.poll().catch(onError), intervalMs);
       this.timer.unref();
@@ -223,9 +225,20 @@ export class OperationsEvents {
     });
     return this.pending;
   }
+  /** Calls `listener(sessions)` whenever collect() lists the sessions; returns a stop. */
+  onSessions(listener) {
+    this.sessionListeners.add(listener);
+    return () => this.sessionListeners.delete(listener);
+  }
   async collect() {
     const enabled = this.notifications.status().subscriptions.length > 0;
     const sessions = await this.sessions.list();
+    for (const listener of [...this.sessionListeners])
+      try {
+        listener(sessions);
+      } catch (error) {
+        this.onError(error);
+      }
     const running = new Set(
       sessions.filter((session) => session.status === "running").map(({ id }) => id),
     );

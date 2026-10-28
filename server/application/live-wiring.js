@@ -1,6 +1,7 @@
-// The live channel's wiring: the hub with its deny-by-default gate, the topics (added
-// by later changes) and the /api/live socket.
+// The live channel's wiring: the hub with its deny-by-default gate, the topics and
+// the /api/live socket.
 import { LiveHub } from "../features/live/live-hub.js";
+import { stateTopic, watchStateWrites } from "../features/sessions/live-state-topic.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -13,13 +14,16 @@ export const liveGate = (principal, topicId, topics = userTopics) =>
   (principal?.role === "user" && userMayWatch(topicId, topics));
 
 /** The hub with its topics. */
-export function createLiveHub(_services, options = {}) {
-  return new LiveHub({
+export function createLiveHub(services, options = {}) {
+  const hub = new LiveHub({
     gate: (principal, topicId) => liveGate(principal, topicId),
     onError: (_error, { topic } = {}) =>
       console.error(`AgentPier could not update the live topic ${topic}.`),
     ...options,
   });
+  hub.define(stateTopic(services));
+  watchStateWrites(services, hub);
+  return hub;
 }
 
 /**

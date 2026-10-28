@@ -1,6 +1,6 @@
 # Frontend architecture
 
-`main.jsx` remains the Vite entry point. `app/App.jsx` composes routes, feature pages, the sidebar, and dialogs. `useWorkspaceState` owns workspace refresh/polling; `useWorkspaceNavigation` owns browser history, legacy route normalization, session mode defaults, and profile navigation memory.
+`main.jsx` remains the Vite entry point. `app/App.jsx` composes routes, feature pages, the sidebar, and dialogs. `useWorkspaceState` follows the live `state` topic and owns the workspace refresh; `useWorkspaceNavigation` owns browser history, legacy route normalization, session mode defaults, and profile navigation memory.
 
 ## Boundaries
 

@@ -1,69 +1,14 @@
-import path from "node:path";
 import { Router } from "express";
 import { listDirectories, createDirectory } from "../../lib/directories.js";
-import { detectUtilities } from "../../features/accounts/account-store.js";
-import { toolBinDirectories } from "../../features/tools/tool-paths.js";
-import { chromiumUtility } from "../../features/tools/chromium-installer.js";
-import { SessionProjects } from "../../features/sessions/session-projects.js";
-import { legacyTmuxSessions } from "../../features/sessions/legacy-tmux-server.js";
+import { workspaceStateOf } from "../../features/sessions/workspace-state.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
-import { isManagedInstall, withCliVersions } from "../../features/tools/cli-version.js";
 export function workspaceRoutes(services) {
-  const {
-    config,
-    tools,
-    accounts,
-    sessions,
-    activity,
-    preferences,
-    directory,
-    nonoSandbox,
-  } = services;
+  const { config, preferences, directory, nonoSandbox } = services;
   const router = Router();
-  const projects = new SessionProjects();
-  // The inbox count rides on the polled state; a failed read never fails the state.
-  const inboxSummary = async () => {
-    try {
-      return (await services.inbox?.summary()) ?? null;
-    } catch {
-      return null;
-    }
-  };
+  // The live `state` topic pushes the same value. A REST read is an explicit one (a
+  // refresh after a write, `stale`, the fallback), so it detects the CLIs again.
   router.get("/state", async (_req, res) =>
-    res.json({
-      // Never waits for a probe: a slow --version must not delay the app.
-      tools: await withCliVersions(tools(), {
-        managed: (tool) =>
-          isManagedInstall(tool.id, tool.path, {
-            home: config.home,
-            dataDir: config.dataDir,
-          }),
-      }),
-      utilities: [
-        ...detectUtilities(
-          { ...process.env, HOME: config.home },
-          true,
-          toolBinDirectories(config.dataDir),
-        ),
-        // The managed agent browser, which only AgentPier installs.
-        ...(config.dataDir ? [chromiumUtility(path.join(config.dataDir, "clis"))] : []),
-        // The managed REA tool (rea-tool.js); absent without the MCP server store.
-        ...(services.rea ? [services.rea.utility()] : []),
-      ],
-      accounts: accounts.list(),
-      sharedCliExtensions: true,
-      providerConnections: services.providerConnections.list(),
-      sessions: await projects.enrich(await activity.enrich(await sessions.list())),
-      inbox: await inboxSummary(),
-      // Sessions still on the tmux server of a release from before the rename.
-      legacyTmux: { sessions: await legacyTmuxSessions(sessions).catch(() => []) },
-      // With registered push devices, open pages report what they show (quiet while
-      // visible, server/features/notifications/push-presence.js).
-      pushDevices: services.notifications?.deviceCount?.() ?? 0,
-      home: config.home,
-      ...preferences.get(),
-      remoteUrl: config.remoteUrl || null,
-    }),
+    res.json(await workspaceStateOf(services).read({ fresh: true })),
   );
   router.get("/sandbox-profiles", async (_req, res) => {
     const executable = nonoSandbox.executable();
