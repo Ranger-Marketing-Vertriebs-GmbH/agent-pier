@@ -118,7 +118,9 @@ the AgentPier data directory or an ancestor of it, or anything inside the data
 directory. These folders are compared by device and inode as well, so another case
 or the macOS firmlink `/System/Volumes/Data` (the data volume's root counts as `/`)
 gets no broader grant, and a mount's root on the device that holds the home or the
-data directory counts as too broad. If the home or the data directory cannot be
+data directory counts as too broad. So a working directory that is a bind mount
+from the same disk as the home folder or the data directory counts as too broad
+(`MCP_CWD_TOO_BROAD`). If the home or the data directory cannot be
 identified, no working directory and no read grant is declared. Such a server gets the code `MCP_CWD_TOO_BROAD` as a warning and may fail
 under nono. A server whose name the owner's own entry holds, whose entry the owner
 edited, or that could not be written (for example _layout_ or an unreadable file) gets
