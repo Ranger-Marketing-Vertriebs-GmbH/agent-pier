@@ -1,10 +1,10 @@
 import {
   memoryEnabled,
   personalShell,
-  personalSkills,
   profileTools,
   senderLockedTools,
 } from "../native-capabilities.js";
+import { compiledSkillNames } from "../built-in-skills.js";
 import { agentExec } from "./shell.js";
 import { lockedEntry } from "../../users/user-agent-lock.js";
 
@@ -54,11 +54,14 @@ export function agentEntry(
       ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
       ...(exec && { exec }),
     };
-  // The agent's final skill list (agents.defaults.skills is []): only the bundled and
-  // catalog skills the owner switched on, and only once native tools are ready.
+  // The agent's final skill list (agents.defaults.skills is []): the bundled and
+  // catalog skills the owner switched on, plus AgentPier's built-in skills for eligible
+  // agents (built-in-skills.js), and only once native tools are ready.
   if (toolsManaged) {
     const skills = nativeReady
-      ? personalSkills(assistant).filter((name) => !shadowedSkills.includes(name))
+      ? compiledSkillNames(assistant, { senderFacing }).filter(
+          (name) => !shadowedSkills.includes(name),
+        )
       : [];
     if (skills.length) next.skills = skills;
     else delete next.skills;
