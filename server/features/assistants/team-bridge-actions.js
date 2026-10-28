@@ -40,6 +40,8 @@ export const actions = new Set([
   "coding_session",
   // The agent's email accounts (mail/agent-mail.js).
   "mail",
+  // The agent's own projects (agent-projects.js); owner turns only.
+  "project",
   ...memberActions,
 ]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
@@ -55,6 +57,7 @@ export const bridgeTool = (action) =>
     "ssh_access",
     "coding_session",
     "mail",
+    "project",
   ].includes(action)
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;

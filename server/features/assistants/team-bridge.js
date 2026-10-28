@@ -482,6 +482,8 @@ export class TeamBridge {
         return this.assistants.workflows.sessions.invoke(invocation, input);
       if (action === "mail")
         return this.assistants.workflows.mail.invoke(invocation, input);
+      if (action === "project")
+        return this.assistants.workflows.projects.invoke(invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
       if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"

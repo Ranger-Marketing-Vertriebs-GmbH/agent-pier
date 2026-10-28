@@ -40,6 +40,7 @@ import {
 import { advanceSshProposal, decideSshProposal } from "./agent-ssh-proposals.js";
 import { emitCompletion } from "./coding-completion.js";
 import { AgentCodingSessions } from "./coding-sessions/agent-coding-sessions.js";
+import { AgentProjects } from "./agent-projects.js";
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
 export class AssistantWorkflows {
@@ -63,6 +64,7 @@ export class AssistantWorkflows {
     this.github = new AgentGithub(this);
     // The agent's own coding sessions (agentpier_coding_session).
     this.sessions = new AgentCodingSessions(this);
+    this.projects = new AgentProjects(this); // agentpier_project
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
