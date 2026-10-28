@@ -16,8 +16,16 @@ export const mailCopy = {
   passwordKeep: "Leer lassen, um das gespeicherte Passwort zu behalten.",
   passwordAgain:
     "Gib das Passwort erneut ein: Ein gespeichertes Passwort gilt nur für die Server, für die es gespeichert wurde.",
-  gmailHint:
-    "Gmail braucht ein App-Passwort: Schalte die Bestätigung in zwei Schritten für dein Google-Konto ein, öffne myaccount.google.com/apppasswords, erstelle ein App-Passwort für AgentPier und füge seine 16 Zeichen hier ein. IMAP ist standardmäßig aktiv.",
+  gmailSteps: {
+    title: "Gmail in drei Schritten einrichten",
+    twoStep: "Schalte die Bestätigung in zwei Schritten für deinen Google-Zugang ein.",
+    twoStepLink: "Bestätigung in zwei Schritten öffnen",
+    create: "Erstelle ein App-Passwort mit dem Namen AgentPier und kopiere es.",
+    createLink: "App-Passwörter öffnen",
+    paste:
+      "Füge es unten bei App-Passwort ein; Leerzeichen werden entfernt. Wähle danach Verbindung testen.",
+  },
+  appPasswordLength: "Gmail-App-Passwörter haben 16 Buchstaben.",
   imap: "IMAP",
   smtp: "SMTP",
   server: { imap: "IMAP-Server", smtp: "SMTP-Server" },

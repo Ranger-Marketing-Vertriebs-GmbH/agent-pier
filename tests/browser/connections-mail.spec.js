@@ -8,6 +8,7 @@ import { connectionsFixture } from "./connections-fixture.js";
 
 const accountId = "6c1f5a0e-0000-4000-8000-000000000001";
 const password = "abcd efgh ijkl mnop";
+const stripped = "abcdefghijklmnop";
 
 const savedAccount = (extra = {}) => ({
   id: accountId,
@@ -91,7 +92,9 @@ test("an empty category adds a Gmail account with its hint and a connection test
   await dialog.getByRole("radio", { name: "Gmail" }).check();
   await expect(dialog.getByLabel("IMAP server")).toHaveValue("imap.gmail.com");
   await expect(dialog.getByLabel("SMTP server")).toHaveValue("smtp.gmail.com");
-  await expect(dialog).toContainText("Gmail needs an app password");
+  await expect(
+    dialog.getByRole("heading", { name: "Set up Gmail in three steps" }),
+  ).toBeVisible();
   await dialog.getByLabel("Name", { exact: true }).fill("Inbox");
   await dialog.getByLabel("Email address").fill("me@gmail.com");
   await dialog.getByLabel("App password").fill(password);
@@ -102,7 +105,7 @@ test("an empty category adds a Gmail account with its hint and a connection test
   expect(tested.body).toMatchObject({
     preset: "gmail",
     address: "me@gmail.com",
-    password,
+    password: stripped,
     imap: { host: "imap.gmail.com", port: 993, security: "tls" },
     smtp: { host: "smtp.gmail.com", port: 465, security: "tls" },
     saveSent: false,
@@ -112,8 +115,55 @@ test("an empty category adds a Gmail account with its hint and a connection test
   const created = state.mailCalls.find(
     (call) => call.method === "POST" && call.path === "/api/mail/accounts",
   );
-  expect(created.body.password).toBe(password);
+  expect(created.body.password).toBe(stripped);
   await expect(page.getByText(password)).toHaveCount(0);
+});
+
+test("the Gmail preset guides through the app password", async ({ page }) => {
+  const state = await mailFixture(page);
+  await page.goto(baseURL + "/connections?section=mail");
+  await page.getByRole("button", { name: "Add email account" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Add email account" });
+  await expect(
+    dialog.getByRole("heading", { name: "Set up Gmail in three steps" }),
+  ).toHaveCount(0);
+  await dialog.getByRole("radio", { name: "Gmail" }).check();
+  const guide = dialog.getByRole("region", { name: "Set up Gmail in three steps" });
+  await expect(guide.getByRole("listitem")).toHaveCount(3);
+  await expect(guide.getByRole("listitem").nth(0)).toContainText(
+    "Turn on 2-Step Verification for your Google account.",
+  );
+  await expect(guide.getByRole("listitem").nth(1)).toContainText(
+    "Create an app password named AgentPier and copy it.",
+  );
+  await expect(guide.getByRole("listitem").nth(2)).toContainText(
+    "Paste it into App password below; spaces are removed. Then choose Test connection.",
+  );
+  for (const [name, href] of [
+    ["Open 2-Step Verification", "https://myaccount.google.com/signinoptions/twosv"],
+    ["Open app passwords", "https://myaccount.google.com/apppasswords"],
+  ]) {
+    const link = guide.getByRole("link", { name });
+    await expect(link).toHaveAttribute("href", href);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noreferrer");
+  }
+  await dialog.getByLabel("Name", { exact: true }).fill("Inbox");
+  await dialog.getByLabel("Email address").fill("me@gmail.com");
+  const field = dialog.getByLabel("App password");
+  const hint = dialog.getByText("Gmail app passwords have 16 letters.");
+  await expect(hint).toHaveCount(0);
+  await field.fill("abc");
+  await expect(hint).toBeVisible();
+  if (process.env.GMAIL_GUIDE_SHOT)
+    await page.screenshot({ path: process.env.GMAIL_GUIDE_SHOT });
+  await field.fill(password);
+  await expect(field).toHaveValue(stripped);
+  await expect(hint).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Test connection" }).click();
+  await expect(dialog).toContainText("IMAP: signed in");
+  const tested = state.mailCalls.find((call) => call.path === "/api/mail/test");
+  expect(tested.body.password).toBe(stripped);
 });
 
 test("an unencrypted server can be saved only with the owner's consent", async ({
