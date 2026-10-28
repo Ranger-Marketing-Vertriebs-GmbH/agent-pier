@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
+import { followSignal, startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
 import { apiCopy } from "../../web/lib/i18n/messages/components.js";
 import { fakeEnv, settle } from "../helpers/fake-browser.js";
 
@@ -225,4 +225,53 @@ test("stop unsubscribes and ends polling", async () => {
   assert.equal(s.client.subscriptions[0].active, false);
   await s.fake.advance(60000);
   assert.equal(s.reads.length, 1);
+});
+
+test("a refused topic stops polling once data or a connection comes back", async (t) => {
+  for (const back of [
+    { type: "data", data: { n: 1 }, revision: 1 },
+    { type: "status", connected: true, fallback: false },
+  ]) {
+    const s = setup("inbox");
+    t.after(s.reader.stop);
+    s.client.emit({ type: "status", connected: true, fallback: false });
+    s.client.emit({ type: "error", code: "unknown-topic" });
+    await settle();
+    assert.equal(s.reads.length, 1);
+    s.client.emit({ type: "status", connected: false, fallback: false });
+    s.client.emit(back);
+    await s.fake.advance(30000);
+    assert.equal(s.reads.length, 1);
+  }
+});
+
+test("a topic without a REST route stops loading when it is refused or fails", async (t) => {
+  for (const event of [
+    { type: "error", code: "unknown-topic" },
+    { type: "revoked" },
+    { type: "error" },
+    { type: "stale" },
+  ]) {
+    const s = setup("custom.topic");
+    t.after(s.reader.stop);
+    s.client.emit(event);
+    await settle();
+    assert.deepEqual(s.reads, []);
+    assert.equal(s.last().loading, false);
+  }
+});
+
+test("followSignal counts changed frames only", (t) => {
+  const client = fakeClient();
+  let count = 0;
+  const stop = followSignal(client, "pipeline.counts", () => (count += 1));
+  t.after(stop);
+  client.emit({ type: "changed" });
+  client.emit({ type: "data", data: 1, revision: 1 });
+  client.emit({ type: "status", connected: true, fallback: false });
+  client.emit({ type: "changed" });
+  assert.equal(count, 2);
+  stop();
+  client.emit({ type: "changed" });
+  assert.equal(count, 2);
 });

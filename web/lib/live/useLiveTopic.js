@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api.js";
 import { liveClient } from "./live-client.js";
-import { startLiveTopic } from "./live-topic-reader.js";
+import { followSignal, startLiveTopic } from "./live-topic-reader.js";
 
 const restRead = (path, signal) => api(path, "GET", undefined, signal);
 const idle = { data: null, error: "", loading: false, connected: false };
@@ -49,9 +49,7 @@ export function useLiveSignal(topicId) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!topicId) return;
-    return liveClient().subscribe(topicId, (event) => {
-      if (event.type === "changed") setCount((value) => value + 1);
-    });
+    return followSignal(liveClient(), topicId, () => setCount((value) => value + 1));
   }, [topicId]);
   return count;
 }

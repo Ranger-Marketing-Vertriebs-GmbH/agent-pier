@@ -17,6 +17,10 @@ export const hiddenCloseMs = 300000;
 export const liveAuthCheckEvent = "agentpier-live-auth-check";
 
 const pingMs = 25000;
+// A connection counts as working, and the backoff starts over, only after it stayed
+// open this long: a server that sends hello and closes at once (1008, 1009, 1013)
+// must not be reconnected every half second.
+const stableMs = 10000;
 const firstDelayMs = 500;
 const maxDelayMs = 30000;
 const OPEN = 1;
@@ -39,7 +43,7 @@ export class LiveClient {
     this.suspended = false;
     this.closed = false;
     this.lastHeard = 0;
-    this.timers = { retry: null, ping: null, hidden: null };
+    this.timers = { retry: null, ping: null, hidden: null, stable: null };
     this.shown = { connected: false, fallback: false };
     const { document, window } = env;
     this.handlers = [
@@ -62,14 +66,17 @@ export class LiveClient {
   /** Listens to `topicId`; the returned function ends this listener. */
   subscribe(topicId, listener, { sampled = false } = {}) {
     if (this.closed) return () => {};
+    const info = topicInfo(topicId);
     let entry = this.topics.get(topicId);
     if (!entry) {
-      const info = topicInfo(topicId);
       entry = {
         id: topicId,
         mode: info?.mode || "state",
         records: new Set(),
         held: null,
+        // The last stale or refusal frame while no data is held, replayed to later
+        // listeners so they read over REST or fall back instead of waiting.
+        condition: null,
         rows: null,
         have: null,
         live: false,
@@ -77,11 +84,13 @@ export class LiveClient {
       };
       this.topics.set(topicId, entry);
     }
-    const record = { listener, sampled };
+    const record = { listener, sampled: sampled || Boolean(info?.sampled) };
     entry.records.add(record);
     if (entry.held) this.call(record, { type: "data", ...entry.held });
+    else if (entry.condition) this.call(record, entry.condition);
     if (this.socket) this.sync();
-    else this.connect();
+    // During an outage the pending retry keeps its backoff.
+    else if (this.timers.retry === null) this.connect();
     return () => {
       if (!entry.records.delete(record) || this.topics.get(topicId) !== entry) return;
       if (entry.records.size) return this.sync();
@@ -151,6 +160,7 @@ export class LiveClient {
     this.connected = false;
     this.clear("ping");
     this.clear("hidden");
+    this.clear("stable");
     for (const entry of this.topics.values()) entry.live = false;
     if (socket) socket.onmessage = socket.onclose = socket.onerror = null;
     return socket;
@@ -296,9 +306,15 @@ export class LiveClient {
     this.connected = true;
     this.instance = frame.instance;
     this.failures = 0;
-    this.attempt = 0;
     this.fallback = false;
-    for (const entry of this.topics.values()) entry.refused = false;
+    this.timers.stable = this.env.setTimeout(() => {
+      this.timers.stable = null;
+      this.attempt = 0;
+    }, stableMs);
+    for (const entry of this.topics.values()) {
+      if (entry.refused) entry.condition = null;
+      entry.refused = false;
+    }
     this.publishStatus();
     this.ping();
     this.sync();
@@ -316,19 +332,21 @@ export class LiveClient {
       this.emit(entry, { type: "changed" });
     } else if (type === "stale") {
       // The pushed value is not coming; useLiveTopic reads it over REST.
-      entry.rows = entry.have = null;
-      this.emit(entry, { type: "stale" });
+      entry.rows = entry.have = entry.held = null;
+      this.condition(entry, { type: "stale" });
     } else if (type === "revoked") {
       entry.live = false;
       entry.refused = true;
-      this.emit(entry, { type: "revoked" });
+      entry.held = null;
+      this.condition(entry, { type: "revoked" });
     } else if (type === "error") {
       if (frame.code) {
         // The server holds an unknown topic's slot until the client lets go.
         entry.live = false;
         entry.refused = true;
+        entry.held = null;
         if (frame.code === "unknown-topic") this.send({ op: "unsub", topic: entry.id });
-        return this.emit(entry, { type: "error", code: frame.code });
+        return this.condition(entry, { type: "error", code: frame.code });
       }
       this.emit(entry, { type: "error" });
     }
@@ -353,7 +371,13 @@ export class LiveClient {
       data = frame.data;
     }
     entry.held = { data, revision: frame.revision };
+    entry.condition = null;
     this.emit(entry, { type: "data", ...entry.held });
+  }
+
+  condition(entry, event) {
+    entry.condition = event;
+    this.emit(entry, event);
   }
 
   emit(entry, event) {

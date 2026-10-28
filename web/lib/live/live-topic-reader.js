@@ -106,18 +106,32 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
       }
     } else if (pending) fetchOnce();
   };
+  // Without a REST route nothing more can come: stop showing the topic as loading.
+  const unreadable = () => {
+    if (!path && state.loading) publish({ loading: false });
+  };
   const listener = (event) => {
     if (event.type === "data") {
       version += 1;
+      refused = false;
       publish({ data: event.data, error: "", loading: false });
+      polling();
     } else if (event.type === "status") {
+      // A new connection subscribes refused topics again; a new refusal follows.
+      if (event.connected) refused = false;
       publish({ connected: event.connected });
       polling();
-    } else if (event.type === "stale" || event.type === "changed") fetchOnce();
-    else if (event.type === "revoked" || (event.type === "error" && event.code)) {
+    } else if (event.type === "stale" || event.type === "changed") {
+      fetchOnce();
+      unreadable();
+    } else if (event.type === "revoked" || (event.type === "error" && event.code)) {
       refused = true;
       polling();
-    } else if (event.type === "error" && state.data === null) fetchOnce();
+      unreadable();
+    } else if (event.type === "error" && state.data === null) {
+      fetchOnce();
+      unreadable();
+    }
   };
   document.addEventListener("visibilitychange", visibility);
   const unsubscribe = client.subscribe(topicId, listener, {
@@ -126,6 +140,11 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
   publish({ connected: client.status().connected });
   polling();
   return {
+    // Resolves with what the REST route answered, even when a push that arrived
+    // during the read is newer (then the state keeps the push, and the caller gets
+    // the older answer it asked for). Resolves null when the read failed (its error
+    // is in the state), the tab is hidden (the read runs once it is visible) or the
+    // topic has no REST route; it never rejects, so no caller waits on a failure.
     refresh: () => fetchOnce().then((data) => data ?? null),
     stop() {
       stopped = true;
@@ -135,4 +154,11 @@ export function startLiveTopic({ topicId, client, read, report, env = {} }) {
       document.removeEventListener("visibilitychange", visibility);
     },
   };
+}
+
+/** Calls `onChange` for each `changed` frame of `topicId`; returns the stop function. */
+export function followSignal(client, topicId, onChange) {
+  return client.subscribe(topicId, (event) => {
+    if (event.type === "changed") onChange();
+  });
 }
