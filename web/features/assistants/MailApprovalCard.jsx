@@ -3,6 +3,7 @@ import { formatTimestamp } from "../../lib/i18n/index.js";
 import { assistantMailCopy } from "../../lib/i18n/messages/assistant-mail.js";
 import useAssistants from "./useAssistants.js";
 import SshCommandText from "./SshCommandText.jsx";
+import MailCardAttachments from "./MailCardAttachments.jsx";
 import { bodyLines, mailHasHidden, splitRecipient } from "./mail-card-text.js";
 import "./exec-approval-card.css";
 import "./ssh-approval-card.css";
@@ -31,8 +32,8 @@ function Address({ address, name }) {
 
 /**
  * An agent's email waiting for the owner (Send / Don't send), sending, or its final
- * state. It shows every to, cc and bcc recipient by address, the sender, the subject
- * and the whole body; only these buttons, or the Telegram ones, send it.
+ * state. It shows every to, cc and bcc recipient by address, the sender, the subject,
+ * the forwarded original, every attachment (MailCardAttachments) and the whole body; only these buttons, or the Telegram ones, send it.
  */
 export default function MailApprovalCard({ action, decide }) {
   const card = assistantMailCopy.card;
@@ -104,8 +105,33 @@ export default function MailApprovalCard({ action, decide }) {
         <dd data-field="subject">
           {p.subject ? <SshCommandText command={p.subject} /> : card.noSubject}
         </dd>
+        {p.forward && (
+          <>
+            <dt>{card.forwardOf}</dt>
+            <dd data-field="forward">
+              <Address
+                address={p.forward.from?.address ?? ""}
+                name={p.forward.from?.name ?? ""}
+              />
+              <br />
+              {p.forward.subject ? (
+                <SshCommandText command={p.forward.subject} />
+              ) : (
+                card.noSubject
+              )}
+              {p.forward.date && <> · {formatTimestamp(p.forward.date)}</>}
+            </dd>
+          </>
+        )}
       </dl>
       {mailHasHidden(p) && <p className="ssh-approval-warning">{card.hidden}</p>}
+      <MailCardAttachments attachments={p.attachments} />
+      {(p.html || p.forward?.htmlIncluded) && (
+        <p className="assistant-note">{card.htmlKept}</p>
+      )}
+      {!p.html && !p.forward?.htmlIncluded && p.forward?.htmlOmitted && (
+        <p className="assistant-note">{card.htmlOmitted}</p>
+      )}
       <pre
         className={`exec-approval-command mail-approval-body${expanded ? "" : " clamped"}`}
         tabIndex={0}

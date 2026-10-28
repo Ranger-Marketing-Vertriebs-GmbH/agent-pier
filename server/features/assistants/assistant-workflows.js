@@ -113,6 +113,11 @@ export class AssistantWorkflows {
       // `{ kind: "paths", paths }` or `{ kind: "once", reason, program? }`.
       projected.allowAlwaysPlan = execPlan(a.payload);
     } else if (a.payload?.action === "exec") projected.allowAlwaysByAgentPier = false;
+    // A mail card's file access context is for the approval's re-check only.
+    if (a.payload?.action === "mail_send" && "files" in a.payload) {
+      const { files: _files, ...payload } = a.payload;
+      projected.payload = payload;
+    }
     return projected;
   }
   // `delegated` adds members' requests still waiting in turns this agent delegated,

@@ -87,3 +87,20 @@
   max-height: 20em;
   overflow-y: hidden;
 }
+/* An agent's email attachments: one row each; names, paths and the hash wrap. */
+.mail-approval-attachments ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mail-approval-attachments li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mail-approval-hash {
+  word-break: break-all;
+}

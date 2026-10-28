@@ -35,6 +35,7 @@ export const inboxCopy = {
     hook_proposal: "Hook proposal",
     ssh_access: "SSH access proposal",
     mail_send: "Email to send",
+    mail_forward: "Email to forward",
     gate: "Stage approval",
     decision: "Stage decision",
     claudeFolderTrust: "Trust workspace",
@@ -48,6 +49,11 @@ export const inboxCopy = {
   agentSession: (name) => `Session of agent ${name}`,
   requestedBy: (name) => `Requested by ${name}`,
   members: (count) => (count === 1 ? "1 member" : `${count} members`),
+  attachmentCount: (count) => (count === 1 ? "1 attachment" : `${count} attachments`),
+  mailHtml: {
+    kept: "with the original's HTML version",
+    omitted: "without the original's HTML version",
+  },
   done: {
     title: "Already done",
     answered: "Answered",

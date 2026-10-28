@@ -12,9 +12,21 @@ const icons = {
 };
 export const itemIcon = (item) => icons[item.type] || "inbox";
 
-/** What waits, in words: the specific kind where one is known, else the type. */
+/**
+ * What waits, in words: the specific kind where one is known, else the type. An email
+ * names a forward, its attachments and whether the original's HTML version goes
+ * along, e.g. "Email to forward · 2 attachments".
+ */
 export function kindLabel(item) {
-  return copy.kinds[item.kind] || copy.types[item.type] || "";
+  const mail = item.kind === "mail_send" ? item.mail : null;
+  if (!mail) return copy.kinds[item.kind] || copy.types[item.type] || "";
+  return [
+    mail.forward ? copy.kinds.mail_forward : copy.kinds.mail_send,
+    mail.attachments > 0 && copy.attachmentCount(mail.attachments),
+    mail.html && copy.mailHtml[mail.html],
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** The row's first line: the item's own title, or what kind of decision it is. */

@@ -1,12 +1,14 @@
 import addressparser from "nodemailer/lib/addressparser";
 import { serverCatalogs } from "../../../lib/i18n/catalogs.js";
+import { formatBytes } from "../../operations/backup-components.js";
 import { actionPath, fenced } from "../action-text.js";
 import { hiddenCharacterSource } from "../agent-ssh-text.js";
 import { mailTelegramApprovable } from "./agent-mail-send-input.js";
 
 // The Telegram text of an agent's mail card (mail/agent-mail-sends.js): every
 // recipient by its addr-spec, the sender, the subject and, when Telegram may decide
-// it, the whole body; the result names the state, never the body.
+// it, the whole body, with the forwarded original and every attachment by path, name,
+// size, type and hash; the result names the state, never the body or a file.
 
 /** The owner's mail copy for a channel, in the language stored on it. */
 export const mailMessages = (channel) =>
@@ -41,6 +43,55 @@ function header(p, m) {
     for (const entry of p[key] ?? []) lines.push(`${f[key]}: ${recipientText(entry)}`);
   lines.push(`${f.subject}: ${visible(p.subject)}`);
   return fenced(lines.join("\n"));
+}
+
+const pathLimit = 120;
+// A path over pathLimit code points keeps its start and end around "…".
+function shortPath(path) {
+  const chars = Array.from(String(path ?? ""));
+  if (chars.length <= pathLimit) return chars.join("");
+  const head = Math.floor((pathLimit - 1) / 2);
+  const tail = pathLimit - 1 - head;
+  return [...chars.slice(0, head), "…", ...chars.slice(-tail)].join("");
+}
+
+function sourceText(source, f) {
+  if (source?.kind === "original") return f.fromOriginal;
+  if (!source?.path) return f.inDraft;
+  const path = visible(shortPath(source.path));
+  return source.kind === "project" && source.projectName
+    ? `${path} (${visible(source.projectName)})`
+    : path;
+}
+
+/**
+ * The forwarded original and every attachment, one line each, in one fenced block;
+ * then whether the original's HTML version goes along. Empty for a plain mail.
+ */
+function attachmentsText(p, m) {
+  const f = m.mailFields;
+  const lines = [];
+  if (p.forward) {
+    const { from, subject, date } = p.forward;
+    const sender = from?.name ? `${from.address} ("${from.name}")` : from?.address;
+    lines.push(
+      `${f.forwardOf}: ${[visible(sender), visible(subject), date].filter(Boolean).join(" · ")}`,
+    );
+  }
+  for (const a of p.attachments ?? [])
+    lines.push(
+      `${f.attachment}: ${[
+        sourceText(a.source, f),
+        a.name ? visible(a.name) : f.unnamed,
+        formatBytes(a.size || 0),
+        visible(a.type),
+        `sha256 ${a.sha256}`,
+      ].join(" · ")}`,
+    );
+  const notes = [];
+  if (p.html || p.forward?.htmlIncluded) notes.push(m.mailHtmlKept);
+  else if (p.forward?.htmlOmitted) notes.push(m.mailHtmlOmitted);
+  return [...(lines.length ? [fenced(lines.join("\n"))] : []), ...notes];
 }
 
 function facts(w, action, m) {
@@ -81,6 +132,7 @@ export function notifyMail(w, action, phase, key, m, target) {
           m.mailApproval,
           facts(w, action, m),
           header(p, m),
+          ...attachmentsText(p, m),
           approvable ? fenced(String(p.body ?? "")) : m.mailOpenToApprove,
         ].join("\n\n")
       : [outcome(action, m), facts(w, action, m), header(p, m)].join("\n\n");

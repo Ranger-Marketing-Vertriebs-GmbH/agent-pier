@@ -145,6 +145,27 @@ const actionTitle = (a) => {
   return "";
 };
 
+/**
+ * What an email card carries besides its text: how many attachments, whether it
+ * forwards a mail and whether the original's HTML version goes along ("kept") or was
+ * left out ("omitted").
+ */
+function mailFacts(p) {
+  if (p?.action !== "mail_send") return {};
+  return {
+    mail: {
+      attachments: Array.isArray(p.attachments) ? p.attachments.length : 0,
+      forward: Boolean(p.forward),
+      html:
+        p.html || p.forward?.htmlIncluded
+          ? "kept"
+          : p.forward?.htmlOmitted
+            ? "omitted"
+            : null,
+    },
+  };
+}
+
 /** An agent action awaiting approval: shell and SSH commands, coding, memory, grants. */
 export function actionItem(action, agents, conversations) {
   const agent = agents.get(action.assistantId);
@@ -157,6 +178,7 @@ export function actionItem(action, agents, conversations) {
     ...(action.teamId ? { teamId: action.teamId } : {}),
     ...(action.memberName ? { memberName: text(action.memberName) } : {}),
     title: actionTitle(action),
+    ...mailFacts(action.payload),
     createdAt: action.createdAt,
     expiresAt: action.expiresAt,
     link: chatLink(action.assistantId, action.conversationId, conversations),
