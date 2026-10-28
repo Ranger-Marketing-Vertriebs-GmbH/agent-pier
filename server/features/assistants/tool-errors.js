@@ -264,7 +264,23 @@ const reasons = {
   MAIL_DRAFT_UNSUPPORTED:
     "This draft cannot be sent by you: it has no plain-text part or more than 1 MiB of text. Save a new plain-text draft with action draft, or tell the owner.",
   MAIL_QUERY_EMPTY:
-    "A search needs at least one criterion in query (from, to, subject, text, body, attachment, since, unseen or hasAttachment).",
+    "A search needs at least one criterion in query (from, to, subject, text, body, attachment, attachmentText, since, unseen or hasAttachment).",
+  MAIL_ATTACHMENT_TOO_LARGE:
+    "The attachments are larger than 25 MB, so nothing was saved or sent. Do not retry unchanged; attach fewer or smaller files, or tell the owner.",
+  MAIL_DRAFT_CHANGED:
+    "The draft changed in the mailbox after it was captured, so nothing was sent and the draft was kept. Do not retry the same send; read the draft again and send it anew, or tell the owner.",
+  MAIL_TEXT_UNSUPPORTED:
+    "No text can be read from this attachment type; only PDF, DOCX, XLSX, PPTX, text and CSV are read. Do not retry; save it with mode save if you need the file, or tell the owner.",
+  MAIL_TEXT_FAILED:
+    "The text of this attachment could not be read: it is damaged, encrypted or too complex. Do not retry; save it with mode save if you need the file, or tell the owner.",
+  MAIL_SOURCE_REFUSED:
+    "You may not attach this file: it is outside your workspace and granted project folders, or it is a link, inside .git or AgentPier's data. Do not retry; copy the file into your workspace with your own tools only if you may, or tell the owner.",
+  MAIL_SOURCE_NOT_FOUND:
+    "No such file to attach. Check the path (relative to your workspace, or to the project with projectId) and try again with an existing file.",
+  MAIL_SOURCE_EMPTY:
+    "This file is empty or not a regular file, so it cannot be attached. Do not retry; attach the file that holds the content, or tell the owner.",
+  MAIL_SAVE_REFUSED:
+    "You may not save the attachment there: only under mail/ in your workspace or in a project folder you may write to, never in instruction, skill, .git or AgentPier folders. Do not retry the same place; save without projectId and path, or tell the owner.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -382,6 +398,14 @@ const byKey = {
   mailSearchUnsupported: "MAIL_SEARCH_UNSUPPORTED",
   mailMoveUnsupported: "MAIL_MOVE_UNSUPPORTED",
   mailDraftUnsupported: "MAIL_DRAFT_UNSUPPORTED",
+  mailAttachmentTooLarge: "MAIL_ATTACHMENT_TOO_LARGE",
+  mailDraftChanged: "MAIL_DRAFT_CHANGED",
+  mailTextUnsupported: "MAIL_TEXT_UNSUPPORTED",
+  mailTextFailed: "MAIL_TEXT_FAILED",
+  mailSourceRefused: "MAIL_SOURCE_REFUSED",
+  mailSourceNotFound: "MAIL_SOURCE_NOT_FOUND",
+  mailSourceEmpty: "MAIL_SOURCE_EMPTY",
+  mailSaveRefused: "MAIL_SAVE_REFUSED",
   notFound: "NOT_FOUND",
   conflict: "CONFLICT",
   active: "BUSY",

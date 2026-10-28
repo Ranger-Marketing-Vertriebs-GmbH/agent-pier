@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  mailActions,
   mailOrigin,
   mailPermits,
 } from "../../server/features/assistants/mail/agent-mail-origin.js";
@@ -75,4 +76,21 @@ test("send without a rule asks, with read level refuses", () => {
   // Unknown levels and classes refuse.
   assert.equal(mailPermits("admin", "owner", "list", true), "refuse");
   assert.equal(mailPermits("send", "delegated", "list", true), "refuse");
+});
+
+test("forward needs the send level like send", () => {
+  assert.equal(mailPermits("read", "owner", "forward", true), "refuse");
+  assert.equal(mailPermits("send", "owner", "forward", false), "card");
+  assert.equal(mailPermits("send", "routine", "forward", true), "run");
+  assert.equal(mailPermits("read", "hook", "attachment", false), "run");
+  assert.equal(mailPermits("send", "refused", "forward", true), "refuse");
+  for (const cls of ["owner", "routine", "hook"])
+    for (const ruled of [true, false])
+      assert.equal(
+        mailPermits("send", cls, "forward", ruled),
+        mailPermits("send", cls, "send", ruled),
+        `${cls} ${ruled}`,
+      );
+  assert.ok(mailActions.includes("attachment"));
+  assert.ok(mailActions.includes("forward"));
 });

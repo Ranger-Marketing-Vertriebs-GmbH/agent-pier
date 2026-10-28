@@ -23,6 +23,10 @@ const errorKeys = Object.freeze({
   MAIL_ATTACHMENTS_UNSUPPORTED: "mailAttachmentsUnsupported",
   MAIL_MOVE_UNSUPPORTED: "mailMoveUnsupported",
   MAIL_DRAFT_UNSUPPORTED: "mailDraftUnsupported",
+  MAIL_ATTACHMENT_TOO_LARGE: "mailAttachmentTooLarge",
+  MAIL_DRAFT_CHANGED: "mailDraftChanged",
+  MAIL_TEXT_UNSUPPORTED: "mailTextUnsupported",
+  MAIL_TEXT_FAILED: "mailTextFailed",
 });
 
 const unreachableCodes = new Set([

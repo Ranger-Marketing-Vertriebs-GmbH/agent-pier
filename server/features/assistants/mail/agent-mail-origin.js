@@ -10,6 +10,8 @@ export const mailActions = [
   "draft",
   "send",
   "delete",
+  "attachment",
+  "forward",
 ];
 const levels = ["read", "send"];
 
@@ -44,14 +46,14 @@ export function mailOrigin({
 
 /**
  * `run`, `card` for the owner's approval, or `refuse`. Every class that is not
- * refused may list, read, search, mark, move, draft and delete (to Trash); `send`
- * needs the `send` level and goes out at once only when every recipient matches the
- * account's rules (`ruleMatched`).
+ * refused may list, read, search, mark, move, draft, delete (to Trash) and handle an
+ * attachment; `send` and `forward` need the `send` level and go out at once only when
+ * every recipient matches the account's rules (`ruleMatched`).
  */
 export function mailPermits(level, cls, action, ruleMatched) {
   if (!levels.includes(level) || !["owner", "routine", "hook"].includes(cls))
     return "refuse";
-  if (action !== "send") return "run";
+  if (action !== "send" && action !== "forward") return "run";
   if (level !== "send") return "refuse";
   return ruleMatched === true ? "run" : "card";
 }

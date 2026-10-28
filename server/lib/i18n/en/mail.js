@@ -41,6 +41,19 @@ export const mail = Object.freeze({
     "An agent can only send a draft with plain text of at most 1 MiB; HTML parts are not sent.",
   mailMoveUnsupported:
     "The mail server does not support moving messages, so nothing was moved or deleted.",
+  mailAttachmentTooLarge:
+    "The attachments are larger than 25 MB, so nothing was saved or sent.",
+  mailDraftChanged:
+    "The draft changed in the mailbox after it was captured, so nothing was sent. The draft is kept.",
+  mailTextUnsupported:
+    "Text can only be read from PDF, Word, Excel, PowerPoint, text and CSV attachments.",
+  mailTextFailed:
+    "The attachment's text could not be read: the file is damaged, encrypted or too complex.",
+  mailSourceRefused: "The agent may not attach or save this file.",
+  mailSourceNotFound: "The file to attach was not found.",
+  mailSourceEmpty: "The file to attach is empty or not a regular file.",
+  mailSaveRefused:
+    "The agent may not save the attachment there. It may only save under mail/ in its workspace or in a project folder it may write to.",
   mailApproval: "Your agent wants to send an email:",
   mailSend: "Send",
   mailDecline: "Don't send",

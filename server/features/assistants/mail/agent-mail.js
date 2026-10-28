@@ -151,6 +151,8 @@ export class AgentMail {
           gate,
           input,
         );
+      // attachment and forward have no handler yet: never let them reach send.
+      if (input.action !== "send") throw assistantProblem("invalid");
       return this.sends.send(inv, gate.caller, gate.cls, gate.grant, gate.account, input);
     });
   }

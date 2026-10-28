@@ -52,6 +52,8 @@ export function readingInput(input) {
   if (Object.values(query).some((v) => typeof v === "string" && controls.test(v)))
     throw invalid();
   if (query.since !== undefined && !validDay(query.since)) throw invalid();
+  // Until the attachment text search exists, refuse it rather than widen the search.
+  if (query.attachmentText !== undefined) throw invalid();
   return { action: "search", folder, limit, query };
 }
 
