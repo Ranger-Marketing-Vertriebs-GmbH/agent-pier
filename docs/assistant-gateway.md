@@ -3029,8 +3029,10 @@ images** (`documents`) with its own permanent members, without the owner
   files, `routineContext` re-reads the binding on every step): the agent's own
   `projectFiles` and its lead's standing shares, never a task's share. Reads always;
   `file_write` and `file_edit` only with the owner's **May write** on that routine
-  (`routineWrites`), else `ROUTINE_READ_ONLY`, and audited with
-  `origin: "routine"` and `routineId`. Coding and project-knowledge requests from a
+  (`routineWrites`), else `ROUTINE_READ_ONLY` (not a failed run; the run's
+  result carries the note `writes_refused`, and folders report `access: "read"`
+  while **May write** is off), and audited with `origin: "routine"` and
+  `routineId`. Coding and project-knowledge requests from a
   run always wait for the owner in the agent's main chat (`routineId` on the action,
   never auto-approved); `coding_cancel` is refused.
 - **Coding.** A coding request on a shared project is stored on the member with

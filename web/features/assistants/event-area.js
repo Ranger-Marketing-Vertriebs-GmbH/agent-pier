@@ -33,11 +33,15 @@ export function eventAreaView(events, seenAt) {
   };
 }
 
-/** Machine notes of a run (`ssh_refused`, `mail_refused`) the owner can read. */
+/**
+ * Machine notes of a run (`ssh_refused`, `mail_refused`, `writes_refused`) the owner
+ * can read.
+ */
 export const noteTexts = (notes = []) =>
   [
     notes.includes("ssh_refused") && routineCopy.sshRefused,
     notes.includes("mail_refused") && routineCopy.mailRefused,
+    notes.includes("writes_refused") && routineCopy.writesRefused,
   ].filter(Boolean);
 
 /**

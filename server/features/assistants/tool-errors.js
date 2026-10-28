@@ -133,7 +133,7 @@ const reasons = {
   ROUTINE_WRITES_OWNER_ONLY:
     "'May write' cannot be switched with your routine tool in this chat. Do not retry; ask the owner to switch 'May write' for this routine in the agent settings. The routine still runs and only reads.",
   ROUTINE_READ_ONLY:
-    "This routine may only read project folders: the owner has not allowed it to write. Do not retry; say in the routine's result which change you would make, so the owner can switch on 'May write' for this routine or make it.",
+    "This routine may only read project folders because 'May write' is off for it, so AgentPier refused the change. This is not a failure of the run: do not retry, do not start your reply with AUTOMATION_FAILED for this, and carry on with the read-only part of the task. In the routine's result, say that 'May write' is off for this routine and which change you would have made, so the owner can switch on 'May write' for it (agent settings, Automation, Routines) or make the change.",
   PERMANENT_ACCESS_ONLY:
     "A permanent member's tools and settings are the owner's. You can only share your project folders (grants.projects), Read images (grants.documents), coding projects (coding) and MCP servers (mcpServers) with it. Remove the other grants and try again.",
   PROJECT_WRITE_UNAVAILABLE:

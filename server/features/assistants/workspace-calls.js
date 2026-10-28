@@ -123,6 +123,7 @@ function routineContext(w, inv) {
       // The owner's "May write", or for a lead's routine its autonomous usage.
       writable: w.a.routines?.writable?.(binding) ?? binding.routineWrites === true,
       key: `routine:${inv.sessionKey}`,
+      sessionKey: inv.sessionKey,
     },
   };
 }
@@ -229,7 +230,8 @@ function catalog(w, ctx) {
       ? { projectIds: [], pipelineIds: [], projectFiles: {} }
       : w.access.get(ctx.assistantId);
   const shared = noCoding ? [] : w.shares.codingProjects(ctx.assistantId, scope);
-  const levels = w.folders.levels(ctx);
+  // A routine without "May write" sees its folders as read-only (visible).
+  const levels = w.folders.visible(ctx);
   const all = w.access.catalog();
   const folders = new Map(w.folders.describe(levels).map((f) => [f.projectId, f]));
   const leads = new Map(shared.map((s) => [s.projectId, s.leadId]));

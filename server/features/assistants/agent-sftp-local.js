@@ -55,8 +55,7 @@ export function agentLocalRoot(w, ctx, { projectId, write = false } = {}) {
   if (!level) throw assistantProblem("projectFolderNotGranted", 403);
   if (write) {
     if (level !== "write") throw assistantProblem("projectFolderReadOnly", 403);
-    if (ctx.routine && !ctx.routine.writable)
-      throw assistantProblem("projectRoutineReadOnly", 403);
+    if (ctx.routine && !ctx.routine.writable) throw w.folders.routineReadOnly(ctx);
     guard();
   }
   const project = w.s.memory.project(projectId);

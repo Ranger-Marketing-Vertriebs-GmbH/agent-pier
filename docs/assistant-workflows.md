@@ -99,7 +99,9 @@ view is audited with its path and size, like a change.
   reminders or check-ins. A routine reads the agent's folders and its lead's standing
   shares and changes files only when the owner marked it **May write** (for a
   routine the member's lead set up, also while the lead uses its team
-  **Autonomous**ly); otherwise `ROUTINE_READ_ONLY`.
+  **Autonomous**ly); otherwise `ROUTINE_READ_ONLY`. Without **May write** the
+  catalog and every file result report `access: "read"`, even where the grant is
+  write, so the agent does not plan a change it cannot make.
 - **Paths:** relative to the project folder or absolute inside it. Every call
   resolves the real path again: `..`, `~`, URL forms, control characters and
   backslashes are refused, links may point anywhere inside the folder but never out
@@ -510,7 +512,31 @@ its colleagues and report to its lead (`agentpier_team_peers`, `_peer_ask`,
 agent's own project folders and its lead's standing shares, never a task's share;
 reads always, changes only with the routine's **May write** (`routineWrites`,
 otherwise `ROUTINE_READ_ONLY`), audited with `origin: "routine"` and the
-`routineId`. Coding requests and project knowledge proposals always wait for the
+`routineId`.
+
+A routine without **May write** reports `access: "read"` for its folders in
+`catalog`, `files_list`, `file_read`, `files_search` and `image_view`. A refused
+change is not a failed run. The `ROUTINE_READ_ONLY` text tells the agent four
+things:
+
+- not to retry;
+- not to start its reply with `AUTOMATION_FAILED` for this refusal;
+- to carry on with the read-only part of the task;
+- to say in its result that **May write** is off and which change it would have
+  made.
+
+The refusal also leaves the note `writes_refused` on the run
+(`NativeRoutines.noteRefusal`). The run's result keeps its own status: `ok`
+unless the agent itself reports a failure. The note shows on the result in the
+chat as "Changes refused: “May write” is off for this routine". The chat's
+event area adds an **Open routine settings** link to **Automation**, where the
+owner finds the routine's **May write** switch. The agent's
+`agentpier_routine list` shows the note as `lastRunWarnings` on that routine. A
+later chat turn can therefore explain why the run did not change files.
+`create` and `update` add a one-sentence `note` when the routine's task reads like
+it changes files (write, update, edit, save, document; schreiben, aktualisieren,
+dokumentieren, pflegen and similar) and **May write** is off. The note asks the
+agent to have the owner switch it on (`routine-write-hint.js`). Coding requests and project knowledge proposals always wait for the
 owner (shown in the agent's chat, stored with the `routineId`); `coding_cancel` is
 refused. Every other team tool stays out, so a routine cannot propose teams or
 archive and grant members; the bridge serves those only within an owner's chat turn

@@ -130,7 +130,8 @@ test("a member's routine reads its lead's standing share, never a task's", async
     code("PROJECT_NOT_GRANTED"),
   );
   await f.share({ grants: { projects: { [f.folderProject.id]: "write" } } });
-  assert.equal((await f.call(f.scout, { action: "files_list" })).access, "write");
+  // A write share, but the routine may not write: it sees read access.
+  assert.equal((await f.call(f.scout, { action: "files_list" })).access, "read");
   await assert.rejects(
     f.call(f.scout, { action: "file_write", path: "s.md", content: "s" }),
     code("ROUTINE_READ_ONLY"),
@@ -190,4 +191,37 @@ test("a routine's coding request always waits for the owner and cannot cancel ru
     f.call(f.lead, { action: "coding_cancel", id: action.id }),
     code("FORBIDDEN"),
   );
+});
+
+test("a read-only routine sees read access and its refused write is noted for the run", async (t) => {
+  const f = await setup(t);
+  const notes = [];
+  f.assistants.routines.noteRefusal = (key, note) => notes.push([key, note]);
+  // The grant is write, but this routine may not write: it is told so up front.
+  const read = await f.call(f.lead, { action: "file_read", path: "README.md" });
+  assert.equal(read.access, "read");
+  assert.equal((await f.call(f.lead, { action: "files_list" })).access, "read");
+  const { projects } = await f.call(f.lead, { action: "catalog" });
+  const listed = projects.find((p) => p.id === f.folderProject.id);
+  assert.equal(listed.folder.access, "read");
+  await assert.rejects(
+    f.call(f.lead, { action: "file_write", path: "out.md", content: "x" }),
+    (error) => {
+      const refused = toolError(error);
+      assert.equal(refused.code, "ROUTINE_READ_ONLY");
+      assert.match(refused.reason, /'May write' is off/);
+      assert.match(refused.reason, /not a failure/);
+      assert.match(refused.reason, /AUTOMATION_FAILED/);
+      return true;
+    },
+  );
+  assert.deepEqual(notes, [[f.lead.session, "writes_refused"]]);
+  // With "May write" the same routine sees and uses write access.
+  f.lead.binding.routineWrites = true;
+  assert.equal(
+    (await f.call(f.lead, { action: "file_read", path: "README.md" })).access,
+    "write",
+  );
+  const after = (await f.call(f.lead, { action: "catalog" })).projects;
+  assert.equal(after.find((p) => p.id === f.folderProject.id).folder.access, "write");
 });

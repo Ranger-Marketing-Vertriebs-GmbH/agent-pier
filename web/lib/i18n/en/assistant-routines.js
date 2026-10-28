@@ -40,6 +40,8 @@ export const routineCopy = {
   checkInBadge: "Check-in",
   sshRefused: "SSH refused: host not trusted for routines",
   mailRefused: "Email refused: no access or a limit was reached",
+  writesRefused: "Changes refused: “May write” is off for this routine",
+  writesSettings: "Open routine settings",
   chatFailed: (name) =>
     name ? `Routine “${name}” could not finish.` : "A routine could not finish.",
   reminderFailed: (name) =>

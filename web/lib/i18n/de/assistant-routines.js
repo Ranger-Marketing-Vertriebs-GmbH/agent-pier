@@ -40,6 +40,8 @@ export const routineCopy = {
   checkInBadge: "Check-in",
   sshRefused: "SSH abgelehnt: Host ist für Routinen nicht freigegeben",
   mailRefused: "E-Mail abgelehnt: kein Zugriff oder ein Limit erreicht",
+  writesRefused: "Änderungen abgelehnt: „Darf schreiben“ ist für diese Routine aus",
+  writesSettings: "Routine-Einstellungen öffnen",
   chatFailed: (name) =>
     name
       ? `Routine „${name}“ konnte nicht abgeschlossen werden.`

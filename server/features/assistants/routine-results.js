@@ -39,6 +39,15 @@ export class RoutineResults {
       .prepare("DELETE FROM assistant_routine_results WHERE conversation_id=?")
       .run(conversationId);
   }
+  /** The latest recorded run of one routine, or null (the agent's routine list). */
+  latest(bindingId) {
+    const row = this.db
+      .prepare(
+        "SELECT body FROM assistant_routine_results WHERE json_extract(body, '$.bindingId')=? ORDER BY rowid DESC LIMIT 1",
+      )
+      .get(bindingId);
+    return row ? JSON.parse(row.body) : null;
+  }
   forConversation(conversationId) {
     return this.db
       .prepare(
