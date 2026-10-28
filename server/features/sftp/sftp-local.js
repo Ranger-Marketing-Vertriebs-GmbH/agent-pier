@@ -241,7 +241,12 @@ export async function openLocalSource(target, relative) {
   }
 }
 
-async function ensureDirectory(directory) {
+/**
+ * Makes sure `directory` is a folder, creating it when missing, never through or as a
+ * link: a link is SFTP_PATH_REFUSED, any other entry SFTP_TYPE_CONFLICT. Callers walk
+ * down one name at a time from a real root.
+ */
+export async function ensureDirectory(directory) {
   let stat = await lstatOrNull(directory);
   if (!stat) {
     try {
