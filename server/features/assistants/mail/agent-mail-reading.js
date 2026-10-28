@@ -67,11 +67,15 @@ export function readingInput(input) {
 export async function runReading({ accounts, cursors, limits }, gate, input) {
   const request = readingInput(input);
   const { agent, account } = gate;
+  // Taken before connecting: a change of mailbox meanwhile makes its writes stale.
+  const cache = accounts.textCache ?? null;
+  const generation = cache?.generation(account.id);
   const textScan = (client, scan) =>
     scanAttachmentText(client, {
       ...scan,
       accountId: account.id,
-      cache: accounts.textCache ?? null,
+      cache,
+      generation,
       ...(limits && {
         budget: limits.search,
         maxFileBytes: limits.attachments.fileBytes,

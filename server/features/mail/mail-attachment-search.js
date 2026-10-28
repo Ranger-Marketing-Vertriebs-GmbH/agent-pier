@@ -37,7 +37,8 @@ const timer = (ms, signal) =>
  * candidates are `uids` (newest first) or summary `rows` already fetched. `partial`
  * with `reason` "candidates", "time" or "bytes" when a budget stopped it; `partial`
  * with `skipped` when attachments were left out because extraction was busy or ran
- * out of time under load. `deadline` (ms, `now` clock) defaults to `budget.ms` away.
+ * out of time under load. `deadline` (ms, `now` clock) defaults to `budget.ms` away;
+ * `generation` is the cache's for the account when the search began.
  */
 export async function scanAttachmentText(
   client,
@@ -56,6 +57,7 @@ export async function scanAttachmentText(
     now = Date.now,
     wait = timer,
     deadline = now() + budget.ms,
+    generation = cache?.generation(accountId),
   },
 ) {
   const wanted = foldText(needle);
@@ -69,7 +71,8 @@ export async function scanAttachmentText(
 
   const keyOf = (uid, part) =>
     cache?.key({ accountId, folder, uidValidity, uid, part }) ?? null;
-  const remember = (key, value) => key && cache.set(accountId, key, value);
+  // A write from before the account's text was dropped is dropped too.
+  const remember = (key, value) => key && cache.set(accountId, key, value, generation);
   // Whether `promise` settles before the deadline: its value, or `late`.
   async function inTime(promise) {
     const stop = new AbortController();
