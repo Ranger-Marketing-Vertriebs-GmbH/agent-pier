@@ -1098,8 +1098,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   (users cannot switch it). Otherwise a write attempt is refused. The run still ends
   normally, and its result in the chat says "Changes refused: “May write” is off for
   this routine". The chat's event area links to **Open routine settings**. The agent
-  can also explain it later in the chat. When the agent creates a routine whose task
-  sounds like it changes files, it asks you to switch on **May write**. Every change
+  can also explain it later in the chat. When the agent creates a routine without
+  **May write**, it is told to ask you to switch it on if the routine should
+  change files. Every change
   is recorded in the activity log with the routine. A coding request from a routine
   always waits for your approval in the agent's chat, also when the agent may start
   pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask
