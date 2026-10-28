@@ -350,3 +350,91 @@ test("the socket and subscription caps hold for each user apart", async (t) => {
   const limited = await first(bens, "me.agents");
   assert.deepEqual(limited, { type: "error", topic: "me.agents", code: "limit" });
 });
+
+test("lowering her below Extended revokes her bot's topic at once", async (t) => {
+  const { f } = await chatFixture(t);
+  const { user, cookie } = await signedInUser(f, "Anna");
+  const agent = await userAgent(f, {
+    mode: "own",
+    members: [{ userId: user.id, level: "extended" }],
+  });
+  await pairedTelegram(f, as(f, cookie), agent.id);
+  const topic = `me.telegram:${agent.id}`;
+  const socket = await live(t, f, cookie);
+  assert.equal((await first(socket, topic)).data.channel.paired, true);
+  const lowered = await f.request(`/api/user-agents/${agent.id}/access`, {
+    method: "PUT",
+    body: {
+      userAccess: { mode: "own", members: [{ userId: user.id, level: "chat" }] },
+      revision: f.application.assistants.store.getAssistant(agent.id).revision,
+    },
+  });
+  assert.equal(lowered.status, 200, await lowered.clone().text());
+  assert.deepEqual(await socket.next((frame) => frame.type === "revoked"), {
+    type: "revoked",
+    topic,
+  });
+  // A tab that joins afterwards gets no snapshot of the bot the route now refuses.
+  const late = await live(t, f, cookie);
+  assert.deepEqual(await first(late, topic), {
+    type: "error",
+    topic,
+    code: "unknown-topic",
+  });
+  assert.equal((await as(f, cookie)(`/api/me/agents/${agent.id}/telegram`)).status, 403);
+});
+
+test("ten users' topics add at most one listener to each change source", async (t) => {
+  const { f } = await chatFixture(t);
+  const app = f.application;
+  const sources = {
+    "agent events": () => app.assistants.events.listenerCount("update"),
+    "agents started": () => app.assistantFeature.events.listenerCount("started"),
+    "agents stopped": () => app.assistantFeature.events.listenerCount("stopped"),
+    "owner privacy": () => app.ownerPrivacy.listenerCount("changed"),
+  };
+  const count = () =>
+    Object.fromEntries(Object.entries(sources).map(([name, read]) => [name, read()]));
+  const users = [];
+  for (let i = 0; i < 10; i++) {
+    const { user, cookie } = await signedInUser(f, `User${i}`);
+    const agent = await userAgent(f, {
+      mode: "own",
+      members: [{ userId: user.id, level: "extended" }],
+    });
+    users.push({ cookie, agent });
+  }
+  const before = count();
+  const warnings = [];
+  const warned = (warning) => warnings.push(warning.name);
+  process.on("warning", warned);
+  t.after(() => process.off("warning", warned));
+  const sockets = [];
+  for (const { cookie, agent } of users) {
+    const socket = openLive(f, cookie);
+    sockets.push(socket);
+    await socket.next((frame) => frame.type === "hello");
+    for (const name of ME_TOPICS) {
+      const [topic] = routeOf(name, agent.id);
+      assert.equal((await first(socket, topic)).type, "snapshot", topic);
+    }
+  }
+  const during = count();
+  for (const name of Object.keys(sources))
+    assert.ok(
+      during[name] - before[name] <= 1,
+      `${name}: ${before[name]} → ${during[name]}`,
+    );
+  // Every instance gone: the shared listeners are gone too.
+  for (const socket of sockets) {
+    socket.ws.close();
+    await socket.closed;
+  }
+  for (let i = 0; i < 50 && app.live.instances.size; i++) await settle(20);
+  assert.deepEqual(count(), before);
+  await settle(50);
+  assert.deepEqual(
+    warnings.filter((name) => name === "MaxListenersExceededWarning"),
+    [],
+  );
+});
