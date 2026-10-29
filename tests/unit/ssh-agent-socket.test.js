@@ -7,6 +7,7 @@ import test from "node:test";
 import { agentHosts } from "../../server/features/ssh/ssh-agent-policy.js";
 import { agentMessage } from "../../server/features/ssh/ssh-agent-protocol.js";
 import {
+  agentSocketLocation,
   agentSocketPath,
   newAgentToken,
   SessionAgentSocket,
@@ -83,23 +84,99 @@ async function start(t, options = {}) {
 
 const sessionId = () => randomBytes(32);
 
-test("socket path fits sun_path and is per agent token", () => {
+// A short stand-in home under /tmp; never the real home.
+const home = fs.mkdtempSync("/tmp/aph-");
+process.on("exit", () => fs.rmSync(home, { recursive: true, force: true }));
+
+test("socket path lives in the home layout, fits sun_path and is per agent token", () => {
   const sid = randomUUID();
-  const a = agentSocketPath(dataDir, sid, newAgentToken());
-  assert.ok(Buffer.byteLength(a) < 100);
-  assert.match(
-    a,
-    /^\/tmp\/agentpier-sshagent-[^/]+-[0-9a-f]{20}\/[0-9a-f]{32}\/agent\.sock$/,
+  const warnings = [];
+  const options = { home, warn: (code) => warnings.push(code) };
+  const location = agentSocketLocation(dataDir, sid, newAgentToken(), options);
+  const a = location.socketPath;
+  assert.equal(location.fallback, false);
+  assert.equal(location.root, path.join(home, ".agentpier-ssh"));
+  assert.ok(Buffer.byteLength(a) <= 100);
+  const pattern = /^\/\.agentpier-ssh\/[0-9a-f]{8}\/[0-9a-f]{32}\/agent\.sock$/;
+  assert.match(a.slice(home.length), pattern);
+  assert.notEqual(a, agentSocketPath(dataDir, sid, newAgentToken(), options));
+  const other = agentSocketPath(dataDir, randomUUID(), newAgentToken(), options);
+  assert.equal(path.dirname(path.dirname(a)), path.dirname(path.dirname(other)));
+  // Another data dir gets another instance folder.
+  const elsewhere = agentSocketPath(
+    path.join(root, "data-2"),
+    sid,
+    newAgentToken(),
+    options,
   );
-  assert.notEqual(a, agentSocketPath(dataDir, sid, newAgentToken()));
-  assert.equal(
-    path.dirname(path.dirname(a)),
-    path.dirname(path.dirname(agentSocketPath(dataDir, randomUUID(), newAgentToken()))),
-  );
+  assert.notEqual(path.dirname(path.dirname(a)), path.dirname(path.dirname(elsewhere)));
   // The path never contains the session id, so another session cannot derive it.
   assert.equal(a.includes(sid), false);
   // Pure: nothing is created.
-  assert.equal(fs.existsSync(path.dirname(a)), false);
+  assert.equal(fs.existsSync(location.root), false);
+  assert.deepEqual(warnings, []);
+});
+
+test("a home too long for sun_path falls back to /tmp with a warning code", () => {
+  const warnings = [];
+  const longHome = `/tmp/${"h".repeat(60)}`;
+  const location = agentSocketLocation(dataDir, "session-1", newAgentToken(), {
+    home: longHome,
+    warn: (code) => warnings.push(code),
+  });
+  assert.equal(location.fallback, true);
+  assert.match(
+    location.socketPath,
+    /^\/tmp\/agentpier-sshagent-[^/]+-[0-9a-f]{20}\/[0-9a-f]{32}\/agent\.sock$/,
+  );
+  assert.equal(location.root, path.dirname(path.dirname(location.socketPath)));
+  assert.ok(Buffer.byteLength(location.socketPath) <= 100);
+  assert.deepEqual(warnings, ["SSH_AGENT_SOCKET_TMP_FALLBACK"]);
+  assert.equal(fs.existsSync(longHome), false);
+  // A throwing warning never blocks the path.
+  const quiet = agentSocketLocation(dataDir, "session-1", newAgentToken(), {
+    home: longHome,
+    warn: () => {
+      throw new Error("log down");
+    },
+  });
+  assert.equal(quiet.fallback, true);
+});
+
+test("an agent in the home layout creates every folder owner-only", async (t) => {
+  const location = agentSocketLocation(dataDir, "session-1", newAgentToken(), { home });
+  const agent = new SessionAgentSocket({
+    socketPath: location.socketPath,
+    root: location.root,
+    authorize: async () => ({ hosts: agentHosts([accessA], ["access-a"]) }),
+    readIdentity: () => userKey.privateText,
+    onSigned: () => {},
+    onDenied: () => {},
+  });
+  await agent.listen();
+  t.after(() => agent.close());
+  let folder = path.dirname(location.socketPath);
+  for (;;) {
+    assert.equal(fs.lstatSync(folder).mode & 0o777, 0o700, folder);
+    if (folder === location.root) break;
+    folder = path.dirname(folder);
+  }
+  assert.equal(fs.lstatSync(location.socketPath).mode & 0o777, 0o600);
+  const listed = await sshAdd(location.socketPath, ["-L"]);
+  assert.equal(listed.stdout.trim(), `${userKey.publicLine} agentpier-0123abcd`);
+});
+
+test("a root that does not contain the socket is refused", async () => {
+  const agent = new SessionAgentSocket({
+    socketPath: path.join(root, "x", "agent.sock"),
+    root: path.join(root, "elsewhere"),
+    authorize: async () => null,
+    readIdentity: () => "",
+    onSigned: () => {},
+    onDenied: () => {},
+  });
+  await assert.rejects(agent.listen(), { code: "SSH_AGENT_SOCKET_UNSAFE" });
+  assert.equal(fs.existsSync(path.join(root, "elsewhere")), false);
 });
 
 test("socket path refuses malformed session ids and tokens", () => {

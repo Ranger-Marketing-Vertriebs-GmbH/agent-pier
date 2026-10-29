@@ -5,6 +5,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { clearStaleSocket } from "../../lib/stale-socket.js";
 import { privateFolder } from "../../lib/storage.js";
@@ -28,25 +29,75 @@ function codedError(code, message) {
 }
 
 // 128 random bits naming one agent's socket folder. Kept in the agent record so a
-// restart listens at the same path; never derived from the session id, because
-// sandboxed sessions may reach /tmp and must not find another session's agent.
+// restart listens at the same path; never derived from the session id, so another
+// session cannot compute it.
 export function newAgentToken() {
   return randomBytes(16).toString("hex");
 }
 
-// /tmp/agentpier-sshagent-<uid>-<hash20>/<token>/agent.sock. Pure: listen() creates
-// the folders. sun_path is 104 bytes on macOS; this stays under 100.
-export function agentSocketPath(dataDir, sessionId, token) {
+const maxSocketPath = 100;
+
+function hashOf(value, length) {
+  return createHash("sha256").update(value).digest("hex").slice(0, length);
+}
+
+function defaultWarn(code) {
+  console.warn(`SSH agent socket: ${code}`);
+}
+
+// Where one agent listens: { root, socketPath, fallback }. Pure: listen() creates
+// root and every folder below it with privateFolder.
+// - Home layout: ~/.agentpier-ssh/<hash8 of the physical data dir>/<token>/agent.sock.
+//   nono's default profile neither lists nor modifies the home folder (R25).
+// - When that path is longer than 100 bytes (sun_path is 104 on macOS, 108 on Linux),
+//   /tmp/agentpier-sshagent-<uid>-<hash20 of the physical SSH root>/<token>/agent.sock,
+//   with the warning SSH_AGENT_SOCKET_TMP_FALLBACK.
+export function agentSocketLocation(
+  dataDir,
+  sessionId,
+  token,
+  { home = os.homedir(), warn = defaultWarn } = {},
+) {
   if (typeof sessionId !== "string" || !sessionIdPattern.test(sessionId))
     throw codedError("SSH_AGENT_SESSION_INVALID", "Invalid session id");
   if (typeof token !== "string" || !tokenPattern.test(token))
     throw codedError("SSH_AGENT_TOKEN_INVALID", "Invalid SSH agent token");
-  const hash = createHash("sha256")
-    .update(sshPhysicalRoot(dataDir))
-    .digest("hex")
-    .slice(0, 20);
-  const uid = process.getuid?.() ?? "user";
-  return `/tmp/agentpier-sshagent-${uid}-${hash}/${token}/agent.sock`;
+  const sshRoot = sshPhysicalRoot(dataDir);
+  if (typeof home === "string" && path.isAbsolute(home)) {
+    const root = path.join(path.resolve(home), ".agentpier-ssh");
+    const socketPath = path.join(
+      root,
+      hashOf(path.dirname(sshRoot), 8),
+      token,
+      "agent.sock",
+    );
+    if (Buffer.byteLength(socketPath) <= maxSocketPath)
+      return { root, socketPath, fallback: false };
+  }
+  try {
+    warn("SSH_AGENT_SOCKET_TMP_FALLBACK");
+  } catch {
+    // A warning never blocks the agent.
+  }
+  const root = `/tmp/agentpier-sshagent-${process.getuid?.() ?? "user"}-${hashOf(sshRoot, 20)}`;
+  return { root, socketPath: `${root}/${token}/agent.sock`, fallback: true };
+}
+
+export function agentSocketPath(dataDir, sessionId, token, options) {
+  return agentSocketLocation(dataDir, sessionId, token, options).socketPath;
+}
+
+// The private folders from root down to the socket's folder. Without a root, the two
+// folders above the socket, as in the /tmp layout.
+function folderChain(socketPath, root) {
+  const folder = path.dirname(socketPath);
+  const top = root ?? path.dirname(folder);
+  const relative = path.relative(top, folder);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+    throw codedError("SSH_AGENT_SOCKET_UNSAFE", "SSH agent root must contain the socket");
+  const chain = [top];
+  for (const part of relative.split(path.sep)) chain.push(path.join(chain.at(-1), part));
+  return chain;
 }
 
 function deniedCode(error, fallback) {
@@ -56,6 +107,7 @@ function deniedCode(error, fallback) {
 export class SessionAgentSocket {
   constructor({
     socketPath,
+    root,
     authorize,
     readIdentity,
     onSigned,
@@ -65,6 +117,7 @@ export class SessionAgentSocket {
     maxMessage = 262144,
   }) {
     this.socketPath = socketPath;
+    this.root = root;
     this.authorize = authorize;
     this.readIdentity = readIdentity;
     this.onSigned = onSigned;
@@ -80,9 +133,8 @@ export class SessionAgentSocket {
   async listen() {
     if (this.closed) throw codedError("SSH_AGENT_CLOSED", "SSH agent closed");
     const unsafe = () => codedError("SSH_AGENT_SOCKET_UNSAFE", "Unsafe SSH agent socket");
-    const folder = path.dirname(this.socketPath);
-    privateFolder(path.dirname(folder), unsafe);
-    privateFolder(folder, unsafe);
+    for (const folder of folderChain(this.socketPath, this.root))
+      privateFolder(folder, unsafe);
     await clearStaleSocket(this.socketPath, {
       unsafe,
       live: () => codedError("SSH_AGENT_SOCKET_BUSY", "SSH agent socket in use"),
