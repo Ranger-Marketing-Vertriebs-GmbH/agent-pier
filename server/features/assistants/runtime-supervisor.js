@@ -18,6 +18,7 @@ import { openConsoleLog, rotateConsoleLog } from "./gateway-log.js";
 import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../lib/process-identity.js";
 import { assertWired } from "./service-wiring.js";
+import { AGENT_FOLDER } from "../ssh/ssh-agent-shared.js";
 import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
 import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
 import {
@@ -279,7 +280,13 @@ export class RuntimeSupervisor extends EventEmitter {
     this.shell = null;
     const owner = resolveShellOwner(this.shellOwner);
     const shell = { pathPrepend: [...(owner?.pathPrepend || [])] };
-    const execShell = owner && writeExecShell(this.paths, owner.home);
+    // Agents' SSH environments are sourced only below this literal folder.
+    const sshAgentRoot = path.join(
+      path.resolve(this.dataDir),
+      "ssh-agents",
+      AGENT_FOLDER,
+    );
+    const execShell = owner && writeExecShell(this.paths, owner.home, { sshAgentRoot });
     // Like the web tools, a snapshot of the MCP servers: names and globs only, never
     // header or env values.
     this.mcp = null;

@@ -4,7 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
+import {
+  compileOpenClawConfig,
+  prepareRuntimeConfig,
+} from "../../server/features/assistants/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
 test("team configuration advertises only managed delegation and removes retired bridge credentials", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "team-config-"));
@@ -100,4 +103,48 @@ test("team mode keeps the OpenAI provider plugin for ChatGPT sign-in and account
   assert.ok(readJSON(paths.config).plugins.allow.includes("openai"));
   prepareRuntimeConfig(paths, 1234, { ...teams, native: { token: "hook" } });
   assert.ok(readJSON(paths.config).plugins.allow.includes("openai"));
+});
+
+// Exec PATH order: GitHub folder, then the agent's SSH bin/ (agent-ssh-shell.js), then
+// the owner's login PATH; agents without an SSH agent keep the order they had.
+test("an agent's SSH bin follows its GitHub folder and precedes the owner PATH", () => {
+  const agent = (id, extra = {}) => ({
+    id,
+    runtimeAgentId: `ap-${id}`,
+    capabilities: { memory: false, reminders: false },
+    shell: "approval",
+    ...extra,
+  });
+  const profiles = [agent("a"), agent("b"), agent("c", { shell: "off" })];
+  const config = compileOpenClawConfig({
+    existing: {
+      agents: {
+        entries: Object.fromEntries(
+          profiles.map((p) => [p.runtimeAgentId, { id: p.runtimeAgentId }]),
+        ),
+      },
+    },
+    paths: { workspaces: "/w", logs: "/l" },
+    port: 1234,
+    token: "t",
+    teams: {
+      directory: "/plugin",
+      connection: { url: "http://127.0.0.1:1", token: "bridge" },
+      hostMaxConcurrent: 4,
+      native: { token: "hook" },
+      profiles,
+      githubShell: { a: ["/g/marker", "/g/bin"] },
+      sshShell: { a: ["/s/bin"], b: ["/s2/bin"] },
+    },
+    shell: { pathPrepend: ["/owner/bin"] },
+  });
+  const exec = (id) => config.agents.entries[`ap-${id}`].tools.exec;
+  assert.deepEqual(exec("a").pathPrepend, [
+    "/g/marker",
+    "/g/bin",
+    "/s/bin",
+    "/owner/bin",
+  ]);
+  assert.deepEqual(exec("b").pathPrepend, ["/s2/bin", "/owner/bin"]);
+  assert.equal(exec("c"), undefined);
 });

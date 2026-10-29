@@ -291,9 +291,11 @@ export function compileOpenClawConfig({
           nativeReady: true,
           guardProven: false,
           available,
-          // An agent with GitHub access and shell starts with its GitHub folder.
+          // An agent with GitHub access and shell starts with its GitHub folder,
+          // then its SSH agent's bin/ (agent-ssh-shell.js).
           pathPrepend: [
             ...(teams.githubShell?.[profile.id] || []),
+            ...(teams.sshShell?.[profile.id] || []),
             ...(shell?.pathPrepend || []),
           ],
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],

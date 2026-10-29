@@ -204,9 +204,11 @@ export class ExecApprovals {
           ? { kind: "once", reason: "complex" }
           : allowAlwaysPlan(payload, {
               // The agent's exec PATH: its GitHub directories (the managed gh)
-              // first, as compiled (agent-github.js), then the owner's.
+              // first, as compiled (agent-github.js), its SSH agent's bin/
+              // (agent-ssh-shell.js), then the owner's.
               pathDirs: [
                 ...((assistant && this.w.github?.shellDirs(assistant)) || []),
+                ...((assistant && this.w.agentSsh?.shellDirs(assistant)) || []),
                 ...(this.w.a.runtime?.shell?.pathPrepend || []),
               ],
             });

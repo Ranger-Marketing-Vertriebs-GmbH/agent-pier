@@ -248,3 +248,29 @@ test("a lead's grant never reaches its member and task members get nothing", asy
     "FORBIDDEN",
   );
 });
+
+test("hosts names the plain ssh alias of a host in the agent's own SSH agent only", async (t) => {
+  const f = await agentSshFixture(t);
+  f.grant([
+    { accessId: hostId, mode: "trusted" },
+    { accessId: otherHostId, mode: "approval" },
+  ]);
+  const asked = [];
+  // The agent's SSH agent (agent-ssh-shell.js) names aliases of trusted hosts only.
+  f.workflows.agentSsh = {
+    aliases: (id) => (asked.push(id), { [hostId]: "opnsense" }),
+  };
+  const { hosts } = await f.call(f.ownTurn(), { action: "hosts" });
+  assert.equal(hosts.find((h) => h.accessId === hostId).alias, "opnsense");
+  assert.equal("alias" in hosts.find((h) => h.accessId === otherHostId), false);
+  assert.deepEqual(asked, [f.id]);
+  // Without an SSH agent, or when it fails, hosts lists no alias and still answers.
+  f.workflows.agentSsh = {
+    aliases: () => {
+      throw Error("boom");
+    },
+  };
+  const plain = await f.call(f.ownTurn(), { action: "hosts" });
+  assert.equal(plain.hosts.length, 2);
+  assert.ok(plain.hosts.every((h) => !("alias" in h)));
+});

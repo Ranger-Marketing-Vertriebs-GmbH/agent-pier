@@ -256,10 +256,19 @@ export class AssistantConfig {
       mcpTools,
       ssh,
     ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
+    // The agent's SSH agent, synced first so this turn's PATH and instructions name
+    // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
+    const plainSsh = nativeReady
+      ? await Promise.resolve()
+          .then(() => this.plainSsh?.(assistant))
+          .catch(() => null)
+      : null;
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
-    // An agent with GitHub access starts with its GitHub folder (agent-github.js).
+    // An agent with GitHub access starts with its GitHub folder (agent-github.js),
+    // then its SSH agent's bin/ (agent-ssh-shell.js).
     const pathPrepend = [
       ...(this.githubShellPath?.(assistant) || []),
+      ...(this.sshShellPath?.(assistant) || []),
       ...(this.shellPathPrepend?.() || []),
     ];
     // As agentEntry compiles it; the readback below checks the same value.
@@ -291,6 +300,8 @@ export class AssistantConfig {
       projectFolders: (nativeReady && this.projectFolders?.(assistant)) || [],
       // Its GitHub access: profile, level and the server's tool prefix.
       github: (nativeReady && this.github?.(assistant)) || null,
+      // Its trusted hosts' plain ssh aliases, by catalog name (agent-ssh-shell.js).
+      plainSsh: plainSsh || null,
       // The image tool this start can serve (web-tools.js availability).
       images: nativeReady && available.createImages === true && !!this.writeGuard?.(),
       // Whether it receives a secrets file; names the file, never its contents.
