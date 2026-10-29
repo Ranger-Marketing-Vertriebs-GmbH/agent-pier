@@ -66,6 +66,16 @@ function storedAgent(record, id) {
   return { generation: agent.generation, token: agent.token, binaries: agent.binaries };
 }
 
+// The socket token a record names: its agent's, or the one a reload's stop retired
+// (`sshAgentRetired`, session-replacement.js), which never authorizes anything but
+// still locates the socket folder for a later prepare or discard.
+function storedToken(record, id) {
+  const token = storedAgent(record, id)?.token ?? record?.sshAgentRetired?.token;
+  return record?.id === id && typeof token === "string" && tokenPattern.test(token)
+    ? token
+    : undefined;
+}
+
 function realOrSelf(file) {
   try {
     return fs.realpathSync(file);
@@ -273,7 +283,7 @@ export class SessionSshAgents {
     return this.syncs.run(async () => {
       const record = this.record(id);
       const previous = this.agents.get(id);
-      const token = previous?.token ?? storedAgent(record, id)?.token ?? newAgentToken();
+      const token = previous?.token ?? storedToken(record, id) ?? newAgentToken();
       if (previous) {
         this.agents.delete(id);
         await previous.socket.close();
@@ -355,6 +365,8 @@ export class SessionSshAgents {
     } catch (error) {
       agent.written = null;
       this.withoutHosts(agent);
+      // The aliases are gone: the live topic must not keep showing them.
+      this.changed(agent.id);
       this.log.error(
         "Session SSH agent files could not be written:",
         error?.code || "error",
@@ -520,9 +532,7 @@ export class SessionSshAgents {
   async discard(id, { keepReason = false } = {}) {
     if (typeof id !== "string" || !sessionIdPattern.test(id)) return;
     if (!keepReason) this.unavailable.delete(id);
-    await this.syncs.run(() =>
-      this.teardown(id, storedAgent(this.record(id), id)?.token),
-    );
+    await this.syncs.run(() => this.teardown(id, storedToken(this.record(id), id)));
     // After the close: no signature can open a new audit window behind the flush.
     this.agentAudit.flush(id);
     this.changed(id);

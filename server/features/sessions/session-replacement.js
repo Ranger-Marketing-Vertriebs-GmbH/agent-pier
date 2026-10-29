@@ -53,6 +53,10 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
   session.status = "stopped";
   delete session.exitCode;
   // The old CLI is gone: its SSH agent generation signs no more (ssh-session-agents.js).
+  // Its socket token stays known (never authorizing), so a failed reload followed by a
+  // restart still finds the socket folder to remove.
+  const retired = sessionSshAgentRecord(session.sshAgent)?.token;
+  if (retired) session.sshAgentRetired = { token: retired };
   delete session.sshAgent;
   await manager.save(session);
   const launchFile = path.join(manager.directory, `${id}.launch.json`);
@@ -75,7 +79,10 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       session.provider = reloadedProvider(session.provider, launch.provider);
     // Before the CLI starts, so the new agent generation serves its first ssh.
     const sshAgent = sessionSshAgentRecord(launch.sshAgent);
-    if (sshAgent) session.sshAgent = sshAgent;
+    if (sshAgent) {
+      session.sshAgent = sshAgent;
+      delete session.sshAgentRetired;
+    }
     await manager.save(session);
     await rm(adapterDiagnosticsPath(manager.directory, id), { force: true });
     await privateWrite(

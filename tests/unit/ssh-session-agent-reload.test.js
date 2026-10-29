@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { replaceSession } from "../../server/features/sessions/session-replacement.js";
 import { withAgentEnvironment } from "../../server/features/ssh/ssh-agent-launch.js";
+import { SessionSshAgents } from "../../server/features/ssh/ssh-session-agents.js";
+import { publicSession } from "../../server/features/sessions/session-public.js";
 import {
   fixture,
   hostA,
@@ -159,9 +161,12 @@ test("a reload records the new agent before the CLI starts and drops the old one
   });
   // Between the stop and the new agent no generation in the record matches a listener.
   assert.equal(atPrepare.sshAgent, undefined);
+  // The token stays known, never as an agent the socket would accept.
+  assert.deepEqual(atPrepare.sshAgentRetired, { token });
   assert.equal(atPrepare.reload.replacementStarted, true);
   assert.deepEqual(atStart.sshAgent, next);
   assert.deepEqual(read().sshAgent, next);
+  assert.equal(read().sshAgentRetired, undefined);
 });
 
 test("written alias files and a discard announce the session for the live topic", async (t) => {
@@ -181,4 +186,45 @@ test("written alias files and a discard announce the session for the live topic"
   f.agents.onChange = (other) => changed.push(other);
   await f.agents.discard(id);
   assert.deepEqual(changed, [id, id]);
+});
+
+test("a failed alias write announces the session, so the live topic drops its aliases", async (t) => {
+  const f = fixture(t);
+  const { id, record } = await launch(f);
+  const changed = [];
+  f.agents.onChange = (other) => changed.push(other);
+  f.store.list = () => {
+    throw Object.assign(new Error("catalog"), { code: "SSH_CATALOG_UNAVAILABLE" });
+  };
+  await assert.rejects(f.agents.sync({ ...record, sshTools: { ...record.sshTools } }));
+  assert.deepEqual(changed, [id]);
+});
+
+test("a failed reload and a restart still find the retired socket folder to remove", async (t) => {
+  const f = fixture(t);
+  const { id, record } = await launch(f);
+  const socketFolder = path.dirname(f.agents.launchDetails(id).socketPath);
+  // The reload stopped the old CLI and failed; then AgentPier restarted.
+  const failed = {
+    ...record,
+    status: "stopped",
+    reload: { state: "failed", replacementStarted: true },
+    sshAgentRetired: { token: record.sshAgent.token },
+  };
+  delete failed.sshAgent;
+  f.save(failed);
+  await f.agents.close();
+  const restarted = new SessionSshAgents(f.deps);
+  f.started.push(restarted);
+  await restarted.restore();
+  // A retired token authorizes nothing and starts no listener.
+  assert.equal(restarted.launchDetails(id), null);
+  assert.equal(fs.existsSync(socketFolder), true);
+  await restarted.discard(id);
+  assert.equal(fs.existsSync(socketFolder), false);
+  // Nor does the browser ever see it.
+  assert.equal(
+    JSON.stringify(publicSession(failed)).includes(record.sshAgent.token),
+    false,
+  );
 });
