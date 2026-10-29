@@ -126,6 +126,7 @@ function verifiedBinding(binding) {
     typeof binding === "object" &&
     binding.forwarding === false &&
     Buffer.isBuffer(binding.sessionId) &&
+    binding.sessionId.length > 0 &&
     Buffer.isBuffer(binding.hostKeyBlob) &&
     bindAlgorithmMatches(binding.algorithm, binding.hostKeyBlob)
   );

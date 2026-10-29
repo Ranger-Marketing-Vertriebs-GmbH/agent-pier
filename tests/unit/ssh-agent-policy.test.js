@@ -156,6 +156,14 @@ const notUserauth = Buffer.concat([sshString(sessionId), Buffer.from([51])]);
 const cases = [
   ["no bind", { binding: null }, "SSH_AGENT_UNBOUND"],
   [
+    "empty session id in bind and userauth",
+    {
+      binding: { ...bound, sessionId: Buffer.alloc(0) },
+      data: userauth({ sessionId: Buffer.alloc(0) }),
+    },
+    "SSH_AGENT_UNBOUND",
+  ],
+  [
     "unverified bind (no algorithm)",
     { binding: { ...bound, algorithm: undefined } },
     "SSH_AGENT_UNBOUND",
