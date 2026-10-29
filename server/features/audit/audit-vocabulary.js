@@ -76,4 +76,6 @@ export const verbs = new Set([
   "escalated",
   // An agent saved a mail attachment (audit-mail-details.js).
   "downloaded",
+  // A session's SSH agent signed a login to a granted host (ssh-agent-audit.js).
+  "connected",
 ]);

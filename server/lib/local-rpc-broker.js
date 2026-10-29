@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
-import net from "node:net";
 import { createHash } from "node:crypto";
 import { privateFolder } from "../features/memory/memory-validation.js";
+import { clearStaleSocket } from "./stale-socket.js";
 
 export class LocalRpcBroker {
   constructor({ root, name, respond, maxResponse = 262144, timeout = 10000 }) {
@@ -17,33 +17,11 @@ export class LocalRpcBroker {
   }
   async start() {
     privateFolder(path.dirname(this.socketPath));
-    let previous;
-    try {
-      previous = fs.lstatSync(this.socketPath);
-      if (!previous.isSocket() || (process.getuid && previous.uid !== process.getuid()))
-        throw Error("Unsafe Local socket.");
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
-    if (previous) {
-      const stale = await new Promise((resolve) => {
-        const probe = net.createConnection(this.socketPath);
-        probe.once("connect", () => {
-          probe.destroy();
-          resolve(false);
-        });
-        probe.once("error", (error) => resolve(error.code === "ECONNREFUSED"));
-        probe.setTimeout(1000, () => {
-          probe.destroy();
-          resolve(false);
-        });
-      });
-      if (!stale) throw Error("Local broker already running.");
-      const current = fs.lstatSync(this.socketPath);
-      if (previous.ino !== current.ino || previous.dev !== current.dev)
-        throw Error("Local broker socket changed.");
-      fs.unlinkSync(this.socketPath);
-    }
+    await clearStaleSocket(this.socketPath, {
+      unsafe: () => Error("Unsafe Local socket."),
+      live: () => Error("Local broker already running."),
+      changed: () => Error("Local broker socket changed."),
+    });
     this.server = http.createServer((req, res) => this.handle(req, res));
     // Keep a listener for the server's whole lifetime. A once-only startup
     // rejection handler otherwise leaves a second later error unhandled.
