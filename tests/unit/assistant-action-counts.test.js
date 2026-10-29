@@ -95,3 +95,22 @@ test("a delegated SSH command stays listed for its lead while it runs", (t) => {
   );
   assert.deepEqual(actions.awaitingCounts(0), {});
 });
+
+test("the agents of a pipeline run are found through the run index", (t) => {
+  const { assistant, actions, reserve } = setup(t);
+  const home = assistant("Home"),
+    other = assistant("Other");
+  const started = reserve(home.id, { state: "completed" });
+  reserve(other.id, { state: "completed" });
+  actions.patch(started.id, { runId: "run-1" });
+  assert.deepEqual(actions.agentsOfRun("run-1"), [home.id]);
+  assert.deepEqual(actions.agentsOfRun("run-2"), []);
+  const plan = actions.db
+    .prepare(
+      "EXPLAIN QUERY PLAN SELECT DISTINCT assistant_id AS id FROM assistant_actions WHERE json_extract(body,'$.runId')=?",
+    )
+    .all("run-1")
+    .map((row) => row.detail)
+    .join("\n");
+  assert.match(plan, /assistant_actions_run/);
+});
