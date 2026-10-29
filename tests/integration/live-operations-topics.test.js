@@ -8,9 +8,11 @@ import { openLive } from "../helpers/live-socket.js";
 import { manualTimers } from "../helpers/manual-timers.js";
 import { issue } from "../helpers/session-mcp.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
+import { jobTopic } from "../../server/features/live/job-topics.js";
 import {
   OPERATION_JOB_SAMPLE_MS,
   RELEASE_SESSIONS_SAMPLE_MS,
+  operationJob,
   operationJobChanged,
   operationJobTopic,
   releaseSessionsTopic,
@@ -192,6 +194,53 @@ test("a running job is sampled (another process may write it); an ended one is n
   const after = operations.reads;
   await clock.advance(60000);
   assert.equal(operations.reads, after);
+});
+
+test("a helper's write to a watched job file is read before the next sample", async (t) => {
+  const { clock, hub } = hubOf(t);
+  const jobs = { [ID]: { id: ID, kind: "release-activate", status: "running" } };
+  const operations = operationsOf(jobs);
+  operations.jobs.directory = "/jobs";
+  const followed = [];
+  const watchers = {
+    add(directory, name, listener) {
+      const entry = { directory, name, listener, released: false };
+      followed.push(entry);
+      return () => (entry.released = true);
+    },
+  };
+  hub.define(jobTopic(operationJob({ operations }, { watchers })));
+  const { frames, stop } = listen(hub, `job.operation:${ID}`);
+  await clock.advance(0);
+  assert.deepEqual(
+    followed.map(({ directory, name }) => [directory, name]),
+    [["/jobs", `${ID}.json`]],
+  );
+  jobs[ID] = { ...jobs[ID], status: "succeeded" };
+  followed[0].listener("rename", `${ID}.json`);
+  await clock.advance(200);
+  assert.equal(frames.at(-1).data.job.status, "succeeded");
+  stop();
+  assert.equal(followed[0].released, true);
+});
+
+test("a job read that ends after the last unsubscribe leaves no sampled status", async () => {
+  const topic = jobTopic({
+    kind: "demo",
+    param: /[a-z]+/,
+    sampleMs: 1000,
+    status: (value) => value.status,
+    read: async () => ({ status: "running" }),
+  });
+  const stop = topic.watch({ param: "a", invalidate() {}, nudge() {} });
+  const reading = topic.read(owner, "a");
+  stop();
+  await reading;
+  assert.equal(topic.sampling("a"), false);
+  // While watched, a running job is sampled.
+  topic.watch({ param: "a", invalidate() {}, nudge() {} });
+  await topic.read(owner, "a");
+  assert.equal(topic.sampling("a"), true);
 });
 
 test("a job change signals its topic, the summary at its end and release sessions", () => {
