@@ -314,3 +314,87 @@ test("sessions share a registry handed to them and register their stored tokens"
   // The adapter's own listener came first; the service's hears the same once.
   assert.deepEqual(heard, [`own:${id}`, id]);
 });
+
+test("a start with a token another owner listens with or keeps is refused", async (t) => {
+  const { registry } = registryFixture(t);
+  const live = await registry.start(session, {
+    token: newAgentToken(),
+    binaries,
+    authorize: grant([]),
+  });
+  await assert.rejects(
+    registry.start(agent, { token: live.token, binaries, authorize: grant([]) }),
+    { code: "SSH_AGENT_TOKEN_IN_USE" },
+  );
+  const stored = newAgentToken();
+  registry.tokenSource("session", () => [{ id: "s2", token: stored }]);
+  await assert.rejects(
+    registry.start(agent, { token: stored, binaries, authorize: grant([]) }),
+    { code: "SSH_AGENT_TOKEN_IN_USE" },
+  );
+  assert.equal(registry.get(agent), undefined);
+  // The owner keeping the token may listen with it.
+  const restored = await registry.start(
+    { kind: "session", id: "s2" },
+    { token: stored, binaries, authorize: grant([]) },
+  );
+  t.after(() => registry.teardown({ kind: "session", id: "s2" }));
+  assert.equal(restored.token, stored);
+});
+
+test("an entry replaced while authorize answers refuses the signature", async (t) => {
+  const { registry } = registryFixture(t);
+  const entry = await registry.start(agent, {
+    token: newAgentToken(),
+    binaries,
+    authorize: async () => {
+      await registry.teardown(agent);
+      return { hosts: [hostA], projectId: "p1" };
+    },
+  });
+  assert.equal(await entry.socket.authorize(), null);
+  assert.equal(entry.projectId, undefined);
+});
+
+test("a write whose entry is torn down while the hosts are read writes nothing", async (t) => {
+  const { dataDir, registry } = registryFixture(t);
+  const changed = [];
+  registry.listen("agent", (id) => changed.push(id));
+  await registry.start(agent, { token: newAgentToken(), binaries, authorize: grant([]) });
+  const result = await registry.write(agent, async () => {
+    await registry.teardown(agent);
+    return [hostA];
+  });
+  assert.equal(result, "unchanged");
+  assert.equal(fs.existsSync(ownerFolder(dataDir, agent)), false);
+  assert.deepEqual(changed, []);
+  // A failing host read of a torn-down entry rethrows without re-creating the folder.
+  await registry.start(agent, { token: newAgentToken(), binaries, authorize: grant([]) });
+  await assert.rejects(
+    registry.write(agent, async () => {
+      await registry.teardown(agent);
+      throw Object.assign(new Error("catalog"), { code: "SSH_CATALOG_UNAVAILABLE" });
+    }),
+    { code: "SSH_CATALOG_UNAVAILABLE" },
+  );
+  assert.equal(fs.existsSync(ownerFolder(dataDir, agent)), false);
+  assert.deepEqual(changed, []);
+});
+
+test("close goes on past a socket that fails to close", async (t) => {
+  const { registry, logs } = registryFixture(t);
+  const s = await registry.start(session, {
+    token: newAgentToken(),
+    binaries,
+    authorize: grant([]),
+  });
+  await registry.start(agent, { token: newAgentToken(), binaries, authorize: grant([]) });
+  const close = s.socket.close.bind(s.socket);
+  s.socket.close = async () => {
+    await close();
+    throw Object.assign(new Error("close"), { code: "EBUSY" });
+  };
+  await registry.close();
+  assert.deepEqual(registry.entries(), []);
+  assert.deepEqual(logs, [["error", "Session SSH agent could not be closed:", "EBUSY"]]);
+});
