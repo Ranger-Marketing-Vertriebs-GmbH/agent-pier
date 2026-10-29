@@ -284,7 +284,9 @@ AgentPier keeps one marked block per data folder at the top of `~/.ssh/config` o
 session has had an SSH alias ([details](ssh-access.md#the-marked-block-in-your-ssh-config)).
 It applies only inside AgentPier sessions; to remove this
 installation's block and leave every other line, and other installations' blocks, as
-they are:
+they are, run the command below. `AGENTPIER_DATA_DIR` must name the service's data
+folder when it uses its own; otherwise the command looks at `.data/` in the checkout
+and reports that there is no AgentPier block:
 
 ```sh
 npm run ssh-config:remove

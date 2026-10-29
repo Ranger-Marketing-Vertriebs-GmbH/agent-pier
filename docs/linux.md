@@ -120,7 +120,7 @@ rm "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/dev.agentpier.server.service"
 systemctl --user daemon-reload
 ```
 
-Den markierten AgentPier-Block dieses Datenordners oben in `~/.ssh/config` (er wirkt nur in AgentPier-Sessions, siehe [SSH-Zugänge](ssh-access.md#the-marked-block-in-your-ssh-config)) entfernt; die Sicherung `~/.ssh/config.agentpier-backup` bleibt:
+Den markierten AgentPier-Block dieses Datenordners oben in `~/.ssh/config` (er wirkt nur in AgentPier-Sessions, siehe [SSH-Zugänge](ssh-access.md#the-marked-block-in-your-ssh-config)) entfernt der folgende Befehl; die Sicherung `~/.ssh/config.agentpier-backup` bleibt. `AGENTPIER_DATA_DIR` muss dabei den Datenordner des Dienstes nennen, wenn er einen eigenen hat (siehe oben); sonst sucht der Befehl unter `.data/` im Projekt und meldet, dass kein AgentPier-Block vorhanden ist:
 
 ```sh
 npm run ssh-config:remove
