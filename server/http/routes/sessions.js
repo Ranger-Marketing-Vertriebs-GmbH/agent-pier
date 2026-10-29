@@ -5,6 +5,7 @@ import {
 import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem, nameValue } from "../../lib/storage.js";
+import { publicSession } from "../../features/sessions/session-public.js";
 export function sessionsRoutes(services) {
   const {
     sessions,
@@ -26,7 +27,7 @@ export function sessionsRoutes(services) {
     res.json(await services.sessionMcp.revoke(req.params.id));
   });
   router.post("/sessions", async (req, res) =>
-    res.status(201).json(await launch(req.body)),
+    res.status(201).json(publicSession(await launch(req.body))),
   );
   router.get("/sessions/:id/reload", async (req, res) =>
     res.json(await services.reload.status(req.params.id)),
@@ -40,12 +41,12 @@ export function sessionsRoutes(services) {
   router.patch("/sessions/:id", async (req, res) => {
     const name = nameValue(req.body?.name);
     await sessions.rename(req.params.id, name);
-    res.json(await sessions.get(req.params.id));
+    res.json(publicSession(await sessions.get(req.params.id)));
   });
   router.post("/sessions/:id/stop", async (req, res) => {
     if (services.reload) await services.reload.stop(req.params.id);
     else await sessions.stop(req.params.id);
-    res.json(await sessions.get(req.params.id));
+    res.json(publicSession(await sessions.get(req.params.id)));
   });
   router.delete("/sessions/:id", async (req, res) => {
     // Capture the directory before removal so a rejected (running) session

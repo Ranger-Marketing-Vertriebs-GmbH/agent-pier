@@ -50,8 +50,9 @@ export async function applicationFixture(t, overrides = {}) {
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),
   );
   const dataDir = path.join(root, "data");
-  const home = path.join(root, "home");
-  await fs.mkdir(home, { mode: 0o700 });
+  // A short home under /tmp: session SSH agent sockets live below it and must fit the
+  // socket path limit (104 bytes on macOS), where os.tmpdir() is too long.
+  const home = await fs.realpath(await fs.mkdtemp("/tmp/aph-"));
   // The home folder stands for no project, so sessions that need one use this folder.
   const project = path.join(root, "fixture-project");
   await fs.mkdir(project, { mode: 0o700 });
@@ -133,6 +134,7 @@ export async function applicationFixture(t, overrides = {}) {
       for (const folder of socketFolders)
         await fs.rm(folder, { recursive: true, force: true }).catch(() => {});
       await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      await fs.rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }
 

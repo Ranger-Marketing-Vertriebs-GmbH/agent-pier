@@ -165,13 +165,8 @@ export function sshRoutes({
     const session = await sessions.get(req.params.id);
     const saved = await sshSessions.set(session, req.body.accessIds);
     // The grant is saved and authorizes at once; the agent's alias files follow. A
-    // failed write is retried by the agent and never fails the saved assignment.
-    await sshAgents?.sync(session).catch((error) => {
-      console.error(
-        "Session SSH agent could not follow the assignment:",
-        error?.code || "error",
-      );
-    });
+    // failed write is logged and retried by the agent and never fails the assignment.
+    await sshAgents?.sync(session).catch(() => {});
     res.json(await sessionAccesses(session, saved));
   });
   return router;

@@ -11,6 +11,7 @@ import {
   withAgentEnvironment,
 } from "../../server/features/ssh/ssh-agent-launch.js";
 import { wrapWithNono } from "../../server/features/nono/nono-launch.js";
+import { publicSession } from "../../server/features/sessions/session-public.js";
 import * as agents from "../helpers/ssh-session-agents-fixture.js";
 
 const generation = "0b7c2f8e-58bf-467b-b983-95a250cf2c3a";
@@ -201,13 +202,18 @@ test("the agent environment never replaces an inherited agent, Git or rsync comm
   assert.equal(shell.PATH, details.binDir);
 });
 
-test("an SSH_AUTH_SOCK in the server's process environment stays the session's", async (t) => {
-  const previous = process.env.SSH_AUTH_SOCK;
-  process.env.SSH_AUTH_SOCK = "/inherited/agent.sock";
+test("absence is judged on the environment the CLI receives (R29)", async (t) => {
+  const keys = ["SSH_AUTH_SOCK", "GIT_SSH_COMMAND", "RSYNC_RSH"];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   t.after(() => {
-    if (previous === undefined) delete process.env.SSH_AUTH_SOCK;
-    else process.env.SSH_AUTH_SOCK = previous;
+    for (const key of keys)
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
   });
+  // cleanEnvironment passes the server's agent on, but not its Git or rsync command.
+  process.env.SSH_AUTH_SOCK = "/inherited/agent.sock";
+  process.env.GIT_SSH_COMMAND = "ssh -i /server/key";
+  process.env.RSYNC_RSH = "ssh -i /server/key";
   const launch = await prepareSessionSshAgent(agentStub(), {
     id: "s1",
     account: { tool: "codex" },
@@ -215,6 +221,8 @@ test("an SSH_AUTH_SOCK in the server's process environment stays the session's",
   });
   assert.equal(launch.env.SSH_AUTH_SOCK, undefined);
   assert.equal(launch.env.AGENTPIER_SSH_AUTH_SOCK, details.socketPath);
+  assert.equal(launch.env.GIT_SSH_COMMAND, `'${details.binDir}/ssh'`);
+  assert.equal(launch.env.RSYNC_RSH, `'${details.binDir}/ssh'`);
   delete process.env.SSH_AUTH_SOCK;
   const unset = await prepareSessionSshAgent(agentStub(), {
     id: "s1",
@@ -353,4 +361,16 @@ test("a real agent's launch and reload: same socket path, a new generation", asy
     second.env.PATH.split(path.delimiter)[0],
     f.agents.launchDetails(request.id).binDir,
   );
+});
+
+test("browser responses carry only whether a session has an agent (R30)", () => {
+  const record = { id: "s1", name: "S", sshAgent };
+  const shown = publicSession(record);
+  assert.deepEqual(shown.sshAgent, { enabled: true });
+  assert.equal(JSON.stringify(shown).includes(token), false);
+  assert.equal(JSON.stringify(shown).includes("/usr/bin/ssh"), false);
+  // The record itself keeps everything for the server.
+  assert.equal(record.sshAgent.token, token);
+  const plain = { id: "s2" };
+  assert.equal(publicSession(plain), plain);
 });
