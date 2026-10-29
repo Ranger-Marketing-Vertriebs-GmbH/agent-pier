@@ -475,9 +475,11 @@ export class AssistantService {
     if (feeds && conversationId) this.feeds?.invalidate(conversationId);
     else if (feeds) this.feeds?.invalidateAll();
     // Names the changed chat for listeners that follow one chat; the lists (the
-    // owner's agent.list, a user's me.* topics) read again on the `change` below.
+    // owner's agent.list, a user's me.* topics) read again on the `change` below,
+    // which names a chat-only change so agent-level listeners can skip it.
     if (conversationId) this.events.emit("conversation", conversationId);
-    this.events.publish({ type: "change" });
+    const chat = conversationId ? { conversationId } : {};
+    this.events.publish({ type: "change", ...chat });
   }
   serialize(key, operation) {
     const job = (this.locks.get(key) || Promise.resolve())

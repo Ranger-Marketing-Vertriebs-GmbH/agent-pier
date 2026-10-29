@@ -1,7 +1,7 @@
 import React from "react";
 import api from "../../../../lib/api.js";
 import { assistantWorkflowCopy as wf } from "../../../../lib/i18n/messages/assistant-workflows.js";
-import { toggleId } from "../agent-settings-fields.js";
+import { savedSshApproval, toggleId } from "../agent-settings-fields.js";
 import GrantSelectionPage from "../GrantSelectionPage.jsx";
 import ProjectGrantPage from "../ProjectGrantPage.jsx";
 import GithubGrantPage from "../GithubGrantPage.jsx";
@@ -44,7 +44,7 @@ export default function AccessSubpage({
         <AgentSshAgentStatus
           assistantId={assistant.id}
           hosts={catalog?.sshHosts}
-          approval={draft.values.sshAccesses.some((g) => g.mode === "approval")}
+          approval={savedSshApproval(draft.base, catalog?.sshHosts)}
         />
       </SshGrantPage>
     );

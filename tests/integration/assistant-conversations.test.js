@@ -332,5 +332,8 @@ test("Gateway chat frames feed the conversation's live feed instead of an SSE de
   // A scoped change still announces the list change.
   published.length = 0;
   service.changed({ conversationId: c.id });
+  assert.deepEqual(published, [{ type: "change", conversationId: c.id }]);
+  published.length = 0;
+  service.changed();
   assert.deepEqual(published, [{ type: "change" }]);
 });

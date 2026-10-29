@@ -268,3 +268,23 @@ test("a host removal never writes back a restored routines grant", async (t) => 
   const removed = f.audit.filter((e) => e.details.reason === "host-removed");
   assert.deepEqual(removed.at(-1).details.modeChanged, []);
 });
+
+// A partial read failure (the access rows read, one agent's policy not) is a
+// failure, not "no grants": AgentShellSsh then only closes sockets and keeps tokens.
+test("strict sshAgents throws when one agent's grants cannot be read", async (t) => {
+  const f = await agentSshFixture(t);
+  const access = f.workflows.access;
+  f.grant([{ accessId: hostId, mode: "trusted" }]);
+  assert.deepEqual([...access.sshAgents({ strict: true })], [f.id]);
+  const get = access.get.bind(access);
+  access.get = (id) => {
+    if (id === f.id) throw Object.assign(Error("database is locked"), { code: "ERR" });
+    return get(id);
+  };
+  assert.throws(() => access.sshAgents({ strict: true }), /database is locked/);
+  assert.deepEqual([...access.sshAgents()], []);
+  assert.equal(access.hasSshGrants(f.id), false);
+  access.get = get;
+  // An agent that no longer exists is "no grants", also when strict.
+  assert.equal(access.hasSshGrants("missing-agent", { strict: true }), false);
+});

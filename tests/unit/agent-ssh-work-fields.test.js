@@ -4,6 +4,7 @@ import {
   accessKeys,
   agentPageAllowed,
   resolveAgentLocation,
+  savedSshApproval,
   setSshGrant,
   sshSummary,
   workBody,
@@ -71,4 +72,27 @@ test("a save drops removed hosts, but never while the catalog is unreadable", ()
   // Unchanged grants stay out, so an unreadable SSH catalog cannot fail the save.
   assert.equal("sshAccesses" in body(null, ["publish"]), false);
   assert.equal("sshAccesses" in body(["a"], ["publish"]), false);
+});
+
+test("the plain ssh approval hint follows the saved grants of listed hosts only", () => {
+  const hosts = [{ id: "a" }, { id: "b" }];
+  const base = (sshAccesses) => ({ sshAccesses });
+  assert.equal(
+    savedSshApproval(base([{ accessId: "a", mode: "approval" }]), hosts),
+    true,
+  );
+  assert.equal(
+    savedSshApproval(base([{ accessId: "a", mode: "trusted" }]), hosts),
+    false,
+  );
+  // A removed host's approval grant, or no catalog yet: no hint.
+  assert.equal(
+    savedSshApproval(base([{ accessId: "x", mode: "approval" }]), hosts),
+    false,
+  );
+  assert.equal(
+    savedSshApproval(base([{ accessId: "a", mode: "approval" }]), null),
+    false,
+  );
+  assert.equal(savedSshApproval(undefined, hosts), false);
 });
