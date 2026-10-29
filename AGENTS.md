@@ -55,7 +55,7 @@ Every pull request must review and update the documentation its change affects, 
 
 Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. Pull requests run the affected tests on Linux and Chromium; the merge queue runs the full Node and Chromium suites, and nightly and release runs cover Linux/macOS, Node 22/24 and Chromium/WebKit. Label a pull request `webkit` to run WebKit on it.
 
-Every published release, stable or release candidate, gets handwritten notes above GitHub's generated pull request list: a short **Highlights** section with the user-visible changes, and an **Upgrade notes** section whenever behavior, permissions, defaults, data migrations or downgrade safety change. Add them right after the release workflow publishes; see `docs/release-channels.md`.
+Every published release, stable or release candidate, gets handwritten notes above GitHub's generated pull request list: a short **Highlights** section with the user-visible changes, and an **Upgrade notes** section whenever behavior, permissions, defaults, data migrations or downgrade safety change. Write them against the previous published release: go through everything merged since its tag (`git log <previous tag>..<new tag>`) so that no change is missing, including other people's pull requests. Add them right after the release workflow publishes; see `docs/release-channels.md`.
 
 ## Security & Configuration
 
