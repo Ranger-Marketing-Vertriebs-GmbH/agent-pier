@@ -231,11 +231,18 @@ export class LiveInstance {
     }
     const [reader] = this.subscribers;
     const generation = this.generation;
-    // When this read began: a browser keeps a REST answer read later than it.
-    const readAt = readStamp();
+    // When this read began: a browser keeps a REST answer read later than it. A read
+    // that answers from data read earlier (a cached sample) dates it back with
+    // `basedOn(stamp)`.
+    let readAt = readStamp();
+    const context = {
+      basedOn: (stamp) => {
+        if (Number.isSafeInteger(stamp) && stamp < readAt) readAt = stamp;
+      },
+    };
     let value;
     try {
-      value = await this.definition.read(reader.principal, this.param);
+      value = await this.definition.read(reader.principal, this.param, context);
     } catch (error) {
       if (generation !== this.generation) return;
       this.failed = true;

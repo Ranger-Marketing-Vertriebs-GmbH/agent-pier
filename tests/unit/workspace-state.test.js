@@ -155,3 +155,15 @@ test("a read reuses a session list the collect just offered, once", async () => 
   );
   assert.equal(calls.sessions, 2);
 });
+
+test("a read that reuses an offered list is dated to that listing", async () => {
+  const { state, advance } = fixture();
+  advance(5000);
+  state.offerSessions([{ id: "two", name: "Zwei", cwd: "/nowhere" }], 3000);
+  const based = [];
+  const value = await state.read({ basedOn: (stamp) => based.push(stamp) });
+  assert.equal(value.readStartedAt, 3000);
+  assert.deepEqual(based, [3000]);
+  // A read that lists the sessions itself is dated to its own start.
+  assert.ok((await state.read()).readStartedAt > 3000);
+});

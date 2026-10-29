@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readStamp } from "../lib/read-stamp.js";
 import { AgentApprovalEvents } from "./agent-approval-events.js";
 import { replyPreview, requestNotice, runNotice, sessionNotice } from "./push-notices.js";
 
@@ -225,17 +226,22 @@ export class OperationsEvents {
     });
     return this.pending;
   }
-  /** Calls `listener(sessions)` whenever collect() lists the sessions; returns a stop. */
+  /**
+   * Calls `listener(sessions, listedAt)` whenever collect() lists the sessions
+   * (`listedAt`: the read stamp from before the listing); returns a stop.
+   */
   onSessions(listener) {
     this.sessionListeners.add(listener);
     return () => this.sessionListeners.delete(listener);
   }
   async collect() {
     const enabled = this.notifications.status().subscriptions.length > 0;
+    // When the listing began (server/lib/read-stamp.js): what a reader of the list saw.
+    const listedAt = readStamp();
     const sessions = await this.sessions.list();
     for (const listener of [...this.sessionListeners])
       try {
-        listener(sessions);
+        listener(sessions, listedAt);
       } catch (error) {
         this.onError(error);
       }
