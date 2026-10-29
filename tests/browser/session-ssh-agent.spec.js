@@ -120,6 +120,65 @@ test("a new alias arrives live without losing unsaved choices", async ({
   ).toHaveLength(1);
 });
 
+test.describe("with pushes only from the test", () => {
+  test.use({ live: "manual" });
+
+  test("a save answer read before the last push keeps the pushed aliases", async ({
+    page,
+    liveStub,
+  }) => {
+    const state = await fixture(page);
+    const before = state.agent;
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    // The PUT answer was read before the push below: it still names the old aliases.
+    await page.route("**/api/sessions/agent/ssh-accesses", async (route) => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      await held;
+      await route.fulfill({
+        headers: { "X-Read-Started": "1000" },
+        json: {
+          tools: state.tools,
+          agent: before,
+          assignedIds: route.request().postDataJSON().accessIds,
+          accesses: [
+            { id: "ssh-one", name: "Proxmox 2", host: "p", username: "r", port: 22 },
+            { id: "ssh-two", name: "Build server", host: "b", username: "d", port: 22 },
+          ],
+          commands: [],
+        },
+      });
+    });
+    await liveStub.waitForSubscribe("state");
+    await liveStub.pushRest("state");
+    await openDialog(page);
+    await liveStub.waitForSubscribe("job.ssh-tools:agent");
+    await dialog(page)
+      .getByRole("checkbox", { name: /Build server/ })
+      .check();
+    await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+    liveStub.push(
+      "job.ssh-tools:agent",
+      {
+        tools: state.tools,
+        agent: {
+          state: "ready",
+          aliases: { "ssh-one": "proxmox-2", "ssh-two": "build-server" },
+        },
+      },
+      { readAt: 2000 },
+    );
+    await expect(
+      dialog(page).getByText("ssh build-server", { exact: true }),
+    ).toBeVisible();
+    release();
+    await expect(dialog(page).getByText("Saved", { exact: true })).toBeVisible();
+    await expect(
+      dialog(page).getByText("ssh build-server", { exact: true }),
+    ).toBeVisible();
+  });
+});
+
 for (const [reason, text] of [
   ["openssh-too-old", /OpenSSH 8\.9 or newer/],
   ["no-openssh", /Plain ssh needs OpenSSH on this computer/],
