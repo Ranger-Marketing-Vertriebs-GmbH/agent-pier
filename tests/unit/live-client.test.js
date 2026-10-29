@@ -4,6 +4,7 @@ import {
   LiveClient,
   failuresBeforeFallback,
   liveAuthCheckEvent,
+  revokedRetryMs,
 } from "../../web/lib/live/live-client.js";
 import { fakeLive, rowsSnapshot } from "../helpers/fake-live.js";
 
@@ -422,4 +423,42 @@ test("presence goes over the open socket and is declined while the channel is no
   assert.deepEqual(fake.last().sent.at(-1), { op: "presence", route: "/inbox" });
   fake.last().drop(1006);
   assert.equal(client.sendPresence("/inbox"), false);
+});
+
+test("a revoked topic is subscribed again while visible and recovers when re-granted", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  const listener = recorder();
+  const topic = "agent.actions:a";
+  client.subscribe(topic, listener);
+  fake.last().hello("i1");
+  const socket = fake.last();
+  const subs = () =>
+    socket.sent.filter((f) => f.op === "sub" && f.topic === topic).length;
+  socket.receive({ type: "state", topic, revision: 1, data: { actions: [1] } });
+  socket.receive({ type: "revoked", topic });
+  assert.equal(subs(), 1);
+  await fake.advance(revokedRetryMs);
+  assert.equal(subs(), 2);
+  // Still refused: it stays revoked for its listeners, and nothing is read.
+  socket.receive({ type: "error", topic, code: "unknown-topic" });
+  assert.deepEqual(socket.sent.at(-1), { op: "unsub", topic });
+  assert.deepEqual(
+    listener.events.filter((e) => !["data", "status"].includes(e.type)),
+    [{ type: "revoked" }],
+  );
+  // A hidden tab does not try.
+  fake.setHidden(true);
+  await fake.advance(revokedRetryMs * 2);
+  assert.equal(subs(), 2);
+  fake.setHidden(false);
+  await fake.advance(revokedRetryMs);
+  assert.equal(subs(), 3);
+  // Access came back: the topic answers again in place.
+  socket.receive({ type: "state", topic, revision: 2, data: { actions: [2] } });
+  assert.deepEqual(listener.events.at(-1), {
+    type: "data",
+    data: { actions: [2] },
+    revision: 2,
+  });
 });
