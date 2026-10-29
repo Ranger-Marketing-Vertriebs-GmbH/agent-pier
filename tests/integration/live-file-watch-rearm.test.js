@@ -143,3 +143,20 @@ test("a read whose resolved file lies in the data directory is refused", async (
     watched: true,
   });
 });
+
+test("a handle on a file (the AgentBus log) survives a check of its own identity", async (t) => {
+  const { DirectoryWatchers } = await import("../../server/lib/directory-watchers.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-rearm-file-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, "queue.sqlite-wal");
+  fs.writeFileSync(file, "x");
+  const stat = fs.statSync(file, { bigint: true });
+  const handle = new EventEmitter();
+  handle.close = () => (handle.closed = true);
+  const watchers = new DirectoryWatchers({ watch: () => handle });
+  const release = watchers.add(file, null, () => {}, `${stat.dev}:${stat.ino}`);
+  handle.emit("change", "rename", null);
+  await delay(50);
+  assert.equal(release.alive(), true);
+  assert.equal(handle.closed, undefined);
+});
