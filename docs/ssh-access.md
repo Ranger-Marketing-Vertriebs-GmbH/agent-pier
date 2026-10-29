@@ -212,6 +212,7 @@ Each signature is recorded as `ssh.connected` with the session, the host and its
 
 - The wrappers recognise jump hosts only as `-J`. With `-o ProxyJump=<alias>` and a destination that is not an alias, no `-F` is added and the alias does not resolve; use `-J` or `ssh -F "$AGENTPIER_SSH_CONFIG"`.
 - Revoking a host stops new signatures, not open connections or tunnels.
+- In a sandboxed session, bare `ssh <alias>` through the marked block does not work: `include.conf` lies outside the session's read grant, and the glob in its `Include` skips it. Use the wrappers (`ssh <alias>` with `bin/` first on `PATH`, `git`, `rsync`) or `ssh -F "$AGENTPIER_SSH_CONFIG" <alias>`.
 - On a sandbox profile with network access, a sandboxed session can reach another session's agent socket by its path ([sandbox limitation 7](sandbox.md#known-limitations)).
 
 ## Session lifecycle and manual access
