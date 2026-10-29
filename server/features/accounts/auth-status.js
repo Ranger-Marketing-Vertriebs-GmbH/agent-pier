@@ -16,8 +16,10 @@ export class AccountAuthStatus {
     this.cache = new Map();
     this.pending = new Map();
     this.controllers = new Set();
-    // Raised by forget(): a probe started before it never fills the cache.
+    // Raised by forget() (of every account, or of one in `generations`): a probe
+    // started before it never fills the cache; other accounts' probes still do.
     this.generation = 0;
+    this.generations = new Map();
     this.running = 0;
     this.queued = [];
   }
@@ -34,8 +36,12 @@ export class AccountAuthStatus {
     this.pending.set(id, pending);
     return pending;
   }
+  /** What a probe of `id` started now must still match to fill the cache. */
+  stamp(id) {
+    return `${this.generation}:${this.generations.get(id) || 0}`;
+  }
   async probe(account) {
-    const generation = this.generation;
+    const generation = this.stamp(account.id);
     await this.slot();
     try {
       return await this.run(account, generation);
@@ -109,7 +115,7 @@ export class AccountAuthStatus {
     } finally {
       this.controllers.delete(controller);
     }
-    if (generation !== this.generation) return result;
+    if (generation !== this.stamp(account.id)) return result;
     if (this.cache.size >= 1000) this.cache.clear();
     this.cache.set(account.id, result);
     return result;
@@ -119,11 +125,16 @@ export class AccountAuthStatus {
    * one): the next read probes anew, and a probe already running fills no cache.
    */
   forget(id) {
-    this.generation += 1;
+    // Every account, or the per-account stamps grew past their bound.
+    if (id === undefined || this.generations.size >= 1000) {
+      this.generation += 1;
+      this.generations.clear();
+    }
     if (id === undefined) {
       this.cache.clear();
       this.pending.clear();
     } else {
+      this.generations.set(id, (this.generations.get(id) || 0) + 1);
       this.cache.delete(id);
       this.pending.delete(id);
     }
