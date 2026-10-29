@@ -187,6 +187,7 @@ export function attachLive(server, services, { admit, effective }) {
     admit,
     effective,
     changes: (listener) => agentAndPrivacyChanges(services, listener),
+    presence: (route, scope) => services.notifications?.reportPresence(route, scope),
   });
   return hub;
 }
