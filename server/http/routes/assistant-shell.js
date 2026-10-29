@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { SHELL_CONFIRMATION_REQUIRED } from "../../features/assistants/shell-changes.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
+import { sshAgentStatus } from "../../features/assistants/live-topics.js";
 
 /**
  * Answers a shell level the owner has not confirmed with 409, a stable code and
@@ -17,8 +18,12 @@ export function replyShellConfirmation(response, error) {
   return true;
 }
 
-/** An agent's exec allowlist in the Gateway: list its entries and delete one. */
-export function assistantShellRoutes({ assistants }) {
+/**
+ * An agent's exec allowlist in the Gateway (list its entries, delete one) and its
+ * plain ssh status (the live topic `agent.ssh-agent` answers the same).
+ */
+export function assistantShellRoutes(services) {
+  const { assistants } = services;
   const router = Router();
   router.get("/assistants/:id/shell-allowlist", async (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -27,5 +32,9 @@ export function assistantShellRoutes({ assistants }) {
   router.delete("/assistants/:id/shell-allowlist/:entry", async (req, res) =>
     res.json(await assistants.allowlist.remove(req.params.id, req.params.entry)),
   );
+  router.get("/assistants/:id/ssh-agent", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json(sshAgentStatus(services, req.params.id));
+  });
   return router;
 }

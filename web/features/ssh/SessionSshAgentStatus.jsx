@@ -9,8 +9,8 @@ const reasons = {
   "not-eligible": () => copy.agentNotEligible,
 };
 
-// Codes of ssh-user-config.js, shown as a short reason.
-const configReasons = {
+// Codes of ssh-user-config.js, shown as a short reason (also AgentSshAgentStatus).
+export const configReasons = {
   SSH_CONFIG_LINK: "link",
   SSH_CONFIG_NOT_FILE: "notFile",
   SSH_CONFIG_UNREADABLE: "unreadable",

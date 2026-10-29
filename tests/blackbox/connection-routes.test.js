@@ -61,6 +61,7 @@ test("connection reads are owner-only and leave agent services alone while agent
   assert.deepEqual(usage.github, {});
   assert.deepEqual(usage.lastUseCovers, [
     "agentSsh",
+    "agentPlainSsh",
     "agentSftp",
     "sessionSftp",
     "sessionSsh",

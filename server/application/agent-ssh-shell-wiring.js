@@ -3,9 +3,11 @@
 // catalog publications refresh every agent's socket and files; each turn syncs its
 // own agent first, bounded, and then reads the agent's exec PATH entry and its
 // trusted hosts' aliases (assistant-config.js); approvals and agentpier_ssh read the
-// one instance as `workflows.agentSsh`. Shutdown (`close`) keeps folders and tokens;
-// switching the feature off (`discardAll`) removes them; both detach the hooks first.
+// one instance as `workflows.agentSsh`; each agent's change signals its live topic.
+// Shutdown (`close`) keeps folders and tokens; switching the feature off
+// (`discardAll`) removes them; both detach the hooks and listeners first.
 import { AgentShellSsh } from "../features/assistants/agent-ssh-shell.js";
+import { agentSshChanged } from "../features/assistants/live-topics.js";
 
 /** How long a turn waits for its agent's sync before it reads the status anyway. */
 export const turnSyncMs = 2000;
@@ -60,6 +62,8 @@ export function connectAgentShellSsh(services, graph, { syncMs = turnSyncMs } = 
   unsubscribe.push(
     assistants.events.subscribe(refresh),
     sshManagement.catalog.onPublished(refresh),
+    // Each agent's change reaches its live topic `agent.ssh-agent:<id>`.
+    registry.listen("agent", (id) => agentSshChanged(services.live, id)),
   );
   // Catalog names by access id; the alias names a host the catalog cannot be read for.
   const hostNames = () => {

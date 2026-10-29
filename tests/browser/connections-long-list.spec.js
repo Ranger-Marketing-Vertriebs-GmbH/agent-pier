@@ -79,7 +79,9 @@ test("500 SSH accesses stay a short, grouped list that filters and searches quic
   await list(page).getByRole("combobox", { name: "Group" }).selectOption("none");
   await list(page).getByRole("combobox", { name: "Sort" }).selectOption("used");
   await expect(rows(page).first()).toContainText("server-001");
-  await expect(list(page).getByText(/count agents' SSH commands/)).toBeVisible();
+  await expect(
+    list(page).getByText(/count agents' SSH commands, plain ssh connections of agents,/),
+  ).toBeVisible();
   // "Used today" covers today's use only.
   await list(page).getByRole("radio", { name: "Used today" }).check();
   await expect(rows(page)).toHaveCount(1);

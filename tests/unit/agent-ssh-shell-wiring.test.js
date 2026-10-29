@@ -10,7 +10,7 @@ import { hostA, hostB } from "../helpers/ssh-session-agents-fixture.js";
 
 // The agent SSH agents' wiring (agent-ssh-shell-wiring.js) on the fixture's registry,
 // agents and access: a fake agent graph and SSH services, never the real ones.
-function wired(t, { restored = Promise.resolve(), syncMs } = {}) {
+function wired(t, { restored = Promise.resolve(), syncMs, live } = {}) {
   const s = setup(t);
   const events = new AssistantEvents();
   let published = null;
@@ -28,6 +28,7 @@ function wired(t, { restored = Promise.resolve(), syncMs } = {}) {
     assistantWorkflows: { access: s.access },
   };
   const services = {
+    live,
     sshAgentRegistry: s.registry,
     sshAgentsRestored: restored,
     sshManagement: {
@@ -101,6 +102,22 @@ test("connect wires the hooks, refreshes on agent and catalog changes, and relea
   w.publish();
   await w.settled();
   assert.equal(w.refreshes(), 3);
+});
+
+test("each agent's SSH change signals its live topic until the wiring closes", async (t) => {
+  const live = { invalidated: [], invalidate: (...args) => live.invalidated.push(args) };
+  const w = wired(t, { live });
+  const a = w.s.add(personal(), [trusted(hostA)]);
+  await w.shell.refresh();
+  assert.deepEqual(live.invalidated, [["agent.ssh-agent", a.id]]);
+  // A revoke reaches the topic with the refresh that drops the alias.
+  w.s.grants.set(a.id, []);
+  await w.shell.refresh();
+  assert.deepEqual(live.invalidated.at(-1), ["agent.ssh-agent", a.id]);
+  const count = live.invalidated.length;
+  await w.shell.close();
+  w.s.registry.notify("agent", [a.id]);
+  assert.equal(live.invalidated.length, count);
 });
 
 test("switching the feature off removes every agent folder and the hooks", async (t) => {

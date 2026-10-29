@@ -88,3 +88,27 @@ test("an agent of users has no Team tab and keeps project folders only", async (
   await agentTab(page, "Capabilities").click();
   await expect(page.getByRole("note").filter({ hasText: "Locked: Shell" })).toBeVisible();
 });
+
+test("a temporary member using its lead's SSH shows its plain ssh aliases", async ({
+  page,
+}) => {
+  await setup(page, {
+    assistants: [
+      home({
+        teamMemberId: "m1",
+        lifetime: "task",
+        inherited: { capabilities: {}, skills: [], shell: "approval", ssh: true },
+      }),
+    ],
+    catalog,
+  });
+  await page.route("**/api/assistants/home/ssh-agent", (route) =>
+    route.fulfill({ json: { state: "ready", aliases: { "access-a": "proxmox-2" } } }),
+  );
+  await page.goto(baseURL + settingsPath("access"));
+  await expect(
+    page.getByText("Plain ssh works in this agent's shell for its trusted hosts"),
+  ).toBeVisible();
+  await expect(page.getByText("ssh proxmox-2", { exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+});

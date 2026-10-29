@@ -105,13 +105,15 @@
   font-weight: 600;
   color: var(--accent);
 }
-.ssh-dialog .ssh-copy {
+.ssh-dialog .ssh-copy,
+.ssh-agent-status .ssh-copy {
   margin: 4px 0 0;
   display: grid;
   gap: 8px;
   justify-items: start;
 }
-.ssh-dialog .ssh-copy pre {
+.ssh-dialog .ssh-copy pre,
+.ssh-agent-status .ssh-copy pre {
   justify-self: stretch;
 }
 .ssh-agent-status {

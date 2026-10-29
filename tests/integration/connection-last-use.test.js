@@ -76,3 +76,24 @@ test("hosts used through a session's SSH agent count as last use", (t) => {
     [lab]: "2026-10-20T10:00:00.000Z",
   });
 });
+
+test("hosts used through an agent's plain ssh count as last use", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-last-use-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const now = Date.parse("2026-10-20T10:00:00.000Z");
+  const audit = new AuditStore({ dataDir, clock: { now: () => now } });
+  t.after(() => audit.close());
+  assert.ok(sshLastUseCovers.includes("agentPlainSsh"));
+  // As the agent SSH agents write it (ssh-agent-audit.js, owner kind "agent").
+  audit.append({
+    action: "ssh.connected",
+    resourceType: "ssh",
+    resourceId: files,
+    source: "system",
+    outcome: "success",
+    details: { assistantId: "agent-1", accessId: files, hostName: "files", count: 1 },
+  });
+  assert.deepEqual(Object.fromEntries(sshLastUse(audit)), {
+    [files]: "2026-10-20T10:00:00.000Z",
+  });
+});

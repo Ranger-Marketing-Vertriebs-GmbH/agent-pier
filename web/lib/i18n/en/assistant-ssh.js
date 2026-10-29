@@ -108,6 +108,27 @@ export const assistantSshCopy = {
     label: "SSH activity",
     hosts: (count) => `${count} hosts`,
   },
+  plain: {
+    title: "Plain ssh",
+    ready:
+      "Plain ssh works in this agent's shell for its trusted hosts: ssh, scp, sftp, rsync, git and tunnels.",
+    readyNone: "No host has an alias yet: only trusted hosts get one.",
+    noShell: "Plain ssh needs shell access for this agent.",
+    noOpenSsh:
+      "Plain ssh needs OpenSSH on this computer. SSH commands through AgentPier still work.",
+    tooOld:
+      "Plain ssh needs OpenSSH 8.9 or newer on this computer. SSH commands through AgentPier still work.",
+    failed:
+      "Plain ssh could not be started for this agent. SSH commands through AgentPier still work.",
+    notEligible: "Plain ssh is not available for this agent.",
+    approvalHint: "Hosts with approval have no alias: each command still asks you.",
+    openConnections:
+      "Revoking a host or setting it to With approval blocks new connections at once. Open connections and tunnels stay open until they close.",
+    aliasLabel: (alias) => `ssh ${alias}`,
+    sshConfig: (reason) =>
+      `AgentPier left ~/.ssh/config unchanged: ${reason}. If ssh <alias> reports an unknown host in the agent's shell, use ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
+    copy: "Copy command",
+  },
   history: {
     title: (host) => `SSH on ${host}`,
     trusted: "Trusted run",

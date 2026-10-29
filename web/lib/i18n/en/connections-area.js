@@ -32,6 +32,7 @@ export const connectionsAreaCopy = {
   lastUseCovers: (parts) => `“Last used” and “Used today” count ${parts} only.`,
   lastUseParts: {
     agentSsh: "agents' SSH commands",
+    agentPlainSsh: "plain ssh connections of agents",
     agentSftp: "agents' SFTP transfers",
     sessionSftp: "SFTP transfers of sessions",
     sessionSsh: "plain ssh connections of sessions",

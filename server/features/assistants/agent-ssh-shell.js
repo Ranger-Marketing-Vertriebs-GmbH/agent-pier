@@ -496,7 +496,9 @@ export class AgentShellSsh {
     const assistant = validSessionId(id) ? this.find(id) : null;
     const reason = ineligibility(assistant);
     if (reason) return unavailable(reason);
-    if (!this.hasSshGrants(id)) return unavailable("no-hosts");
+    // An unreadable access store is a failure, not "no hosts".
+    if (!this.hasSshGrants(id))
+      return unavailable(this.sshAgents() === null ? "failed" : "no-hosts");
     if (!this.registry.openssh) return unavailable("no-openssh");
     if (!this.registry.supported) return unavailable("openssh-too-old");
     if (!this.entry(assistant))

@@ -121,8 +121,8 @@ test("a wanted agent that cannot run now keeps its folder and token", async (t) 
     assert.equal(s.registry.get(owner(a)), undefined, reason);
     assert.equal(fs.readFileSync(s.state(a), "utf8"), state);
     assert.equal(fs.existsSync(path.dirname(socketPath)), true);
-    if (reason !== "failed")
-      assert.deepEqual(s.shell.status(a.id), { state: "unavailable", reason });
+    // An unreadable access store is a failure, never "no hosts".
+    assert.deepEqual(s.shell.status(a.id), { state: "unavailable", reason });
     if (reason === "failed") assert.equal(await s.shell.authorize(a.id), null);
     mend();
     await s.shell.refresh();

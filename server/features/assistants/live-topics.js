@@ -82,7 +82,8 @@ export function agentListTopic(services) {
 // - `agent.coding-requests`: that list's team coding requests (`teamId`) only;
 // - `agent.channels`: GET /api/assistant-channels with the agent's channels only;
 // - `agent.reminders`: GET /api/assistants/:id/reminders;
-// - `agent.senders`: GET /api/assistant-telegram-senders/:id.
+// - `agent.senders`: GET /api/assistant-telegram-senders/:id;
+// - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status.
 // Privacy is checked as the routes check it. The owner-content guard
 // (owner-content-guard.js) refuses the actions and reminders of a user's own agent
 // without her opt-in like an unknown route: so do the topics, and an opt-in that ends
@@ -90,13 +91,15 @@ export function agentListTopic(services) {
 // agent change). The channel list is never refused: like its route, it hides her
 // Telegram identity and texts without the opt-in (OwnerPrivacy#filterChannels), so an
 // opt-in that ends pushes the list without them. The sender bots are not content:
-// their route has no privacy check (user agents never own one).
+// their route has no privacy check (user agents never own one), nor has the plain ssh
+// status, which names no path, token or content (user agents never get one).
 export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.actions",
   "agent.coding-requests",
   "agent.channels",
   "agent.reminders",
   "agent.senders",
+  "agent.ssh-agent",
 ]);
 // An agent id (randomUUID, or a test's own); never a path or a second parameter.
 export const AGENT_PARAM = /[A-Za-z0-9][A-Za-z0-9_-]{0,99}/;
@@ -238,7 +241,38 @@ export function agentDetailTopics(services) {
       // A save ends with an agent change, a Gateway restart with a runtime event.
       watch: listed,
     }),
+    detailTopic(services, {
+      name: "agent.ssh-agent",
+      read: (id) => sshAgentStatus(services, id),
+      // The agent SSH agents signal every change of theirs (agentSshChanged); an agent
+      // change reads again too, before the refresh it sets off has settled.
+      watch: listed,
+    }),
   ];
+}
+
+/**
+ * GET /api/assistants/:id/ssh-agent: the agent's plain ssh status
+ * (AgentShellSsh#status), an unknown agent the store's 404; without the adapter
+ * (no SSH services) `failed`. Never a path or token.
+ */
+export function sshAgentStatus(services, id) {
+  running(services).store.getAssistant(id);
+  return (
+    services.assistantAgentSsh?.status(id) ?? { state: "unavailable", reason: "failed" }
+  );
+}
+
+/**
+ * Agent `id`'s SSH agent changed (SshAgentRegistry#listen("agent")): signals its
+ * `agent.ssh-agent` topic on `hub` (services.live). A failing hub is logged.
+ */
+export function agentSshChanged(hub, id) {
+  try {
+    hub?.invalidate("agent.ssh-agent", id);
+  } catch {
+    console.error("AgentPier could not report a change of an agent's SSH agent.");
+  }
 }
 
 /** The agent's channels as GET /api/assistant-channels shows them to the owner. */

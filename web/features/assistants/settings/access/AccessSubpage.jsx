@@ -6,6 +6,7 @@ import GrantSelectionPage from "../GrantSelectionPage.jsx";
 import ProjectGrantPage from "../ProjectGrantPage.jsx";
 import GithubGrantPage from "../GithubGrantPage.jsx";
 import SshGrantPage from "../SshGrantPage.jsx";
+import AgentSshAgentStatus from "./AgentSshAgentStatus.jsx";
 import SecretGrantPage from "../SecretGrantPage.jsx";
 import MailGrantPage from "../MailGrantPage.jsx";
 
@@ -39,7 +40,13 @@ export default function AccessSubpage({
         onRetry={retryCatalog}
         onBack={back}
         navigate={navigate}
-      />
+      >
+        <AgentSshAgentStatus
+          assistantId={assistant.id}
+          hosts={catalog?.sshHosts}
+          approval={draft.values.sshAccesses.some((g) => g.mode === "approval")}
+        />
+      </SshGrantPage>
     );
   if (page === "secrets")
     return (
