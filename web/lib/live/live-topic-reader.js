@@ -2,7 +2,8 @@
 // the push cannot carry it (`stale`, `changed`, a failed first read on the server;
 // a signal topic reads the caller's route once at the start and once per `changed`),
 // and the topic's previous poll, visible-only, while the channel is in fallback or
-// refuses the topic. A read past its deadline shows a timeout error; a read cut
+// refuses the topic. A `revoked` topic (access ended) drops what it showed at once and
+// reads nothing more until a new connection subscribes it again. A read past its deadline shows a timeout error; a read cut
 // short by hiding or stopping stays silent and, if it was a one-time read, runs again
 // once the tab is visible. A hidden tab requests nothing.
 import { attemptRead } from "../resource-reads.js";
@@ -42,6 +43,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     pending = false,
     again = false,
     refused = false,
+    revoked = false,
     stopPolling = null,
     oneTime = null;
   const publish = (changes) => {
@@ -93,7 +95,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     else fetchOnce();
   };
   const polling = () => {
-    const wanted = Boolean(path) && (refused || client.status().fallback);
+    const wanted = Boolean(path) && !revoked && (refused || client.status().fallback);
     if (wanted && !stopPolling) {
       // A read that just finished counts as the poll's first run.
       const skipFirst = lastRead !== null && scope.now() - lastRead < info.interval;
@@ -128,18 +130,27 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const listener = (event) => {
     if (event.type === "data") {
       version += 1;
-      refused = false;
+      refused = revoked = false;
       publish({ data: event.data, error: "", loading: false });
       polling();
     } else if (event.type === "status") {
       // A new connection subscribes refused topics again; a new refusal follows.
-      if (event.connected) refused = false;
+      if (event.connected) refused = revoked = false;
       publish({ connected: event.connected });
       polling();
     } else if (event.type === "stale" || event.type === "changed") {
       fetchAfterChange();
       unreadable();
-    } else if (event.type === "revoked" || (event.type === "error" && event.code)) {
+    } else if (event.type === "revoked") {
+      // Nothing read before or during the revocation may show any more.
+      revoked = true;
+      version += 1;
+      oneTime?.abort();
+      oneTime = null;
+      pending = again = false;
+      publish({ data: null, error: "", loading: false });
+      polling();
+    } else if (event.type === "error" && event.code) {
       refused = true;
       polling();
       unreadable();

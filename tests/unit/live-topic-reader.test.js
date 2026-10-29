@@ -181,17 +181,34 @@ test("the fallback skips its first poll right after a read", async (t) => {
   assert.equal(s.reads.length, 2);
 });
 
-test("an unknown or revoked topic falls back to polling", async (t) => {
-  for (const event of [{ type: "error", code: "unknown-topic" }, { type: "revoked" }]) {
-    const s = setup("inbox");
-    t.after(s.reader.stop);
-    s.client.emit({ type: "status", connected: true, fallback: false });
-    s.client.emit(event);
-    await settle();
-    assert.equal(s.reads.length, 1);
-    await s.fake.advance(5000);
-    assert.equal(s.reads.length, 2);
-  }
+test("an unknown topic falls back to polling", async (t) => {
+  const s = setup("inbox");
+  t.after(s.reader.stop);
+  s.client.emit({ type: "status", connected: true, fallback: false });
+  s.client.emit({ type: "error", code: "unknown-topic" });
+  await settle();
+  assert.equal(s.reads.length, 1);
+  await s.fake.advance(5000);
+  assert.equal(s.reads.length, 2);
+});
+
+test("a revoked topic drops its data at once and reads nothing until reconnected", async (t) => {
+  const s = setup("agent.actions:a", { responses: [hang, ok({ actions: [2] })] });
+  t.after(s.reader.stop);
+  s.client.emit({ type: "status", connected: true, fallback: false });
+  s.client.emit({ type: "data", data: { actions: [1] }, revision: 1 });
+  // A read under way when access ends never shows its answer.
+  const refreshed = s.reader.refresh();
+  s.client.emit({ type: "revoked" });
+  assert.deepEqual(s.last(), { data: null, error: "", loading: false, connected: true });
+  assert.equal(await refreshed, null);
+  await s.fake.advance(60000);
+  assert.equal(s.reads.length, 1);
+  assert.equal(s.last().data, null);
+  // A new connection subscribes it again; its answer shows.
+  s.client.emit({ type: "status", connected: true, fallback: false });
+  s.client.emit({ type: "data", data: { actions: [3] }, revision: 2 });
+  assert.deepEqual(s.last().data, { actions: [3] });
 });
 
 test("a failed first read on the server gets one GET", async (t) => {
