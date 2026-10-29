@@ -26,6 +26,7 @@ for (const locale of ["de-DE", "en-GB"]) {
     test.use({ locale, viewport: { width: 390, height: 844 } });
     test("a message sent during an open question waits and follows the answer", async ({
       page,
+      liveStub,
     }) => {
       const en = locale === "en-GB";
       const state = await operationsFixture(page);
@@ -58,6 +59,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page
         .getByRole("button", { name: en ? "Send answer" : "Antwort senden", exact: true })
         .click();
+      // The server signals the session's deliveries once the held message leaves the
+      // queue; the chat then reads its delivery status.
+      await liveStub.waitForSubscribe("session.deliveries:fixture-session");
+      liveStub.changed("session.deliveries:fixture-session");
       await expect(
         page.getByText(
           en
