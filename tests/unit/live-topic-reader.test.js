@@ -245,6 +245,24 @@ test("of a push and a REST answer, the one read later is shown", async (t) => {
   assert.deepEqual(s.last().data, { n: 5 });
 });
 
+test("written reads over REST only while no push can follow the write", async (t) => {
+  const s = setup("inbox", { client: fakeClient({ connected: true }) });
+  t.after(s.reader.stop);
+  s.client.emit({ type: "data", data: { n: 1 }, revision: 1 });
+  // Connected: the write's change is pushed, so nothing is read.
+  assert.deepEqual(await s.reader.written(), { n: 1 });
+  assert.deepEqual(s.reads, []);
+  // Without a connection, it reads the route once.
+  s.client.emit({ type: "status", connected: false, fallback: false });
+  assert.deepEqual(await s.reader.written(), { path: "/inbox" });
+  assert.deepEqual(s.reads, ["/inbox"]);
+  // A refused topic is polled; written reads it too.
+  s.client.emit({ type: "status", connected: true, fallback: false });
+  s.client.emit({ type: "error", code: "unknown-topic" });
+  await s.reader.written();
+  assert.ok(s.reads.length >= 2);
+});
+
 test("refresh resolves with the data, or null when the read failed", async (t) => {
   const fail = async () => {
     throw new Error("boom");

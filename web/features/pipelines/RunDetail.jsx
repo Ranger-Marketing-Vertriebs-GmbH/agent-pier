@@ -21,7 +21,8 @@ import RunSpec from "./RunSpec.jsx";
 // Run detail: header with run-wide actions, the stage rail on the left and the chosen
 // stage on the right. The chosen stage lives in component state, so pushes keep it.
 // The live `pipeline.run` topic pushes every saved change; a deleted run arrives as
-// `{ run: null }`.
+// `{ run: null }`. Actions follow their write with `written()`, which reads over REST
+// only while no push can come.
 export default function RunDetail({ id, navigate }) {
   const resource = useLiveTopic(`pipeline.run:${id}`);
   const [chosen, setChosen] = useState("");
@@ -55,6 +56,7 @@ export default function RunDetail({ id, navigate }) {
             run={run}
             back={back}
             refresh={resource.refresh}
+            written={resource.written}
             exclude={gateInRail ? gateActions : []}
             shared={shared}
             decisionCue={
@@ -66,7 +68,7 @@ export default function RunDetail({ id, navigate }) {
                 : null
             }
           />
-          <RunSpec run={run} refresh={resource.refresh} />
+          <RunSpec run={run} refresh={resource.written} />
           {nodes.length === 0 && <RunUsage usage={run.usage} budget={run.tokenBudget} />}
           {nodes.length > 0 && (
             <div className="run-detail-layout">
@@ -83,7 +85,7 @@ export default function RunDetail({ id, navigate }) {
                 onSelect={setChosen}
                 shared={shared}
                 navigate={navigate}
-                refresh={resource.refresh}
+                refresh={resource.written}
                 gate={gateSelected ? { feedback, shared } : null}
               />
             </div>

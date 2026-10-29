@@ -32,8 +32,10 @@ const readTimeoutMs = 15000;
  * Starts following `topicId` on `client`. `read(path, signal)` is the REST GET of
  * `path` (default: the topic's route; a signal topic's data comes only from it),
  * `report({data, error, loading, connected})` gets every change. Returns
- * `{ refresh, set, stop }`; `refresh()` reads over REST and resolves with the data, or
- * with null when the read failed (its error is reported) or the tab is hidden.
+ * `{ refresh, written, set, stop }`; `refresh()` reads over REST and resolves with the
+ * data, or with null when the read failed (its error is reported) or the tab is
+ * hidden; `written()` is the read after the caller's own write, made only when no push
+ * will bring it.
  */
 export function startLiveTopic({ topicId, path: route, client, read, report, env = {} }) {
   const scope = { ...browser(), ...env };
@@ -211,6 +213,16 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     // is in the state), the tab is hidden (the read runs once it is visible) or the
     // topic has no REST route; it never rejects, so no caller waits on a failure.
     refresh: () => fetchOnce().then((data) => data ?? null),
+    // After the caller's own write: its change arrives as a push (or `changed`), so
+    // this reads over REST only while none can come (no connection, fallback, a
+    // refused or revoked topic). Resolves like refresh(), or at once with what is
+    // shown.
+    written: () => {
+      const { connected, fallback } = client.status();
+      if (connected && !fallback && !refused && !revoked && !stopPolling)
+        return Promise.resolve(state.data);
+      return fetchOnce().then((data) => data ?? null);
+    },
     // A write's own answer replaces the data at once; a REST read already under way
     // would bring the older state back, so its answer is dropped. Later pushes win.
     set(data) {

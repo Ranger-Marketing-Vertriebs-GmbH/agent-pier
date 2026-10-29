@@ -14,7 +14,15 @@ import { runStatusLabel } from "./run-codes.js";
 // Back link, task title, status, meta line and the run-wide actions; the task text
 // stays collapsible below. `decisionCue` leads to the waiting gate stage while another
 // stage is shown.
-export default function RunHeader({ run, back, refresh, exclude, shared, decisionCue }) {
+export default function RunHeader({
+  run,
+  back,
+  refresh,
+  written,
+  exclude,
+  shared,
+  decisionCue,
+}) {
   const node = run.nodes?.find((item) => item.id === run.currentNodeId);
   const verifying = isVerifying(run, node);
   const project = runProject(run);
@@ -93,7 +101,7 @@ export default function RunHeader({ run, back, refresh, exclude, shared, decisio
           </button>
           <RunActions
             run={run}
-            refresh={refresh}
+            refresh={written}
             removed={back}
             exclude={exclude}
             shared={shared}
