@@ -188,7 +188,7 @@ Shell sessions always get an agent. Codex, Claude Code and OpenCode sessions get
 
 ### The marked block in your SSH config
 
-So that bare `ssh <alias>` also works where no wrapper runs (for example a program that calls `/usr/bin/ssh` directly), AgentPier adds one marked block at the top of `~/.ssh/config` when the first session gets an agent:
+So that bare `ssh <alias>` also works where no wrapper runs (for example a program that calls `/usr/bin/ssh` directly), AgentPier adds one marked block at the top of `~/.ssh/config` once the first session has an alias. A session without aliases, such as a shell session in a project without SSH hosts, leaves `~/.ssh/config` untouched. Once written, the block stays while sessions come and go; only `include.conf` changes:
 
 ```
 # BEGIN AgentPier <id> (managed, do not edit)
@@ -202,7 +202,7 @@ Match all
 
 In your own terminal the block changes nothing, but OpenSSH runs the `Match exec` check through your shell (`$SHELL`, else `/bin/sh`): every `ssh` you start there starts that shell once to run `printenv`, which adds your shell's start-up time. The check uses `printenv` so that it prints nothing in common shells (tested with sh, bash, zsh, dash, tcsh and csh).
 
-Before its first change AgentPier copies your file to `~/.ssh/config.agentpier-backup`. When AgentPier writes its block (once per service start, at the first agent), it also removes blocks of data folders that no longer exist. To take this installation's block out, run `npm run ssh-config:remove` with the installation's `AGENTPIER_DATA_DIR` ([installation](installation.md)); the backup stays. Dev runs (`AGENTPIER_DEV=1`), data folders under the temp folder and instances started with `AGENTPIER_SSH_USER_CONFIG=0` never write the block; the wrappers and `ssh -F` keep working there.
+Before its first change AgentPier copies your file to `~/.ssh/config.agentpier-backup`. When AgentPier writes its block (once per service start, at the first session with an alias), it also removes blocks of data folders that no longer exist. To take this installation's block out, run `npm run ssh-config:remove` with the installation's `AGENTPIER_DATA_DIR` ([installation](installation.md)); the backup stays. Dev runs (`AGENTPIER_DEV=1`), data folders under the temp folder and instances started with `AGENTPIER_SSH_USER_CONFIG=0` never write the block; the wrappers and `ssh -F` keep working there.
 
 ### Activity log and last use
 

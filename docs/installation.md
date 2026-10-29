@@ -281,7 +281,7 @@ rm "$HOME/Library/LaunchAgents/dev.agentpier.server.plist"
 ```
 
 AgentPier keeps one marked block per data folder at the top of `~/.ssh/config` once a
-session has had an SSH agent ([details](ssh-access.md#the-marked-block-in-your-ssh-config)).
+session has had an SSH alias ([details](ssh-access.md#the-marked-block-in-your-ssh-config)).
 It applies only inside AgentPier sessions; to remove this
 installation's block and leave every other line, and other installations' blocks, as
 they are:
