@@ -20,6 +20,9 @@ const startedAgo = (f, id, minutes) =>
   f.service.store.write(f.service.requests.store.get(id), {
     startedAt: new Date(Date.now() - minutes * minute).toISOString(),
   });
+// The member's chat history serves `text` as the run's reply, also once it ended.
+const wrote = (f, r, text) =>
+  f.runs.set(r.attemptId, { ...f.runs.get(r.attemptId), status: "ok", replies: [text] });
 // The lead's follow-up for a request, once its turns ended.
 async function delivered(f, id) {
   f.idle();
@@ -111,13 +114,15 @@ test("an owner's cancel reaches the lead as cancelled by the owner", async (t) =
   const f = await lead(t);
   const task = f.service.requests.store.get((await delegate(f)).requestId);
   await f.service.cancelRequest(task.id);
-  f.complete(task.attemptId, "error");
+  // The member had written something; the owner's cancel does not pass it on.
+  wrote(f, task, "Half a draft");
+  f.assistants.ledger.transition(task.attemptId, "cancelled");
   await f.service.reconcile();
   const { data, outcome } = await delivered(f, task.id);
   assert.equal(data.phase, "cancelled");
   assert.equal(data.diagnostic, "OWNER_CANCELLED");
   assert.match(data.reason, /owner cancelled/);
-  assert.equal(data.partialResult, undefined, "only a deadline keeps the last reply");
+  assert.equal(data.partialResult, undefined, "an owner's cancel keeps no reply");
   assert.equal(outcome, "owner");
 });
 
@@ -141,14 +146,40 @@ test("a member run stopped or failed on its own says so", async (t) => {
   ]) {
     const f = await lead(t);
     const task = f.service.requests.store.get((await delegate(f)).requestId);
+    // What the member wrote before its run ended goes along as a partial result.
+    wrote(f, task, `Draft before the run ${state}`);
     f.assistants.ledger.transition(task.attemptId, state);
     await f.service.reconcile();
-    const { data, ...rest } = await delivered(f, task.id);
+    assert.equal(f.service.requests.store.get(task.id).partial, true);
+    const { turn, data, ...rest } = await delivered(f, task.id);
     assert.equal(data.phase, phase);
     assert.equal(data.diagnostic, diagnostic);
     assert.equal(typeof data.reason, "string");
+    assert.equal(data.partialResult, `Draft before the run ${state}`);
+    assert.equal(data.result, undefined);
+    assert.match(turn.text, /partialResult is the member's last reply before it ended/);
+    assert.match(turn.text, /whole work so far is in the member's own chat/);
+    assert.doesNotMatch(turn.text, /report from the member may still follow/);
     assert.equal(rest.outcome, outcome);
   }
+});
+
+test("a task stored with a 10-minute deadline still ends after 10 minutes", async (t) => {
+  const f = await lead(t);
+  const task = f.service.requests.store.get((await delegate(f)).requestId);
+  // As a task created before tasks got 60 minutes: its stored deadline holds.
+  f.service.store.write(task, { runTimeoutMinutes: 10 });
+  startedAgo(f, task.id, 9);
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(task.id).cancelRequested, undefined);
+  startedAgo(f, task.id, 11);
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(task.id).cancelledBy, "deadline");
+  f.complete(task.attemptId, "error");
+  await f.service.reconcile();
+  const { data } = await delivered(f, task.id);
+  assert.equal(data.timeLimitMinutes, 10);
+  assert.match(data.reason, /time limit of 10 minutes/);
 });
 
 test("a completed result keeps the plain member-result turn", async (t) => {

@@ -847,10 +847,11 @@ A lead also talks to its members directly:
   the time limit ran out (with its minutes), you or the lead cancelled it, the
   member's run was stopped, or it failed. The lead's chat then shows "A member's
   result: cancelled (time limit)" and the like instead of "A member's answer
-  arrived". When the time limit ends a task, the lead also gets the member's last
-  reply as a partial result (shown as **Partial result** under **Questions and
-  tasks**) and the hint that the member may still send a report and that its whole
-  work is in its own chat.
+  arrived". When the time limit ends a question or task, or the member's run stops or
+  fails on its own, the lead also gets the member's last reply as a partial result
+  (shown as **Partial result** under **Questions and tasks**) and the hint that its
+  whole work is in the member's own chat; after the time limit, also that the member
+  may still send a report.
 - Member reports and answers reach the lead whole up to 65,536 characters. A longer
   one is marked shortened, and the team card or request shows "Shortened" with **Open
   chat**, where the whole text is. When a team's reports together are too long for the

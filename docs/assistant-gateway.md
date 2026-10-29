@@ -1269,11 +1269,13 @@ A lead reaches its own members without the owner relaying anything
   `OUTCOME_REVIEWED`). The follow-up (`lead-request-text.js fitted`) and a terminal
   tool result carry the code with a `reason` sentence, a deadline also
   `timeLimitMinutes`, and the follow-up tells the lead to give the owner the reason;
-  records from before derive the code from `cancelledBy`. At a deadline the member's
-  last reply of the run is kept like an answer but marked `partial` and sent as
+  records from before derive the code from `cancelledBy`. At a deadline, and when the
+  member's run stopped or failed on its own (not on the owner's or the lead's
+  cancel), the member's last reply of the run is kept like an answer but marked
+  `partial` and sent as
   `partialResult` (`partialAnswer` for a question), never as `result`; the follow-up
-  adds that a report from the member may still follow and that its whole work is in
-  its chat, and **Questions and tasks** labels it "Partial result". The follow-up's
+  adds that the member's whole work is in its chat (after a deadline also that a
+  report from the member may still follow), and **Questions and tasks** labels it "Partial result". The follow-up's
   turn context carries `outcome` (`deadline`, `owner`, `lead`, `stopped`, `cancelled`
   or `failed`), served on the history's event and request as `internalOutcome`, so
   the chat shows "A member's result: cancelled (time limit)" and the like instead of

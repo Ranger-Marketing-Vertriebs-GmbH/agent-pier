@@ -76,10 +76,10 @@ function endNote(r, { reportMayFollow = false, tell = "the owner" } = {}) {
   const deadline = endDiagnostic(r) === "DEADLINE";
   const partial = r.type === "task" ? "partialResult" : "partialAnswer";
   return ` It ended without a finished result. Tell ${tell} why it ended (reason).${
-    deadline && r.partial
-      ? ` ${partial} is the member's last reply before the cancel, not a finished result.`
+    r.partial
+      ? ` ${partial} is the member's last reply before it ended, not a finished result.`
       : ""
-  }${deadline ? `${reportMayFollow ? " A report from the member may still follow." : ""} The member's whole work so far is in the member's own chat.` : ""}`;
+  }${deadline && reportMayFollow ? " A report from the member may still follow." : ""}${deadline || r.partial ? " The member's whole work so far is in the member's own chat." : ""}`;
 }
 
 /**

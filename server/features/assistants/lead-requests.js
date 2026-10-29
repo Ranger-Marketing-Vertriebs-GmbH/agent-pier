@@ -497,10 +497,11 @@ export class LeadRequests {
     }
     if (["failed", "cancelled"].includes(attempt.state)) {
       const phase = r.cancelRequested ? "cancelled" : attempt.state;
-      // The reason reaches the lead (lead-request-text.js); at the deadline, so does
-      // what the member had written so far, as a partial result.
+      // The reason reaches the lead (lead-request-text.js); so does what the member
+      // had written so far, as a partial result, unless the owner or the lead
+      // cancelled it: at the deadline, or when the member's run stopped or failed.
       let partial = {};
-      if (phase === "cancelled" && r.cancelledBy === "deadline") {
+      if (!r.cancelRequested || r.cancelledBy === "deadline") {
         const reply = await this.reply(r, attempt);
         if (!reply) return r;
         if (reply.text.trim() || reply.cut)
