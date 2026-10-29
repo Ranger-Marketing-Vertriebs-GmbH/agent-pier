@@ -535,7 +535,8 @@ it up. An agent of users gets project folders only; the other groups show a lock
   access there. It never adopts an existing folder or project, also not inside a Git
   repository, and it cannot delete, rename or unregister projects. An agent creates at
   most 10 projects per 24 hours. You are told each time: a note in the agent's chat and
-  under **Overview › Actions and coding tasks**, and a message in Telegram when paired.
+  under **Overview › Actions and coding tasks**, and a message in Telegram when paired;
+  an open **Projects** page lists the new project at once.
   The activity log records the creation as made by the agent. Afterwards you change the
   agent's access under **Access › Projects**, or remove the project, as for any other
   project. To give its team the project, the agent shares it with the lead share
