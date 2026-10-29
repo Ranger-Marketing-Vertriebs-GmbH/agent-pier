@@ -87,7 +87,7 @@ an installation using the default path:
 To remove automatic startup, then delete
 `~/Library/LaunchAgents/dev.agentpier.server.plist`. To take this installation's marked
 block (`# BEGIN AgentPier <id>` … `# END AgentPier <id>`, see
-[Plain SSH from coding sessions](ssh-access.md)) out of `~/.ssh/config`, run the command
+[the marked block in your SSH config](ssh-access.md#the-marked-block-in-your-ssh-config)) out of `~/.ssh/config`, run the command
 with the installation's data folder:
 
 ```sh
@@ -281,7 +281,8 @@ rm "$HOME/Library/LaunchAgents/dev.agentpier.server.plist"
 ```
 
 AgentPier keeps one marked block per data folder at the top of `~/.ssh/config` once a
-session has had an SSH agent. It applies only inside AgentPier sessions; to remove this
+session has had an SSH agent ([details](ssh-access.md#the-marked-block-in-your-ssh-config)).
+It applies only inside AgentPier sessions; to remove this
 installation's block and leave every other line, and other installations' blocks, as
 they are:
 

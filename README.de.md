@@ -58,9 +58,12 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
   Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und
-  Live-Aktivitätszeilen; Agenten können einen neuen SSH-Zugang vorschlagen, den du
-  nach Prüfung seines Hostschlüssels bestätigst
-  ([SSH](docs/ssh-access.md), [SFTP](docs/sftp-access.md)).
+  Live-Aktivitätszeilen; Sessions erreichen ihre Hosts auch mit einfachem
+  `ssh <alias>`, `scp`, `rsync`, `git` und Tunneln über einen eigenen SSH-Agenten, der
+  den Schlüssel in AgentPier behält; Agenten können einen neuen SSH-Zugang vorschlagen,
+  den du nach Prüfung seines Hostschlüssels bestätigst ([SSH](docs/ssh-access.md),
+  [einfaches SSH](docs/ssh-access.md#plain-ssh-from-coding-sessions),
+  [SFTP](docs/sftp-access.md)).
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und
   Coding-Sessions als Datei zuweist, nie als Umgebungsvariable
   ([Secrets](docs/secrets.md), auf Englisch).

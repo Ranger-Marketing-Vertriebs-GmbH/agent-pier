@@ -53,8 +53,11 @@ and agents that work as a team.
   and Frida ([MCP](docs/mcp.md), [managed REA](docs/mcp.md#managed-rea)).
 - **SSH and SFTP:** SSH and SFTP hosts with a pinned host key (SFTP with a password
   or a key) that coding CLIs and agents use, with approvals for changes and deletes,
-  whole-folder transfers, syncs and live activity rows; agents can propose a new SSH
-  access that you confirm after checking its host key ([SSH](docs/ssh-access.md),
+  whole-folder transfers, syncs and live activity rows; sessions also reach their hosts
+  with plain `ssh <alias>`, `scp`, `rsync`, `git` and tunnels through their own SSH agent,
+  which keeps the key in AgentPier; agents can propose a new SSH access that you confirm
+  after checking its host key ([SSH](docs/ssh-access.md),
+  [plain SSH](docs/ssh-access.md#plain-ssh-from-coding-sessions),
   [SFTP](docs/sftp-access.md)).
 - **Secrets:** named secrets, such as API tokens, that you grant to agents and coding
   sessions as a file, never as an environment variable ([secrets](docs/secrets.md)).
