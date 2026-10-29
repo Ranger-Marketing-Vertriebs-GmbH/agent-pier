@@ -265,8 +265,10 @@ export class AgentShellSsh {
 
   async reconcileOne(id) {
     if (this.closed) return;
-    const changed = new Set();
     const assistant = this.find(id);
+    // Unreadable or deleted: nothing changes here; refresh() tears deleted ones down.
+    if (!assistant) return;
+    const changed = new Set();
     const sshAgents = this.sshAgents();
     if (!sshAgents) {
       if (await this.release(id)) changed.add(id);

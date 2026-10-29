@@ -128,12 +128,18 @@ export function startAssistantServices(
   assistantChannels.start();
   // MEMORY.md copies before each night's dreaming run (dreaming-backups.js).
   assistantDreaming?.backups.start();
-  if (readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled) {
-    const run = () => assistantRuntime.start().catch(() => {});
-    // A feature released meanwhile (its SSH adapter closed) starts nothing.
-    if (sshReady) sshReady.then(() => assistantAgentSsh.closed || run());
-    else run();
-  }
+  // Asked again after the wait: the owner may have switched the runtime off, the
+  // feature may be released (its SSH adapter closed) or in maintenance meanwhile.
+  const startable = () =>
+    !assistantAgentSsh?.closed &&
+    !assistants.maintenance &&
+    !assistantUpdates?.status().recoveryRequired &&
+    readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled;
+  const run = () => {
+    if (startable()) assistantRuntime.start().catch(() => {});
+  };
+  if (sshReady) sshReady.then(run);
+  else run();
   // After an AgentPier update, the runtime it ships is prepared without blocking start.
   stageInBackground({ dataDir: config.dataDir });
 }
