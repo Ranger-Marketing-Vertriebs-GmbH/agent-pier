@@ -208,6 +208,14 @@ test("files.jobs is the scope's first jobs page, owner only, refusals unlogged",
   // A write of any scope (pruning) reads every instance.
   fileJobsChanged(hub, null);
   await until(() => contexts.length >= 5);
+  // The session's working directory changed: its jobs have a new scope id, which the
+  // instance has not read yet, but the write names the session.
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const before = contexts.length;
+  fileJobsChanged(hub, "f1:moved", "s1");
+  await until(() => contexts.length > before);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(contexts.slice(before), ["s1"]);
   // A session that is gone is the route's 404; it is not logged.
   assert.equal((await subscribe(hub, "files.jobs:session:gone").next()).type, "error");
   assert.deepEqual(errors, []);
@@ -378,4 +386,18 @@ test("unchanged rewrites of a finished job keep its version and prune clock", as
   now += 6 * 86400000;
   store.prune(now);
   assert.throws(() => store.getJob(f.globalScope, job.id), { code: "FILE_NOT_FOUND" });
+});
+
+test("a file job change names the session of its scope", async (t) => {
+  const store = new FileStore({ dataDir: temporary(t) });
+  t.after(() => store.close());
+  const changes = [];
+  store.onJobChange = (scopeId, sessionId) => changes.push([scopeId, sessionId]);
+  const scope = { id: "f1:session-scope", sessionId: "s1" };
+  store.request(scope, copyOperation(Date.now()));
+  store.request({ id: "f1:global" }, copyOperation(Date.now() + 1));
+  assert.deepEqual(changes, [
+    ["f1:session-scope", "s1"],
+    ["f1:global", null],
+  ]);
 });

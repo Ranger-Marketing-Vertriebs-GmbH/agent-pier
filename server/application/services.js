@@ -160,7 +160,8 @@ export async function createServices(config) {
     sessions,
     mutationBarrier,
     // Read late: the live hub exists only once the server listens.
-    onJobChange: (scopeId) => fileJobsChanged(services.live, scopeId),
+    onJobChange: (scopeId, sessionId) =>
+      fileJobsChanged(services.live, scopeId, sessionId),
   });
   const repositories = new RepositoryStore(config);
   // Each listed project's origin remote, read live from its folder.

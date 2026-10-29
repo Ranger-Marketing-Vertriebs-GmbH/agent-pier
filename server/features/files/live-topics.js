@@ -6,19 +6,24 @@
 //
 // FileStore signals every job write through FileJobs' onChange: admission, every
 // transition and progress patch, every result row, archive bindings, publications
-// and pruning, with the job's scope id. A scope id follows from the session (its id
-// and working directory), so each instance remembers the id its last read resolved
-// and only the instances of the written scope read again; one whose scope is not
-// known yet (its read failed) and a write of any scope (pruning) read them all. A
-// page that did not change sends nothing.
+// and pruning, with the job's scope id and, where the store knows it, its session.
+// A scope id follows from the session (its id and working directory), so each
+// instance remembers the id its last read resolved, and the instances of the written
+// scope or of the written job's session read again (a session whose working
+// directory changed has a new scope id); one whose scope is not known yet (its read
+// failed) and a write of any scope (pruning) read them all. A page that did not
+// change sends nothing.
 
 const owner = (principal) => principal?.role === "owner";
 
 // The routes' two scopes; a session id as session-validation.js accepts it.
 export const FILES_JOBS_PARAM = /global|session:[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}/;
 
-/** A job of file scope `scopeId` (null: any scope) changed: signals the topic on `hub`. */
-export function fileJobsChanged(hub, scopeId) {
+/**
+ * A job of file scope `scopeId` (null: any scope) and session `sessionId` (null: none
+ * or unknown) changed: signals the topic on `hub`.
+ */
+export function fileJobsChanged(hub, scopeId, sessionId = null) {
   if (!hub) return;
   const known = new Map(
     hub
@@ -30,7 +35,12 @@ export function fileJobsChanged(hub, scopeId) {
   );
   hub.invalidateWhere("files.jobs", (param) => {
     const id = known.get(param);
-    return scopeId == null || id === undefined || id === scopeId;
+    return (
+      scopeId == null ||
+      id === undefined ||
+      id === scopeId ||
+      (typeof sessionId === "string" && param === `session:${sessionId}`)
+    );
   });
 }
 
