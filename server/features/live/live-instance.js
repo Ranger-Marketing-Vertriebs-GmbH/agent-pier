@@ -144,6 +144,9 @@ export class LiveInstance {
     if (this.closed || !this.subscribers.size) return;
     for (const subscriber of this.subscribers) {
       subscriber.discard?.();
+      // Its answer goes out at once, never held back by an earlier `stale`'s window.
+      this.timers.clearTimeout(subscriber.staleQuiet);
+      subscriber.staleQuiet = subscriber.stalePending = undefined;
       subscriber.waiting = true;
       subscriber.failed = false;
       subscriber.have = subscriber.cursor = undefined;

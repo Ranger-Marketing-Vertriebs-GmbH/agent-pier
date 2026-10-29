@@ -396,3 +396,16 @@ test("a value that stays over its limit sends at most one stale per window", asy
   assert.equal(stales().length, 4);
   assert.equal(frames.at(-1).type, "state");
 });
+
+test("a reset answers at once, even within an earlier stale's window", async (t) => {
+  const { clock, source, instance } = setup(t, { maxBytes: 200 });
+  source.value = { text: "x".repeat(500) };
+  const { frames } = listen(instance);
+  await clock.advance(0);
+  await clock.advance(1000);
+  assert.equal(frames.filter((f) => f.type === "stale").length, 1);
+  source.value = { text: "y".repeat(500) };
+  instance.reset();
+  await clock.advance(0);
+  assert.equal(frames.filter((f) => f.type === "stale").length, 2);
+});
