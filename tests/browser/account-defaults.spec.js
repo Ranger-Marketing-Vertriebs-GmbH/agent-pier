@@ -125,11 +125,14 @@ for (const tool of ["claude", "codex", "opencode"])
     ).toBeEnabled();
   });
 
+// The server samples each CLI sign-in state (account.auth) and pushes changes; the
+// stub re-reads the route as such a sample would.
 test("local login and logout update without reloading the accounts page", async ({
   page,
+  liveStub,
 }) => {
   const f = await fixture(page);
-  await page.clock.install();
+  const topic = "account.auth:local-claude";
   await page.goto(baseURL + "/coding/clis?tab=accounts");
   await openAccountItem(page, "Work Claude");
   await expect(
@@ -137,10 +140,11 @@ test("local login and logout update without reloading the accounts page", async 
   ).toBeVisible();
   const local = accountRow(page, "Server Claude");
   await expect(local).toHaveCount(0);
+  await liveStub.waitForSubscribe(topic);
   f.authStates["local-claude"] = "authenticated";
-  await page.clock.fastForward(31000);
+  await liveStub.reread(topic);
   await expect(local).toBeVisible();
   f.authStates["local-claude"] = "unauthenticated";
-  await page.clock.fastForward(31000);
+  await liveStub.reread(topic);
   await expect(local).toHaveCount(0);
 });

@@ -40,6 +40,9 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { resolveFile } from "./file-paths.js";
 import { fileProblem } from "./file-errors.js";
+import { DirectoryWatchers, foldName } from "../../lib/directory-watchers.js";
+
+export { DirectoryWatchers };
 
 /** The response header of the document metadata route that names the topic. */
 export const FILE_WATCH_HEADER = "x-file-watch";
@@ -52,113 +55,7 @@ const principalKey = (principal) =>
     : principal?.role === "user" && typeof principal.userId === "string"
       ? `user:${principal.userId}`
       : null;
-// Names as a case-insensitive file system may report them.
-const fold = (name) => String(name).normalize("NFC").toLowerCase();
-
-/**
- * fs.watch handles of folders, one per folder, shared by every listener of a name
- * in it. `add` returns the release function, or null when the cap is reached or the
- * folder cannot be watched. A handle that fails is closed and its listeners are
- * called, so they watch again.
- */
-export class DirectoryWatchers {
-  constructor({ watch = fs.watch, maxDirectories = 256 } = {}) {
-    this.watch = watch;
-    this.maxDirectories = maxDirectories;
-    this.folders = new Map();
-  }
-  get size() {
-    return this.folders.size;
-  }
-  /**
-   * `identity` (the folder's `dev:ino`) keys the handle too, so a folder deleted and
-   * created again gets a new one. The release function's `alive()` turns false once
-   * the handle failed: the caller must add again.
-   */
-  add(directory, name, listener, identity = null) {
-    const id = identity ? `${directory}\0${identity}` : directory;
-    let folder = this.folders.get(id);
-    if (!folder) {
-      if (this.folders.size >= this.maxDirectories) return null;
-      let handle;
-      try {
-        handle = this.watch(directory, { persistent: false });
-      } catch {
-        return null;
-      }
-      folder = { id, directory, identity, handle, names: new Map() };
-      const current = folder;
-      handle.on("change", (type, filename) => this.changed(current, type, filename));
-      handle.on("error", () => this.failed(current));
-      this.folders.set(id, folder);
-    }
-    const key = fold(name);
-    if (!folder.names.has(key)) folder.names.set(key, new Set());
-    const record = { listener };
-    folder.names.get(key).add(record);
-    let released = false;
-    const release = () => {
-      if (released) return;
-      released = true;
-      const listeners = folder.names.get(key);
-      listeners?.delete(record);
-      if (listeners && !listeners.size) folder.names.delete(key);
-      if (!folder.names.size) this.drop(folder);
-    };
-    release.alive = () => !released && !record.dead;
-    return release;
-  }
-  changed(folder, type, filename) {
-    // A folder removed or replaced may leave its handle silent (inotify follows the
-    // old inode): any rename it reports checks that the folder is still the same.
-    if (type === "rename" && folder.identity) this.verify(folder);
-    const records =
-      filename === null || filename === undefined
-        ? [...folder.names.values()].flatMap((set) => [...set])
-        : [...(folder.names.get(fold(filename)) || [])];
-    for (const { listener } of records) {
-      try {
-        listener();
-      } catch {
-        // One listener must not stop the others.
-      }
-    }
-  }
-  async verify(folder) {
-    let same = false;
-    try {
-      const stat = await fsp.stat(folder.directory, { bigint: true });
-      same = `${stat.dev}:${stat.ino}` === folder.identity;
-    } catch {
-      same = false;
-    }
-    if (!same && this.folders.get(folder.id) === folder) this.failed(folder);
-  }
-  failed(folder) {
-    const records = [...folder.names.values()].flatMap((set) => [...set]);
-    for (const record of records) record.dead = true;
-    folder.names.clear();
-    this.drop(folder);
-    for (const { listener } of records) {
-      try {
-        listener();
-      } catch {
-        // As above.
-      }
-    }
-  }
-  drop(folder) {
-    if (this.folders.get(folder.id) === folder) this.folders.delete(folder.id);
-    try {
-      folder.handle.close();
-    } catch {
-      // Already closed.
-    }
-  }
-  close() {
-    for (const folder of [...this.folders.values()]) this.drop(folder);
-  }
-}
+const fold = foldName;
 
 /**
  * The registry of issued tokens and the followers of watched files. `context(id)` is

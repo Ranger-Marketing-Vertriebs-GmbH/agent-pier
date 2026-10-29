@@ -1,14 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import api from "../../lib/api.js";
-import useLiveTopic from "../../lib/live/useLiveTopic.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import useLiveTopic, { useSafetyRead } from "../../lib/live/useLiveTopic.js";
+import { AGENTBUS_SAFETY_MS } from "../agentbus/useAgentBusMessages.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 
 // Repositories, project knowledge and AgentBus each keep their own project ids.
@@ -132,21 +125,6 @@ export function groupFirstRuns(runs) {
   return first;
 }
 
-// Hands out tickets in request order and accepts an answer only when no newer
-// request has been applied yet, so a slow answer never replaces a newer one.
-export function latestGate() {
-  let started = 0,
-    applied = 0;
-  return {
-    start: () => ++started,
-    apply(ticket) {
-      if (ticket <= applied) return false;
-      applied = ticket;
-      return true;
-    },
-  };
-}
-
 const maxRunPages = 5;
 // Reads the first page, then the remaining pages up to the cap at once. A status with
 // more runs than the swept pages is marked capped: its counts are lower bounds.
@@ -231,12 +209,25 @@ export default function useProjectHub() {
     credentials: [],
     memoryProjects: [],
   });
-  const [busData, setBusData] = useState({ version: "", note: "", projects: [] });
   const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState({ repositories: "", memory: "", agentbus: "" });
+  const [errors, setErrors] = useState({ repositories: "", memory: "" });
   const [version, setVersion] = useState(0);
   const [sweep, setSweep] = useState(0);
   const attention = useAttention(sweep);
+  // AgentBus is read once and again on each `changed` of `agentbus.changed` (its
+  // queues, peers and sessions; without the live channel every 10 s), plus a safety
+  // read every 60 s while visible. A reload reads it again with the other sources.
+  const bus = useLiveTopic("agentbus.changed", "/agentbus");
+  const { refresh: refreshBus } = bus;
+  useSafetyRead(refreshBus, AGENTBUS_SAFETY_MS);
+  const busData = useMemo(
+    () => ({
+      version: bus.data?.version || "",
+      note: bus.data?.note || "",
+      projects: bus.data?.projects || [],
+    }),
+    [bus.data],
+  );
   const reload = useCallback(() => setVersion((value) => value + 1), []);
   const retry = useCallback(() => {
     setVersion((value) => value + 1);
@@ -249,40 +240,18 @@ export default function useProjectHub() {
       ),
     [],
   );
-  // The load's own AgentBus read and the poll's reads race; only the answer to the
-  // most recently started request that has arrived so far is applied.
-  const busGate = useRef(latestGate());
-  const readBus = useCallback(
-    async (isActive, signal) => {
-      const ticket = busGate.current.start();
-      try {
-        const data = await api("/agentbus", "GET", undefined, signal);
-        if (isActive() && busGate.current.apply(ticket)) {
-          setBusData({
-            version: data.version || "",
-            note: data.note || "",
-            projects: data.projects || [],
-          });
-          sourceError("agentbus", "");
-        }
-      } catch (failure) {
-        if (isActive() && busGate.current.apply(ticket))
-          sourceError("agentbus", failure.message);
-      }
-    },
-    [sourceError],
-  );
+  useEffect(() => {
+    if (version) refreshBus();
+  }, [version, refreshBus]);
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    // Each source loads on its own: a failing one keeps the others listed. The first
-    // AgentBus read belongs to the load, so AgentBus ids resolve at once. Live git
+    // Each source loads on its own: a failing one keeps the others listed. Live git
     // remotes come with the repository and knowledge lists, never with the frequent
-    // AgentBus poll.
+    // AgentBus reads.
     Promise.allSettled([
       api("/repositories?remotes=1"),
       api("/memory/projects?remotes=1&duplicates=1"),
-      readBus(() => alive),
     ]).then(([repositories, memory]) => {
       if (!alive) return;
       if (repositories.status === "fulfilled")
@@ -306,20 +275,7 @@ export default function useProjectHub() {
     return () => {
       alive = false;
     };
-  }, [version, sourceError, readBus]);
-  // AgentBus refreshes every 10 s while the page is visible; a hidden page pauses the
-  // poll and reads at once when it becomes visible again.
-  useEffect(() => {
-    let active = true;
-    const stop = startVisiblePolling(
-      (signal) => readBus(() => active && !signal.aborted, signal),
-      10000,
-    );
-    return () => {
-      active = false;
-      stop();
-    };
-  }, [version, readBus]);
+  }, [version, sourceError]);
   const repositories = useMemo(
     () => [
       ...clone.projects,
@@ -340,10 +296,11 @@ export default function useProjectHub() {
   );
   return {
     projects,
-    loading,
+    // The first AgentBus read belongs to the load, so AgentBus ids resolve at once.
+    loading: loading || bus.loading,
     // The first failing source; the projects from the other sources stay listed.
-    error: errors.repositories || errors.memory || errors.agentbus,
-    errors,
+    error: errors.repositories || errors.memory || bus.error,
+    errors: { ...errors, agentbus: bus.error },
     reload,
     // A retry after a failing source also reads the run hints again.
     retry,

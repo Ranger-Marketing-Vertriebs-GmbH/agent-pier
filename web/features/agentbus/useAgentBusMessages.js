@@ -1,33 +1,26 @@
-import { useEffect, useState, useRef } from "react";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
-export default function useAgentBusMessages({ request, project, page, onPage }) {
+import { useEffect, useRef } from "react";
+import useLiveTopic, { useSafetyRead } from "../../lib/live/useLiveTopic.js";
+
+// The server watches the project's queue folder; this read catches what a watch may
+// miss (a handle lost between two events), visible tabs only.
+export const AGENTBUS_SAFETY_MS = 60000;
+
+/**
+ * One page of a project's AgentBus messages, read once and again on each `changed`
+ * of `agentbus.changed:<projectId>` (without the live channel every 10 s), plus a
+ * safety read every 60 s while visible.
+ */
+export default function useAgentBusMessages({ project, page, onPage }) {
   const pageCallback = useRef(onPage);
   pageCallback.current = onPage;
-  const [data, setData] = useState(null),
-    [error, setError] = useState(""),
-    [reload, setReload] = useState(0);
+  const { data, error, refresh } = useLiveTopic(
+    `agentbus.changed:${project.id}`,
+    `/agentbus/projects/${encodeURIComponent(project.id)}/messages?page=${page}`,
+  );
+  useSafetyRead(refresh, AGENTBUS_SAFETY_MS);
   useEffect(() => {
-    setData(null);
-    setError("");
-    async function read(signal) {
-      try {
-        const result = await request(
-          `/agentbus/projects/${encodeURIComponent(project.id)}/messages?page=${page}`,
-          "GET",
-          undefined,
-          signal,
-        );
-        if (!signal.aborted) {
-          setData(result);
-          setError("");
-          if (result.page !== page) pageCallback.current(result.page, true);
-        }
-      } catch (e) {
-        if (!signal.aborted) setError(e.message);
-      }
-    }
-    return startVisiblePolling(read, 10000);
-  }, [request, project.id, page, reload]);
+    if (data && data.page !== page) pageCallback.current(data.page, true);
+  }, [data, page]);
   const paging = data
     ? {
         total: data.total,
@@ -39,10 +32,5 @@ export default function useAgentBusMessages({ request, project, page, onPage }) 
         setPage: (n) => onPage(n + 1),
       }
     : null;
-  return {
-    error,
-    setReload,
-    data,
-    paging,
-  };
+  return { error, retry: refresh, data, paging };
 }

@@ -38,7 +38,7 @@ export function stateTopic(services) {
 }
 
 /** Calls `listener` after each call of `object[method]` (after it settles, if async). */
-function after(object, method, listener) {
+export function after(object, method, listener) {
   const original = object?.[method];
   if (typeof original !== "function") return;
   object[method] = function (...args) {

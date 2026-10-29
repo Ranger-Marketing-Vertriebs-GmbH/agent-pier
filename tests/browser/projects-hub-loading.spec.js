@@ -13,8 +13,9 @@ const statusCalls = (calls) =>
 const reads = (calls, path) =>
   calls.filter((call) => call.method === "GET" && call.path === path).length;
 
-test("a slow source does not bring back an AgentBus error a newer poll cleared", async ({
+test("a slow source does not bring back an AgentBus error a newer read cleared", async ({
   page,
+  liveStub,
 }) => {
   test.setTimeout(30000);
   let busReads = 0,
@@ -40,14 +41,18 @@ test("a slow source does not bring back an AgentBus error a newer poll cleared",
     },
   });
   await page.goto(base + "/projects");
-  // The initial load waits on the knowledge source; the 4 s poll answers meanwhile.
+  // The initial load waits on the knowledge source; a change of AgentBus is read
+  // meanwhile and clears the first read's error.
+  await liveStub.waitForSubscribe("agentbus.changed");
+  await expect.poll(() => busAnswers, { timeout: 8000 }).toBeGreaterThanOrEqual(1);
+  liveStub.changed("agentbus.changed");
   await expect.poll(() => busAnswers, { timeout: 8000 }).toBeGreaterThanOrEqual(2);
   await page.waitForTimeout(300);
   await expect(page.getByRole("alert")).toHaveCount(0);
   release();
   const list = projectList(page);
   await expect(list.getByRole("button", { name: /^notes/ })).toBeVisible();
-  // Checked once, without waiting: a later poll would hide a reverted error again.
+  // Checked once, without waiting: a later read would hide a reverted error again.
   expect(await page.getByRole("alert").count()).toBe(0);
   expect(reads(calls, "/api/agentbus")).toBeGreaterThanOrEqual(2);
 });

@@ -157,13 +157,28 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     assert.equal(frame.type, "error", topic);
     assert.notEqual(frame.code, "unknown-topic", topic);
   }
-  // The chat delivery signal answers the owner like every signal topic.
-  ownerLive.send({ op: "sub", topic: "session.deliveries:nobody" });
-  assert.equal(
-    (await ownerLive.next((frame) => frame.topic === "session.deliveries:nobody", 5000))
-      .type,
-    "same",
+  // The chat delivery and AgentBus signals answer the owner like every signal topic.
+  for (const topic of [
+    "session.deliveries:nobody",
+    "agentbus.changed",
+    `agentbus.changed:${"a".repeat(64)}`,
+  ]) {
+    ownerLive.send({ op: "sub", topic });
+    assert.equal(
+      (await ownerLive.next((frame) => frame.topic === topic, 5000)).type,
+      "same",
+      topic,
+    );
+  }
+  // A CLI account's sign-in state (no CLI is run here: none is installed).
+  f.application.accountAuthStatus.tools = () => [];
+  ownerLive.send({ op: "sub", topic: "account.auth:local-codex" });
+  const auth = await ownerLive.next(
+    (frame) => frame.topic === "account.auth:local-codex",
+    5000,
   );
+  assert.equal(auth.type, "snapshot");
+  assert.equal(auth.data.state, "unknown");
   ownerLive.ws.close();
   const { cookie } = await signedInUser(f);
   // Over REST she reads no file metadata, so she is issued no token either.
@@ -211,6 +226,9 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "files.jobs:global",
     "files.jobs:session:x",
     "session.deliveries:x",
+    "agentbus.changed",
+    `agentbus.changed:${"a".repeat(64)}`,
+    "account.auth:local-codex",
     "operations.release-sessions:1.0.0",
     "artifacts.usage",
     "artifacts.changed",

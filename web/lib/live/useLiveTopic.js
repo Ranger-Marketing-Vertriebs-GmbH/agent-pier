@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api.js";
 import { liveClient } from "./live-client.js";
 import { followSignal, startLiveTopic } from "./live-topic-reader.js";
+import { startVisiblePolling } from "../visible-polling.js";
 
 const restRead = (path, signal) => api(path, "GET", undefined, signal);
 const idle = { data: null, error: "", loading: false, connected: false };
@@ -68,4 +69,16 @@ export function useLiveSignal(topicId) {
     return followSignal(liveClient(), topicId, () => setCount((value) => value + 1));
   }, [topicId]);
   return count;
+}
+
+/**
+ * A safety read for a pushed topic whose server watch may miss a change: calls
+ * `refresh` every `intervalMs` while the tab is visible and at once when it is shown
+ * again, never at the start (the subscription has just read).
+ */
+export function useSafetyRead(refresh, intervalMs) {
+  useEffect(
+    () => startVisiblePolling(() => refresh(), intervalMs, {}, { skipFirst: true }),
+    [refresh, intervalMs],
+  );
 }

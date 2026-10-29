@@ -11,8 +11,8 @@ import MessageLog from "../agentbus/MessageLog.jsx";
 import CountUnavailable from "./CountUnavailable.jsx";
 
 // The AgentBus tab is scoped to this hub project's own AgentBus id. Status data comes
-// from the hub's own /agentbus poll (passed in as props); only the messages segment
-// keeps its own 4 s poll, and only while it is shown.
+// from the hub's own /agentbus read (passed in as props); only the messages segment
+// follows its project's queue itself (agentbus.changed:<id>), and only while shown.
 export default function ProjectAgentBus({
   request,
   project,
@@ -34,8 +34,8 @@ export default function ProjectAgentBus({
   const pending = sessions.reduce((total, session) => total + (session.pending || 0), 0);
   const changeTab = (tab) => busTab !== tab && onNavigate(tab);
   // The segment's message count must agree with the message log's own total, not the
-  // status poll's pending-inbox count. While the messages segment is shown, MessageLog
-  // reports its own (already polling) total; otherwise a single one-shot read on mount
+  // status read's pending-inbox count. While the messages segment is shown, MessageLog
+  // reports its own (live) total; otherwise a single one-shot read on mount
   // or project change keeps the count current without a second poll.
   // The count is null until it is known and never shown as a fake 0 after a failure.
   const [messages, setMessages] = useState({ busProjectId: "", total: null });
@@ -159,7 +159,6 @@ export default function ProjectAgentBus({
       ) : busProject ? (
         <MessageLog
           key={busProject.id}
-          request={request}
           project={busProject}
           page={route.messagePage || 1}
           onTotal={reportTotal}

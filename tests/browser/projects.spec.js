@@ -284,13 +284,22 @@ test.describe("English projects hub", () => {
   });
 });
 
-test("the hub pauses its AgentBus poll while the page is hidden", async ({ page }) => {
-  test.setTimeout(45000);
+// AgentBus follows agentbus.changed: a change while hidden is read once on show.
+test("the hub pauses its AgentBus reads while the page is hidden", async ({
+  page,
+  liveStub,
+}) => {
+  test.setTimeout(30000);
   const calls = await hubFixture(page);
   await page.goto(base + "/projects");
   await expect(page).toHaveURL(/\/projects\/m1$/);
   const busReads = () => calls.filter((call) => call.path === "/api/agentbus").length;
-  await expect.poll(busReads, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+  await liveStub.waitForSubscribe("agentbus.changed");
+  await expect.poll(busReads, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+  // A change while visible is read at once.
+  const before = busReads();
+  liveStub.changed("agentbus.changed");
+  await expect.poll(busReads, { timeout: 1500 }).toBeGreaterThan(before);
   const setHidden = (hidden) =>
     page.evaluate((value) => {
       for (const [key, state] of [
@@ -303,7 +312,8 @@ test("the hub pauses its AgentBus poll while the page is hidden", async ({ page 
   await setHidden(true);
   await page.waitForTimeout(500);
   const hiddenReads = busReads();
-  await page.waitForTimeout(9000);
+  liveStub.changed("agentbus.changed");
+  await page.waitForTimeout(3000);
   expect(busReads()).toBe(hiddenReads);
   await setHidden(false);
   // Returning to the page reads at once instead of waiting for the next interval.

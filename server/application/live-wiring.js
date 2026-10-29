@@ -39,6 +39,11 @@ import {
   systemStatusTopics,
 } from "../features/system-status/live-topics.js";
 import { meTopics } from "../features/users/live-me-topics.js";
+import { defineAgentBusTopic } from "../features/agentbus/live-topics.js";
+import {
+  accountAuthTopic,
+  followAccountWrites,
+} from "../features/accounts/live-auth-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -98,6 +103,9 @@ export function createLiveHub(services, options = {}) {
   hub.define(artifactsChangedTopic());
   for (const topic of systemStatusTopics(services)) hub.define(topic);
   hub.define(cleanupSummaryTopic(services));
+  defineAgentBusTopic(hub, services);
+  hub.define(accountAuthTopic(services));
+  followAccountWrites(services, hub);
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).
   for (const topic of meTopics(services)) hub.define(topic);
   // Topics whose value depends on owner privacy start over on every privacy change,
