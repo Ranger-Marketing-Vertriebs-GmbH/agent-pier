@@ -347,11 +347,11 @@ export default function ArtifactsPage({
               returnTo={routePath({ ...route, artifact: item.id })}
               navigate={onNavigate}
               onChanged={() => {
-                list.refresh();
+                list.written();
                 setRevision((value) => value + 1);
               }}
               onRemoved={() => {
-                list.refresh();
+                list.written();
                 go({ artifact: "" });
               }}
             />

@@ -20,7 +20,8 @@ const pageSize = 20;
  */
 export default function SessionArtifacts({ sessionId, returnTo, navigate }) {
   const [page, setPage] = useState(1);
-  const { data, error } = useArtifacts({ sessionId, page });
+  // The panel shows no storage usage, so it does not follow it.
+  const { data, error } = useArtifacts({ sessionId, page, usage: false });
   const pageCount = Math.max(1, Math.ceil((data?.total || 0) / pageSize));
   useEffect(() => {
     if (data && page > pageCount) setPage(pageCount);

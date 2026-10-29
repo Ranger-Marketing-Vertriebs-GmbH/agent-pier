@@ -92,7 +92,7 @@ export default function QueuePage({ route, navigate, home }) {
             <QueueItems
               project={{ id: projectId, name: project?.name || projectId }}
               items={queue.data.items}
-              refresh={queue.refresh}
+              refresh={queue.written}
               onOpenRun={(id) =>
                 draft.guarded(() =>
                   navigate({ pipelineTab: "runs", pipelineItem: id, projectId: "" }),
