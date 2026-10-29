@@ -332,3 +332,19 @@ test("at most three CLI status probes run at once across accounts", async (t) =>
   }
   assert.equal(most, 3);
 });
+
+test("forgetting one account leaves another account's running probe cached", async (t) => {
+  const f = await applicationFixture(t);
+  const work = f.application.accounts.create({ name: "Work", tool: "claude" });
+  const home = f.application.accounts.create({ name: "Home", tool: "claude" });
+  const cli = await slowClaude(f);
+  const status = f.application.accountAuthStatus;
+  await cli.delay(500);
+  const running = status.get(home.id);
+  while (!(await cli.log()).includes("start")) await delay(10);
+  status.forget(work.id);
+  assert.equal((await running).state, "authenticated");
+  // Its answer filled the cache: the next read runs no CLI.
+  assert.equal((await status.get(home.id)).state, "authenticated");
+  assert.equal((await cli.log()).filter((line) => line === "start").length, 1);
+});
