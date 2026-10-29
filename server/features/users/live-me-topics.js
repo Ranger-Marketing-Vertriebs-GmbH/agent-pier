@@ -19,15 +19,14 @@ import { telegramView, userChannel } from "../../http/routes/me-telegram.js";
 import { awaitingForUser } from "./approval-audience.js";
 import { canPairTelegram } from "./user-access.js";
 import { AGENT_PARAM } from "../assistants/live-topics.js";
-import { digestOf } from "../live/live-rows.js";
+import { sharedReminderJobs } from "./reminder-samples.js";
 import { sharedSource } from "../live/shared-source.js";
 import { followAgentSwitch, notRunning } from "../assistants/live-runtime-topics.js";
 
 // Her reminders' cron jobs live in the Gateway, like the owner's (agent.reminders):
-// one read per agent and interval serves every user who watches that agent's.
-export const ME_REMINDERS_SAMPLE_MS = 30000;
-// How long a sample answers the reads it set off (their debounce is 150 ms to 1 s).
-const SAMPLE_FRESH_MS = 2000;
+// one read per agent and interval serves every user who watches that agent's
+// (reminder-samples.js).
+export { ME_REMINDERS_SAMPLE_MS } from "./reminder-samples.js";
 
 export const ME_TOPICS = Object.freeze([
   "me.agents",
@@ -91,67 +90,6 @@ export function followAgentEvents(
   };
 }
 
-/**
- * The Gateway's cron jobs of each watched agent, sampled once per `sampleMs` for all
- * users together: `watch(agentId, listener)` calls `listener` when the jobs changed
- * (or the sample failed), `jobs(agentId)` hands a sample younger than `freshMs` to
- * the reads that change set off, so they do not ask the Gateway again.
- */
-export function sharedReminderJobs(
-  services,
-  {
-    sampleMs = ME_REMINDERS_SAMPLE_MS,
-    freshMs = SAMPLE_FRESH_MS,
-    now = Date.now,
-    timers = { setInterval, clearInterval },
-    // The agent's cron jobs in the Gateway, read under the agent services' admission.
-    readJobs = (agentId) => {
-      const reminders = services.assistantReminders;
-      return reminders.assistants.admit(async () =>
-        reminders.jobs(reminders.agent(agentId)),
-      );
-    },
-  } = {},
-) {
-  const agents = new Map();
-  const sample = async (agentId, entry) => {
-    let jobs = null;
-    try {
-      jobs = await readJobs(agentId);
-    } catch {
-      // The users' own reads ask again and answer with the refusal.
-    }
-    if (agents.get(agentId) !== entry) return;
-    entry.sampled = jobs && { at: now(), jobs };
-    const digest = jobs ? digestOf(jobs) : "failed";
-    if (digest === entry.digest) return;
-    entry.digest = digest;
-    for (const listener of [...entry.listeners]) listener();
-  };
-  return {
-    watch(agentId, listener) {
-      let entry = agents.get(agentId);
-      if (!entry) {
-        entry = { listeners: new Set(), digest: undefined, sampled: null };
-        entry.timer = timers.setInterval(() => sample(agentId, entry), sampleMs);
-        entry.timer?.unref?.();
-        agents.set(agentId, entry);
-      }
-      const own = () => listener();
-      entry.listeners.add(own);
-      return () => {
-        if (!entry.listeners.delete(own) || entry.listeners.size) return;
-        timers.clearInterval(entry.timer);
-        if (agents.get(agentId) === entry) agents.delete(agentId);
-      };
-    },
-    jobs(agentId) {
-      const sampled = agents.get(agentId)?.sampled;
-      return sampled && now() - sampled.at <= freshMs ? sampled.jobs : undefined;
-    },
-  };
-}
-
 function meTopic(services, { name, param = false, mayWatch, read, watch }) {
   const admitted = (principal, agentId) => {
     if (!param) return user(principal);
@@ -164,14 +102,14 @@ function meTopic(services, { name, param = false, mayWatch, read, watch }) {
     ...(param && { param: AGENT_PARAM }),
     authorize: admitted,
     scopeKey: (principal) => `user:${principal.userId}`,
-    async read(principal, agentId) {
+    async read(principal, agentId, context) {
       // Checked again per read: a read never answers for an agent she lost.
       if (!admitted(principal, agentId)) {
         running(services);
         throw expected(services.userScope.refusal());
       }
       try {
-        return await read(principal, agentId);
+        return await read(principal, agentId, context);
       } catch (error) {
         throw expected(error);
       }
@@ -265,11 +203,14 @@ export function meTopics(services, { reminderJobs = sharedReminderJobs(services)
         const stops = [agentSwitch(listener), reminderJobs.watch(agentId, listener)];
         return () => stops.forEach((stop) => stop());
       },
-      read: (principal, agentId) => {
+      read: (principal, agentId, context) => {
         running(services);
+        const sample = reminderJobs.sample(agentId);
+        // A push of it is as old as the sample, not as this read.
+        if (sample) context?.basedOn(sample.readAt);
         return services.assistantReminders.list(agentId, {
           userId: principal.userId,
-          jobs: reminderJobs.jobs(agentId),
+          jobs: sample?.jobs,
         });
       },
     }),

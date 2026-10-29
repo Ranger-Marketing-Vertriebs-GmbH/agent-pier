@@ -449,3 +449,17 @@ test("stamp() adds what depends on the moment of sending, not to the digest", as
   assert.deepEqual(first.frames.at(-1).data, { count: 1, sentAt: 3 });
   assert.deepEqual(late.frames.at(-1).data, { count: 1, sentAt: 3 });
 });
+
+test("a read that answers from earlier data dates its frame back with basedOn", async (t) => {
+  const { clock, instance } = setup(t, {
+    read: async (_principal, _param, context) => {
+      context.basedOn(5);
+      // A later stamp never moves it forward.
+      context.basedOn(Number.MAX_SAFE_INTEGER);
+      return { cached: true };
+    },
+  });
+  const { frames } = listen(instance);
+  await clock.advance(0);
+  assert.equal(frames[0].readAt, 5);
+});

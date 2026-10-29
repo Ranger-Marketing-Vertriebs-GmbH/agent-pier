@@ -23,15 +23,15 @@ export function stateTopic(services) {
     maxBytes: STATE_MAX_BYTES,
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
-    read: () => state.read(),
+    read: (_principal, _param, context) => state.read({ basedOn: context?.basedOn }),
     // The read stamp (readStartedAt) changes on every read; only the state counts.
     digest: withoutReadStamp,
     watch({ invalidate }) {
       const changed = () => invalidate();
       const stops = [
         // The collect has just listed the sessions: the read reuses that list.
-        services.operationsEvents?.onSessions((sessions) => {
-          state.offerSessions(sessions);
+        services.operationsEvents?.onSessions((sessions, listedAt) => {
+          state.offerSessions(sessions, listedAt);
           invalidate();
         }),
         services.chatEvents?.subscribeAll(

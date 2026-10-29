@@ -12,6 +12,7 @@ import { followAgentSwitch, notRunning } from "./live-runtime-topics.js";
 import { agentPerson } from "./reminder-audience.js";
 import { ownerActionList } from "../users/approval-audience.js";
 import { sharedSource } from "../live/shared-source.js";
+import { forgetReminderSamples } from "../users/reminder-samples.js";
 
 // The former event stream cut a reader off at 1 MiB; a larger list goes `stale` and
 // the browser reads it over REST.
@@ -337,6 +338,8 @@ export function followReminderWrites(reminders, hub) {
  * `agent.reminders` on `hub`. A failing hub is logged; the write stands.
  */
 export function agentRemindersChanged(hub, ids) {
+  // The users' shared Gateway sample predates the write: their reads ask again.
+  forgetReminderSamples(ids);
   try {
     // Users' own reminder lists too (live-me-topics.js).
     for (const name of ["agent.reminders", "me.reminders"]) {

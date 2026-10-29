@@ -16,10 +16,11 @@ import { legacyTmuxSessions as listLegacyTmux } from "./legacy-tmux-server.js";
 
 /**
  * `read({ fresh })` returns the current state (`fresh` detects the slow parts again);
- * `invalidateSlow()` makes the next read detect them again; `offerSessions(list)`
- * hands over a session list just read elsewhere (the 2.5 s collect), which the next
- * read uses once instead of listing the sessions again, if it starts within
- * `offerMs`. Services are read late, so a router may create this before every
+ * `invalidateSlow()` makes the next read detect them again; `offerSessions(list,
+ * listedAt)` hands over a session list just read elsewhere (the 2.5 s collect, with
+ * the read stamp from before its listing), which the next read uses once instead of
+ * listing the sessions again, if it starts within `offerMs`; that read is then dated
+ * to the listing (`readStartedAt`, and `basedOn(listedAt)` for its live push). Services are read late, so a router may create this before every
  * service exists.
  */
 export function createWorkspaceState(
@@ -36,11 +37,11 @@ export function createWorkspaceState(
   let slow = null;
   let stamp = 0;
   let offered = null;
-  const listSessions = (sessions) => {
+  // The offered list if it is fresh enough, else a new listing; `taken` is the offer.
+  const takeOffer = () => {
     const taken = offered;
     offered = null;
-    if (taken && now() - taken.at <= offerMs) return Promise.resolve(taken.list);
-    return sessions.list();
+    return taken && now() - taken.at <= offerMs ? taken : null;
   };
   // The inbox count rides on the state; a failed read never fails the state.
   const inboxSummary = async () => {
@@ -85,14 +86,22 @@ export function createWorkspaceState(
     return entry.value;
   };
   return {
-    async read({ fresh = false } = {}) {
+    async read({ fresh = false, basedOn } = {}) {
       stamp = Math.max(now(), stamp + 1);
-      const readStartedAt = stamp;
+      let readStartedAt = stamp;
       if (fresh) slow = offered = null;
       const { config, sessions, activity, preferences } = services;
+      const offer = takeOffer();
+      // A reused list is as old as its listing: both stamps say so.
+      if (offer && Number.isSafeInteger(offer.listedAt)) {
+        readStartedAt = Math.min(readStartedAt, offer.listedAt);
+        basedOn?.(offer.listedAt);
+      }
       const [{ tools, utilities, legacy }, listed] = await Promise.all([
         slowParts(),
-        listSessions(sessions).then((list) => activity.enrich(list)),
+        (offer ? Promise.resolve(offer.list) : sessions.list()).then((list) =>
+          activity.enrich(list),
+        ),
       ]);
       return {
         tools,
@@ -122,8 +131,8 @@ export function createWorkspaceState(
     invalidateSlow() {
       slow = null;
     },
-    offerSessions(list) {
-      if (Array.isArray(list)) offered = { list: [...list], at: now() };
+    offerSessions(list, listedAt) {
+      if (Array.isArray(list)) offered = { list: [...list], at: now(), listedAt };
     },
   };
 }
