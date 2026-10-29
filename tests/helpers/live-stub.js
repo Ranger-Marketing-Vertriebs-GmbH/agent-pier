@@ -4,7 +4,8 @@
 //   "rest"   answers every `sub` from the topic's REST route, read through the page
 //            so the spec's page.route mocks answer, and re-reads it at the topic's
 //            interval, sending a frame only when the JSON changed;
-//   "manual" sends nothing until the test calls push().
+//   "manual" sends nothing until the test calls push(); a state topic without a
+//            REST route (file.meta) behaves so in both modes.
 // A signal topic is answered `same` in both modes, as the server does; the page reads
 // its own route, and the test sends `changed` with changed().
 // The frames follow server/features/live/live-connection.js.
@@ -164,7 +165,8 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     socket.topics.set(topic, entry);
     notify();
     if (info.mode === "signal") send(socket, { type: "same", topic, revision });
-    else if (mode === "rest") follow(socket, topic, entry, info);
+    // A state topic without a REST route of its own (file.meta) waits for push().
+    else if (mode === "rest" && info.path) follow(socket, topic, entry, info);
     else if (latest.has(topic)) dataFrame(socket, topic, latest.get(topic));
   };
 

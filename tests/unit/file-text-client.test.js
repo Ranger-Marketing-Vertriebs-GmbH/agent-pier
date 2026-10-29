@@ -43,6 +43,26 @@ test("typed saves freeze exact bytes and use scoped raw preconditions with durab
   assert.match(calls[2].url, /view=document$/);
 });
 
+test("document metadata carries the live topic the route names in X-File-Watch", async (t) => {
+  const topic = `file.meta:${"A".repeat(22)}`;
+  const body = {
+    path: "note",
+    resolvedPath: "note",
+    metadataRevision: `e1:${"b".repeat(64)}`,
+  };
+  let header = topic;
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json(body, { headers: header ? { "X-File-Watch": header } : {} }),
+  );
+  const api = fileApi({ kind: "global" });
+  assert.deepEqual(await api.documentMetadata("note"), { ...body, watch: topic });
+  // No header, or one that names no file.meta topic: no topic.
+  for (const value of [null, "state", `file.meta:${"A".repeat(21)}`]) {
+    header = value;
+    assert.deepEqual(await api.documentMetadata("note"), body);
+  }
+});
+
 test("text client rejects non-d1 results and keeps errors inert and reactive without changing draft bytes", async (t) => {
   const bytes = new TextEncoder().encode("private draft"),
     original = bytes.slice();

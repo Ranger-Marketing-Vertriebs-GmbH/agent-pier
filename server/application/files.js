@@ -30,6 +30,7 @@ import { readFileLimits } from "../features/files/file-limits.js";
 import { FileListingStore } from "../features/files/file-listing.js";
 import { metadata, preview } from "../features/files/file-reading.js";
 import { FilePreferences } from "../features/files/file-preferences.js";
+import { FileWatches } from "../features/files/file-watch-topic.js";
 
 export function createFileServices({ config, sessions, mutationBarrier, onJobChange }) {
   if (!mutationBarrier) throw new TypeError("File services require a mutation barrier.");
@@ -124,6 +125,12 @@ export function createFileServices({ config, sessions, mutationBarrier, onJobCha
   registerArchiveHandlers(handlers, archives);
   const retries = new FileJobRetries({ jobs, store, trash });
   text = new FileText({ jobs, store, publisher, trash, limits, context, handlers });
+  // The editor's watched files (live topic file.meta), issued by the metadata route.
+  const watches = new FileWatches({
+    dataDir: config.dataDir,
+    context,
+    metadata: (scope, target) => text.metadata(scope, target),
+  });
   jobs.prepareJob = (scope, id) => retries.prepare(scope, id);
 
   return {
@@ -145,7 +152,9 @@ export function createFileServices({ config, sessions, mutationBarrier, onJobCha
     reading,
     preferences,
     limits,
+    watches,
     async close() {
+      watches.close();
       archives.stop();
       uploads.stop();
       await jobs.close();

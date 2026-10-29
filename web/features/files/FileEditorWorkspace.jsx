@@ -6,7 +6,8 @@ import FileEditorTabs from "./FileEditorTabs.jsx";
 import { requestNavigation as requestFileNavigation } from "../../lib/navigation-guard.js";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { startVisiblePolling } from "../../lib/visible-polling.js";
+import { liveClient } from "../../lib/live/live-client.js";
+import { followDocument } from "./file-document-watch.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
@@ -56,29 +57,27 @@ export default function FileEditorWorkspace({
     if (["saved", "updated-during-save"].includes(outcome.status)) observe(id);
     return outcome;
   };
+  const observed = editor.observed;
+  const hasDocument = Boolean(tab?.document);
+  // The file's changes on disk: pushed on its live topic, or polled every 15 s.
   useEffect(() => {
-    if (!current || !tab?.document) return;
-    const stop = startVisiblePolling((signal) => observe(tab.id, signal), 15000);
-    let focusRead = null;
-    const focus = () => {
-      if (document.hidden) return;
-      focusRead?.abort();
-      focusRead = new AbortController();
-      observe(tab.id, focusRead.signal);
-    };
-    const visibility = () => {
-      if (document.hidden) invalidateObservation(tab.id);
-    };
-    window.addEventListener("focus", focus);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      stop();
-      focusRead?.abort();
-      invalidateObservation(tab.id);
-      window.removeEventListener("focus", focus);
-      document.removeEventListener("visibilitychange", visibility);
-    };
-  }, [current, invalidateObservation, observe, tab?.document, tab?.id]);
+    if (!current || !hasDocument) return;
+    return followDocument({
+      topic: tab.watch,
+      live: liveClient(),
+      observe: (signal) => observe(tab.id, signal),
+      push: (value) => observed(tab.id, value),
+      invalidate: () => invalidateObservation(tab.id),
+    });
+  }, [
+    current,
+    hasDocument,
+    invalidateObservation,
+    observe,
+    observed,
+    tab?.id,
+    tab?.watch,
+  ]);
   useEffect(() => {
     if (
       tab?.error?.code !== "FILE_CONFLICT_CHANGED" ||

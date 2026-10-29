@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { fileProblem } from "../../features/files/file-errors.js";
 import { fileHandler, openedScope } from "../file-response.js";
+import { FILE_WATCH_HEADER } from "../../features/files/file-watch-topic.js";
 
 function pageValue(value) {
   if (value === undefined) return 1;
@@ -79,11 +80,15 @@ function registerReadRoutes(router, prefix, files) {
       )
         throw fileProblem("FILE_INVALID_OPERATION", 400);
       const current = await scope(req);
-      res.json(
-        await (view === "document"
-          ? files.text.metadata(current, req.query.path ?? "")
-          : files.reading.metadata(current, req.query.path ?? "")),
-      );
+      const target = req.query.path ?? "";
+      if (view !== "document")
+        return res.json(await files.reading.metadata(current, target));
+      const document = await files.text.metadata(current, target);
+      // The editor follows the file on the live channel (file-watch-topic.js) by this
+      // topic, issued only now that the read passed.
+      const topic = await files.watches?.register(req.principal, current, target);
+      if (topic) res.set(FILE_WATCH_HEADER, topic);
+      res.json(document);
     }),
   );
   router.get(

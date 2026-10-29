@@ -88,6 +88,21 @@ An uncertain or failed save retains the exact attempted bytes for an explicit re
 edit manually, use **Save As**, or explicitly replace at the newly observed revision.
 There is no generic retry of a text save through the Operations job list.
 
+An open document learns of changes on disk through the live channel: the document
+metadata read (`GET .../metadata?view=document`) names the file's topic in its
+`X-File-Watch` header (`file.meta:<token>`), and the server then watches the file's
+folder and pushes the metadata whenever the file is written, replaced atomically,
+deleted or created again, so **Reload disk version** appears within a second and
+nothing is polled, not on focus either. Only the owner's local scopes are watched,
+under the same scope and link checks as the read, and never a file in AgentPier's data
+directory. Without the channel, for a token the server no longer knows (after a
+restart), for a refused or unwatchable file (more than 128 open files, a folder that
+cannot be watched) and for any other scope, the editor polls the metadata every 15 s
+and on window focus as before, only while the tab is visible; a read that names a new
+token makes it follow the topic again. A change made only
+through a hard link elsewhere, or by re-pointing a linked parent folder, is seen at the
+next read.
+
 Tab inserts indentation in CodeMirror. To move keyboard focus out of the editor, press
 Escape and then Tab within two seconds.
 
