@@ -25,7 +25,7 @@ export const assistantSshCopy = {
   modeHints: {
     approval: "Du bestätigst jeden Befehl.",
     trusted:
-      "Läuft ohne Rückfrage in deinen Chats, in Aufträgen des leitenden Agenten und in Routinen.",
+      "Läuft ohne Rückfrage, auch in Routinen und in Aufträgen des leitenden Agenten.",
   },
   trustedWarning:
     "Befehle, die dieser Agent aus Webseiten oder Dateien ableitet, könnten ohne deine Bestätigung laufen.",
