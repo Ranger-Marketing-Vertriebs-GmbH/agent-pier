@@ -652,9 +652,9 @@ it up. An agent of users gets project folders only; the other groups show a lock
   [when a lead uses its team](#when-a-lead-uses-its-team)), **Allow teams without
   asking each time**, **Team members may use shell and SSH** (off by default; see
   [teams](#teams-asks-and-tasks) below), **Maximum team size** and **Member time limit
-  (minutes)** (10 by default; it bounds a team's work on its assignment, questions
-  and requests between members, while a task the agent gives a member may run up to
-  60 minutes).
+  (minutes)** (10 by default; it bounds a team's work on its assignment and questions,
+  while a task the agent gives a member, or a member gives a colleague, may run up
+  to 60 minutes).
 - **Shared with members:** what this agent shares of its own access with its members,
   with **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
 - **Teams:** the agent's active and archived teams with proposals and member requests
@@ -870,7 +870,8 @@ with Learning") and on their own:
   task chat when it is free, where you can read it, and sees only the question or task,
   "from" the asking member, never that member's chat. The answer comes back to the
   asking member as a separate message ("A colleague's answer arrived. The agent
-  continues."), or to the lead when the asking member wants it so or can no longer be
+  continues."; "A colleague's result: cancelled (time limit)" and the like when it
+  ended without a result), or to the lead when the asking member wants it so or can no longer be
   reached.
 - A member can **report** to its lead on its own: a finished result or a problem of
   up to 32,768 characters, with up to 10 project files that hold it. A longer report

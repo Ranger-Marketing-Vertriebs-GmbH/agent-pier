@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ask, lead, quoteFor } from "../helpers/lead-request-service-fixture.js";
+import { peers } from "../helpers/peer-request-fixture.js";
 import {
   defaultTeamPolicy,
   taskRunTimeoutMinutes,
@@ -159,4 +160,44 @@ test("a completed result keeps the plain member-result turn", async (t) => {
   assert.equal(data.result, "Result from member");
   assert.equal(data.reason, undefined);
   assert.equal(outcome, undefined);
+});
+
+// Members' tasks for each other are team work too; their questions stay short.
+test("a member's task for a colleague runs 60 minutes and its cancel is named", async (t) => {
+  const f = await peers(t);
+  f.service.requests.waitMs = 0;
+  const asker = f.memberTurn(f.permanent);
+  const question = f.peerAsk(asker, f.second);
+  assert.equal(question.runTimeoutMinutes, 10);
+  f.finish(question);
+  const task = f.peerDelegate(f.memberTurn(f.permanent), f.second);
+  assert.equal(task.runTimeoutMinutes, taskRunTimeoutMinutes);
+  f.settle();
+  await f.service.reconcile();
+  const running = f.service.requests.store.get(task.id);
+  assert.equal(running.phase, "running");
+  startedAgo(f, task.id, 59);
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(task.id).cancelRequested, undefined);
+  startedAgo(f, task.id, 61);
+  await f.service.reconcile();
+  assert.equal(f.service.requests.store.get(task.id).cancelledBy, "deadline");
+  f.complete(running.attemptId, "error");
+  await f.service.reconcile();
+  f.settle();
+  await f.service.reconcile();
+  // The asking member's chat names the cancel, not "a colleague's answer arrived".
+  const chat = f.service.store.member(f.permanent.id).conversationId;
+  const turn = f.assistants.ledger
+    .requests(chat)
+    .find((x) => x.clientRequestId === `peer-request-result:${task.id}`);
+  assert.ok(turn, "the asker gets a follow-up");
+  assert.equal(f.service.store.context(turn.id).outcome, "deadline");
+  assert.match(turn.text, /"diagnostic":"DEADLINE"/);
+  assert.match(turn.text, /Tell your lead why it ended/);
+  const visible = (await f.assistants.history(chat)).requests.find(
+    (x) => x.id === turn.id,
+  );
+  assert.equal(visible.internal, "peer-result");
+  assert.equal(visible.internalOutcome, "deadline");
 });

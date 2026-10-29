@@ -995,8 +995,8 @@ turn per member and no nested delegation keep accepted work bounded. Cancellatio
 of a parent response does not cancel its team. Stop member and Stop team are separate
 operations. A deadline requests cancellation; it does not prove completion or free
 an uncertain slot. The member deadline (`runTimeoutMinutes`) also bounds a lead's
-questions and members' requests to each other; a task a lead delegates to a member
-runs up to 60 minutes whatever it says (`taskRunTimeoutMinutes` in `team-policy.js`,
+questions and members' questions to each other; a task a lead delegates to a member,
+or a member to a colleague, runs up to 60 minutes whatever it says (`taskRunTimeoutMinutes` in `team-policy.js`,
 stored on the request when it is created; AGENTPIER-284).
 
 Each member has its own profile, chat, instructions and model reference copied at
@@ -1277,7 +1277,10 @@ A lead reaches its own members without the owner relaying anything
   turn context carries `outcome` (`deadline`, `owner`, `lead`, `stopped`, `cancelled`
   or `failed`), served on the history's event and request as `internalOutcome`, so
   the chat shows "A member's result: cancelled (time limit)" and the like instead of
-  "A member's answer arrived".
+  "A member's answer arrived". A members' request to each other does the same: its
+  `peer-result` turn in the asking member's chat carries `outcome` and reads "A
+  colleague's result: cancelled (time limit)" instead of "A colleague's answer
+  arrived".
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
   run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
   session's single active AgentPier attempt. Native runs never reach these tools,

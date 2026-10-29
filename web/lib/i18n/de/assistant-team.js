@@ -46,7 +46,7 @@ export const assistantTeamCopy = {
   maxMembers: "Maximale Teamgröße",
   timeout: "Laufzeit pro Mitglied (Minuten)",
   timeoutHint:
-    "Gilt für die Arbeit eines Teams an seinem Auftrag, für Fragen und für Anfragen zwischen Mitgliedern. Eine Aufgabe, die der Agent einem Mitglied gibt, darf bis zu 60 Minuten laufen.",
+    "Gilt für die Arbeit eines Teams an seinem Auftrag und für Fragen. Eine Aufgabe, die der Agent einem Mitglied oder ein Mitglied einem anderen gibt, darf bis zu 60 Minuten laufen.",
   capacity: "Gleichzeitig aktive Mitglieder auf diesem Host",
   capacityRange: (min, max) => `Wähle einen Wert von ${min} bis ${max}.`,
   concurrentHint:
@@ -108,6 +108,15 @@ export const assistantTeamCopy = {
     stopped: "Ergebnis eines Mitglieds: gestoppt",
     cancelled: "Ergebnis eines Mitglieds: abgebrochen",
     failed: "Ergebnis eines Mitglieds: fehlgeschlagen",
+  },
+  // Dasselbe im Chat des fragenden Mitglieds (statt internalTurns["peer-result"]).
+  peerOutcomes: {
+    deadline: "Ergebnis eines anderen Mitglieds: abgebrochen (Zeitlimit)",
+    owner: "Ergebnis eines anderen Mitglieds: von dir abgebrochen",
+    lead: "Ergebnis eines anderen Mitglieds: vom leitenden Agenten abgebrochen",
+    stopped: "Ergebnis eines anderen Mitglieds: gestoppt",
+    cancelled: "Ergebnis eines anderen Mitglieds: abgebrochen",
+    failed: "Ergebnis eines anderen Mitglieds: fehlgeschlagen",
   },
   notes: {
     started: (title) => `Team gestartet: ${title}`,

@@ -46,8 +46,22 @@ test("a member result that ended without a result has a neutral line", async () 
     internalTurnText(copy, "member-result", "unknown"),
     en.memberOutcomes.failed,
   );
+  // The asking member's chat names a colleague's cancelled result the same way.
+  assert.equal(internalTurnText(copy, "peer-result"), en.internalTurns["peer-result"]);
   assert.equal(
     internalTurnText(copy, "peer-result", "deadline"),
-    en.internalTurns["peer-result"],
+    "A colleague's result: cancelled (time limit)",
   );
+  assert.equal(
+    internalTurnText(copy, "coding-result", "deadline"),
+    en.internalTurns["coding-result"],
+  );
+  for (const catalog of [en, de]) {
+    assert.deepEqual(Object.keys(catalog.peerOutcomes).sort(), [...outcomes].sort());
+    for (const outcome of outcomes) {
+      const line = catalog.peerOutcomes[outcome];
+      assert.notEqual(line, catalog.internalTurns["peer-result"]);
+      assert.doesNotMatch(line, /Konto|Sitzung|eingegangen|arrived/);
+    }
+  }
 });

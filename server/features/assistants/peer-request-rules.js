@@ -10,6 +10,7 @@ import {
 import { editableMember } from "./member-reach.js";
 import { isLeadRoutine } from "./lead-routines.js";
 import { mainConversation } from "./routine-targets.js";
+import { taskRunTimeoutMinutes } from "./team-policy.js";
 
 // A team member's questions and tasks for a sibling of the same lead. They are
 // `lead-request` records under the lead (parentAssistantId) with `fromMemberId`, so
@@ -261,7 +262,11 @@ export function createPeerRequest(service, { type, inv, input, now = Date.now() 
         // Fixed at creation: the receiver's access follows who started the chain.
         leadScope: peerLeadScope(caller),
         writeAllowed: type === "task" && !!peerWrites,
-        runTimeoutMinutes: teams.policy(lead.id).runTimeoutMinutes,
+        // A task gets the team task deadline, a question the member time limit.
+        runTimeoutMinutes:
+          type === "task"
+            ? taskRunTimeoutMinutes
+            : teams.policy(lead.id).runTimeoutMinutes,
         phase: "queued",
         fingerprint: hash,
         delivery: null,
