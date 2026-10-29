@@ -5,6 +5,7 @@ import { privateWrite } from "./session-process-runtime.js";
 import { checkedAdapter } from "../adapter-runtime/adapter-config.js";
 import { publicProviderConfiguration } from "./provider-configuration.js";
 import { pipelineIdentity, nativeInput } from "../pipelines/native-session.js";
+import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
 import { randomUUID } from "node:crypto";
 import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -201,6 +202,9 @@ export async function buildSessionLaunch(manager, options) {
       ...options.sshTools,
       enabled: options.sshTools.enabled === true,
     };
+  // The session's SSH agent (ssh-session-agents.js); a malformed one is dropped.
+  const sshAgent = sessionSshAgentRecord(options.sshAgent);
+  if (sshAgent) session.sshAgent = sshAgent;
   if (options.secrets && options.purpose !== "login" && !pipeline?.headless)
     session.secrets = sessionSecretsRecord(options.secrets);
   const eligible = tool !== "shell" && options.purpose !== "login";

@@ -10,6 +10,7 @@ import { currentModel } from "../features/models/model-parser.js";
 import { parseSessionActivity } from "../features/sessions/session-activity.js";
 import { problem } from "../lib/storage.js";
 import { addGrant } from "../features/nono/sandbox-grants.js";
+import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
 
 export function createReloadLifecycle(services) {
   async function prepareReload(session, nativeId, targetAccountId) {
@@ -183,6 +184,15 @@ export function createReloadLifecycle(services) {
               // binding it creates there.
               sshAccessIds: services.sshSessions?.assigned(session) || [],
             });
+          // Same id, same socket path, a new generation: the old one signs no more.
+          launch = await prepareSessionSshAgent(services.sshAgents, {
+            ...input(),
+            purpose: session.purpose,
+            pipeline: session.pipeline,
+          });
+          // No longer eligible (or it failed): the previous listener goes with it.
+          if (!launch.sshAgent && services.sshAgents?.launchDetails(session.id))
+            await services.sshAgents.discard(session.id);
           // The same secrets file, variable and grant as the first launch: its
           // project's secrets and those assigned at launch that still exist.
           if (services.sessionSecrets)

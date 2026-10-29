@@ -9,6 +9,7 @@ import {
 } from "../features/sessions/attachment-access.js";
 import { profileLocation } from "../features/cli-profiles/configuration.js";
 import { addGrant } from "../features/nono/sandbox-grants.js";
+import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
 export function createSessionLifecycle(services) {
   const {
     config,
@@ -223,18 +224,27 @@ export function createSessionLifecycle(services) {
             sshAccessIds: sshIds,
           })
         : memoryLaunch;
+      // The session's own SSH agent, after the SSH tools it depends on (launch.sshTools).
+      const agentLaunch = await prepareSessionSshAgent(services.sshAgents, {
+        id,
+        account,
+        cwd,
+        launch: sshLaunch,
+        purpose: login ? "login" : undefined,
+        pipeline: trusted.pipeline,
+      });
       // The session's secrets file, outside the checkout; the launch names its path.
       const secretLaunch = services.sessionSecrets
         ? await services.sessionSecrets.prepare({
             id,
             account,
             cwd,
-            launch: sshLaunch,
+            launch: agentLaunch,
             purpose: login ? "login" : undefined,
             headless: trusted.pipeline?.headless,
             secretIds,
           })
-        : sshLaunch;
+        : agentLaunch;
       const mcpLaunch = services.sessionMcp
         ? await services.sessionMcp.prepare({
             id,
@@ -285,12 +295,15 @@ export function createSessionLifecycle(services) {
         ...(login ? { purpose: "login" } : {}),
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
+      // The agent's files catch up with the assignments and any change during the launch.
+      await services.sshAgents?.sync(session).catch(() => {});
       // A secret change while the launch ran reached no file yet; this catches it up.
       await services.sessionSecrets?.sync(session).catch(() => {});
     } catch (error) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);
       services.sessionSecrets?.discard(id);
+      await services.sshAgents?.discard(id).catch(() => {});
       if (session) {
         await sessions.stop(id).catch(() => {});
         await sessions.remove(id).catch(() => {});

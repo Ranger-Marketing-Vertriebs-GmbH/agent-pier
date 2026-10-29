@@ -12,6 +12,7 @@ export function sshRoutes({
   sessions,
   sshIntegration,
   sshManagement,
+  sshAgents,
 }) {
   const router = Router();
   const mutate = (action, input, fallback) =>
@@ -150,7 +151,7 @@ export function sshRoutes({
     res.status(204).end();
   });
   const sessionAccesses = (session, result) =>
-    sessionSshAccesses({ sshSessions, sshIntegration }, session, result);
+    sessionSshAccesses({ sshSessions, sshIntegration, sshAgents }, session, result);
   router.get("/sessions/:id/ssh-accesses", async (req, res) =>
     res.json(await sessionAccesses(await sessions.get(req.params.id))),
   );
@@ -162,9 +163,16 @@ export function sshRoutes({
     )
       throw problem(serverMessages.ssh.invalidBinding);
     const session = await sessions.get(req.params.id);
-    res.json(
-      await sessionAccesses(session, sshSessions.set(session, req.body.accessIds)),
-    );
+    const saved = await sshSessions.set(session, req.body.accessIds);
+    // The grant is saved and authorizes at once; the agent's alias files follow. A
+    // failed write is retried by the agent and never fails the saved assignment.
+    await sshAgents?.sync(session).catch((error) => {
+      console.error(
+        "Session SSH agent could not follow the assignment:",
+        error?.code || "error",
+      );
+    });
+    res.json(await sessionAccesses(session, saved));
   });
   return router;
 }

@@ -20,6 +20,7 @@ export class ProjectRebind {
     sshManagement,
     secrets = null,
     sessionSecrets = null,
+    sshAgents = null,
     artifacts,
     sessions,
     audit,
@@ -31,6 +32,7 @@ export class ProjectRebind {
       sshManagement,
       secrets,
       sessionSecrets,
+      sshAgents,
       artifacts,
       sessions,
       audit,
@@ -254,5 +256,8 @@ export class ProjectRebind {
     await this.sessions.save(session);
     // A session rebound on a retry sees no secret change: its file catches up here.
     if (secrets) this.sessionSecrets?.refresh().catch(() => {});
+    // The session's agent files follow its SSH binding: the catalog commit of the move
+    // ran before this record named the new project (R17).
+    if (ssh) this.sshAgents?.refresh().catch(() => {});
   }
 }

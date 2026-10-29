@@ -365,3 +365,72 @@ test("a reloaded session keeps its secrets file, variable and grant", async (t) 
   assert.equal(fs.readFileSync(file, "utf8").includes("KEPT='kept-value'"), true);
   assert.equal(JSON.stringify(final).includes("kept-value"), false);
 });
+
+test("reload prepares the session's agent after the SSH tools and before secrets", async () => {
+  const f = fixture();
+  const sshTools = { enabled: true };
+  f.services.sshIntegration.prepare = async (input) => {
+    f.calls.push(["sshIntegration", input]);
+    return { ...input.launch, sshTools };
+  };
+  f.services.sessionSecrets = {
+    assigned: () => [],
+    prepare: async ({ launch }) => {
+      f.calls.push(["sessionSecrets"]);
+      return launch;
+    },
+  };
+  const generation = "0b7c2f8e-58bf-467b-b983-95a250cf2c3a";
+  const socketPath = "/tmp/aph-x/agent.sock";
+  f.services.sshAgents = {
+    prepare: async (input) => {
+      f.calls.push(["sshAgents", input]);
+      return { ...input.launch, sshAgent: { enabled: true, generation } };
+    },
+    launchDetails: () => ({
+      configPath: "/agents/session/ssh_config",
+      binDir: "/agents/session/bin",
+      socketPath,
+      grants: [{ access: "socket", path: socketPath }],
+    }),
+    discard: async () => f.calls.push(["sshAgents discard"]),
+  };
+  let final;
+  f.services.nonoSandbox.prepare = async ({ launch }) => (final = launch);
+  const plan = await f.prepareReload(f.session, "native-exact");
+  await f.restartReload(f.session, plan);
+  const names = f.calls.map(([name]) => name);
+  assert.deepEqual(
+    names.filter((name) =>
+      ["sshIntegration", "sshAgents", "sessionSecrets", "sshAgents discard"].includes(
+        name,
+      ),
+    ),
+    ["sshIntegration", "sshAgents", "sessionSecrets"],
+  );
+  const input = f.calls.find(([name]) => name === "sshAgents")[1];
+  assert.equal(input.id, "session");
+  assert.equal(input.account.tool, "claude");
+  assert.equal(input.launch.sshTools, sshTools);
+  assert.deepEqual(final.sshAgent, { enabled: true, generation });
+  assert.equal(final.env.AGENTPIER_SSH_AUTH_SOCK, socketPath);
+  assert.ok(
+    final.sandboxGrants.some((g) => g.access === "socket" && g.path === socketPath),
+  );
+});
+
+test("a reload without an agent retires the previous listener", async () => {
+  const f = fixture();
+  f.services.sshAgents = {
+    prepare: async (input) => input.launch,
+    launchDetails: () => ({ socketPath: "/tmp/old.sock" }),
+    discard: async (id) => f.calls.push(["sshAgents discard", id]),
+  };
+  const plan = await f.prepareReload(f.session, "native-exact");
+  const launch = await f.restartReload(f.session, plan);
+  assert.deepEqual(
+    f.calls.filter(([name]) => name === "sshAgents discard"),
+    [["sshAgents discard", "session"]],
+  );
+  assert.equal(launch.sshAgent, undefined);
+});

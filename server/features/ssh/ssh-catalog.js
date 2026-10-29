@@ -38,6 +38,23 @@ export class SshCatalog {
     this.file = path.join(this.root, "catalog.json");
     this.context = new AsyncLocalStorage();
     this.queue = Promise.resolve();
+    this.publishedListeners = new Set();
+  }
+  /**
+   * Runs `listener` after every committed `run`, after its commit callbacks and outside
+   * the transaction; a throwing listener is ignored. Returns an unsubscribe.
+   */
+  onPublished(listener) {
+    this.publishedListeners.add(listener);
+    return () => this.publishedListeners.delete(listener);
+  }
+  published() {
+    for (const listener of this.publishedListeners)
+      this.context.exit(() => {
+        try {
+          listener();
+        } catch {}
+      });
   }
   read() {
     const transaction = this.context.getStore();
@@ -149,48 +166,53 @@ export class SshCatalog {
     const operation = this.queue
       .catch(() => {})
       .then(async () => {
-        const before = this.read();
-        const transaction = {
-          draft: structuredClone(before),
-          commit: [],
-          rollback: [],
-          guards: [],
-        };
-        return this.context.run(transaction, async () => {
-          let result;
-          try {
-            result = await callback();
-            const size = (value) =>
-              Buffer.byteLength(JSON.stringify(value, null, 2) + "\n");
-            if (
-              size(transaction.draft) > SSH_CATALOG_LIMIT &&
-              size(transaction.draft) > size(before) &&
-              !deletionOnly(before, transaction.draft)
-            )
-              throw Object.assign(problem(serverMessages.ssh.catalogCapacity, 409), {
-                code: "SSH_STORAGE_LIMIT",
-              });
-            // Guards are synchronous: no revocation can interleave before publication.
-            for (const guard of transaction.guards) guard();
-            writePrivate(this.file, transaction.draft);
-          } catch (error) {
-            for (const cleanup of transaction.rollback) {
-              try {
-                await cleanup();
-              } catch {}
-            }
-            throw error;
-          }
-          // Once published, a cleanup failure must not turn a committed operation into failure.
-          for (const cleanup of transaction.commit) {
-            try {
-              await cleanup();
-            } catch {}
-          }
-          return result;
-        });
+        const result = await this.transaction(callback);
+        this.published();
+        return result;
       });
     this.queue = operation;
     return operation;
+  }
+  /** One transaction: callback, guards and publication, or rollback. */
+  transaction(callback) {
+    const before = this.read();
+    const transaction = {
+      draft: structuredClone(before),
+      commit: [],
+      rollback: [],
+      guards: [],
+    };
+    return this.context.run(transaction, async () => {
+      let result;
+      try {
+        result = await callback();
+        const size = (value) => Buffer.byteLength(JSON.stringify(value, null, 2) + "\n");
+        if (
+          size(transaction.draft) > SSH_CATALOG_LIMIT &&
+          size(transaction.draft) > size(before) &&
+          !deletionOnly(before, transaction.draft)
+        )
+          throw Object.assign(problem(serverMessages.ssh.catalogCapacity, 409), {
+            code: "SSH_STORAGE_LIMIT",
+          });
+        // Guards are synchronous: no revocation can interleave before publication.
+        for (const guard of transaction.guards) guard();
+        writePrivate(this.file, transaction.draft);
+      } catch (error) {
+        for (const cleanup of transaction.rollback) {
+          try {
+            await cleanup();
+          } catch {}
+        }
+        throw error;
+      }
+      // Once published, a cleanup failure must not turn a committed operation into failure.
+      for (const cleanup of transaction.commit) {
+        try {
+          await cleanup();
+        } catch {}
+      }
+      return result;
+    });
   }
 }

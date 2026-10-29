@@ -217,3 +217,30 @@ test("connection revision describes its captured endpoint across a concurrent pu
   assert.equal(connection.revision, originalRevision);
   assert.notEqual(connection.revision, currentRevision);
 });
+test("onPublished fires after a committed change and its commit callbacks, never after a rollback", async (t) => {
+  const { catalog } = fixture(t);
+  const seen = [];
+  const unsubscribe = catalog.onPublished(() => {
+    // Outside the transaction: a listener that reads or runs sees the published state.
+    assert.equal(catalog.context.getStore(), undefined);
+    seen.push("published");
+  });
+  catalog.onPublished(() => {
+    throw new Error("ignored");
+  });
+  await catalog.run(() => {
+    catalog.replacePart("projects", [{ id: "a" }]);
+    catalog.afterCommit(() => seen.push("commit"));
+  });
+  await catalog
+    .run(() => {
+      throw new Error("no");
+    })
+    .catch(() => {});
+  // A nested run publishes once, with its outer transaction.
+  await catalog.run(() => catalog.run(() => catalog.replacePart("projects", [])));
+  assert.deepEqual(seen, ["commit", "published", "published"]);
+  unsubscribe();
+  await catalog.run(() => catalog.replacePart("hosts", []));
+  assert.deepEqual(seen, ["commit", "published", "published"]);
+});
