@@ -2,7 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { problem } from "../../lib/storage.js";
+import { privateFolder as sharedPrivateFolder, problem } from "../../lib/storage.js";
 export const failure = problem;
 export function identifier(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(value))
@@ -29,22 +29,8 @@ export function record(value) {
     throw failure(serverMessages.memory.invalidInput);
   return value;
 }
-export function privateFolder(folder) {
-  try {
-    fs.mkdirSync(folder, { mode: 0o700 });
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-  }
-  const stat = fs.lstatSync(folder);
-  if (
-    !stat.isDirectory() ||
-    stat.isSymbolicLink() ||
-    (process.getuid && stat.uid !== process.getuid())
-  )
-    throw failure(serverMessages.memory.unsafeStorage, 409);
-  fs.chmodSync(folder, 0o700);
-  return folder;
-}
+export const privateFolder = (folder) =>
+  sharedPrivateFolder(folder, () => failure(serverMessages.memory.unsafeStorage, 409));
 export function privateFile(file, { missing = false, max = 8192 } = {}) {
   let fd;
   try {

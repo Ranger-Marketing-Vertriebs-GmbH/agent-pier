@@ -10,7 +10,6 @@ import {
   readSessionAliases,
   renderKnownHosts,
   renderSshConfig,
-  renderWrapper,
   resolveOpenSshBinaries,
   sessionAliases,
   sessionFolder,
@@ -251,169 +250,12 @@ test("hosts with unsafe endpoint fields or a forged alias are left out", () => {
   assert.equal(renderKnownHosts({ hosts, aliases }), `good ${hostKey}\n`);
 });
 
-function recorder() {
-  const folder = tempFolder("wrapper");
-  const out = path.join(folder, "argv");
-  const realPath = path.join(folder, "real ssh");
-  fs.writeFileSync(
-    realPath,
-    `#!/bin/sh\nprintf '%s\\0' "$#" "$@" > ${JSON.stringify(out)}\n`,
-    {
-      mode: 0o700,
-    },
-  );
-  const configPath = path.join(folder, 'it\'s $(id) "config"');
-  const wrapper = path.join(folder, "ssh");
-  fs.writeFileSync(
-    wrapper,
-    renderWrapper({ realPath, configPath, aliases: ["proxmox-2", "db"] }),
-    { mode: 0o700 },
-  );
-  const run = (args) => {
-    execFileSync(wrapper, args, { cwd: folder });
-    const text = fs.readFileSync(out, "utf8");
-    const [count, ...argv] = text.slice(0, -1).split("\0");
-    assert.equal(argv.length, Number(count));
-    return argv;
-  };
-  return { run, configPath, folder };
-}
-
-test("wrappers add -F only for session aliases", () => {
-  const { run, configPath } = recorder();
-  assert.deepEqual(run(["proxmox-2", "uptime"]), [
-    "-F",
-    configPath,
-    "proxmox-2",
-    "uptime",
-  ]);
-  assert.deepEqual(run(["-p", "22", "proxmox-2", "git-upload-pack 'r.git'"]), [
-    "-F",
-    configPath,
-    "-p",
-    "22",
-    "proxmox-2",
-    "git-upload-pack 'r.git'",
-  ]);
-  for (const target of [
-    "db",
-    "db:/tmp/x",
-    "deploy@proxmox-2",
-    "deploy@proxmox-2:/tmp/",
-    "ssh://proxmox-2",
-    "ssh://proxmox-2:2222",
-    "ssh://proxmox-2/srv/r.git",
-    "ssh://deploy@proxmox-2",
-    "ssh://deploy@proxmox-2:2222/srv/r.git",
-  ])
-    assert.deepEqual(run(["file", target]).slice(0, 2), ["-F", configPath], target);
-  for (const args of [
-    ["github.com", "proxmox-2x"],
-    ["git@github.com:org/proxmox-2.git"],
-    ["proxmox-2.example.com"],
-    ["ssh://proxmox-2.example.com/r.git"],
-    ["xdb"],
-    ["db@other"],
-    [],
-  ])
-    assert.deepEqual(run(args), args);
-});
-
-test("wrappers pass hostile arguments through untouched", () => {
-  const { run, configPath, folder } = recorder();
-  const hostile = [
-    "-oProxyCommand=touch pwned-a",
-    "--",
-    "with space",
-    "it's",
-    '"double"',
-    "$(touch pwned-b)",
-    "`touch pwned-c`",
-    "a; touch pwned-d",
-    "line\nbreak",
-    "*",
-    "",
-    "-F",
-  ];
-  assert.deepEqual(run(hostile), hostile);
-  assert.deepEqual(run([...hostile, "proxmox-2"]), [
-    "-F",
-    configPath,
-    ...hostile,
-    "proxmox-2",
-  ]);
-  assert.deepEqual(run(["$(touch pwned-e)@db"]), [
-    "-F",
-    configPath,
-    "$(touch pwned-e)@db",
-  ]);
-  assert.deepEqual(
-    fs.readdirSync(folder).filter((name) => name.startsWith("pwned")),
-    [],
-  );
-});
-
-test("wrapper scripts are plain sh without eval and refuse bad aliases", () => {
-  const script = renderWrapper({
-    realPath: "/usr/bin/ssh",
-    configPath: "/c",
-    aliases: ["proxmox-2"],
-  });
-  assert.match(script, /^#!\/bin\/sh\n/);
-  assert.doesNotMatch(script, /\beval\b/);
-  assert.match(script, /exec "\$real" "\$@"\n$/);
-  assert.throws(() =>
-    renderWrapper({ realPath: "/usr/bin/ssh", configPath: "/c", aliases: ["a|*"] }),
-  );
-  assert.doesNotMatch(
-    renderWrapper({ realPath: "/usr/bin/ssh", configPath: "/c", aliases: [] }),
-    /case/,
-  );
-});
-
 function fakeBinaries(names) {
   const dir = tempFolder("path");
   for (const name of names)
     fs.writeFileSync(path.join(dir, name), "#!/bin/sh\n", { mode: 0o755 });
   return dir;
 }
-
-test("resolveOpenSshBinaries skips the session bin and returns what it finds", () => {
-  const sessionBin = fakeBinaries(["ssh", "scp", "sftp"]);
-  const linked = path.join(tempFolder("link"), "bin");
-  fs.symlinkSync(sessionBin, linked);
-  const partial = fakeBinaries(["ssh", "sftp"]);
-  const later = fakeBinaries(["scp"]);
-  const noExec = fakeBinaries([]);
-  fs.writeFileSync(path.join(noExec, "ssh"), "", { mode: 0o644 });
-  fs.mkdirSync(path.join(noExec, "scp"));
-  const pathEnv = [
-    "",
-    ".",
-    "relative/bin",
-    linked,
-    sessionBin,
-    noExec,
-    partial,
-    later,
-  ].join(":");
-  assert.deepEqual(resolveOpenSshBinaries(pathEnv, [sessionBin]), {
-    ssh: path.join(partial, "ssh"),
-    scp: path.join(later, "scp"),
-    sftp: path.join(partial, "sftp"),
-  });
-  assert.deepEqual(resolveOpenSshBinaries(partial), {
-    ssh: path.join(partial, "ssh"),
-    sftp: path.join(partial, "sftp"),
-  });
-  assert.equal(resolveOpenSshBinaries(later), null);
-  assert.equal(
-    resolveOpenSshBinaries([sessionBin, linked].join(":"), [sessionBin]),
-    null,
-  );
-  assert.equal(resolveOpenSshBinaries(""), null);
-  assert.equal(resolveOpenSshBinaries(undefined), null);
-});
 
 test("files are private and written by rename", () => {
   const dataDir = tempFolder("data");
@@ -500,4 +342,156 @@ test("readSessionAliases tolerates a missing or broken file", () => {
     JSON.stringify({ a: "ok-alias", b: "Bad\nHost *", c: 3 }),
   );
   assert.deepEqual(readSessionAliases(dataDir, "broken"), { a: "ok-alias" });
+});
+
+test("digit-only and loopback aliases get a prefix and suffixes stay within 40", () => {
+  assert.equal(aliasBase("22", id), "host-22");
+  assert.equal(aliasBase("Localhost", id), "host-localhost");
+  assert.equal(aliasBase("10.0.0.2", id), "10-0-0-2");
+  const long = "x".repeat(60);
+  const hosts = [1, 2, 3].map(
+    (n) => hostsOf(access({ name: long, createdAt: `2026-0${n}-01` }))[0],
+  );
+  const aliases = Object.values(sessionAliases(hosts));
+  assert.deepEqual(aliases, [
+    "x".repeat(40),
+    `${"x".repeat(38)}-2`,
+    `${"x".repeat(38)}-3`,
+  ]);
+  const dashed = hostsOf(
+    access({ name: `${"y".repeat(38)}-z` }),
+    access({ name: `${"y".repeat(38)}-z` }),
+  );
+  for (const alias of Object.values(sessionAliases(dashed)))
+    assert.match(alias, /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/);
+  assert.equal(Object.values(sessionAliases(dashed))[1], `${"y".repeat(38)}-2`);
+  const kept = sessionAliases(hosts.slice(0, 1), { [hosts[0].accessId]: "22" });
+  assert.equal(kept[hosts[0].accessId], "x".repeat(40));
+  assert.deepEqual(
+    sessionAliases(hosts.slice(0, 1), { [hosts[0].accessId]: "localhost" }),
+    { [hosts[0].accessId]: "x".repeat(40) },
+  );
+});
+
+test("a percent sign in HostName (IPv6 zone) is escaped", () => {
+  const folder = tempFolder("zone");
+  const hosts = hostsOf(access({ name: "link local", host: "fe80::1%en0" }));
+  const aliases = sessionAliases(hosts);
+  const socketPath = path.join(folder, "agent.sock");
+  const { skipped } = writeSessionFiles(folder, {
+    hosts,
+    aliases,
+    socketPath,
+    binaries: {},
+  });
+  assert.deepEqual(skipped, []);
+  assert.match(
+    fs.readFileSync(path.join(folder, "ssh_config"), "utf8"),
+    /HostName fe80::1%%en0/,
+  );
+  const out = execFileSync(
+    "ssh",
+    ["-G", "-F", path.join(folder, "ssh_config"), "link-local"],
+    { env: { HOME: folder, PATH: process.env.PATH }, stdio: "pipe" },
+  ).toString();
+  assert.match(out, /^hostname fe80::1%en0$/m);
+});
+
+test("writeSessionFiles reports the hosts it could not render", () => {
+  const good = hostsOf(access({ name: "good" }))[0];
+  const bad = { ...hostsOf(access({ name: "bad" }))[0], username: "root\nMatch all" };
+  const unaliased = hostsOf(access({ name: "none" }))[0];
+  const aliases = { ...sessionAliases([good, bad]) };
+  const folder = tempFolder("skipped");
+  const result = writeSessionFiles(folder, {
+    hosts: [good, bad, unaliased],
+    aliases,
+    socketPath: "/tmp/agent.sock",
+    binaries: {},
+  });
+  assert.deepEqual(result, { skipped: [bad.accessId, unaliased.accessId] });
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(folder, "aliases.json"), "utf8")),
+    {
+      [good.accessId]: "good",
+    },
+  );
+});
+
+function victim() {
+  const dir = tempFolder("victim");
+  fs.chmodSync(dir, 0o755);
+  fs.writeFileSync(path.join(dir, "precious"), "keep\n", { mode: 0o644 });
+  fs.chmodSync(path.join(dir, "precious"), 0o644);
+  fs.mkdirSync(path.join(dir, "nested"));
+  fs.writeFileSync(path.join(dir, "nested", "deep"), "keep\n");
+  const untouched = () => {
+    assert.equal(fs.statSync(dir).mode & 0o777, 0o755);
+    assert.deepEqual(fs.readdirSync(dir).sort(), ["nested", "precious"]);
+    assert.equal(fs.readFileSync(path.join(dir, "precious"), "utf8"), "keep\n");
+    assert.equal(fs.statSync(path.join(dir, "precious")).mode & 0o777, 0o644);
+    assert.deepEqual(fs.readdirSync(path.join(dir, "nested")), ["deep"]);
+  };
+  return { dir, untouched };
+}
+
+function writeInto(folder) {
+  const { hosts, aliases, socketPath } = sampleInput(folder);
+  const binaries = resolveOpenSshBinaries(fakeBinaries(["ssh", "scp", "sftp"]));
+  return () => writeSessionFiles(folder, { hosts, aliases, socketPath, binaries });
+}
+
+test("planted symlinks for bin, keys or the session folder are refused", () => {
+  for (const planted of ["bin", "keys", "session", "agents"]) {
+    const target = victim();
+    const folder = path.join(tempFolder("planted"), "agents", "session");
+    const link = {
+      bin: path.join(folder, "bin"),
+      keys: path.join(folder, "keys"),
+      session: folder,
+      agents: path.dirname(folder),
+    }[planted];
+    fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(target.dir, link);
+    assert.throws(writeInto(folder), { code: "SSH_FOLDER_UNSAFE" }, planted);
+    target.untouched();
+  }
+});
+
+test("stray links inside the folders are unlinked, never followed", () => {
+  const target = victim();
+  const folder = path.join(tempFolder("stray"), "session");
+  const write = writeInto(folder);
+  write();
+  fs.symlinkSync(target.dir, path.join(folder, "bin", "dir-link"));
+  fs.symlinkSync(
+    path.join(target.dir, "precious"),
+    path.join(folder, "keys", "file-link"),
+  );
+  fs.mkdirSync(path.join(folder, "bin", "real-dir"));
+  fs.rmSync(path.join(folder, "ssh_config"));
+  fs.symlinkSync(path.join(target.dir, "precious"), path.join(folder, "ssh_config"));
+  fs.rmSync(path.join(folder, "bin", "ssh"));
+  fs.symlinkSync(path.join(target.dir, "precious"), path.join(folder, "bin", "ssh"));
+  write();
+  target.untouched();
+  assert.deepEqual(fs.readdirSync(path.join(folder, "bin")).sort(), [
+    "real-dir",
+    "scp",
+    "sftp",
+    "ssh",
+  ]);
+  assert.equal(fs.lstatSync(path.join(folder, "bin", "ssh")).isFile(), true);
+  assert.equal(fs.lstatSync(path.join(folder, "ssh_config")).isFile(), true);
+  assert.deepEqual(fs.readdirSync(path.join(folder, "keys")).length, 1);
+});
+
+test("readSessionAliases does not follow a planted aliases.json link", () => {
+  const dataDir = tempFolder("data");
+  const folder = sessionFolder(dataDir, "linked");
+  fs.mkdirSync(folder, { recursive: true });
+  const outside = path.join(tempFolder("outside"), "aliases.json");
+  fs.writeFileSync(outside, JSON.stringify({ a: "outside" }));
+  fs.symlinkSync(outside, path.join(folder, "aliases.json"));
+  assert.deepEqual(readSessionAliases(dataDir, "linked"), {});
 });
