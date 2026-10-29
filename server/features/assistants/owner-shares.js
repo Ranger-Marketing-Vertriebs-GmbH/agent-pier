@@ -62,7 +62,7 @@ export function turnlessBinding(bridge, input) {
     throw assistantProblem("invalid", 403);
   }
   if (!routineActions.has(input.action)) return null;
-  // Only SSH (on hosts granted "incl. routines"), shared files, project folders, the
+  // Only SSH (on hosts granted "Trusted"), shared files, project folders, the
   // lead's ask, delegate and members, and a member's own tools serve a routine's run.
   const routine = bridge.routineRun(input);
   if (routine) return { routine };

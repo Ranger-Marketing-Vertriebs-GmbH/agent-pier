@@ -14,11 +14,7 @@ test("agent SSH copy exists in both languages with the keys later tasks use", as
   setLanguage("en");
   assert.equal(assistantSshCopy.summary(1, 0), "1 host");
   assert.equal(assistantSshCopy.summary(3, 2), "3 hosts · 2 trusted");
-  assert.deepEqual(Object.keys(assistantSshCopy.modes), [
-    "approval",
-    "trusted",
-    "routines",
-  ]);
+  assert.deepEqual(Object.keys(assistantSshCopy.modes), ["approval", "trusted"]);
   assert.equal(assistantSshCopy.card.states.unknown, "Outcome unknown after a restart");
   assert.equal(
     assistantTeamCopy.internalTurns["ssh-result"],

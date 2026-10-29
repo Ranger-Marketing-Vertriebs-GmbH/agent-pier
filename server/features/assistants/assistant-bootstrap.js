@@ -29,7 +29,7 @@ export const germanSettingLabels = [
   ["Read images", "Bilder lesen"],
   ["Read web pages", "Webseiten lesen"],
   ["Remember information", "Informationen merken"],
-  ["Trusted incl. routines", "Vertraut inkl. Routinen"],
+  ["Trusted", "Vertraut"],
   ["Team members may use shell and SSH", "Team-Mitglieder dürfen Shell und SSH nutzen"],
   ["On request", "Auf Anfrage"],
   ["Autonomous", "Selbstständig"],

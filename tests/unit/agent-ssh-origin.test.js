@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   permits,
+  sshGrantMode,
   sshModes,
   sshOrigin,
 } from "../../server/features/assistants/agent-ssh-origin.js";
@@ -57,18 +58,28 @@ test("permits follows the mode table", () => {
       ["owner", "delegated", "routine", "refused"].map((c) => permits(mode, c)),
     ]),
   );
+  // Two modes (owner A15): Trusted also runs in routines and other unattended runs.
   assert.deepEqual(table, {
     approval: ["card", "card", "refuse", "refuse"],
-    trusted: ["run", "run", "refuse", "refuse"],
-    routines: ["run", "run", "run", "refuse"],
+    trusted: ["run", "run", "run", "refuse"],
   });
   assert.equal(permits("always", "owner"), "refuse");
+  // The legacy mode never reaches permits: AssistantAccess reads it as trusted.
+  assert.equal(permits("routines", "owner"), "refuse");
 });
 
-test("a hook run is the hook class and runs only on hosts in mode routines", () => {
+test("a hook run is the hook class and runs only on trusted hosts", () => {
   assert.equal(cls({ context: { kind: "owner" }, hook: true }), "hook");
   assert.equal(cls({ context: null, hook: true, routine: true }), "hook");
-  assert.equal(permits("routines", "hook"), "run");
-  assert.equal(permits("trusted", "hook"), "refuse");
+  assert.equal(permits("trusted", "hook"), "run");
   assert.equal(permits("approval", "hook"), "refuse");
+});
+
+test("sshGrantMode reads the legacy routines mode as trusted and nothing else", () => {
+  assert.deepEqual(sshModes, ["approval", "trusted"]);
+  assert.equal(sshGrantMode("approval"), "approval");
+  assert.equal(sshGrantMode("trusted"), "trusted");
+  assert.equal(sshGrantMode("routines"), "trusted");
+  for (const mode of ["Routines", "always", "", null, undefined, 1, {}, "__proto__"])
+    assert.equal(sshGrantMode(mode), null, String(mode));
 });

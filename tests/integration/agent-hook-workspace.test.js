@@ -372,7 +372,7 @@ test("a coding request on a lead's share still waits for the owner", async (t) =
   assert.deepEqual(f.events.get(run.event.id).coding, [shared.id, own.id]);
 });
 
-// The SFTP fixture: two SSH hosts and an SFTP host, all granted in mode routines.
+// The SFTP fixture: two SSH hosts and an SFTP host, all granted in mode trusted.
 async function sshSetup(t) {
   const f = await sftpSetup(t);
   f.assistants.config = { ...f.assistants.config, apply: async () => {} };
@@ -381,7 +381,7 @@ async function sshSetup(t) {
     f.access(
       [hostId, otherHostId, sftpHostId].map((accessId) => ({
         accessId,
-        mode: mode[accessId] || "routines",
+        mode: mode[accessId] || "trusted",
       })),
     );
   modes();
@@ -392,7 +392,7 @@ async function sshSetup(t) {
   return { ...f, ...runs, run, modes, ssh };
 }
 
-test("SSH from a hook runs only on its chosen hosts in mode routines", async (t) => {
+test("SSH from a hook runs only on its chosen trusted hosts", async (t) => {
   const f = await sshSetup(t);
   const { hosts } = await f.ssh({ action: "hosts" });
   assert.deepEqual(hosts.map((h) => [h.accessId, h.usable]).sort(), [
@@ -416,13 +416,13 @@ test("SSH from a hook runs only on its chosen hosts in mode routines", async (t)
   const executed = f.audit.find((e) => e.action === "ssh.executed");
   assert.equal(executed.details.originClass, "hook");
   assert.equal(auditEvent(executed).details.originClass, "hook");
-  // A host in mode routines the hook did not choose.
+  // A trusted host the hook did not choose.
   assert.equal(
     await code(f.ssh({ action: "execute", accessId: otherHostId, command: "1" })),
     "SSH_NOT_GRANTED",
   );
-  // The chosen host moved to "trusted": refused on the next call of the same run.
-  f.modes({ [hostId]: "trusted" });
+  // The chosen host moved to "approval": refused on the next call of the same run.
+  f.modes({ [hostId]: "approval" });
   assert.equal(
     await code(f.ssh({ action: "execute", accessId: hostId, command: "1" })),
     "SSH_NOT_GRANTED",
@@ -472,9 +472,9 @@ test("SFTP from a hook follows the same host choice and never deletes", async (t
     await code(f.ssh({ action: "list", accessId: sftpHostId, remotePath: "/www" })),
     "SSH_NOT_GRANTED",
   );
-  // Moved to "trusted" while chosen: refused as well.
+  // Moved to "approval" while chosen: refused as well.
   f.hooks.get(f.run.hook.id).rights.sshHosts = [sftpHostId];
-  f.modes({ [sftpHostId]: "trusted" });
+  f.modes({ [sftpHostId]: "approval" });
   assert.equal(
     await code(f.ssh({ action: "list", accessId: sftpHostId, remotePath: "/www" })),
     "SSH_NOT_GRANTED",
@@ -501,7 +501,7 @@ test("a hook's console commands reach only its chosen interactive hosts", async 
   assert.equal(ran.status, "completed");
   assert.equal(ran.interactive, true);
   assert.match(ran.stdout, /FakeSwitch OS/);
-  // In mode routines but not chosen by the hook: refused before the console opens.
+  // Trusted but not chosen by the hook: refused before the console opens.
   assert.equal(
     await code(
       f.ssh({ action: "execute", accessId: otherHostId, command: "show version" }),

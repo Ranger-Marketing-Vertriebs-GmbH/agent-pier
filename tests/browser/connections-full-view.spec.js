@@ -95,16 +95,17 @@ test("Benutzt von adds an agent with a mode through the inline add field", async
   const field = usedBy(page).getByRole("combobox", { name: "Add agent" });
   await field.click();
   await page.getByRole("option", { name: /Home/ }).click();
-  await usedBy(page)
-    .getByRole("combobox", { name: "Mode for new items" })
-    .selectOption("routines");
+  const newMode = usedBy(page).getByRole("combobox", { name: "Mode for new items" });
+  // Two modes (owner A15): Trusted includes routines.
+  await expect(newMode.locator("option")).toHaveText(["With approval", "Trusted"]);
+  await newMode.selectOption("trusted");
   await usedBy(page).getByRole("button", { name: "Add 1" }).click();
   await expect.poll(() => state.work.length).toBe(1);
   expect(state.work[0].access.sshAccesses).toEqual([
-    { accessId: hostId(2), mode: "routines" },
+    { accessId: hostId(2), mode: "trusted" },
   ]);
   await expect(usedBy(page).getByRole("combobox", { name: "Mode for Home" })).toHaveValue(
-    "routines",
+    "trusted",
   );
   // Lowering the mode needs no confirmation; it writes the same policy.
   await usedBy(page)

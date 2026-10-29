@@ -4,7 +4,7 @@ import { approvalRevision } from "./assistant-access.js";
  * "Always allow" on an SFTP card: the holder's grant for that host goes from
  * `approval` to `trusted`, so its later uploads, overwrites, folders, renames and
  * syncs without deletes run without a card (deletes still ask, agent-sftp-policy.js).
- * A grant already `trusted` or `routines` stays as it is. Like a host removal
+ * A grant already `trusted` stays as it is. Like a host removal
  * (AssistantAccess.revokeEach) it keeps the approval revision, so other open
  * approvals stay valid; the change is audited as `ssh-grants` with reason
  * `always-allow`. Returns whether the grant changed.

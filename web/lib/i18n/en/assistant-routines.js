@@ -38,7 +38,7 @@ export const routineCopy = {
   // Marks a routine's result in the agent's chat; a failed run is a quiet line.
   chatBadge: (name) => (name ? `Scheduled · ${name}` : "Scheduled"),
   checkInBadge: "Check-in",
-  sshRefused: "SSH refused: host not trusted for routines",
+  sshRefused: "SSH refused: host not trusted",
   mailRefused: "Email refused: no access or a limit was reached",
   writesRefused: "Changes refused: “May write” is off for this routine",
   writesSettings: "Open routine settings",

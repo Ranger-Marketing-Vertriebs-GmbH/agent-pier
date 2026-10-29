@@ -72,11 +72,11 @@ test("hosts lists only granted hosts and never key material", async (t) => {
   ]);
 });
 
-test("a routine sees only routines hosts as usable and runs only there", async (t) => {
+test("a routine sees only trusted hosts as usable and runs only there", async (t) => {
   const f = await agentSshFixture(t);
   f.grant([
-    { accessId: hostId, mode: "routines" },
-    { accessId: otherHostId, mode: "trusted" },
+    { accessId: hostId, mode: "trusted" },
+    { accessId: otherHostId, mode: "approval" },
   ]);
   const { hosts } = await f.call(f.routineTurn(), { action: "hosts" });
   assert.deepEqual(

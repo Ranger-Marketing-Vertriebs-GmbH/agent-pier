@@ -118,7 +118,7 @@ export const lockedTools = [
  * chat turn). `agentpier_workspace` is in for project folders and coding requests
  * (workspace-calls.js routineContext): folders are read-only unless the owner marked
  * the routine "May write", coding requests always wait for the owner. `agentpier_ssh` is in: the bridge admits a
- * routine's run session for SSH only on hosts marked "Trusted incl. routines", for
+ * routine's run session for SSH only on hosts marked "Trusted", for
  * `agentpier_share_file` into the routine's chat and Telegram, and for a lead's
  * routineTeamTools with the routine as origin: its tasks write only when the owner
  * marked the routine "May write". A member's routine also reaches memberTeamTools;

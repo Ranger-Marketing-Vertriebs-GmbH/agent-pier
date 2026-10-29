@@ -97,7 +97,7 @@ test("a failed routine row names a known note and a check-in its kind", () => {
   const failed = eventRowView(
     routine(1, { status: "failed", firstLine: "", notes: ["ssh_refused"] }),
   );
-  assert.equal(failed.detail, "SSH refused: host not trusted for routines");
+  assert.equal(failed.detail, "SSH refused: host not trusted");
   assert.equal(
     eventRowView(routine(1, { status: "failed", firstLine: "", notes: ["mail_refused"] }))
       .detail,

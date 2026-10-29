@@ -82,7 +82,7 @@ export class AgentSftp {
       if (cls === "routine")
         this.w.a.routines?.noteRefusal?.(inv.sessionKey, "ssh_refused");
       throw refuse(
-        grant.mode === "routines" && kind === "delete"
+        grant.mode === "trusted" && kind === "delete"
           ? "sftpRoutineDelete"
           : "sshRoutineNotTrusted",
       );

@@ -153,7 +153,6 @@ export const galleryCopy = {
     global: "Global",
     approval: "With approval",
     trusted: "Trusted",
-    routines: "Trusted incl. routines",
   },
   saveStates: {
     label: "Save bar state",

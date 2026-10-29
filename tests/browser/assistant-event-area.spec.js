@@ -74,7 +74,7 @@ const words = {
     remote: "SSH on nas · Completed",
     push: "Push notice sent",
     openRun: "Open run",
-    refused: "SSH refused: host not trusted for routines",
+    refused: "SSH refused: host not trusted",
   },
   de: {
     group: "Ereignisse",
@@ -89,7 +89,7 @@ const words = {
     remote: "SSH auf nas · Abgeschlossen",
     push: "Push-Benachrichtigung gesendet",
     openRun: "Lauf öffnen",
-    refused: "SSH abgelehnt: Host ist für Routinen nicht freigegeben",
+    refused: "SSH abgelehnt: Host ist nicht vertraut",
   },
 };
 

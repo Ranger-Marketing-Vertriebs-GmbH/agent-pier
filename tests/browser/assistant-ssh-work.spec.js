@@ -27,6 +27,9 @@ test("SSH accesses are picked with a mode on the full list and saved with Access
   await expect(
     modes.getByRole("radio", { name: "With approval", exact: true }),
   ).toBeChecked();
+  // Two modes (owner A15): Trusted also covers routines.
+  await expect(modes.getByRole("radio")).toHaveCount(2);
+  await expect(page.getByText(/in tasks from the lead and in routines/)).toBeVisible();
   await expect(page.getByText(/could run without your confirmation/)).toHaveCount(0);
   await modes.getByRole("radio", { name: "Trusted", exact: true }).check();
   await expect(page.getByText(/could run without your confirmation/)).toBeVisible();

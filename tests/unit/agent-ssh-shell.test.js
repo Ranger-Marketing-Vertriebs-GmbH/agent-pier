@@ -23,11 +23,11 @@ import {
   root,
 } from "../helpers/ssh-session-agents-fixture.js";
 
-test("only trusted and routines grants enter the socket and get an alias", async (t) => {
+test("only trusted grants enter the socket and get an alias", async (t) => {
   const s = setup(t);
   const a = s.add(personal(), [trusted(hostA), { accessId: hostB.id, mode: "approval" }]);
   await s.shell.refresh();
-  assert.deepEqual(agentSshModes, ["trusted", "routines"]);
+  assert.deepEqual(agentSshModes, ["trusted"]);
   assert.deepEqual(Object.keys(s.shell.aliases(a.id)), [hostA.id]);
   const grant = await s.shell.authorize(a.id);
   assert.deepEqual(
@@ -35,12 +35,6 @@ test("only trusted and routines grants enter the socket and get an alias", async
     [hostA.id],
   );
   assert.equal((await identitiesAt(s.socketPath(a))).length, 1);
-  // A legacy "routines" grant counts as trusted.
-  s.grants.set(a.id, [{ accessId: hostB.id, mode: "routines" }]);
-  assert.deepEqual(
-    (await s.shell.authorize(a.id)).hosts.map((h) => h.accessId),
-    [hostB.id],
-  );
 });
 
 test("no shell, a user agent, an archived agent and a member without SSH get nothing", async (t) => {
@@ -94,7 +88,7 @@ test("a permanent member uses only its own grants, never its lead's", async (t) 
 test("a temporary member uses its lead's trusted hosts, read live, while the lead shares SSH", async (t) => {
   const s = setup(t);
   const lead = s.add(personal({ shell: "full" }), [
-    { accessId: hostA.id, mode: "routines" },
+    trusted(hostA),
     { accessId: hostB.id, mode: "approval" },
   ]);
   const m = s.add(member(lead, { ssh: true, shell: "approval" }));

@@ -16,8 +16,8 @@ test("SSH grants are sorted, toggled and counted against the catalog", () => {
     { accessId: "a", mode: "trusted" },
     { accessId: "b", mode: "approval" },
   ]);
-  assert.deepEqual(setSshGrant(grants, "b", "routines"), [
-    { accessId: "b", mode: "routines" },
+  assert.deepEqual(setSshGrant(grants, "b", "trusted"), [
+    { accessId: "b", mode: "trusted" },
   ]);
   assert.deepEqual(setSshGrant(grants, "b", null), []);
   assert.deepEqual(
@@ -25,7 +25,7 @@ test("SSH grants are sorted, toggled and counted against the catalog", () => {
       [
         { accessId: "a", mode: "trusted" },
         { accessId: "c", mode: "approval" },
-        { accessId: "gone", mode: "routines" },
+        { accessId: "gone", mode: "trusted" },
       ],
       [{ id: "a" }, { id: "c" }],
     ),

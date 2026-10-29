@@ -20,8 +20,8 @@ const endpoint = (host) =>
     .join(" · ");
 
 /**
- * SSH/SFTP: the hosts this agent may use, each with its mode (Mit Freigabe, Vertraut,
- * Vertraut inkl. Routinen), and the agent's plain ssh below them. `hosts` is
+ * SSH/SFTP: the hosts this agent may use, each with its mode (Mit Freigabe or
+ * Vertraut, which includes routines), and the agent's plain ssh below them. `hosts` is
  * undefined while loading and null when the catalog could not be read; grants of
  * removed hosts are listed to drop on save.
  */

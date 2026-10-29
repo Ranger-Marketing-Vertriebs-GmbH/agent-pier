@@ -20,20 +20,17 @@ export const assistantSshCopy = {
   modes: {
     approval: "With approval",
     trusted: "Trusted",
-    routines: "Trusted incl. routines",
   },
   modeHints: {
     approval: "You confirm every command.",
-    trusted: "Runs without asking in your chats and in tasks from the lead.",
-    routines: "Also runs unattended in routines.",
+    trusted: "Runs without asking in your chats, in tasks from the lead and in routines.",
   },
   trustedWarning:
     "Commands this agent derives from web pages or files could run without your confirmation.",
   sftpModeHints: {
     approval: "Reads run without asking; every change asks.",
-    trusted: "Changes run without asking, deletes always ask.",
-    routines:
-      "Changes also run without asking in routines. Deletes always ask; routines never delete.",
+    trusted:
+      "Changes run without asking, also in routines. Deletes always ask; routines never delete.",
   },
   sftpTrustedWarning:
     "Transfers this agent derives from web pages or files could run without your confirmation.",

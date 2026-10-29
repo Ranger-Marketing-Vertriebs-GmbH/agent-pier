@@ -1,6 +1,12 @@
 // Who is asking for an agent SSH command, and what the host's mode allows for it.
 // Pure: the bridge and AgentSsh resolve the inputs (spec "Origin classes").
-export const sshModes = ["approval", "trusted", "routines"];
+// Two modes (owner A15): "trusted" also runs in routines and hook runs. The former
+// third mode "routines" (trusted including routines) is read as "trusted".
+export const sshModes = ["approval", "trusted"];
+
+/** A stored or submitted grant mode as one of `sshModes`, or null. */
+export const sshGrantMode = (mode) =>
+  mode === "routines" ? "trusted" : sshModes.includes(mode) ? mode : null;
 
 /**
  * The origin class of one SSH call. `context` is the turn context AgentPier recorded
@@ -33,13 +39,13 @@ export function sshOrigin({
   return { class: "refused" };
 }
 
-// Runs nobody watches (a routine's, a hook's): only on hosts in mode "routines".
+// Runs nobody watches (a routine's, a hook's): only on trusted hosts.
 export const unattended = (cls) => cls === "routine" || cls === "hook";
 
 /** `run` without a card, `card` for an owner approval, or `refuse`. */
 export function permits(mode, cls) {
   if (!sshModes.includes(mode) || cls === "refused") return "refuse";
-  if (unattended(cls)) return mode === "routines" ? "run" : "refuse";
+  if (unattended(cls)) return mode === "trusted" ? "run" : "refuse";
   if (!["owner", "delegated"].includes(cls)) return "refuse";
   return mode === "approval" ? "card" : "run";
 }

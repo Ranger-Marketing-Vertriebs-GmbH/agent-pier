@@ -21,21 +21,18 @@ export const assistantSshCopy = {
   modes: {
     approval: "Mit Freigabe",
     trusted: "Vertraut",
-    routines: "Vertraut inkl. Routinen",
   },
   modeHints: {
     approval: "Du bestätigst jeden Befehl.",
     trusted:
-      "Läuft ohne Rückfrage in deinen Chats und in Aufträgen des leitenden Agenten.",
-    routines: "Läuft auch unbeaufsichtigt in Routinen.",
+      "Läuft ohne Rückfrage in deinen Chats, in Aufträgen des leitenden Agenten und in Routinen.",
   },
   trustedWarning:
     "Befehle, die dieser Agent aus Webseiten oder Dateien ableitet, könnten ohne deine Bestätigung laufen.",
   sftpModeHints: {
     approval: "Lesen läuft ohne Rückfrage, jede Änderung fragt nach.",
-    trusted: "Änderungen laufen ohne Rückfrage, Löschen fragt immer nach.",
-    routines:
-      "Änderungen laufen auch in Routinen ohne Rückfrage. Löschen fragt immer nach; Routinen löschen nie.",
+    trusted:
+      "Änderungen laufen ohne Rückfrage, auch in Routinen. Löschen fragt immer nach; Routinen löschen nie.",
   },
   sftpTrustedWarning:
     "Übertragungen, die dieser Agent aus Webseiten oder Dateien ableitet, könnten ohne deine Bestätigung laufen.",

@@ -155,7 +155,6 @@ export const galleryCopy = {
     global: "Global",
     approval: "Mit Freigabe",
     trusted: "Vertraut",
-    routines: "Vertraut inkl. Routinen",
   },
   saveStates: {
     label: "Zustand der Speicherleiste",
