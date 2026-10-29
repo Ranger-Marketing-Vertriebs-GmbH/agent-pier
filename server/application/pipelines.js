@@ -53,6 +53,13 @@ export async function createPipelineServices(services) {
       // A run that finished or parked may free a slot of its project's queue.
       pipelineQueue?.changed();
     },
+    // A deleted run leaves the store without a save: its topic, the queue item that
+    // started it, the counts and the lists that showed it still learn it.
+    onRemove: (id) => {
+      pipelineRunChanged(services.live, pipelineQueue, { id });
+      agentRunChanged(services, id);
+      pipelineListsChanged(services.live, pipelineRunCounts.forget(id), null);
+    },
   });
   let pipelineQueue;
   try {
@@ -73,7 +80,6 @@ export async function createPipelineServices(services) {
         ),
     });
     await pipelineQueue.recover();
-    signalDeletes(pipelines, services, pipelineQueue, pipelineRunCounts);
   } catch (error) {
     await pipelineQueue?.close();
     await pipelines.close();
@@ -86,18 +92,5 @@ export async function createPipelineServices(services) {
     pipelines,
     pipelineQueue,
     pipelineRunCounts,
-  };
-}
-
-// A deleted run leaves the store without a save: its topic, the queue item that
-// started it, the counts and the lists that showed it still learn it.
-function signalDeletes(engine, services, queue, counts) {
-  const hub = () => services.live;
-  const remove = engine.delete;
-  engine.delete = async function (id, ...rest) {
-    await remove.call(this, id, ...rest);
-    pipelineRunChanged(hub(), queue, { id });
-    agentRunChanged(services, id);
-    pipelineListsChanged(hub(), counts.forget(id), null);
   };
 }

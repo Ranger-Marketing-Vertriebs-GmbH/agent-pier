@@ -21,9 +21,20 @@ export function privateRunDirectory(dir) {
   fs.chmodSync(dir, 0o700);
   return dir;
 }
+// Run lists filter on these fields; an expression index serves a query only when it
+// uses the same expression, so the filters below repeat them exactly.
+const FIELDS = {
+  status: "json_extract(doc,'$.status')",
+  projectId: "json_extract(doc,'$.projectId')",
+};
 export class RunStore {
-  constructor(dataDir, onChange = () => {}) {
+  /**
+   * `onChange(run)` hears every created or saved run, `onRemove(id)` every removed
+   * one, so the lists and topics that showed it learn it without wrapping the engine.
+   */
+  constructor(dataDir, onChange = () => {}, { onRemove = () => {} } = {}) {
     this.onChange = onChange;
+    this.onRemove = onRemove;
     const root = fs.realpathSync(dataDir);
     this.directory = privateRunDirectory(path.join(root, "pipeline-runs"));
     const file = path.join(this.directory, "runs.sqlite");
@@ -46,6 +57,9 @@ export class RunStore {
     this.db.exec(
       "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY, revision INTEGER NOT NULL, doc TEXT NOT NULL);",
     );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS runs_status ON runs(${FIELDS.status}); CREATE INDEX IF NOT EXISTS runs_project ON runs(${FIELDS.projectId});`,
+    );
   }
   get(id) {
     const row = this.db.prepare("SELECT doc FROM runs WHERE id=?").get(runId(id));
@@ -55,9 +69,7 @@ export class RunStore {
   /** Runs with this status, newest first (the owner's inbox reads waiting runs). */
   withStatus(status) {
     return this.db
-      .prepare(
-        "SELECT doc FROM runs WHERE json_extract(doc,'$.status')=? ORDER BY rowid DESC",
-      )
+      .prepare(`SELECT doc FROM runs WHERE ${FIELDS.status}=? ORDER BY rowid DESC`)
       .all(status)
       .map((r) => normalizeRun(JSON.parse(r.doc)));
   }
@@ -65,23 +77,26 @@ export class RunStore {
   hasProject(projectId) {
     return Boolean(
       this.db
-        .prepare("SELECT 1 FROM runs WHERE json_extract(doc,'$.projectId')=? LIMIT 1")
+        .prepare(`SELECT 1 FROM runs WHERE ${FIELDS.projectId}=? LIMIT 1`)
         .get(projectId),
     );
   }
   /**
    * One page of runs, newest first, with optional status and project filters, and
-   * how many runs match: SQLite filters the stored JSON, only the page is parsed.
+   * how many runs match: SQLite filters the stored JSON through the field indexes
+   * (only the filters given, so each can use its index), only the page is parsed.
    */
   page({ status, projectId, offset = 0, limit = 20 } = {}) {
-    const where =
-      "WHERE (?1 IS NULL OR json_extract(doc,'$.status')=?1) AND (?2 IS NULL OR json_extract(doc,'$.projectId')=?2)";
-    const filters = [status ?? null, projectId ?? null];
+    const given = Object.entries({ status, projectId }).filter(([, v]) => v != null);
+    const where = given.length
+      ? `WHERE ${given.map(([field]) => `${FIELDS[field]}=?`).join(" AND ")}`
+      : "";
+    const filters = given.map(([, value]) => value);
     const { total } = this.db
       .prepare(`SELECT COUNT(*) AS total FROM runs ${where}`)
       .get(...filters);
     const runs = this.db
-      .prepare(`SELECT doc FROM runs ${where} ORDER BY rowid DESC LIMIT ?3 OFFSET ?4`)
+      .prepare(`SELECT doc FROM runs ${where} ORDER BY rowid DESC LIMIT ? OFFSET ?`)
       .all(...filters, limit, offset)
       .map((r) => normalizeRun(JSON.parse(r.doc)));
     return { runs, total: Number(total) };
@@ -112,7 +127,8 @@ export class RunStore {
     return run;
   }
   remove(id) {
-    this.db.prepare("DELETE FROM runs WHERE id=?").run(runId(id));
+    const { changes } = this.db.prepare("DELETE FROM runs WHERE id=?").run(runId(id));
+    if (changes) this.onRemove(id);
   }
   close() {
     this.db.close();
