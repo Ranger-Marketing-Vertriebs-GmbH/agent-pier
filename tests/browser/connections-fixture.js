@@ -72,7 +72,7 @@ function usage(state) {
   const grants = state.access.sshAccesses || [];
   return {
     agentsEnabled: true,
-    lastUseCovers: ["agentSsh", "agentSftp", "sessionSftp"],
+    lastUseCovers: ["agentSsh", "agentSftp", "sessionSftp", "sessionSsh"],
     ssh: Object.fromEntries(
       state.hosts.map((host, index) => {
         const grant = grants.find((g) => g.accessId === host.id);

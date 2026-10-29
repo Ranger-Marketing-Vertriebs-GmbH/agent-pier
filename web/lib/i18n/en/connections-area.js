@@ -34,6 +34,7 @@ export const connectionsAreaCopy = {
     agentSsh: "agents' SSH commands",
     agentSftp: "agents' SFTP transfers",
     sessionSftp: "SFTP transfers of sessions",
+    sessionSsh: "plain ssh connections of sessions",
   },
   lastUseUnknown: "When an entry was last used is not known right now.",
   searchLabel: "Search the list",

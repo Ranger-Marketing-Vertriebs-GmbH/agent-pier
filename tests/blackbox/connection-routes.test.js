@@ -59,7 +59,12 @@ test("connection reads are owner-only and leave agent services alone while agent
   });
   assert.deepEqual(usage.secrets[secret.id], { agents: [], sessions: 0 });
   assert.deepEqual(usage.github, {});
-  assert.deepEqual(usage.lastUseCovers, ["agentSsh", "agentSftp", "sessionSftp"]);
+  assert.deepEqual(usage.lastUseCovers, [
+    "agentSsh",
+    "agentSftp",
+    "sessionSftp",
+    "sessionSsh",
+  ]);
   const problems = await json(f, routes[1]);
   assert.equal(problems.agentsEnabled, false);
   assert.equal(problems.services, null);

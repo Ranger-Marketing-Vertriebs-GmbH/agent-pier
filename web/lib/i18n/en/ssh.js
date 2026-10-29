@@ -51,6 +51,17 @@ export const sshCopy = {
   toolsStarting: "Waiting for the CLI to connect its SSH tools …",
   toolsReload: "Reload this conversation to enable SSH tools.",
   toolsUnavailable: "SSH tools are unavailable for this session.",
+  agentReady:
+    "Plain ssh works in this session. Use the alias of a host for ssh, scp, sftp, rsync, git and tunnels.",
+  agentTooOld:
+    "Plain ssh needs OpenSSH 8.9 or newer on this computer. ssh_execute still works.",
+  agentNoOpenSsh: "Plain ssh needs OpenSSH on this computer. ssh_execute still works.",
+  agentFailed:
+    "Plain ssh could not be started for this session. ssh_execute still works.",
+  agentNotEligible: "Plain ssh is not available in this session.",
+  agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentOpenConnections:
+    "Removing an assignment blocks new connections at once. Connections and tunnels that are already open stay open until they close.",
   reload: "Reload & resume",
   unsaved: "Save your host selection before reloading.",
   advanced: "Advanced · manual connection commands",

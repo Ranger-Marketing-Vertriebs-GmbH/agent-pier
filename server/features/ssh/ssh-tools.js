@@ -8,12 +8,13 @@ import { runSshCommand } from "./ssh-run.js";
 import { consoleCommand } from "./ssh-interactive-shell.js";
 import { sshProblem } from "./ssh-errors.js";
 import { SftpSessionTools, sftpTools } from "../sftp/sftp-session-tools.js";
+import { readSessionAliases } from "./ssh-session-config.js";
 export const sshTools = [
   ...sshManagementTools,
   {
     name: "ssh_list_hosts",
     description:
-      'List SSH and SFTP hosts currently assigned to this session. Hosts of type "sftp" take only the sftp_* file tools; "ssh" hosts take ssh_execute.',
+      'List SSH and SFTP hosts currently assigned to this session. Hosts of type "sftp" take only the sftp_* file tools; "ssh" hosts take ssh_execute. An "ssh" host with an alias also works with plain ssh <alias> through the session\'s agent.',
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -65,6 +66,8 @@ export class SshTools {
         if (host.projectId !== current.sshTools?.project?.projectId)
           inherited.delete(host.id);
       const assigned = new Set([...explicit, ...inherited]);
+      // The session agent's aliases (ssh-session-agents.js); none without an agent.
+      const aliases = readSessionAliases(this.dataDir, current.id);
       return {
         hosts: hosts
           .filter((host) => assigned.has(host.id))
@@ -79,6 +82,9 @@ export class SshTools {
             remoteRoot: rest.type === "sftp" ? (rest.remoteRoot ?? null) : null,
             ...(rest.legacyAlgorithms ? { legacyAlgorithms: true } : {}),
             ...(rest.interactiveShell ? { interactiveShell: true } : {}),
+            ...(rest.type !== "sftp" && Object.hasOwn(aliases, id)
+              ? { alias: aliases[id] }
+              : {}),
             assignment: { project: inherited.has(id), explicit: explicit.has(id) },
           })),
       };
