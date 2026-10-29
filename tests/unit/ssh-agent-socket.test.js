@@ -9,7 +9,6 @@ import { agentHosts } from "../../server/features/ssh/ssh-agent-policy.js";
 import { agentMessage } from "../../server/features/ssh/ssh-agent-protocol.js";
 import {
   agentSocketLocation,
-  agentSocketPath,
   newAgentToken,
   SessionAgentSocket,
 } from "../../server/features/ssh/ssh-agent-socket.js";
@@ -100,16 +99,24 @@ test("socket path lives in the home layout, fits sun_path and is per agent token
   assert.ok(Buffer.byteLength(a) <= 100);
   const pattern = /^\/\.agentpier-ssh\/[0-9a-f]{8}\/[0-9a-f]{32}\/agent\.sock$/;
   assert.match(a.slice(home.length), pattern);
-  assert.notEqual(a, agentSocketPath(dataDir, sid, newAgentToken(), options));
-  const other = agentSocketPath(dataDir, randomUUID(), newAgentToken(), options);
+  assert.notEqual(
+    a,
+    agentSocketLocation(dataDir, sid, newAgentToken(), options).socketPath,
+  );
+  const other = agentSocketLocation(
+    dataDir,
+    randomUUID(),
+    newAgentToken(),
+    options,
+  ).socketPath;
   assert.equal(path.dirname(path.dirname(a)), path.dirname(path.dirname(other)));
   // Another data dir gets another instance folder.
-  const elsewhere = agentSocketPath(
+  const elsewhere = agentSocketLocation(
     path.join(root, "data-2"),
     sid,
     newAgentToken(),
     options,
-  );
+  ).socketPath;
   assert.notEqual(path.dirname(path.dirname(a)), path.dirname(path.dirname(elsewhere)));
   // The path never contains the session id, so another session cannot derive it.
   assert.equal(a.includes(sid), false);
@@ -184,11 +191,11 @@ test("socket path refuses malformed session ids and tokens", () => {
   const token = newAgentToken();
   assert.match(token, /^[0-9a-f]{32}$/);
   for (const sid of ["../x", "", "a/b", "x".repeat(121), null])
-    assert.throws(() => agentSocketPath(dataDir, sid, token), {
+    assert.throws(() => agentSocketLocation(dataDir, sid, token).socketPath, {
       code: "SSH_AGENT_SESSION_INVALID",
     });
   for (const bad of ["../x", "", "A".repeat(32), "ab".repeat(15), undefined])
-    assert.throws(() => agentSocketPath(dataDir, "session-1", bad), {
+    assert.throws(() => agentSocketLocation(dataDir, "session-1", bad).socketPath, {
       code: "SSH_AGENT_TOKEN_INVALID",
     });
 });
