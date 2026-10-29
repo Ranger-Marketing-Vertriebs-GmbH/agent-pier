@@ -163,3 +163,22 @@ test("a reload records the new agent before the CLI starts and drops the old one
   assert.deepEqual(atStart.sshAgent, next);
   assert.deepEqual(read().sshAgent, next);
 });
+
+test("written alias files and a discard announce the session for the live topic", async (t) => {
+  const f = fixture(t);
+  const changed = [];
+  f.agents.onChange = (id) => changed.push(id);
+  const { id, record } = await launch(f);
+  changed.length = 0;
+  await f.grants.set(record, [hostA.id]);
+  assert.equal(await f.agents.sync(record), "written");
+  assert.equal(await f.agents.sync(record), "unchanged");
+  assert.deepEqual(changed, [id]);
+  f.agents.onChange = () => {
+    throw new Error("ignored");
+  };
+  await f.agents.discard(id);
+  f.agents.onChange = (other) => changed.push(other);
+  await f.agents.discard(id);
+  assert.deepEqual(changed, [id, id]);
+});

@@ -167,6 +167,9 @@ export class SessionSshAgents {
     this.agentAudit = createAgentAudit({ append: (event) => audit?.append(event) });
     this.agents = new Map();
     this.syncs = new SyncQueue();
+    // Called with a session id once its aliases or agent state changed (assigned by the
+    // wiring: the live `job.ssh-tools` topic carries `agent`).
+    this.onChange = null;
   }
 
   get supported() {
@@ -347,6 +350,7 @@ export class SessionSshAgents {
         this.log.warn("Session SSH agent skipped hosts:", skipped.join(", "));
       agent.written = written;
       agent.attempts = 0;
+      this.changed(agent.id);
       return "written";
     } catch (error) {
       agent.written = null;
@@ -398,6 +402,14 @@ export class SessionSshAgents {
       if (record) this.sync(record).catch(() => {});
     }, delay);
     agent.timer.unref?.();
+  }
+
+  changed(id) {
+    try {
+      this.onChange?.(id);
+    } catch {
+      // A listener never fails a sync.
+    }
   }
 
   /** Resolves "written" or "unchanged"; syncs run one at a time. */
@@ -513,6 +525,7 @@ export class SessionSshAgents {
     );
     // After the close: no signature can open a new audit window behind the flush.
     this.agentAudit.flush(id);
+    this.changed(id);
   }
 
   /**
