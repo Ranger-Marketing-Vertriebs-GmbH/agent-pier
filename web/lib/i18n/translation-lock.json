@@ -6842,6 +6842,7 @@
   "ssh:sshCopy.agentNotEligible": "de:ea4329c1871d en:e8a12f90df51",
   "ssh:sshCopy.agentOpenConnections": "de:6b512b1b1f60 en:d3884302c88f",
   "ssh:sshCopy.agentReady": "de:0af568a2cf8a en:2b16cd78fa98",
+  "ssh:sshCopy.agentSshConfig": "de:cbcdaf775dea en:fb8092de9d52",
   "ssh:sshCopy.agentTooOld": "de:cfb7bc845782 en:ec2bd4f69517",
   "ssh:sshCopy.backupHint": "de:397039b9e27c en:055513bd2396",
   "ssh:sshCopy.busy": "de:ad4c7b813e8e en:54e4e9a94c21",

@@ -11,8 +11,9 @@ const reasons = {
 
 /**
  * The session's SSH agent (GET /sessions/:id/ssh-accesses `agent`, live through
- * `job.ssh-tools`): one status line and, while it is ready, a copyable `ssh <alias>`
- * per host that has an alias, in the order of `accesses`.
+ * `job.ssh-tools`): one status line and, while it is ready, a note when ~/.ssh/config
+ * could not take AgentPier's block and a copyable `ssh <alias>` per host that has an
+ * alias, in the order of `accesses`.
  */
 export default function SessionSshAgentStatus({ agent, accesses = [] }) {
   if (!agent) return null;
@@ -32,6 +33,9 @@ export default function SessionSshAgentStatus({ agent, accesses = [] }) {
       >
         {ready ? copy.agentReady : (reasons[agent.reason] || reasons["not-eligible"])()}
       </p>
+      {ready && agent.sshConfig && (
+        <p className="dialog-hint">{copy.agentSshConfig(agent.sshConfig)}</p>
+      )}
       {rows.map(([id, alias]) => (
         <SshCopy
           key={id}

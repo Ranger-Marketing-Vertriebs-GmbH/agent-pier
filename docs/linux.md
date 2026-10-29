@@ -120,6 +120,12 @@ rm "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/dev.agentpier.server.service"
 systemctl --user daemon-reload
 ```
 
+Den markierten AgentPier-Block oben in `~/.ssh/config` (er wirkt nur in AgentPier-Sessions) entfernt:
+
+```sh
+npm run ssh-config:remove
+```
+
 Die Daten und laufenden tmux-Sessions werden dadurch nicht gelöscht. Falls Lingering eigens für diesen Dienst aktiviert wurde, vor dem Abschalten prüfen, ob andere Benutzerdienste davon abhängen.
 
 ## Prüfung und Grenzen

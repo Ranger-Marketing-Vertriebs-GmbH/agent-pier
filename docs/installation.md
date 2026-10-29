@@ -85,8 +85,15 @@ an installation using the default path:
 ```
 
 To remove automatic startup, then delete
-`~/Library/LaunchAgents/dev.agentpier.server.plist`. For custom paths, adjust the
-application path in the command accordingly. Application releases and private data
+`~/Library/LaunchAgents/dev.agentpier.server.plist`. To take AgentPier's marked block
+(`# BEGIN AgentPier` … `# END AgentPier`, see [Plain SSH from coding sessions](ssh-access.md))
+out of `~/.ssh/config`, run:
+
+```sh
+"$HOME/.local/share/agentpier-app/current/bin/node" "$HOME/.local/share/agentpier-app/current/scripts/ssh-config.mjs" remove
+```
+
+For custom paths, adjust the application path in the commands accordingly. Application releases and private data
 are retained; remove data only when explicitly intended.
 The Homebrew formula version identifies the installer, not necessarily the
 AgentPier version currently running.
@@ -270,6 +277,14 @@ To remove automatic startup completely after stopping the service:
 
 ```sh
 rm "$HOME/Library/LaunchAgents/dev.agentpier.server.plist"
+```
+
+AgentPier keeps one marked block at the top of `~/.ssh/config` once a session has had an
+SSH agent. It applies only inside AgentPier sessions; to remove it and leave every other
+line as it is:
+
+```sh
+npm run ssh-config:remove
 ```
 
 Disable your Tailscale exposure separately, using the port you actually configured:

@@ -36,6 +36,11 @@ export const scripts = Object.freeze({
     `Der Vite-Port ${port} liegt über 65535; AGENTPIER_PORT muss kleiner sein.`,
   serviceUsage: "Verwendung: service.mjs install|status|stop",
   webServiceStopped: "Webdienst gestoppt. Terminal-Sessions laufen in tmux weiter.",
+  sshConfigUsage: "Verwendung: ssh-config.mjs remove",
+  sshConfigRemoved: "AgentPier-Block aus ~/.ssh/config entfernt.",
+  sshConfigAbsent: "~/.ssh/config enthält keinen AgentPier-Block.",
+  sshConfigRefused: (code) =>
+    `~/.ssh/config wurde nicht geändert (${code}). Entferne den Block zwischen „# BEGIN AgentPier“ und „# END AgentPier“ von Hand.`,
   tailscaleUrlMissing: "Tailscale URL fehlt.",
   userServiceConfigured: (port) =>
     `AgentPier-Benutzerdienst eingerichtet: http://127.0.0.1:${port}`,

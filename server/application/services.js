@@ -40,6 +40,7 @@ import { reaJobChanged, toolJobsChanged } from "../features/tools/live-topics.js
 import { watchPackageJobs } from "../features/mcp-packages/live-topics.js";
 import { pluginJobChanged } from "../features/plugins/live-topics.js";
 import { sshToolsChanged } from "../features/ssh/live-topics.js";
+import { SshUserConfig } from "../features/ssh/ssh-user-config.js";
 import { fileJobsChanged } from "../features/files/live-topics.js";
 import { deliveriesChanged } from "../features/chat/live-delivery-topics.js";
 import { ExtensionsStore } from "../features/extensions/extension-store.js";
@@ -168,6 +169,8 @@ export async function createServices(config) {
     audit,
     openssh: await detectOpenSsh().catch(() => null),
     home: config.home,
+    // The marked ~/.ssh/config block for bare `ssh <alias>` (docs/ssh-access.md).
+    userConfig: new SshUserConfig({ home: config.home, dataDir: config.dataDir }),
   });
   // Host, key and project edits reach the agents' alias files, coalesced.
   sshManagement.catalog.onPublished(() => sshAgents.refresh().catch(() => {}));

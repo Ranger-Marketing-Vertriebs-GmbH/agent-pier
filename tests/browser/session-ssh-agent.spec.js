@@ -155,3 +155,14 @@ test("a server without session agents shows no agent line", async ({ page }) => 
   await expect(dialog(page).getByText(/SSH tools are ready/)).toBeVisible();
   await expect(dialog(page).getByText(/Plain ssh/)).toHaveCount(0);
 });
+
+test("a ~/.ssh/config left unchanged is named with the fallback", async ({ page }) => {
+  await fixture(page, "en", (state) => {
+    state.agent = { ...state.agent, sshConfig: "SSH_CONFIG_LINK" };
+  });
+  await openDialog(page);
+  await expect(
+    dialog(page).getByText(/left ~\/\.ssh\/config unchanged \(SSH_CONFIG_LINK\)/),
+  ).toBeVisible();
+  await expect(dialog(page).getByText(/ssh -F "\$AGENTPIER_SSH_CONFIG"/)).toBeVisible();
+});

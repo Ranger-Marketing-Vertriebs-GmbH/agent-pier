@@ -61,6 +61,8 @@ export const sshCopy = {
     "Direktes ssh konnte für diese Session nicht gestartet werden. ssh_execute funktioniert weiter.",
   agentNotEligible: "Direktes ssh ist in dieser Session nicht verfügbar.",
   agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentSshConfig: (code) =>
+    `AgentPier hat ~/.ssh/config nicht geändert (${code}). Meldet ssh <alias> einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
   agentOpenConnections:
     "Eine entfernte Zuweisung sperrt neue Verbindungen sofort. Bereits offene Verbindungen und Tunnel bleiben offen, bis sie enden.",
   reload: "Neu laden & fortsetzen",
