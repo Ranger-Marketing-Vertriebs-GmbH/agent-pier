@@ -4,7 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
+import {
+  provisionTeamPlugin,
+  teamPluginDirectory,
+} from "../../server/features/assistants/team-plugin-install.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { writeGuardRuntimes } from "../../server/features/assistants/native-capabilities.js";
 test("managed plugin assets are private, reproducible and repaired without adopting a symlink", (t) => {
@@ -153,4 +156,18 @@ test("the ask, delegate and members descriptions tell leads about member convers
     /hand tasks only to permanent ones/,
   );
   assert.match(byName.agentpier_team_members.description, /colleagues sent them/);
+});
+
+test("the plugin folder's digest is read once, not on every lookup", (t) => {
+  const first = teamPluginDirectory("/runtime");
+  const reads = t.mock.method(fs, "readFileSync");
+  assert.equal(teamPluginDirectory("/runtime"), first);
+  assert.equal(
+    teamPluginDirectory("/other"),
+    path.join("/other", path.relative("/runtime", first)),
+  );
+  assert.equal(
+    reads.mock.calls.filter(([file]) => String(file).includes("team-plugin")).length,
+    0,
+  );
 });
