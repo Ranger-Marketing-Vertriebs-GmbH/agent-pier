@@ -4,7 +4,15 @@
 import { publicKeyBlob, signatureAlgorithm } from "./ssh-agent-keys.js";
 import { parseUserauthRequest, WireReader } from "./ssh-agent-protocol.js";
 
-const minimumRsaHostKeyBits = 2048;
+const minimumRsaBits = 2048;
+const maxU32 = 0xffffffff;
+const rsaBindAlgorithms = new Set(["ssh-rsa", "rsa-sha2-256", "rsa-sha2-512"]);
+const bindKeyTypes = new Set([
+  "ssh-ed25519",
+  "ecdsa-sha2-nistp256",
+  "ecdsa-sha2-nistp384",
+  "ecdsa-sha2-nistp521",
+]);
 const knownCodes = new Set([
   "SSH_AGENT_UNBOUND",
   "SSH_AGENT_FORWARDING",
@@ -103,6 +111,15 @@ function refuse(code) {
   return { ok: false, code };
 }
 
+// verifySessionBind returns ssh-rsa or rsa-sha2-* for an RSA host key and the key
+// type itself otherwise; any other value cannot come from a verified bind.
+function bindAlgorithmMatches(algorithm, hostKeyBlob) {
+  if (typeof algorithm !== "string") return false;
+  const type = keyType(hostKeyBlob);
+  if (type === "ssh-rsa") return rsaBindAlgorithms.has(algorithm);
+  return bindKeyTypes.has(type) && algorithm === type;
+}
+
 function verifiedBinding(binding) {
   return (
     binding !== null &&
@@ -110,34 +127,38 @@ function verifiedBinding(binding) {
     binding.forwarding === false &&
     Buffer.isBuffer(binding.sessionId) &&
     Buffer.isBuffer(binding.hostKeyBlob) &&
-    typeof binding.algorithm === "string" &&
-    binding.algorithm.length > 0
+    bindAlgorithmMatches(binding.algorithm, binding.hostKeyBlob)
   );
 }
 
-function grantedHost(hosts, binding, request, keyBlob) {
-  if (!Array.isArray(hosts)) return null;
-  return (
-    hosts.find(
-      (host) =>
-        host.hostKeyBlob.equals(binding.hostKeyBlob) &&
-        host.username === request.user &&
-        host.keyBlob.equals(keyBlob),
-    ) ?? null
+// Every granted host with exactly this pinned host key, remote user and key. Several
+// accesses may describe the same server, user and key; the strictest one decides.
+function grantedHosts(hosts, binding, request, keyBlob) {
+  if (!Array.isArray(hosts)) return [];
+  return hosts.filter(
+    (host) =>
+      host.hostKeyBlob.equals(binding.hostKeyBlob) &&
+      host.username === request.user &&
+      host.keyBlob.equals(keyBlob),
   );
 }
 
-// Legacy rules for the chosen host: a SHA-1 bind (R19) and an RSA host key under 2048
-// bits (R20) need "Legacy algorithms" on that host.
-function legacyAllowed(host, binding) {
-  if (host.legacy) return true;
+function rsaTooSmall(blob) {
+  return keyType(blob) === "ssh-rsa" && rsaBits(blob) < minimumRsaBits;
+}
+
+// Legacy rules: a SHA-1 bind (R19) and an RSA host or user key under 2048 bits (R20)
+// need "Legacy algorithms" on the host.
+function legacyAllowed(legacy, binding, keyBlob) {
+  if (legacy) return true;
   if (binding.algorithm === "ssh-rsa") return false;
-  if (keyType(host.hostKeyBlob) === "ssh-rsa")
-    return rsaBits(host.hostKeyBlob) >= minimumRsaHostKeyBits;
-  return true;
+  return !rsaTooSmall(binding.hostKeyBlob) && !rsaTooSmall(keyBlob);
 }
 
 function decide({ binding, keyBlob, data, flags, hosts }) {
+  // The spec has five codes. A request whose data does not match the bound connection
+  // (not userauth, other service, session id, host key, key blob, flags or algorithm)
+  // is refused as SSH_AGENT_UNBOUND: it is not a sign request for this bind.
   if (!binding || typeof binding !== "object") return refuse("SSH_AGENT_UNBOUND");
   if (binding.forwarding === true) return refuse("SSH_AGENT_FORWARDING");
   if (!verifiedBinding(binding)) return refuse("SSH_AGENT_UNBOUND");
@@ -149,14 +170,16 @@ function decide({ binding, keyBlob, data, flags, hosts }) {
   if (request.hostKeyBlob && !request.hostKeyBlob.equals(binding.hostKeyBlob))
     return refuse("SSH_AGENT_UNBOUND");
   if (!request.keyBlob.equals(keyBlob)) return refuse("SSH_AGENT_UNBOUND");
-  const host = grantedHost(hosts, binding, request, keyBlob);
-  if (!host) return refuse("SSH_AGENT_NOT_GRANTED");
-  if (!legacyAllowed(host, binding)) return refuse("SSH_AGENT_LEGACY");
-  const type = keyType(keyBlob);
-  if (!Number.isInteger(flags) || flags < 0) return refuse("SSH_AGENT_UNBOUND");
-  const algorithm = signatureAlgorithm(type, flags, { allowSha1: host.legacy });
+  const matches = grantedHosts(hosts, binding, request, keyBlob);
+  if (matches.length === 0) return refuse("SSH_AGENT_NOT_GRANTED");
+  const legacy = matches.every((match) => match.legacy === true);
+  if (!legacyAllowed(legacy, binding, keyBlob)) return refuse("SSH_AGENT_LEGACY");
+  if (!Number.isInteger(flags) || flags < 0 || flags > maxU32)
+    return refuse("SSH_AGENT_UNBOUND");
+  const algorithm = signatureAlgorithm(keyType(keyBlob), flags, { allowSha1: legacy });
   if (algorithm !== request.algorithm) return refuse("SSH_AGENT_UNBOUND");
-  return { ok: true, host };
+  // The first match names the host for the audit; legacy is the strictest of all.
+  return { ok: true, host: { ...matches[0], legacy } };
 }
 
 // Decides one SIGN_REQUEST. `binding` is the connection's last session-bind that

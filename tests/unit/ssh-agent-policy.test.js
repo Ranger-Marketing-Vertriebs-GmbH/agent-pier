@@ -32,6 +32,7 @@ const hostKeyB = publicLine("ed25519");
 const hostKeyC = publicLine("ed25519");
 const rsaHostKey = publicLine("rsa", ["-b", "3072"]);
 const smallRsaHostKey = publicLine("rsa", ["-b", "1024"]);
+const smallRsaKey = publicLine("rsa", ["-b", "1024"]);
 const blob = (line) => publicKeyBlob(line);
 
 function access(id, overrides = {}) {
@@ -116,9 +117,16 @@ function rsaAlgorithm(flags) {
 }
 
 // Builds a sign request for host A of this session; `change` replaces single parts.
-function input({ rsa = false, legacy = false, hostKey = hostKeyA, ...change } = {}) {
-  const flags = change.flags ?? (rsa ? 4 : 0);
-  const key = rsa ? rsaKey : keyA;
+function input({
+  rsa = false,
+  legacy = false,
+  hostKey = hostKeyA,
+  userKey,
+  ...change
+} = {}) {
+  const key = userKey ?? (rsa ? rsaKey : keyA);
+  const rsaUser = key.startsWith("ssh-rsa ");
+  const flags = change.flags ?? (rsaUser ? 4 : 0);
   const accesses = [
     access("access-a", { publicKey: key, hostKey, legacyAlgorithms: legacy }),
     hostB,
@@ -127,12 +135,13 @@ function input({ rsa = false, legacy = false, hostKey = hostKeyA, ...change } = 
     missingKey,
     otherSession,
   ];
-  const binding = { ...bound, hostKeyBlob: blob(hostKey) };
+  const bindAlgorithm = hostKey.startsWith("ssh-rsa ") ? "rsa-sha2-512" : "ssh-ed25519";
+  const binding = { ...bound, hostKeyBlob: blob(hostKey), algorithm: bindAlgorithm };
   return {
     binding,
     keyBlob: blob(key),
     data: userauth({
-      algorithm: rsa ? rsaAlgorithm(flags) : "ssh-ed25519",
+      algorithm: rsaUser ? rsaAlgorithm(flags) : "ssh-ed25519",
       keyBlob: blob(key),
       hostKey: blob(hostKey),
     }),
@@ -245,9 +254,34 @@ const cases = [
   ],
   [
     "small RSA host key on a modern host",
-    { hostKey: smallRsaHostKey },
+    {
+      binding: {
+        ...bound,
+        algorithm: "rsa-sha2-512",
+        hostKeyBlob: blob(smallRsaHostKey),
+      },
+      hostKey: smallRsaHostKey,
+    },
     "SSH_AGENT_LEGACY",
   ],
+  ["small RSA user key on a modern host", { userKey: smallRsaKey }, "SSH_AGENT_LEGACY"],
+  [
+    "bind algorithm not a known algorithm",
+    { binding: { ...bound, algorithm: "x" } },
+    "SSH_AGENT_UNBOUND",
+  ],
+  [
+    "bind algorithm of another key type than the host key",
+    { binding: { ...bound, algorithm: "rsa-sha2-512" } },
+    "SSH_AGENT_UNBOUND",
+  ],
+  [
+    "rsa bind algorithm named for an ed25519 host key",
+    { binding: { ...bound, algorithm: "ssh-rsa" } },
+    "SSH_AGENT_UNBOUND",
+  ],
+  ["flags above the u32 range", { rsa: true, flags: 2 ** 32 + 4 }, "SSH_AGENT_UNBOUND"],
+  ["negative flags", { rsa: true, flags: -1 }, "SSH_AGENT_UNBOUND"],
   ["hosts is not a list", { hosts: null }, "SSH_AGENT_NOT_GRANTED"],
 ];
 
@@ -307,6 +341,45 @@ test("a small RSA host key is allowed for a legacy host", () => {
     decideSignature(input({ hostKey: smallRsaHostKey, legacy: true })).ok,
     true,
   );
+});
+
+test("a small RSA user key is allowed for a legacy host", () => {
+  assert.equal(decideSignature(input({ userKey: smallRsaKey, legacy: true })).ok, true);
+});
+
+test("duplicate grants: legacy only if every match is legacy, in both orders", () => {
+  const legacyRow = access("dup-legacy", { publicKey: rsaKey, legacyAlgorithms: true });
+  const modernRow = access("dup-modern", { publicKey: rsaKey });
+  for (const order of [
+    ["dup-legacy", "dup-modern"],
+    ["dup-modern", "dup-legacy"],
+  ]) {
+    const hosts = agentHosts([legacyRow, modernRow], order);
+    assert.deepEqual(decideSignature(input({ rsa: true, flags: 0, hosts })), {
+      ok: false,
+      code: "SSH_AGENT_LEGACY",
+    });
+    const modern = decideSignature(input({ rsa: true, flags: 4, hosts }));
+    assert.equal(modern.ok, true);
+    assert.equal(modern.host.accessId, order[0]);
+    assert.equal(modern.host.legacy, false);
+    const smallHost = agentHosts(
+      [
+        { ...legacyRow, hostKey: smallRsaHostKey },
+        { ...modernRow, hostKey: smallRsaHostKey },
+      ],
+      order,
+    );
+    const request = input({ hostKey: smallRsaHostKey, rsa: true, hosts: smallHost });
+    assert.deepEqual(decideSignature(request), { ok: false, code: "SSH_AGENT_LEGACY" });
+  }
+  const bothLegacy = agentHosts(
+    [legacyRow, { ...modernRow, legacyAlgorithms: true }],
+    ["dup-modern", "dup-legacy"],
+  );
+  const sha1 = decideSignature(input({ rsa: true, flags: 0, hosts: bothLegacy }));
+  assert.equal(sha1.ok, true);
+  assert.equal(sha1.host.legacy, true);
 });
 
 test("forwarding is refused before anything else is looked at", () => {
