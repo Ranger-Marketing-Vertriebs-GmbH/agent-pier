@@ -1,29 +1,35 @@
 // Files that let a coding session reach its granted SSH hosts with plain OpenSSH: one
 // alias per host in a generated ssh_config, a pinned known_hosts, the public keys the
 // session agent serves, and `ssh`/`scp`/`sftp` wrappers that add `-F <config>` only
-// when an argument names a session alias. The config holds nothing but alias `Host`
-// blocks, so it can also be included from a `Match exec` block of the user's config.
+// when the destination (or a `-J` jump host) is a session alias. The config holds
+// nothing but alias `Host` blocks, so it can also be included from a `Match exec`
+// block of the user's config.
 import fs from "node:fs";
 import path from "node:path";
 import { shellQuote } from "../../lib/launch-serialization.js";
-import { privateDirectory, writePrivate, writePrivateText } from "../../lib/storage.js";
+import { privateFolder, writePrivateText } from "../../lib/storage.js";
 import { legacyOptions } from "./ssh-legacy-algorithms.js";
 import { endpoint, publicKeyValue } from "./ssh-keys.js";
 
 const sessionIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const aliasPattern = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+const aliasPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const keyIdPattern = /^[0-9a-f-]{36}$/;
 const binaryNames = ["ssh", "scp", "sftp"];
-const aliasBaseLength = 40;
+const aliasLength = 40;
 
 const validSessionId = (id) => typeof id === "string" && sessionIdPattern.test(id);
-const validAlias = (alias) => typeof alias === "string" && aliasPattern.test(alias);
+// Digit-only names read as ports or option values, and `localhost` is the loopback.
+const reservedAlias = (alias) => /^\d+$/.test(alias) || alias === "localhost";
+const validAlias = (alias) =>
+  typeof alias === "string" && aliasPattern.test(alias) && !reservedAlias(alias);
+const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const cut = (value, length) => slug(value.slice(0, length));
 
 /** The DNS-safe alias a host name suggests, before collisions are resolved. */
 export function aliasBase(name, accessId) {
-  const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  const base = slug(slug(String(name ?? "").toLowerCase()).slice(0, aliasBaseLength));
-  return base || slug(`host-${String(accessId ?? "").slice(0, 8)}`.toLowerCase());
+  const base = cut(slug(String(name ?? "").toLowerCase()), aliasLength);
+  if (!base) return slug(`host-${String(accessId ?? "").slice(0, 8)}`.toLowerCase());
+  return reservedAlias(base) ? cut(`host-${base}`, aliasLength) : base;
 }
 
 const byAge = (a, b) => {
@@ -53,7 +59,8 @@ export function sessionAliases(hosts, previous = {}) {
     if (assigned.has(host.accessId)) continue;
     const base = aliasBase(host.name, host.accessId);
     let alias = base;
-    for (let n = 2; taken.has(alias); n += 1) alias = `${base}-${n}`;
+    for (let n = 2; taken.has(alias); n += 1)
+      alias = `${cut(base, aliasLength - `-${n}`.length)}-${n}`;
     taken.add(alias);
     assigned.set(host.accessId, alias);
   }
@@ -116,7 +123,7 @@ export function renderSshConfig({ hosts, aliases, folder, socketPath }) {
     .map((host) =>
       [
         `Host ${host.alias}`,
-        `HostName ${host.hostName}`,
+        `HostName ${host.hostName.replaceAll("%", "%%")}`,
         `Port ${host.port}`,
         `User ${host.username}`,
         `HostKeyAlias ${host.alias}`,
@@ -161,44 +168,127 @@ export function renderKnownHosts({ hosts, aliases }) {
     .join("");
 }
 
+const uriPatterns = (scheme, alias) => [
+  `${scheme}://${alias}`,
+  `${scheme}://${alias}[:/]*`,
+  `${scheme}://*@${alias}`,
+  `${scheme}://*@${alias}[:/]*`,
+];
+const hostPortPatterns = (alias) => [alias, `${alias}:*`, `*@${alias}`, `*@${alias}:*`];
+
+// Per tool: the option letters that take a value (OpenSSH getopt strings), which
+// operands are destinations, and the shapes a destination naming an alias can take.
+const wrapperRules = {
+  ssh: {
+    values: "BbcDEeFIiJLlmOoPpQRSWw",
+    // The first operand is the destination; options may follow it, and the next
+    // operand starts the remote command.
+    operand: ['if [ "$seen" = 1 ]; then break; fi', "seen=1", "is_target"],
+    targets: (alias) => [alias, `*@${alias}`, ...uriPatterns("ssh", alias)],
+  },
+  scp: {
+    values: "cDFiJloPSX",
+    // Options end at the first operand; every operand may be a remote path.
+    operand: ["stop=1", "is_target"],
+    targets: (alias) => [`${alias}:*`, `*@${alias}:*`, ...uriPatterns("scp", alias)],
+  },
+  sftp: {
+    values: "BbcDFiJloPRSsX",
+    operand: ["is_target", "break"],
+    targets: (alias) => [...hostPortPatterns(alias), ...uriPatterns("sftp", alias)],
+  },
+};
+const jumpPatterns = (alias) => [
+  ...hostPortPatterns(alias),
+  ...uriPatterns("ssh", alias),
+];
+
+// is_target: whether one operand is a destination that names a session alias.
+const targetFunction = (patterns) => [
+  "is_target() {",
+  '  case "$1" in',
+  `    ${patterns.join("|")}) return 0 ;;`,
+  "  esac",
+  "  return 1",
+  "}",
+];
+
 /**
- * A POSIX sh wrapper around one OpenSSH binary. It adds `-F <config>` only when an
- * argument names a session alias and otherwise runs the binary unchanged.
+ * A POSIX sh wrapper around one OpenSSH binary (`tool` is ssh, scp or sftp). It parses
+ * the options like OpenSSH and adds `-F <config>` only when the destination or a `-J`
+ * jump host names a session alias and the caller did not pass its own `-F`; otherwise
+ * it runs the binary with the arguments unchanged.
  */
-export function renderWrapper({ realPath, configPath: config, aliases }) {
+export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
+  const rules = wrapperRules[tool];
+  if (!rules) throw new Error("Unknown OpenSSH tool");
   if (!aliases.every(validAlias)) throw new Error("Invalid session SSH alias");
-  const patterns = aliases.flatMap((alias) => [
-    alias,
-    `${alias}:*`,
-    `*@${alias}`,
-    `*@${alias}:*`,
-    `ssh://${alias}`,
-    `ssh://${alias}[:/]*`,
-    `ssh://*@${alias}`,
-    `ssh://*@${alias}[:/]*`,
-  ]);
-  const match = patterns.length
-    ? [
-        'for a in "$@"; do',
-        '  case "$a" in',
-        `    ${patterns.join("|")}) exec "$real" -F "$config" "$@" ;;`,
-        "  esac",
-        "done",
-      ]
-    : [];
-  return [
+  const head = [
     "#!/bin/sh",
     `real=${shellQuote(realPath)}`,
     `config=${shellQuote(config)}`,
-    ...match,
+  ];
+  if (!aliases.length) return [...head, 'exec "$real" "$@"', ""].join("\n");
+  const operand = rules.operand.map((step) =>
+    step === "is_target" ? 'if is_target "$a"; then hit=1; fi' : step,
+  );
+  return [
+    ...head,
+    ...targetFunction(aliases.flatMap(rules.targets)),
+    "is_jump() {",
+    "  j=$1",
+    "  while :; do",
+    '    case "${j%%,*}" in',
+    `      ${aliases.flatMap(jumpPatterns).join("|")}) return 0 ;;`,
+    "    esac",
+    '    case "$j" in',
+    "      *,*) j=${j#*,} ;;",
+    "      *) return 1 ;;",
+    "    esac",
+    "  done",
+    "}",
+    "option_value() {",
+    '  if [ "$1" = J ] && is_jump "$2"; then hit=1; fi',
+    '  if [ "$1" = F ]; then own=1; fi',
+    "}",
+    "hit=0 own=0 seen=0 stop=0 want=",
+    'for a in "$@"; do',
+    '  if [ -n "$want" ]; then',
+    '    option_value "$want" "$a"',
+    "    want=",
+    "    continue",
+    "  fi",
+    '  if [ "$stop" = 0 ] && [ "$a" = -- ]; then',
+    "    stop=1",
+    "    continue",
+    "  fi",
+    '  case "$stop$a" in',
+    "    0-?*)",
+    "      o=${a#-}",
+    '      while [ -n "$o" ]; do',
+    '        c=${o%"${o#?}"}',
+    "        o=${o#?}",
+    '        case "$c" in',
+    `          [${rules.values}])`,
+    '            if [ -n "$o" ]; then option_value "$c" "$o"; else want=$c; fi',
+    "            break",
+    "            ;;",
+    "        esac",
+    "      done",
+    "      continue",
+    "      ;;",
+    "  esac",
+    ...operand.map((line) => `  ${line}`),
+    "done",
+    'if [ "$hit" = 1 ] && [ "$own" = 0 ]; then exec "$real" -F "$config" "$@"; fi',
     'exec "$real" "$@"',
     "",
   ].join("\n");
 }
 
-function realDirectory(dir) {
+function realPathOrNull(file) {
   try {
-    return fs.realpathSync(dir);
+    return fs.realpathSync(file);
   } catch {
     return null;
   }
@@ -215,26 +305,31 @@ function executableFile(file) {
 }
 
 /**
- * The first executable `ssh`, `scp` and `sftp` on `pathEnv`, skipping relative entries
- * and the directories in `skip` (the session's own wrappers, also through symlinks).
+ * The executable `ssh`, `scp` and `sftp` on `pathEnv`. Relative entries are ignored,
+ * and so is every candidate whose real path lies in or under a `skip` root (pass
+ * `<dataDir>/ssh/agents` to skip all session wrappers, also through symlinks).
+ * `scp` and `sftp` come from the folder of the chosen `ssh` when it has them.
  * Returns the binaries it finds, or null when there is no `ssh`.
  */
 export function resolveOpenSshBinaries(pathEnv, skip = []) {
-  const skipped = new Set(skip.map(realDirectory).filter(Boolean));
+  const roots = skip.map(realPathOrNull).filter(Boolean);
+  const inside = (real) =>
+    roots.some((root) => real === root || real.startsWith(`${root}${path.sep}`));
+  const usable = (file) => {
+    const real = realPathOrNull(file);
+    return Boolean(real) && !inside(real) && executableFile(file);
+  };
+  const dirs = String(pathEnv ?? "")
+    .split(path.delimiter)
+    .filter((dir) => path.isAbsolute(dir) && !inside(realPathOrNull(dir) ?? dir));
+  const sshDir = dirs.find((dir) => usable(path.join(dir, "ssh")));
+  if (!sshDir) return null;
   const found = {};
-  for (const dir of String(pathEnv ?? "").split(path.delimiter)) {
-    if (!path.isAbsolute(dir)) continue;
-    const real = realDirectory(dir);
-    if (!real || skipped.has(real)) continue;
-    for (const name of binaryNames) {
-      const file = path.join(dir, name);
-      if (!found[name] && executableFile(file)) found[name] = file;
-    }
+  for (const name of binaryNames) {
+    const dir = [sshDir, ...dirs].find((entry) => usable(path.join(entry, name)));
+    if (dir) found[name] = path.join(dir, name);
   }
-  if (!found.ssh) return null;
-  return Object.fromEntries(
-    binaryNames.filter((n) => found[n]).map((n) => [n, found[n]]),
-  );
+  return found;
 }
 
 /** `<dataDir>/ssh/agents/<sessionId>`; throws for an id that is not a plain name. */
@@ -243,23 +338,48 @@ export function sessionFolder(dataDir, sessionId) {
   return path.join(path.resolve(dataDir), "ssh", "agents", sessionId);
 }
 
+const unsafeFolder = () =>
+  Object.assign(new Error("Unsafe session SSH folder"), { code: "SSH_FOLDER_UNSAFE" });
+
+// Unlink entries of a verified folder that are not in `keep`. Files and symlinks are
+// unlinked (a link is never followed); directories are left alone.
 function removeOthers(dir, keep) {
-  for (const name of fs.readdirSync(dir))
-    if (!keep.has(name))
-      fs.rmSync(path.join(dir, name), { force: true, recursive: true });
+  for (const name of fs.readdirSync(dir)) {
+    if (keep.has(name)) continue;
+    const entry = path.join(dir, name);
+    if (!fs.lstatSync(entry).isDirectory()) fs.unlinkSync(entry);
+  }
 }
 
 /**
- * Write the session's config, known_hosts, public keys, alias map and wrappers. Every
- * file goes through a temp name and a rename; files no longer needed are removed.
+ * Write the session's config, known_hosts, public keys, alias map and wrappers.
+ * Folders are created without following symlinks and refused when one is planted;
+ * every file goes through an exclusive temp name and a rename; files no longer needed
+ * are unlinked. Returns the access ids of hosts that could not be rendered (invalid
+ * fields, no alias or a duplicate alias), which get no alias.
  */
 export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries }) {
-  const usable = renderableHosts(hosts, aliases);
+  const list = Array.isArray(hosts) ? hosts : [];
+  const usable = renderableHosts(list, aliases);
   const config = path.join(folder, "ssh_config");
-  const configText = renderSshConfig({ hosts, aliases, folder, socketPath });
-  privateDirectory(folder);
-  const keys = privateDirectory(path.join(folder, "keys"));
-  const bin = privateDirectory(path.join(folder, "bin"));
+  const configText = renderSshConfig({ hosts: list, aliases, folder, socketPath });
+  const wrappers = binaryNames
+    .filter((name) => typeof binaries?.[name] === "string")
+    .filter((name) => path.isAbsolute(binaries[name]))
+    .map((name) => [
+      name,
+      renderWrapper({
+        tool: name,
+        realPath: binaries[name],
+        configPath: config,
+        aliases: usable.map((host) => host.alias),
+      }),
+    ]);
+  fs.mkdirSync(path.dirname(path.dirname(folder)), { recursive: true, mode: 0o700 });
+  privateFolder(path.dirname(folder), unsafeFolder);
+  privateFolder(folder, unsafeFolder);
+  const keys = privateFolder(path.join(folder, "keys"), unsafeFolder);
+  const bin = privateFolder(path.join(folder, "bin"), unsafeFolder);
   const keyFiles = new Set();
   for (const host of usable) {
     const name = `${host.keyId}.pub`;
@@ -270,35 +390,36 @@ export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries
   removeOthers(keys, keyFiles);
   writePrivateText(
     path.join(folder, "known_hosts"),
-    renderKnownHosts({ hosts, aliases }),
+    renderKnownHosts({ hosts: list, aliases }),
   );
   writePrivateText(config, configText);
-  const wrappers = new Set();
-  for (const name of binaryNames) {
-    const realPath = binaries?.[name];
-    if (typeof realPath !== "string" || !path.isAbsolute(realPath)) continue;
-    wrappers.add(name);
-    const script = renderWrapper({
-      realPath,
-      configPath: config,
-      aliases: usable.map((host) => host.alias),
-    });
+  for (const [name, script] of wrappers)
     writePrivateText(path.join(bin, name), script, 0o700);
-  }
-  removeOthers(bin, wrappers);
+  removeOthers(bin, new Set(wrappers.map(([name]) => name)));
   const written = Object.fromEntries(usable.map((host) => [host.accessId, host.alias]));
-  writePrivate(path.join(folder, "aliases.json"), written);
+  writePrivateText(
+    path.join(folder, "aliases.json"),
+    `${JSON.stringify(written, null, 2)}\n`,
+  );
+  const rendered = new Set(usable.map((host) => host.accessId));
+  return {
+    skipped: list.map((host) => host?.accessId).filter((id) => !rendered.has(id)),
+  };
 }
 
 /** The alias map of a session's folder; empty when missing, unreadable or invalid. */
 export function readSessionAliases(dataDir, sessionId) {
   if (!validSessionId(sessionId)) return {};
   let value;
+  let fd;
   try {
     const file = path.join(sessionFolder(dataDir, sessionId), "aliases.json");
-    value = JSON.parse(fs.readFileSync(file, "utf8"));
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    value = JSON.parse(fs.readFileSync(fd, "utf8"));
   } catch {
     return {};
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(

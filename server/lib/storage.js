@@ -8,15 +8,43 @@ export function privateDirectory(dir) {
   return dir;
 }
 export function writePrivate(file, value) {
+  privateDirectory(path.dirname(file));
   writePrivateText(file, JSON.stringify(value, null, 2) + "\n");
 }
-/** Write text to a private file through a fresh temp name and an atomic rename. */
+/**
+ * Create or verify one owner-only folder without following a symlink at its path.
+ * `unsafe` builds the error for a symlink, a non-directory or a foreign owner.
+ */
+export function privateFolder(folder, unsafe = () => new Error("Unsafe private folder")) {
+  try {
+    fs.mkdirSync(folder, { mode: 0o700 });
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  const stat = fs.lstatSync(folder);
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    (process.getuid && stat.uid !== process.getuid())
+  )
+    throw unsafe();
+  fs.chmodSync(folder, 0o700);
+  return folder;
+}
+/**
+ * Write text to a private file in an existing folder: a fresh exclusive temp name
+ * (never a followed link), then an atomic rename that replaces whatever is at `file`.
+ */
 export function writePrivateText(file, text, mode = 0o600) {
-  privateDirectory(path.dirname(file));
   const tmp = `${file}.${randomUUID()}.tmp`;
   try {
-    fs.writeFileSync(tmp, text, { mode, flag: "wx" });
-    fs.chmodSync(tmp, mode);
+    const fd = fs.openSync(tmp, "wx", mode);
+    try {
+      fs.fchmodSync(fd, mode);
+      fs.writeFileSync(fd, text);
+    } finally {
+      fs.closeSync(fd);
+    }
     fs.renameSync(tmp, file);
   } finally {
     fs.rmSync(tmp, { force: true });
