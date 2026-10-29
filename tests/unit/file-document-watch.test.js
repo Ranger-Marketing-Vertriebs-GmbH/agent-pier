@@ -58,7 +58,7 @@ test("without a token the document polls every 15 s and on focus", async (t) => 
   assert.equal(calls.observe, 3);
 });
 
-test("a followed document reads nothing itself and applies every push", async (t) => {
+test("a followed document applies every push and reads only as a safety net", async (t) => {
   const { fake, calls, live } = start(t);
   await settle();
   assert.equal(calls.observe, 0);
@@ -67,9 +67,24 @@ test("a followed document reads nothing itself and applies every push", async (t
   live.emit({ type: "data", data: { ...value, watched: true } });
   assert.deepEqual(calls.pushed, [{ ...value, watched: true }]);
   await fake.advance(60000);
+  assert.equal(calls.observe, 0);
+  // Focus, a tab shown again, and every 5 min while visible read the route once,
+  // for what no watch sees (a hard link elsewhere, a re-pointed parent link).
   fake.env.window.dispatchEvent(new Event("focus"));
   await settle();
-  assert.equal(calls.observe, 0);
+  assert.equal(calls.observe, 1);
+  fake.setHidden(true);
+  fake.setHidden(false);
+  await settle();
+  assert.equal(calls.observe, 2);
+  await fake.advance(300000);
+  assert.equal(calls.observe, 3);
+  // A hidden tab reads nothing.
+  fake.setHidden(true);
+  await fake.advance(600000);
+  fake.env.window.dispatchEvent(new Event("focus"));
+  await settle();
+  assert.equal(calls.observe, 3);
 });
 
 test("a refusal, a failed read, an unwatched file or the fallback poll; a push stops it", async (t) => {

@@ -93,15 +93,18 @@ metadata read (`GET .../metadata?view=document`) names the file's topic in its
 `X-File-Watch` header (`file.meta:<token>`), and the server then watches the file's
 folder and pushes the metadata whenever the file is written, replaced atomically,
 deleted or created again, so **Reload disk version** appears within a second and
-nothing is polled, not on focus either. Only the owner's local scopes are watched,
-under the same scope and link checks as the read, and never a file in AgentPier's data
-directory. Without the channel, for a token the server no longer knows (after a
-restart), for a refused or unwatchable file (more than 128 open files, a folder that
-cannot be watched) and for any other scope, the editor polls the metadata every 15 s
-and on window focus as before, only while the tab is visible; a read that names a new
-token makes it follow the topic again. A change made only
-through a hard link elsewhere, or by re-pointing a linked parent folder, is seen at the
-next read.
+nothing is polled. As a safety net the editor still reads the metadata once on window focus,
+when the tab is shown again and every 5 minutes while visible. Only the owner's local
+scopes are watched, under the same scope and link checks as the read, and never a
+folder in AgentPier's data directory. A watch whose folder fails or is replaced is set
+up again; one that cannot be (more than 128 open files, a folder that cannot be
+watched) is retried every 30 s. Without the channel, for a token the server no longer
+knows (after a restart), for a refused or unwatched file and for any other scope, the
+editor polls the metadata every 15 s and on window focus as before, only while the tab
+is visible; a read that names a new token makes it follow the topic again. A change
+that no folder watch sees, a write through a hard link in another folder or a
+re-pointed linked parent folder, shows at the next safety read, at most 5 minutes
+later while the tab is visible.
 
 Tab inserts indentation in CodeMirror. To move keyboard focus out of the editor, press
 Escape and then Tab within two seconds.
