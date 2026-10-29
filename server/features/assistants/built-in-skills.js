@@ -43,11 +43,13 @@ export function shoppingBlocker(assistant) {
 export const shoppingEligible = (assistant) => shoppingBlocker(assistant) === null;
 /**
  * The owner's per-agent switch, stored on the profile as `shopping: false` and on
- * otherwise. A task member also follows its lead's switch (memberInheritance).
+ * otherwise. A task member has none of its own: it follows its lead's switch
+ * (memberInheritance), since a save is refused while it works.
  */
 export const shoppingOn = (assistant) =>
-  assistant?.shopping !== false &&
-  (!inheritsFromLead(assistant) || assistant.inherited.shopping !== false);
+  inheritsFromLead(assistant)
+    ? assistant.inherited.shopping !== false
+    : assistant?.shopping !== false;
 
 /** The built-in skills the agent gets. */
 export function builtInSkills(assistant) {

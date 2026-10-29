@@ -7,4 +7,5 @@ export const assistantShoppingCopy = {
   userAgent: "Agents of users never shop.",
   archived: "Archived agents do not shop.",
   lead: "Off while shopping is off for the lead agent.",
+  followsLead: "Follows the lead agent's Shopping switch.",
 };

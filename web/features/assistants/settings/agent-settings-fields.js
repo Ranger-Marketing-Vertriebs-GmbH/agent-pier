@@ -293,7 +293,9 @@ export function capabilityPatch({ values, base, assistant }) {
   // Only a changed level is sent: the server asks to confirm a raise.
   if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
   if (shellEligible(assistant) && changed("skills")) patch.skills = values.skills;
-  if (changed("shopping")) patch.shopping = values.shopping;
+  // A task member follows its lead's switch and never saves its own.
+  if (!followsLeadModel(assistant) && changed("shopping"))
+    patch.shopping = values.shopping;
   // Check-ins need memory: switching memory off switches a saved schedule off too.
   if (!values.memory && assistant.heartbeat?.enabled)
     patch.heartbeat = { ...heartbeatForm(assistant), enabled: false };

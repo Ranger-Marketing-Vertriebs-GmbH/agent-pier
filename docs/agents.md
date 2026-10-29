@@ -345,8 +345,8 @@ its own, also shows whether its model changed since it took it over from the lea
   own chat or a standing order you gave there. Leads, team members and agents with
   their own Telegram bot get it too; a yes from anyone else never counts, and a member
   hands a purchase from its lead back instead of buying. Switch it off per agent here;
-  when the agent cannot shop, the switch says why. A temporary member also follows its
-  lead's switch. The guard is the agent's instructions, not AgentPier
+  when the agent cannot shop, the switch says why. A temporary member has no switch of
+  its own: it shows and follows its lead's. The guard is the agent's instructions, not AgentPier
   ([Shopping for agents](shopping.md)).
 - **Uploads with the browser** (while **Use a browser** is on): the agent can upload a
   file from a project folder it may at least read, or from its own workspace, to a

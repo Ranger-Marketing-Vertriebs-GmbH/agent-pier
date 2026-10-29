@@ -4,7 +4,7 @@ import ListCard from "../../../components/ListCard.jsx";
 import { ToggleRow } from "../../../components/ListRow.jsx";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantShoppingCopy as copy } from "../../../lib/i18n/messages/assistant-shopping.js";
-import { shoppingBlocker } from "./shopping-switch.js";
+import { followsLead, shoppingBlocker } from "./shopping-switch.js";
 
 const reasons = {
   archived: () => copy.archived,
@@ -16,11 +16,19 @@ const reasons = {
 
 /**
  * The built-in Shopping skill's switch (docs/shopping.md): on by default for an agent
- * that may shop; otherwise off and disabled with the reason.
+ * that may shop; otherwise off and disabled with the reason. A task member's follows
+ * its lead's switch and cannot be changed.
  */
 export default function ShoppingGroup({ assistant, draft }) {
   const id = useId();
   const blocker = shoppingBlocker(assistant, draft.values);
+  // A task member shows its lead's switch, read only.
+  const follows = followsLead(assistant);
+  const sub = blocker
+    ? reasons[blocker]()
+    : follows
+      ? copy.followsLead
+      : copy.description;
   return (
     <section aria-labelledby={id}>
       <GroupLabel id={id} hint={copy.hint}>
@@ -29,9 +37,9 @@ export default function ShoppingGroup({ assistant, draft }) {
       <ListCard labelledBy={id}>
         <ToggleRow
           label={copy.title}
-          sub={blocker ? reasons[blocker]() : copy.description}
-          checked={!blocker && draft.values.shopping === true}
-          disabled={Boolean(blocker)}
+          sub={sub}
+          checked={!blocker && (follows || draft.values.shopping === true)}
+          disabled={Boolean(blocker) || follows}
           onChange={(on) => draft.set("shopping", on)}
         />
       </ListCard>
