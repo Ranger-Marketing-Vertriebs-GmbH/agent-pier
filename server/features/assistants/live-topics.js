@@ -11,6 +11,7 @@ import { runtimeView } from "./runtime-view.js";
 import { followAgentSwitch, notRunning } from "./live-runtime-topics.js";
 import { agentPerson } from "./reminder-audience.js";
 import { ownerActionList } from "../users/approval-audience.js";
+import { sharedSource } from "../live/shared-source.js";
 
 // The former event stream cut a reader off at 1 MiB; a larger list goes `stale` and
 // the browser reads it over REST.
@@ -188,7 +189,9 @@ function detailTopic(
 
 /** The agent detail topic definitions for LiveHub#define. */
 export function agentDetailTopics(services) {
-  const switched = (listener) => followAgentSwitch(services, listener);
+  // One emitter listener per source for every agent's instances together.
+  const switched = sharedSource((fanout) => followAgentSwitch(services, fanout));
+  const listed = sharedSource((fanout) => followAgentList(services, fanout));
   return [
     detailTopic(services, {
       name: "agent.actions",
@@ -232,7 +235,7 @@ export function agentDetailTopics(services) {
       sampleMs: AGENT_SENDERS_SAMPLE_MS,
       read: (id) => services.assistantTelegramSenders.get(id),
       // A save ends with an agent change, a Gateway restart with a runtime event.
-      watch: (listener) => followAgentList(services, listener),
+      watch: listed,
     }),
   ];
 }
