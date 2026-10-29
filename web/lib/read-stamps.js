@@ -18,3 +18,13 @@ export function noteReadStamp(data, stamp) {
 /** The read stamp of an answer `data`, or null when the server sent none. */
 export const readStampOf = (data) =>
   (data && typeof data === "object" && stamps.get(data)) || null;
+
+/**
+ * Whether the answer `data` was read before a push read at `pushedAt`: a slow write's
+ * answer must not replace what a newer push already showed. False when either stamp
+ * is unknown.
+ */
+export function readBefore(data, pushedAt) {
+  const answeredAt = readStampOf(data);
+  return answeredAt !== null && Number.isSafeInteger(pushedAt) && answeredAt < pushedAt;
+}

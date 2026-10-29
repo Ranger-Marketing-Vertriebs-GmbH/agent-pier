@@ -59,7 +59,8 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     const known = stamps.length > 0 && stamps.every((stamp) => stamp !== null);
     return { value, readAt: known ? Math.min(...stamps) : null };
   };
-  const state = { data: null, error: "", loading: true, connected: false };
+  // `readAt`: when the server began the read behind `data`; null when unknown.
+  const state = { data: null, error: "", loading: true, connected: false, readAt: null };
   let stopped = false,
     version = 0,
     lastRead = null,
@@ -68,13 +69,11 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     refused = false,
     revoked = false,
     stopPolling = null,
-    oneTime = null,
-    // When the server began the read behind what is shown; null when unknown.
-    shownAt = null;
+    oneTime = null;
   // Whether a value read at `stamp` is newer than what is shown: null when either
   // stamp is unknown.
   const laterThanShown = (stamp) =>
-    stamp !== null && shownAt !== null ? stamp > shownAt : null;
+    stamp !== null && state.readAt !== null ? stamp > state.readAt : null;
   const publish = (changes) => {
     Object.assign(state, changes);
     report({ ...state });
@@ -91,8 +90,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     // newer than its answer.
     if (laterThanShown(readAt) ?? started === version) {
       version += 1;
-      shownAt = readAt;
-      publish({ data: value, error: "", loading: false });
+      publish({ data: value, error: "", loading: false, readAt });
     }
     return value;
   };
@@ -164,10 +162,9 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       refused = revoked = false;
       const readAt = Number.isSafeInteger(event.readAt) ? event.readAt : null;
       // Read before what is shown (a refresh() answer after the caller's write).
-      if (readAt === null || shownAt === null || readAt >= shownAt) {
+      if (readAt === null || state.readAt === null || readAt >= state.readAt) {
         version += 1;
-        shownAt = readAt;
-        publish({ data: event.data, error: "", loading: false });
+        publish({ data: event.data, error: "", loading: false, readAt });
       }
       polling();
     } else if (event.type === "status") {
@@ -182,11 +179,10 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       // Nothing read before or during the revocation may show any more.
       revoked = true;
       version += 1;
-      shownAt = null;
       oneTime?.abort();
       oneTime = null;
       pending = again = false;
-      publish({ data: null, error: "", loading: false });
+      publish({ data: null, error: "", loading: false, readAt: null });
       polling();
     } else if (event.type === "error" && event.code) {
       refused = true;
@@ -230,8 +226,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     set(data) {
       if (stopped) return;
       version += 1;
-      shownAt = null;
-      publish({ data, error: "", loading: false });
+      publish({ data, error: "", loading: false, readAt: null });
     },
     stop() {
       stopped = true;

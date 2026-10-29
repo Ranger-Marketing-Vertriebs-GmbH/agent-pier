@@ -48,6 +48,7 @@ test("a topic followed again starts from loading, not the previous value", () =>
     error: "",
     loading: false,
     connected: false,
+    readAt: null,
   });
   // Followed again: the first render, before the effect subscribes, shows loading,
   // never the old end (a caller's effect would act on it at once).
@@ -56,6 +57,7 @@ test("a topic followed again starts from loading, not the previous value", () =>
     error: "",
     loading: true,
     connected: false,
+    readAt: null,
   });
   const second = follow();
   assert.equal(shownState(current, key, topicId).data, null);

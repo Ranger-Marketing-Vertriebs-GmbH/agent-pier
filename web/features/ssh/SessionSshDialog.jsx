@@ -3,6 +3,7 @@ import Modal from "../../components/Modal.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import Icon from "../../components/Icon.jsx";
 import api from "../../lib/api.js";
+import { readBefore } from "../../lib/read-stamps.js";
 import useSshAccesses from "./useSshAccesses.js";
 import SshChoices from "./SshChoices.jsx";
 import SshCopy from "./SshCopy.jsx";
@@ -40,8 +41,11 @@ export default function SessionSshDialog({ session, close, openReload }) {
     (selected.length !== data.assignedIds.length ||
       selected.some((id) => !data.assignedIds.includes(id)));
   const [tools, setTools] = useState(null);
+  // When the server read the tools' state that the last push showed: a load or save
+  // answer read before it (a slow save) does not bring "starting" back.
+  const pushedAt = useRef(null);
   useEffect(() => {
-    if (data) setTools(data.tools);
+    if (data && !readBefore(data, pushedAt.current)) setTools(data.tools);
   }, [data]);
   // While the SSH tools start, they follow the live `job.ssh-tools:<id>` topic, which
   // the server samples until the CLI's SSH server is ready; only the tools' state is
@@ -49,8 +53,10 @@ export default function SessionSshDialog({ session, close, openReload }) {
   const starting = tools?.state === "starting";
   const progress = useLiveTopic(starting ? `job.ssh-tools:${session.id}` : null);
   useEffect(() => {
-    if (progress.data?.tools) setTools(progress.data.tools);
-  }, [progress.data]);
+    if (!progress.data?.tools) return;
+    pushedAt.current = progress.readAt;
+    setTools(progress.data.tools);
+  }, [progress.data, progress.readAt]);
   const shownError = error || (starting ? progress.error : "");
 
   const save = async () => {

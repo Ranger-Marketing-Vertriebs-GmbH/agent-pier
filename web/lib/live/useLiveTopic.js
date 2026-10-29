@@ -5,7 +5,7 @@ import { followSignal, startLiveTopic } from "./live-topic-reader.js";
 import { startVisiblePolling } from "../visible-polling.js";
 
 const restRead = (path, signal) => api(path, "GET", undefined, signal);
-const idle = { data: null, error: "", loading: false, connected: false };
+const idle = { data: null, error: "", loading: false, connected: false, readAt: null };
 
 /**
  * The hook's state updater when the subscription of `key` ends: what it held is
@@ -63,6 +63,8 @@ export default function useLiveTopic(topicId, path) {
     error: shown.error,
     loading: shown.loading,
     connected: shown.connected,
+    // When the server began the read behind `data` (read-stamps.js), or null.
+    readAt: shown.readAt ?? null,
     refresh,
     written,
   };

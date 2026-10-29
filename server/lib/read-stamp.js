@@ -13,10 +13,21 @@ export function readStamp(now = Date.now()) {
   return last;
 }
 
-/** Express middleware: stamps each GET's answer with the moment its read began. */
+/**
+ * Express middleware: stamps each GET's answer with the moment its read began, and a
+ * write's answer (whose body the handler read after writing) with the moment it is
+ * sent, so a push read after that answer was made shows over it.
+ */
 export function readStampHeader() {
   return (req, res, next) => {
     if (req.method === "GET") res.setHeader(READ_STAMP_HEADER, String(readStamp()));
+    else {
+      const writeHead = res.writeHead;
+      res.writeHead = function (...args) {
+        if (!this.headersSent) this.setHeader(READ_STAMP_HEADER, String(readStamp()));
+        return writeHead.apply(this, args);
+      };
+    }
     next();
   };
 }
