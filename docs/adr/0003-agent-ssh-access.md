@@ -26,7 +26,8 @@ how much supervision applies.
   Deny, no "always"); `trusted` runs without a card in owner and paired-Telegram turns
   and in turns the lead delegated or asked; `routines` also runs in the agent's own
   routine runs. Forwarded content, member results, reminders, check-ins and unknown
-  turns never reach SSH, and a routine may use only `routines` hosts.
+  turns never reach SSH, and a routine may use only `routines` hosts. (Amended
+  2026-10-29: two modes, see below.)
 - **Digest-only audit.** `ssh.executed` and `ssh.denied` store the command's SHA-256
   and length, never its text or output. The text stays in the approval, in the
   agent's transcript and (amended 2026-10-23, up to 8 KiB) in a trusted run's action
@@ -122,3 +123,30 @@ management; they may only **propose** an access, like a hook proposal:
   access to a host the owner did not mean; the owner's card, his fingerprint check
   and the default `approval` mode are the safeguards. AgentPier scanning a host on an
   agent's request reveals only the host's public key and whether it answers SSH.
+
+## Amendment 2026-10-29: two modes and plain ssh for agents
+
+The owner wants agents to use their servers like coding sessions do, with `ssh`, `scp`,
+`sftp`, `rsync`, `git` and tunnels, and routines to update data on trusted hosts
+(AGENTPIER-281):
+
+- **Two modes.** SSH and SFTP grants have `approval` (**With approval**) and `trusted`
+  (**Trusted**). `trusted` now also runs in the agent's routines and hook runs; stored
+  `routines` grants are rewritten to `trusted` at start and read as `trusted` wherever
+  they appear. Existing `trusted` grants therefore gain routines and hooks.
+- **A per-agent SSH agent for trusted hosts.** An agent whose shell is not off and that
+  holds an SSH grant gets its own SSH agent in the AgentPier process, with the signing
+  policy of the session agents (docs/ssh-access.md#plain-ssh-from-agents). Only its
+  `trusted` hosts (a temporary member: its lead's, while the lead shares SSH) enter it,
+  read live for every signature. `approval` hosts are unchanged: they stay behind
+  `agentpier_ssh` and its card. Agents of restricted users, shared agents and archived
+  agents get none.
+- **Always allow for the wrappers.** The agent's own `ssh`, `scp` and `sftp` wrappers
+  may be allowlisted although ssh-like programs otherwise count as interpreters. The
+  entry accepts any arguments, including options that run local programs and sftp `!`
+  commands; the owner accepted that.
+- Consequence: the socket cannot tell an owner turn from a routine, a hook or a turn
+  steered by content the agent read, so every run with shell reaches every `trusted`
+  host by plain ssh. A revoke or a switch to `approval` refuses the next signature at
+  once; open connections stay until they close. This remains scoping under one OS
+  user, not isolation: an agent with full shell can reach other agents' SSH agents.

@@ -309,6 +309,14 @@ config, while exec children get the owner's real `HOME` and login `PATH`:
   shell's starting `PATH`, that the command sees the folder's `GH_CONFIG_DIR`, and
   that the command finds the folder's `git-remote-agentpier-read-only` helper
   (the **Read** level's push refusal) on its `PATH`.
+- An agent with shell and an SSH grant has its SSH folder's `bin/`
+  (`<data>/ssh-agents/_agents/<agent id>/bin`) next in its `pathPrepend`, before the
+  owner `PATH` ([plain SSH from agents](ssh-access.md#plain-ssh-from-agents)). The
+  wrapper has a second loop for it: it matches only an entry directly below the agents
+  root, which is written into the wrapper as a single-quoted literal at Gateway start,
+  and sources that folder's `shell-env.sh` only when it is a regular file. Both loops
+  run, so an agent with GitHub and SSH gets both environments. The SSH file sets
+  `SSH_AUTH_SOCK`, `GIT_SSH_COMMAND` and `RSYNC_RSH` only when they are unset.
 - **Token:**
   - the Gateway starts and AgentPier's client connects with `OPENCLAW_GATEWAY_TOKEN`
     removed from the Gateway environment (the token only in `gateway.auth.token`);

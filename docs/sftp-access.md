@@ -46,8 +46,10 @@ another key." and stays unusable until you edit it.
 Sharing follows the SSH rules.
 
 - **Agents:** the owner grants hosts per agent in the agent's settings under **Access ›
-  SSH/SFTP**, or from the access's **Used by** list in Connections; SFTP hosts are marked **SFTP** and use the same modes: **With approval**,
-  **Trusted** and **Trusted incl. routines** (see [agents](agents.md#work)). Leads never
+  SSH/SFTP**, or from the access's **Used by** list in Connections; SFTP hosts are marked **SFTP** and use the same modes: **With approval**
+  and **Trusted** (see [agents](agents.md#access)). **Trusted** also runs in routines and
+  hook runs; grants set to the former **Trusted incl. routines** became **Trusted**, and
+  existing **Trusted** grants now allow routines too. Leads never
   share hosts with permanent members. Temporary members use the lead's grant only while
   the lead's **Team members may use shell and SSH** is on.
 - **Coding CLIs:** a host granted to the project or session is available to Codex,
@@ -200,14 +202,13 @@ An agent uses the `agentpier_ssh` tool of the agent plugin. Its actions are `hos
 `sync`, `mkdir`, `rename`, `delete`, `job` and `cancel`, with the parameters above plus
 `projectId` for a granted project folder.
 
-| Mode                       | Reads | Changes             | Deletes |
-| -------------------------- | ----- | ------------------- | ------- |
-| **With approval**          | run   | card                | card    |
-| **Trusted**                | run   | run                 | card    |
-| **Trusted incl. routines** | run   | run (also routines) | card    |
+| Mode              | Reads | Changes                       | Deletes |
+| ----------------- | ----- | ----------------------------- | ------- |
+| **With approval** | run   | card                          | card    |
+| **Trusted**       | run   | run (also routines and hooks) | card    |
 
 Routines never delete: a delete in a routine is refused with `SFTP_ROUTINE_DELETE`,
-and a routine can only use hosts marked **Trusted incl. routines**. A dry run counts as
+and a routine can only use hosts marked **Trusted**. A dry run counts as
 a read, because it only plans.
 
 An approval card appears in the chat and, for the paired Telegram chat, as a message:
