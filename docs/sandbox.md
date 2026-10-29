@@ -161,7 +161,8 @@ restarts. Everything after `--` is the CLI and its own arguments, verbatim; relo
 appends its resume flags at the end of that list. Enabling further integrations adds
 their own grants to the same list — the MCP integration's capability folder and bridge
 socket, the SSH tools' and GitHub helper's folders, the session SSH agent's own folder
-`<dataDir>/ssh-agents/<session id>` (`--read`, never write), its own `agent.sock`
+`<dataDir>/ssh-agents/<session id>` (`--read`, never write; never an agent's folder under
+`ssh-agents/_agents`), its own `agent.sock`
 (`--allow-unix-socket`, never a folder or a `-bind` variant) and the OpenSSH programs
 its wrappers call (`--read-file`), `<dataDir>/native-sessions`,
 `<dataDir>/requests` and, for Claude Code with the bridge mod, the mod's own
@@ -314,14 +315,17 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    socket. But on a profile with network access (nono's default), macOS does not check a
    Unix-socket `connect()` against the grants, and `netstat` or `lsof` show the paths of
    other sessions' sockets, so a sandboxed session can connect to another session's agent
-   by its path and get signatures for that session's hosts. The agent also reads
+   by its path and get signatures for that session's hosts. The same holds for the
+   [SSH agents of agents](ssh-access.md#plain-ssh-from-agents), which live under the
+   same folder: a sandboxed session on such a profile can connect to an agent's socket
+   and get signatures for that agent's trusted hosts. The agent also reads
    `<dataDir>/ssh/identities/<keyId>/identity` without following a link at the file
    itself, but it follows a link at the `<keyId>` folder; a session with the SSH tools
    can plant such a link in the store it may write; a key that does not match the host's
    public key is refused (`SSH_AGENT_KEY_UNSUPPORTED`). For a sandboxed session with the SSH tools neither
    adds access beyond the private keys it can read already; a sandboxed shell session,
-   which has no grant on the store, does gain signatures for other sessions' hosts
-   through the first. On a profile that blocks the network (`network.block`,
+   which has no grant on the store, does gain signatures for other sessions' and agents'
+   hosts through the first. On a profile that blocks the network (`network.block`,
    `--block-net`), nono allows only the granted socket and the isolation between
    sessions holds (verified on macOS; Linux is unverified). Closing this gap needs the store brokered outside the sandbox and a
    peer check on the agent socket.

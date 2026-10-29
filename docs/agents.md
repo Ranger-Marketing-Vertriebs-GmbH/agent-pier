@@ -369,7 +369,10 @@ its own, also shows whether its model changed since it took it over from the lea
   when your latest message to the agent came from Telegram, and its answer arrives
   there too. Every request waiting for approval, and every team
   proposal, also appears under **Agents** in the [inbox](inbox.md). **Always allowed commands** lists what you allowed
-  permanently; delete an entry and the agent asks again. Temporary team members get
+  permanently; delete an entry and the agent asks again. For the agent's own `ssh`,
+  `scp` and `sftp` ([plain ssh](ssh-access.md#plain-ssh-from-agents)), **Always allow**
+  accepts any arguments, including options that run local programs and sftp `!`
+  commands. Temporary team members get
   shell access only through their lead's **Team members may use shell and SSH**
   (see below).
 - **Skills:** lists the skills that ship with OpenClaw and the skills from the
@@ -570,8 +573,10 @@ it up. An agent of users gets project folders only; the other groups show a lock
   run commands on, each with a mode. **With approval** (the default) shows every
   command in the chat and in the paired Telegram chat with **Allow once** and **Deny**;
   a command with hidden characters or more than 2,000 characters can only be allowed
-  in AgentPier. **Trusted** runs without asking in your own chats and in tasks or
-  questions from the agent's lead. Every run, trusted or allowed, leaves an activity row
+  in AgentPier. **Trusted** runs without asking in your own chats, in tasks or
+  questions from the agent's lead, in the agent's routines and in hook runs. Grants
+  set to the former third mode **Trusted incl. routines** became **Trusted**; existing
+  **Trusted** grants now also allow routines and hooks. Every run, trusted or allowed, leaves an activity row
   such as "SSH on opnsense · uptime · Done" in the chat; opening it shows the full
   command (up to 8 KB) with a copy button, the exit code and the duration, never the
   output. Two or more runs in a row (with no text between them) share one row, shut
@@ -589,16 +594,24 @@ it up. An agent of users gets project folders only; the other groups show a lock
   pick) and grants it to the agent in **With approval** (or the mode you pick); then
   install the public key the card shows on the server. Details in
   [SSH accesses](ssh-access.md#proposals-from-agents).
-  **Trusted incl. routines** also runs in the agent's routines. A routine's or a hook's
-  runs leave their rows in that run's entry of the **Events** area, not in the chat
-  (see [the event area](#the-event-area)).
+  A routine's or a hook's runs leave their rows in that run's entry of the **Events**
+  area, not in the chat (see [the event area](#the-event-area)).
+  With **Shell access**, the agent also reaches its **Trusted** hosts with plain
+  `ssh <alias>`, `scp`, `sftp`, `rsync`, `git` and tunnels through its own SSH agent;
+  hosts set to **With approval** stay behind the approval card. The **Plain ssh** block
+  below the list shows each `ssh <alias>` to copy, or why plain ssh is not available.
+  Revoking a host or switching it to **With approval** blocks new connections at once;
+  open connections and tunnels stay open until they close. Routines and hook runs with
+  shell reach the same trusted hosts. Details in
+  [Plain SSH from agents](ssh-access.md#plain-ssh-from-agents).
 - **SFTP hosts** appear in the same list, marked **SFTP**, with the same modes (see
   [SFTP access](sftp-access.md)). The agent lists and downloads without asking. With
   **With approval**, every change on the server (upload, new folder, rename, sync up)
   shows a card in the chat and in the paired Telegram chat with **Allow once**,
   **Always allow for this host** and **Deny**; Telegram offers the buttons only for
   plans of up to 20 paths per list without hidden characters. **Always allow for this
-  host** switches that agent's grant to **Trusted** (set it back here to revoke it) and
+  host** switches that agent's grant to **Trusted**, which also covers its routines
+  and hook runs (set it back here to revoke it), and
   appears only on cards for the agent's own grant: not on delete cards and not on a
   temporary member's cards. **Trusted** changes run without asking. Deletes (a delete
   or a sync that deletes extra files) always ask, and routines never delete. At most 3
@@ -770,7 +783,9 @@ own shell level and its SSH accesses; the proposal marks those members with a
 warning, and such a proposal always waits for your approval, even when teams are
 otherwise allowed without asking. A shell or SSH grant the lead makes later asks
 you for approval in the lead's chat and in Telegram. A member's shell request never
-offers **Always allow**. Switching the setting off takes shell and SSH away from
+offers **Always allow**. A member with shell and SSH from its lead gets
+[plain ssh](ssh-access.md#plain-ssh-from-agents) to the lead's **Trusted** hosts,
+shown in its read-only access view. Switching the setting off takes shell and SSH away from
 running members and cancels waiting requests for good; switching it on again
 restores nothing. The members of one team set at most five reminders on the lead,
 and each one is noted in the lead's chat. Kept as permanent agents with **Keep as
@@ -1155,8 +1170,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   the agent for a routine in the chat. Routines
   read the chat's recent messages, including forwarded ones, and run while nobody
   watches, so with full shell access they act without asking. A routine can run SSH
-  commands only on hosts set to **Trusted incl. routines**; on any other host it is
-  refused and its result says so.
+  commands only on hosts set to **Trusted**; on any other host it is refused and its
+  result says so. A routine with shell access can also reach those hosts with plain
+  ssh ([Plain SSH from agents](ssh-access.md#plain-ssh-from-agents)).
 - **When a routine fails**, its row shows "Last run failed" and its details show the
   cause in plain words: the Gateway restarted or stopped during the run, the agent was
   unavailable, the run took too long, the model provider returned an error, or the
@@ -1223,7 +1239,8 @@ own **Enabled** switch is off.
   created before the switch existed) and **Email** (whether a run may use the agent's
   [email accounts](mail.md) as granted; offered only while the agent holds one, off by
   default, and a send without a matching rule still waits for you), the **Shell** (off or the agent's own level),
-  the **SSH hosts** set to **Trusted incl. routines** and each project
+  the **SSH hosts** set to **Trusted** (a run with **Shell** reaches every **Trusted**
+  host of the agent by plain ssh, whatever this list holds) and each project
   **Folder** (**None**, **Read** or **Read and write**). A hook never gets more than its
   agent holds: a switch the agent lacks is shown disabled with the reason, and a right
   the agent loses later keeps its saved value but no longer applies until the agent has
@@ -1617,9 +1634,12 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   only for agents whose other tools you would trust with that.
 - **SSH accesses** set to **Trusted** run commands without asking. Commands the agent
   derives from web pages, documents, MCP results or remote output could therefore run
-  without your confirmation; keep **With approval** for hosts where that matters. SSH
-  for agents is convenience scoping under your user account, not a sandbox: an agent
-  with **Full access** shell can read AgentPier's SSH key files.
+  without your confirmation; keep **With approval** for hosts where that matters.
+  **Trusted** also covers routines and hook runs, and with shell access plain ssh to
+  those hosts, which the SSH agent cannot tell apart by run. SSH for agents is
+  convenience scoping under your user account, not a sandbox: an agent with **Full
+  access** shell can read AgentPier's SSH key files, other agents' SSH environment and
+  connect to their SSH agents.
 - **Email** content is untrusted. A mail can try to mislead the agent, but it can
   never allow a send: without a matching recipient rule only the card's **Send**
   button sends. Keep recipient rules to addresses and domains you would send anything

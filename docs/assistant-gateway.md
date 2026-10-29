@@ -2598,8 +2598,9 @@ tools, for a temporary member only while it was granted SSH on its lead's grants
 (`TeamBridge.routineRun`, a bound, enabled routine with routines on). The plugin's
 call budget for `ssh` is 245 seconds: a 110-second approval hold plus a 120-second
 command. Forwarded, member-result, reminder, check-in and unknown turns are refused
-with `SSH_ORIGIN_REFUSED`; a routine may run only on `routines` hosts
-(`SSH_ROUTINE_NOT_TRUSTED`). Late approvals return as an `ssh-result` follow-up turn
+with `SSH_ORIGIN_REFUSED`; a routine or a hook run may run only on `trusted` hosts
+(`SSH_ROUTINE_NOT_TRUSTED`; a stored `routines` grant from before the two modes reads
+as `trusted`). Late approvals return as an `ssh-result` follow-up turn
 that keeps the original turn's origin class. Agents with SSH grants never own a bot
 for other people.
 
@@ -2667,7 +2668,7 @@ The SFTP actions of `agentpier_ssh` (`list`, `stat`, `download`, `upload`, `sync
 `mkdir`, `rename`, `delete`, `job`, `cancel`; `hosts` lists each host's `type` and
 `remoteRoot`) share the SSH grant, the origin classes and the bridge budget. `AgentSftp`
 (`agent-sftp.js`) decides with `sftpPermits(mode, class, kind)`: reads and dry runs run,
-writes run on `trusted` and `routines` hosts and otherwise open a card, deletes (also a
+writes run on `trusted` hosts and otherwise open a card, deletes (also a
 sync with `deleteExtra`) always open a card, and a routine never deletes
 (`SFTP_ROUTINE_DELETE`). `execute` on an SFTP host and file actions on an SSH host fail
 with `SSH_HOST_TYPE`. The local side is the agent's workspace or a granted project
