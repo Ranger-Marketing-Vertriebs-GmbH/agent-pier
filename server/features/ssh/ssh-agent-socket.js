@@ -10,19 +10,17 @@ import path from "node:path";
 import { clearStaleSocket } from "../../lib/stale-socket.js";
 import { privateFolder } from "../../lib/storage.js";
 import { signUserauth, verifySessionBind } from "./ssh-agent-keys.js";
-import { agentIdentities, decideSignature } from "./ssh-agent-policy.js";
+import {
+  agentIdentities,
+  agentRefusalCodes,
+  decideSignature,
+} from "./ssh-agent-policy.js";
 import { AgentFrameReader, agentReply, parseAgentRequest } from "./ssh-agent-protocol.js";
 import { sshPhysicalRoot } from "./ssh-root.js";
 
+const maxBinds = 16;
 const sessionIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const tokenPattern = /^[0-9a-f]{32}$/;
-const knownCodes = new Set([
-  "SSH_AGENT_UNBOUND",
-  "SSH_AGENT_FORWARDING",
-  "SSH_AGENT_NOT_GRANTED",
-  "SSH_AGENT_LEGACY",
-  "SSH_AGENT_KEY_UNSUPPORTED",
-]);
 
 function codedError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -101,7 +99,20 @@ function folderChain(socketPath, root) {
 }
 
 function deniedCode(error, fallback) {
-  return knownCodes.has(error?.code) ? error.code : fallback;
+  return agentRefusalCodes.has(error?.code) ? error.code : fallback;
+}
+
+// Waits until the socket takes more data or closes; both listeners are removed again.
+function writable(socket) {
+  return new Promise((resolve) => {
+    const done = () => {
+      socket.removeListener("drain", done);
+      socket.removeListener("close", done);
+      resolve();
+    };
+    socket.on("drain", done);
+    socket.on("close", done);
+  });
 }
 
 export class SessionAgentSocket {
@@ -115,6 +126,7 @@ export class SessionAgentSocket {
     maxConnections = 32,
     idleMs = 600000,
     maxMessage = 262144,
+    maxQueued = 256,
   }) {
     this.socketPath = socketPath;
     this.root = root;
@@ -125,6 +137,7 @@ export class SessionAgentSocket {
     this.maxConnections = maxConnections;
     this.idleMs = idleMs;
     this.maxMessage = maxMessage;
+    this.maxQueued = maxQueued;
     this.connections = new Set();
     this.server = null;
     this.closed = false;
@@ -185,6 +198,7 @@ export class SessionAgentSocket {
       forwarded: false,
       reader: new AgentFrameReader({ maxMessage: this.maxMessage }),
       frames: [],
+      binds: 0,
       busy: false,
     };
     socket.setTimeout(this.idleMs, () => socket.destroy());
@@ -201,7 +215,12 @@ export class SessionAgentSocket {
         socket.destroy();
         return;
       }
-      state.frames.push(...frames);
+      for (const frame of frames) state.frames.push(frame);
+      // A client that pipelines more than it reads is cut off, not buffered.
+      if (state.frames.length > this.maxQueued) {
+        socket.destroy();
+        return;
+      }
       this.drain(socket, state);
     });
   }
@@ -214,13 +233,14 @@ export class SessionAgentSocket {
     socket.pause();
     try {
       while (state.frames.length && !socket.destroyed) {
-        const answer = await this.answer(state, state.frames.shift());
+        let answer;
+        try {
+          answer = await this.answer(state, state.frames.shift());
+        } catch {
+          answer = agentReply.failure();
+        }
         if (socket.destroyed) break;
-        if (!socket.write(answer))
-          await new Promise((resolve) => {
-            socket.once("drain", resolve);
-            socket.once("close", resolve);
-          });
+        if (!socket.write(answer)) await writable(socket);
       }
     } finally {
       state.busy = false;
@@ -265,6 +285,10 @@ export class SessionAgentSocket {
   bind(state, request) {
     // A forwarding bind marks the connection for good, verified or not: it never signs.
     if (request.forwarding) state.forwarded = true;
+    // Like OpenSSH's agent: nothing rebinds a connection after an authentication bind,
+    // and a connection takes at most maxBinds binds.
+    state.binds += 1;
+    if (state.binding || state.binds > maxBinds) return agentReply.failure();
     const algorithm = verifySessionBind(request);
     if (!algorithm) return agentReply.failure();
     if (!request.forwarding)

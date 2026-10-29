@@ -229,3 +229,92 @@ test("close ends open connections and removes the socket", async () => {
     (error) => assert.equal(error.code, "SSH_AGENT_CLOSED"),
   );
 });
+
+// Many granted keys make every identities answer about 2 KiB, so a client that does
+// not read fills the socket buffers quickly.
+const manyHosts = agentHosts(
+  Array.from({ length: 24 }, (_, i) => ({
+    id: `access-${i}`,
+    name: `Host ${i}`,
+    host: "10.0.0.2",
+    port: 22,
+    username: "deploy",
+    keyId: `${String(i).padStart(8, "0")}-1111-2222-3333-444444444444`,
+    publicKey: generateKey(root, `many-${i}`).publicLine,
+    hostKey: hostKey.publicLine,
+    type: "ssh",
+  })),
+  Array.from({ length: 24 }, (_, i) => `access-${i}`),
+);
+
+function serverSide(agent) {
+  return [...agent.connections].at(-1);
+}
+
+test("a client that does not read never grows the server's listeners", async (t) => {
+  const { agent, file } = await listening(t, {
+    authorize: async () => ({ hosts: manyHosts }),
+  });
+  const socket = net.createConnection(file);
+  socket.on("error", () => {});
+  await new Promise((resolve) => socket.once("connect", resolve));
+  socket.pause();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const server = serverSide(agent);
+  const baseline = server.listenerCount("close");
+  const frames = 250;
+  const counts = [];
+  const sample = setInterval(() => counts.push(server.listenerCount("close")), 2);
+  socket.write(Buffer.concat(Array(frames).fill(Buffer.from([0, 0, 0, 1, 11]))));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  // Backpressure holds the answers: not all of them fit into the buffers.
+  assert.ok(server.writableLength > 0 || server.isPaused());
+  let received = 0;
+  const all = new Promise((resolve) =>
+    socket.on("data", (chunk) => {
+      received += chunk.length;
+      if (received >= frames * 1800) resolve();
+    }),
+  );
+  socket.resume();
+  await all;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  clearInterval(sample);
+  assert.ok(
+    Math.max(...counts) <= baseline + 1,
+    `close listeners: ${Math.max(...counts)}`,
+  );
+  assert.equal(server.listenerCount("close"), baseline);
+  assert.equal(server.listenerCount("drain"), 0);
+  socket.destroy();
+});
+
+test("a client that queues more requests than allowed is closed", async (t) => {
+  const { file } = await listening(t, { maxQueued: 8 });
+  const good = await AgentClient.connect(file);
+  t.after(() => good.close());
+  const socket = net.createConnection(file);
+  socket.on("error", () => {});
+  await new Promise((resolve) => socket.once("connect", resolve));
+  socket.pause();
+  socket.write(Buffer.concat(Array(20).fill(Buffer.from([0, 0, 0, 1, 11]))));
+  await closed(socket);
+  assert.equal((await good.identities()).length, 1);
+});
+
+test("an answer that throws is a FAILURE and the connection goes on", async (t) => {
+  const { agent, file } = await listening(t);
+  const original = agent.answer.bind(agent);
+  let thrown = false;
+  agent.answer = async (state, frame) => {
+    if (!thrown) {
+      thrown = true;
+      throw new Error("unexpected");
+    }
+    return original(state, frame);
+  };
+  const client = await AgentClient.connect(file);
+  t.after(() => client.close());
+  assert.equal(await client.identities(), agentMessage.FAILURE);
+  assert.equal((await client.identities()).length, 1);
+});

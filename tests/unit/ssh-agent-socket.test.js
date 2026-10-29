@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -404,4 +405,92 @@ test("a throwing callback never breaks an answer", async (t) => {
   assert.equal(await client.signRaw(userKey.blob, data, 4), agentMessage.FAILURE);
   await client.bind({ hostKey, sessionId: sid });
   assert.ok(await client.sign(userKey.blob, data, 4));
+});
+
+test("no bind is taken after an authentication bind", async (t) => {
+  const { state } = await start(t);
+  const client = await state.client();
+  const first = sessionId();
+  const second = sessionId();
+  assert.equal(await client.bind({ hostKey, sessionId: first }), agentMessage.SUCCESS);
+  // A valid second bind, normal or forwarding, is refused like OpenSSH's agent does.
+  assert.equal(await client.bind({ hostKey, sessionId: second }), agentMessage.FAILURE);
+  const rebound = userauth({ sessionId: second, keyBlob: userKey.blob });
+  assert.equal(await client.signRaw(userKey.blob, rebound, 4), agentMessage.FAILURE);
+  const original = userauth({ sessionId: first, keyBlob: userKey.blob });
+  assert.ok(await client.sign(userKey.blob, original, 4));
+  assert.equal(
+    await client.bind({ hostKey, sessionId: second, forwarding: true }),
+    agentMessage.FAILURE,
+  );
+  // The refused forwarding bind still marks the connection.
+  assert.equal(await client.signRaw(userKey.blob, original, 4), agentMessage.FAILURE);
+  assert.deepEqual(state.denied, ["SSH_AGENT_UNBOUND", "SSH_AGENT_FORWARDING"]);
+});
+
+test("a connection takes at most 16 binds", async (t) => {
+  const { state } = await start(t);
+  const client = await state.client();
+  const sid = sessionId();
+  for (let i = 0; i < 16; i += 1)
+    assert.equal(
+      await client.bind({ hostKey, sessionId: sid, forwarding: true }),
+      agentMessage.SUCCESS,
+    );
+  assert.equal(
+    await client.bind({ hostKey, sessionId: sid, forwarding: true }),
+    agentMessage.FAILURE,
+  );
+});
+
+test("a revocation stops the next signature on an open connection", async (t) => {
+  const { state } = await start(t);
+  const client = await state.client();
+  const sid = sessionId();
+  await client.bind({ hostKey, sessionId: sid });
+  const data = userauth({ sessionId: sid, keyBlob: userKey.blob });
+  assert.ok(await client.sign(userKey.blob, data, 4));
+  state.grants = null;
+  assert.equal(await client.signRaw(userKey.blob, data, 4), agentMessage.FAILURE);
+  assert.deepEqual(state.denied, ["SSH_AGENT_NOT_GRANTED"]);
+  assert.equal(state.signed.length, 1);
+});
+
+test("a half-open client still gets its answer", async (t) => {
+  const { socketPath } = await start(t);
+  const socket = net.createConnection(socketPath);
+  socket.on("error", () => {});
+  await new Promise((resolve) => socket.once("connect", resolve));
+  const chunks = [];
+  socket.on("data", (chunk) => chunks.push(chunk));
+  const closed = new Promise((resolve) => socket.once("close", resolve));
+  socket.end(Buffer.from([0, 0, 0, 1, 11]));
+  // The answer arrives although the client sent FIN, then the agent closes too.
+  await closed;
+  const reply = Buffer.concat(chunks);
+  assert.equal(reply.readUInt32BE(0), reply.length - 4);
+  assert.equal(reply[4], agentMessage.IDENTITIES_ANSWER);
+});
+
+test("a symlink at the home root is refused and nothing is written behind it", async () => {
+  const linkedHome = fs.mkdtempSync("/tmp/aph-link-");
+  const target = fs.mkdtempSync(path.join(root, "root-target-"));
+  try {
+    fs.symlinkSync(target, path.join(linkedHome, ".agentpier-ssh"));
+    const location = agentSocketLocation(dataDir, "session-1", newAgentToken(), {
+      home: linkedHome,
+    });
+    const agent = new SessionAgentSocket({
+      socketPath: location.socketPath,
+      root: location.root,
+      authorize: async () => null,
+      readIdentity: () => "",
+      onSigned: () => {},
+      onDenied: () => {},
+    });
+    await assert.rejects(agent.listen(), { code: "SSH_AGENT_SOCKET_UNSAFE" });
+    assert.deepEqual(fs.readdirSync(target), []);
+  } finally {
+    fs.rmSync(linkedHome, { recursive: true, force: true });
+  }
 });
