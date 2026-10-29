@@ -118,7 +118,6 @@ export class DirectoryWatchers {
       const stat = await fsp.lstat(folder.directory, { bigint: true });
       const birth = await folder.birth;
       same =
-        stat.isDirectory() &&
         `${stat.dev}:${stat.ino}` === folder.identity &&
         (!birth || !stat.birthtimeNs || stat.birthtimeNs === birth);
     } catch {
