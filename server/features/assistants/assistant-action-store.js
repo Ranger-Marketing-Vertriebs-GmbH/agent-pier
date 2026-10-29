@@ -32,6 +32,11 @@ export class AssistantActionStore {
     db.exec(
       "CREATE TABLE IF NOT EXISTS assistant_actions(id TEXT PRIMARY KEY,assistant_id TEXT NOT NULL REFERENCES assistants(id),operation_key TEXT UNIQUE NOT NULL,body TEXT NOT NULL)",
     );
+    // agentsOfRun runs on every saved pipeline run while an action topic is watched;
+    // only the few actions that started a run are indexed.
+    db.exec(
+      "CREATE INDEX IF NOT EXISTS assistant_actions_run ON assistant_actions(json_extract(body,'$.runId')) WHERE json_extract(body,'$.runId') IS NOT NULL",
+    );
     for (const a of this.list())
       if (a.state === "executing") this.patch(a.id, { state: "unknown" });
   }
