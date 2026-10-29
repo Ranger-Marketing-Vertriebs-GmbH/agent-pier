@@ -130,10 +130,12 @@ export function RuntimeOn({ frame, feature, section }) {
       .find(Boolean) ||
     "";
   const restart = draft.confirmation?.kind === "restart" ? draft.confirmation : null;
-  // `section=advanced|storage` scrolls to the group once the advanced values above
-  // it have loaded (or failed), once per link.
+  // `section=advanced|storage` scrolls to the group once the advanced values and the
+  // pushed update status above it have loaded (or failed), once per link.
   const scrolled = useRef(false);
-  const advancedSettled = Boolean(advanced.data || advanced.error);
+  const [updatesSettled, setUpdatesSettled] = useState(false);
+  const updatesShown = useCallback(() => setUpdatesSettled(true), []);
+  const advancedSettled = Boolean(advanced.data || advanced.error) && updatesSettled;
   useEffect(() => {
     if (!sectionIds[section]) {
       scrolled.current = false;
@@ -166,7 +168,7 @@ export function RuntimeOn({ frame, feature, section }) {
       <ErrorMessage error={dreamingError} />
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
-      <AssistantRuntimeUpdates onChange={refresh} />
+      <AssistantRuntimeUpdates onChange={refresh} onSettled={updatesShown} />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}
