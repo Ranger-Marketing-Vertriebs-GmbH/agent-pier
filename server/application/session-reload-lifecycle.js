@@ -192,7 +192,7 @@ export function createReloadLifecycle(services) {
           });
           // No longer eligible (or it failed): the previous listener goes with it.
           if (!launch.sshAgent && services.sshAgents?.launchDetails(session.id))
-            await services.sshAgents.discard(session.id);
+            await services.sshAgents.discard(session.id, { keepReason: true });
           // The same secrets file, variable and grant as the first launch: its
           // project's secrets and those assigned at launch that still exist.
           if (services.sessionSecrets)

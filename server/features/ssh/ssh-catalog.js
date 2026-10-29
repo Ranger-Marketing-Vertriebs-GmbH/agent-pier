@@ -42,7 +42,7 @@ export class SshCatalog {
   }
   /**
    * Runs `listener` after every committed `run`, after its commit callbacks and outside
-   * the transaction; a throwing listener is ignored. Returns an unsubscribe.
+   * the transaction; a listener that throws or rejects is ignored. Returns an unsubscribe.
    */
   onPublished(listener) {
     this.publishedListeners.add(listener);
@@ -52,7 +52,7 @@ export class SshCatalog {
     for (const listener of this.publishedListeners)
       this.context.exit(() => {
         try {
-          listener();
+          Promise.resolve(listener()).catch(() => {});
         } catch {}
       });
   }

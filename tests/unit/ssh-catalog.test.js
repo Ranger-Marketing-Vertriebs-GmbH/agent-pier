@@ -228,6 +228,13 @@ test("onPublished fires after a committed change and its commit callbacks, never
   catalog.onPublished(() => {
     throw new Error("ignored");
   });
+  const unhandled = [];
+  const onUnhandled = (error) => unhandled.push(error);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
+  catalog.onPublished(async () => {
+    throw new Error("ignored too");
+  });
   await catalog.run(() => {
     catalog.replacePart("projects", [{ id: "a" }]);
     catalog.afterCommit(() => seen.push("commit"));
@@ -240,6 +247,8 @@ test("onPublished fires after a committed change and its commit callbacks, never
   // A nested run publishes once, with its outer transaction.
   await catalog.run(() => catalog.run(() => catalog.replacePart("projects", [])));
   assert.deepEqual(seen, ["commit", "published", "published"]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(unhandled, []);
   unsubscribe();
   await catalog.run(() => catalog.replacePart("hosts", []));
   assert.deepEqual(seen, ["commit", "published", "published"]);

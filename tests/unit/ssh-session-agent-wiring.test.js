@@ -232,7 +232,7 @@ test("absence is judged on the environment the CLI receives (R29)", async (t) =>
   assert.equal(unset.env.SSH_AUTH_SOCK, details.socketPath);
 });
 
-test("Git and rsync reach a wrapper whose path has spaces and quotes", (t) => {
+test("GIT_SSH_COMMAND reaches a wrapper whose path has spaces and quotes through sh", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agent wiring 'q' "));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const binDir = path.join(root, "bin");
