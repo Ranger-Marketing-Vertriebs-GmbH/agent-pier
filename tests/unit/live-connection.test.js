@@ -4,6 +4,7 @@ import {
   CLOSE_BYTES,
   FLUSH_MS,
   LiveConnection,
+  PRESENCE_PER_MINUTE,
   QUEUE_BYTES,
   parseClientFrame,
 } from "../../server/features/live/live-connection.js";
@@ -57,15 +58,23 @@ function fakeHub() {
   };
 }
 
-function setup({ hub = fakeHub(), maxTopics } = {}) {
+function setup({
+  hub = fakeHub(),
+  maxTopics,
+  presence,
+  principal = { role: "owner" },
+  now,
+} = {}) {
   const ws = fakeSocket();
   const clock = fakeIntervals();
   const connection = new LiveConnection({
     ws,
     hub,
-    principal: { role: "owner" },
+    principal,
     timers: clock.timers,
     ...(maxTopics ? { maxTopics } : {}),
+    ...(presence ? { presence } : {}),
+    ...(now ? { now } : {}),
   });
   return { ws, clock, connection, hub };
 }
@@ -300,4 +309,42 @@ test("discard drops the frame a slow reader still waits for, of its topic only",
   ws.bufferedAmount = 0;
   clock.tick();
   assert.equal(ws.sent.at(-1).data, "new");
+});
+
+test("a presence op reports the route in the owner's scope, a user's in her own", () => {
+  const calls = [];
+  const presence = (...args) => calls.push(args);
+  const owner = setup({ presence });
+  assert.equal(owner.connection.receive('{"op":"presence","route":"/inbox"}'), true);
+  const user = setup({ presence, principal: { role: "user", userId: "u1" } });
+  user.connection.receive('{"op":"presence","route":"/sessions/s1"}');
+  assert.deepEqual(calls, [["/inbox"], ["/sessions/s1", { userId: "u1" }]]);
+});
+
+test("a presence op ignores an over-long route, throttles per socket, and needs a string", () => {
+  const calls = [];
+  let at = 0;
+  const { connection } = setup({ presence: (route) => calls.push(route), now: () => at });
+  connection.receive(
+    JSON.stringify({ op: "presence", route: `/inbox${"x".repeat(600)}` }),
+  );
+  assert.deepEqual(calls, []);
+  for (let i = 0; i < PRESENCE_PER_MINUTE + 10; i += 1)
+    connection.receive('{"op":"presence","route":"/inbox"}');
+  assert.equal(calls.length, PRESENCE_PER_MINUTE);
+  at = 60000;
+  connection.receive('{"op":"presence","route":"/inbox"}');
+  assert.equal(calls.length, PRESENCE_PER_MINUTE + 1);
+  assert.equal(connection.receive('{"op":"presence","route":5}'), false);
+  assert.equal(connection.receive('{"op":"presence"}'), false);
+});
+
+test("a principal that is neither owner nor user never reports presence", () => {
+  const calls = [];
+  const { connection } = setup({
+    presence: (...args) => calls.push(args),
+    principal: { role: "user" },
+  });
+  connection.receive('{"op":"presence","route":"/inbox"}');
+  assert.deepEqual(calls, []);
 });

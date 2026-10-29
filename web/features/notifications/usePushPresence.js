@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import api from "../../lib/api.js";
+import { liveClient } from "../../lib/live/live-client.js";
 import { useInboxCount } from "../inbox/inbox-store.js";
 import { startPresenceReporter } from "./presence-reporter.js";
 
@@ -12,7 +13,12 @@ export function usePushPresence(enabled, base = "/notifications") {
     // Without a registered device nothing is pushed, so nothing needs reporting.
     if (!enabled) return undefined;
     return startPresenceReporter({
-      send: (route) => api(`${base}/presence`, "POST", { route }).catch(() => {}),
+      // The live channel carries it while open (the server scopes it to the signed-in
+      // person); REST is the fallback.
+      send: (route) => {
+        if (liveClient().sendPresence(route)) return;
+        api(`${base}/presence`, "POST", { route }).catch(() => {});
+      },
     });
   }, [enabled, base]);
 }

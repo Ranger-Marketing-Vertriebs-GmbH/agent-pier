@@ -411,3 +411,15 @@ test("a signal topic keeps its first revision, so a missed change comes back", a
     },
   ]);
 });
+
+test("presence goes over the open socket and is declined while the channel is not", async (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("state", recorder());
+  assert.equal(client.sendPresence("/inbox"), false);
+  fake.last().hello("i1");
+  assert.equal(client.sendPresence("/inbox"), true);
+  assert.deepEqual(fake.last().sent.at(-1), { op: "presence", route: "/inbox" });
+  fake.last().drop(1006);
+  assert.equal(client.sendPresence("/inbox"), false);
+});

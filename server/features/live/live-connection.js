@@ -10,12 +10,17 @@ export const QUEUE_BYTES = 256 * 1024;
 // Above this many, the reader is too slow: the socket closes with 1013.
 export const CLOSE_BYTES = 2 * 1024 * 1024;
 export const FLUSH_MS = 100;
+// Presence ops one socket may send per minute; the notification service limits the
+// person as the REST route does, this keeps one socket from flooding it.
+export const PRESENCE_PER_MINUTE = 60;
+// A longer route names no view (push-presence.js) and is ignored.
+export const MAX_ROUTE = 512;
 
 const OPEN = 1;
 const plainObject = (value) =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
-/** The client frame as `{op, topic?, have?}`, or null when it is malformed. */
+/** The client frame as `{op, topic?, have?}` or `{op:"presence", route}`, or null when it is malformed. */
 export function parseClientFrame(text) {
   let frame;
   try {
@@ -26,6 +31,8 @@ export function parseClientFrame(text) {
   if (!plainObject(frame)) return null;
   const { op, topic, have } = frame;
   if (op === "ping") return { op };
+  if (op === "presence")
+    return typeof frame.route === "string" ? { op, route: frame.route } : null;
   if (op !== "sub" && op !== "unsub") return null;
   if (typeof topic !== "string") return null;
   if (op === "unsub") return { op, topic };
@@ -40,8 +47,11 @@ export class LiveConnection {
     principal,
     timers = { setInterval, clearInterval },
     maxTopics = MAX_TOPICS,
+    presence = null,
+    now = Date.now,
   }) {
-    Object.assign(this, { ws, hub, principal, timers, maxTopics });
+    Object.assign(this, { ws, hub, principal, timers, maxTopics, presence, now });
+    this.presenceTimes = [];
     // topic -> { unsubscribe }; a frame from a replaced entry is dropped.
     this.subscriptions = new Map();
     // topic -> the newest frame not yet written, while the reader is behind.
@@ -57,9 +67,26 @@ export class LiveConnection {
     const frame = parseClientFrame(text);
     if (!frame) return false;
     if (frame.op === "ping") this.reply({ type: "pong" });
+    else if (frame.op === "presence") this.reportPresence(frame.route);
     else if (frame.op === "unsub") this.unsubscribe(frame.topic);
     else this.subscribe(frame.topic, frame.have);
     return true;
+  }
+  /**
+   * A visible tab names its view, as POST /notifications/presence does. The owner
+   * reports without a scope, a user in her own (me-notifications.js); a socket never
+   * reports in another person's scope. Over-long routes and excess ops are ignored.
+   */
+  reportPresence(route) {
+    if (!this.presence || route.length > MAX_ROUTE) return;
+    const at = this.now();
+    this.presenceTimes = this.presenceTimes.filter((time) => at - time < 60000);
+    if (this.presenceTimes.length >= PRESENCE_PER_MINUTE) return;
+    this.presenceTimes.push(at);
+    const { principal } = this;
+    if (principal.role === "owner") this.presence(route);
+    else if (principal.role === "user" && principal.userId)
+      this.presence(route, { userId: principal.userId });
   }
   subscribe(topic, have) {
     const held = this.subscriptions.get(topic);

@@ -19,11 +19,14 @@ const refuse = (socket, status) =>
 /**
  * The live channel, GET /api/live (live-hub.js): one socket per tab, behind the
  * origin check, the login and `admit` like the chat stream. On open the server sends
- * `{type:"hello", instance}`; the client sends `sub`, `unsub` and `ping`
- * (live-connection.js). Logout closes with 1008. `changes(listener)` reports access
+ * `{type:"hello", instance}`; the client sends `sub`, `unsub`, `ping` and
+ * `presence` (live-connection.js). Logout closes with 1008. `changes(listener)` reports access
  * changes (owner privacy, agents), after which every subscription is checked again.
  */
-export function attachLiveWebSocket(server, { hub, login, admit, effective, changes }) {
+export function attachLiveWebSocket(
+  server,
+  { hub, login, admit, effective, changes, presence },
+) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 4096,
@@ -61,7 +64,7 @@ export function attachLiveWebSocket(server, { hub, login, admit, effective, chan
     offChanges?.();
   });
   wss.on("connection", (ws, { token, auth, principal, key }) => {
-    const connection = new LiveConnection({ ws, hub, principal });
+    const connection = new LiveConnection({ ws, hub, principal, presence });
     let alive = true;
     const cleanupLogin = login.watch(auth, () => connection.close(1008));
     const ping = setInterval(() => {

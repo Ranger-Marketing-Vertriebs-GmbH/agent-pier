@@ -99,6 +99,17 @@ export class LiveClient {
     };
   }
 
+  /**
+   * Reports the tab's view over the open socket (push presence); false when the
+   * channel is not open, so the caller reports over REST instead.
+   */
+  sendPresence(route) {
+    if (!this.connected || this.fallback || this.socket?.readyState !== OPEN)
+      return false;
+    this.send({ op: "presence", route });
+    return true;
+  }
+
   status() {
     return { connected: this.connected, fallback: this.fallback };
   }

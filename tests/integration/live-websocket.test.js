@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { applicationFixture } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
-import { upgradeStatus } from "../helpers/users.js";
+import { signedInUser, upgradeStatus } from "../helpers/users.js";
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -232,4 +232,35 @@ test("agents switched on later, off and on again still re-check subscriptions", 
   assert.equal(f.application.assistants, null);
   await revokedAfter(() => feature(true));
   await revokedAfter(() => f.application.assistants.events.publish({ type: "probe" }));
+});
+
+const settled = () => delay(50);
+
+test("a presence op holds pushes for that route as the REST call does", async (t) => {
+  const f = await applicationFixture(t);
+  const { presence } = f.application.notifications;
+  const live = openLive(f);
+  await live.next(ofType("hello"));
+  live.send({ op: "presence", route: "/sessions/s1/chat" });
+  live.send({ op: "presence", route: `/sessions/s2${"x".repeat(600)}` });
+  await settled();
+  assert.equal(presence.seen("session:s1"), true);
+  assert.equal(presence.seen("session:s2"), false);
+  // The socket stays open: an ignored route is no protocol error.
+  live.send({ op: "ping" });
+  await live.next(ofType("pong"));
+  live.ws.close();
+});
+
+test("a user's presence op holds only her own pushes", async (t) => {
+  const f = await applicationFixture(t);
+  const { presence } = f.application.notifications;
+  const anna = await signedInUser(f, "Anna");
+  const live = openLive(f, anna.cookie);
+  await live.next(ofType("hello"));
+  live.send({ op: "presence", route: "/sessions/s1" });
+  await settled();
+  assert.equal(presence.seen("session:s1", undefined, anna.user.id), true);
+  assert.equal(presence.seen("session:s1"), false);
+  live.ws.close();
 });
