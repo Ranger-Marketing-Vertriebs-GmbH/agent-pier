@@ -19,9 +19,10 @@ const reasons = {
 /**
  * The agent's plain ssh (GET /assistants/:id/ssh-agent, live as
  * `agent.ssh-agent:<id>`): one status line and, while it is ready, a copyable
- * `ssh <alias>` per trusted host in the order of `hosts` (catalog entries; an alias
- * names a host the catalog does not list), the approval hint when `approval`, and
- * the note on open connections. Nothing while loading or without SSH hosts.
+ * `ssh <alias>` per trusted host in the order of `hosts` (catalog entries, labelled
+ * by name; a host the catalog does not list shows its command alone), the approval
+ * hint when the saved grants hold an approval host (`approval`), and the note on
+ * open connections. Nothing while loading or without SSH hosts.
  */
 export default function AgentSshAgentStatus({ assistantId, hosts, approval = false }) {
   const { data } = useLiveTopic(assistantId ? `agent.ssh-agent:${assistantId}` : null);
@@ -53,7 +54,7 @@ export default function AgentSshAgentStatus({ assistantId, hosts, approval = fal
       {ids.map((id) => (
         <SshCopy
           key={id}
-          label={names.get(id) || aliases[id]}
+          label={names.get(id)}
           text={copy.aliasLabel(aliases[id])}
           button={copy.copy}
         />

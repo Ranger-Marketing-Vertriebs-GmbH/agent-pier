@@ -5,9 +5,9 @@ export default function SshCopy({ label, text, button, compact = false }) {
   const [revealed, setRevealed] = useState(false);
   return (
     <div className="ssh-copy">
-      {!compact && <strong>{label}</strong>}
+      {!compact && label && <strong>{label}</strong>}
       {(!compact || revealed) && (
-        <pre tabIndex={0} aria-label={label}>
+        <pre tabIndex={0} aria-label={label || text}>
           {text}
         </pre>
       )}
