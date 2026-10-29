@@ -39,7 +39,12 @@ export default function SshAccess({ assistantId, hosts, draft, disabled, go, nav
   const set = (next) => draft.set("sshAccesses", next);
   const modeOptions = sshModes.map((value) => ({ value, label: sshCopy.modes[value] }));
   const trusted = shownEntries.some((entry) => entry.host && entry.mode !== "approval");
-  const approval = shownEntries.some((entry) => entry.host && entry.mode === "approval");
+  // The plain ssh block shows what runs: the saved grants, never the unsaved draft.
+  const approval =
+    !!hosts &&
+    (draft.base?.sshAccesses || []).some(
+      (grant) => grant.mode === "approval" && hostOf.has(grant.accessId),
+    );
   return (
     <AccessGroup
       id="agent-access-ssh"

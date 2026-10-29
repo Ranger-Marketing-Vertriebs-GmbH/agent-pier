@@ -197,11 +197,37 @@ test("the SSH group and page show plain ssh aliases of trusted hosts and the app
   await expect(group.getByRole("button", { name: "Copy command" })).toHaveCount(1);
   await expect(group.getByText("Hosts with approval have no alias")).toBeVisible();
   await expect(group.getByText("Open connections and tunnels stay open")).toBeVisible();
+  // The hint follows the saved grants, like the aliases: an unsaved switch of the
+  // approval host to Trusted leaves it, and the draft's new approval host adds none.
+  await group
+    .getByRole("combobox", { name: "Mode for opnsense" })
+    .selectOption("trusted");
+  await expect(saveBar(page)).toBeVisible();
+  await expect(group.getByText("Hosts with approval have no alias")).toBeVisible();
+  await group
+    .getByRole("combobox", { name: "Mode for opnsense" })
+    .selectOption("approval");
   // The full subpage shows the same block below the host list.
   await page.goto(baseURL + settingsPath("access", "ssh"));
   await expect(page.getByRole("button", { name: "Back to Access" })).toBeVisible();
   await expect(page.getByText("ssh nas-01", { exact: true })).toBeVisible();
   await expect(page.getByText("Hosts with approval have no alias")).toBeVisible();
+});
+
+test("the approval hint stays hidden while only an unsaved draft has approval hosts", async ({
+  page,
+}) => {
+  await openAccess(page, {
+    access: { ...sshGrants, sshAccesses: [{ accessId: nas.id, mode: "trusted" }] },
+    sshAgent: { state: "ready", aliases: { [nas.id]: "nas-01" } },
+  });
+  const group = page.locator("#agent-access-ssh");
+  await expect(group.getByText("ssh nas-01", { exact: true })).toBeVisible();
+  await expect(group.getByText("Hosts with approval have no alias")).toHaveCount(0);
+  await group.getByRole("combobox", { name: "Mode for nas-01" }).selectOption("approval");
+  await expect(saveBar(page)).toBeVisible();
+  await expect(group.getByText("ssh nas-01", { exact: true })).toBeVisible();
+  await expect(group.getByText("Hosts with approval have no alias")).toHaveCount(0);
 });
 
 test("an agent without shell sees why plain ssh is off; no hosts shows nothing", async ({
@@ -219,7 +245,13 @@ test("an agent without shell sees why plain ssh is off; no hosts shows nothing",
   await page.route("**/api/assistants/home/ssh-agent", (route) =>
     route.fulfill({ json: { state: "unavailable", reason: "no-hosts" } }),
   );
+  // Count only once the topic has answered and the page has drawn it.
+  const loaded = page.waitForResponse("**/api/assistants/home/ssh-agent");
   await page.reload();
+  await loaded;
   await expect(page.locator("#agent-access-ssh")).toBeVisible();
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
   await expect(page.getByText(/Plain ssh/)).toHaveCount(0);
 });

@@ -89,19 +89,27 @@ test("an agent of users has no Team tab and keeps project folders only", async (
   await expect(page.getByRole("note").filter({ hasText: "Locked: Shell" })).toBeVisible();
 });
 
-test("a temporary member using its lead's SSH shows its plain ssh aliases", async ({
-  page,
-}) => {
+// A temporary member using its lead's SSH: its plain ssh names the lead's hosts by
+// catalog name, and the approval hint shows only while the lead holds approval hosts.
+async function memberWithLeadSsh(page, leadGrants) {
+  const host = (id, name) => ({ id, name, host: `${name}.invalid`, port: 22 });
   await setup(page, {
     assistants: [
       home({
         teamMemberId: "m1",
         lifetime: "task",
+        parentAssistantId: "lead",
         inherited: { capabilities: {}, skills: [], shell: "approval", ssh: true },
       }),
     ],
-    catalog,
+    catalog: {
+      ...catalog,
+      sshHosts: [host("access-a", "Proxmox 2"), host("access-b", "nas")],
+    },
   });
+  await page.route("**/api/assistants/lead/access", (route) =>
+    route.fulfill({ json: { revision: 3, sshAccesses: leadGrants } }),
+  );
   await page.route("**/api/assistants/home/ssh-agent", (route) =>
     route.fulfill({ json: { state: "ready", aliases: { "access-a": "proxmox-2" } } }),
   );
@@ -110,5 +118,23 @@ test("a temporary member using its lead's SSH shows its plain ssh aliases", asyn
     page.getByText("Plain ssh works in this agent's shell for its trusted hosts"),
   ).toBeVisible();
   await expect(page.getByText("ssh proxmox-2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Proxmox 2", { exact: true })).toBeVisible();
+  await expect(page.getByText("proxmox-2", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("combobox")).toHaveCount(0);
+}
+
+test("a temporary member using its lead's SSH shows its plain ssh aliases", async ({
+  page,
+}) => {
+  await memberWithLeadSsh(page, [
+    { accessId: "access-a", mode: "trusted" },
+    { accessId: "access-b", mode: "approval" },
+  ]);
+  await expect(page.getByText("Hosts with approval have no alias")).toBeVisible();
+});
+
+test("a member whose lead trusts every host shows no approval hint", async ({ page }) => {
+  await memberWithLeadSsh(page, [{ accessId: "access-a", mode: "trusted" }]);
+  await expect(page.getByText("Open connections and tunnels stay open")).toBeVisible();
+  await expect(page.getByText("Hosts with approval have no alias")).toHaveCount(0);
 });
