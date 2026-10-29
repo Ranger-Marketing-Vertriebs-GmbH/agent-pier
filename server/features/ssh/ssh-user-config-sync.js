@@ -124,8 +124,11 @@ export class SshUserConfig {
       // A data folder the block cannot name is the same fallback as a refused config.
       if (error?.code === "SSH_CONFIG_PATH_UNSUPPORTED") return this.report(error.code);
     }
+    // The block goes in once some session has an alias (R35): a shell session in a
+    // project without hosts never touches ~/.ssh/config. Once written it stays, and
+    // later updates without aliases only rewrite the dispatcher.
     if (!this.active) {
-      if (!entries.length) return;
+      if (!entries.some((entry) => entry.aliases?.length > 0)) return;
       try {
         installSshConfigInclude({
           home: this.home,

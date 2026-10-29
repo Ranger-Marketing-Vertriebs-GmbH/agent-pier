@@ -61,7 +61,9 @@ test("a refused ~/.ssh/config is reported in the agent status and logged", async
   fs.mkdirSync(path.join(home, ".ssh"), { mode: 0o700 });
   fs.symlinkSync(path.join(home, "dotfiles-config"), path.join(home, ".ssh", "config"));
   const f = withUserConfig(t, home);
-  const { record } = await launch(f);
+  const id = randomUUID();
+  await f.grants.set({ id }, ["access-a"]);
+  const { record } = await launch(f, { id });
   await f.agents.userConfig.idle();
   const status = f.agents.status(record);
   assert.equal(status.state, "ready");
@@ -75,7 +77,9 @@ test("a refused ~/.ssh/config is reported in the agent status and logged", async
 test("a service start with a running agent session puts the block in place", async (t) => {
   const home = userHome(t);
   const f = fixture(t);
-  const { record } = await launch(f);
+  const id = randomUUID();
+  await f.grants.set({ id }, ["access-a"]);
+  const { record } = await launch(f, { id });
   await f.agents.close();
   assert.equal(fs.existsSync(path.join(home, ".ssh")), false);
   const restarted = new SessionSshAgents({
@@ -90,6 +94,34 @@ test("a service start with a running agent session puts the block in place", asy
     fs.readFileSync(path.join(home, ".ssh", "config"), "utf8"),
     /BEGIN AgentPier/,
   );
+});
+
+test("a shell session without aliases leaves ~/.ssh/config untouched (R35)", async (t) => {
+  const home = userHome(t);
+  const f = withUserConfig(t, home);
+  const { record } = await launch(f, { tool: "shell" });
+  await f.agents.userConfig.idle();
+  assert.equal(f.agents.status(record).state, "ready");
+  assert.deepEqual(f.agents.status(record).aliases, {});
+  assert.equal(fs.existsSync(path.join(home, ".ssh")), false);
+  // An existing config stays byte for byte, and once a session gets an alias the
+  // block is written and kept when that alias goes again.
+  fs.mkdirSync(path.join(home, ".ssh"), { mode: 0o700 });
+  const config = path.join(home, ".ssh", "config");
+  fs.writeFileSync(config, "Host own\n  User me\n", { mode: 0o600 });
+  await f.agents.sync(record);
+  await f.agents.refresh();
+  await f.agents.userConfig.idle();
+  assert.equal(fs.readFileSync(config, "utf8"), "Host own\n  User me\n");
+  await f.grants.set(record, ["access-a"]);
+  await f.agents.sync(record);
+  await f.agents.userConfig.idle();
+  assert.match(fs.readFileSync(config, "utf8"), /^# BEGIN AgentPier /);
+  await f.grants.set(record, []);
+  await f.agents.sync(record);
+  await f.agents.userConfig.idle();
+  assert.match(fs.readFileSync(config, "utf8"), /^# BEGIN AgentPier [\s\S]*Host own\n/);
+  assert.doesNotMatch(dispatcherOf(f), /originalhost/);
 });
 
 test("without a wired user config nothing outside the data folder is written", async (t) => {
