@@ -51,6 +51,7 @@ export class PipelineEngine {
     onError = () => {},
     mutationBarrier,
     onChange,
+    onRemove,
     completionGraceMs = 30000,
     inactivityTimeoutMs = 7200000,
     turnTimeoutMs = 21600000,
@@ -62,7 +63,7 @@ export class PipelineEngine {
     this.audit = audit;
     this.timing = { completionGraceMs, inactivityTimeoutMs, turnTimeoutMs };
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    this.store = new RunStore(dataDir, onChange);
+    this.store = new RunStore(dataDir, onChange, { onRemove });
     this.ports = new PortLeases({
       range: portRange,
       probe: portProbe,

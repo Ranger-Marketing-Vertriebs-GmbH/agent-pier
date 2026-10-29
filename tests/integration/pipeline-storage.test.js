@@ -242,3 +242,38 @@ test("a run an earlier build saved last keeps only that build's active turn", ()
       expected,
     );
 });
+test("a removed run is announced once, and run filters use the field indexes", (t) => {
+  const dir = temporary(t),
+    removed = [],
+    store = new RunStore(dir, () => {}, { onRemove: (id) => removed.push(id) });
+  t.after(() => store.close());
+  store.create({ id: "a", status: "completed", projectId: "p1" });
+  store.create({ id: "b", status: "running", projectId: "p2" });
+  store.remove("a");
+  store.remove("a");
+  assert.deepEqual(removed, ["a"]);
+  const plan = (sql, ...args) =>
+    store.db
+      .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...args)
+      .map((row) => row.detail)
+      .join("\n");
+  assert.match(
+    plan(
+      "SELECT doc FROM runs WHERE json_extract(doc,'$.status')=? ORDER BY rowid DESC",
+      "x",
+    ),
+    /runs_status/,
+  );
+  assert.match(
+    plan("SELECT 1 FROM runs WHERE json_extract(doc,'$.projectId')=? LIMIT 1", "p2"),
+    /runs_project/,
+  );
+  assert.deepEqual(
+    store.page({ status: "running" }).runs.map((run) => run.id),
+    ["b"],
+  );
+  assert.equal(store.page({ projectId: "p1" }).total, 0);
+  assert.equal(store.page({ status: "running", projectId: "p2" }).total, 1);
+  assert.equal(store.page().total, 1);
+});
