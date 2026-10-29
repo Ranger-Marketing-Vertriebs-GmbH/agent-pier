@@ -417,7 +417,9 @@ export class LiveClient {
       entry.have = { instance: this.instance, revision: frame.revision };
       data = frame.data;
     }
+    // When the server began the read behind this value (server/lib/read-stamp.js).
     entry.held = { data, revision: frame.revision };
+    if (Number.isSafeInteger(frame.readAt)) entry.held.readAt = frame.readAt;
     entry.condition = null;
     this.emit(entry, { type: "data", ...entry.held });
   }
