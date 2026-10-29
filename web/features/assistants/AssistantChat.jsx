@@ -241,7 +241,7 @@ export default function AssistantChat({
   useLayoutEffect(() => {
     if (!output.current) return undefined;
     stick.current = true;
-    return followEnd(output.current, stick, scroll);
+    return followEnd(output.current, stick, scroll, () => unanchor.current !== null);
   }, [conversationId]);
   // A team link (/agents/:id/teams/:teamId) shows what the team needs from the owner,
   // or else its latest note, once the history is rendered (not just received) and either
@@ -262,7 +262,8 @@ export default function AssistantChat({
     if (!target) return;
     focused.current = focusTeamId;
     stick.current = false;
-    unanchor.current = anchorToChild(element, target, () => !stick.current);
+    const release = () => (unanchor.current = null);
+    unanchor.current = anchorToChild(element, target, () => !stick.current, release);
   });
   // One delivery of a message; `accepted` runs once the server has taken it.
   async function deliver(submitted, ids, accepted) {
