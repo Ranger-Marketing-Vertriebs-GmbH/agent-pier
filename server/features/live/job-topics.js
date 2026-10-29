@@ -23,8 +23,10 @@ export function jobTopic({
 }) {
   if (typeof kind !== "string" || typeof read !== "function")
     throw new Error("A job topic needs a kind and read");
-  // The status each watched job had at its last read: sampled while it ran.
+  // The status each watched job had at its last read: sampled while it ran. Only a
+  // watched job's is kept, so a read that ends after the last unsubscribe adds none.
   const statuses = new Map();
+  const watched = new Set();
   return {
     name: `job.${kind}`,
     mode: "state",
@@ -34,8 +36,10 @@ export function jobTopic({
     authorize: (principal, id) => owner(principal) && authorize(principal, id) === true,
     scopeKey: () => "owner",
     watch(context) {
+      watched.add(context.param);
       const unwatch = watch?.(context);
       return () => {
+        watched.delete(context.param);
         statuses.delete(context.param);
         if (typeof unwatch === "function") unwatch();
       };
@@ -43,7 +47,7 @@ export function jobTopic({
     ...(sampleMs ? { sampling: (id) => statuses.get(id) === "running" } : {}),
     async read(_principal, id) {
       const value = await read(id);
-      if (sampleMs) statuses.set(id, status(value));
+      if (sampleMs && watched.has(id)) statuses.set(id, status(value));
       return value;
     },
   };

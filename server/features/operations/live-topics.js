@@ -4,8 +4,9 @@
 // migration, activation, rollback), the value GET /api/operations/jobs/:id answers.
 // OperationJobs' onChange (every status write) signals it through
 // operationJobChanged. A release activation or rollback is written by a helper
-// process the server does not hear, so a running job is also sampled every 1.5 s
-// (the former poll); an ended job never changes and is not sampled. An unknown job
+// process the server does not hear: a watched job's file is followed (fs.watch), and
+// as that may miss a write, a running job is also sampled every 1.5 s (the former
+// poll); an ended job never changes and is not sampled. An unknown job
 // is the route's 404, which the hub does not log. It is one kind of the
 // `job.<kind>` family (live/job-topics.js).
 //
@@ -16,6 +17,7 @@
 // visible tab watches; a release job's status change signals it at once.
 import { releaseVersion } from "./release-archive.js";
 import { jobTopic } from "../live/job-topics.js";
+import { DirectoryWatchers } from "../../lib/directory-watchers.js";
 
 export const OPERATION_JOB_SAMPLE_MS = 1500;
 export const RELEASE_SESSIONS_SAMPLE_MS = 3000;
@@ -42,11 +44,18 @@ export function operationJobChanged(hub, job) {
 }
 
 /** The `job.operation` options for defineJobTopic (live/job-topics.js). */
-export function operationJob(services) {
+export function operationJob(services, { watchers = new DirectoryWatchers() } = {}) {
   return {
     kind: "operation",
     param: JOB_ID,
     sampleMs: OPERATION_JOB_SAMPLE_MS,
+    // The release helper's writes to the job file (OperationJobs writes atomically).
+    watch({ param, invalidate }) {
+      const directory = services.operations?.jobs?.directory;
+      if (!directory) return undefined;
+      const release = watchers.add(directory, `${param}.json`, () => invalidate());
+      return () => release?.();
+    },
     status: (value) => value.job.status,
     // A read may mark a silent helper's job interrupted (OperationJobs#get).
     read: (id) => ({ job: services.operations.jobs.get(id) }),
