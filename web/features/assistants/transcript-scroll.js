@@ -26,9 +26,10 @@ const readerInput = ["wheel", "touchstart", "pointerdown", "keydown"];
  * Scrolls a transcript to one of its descendants and keeps it there while the content
  * still changes size (history, notes or cards that render late), until the reader
  * scrolls, touches or types in it, the element leaves, or `holds()` turns false.
- * WebKit has no scroll anchoring and would leave the element behind. Returns `stop`.
+ * WebKit has no scroll anchoring and would leave the element behind. `onStop` runs once
+ * it lets go. Returns `stop`.
  */
-export function anchorToChild(container, element, holds = () => true) {
+export function anchorToChild(container, element, holds = () => true, onStop = () => {}) {
   scrollToChild(container, element);
   const resized = new ResizeObserver(() => {
     if (element.isConnected && holds()) scrollToChild(container, element);
@@ -40,6 +41,7 @@ export function anchorToChild(container, element, holds = () => true) {
     resized.disconnect();
     added.disconnect();
     readerInput.forEach((type) => container.removeEventListener(type, stop));
+    onStop();
   }
   observe();
   added.observe(container, { childList: true });
@@ -61,9 +63,11 @@ const inputWindow = 600;
  * fonts loading late. Only the reader's own scrolling (wheel, touch, scrollbar,
  * keys) lets go of the end, and scrolling back near it holds it again; a scroll the
  * browser makes by itself (clamping, anchoring, a resize) never does. `scroll.current`
- * follows the position. Returns `stop`.
+ * follows the position. While `anchored()` holds (a link landed on an entry), reaching
+ * the end does not hold it either: the landing scroll itself may end near it before
+ * late content arrives below. Returns `stop`.
  */
-export function followEnd(container, stick, scroll) {
+export function followEnd(container, stick, scroll, anchored = () => false) {
   let height = container.clientHeight;
   // A finger on the transcript, or a mouse button held on it (its scrollbar). Touch
   // pointers are left to the touch events: their pointercancel comes mid-gesture.
@@ -93,7 +97,7 @@ export function followEnd(container, stick, scroll) {
     scroll.current = container.scrollTop;
     const end =
       container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-    if (end) stick.current = true;
+    if (end && !anchored()) stick.current = true;
     else if (held.touch || held.pointer || performance.now() - inputAt < inputWindow)
       stick.current = false;
   };
