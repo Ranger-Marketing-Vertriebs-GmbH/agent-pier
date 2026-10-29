@@ -14,7 +14,10 @@ import {
   reaJobChanged,
   toolJobsChanged,
 } from "../../server/features/tools/live-topics.js";
-import { toolInstallations } from "../../server/features/tools/tool-installation-list.js";
+import {
+  toolInstallations,
+  versionsSettled,
+} from "../../server/features/tools/tool-installation-list.js";
 import { ToolInstaller } from "../../server/features/tools/tool-installer.js";
 import { ReaTool } from "../../server/features/tools/rea-tool.js";
 import { uninstallRea } from "../../server/features/tools/rea-lifecycle.js";
@@ -407,4 +410,27 @@ test("the job topics' snapshots and pushes equal their routes", async (t) => {
     await json(f, "/api/tool-installations?tool=codex"),
   );
   live.ws.close();
+});
+
+test("a tool's version re-push waits for its own probe only", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-version-probe-"));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  // Another installed CLI whose --version never answers in time.
+  const slow = path.join(dir, "claude");
+  await fs.writeFile(slow, "#!/bin/sh\nsleep 30\n", { mode: 0o755 });
+  const installer = {
+    home: dir,
+    dataDir: dir,
+    detect: () => [
+      { id: "codex", installed: true, path: path.join(dir, "missing-codex") },
+      { id: "claude", installed: true, path: slow },
+    ],
+  };
+  const started = Date.now();
+  const settled = await versionsSettled(installer, "codex");
+  assert.ok(Date.now() - started < 2000);
+  assert.deepEqual(
+    settled.map((tool) => tool.id),
+    ["codex"],
+  );
 });
