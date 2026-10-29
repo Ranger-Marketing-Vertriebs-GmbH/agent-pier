@@ -359,6 +359,32 @@ test("written waits for the write's push, or reads the route when none comes", a
   assert.deepEqual(s.reads, ["/inbox", "/inbox", "/inbox"]);
 });
 
+test("written calls the browser's timers unbound, as window's require", async () => {
+  const fake = fakeEnv();
+  const strict = (fn) =>
+    function (...args) {
+      if (this !== undefined && this !== globalThis)
+        throw new TypeError("Illegal invocation");
+      return fn(...args);
+    };
+  const client = fakeClient({ connected: true });
+  const reader = startLiveTopic({
+    topicId: "inbox",
+    client,
+    env: {
+      ...fake.env,
+      setTimeout: strict(fake.env.setTimeout),
+      clearTimeout: strict(fake.env.clearTimeout),
+    },
+    read: async (path) => ({ path }),
+    report: () => {},
+  });
+  const pending = reader.written();
+  await fake.advance(WRITTEN_WAIT_MS);
+  assert.deepEqual(await pending, { path: "/inbox" });
+  reader.stop();
+});
+
 test("a written() still waiting resolves null when the topic stops", async () => {
   const s = setup("inbox", { client: fakeClient({ connected: true }) });
   const pending = s.reader.written();

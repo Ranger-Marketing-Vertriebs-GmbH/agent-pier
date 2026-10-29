@@ -242,16 +242,18 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       const { connected, fallback } = client.status();
       if (stopped || !connected || fallback || refused || revoked || stopPolling)
         return fetchOnce().then((data) => data ?? null);
+      // Called unbound: a browser's setTimeout refuses another `this` than window.
+      const { setTimeout: later, clearTimeout: cancel } = scope;
       return new Promise((resolve) => {
         let timer = null;
         const done = (data) => {
           if (!waiting.delete(done)) return;
-          scope.clearTimeout(timer);
+          cancel(timer);
           resolve(data);
         };
         waiting.add(done);
         // No push in time (an unchanged value, a lost frame): the route answers.
-        timer = scope.setTimeout(() => {
+        timer = later(() => {
           if (!waiting.delete(done)) return;
           fetchOnce().then((data) => resolve(data ?? null));
         }, WRITTEN_WAIT_MS);
