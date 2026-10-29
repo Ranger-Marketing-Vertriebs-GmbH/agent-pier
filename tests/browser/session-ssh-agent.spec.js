@@ -162,7 +162,18 @@ test("a ~/.ssh/config left unchanged is named with the fallback", async ({ page 
   });
   await openDialog(page);
   await expect(
-    dialog(page).getByText(/left ~\/\.ssh\/config unchanged \(SSH_CONFIG_LINK\)/),
+    dialog(page).getByText(/left ~\/\.ssh\/config unchanged: it is a link\./),
   ).toBeVisible();
   await expect(dialog(page).getByText(/ssh -F "\$AGENTPIER_SSH_CONFIG"/)).toBeVisible();
+});
+
+test("a failed ssh check is named in German without its code", async ({ page }) => {
+  await fixture(page, "de", (state) => {
+    state.agent = { ...state.agent, sshConfig: "SSH_CONFIG_CHECK_FAILED" };
+  });
+  await openDialog(page, "SSH-Zugänge");
+  await expect(
+    dialog(page).getByText(/ssh meldete mit dem AgentPier-Block einen Fehler/),
+  ).toBeVisible();
+  await expect(dialog(page).getByText(/SSH_CONFIG_CHECK/)).toHaveCount(0);
 });

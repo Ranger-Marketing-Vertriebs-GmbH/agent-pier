@@ -68,6 +68,14 @@ Every test process also inherits `AGENTPIER_TEST_RUN=<id>`; the assistant runtim
 
 Fixtures that start long-lived or signal-ignoring processes register them with `guardProcess(t, child, { group })` from `tests/helpers/process-guard.js`: the test's `t.after` sends SIGTERM and then SIGKILL, and a process still registered when the test process exits (after a failure, timeout or `process.exit`) is killed outright. `GuardedRuntimeSupervisor` from the same helper guards every Gateway a contract test starts. Stopping it also waits (up to 10 s, then SIGKILL) for the OpenClaw worker processes (`openclaw/dist/**/*.worker.js`) the Gateway had when the stop began, so a contract can remove its data directory right after `runtime.close()`; exec commands, such as a background exec that outlives a restart on macOS, are left alone. A fixture that uses the assistant graph's own supervisor gets the same wait from `guardRuntimeWorkers(runtime)`.
 
+Only a persistent instance writes its marked block into `~/.ssh/config` (for bare
+`ssh <alias>` in sessions with an SSH agent). Dev runs (`AGENTPIER_DEV=1`) and data folders
+under the temp folder (test servers, `applicationFixture`) never do. A separate spike or
+review instance with its own data folder outside the temp folder sets
+`AGENTPIER_SSH_USER_CONFIG=0`; otherwise it adds its own block, keyed by its data folder,
+which `npm run ssh-config:remove` with that instance's `AGENTPIER_DATA_DIR` takes out
+again. A block whose data folder was deleted stays harmless.
+
 The Shell lifecycle test launches a local shell with the fixture's empty home. It exercises HTTP creation, restart persistence, rejection of deletion while running, explicit stop and deletion. It sends no shell input and invokes no coding model. The helper requires Node, Git and tmux prerequisites used by the application itself.
 
 ## Matrix interpretation and remaining gaps

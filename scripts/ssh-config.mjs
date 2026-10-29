@@ -3,12 +3,21 @@
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { serverMessages } from "../server/lib/i18n/de.js";
 import { loadConfig } from "../server/lib/config.js";
-import { removeSshConfigInclude } from "../server/features/ssh/ssh-user-config.js";
+import {
+  removeSshConfigInclude,
+  sshConfigKey,
+} from "../server/features/ssh/ssh-user-config.js";
 
-export function runSshConfig({ action, home = loadConfig().home, log = console.log }) {
+export function runSshConfig({
+  action,
+  home = loadConfig().home,
+  dataDir = loadConfig().dataDir,
+  log = console.log,
+}) {
   if (action !== "remove") throw new Error(serverMessages.scripts.sshConfigUsage);
   try {
-    const result = removeSshConfigInclude({ home });
+    // Only this data folder's block; other instances keep theirs.
+    const result = removeSshConfigInclude({ home, key: sshConfigKey(dataDir) });
     log(
       result === "removed"
         ? serverMessages.scripts.sshConfigRemoved

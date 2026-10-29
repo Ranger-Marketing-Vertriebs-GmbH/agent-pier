@@ -9,6 +9,18 @@ const reasons = {
   "not-eligible": () => copy.agentNotEligible,
 };
 
+// Codes of ssh-user-config.js, shown as a short reason.
+const configReasons = {
+  SSH_CONFIG_LINK: "link",
+  SSH_CONFIG_NOT_FILE: "notFile",
+  SSH_CONFIG_UNREADABLE: "unreadable",
+  SSH_CONFIG_BLOCK_DAMAGED: "damaged",
+  SSH_CONFIG_PATH_UNSUPPORTED: "path",
+  SSH_CONFIG_WRITE_FAILED: "write",
+  SSH_CONFIG_CHANGED: "changed",
+  SSH_CONFIG_CHECK_FAILED: "check",
+};
+
 /**
  * The session's SSH agent (GET /sessions/:id/ssh-accesses `agent`, live through
  * `job.ssh-tools`): one status line and, while it is ready, a note when ~/.ssh/config
@@ -34,7 +46,11 @@ export default function SessionSshAgentStatus({ agent, accesses = [] }) {
         {ready ? copy.agentReady : (reasons[agent.reason] || reasons["not-eligible"])()}
       </p>
       {ready && agent.sshConfig && (
-        <p className="dialog-hint">{copy.agentSshConfig(agent.sshConfig)}</p>
+        <p className="dialog-hint">
+          {copy.agentSshConfig(
+            copy.agentSshConfigReasons[configReasons[agent.sshConfig] || "other"],
+          )}
+        </p>
       )}
       {rows.map(([id, alias]) => (
         <SshCopy

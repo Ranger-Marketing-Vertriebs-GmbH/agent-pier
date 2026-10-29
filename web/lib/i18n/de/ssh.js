@@ -61,8 +61,19 @@ export const sshCopy = {
     "Direktes ssh konnte für diese Session nicht gestartet werden. ssh_execute funktioniert weiter.",
   agentNotEligible: "Direktes ssh ist in dieser Session nicht verfügbar.",
   agentAliasLabel: (alias) => `ssh ${alias}`,
-  agentSshConfig: (code) =>
-    `AgentPier hat ~/.ssh/config nicht geändert (${code}). Meldet ssh <alias> einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
+  agentSshConfig: (reason) =>
+    `AgentPier hat ~/.ssh/config nicht geändert: ${reason}. Meldet ssh <alias> einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
+  agentSshConfigReasons: {
+    link: "die Datei ist ein Link",
+    notFile: "sie ist keine normale Datei",
+    unreadable: "sie ist nicht lesbar",
+    damaged: "ihr AgentPier-Block ist unvollständig",
+    path: "der Pfad des Datenordners lässt sich darin nicht angeben",
+    write: "sie konnte nicht geschrieben werden",
+    changed: "sie wurde während des Schreibens geändert",
+    check: "ssh meldete mit dem AgentPier-Block einen Fehler",
+    other: "ein unbekanntes Problem",
+  },
   agentOpenConnections:
     "Eine entfernte Zuweisung sperrt neue Verbindungen sofort. Bereits offene Verbindungen und Tunnel bleiben offen, bis sie enden.",
   reload: "Neu laden & fortsetzen",

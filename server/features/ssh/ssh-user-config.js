@@ -1,54 +1,75 @@
-// The one block AgentPier keeps at the top of the user's ~/.ssh/config, so a bare
-// `ssh <alias>` inside a session with an SSH agent finds the session's aliases even when
-// the session's `bin/` wrappers are not on PATH (an absolute /usr/bin/ssh, a tool that
-// resets PATH):
+// The blocks AgentPier keeps at the top of the user's ~/.ssh/config, one per data folder,
+// so a bare `ssh <alias>` inside a session with an SSH agent finds the session's aliases
+// even when the session's `bin/` wrappers are not on PATH (an absolute /usr/bin/ssh, a
+// tool that resets PATH):
 //
-//   # BEGIN AgentPier (managed, do not edit)
-//   Match exec "test -n \"$AGENTPIER_SSH_CONFIG\""
+//   # BEGIN AgentPier <hash8 of the data folder> (managed, do not edit)
+//   Match exec "printenv AGENTPIER_SSH_CONFIG >/dev/null"
 //     Include "<dataDir>/ssh-agents/include.con[f]"
 //   Match all
-//   # END AgentPier
+//   # END AgentPier <hash8>
 //
 // Outside a session (the user's own terminal) AGENTPIER_SSH_CONFIG is unset, the Match is
 // false and `ssh -G` prints exactly what it printed without the block; `Match all` makes
-// the user's following lines apply as before. `Include ${AGENTPIER_SSH_CONFIG}` would
-// need no dispatcher, but OpenSSH 9.9+ expands an Include path even under a false Match
-// and prints "env var ${AGENTPIER_SSH_CONFIG} has no value" on every ssh where it is
-// unset (and below 9.9 it does not expand at all). So the block names a fixed
-// dispatcher file AgentPier rewrites as agents start and stop: one entry per session,
+// the user's following lines apply as before. OpenSSH runs `exec` through `$SHELL`, so
+// the commands avoid `"$VAR"` (csh and tcsh abort on an unset variable). Each instance
+// owns only its own block, so several instances (a spike next to the service) coexist.
+// `Include ${AGENTPIER_SSH_CONFIG}` would need no dispatcher, but OpenSSH 9.9+ expands
+// an Include path even under a false Match and prints "env var … has no value" on every
+// ssh where it is unset (and below 9.9 it does not expand at all). So the block names a
+// fixed dispatcher file AgentPier rewrites as agents start and stop: one entry per session,
 //
-//   Match originalhost <its aliases> exec "test \"$AGENTPIER_SSH_CONFIG\" = \"<its config>\""
+//   Match originalhost <its aliases> exec "printenv AGENTPIER_SSH_CONFIG | grep -qxF -- '<its config>'"
 //     Include "<its folder>/ssh_confi[g]"
 //
 // `originalhost` comes first, so the user's terminal runs no command unless it connects
 // to an alias name, and two sessions with the same alias each get their own. OpenSSH
 // reads an Include even under a false Match, and an unreadable file aborts the whole
 // config: the last character of every Include is a glob class, so a folder the sandbox
-// cannot list (another session's, or `ssh-agents` itself) matches nothing instead.
+// cannot list (another session's, or `ssh-agents` itself) matches nothing instead, and
+// ssh-user-config-sync.js checks every write with the real `ssh -G`.
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { privateFolder, writePrivateText } from "../../lib/storage.js";
+import { createHash, randomUUID } from "node:crypto";
 
-export const SSH_CONFIG_BEGIN = "# BEGIN AgentPier (managed, do not edit)";
-export const SSH_CONFIG_END = "# END AgentPier";
 export const SSH_CONFIG_BACKUP = "config.agentpier-backup";
-const DISPATCHER = "include.conf";
 const aliasPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
-const failure = (code) => Object.assign(new Error(code), { code });
+export const failure = (code) => Object.assign(new Error(code), { code });
+
+/** The block key of a data folder: 8 hex digits of its physical path. */
+export function sshConfigKey(dataDir) {
+  let folder = path.resolve(dataDir);
+  try {
+    folder = fs.realpathSync(folder);
+  } catch {
+    // A folder that does not exist yet keys by its resolved path.
+  }
+  return createHash("sha256").update(folder).digest("hex").slice(0, 8);
+}
+
+/** The first and last line of the block of `key`. */
+export function blockMarkers(key) {
+  if (!/^[0-9a-f]{8}$/.test(key)) throw failure("SSH_CONFIG_PATH_UNSUPPORTED");
+  return {
+    begin: `# BEGIN AgentPier ${key} (managed, do not edit)`,
+    end: `# END AgentPier ${key}`,
+  };
+}
 
 /**
  * A path as one quoted ssh_config word that `Include` reads literally: glob characters
  * are escaped and the last character becomes a class (`ssh_confi[g]`), so an unlistable
  * folder is skipped. Refuses what neither quoting nor escaping keeps literal: control
- * characters, `"`, `\`, `$` (environment variables), `%` (tokens) and a backtick.
+ * characters, a double quote, a backslash, a dollar sign (environment variables), `%`
+ * (tokens), a backtick, and `'` and `!`, which would end or expand the single-quoted
+ * path of the dispatcher's `exec`.
  */
 export function includeWord(file) {
   if (
     typeof file !== "string" ||
     !path.isAbsolute(file) ||
-    /[\x00-\x1f\x7f"\\$%`]/.test(file)
+    /[\x00-\x1f\x7f"\\$%`'!]/.test(file)
   )
     throw failure("SSH_CONFIG_PATH_UNSUPPORTED");
   const escape = (value) => value.replace(/[*?[\]]/g, "\\$&");
@@ -58,14 +79,15 @@ export function includeWord(file) {
   return `"${escape(head)}[${last}]"`;
 }
 
-/** The marked block that includes `dispatcher` only inside an AgentPier session. */
-export function renderIncludeBlock(dispatcher) {
+/** The marked block of `key` that includes `dispatcher` only inside a session. */
+export function renderIncludeBlock(dispatcher, key) {
+  const { begin, end } = blockMarkers(key);
   return [
-    SSH_CONFIG_BEGIN,
-    'Match exec "test -n \\"$AGENTPIER_SSH_CONFIG\\""',
+    begin,
+    'Match exec "printenv AGENTPIER_SSH_CONFIG >/dev/null"',
     `  Include ${includeWord(dispatcher)}`,
     "Match all",
-    SSH_CONFIG_END,
+    end,
     "",
   ].join("\n");
 }
@@ -78,22 +100,23 @@ export function renderDispatcher(entries) {
     if (!names.length) continue;
     const word = includeWord(configPath);
     lines.push(
-      `Match originalhost ${names.join(",")} exec "test \\"$AGENTPIER_SSH_CONFIG\\" = \\"${configPath}\\""`,
+      `Match originalhost ${names.join(",")} exec "printenv AGENTPIER_SSH_CONFIG | grep -qxF -- '${configPath}'"`,
       `  Include ${word}`,
     );
   }
   return `${lines.join("\n")}\n`;
 }
 
-/** The user's text without AgentPier's block; refuses a block without its end. */
-function withoutBlock(text) {
+/** The user's text without the block of `key`; refuses a block without its end. */
+export function withoutBlock(text, key) {
+  const { begin, end } = blockMarkers(key);
   const lines = text.split(/(?<=\n)/);
   const kept = [];
   let inside = false;
   for (const line of lines) {
     const bare = line.replace(/\r?\n$/, "");
-    if (!inside && bare === SSH_CONFIG_BEGIN) inside = true;
-    else if (inside && bare === SSH_CONFIG_END) inside = false;
+    if (!inside && bare === begin) inside = true;
+    else if (inside && bare === end) inside = false;
     else if (!inside) kept.push(line);
   }
   if (inside) throw failure("SSH_CONFIG_BLOCK_DAMAGED");
@@ -104,7 +127,7 @@ const sameFile = (a, b) =>
   a.dev === b.dev && a.ino === b.ino && a.size === b.size && a.mtimeMs === b.mtimeMs;
 
 /** `~/.ssh/config` as `{ file, text, stat }` (stat null when missing), or a refusal. */
-function readUserConfig(home, { create }) {
+export function readUserConfig(home, { create }) {
   const folder = path.join(home, ".ssh");
   try {
     if (!fs.statSync(folder).isDirectory()) throw failure("SSH_CONFIG_NOT_FILE");
@@ -186,65 +209,38 @@ function replaceUserConfig({ file, stat }, text) {
 }
 
 /**
- * Puts the block at the very top of `<home>/.ssh/config` (creating `~/.ssh` 0700 and
+ * Puts the block of `key` at the very top of `<home>/.ssh/config` (creating `~/.ssh` 0700 and
  * the file 0600 when missing), keeping every other line and the file mode. Returns
  * "written" or "unchanged"; throws `{ code }` for a link, a non-file, an unreadable
- * file, a damaged block, a path the block cannot name, or a failed write.
+ * file, a damaged block, a path the block cannot name, or a failed write. Blocks of
+ * other keys (other instances) stay where they are.
  */
-export function installSshConfigInclude({ home, dispatcher }) {
-  const block = renderIncludeBlock(dispatcher);
+export function installSshConfigInclude({ home, dispatcher, key }) {
+  const block = renderIncludeBlock(dispatcher, key);
   const current = readUserConfig(home, { create: true });
-  const rest = withoutBlock(current.text);
+  const rest = withoutBlock(current.text, key);
   if (current.text === block + rest) return "unchanged";
   replaceUserConfig(current, block + rest);
   return "written";
 }
 
-/** Removes the block (uninstall): "removed", or "absent" when there is none. */
-export function removeSshConfigInclude({ home }) {
+/**
+ * Removes the block of `key` (uninstall, or a failed check): "removed", or "absent"
+ * when there is none. A config AgentPier created (no backup of a file the user had) that
+ * is empty afterwards is deleted; `~/.ssh` and the backup stay.
+ */
+export function removeSshConfigInclude({ home, key }) {
   const current = readUserConfig(home, { create: false });
   if (!current?.stat) return "absent";
-  const rest = withoutBlock(current.text);
+  const rest = withoutBlock(current.text, key);
   if (rest === current.text) return "absent";
+  const backup = path.join(path.dirname(current.file), SSH_CONFIG_BACKUP);
+  if (!rest && !fs.existsSync(backup)) {
+    if (!sameFile(fs.lstatSync(current.file), current.stat))
+      throw failure("SSH_CONFIG_CHANGED");
+    fs.unlinkSync(current.file);
+    return "removed";
+  }
   replaceUserConfig(current, rest);
   return "removed";
-}
-
-/**
- * The block and the dispatcher for SessionSshAgents. `update(entries)` rewrites the
- * dispatcher and, with at least one entry, puts the block in place once per process.
- * `problem` is the code of a refusal (the CLI hint's `ssh -F` fallback applies).
- */
-export class SshUserConfig {
-  constructor({ home, dataDir, log = console }) {
-    this.home = home;
-    this.root = path.join(path.resolve(dataDir), "ssh-agents");
-    this.dispatcher = path.join(this.root, DISPATCHER);
-    this.log = log;
-    this.installed = false;
-    this.problem = null;
-  }
-
-  update(entries) {
-    // Nothing to name and nothing named before: no dispatcher for a user without agents.
-    if (!entries.length && !this.installed && !fs.existsSync(this.dispatcher)) return;
-    try {
-      privateFolder(this.root, () => failure("SSH_FOLDER_UNSAFE"));
-      writePrivateText(this.dispatcher, renderDispatcher(entries));
-    } catch (error) {
-      this.log.error("Session SSH aliases for ~/.ssh/config:", error?.code || "error");
-      // A data folder the block cannot name is the same fallback as a refused config.
-      if (error?.code === "SSH_CONFIG_PATH_UNSUPPORTED") this.problem = error.code;
-      return;
-    }
-    if (this.installed || !entries.length) return;
-    this.installed = true;
-    try {
-      installSshConfigInclude({ home: this.home, dispatcher: this.dispatcher });
-      this.problem = null;
-    } catch (error) {
-      this.problem = error?.code || "SSH_CONFIG_WRITE_FAILED";
-      this.log.warn("~/.ssh/config left unchanged:", this.problem);
-    }
-  }
 }

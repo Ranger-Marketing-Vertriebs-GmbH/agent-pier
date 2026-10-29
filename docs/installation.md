@@ -85,12 +85,13 @@ an installation using the default path:
 ```
 
 To remove automatic startup, then delete
-`~/Library/LaunchAgents/dev.agentpier.server.plist`. To take AgentPier's marked block
-(`# BEGIN AgentPier` … `# END AgentPier`, see [Plain SSH from coding sessions](ssh-access.md))
-out of `~/.ssh/config`, run:
+`~/Library/LaunchAgents/dev.agentpier.server.plist`. To take this installation's marked
+block (`# BEGIN AgentPier <id>` … `# END AgentPier <id>`, see
+[Plain SSH from coding sessions](ssh-access.md)) out of `~/.ssh/config`, run the command
+with the installation's data folder:
 
 ```sh
-"$HOME/.local/share/agentpier-app/current/bin/node" "$HOME/.local/share/agentpier-app/current/scripts/ssh-config.mjs" remove
+AGENTPIER_DATA_DIR="$HOME/Library/Application Support/AgentPier" "$HOME/.local/share/agentpier-app/current/bin/node" "$HOME/.local/share/agentpier-app/current/scripts/ssh-config.mjs" remove
 ```
 
 For custom paths, adjust the application path in the commands accordingly. Application releases and private data
@@ -279,13 +280,19 @@ To remove automatic startup completely after stopping the service:
 rm "$HOME/Library/LaunchAgents/dev.agentpier.server.plist"
 ```
 
-AgentPier keeps one marked block at the top of `~/.ssh/config` once a session has had an
-SSH agent. It applies only inside AgentPier sessions; to remove it and leave every other
-line as it is:
+AgentPier keeps one marked block per data folder at the top of `~/.ssh/config` once a
+session has had an SSH agent. It applies only inside AgentPier sessions; to remove this
+installation's block and leave every other line, and other installations' blocks, as
+they are:
 
 ```sh
 npm run ssh-config:remove
 ```
+
+Before its first change AgentPier saved your previous file as
+`~/.ssh/config.agentpier-backup`; removal keeps that copy, delete it yourself when you no
+longer need it. A `~/.ssh/config` that AgentPier created is deleted when its last block
+goes; `~/.ssh` stays.
 
 Disable your Tailscale exposure separately, using the port you actually configured:
 
