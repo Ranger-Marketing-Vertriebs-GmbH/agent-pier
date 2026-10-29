@@ -307,7 +307,7 @@ function executableFile(file) {
 /**
  * The executable `ssh`, `scp` and `sftp` on `pathEnv`. Relative entries are ignored,
  * and so is every candidate whose real path lies in or under a `skip` root (pass
- * `<dataDir>/ssh/agents` to skip all session wrappers, also through symlinks).
+ * `<dataDir>/ssh-agents` to skip all session wrappers, also through symlinks).
  * `scp` and `sftp` come from the folder of the chosen `ssh` when it has them.
  * Returns the binaries it finds, or null when there is no `ssh`.
  */
@@ -332,21 +332,49 @@ export function resolveOpenSshBinaries(pathEnv, skip = []) {
   return found;
 }
 
-/** `<dataDir>/ssh/agents/<sessionId>`; throws for an id that is not a plain name. */
+/**
+ * `<dataDir>/ssh-agents/<sessionId>`; throws for an id that is not a plain name. It
+ * lies outside `<dataDir>/ssh`, which sandboxed sessions with the SSH tools may write.
+ */
 export function sessionFolder(dataDir, sessionId) {
   if (!validSessionId(sessionId)) throw new Error("Invalid session id");
-  return path.join(path.resolve(dataDir), "ssh", "agents", sessionId);
+  return path.join(path.resolve(dataDir), "ssh-agents", sessionId);
 }
 
 const unsafeFolder = () =>
   Object.assign(new Error("Unsafe session SSH folder"), { code: "SSH_FOLDER_UNSAFE" });
 
+// A folder created or verified by `privateFolder`, with a `check()` that re-verifies,
+// before each write or unlink, that the path is still that very directory (same
+// device and inode, not a link). Defence in depth against a swap after the check.
+function pinnedFolder(dir, parents = []) {
+  privateFolder(dir, unsafeFolder);
+  const { dev, ino } = fs.lstatSync(dir);
+  const check = () => {
+    for (const parent of parents) parent.check();
+    const stat = fs.lstatSync(dir);
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isDirectory() ||
+      stat.dev !== dev ||
+      stat.ino !== ino
+    )
+      throw unsafeFolder();
+    return dir;
+  };
+  return { dir, check };
+}
+
+function writeIn(folder, name, text, mode) {
+  writePrivateText(path.join(folder.check(), name), text, mode);
+}
+
 // Unlink entries of a verified folder that are not in `keep`. Files and symlinks are
 // unlinked (a link is never followed); directories are left alone.
-function removeOthers(dir, keep) {
-  for (const name of fs.readdirSync(dir)) {
+function removeOthers(folder, keep) {
+  for (const name of fs.readdirSync(folder.check())) {
     if (keep.has(name)) continue;
-    const entry = path.join(dir, name);
+    const entry = path.join(folder.check(), name);
     if (!fs.lstatSync(entry).isDirectory()) fs.unlinkSync(entry);
   }
 }
@@ -376,31 +404,24 @@ export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries
       }),
     ]);
   fs.mkdirSync(path.dirname(path.dirname(folder)), { recursive: true, mode: 0o700 });
-  privateFolder(path.dirname(folder), unsafeFolder);
-  privateFolder(folder, unsafeFolder);
-  const keys = privateFolder(path.join(folder, "keys"), unsafeFolder);
-  const bin = privateFolder(path.join(folder, "bin"), unsafeFolder);
+  const root = pinnedFolder(path.dirname(folder));
+  const session = pinnedFolder(folder, [root]);
+  const keys = pinnedFolder(path.join(folder, "keys"), [root, session]);
+  const bin = pinnedFolder(path.join(folder, "bin"), [root, session]);
   const keyFiles = new Set();
   for (const host of usable) {
     const name = `${host.keyId}.pub`;
     if (keyFiles.has(name)) continue;
     keyFiles.add(name);
-    writePrivateText(path.join(keys, name), `${host.publicKey}\n`);
+    writeIn(keys, name, `${host.publicKey}\n`);
   }
   removeOthers(keys, keyFiles);
-  writePrivateText(
-    path.join(folder, "known_hosts"),
-    renderKnownHosts({ hosts: list, aliases }),
-  );
-  writePrivateText(config, configText);
-  for (const [name, script] of wrappers)
-    writePrivateText(path.join(bin, name), script, 0o700);
+  writeIn(session, "known_hosts", renderKnownHosts({ hosts: list, aliases }));
+  writeIn(session, "ssh_config", configText);
+  for (const [name, script] of wrappers) writeIn(bin, name, script, 0o700);
   removeOthers(bin, new Set(wrappers.map(([name]) => name)));
   const written = Object.fromEntries(usable.map((host) => [host.accessId, host.alias]));
-  writePrivateText(
-    path.join(folder, "aliases.json"),
-    `${JSON.stringify(written, null, 2)}\n`,
-  );
+  writeIn(session, "aliases.json", `${JSON.stringify(written, null, 2)}\n`);
   const rendered = new Set(usable.map((host) => host.accessId));
   return {
     skipped: list.map((host) => host?.accessId).filter((id) => !rendered.has(id)),

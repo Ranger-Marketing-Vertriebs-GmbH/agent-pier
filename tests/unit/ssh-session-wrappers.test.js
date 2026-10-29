@@ -211,7 +211,7 @@ function fakeBinaries(names, dir = tempFolder("path")) {
 }
 
 test("resolveOpenSshBinaries skips every session wrapper and returns what it finds", () => {
-  const agents = path.join(tempFolder("data"), "ssh", "agents");
+  const agents = path.join(tempFolder("data"), "ssh-agents");
   const ownBin = fakeBinaries(["ssh", "scp", "sftp"], path.join(agents, "s1", "bin"));
   const otherBin = fakeBinaries(["ssh"], path.join(agents, "s2", "bin"));
   const linkedDir = path.join(tempFolder("link"), "bin");

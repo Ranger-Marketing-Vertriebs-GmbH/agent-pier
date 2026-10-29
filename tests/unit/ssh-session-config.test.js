@@ -260,7 +260,7 @@ function fakeBinaries(names) {
 test("files are private and written by rename", () => {
   const dataDir = tempFolder("data");
   const folder = sessionFolder(dataDir, "session-one");
-  assert.equal(folder, path.join(dataDir, "ssh", "agents", "session-one"));
+  assert.equal(folder, path.join(dataDir, "ssh-agents", "session-one"));
   const { hosts, aliases, socketPath } = sampleInput(folder);
   const real = fakeBinaries(["ssh", "scp"]);
   const binaries = resolveOpenSshBinaries(real);
@@ -442,18 +442,42 @@ function writeInto(folder) {
 }
 
 test("planted symlinks for bin, keys or the session folder are refused", () => {
-  for (const planted of ["bin", "keys", "session", "agents"]) {
+  for (const planted of ["bin", "keys", "session", "ssh-agents"]) {
     const target = victim();
-    const folder = path.join(tempFolder("planted"), "agents", "session");
+    const folder = path.join(tempFolder("planted"), "ssh-agents", "session");
     const link = {
       bin: path.join(folder, "bin"),
       keys: path.join(folder, "keys"),
       session: folder,
-      agents: path.dirname(folder),
+      "ssh-agents": path.dirname(folder),
     }[planted];
     fs.mkdirSync(path.dirname(link), { recursive: true });
     fs.symlinkSync(target.dir, link);
     assert.throws(writeInto(folder), { code: "SSH_FOLDER_UNSAFE" }, planted);
+    target.untouched();
+  }
+});
+
+test("a folder swapped for a link after the check stops the write", (t) => {
+  for (const swapped of ["keys", "session"]) {
+    const target = victim();
+    const folder = path.join(tempFolder("swap"), "session");
+    const write = writeInto(folder);
+    write();
+    fs.symlinkSync(path.join(target.dir, "precious"), path.join(folder, "keys", "stray"));
+    const dir = swapped === "keys" ? path.join(folder, "keys") : folder;
+    const rename = fs.renameSync;
+    let done = false;
+    t.mock.method(fs, "renameSync", (from, to) => {
+      rename(from, to);
+      if (done || !to.endsWith(".pub")) return;
+      done = true;
+      rename(dir, `${dir}-moved`);
+      fs.symlinkSync(swapped === "keys" ? target.dir : path.dirname(target.dir), dir);
+    });
+    assert.throws(write, { code: "SSH_FOLDER_UNSAFE" }, swapped);
+    t.mock.restoreAll();
+    assert.equal(done, true);
     target.untouched();
   }
 });
