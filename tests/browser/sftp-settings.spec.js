@@ -212,9 +212,10 @@ test("Work tab shows SFTP mode texts", async ({ page }) => {
     modes.getByText("Reads run without asking; every change asks."),
   ).toBeVisible();
   await expect(
-    modes.getByText("Changes run without asking, deletes always ask."),
+    modes.getByText(
+      "Changes run without asking, also in routines. Deletes always ask; routines never delete.",
+    ),
   ).toBeVisible();
-  await expect(modes.getByText(/in routines\. Deletes always ask/)).toBeVisible();
   await expect(modes.getByText("You confirm every command.")).toHaveCount(0);
   await page.getByLabel("opnsense", { exact: true }).check();
   await expect(page.getByText("You confirm every command.")).toBeVisible();
