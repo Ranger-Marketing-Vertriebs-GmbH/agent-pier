@@ -533,10 +533,12 @@ test(
     // 8. An exec error OpenClaw does not mark as before the start (a host check that
     // runs inside the call) leaves an unknown process of its run only until that run
     // ends: the completion after it is credited.
-    await ownerTurn("Render on NODEHOST.");
     note = "after-node";
-    from = decisions.length;
-    const node = await completion(from);
+    const node = await credited(async () => {
+      await ownerTurn("Render on NODEHOST.");
+      from = decisions.length;
+      return completion(from);
+    });
     t.diagnostic(`node evidence=${JSON.stringify(node.exec)}`);
     assert.equal(node.exec.complete, true);
     assert.ok(node.exec.processes.every((p) => p.id !== "*"));
@@ -544,10 +546,14 @@ test(
 
     // 9. A NUL byte in the command: the supervisor's refusal before it spawns, word
     // for word as exec-processes.js knows it, starts nothing.
-    const nulTurn = await ownerTurn("Render NULBYTE.");
     note = "after-nul";
-    from = decisions.length;
-    const nul = await completion(from);
+    let nulTurn;
+    const nul = await credited(async () => {
+      nulTurn = await ownerTurn("Render NULBYTE.");
+      from = decisions.length;
+      return completion(from);
+    });
+    t.diagnostic(`nul evidence=${JSON.stringify(nul.exec)}`);
     const nulResults = (
       await runtime.client.call("sessions.get", { key: session.key }, long)
     ).messages.filter((m) => m.toolName === "exec" && text(m).includes("NUL"));
