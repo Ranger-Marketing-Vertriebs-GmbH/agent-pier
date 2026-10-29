@@ -224,8 +224,8 @@ const targetFunction = (patterns) => [
 /**
  * A POSIX sh wrapper around one OpenSSH binary (`tool` is ssh, scp or sftp). It parses
  * the options like OpenSSH and adds `-F <config>` only when the destination or a `-J`
- * jump host names a session alias and the caller did not pass its own `-F`; otherwise
- * it runs the binary with the arguments unchanged.
+ * or `-o ProxyJump` jump host names a session alias and the caller did not pass its
+ * own `-F`; otherwise it runs the binary with the arguments unchanged.
  */
 export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
   const rules = wrapperRules[tool];
@@ -255,8 +255,34 @@ export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
     "    esac",
     "  done",
     "}",
+    // `-o ProxyJump=<jump>` (also `ProxyJump <jump>`): OpenSSH reads the keyword in
+    // any case, then whitespace or one "=" with optional whitespace around it.
+    "proxy_jump() {",
+    "  v=$1",
+    "  trim",
+    "  k=${v%%[=[:blank:]]*}",
+    '  case "$k" in',
+    "    [Pp][Rr][Oo][Xx][Yy][Jj][Uu][Mm][Pp]) ;;",
+    "    *) return 1 ;;",
+    "  esac",
+    '  v=${v#"$k"}',
+    "  trim",
+    '  case "$v" in',
+    "    =*) v=${v#=}; trim ;;",
+    "  esac",
+    '  is_jump "$v"',
+    "}",
+    "trim() {",
+    "  while :; do",
+    '    case "$v" in',
+    "      [[:blank:]]*) v=${v#?} ;;",
+    "      *) return 0 ;;",
+    "    esac",
+    "  done",
+    "}",
     "option_value() {",
     '  if [ "$1" = J ] && is_jump "$2"; then hit=1; fi',
+    '  if [ "$1" = o ] && proxy_jump "$2"; then hit=1; fi',
     '  if [ "$1" = F ]; then own=1; fi',
     "}",
     "hit=0 own=0 seen=0 stop=0 want=",
