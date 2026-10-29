@@ -254,3 +254,81 @@ test("an unknown account is a refusal the route gives, not an unknown topic", as
     );
   }
 });
+
+// A fake `claude` that answers the `state` file as read at its start, after the
+// delay in the `delay` file; every start and end is logged with the time.
+async function slowClaude(f) {
+  const directory = path.join(f.root, "slow-claude");
+  await fs.mkdir(directory, { recursive: true });
+  const file = (name) => JSON.stringify(path.join(directory, name));
+  const binary = path.join(directory, "claude");
+  await fs.writeFile(path.join(directory, "state"), "true");
+  await fs.writeFile(path.join(directory, "delay"), "0");
+  await fs.writeFile(
+    binary,
+    `#!${process.execPath}
+const fs=require("node:fs");
+const state=fs.readFileSync(${file("state")},"utf8").trim()==="true";
+const delay=Number(fs.readFileSync(${file("delay")},"utf8"));
+fs.appendFileSync(${file("log")},"start\\n");
+setTimeout(()=>{fs.appendFileSync(${file("log")},"end\\n");console.log(JSON.stringify({loggedIn:state}));},delay);`,
+    { mode: 0o700 },
+  );
+  f.application.accountAuthStatus.tools = () => [
+    { id: "claude", installed: true, path: binary },
+  ];
+  const set = (name, value) => fs.writeFile(path.join(directory, name), String(value));
+  return {
+    signedIn: (value) => set("state", value),
+    delay: (ms) => set("delay", ms),
+    log: async () =>
+      (await fs.readFile(path.join(directory, "log"), "utf8").catch(() => ""))
+        .split("\n")
+        .filter(Boolean),
+  };
+}
+
+test("a probe running when the state is forgotten never fills the cache", async (t) => {
+  const f = await applicationFixture(t);
+  const account = f.application.accounts.create({ name: "Work", tool: "claude" });
+  const cli = await slowClaude(f);
+  const status = f.application.accountAuthStatus;
+  // The old probe reads "signed in" and answers late.
+  await cli.delay(1500);
+  const old = status.get(account.id);
+  // Its CLI has read the state once it logged its start.
+  while (!(await cli.log()).includes("start")) await delay(10);
+  // Signed out meanwhile (a login session ended): forgotten while the probe runs.
+  await cli.signedIn(false);
+  await cli.delay(0);
+  status.forget(account.id);
+  // The next read does not join the old probe: it probes anew.
+  assert.equal((await status.get(account.id)).state, "unauthenticated");
+  assert.equal((await old).state, "authenticated");
+  // The old answer arrived last but was not cached.
+  assert.equal((await status.get(account.id)).state, "unauthenticated");
+  assert.equal((await cli.log()).filter((line) => line === "start").length, 2);
+});
+
+test("at most three CLI status probes run at once across accounts", async (t) => {
+  const f = await applicationFixture(t);
+  const accounts = Array.from({ length: 6 }, (_, index) =>
+    f.application.accounts.create({ name: `Work ${index}`, tool: "claude" }),
+  );
+  const cli = await slowClaude(f);
+  await cli.delay(200);
+  const answers = await Promise.all(
+    accounts.map((account) => f.application.accountAuthStatus.get(account.id)),
+  );
+  assert.deepEqual(
+    answers.map((answer) => answer.state),
+    accounts.map(() => "authenticated"),
+  );
+  let running = 0,
+    most = 0;
+  for (const line of await cli.log()) {
+    running += line === "start" ? 1 : -1;
+    most = Math.max(most, running);
+  }
+  assert.equal(most, 3);
+});

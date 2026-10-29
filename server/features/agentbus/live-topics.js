@@ -14,20 +14,20 @@
 // stop, rename: OperationsEvents lists them every 2.5 s).
 //
 // One handle per folder (by path and inode) is shared by every subscriber and closed
-// with the last one; folders are capped. A handle that fails, or whose folder was
+// with the last one; folders are capped at 256 (logged once when reached). A handle that fails, or whose folder was
 // replaced, is closed, signals and is armed again. A project whose folders cannot all
-// be watched (past the cap, missing, or refused) is never treated as watched: it
-// signals every 10 s, as the former poll read, and tries to watch again each time.
+// be watched (past the cap, or refused) is never treated as watched: it signals every
+// 10 s, as the former poll read, and tries to watch again each time. A project folder
+// not made yet is awaited by a watch of the projects folder, filtered to its id.
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { DirectoryWatchers, foldName } from "../../lib/directory-watchers.js";
+import { DirectoryWatchers } from "../../lib/directory-watchers.js";
 
 export const AGENTBUS_PROJECT_PARAM = /[a-f0-9]{64}/;
 export const AGENTBUS_FALLBACK_MS = 10000;
 const PROJECT_ID = /^[a-f0-9]{64}$/;
 const QUEUE_NAMES = ["queue.sqlite", "queue.sqlite-wal", "peers"];
-const REARM_NAMES = new Set(["queue.sqlite-wal", "peers"]);
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -70,7 +70,7 @@ export class AgentBusWatches {
     sessions,
     onSessions,
     watch = fs.watch,
-    maxDirectories = 128,
+    maxDirectories = 256,
     fallbackMs = AGENTBUS_FALLBACK_MS,
     timers = { setTimeout, clearTimeout },
   }) {
@@ -144,11 +144,12 @@ export class AgentBusWatches {
       : [...(this.signatures?.keys() || [])];
     const triples = [];
     let complete = true;
+    const missing = [];
     for (const id of ids) {
       const home = path.join(this.root(), "projects", id);
       const identity = await identityOf(home).catch(() => null);
       if (!identity) {
-        complete = false;
+        missing.push(id);
         continue;
       }
       triples.push([home, QUEUE_NAMES, identity]);
@@ -162,6 +163,14 @@ export class AgentBusWatches {
       // A missing peers folder is seen being made, as `peers` in the project folder.
       const peersIdentity = await identityOf(peers).catch(() => null);
       if (peersIdentity) triples.push([peers, null, peersIdentity]);
+    }
+    // A project folder not made yet is seen being made in the projects folder; only
+    // without that folder does the timer signal.
+    if (missing.length) {
+      const projects = path.join(this.root(), "projects");
+      const identity = await identityOf(projects).catch(() => null);
+      if (identity) triples.push([projects, missing.sort(), identity]);
+      else complete = false;
     }
     return { triples, complete };
   }
@@ -201,11 +210,14 @@ export class AgentBusWatches {
       const release = this.directories.add(
         directory,
         names,
-        (filename) => this.changed(follower, filename),
+        (filename, type) => this.changed(follower, filename, type),
         identity,
       );
       if (release) follower.releases.set(key, release);
-      else complete = false;
+      else {
+        complete = false;
+        this.reportCap();
+      }
     }
     follower.state = complete ? "armed" : "unwatched";
     if (!complete) {
@@ -221,14 +233,23 @@ export class AgentBusWatches {
     }
   }
 
-  changed(follower, filename) {
+  changed(follower, filename, type) {
     if (follower.closed) return;
     follower.signal();
-    // A failed handle (no name), the log or the peers folder made, removed or
-    // replaced: watch anew.
+    // A failed handle (no name) or an entry made, removed or replaced (the log, the
+    // peers folder, a project folder): watch anew. A write alone changes no handle.
     const dead = [...follower.releases.values()].some((release) => !release.alive());
-    if (dead || filename === undefined || REARM_NAMES.has(foldName(filename)))
-      this.arm(follower);
+    if (dead || filename === undefined || type === "rename") this.arm(follower);
+  }
+
+  /** Logs once that the watch cap is reached: further folders signal every 10 s. */
+  reportCap() {
+    if (this.capReported || this.directories.size < this.directories.maxDirectories)
+      return;
+    this.capReported = true;
+    console.warn(
+      `AgentPier watches the most AgentBus folders it may (${this.directories.maxDirectories}); further projects are read every 10 s.`,
+    );
   }
 
   unfollow(follower) {

@@ -232,7 +232,11 @@ function fakeWatch() {
   return { made, watch };
 }
 
-test("past the cap or without a watchable folder the topic signals on a timer and retries", async (t) => {
+test("past the cap the topic signals on a timer, logs once and retries", async (t) => {
+  const warnings = [];
+  const warn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(" "));
+  t.after(() => (console.warn = warn));
   const root = await fs.mkdtemp(path.join(process.env.TMPDIR || "/tmp", "bus-watch-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(path.join(root, "projects", PROJECT), { recursive: true });
@@ -252,6 +256,8 @@ test("past the cap or without a watchable folder the topic signals on a timer an
   // Never reported armed without a live handle: it signals as the former poll did.
   assert.ok(await until(() => signals >= 2, 1000));
   assert.equal(made.length, 0);
+  // The cap is logged once, however often the retry meets it.
+  assert.equal(warnings.filter((line) => line.includes("AgentBus folders")).length, 1);
   // Room again: the next retry arms it and the timer stops.
   watches.directories.maxDirectories = 8;
   assert.ok(await until(() => [...watches.followers][0]?.state === "armed", 1000));
@@ -264,10 +270,34 @@ test("past the cap or without a watchable folder the topic signals on a timer an
   assert.equal(watches.followers.size, 0);
   assert.equal(watches.directories.size, 0);
 
-  // A project folder that does not exist yet is not watched either.
-  const missing = watches.follow(OTHER, () => (signals += 1));
-  await until(() => [...watches.followers][0]?.state === "unwatched");
-  assert.equal([...watches.followers][0].state, "unwatched");
+  // A project folder that does not exist yet is awaited in the projects folder,
+  // filtered to its id, instead of signalling on a timer.
+  const projects = path.join(root, "projects");
+  const before = made.length;
+  let waiting = 0;
+  const missing = watches.follow(OTHER, () => (waiting += 1));
+  assert.ok(await until(() => [...watches.followers][0]?.state === "armed"));
+  assert.deepEqual(
+    made.slice(before).map(({ directory }) => directory),
+    [projects],
+  );
+  const parent = made.at(-1).handle;
+  await delay(150);
+  assert.equal(waiting, 0);
+  parent.emit("change", "rename", PROJECT);
+  assert.equal(waiting, 0);
+  await fs.mkdir(path.join(projects, OTHER));
+  parent.emit("change", "rename", OTHER);
+  assert.equal(waiting, 1);
+  assert.ok(
+    await until(() =>
+      made.some(
+        ({ directory, handle }) =>
+          directory === path.join(projects, OTHER) && !handle.closed,
+      ),
+    ),
+  );
+  assert.ok(await until(() => parent.closed === true));
   missing();
 });
 
@@ -291,12 +321,24 @@ test("a handle that fails is closed, signals and is armed again", async (t) => {
   made[0].handle.emit("change", "change", "queue.sqlite-shm");
   made[0].handle.emit("change", "change", "launches");
   assert.equal(signals, 0);
+  // A write signals but keeps the handles: only a rename re-arms.
+  let arms = 0;
+  const arm = watches.arm.bind(watches);
+  watches.arm = (...args) => {
+    arms += 1;
+    return arm(...args);
+  };
   made[0].handle.emit("change", "change", "queue.sqlite-wal");
   assert.equal(signals, 1);
+  assert.equal(arms, 0);
+  made[0].handle.emit("change", "rename", "queue.sqlite-wal");
+  assert.equal(signals, 2);
+  assert.equal(arms, 1);
+  await delay(50);
   made[0].handle.emit("error", new Error("gone"));
   assert.equal(made[0].handle.closed, true);
-  assert.equal(signals, 2);
+  assert.equal(signals, 3);
   assert.ok(await until(() => made.length === 2 && !made[1].handle.closed));
   made[1].handle.emit("change", "rename", "queue.sqlite");
-  assert.equal(signals, 3);
+  assert.equal(signals, 4);
 });

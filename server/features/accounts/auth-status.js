@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify, stripVTControlCharacters } from "node:util";
 const execute = promisify(execFile);
+// CLI status probes that run at once across accounts; more wait their turn.
+export const MAX_AUTH_PROBES = 3;
 const statusArgs = {
   claude: ["auth", "status", "--json"],
   codex: ["login", "status"],
@@ -14,6 +16,10 @@ export class AccountAuthStatus {
     this.cache = new Map();
     this.pending = new Map();
     this.controllers = new Set();
+    // Raised by forget(): a probe started before it never fills the cache.
+    this.generation = 0;
+    this.running = 0;
+    this.queued = [];
   }
   async get(id) {
     const account = this.accounts.get(id);
@@ -22,11 +28,34 @@ export class AccountAuthStatus {
     const cached = this.cache.get(id);
     if (cached && Date.now() - cached.checkedAt < 10000) return cached;
     if (this.pending.has(id)) return this.pending.get(id);
-    const pending = this.probe(account).finally(() => this.pending.delete(id));
+    const pending = this.probe(account).finally(() => {
+      if (this.pending.get(id) === pending) this.pending.delete(id);
+    });
     this.pending.set(id, pending);
     return pending;
   }
   async probe(account) {
+    const generation = this.generation;
+    await this.slot();
+    try {
+      return await this.run(account, generation);
+    } finally {
+      this.release();
+    }
+  }
+  slot() {
+    if (this.running < MAX_AUTH_PROBES) {
+      this.running += 1;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => this.queued.push(resolve));
+  }
+  release() {
+    const next = this.queued.shift();
+    if (next) next();
+    else this.running -= 1;
+  }
+  async run(account, generation) {
     const result = { state: "unknown", checkedAt: Date.now() };
     const tool = this.tools().find(
       (entry) => entry.id === account.tool && entry.installed,
@@ -80,14 +109,24 @@ export class AccountAuthStatus {
     } finally {
       this.controllers.delete(controller);
     }
+    if (generation !== this.generation) return result;
     if (this.cache.size >= 1000) this.cache.clear();
     this.cache.set(account.id, result);
     return result;
   }
-  /** Drops the cached state of `id` (of every account without one): the next read probes. */
+  /**
+   * Drops the cached state and the running probe of `id` (of every account without
+   * one): the next read probes anew, and a probe already running fills no cache.
+   */
   forget(id) {
-    if (id === undefined) this.cache.clear();
-    else this.cache.delete(id);
+    this.generation += 1;
+    if (id === undefined) {
+      this.cache.clear();
+      this.pending.clear();
+    } else {
+      this.cache.delete(id);
+      this.pending.delete(id);
+    }
   }
   close() {
     for (const controller of this.controllers) controller.abort();

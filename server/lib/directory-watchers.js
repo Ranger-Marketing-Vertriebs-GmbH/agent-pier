@@ -22,7 +22,7 @@ export class DirectoryWatchers {
     return this.folders.size;
   }
   /**
-   * Calls `listener(filename)` when an entry of `directory` named `names` (a name,
+   * Calls `listener(filename, type)` when an entry of `directory` named `names` (a name,
    * a list of names, or null for any) changes, and `listener()` once when the handle
    * fails. Returns the release function, or null when the cap is reached or the
    * folder cannot be watched. `identity` is the folder's `dev:ino`; the release
@@ -82,7 +82,7 @@ export class DirectoryWatchers {
       : this.records(folder);
     for (const { listener } of records) {
       try {
-        listener(named ? String(filename) : undefined);
+        listener(named ? String(filename) : undefined, type);
       } catch {
         // One listener must not stop the others.
       }
