@@ -112,7 +112,8 @@ confirmation (`confirmInstall`), install job and package status. Each server was
 bound to Claude Code, and the exact command, args and env that AgentPier wrote into the
 disposable `~/.claude.json` were started by a plain MCP stdio client (`initialize`,
 `tools/list`, one real `tools/call`) with `PATH=/usr/bin:/bin`. Times are the preview
-request and the install job until **Installed** (polled every second), with the
+request and the install job until **Installed** (the qualification script read the
+package status once a second; the app follows the job over the live channel), with the
 toolchains already staged at startup.
 
 | Server                                    | Version    | Registry             | Preview / install | Direct MCP call                                                                                                         | Notes                                                                                                                                                        |
