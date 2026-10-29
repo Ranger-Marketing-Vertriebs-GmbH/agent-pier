@@ -197,3 +197,20 @@ test("a non-string shellEnv writes no shell-env.sh", () => {
     });
   assert.equal(fs.existsSync(path.join(folder, "shell-env.sh")), false);
 });
+
+test("a write without shellEnv removes a stale shell-env.sh, never a link's target", () => {
+  const dataDir = dataDirOf("stale env");
+  const root = path.join(dataDir, "ssh-agents");
+  const folder = ownerFolder(dataDir, { kind: "agent", id: agentId });
+  const files = { hosts: [], aliases: {}, socketPath, binaries };
+  writeOwnerFiles(root, folder, { ...files, shellEnv: "export X=1\n" });
+  assert.ok(fs.existsSync(path.join(folder, "shell-env.sh")));
+  writeOwnerFiles(root, folder, files);
+  assert.equal(fs.existsSync(path.join(folder, "shell-env.sh")), false);
+  const target = path.join(dataDirOf("env target"), "kept");
+  fs.writeFileSync(target, "kept\n");
+  fs.symlinkSync(target, path.join(folder, "shell-env.sh"));
+  writeOwnerFiles(root, folder, files);
+  assert.equal(fs.existsSync(path.join(folder, "shell-env.sh")), false);
+  assert.equal(fs.readFileSync(target, "utf8"), "kept\n");
+});

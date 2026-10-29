@@ -41,3 +41,20 @@ test("shutdown starts stopping MCP package installs first and awaits it before t
   assert.equal(calls[0], "mcpPackages:start");
   assert.ok(calls.indexOf("mcpPackages:done") < calls.indexOf("mcpServers"));
 });
+
+test("shutdown closes the session SSH agents, then the shared SSH agent registry", async () => {
+  const calls = [];
+  const close = createShutdown({
+    services: services(calls, {
+      sshAgents: { close: async () => calls.push("sshAgents") },
+      sshAgentRegistry: { close: async (kind) => calls.push(`sshAgentRegistry:${kind}`) },
+    }),
+    wss: null,
+    server: { listening: false },
+  });
+  await close();
+  assert.deepEqual(
+    calls.filter((call) => call.startsWith("ssh")),
+    ["sshAgents", "sshAgentRegistry:undefined"],
+  );
+});

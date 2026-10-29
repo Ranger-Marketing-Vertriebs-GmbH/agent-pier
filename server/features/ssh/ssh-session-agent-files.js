@@ -1,11 +1,16 @@
-// Folder removal and binary checks of the session SSH agents (ssh-session-agents.js).
+// Folder removal, binary checks and the stored agent of session records, for the
+// session SSH agents (ssh-session-agents.js).
 import fs from "node:fs";
 import path from "node:path";
+import { readJSON } from "../../lib/storage.js";
+import { sshAgentHandle } from "../sessions/session-ssh-agent-record.js";
 import {
   codedError,
   executableOutside,
   foldersBetween,
   realPathOrNull,
+  tokenPattern,
+  validSessionId,
 } from "./ssh-agent-shared.js";
 
 export const realOrSelf = (file) => realPathOrNull(file) ?? path.resolve(file);
@@ -50,4 +55,50 @@ export function removeBelow(top, target) {
   if (!stat) return;
   if (stat.isDirectory()) fs.rmSync(target, { recursive: true, force: true });
   else fs.unlinkSync(target);
+}
+
+// The generation and token through the record parser; the binaries as stored, since
+// restore() checks each one itself and falls back to PATH when `ssh` is gone.
+export function storedAgent(record, id) {
+  const agent = record?.id === id ? record.sshAgent : null;
+  const handle = sshAgentHandle(agent);
+  return handle ? { ...handle, binaries: agent.binaries } : null;
+}
+
+// The socket token a record names: its agent's, or the one a reload's stop retired
+// (`sshAgentRetired`, session-replacement.js), which never authorizes anything but
+// still locates the socket folder for a later prepare or discard.
+export function storedToken(record, id) {
+  const token = storedAgent(record, id)?.token ?? record?.sshAgentRetired?.token;
+  return record?.id === id && typeof token === "string" && tokenPattern.test(token)
+    ? token
+    : undefined;
+}
+
+/** A session's record, or null when it is missing, unreadable or not that session's. */
+export function sessionRecord(dataDir, id) {
+  try {
+    const value = readJSON(path.join(dataDir, "sessions", `${id}.json`), null);
+    return value && typeof value === "object" && value.id === id ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `[{ id, token }]` of every session record that names a socket token. */
+export function storedSessionTokens(dataDir) {
+  let names = [];
+  try {
+    names = fs.readdirSync(path.join(dataDir, "sessions"));
+  } catch {
+    return [];
+  }
+  const tokens = [];
+  for (const name of names) {
+    const id = name.endsWith(".json") ? name.slice(0, -5) : null;
+    if (!validSessionId(id)) continue;
+    const token = storedToken(sessionRecord(dataDir, id), id);
+    if (token) tokens.push({ id, token });
+  }
+  return tokens;
 }

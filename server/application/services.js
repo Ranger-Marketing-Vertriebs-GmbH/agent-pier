@@ -7,6 +7,7 @@ import { SessionSecrets } from "../features/secrets/session-secrets.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
 import { SessionSshAgents } from "../features/ssh/ssh-session-agents.js";
+import { SshAgentRegistry } from "../features/ssh/ssh-agent-registry.js";
 import { detectOpenSsh } from "../features/ssh/ssh-openssh-version.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
 import { AgencyTemplates } from "../features/agency/agency-templates.js";
@@ -163,12 +164,10 @@ export async function createServices(config) {
   });
   const refreshSessionSecrets = () => sessionSecrets.refresh().catch(() => {});
   secrets.onChange(refreshSessionSecrets);
-  // One SSH agent per eligible session (docs/ssh-access.md); OpenSSH is asked once.
-  sshAgents = new SessionSshAgents({
+  // Every SSH agent socket of sessions and agents (docs/ssh-access.md); OpenSSH is
+  // asked once.
+  const sshAgentRegistry = new SshAgentRegistry({
     dataDir: config.dataDir,
-    store: sshAccesses,
-    grants: sshSessions,
-    sessions,
     audit,
     openssh: await detectOpenSsh().catch(() => null),
     home: config.home,
@@ -177,6 +176,14 @@ export async function createServices(config) {
     userConfig: sshUserConfigEnabled({ dataDir: config.dataDir })
       ? new SshUserConfig({ home: config.home, dataDir: config.dataDir })
       : null,
+  });
+  // One SSH agent per eligible session.
+  sshAgents = new SessionSshAgents({
+    dataDir: config.dataDir,
+    store: sshAccesses,
+    grants: sshSessions,
+    sessions,
+    registry: sshAgentRegistry,
   });
   // Host, key and project edits reach the agents' alias files, coalesced.
   sshManagement.catalog.onPublished(() => sshAgents.refresh().catch(() => {}));
@@ -445,6 +452,7 @@ export async function createServices(config) {
     sshIntegration,
     sshManagement,
     sshAgents,
+    sshAgentRegistry,
     secrets,
     mailAccounts,
     sessionSecrets,
@@ -509,7 +517,9 @@ export async function createServices(config) {
   watchPackageJobs(services, mcpPackages);
   plugins.onChange = () => pluginJobChanged(services.live);
   sshSessions.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
-  sshAgents.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
+  sshAgentRegistry.listen("session", (sessionId) =>
+    sshToolsChanged(services.live, sessionId),
+  );
   // The managed agent browser stays while an agent browser runs, or while the running
   // Gateway was started with it and an agent has a browser profile there. Without
   // one, a later switch-on finds the browser gone and restarts first (web-tools-changes.js).
