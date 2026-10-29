@@ -91,7 +91,10 @@ screen decide only when none is open (see [architecture](architecture.md)).
 - `GET /api/inbox` returns `{ instance, revision, counts, items }`. Each item has
   `type`, `id`, `tab`, `kind`, `source` (`{ kind, id, name }` of the session, run or
   agent), `title`, `createdAt`, `expiresAt` and `link` (the in-context page). Items
-  carry no command lines; the cards load them from their own endpoints.
+  carry no command lines; the cards load them from their own endpoints, and a
+  waiting run's card and an agent's request card follow the run's and the agent's
+  live topics (`pipeline.run:<id>`, `agent.actions:<id>`), so a decision made
+  elsewhere shows at once.
 - The live channel's `inbox` topic (owner only) pushes the same value as
   `GET /api/inbox` whenever the waiting set changes; the start page's **Needs you** and
   the inbox page take their list from it and send no request of their own while the
