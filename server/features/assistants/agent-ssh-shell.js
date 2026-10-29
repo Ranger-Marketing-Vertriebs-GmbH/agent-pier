@@ -123,7 +123,8 @@ export class AgentShellSsh {
    * is AssistantAccess (`sshAgents`, `hasSshGrants`, `sshHolder`, `get`);
    * `maintenance()` refuses
    * every signature while true; the first refresh waits for `restored` (the sessions'
-   * restore), so every session token is known before an agent picks one.
+   * restore), so every session token is known before an agent picks one. `onClose`
+   * runs first in `close` and `discardAll` (the wiring detaches its hooks there).
    */
   constructor({
     registry,
@@ -134,8 +135,10 @@ export class AgentShellSsh {
     restored,
     pathEnv,
     log = console,
+    onClose = null,
   }) {
     Object.assign(this, { registry, agents, store, access, maintenance, pathEnv, log });
+    this.onClose = onClose;
     this.restored = Promise.resolve(restored).catch(() => {});
     // id -> "no-openssh" | "failed" for eligible agents that run without a socket.
     this.unavailable = new Map();
@@ -246,6 +249,69 @@ export class AgentShellSsh {
     );
   }
 
+  /**
+   * Before a turn: reconciles only agent `id` (start, rewrite or tear down), coalesced
+   * per agent; other agents and stale folders wait for the next `refresh()`.
+   */
+  async sync(id) {
+    await this.restored;
+    if (this.closed || !validSessionId(id)) return;
+    return this.syncs.coalesce(
+      () =>
+        this.syncs.run(() => this.registry.withKeptTokens(() => this.reconcileOne(id))),
+      `agent:${id}`,
+    );
+  }
+
+  async reconcileOne(id) {
+    if (this.closed) return;
+    const changed = new Set();
+    const assistant = this.find(id);
+    const sshAgents = this.sshAgents();
+    if (!sshAgents) {
+      if (await this.release(id)) changed.add(id);
+      if (assistant && !ineligibility(assistant))
+        this.setUnavailable(id, "failed", changed);
+    } else if (!agentSshEligible(assistant, sshAgents)) {
+      if (this.registry.get(agentOwner(id))) {
+        await this.guarded(() => this.discardOne(id));
+        changed.add(id);
+      }
+      this.setUnavailable(id, null, changed);
+    } else {
+      const reason = this.opensshProblem();
+      const binaries = reason ? null : this.registry.binaries(this.pathEnv);
+      await this.reconcileAgent(assistant, binaries, reason, changed);
+    }
+    this.notify(changed);
+  }
+
+  opensshProblem() {
+    if (!this.registry.openssh) return "no-openssh";
+    return this.registry.supported ? null : "openssh-too-old";
+  }
+
+  // One wanted agent: its socket and files, or why it runs without; whether it is live.
+  async reconcileAgent(assistant, binaries, reason, changed) {
+    const { id } = assistant;
+    if (!binaries) {
+      if (await this.release(id)) changed.add(id);
+      this.setUnavailable(id, reason ?? "no-openssh", changed);
+      return true;
+    }
+    try {
+      if (await this.ensure(assistant, binaries)) changed.add(id);
+    } catch (error) {
+      // A failed write keeps the socket (the registry retries); a failed start not.
+      changed.add(id);
+      if (!this.registry.get(agentOwner(id)))
+        this.log.error("Agent SSH agent could not be started:", error?.code || "error");
+    }
+    const live = !!this.registry.get(agentOwner(id));
+    this.setUnavailable(id, live ? null : "failed", changed);
+    return live;
+  }
+
   // Agents no longer wanted (not eligible, archived, deleted) lose socket, folder and
   // token. Agents still wanted that cannot run now (no ssh, OpenSSH too old, grants
   // unreadable) only lose the socket: folder and token stay for the same path later.
@@ -270,32 +336,12 @@ export class AgentShellSsh {
     }
     const desired = profiles.filter((a) => agentSshEligible(a, sshAgents));
     const keep = new Set(desired.map((a) => a.id));
-    const reason = !this.registry.openssh
-      ? "no-openssh"
-      : !this.registry.supported
-        ? "openssh-too-old"
-        : null;
+    const reason = this.opensshProblem();
     const binaries =
       desired.length && !reason ? this.registry.binaries(this.pathEnv) : null;
-    for (const assistant of desired) {
-      const { id } = assistant;
-      if (!binaries) {
-        if (await this.release(id)) changed.add(id);
-        this.setUnavailable(id, reason ?? "no-openssh", changed);
-        continue;
-      }
-      try {
-        if (await this.ensure(assistant, binaries)) changed.add(id);
-      } catch (error) {
-        // A failed write keeps the socket (the registry retries); a failed start not.
-        changed.add(id);
-        if (!this.registry.get(agentOwner(id)))
-          this.log.error("Agent SSH agent could not be started:", error?.code || "error");
-      }
-      const live = !!this.registry.get(agentOwner(id));
-      if (!live) keep.delete(id);
-      this.setUnavailable(id, live ? null : "failed", changed);
-    }
+    for (const assistant of desired)
+      if (!(await this.reconcileAgent(assistant, binaries, reason, changed)))
+        keep.delete(assistant.id);
     for (const entry of this.registry.entries("agent"))
       if (!keep.has(entry.id)) {
         await this.guarded(() => this.discardOne(entry.id));
@@ -461,8 +507,18 @@ export class AgentShellSsh {
     };
   }
 
+  // Runs `onClose` once; a throwing one never stops the close.
+  detach() {
+    const onClose = this.onClose;
+    this.onClose = null;
+    try {
+      onClose?.();
+    } catch {}
+  }
+
   /** Feature switched off: every agent socket closes, its folders and tokens go. */
   async discardAll() {
+    this.detach();
     this.closed = true;
     const changed = new Set();
     await this.syncs.run(async () => {
@@ -479,6 +535,7 @@ export class AgentShellSsh {
 
   /** Shutdown: the agent sockets close, folders and tokens stay for the restart. */
   async close() {
+    this.detach();
     this.closed = true;
     await this.registry.close("agent");
   }
