@@ -187,6 +187,9 @@ export async function createServices(config) {
   });
   // Host, key and project edits reach the agents' alias files, coalesced.
   sshManagement.catalog.onPublished(() => sshAgents.refresh().catch(() => {}));
+  // Agents' SSH sockets pick a token only once every session's is known (A2).
+  let sessionsRestored;
+  const sshAgentsRestored = new Promise((resolve) => (sessionsRestored = resolve));
   const files = createFileServices({
     config,
     sessions,
@@ -453,6 +456,7 @@ export async function createServices(config) {
     sshManagement,
     sshAgents,
     sshAgentRegistry,
+    sshAgentsRestored,
     secrets,
     mailAccounts,
     sessionSecrets,
@@ -541,6 +545,9 @@ export async function createServices(config) {
   // every service above, so the first rewrite of the secrets files waits until here.
   refreshSessionSecrets();
   // Running sessions' agents listen again at their paths after a restart.
-  sshAgents.restore().catch(() => {});
+  sshAgents
+    .restore()
+    .catch(() => {})
+    .finally(sessionsRestored);
   return services;
 }

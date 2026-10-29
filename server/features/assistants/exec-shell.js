@@ -30,7 +30,11 @@ export const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}
 // shell-env.sh, so gh and git in that agent's commands use its token profile, never
 // the owner's login (github-credentials.js prepareAgent). The variable is left for
 // the command's own export. Exec children cannot override PATH (fact d).
-const githubShellLines = [
+// An agent with shell and SSH grants has its SSH folder's bin/ next
+// (agent-ssh-shell.js); a second loop sources that folder's shell-env.sh (its SSH
+// agent, Git and rsync), so both are sourced when both entries are present.
+// `pattern` is a case pattern; `guard` an extra test before the file is sourced.
+const markerLines = (pattern, guard = "") => [
   // One variable, then split: dash (Linux's /bin/sh) does not split the literal `:`
   // of `${A}:${B}`, which would glue it to PATH's first entry.
   "agentpier_dirs=${OPENCLAW_PREPEND_PATH:-}:${PATH:-}",
@@ -39,8 +43,8 @@ const githubShellLines = [
   "set -f",
   "for agentpier_dir in $agentpier_dirs; do",
   "  case $agentpier_dir in",
-  "    */github-sessions/agent-*/bin)",
-  '      if [ -f "${agentpier_dir%/bin}/shell-env.sh" ]; then . "${agentpier_dir%/bin}/shell-env.sh"; fi',
+  `    ${pattern})`,
+  `      if ${guard}[ -f "\${agentpier_dir%/bin}/shell-env.sh" ]; then . "\${agentpier_dir%/bin}/shell-env.sh"; fi`,
   "      break ;;",
   "  esac",
   "done",
@@ -49,17 +53,35 @@ const githubShellLines = [
   "unset agentpier_ifs agentpier_dir agentpier_dirs",
 ];
 
+// Only `<root>/<one name>/bin` of the agents root written in as a single-quoted
+// literal: a sibling such as `_agents-x/...` never matches the quoted pattern, and a
+// deeper path fails the guard (`%/*/bin` removes the shortest such suffix).
+const sshShellLines = (root) => {
+  const literal = shellQuote(root);
+  return markerLines(
+    `${literal}/*/bin`,
+    `[ "\${agentpier_dir%/*/bin}" = ${literal} ] && `,
+  );
+};
+
+const absolute = (value) =>
+  typeof value === "string" && path.isAbsolute(value) && !value.includes("\0");
+
 /**
- * The wrapper's content: sets the owner's HOME and an agent's GitHub environment,
+ * The wrapper's content: sets the owner's HOME and an agent's GitHub environment
+ * and, with `sshAgentRoot` (`<dataDir>/ssh-agents/_agents`), its SSH environment,
  * then execs /bin/sh unchanged.
  */
-export function execShellScript(home) {
-  if (!path.isAbsolute(home) || home.includes("\0"))
+export function execShellScript(home, { sshAgentRoot } = {}) {
+  if (!absolute(home))
     throw Error("The owner's home directory must be an absolute path.");
+  if (sshAgentRoot !== undefined && !absolute(sshAgentRoot))
+    throw Error("The agents' SSH folder must be an absolute path.");
   return [
     "#!/bin/sh",
     `export HOME=${shellQuote(home)}`,
-    ...githubShellLines,
+    ...markerLines("*/github-sessions/agent-*/bin"),
+    ...(sshAgentRoot ? sshShellLines(sshAgentRoot) : []),
     'exec /bin/sh "$@"',
     "",
   ].join("\n");
@@ -120,11 +142,14 @@ export function resolveShellOwner(compute = ownerShellEnvironment) {
  * is what runs. The path is never listed in /etc/shells, so OpenClaw's own
  * login-shell probe keeps using /bin/sh with the Gateway's private HOME.
  */
-export function writeExecShell(paths, home) {
+export function writeExecShell(paths, home, { sshAgentRoot } = {}) {
   const target = path.join(privateFolder(path.join(paths.root, "exec-shell")), "sh");
   const temporary = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    fs.writeFileSync(temporary, execShellScript(home), { mode: 0o500, flag: "wx" });
+    fs.writeFileSync(temporary, execShellScript(home, { sshAgentRoot }), {
+      mode: 0o500,
+      flag: "wx",
+    });
     fs.chmodSync(temporary, 0o500);
     fs.renameSync(temporary, target);
   } catch (error) {

@@ -13,6 +13,7 @@ import { recoverAssistantServices } from "./assistant-recovery.js";
 import { stageRuntimeInBackground } from "../features/assistants/runtime-provisioning.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
+import { connectAgentShellSsh } from "./agent-ssh-shell-wiring.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 import {
@@ -48,6 +49,8 @@ export const assistantServiceNames = [
   "assistantTelegramSenders",
   // Granted secrets delivered to agent workspaces (agent-secrets.js).
   "assistantAgentSecrets",
+  // Each agent's own SSH agent for plain ssh in its shell (agent-ssh-shell.js).
+  "assistantAgentSsh",
   // Skills the owner adds for agents (skill-catalog-wiring.js).
   "assistantSkillCatalog",
 ];
@@ -61,6 +64,7 @@ export function createAssistantServices(options) {
   try {
     const graph = connectAssistantServices(constructAssistantGraph(options, created));
     graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
+    graph.assistantAgentSsh = connectAgentShellSsh(options, graph);
     graph.assistantSkillCatalog = connectSkillCatalog(graph);
     // Every change of a ChatGPT sign-in reaches its live topic (services.live).
     graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
@@ -101,6 +105,7 @@ export function startAssistantServices(
     assistantChannels,
     assistantDreaming,
     assistantAgentSecrets,
+    assistantAgentSsh,
   },
   { stageInBackground = stageRuntimeInBackground } = {},
 ) {
@@ -108,6 +113,8 @@ export function startAssistantServices(
   if (assistants.maintenance || assistantUpdates?.status().recoveryRequired) return;
   // Files follow the stored grants and secrets from the start (agent-secrets.js).
   assistantAgentSecrets?.syncAll().catch(() => {});
+  // Agents' SSH sockets listen again at their stored paths (agent-ssh-shell.js).
+  assistantAgentSsh?.refresh().catch(() => {});
   assistantChannels.start();
   // MEMORY.md copies before each night's dreaming run (dreaming-backups.js).
   assistantDreaming?.backups.start();
@@ -158,10 +165,13 @@ export function createAssistantFeature(services) {
       assistantMcpServers,
       assistantMcpOAuth,
       assistantAgentSecrets,
+      assistantAgentSsh,
       assistantSkillCatalog,
     } = services;
     recovered = false;
     assistantAgentSecrets?.close();
+    // Sockets close; folders and tokens stay for the next start (disable removes them).
+    await assistantAgentSsh?.close().catch(() => {});
     for (const name of assistantServiceNames) services[name] = null;
     // Aborts catalog downloads and waits for a running install.
     await assistantSkillCatalog?.close().catch(() => {});
@@ -256,6 +266,8 @@ export function createAssistantFeature(services) {
           throw assistantProblem("active", 409);
         writeAssistantFeature(dataDir, { enabled: false });
         enabled = false;
+        // Switched off: every agent's SSH socket, folder and token goes.
+        await services.assistantAgentSsh?.discardAll().catch(() => {});
         await release();
         error = assistantStorageProblem(dataDir);
         events.emit("stopped");

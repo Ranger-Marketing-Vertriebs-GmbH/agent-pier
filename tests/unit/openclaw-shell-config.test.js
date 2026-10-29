@@ -503,3 +503,80 @@ test("an unresolvable owner starts the Gateway without the wrapper", async (t) =
   assert.match(logged[0], /without the owner's environment: no passwd entry/);
   assert.match(logged[1], /not an absolute path/);
 });
+
+// The wrapper's text before agent SSH agents, kept literally (AGENTPIER-281).
+const wrapperBefore = `#!/bin/sh
+export HOME='/h'
+agentpier_dirs=\${OPENCLAW_PREPEND_PATH:-}:\${PATH:-}
+agentpier_ifs=$IFS
+IFS=:
+set -f
+for agentpier_dir in $agentpier_dirs; do
+  case $agentpier_dir in
+    */github-sessions/agent-*/bin)
+      if [ -f "\${agentpier_dir%/bin}/shell-env.sh" ]; then . "\${agentpier_dir%/bin}/shell-env.sh"; fi
+      break ;;
+  esac
+done
+set +f
+IFS=$agentpier_ifs
+unset agentpier_ifs agentpier_dir agentpier_dirs
+exec /bin/sh "$@"
+`;
+
+test("without an agents root the wrapper is as before", () => {
+  assert.equal(execShellScript("/h"), wrapperBefore);
+  assert.equal(execShellScript("/h", {}), wrapperBefore);
+  assert.throws(() => execShellScript("/h", { sshAgentRoot: "relative/_agents" }));
+});
+
+// An agent's SSH bin/ (agent-ssh-shell.js) makes the wrapper source its shell-env.sh,
+// only for `<literal agents root>/<one name>/bin`; the root's space and quote stay literal.
+function sshWrapper(t) {
+  const dir = tempDir(t, "assistant-exec-ssh-");
+  const base = path.join(dir, "data dir's", "ssh-agents");
+  const root = path.join(base, "_agents");
+  const env = (folder, text) => {
+    fs.mkdirSync(path.join(folder, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(folder, "shell-env.sh"), text);
+  };
+  env(path.join(root, "a1"), "export AGENTPIER_SSH_CONFIG=ok\n");
+  env(path.join(base, "_agents-x", "a1"), "export AGENTPIER_SSH_CONFIG=evil\n");
+  env(path.join(root, "a1", "x"), "export AGENTPIER_SSH_CONFIG=deep\n");
+  const github = path.join(dir, "github-sessions", "agent-a1");
+  env(github, "export GH_CONFIG_DIR=gh-folder\n");
+  const home = path.join(dir, "home");
+  fs.mkdirSync(home);
+  const wrapper = writeExecShell({ root: dir }, home, { sshAgentRoot: root });
+  const run = (prepend, command = 'printf %s "$AGENTPIER_SSH_CONFIG"', extra = {}) =>
+    execFileSync(wrapper, ["-c", command], {
+      env: { PATH: "/usr/bin:/bin", OPENCLAW_PREPEND_PATH: prepend, ...extra },
+      encoding: "utf8",
+    });
+  return { base, root, github: path.join(github, "bin"), run };
+}
+
+test("the wrapper sources an agent's SSH environment only under the literal agents root", (t) => {
+  const { base, root, run } = sshWrapper(t);
+  assert.equal(run(path.join(root, "a1", "bin")), "ok");
+  assert.equal(run(`/owner/bin:${path.join(root, "a1", "bin")}`), "ok");
+  assert.equal(run(path.join(base, "_agents-x", "a1", "bin")), "");
+  assert.equal(run(path.join(root, "a1", "x", "bin")), "");
+  assert.equal(run(path.join(root, "missing", "bin")), "");
+  assert.equal(run("/owner/bin"), "");
+  // On the Gateway's PATH too, as for GitHub.
+  assert.equal(
+    run("", undefined, { PATH: `${path.join(root, "a1", "bin")}:/bin` }),
+    "ok",
+  );
+});
+
+test("an agent with GitHub and SSH gets both environments", (t) => {
+  const { root, github, run } = sshWrapper(t);
+  const both = 'printf "%s|%s" "$GH_CONFIG_DIR" "$AGENTPIER_SSH_CONFIG"';
+  assert.equal(
+    run(`${github}:${path.join(root, "a1", "bin")}:/owner/bin`, both),
+    "gh-folder|ok",
+  );
+  assert.equal(run(github, both), "gh-folder|");
+});

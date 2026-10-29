@@ -557,6 +557,7 @@ export function connectAssistantServices(graph) {
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
         githubShell: workflows.github.shellPaths(store.listAssistants()),
+        sshShell: workflows.agentSsh?.shellPaths(store.listAssistants()),
         webTools: {
           search: webSearch.resolve(),
           browser: webToolsChanges.detect(),

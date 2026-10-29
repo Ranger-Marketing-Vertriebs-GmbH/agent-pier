@@ -196,6 +196,15 @@ export class AgentSsh {
       return this.execute(inv, sshInput(input));
     });
   }
+  // Access id -> plain ssh alias of the trusted hosts in the agent's own SSH agent
+  // (agent-ssh-shell.js); none without one.
+  aliases(assistantId) {
+    try {
+      return this.w.agentSsh?.aliases(assistantId) ?? {};
+    } catch {
+      return {};
+    }
+  }
   hosts(inv) {
     const caller = this.caller(inv);
     const id = this.w.access.sshHolder(caller.assistant.id).id;
@@ -203,6 +212,7 @@ export class AgentSsh {
     const listed = this.w.access.sshHosts();
     if (!listed) throw this.problem("sshHostUnavailable");
     const byId = new Map(listed.map((h) => [h.id, h]));
+    const aliases = this.aliases(caller.assistant.id);
     // A hook run sees only the hosts it may use now.
     if (cls === "hook") {
       const chosen = new Set(this.hookHosts(caller));
@@ -232,6 +242,7 @@ export class AgentSsh {
             ...(h.interactiveShell ? { interactiveShell: true } : {}),
             mode,
             usable,
+            ...(aliases[accessId] ? { alias: aliases[accessId] } : {}),
             ...(usable
               ? {}
               : { reason: unattended(cls) ? "ROUTINE_NOT_TRUSTED" : "ORIGIN_REFUSED" }),
