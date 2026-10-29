@@ -255,8 +255,11 @@ export class FileStore {
       ? this.limits.searchResults
       : this.limits.jobEntries;
     const existing = this.db
-      .prepare("SELECT 1 FROM job_entries WHERE job_id=? AND id=?")
+      .prepare("SELECT document FROM job_entries WHERE job_id=? AND id=?")
       .get(jobId, entry.id);
+    // An unchanged row (recovery on every start) is no new version: the job's prune
+    // clock keeps running.
+    if (existing?.document === encoded) return;
     if (
       !existing &&
       this.db
@@ -420,6 +423,8 @@ export class FileStore {
     };
     if (Object.hasOwn(patch, "conflict")) doc.conflict = projectConflict(patch.conflict);
     if (Object.hasOwn(patch, "decision")) doc.decision = patch.decision;
+    if (from === to && JSON.stringify(doc) === row.document)
+      return publicFileJob(row, this);
     const updatedAt = nextVersion(row.updated_at, this.now());
     const result = this.db
       .prepare("UPDATE jobs SET status=?,document=?,updated_at=? WHERE id=? AND status=?")
