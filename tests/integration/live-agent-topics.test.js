@@ -472,3 +472,35 @@ test("a channel write reads only its agent's channel and reminder topics", async
     names.map((name) => `${name}*`),
   );
 });
+
+test("many agents' detail topics add at most one listener per change source", async (t) => {
+  const f = await fixture(t);
+  const app = f.application;
+  const count = () => ({
+    started: app.assistantFeature.events.listenerCount("started"),
+    stopped: app.assistantFeature.events.listenerCount("stopped"),
+  });
+  const before = count();
+  const live = openLive(f);
+  await live.next((frame) => frame.type === "hello");
+  for (let i = 0; i < 5; i++) {
+    const { id } = f.service.store.createAssistant({
+      name: `Agent ${i}`,
+      model: { connectionId: "c", modelId: "m" },
+    });
+    for (const name of ["agent.actions", "agent.channels", "agent.senders"]) {
+      const topic = `${name}:${id}`;
+      live.send({ op: "sub", topic });
+      await live.next((frame) => frame.topic === topic, 10000);
+    }
+  }
+  // agent.actions and agent.channels share the switch; agent.senders the agent list.
+  const during = count();
+  for (const event of ["started", "stopped"])
+    assert.ok(during[event] - before[event] <= 2, `${event}: ${JSON.stringify(during)}`);
+  live.ws.close();
+  await live.closed;
+  for (let i = 0; i < 50 && app.live.instances.size; i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(count(), before);
+});

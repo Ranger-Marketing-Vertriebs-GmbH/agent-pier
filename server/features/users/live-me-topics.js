@@ -20,6 +20,7 @@ import { awaitingForUser } from "./approval-audience.js";
 import { canPairTelegram } from "./user-access.js";
 import { AGENT_PARAM } from "../assistants/live-topics.js";
 import { digestOf } from "../live/live-rows.js";
+import { sharedSource } from "../live/shared-source.js";
 import { followAgentSwitch, notRunning } from "../assistants/live-runtime-topics.js";
 
 // Her reminders' cron jobs live in the Gateway, like the owner's (agent.reminders):
@@ -87,32 +88,6 @@ export function followAgentEvents(
     unbind?.();
     unbind = null;
     unswitch?.();
-  };
-}
-
-/**
- * One change source shared by every instance that follows it: `follow(fanout)`
- * binds a single listener to its emitters while at least one instance watches, and
- * each event reaches every watching instance. Each user has her own instances, so
- * one emitter listener per instance would grow with users and tabs. Returns
- * `watch(listener)`, which returns the stop function.
- */
-export function sharedSource(follow) {
-  const listeners = new Set();
-  let stop = null;
-  const fanout = () => {
-    for (const listener of [...listeners]) listener();
-  };
-  return (listener) => {
-    const entry = () => listener();
-    listeners.add(entry);
-    if (!stop) stop = follow(fanout) || (() => {});
-    return () => {
-      if (!listeners.delete(entry) || listeners.size) return;
-      const stopping = stop;
-      stop = null;
-      stopping();
-    };
   };
 }
 
