@@ -130,3 +130,28 @@ test("a failed inbox summary leaves the state without it", async () => {
   };
   assert.equal((await state.read()).inbox, null);
 });
+
+test("a read reuses a session list the collect just offered, once", async () => {
+  const { state, calls, advance } = fixture();
+  state.offerSessions([{ id: "two", name: "Zwei", cwd: "/nowhere" }]);
+  const offered = await state.read();
+  assert.equal(calls.sessions, 0);
+  assert.deepEqual(
+    offered.sessions.map((session) => session.id),
+    ["two"],
+  );
+  // Used once: the next read lists again.
+  assert.deepEqual(
+    (await state.read()).sessions.map((session) => session.id),
+    ["one"],
+  );
+  assert.equal(calls.sessions, 1);
+  // An offer older than the window is not used.
+  state.offerSessions([{ id: "old", name: "Alt", cwd: "/nowhere" }]);
+  advance(1001);
+  assert.deepEqual(
+    (await state.read()).sessions.map((session) => session.id),
+    ["one"],
+  );
+  assert.equal(calls.sessions, 2);
+});

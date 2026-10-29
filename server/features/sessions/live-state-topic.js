@@ -1,10 +1,11 @@
 // The live `state` topic: the owner's workspace state (workspace-state.js) as rows,
 // the same value GET /api/state answers. It is read again after every
-// OperationsEvents collect (2.5 s), on native activity of any session, on inbox
-// changes and on writes of accounts, provider connections, preferences and the
-// installer; the hub pushes a frame only when the value changed. The topic has no
-// hub sampler: the collect reads every 2.5 s, and each read detects the slow parts
-// (CLIs, PATH utilities) again once workspace-state.js's 60 s cache has expired.
+// OperationsEvents collect (2.5 s, reusing the session list it read), on native
+// activity of any session, on inbox changes and on writes of accounts, provider
+// connections, preferences and the installer; the hub pushes a frame only when the
+// value changed. The topic has no hub sampler: the collect reads every 2.5 s, and
+// each read detects the slow parts (CLIs, PATH utilities) again once
+// workspace-state.js's 60 s cache has expired.
 import { withoutReadStamp, workspaceStateOf } from "./workspace-state.js";
 
 // A state of many sessions (about 1-3 KiB each) passes 128 KiB; like `agent.list`, a
@@ -28,7 +29,11 @@ export function stateTopic(services) {
     watch({ invalidate }) {
       const changed = () => invalidate();
       const stops = [
-        services.operationsEvents?.onSessions(changed),
+        // The collect has just listed the sessions: the read reuses that list.
+        services.operationsEvents?.onSessions((sessions) => {
+          state.offerSessions(sessions);
+          invalidate();
+        }),
         services.chatEvents?.subscribeAll(
           (event) => event?.type === "native-activity" && invalidate(),
         ),

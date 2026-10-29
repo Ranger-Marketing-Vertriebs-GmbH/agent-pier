@@ -16,13 +16,17 @@ import { legacyTmuxSessions as listLegacyTmux } from "./legacy-tmux-server.js";
 
 /**
  * `read({ fresh })` returns the current state (`fresh` detects the slow parts again);
- * `invalidateSlow()` makes the next read detect them again. Services are read late,
- * so a router may create this before every service exists.
+ * `invalidateSlow()` makes the next read detect them again; `offerSessions(list)`
+ * hands over a session list just read elsewhere (the 2.5 s collect), which the next
+ * read uses once instead of listing the sessions again, if it starts within
+ * `offerMs`. Services are read late, so a router may create this before every
+ * service exists.
  */
 export function createWorkspaceState(
   services,
   {
     slowMs = 60000,
+    offerMs = 1000,
     now = Date.now,
     detectUtilities = detectPathUtilities,
     legacyTmuxSessions = listLegacyTmux,
@@ -31,6 +35,13 @@ export function createWorkspaceState(
   const projects = new SessionProjects();
   let slow = null;
   let stamp = 0;
+  let offered = null;
+  const listSessions = (sessions) => {
+    const taken = offered;
+    offered = null;
+    if (taken && now() - taken.at <= offerMs) return Promise.resolve(taken.list);
+    return sessions.list();
+  };
   // The inbox count rides on the state; a failed read never fails the state.
   const inboxSummary = async () => {
     try {
@@ -77,11 +88,11 @@ export function createWorkspaceState(
     async read({ fresh = false } = {}) {
       stamp = Math.max(now(), stamp + 1);
       const readStartedAt = stamp;
-      if (fresh) slow = null;
+      if (fresh) slow = offered = null;
       const { config, sessions, activity, preferences } = services;
       const [{ tools, utilities, legacy }, listed] = await Promise.all([
         slowParts(),
-        sessions.list().then((list) => activity.enrich(list)),
+        listSessions(sessions).then((list) => activity.enrich(list)),
       ]);
       return {
         tools,
@@ -110,6 +121,9 @@ export function createWorkspaceState(
     },
     invalidateSlow() {
       slow = null;
+    },
+    offerSessions(list) {
+      if (Array.isArray(list)) offered = { list: [...list], at: now() };
     },
   };
 }
