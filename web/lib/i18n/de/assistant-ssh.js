@@ -110,6 +110,28 @@ export const assistantSshCopy = {
     label: "SSH-Aktivität",
     hosts: (count) => `${count} Hosts`,
   },
+  plain: {
+    title: "Direktes ssh",
+    ready:
+      "Direktes ssh funktioniert in der Shell dieses Agenten für seine vertrauten Hosts: ssh, scp, sftp, rsync, git und Tunnel.",
+    readyNone: "Noch kein Host hat einen Alias: Nur vertraute Hosts bekommen einen.",
+    noShell: "Direktes ssh braucht Shell-Zugriff für diesen Agenten.",
+    noOpenSsh:
+      "Direktes ssh braucht OpenSSH auf diesem Computer. SSH-Befehle über AgentPier funktionieren weiter.",
+    tooOld:
+      "Direktes ssh braucht OpenSSH 8.9 oder neuer auf diesem Computer. SSH-Befehle über AgentPier funktionieren weiter.",
+    failed:
+      "Direktes ssh konnte für diesen Agenten nicht gestartet werden. SSH-Befehle über AgentPier funktionieren weiter.",
+    notEligible: "Direktes ssh ist für diesen Agenten nicht verfügbar.",
+    approvalHint:
+      "Hosts mit Freigabe haben keinen Alias: Jeder Befehl fragt weiter bei dir nach.",
+    openConnections:
+      "Wird ein Host entzogen oder auf Mit Freigabe gestellt, sind neue Verbindungen sofort gesperrt. Offene Verbindungen und Tunnel bleiben offen, bis sie enden.",
+    aliasLabel: (alias) => `ssh ${alias}`,
+    sshConfig: (reason) =>
+      `AgentPier hat ~/.ssh/config nicht geändert: ${reason}. Meldet ssh <alias> in der Shell des Agenten einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
+    copy: "Befehl kopieren",
+  },
   history: {
     title: (host) => `SSH auf ${host}`,
     trusted: "Vertrauter Lauf",

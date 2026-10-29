@@ -17,7 +17,7 @@ const servers = [
 const save = (page) =>
   saveBar(page).getByRole("button", { name: "Save agent", exact: true });
 
-async function openAccess(page, options = {}) {
+async function openAccess(page, { sshAgent, ...options } = {}) {
   const state = await setup(page, {
     assistant: { mcpServers: [] },
     applyUpdates: true,
@@ -26,6 +26,11 @@ async function openAccess(page, options = {}) {
     access: { revision: 0, projectIds: ["p1"], projectFiles: {} },
     ...options,
   });
+  // The agent's plain ssh status (GET /api/assistants/:id/ssh-agent, live topic).
+  if (sshAgent)
+    await page.route("**/api/assistants/home/ssh-agent", (route) =>
+      route.fulfill({ json: sshAgent }),
+    );
   await page.goto(baseURL + settingsPath("access"));
   return state;
 }
@@ -165,4 +170,56 @@ test("removing an entry and leaving asks to keep the Access draft", async ({ pag
   await expect(saveBar(page)).toBeVisible();
   await page.getByRole("tab", { name: "Team", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Save changes?" })).toBeVisible();
+});
+
+const sshGrants = {
+  revision: 0,
+  projectIds: [],
+  projectFiles: {},
+  sshAccesses: [
+    { accessId: nas.id, mode: "trusted" },
+    { accessId: opnsense.id, mode: "approval" },
+  ],
+};
+
+test("the SSH group and page show plain ssh aliases of trusted hosts and the approval hint", async ({
+  page,
+}) => {
+  await openAccess(page, {
+    access: sshGrants,
+    sshAgent: { state: "ready", aliases: { [nas.id]: "nas-01" } },
+  });
+  const group = page.locator("#agent-access-ssh");
+  await expect(
+    group.getByText("Plain ssh works in this agent's shell for its trusted hosts"),
+  ).toBeVisible();
+  await expect(group.getByText("ssh nas-01", { exact: true })).toBeVisible();
+  await expect(group.getByRole("button", { name: "Copy command" })).toHaveCount(1);
+  await expect(group.getByText("Hosts with approval have no alias")).toBeVisible();
+  await expect(group.getByText("Open connections and tunnels stay open")).toBeVisible();
+  // The full subpage shows the same block below the host list.
+  await page.goto(baseURL + settingsPath("access", "ssh"));
+  await expect(page.getByRole("button", { name: "Back to Access" })).toBeVisible();
+  await expect(page.getByText("ssh nas-01", { exact: true })).toBeVisible();
+  await expect(page.getByText("Hosts with approval have no alias")).toBeVisible();
+});
+
+test("an agent without shell sees why plain ssh is off; no hosts shows nothing", async ({
+  page,
+}) => {
+  await openAccess(page, {
+    access: sshGrants,
+    sshAgent: { state: "unavailable", reason: "no-shell" },
+  });
+  await expect(
+    page.getByText("Plain ssh needs shell access for this agent."),
+  ).toBeVisible();
+  await expect(page.getByText(/^ssh /)).toHaveCount(0);
+  await page.unroute("**/api/assistants/home/ssh-agent");
+  await page.route("**/api/assistants/home/ssh-agent", (route) =>
+    route.fulfill({ json: { state: "unavailable", reason: "no-hosts" } }),
+  );
+  await page.reload();
+  await expect(page.locator("#agent-access-ssh")).toBeVisible();
+  await expect(page.getByText(/Plain ssh/)).toHaveCount(0);
 });

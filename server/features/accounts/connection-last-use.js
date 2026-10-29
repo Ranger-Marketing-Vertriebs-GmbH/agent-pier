@@ -2,8 +2,9 @@
  * Audit actions that record a use of an SSH/SFTP host, read for "last used". The audit
  * holds agents' SSH commands (agent-ssh.js), every SFTP transfer of agents and
  * sessions (agent-sftp-runs.js, sftp-session-audit.js) and the signatures of a
- * session's SSH agent (ssh.connected, ssh-agent-audit.js), so plain ssh, scp, rsync and
- * git through the agent count. A coding session's ssh_execute calls through the ssh.mjs
+ * session's or an agent's SSH agent (ssh.connected, ssh-agent-audit.js; an agent's
+ * rows carry `details.assistantId`), so plain ssh, scp, rsync and git through either
+ * agent count. A coding session's ssh_execute calls through the ssh.mjs
  * helper are not audited, so a host used only that way reads as never used:
  * `sshLastUseCovers` names what the time covers.
  */
@@ -13,7 +14,13 @@ export const sshUseActions = [
   "sftp.completed",
   "sftp.failed",
 ];
-export const sshLastUseCovers = ["agentSsh", "agentSftp", "sessionSftp", "sessionSsh"];
+export const sshLastUseCovers = [
+  "agentSsh",
+  "agentPlainSsh",
+  "agentSftp",
+  "sessionSftp",
+  "sessionSsh",
+];
 
 /** Host id → ISO time of its newest recorded use; null when the audit cannot be read. */
 export function sshLastUse(audit) {

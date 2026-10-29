@@ -12,7 +12,8 @@ import "./ssh-grant-page.css";
 
 /**
  * The SSH hosts this agent may use, each with its mode; part of the Work draft.
- * `hosts` is undefined while loading and null when the catalog could not be read.
+ * `hosts` is undefined while loading and null when the catalog could not be read;
+ * `children` follow the lists (the agent's plain ssh status).
  */
 export default function SshGrantPage({
   hosts,
@@ -22,6 +23,7 @@ export default function SshGrantPage({
   onRetry,
   onBack,
   navigate,
+  children,
 }) {
   const [query, setQuery] = useState("");
   const searchId = useId();
@@ -150,6 +152,7 @@ export default function SshGrantPage({
           ))}
         </ListCard>
       )}
+      {children}
     </section>
   );
 }

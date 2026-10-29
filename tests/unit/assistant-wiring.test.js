@@ -202,7 +202,15 @@ test("a failure after the agents' SSH wiring closes it first and drops its liste
   const closed = [];
   const settings = {
     ...options(t),
-    sshAgentRegistry: { tokenSource() {}, close: async (kind) => closed.push(kind) },
+    sshAgentRegistry: {
+      tokenSource() {},
+      close: async (kind) => closed.push(kind),
+      // The live topic's signal (agent.ssh-agent) goes with the other listeners.
+      listen(kind, listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
     sshManagement: {
       onAccessChanged: null,
       store: { list: () => [] },

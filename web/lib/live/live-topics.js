@@ -119,6 +119,12 @@ export const liveTopics = Object.freeze({
     interval: 5000,
     sampled: true,
   }),
+  // The agent's plain ssh status, pushed by every change of its SSH agent.
+  "agent.ssh-agent": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/ssh-agent`,
+    interval: 30000,
+  }),
   "runtime.updates": Object.freeze({
     mode: "state",
     path: () => "/assistant-runtime/updates",

@@ -102,6 +102,7 @@ export const ownerMetadataRoutes = new Set([
   "PUT /api/assistants/:id/work",
   "GET /api/assistants/:id/shell-allowlist",
   "DELETE /api/assistants/:id/shell-allowlist/:entry",
+  "GET /api/assistants/:id/ssh-agent",
   "GET /api/assistants/:id/skills",
   "GET /api/assistants/:id/attachment-usage",
   "GET /api/assistant-conversations/:id/attachment-policy",

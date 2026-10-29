@@ -365,6 +365,20 @@ test("status is unavailable with a reason and never names a path or token", asyn
   );
 });
 
+test("while the access store cannot be read the status is failed, not no-hosts", async (t) => {
+  const s = setup(t);
+  const a = s.add(personal(), [trusted(hostA)]);
+  const none = s.add(personal());
+  s.accessFails = true;
+  for (const agent of [a, none])
+    assert.deepEqual(s.shell.status(agent.id), {
+      state: "unavailable",
+      reason: "failed",
+    });
+  s.accessFails = false;
+  assert.deepEqual(s.shell.status(none.id), { state: "unavailable", reason: "no-hosts" });
+});
+
 test("without OpenSSH 8.9 or an ssh on PATH no agent gets a socket", async (t) => {
   const old = setup(t, { openssh: { major: 8, minor: 8 } });
   const a = old.add(personal(), [trusted(hostA)]);
