@@ -14,6 +14,7 @@ import { notifyAgentProject } from "./agent-project-notes.js";
 import { directOwnerTurn, mayCreateProjects } from "./goal-turns.js";
 
 const run = promisify(execFile);
+const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
 const ownerOnly = () => assistantProblem("projectOwnerOnly", 403);
 const unavailable = () => assistantProblem("projectFolderUnavailable", 409);
 const optionalBoolean = (value, fallback) => {
@@ -110,12 +111,22 @@ export class AgentProjects {
     const w = this.w;
     projectCreateLimit(this.store.times(agent.id), this.now());
     const parent = await this.parent();
-    let target, made;
+    let target, made, held;
     try {
       target = (await createDirectory(parent, name)).path;
-      made = await fs.lstat(target, { bigint: true });
     } catch (error) {
       throw error.status === 409 ? assistantProblem("projectExists", 409) : unavailable();
+    }
+    // The new folder stays open until the call ends: an open inode is never freed, so
+    // no folder put in its place can get its device and inode numbers (Linux file
+    // systems hand a freed inode number to the next new folder at once).
+    try {
+      held = await fs.open(target, openFolder);
+      made = await held.stat({ bigint: true });
+    } catch {
+      await held?.close().catch(() => {});
+      await fs.rmdir(target).catch(() => {});
+      throw unavailable();
     }
     // From here on a failure removes this folder, which this call made, and everything
     // the call recorded for it: the grant, the creation record and the registration
@@ -167,6 +178,8 @@ export class AgentProjects {
     } catch (error) {
       await this.rollback(agent, target, made, project, { recorded, granted });
       throw error;
+    } finally {
+      await held.close().catch(() => {});
     }
   }
   async coding(inv, { agent, conversation }, projectId, enabled) {

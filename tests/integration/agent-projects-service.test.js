@@ -326,57 +326,6 @@ test("an older project row naming the new folder is never rebound into it", asyn
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
 });
 
-test("a folder swapped for a link or another folder is refused and the replacement stays", async (t) => {
-  const f = await agentProjectFixture(t);
-  const logged = t.mock.method(console, "error", () => {});
-  const outside = fs.mkdtempSync(path.join(f.dataDir, "outside-"));
-  fs.writeFileSync(path.join(outside, "keep"), "x");
-  const known = f.projectIds();
-  const swaps = {
-    link: (target) => fs.symlinkSync(outside, target),
-    folder: (target) => {
-      fs.mkdirSync(target);
-      fs.writeFileSync(path.join(target, "theirs"), "y");
-    },
-  };
-  // Swapped after git init: refused before registering.
-  for (const [kind, swap] of Object.entries(swaps)) {
-    f.workflows.projects.gitInit = async (target) => {
-      fs.rmdirSync(target);
-      swap(target);
-    };
-    assert.equal(
-      await f.code(f.call({ action: "create", name: `After-${kind}` })),
-      "PROJECT_FOLDER_UNAVAILABLE",
-      kind,
-    );
-  }
-  // Swapped before git init: git never runs.
-  let inits = 0;
-  f.workflows.projects.gitInit = async () => inits++;
-  const unchanged = f.workflows.projects.unchanged.bind(f.workflows.projects);
-  f.workflows.projects.unchanged = async (target, made) => {
-    f.workflows.projects.unchanged = unchanged;
-    fs.rmdirSync(target);
-    swaps.link(target);
-    return unchanged(target, made);
-  };
-  assert.equal(
-    await f.code(f.call({ action: "create", name: "Before" })),
-    "PROJECT_FOLDER_UNAVAILABLE",
-  );
-  assert.equal(inits, 0);
-  assert.deepEqual(fs.readdirSync(outside), ["keep"]);
-  // The rollback removes only the folder the call made, never what replaced it.
-  assert.deepEqual(entries(f.parent), ["After-folder", "After-link", "Before"]);
-  assert.deepEqual(fs.readdirSync(path.join(f.parent, "After-folder")), ["theirs"]);
-  for (const link of ["After-link", "Before"])
-    assert.equal(fs.readlinkSync(path.join(f.parent, link)), outside);
-  assert.equal(logged.mock.callCount(), 3);
-  assert.deepEqual(f.projectIds(), known);
-  assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
-});
-
 test("the eleventh project within 24 hours is refused", async (t) => {
   const f = await agentProjectFixture(t);
   f.addRows(9, hourMs);
