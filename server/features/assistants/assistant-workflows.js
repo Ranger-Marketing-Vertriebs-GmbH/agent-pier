@@ -38,6 +38,7 @@ import {
   decisionKeys,
 } from "./agent-hook-proposals.js";
 import { advanceSshProposal, decideSshProposal } from "./agent-ssh-proposals.js";
+import { deliverCodingStart } from "./coding-start-follow-up.js";
 import { emitCompletion } from "./coding-completion.js";
 import { AgentCodingSessions } from "./coding-sessions/agent-coding-sessions.js";
 import { AgentProjects } from "./agent-projects.js";
@@ -352,6 +353,10 @@ export class AssistantWorkflows {
           throw error;
         }
       const next = this.store.patch(id, {
+        ...(["coding_start", "session_start"].includes(action.payload.action) &&
+        input.decision === "approve"
+          ? { codingStartPending: true }
+          : {}),
         state: { approve: "approved", decline: "declined", review: "reviewed" }[
           input.decision
         ],
@@ -563,13 +568,15 @@ export class AssistantWorkflows {
       notifyAction(this, a, run.status === "awaiting-human" ? "human" : "started");
       a = noteCodingRun(this, a);
     }
+    const startDelivered = await deliverCodingStart(this, a);
     if (terminal.has(a.state)) {
       a = noteCodingRun(this, a);
       notifyAction(this, a, "result");
       const emitted = await emitCompletion(this, a),
         delivered = await deliverFollowUps(this, a),
         reported = await deliverMemoryFollowUp(this, a);
-      if (emitted && delivered && reported) this.store.patch(a.id, { settled: true });
+      if (emitted && delivered && reported && startDelivered)
+        this.store.patch(a.id, { settled: true });
     }
   }
   async close() {

@@ -41,7 +41,7 @@ const routineRefused = new Set(["coding_cancel"]);
  * project folders only) or a hook run (`hook`, agent-hook-workspace.js). Every other
  * turn is refused.
  */
-export function workspaceContext(w, inv) {
+export function workspaceContext(w, inv, { codingStart = false } = {}) {
   inv.assertCurrent();
   if (!inv.attemptId && inv.hook) return hookContext(w, inv);
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
@@ -55,6 +55,26 @@ export function workspaceContext(w, inv) {
   if (origin.kind === "team-member") return memberContext(w, chat, attempt, origin);
   if (origin.kind === "lead-request")
     return leadRequestContext(w, chat, attempt, req, origin);
+  if (origin.kind === "coding-start") {
+    const action = w.store.get(origin.actionId);
+    if (
+      !codingStart ||
+      action.payload.action !== "coding_start" ||
+      !action.codingStartPending ||
+      (action.memberConversationId || action.conversationId) !== chat.id ||
+      req.clientRequestId !== `coding-start:${action.id}`
+    )
+      throw assistantProblem("invalid", 403);
+    w.access.eligible(chat.assistantId);
+    return {
+      assistantId: action.assistantId,
+      conversationId: chat.id,
+      attemptId: attempt.id,
+      origin,
+      codingStart: action.id,
+      ...(action.requestedBy ? { requestedBy: action.requestedBy } : {}),
+    };
+  }
   const agent = w.access.eligible(chat.assistantId);
   // A lead's follow-up on its member's result acts like the lead's own work
   // (member-result-writes.js), on the lead's own access only.
@@ -260,8 +280,14 @@ function catalog(w, ctx) {
 
 /** One agentpier_workspace call (AssistantWorkflows.invoke, under admission). */
 export async function workspaceCall(w, inv, input) {
-  const ctx = workspaceContext(w, inv);
+  const ctx = workspaceContext(w, inv, { codingStart: true });
   exact(input, workspaceKeys);
+  if (
+    ctx.codingStart &&
+    (!["coding_status", "coding_artifacts"].includes(input.action) ||
+      input.id !== ctx.codingStart)
+  )
+    throw assistantProblem("invalid", 403);
   // A command's completion reaches the project folders only, never coding requests
   // or project memory (exec-continuation.js).
   if (
@@ -281,7 +307,7 @@ export async function workspaceCall(w, inv, input) {
   // A user agent reaches only its folders: no coding, no project memory.
   if (input.action !== "catalog" && isUserAgent(w.a.store.getAssistant(ctx.assistantId)))
     throw userAgentLocked();
-  if (ctx.requestedBy && !memberActions.has(input.action))
+  if (ctx.requestedBy && !ctx.codingStart && !memberActions.has(input.action))
     throw assistantProblem("invalid", 403);
   if (ctx.leadRequest && !leadTaskActions.has(input.action))
     throw assistantProblem("invalid", 403);

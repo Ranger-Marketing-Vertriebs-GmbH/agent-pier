@@ -109,6 +109,8 @@ export class AssistantActionStore {
              AND json_extract(body,'$.requestedBy') IS NOT NULL
              AND json_extract(body,'$.parentResult') IS NULL
              AND json_extract(body,'$.state') NOT IN ('awaiting_approval','unknown'))
+           OR (json_extract(body,'$.codingStartPending')=1
+             AND json_extract(body,'$.codingStartDelivered') IS NULL)
            OR (json_extract(body,'$.payload.action')='memory_write'
              AND json_extract(body,'$.memoryFollowUp') IS NULL
              AND json_extract(body,'$.state') IN ('declined','expired','failed','cancelled')))`,
