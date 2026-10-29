@@ -39,11 +39,14 @@ async function fixture(t, { gateway = false } = {}) {
   return Object.assign(f, { service, assistant, gateway: made.gateway });
 }
 
+// Waits that are no latency checks leave room for a machine running the whole suite.
+const loaded = 10000;
+
 async function subscribe(f, topic, cookie) {
   const live = openLive(f, cookie);
-  await live.next((frame) => frame.type === "hello");
+  await live.next((frame) => frame.type === "hello", loaded);
   live.send({ op: "sub", topic });
-  return { live, first: await live.next((frame) => frame.topic === topic, 5000) };
+  return { live, first: await live.next((frame) => frame.topic === topic, loaded) };
 }
 
 const json = async (f, path) => (await f.request(path)).json();
@@ -108,18 +111,39 @@ test("agent.coding-requests carries the team requests only", { timeout }, async 
     first.data.actions.map((a) => a.id),
     [team.id],
   );
-  // An action of the agent's own changes nothing here.
+  // An action of the agent's own changes nothing here: the hub's read of it settles
+  // without a frame, however long it takes, and the next frame is the team change.
+  // No timed silence: a loaded machine only delays the frames, never adds one.
+  const instance = f.application.live.named("agent.coding-requests")[0];
+  const revision = instance.revision;
+  const reads = readsOf(instance);
   reserve(f);
-  await assert.rejects(
-    live.next((frame) => frame.topic === topic, 600),
-    /no matching frame/,
-  );
+  await reads.next();
+  assert.equal(instance.revision, revision);
   f.service.workflows.store.patch(team.id, { state: "approved" });
-  // Not a latency check (the actions test has one): room for a loaded machine.
-  const frame = await live.next((frame) => frame.topic === topic, 3000);
+  // Not a latency check (the actions test has one).
+  const frame = await live.next((frame) => frame.topic === topic, loaded);
   assert.equal(frame.data.actions[0].state, "approved");
+  assert.equal(frame.revision, revision + 1);
   live.ws.close();
 });
+
+/** `next()` resolves once `instance` finished its next read (the hub's cycle). */
+function readsOf(instance) {
+  const read = instance.definition.read;
+  let done = null;
+  const wrapped = Object.create(instance.definition);
+  wrapped.read = async (...args) => {
+    try {
+      return await read(...args);
+    } finally {
+      // The value is compared and sent right after the read; a tick later it is done.
+      setImmediate(() => done?.());
+    }
+  };
+  instance.definition = wrapped;
+  return { next: () => new Promise((resolve) => (done = resolve)) };
+}
 
 test("a run of an agent's action signals that agent's action topics", async (t) => {
   const f = await fixture(t);
