@@ -196,8 +196,6 @@ export class SshAgentRegistry {
         socketPath: entry.location.socketPath,
         binaries: entry.binaries,
         shellEnv,
-        // An agent's ssh and scp refuse local-command options (owner A18).
-        strict: owner.kind === "agent",
       });
       if (skipped.length) this.log.warn(`${label} skipped hosts:`, skipped.join(", "));
       entry.written = written;
@@ -228,7 +226,6 @@ export class SshAgentRegistry {
         socketPath: entry.location.socketPath,
         binaries: entry.binaries,
         shellEnv: entry.shellEnv,
-        strict: entry.owner.kind === "agent",
       });
     try {
       empty();

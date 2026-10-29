@@ -532,7 +532,7 @@ export class AssistantAccess {
       for (const row of this.db
         .prepare("SELECT assistant_id, body FROM assistant_access")
         .all()) {
-        const before = withDefaults(JSON.parse(row.body));
+        const before = withDefaults(accessBody(row.body));
         const fields = change(before);
         if (!fields) continue;
         const after = this.write(row.assistant_id, {

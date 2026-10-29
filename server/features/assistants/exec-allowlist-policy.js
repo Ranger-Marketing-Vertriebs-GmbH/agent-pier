@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runsLocalProgram, sshWrapper } from "./exec-ssh-wrappers.js";
+import { sshWrapper } from "./exec-ssh-wrappers.js";
 
 // When OpenClaw withholds allow-always, AgentPier's "Always allow" writes one
 // program-path entry (`{ id, pattern: <program> }`, any arguments) per program of
@@ -250,7 +250,7 @@ export function allowAlwaysPlan(
   if (!argvs) return { kind: "once", reason: "complex" };
   const where = { cwd: payload.cwd, pathDirs };
   for (const [program, ...args] of argvs) {
-    // An agent SSH wrapper is checked with its arguments below.
+    // An agent's SSH wrapper is not an interpreter (owner A16, A19).
     if (!isInterpreter(program) || sshWrapper(resolve(program, where), wrapperDirs))
       continue;
     return {
@@ -260,14 +260,11 @@ export function allowAlwaysPlan(
     };
   }
   const paths = [];
-  for (const [n, [program, ...args]] of argvs.entries()) {
+  for (const [n, [program]] of argvs.entries()) {
     const real = resolve(program, where);
     if (!real)
       return { kind: "once", reason: "unresolved", program: program.slice(0, 300) };
-    const tool = sshWrapper(real, wrapperDirs);
-    if (tool && runsLocalProgram(tool, args))
-      return { kind: "once", reason: "inline", program: program.slice(0, 300) };
-    if (isInterpreter(real) && !tool)
+    if (isInterpreter(real) && !sshWrapper(real, wrapperDirs))
       return { kind: "once", reason: "interpreter", program: program.slice(0, 300) };
     // The first program must be the one OpenClaw resolved, or the PATH differs.
     if (n === 0 && payload.resolvedPath && real !== payload.resolvedPath) {
