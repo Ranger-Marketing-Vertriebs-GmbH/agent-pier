@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import api from "../../lib/api.js";
-import useLiveTopic, { useSafetyRead } from "../../lib/live/useLiveTopic.js";
+import useLiveTopic, {
+  useLiveSignal,
+  useSafetyRead,
+} from "../../lib/live/useLiveTopic.js";
 import { AGENTBUS_SAFETY_MS } from "../agentbus/useAgentBusMessages.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 
@@ -243,39 +253,50 @@ export default function useProjectHub() {
   useEffect(() => {
     if (version) refreshBus();
   }, [version, refreshBus]);
+  // A project registered, renamed or removed elsewhere (an agent creating its own
+  // project, a session, another tab) reads both sources again, without the loading
+  // state of a reload, and only once the tab is visible.
+  const projectsChanged = useLiveSignal("projects.changed");
+  const loadedVersion = useRef(null);
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    const reload = loadedVersion.current !== version;
+    if (reload) setLoading(true);
+    loadedVersion.current = version;
     // Each source loads on its own: a failing one keeps the others listed. Live git
     // remotes come with the repository and knowledge lists, never with the frequent
     // AgentBus reads.
-    Promise.allSettled([
-      api("/repositories?remotes=1"),
-      api("/memory/projects?remotes=1&duplicates=1"),
-    ]).then(([repositories, memory]) => {
-      if (!alive) return;
-      if (repositories.status === "fulfilled")
-        setSources((current) => ({
-          ...current,
-          repositories: repositories.value.projects || [],
-          credentials: repositories.value.credentials || [],
-        }));
-      if (memory.status === "fulfilled")
-        setSources((current) => ({
-          ...current,
-          memoryProjects: memory.value.projects || [],
-        }));
-      sourceError(
-        "repositories",
-        repositories.status === "rejected" ? repositories.reason.message : "",
-      );
-      sourceError("memory", memory.status === "rejected" ? memory.reason.message : "");
-      setLoading(false);
-    });
+    (reload ? Promise.resolve() : whenVisible(() => alive))
+      .then(() =>
+        Promise.allSettled([
+          api("/repositories?remotes=1"),
+          api("/memory/projects?remotes=1&duplicates=1"),
+        ]),
+      )
+      .then(([repositories, memory]) => {
+        if (!alive) return;
+        if (repositories.status === "fulfilled")
+          setSources((current) => ({
+            ...current,
+            repositories: repositories.value.projects || [],
+            credentials: repositories.value.credentials || [],
+          }));
+        if (memory.status === "fulfilled")
+          setSources((current) => ({
+            ...current,
+            memoryProjects: memory.value.projects || [],
+          }));
+        sourceError(
+          "repositories",
+          repositories.status === "rejected" ? repositories.reason.message : "",
+        );
+        sourceError("memory", memory.status === "rejected" ? memory.reason.message : "");
+        setLoading(false);
+      });
     return () => {
       alive = false;
     };
-  }, [version, sourceError]);
+  }, [version, projectsChanged, sourceError]);
   const repositories = useMemo(
     () => [
       ...clone.projects,

@@ -138,6 +138,12 @@ test("the operations and artifact topics name their routes at their former polls
     ["signal", null, 5000],
   );
   assert.equal(topicInfo("artifacts.changed:x"), null);
+  const projects = topicInfo("projects.changed");
+  assert.deepEqual(
+    [projects.mode, projects.path, projects.interval],
+    ["signal", null, 30000],
+  );
+  assert.equal(topicInfo("projects.changed:x"), null);
 });
 
 test("the tool and REA job topics name their routes at their former polls", () => {

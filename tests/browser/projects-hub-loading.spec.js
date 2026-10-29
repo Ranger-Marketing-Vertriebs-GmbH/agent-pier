@@ -178,3 +178,57 @@ test("run hints beyond the swept pages read as a lower bound", async ({ page }) 
     "1 Entscheidung erforderlich",
   );
 });
+
+// A project an agent registers in the background reaches an open projects page through
+// the live `projects.changed` signal: one read of each source, no timed reads, and
+// none while the tab is hidden.
+test("a project registered elsewhere appears on projects.changed", async ({
+  page,
+  liveStub,
+}) => {
+  const added = { on: false };
+  const calls = await hubFixture(page, {
+    intercept: async (route, url, method) => {
+      if (!added.on || url.pathname !== "/api/memory/projects" || method !== "GET")
+        return false;
+      await route.fulfill({
+        json: {
+          projects: [
+            { id: "m1", name: "agent-pier", cwd: "/work/agent-pier", kind: "repository" },
+            { id: "m2", name: "notes", cwd: "/work/notes", kind: "directory" },
+            { id: "m9", name: "agent-made", cwd: "/work/agent-made", kind: "directory" },
+          ],
+        },
+      });
+      return true;
+    },
+  });
+  await page.goto(base + "/projects");
+  const list = projectList(page);
+  await expect(list.getByRole("button", { name: /^notes/ })).toBeVisible();
+  await liveStub.waitForSubscribe("projects.changed");
+  await page.waitForTimeout(1000);
+  const before = reads(calls, "/api/memory/projects");
+  expect(before).toBe(1);
+  added.on = true;
+  liveStub.changed("projects.changed");
+  await expect(list.getByRole("button", { name: /^agent-made/ })).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(reads(calls, "/api/memory/projects")).toBe(before + 1);
+  expect(reads(calls, "/api/repositories")).toBe(2);
+  const setHidden = (hidden) =>
+    page.evaluate((value) => {
+      for (const [key, state] of [
+        ["hidden", value],
+        ["visibilityState", value ? "hidden" : "visible"],
+      ])
+        Object.defineProperty(document, key, { configurable: true, value: state });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, hidden);
+  await setHidden(true);
+  liveStub.changed("projects.changed");
+  await page.waitForTimeout(1000);
+  expect(reads(calls, "/api/memory/projects")).toBe(before + 1);
+  await setHidden(false);
+  await expect.poll(() => reads(calls, "/api/memory/projects")).toBe(before + 2);
+});
