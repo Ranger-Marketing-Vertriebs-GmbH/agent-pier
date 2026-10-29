@@ -132,11 +132,7 @@ export class NativeReminders {
       reviewRequired: !job && unconfirmed(binding) && !this.creating.has(binding.id),
     };
   }
-  /** The cron jobs of agent `id` in the Gateway (one shared sample, live-me-topics.js). */
-  agentJobs(id) {
-    return this.assistants.admit(async () => this.jobs(this.agent(id)));
-  }
-  /** One person's bindings (`userId`, null: owner; `jobs`: agentJobs' just-read). */
+  /** One person's bindings (`userId`, null: owner; `jobs`: the agent's just read). */
   list(id, { userId = null, jobs: read } = {}) {
     return this.assistants.admit(async () => {
       const agent = this.agent(id),
