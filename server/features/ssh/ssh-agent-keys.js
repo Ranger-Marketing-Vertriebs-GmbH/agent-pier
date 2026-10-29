@@ -137,10 +137,22 @@ function parsePrivate(identityText) {
   return key;
 }
 
-export function signUserauth(identityText, data, flags, { allowSha1 = false } = {}) {
+// Signs `data` with the private key in `identityText`. With `keyBlob`, a private key
+// whose public half is not exactly that blob is refused (SSH_AGENT_KEY_UNSUPPORTED).
+export function signUserauth(
+  identityText,
+  data,
+  flags,
+  { allowSha1 = false, keyBlob } = {},
+) {
   if (typeof identityText !== "string" && !Buffer.isBuffer(identityText))
     throw unsupported();
   const key = parsePrivate(identityText);
+  if (keyBlob !== undefined) {
+    const own = key.getPublicSSH();
+    if (!Buffer.isBuffer(keyBlob) || !Buffer.isBuffer(own) || !own.equals(keyBlob))
+      throw unsupported();
+  }
   const algorithm = signatureAlgorithm(key.type, flags, { allowSha1 });
   const hash = rsaAlgorithms.get(algorithm);
   let raw;

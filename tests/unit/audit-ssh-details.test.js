@@ -111,3 +111,56 @@ test("host names with control characters are dropped", () => {
   });
   assert.equal(event.details.hostName, undefined);
 });
+
+test("a session agent signature keeps its host and count, never keys", () => {
+  const event = auditEvent({
+    action: "ssh.connected",
+    resourceType: "ssh",
+    resourceId: accessId,
+    sessionId: "session-1",
+    projectId: "project-1",
+    source: "mcp",
+    outcome: "success",
+    details: {
+      accessId,
+      hostName: "proxmox",
+      count: 3,
+      keyBlob: "AAAAC3NzaC1lZDI1NTE5",
+      username: "deploy",
+    },
+  });
+  assert.equal(event.action, "ssh.connected");
+  assert.equal(event.sessionId, "session-1");
+  assert.deepEqual(event.details, { accessId, hostName: "proxmox", count: 3 });
+});
+
+test("a session agent refusal keeps its agent code", () => {
+  for (const code of [
+    "SSH_AGENT_UNBOUND",
+    "SSH_AGENT_FORWARDING",
+    "SSH_AGENT_NOT_GRANTED",
+    "SSH_AGENT_LEGACY",
+    "SSH_AGENT_KEY_UNSUPPORTED",
+  ]) {
+    const event = auditEvent({
+      action: "ssh.denied",
+      resourceType: "ssh",
+      sessionId: "session-1",
+      source: "mcp",
+      outcome: "failure",
+      details: { code },
+    });
+    assert.deepEqual(event.details, { code });
+  }
+});
+
+test("an agent signature count must be a non-negative integer", () => {
+  const event = auditEvent({
+    action: "ssh.connected",
+    resourceType: "ssh",
+    source: "mcp",
+    outcome: "success",
+    details: { count: -1 },
+  });
+  assert.equal(event.details.count, undefined);
+});

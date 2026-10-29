@@ -1,5 +1,7 @@
-// Agent SSH audit details (agent-ssh.js, assistant-access.js): ids, the outcome and
-// a digest. Never the command text, its output or key material.
+// Agent SSH audit details (agent-ssh.js, assistant-access.js) and the session SSH
+// agent's ssh.connected and ssh.denied rows (ssh-agent-audit.js): ids, the outcome, a
+// digest and codes; the agent's signature count passes through audit-schema.js's
+// shared "count". Never the command text, its output, signed data or key material.
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const modes = ["approval", "trusted", "routines"];
 const isId = (value) => typeof value === "string" && idPattern.test(value);

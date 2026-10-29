@@ -323,3 +323,27 @@ test("session-bind refuses ECDSA signatures with trailing or non-canonical integ
     }
   }
 });
+
+test("signing for a key blob refuses a private key with another public half", () => {
+  for (const pair of [ed25519, rsa, ecdsa]) {
+    const own = publicKeyBlob(pair.publicLine);
+    assert.ok(signUserauth(pair.privateText, data, 4, { keyBlob: own }));
+  }
+  assert.throws(
+    () =>
+      signUserauth(rsa.privateText, data, 4, {
+        keyBlob: publicKeyBlob(ed25519.publicLine),
+      }),
+    { code: "SSH_AGENT_KEY_UNSUPPORTED" },
+  );
+  assert.throws(
+    () =>
+      signUserauth(ecdsa.privateText, data, 0, {
+        keyBlob: publicKeyBlob(ecdsa384.publicLine),
+      }),
+    { code: "SSH_AGENT_KEY_UNSUPPORTED" },
+  );
+  assert.throws(() => signUserauth(ed25519.privateText, data, 0, { keyBlob: "x" }), {
+    code: "SSH_AGENT_KEY_UNSUPPORTED",
+  });
+});
