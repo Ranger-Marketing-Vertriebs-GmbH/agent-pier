@@ -654,7 +654,8 @@ it up. An agent of users gets project folders only; the other groups show a lock
   [teams](#teams-asks-and-tasks) below), **Maximum team size** and **Member time limit
   (minutes)** (10 by default; it bounds a team's work on its assignment and questions,
   while a task the agent gives a member, or a member gives a colleague, may run up
-  to 60 minutes).
+  to 60 minutes; a member works on one request at a time, so questions to a member
+  busy with such a task can wait up to an hour).
 - **Shared with members:** what this agent shares of its own access with its members,
   with **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
 - **Teams:** the agent's active and archived teams with proposals and member requests

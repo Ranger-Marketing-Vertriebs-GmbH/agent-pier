@@ -997,7 +997,10 @@ operations. A deadline requests cancellation; it does not prove completion or fr
 an uncertain slot. The member deadline (`runTimeoutMinutes`) also bounds a lead's
 questions and members' questions to each other; a task a lead delegates to a member,
 or a member to a colleague, runs up to 60 minutes whatever it says (`taskRunTimeoutMinutes` in `team-policy.js`,
-stored on the request when it is created; AGENTPIER-284).
+stored on the request when it is created; AGENTPIER-284). A member takes one request
+at a time, so questions to a member busy with such a task, from its lead or its
+colleagues, can wait up to an hour, and the task holds a concurrent-member slot that
+long.
 
 Each member has its own profile, chat, instructions and model reference copied at
 creation. Service and project grants start empty. Completion retains the member and
@@ -1337,12 +1340,14 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
   `canDelegate`), `agentpier_team_peer_ask` (`{ memberId, question }`, waits like the
   lead's ask), `agentpier_team_peer_delegate` (`{ memberId, task, resultTo?: "me" |
 "lead" }`, permanent siblings only) and `agentpier_team_report` (`{ kind: "result" |
-"problem", text, files? }`, text up to 32,768 characters, up to 10 project file
+"problem", text, files? }`, text up to 32,768 characters (code points, as the
+  schema's `maxLength` counts them), up to 10 project file
   paths, which AgentPier names but never reads). The tool states the text limit; a
   longer text is refused whole (`REPORT_TOO_LONG`, which names the limit and suggests
   a project file in `files` or a second report), never cut, because AgentPier has no
   place for the rest that the lead could read. 32,768 characters with the files fit
-  the lead's 60,000-character follow-up and the team bridge's 128 KiB request. The bridge (`memberActions` in `team-bridge-actions.js`) refuses them
+  the lead's 60,000-character follow-up and the team bridge's 256 KiB request bound
+  (raised from 128 KiB so four-byte characters fit too). The bridge (`memberActions` in `team-bridge-actions.js`) refuses them
   to leads and personal agents, and refuses the lead's tools to members. A member's
   routine run reaches them too (permanent members only), bound to its run session.
 - **Records.** Questions and tasks are `lead-request` records under the lead

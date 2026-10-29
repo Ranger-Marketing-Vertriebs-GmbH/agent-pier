@@ -527,7 +527,8 @@ export class TeamBridge {
       const chunks = [];
       for await (const chunk of req) {
         size += chunk.length;
-        if (size > 131072) throw assistantProblem("invalid", 413);
+        // A member report of 32,768 four-byte characters (member-reports.js) fits.
+        if (size > 262144) throw assistantProblem("invalid", 413);
         chunks.push(chunk);
       }
       let input;

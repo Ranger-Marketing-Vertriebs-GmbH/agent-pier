@@ -44,7 +44,7 @@ export const assistantTeamCopy = {
   maxMembers: "Maximum team size",
   timeout: "Member time limit (minutes)",
   timeoutHint:
-    "Applies to a team's work on its assignment and to questions. A task the agent gives a member, or a member gives a colleague, may run up to 60 minutes.",
+    "Applies to a team's work on its assignment and to questions. A task the agent gives a member, or a member gives a colleague, may run up to 60 minutes; questions to a member busy with one can wait that long.",
   capacity: "Concurrent members on this host",
   capacityRange: (min, max) => `Choose a value from ${min} to ${max}.`,
   concurrentHint:
