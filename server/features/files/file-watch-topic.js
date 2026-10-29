@@ -10,18 +10,30 @@
 // keeps its 15 s poll. Only the local file scopes (global, project) are registered;
 // any other scope (an SSH host) gets no token and keeps the poll.
 //
+// A token is issued to a principal key, which for the owner is just "owner": there is
+// one owner identity, so a token outlives a logout (which closes the sockets) and is
+// dropped only by eviction (at most 1024 kept, the oldest unwatched first) or a
+// restart. It names one scope id (which includes the session id) and one path.
+//
 // Every read repeats the route's checks: the session's scope must still be the one
-// the token was issued for, the path resolves within it (links are followed only
-// inside the scope) and nothing in AgentPier's data directory is watched or read,
-// matched by device and inode so no spelling or link hides it. A refusal travels as
-// payload (`error: {code, status}`), a deleted file as `missing: true`.
+// the token was issued for, and the path resolves within it (links are followed only
+// inside the scope). The data directory is refused by device and inode, so no
+// spelling or link hides it: its folders are never watched, a path whose folders lie
+// in it is not read, and the read's own answer is checked again on the path it
+// resolved, so a link swapped in between cannot push a data-directory file. This is
+// to keep watch handles off a folder that changes all the time, not a secret: the
+// owner reads the data directory over REST. A hard link to a data-directory file
+// placed in the scope is therefore watched in its own folder like any file. A refusal
+// travels as payload (`error: {code, status}`), a deleted file as `missing: true`.
 //
 // The topic watches the file's folder, filtered by name, so an in-place write, an
 // atomic replace (a temporary file renamed over it), a delete and a re-create are all
-// seen; a selected link's own folder is watched too. One handle per folder is shared
-// by every file in it and closed with the last one; files and folders are capped.
-// A file past the cap, or one whose folder cannot be watched, reads `watched: false`
-// and the editor polls it.
+// seen; a selected link's own folder is watched too. One handle per folder (by path
+// and inode) is shared by every file in it and closed with the last one; files and
+// folders are capped. A handle that fails, or whose folder was replaced (checked on
+// every `rename` it reports), is closed and its files watch again. A file past the
+// cap, or one whose folder cannot be watched, reads `watched: false`, which makes the
+// editor poll it, and is tried again every 30 s.
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -58,8 +70,14 @@ export class DirectoryWatchers {
   get size() {
     return this.folders.size;
   }
-  add(directory, name, listener) {
-    let folder = this.folders.get(directory);
+  /**
+   * `identity` (the folder's `dev:ino`) keys the handle too, so a folder deleted and
+   * created again gets a new one. The release function's `alive()` turns false once
+   * the handle failed: the caller must add again.
+   */
+  add(directory, name, listener, identity = null) {
+    const id = identity ? `${directory}\0${identity}` : directory;
+    let folder = this.folders.get(id);
     if (!folder) {
       if (this.folders.size >= this.maxDirectories) return null;
       let handle;
@@ -68,27 +86,32 @@ export class DirectoryWatchers {
       } catch {
         return null;
       }
-      folder = { handle, names: new Map() };
+      folder = { id, directory, identity, handle, names: new Map() };
       const current = folder;
-      handle.on("change", (_type, filename) => this.changed(current, filename));
-      handle.on("error", () => this.failed(directory, current));
-      this.folders.set(directory, folder);
+      handle.on("change", (type, filename) => this.changed(current, type, filename));
+      handle.on("error", () => this.failed(current));
+      this.folders.set(id, folder);
     }
     const key = fold(name);
     if (!folder.names.has(key)) folder.names.set(key, new Set());
     const record = { listener };
     folder.names.get(key).add(record);
     let released = false;
-    return () => {
+    const release = () => {
       if (released) return;
       released = true;
       const listeners = folder.names.get(key);
       listeners?.delete(record);
       if (listeners && !listeners.size) folder.names.delete(key);
-      if (!folder.names.size) this.drop(directory, folder);
+      if (!folder.names.size) this.drop(folder);
     };
+    release.alive = () => !released && !record.dead;
+    return release;
   }
-  changed(folder, filename) {
+  changed(folder, type, filename) {
+    // A folder removed or replaced may leave its handle silent (inotify follows the
+    // old inode): any rename it reports checks that the folder is still the same.
+    if (type === "rename" && folder.identity) this.verify(folder);
     const records =
       filename === null || filename === undefined
         ? [...folder.names.values()].flatMap((set) => [...set])
@@ -101,10 +124,21 @@ export class DirectoryWatchers {
       }
     }
   }
-  failed(directory, folder) {
+  async verify(folder) {
+    let same = false;
+    try {
+      const stat = await fsp.stat(folder.directory, { bigint: true });
+      same = `${stat.dev}:${stat.ino}` === folder.identity;
+    } catch {
+      same = false;
+    }
+    if (!same && this.folders.get(folder.id) === folder) this.failed(folder);
+  }
+  failed(folder) {
     const records = [...folder.names.values()].flatMap((set) => [...set]);
+    for (const record of records) record.dead = true;
     folder.names.clear();
-    this.drop(directory, folder);
+    this.drop(folder);
     for (const { listener } of records) {
       try {
         listener();
@@ -113,8 +147,8 @@ export class DirectoryWatchers {
       }
     }
   }
-  drop(directory, folder) {
-    if (this.folders.get(directory) === folder) this.folders.delete(directory);
+  drop(folder) {
+    if (this.folders.get(folder.id) === folder) this.folders.delete(folder.id);
     try {
       folder.handle.close();
     } catch {
@@ -122,7 +156,7 @@ export class DirectoryWatchers {
     }
   }
   close() {
-    for (const [directory, folder] of [...this.folders]) this.drop(directory, folder);
+    for (const folder of [...this.folders.values()]) this.drop(folder);
   }
 }
 
@@ -140,8 +174,9 @@ export class FileWatches {
     maxFiles = 128,
     maxDirectories = 256,
     maxTokens = 1024,
+    retryMs = 30000,
   }) {
-    Object.assign(this, { dataDir, context, metadata, maxFiles, maxTokens });
+    Object.assign(this, { dataDir, context, metadata, maxFiles, maxTokens, retryMs });
     this.directories = new DirectoryWatchers({ watch, maxDirectories });
     this.tokens = new Map();
     this.keys = new Map();
@@ -212,7 +247,16 @@ export class FileWatches {
       if (scope.id !== entry.scopeId) throw fileProblem("FILE_INVALID_SCOPE", 409);
       if (await this.protectedTargets(await this.targets(scope, entry.path)))
         throw fileProblem("FILE_PROTECTED_PATH", 403);
-      return await this.metadata(scope, entry.path);
+      const metadata = await this.metadata(scope, entry.path);
+      // The path the read resolved and opened, checked again: a link swapped in
+      // after the check above must not push a data-directory file.
+      const opened = path.resolve(
+        scope.kind === "project" ? scope.root : "/",
+        String(metadata?.resolvedPath ?? ""),
+      );
+      if (await this.protectedTargets({ pairs: [[path.dirname(opened)]] }))
+        throw fileProblem("FILE_PROTECTED_PATH", 403);
+      return metadata;
     } catch (error) {
       if (error?.code === "FILE_NOT_FOUND") return { path: entry.path, missing: true };
       if (/^FILE_[A-Z0-9_]+$/.test(error?.code || "") && error.status < 500)
@@ -245,6 +289,8 @@ export class FileWatches {
     };
     const arm = async () => {
       if (follower.closed) return;
+      clearTimeout(follower.retry);
+      follower.retry = null;
       if (follower.arming) {
         follower.again = true;
         return;
@@ -258,24 +304,31 @@ export class FileWatches {
         return arm();
       }
       const wanted = new Map(
-        (pairs || []).map(([dir, name]) => [
-          JSON.stringify([dir, fold(name)]),
-          [dir, name],
+        (pairs || []).map(([dir, name, identity]) => [
+          JSON.stringify([dir, fold(name), identity]),
+          [dir, name, identity],
         ]),
       );
+      // A handle that failed is gone: watch its folder anew.
       for (const [key, release] of follower.releases)
-        if (!wanted.has(key)) {
+        if (!wanted.has(key) || !release.alive()) {
           release();
           follower.releases.delete(key);
         }
       let complete = Boolean(pairs?.length);
-      for (const [key, [dir, name]] of wanted) {
+      for (const [key, [dir, name, identity]] of wanted) {
         if (follower.releases.has(key)) continue;
-        const release = this.directories.add(dir, name, changed);
+        const release = this.directories.add(dir, name, changed, identity);
         if (release) follower.releases.set(key, release);
         else complete = false;
       }
       follower.state = complete ? "armed" : "unwatched";
+      // Never armed without a live handle: the editor polls meanwhile, and the
+      // watch is tried again.
+      if (!complete) {
+        follower.retry = setTimeout(arm, this.retryMs);
+        follower.retry.unref?.();
+      }
       // A change between the first read and the watch is read now; an equal digest
       // sends nothing.
       invalidate();
@@ -292,6 +345,7 @@ export class FileWatches {
   unfollow(entry, follower) {
     if (follower.closed) return;
     follower.closed = true;
+    clearTimeout(follower.retry);
     for (const release of follower.releases.values()) release();
     follower.releases.clear();
     if (follower.counted) this.followed -= 1;
@@ -300,14 +354,22 @@ export class FileWatches {
     if (entry.follower === follower) entry.follower = null;
   }
 
-  /** The [folder, name] pairs to watch for `entry`, or null when none may be. */
+  /**
+   * The [folder, name, dev:ino] triples to watch for `entry`, or null when none may
+   * be.
+   */
   async watchedFolders(entry) {
     try {
       const scope = await this.context(entry.sessionId);
       if (scope.id !== entry.scopeId) return null;
       const targets = await this.targets(scope, entry.path);
       if (await this.protectedTargets(targets)) return null;
-      return targets.pairs;
+      const triples = [];
+      for (const [folder, name] of targets.pairs) {
+        const stat = await fsp.stat(folder, { bigint: true });
+        triples.push([folder, name, `${stat.dev}:${stat.ino}`]);
+      }
+      return triples;
     } catch {
       return null;
     }
@@ -376,6 +438,7 @@ export class FileWatches {
   close() {
     for (const follower of [...this.followers]) {
       follower.closed = true;
+      clearTimeout(follower.retry);
       for (const release of follower.releases.values()) release();
       follower.releases.clear();
     }
