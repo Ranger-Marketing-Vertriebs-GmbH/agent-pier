@@ -390,6 +390,25 @@ function removeOthers(folder, keep) {
   }
 }
 
+// Every folder of `chain` (from `root` down) created or verified and pinned.
+function pinnedChain(root, chain) {
+  fs.mkdirSync(path.dirname(root), { recursive: true, mode: 0o700 });
+  const pinned = [];
+  for (const dir of chain) pinned.push(pinnedFolder(dir, [...pinned]));
+  return pinned;
+}
+
+/**
+ * Writes one private file (0600) named `name` into `folder` below `root`, through
+ * the same pinned folders as `writeOwnerFiles` (an agent's `state.json`).
+ */
+export function writeOwnerFile(root, folder, name, text) {
+  if (typeof name !== "string" || !name || name !== path.basename(name))
+    throw unsafeFolder();
+  const pinned = pinnedChain(root, foldersBetween(root, folder, unsafeFolder));
+  writeIn(pinned.at(-1), name, text, 0o600);
+}
+
 /**
  * Write an owner's config, known_hosts, public keys, alias map and wrappers into
  * `folder`, which must lie below `root` (`<dataDir>/ssh-agents`), plus `shell-env.sh`
@@ -422,9 +441,7 @@ export function writeOwnerFiles(
         aliases: usable.map((host) => host.alias),
       }),
     ]);
-  fs.mkdirSync(path.dirname(root), { recursive: true, mode: 0o700 });
-  const pinned = [];
-  for (const dir of chain) pinned.push(pinnedFolder(dir, [...pinned]));
+  const pinned = pinnedChain(root, chain);
   const owner = pinned.at(-1);
   const keys = pinnedFolder(path.join(folder, "keys"), pinned);
   const bin = pinnedFolder(path.join(folder, "bin"), pinned);
