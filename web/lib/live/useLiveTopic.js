@@ -74,7 +74,8 @@ export function useLiveSignal(topicId) {
 /**
  * A safety read for a pushed topic whose server watch may miss a change: calls
  * `refresh` every `intervalMs` while the tab is visible and at once when it is shown
- * again, never at the start (the subscription has just read).
+ * again, never at the start (the subscription has just read). Only for a slow interval
+ * (a minute or more) that the topic documents in docs/architecture.md (AGENTS.md).
  */
 export function useSafetyRead(refresh, intervalMs) {
   useEffect(
