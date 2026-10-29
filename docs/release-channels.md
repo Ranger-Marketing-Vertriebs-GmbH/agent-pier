@@ -36,7 +36,10 @@ rate limit. Stable checks do not require the release-list API.
    migrations or downgrade safety change, **Upgrade notes**. Write them against the
    previous published release: review everything merged since its tag
    (`git log <previous tag>..<new tag>`), including other people's pull requests,
-   so that no change is missing. This applies to RCs and stable releases alike.
+   so that no change is missing. A stable release compares with the previous stable
+   release and ignores the RCs in between, so its notes cover the whole version; an RC
+   may build on the previous RC of the same version. This applies to RCs and stable
+   releases alike.
 
 Release candidates are built only from commits on `main`; there are no RC builds from
 pull request heads. A manual workflow dispatch only builds artifacts; publishing
