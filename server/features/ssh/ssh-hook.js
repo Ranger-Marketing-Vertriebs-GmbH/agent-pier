@@ -6,6 +6,8 @@ export const SFTP_HINT_ENV = "AGENTPIER_SSH_SFTP";
 // "0" when the hook was registered for the secrets hint alone, in a session without
 // the SSH tools (session-secrets.js): the hook then names only the secrets file.
 export const SSH_HINT_ENV = "AGENTPIER_SSH_HINT";
+// "1" when a coding CLI session has its own SSH agent (ssh-session-agents.js).
+export const SSH_AGENT_HINT_ENV = "AGENTPIER_SSH_AGENT";
 
 function sftpReminder(prefix) {
   const tools = [

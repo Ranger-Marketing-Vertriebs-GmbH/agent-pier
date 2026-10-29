@@ -3,6 +3,7 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { fileURLToPath } from "node:url";
 import { privateDirectory, problem, writePrivate } from "../../lib/storage.js";
+import { SyncQueue } from "../../lib/sync-queue.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { prepareSshDiscovery } from "../ssh/ssh-discovery.js";
 import { SSH_HINT_ENV } from "../ssh/ssh-hook.js";
@@ -28,7 +29,7 @@ const fail = (message, status, code) => Object.assign(problem(message, status), 
 export class SessionSecrets {
   constructor({ dataDir, store, sessions }) {
     Object.assign(this, { dataDir: path.resolve(dataDir), store, sessions });
-    this.queue = Promise.resolve();
+    this.syncs = new SyncQueue();
   }
   folder(id) {
     if (typeof id !== "string" || !sessionId.test(id))
@@ -137,9 +138,7 @@ export class SessionSecrets {
   }
   /** Resolves "written", "removed" or "unchanged"; syncs run one at a time. */
   sync(session) {
-    const task = this.queue.catch(() => {}).then(() => this.syncOnce(session));
-    this.queue = task;
-    return task;
+    return this.syncs.run(() => this.syncOnce(session));
   }
   async syncOnce(session) {
     if (!this.eligible(session)) return "unchanged";
@@ -156,13 +155,7 @@ export class SessionSecrets {
   }
   /** `syncAll` after the queued syncs; calls while it waits share one pass. */
   refresh() {
-    this.refreshing ??= this.queue
-      .catch(() => {})
-      .then(() => {
-        this.refreshing = null;
-        return this.syncAll();
-      });
-    return this.refreshing;
+    return this.syncs.coalesce(() => this.syncAll());
   }
   /** Every running session with secrets; one failing session never stops the others. */
   async syncAll() {
