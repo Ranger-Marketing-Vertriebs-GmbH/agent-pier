@@ -5,6 +5,7 @@ import { apiCopy as copy } from "./i18n/messages/components.js";
 import { memoryCopy } from "./i18n/messages/memory.js";
 import { secretsCopy } from "./i18n/messages/secrets.js";
 import { sshProjectCopy } from "./i18n/messages/ssh-projects.js";
+import { noteReadStamp, parseReadStamp } from "./read-stamps.js";
 export async function apiError(response) {
   if (response.status === 401)
     window.dispatchEvent(new Event("agentpier-login-required"));
@@ -58,5 +59,6 @@ export default async function api(path, method = "GET", body, signal) {
   );
   if (!response.ok) throw await apiError(response);
   const data = await response.json().catch(() => ({}));
-  return data;
+  // When the server began this read (read-stamps.js); a live hook compares pushes.
+  return noteReadStamp(data, parseReadStamp(response.headers?.get?.("X-Read-Started")));
 }

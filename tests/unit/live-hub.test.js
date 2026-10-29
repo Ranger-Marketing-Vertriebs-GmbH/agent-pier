@@ -448,6 +448,7 @@ test("resetWhere answers nobody from the old value and drops a read begun before
     type: "snapshot",
     topic: "agent.channels:a",
     revision: first.at(-1).revision,
+    readAt: first.at(-1).readAt,
     data: { chatId: null },
   });
   assert.deepEqual(

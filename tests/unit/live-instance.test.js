@@ -62,10 +62,13 @@ test("N invalidations within the debounce cause one read", async (t) => {
   }
   await clock.advance(149);
   assert.equal(source.reads, 2);
+  // Each data frame says when its read began, later than the read before it.
+  assert.ok(frames.at(-1).readAt > frames[0].readAt);
   assert.deepEqual(frames.at(-1), {
     type: "state",
     topic: "demo",
     revision: 2,
+    readAt: frames.at(-1).readAt,
     data: { count: 10 },
   });
 });

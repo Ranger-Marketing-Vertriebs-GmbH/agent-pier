@@ -5,6 +5,7 @@
 // each subscriber the frame its mode asks for. Samplers and change sources run only
 // while the instance has subscribers.
 import { LIST_CURSOR, digestOf, listRows } from "./live-rows.js";
+import { readStamp } from "../../lib/read-stamp.js";
 
 export const DEFAULT_MAX_BYTES = 262144;
 // A subscriber hears at most one `stale` per window: a value that stays over its
@@ -138,7 +139,7 @@ export class LiveInstance {
    */
   reset() {
     this.generation += 1;
-    this.value = this.rows = undefined;
+    this.value = this.rows = this.readAt = undefined;
     this.settled = false;
     this.record.digest = undefined;
     if (this.closed || !this.subscribers.size) return;
@@ -230,6 +231,8 @@ export class LiveInstance {
     }
     const [reader] = this.subscribers;
     const generation = this.generation;
+    // When this read began: a browser keeps a REST answer read later than it.
+    const readAt = readStamp();
     let value;
     try {
       value = await this.definition.read(reader.principal, this.param);
@@ -254,6 +257,7 @@ export class LiveInstance {
     );
     const changed = digest !== this.record.digest;
     this.value = value;
+    this.readAt = readAt;
     this.rows = this.mode === "rows" ? listRows(value) : undefined;
     this.settled = true;
     if (changed) {
@@ -280,7 +284,13 @@ export class LiveInstance {
       subscriber.send(known ? same : { ...same, type: "changed" });
     } else if (this.mode === "state") {
       if (current && have.revision === this.revision) subscriber.send(same);
-      else this.deliver(subscriber, { ...same, type: "snapshot", data: this.sent() });
+      else
+        this.deliver(subscriber, {
+          ...same,
+          type: "snapshot",
+          readAt: this.readAt,
+          data: this.sent(),
+        });
     } else {
       const cursor =
         current && LIST_CURSOR.test(String(have.cursor ?? "")) ? have.cursor : undefined;
@@ -296,6 +306,7 @@ export class LiveInstance {
         type: "state",
         topic: this.topicId,
         revision: this.revision,
+        readAt: this.readAt,
         data: this.sent(),
       });
     this.deliver(subscriber, encoded.get(null));
@@ -317,7 +328,7 @@ export class LiveInstance {
         subscriber.cursor,
       );
       const { mode, base, cursor } = data.sync;
-      const frame = { topic: this.topicId, revision: this.revision };
+      const frame = { topic: this.topicId, revision: this.revision, readAt: this.readAt };
       // A delta onto an equal baseline (a parked cursor after a resubscribe gets a
       // new one) carries no difference: the subscriber keeps its own cursor.
       const same =

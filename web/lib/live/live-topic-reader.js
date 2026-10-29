@@ -7,9 +7,15 @@
 // and its data comes back once access does. A read past its deadline shows a timeout
 // error; a read cut short by hiding or stopping stays silent and, if it was a
 // one-time read, runs again once the tab is visible. A hidden tab requests nothing.
+// Pushes and REST answers carry when the server began their read (`readAt`, the
+// `X-Read-Started` header, server/lib/read-stamp.js): of the two, the later read is
+// shown, so a push read before the caller's write never undoes the refresh() answer
+// that shows it. Without stamps (older servers, test mocks) a push wins over a REST
+// read that was under way when it arrived.
 import { attemptRead } from "../resource-reads.js";
 import { startVisiblePolling } from "../visible-polling.js";
 import { readTopicValue, topicInfo } from "./live-topics.js";
+import { readStampOf } from "../read-stamps.js";
 
 const browser = () => ({
   document: globalThis.document,
@@ -34,9 +40,23 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const { document } = scope;
   const info = topicInfo(topicId);
   const path = route || (info?.path ? info.path(info.param) : null);
-  // The route and, for a topic with sections, each section's own route.
-  const load = (signal) =>
-    readTopicValue(path, info?.sections, (part) => read(part, signal), info?.param);
+  // The route and, for a topic with sections, each section's own route, as
+  // `{value, readAt}`: the earliest stamp of its parts, or null if one has none.
+  const load = async (signal) => {
+    const stamps = [];
+    const value = await readTopicValue(
+      path,
+      info?.sections,
+      async (part) => {
+        const answer = await read(part, signal);
+        stamps.push(readStampOf(answer));
+        return answer;
+      },
+      info?.param,
+    );
+    const known = stamps.length > 0 && stamps.every((stamp) => stamp !== null);
+    return { value, readAt: known ? Math.min(...stamps) : null };
+  };
   const state = { data: null, error: "", loading: true, connected: false };
   let stopped = false,
     version = 0,
@@ -46,7 +66,13 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     refused = false,
     revoked = false,
     stopPolling = null,
-    oneTime = null;
+    oneTime = null,
+    // When the server began the read behind what is shown; null when unknown.
+    shownAt = null;
+  // Whether a value read at `stamp` is newer than what is shown: null when either
+  // stamp is unknown.
+  const laterThanShown = (stamp) =>
+    stamp !== null && shownAt !== null ? stamp > shownAt : null;
   const publish = (changes) => {
     Object.assign(state, changes);
     report({ ...state });
@@ -58,12 +84,15 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       return null;
     }
     lastRead = scope.now();
-    // A push that arrived during the read is newer than its answer.
-    if (started === version) {
+    const { value, readAt } = result.data;
+    // The later read wins; without stamps, a push that arrived during the read is
+    // newer than its answer.
+    if (laterThanShown(readAt) ?? started === version) {
       version += 1;
-      publish({ data: result.data, error: "", loading: false });
+      shownAt = readAt;
+      publish({ data: value, error: "", loading: false });
     }
-    return result.data;
+    return value;
   };
   const fetchOnce = async () => {
     if (!path || stopped) return null;
@@ -130,9 +159,14 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   };
   const listener = (event) => {
     if (event.type === "data") {
-      version += 1;
       refused = revoked = false;
-      publish({ data: event.data, error: "", loading: false });
+      const readAt = Number.isSafeInteger(event.readAt) ? event.readAt : null;
+      // Read before what is shown (a refresh() answer after the caller's write).
+      if (readAt === null || shownAt === null || readAt >= shownAt) {
+        version += 1;
+        shownAt = readAt;
+        publish({ data: event.data, error: "", loading: false });
+      }
       polling();
     } else if (event.type === "status") {
       // A new connection subscribes refused topics again; a new refusal follows.
@@ -146,6 +180,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       // Nothing read before or during the revocation may show any more.
       revoked = true;
       version += 1;
+      shownAt = null;
       oneTime?.abort();
       oneTime = null;
       pending = again = false;
@@ -181,6 +216,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     set(data) {
       if (stopped) return;
       version += 1;
+      shownAt = null;
       publish({ data, error: "", loading: false });
     },
     stop() {

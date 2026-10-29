@@ -54,6 +54,7 @@ import compression from "compression";
 import http from "node:http";
 import { createServices } from "./application/services.js";
 import { attachLive, liveWriteSignals } from "./application/live-wiring.js";
+import { readStampHeader } from "./lib/read-stamp.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
 import { cleanUpProjects } from "./application/project-cleanup.js";
@@ -330,6 +331,8 @@ export async function createApplication(config) {
   app.use(auditHttp(services.audit, { onError: services.onError }));
   // Writes signal the live topics whose sources announce no change of their own.
   app.use("/api", liveWriteSignals(services));
+  // When each read began, so the browser keeps the later of a push and a REST answer.
+  app.use("/api", readStampHeader());
   api.mount(fileTransferStreams(services), { guarded: false });
   api.mount(fileTextRoutes(services), { guarded: false });
   app.use(

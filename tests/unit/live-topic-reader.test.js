@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { followSignal, startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
 import { apiCopy } from "../../web/lib/i18n/messages/components.js";
 import { fakeEnv, settle } from "../helpers/fake-browser.js";
+import { noteReadStamp } from "../../web/lib/read-stamps.js";
 
 // The state machine behind useLiveTopic, against a fake LiveClient: pushed data,
 // one GET after stale/changed, and the visible-only poll during a fallback.
@@ -220,6 +221,28 @@ test("a failed first read on the server gets one GET", async (t) => {
   s.client.emit({ type: "error" });
   await settle();
   assert.equal(s.reads.length, 1);
+});
+
+test("of a push and a REST answer, the one read later is shown", async (t) => {
+  let release;
+  const slow = () => new Promise((resolve) => (release = resolve));
+  const s = setup("inbox", { responses: [slow, ok(noteReadStamp({ n: 3 }, 400))] });
+  t.after(s.reader.stop);
+  // A refresh after a write; a push read before the write arrives during it.
+  const answer = s.reader.refresh();
+  await settle();
+  s.client.emit({ type: "data", data: { n: 1 }, revision: 1, readAt: 100 });
+  release(noteReadStamp({ n: 2 }, 200));
+  assert.deepEqual(await answer, { n: 2 });
+  assert.deepEqual(s.last().data, { n: 2 });
+  // A push read before the answer never undoes it; one read after it shows.
+  s.client.emit({ type: "data", data: { n: 1 }, revision: 2, readAt: 150 });
+  assert.deepEqual(s.last().data, { n: 2 });
+  s.client.emit({ type: "data", data: { n: 5 }, revision: 3, readAt: 500 });
+  assert.deepEqual(s.last().data, { n: 5 });
+  // A REST answer read before the shown push resolves, but is not shown.
+  assert.deepEqual(await s.reader.refresh(), { n: 3 });
+  assert.deepEqual(s.last().data, { n: 5 });
 });
 
 test("refresh resolves with the data, or null when the read failed", async (t) => {
