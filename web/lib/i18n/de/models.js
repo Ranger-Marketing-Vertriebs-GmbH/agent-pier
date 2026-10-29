@@ -1,6 +1,9 @@
 export const modelControlCopy = {
   refreshTimeout: "Die Modellabfrage antwortet nicht. Der Status wird erneut geprüft.",
   readReloading: "Die Session wird neu geladen.",
+  readStopped: "Die Session ist beendet.",
+  readShell: "Modellauswahl ist in Shell-Sessions nicht verfügbar.",
+  readLogin: "Modellauswahl ist während der Anmeldung nicht verfügbar.",
   readUnavailable: "Der Modellstatus ist gerade nicht verfügbar.",
   changeTimeout:
     "Die Antwort auf den Modellwechsel steht aus. Der Status wird geprüft; die Änderung wird nicht erneut gesendet.",

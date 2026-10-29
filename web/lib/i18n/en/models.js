@@ -1,6 +1,9 @@
 export const modelControlCopy = {
   refreshTimeout: "The model status request timed out. Checking the status again.",
   readReloading: "The session is reloading.",
+  readStopped: "The session has stopped.",
+  readShell: "Model selection is not available in shell sessions.",
+  readLogin: "Model selection is not available during sign-in.",
   readUnavailable: "The model status is not available right now.",
   changeTimeout:
     "The model change response timed out. Checking its status without sending the change again.",

@@ -124,15 +124,30 @@ test("a reloading read is pushed once as data and logs nothing", async (t) => {
   tab.stop();
 });
 
+test("a stopped, shell or sign-in session's refusal is a code the client translates", async (t) => {
+  for (const [message, code] of [
+    [serverMessages.sessions.stopped, "stopped"],
+    [serverMessages.sessions.shellModelPickerUnavailable, "shell"],
+    [serverMessages.sessions.loginModelPickerUnavailable, "login"],
+  ]) {
+    const f = fixture(t);
+    f.steer.fail = failure(message);
+    const tab = subscribe(f.hub, topic);
+    assert.deepEqual((await tab.next()).data, { error: { code } }, code);
+    assert.deepEqual(f.logs, []);
+    tab.stop();
+  }
+});
+
 test("another refusal carries the server's message", async (t) => {
   const f = fixture(t);
-  f.steer.fail = failure(serverMessages.sessions.shellModelPickerUnavailable);
+  f.steer.fail = failure(serverMessages.models.providerContextAtStartup);
   const tab = subscribe(f.hub, topic);
   const snapshot = await tab.next();
   assert.deepEqual(snapshot.data, {
     error: {
       code: "unavailable",
-      message: serverMessages.sessions.shellModelPickerUnavailable,
+      message: serverMessages.models.providerContextAtStartup,
     },
   });
   assert.deepEqual(f.logs, []);

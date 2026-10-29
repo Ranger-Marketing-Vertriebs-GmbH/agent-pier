@@ -19,12 +19,22 @@ export const modelsReadable = (session) =>
   session.tool !== "shell" &&
   session.purpose !== "login";
 
-// A failure as the client shows it: reloading and a hang by code; another refusal
-// (a problem with a status) with the server's own message.
+// The refusals of a session whose model cannot be read, by the code the client
+// translates (web/features/models/model-read-error.js).
+const refusalCodes = new Map([
+  [serverMessages.sessions.reloading, "reloading"],
+  [serverMessages.sessions.stopped, "stopped"],
+  [serverMessages.sessions.shellModelPickerUnavailable, "shell"],
+  [serverMessages.sessions.loginModelPickerUnavailable, "login"],
+]);
+
+// A failure as the client shows it: a known refusal and a hang by code; another
+// refusal (a problem with a status) with the server's own message.
 function failureOf(outcome) {
   if (outcome.timeout) return { code: "timeout" };
   const { error } = outcome;
-  if (error?.message === serverMessages.sessions.reloading) return { code: "reloading" };
+  const code = refusalCodes.get(error?.message);
+  if (code) return { code };
   if (Number.isInteger(error?.status) && error.status < 500)
     return { code: "unavailable", message: String(error.message) };
   return { code: "unavailable" };
