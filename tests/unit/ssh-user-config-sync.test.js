@@ -8,6 +8,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   SSH_CONFIG_CHECK_FAILED,
+  SSH_CONFIG_SESSION_LEFT_OUT,
   SshUserConfig,
   sshUserConfigEnabled,
 } from "../../server/features/ssh/ssh-user-config-sync.js";
@@ -173,7 +174,7 @@ test(
     assert.ok(!dispatcher.includes(two.configPath));
     assert.match(fs.readFileSync(f.config, "utf8"), /BEGIN AgentPier/);
     assert.equal(f.user.problemFor(one.configPath), null);
-    assert.equal(f.user.problemFor(two.configPath), SSH_CONFIG_CHECK_FAILED);
+    assert.equal(f.user.problemFor(two.configPath), SSH_CONFIG_SESSION_LEFT_OUT);
     assert.equal(quietSsh(f.config).status, 0);
     fs.chmodSync(two.configPath, 0o600);
     await f.user.update([one, two]);
@@ -207,4 +208,21 @@ test("a data folder the block cannot name is reported, ~/.ssh stays untouched", 
   await f.user.update([one]);
   assert.equal(f.user.problemFor(one.configPath), "SSH_CONFIG_PATH_UNSUPPORTED");
   assert.equal(fs.existsSync(f.config), false);
+});
+
+test("the check runs the OpenSSH the agents resolved", { skip }, async (t) => {
+  const f = setup(t);
+  const real = spawnSync("/bin/sh", ["-c", "command -v ssh"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const calls = path.join(f.root, "calls");
+  const wrapper = path.join(f.root, "agent-ssh");
+  fs.writeFileSync(wrapper, `#!/bin/sh\necho x >> '${calls}'\nexec '${real}' "$@"\n`, {
+    mode: 0o700,
+  });
+  const one = { ...f.session("s1", "10.0.0.1"), ssh: wrapper };
+  await f.user.update([one]);
+  assert.match(fs.readFileSync(f.config, "utf8"), /BEGIN AgentPier/);
+  assert.ok(fs.readFileSync(calls, "utf8").split("\n").filter(Boolean).length >= 3);
+  assert.equal(f.user.ssh, wrapper);
 });

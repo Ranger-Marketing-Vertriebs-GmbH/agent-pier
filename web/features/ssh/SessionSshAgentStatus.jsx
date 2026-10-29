@@ -47,9 +47,11 @@ export default function SessionSshAgentStatus({ agent, accesses = [] }) {
       </p>
       {ready && agent.sshConfig && (
         <p className="dialog-hint">
-          {copy.agentSshConfig(
-            copy.agentSshConfigReasons[configReasons[agent.sshConfig] || "other"],
-          )}
+          {agent.sshConfig === "SSH_CONFIG_SESSION_LEFT_OUT"
+            ? copy.agentSshConfigSession
+            : copy.agentSshConfig(
+                copy.agentSshConfigReasons[configReasons[agent.sshConfig] || "other"],
+              )}
         </p>
       )}
       {rows.map(([id, alias]) => (

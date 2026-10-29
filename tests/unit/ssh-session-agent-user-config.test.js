@@ -41,6 +41,8 @@ test("the first agent puts the block in place and the dispatcher follows its ali
     new RegExp(`originalhost proxmox-2 exec .*${id}/ssh_config`),
   );
   assert.equal(f.agents.status(record).sshConfig, undefined);
+  // The check runs the OpenSSH this agent resolved.
+  assert.equal(f.agents.userConfig.ssh, record.sshAgent.binaries.ssh);
   await f.grants.set(record, []);
   await f.agents.sync(record);
   await f.agents.userConfig.idle();

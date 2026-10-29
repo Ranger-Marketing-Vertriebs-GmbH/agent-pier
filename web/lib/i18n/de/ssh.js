@@ -63,6 +63,8 @@ export const sshCopy = {
   agentAliasLabel: (alias) => `ssh ${alias}`,
   agentSshConfig: (reason) =>
     `AgentPier hat ~/.ssh/config nicht geändert: ${reason}. Meldet ssh <alias> einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
+  agentSshConfigSession:
+    'Ein direktes ssh <alias> außerhalb des ssh dieser Session kennt ihre Aliase nicht: ssh meldete mit ihnen einen Fehler. Nutze dort ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.',
   agentSshConfigReasons: {
     link: "die Datei ist ein Link",
     notFile: "sie ist keine normale Datei",

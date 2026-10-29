@@ -6852,6 +6852,7 @@
   "ssh:sshCopy.agentSshConfigReasons.path": "de:a341d56e4727 en:af65c9b4b8ac",
   "ssh:sshCopy.agentSshConfigReasons.unreadable": "de:5a221427440f en:339d92259adc",
   "ssh:sshCopy.agentSshConfigReasons.write": "de:8e373cd58cc4 en:f55ab48c9e2a",
+  "ssh:sshCopy.agentSshConfigSession": "de:64d16da74bb3 en:9583b46ec6d4",
   "ssh:sshCopy.agentTooOld": "de:cfb7bc845782 en:ec2bd4f69517",
   "ssh:sshCopy.backupHint": "de:397039b9e27c en:055513bd2396",
   "ssh:sshCopy.busy": "de:ad4c7b813e8e en:54e4e9a94c21",
