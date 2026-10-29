@@ -9,18 +9,23 @@ import { SECRETS_FILE_ENV } from "../../server/features/secrets/secrets-hint.js"
 
 const owner = { kind: "owner" };
 
-// A CLI stand-in that records the secrets variable it was started with.
+// A CLI stand-in that records the secrets variable it was started with. Codex
+// sessions also start the command as their `app-server` backend, and the bridge
+// stops the terminal CLI once that backend exits. The stand-in is therefore an
+// executable that also stays alive as that backend; only the terminal CLI records.
 function recordingCli(f) {
   const seen = path.join(f.root, "seen-env.txt");
-  f.application.accounts.command = () => ({
-    command: process.execPath,
-    args: [
-      "-e",
-      `require("fs").writeFileSync(${JSON.stringify(seen)}, process.env.${SECRETS_FILE_ENV} || "none"); setInterval(() => {}, 1000)`,
-      "--",
-    ],
-    env: {},
-  });
+  const executable = path.join(f.root, "recording-cli.cjs");
+  fs.writeFileSync(
+    executable,
+    `#!${process.execPath}
+if (process.argv[2] !== "app-server")
+  require("fs").writeFileSync(${JSON.stringify(seen)}, process.env.${SECRETS_FILE_ENV} || "none");
+setInterval(() => {}, 1000);
+`,
+    { mode: 0o700 },
+  );
+  f.application.accounts.command = () => ({ command: executable, args: [], env: {} });
   return seen;
 }
 
