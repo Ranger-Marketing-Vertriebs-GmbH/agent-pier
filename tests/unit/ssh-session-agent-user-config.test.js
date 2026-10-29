@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SessionSshAgents } from "../../server/features/ssh/ssh-session-agents.js";
-import { SshUserConfig } from "../../server/features/ssh/ssh-user-config.js";
+import { SshUserConfig } from "../../server/features/ssh/ssh-user-config-sync.js";
 import { fixture, launch } from "../helpers/ssh-session-agents-fixture.js";
 
 function userHome(t) {
@@ -32,9 +32,10 @@ test("the first agent puts the block in place and the dispatcher follows its ali
   const id = randomUUID();
   await f.grants.set({ id }, ["access-a"]);
   const { record } = await launch(f, { id });
+  await f.agents.userConfig.idle();
   const config = fs.readFileSync(path.join(home, ".ssh", "config"), "utf8");
-  assert.match(config, /^# BEGIN AgentPier \(managed, do not edit\)\n/);
-  assert.match(config, /include\.con\[f\]"\nMatch all\n# END AgentPier\n$/);
+  assert.match(config, /^# BEGIN AgentPier [0-9a-f]{8} \(managed, do not edit\)\n/);
+  assert.match(config, /include\.con\[f\]"\nMatch all\n# END AgentPier [0-9a-f]{8}\n$/);
   assert.match(
     dispatcherOf(f),
     new RegExp(`originalhost proxmox-2 exec .*${id}/ssh_config`),
@@ -42,11 +43,14 @@ test("the first agent puts the block in place and the dispatcher follows its ali
   assert.equal(f.agents.status(record).sshConfig, undefined);
   await f.grants.set(record, []);
   await f.agents.sync(record);
+  await f.agents.userConfig.idle();
   assert.doesNotMatch(dispatcherOf(f), /originalhost/);
   await f.grants.set(record, ["access-a"]);
   await f.agents.sync(record);
+  await f.agents.userConfig.idle();
   assert.match(dispatcherOf(f), /originalhost proxmox-2/);
   await f.agents.discard(id);
+  await f.agents.userConfig.idle();
   assert.doesNotMatch(dispatcherOf(f), /originalhost/);
 });
 
@@ -56,6 +60,7 @@ test("a refused ~/.ssh/config is reported in the agent status and logged", async
   fs.symlinkSync(path.join(home, "dotfiles-config"), path.join(home, ".ssh", "config"));
   const f = withUserConfig(t, home);
   const { record } = await launch(f);
+  await f.agents.userConfig.idle();
   const status = f.agents.status(record);
   assert.equal(status.state, "ready");
   assert.equal(status.sshConfig, "SSH_CONFIG_LINK");
@@ -77,6 +82,7 @@ test("a service start with a running agent session puts the block in place", asy
   });
   f.started.push(restarted);
   await restarted.restore();
+  await restarted.userConfig.idle();
   assert.equal(restarted.status(record).state, "ready");
   assert.match(
     fs.readFileSync(path.join(home, ".ssh", "config"), "utf8"),

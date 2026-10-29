@@ -420,6 +420,7 @@ export class SessionSshAgents {
   }
 
   changed(id) {
+    // Checked with the real ssh in the background (ssh-user-config-sync.js).
     this.userConfig?.update(
       [...this.agents.keys()].map((sid) => ({
         configPath: path.join(sessionFolder(this.dataDir, sid), "ssh_config"),
@@ -562,8 +563,14 @@ export class SessionSshAgents {
     return {
       state: "ready",
       aliases: readSessionAliases(this.dataDir, session.id),
-      ...(this.userConfig?.problem ? { sshConfig: this.userConfig.problem } : {}),
+      ...this.userConfigProblem(session.id),
     };
+  }
+
+  userConfigProblem(id) {
+    const configPath = path.join(sessionFolder(this.dataDir, id), "ssh_config");
+    const code = this.userConfig?.problemFor(configPath);
+    return code ? { sshConfig: code } : {};
   }
 
   /** On shutdown: listeners close, folders stay for the restart at the same paths. */

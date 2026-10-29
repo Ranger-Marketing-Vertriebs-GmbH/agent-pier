@@ -120,7 +120,7 @@ rm "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/dev.agentpier.server.service"
 systemctl --user daemon-reload
 ```
 
-Den markierten AgentPier-Block oben in `~/.ssh/config` (er wirkt nur in AgentPier-Sessions) entfernt:
+Den markierten AgentPier-Block dieses Datenordners oben in `~/.ssh/config` (er wirkt nur in AgentPier-Sessions) entfernt; die Sicherung `~/.ssh/config.agentpier-backup` bleibt:
 
 ```sh
 npm run ssh-config:remove
