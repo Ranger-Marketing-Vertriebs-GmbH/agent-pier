@@ -994,7 +994,10 @@ size). All members may run concurrently. One active team per parent, one automat
 turn per member and no nested delegation keep accepted work bounded. Cancellation
 of a parent response does not cancel its team. Stop member and Stop team are separate
 operations. A deadline requests cancellation; it does not prove completion or free
-an uncertain slot.
+an uncertain slot. The member deadline (`runTimeoutMinutes`) also bounds a lead's
+questions and members' requests to each other; a task a lead delegates to a member
+runs up to 60 minutes whatever it says (`taskRunTimeoutMinutes` in `team-policy.js`,
+stored on the request when it is created; AGENTPIER-284).
 
 Each member has its own profile, chat, instructions and model reference copied at
 creation. Service and project grants start empty. Completion retains the member and
