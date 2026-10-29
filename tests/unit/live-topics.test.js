@@ -258,3 +258,13 @@ test("a user's me.* topics read her own /api/me routes, each the route it pushes
   assert.equal(topicInfo("me.chats"), null);
   assert.equal(topicInfo("me.agents:x"), null);
 });
+
+test("an editor document's file.meta topic needs its token and has no REST route", () => {
+  const info = topicInfo(`file.meta:${"a".repeat(22)}`);
+  assert.deepEqual(
+    [info.mode, info.path, info.interval, info.sampled, info.param],
+    ["state", null, 15000, false, "a".repeat(22)],
+  );
+  assert.equal(topicInfo("file.meta"), null);
+  assert.equal(topicInfo("file.meta:"), null);
+});

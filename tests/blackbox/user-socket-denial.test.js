@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { WebSocket } from "ws";
 import {
   applicationFixture,
@@ -109,10 +111,20 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     transport: "http",
     url: "https://mcp.example.test/mcp",
   });
+  // An editor file the owner watches: its token was issued to him only.
+  const watched = path.join(f.home, "watched.txt");
+  await fs.writeFile(watched, "owner");
+  const fileMeta = (
+    await f.request(
+      `/api/files/metadata?${new URLSearchParams({ path: watched, view: "document" })}`,
+    )
+  ).headers.get("x-file-watch");
+  assert.match(fileMeta, /^file\.meta:[A-Za-z0-9_-]{22}$/);
   const ownerLive = openLive(f);
   await ownerLive.next((frame) => frame.type === "hello");
   // The owner reaches what the user is refused below, the job topics among them.
   for (const topic of [
+    fileMeta,
     "probe.open",
     "job.tool:codex",
     "job.rea:current",
@@ -154,6 +166,13 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
   );
   ownerLive.ws.close();
   const { cookie } = await signedInUser(f);
+  // Over REST she reads no file metadata, so she is issued no token either.
+  const userRead = await f.request(
+    `/api/files/metadata?${new URLSearchParams({ path: watched, view: "document" })}`,
+    { headers: { cookie } },
+  );
+  assert.notEqual(userRead.status, 200);
+  assert.equal(userRead.headers.get("x-file-watch"), null);
   const live = openLive(f, cookie);
   const hello = await live.next((frame) => frame.type === "hello");
   assert.deepEqual(Object.keys(hello).sort(), ["instance", "type"]);
@@ -198,6 +217,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "system.status",
     "system.status.details",
     "system.cleanup.summary",
+    fileMeta,
+    `file.meta:${"a".repeat(22)}`,
     "nope",
     "a".repeat(300),
     "state\u202e",

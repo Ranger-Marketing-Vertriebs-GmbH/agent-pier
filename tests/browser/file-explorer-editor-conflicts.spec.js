@@ -167,6 +167,60 @@ test("document metadata polling pauses while hidden and resumes when visible", a
   expect(metadataReads).toBe(2);
 });
 
+test("a watched document follows its pushed metadata and polls again once refused", async ({
+  page,
+  liveStub,
+}) => {
+  await explorerFixture(page);
+  const topic = `file.meta:${"W".repeat(22)}`;
+  let metadataReads = 0;
+  let reads = 0;
+  await page.route("**/api/files/text**", async (route) => {
+    reads++;
+    await route.fulfill({
+      json: reads === 1 ? version("original", 1) : version("disk", 2),
+    });
+  });
+  await page.route("**/api/files/metadata**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("view") !== "document") return route.fallback();
+    metadataReads++;
+    await route.fulfill({
+      headers: { "X-File-Watch": topic },
+      json: { path, resolvedPath: path, metadataRevision: `e1:${"1".repeat(64)}` },
+    });
+  });
+  await selectEnglish(page);
+  await page.goto(
+    `${baseURL}/files?path=%2Fhome%2Ftest&file=${encodeURIComponent(path)}`,
+  );
+  await page.getByRole("button", { name: "Open in editor", exact: true }).click();
+  // The first read names the topic; from then on the server pushes, nothing polls.
+  await liveStub.waitForSubscribe(topic);
+  expect(metadataReads).toBe(1);
+  const reload = page.getByRole("button", { name: "Reload disk version" });
+  await expect(reload).toBeHidden();
+  liveStub.push(topic, {
+    path,
+    resolvedPath: path,
+    metadataRevision: `e1:${"2".repeat(64)}`,
+    watched: true,
+  });
+  await expect(reload).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(300);
+  expect(metadataReads).toBe(1);
+  await reload.click();
+  const editor = page.getByRole("textbox", { name: `Document content: ${path}` });
+  await expect(editor).toHaveText("disk");
+  // Deleted on disk: shown like the route's 404.
+  liveStub.push(topic, { path, missing: true, watched: true });
+  await expect(page.getByText("FILE_NOT_FOUND")).toBeVisible();
+  // A refused topic falls back to the route at once.
+  liveStub.revoke(topic);
+  await expect.poll(() => metadataReads).toBe(2);
+});
+
 test("manual conflict resolution adopts disk text and format as the dirty baseline", async ({
   page,
 }) => {

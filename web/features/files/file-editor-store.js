@@ -122,6 +122,14 @@ export function createFileEditorStore() {
       try {
         const metadata = await captured.client.documentMetadata(captured.path, signal);
         const current = find(id);
+        // The route names the document's live topic (file-document-watch.js).
+        if (
+          typeof metadata?.watch === "string" &&
+          metadata.path === captured.path &&
+          current?.document &&
+          current.watch !== metadata.watch
+        )
+          patch(id, { watch: metadata.watch });
         if (obsolete()) return { status: "obsolete" };
         if (!validMetadata(metadata, captured.path))
           throw fileClientIssue("FILE_INVALID_RESPONSE", 200);
@@ -136,6 +144,35 @@ export function createFileEditorStore() {
         patch(id, { external: { error } });
         return { status: "failed", error };
       }
+    },
+    // A value pushed on the document's live topic: the route's metadata, `missing`
+    // for a deleted file, or the route's refusal. It is newer than any read still
+    // under way; one during a save is left to the read that follows the save.
+    observed(id, value) {
+      const tab = find(id);
+      if (!tab?.document || tab.pending || value?.path !== tab.path)
+        return { status: "obsolete" };
+      const refusal =
+        value.missing === true
+          ? fileClientIssue("FILE_NOT_FOUND", 404)
+          : typeof value.error?.code === "string" &&
+              /^FILE_[A-Z0-9_]+$/.test(value.error.code) &&
+              Number.isInteger(value.error.status)
+            ? fileClientIssue(value.error.code, value.error.status)
+            : null;
+      if (!refusal && !validMetadata(value, tab.path)) return { status: "obsolete" };
+      store.invalidateObservation(id);
+      if (refusal) {
+        patch(id, { external: { error: refusal } });
+        return { status: "failed", error: refusal };
+      }
+      const { watched: _watched, ...metadata } = value;
+      if (metadata.metadataRevision === tab.document.metadataRevision) {
+        patch(id, { external: null });
+        return { status: "unchanged" };
+      }
+      patch(id, { external: metadata });
+      return { status: "changed", metadata };
     },
     invalidateObservation(id) {
       observations.set(id, (observations.get(id) || 0) + 1);

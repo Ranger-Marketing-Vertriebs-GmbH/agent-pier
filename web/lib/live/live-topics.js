@@ -188,6 +188,15 @@ export const liveTopics = Object.freeze({
         : `/sessions/${encodeURIComponent(scope.replace(/^session:/, ""))}/files/explorer/jobs`,
     interval: 1500,
   }),
+  // An editor document's metadata (`file.meta:<token>`, the token from the metadata
+  // route's X-File-Watch), pushed when the file changes. Its REST route depends on
+  // the file scope, so the editor reads it itself (file-document-watch.js).
+  "file.meta": Object.freeze({
+    mode: "state",
+    path: null,
+    paramRequired: true,
+    interval: 15000,
+  }),
   // A session's chat deliveries: `changed`, then the chat reads its pending ones.
   "session.deliveries": Object.freeze({
     mode: "signal",

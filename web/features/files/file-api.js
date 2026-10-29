@@ -89,6 +89,8 @@ async function jsonOrEmpty(response) {
   }
 }
 
+const WATCH_TOPIC = /^file\.meta:[A-Za-z0-9_-]{22}$/;
+
 // The live topic of the scope's job envelopes (server/features/files/live-topics.js).
 const jobsTopic = (scopeRef) =>
   scopeRef.kind === "global"
@@ -103,8 +105,19 @@ export function fileApi(scopeRef) {
     archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
     directDownload: (path) => urlFor(base, "/download", { path }),
     readText: (path, signal) => fileApi(scopeRef).get("/text", { path }, signal),
-    documentMetadata: (path, signal) =>
-      fileApi(scopeRef).get("/metadata", { path, view: "document" }, signal),
+    // The route names the document's live topic in X-File-Watch (server
+    // file-watch-topic.js); it travels as `watch`.
+    async documentMetadata(path, signal) {
+      const response = await fileApi(scopeRef).raw("/metadata", {
+        query: { path, view: "document" },
+        signal,
+      });
+      const metadata = await response.json();
+      const watch = response.headers.get("X-File-Watch");
+      return watch && WATCH_TOPIC.test(watch) && metadata && typeof metadata === "object"
+        ? { ...metadata, watch }
+        : metadata;
+    },
     async saveText(path, bytes, { scopeId, requestId, revision, signal } = {}) {
       if (
         !(bytes instanceof Uint8Array) ||

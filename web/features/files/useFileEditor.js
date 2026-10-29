@@ -24,6 +24,7 @@ export default function useFileEditor({ client, scopeId, limits, scope }) {
       store.saveAsWith(id, client, scopeId, path, options),
     replace: store.replace,
     observe: store.observe,
+    observed: store.observed,
     invalidateObservation: store.invalidateObservation,
     reload: store.reload,
     inspectConflict: store.inspectConflict,
