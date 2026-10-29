@@ -252,7 +252,7 @@ export class ChannelLedger {
         JSON.stringify(entry),
         entry.chatId,
       );
-    this.onWrite?.();
+    this.onWrite?.(entry.channelId);
   }
   /**
    * Adds an album item to the album's waiting input: its file in message order and
@@ -298,7 +298,7 @@ export class ChannelLedger {
     this.db
       .prepare("UPDATE channel_inbox SET body=? WHERE id=?")
       .run(JSON.stringify(entry), id);
-    this.onWrite?.();
+    this.onWrite?.(entry.channelId);
     return entry;
   }
   public(channelId) {

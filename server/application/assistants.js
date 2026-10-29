@@ -66,7 +66,8 @@ export function createAssistantServices(options) {
     graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
     // The agent detail topics and the update status (live-topics.js).
     graph.assistantWorkflows.onChange = (ids) => agentActionsChanged(options.live, ids);
-    graph.assistantChannels.onChange = () => agentChannelsChanged(options.live);
+    graph.assistantChannels.onChange = (assistantId) =>
+      agentChannelsChanged(options.live, assistantId);
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     followReminderWrites(graph.assistantReminders, () => options.live);
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));

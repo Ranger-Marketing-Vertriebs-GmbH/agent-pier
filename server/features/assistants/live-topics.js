@@ -287,14 +287,23 @@ export function agentRunChanged(services, runId) {
   agentActionsChanged(hub, ids, { approvals: false });
 }
 
-/** Something the channel list shows changed (ChannelService's onChange). */
-export function agentChannelsChanged(hub) {
-  hub?.invalidate("agent.channels");
-  // A reminder's Telegram delivery state is an outbox entry.
-  hub?.invalidate("agent.reminders");
-  // A user's own bot (live-me-topics.js); her pairing finishes in Telegram.
-  hub?.invalidate("me.telegram");
-  hub?.invalidate("me.reminders");
+/**
+ * Something the channel list shows changed (ChannelService's onChange): of agent
+ * `assistantId`'s channel when known, so a Telegram message reads that agent's topics
+ * only; else every agent's.
+ */
+export function agentChannelsChanged(hub, assistantId) {
+  const topics = [
+    "agent.channels",
+    // A reminder's Telegram delivery state is an outbox entry.
+    "agent.reminders",
+    // A user's own bot (live-me-topics.js); her pairing finishes in Telegram.
+    "me.telegram",
+    "me.reminders",
+  ];
+  for (const name of topics)
+    if (typeof assistantId === "string") hub?.invalidate(name, assistantId);
+    else hub?.invalidate(name);
 }
 
 // The reminder service's writes: an agent's reminders, or (a run's result, `complete`)

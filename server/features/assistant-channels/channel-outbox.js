@@ -110,7 +110,7 @@ export class ChannelOutbox {
     this.db
       .prepare("INSERT INTO channel_outbox VALUES(?,?,?,?,?)")
       .run(entry.id, key, source.channelId, entry.state, JSON.stringify(entry));
-    this.onWrite?.();
+    this.onWrite?.(entry.channelId);
     return entry;
   }
   /**
@@ -186,7 +186,7 @@ export class ChannelOutbox {
         .run(next.state, JSON.stringify(next), id, expected).changes
     )
       throw assistantProblem("conflict", 409);
-    this.onWrite?.();
+    this.onWrite?.(next.channelId);
     return next;
   }
   public(channelId) {
