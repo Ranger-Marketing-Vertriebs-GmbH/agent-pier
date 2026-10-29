@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { setTabHidden } from "../helpers/visibility.js";
 import { cleanupSummary, details, summary } from "../helpers/system-status-fixture.js";
 
 test.use({ locale: "en-GB" });
@@ -154,18 +155,20 @@ test("on a phone low disk space is a compact row", async ({ page }) => {
   expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
 });
 
-test("the start page polls the status only while it is visible", async ({ page }) => {
-  const calls = await routeStatus(page);
+test("the start page follows the status topic and unsubscribes while hidden", async ({
+  page,
+  liveStub,
+}) => {
+  await routeStatus(page);
   await page.goto("/");
   await expect(page.getByRole("button", { name: /System status/ })).toContainText("Disk");
-  await expect.poll(() => calls.summary, { timeout: 12_000 }).toBeGreaterThan(1);
-  await page.evaluate(() => {
-    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  const hidden = calls.summary;
-  await page.waitForTimeout(6000);
-  expect(calls.summary).toBe(hidden);
+  await liveStub.waitForSubscribe("system.status");
+  // The summary is the page's only status topic; the details open with their dialog.
+  expect(liveStub.subscriptions()).not.toContain("system.status.details");
+  await setTabHidden(page, true);
+  await expect.poll(() => liveStub.subscriptions()).not.toContain("system.status");
+  await setTabHidden(page, false);
+  await expect.poll(() => liveStub.subscriptions()).toContain("system.status");
 });
 
 test("an unknown disk share shows a dash, not a full bar", async ({ page }) => {

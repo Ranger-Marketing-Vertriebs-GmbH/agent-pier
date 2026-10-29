@@ -195,6 +195,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "operations.release-sessions:1.0.0",
     "artifacts.usage",
     "artifacts.changed",
+    "system.status",
+    "system.status.details",
     "nope",
     "a".repeat(300),
     "state\u202e",

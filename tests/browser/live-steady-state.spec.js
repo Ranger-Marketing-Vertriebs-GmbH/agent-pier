@@ -32,6 +32,7 @@ const pages = {
       "pipeline.runs:*:running",
       "connections.problems",
       "settings.summary",
+      "system.status",
     ],
   },
 };

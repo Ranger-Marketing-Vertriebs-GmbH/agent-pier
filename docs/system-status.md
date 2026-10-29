@@ -242,9 +242,14 @@ the details are open.
 
 ## Refresh and cost
 
-The start page and the details ask for new figures every five seconds while the page is
-visible; the start page's figures (`GET /api/system-status`) include each session's CPU
-and RAM and the last points of the history, so it never reads the details. The server then samples every five seconds and returns to its background pace
+The start page and the details follow the owner-only live topics `system.status` and
+`system.status.details` (the values of `GET /api/system-status` and
+`GET /api/system-status/details`, see the live channel in `architecture.md`). The server
+reads each every five seconds while a visible tab watches and pushes the figures; a
+hidden tab unsubscribes at once, and while the socket is down the page polls the two
+routes every five seconds as the channel's fallback. The start page's figures include
+each session's CPU and RAM and the last points of the history, so it never reads the
+details. The server samples every five seconds and returns to its background pace
 30 seconds after the last request. In the background it takes one sample a minute (CPU
 and memory of the computer and of AgentPier's processes: one `ps` call, plus `vm_stat`
 on macOS and one tmux listing), so the sparkline covers the whole last hour even when
