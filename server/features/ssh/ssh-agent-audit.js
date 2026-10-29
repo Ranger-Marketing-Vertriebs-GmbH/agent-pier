@@ -11,7 +11,7 @@ function row(action, outcome, { sessionId, projectId }, rest) {
     ...rest.resource,
     sessionId,
     ...(projectId === undefined ? {} : { projectId }),
-    source: "mcp",
+    source: "agent",
     outcome,
     details: rest.details,
   };
