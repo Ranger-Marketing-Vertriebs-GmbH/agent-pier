@@ -73,6 +73,9 @@ export class FileStore {
   constructor({ dataDir, now = Date.now, limits = readFileLimits() }) {
     this.now = now;
     this.limits = limits;
+    // A file scope's session (learnScope), so a job change reaches its session's topic
+    // also after the session's working directory, and so its scope id, changed.
+    this.scopeSessions = new Map();
     this.storageRoot = path.resolve(dataDir, "files");
     this.db = privateDatabase(this.storageRoot, "files.sqlite");
     this.db.exec(fileSchema);
@@ -98,6 +101,7 @@ export class FileStore {
     this.prune(now());
   }
   request(scope, operation, { admit } = {}) {
+    this.learnScope(scope);
     validateOperation(operation);
     const match =
       /^(\d{1,16}):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.exec(
@@ -168,7 +172,14 @@ export class FileStore {
     if (!row) throw fileProblem("FILE_NOT_FOUND", 404);
     return publicFileJob(row, this);
   }
+  /** Remembers the session of `scope` (bounded): a job write names it (jobChanged). */
+  learnScope(scope) {
+    if (typeof scope?.sessionId !== "string" || this.scopeSessions.has(scope.id)) return;
+    if (this.scopeSessions.size >= 4096) this.scopeSessions.clear();
+    this.scopeSessions.set(scope.id, scope.sessionId);
+  }
   listJobs(scope, cursor) {
+    this.learnScope(scope);
     const after = cursorValue(cursor, scope, "jobs");
     const rows = this.db
       .prepare(
@@ -287,11 +298,12 @@ export class FileStore {
   }
   /**
    * Tells `onJobChange` (set by FileJobs) that a job of `scopeId` (null: of any
-   * scope) changed. A failing listener is logged; the write it reports stands.
+   * scope) changed, with the session of that scope when this process has seen it.
+   * A failing listener is logged; the write it reports stands.
    */
   jobChanged(scopeId) {
     try {
-      this.onJobChange?.(scopeId);
+      this.onJobChange?.(scopeId, this.scopeSessions.get(scopeId) ?? null);
     } catch {
       console.error("AgentPier could not report a file job change.");
     }
