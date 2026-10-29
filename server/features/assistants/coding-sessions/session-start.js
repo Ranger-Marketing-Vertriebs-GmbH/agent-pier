@@ -167,8 +167,8 @@ export function startResult(a) {
  * by default, a new worktree of it. One action per `requestId` (key
  * `session-start:<assistantId>:<requestId>`): a retry with the same options returns
  * that action's outcome, waiting for it while it still runs here, and never starts
- * a second session; other options conflict. Team turns and starts on a lead's share
- * wait for the owner; every other turn starts right away.
+ * a second session; other options conflict. Starts on a lead's share wait for
+ * the owner; an explicit project session grant also covers team turns.
  */
 export async function startSession(w, ctx, input) {
   const { options, launch } = await validOptions(w, ctx, input);
@@ -197,7 +197,7 @@ export async function startSession(w, ctx, input) {
     origin: ctx.origin,
     key,
     payload,
-    state: ctx.sessionClass === "team" || inherited ? "awaiting_approval" : "approved",
+    state: inherited ? "awaiting_approval" : "approved",
     sessionId: randomUUID(),
     sessionOrigin: sessionOrigin(w, ctx),
     projectName: project.name,

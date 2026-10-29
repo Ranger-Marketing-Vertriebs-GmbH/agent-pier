@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { agentSessionFixture } from "../helpers/agent-coding-session-fixture.js";
+import {
+  agentSessionFixture,
+  sharedSessionGrant,
+} from "../helpers/agent-coding-session-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { sessionContext } from "../../server/features/assistants/coding-sessions/session-turns.js";
 import { startSession } from "../../server/features/assistants/coding-sessions/session-start.js";
@@ -271,7 +274,7 @@ test("a project without a git repository answers NO_REPOSITORY when a worktree i
   assert.equal(f.launches[0].body.cwd, plain.cwd);
 });
 
-test("routine and hook runs start without approval; a lead task waits for the owner", async (t) => {
+test("routine, hook and lead-task starts honor the explicit session grant", async (t) => {
   const f = await agentSessionFixture(t);
   const inv = runs(f);
   const routine = await f.call(inv.routine, start(f));
@@ -291,7 +294,7 @@ test("routine and hook runs start without approval; a lead task waits for the ow
   assert.equal(await code(f.call(off.hook, start(f))), "FORBIDDEN");
   assert.equal(f.launches.length, 2);
 
-  // A lead's task for this member: the owner approves, then the tick starts it.
+  // A lead's task uses the member's explicit session grant without asking again.
   const lead = f.store.createAssistant({
     name: "Lead",
     model: { connectionId: "test", modelId: "fixture" },
@@ -301,35 +304,47 @@ test("routine and hook runs start without approval; a lead task waits for the ow
     sessionClass: "team",
     leadRequest: { id: "task-1", leadId: lead.id },
   };
-  const waiting = await startSession(f.workflows, ctx, start(f, { requestId: "team" }));
-  assert.equal(waiting.state, "awaiting_approval");
-  assert.equal(waiting.sessionId, undefined);
-  assert.equal(f.launches.length, 2);
-  const a = action(f, "team");
-  assert.equal(a.leadAssistantId, lead.id);
-  assert.equal(
-    f.workflows.pending(f.id).some((p) => p.id === a.id),
-    true,
-  );
-  await f.workflows.decide(
-    a.id,
-    { decision: "approve", revision: a.revision },
-    {
-      kind: "owner",
-    },
-  );
-  await f.workflows.tick();
-  const done = action(f, "team");
+  const done = await startSession(f.workflows, ctx, start(f, { requestId: "team" }));
   assert.equal(done.state, "running");
   assert.equal(f.launches.length, 3);
-  assert.equal(f.launches[2].trusted.id, done.sessionId);
+  assert.equal(action(f, "team").leadAssistantId, lead.id);
+  assert.equal(f.workflows.pending(f.id).length, 0);
   assert.deepEqual(f.workflows.sessions.store.get(done.sessionId).origin, {
     class: "team",
   });
-  // The retry after the approval reads the running session.
   const retry = await startSession(f.workflows, ctx, start(f, { requestId: "team" }));
-  assert.equal(retry.state, "running");
   assert.equal(retry.sessionId, done.sessionId);
+  assert.equal(f.launches.length, 3);
+});
+
+test("team result and member turns honor the explicit session grant", async (t) => {
+  const f = await agentSessionFixture(t);
+  const owner = sessionContext(f.workflows, await f.invocation());
+  for (const turn of [
+    { memberResult: { requestId: "result-1" } },
+    { requestedBy: "member-1" },
+  ]) {
+    const ctx = { ...owner, sessionClass: "team", ...turn };
+    const result = await startSession(f.workflows, ctx, start(f, { worktree: false }));
+    assert.equal(result.state, "running");
+    assert.equal(f.workflows.pending(f.id).length, 0);
+  }
+  assert.equal(f.launches.length, 2);
+  const policy = f.workflows.access.get(f.id);
+  f.workflows.access.save(f.id, { ...f.policy, sessionProjectIds: [] }, policy.revision);
+  await assert.rejects(
+    startSession(
+      f.workflows,
+      {
+        ...owner,
+        sessionClass: "team",
+        memberResult: { requestId: "result-1" },
+      },
+      start(f, { worktree: false }),
+    ),
+    { status: 403 },
+  );
+  assert.equal(f.launches.length, 2);
 });
 
 test("a start on a lead's share waits for the owner", async (t) => {
@@ -379,7 +394,8 @@ test("a lead's share lists its project except in turns on the agent's own grant"
 });
 
 test("an executing start found after a restart becomes running when its session exists", async (t) => {
-  const f = await agentSessionFixture(t);
+  const f = await agentSessionFixture(t, { sessionProjects: false });
+  sharedSessionGrant(f);
   const ctx = {
     ...sessionContext(f.workflows, await f.invocation()),
     sessionClass: "team",

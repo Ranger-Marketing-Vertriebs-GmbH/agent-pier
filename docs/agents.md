@@ -1566,7 +1566,9 @@ and [Private chats of restricted users](assistant-gateway.md#private-chats-of-re
   capabilities.
 - **Coding sessions** let an agent start coding CLIs in a project with the CLI's
   default launch mode (Codex `yolo`), without an approval per start in your own
-  messages, routines and hooks with **Coding**. Those sessions run as your operating-system
+  messages, team tasks and result follow-ups, session wake turns, routines and hooks
+  with **Coding**. Starts relying only on a lead's shared access still require approval.
+  Those sessions run as your operating-system
   user like any session you start; the agent reads their replies as untrusted data. Grant the
   switch only for projects where you accept that, and see [coding
   sessions](assistant-workflows.md#coding-sessions) for worktrees, escalation and revoking.
