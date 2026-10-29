@@ -55,7 +55,7 @@ async function readThroughPage(page, path, sampled) {
 /**
  * Routes `**\/api/live` of `page` to a stub and returns its controls:
  * subscriptions(), received(), connections(), waitForSubscribe(topicId),
- * push(topicId, value), pushRest(topicId), reread(topicId), changed(topicId), stale(topicId),
+ * push(topicId, value, {readAt}), pushRest(topicId), reread(topicId), changed(topicId), stale(topicId),
  * revoke(topicId), refuse(),
  * close(code), dispose(). `received()` lists the frames the page sent, in order;
  * `connections()` counts the sockets it opened, refused ones included.
@@ -87,7 +87,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
 
   // A snapshot first, then `state` (state topics) or a rows `delta` onto the
   // subscription's last frame.
-  const dataFrame = (socket, topic, value) => {
+  const dataFrame = (socket, topic, value, extra = {}) => {
     const entry = socket.topics.get(topic);
     if (topicInfo(topic)?.mode === "rows") {
       const data = sync.encodeScoped([topic], listRows(value), entry.cursor);
@@ -98,7 +98,7 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     }
     const type = entry.sent ? "state" : "snapshot";
     entry.sent = true;
-    send(socket, { type, topic, revision: ++revision, data: value });
+    send(socket, { type, topic, revision: ++revision, data: value, ...extra });
   };
 
   const stopTopic = (socket, topic) => {
@@ -240,9 +240,11 @@ export async function stubLive(page, { mode = "rest" } = {}) {
         notify();
       });
     },
-    push(topic, value) {
+    // `readAt`: the server's read stamp the frame carries (state topics only).
+    push(topic, value, { readAt } = {}) {
       latest.set(topic, value);
-      for (const socket of holders(topic)) dataFrame(socket, topic, value);
+      const extra = Number.isSafeInteger(readAt) ? { readAt } : {};
+      for (const socket of holders(topic)) dataFrame(socket, topic, value, extra);
     },
     // "manual" mode: pushes what the topic's REST routes answer now (the spec's mocks).
     async pushRest(topic) {
