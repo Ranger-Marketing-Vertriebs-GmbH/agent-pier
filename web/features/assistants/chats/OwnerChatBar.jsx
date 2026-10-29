@@ -13,7 +13,7 @@ import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.j
  * opens the Chats sheet, and New chat. His list follows the agent list's changes of
  * this agent's chats; an archived or deleted chat leaves the offline cache. A user's
  * own agent's chats are hers: he reads them under her opt-in, never writes or starts one.
- * `summarise` ({ run, reason }) adds Summarise now (SummariseNowButton); `reason` names
+ * `summarise` ({ run, reason }) adds Summarize now (SummariseNowButton); `reason` names
  * why it is disabled, empty when it can run.
  */
 export default function OwnerChatBar({

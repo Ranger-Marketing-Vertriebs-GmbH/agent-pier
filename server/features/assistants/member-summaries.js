@@ -17,7 +17,7 @@ const details = {
   already: "The member's chat is being summarised already.",
   nothing: "The member's chat has nothing to summarise.",
   owner:
-    "The owner is talking with this member in its chat directly. Leave summarising this chat to the owner, who can use Summarise now in that chat. Nothing was summarised or queued.",
+    "The owner is talking with this member in its chat directly. Leave summarising this chat to the owner, who can use Summarize now in that chat. Nothing was summarised or queued.",
 };
 const answer = (status, member) => ({
   status,
@@ -71,7 +71,7 @@ export function ownerTalking({ assistants, teams }, conversationId, now = Date.n
 
 /**
  * A lead's summary of its own member's task chat (agentpier_team_member_summarise,
- * AGENTPIER-194): `now` runs Summarise now with its memory step (long-chats.js) at
+ * AGENTPIER-194): `now` runs Summarize now with its memory step (long-chats.js) at
  * once and is refused as busy while the member works; `after_task` keeps one pending
  * summary on the member's record (`summaryAfterTask`) that the team tick runs once
  * the member is idle, before the next queued lead request reaches its chat (the

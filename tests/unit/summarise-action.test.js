@@ -12,17 +12,17 @@ const base = {
   empty: false,
 };
 
-test("Summarise now is absent where the owner may not summarise", () => {
+test("Summarize now is absent where the owner may not summarise", () => {
   assert.equal(summariseAction({ ...base, shown: false }), null);
 });
 
-test("Summarise now runs the long-chat hint's action when nothing blocks it", () => {
+test("Summarize now runs the long-chat hint's action when nothing blocks it", () => {
   const action = summariseAction(base);
   assert.equal(action.reason, "");
   assert.equal(action.run(), "run");
 });
 
-test("Summarise now names why it is disabled", () => {
+test("Summarize now names why it is disabled", () => {
   assert.equal(summariseAction({ ...base, working: true }).reason, copy.summariseWorking);
   assert.equal(
     summariseAction({ ...base, longChat: { ...base.longChat, busy: true } }).reason,
