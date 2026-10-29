@@ -320,9 +320,8 @@ C10. Routines and hooks are not separated at the socket; documented (S14).
   names.
 - Whether `writeOwnerFiles` takes `shellEnv` text or the paths to render it from.
 
-## Open question for the owner
+## Owner answer (2026-10-29)
 
-Q1. A **Trusted** host (not "incl. routines") is reachable by plain ssh from the
-agent's routines and hooks when they run with shell, because the socket cannot see the
-origin. Accept and document (C10, the plan's default), or put only **Trusted incl.
-routines** hosts into the socket?
+Q1 answered: **accept and document** (option B). Trusted and Trusted incl. routines hosts
+both enter the socket; routines and hooks with shell can reach Trusted-only hosts by
+plain ssh, and the docs say so.
