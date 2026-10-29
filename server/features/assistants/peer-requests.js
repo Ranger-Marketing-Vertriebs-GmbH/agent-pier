@@ -1,7 +1,7 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { editableMember, memberEnded } from "./member-reach.js";
 import { mainConversation } from "./routine-targets.js";
-import { peerFollowUp, peerLeadFollowUp } from "./lead-request-text.js";
+import { endOutcome, peerFollowUp, peerLeadFollowUp } from "./lead-request-text.js";
 import { createPeerRequest, peerCaller, peerTarget } from "./peer-request-rules.js";
 
 /**
@@ -84,12 +84,15 @@ export class PeerRequests {
   target(r) {
     if (!r.fromMemberId) return null;
     const full = { ...r, answer: this.requests.store.answer(r) };
+    // How a cancelled or failed request ended, for the chat's line.
+    const outcome = endOutcome(r),
+      how = outcome ? { outcome } : {};
     if (r.resultTo !== "lead" && this.reachable(r))
       return {
         conversationId: r.fromConversationId,
         clientRequestId: `peer-request-result:${r.id}`,
         text: peerFollowUp(full),
-        context: { kind: "peer-result", requestId: r.id },
+        context: { kind: "peer-result", requestId: r.id, ...how },
         record: { deliveredTo: "member" },
       };
     // The lead acts on it like on any member result (member-result-writes.js).
@@ -99,7 +102,7 @@ export class PeerRequests {
         mainConversation(this.assistants.store, r.parentAssistantId)?.id ?? null,
       clientRequestId: `lead-request-result:${r.id}`,
       text: peerLeadFollowUp(full),
-      context: { kind: "member-result", requestId: r.id },
+      context: { kind: "member-result", requestId: r.id, ...how },
       record: { deliveredTo: "lead" },
     };
   }

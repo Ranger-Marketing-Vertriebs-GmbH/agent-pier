@@ -118,12 +118,13 @@ function hideInternal(messages, requests, contexts, attempts) {
     const kind = turnKind(contexts.get(id));
     return internalKinds.has(kind) ? kind : null;
   };
-  // How a member's request ended without a result (lead-requests.js deliveryTarget),
-  // also when the turn is a goal turn carrying that result.
+  // How a member's request ended without a result (lead-requests.js deliveryTarget,
+  // peer-requests.js target), also when the turn is a goal turn carrying that result.
+  const results = new Set(["member-result", "peer-result"]);
   const outcomeOf = (id) => {
     const context = contexts.get(id);
-    const result = context?.kind === "member-result" ? context : context?.result;
-    return result?.kind === "member-result" && typeof result.outcome === "string"
+    const result = results.has(context?.kind) ? context : context?.result;
+    return results.has(result?.kind) && typeof result.outcome === "string"
       ? { internalOutcome: result.outcome }
       : {};
   };
