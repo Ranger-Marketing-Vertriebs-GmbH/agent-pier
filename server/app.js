@@ -332,7 +332,7 @@ export async function createApplication(config) {
   // Writes signal the live topics whose sources announce no change of their own.
   app.use("/api", liveWriteSignals(services));
   // When each read began, so the browser keeps the later of a push and a REST answer.
-  app.use("/api", readStampHeader());
+  app.use("/api", readStampHeader({ instance: () => services.live?.instance }));
   api.mount(fileTransferStreams(services), { guarded: false });
   api.mount(fileTextRoutes(services), { guarded: false });
   app.use(

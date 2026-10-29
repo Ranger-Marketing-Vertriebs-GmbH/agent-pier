@@ -60,5 +60,8 @@ export default async function api(path, method = "GET", body, signal) {
   if (!response.ok) throw await apiError(response);
   const data = await response.json().catch(() => ({}));
   // When the server began this read (read-stamps.js); a live hook compares pushes.
-  return noteReadStamp(data, parseReadStamp(response.headers?.get?.("X-Read-Started")));
+  return noteReadStamp(data, parseReadStamp(response.headers?.get?.("X-Read-Started")), {
+    instance: response.headers?.get?.("X-Read-Instance") ?? null,
+    write: method !== "GET",
+  });
 }

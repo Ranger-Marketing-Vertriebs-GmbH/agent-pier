@@ -16,6 +16,8 @@ test("GET and write answers under /api carry X-Read-Started on one rising clock"
   const read = await f.request("/api/state");
   assert.equal(read.status, 200);
   const readAt = stampOf(read);
+  // The server instance is the live channel's hello instance.
+  assert.equal(read.headers.get("x-read-instance"), f.application.live.instance);
   assert.ok(readAt >= before);
   const write = await f.request("/api/operations/backups", { method: "POST", body: {} });
   assert.equal(write.status, 202);
