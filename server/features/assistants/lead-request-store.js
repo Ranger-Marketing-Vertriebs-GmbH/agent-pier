@@ -549,6 +549,8 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.finishedAt ? { finishedAt: r.finishedAt } : {}),
     ...(r.answer ? (full ? { answer: r.answer } : { hasAnswer: true }) : {}),
     ...(r.answerCut ? { answerCut: true } : {}),
+    // The member's last reply before its time limit cancelled it, not a result.
+    ...(r.partial ? { partial: true } : {}),
     ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}),
     ...(r.delivery ? { delivery: r.delivery } : {}),
     ...(r.resultDiagnostic ? { resultDiagnostic: r.resultDiagnostic } : {}),

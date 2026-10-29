@@ -99,6 +99,16 @@ export const assistantTeamCopy = {
       "AgentPier hat den Agenten gebeten, an seinem Ziel weiterzuarbeiten.",
     "coding-session": "Eine Coding-Session hat sich geändert. Der Agent macht weiter.",
   },
+  // Eine Frage oder Aufgabe eines Mitglieds, die ohne Ergebnis endete (statt
+  // internalTurns["member-result"]).
+  memberOutcomes: {
+    deadline: "Ergebnis eines Mitglieds: abgebrochen (Zeitlimit)",
+    owner: "Ergebnis eines Mitglieds: von dir abgebrochen",
+    lead: "Ergebnis eines Mitglieds: vom leitenden Agenten abgebrochen",
+    stopped: "Ergebnis eines Mitglieds: gestoppt",
+    cancelled: "Ergebnis eines Mitglieds: abgebrochen",
+    failed: "Ergebnis eines Mitglieds: fehlgeschlagen",
+  },
   notes: {
     started: (title) => `Team gestartet: ${title}`,
     completed: (title) => `Team abgeschlossen: ${title}`,

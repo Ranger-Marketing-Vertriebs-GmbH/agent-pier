@@ -96,11 +96,13 @@ export default function LeadRequestCard({
           onToggle={(event) => event.currentTarget.open && load()}
         >
           <summary>
-            {r.type === "task"
-              ? copy.result
-              : r.type === "report"
-                ? copy.report
-                : copy.answer}
+            {r.partial
+              ? copy.partial
+              : r.type === "task"
+                ? copy.result
+                : r.type === "report"
+                  ? copy.report
+                  : copy.answer}
           </summary>
           {r.answer && <p>{r.answer}</p>}
           {r.answerCut && (

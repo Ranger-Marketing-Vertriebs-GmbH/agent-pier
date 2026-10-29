@@ -74,6 +74,7 @@ export const leadRequestCopy = {
   none: "Dieser Agent hat seinen Mitgliedern noch nichts geschickt.",
   answer: "Antwort",
   result: "Ergebnis",
+  partial: "Teilergebnis",
   report: "Bericht",
   because: (quote) => `Weil du geschrieben hast: „${quote}“`,
   // Die @Erwähnung im Eingabefeld eines leitenden Agenten und die Chips im Chat.

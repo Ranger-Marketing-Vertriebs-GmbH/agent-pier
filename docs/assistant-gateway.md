@@ -1261,6 +1261,23 @@ A lead reaches its own members without the owner relaying anything
   and tell the lead that the whole text is in the member's chat, as does a
   follow-up shortened to fit its own limit. The request in **Team › Teams** shows
   "Shortened" with a link to that chat.
+- **Endings without a result** (AGENTPIER-284). A request that ends cancelled or
+  failed stores why as `diagnostic`: `DEADLINE` (its `runTimeoutMinutes` ran out),
+  `OWNER_CANCELLED`, `LEAD_CANCELLED`, `MEMBER_STOPPED` (the member's run was
+  cancelled without a request, in its chat or by the runtime) or `RUN_FAILED`, next to
+  the dispatch codes (`PARENT_ARCHIVED`, `MEMBER_ARCHIVED`, `DISPATCH_FAILED`,
+  `OUTCOME_REVIEWED`). The follow-up (`lead-request-text.js fitted`) and a terminal
+  tool result carry the code with a `reason` sentence, a deadline also
+  `timeLimitMinutes`, and the follow-up tells the lead to give the owner the reason;
+  records from before derive the code from `cancelledBy`. At a deadline the member's
+  last reply of the run is kept like an answer but marked `partial` and sent as
+  `partialResult` (`partialAnswer` for a question), never as `result`; the follow-up
+  adds that a report from the member may still follow and that its whole work is in
+  its chat, and **Questions and tasks** labels it "Partial result". The follow-up's
+  turn context carries `outcome` (`deadline`, `owner`, `lead`, `stopped`, `cancelled`
+  or `failed`), served on the history's event and request as `internalOutcome`, so
+  the chat shows "A member's result: cancelled (time limit)" and the like instead of
+  "A member's answer arrived".
 - **Tool calls and scheduled runs.** Plugin tools receive the session key but no
   run id (OpenClaw 2026.9.8 and 2026.9.9 tool context), so the bridge binds a call to the
   session's single active AgentPier attempt. Native runs never reach these tools,
