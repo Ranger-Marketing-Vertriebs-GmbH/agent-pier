@@ -22,21 +22,25 @@ function select(installer, tool) {
   return list;
 }
 
-const versions = (installer, wait) =>
-  withCliVersions(installer.detect(), {
-    wait,
-    managed: (found) =>
-      isManagedInstall(found.id, found.path, {
-        home: installer.home,
-        dataDir: installer.dataDir,
-      }),
-  });
+const versions = (installer, wait, tool) =>
+  withCliVersions(
+    installer.detect().filter((found) => tool === undefined || found.id === tool),
+    {
+      wait,
+      managed: (found) =>
+        isManagedInstall(found.id, found.path, {
+          home: installer.home,
+          dataDir: installer.dataDir,
+        }),
+    },
+  );
 
 /**
- * Resolves once every installed CLI's version is known: a list read while a version
- * was still being probed (`versionStatus: "checking"`) answers differently now.
+ * Resolves once the installed version of `tool` (every installed CLI's without it) is
+ * known: a list read while it was still being probed (`versionStatus: "checking"`)
+ * answers differently now.
  */
-export const versionsSettled = (installer) => versions(installer, true);
+export const versionsSettled = (installer, tool) => versions(installer, true, tool);
 
 async function withVersions(installer, list) {
   const detected = await versions(installer, false);

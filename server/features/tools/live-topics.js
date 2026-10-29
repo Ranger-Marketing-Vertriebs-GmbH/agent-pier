@@ -7,9 +7,9 @@
 // follow too. The installer runs one job at a time and every write of it (start,
 // progress, end, removal, busy cleared) calls its onChange, so every tool's topic is
 // signaled (`busy` is shared). All its writes happen in this process: the topic is
-// not sampled. A list read while a CLI's
-// version was still being probed (`versionStatus: "checking"`) signals again once
-// the probe has its answer.
+// not sampled. A tool's list read while its version was still being probed
+// (`versionStatus: "checking"`) signals that tool's topic again once its own probe
+// has its answer.
 //
 // `job.rea:current` is the managed REA tool, the value GET /rea answers. ReaTool's
 // onChange signals the start, every step and the end of a job, and its `jobCount`
@@ -42,8 +42,8 @@ export function defineToolJobTopics(hub, services) {
   const readTool = async (tool) => {
     const value = await toolInstallations(services.installer, tool);
     if (value.installations.some((item) => item.versionStatus === "checking"))
-      versionsSettled(services.installer).then(
-        () => toolJobsChanged(hub),
+      versionsSettled(services.installer, tool).then(
+        () => hub?.invalidate("job.tool", tool),
         () => {},
       );
     return value;
