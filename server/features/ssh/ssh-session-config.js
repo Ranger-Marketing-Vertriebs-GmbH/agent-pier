@@ -189,6 +189,9 @@ const hostPortPatterns = (alias) => [alias, `${alias}:*`, `*@${alias}`, `*@${ali
 const wrapperRules = {
   ssh: {
     values: "BbcDEeFIiJLlmOoPpQRSWw",
+    // Refused in an agent's wrapper (strict): a PKCS#11 library; a config file
+    // other than its own is refused too.
+    refused: "I",
     // The first operand is the destination; options may follow it, and the next
     // operand starts the remote command.
     operand: ['if [ "$seen" = 1 ]; then break; fi', "seen=1", "is_target"],
@@ -196,6 +199,9 @@ const wrapperRules = {
   },
   scp: {
     values: "cDFiJloPSX",
+    // Refused in an agent's wrapper (strict): a transport program; a config file
+    // other than its own is refused too.
+    refused: "S",
     // Options end at the first operand; every operand may be a remote path.
     operand: ["stop=1", "is_target"],
     targets: (alias) => [`${alias}:*`, `*@${alias}:*`, ...uriPatterns("scp", alias)],
@@ -212,12 +218,39 @@ const jumpPatterns = (alias) => [
 ];
 
 // is_target: whether one operand is a destination that names a session alias.
-const targetFunction = (patterns) => [
-  "is_target() {",
-  '  case "$1" in',
-  `    ${patterns.join("|")}) return 0 ;;`,
+const targetFunction = (patterns) =>
+  patterns.length
+    ? [
+        "is_target() {",
+        '  case "$1" in',
+        `    ${patterns.join("|")}) return 0 ;;`,
+        "  esac",
+        "  return 1",
+        "}",
+      ]
+    : ["is_target() {", "  return 1", "}"];
+
+// ssh_config keywords an agent's wrapper refuses on the command line (owner A18):
+// they run a local command or load a library. Matched in any case, like OpenSSH.
+const localKeywords = [
+  ...["ProxyCommand", "LocalCommand", "PermitLocalCommand", "KnownHostsCommand"],
+  ...["ProxyUseFdpass", "Match", "PKCS11Provider", "SecurityKeyProvider"],
+];
+const anyCase = (word) =>
+  [...word].map((c) => `[${c.toUpperCase()}${c.toLowerCase()}]`).join("");
+// refuse and local_option: the strict wrapper's exit for a refused option.
+const strictFunctions = (tool) => [
+  "refuse() {",
+  `  printf '%s\\n' "AgentPier: $1 is not allowed in this agent's ${tool}." >&2`,
+  "  exit 2",
+  "}",
+  "local_option() {",
+  "  v=$1",
+  "  trim",
+  "  k=${v%%[=[:blank:]]*}",
+  '  case "$k" in',
+  `    ${localKeywords.map(anyCase).join("|")}) refuse "-o $k" ;;`,
   "  esac",
-  "  return 1",
   "}",
 ];
 
@@ -225,9 +258,18 @@ const targetFunction = (patterns) => [
  * A POSIX sh wrapper around one OpenSSH binary (`tool` is ssh, scp or sftp). It parses
  * the options like OpenSSH and adds `-F <config>` only when the destination or a `-J`
  * or `-o ProxyJump` jump host names a session alias and the caller did not pass its
- * own `-F`; otherwise it runs the binary with the arguments unchanged.
+ * own `-F`; otherwise it runs the binary with the arguments unchanged. `strict` (an
+ * agent's ssh and scp, owner A18) first refuses, with exit 2, a `-F` other than its
+ * own config, ssh's `-I`, scp's `-S` and `-o` keywords that run a local command or
+ * load a library.
  */
-export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
+export function renderWrapper({
+  tool,
+  realPath,
+  configPath: config,
+  aliases,
+  strict = false,
+}) {
   const rules = wrapperRules[tool];
   if (!rules) throw new Error("Unknown OpenSSH tool");
   if (!aliases.every(validAlias)) throw new Error("Invalid session SSH alias");
@@ -236,7 +278,10 @@ export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
     `real=${shellQuote(realPath)}`,
     `config=${shellQuote(config)}`,
   ];
-  if (!aliases.length) return [...head, 'exec "$real" "$@"', ""].join("\n");
+  // An agent's ssh and scp (strict) check every call; sftp is never allowlisted.
+  const refused = strict ? rules.refused || "" : "";
+  const checked = strict && refused;
+  if (!aliases.length && !checked) return [...head, 'exec "$real" "$@"', ""].join("\n");
   const operand = rules.operand.map((step) =>
     step === "is_target" ? 'if is_target "$a"; then hit=1; fi' : step,
   );
@@ -246,9 +291,13 @@ export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
     "is_jump() {",
     "  j=$1",
     "  while :; do",
-    '    case "${j%%,*}" in',
-    `      ${aliases.flatMap(jumpPatterns).join("|")}) return 0 ;;`,
-    "    esac",
+    ...(aliases.length
+      ? [
+          '    case "${j%%,*}" in',
+          `      ${aliases.flatMap(jumpPatterns).join("|")}) return 0 ;;`,
+          "    esac",
+        ]
+      : []),
     '    case "$j" in',
     "      *,*) j=${j#*,} ;;",
     "      *) return 1 ;;",
@@ -280,7 +329,16 @@ export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
     "    esac",
     "  done",
     "}",
+    ...(checked ? strictFunctions(tool) : []),
     "option_value() {",
+    ...(checked
+      ? [
+          `  case "$1" in [${refused}]) refuse "-$1" ;; esac`,
+          // Only its own config, as the agent's guidance names it.
+          '  if [ "$1" = F ] && [ "$2" != "$config" ]; then refuse -F; fi',
+          '  if [ "$1" = o ]; then local_option "$2"; fi',
+        ]
+      : []),
     '  if [ "$1" = J ] && is_jump "$2"; then hit=1; fi',
     '  if [ "$1" = o ] && proxy_jump "$2"; then hit=1; fi',
     '  if [ "$1" = F ]; then own=1; fi',
@@ -443,12 +501,13 @@ export function writeOwnerFile(root, folder, name, text) {
  * and re-checked before each write; every file goes through an exclusive temp name
  * and a rename; keys and wrappers no longer needed are unlinked. Returns the access
  * ids of hosts that could not be rendered (invalid fields, no alias or a duplicate
- * alias), which get no alias.
+ * alias), which get no alias. `strict` (an agent's files) renders the ssh and scp
+ * wrappers that refuse local-command options (renderWrapper).
  */
 export function writeOwnerFiles(
   root,
   folder,
-  { hosts, aliases, socketPath, binaries, shellEnv },
+  { hosts, aliases, socketPath, binaries, shellEnv, strict = false },
 ) {
   const chain = foldersBetween(root, folder, unsafeFolder);
   const list = Array.isArray(hosts) ? hosts : [];
@@ -465,6 +524,7 @@ export function writeOwnerFiles(
         realPath: binaries[name],
         configPath: config,
         aliases: usable.map((host) => host.alias),
+        strict,
       }),
     ]);
   const pinned = pinnedChain(root, chain);

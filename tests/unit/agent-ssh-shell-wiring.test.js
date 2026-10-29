@@ -168,8 +168,9 @@ test("a turn whose sync fails still gets an answer", async (t) => {
 });
 
 // The approval analysis resolves programs on the agent's exec PATH: GitHub dirs, its
-// SSH bin/, then the owner's. The agent's own wrappers ssh, scp and sftp may be
-// allowlisted (owner A16, exec-ssh-wrappers.js); the owner's ssh stays allow-once.
+// SSH bin/, then the owner's. The agent's own ssh and scp wrappers may be
+// allowlisted (owner A16, exec-ssh-wrappers.js); its sftp and the owner's ssh stay
+// allow-once (A18).
 test("approval analysis resolves on the agent's SSH bin before the owner's PATH", async (t) => {
   const f = await execFixture(t);
   const bin = path.join(f.dataDir, "ssh-agents", "_agents", f.id, "bin");
@@ -188,7 +189,7 @@ test("approval analysis resolves on the agent's SSH bin before the owner's PATH"
   const plan = (await ask("with", "tool -v", tool)).allowAlwaysPlan;
   assert.equal(plan.kind, "paths");
   assert.deepEqual(plan.paths, [tool]);
-  for (const name of ["ssh", "scp", "sftp"]) {
+  for (const name of ["ssh", "scp"]) {
     const wrapper = fs.realpathSync(path.join(bin, name));
     assert.deepEqual(
       (await ask(name, `${name} proxmox-2:/x .`, wrapper)).allowAlwaysPlan,
@@ -196,6 +197,13 @@ test("approval analysis resolves on the agent's SSH bin before the owner's PATH"
       name,
     );
   }
+  // sftp runs `!command` from stdin or a batch file: its card asks every time (A18).
+  const sftp = fs.realpathSync(path.join(bin, "sftp"));
+  assert.deepEqual((await ask("sftp", "sftp proxmox-2", sftp)).allowAlwaysPlan, {
+    kind: "once",
+    reason: "interpreter",
+    program: "sftp",
+  });
   const ssh = fs.realpathSync(path.join(bin, "ssh"));
   assert.deepEqual(
     (await ask("proxy", "ssh -o ProxyCommand=x proxmox-2", ssh)).allowAlwaysPlan,
