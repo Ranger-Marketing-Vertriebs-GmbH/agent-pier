@@ -30,8 +30,8 @@
 // atomic replace (a temporary file renamed over it), a delete and a re-create are all
 // seen; a selected link's own folder is watched too. One handle per folder (by path
 // and inode) is shared by every file in it and closed with the last one; files and
-// folders are capped. A handle that fails, or whose folder was replaced (checked on
-// every `rename` it reports), is closed and its files watch again. A file past the
+// folders are capped. A handle that dies or whose folder was deleted or replaced
+// (server/lib/directory-watchers.js) is closed and its files watch again. A file past the
 // cap, or one whose folder cannot be watched, reads `watched: false`, which makes the
 // editor poll it, and is tried again every 30 s.
 import fs from "node:fs";
