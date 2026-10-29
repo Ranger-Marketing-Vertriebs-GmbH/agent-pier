@@ -17,6 +17,7 @@ import { agentHosts } from "./ssh-agent-policy.js";
 import {
   codedError,
   keyIdPattern,
+  ownerKey,
   tokenPattern,
   validSessionId,
 } from "./ssh-agent-shared.js";
@@ -38,6 +39,8 @@ import {
 // The session's generated ssh_config and its agent socket, for hints and fallbacks.
 export const SSH_CONFIG_ENV = "AGENTPIER_SSH_CONFIG";
 export const SSH_AGENT_SOCK_ENV = "AGENTPIER_SSH_AUTH_SOCK";
+
+const sessionOwner = (id) => ({ kind: "session", id });
 
 const codingTools = new Set(["codex", "claude", "opencode"]);
 const maxIdentity = 65536;
@@ -181,7 +184,7 @@ export class SessionSshAgents {
     const agent = { id, token, generation, binaries, location, written: null };
     agent.attempts = 0;
     agent.timer = null;
-    const scope = () => ({ sessionId: id, projectId: agent.projectId });
+    const scope = () => ({ owner: sessionOwner(id), projectId: agent.projectId });
     agent.socket = new SessionAgentSocket({
       socketPath: location.socketPath,
       root: location.root,
@@ -478,7 +481,7 @@ export class SessionSshAgents {
     if (!keepReason) this.unavailable.delete(id);
     await this.syncs.run(() => this.teardown(id, storedToken(this.record(id), id)));
     // After the close: no signature can open a new audit window behind the flush.
-    this.agentAudit.flush(id);
+    this.agentAudit.flush(ownerKey(sessionOwner(id)));
     this.changed(id);
   }
 
@@ -513,7 +516,7 @@ export class SessionSshAgents {
       for (const [id, agent] of this.agents) {
         clearTimeout(agent.timer);
         await agent.socket.close();
-        this.agentAudit.flush(id);
+        this.agentAudit.flush(ownerKey(sessionOwner(id)));
       }
       this.agents.clear();
     });

@@ -9,12 +9,15 @@ import path from "node:path";
 import { shellQuote } from "../../lib/launch-serialization.js";
 import { privateFolder, writePrivateText } from "../../lib/storage.js";
 import {
+  AGENT_FOLDER,
   aliasPattern,
+  assertOwner,
   codedError,
   executableOutside,
+  foldersBetween,
   keyIdPattern,
   realPathOrNull,
-  validSessionId,
+  validOwner,
   withinRoots,
 } from "./ssh-agent-shared.js";
 import { legacyOptions } from "./ssh-legacy-algorithms.js";
@@ -317,12 +320,22 @@ export function resolveOpenSshBinaries(pathEnv, skip = []) {
 }
 
 /**
- * `<dataDir>/ssh-agents/<sessionId>`; throws for an id that is not a plain name. It
- * lies outside `<dataDir>/ssh`, which sandboxed sessions with the SSH tools may write.
+ * `<dataDir>/ssh-agents/<id>` for a session, `<dataDir>/ssh-agents/_agents/<id>` for
+ * an agent; throws `SSH_AGENT_OWNER_INVALID` for any other owner before a path is
+ * built. It lies outside `<dataDir>/ssh`, which sandboxed sessions with the SSH tools
+ * may write.
  */
+export function ownerFolder(dataDir, owner) {
+  assertOwner(owner);
+  const root = path.join(path.resolve(dataDir), "ssh-agents");
+  return owner.kind === "agent"
+    ? path.join(root, AGENT_FOLDER, owner.id)
+    : path.join(root, owner.id);
+}
+
+/** `<dataDir>/ssh-agents/<sessionId>`; throws for an id that is not a plain name. */
 export function sessionFolder(dataDir, sessionId) {
-  if (!validSessionId(sessionId)) throw new Error("Invalid session id");
-  return path.join(path.resolve(dataDir), "ssh-agents", sessionId);
+  return ownerFolder(dataDir, { kind: "session", id: sessionId });
 }
 
 const unsafeFolder = () => codedError("SSH_FOLDER_UNSAFE", "Unsafe session SSH folder");
@@ -366,13 +379,20 @@ function removeOthers(folder, keep) {
 }
 
 /**
- * Write the session's config, known_hosts, public keys, alias map and wrappers.
- * Folders are created without following symlinks and refused when one is planted;
- * every file goes through an exclusive temp name and a rename; files no longer needed
- * are unlinked. Returns the access ids of hosts that could not be rendered (invalid
- * fields, no alias or a duplicate alias), which get no alias.
+ * Write an owner's config, known_hosts, public keys, alias map and wrappers into
+ * `folder`, which must lie below `root` (`<dataDir>/ssh-agents`), plus `shell-env.sh`
+ * (0600) when `shellEnv` is a string. Every folder from `root` down is created
+ * without following symlinks, refused when one is planted and re-checked before each
+ * write; every file goes through an exclusive temp name and a rename; keys and
+ * wrappers no longer needed are unlinked. Returns the access ids of hosts that could
+ * not be rendered (invalid fields, no alias or a duplicate alias), which get no alias.
  */
-export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries }) {
+export function writeOwnerFiles(
+  root,
+  folder,
+  { hosts, aliases, socketPath, binaries, shellEnv },
+) {
+  const chain = foldersBetween(root, folder, unsafeFolder);
   const list = Array.isArray(hosts) ? hosts : [];
   const usable = renderableHosts(list, aliases);
   const config = path.join(folder, "ssh_config");
@@ -389,11 +409,12 @@ export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries
         aliases: usable.map((host) => host.alias),
       }),
     ]);
-  fs.mkdirSync(path.dirname(path.dirname(folder)), { recursive: true, mode: 0o700 });
-  const root = pinnedFolder(path.dirname(folder));
-  const session = pinnedFolder(folder, [root]);
-  const keys = pinnedFolder(path.join(folder, "keys"), [root, session]);
-  const bin = pinnedFolder(path.join(folder, "bin"), [root, session]);
+  fs.mkdirSync(path.dirname(root), { recursive: true, mode: 0o700 });
+  const pinned = [];
+  for (const dir of chain) pinned.push(pinnedFolder(dir, [...pinned]));
+  const owner = pinned.at(-1);
+  const keys = pinnedFolder(path.join(folder, "keys"), pinned);
+  const bin = pinnedFolder(path.join(folder, "bin"), pinned);
   const keyFiles = new Set();
   for (const host of usable) {
     const name = `${host.keyId}.pub`;
@@ -402,25 +423,31 @@ export function writeSessionFiles(folder, { hosts, aliases, socketPath, binaries
     writeIn(keys, name, `${host.publicKey}\n`);
   }
   removeOthers(keys, keyFiles);
-  writeIn(session, "known_hosts", renderKnownHosts({ hosts: list, aliases }));
-  writeIn(session, "ssh_config", configText);
+  writeIn(owner, "known_hosts", renderKnownHosts({ hosts: list, aliases }));
+  writeIn(owner, "ssh_config", configText);
   for (const [name, script] of wrappers) writeIn(bin, name, script, 0o700);
   removeOthers(bin, new Set(wrappers.map(([name]) => name)));
   const written = Object.fromEntries(usable.map((host) => [host.accessId, host.alias]));
-  writeIn(session, "aliases.json", `${JSON.stringify(written, null, 2)}\n`);
+  writeIn(owner, "aliases.json", `${JSON.stringify(written, null, 2)}\n`);
+  if (typeof shellEnv === "string") writeIn(owner, "shell-env.sh", shellEnv, 0o600);
   const rendered = new Set(usable.map((host) => host.accessId));
   return {
     skipped: list.map((host) => host?.accessId).filter((id) => !rendered.has(id)),
   };
 }
 
-/** The alias map of a session's folder; empty when missing, unreadable or invalid. */
-export function readSessionAliases(dataDir, sessionId) {
-  if (!validSessionId(sessionId)) return {};
+/** A session's files: `writeOwnerFiles` below the session folder's parent. */
+export function writeSessionFiles(folder, files) {
+  return writeOwnerFiles(path.dirname(folder), folder, files);
+}
+
+/** The alias map of an owner's folder; empty when missing, unreadable or invalid. */
+export function readOwnerAliases(dataDir, owner) {
+  if (!validOwner(owner)) return {};
   let value;
   let fd;
   try {
-    const file = path.join(sessionFolder(dataDir, sessionId), "aliases.json");
+    const file = path.join(ownerFolder(dataDir, owner), "aliases.json");
     fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     value = JSON.parse(fs.readFileSync(fd, "utf8"));
   } catch {
@@ -432,4 +459,9 @@ export function readSessionAliases(dataDir, sessionId) {
   return Object.fromEntries(
     Object.entries(value).filter(([, alias]) => validAlias(alias)),
   );
+}
+
+/** The alias map of a session's folder; empty when missing, unreadable or invalid. */
+export function readSessionAliases(dataDir, sessionId) {
+  return readOwnerAliases(dataDir, { kind: "session", id: sessionId });
 }

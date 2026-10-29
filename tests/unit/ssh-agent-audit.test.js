@@ -231,3 +231,76 @@ test("rows carry no key material or signed data", () => {
       row.details.code ? ["code"] : ["accessId", "count", "hostName"],
     );
 });
+
+const agentOwner = { kind: "agent", id: "a1" };
+
+test("an agent row names the agent, not a session, and keeps the access as resource", () => {
+  const { rows, audit } = setup();
+  audit.connected({ owner: agentOwner, host: hostA });
+  assert.deepEqual(rows[0], {
+    action: "ssh.connected",
+    resourceType: "ssh",
+    resourceId: hostA.accessId,
+    source: "system",
+    outcome: "success",
+    details: {
+      assistantId: "a1",
+      accessId: hostA.accessId,
+      hostName: hostA.name,
+      count: 1,
+    },
+  });
+  audit.denied({ owner: agentOwner, code: "SSH_AGENT_NOT_GRANTED" });
+  assert.equal(rows[1].sessionId, undefined);
+  assert.equal(rows[1].source, "system");
+  assert.deepEqual(rows[1].details, { assistantId: "a1", code: "SSH_AGENT_NOT_GRANTED" });
+  for (const row of rows) assert.deepEqual(auditEvent(row), row);
+});
+
+test("a session owner writes the same rows as the sessionId form", () => {
+  const legacy = setup();
+  const owned = setup();
+  legacy.audit.connected(connectedA);
+  owned.audit.connected({
+    owner: { kind: "session", id: sessionId },
+    projectId,
+    host: hostA,
+  });
+  legacy.audit.denied({ sessionId, projectId, code: "SSH_AGENT_UNBOUND" });
+  owned.audit.denied({
+    owner: { kind: "session", id: sessionId },
+    projectId,
+    code: "SSH_AGENT_UNBOUND",
+  });
+  assert.deepEqual(owned.rows, legacy.rows);
+  // Both forms share one window: a sessionId call is counted in the owner's window.
+  owned.audit.connected(connectedA);
+  assert.equal(owned.rows.length, 2);
+  owned.audit.flush(`session:${sessionId}`);
+  assert.equal(owned.rows.length, 3);
+  assert.equal(owned.rows[2].details.count, 1);
+});
+
+test("windows of a session and an agent with the same id stay apart", () => {
+  const { clock, rows, audit } = setup();
+  audit.connected({ owner: { kind: "session", id: "x" }, host: hostA });
+  audit.connected({ owner: { kind: "agent", id: "x" }, host: hostA });
+  assert.equal(rows.length, 2);
+  audit.connected({ owner: { kind: "session", id: "x" }, host: hostA });
+  audit.denied({ owner: { kind: "session", id: "x" }, code: "SSH_AGENT_UNBOUND" });
+  audit.denied({ owner: { kind: "agent", id: "x" }, code: "SSH_AGENT_UNBOUND" });
+  assert.equal(rows.length, 4);
+  audit.flush("agent:x");
+  // Nothing was pending for the agent; the session's window and denial stay open.
+  assert.equal(rows.length, 4);
+  assert.equal(clock.pending, 1);
+  audit.denied({ owner: { kind: "session", id: "x" }, code: "SSH_AGENT_UNBOUND" });
+  assert.equal(rows.length, 4);
+  audit.denied({ owner: { kind: "agent", id: "x" }, code: "SSH_AGENT_UNBOUND" });
+  assert.equal(rows.length, 5);
+  audit.flush("x");
+  assert.deepEqual(
+    [rows.length, rows[5].sessionId, rows[5].details.count, clock.pending],
+    [6, "x", 1, 0],
+  );
+});
