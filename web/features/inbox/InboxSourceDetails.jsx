@@ -24,7 +24,7 @@ import InboxStale from "./InboxStale.jsx";
 
 // Each source's own card, fed from the endpoint the source's page reads and answered
 // through the endpoint it answers with. `done()` re-reads the inbox afterwards; the
-// event stream would bring the change too.
+// live `inbox` topic would bring the change too.
 
 const loading = (
   <p className="loading" role="status">
