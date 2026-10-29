@@ -90,7 +90,7 @@ function sessionFigures(sessions) {
 // /api/state and, with `agents`, 14 agents, two Inbox items and three pipeline runs.
 // Every write is recorded and refused, so a spec can assert that browsing never
 // changes anything. The returned `sessions` and `agents` are live: a spec may change
-// them before the next poll. The agents' event stream ends after "connected".
+// them before the stub's next read (tests/helpers/live-stub.js).
 export async function serveLongLists(page, { agents = true, language } = {}) {
   if (language)
     await page.addInitScript(

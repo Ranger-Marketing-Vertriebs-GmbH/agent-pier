@@ -17,7 +17,7 @@ export default function AssistantTeamSettings({ assistantId }) {
   );
 }
 function TeamSettingsForm({ assistantId, initial: policy, refresh }) {
-  // Values and their CAS revision belong to one draft. SSE updates must not
+  // Values and their CAS revision belong to one draft. Pushed updates must not
   // authorize stale values with a newer revision (especially revoked autonomy).
   const [revision, setRevision] = useState(policy.revision);
   const [autonomous, setAutonomous] = useState(policy.autonomous),
