@@ -169,9 +169,12 @@ export class SessionSshAgents {
     home = os.homedir(),
     log = console,
     retryDelays = [1000, 5000, 30000],
+    userConfig = null,
   }) {
     this.dataDir = path.resolve(dataDir);
     Object.assign(this, { store, grants, sessions, openssh, home, log, retryDelays });
+    // The ~/.ssh/config block and its dispatcher (ssh-user-config.js), when wired.
+    this.userConfig = userConfig;
     // id -> "no-openssh" | "failed" for eligible sessions that run without an agent.
     this.unavailable = new Map();
     this.agentAudit = createAgentAudit({ append: (event) => audit?.append(event) });
@@ -417,6 +420,12 @@ export class SessionSshAgents {
   }
 
   changed(id) {
+    this.userConfig?.update(
+      [...this.agents.keys()].map((sid) => ({
+        configPath: path.join(sessionFolder(this.dataDir, sid), "ssh_config"),
+        aliases: Object.values(readSessionAliases(this.dataDir, sid)),
+      })),
+    );
     try {
       this.onChange?.(id);
     } catch {
@@ -550,7 +559,11 @@ export class SessionSshAgents {
     const agent = this.agents.get(session?.id);
     if (!agent || !this.current(session, agent))
       return unavailable(this.unavailable.get(session?.id) ?? "not-eligible");
-    return { state: "ready", aliases: readSessionAliases(this.dataDir, session.id) };
+    return {
+      state: "ready",
+      aliases: readSessionAliases(this.dataDir, session.id),
+      ...(this.userConfig?.problem ? { sshConfig: this.userConfig.problem } : {}),
+    };
   }
 
   /** On shutdown: listeners close, folders stay for the restart at the same paths. */

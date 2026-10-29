@@ -60,6 +60,8 @@ export const sshCopy = {
     "Plain ssh could not be started for this session. ssh_execute still works.",
   agentNotEligible: "Plain ssh is not available in this session.",
   agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentSshConfig: (code) =>
+    `AgentPier left ~/.ssh/config unchanged (${code}). If ssh <alias> reports an unknown host, use ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
   agentOpenConnections:
     "Removing an assignment blocks new connections at once. Connections and tunnels that are already open stay open until they close.",
   reload: "Reload & resume",
