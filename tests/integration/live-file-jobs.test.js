@@ -201,9 +201,13 @@ test("files.jobs is the scope's first jobs page, owner only, refusals unlogged",
   fileJobsChanged(hub, project.id);
   const pushed = await projectLive.next((frame) => frame.type === "state");
   assert.deepEqual(pushed.data, store.listJobs(project));
-  await until(() => contexts.length >= 4);
+  // Only the written scope's instance reads again.
   await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(contexts.sort(), [null, "s1", "s1"].sort());
   assert.equal(globalLive.frames.length, 1);
+  // A write of any scope (pruning) reads every instance.
+  fileJobsChanged(hub, null);
+  await until(() => contexts.length >= 5);
   // A session that is gone is the route's 404; it is not logged.
   assert.equal((await subscribe(hub, "files.jobs:session:gone").next()).type, "error");
   assert.deepEqual(errors, []);
@@ -334,11 +338,12 @@ test("the chat delivery hook is wired to the hub", async (t) => {
     signals.push([name, param]);
     return invalidate(name, param);
   };
+  app.live.invalidateWhere = (name) => signals.push([name, "scoped"]);
   app.chatDelivery.changed("session-one");
   app.files.store.onJobChange("f1:any");
   assert.deepEqual(signals, [
     ["session.deliveries", "session-one"],
-    ["files.jobs", undefined],
+    ["files.jobs", "scoped"],
   ]);
 });
 
