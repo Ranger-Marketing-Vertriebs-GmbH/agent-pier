@@ -7,6 +7,12 @@ export const defaultTeamUsage = "suggest";
 // and per hour, so a lead and its members cannot keep each other busy
 // (lead-request-store.js); the general request caps apply as well.
 export const autonomousCaps = { perTurn: 4, perHour: 20 };
+// A task a lead hands one of its members (lead-requests.js) may run this long,
+// whatever the member time limit below says: a task often coordinates colleagues and
+// writes up their result, which the limit for questions and team work does not leave
+// room for (AGENTPIER-284). Questions, members' requests to each other and a team's
+// work on its assignment keep `runTimeoutMinutes`.
+export const taskRunTimeoutMinutes = 60;
 export const defaultTeamPolicy = {
   revision: 1,
   autonomous: false,

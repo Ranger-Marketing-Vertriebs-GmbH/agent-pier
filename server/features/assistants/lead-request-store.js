@@ -12,7 +12,7 @@ import {
   parseOwnerText,
   plain,
 } from "./lead-request-proof.js";
-import { autonomousCaps } from "./team-policy.js";
+import { autonomousCaps, taskRunTimeoutMinutes } from "./team-policy.js";
 import { directOwnerTurn, goalTurn, ownerSource } from "./goal-turns.js";
 import { WorkGoalStore } from "./work-goal-store.js";
 export { ownerQuote } from "./lead-request-proof.js";
@@ -446,7 +446,8 @@ export class LeadRequestStore {
           ...(goalTask ? { goalId: goal.id } : {}),
           ...(routineWrites ? { routineWrites: true } : {}),
           ...(selfInitiated ? { selfInitiated: true } : {}),
-          runTimeoutMinutes: policy.runTimeoutMinutes,
+          runTimeoutMinutes:
+            type === "task" ? taskRunTimeoutMinutes : policy.runTimeoutMinutes,
           phase: "queued",
           fingerprint: hash,
           delivery: null,

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  taskRunTimeoutMinutes,
   normalizeTeamPolicy,
   normalizeTeamSettings,
 } from "../../server/features/assistants/team-policy.js";
@@ -14,6 +15,8 @@ test("team limits accept all members but reject invalid capacity and hidden gran
     runTimeoutMinutes: 10,
     memberShellSsh: false,
   });
+  // A lead's task to a member has its own, longer deadline (AGENTPIER-284).
+  assert.equal(taskRunTimeoutMinutes, 60);
   assert.equal(normalizeTeamPolicy({ memberShellSsh: true }).memberShellSsh, true);
   for (const usage of ["onRequest", "suggest", "autonomous"])
     assert.equal(normalizeTeamPolicy({ usage }).usage, usage);

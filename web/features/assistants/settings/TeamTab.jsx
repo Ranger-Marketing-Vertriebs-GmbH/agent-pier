@@ -122,6 +122,8 @@ export default function TeamTab({ assistant, navigate, focusTeamId }) {
                   <span className="agent-field-error">
                     {settingsCopy.numberRange(...teamLimits[key])}
                   </span>
+                ) : key === "runTimeoutMinutes" ? (
+                  teamCopy.timeoutHint
                 ) : undefined
               }
               value={values[key]}

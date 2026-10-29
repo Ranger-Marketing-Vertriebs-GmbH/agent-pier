@@ -43,6 +43,8 @@ export const assistantTeamCopy = {
     "The agent asks by default. Use /team or the message option to allow one team for an assignment.",
   maxMembers: "Maximum team size",
   timeout: "Member time limit (minutes)",
+  timeoutHint:
+    "Applies to a team's work on its assignment, to questions and to requests between members. A task the agent gives a member may run up to 60 minutes.",
   capacity: "Concurrent members on this host",
   capacityRange: (min, max) => `Choose a value from ${min} to ${max}.`,
   concurrentHint:

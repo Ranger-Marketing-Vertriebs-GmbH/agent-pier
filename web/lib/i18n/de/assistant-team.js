@@ -45,6 +45,8 @@ export const assistantTeamCopy = {
     "Standardmäßig fragt der Agent nach. /team oder die Nachrichtenoption erlaubt ein Team für einen Auftrag.",
   maxMembers: "Maximale Teamgröße",
   timeout: "Laufzeit pro Mitglied (Minuten)",
+  timeoutHint:
+    "Gilt für die Arbeit eines Teams an seinem Auftrag, für Fragen und für Anfragen zwischen Mitgliedern. Eine Aufgabe, die der Agent einem Mitglied gibt, darf bis zu 60 Minuten laufen.",
   capacity: "Gleichzeitig aktive Mitglieder auf diesem Host",
   capacityRange: (min, max) => `Wähle einen Wert von ${min} bis ${max}.`,
   concurrentHint:

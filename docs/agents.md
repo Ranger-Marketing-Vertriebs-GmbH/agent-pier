@@ -652,7 +652,9 @@ it up. An agent of users gets project folders only; the other groups show a lock
   [when a lead uses its team](#when-a-lead-uses-its-team)), **Allow teams without
   asking each time**, **Team members may use shell and SSH** (off by default; see
   [teams](#teams-asks-and-tasks) below), **Maximum team size** and **Member time limit
-  (minutes)**.
+  (minutes)** (10 by default; it bounds a team's work on its assignment, questions
+  and requests between members, while a task the agent gives a member may run up to
+  60 minutes).
 - **Shared with members:** what this agent shares of its own access with its members,
   with **Revoke** ([sharing a lead's access](#sharing-a-leads-access-with-permanent-members)).
 - **Teams:** the agent's active and archived teams with proposals and member requests
