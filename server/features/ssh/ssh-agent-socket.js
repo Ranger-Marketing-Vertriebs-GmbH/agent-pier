@@ -81,10 +81,6 @@ export function agentSocketLocation(
   return { root, socketPath: `${root}/${token}/agent.sock`, fallback: true };
 }
 
-export function agentSocketPath(dataDir, sessionId, token, options) {
-  return agentSocketLocation(dataDir, sessionId, token, options).socketPath;
-}
-
 // The private folders from root down to the socket's folder. Without a root, the two
 // folders above the socket, as in the /tmp layout.
 function folderChain(socketPath, root) {

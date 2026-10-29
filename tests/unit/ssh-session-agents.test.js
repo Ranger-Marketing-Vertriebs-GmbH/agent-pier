@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { agentSocketPath } from "../../server/features/ssh/ssh-agent-socket.js";
+import { agentSocketLocation } from "../../server/features/ssh/ssh-agent-socket.js";
 import { SSH_AGENT_HINT_ENV } from "../../server/features/ssh/ssh-hook.js";
 import {
   agentEligible,
@@ -54,7 +54,7 @@ test("prepare equips each coding CLI with an agent and the data Task 6 needs", a
       },
     );
     const folder = sessionFolder(f.dataDir, id);
-    const socketPath = agentSocketPath(f.dataDir, id, token, { home });
+    const socketPath = agentSocketLocation(f.dataDir, id, token, { home }).socketPath;
     const details = f.agents.launchDetails(id);
     // Exactly: own folder, own socket, each resolved binary. Never allow, never a parent.
     assert.deepEqual(details.grants, [
