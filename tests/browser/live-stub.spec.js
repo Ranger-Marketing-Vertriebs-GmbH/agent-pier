@@ -224,8 +224,8 @@ test("a sub whose have is not an object closes with 1008", async ({ page }) => {
   await expect.poll(() => raw.closed()).toBe(1008);
 });
 
-// What the start page follows with agents off: the state, the inbox and the menu-hint
-// sources (web/app/useMenuHints.js).
+// What the start page follows with agents off: the state, the inbox, the menu-hint
+// sources (web/app/useMenuHints.js) and the system status.
 const startTopics = [
   "state",
   "inbox",
@@ -235,6 +235,7 @@ const startTopics = [
   "pipeline.runs:*:running",
   "connections.problems",
   "settings.summary",
+  "system.status",
 ];
 
 test.describe("manual stub", () => {

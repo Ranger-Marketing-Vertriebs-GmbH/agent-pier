@@ -208,6 +208,20 @@ export const liveTopics = Object.freeze({
     path: () => "/artifacts/usage",
     interval: 5000,
   }),
+  // The start page's load figures and the details dialog's, sampled by the server
+  // every 5 s while a visible tab watches.
+  "system.status": Object.freeze({
+    mode: "state",
+    path: () => "/system-status",
+    interval: 5000,
+    sampled: true,
+  }),
+  "system.status.details": Object.freeze({
+    mode: "state",
+    path: () => "/system-status/details",
+    interval: 5000,
+    sampled: true,
+  }),
   // The list and search pages: `changed`, then one read of the caller's query.
   "artifacts.changed": Object.freeze({ mode: "signal", path: null, interval: 5000 }),
   // A restricted user's app (server live-me-topics.js): each value is what her own
