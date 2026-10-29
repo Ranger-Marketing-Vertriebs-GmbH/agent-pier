@@ -35,8 +35,9 @@ The catalog refuses to install another skill under its name.
 default for every agent that may shop, and stored on the agent's profile: the agent
 service drops the skill at once when you save it off, and every later apply, a
 restart included, keeps it out until you switch it on again. A temporary team member
-also follows its lead's switch: switching shopping off for a lead switches it off for
-its temporary members.
+has no switch of its own: it follows its lead's, so switching shopping off for a lead
+switches it off for its temporary members. A temporary member's Capabilities tab
+shows its lead's switch, read only.
 
 When the agent cannot shop, the switch is off and disabled and says why: it needs
 **Use a browser**, it needs **Remember information**, it is an agent of users, it is
@@ -81,15 +82,17 @@ from anyone else never counts: another person on the agent's own Telegram bot, a
 agent, a team member, a member's result, a routine, a reminder, a hook run, a mail, a
 web page or forwarded content.
 
-The skill tells the agent how to tell these apart. AgentPier frames every turn that is
-not your own message: a lead's or member's task or question starts with "Task from"
-or "Question from" and says it is not from you, a member's outcome arrives as a
-"Follow-up for the owner", "Answer from" or "Report from" turn, and forwarded
-Telegram content is marked as forwarded. Messages to the agent's own Telegram bot run
-in a separate chat of the agent service, whose message context names the Telegram
-channel and the bot; AgentPier's tools refuse to work there. Such a chat is never
-yours, even when you write to the bot yourself. People on the bot can ask the agent
-to look for something, but it never buys for them, never asks them to confirm and
+The skill tells the agent how to tell these apart. AgentPier marks every turn it sends
+or relays that is not your own message: a lead's or member's task or question ("Task
+from", "Question from"), a member's outcome ("Follow-up for the owner", "Answer from",
+"Report from"), forwarded Telegram content, check-ins, routine runs, hook runs,
+reminders, finished background commands and work-goal continuations. A marked turn is
+never yours, and a missing mark alone never makes a turn yours: only a plain message in
+your web chat or your paired Telegram chat counts. Messages to the agent's own Telegram
+bot run in a separate chat of the agent service, whose message context names the
+Telegram channel and the bot; AgentPier's tools refuse to work there. Such a chat is
+never yours, even when you write to the bot yourself. People on the bot can ask the
+agent to look for something, but it never buys for them, never asks them to confirm and
 never tells them about your shop accounts, addresses, orders or payment methods. When
 the agent cannot tell that a message is your own, it treats it as no yes and asks you.
 
@@ -109,8 +112,9 @@ A lead cannot pass on your yes, and a task never lets a member buy.
 - A **temporary member** never buys during its task: you cannot write in its chat
   while the task runs, and its browser profile, with any shop sign-in, ends with the
   team. It hands the cart back to its lead.
-- The **lead** sends you the summary in its own chat and buys after your yes there,
-  if it has the skill, or tells you to confirm in the member's chat. It never tells a
+- The **lead** never buys from a member's result. To buy it itself, it rebuilds the
+  cart in its own browser, sends you its own summary in its own chat and buys after
+  your yes there; otherwise it tells you to confirm in the member's chat. It never tells a
   member that you said yes.
 
 A routine a lead sets up on a member is never a standing order and never buys.
@@ -162,26 +166,24 @@ authority.
 
 ## What is and is not protected
 
-- **Protected by AgentPier:** agents of users never get the skill, and the
-  **Shopping** switch takes it away from any agent. The browser keeps your sign-ins to the agent's own profile.
-  Before every turn AgentPier checks that the agent service loaded the shipped
-  skill: its folder must be the service's own link into AgentPier's installed team
-  plugin. A skill of the same name from the agent's workspace or the skill catalog,
-  or a folder or a different link put in place of that link, drops the Shopping
-  skill instead of replacing it. The service does not replace such a folder itself;
-  the skill stays off until the folder is deleted (see
-  [Troubleshooting](#troubleshooting)).
-- **Not protected by AgentPier:** whether the agent actually asks before buying.
-  Nothing intercepts an order. A page that misleads the agent could make it buy
-  without asking, and whether it tells your own chat from another person's message
-  is up to its instructions too. A standing order's routine cannot read your chat,
-  so it relies on the limits written into it when you confirmed the order. An agent with **Shell
-  access** runs as your user and can change files, its own instructions and the
-  shipped skill's files included, before the next check
-  ([shell gap](assistant-gateway.md#the-skill-catalog),
-  [security notes](agents.md#security-notes)). Give shell access only to agents you
-  trust. The shop's order history, its order emails and the agent's chat report are
-  how you notice.
+- **Protected by AgentPier:** agents of users never get the skill, and the **Shopping**
+  switch takes it away from any agent. The browser keeps your sign-ins to the agent's
+  own profile. Before every turn AgentPier checks that the agent service loaded the
+  shipped skill: its folder must be the service's own link into AgentPier's installed
+  team plugin. A skill of the same name from the agent's workspace or the skill catalog,
+  or a folder or a different link put in place of that link, drops the Shopping skill
+  instead of replacing it. The service does not replace such a folder itself; the skill
+  stays off until the folder is deleted (see [Troubleshooting](#troubleshooting)).
+- **Not protected by AgentPier:** whether the agent actually asks before buying. Nothing
+  intercepts an order. A page that misleads the agent could make it buy without asking,
+  and whether it tells your own chat from another person's message is up to its
+  instructions too. A standing order's routine cannot read your chat, so it relies on
+  the limits written into it when you confirmed the order. An agent with **Shell
+  access** runs as your user and can change files, its own instructions and the shipped
+  skill's files included, before the next check ([shell
+  gap](assistant-gateway.md#the-skill-catalog), [security
+  notes](agents.md#security-notes)). Give shell access only to agents you trust. The
+  shop's order history, its order emails and the agent's chat report are how you notice.
 
 ## Troubleshooting
 

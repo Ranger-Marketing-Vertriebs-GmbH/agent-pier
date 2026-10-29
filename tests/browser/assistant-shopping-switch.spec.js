@@ -14,7 +14,7 @@ const home = {
 };
 
 // A stand-in for the server that keeps the switch a PATCH stores on the profile.
-async function setup(page, { language = "en", agent = {} } = {}) {
+async function setup(page, { language = "en", agent = {}, extra = [] } = {}) {
   await fixture(page);
   await page.addInitScript(
     (value) => localStorage.setItem("agentpier-language", value),
@@ -30,7 +30,7 @@ async function setup(page, { language = "en", agent = {} } = {}) {
         contentType: "text/event-stream",
         body: 'data: {"type":"connected"}\n\n',
       });
-    if (path === "/api/assistants/home" && request.method() === "PATCH") {
+    if (request.method() === "PATCH") {
       const body = request.postDataJSON();
       state.patches.push(body);
       state.agent = {
@@ -44,7 +44,7 @@ async function setup(page, { language = "en", agent = {} } = {}) {
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
-          assistants: [state.agent],
+          assistants: [state.agent, ...extra],
           conversations: [],
           models: [{ id: "router", name: "Router", available: true }],
         },
@@ -116,4 +116,34 @@ test("the shopping switch in German", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Einkaufen", exact: true }),
   ).toContainText("nach deinem Ja");
+});
+
+test("a task member's switch follows its lead and cannot be changed", async ({
+  page,
+}) => {
+  const member = (id, shopping) => ({
+    ...home,
+    id,
+    name: id,
+    teamMemberId: id,
+    parentAssistantId: "home",
+    lifetime: "temporary",
+    capabilities: {},
+    inherited: { capabilities: { browser: true }, shopping },
+  });
+  const state = await setup(page, {
+    extra: [member("scout", true), member("idle", false)],
+  });
+  await page.goto(settingsPath("capabilities", undefined, "scout"));
+  const shopping = page.getByRole("switch", { name: "Shopping", exact: true });
+  await expect(shopping).toBeChecked();
+  await expect(shopping).toBeDisabled();
+  await expect(page.getByText("Follows the lead agent's Shopping switch.")).toBeVisible();
+  await page.goto(settingsPath("capabilities", undefined, "idle"));
+  await expect(shopping).not.toBeChecked();
+  await expect(shopping).toBeDisabled();
+  await expect(
+    page.getByText("Off while shopping is off for the lead agent."),
+  ).toBeVisible();
+  expect(state.patches).toEqual([]);
 });

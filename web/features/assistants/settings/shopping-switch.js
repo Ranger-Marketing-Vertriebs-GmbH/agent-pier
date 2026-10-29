@@ -6,6 +6,12 @@ const temporary = (assistant) =>
   !!assistant?.teamMemberId && assistant.lifetime !== "permanent";
 
 /**
+ * A task member has no switch of its own: it follows its lead's, and the server
+ * refuses a save while it works (assistant-service.js update).
+ */
+export const followsLead = (assistant) => temporary(assistant);
+
+/**
  * `archived`, `userAgent`, the missing `browser` or `memory`, `lead` (a task member
  * whose lead has shopping off), or null. `values` is the tab's draft.
  */

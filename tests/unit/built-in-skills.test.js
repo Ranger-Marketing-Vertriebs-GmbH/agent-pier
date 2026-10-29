@@ -16,6 +16,7 @@ import {
 } from "../../server/features/assistants/built-in-skills.js";
 import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
 import { teamPluginDirectory } from "../../server/features/assistants/team-plugin-install.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
 
 const own = (extra = {}) => ({
   id: "a1",
@@ -104,10 +105,10 @@ test("the shopping switch is on by default and off only when stored off", () => 
   assert.deepEqual(compiledSkillNames(own({ shopping: false })), ["github"]);
   // Off leaves an eligible agent eligible: the switch, not a missing capability.
   assert.equal(shoppingEligible(own({ shopping: false })), true);
-  // A task member follows its lead's switch as well as its own.
+  // A task member follows its lead's switch; it has no switch of its own.
   assert.equal(shoppingOn(task()), true);
   assert.equal(shoppingOn(task({ shopping: false })), false);
-  assert.equal(shoppingOn({ ...task(), shopping: false }), false);
+  assert.equal(shoppingOn({ ...task(), shopping: false }), true);
   assert.deepEqual(builtInSkills(task({ shopping: false })), []);
 });
 
@@ -250,4 +251,35 @@ test("agentEntry compiles no built-in skill for agents of users", () => {
     skillsOf(own({ userAccess: { mode: "own", members: [{ userId: "u1" }] } })),
     ["github"],
   );
+});
+
+test("a stored switch is respected when the Gateway starts", () => {
+  const leadOff = own({ id: "lead", runtimeAgentId: "ap-lead", shopping: false });
+  const profiles = [
+    own(),
+    own({ id: "a2", runtimeAgentId: "ap-a2", shopping: false }),
+    { ...task(), runtimeAgentId: "ap-m2" },
+    { ...task({ shopping: false }), id: "m3", runtimeAgentId: "ap-m3" },
+    leadOff,
+  ];
+  const teams = {
+    directory: "/plugin",
+    connection: { url: "http://127.0.0.1:1", token: "bridge" },
+    hostMaxConcurrent: 4,
+    native: { token: "hook" },
+    profiles,
+  };
+  const base = { paths: { workspaces: "/w", logs: "/l" }, port: 1234, token: "t" };
+  const seeded = compileOpenClawConfig({ ...base, teams: { ...teams, profiles: [] } });
+  seeded.agents.entries = Object.fromEntries(
+    profiles.map((p) => [p.runtimeAgentId, { id: p.runtimeAgentId }]),
+  );
+  const config = compileOpenClawConfig({ ...base, existing: seeded, teams });
+  const skillsOf = (id) => config.agents.entries[id].skills;
+  assert.deepEqual(skillsOf("ap-a1"), ["agentpier-shopping", "github"]);
+  assert.deepEqual(skillsOf("ap-a2"), ["github"]);
+  assert.deepEqual(skillsOf("ap-m2"), ["agentpier-shopping"]);
+  // A task member whose lead switched shopping off starts without it.
+  assert.equal(skillsOf("ap-m3"), undefined);
+  assert.deepEqual(skillsOf("ap-lead"), ["github"]);
 });

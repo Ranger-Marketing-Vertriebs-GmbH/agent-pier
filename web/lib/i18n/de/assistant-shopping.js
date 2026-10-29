@@ -7,4 +7,5 @@ export const assistantShoppingCopy = {
   userAgent: "Agenten von Benutzern kaufen nie ein.",
   archived: "Archivierte Agenten kaufen nicht ein.",
   lead: "Aus, solange Einkaufen beim leitenden Agenten aus ist.",
+  followsLead: "Folgt dem Schalter „Einkaufen“ des leitenden Agenten.",
 };

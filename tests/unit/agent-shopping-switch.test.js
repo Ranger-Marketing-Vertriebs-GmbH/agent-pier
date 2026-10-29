@@ -4,7 +4,10 @@ import {
   capabilityPatch,
   capabilityServer,
 } from "../../web/features/assistants/settings/agent-settings-fields.js";
-import { shoppingBlocker } from "../../web/features/assistants/settings/shopping-switch.js";
+import {
+  followsLead,
+  shoppingBlocker,
+} from "../../web/features/assistants/settings/shopping-switch.js";
 
 const own = (extra = {}) => ({
   id: "a1",
@@ -27,12 +30,12 @@ test("the shopping switch is sent on its own, only when it changed", () => {
     capabilityPatch({ values: { ...base, shopping: false }, base, assistant }),
     { shopping: false },
   );
-  // A task member saves its own switch as well.
+  // A task member has no switch of its own: nothing is ever sent for it.
   const task = own({
     teamMemberId: "m1",
     lifetime: "temporary",
     capabilities: {},
-    inherited: { capabilities: { browser: true } },
+    inherited: { capabilities: { browser: true }, shopping: true },
   });
   const taskBase = capabilityServer(task);
   assert.deepEqual(
@@ -41,7 +44,7 @@ test("the shopping switch is sent on its own, only when it changed", () => {
       base: taskBase,
       assistant: task,
     }),
-    { shopping: false },
+    {},
   );
 });
 
@@ -77,4 +80,17 @@ test("why an agent cannot shop follows the draft and the server's rules", () => 
   assert.equal(blocker(task()), null);
   assert.equal(blocker(task({ capabilities: {} })), "browser");
   assert.equal(blocker(task({ shopping: false })), "lead");
+});
+
+test("a task member's switch follows its lead and is never its own", () => {
+  const task = (shopping) =>
+    own({
+      teamMemberId: "m2",
+      lifetime: "temporary",
+      capabilities: {},
+      inherited: { capabilities: { browser: true }, shopping },
+    });
+  assert.equal(followsLead(task(true)), true);
+  assert.equal(followsLead(own()), false);
+  assert.equal(followsLead(own({ teamMemberId: "m1", lifetime: "permanent" })), false);
 });
