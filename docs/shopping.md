@@ -96,6 +96,12 @@ agent to look for something, but it never buys for them, never asks them to conf
 never tells them about your shop accounts, addresses, orders or payment methods. When
 the agent cannot tell that a message is your own, it treats it as no yes and asks you.
 
+The agent uses the same browser profile in those chats as in yours. A person on the bot
+cannot buy, but the shop sessions you signed in to are open in that browser, and only
+the skill's instructions keep the agent from showing them your orders or addresses.
+Switch off **Shopping** for an agent whose bot you share with people you would not
+show your shop accounts to.
+
 AgentPier does not pass the agent a separate "this is the owner" marker: its owner
 checks (`directOwnerTurn`) guard AgentPier's own tools, not the agent's text, and
 OpenClaw's `senderIsOwner` is not shown to the agent. The skill relies on the framing
