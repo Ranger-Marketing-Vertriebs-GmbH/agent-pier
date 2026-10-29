@@ -12,6 +12,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { admissionDone } from "../../server/features/assistants/agent-admission.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // Five Gateway starts (initial, crash, recovery, stop/start): a passing hosted
 // macOS run already took 89 s, and the same runner type is often 30 % slower.
@@ -280,6 +281,12 @@ test(
     assert.ok(runtime.client?.ready);
     assert.notEqual(runtime.child.pid, oldPid);
     step("crash-restarted");
+    // After an unclean stop OpenClaw admits the agent databases in the background once
+    // it answers; until then agent session calls are refused
+    // (agent-database-inspection-pending). A slow runner can still be admitting when
+    // the next call arrives, so each restart below waits for the admission first.
+    await admissionDone(runtime.client);
+    step("crash-admitted");
     await service.reconcile();
     assert.ok(
       ["interrupted", "uncertain"].includes(
@@ -288,6 +295,8 @@ test(
     );
     assert.equal(model.requests.length, countBeforeCrash, "crashed work is not replayed");
     await service.recover(crashed.attempt.id, { acknowledgeUnknownOutcome: true });
+    // The recovery's urgent stop may end in SIGKILL (a Gateway busy admitting).
+    await admissionDone(runtime.client);
     assert.ok(service.ledger.getAttempt(crashed.attempt.id).reviewedAt);
     assert.equal(model.requests.length, countBeforeCrash);
     step("recovered");
@@ -296,6 +305,8 @@ test(
     runtime.off("status", service.onStatus);
     await runtime.stop();
     await runtime.start();
+    await admissionDone(runtime.client);
+    step("restart-admitted");
     assert.ok(
       JSON.stringify(
         await runtime.client.call("chat.history", { sessionKey: chat.key, limit: 50 }),
