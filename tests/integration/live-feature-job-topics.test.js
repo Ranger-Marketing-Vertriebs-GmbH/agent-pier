@@ -305,7 +305,11 @@ const deviceStep = {
 };
 
 test("job.chatgpt-login pushes each change of the attempt and nothing secret", async (t) => {
-  const login = loginFixture([deviceStep, { done: true, status: "done" }]);
+  // The sign-in ends only once the code was pushed: no reliance on how long the
+  // login waits between wizard steps.
+  let finish;
+  const finished = new Promise((resolve) => (finish = resolve));
+  const login = loginFixture([deviceStep, finished]);
   const hub = fastHub(t);
   const services = { assistantModelLogin: login };
   defineJobTopic(hub, chatgptLoginJob(services));
@@ -326,6 +330,7 @@ test("job.chatgpt-login pushes each change of the attempt and nothing secret", a
     "status",
     "url",
   ]);
+  finish({ done: true, status: "done" });
   const done = await live.next((frame) => frame.data?.status === "completed");
   assert.deepEqual(done.data, login.status(attempt.id));
   // A new attempt is pushed under its own id.
