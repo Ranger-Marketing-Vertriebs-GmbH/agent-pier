@@ -104,13 +104,20 @@ export function sharedReminderJobs(
     freshMs = SAMPLE_FRESH_MS,
     now = Date.now,
     timers = { setInterval, clearInterval },
+    // The agent's cron jobs in the Gateway, read under the agent services' admission.
+    readJobs = (agentId) => {
+      const reminders = services.assistantReminders;
+      return reminders.assistants.admit(async () =>
+        reminders.jobs(reminders.agent(agentId)),
+      );
+    },
   } = {},
 ) {
   const agents = new Map();
   const sample = async (agentId, entry) => {
     let jobs = null;
     try {
-      jobs = await services.assistantReminders.agentJobs(agentId);
+      jobs = await readJobs(agentId);
     } catch {
       // The users' own reads ask again and answer with the refusal.
     }

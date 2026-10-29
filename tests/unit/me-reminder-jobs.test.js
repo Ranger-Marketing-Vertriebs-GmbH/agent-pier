@@ -9,27 +9,26 @@ function setup() {
   let next = 0;
   const reads = [];
   const jobs = { a: [{ id: "j1" }], b: [{ id: "k1" }] };
-  const services = {
-    assistantReminders: {
-      agentJobs: async (agentId) => {
+  const shared = sharedReminderJobs(
+    {},
+    {
+      readJobs: async (agentId) => {
         reads.push(agentId);
         if (!jobs[agentId]) throw new Error("gone");
         return jobs[agentId];
       },
-    },
-  };
-  const shared = sharedReminderJobs(services, {
-    sampleMs: 30000,
-    freshMs: 2000,
-    now: () => clock,
-    timers: {
-      setInterval: (fn) => {
-        timers.set(++next, fn);
-        return next;
+      sampleMs: 30000,
+      freshMs: 2000,
+      now: () => clock,
+      timers: {
+        setInterval: (fn) => {
+          timers.set(++next, fn);
+          return next;
+        },
+        clearInterval: (id) => timers.delete(id),
       },
-      clearInterval: (id) => timers.delete(id),
     },
-  });
+  );
   const tick = async () => {
     for (const fn of [...timers.values()]) fn();
     await new Promise((resolve) => setImmediate(resolve));
@@ -65,4 +64,29 @@ test("users watching one agent share one sample, and hear only changes", async (
   assert.equal(heard.length, 6);
   for (const stop of stops) stop();
   assert.equal(timers.size, 0);
+});
+
+test("the shared sample reads the agent's jobs under admission", async () => {
+  const admitted = [];
+  const reminders = {
+    assistants: {
+      admit: async (operation) => {
+        admitted.push("admit");
+        return operation();
+      },
+    },
+    agent: (id) => ({ runtimeAgentId: `rt-${id}` }),
+    jobs: async (agent) => [{ id: agent.runtimeAgentId }],
+  };
+  let tick;
+  const shared = sharedReminderJobs(
+    { assistantReminders: reminders },
+    { timers: { setInterval: (fn) => (tick = fn), clearInterval: () => {} } },
+  );
+  const stop = shared.watch("a", () => {});
+  tick();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(shared.jobs("a"), [{ id: "rt-a" }]);
+  assert.deepEqual(admitted, ["admit"]);
+  stop();
 });
