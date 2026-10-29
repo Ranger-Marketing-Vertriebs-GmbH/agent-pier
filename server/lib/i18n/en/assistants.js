@@ -379,6 +379,8 @@ export const assistants = {
   peerRequestLimit:
     "A member may have at most 3 open requests to other members and send 6 per hour.",
   memberReportLimit: "A member may send its lead agent at most 6 reports per hour.",
+  memberReportTooLong:
+    "A report to the lead agent may be at most 32,768 characters long.",
   memberRequestAutonomousLimit:
     "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",

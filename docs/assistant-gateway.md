@@ -1312,8 +1312,12 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
   `canDelegate`), `agentpier_team_peer_ask` (`{ memberId, question }`, waits like the
   lead's ask), `agentpier_team_peer_delegate` (`{ memberId, task, resultTo?: "me" |
 "lead" }`, permanent siblings only) and `agentpier_team_report` (`{ kind: "result" |
-"problem", text, files? }`, up to 10 project file paths, which AgentPier names but
-  never reads). The bridge (`memberActions` in `team-bridge-actions.js`) refuses them
+"problem", text, files? }`, text up to 32,768 characters, up to 10 project file
+  paths, which AgentPier names but never reads). The tool states the text limit; a
+  longer text is refused whole (`REPORT_TOO_LONG`, which names the limit and suggests
+  a project file in `files` or a second report), never cut, because AgentPier has no
+  place for the rest that the lead could read. 32,768 characters with the files fit
+  the lead's 60,000-character follow-up and the team bridge's 128 KiB request. The bridge (`memberActions` in `team-bridge-actions.js`) refuses them
   to leads and personal agents, and refuses the lead's tools to members. A member's
   routine run reaches them too (permanent members only), bound to its run session.
 - **Records.** Questions and tasks are `lead-request` records under the lead
@@ -1330,15 +1334,16 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
   are no chains or ping-pong.
 - **Limits** (`peerCaps`, `reportCaps`):
 
-  | Bound                                        | Value | Refusal        |
-  | -------------------------------------------- | ----- | -------------- |
-  | Open requests per sender and receiver        | 1     | `PEER_OPEN`    |
-  | Open tasks per receiver (also from the lead) | 1     | `PEER_OPEN`    |
-  | Open requests per sending member             | 3     | `PEER_LIMIT`   |
-  | Requests per sending member and rolling hour | 6     | `PEER_LIMIT`   |
-  | Reports per member and rolling hour          | 6     | `REPORT_LIMIT` |
+  | Bound                                        | Value | Refusal           |
+  | -------------------------------------------- | ----- | ----------------- |
+  | Open requests per sender and receiver        | 1     | `PEER_OPEN`       |
+  | Open tasks per receiver (also from the lead) | 1     | `PEER_OPEN`       |
+  | Open requests per sending member             | 3     | `PEER_LIMIT`      |
+  | Requests per sending member and rolling hour | 6     | `PEER_LIMIT`      |
+  | Reports per member and rolling hour          | 6     | `REPORT_LIMIT`    |
+  | Characters per report                        | 32768 | `REPORT_TOO_LONG` |
 
-  Each refusal's reason tells the member to report to its lead instead. A target
+  Each refusal of a request tells the member to report to its lead instead. A target
   outside the sender's lead, archived, or without a chat is `notFound`; a task to a
   temporary sibling is `memberRequestNotPermanent`.
 

@@ -6,6 +6,9 @@ import { TeamService } from "../../server/features/assistants/team-service.js";
 import { resultTurn } from "../../server/features/assistants/member-result-writes.js";
 import { requestCaps } from "../../server/features/assistants/lead-request-store.js";
 import { followUpMaxChars } from "../../server/features/assistants/lead-request-text.js";
+import { memberDefinitions } from "../../server/features/assistants/team-plugin/member-tools.js";
+import { toolError } from "../../server/features/assistants/tool-errors.js";
+import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
 import {
   reportCaps,
   reportLimits,
@@ -239,7 +242,6 @@ test("text and file lists beyond the limits are invalid", async (t) => {
   const invalid = [
     { kind: "other" },
     { text: "" },
-    { text: "x".repeat(reportLimits.text + 1) },
     { files: "docs/a.md" },
     { files: Array.from({ length: reportLimits.files + 1 }, (_, n) => `f${n}.md`) },
     { files: ["x".repeat(reportLimits.file + 1)] },
@@ -265,6 +267,33 @@ test("text and file lists beyond the limits are invalid", async (t) => {
   await deliver(f);
   const [followUp] = followUps(f, largest);
   assert.ok(followUp.text.length <= followUpMaxChars);
+});
+
+test("a report beyond 32,768 characters is refused with the limit and a file hint", async (t) => {
+  const f = await peers(t);
+  assert.equal(reportLimits.text, 32768);
+  const inv = () => f.memberTurn(f.permanent);
+  // The longest report is accepted whole.
+  const longest = report(f, inv(), { text: "x".repeat(reportLimits.text) });
+  assert.equal(
+    f.service.requests.store.get(longest.reportId).text.length,
+    reportLimits.text,
+  );
+  // One character more is refused with its own code, never stored.
+  assert.throws(() => report(f, inv(), { text: "x".repeat(reportLimits.text + 1) }), {
+    key: "memberReportTooLong",
+  });
+  assert.equal(
+    f.code(() => report(f, inv(), { text: "x".repeat(reportLimits.text + 1) })),
+    "REPORT_TOO_LONG",
+  );
+  assert.equal(reports(f).length, 1);
+  const reason = toolError(assistantProblem("memberReportTooLong")).reason;
+  assert.match(reason, /32768 characters/);
+  assert.match(reason, /files/);
+  // The tool states the same limit to the member.
+  assert.equal(memberDefinitions.report.parameters.properties.text.maxLength, 32768);
+  assert.match(memberDefinitions.report.description, /32768 characters/);
 });
 
 test("reports never count against the lead's caps and list under Questions and tasks", async (t) => {
