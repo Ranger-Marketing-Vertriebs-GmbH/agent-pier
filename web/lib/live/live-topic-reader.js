@@ -2,10 +2,11 @@
 // the push cannot carry it (`stale`, `changed`, a failed first read on the server;
 // a signal topic reads the caller's route once at the start and once per `changed`),
 // and the topic's previous poll, visible-only, while the channel is in fallback or
-// refuses the topic. A `revoked` topic (access ended) drops what it showed at once and
-// reads nothing more until a new connection subscribes it again. A read past its deadline shows a timeout error; a read cut
-// short by hiding or stopping stays silent and, if it was a one-time read, runs again
-// once the tab is visible. A hidden tab requests nothing.
+// refuses the topic. A `revoked` topic (access ended) drops what it showed at once
+// and reads nothing; the LiveClient subscribes it again every 30 s while visible,
+// and its data comes back once access does. A read past its deadline shows a timeout
+// error; a read cut short by hiding or stopping stays silent and, if it was a
+// one-time read, runs again once the tab is visible. A hidden tab requests nothing.
 import { attemptRead } from "../resource-reads.js";
 import { startVisiblePolling } from "../visible-polling.js";
 import { readTopicValue, topicInfo } from "./live-topics.js";

@@ -22,6 +22,9 @@ const pingMs = 25000;
 // must not be reconnected every half second.
 const stableMs = 10000;
 const firstDelayMs = 500;
+// A revoked topic is subscribed again after this long, while the tab is visible, so
+// access that comes back (an opt-in, an agent handed back) recovers in place.
+export const revokedRetryMs = 30000;
 const maxDelayMs = 30000;
 const OPEN = 1;
 
@@ -81,6 +84,10 @@ export class LiveClient {
         have: null,
         live: false,
         refused: false,
+        // While the topic is revoked: the timer of its next subscription attempt, and
+        // whether that attempt's answer is still due.
+        revoked: null,
+        retrying: false,
       };
       this.topics.set(topicId, entry);
     }
@@ -95,6 +102,7 @@ export class LiveClient {
       if (!entry.records.delete(record) || this.topics.get(topicId) !== entry) return;
       if (entry.records.size) return this.sync();
       this.topics.delete(topicId);
+      this.env.clearTimeout(entry.revoked);
       if (entry.live) this.send({ op: "unsub", topic: topicId });
     };
   }
@@ -325,6 +333,9 @@ export class LiveClient {
     for (const entry of this.topics.values()) {
       if (entry.refused) entry.condition = null;
       entry.refused = false;
+      this.env.clearTimeout(entry.revoked);
+      entry.revoked = null;
+      entry.retrying = false;
     }
     this.publishStatus();
     this.ping();
@@ -333,6 +344,8 @@ export class LiveClient {
 
   topicFrame(entry, frame) {
     const { type, revision } = frame;
+    const retried = entry.retrying;
+    entry.retrying = false;
     if (type === "snapshot" || type === "state" || type === "delta")
       return this.apply(entry, frame);
     if (type === "same") {
@@ -352,7 +365,15 @@ export class LiveClient {
       entry.refused = true;
       entry.held = null;
       this.condition(entry, { type: "revoked" });
+      this.retryRevoked(entry);
     } else if (type === "error") {
+      // A revoked topic still refused on its retry: it stays revoked, unread.
+      if (frame.code === "unknown-topic" && retried) {
+        entry.live = false;
+        entry.refused = true;
+        this.send({ op: "unsub", topic: entry.id });
+        return this.retryRevoked(entry);
+      }
       if (frame.code) {
         // The server holds an unknown topic's slot until the client lets go.
         entry.live = false;
@@ -363,6 +384,19 @@ export class LiveClient {
       }
       this.emit(entry, { type: "error" });
     }
+  }
+
+  /** Subscribes revoked `entry` again in revokedRetryMs, once the tab is visible. */
+  retryRevoked(entry) {
+    this.env.clearTimeout(entry.revoked);
+    entry.revoked = this.env.setTimeout(() => {
+      if (this.closed || this.topics.get(entry.id) !== entry) return;
+      if (this.env.document.hidden) return this.retryRevoked(entry);
+      entry.revoked = null;
+      entry.refused = false;
+      entry.retrying = true;
+      this.sync();
+    }, revokedRetryMs);
   }
 
   apply(entry, frame) {
