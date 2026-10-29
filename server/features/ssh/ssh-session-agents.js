@@ -190,11 +190,17 @@ export class SessionSshAgents {
     }
   }
 
-  // The record belongs to this listener: running, eligible, same generation.
+  // The record belongs to this listener: running (or relaunching in a reload whose
+  // replacement started, so the new CLI's first ssh is not refused before the record
+  // says running), eligible, same generation.
   current(record, agent) {
+    const live =
+      record?.status === "running" ||
+      (record?.reload?.state === "reloading" &&
+        record.reload.replacementStarted === true);
     return Boolean(
       record?.id === agent.id &&
-      record.status === "running" &&
+      live &&
       agentEligible(record) &&
       record.sshAgent?.enabled === true &&
       record.sshAgent.generation === agent.generation,
@@ -495,10 +501,13 @@ export class SessionSshAgents {
     if (own) this.remove(() => this.removeSocketFolder(id, own));
   }
 
-  /** On stop: close the listener, flush the audit, remove the session's folders. */
-  async discard(id) {
+  /**
+   * On stop: close the listener, flush the audit, remove the session's folders. A
+   * reload that ends without an agent passes `keepReason`, so the status still says why.
+   */
+  async discard(id, { keepReason = false } = {}) {
     if (typeof id !== "string" || !sessionIdPattern.test(id)) return;
-    this.unavailable.delete(id);
+    if (!keepReason) this.unavailable.delete(id);
     await this.syncs.run(() =>
       this.teardown(id, storedAgent(this.record(id), id)?.token),
     );

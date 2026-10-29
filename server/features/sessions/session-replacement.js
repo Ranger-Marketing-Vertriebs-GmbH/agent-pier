@@ -52,6 +52,8 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
   session.reload.replacementStarted = true;
   session.status = "stopped";
   delete session.exitCode;
+  // The old CLI is gone: its SSH agent generation signs no more (ssh-session-agents.js).
+  delete session.sshAgent;
   await manager.save(session);
   const launchFile = path.join(manager.directory, `${id}.launch.json`);
   try {
@@ -71,6 +73,9 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
     // The route may differ from the first launch (connection edited since).
     if (session.provider)
       session.provider = reloadedProvider(session.provider, launch.provider);
+    // Before the CLI starts, so the new agent generation serves its first ssh.
+    const sshAgent = sessionSshAgentRecord(launch.sshAgent);
+    if (sshAgent) session.sshAgent = sshAgent;
     await manager.save(session);
     await rm(adapterDiagnosticsPath(manager.directory, id), { force: true });
     await privateWrite(
@@ -122,10 +127,6 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "nativeModelId",
     ])
       if (launch[key] !== undefined) session[key] = launch[key];
-    // A reload's new agent generation, or none: the previous one must not outlive it.
-    const sshAgent = sessionSshAgentRecord(launch.sshAgent);
-    if (sshAgent) session.sshAgent = sshAgent;
-    else delete session.sshAgent;
     session.status = "running";
     session.restartGeneration = (session.restartGeneration || 0) + 1;
     manager.reconciledStops.delete(id);
