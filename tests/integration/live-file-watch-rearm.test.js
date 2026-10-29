@@ -99,22 +99,30 @@ test("a handle that cannot be replaced reads unwatched, then is retried", async 
   assert.equal((await f.watches.read(token)).watched, true);
 });
 
-test("a folder deleted and created again gets a new handle; the dead one is closed", async (t) => {
-  const f = fixture(t);
-  const { follower } = await followed(f);
-  const [first] = f.open();
-  const sub = path.dirname(f.file);
-  fs.rmSync(sub, { recursive: true });
-  fs.mkdirSync(sub);
-  fs.writeFileSync(f.file, "b");
-  // The old handle stays silent about its own folder (Linux inotify follows the old
-  // inode); any rename it reports, here of an unrelated name, checks the folder.
-  first.emit("change", "rename", "unrelated");
-  await until(() => first.closed && f.open().length === 1);
-  assert.notEqual(f.open()[0], first);
-  assert.equal(follower().state, "armed");
-  assert.equal(f.watches.directories.size, 1);
-});
+// Deleting the watched folder, as each platform reports it: inotify (Linux) a rename
+// naming the folder itself, then a dead handle that may close by itself; FSEvents
+// (macOS) keeps following the path, so only a later rename is seen. Linux often
+// gives the re-created folder the same inode number.
+for (const [shape, report] of [
+  ["a rename of the folder itself", (handle) => handle.emit("change", "rename", "sub")],
+  ["a handle that closes by itself", (handle) => handle.emit("close")],
+  ["a rename without a name", (handle) => handle.emit("change", "rename", null)],
+]) {
+  test(`a folder deleted and created again gets a new handle: ${shape}`, async (t) => {
+    const f = fixture(t);
+    const { follower } = await followed(f);
+    const [first] = f.open();
+    const sub = path.dirname(f.file);
+    fs.rmSync(sub, { recursive: true });
+    fs.mkdirSync(sub);
+    fs.writeFileSync(f.file, "b");
+    report(first);
+    await until(() => first.closed && f.open().length === 1);
+    assert.notEqual(f.open()[0], first);
+    assert.equal(follower().state, "armed");
+    assert.equal(f.watches.directories.size, 1);
+  });
+}
 
 test("a read whose resolved file lies in the data directory is refused", async (t) => {
   const holder = {};
