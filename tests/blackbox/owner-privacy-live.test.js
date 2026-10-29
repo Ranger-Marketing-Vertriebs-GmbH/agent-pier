@@ -13,6 +13,15 @@ import {
 // opt-in: nothing read under it reaches him afterwards, neither a late joiner nor a
 // frame a slow socket still holds back (live-hub.js resetWhere).
 
+// Resolves once `ready()` holds, checking on every turn of the event loop.
+async function until(ready, ms = 5000) {
+  const deadline = Date.now() + ms;
+  while (!ready()) {
+    if (Date.now() > deadline) throw Error("Timed out waiting for the condition");
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 const optIn = (f, userId, enabled) =>
   f.request(`/api/users/${userId}/owner-may-read`, { method: "PUT", body: { enabled } });
 
@@ -26,11 +35,25 @@ async function annaShared(t) {
     members: [{ userId: user.id, level: "extended" }],
   });
   const channel = await pairedTelegram(f, as(f, cookie), agent.id);
-  assert.equal((await optIn(f, user.id, true)).status, 200);
-  // Written under the opt-in, so the owner reads it (it is not retroactive).
+  const opted = await optIn(f, user.id, true);
+  assert.equal(opted.status, 200);
+  // Written under the opt-in, so the owner reads it (it is not retroactive). The
+  // owner reads only what came strictly after `since` (owner-privacy.js), so a
+  // message stored in the opt-in's own millisecond would stay hers: wait for the
+  // clock to pass it, then for the input to be stored.
+  const since = Date.parse((await opted.json()).ownerMayRead.since);
+  await until(() => Date.now() > since);
   await f.application.assistantChannels.ingress.receive(channel.id, [
     telegramMessage(2, "Private-telegram"),
   ]);
+  await until(() =>
+    f.application.assistantChannels.ledger
+      .public(channel.id)
+      .some(
+        (input) =>
+          input.text === "Private-telegram" && Date.parse(input.createdAt) > since,
+      ),
+  );
   return { f, user, agent, channel, topic: `agent.channels:${agent.id}` };
 }
 
