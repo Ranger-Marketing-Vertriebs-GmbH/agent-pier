@@ -30,6 +30,11 @@ rate limit. Stable checks do not require the release-list API.
 4. After testing, prepare the final version `1.29.0` through the same reviewed
    version-bump and tag process. The resulting stable release is offered in both
    channels and supersedes the RCs. Do not rename an RC tag or overwrite its assets.
+5. Once the workflow has published a release, edit its notes on GitHub and put the
+   handwritten sections above the generated pull request list: **Highlights** (the
+   user-visible changes, a few bullets) and, when behavior, permissions, defaults, data
+   migrations or downgrade safety change, **Upgrade notes**. This applies to RCs and
+   stable releases alike.
 
 Release candidates are built only from commits on `main`; there are no RC builds from
 pull request heads. A manual workflow dispatch only builds artifacts; publishing
