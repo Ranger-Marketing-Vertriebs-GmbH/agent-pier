@@ -13,6 +13,7 @@ import { cleanEnvironment } from "../../server/features/accounts/account-store.j
 import { prepareSessionSshAgent } from "../../server/features/ssh/ssh-agent-launch.js";
 import { SshAccessStore } from "../../server/features/ssh/ssh-access-store.js";
 import { SshCatalog } from "../../server/features/ssh/ssh-catalog.js";
+import { SshAgentRegistry } from "../../server/features/ssh/ssh-agent-registry.js";
 import { createSshProjectBinding } from "../../server/features/ssh/ssh-project-scope.js";
 import { SessionSshAgents } from "../../server/features/ssh/ssh-session-agents.js";
 import { SshSessions } from "../../server/features/ssh/ssh-sessions.js";
@@ -126,18 +127,26 @@ async function setUp({ openssh, cleanups }) {
   const records = new Map();
   const audit = [];
   const logs = [];
+  const log = {
+    warn: (...args) => logs.push(["warn", ...args]),
+    error: (...args) => logs.push(["error", ...args]),
+  };
+  // One registry for the sessions' and the agents' sockets, as in the service.
+  const registry = new SshAgentRegistry({
+    dataDir,
+    audit: { append: (row) => audit.push(row) },
+    openssh,
+    home,
+    log,
+  });
+  cleanups.push(() => registry.close());
   const agents = new SessionSshAgents({
     dataDir,
     store,
     grants,
     sessions: { list: async () => [...records.values()] },
-    audit: { append: (row) => audit.push(row) },
-    openssh,
-    home,
-    log: {
-      warn: (...args) => logs.push(["warn", ...args]),
-      error: (...args) => logs.push(["error", ...args]),
-    },
+    log,
+    registry,
   });
   cleanups.push(() => agents.close());
 
@@ -202,12 +211,14 @@ async function setUp({ openssh, cleanups }) {
     remote,
     store,
     grants,
+    registry,
     agents,
     server,
     other,
     host,
     key: { ...key, publicKey },
     audit,
+    log,
     logs,
     save,
     session,
