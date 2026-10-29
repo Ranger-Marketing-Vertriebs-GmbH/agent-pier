@@ -42,6 +42,10 @@ export async function agentShellFixture(f) {
     if (!a || !personalEligible(a)) throw new Error("invalid");
     return a;
   };
+  // Mirrors AssistantAccess (assistant-access.js: sshHolder, hasSshGrants, sshAgents,
+  // get) over the fake profiles; the real one is tested in
+  // tests/integration/assistant-ssh-access.test.js and the unit fixture
+  // tests/helpers/agent-ssh-shell-fixture.js mirrors it the same way.
   const access = {
     sshHolder(id) {
       const a = get(id);

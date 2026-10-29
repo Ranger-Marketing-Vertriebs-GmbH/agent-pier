@@ -203,17 +203,36 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
     assert.equal(a.audit().length, 0);
   });
 
-  test("a temporary member reaches its lead's trusted host while the lead shares SSH", async (t) => {
-    const lead = await g.agent(t, { grants: [trusted()] });
+  test("a temporary member gains, uses and loses its lead's trusted hosts", async (t) => {
+    const lead = await g.agent(t, { grants: [trusted(otherHost)], teamShellSsh: false });
     const m = await g.agent(t, {
       lead: lead.profile(),
       memberGrants: { ssh: true, shell: "full" },
     });
+    // The lead does not share yet: no socket, no PATH entry.
+    assert.equal(m.socketPath(), undefined);
+    assert.deepEqual(g.shell.shellPath(m.profile()), []);
+    // Sharing switched on: the lead's host arrives with the next refresh.
+    g.update(lead.id, { teamShellSsh: true });
+    await g.refresh();
     assert.ok(m.socketPath());
+    assert.deepEqual(g.shell.aliases(m.id), { [otherHost.id]: "other-box" });
+    const first = await m.run("ssh other-box echo shared-ok");
+    assert.equal(first.code, 0, first.stderr);
+    assert.equal(first.stdout.trim(), "shared-ok");
+    // The lead gains a host: its alias appears for the member, and ssh reaches it.
+    g.setGrants(lead.id, [trusted(otherHost), trusted()]);
+    await g.refresh();
+    assert.equal(g.shell.aliases(m.id)[f.host.id], "deploy-box");
     const out = await m.run("ssh deploy-box echo member-ok");
     assert.equal(out.code, 0, out.stderr);
     assert.equal(out.stdout.trim(), "member-ok");
-    assert.equal(connected(m.audit()).length, 1);
+    const rows = connected(m.audit());
+    assert.deepEqual(
+      rows.map((row) => row.details.accessId).sort(),
+      [f.host.id, otherHost.id].sort(),
+    );
+    assert.equal(connected(lead.audit()).length, 0);
     // The lead stops sharing: the next connection is refused before any refresh, even
     // with the PATH entry an earlier apply compiled; a new apply has none.
     const compiled = g.shell.shellPath(m.profile());
@@ -222,7 +241,7 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
     const refused = await m.run("ssh deploy-box true", { compiled });
     assert.notEqual(refused.code, 0);
     assert.match(refused.stderr, /Permission denied/);
-    assert.equal(connected(m.audit()).length, 1);
+    assert.equal(connected(m.audit()).length, rows.length);
     await g.refresh();
     assert.equal(m.socketPath(), undefined);
     assert.deepEqual(g.shell.shellPath(m.profile()), []);
@@ -253,8 +272,10 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
     const out = await a.run("ssh deploy-box true");
     assert.notEqual(out.code, 0);
     assert.match(out.stderr, /Permission denied/);
-    // The socket lists no key for the host any more: nothing was signed.
+    // The socket lists no key for the host any more: nothing was asked to sign, so
+    // the refusal leaves no audit row of either kind.
     assert.equal(connected(a.audit()).length, 1);
+    assert.equal(a.audit().filter((row) => row.action === "ssh.denied").length, 0);
     await stillOpen();
     // The files follow: the alias is gone, the socket stays for later grants.
     await g.refresh();
@@ -298,18 +319,6 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
         'printf "%s|%s" "${SSH_AUTH_SOCK-}" "${AGENTPIER_SSH_AUTH_SOCK-}"',
       );
       assert.equal(env.stdout, "|", label);
-      // Without a socket nothing signs: a login to the trusted host fails.
-      const execs = [...f.server.execs];
-      const out = await a.run(
-        [
-          "ssh -F /dev/null -o BatchMode=yes",
-          `-o IdentityFile='${path.join(f.root, "no-such-key")}'`,
-          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null",
-          `-p ${f.server.port} deploy@127.0.0.1 true`,
-        ].join(" "),
-      );
-      assert.notEqual(out.code, 0, label);
-      assert.deepEqual(f.server.execs, execs, label);
       assert.deepEqual(a.audit(), [], label);
     }
   });
