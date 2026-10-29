@@ -7,10 +7,18 @@ import {
   requestTerminal,
   taskWritable,
 } from "./lead-request-store.js";
-import { excerpt, followUp, memberPrompt, toolResult } from "./lead-request-text.js";
+import {
+  endDiagnostic,
+  endOutcome,
+  excerpt,
+  followUp,
+  memberPrompt,
+  toolResult,
+} from "./lead-request-text.js";
 import { ownerTelegram } from "./team-coding.js";
+import { defaultTeamPolicy } from "./team-policy.js";
 import { runReply } from "./history-text.js";
-import { saveText, shortForm } from "./team-texts.js";
+import { answerFields } from "./team-texts.js";
 import { deliverRequest } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
 import { latestOwnerTurn } from "./work-goal-nudges.js";
@@ -104,6 +112,7 @@ export class LeadRequests {
             ...(r.fromName ? { from: r.fromName } : {}),
             text: excerpt(r.text, 300),
             ...(r.answer ? { answer: excerpt(r.answer, 2000) } : {}),
+            ...(r.partial ? { partial: true } : {}),
           })),
       })),
     };
@@ -327,6 +336,7 @@ export class LeadRequests {
       r = this.teams.write(r, {
         phase: "cancelled",
         cancelledBy: by,
+        diagnostic: endDiagnostic({ phase: "cancelled", cancelledBy: by }),
         finishedAt: new Date().toISOString(),
         ...(by === "lead" ? { delivery: "skipped", settled: true } : { delivery: null }),
       });
@@ -401,7 +411,8 @@ export class LeadRequests {
       a.store.getAssistant(r.memberAssistantId).archivedAt
     )
       return fail("MEMBER_ARCHIVED");
-    if (r.cancelRequested) return fail(null, "cancelled");
+    if (r.cancelRequested)
+      return fail(endDiagnostic({ ...r, phase: "cancelled" }), "cancelled");
     const key = `lead-request:${id}`;
     const existing = a.ledger
       .requests(member.conversationId)
@@ -475,28 +486,28 @@ export class LeadRequests {
         ...patch,
       });
     if (attempt.state === "completed") {
-      const chat = this.teams.member(r.memberId).conversationId;
-      const history = await a.history(chat);
-      if (history.stale) return r;
-      // Up to the history limit; beyond it the answer is marked cut, and the whole
-      // text stays in the member's chat.
-      const reply = await runReply(a, chat, history.messages, attempt);
-      // The record keeps an excerpt; a longer answer gets its own row.
-      const short = shortForm(reply.text);
-      if (short.truncated) saveText(this.teams.db, id, "answer", reply.text);
+      const reply = await this.reply(r, attempt);
+      if (!reply) return r;
       return finish({
         phase: "completed",
-        answer: short.text,
-        ...(short.truncated ? { answerTruncated: true } : {}),
-        ...(reply.cut ? { answerCut: true } : {}),
+        ...answerFields(this.teams.db, id, reply),
         // A cut answer has text, only not here (OpenClaw's "message too large").
         ...(reply.text.trim() || reply.cut ? {} : { diagnostic: "NO_TEXT" }),
       });
     }
-    if (["failed", "cancelled"].includes(attempt.state))
-      return finish({
-        phase: r.cancelRequested ? "cancelled" : attempt.state,
-      });
+    if (["failed", "cancelled"].includes(attempt.state)) {
+      const phase = r.cancelRequested ? "cancelled" : attempt.state;
+      // The reason reaches the lead (lead-request-text.js); at the deadline, so does
+      // what the member had written so far, as a partial result.
+      let partial = {};
+      if (phase === "cancelled" && r.cancelledBy === "deadline") {
+        const reply = await this.reply(r, attempt);
+        if (!reply) return r;
+        if (reply.text.trim() || reply.cut)
+          partial = { ...answerFields(this.teams.db, id, reply), partial: true };
+      }
+      return finish({ phase, diagnostic: endDiagnostic({ ...r, phase }), ...partial });
+    }
     if (attempt.reviewedAt)
       return finish({ phase: "failed", diagnostic: "OUTCOME_REVIEWED" });
     if (["uncertain", "interrupted"].includes(attempt.state)) {
@@ -509,7 +520,8 @@ export class LeadRequests {
     if (
       !r.cancelRequested &&
       Number.isFinite(started) &&
-      Date.now() - started >= (r.runTimeoutMinutes || 10) * 60000
+      Date.now() - started >=
+        (r.runTimeoutMinutes || defaultTeamPolicy.runTimeoutMinutes) * 60000
     ) {
       this.teams.write(r, { cancelRequested: true, cancelledBy: "deadline" });
       try {
@@ -519,6 +531,13 @@ export class LeadRequests {
       }
     }
     return r;
+  }
+  /** The member's reply in this run (runReply); null while its history is stale. */
+  async reply(r, attempt) {
+    const chat = this.teams.member(r.memberId).conversationId;
+    const history = await this.assistants.history(chat);
+    if (history.stale) return null;
+    return runReply(this.assistants, chat, history.messages, attempt);
   }
   /** Hands a finished request on; see deliverRequest. */
   deliver(id) {
@@ -530,7 +549,9 @@ export class LeadRequests {
     const report = r.origin?.kind === "member-report";
     const conversationId =
       report && this.reports ? this.reports.conversationId(r) : r.parentConversationId;
-    const result = { kind: "member-result", requestId: r.id },
+    // How a cancelled or failed request ended, for the chat's line (AssistantChat.jsx).
+    const outcome = endOutcome(r),
+      result = { kind: "member-result", requestId: r.id, ...(outcome && { outcome }) },
       clientRequestId = `lead-request-result:${r.id}`;
     // A follow-up accepted before a crash lost its bookkeeping goes again as it was
     // recorded, a goal turn or not, whatever the goal's state is now.

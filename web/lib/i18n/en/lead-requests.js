@@ -69,6 +69,8 @@ export const leadRequestCopy = {
   none: "This agent has not asked its members anything yet.",
   answer: "Answer",
   result: "Result",
+  // The member's last reply when its time limit cancelled the request.
+  partial: "Partial result",
   report: "Report",
   because: (quote) => `Because you wrote: “${quote}”`,
   // The @mention autocomplete in a lead's composer and the chips in its chat.

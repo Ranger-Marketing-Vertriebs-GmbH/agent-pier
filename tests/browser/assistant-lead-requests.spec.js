@@ -410,6 +410,22 @@ test("a task one of the lead's routines delegated is marked with the routine", a
   await expect(chips).toHaveText(["read-only", "Scheduled · Morning check"]);
 });
 
+test("a task cut off by its time limit shows its partial result", async ({ page }) => {
+  await oneRequest(
+    page,
+    request("task-1", {
+      type: "task",
+      phase: "cancelled",
+      partial: true,
+      hasAnswer: true,
+      finishedAt: "2026-10-13T09:10:00.000Z",
+    }),
+  );
+  const list = page.locator(".agent-member-requests");
+  await list.getByRole("radio", { name: "Finished (1)" }).check();
+  await expect(list.locator(".lead-request-card summary")).toHaveText("Partial result");
+});
+
 test("a member's hook report is titled as a hook report", async ({ page }) => {
   const chips = await oneRequest(
     page,
@@ -496,6 +512,14 @@ test("the lead sees its members' exchanges and reports", async ({ page }) => {
         note("peer-end:ask", "completed", "question"),
         { id: "r", role: "event", event: "member-result", timestamp: at.getTime() },
         { id: "a", role: "assistant", text: "Learning hit a problem with the key." },
+        // A task its time limit cancelled is no answer that arrived (AGENTPIER-284).
+        {
+          id: "c",
+          role: "event",
+          event: "member-result",
+          internalOutcome: "deadline",
+          timestamp: at.getTime(),
+        },
       ],
       requests: [],
       stale: false,
@@ -511,6 +535,11 @@ test("the lead sees its members' exchanges and reports", async ({ page }) => {
     page
       .locator(".assistant-event")
       .filter({ hasText: "A member's answer arrived. The agent is passing it on." }),
+  ).toHaveCount(1);
+  await expect(
+    page
+      .locator(".assistant-event")
+      .filter({ hasText: "A member's result: cancelled (time limit)" }),
   ).toHaveCount(1);
   await fits(page);
   if (shots) await page.screenshot({ path: `${shots}/peer-notes.png` });

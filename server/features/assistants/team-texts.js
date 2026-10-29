@@ -26,6 +26,20 @@ export function saveText(db, owner, name, text) {
   ).run(id, owner, JSON.stringify({ id, kind: "text", text }));
 }
 
+/**
+ * A member's reply as request fields: its excerpt, with a longer text in its own
+ * row (`answerTruncated`), and `answerCut` when the reply itself is incomplete.
+ */
+export function answerFields(db, owner, reply) {
+  const short = shortForm(reply.text);
+  if (short.truncated) saveText(db, owner, "answer", reply.text);
+  return {
+    answer: short.text,
+    ...(short.truncated ? { answerTruncated: true } : {}),
+    ...(reply.cut ? { answerCut: true } : {}),
+  };
+}
+
 /** The whole text, or null when none was stored (records written before). */
 export function readText(db, owner, name) {
   const row = db

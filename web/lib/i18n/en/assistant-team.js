@@ -90,6 +90,16 @@ export const assistantTeamCopy = {
     "goal-continuation": "AgentPier asked the agent to continue its goal.",
     "coding-session": "A coding session changed. The agent continues.",
   },
+  // A member's question or task that ended without a result (instead of
+  // internalTurns["member-result"]).
+  memberOutcomes: {
+    deadline: "A member's result: cancelled (time limit)",
+    owner: "A member's result: cancelled by you",
+    lead: "A member's result: cancelled by the lead agent",
+    stopped: "A member's result: stopped",
+    cancelled: "A member's result: cancelled",
+    failed: "A member's result: failed",
+  },
   notes: {
     started: (title) => `Team started: ${title}`,
     completed: (title) => `Team completed: ${title}`,

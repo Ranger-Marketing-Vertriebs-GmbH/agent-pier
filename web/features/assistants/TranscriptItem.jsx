@@ -17,6 +17,7 @@ import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { compactionNoteText } from "./compaction-note.js";
 import { failureText } from "./routine-failure-text.js";
 import { noteTexts } from "./event-area.js";
+import { internalTurnText } from "./internal-turn-text.js";
 
 // Quiet notes join the history between turns (AssistantChat.jsx).
 export const noteEvents = new Set([
@@ -86,7 +87,9 @@ export default function TranscriptItem({
       {compactionNoteText(copy, m)}
     </p>
   ) : m.role === "event" ? (
-    <p className="assistant-note assistant-event">{copy.team.internalTurns[m.event]}</p>
+    <p className="assistant-note assistant-event">
+      {internalTurnText(copy, m.event, m.internalOutcome)}
+    </p>
   ) : (
     <AssistantMessage
       role={m.role}

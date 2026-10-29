@@ -118,6 +118,15 @@ function hideInternal(messages, requests, contexts, attempts) {
     const kind = turnKind(contexts.get(id));
     return internalKinds.has(kind) ? kind : null;
   };
+  // How a member's request ended without a result (lead-requests.js deliveryTarget),
+  // also when the turn is a goal turn carrying that result.
+  const outcomeOf = (id) => {
+    const context = contexts.get(id);
+    const result = context?.kind === "member-result" ? context : context?.result;
+    return result?.kind === "member-result" && typeof result.outcome === "string"
+      ? { internalOutcome: result.outcome }
+      : {};
+  };
   const internal = requests
     .map((r) => [r, kindFor(r.id)])
     .filter(([, kind]) => kind !== null);
@@ -141,6 +150,7 @@ function hideInternal(messages, requests, contexts, attempts) {
         id: m.id,
         role: "event",
         event: kind,
+        ...outcomeOf(id),
         ...(kind === "goal-continuation" && {
           goalTitle: contexts.get(id).goal.title,
         }),
@@ -152,7 +162,7 @@ function hideInternal(messages, requests, contexts, attempts) {
       const kind = internal.find(([x]) => x === r)?.[1];
       if (!kind) return r;
       const { text: _text, ...rest } = r;
-      return { ...rest, internal: kind };
+      return { ...rest, internal: kind, ...outcomeOf(r.id) };
     }),
   };
 }

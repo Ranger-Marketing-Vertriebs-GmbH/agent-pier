@@ -21,6 +21,7 @@ import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
 import AssistantMessage from "./AssistantMessage.jsx";
 import TranscriptItem, { noteEvents } from "./TranscriptItem.jsx";
+import { internalTurnText } from "./internal-turn-text.js";
 import { groupActivity } from "./activity-groups.js";
 import { plainText } from "./plain-text.js";
 import useTouchInput from "../chat/useTouchInput.js";
@@ -439,7 +440,7 @@ export default function AssistantChat({
               history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
                 latest.internal && (
                 <p className="assistant-note assistant-event">
-                  {copy.team.internalTurns[latest.internal]}
+                  {internalTurnText(copy, latest.internal, latest.internalOutcome)}
                 </p>
               )}
             {active &&
