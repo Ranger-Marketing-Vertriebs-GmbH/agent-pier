@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import api from "../../lib/api.js";
 import { apiCopy } from "../../lib/i18n/messages/components.js";
 import { locale } from "../../lib/i18n/index.js";
@@ -46,10 +46,9 @@ function validStatus(status) {
 }
 /**
  * The agent runtime's update status, following the live `runtime.updates` topic: the
- * server pushes every phase, busy change and snapshot progress. `onSettled` is called
- * once the first status or its error is shown, for a page that scrolls below it.
+ * server pushes every phase, busy change and snapshot progress.
  */
-export default function AssistantRuntimeUpdates({ onChange, onSettled }) {
+export default function AssistantRuntimeUpdates({ onChange }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const topic = useLiveTopic("runtime.updates");
@@ -58,10 +57,6 @@ export default function AssistantRuntimeUpdates({ onChange, onSettled }) {
   const status = valid ? topic.data : null;
   const readError =
     topic.error || (topic.data !== null && !valid ? apiCopy.requestFailed(503) : "");
-  const settled = Boolean(status || readError);
-  useEffect(() => {
-    if (settled) onSettled?.();
-  }, [settled, onSettled]);
   async function operate(action) {
     setBusy(true);
     setError("");

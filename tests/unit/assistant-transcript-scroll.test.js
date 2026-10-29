@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   anchorToChild,
   followEnd,
+  landOn,
   scrollToChild,
 } from "../../web/features/assistants/transcript-scroll.js";
 
@@ -32,6 +33,7 @@ function transcript({ scrollTop, scrollHeight, clientHeight = 500 }) {
     addEventListener: (type, listener) => (listeners[type] = listener),
     removeEventListener: (type) => delete listeners[type],
     fire: (type) => listeners[type]?.({ type }),
+    listening: () => Object.keys(listeners),
   };
 }
 function withObservers(t) {
@@ -84,4 +86,19 @@ test("the anchor reports when the reader lets go of it", (t) => {
   assert.equal(container.scrollTop, 888);
   container.fire("wheel");
   assert.equal(stopped, 1);
+});
+
+test("a landing on the page scroller holds its target for a limited time", async (t) => {
+  withObservers(t);
+  // The page's own scroller: its box top moves with scrollTop, so it is not counted.
+  const page = { ...transcript({ scrollTop: 100, scrollHeight: 3000 }), ...at(-100) };
+  const saved = globalThis.document;
+  globalThis.document = { scrollingElement: page };
+  t.after(() => (globalThis.document = saved));
+  const stop = landOn({ ...at(900), isConnected: true, parentElement: null }, 20);
+  assert.equal(page.scrollTop, 988);
+  assert.ok(page.listening().length > 0);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.deepEqual(page.listening(), []);
+  stop();
 });

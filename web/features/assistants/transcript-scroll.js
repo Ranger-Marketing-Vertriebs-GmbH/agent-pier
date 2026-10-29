@@ -2,9 +2,11 @@
 // would also scroll the fixed page on iOS while the keyboard is open.
 export function scrollToChild(container, element, offset = 12) {
   if (!container || !element) return false;
+  // The page's own scroller measures from the viewport: its box moves with scrollTop.
+  const page = typeof document !== "undefined" && container === document.scrollingElement;
   const top =
     element.getBoundingClientRect().top -
-    container.getBoundingClientRect().top +
+    (page ? 0 : container.getBoundingClientRect().top) +
     container.scrollTop -
     offset;
   container.scrollTop = Math.max(0, top);
@@ -124,5 +126,23 @@ export function followEnd(container, stick, scroll, anchored = () => false) {
     listeners.forEach(([target, type, listener]) =>
       target.removeEventListener(type, listener),
     );
+  };
+}
+
+// How long a deep link's landing keeps its target in view at most.
+export const LANDING_MS = 10000;
+
+/**
+ * A deep link's landing (a settings section, a team card): scrolls the nearest
+ * scroller to `element` and keeps it there while content above it still arrives
+ * (anchorToChild), until the reader scrolls, touches or types, the element leaves,
+ * or `limitMs` passed. Returns `stop`.
+ */
+export function landOn(element, limitMs = LANDING_MS) {
+  const stop = anchorToChild(scrollParent(element), element);
+  const timer = setTimeout(stop, limitMs);
+  return () => {
+    clearTimeout(timer);
+    stop();
   };
 }
