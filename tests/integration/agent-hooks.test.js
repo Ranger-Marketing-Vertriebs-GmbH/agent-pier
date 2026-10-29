@@ -67,9 +67,9 @@ test("the list carries the agent's ceiling and shell choices before any hook exi
   f.grants.access = {
     projectIds: ["p1"],
     sshAccesses: [
-      { accessId: "h1", mode: "routines" },
+      { accessId: "h1", mode: "trusted" },
       { accessId: "h2", mode: "approval" },
-      { accessId: "gone", mode: "routines" },
+      { accessId: "gone", mode: "trusted" },
     ],
   };
   f.grants.hosts = [{ id: "h1" }, { id: "h2" }];
@@ -246,8 +246,8 @@ test("an unchanged stored right survives a lowered ceiling on update", async (t)
   f.grants.access = {
     projectIds: ["p1"],
     sshAccesses: [
-      { accessId: "h1", mode: "routines" },
-      { accessId: "h2", mode: "routines" },
+      { accessId: "h1", mode: "trusted" },
+      { accessId: "h2", mode: "trusted" },
     ],
   };
   f.grants.hosts = [{ id: "h1" }, { id: "h2" }];
@@ -263,7 +263,7 @@ test("an unchanged stored right survives a lowered ceiling on update", async (t)
   f.service.store.disconnect(f.channel.id, f.channel.revision);
   f.grants.access = {
     projectIds: [],
-    sshAccesses: [{ accessId: "h2", mode: "routines" }],
+    sshAccesses: [{ accessId: "h2", mode: "trusted" }],
   };
   f.grants.folders = { p1: "read", p2: "read" };
   const updated = await f.hooks.update(f.id, hook.id, {

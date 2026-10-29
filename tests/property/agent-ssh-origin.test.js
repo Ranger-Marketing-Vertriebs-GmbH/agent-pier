@@ -23,20 +23,20 @@ const context = fc.option(
   { nil: null },
 );
 
-test("routines only ever run on routines hosts and refused turns never act", () => {
+test("routines only ever run on trusted hosts and refused turns never act", () => {
   fc.assert(
     fc.property(
       context,
       fc.boolean(),
       fc.boolean(),
       fc.constantFrom("owner", "delegated", "routine", "refused", null),
-      fc.constantFrom(...sshModes, "always", ""),
+      fc.constantFrom(...sshModes, "routines", "always", ""),
       (ctx, routine, permanentMember, inherited, mode) => {
         const c = sshOrigin({ context: ctx, routine, permanentMember, inherited }).class;
         const verdict = permits(mode, c);
         if (c === "routine") {
           assert.notEqual(verdict, "card");
-          assert.equal(verdict === "run", mode === "routines");
+          assert.equal(verdict === "run", mode === "trusted");
         }
         if (c === "refused") assert.equal(verdict, "refuse");
         if (!sshModes.includes(mode)) assert.equal(verdict, "refuse");

@@ -169,7 +169,7 @@ export class AgentSsh {
   }
   /**
    * The hosts a hook run may use: the hook's choice capped by the agent's grants in
-   * mode "routines", re-resolved through AgentHooks.runOrigin on every call (never
+   * mode "trusted", re-resolved through AgentHooks.runOrigin on every call (never
    * the ticket's copy), so a host the owner moved or unticked mid-run is refused.
    */
   hookHosts(caller) {

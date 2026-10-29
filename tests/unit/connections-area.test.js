@@ -219,10 +219,10 @@ test("grant bodies change one grant and keep the rest of the access policy", () 
   assert.equal(currentGrant(policy, { kind: "ssh", itemId: "b" }), "approval");
   assert.equal(currentGrant(policy, { kind: "secret", itemId: "s2" }), true);
   assert.equal(currentGrant(policy, { kind: "github", itemId: "gh-2" }), null);
-  assert.deepEqual(sshGrantsBody(policy, ["c", "a"], "routines").sshAccesses, [
-    { accessId: "a", mode: "routines" },
+  assert.deepEqual(sshGrantsBody(policy, ["c", "a"], "trusted").sshAccesses, [
+    { accessId: "a", mode: "trusted" },
     { accessId: "b", mode: "approval" },
-    { accessId: "c", mode: "routines" },
+    { accessId: "c", mode: "trusted" },
   ]);
   assert.deepEqual(sshGrantsBody(policy, ["b"], null).sshAccesses, []);
 });

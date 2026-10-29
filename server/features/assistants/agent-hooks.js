@@ -102,7 +102,7 @@ export class AgentHooks {
       coding: access.projectIds.length > 0,
       shell: personalShell(agent),
       sshHosts: access.sshAccesses
-        .filter(({ accessId, mode }) => mode === "routines" && listed.has(accessId))
+        .filter(({ accessId, mode }) => mode === "trusted" && listed.has(accessId))
         .map(({ accessId }) => accessId),
       folders: workflows.folders.ownAndShared(agent.id),
       memory: caps.memory,

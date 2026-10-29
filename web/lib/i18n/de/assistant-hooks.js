@@ -61,8 +61,8 @@ export const hookCopy = {
   shellChanged: (level) =>
     `Die Shell-Stufe des Agenten hat sich geändert: Läufe dieses Hooks nutzen jetzt „${level}“.`,
   sshHosts: "SSH-Hosts",
-  sshNone: "Der Agent hat keinen SSH-Host, der für Routinen vertraut ist.",
-  sshGone: "Für die Routinen des Agenten nicht mehr vertraut.",
+  sshNone: "Der Agent hat keinen vertrauten SSH-Host.",
+  sshGone: "Für den Agenten nicht mehr vertraut.",
   folders: "Ordner",
   foldersNone: "Der Agent hat keine Projektordner.",
   folderLevels: { none: "Kein Zugriff", read: "Lesen", write: "Lesen und schreiben" },

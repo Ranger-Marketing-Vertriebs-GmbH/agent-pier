@@ -126,7 +126,5 @@ test("a routine's result says when SSH was refused", async ({ page }) => {
     }),
   );
   await openChat(page);
-  await expect(
-    page.getByText("SSH refused: host not trusted for routines"),
-  ).toBeVisible();
+  await expect(page.getByText("SSH refused: host not trusted")).toBeVisible();
 });

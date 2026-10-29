@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { stageProfiles } from "../pipelines/graph-validation.js";
 import { requirePipeline } from "../mcp/tool-policy.js";
-import { sshModes } from "./agent-ssh-origin.js";
+import { sshGrantMode } from "./agent-ssh-origin.js";
+import { accessBody, createAccessTable } from "./assistant-access-table.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
 import { projectFileLevels } from "./member-grants.js";
 import { githubAccessInput } from "./agent-github.js";
@@ -84,9 +85,7 @@ export class AssistantAccess {
   constructor(services) {
     this.s = services;
     this.db = services.assistants.store.db;
-    this.db.exec(
-      "CREATE TABLE IF NOT EXISTS assistant_access(assistant_id TEXT PRIMARY KEY REFERENCES assistants(id),body TEXT NOT NULL)",
-    );
+    createAccessTable(this.db);
   }
   eligible(id) {
     const a = this.s.assistants.store.getAssistant(id);
@@ -105,7 +104,7 @@ export class AssistantAccess {
       .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
       .get(id);
     return row
-      ? withDefaults(JSON.parse(row.body))
+      ? withDefaults(accessBody(row.body))
       : {
           github: null,
           revision: 0,
@@ -351,10 +350,11 @@ export class AssistantAccess {
     const list = value.map((entry) => {
       exact(entry, ["accessId", "mode"]);
       textValue(entry.accessId, 100);
-      if (!sshModes.includes(entry.mode) || seen.has(entry.accessId))
+      // A legacy "routines" mode is accepted and stored as "trusted".
+      if (!sshGrantMode(entry.mode) || seen.has(entry.accessId))
         throw assistantProblem("invalid");
       seen.add(entry.accessId);
-      return { accessId: entry.accessId, mode: entry.mode };
+      return { accessId: entry.accessId, mode: sshGrantMode(entry.mode) };
     });
     if (!list.length) return list;
     const hosts = this.sshHosts();

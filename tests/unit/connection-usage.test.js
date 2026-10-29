@@ -45,7 +45,7 @@ const sources = {
   access: {
     lead: {
       sshAccesses: [
-        { accessId: "lab", mode: "routines" },
+        { accessId: "lab", mode: "trusted" },
         { accessId: "gone", mode: "approval" },
       ],
       secretIds: ["s1"],
@@ -68,14 +68,14 @@ test("usage names grants, lead shares, hooks, projects and sessions per credenti
   assert.deepEqual(usage.ssh.lab, {
     type: "ssh",
     agents: [
-      { id: "lead", name: "Lead", kind: "agent", via: "grant", mode: "routines" },
+      { id: "lead", name: "Lead", kind: "agent", via: "grant", mode: "trusted" },
       { id: "lead", name: "Lead", kind: "agent", via: "hook", mode: null },
       {
         id: "member",
         name: "Helper",
         kind: "teamMember",
         via: "lead",
-        mode: "routines",
+        mode: "trusted",
         leadId: "lead",
       },
     ],

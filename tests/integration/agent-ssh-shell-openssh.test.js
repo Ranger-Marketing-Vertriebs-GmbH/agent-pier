@@ -77,13 +77,6 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
     assert.equal(rows[0].sessionId, undefined);
   });
 
-  test("a legacy routines grant counts as trusted", async (t) => {
-    const a = await g.agent(t, { grants: [{ accessId: f.host.id, mode: "routines" }] });
-    const out = await a.run("ssh deploy-box echo routines-ok");
-    assert.equal(out.code, 0, out.stderr);
-    assert.equal(out.stdout.trim(), "routines-ok");
-  });
-
   test("a host with approval has no alias and the socket refuses it", async (t) => {
     const a = await g.agent(t, {
       grants: [{ accessId: f.host.id, mode: "approval" }, trusted(otherHost)],

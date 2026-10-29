@@ -26,9 +26,9 @@ import { sshFromLead } from "./assistant-access.js";
 import { shellQuote } from "./exec-shell.js";
 import { personalEligible, personalShell } from "./native-capabilities.js";
 
-// The grant modes whose hosts enter the socket: trusted, and the legacy "routines"
-// (trusted including routines), which counts as trusted.
-export const agentSshModes = ["trusted", "routines"];
+// The grant modes whose hosts enter the socket. AssistantAccess reads the former
+// "routines" mode as "trusted" (assistant-access-table.js).
+export const agentSshModes = ["trusted"];
 
 const maxState = 4096;
 const agentOwner = (id) => ({ kind: "agent", id });

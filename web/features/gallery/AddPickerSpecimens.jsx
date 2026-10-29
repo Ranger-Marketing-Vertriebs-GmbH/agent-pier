@@ -13,7 +13,6 @@ export default function AddPickerSpecimens() {
   const modes = [
     { value: "approval", label: p.approval },
     { value: "trusted", label: p.trusted },
-    { value: "routines", label: p.routines },
   ];
   const [hosts] = useState(sshHosts);
   const [granted, setGranted] = useState([{ id: "prod-web-01", mode: "approval" }]);

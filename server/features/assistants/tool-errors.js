@@ -82,7 +82,7 @@ const reasons = {
   SSH_HOST_UNAVAILABLE:
     "This SSH host is unavailable: it was removed or OpenSSH is missing. Tell the owner; do not retry.",
   SSH_ROUTINE_NOT_TRUSTED:
-    "In routines only hosts the owner marked 'Trusted incl. routines' run commands. Do not retry; say in the routine's result that SSH was refused for this host.",
+    "In routines only hosts the owner marked 'Trusted' run commands. Do not retry; say in the routine's result that SSH was refused for this host.",
   SSH_ORIGIN_REFUSED:
     "SSH is not available in this turn: it was not the owner's own request (forwarded, scheduled or member content). Do not retry; tell the owner.",
   SSH_BUSY:

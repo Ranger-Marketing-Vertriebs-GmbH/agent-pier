@@ -199,7 +199,7 @@ test("trusted mode never runs a delete directly", async (t) => {
   );
 });
 
-test("routine with routines mode uploads; delete refused", async (t) => {
+test("routine on a trusted host uploads; delete refused", async (t) => {
   const f = await setup(t);
   const conversation = f.store.getConversation(f.channel.conversationId);
   f.assistants.routines = {
@@ -207,7 +207,7 @@ test("routine with routines mode uploads; delete refused", async (t) => {
     writable: () => false,
     noteRefusal() {},
   };
-  f.access([{ accessId: sftpHostId, mode: "routines" }]);
+  f.access([{ accessId: sftpHostId, mode: "trusted" }]);
   f.file(f.workspace, "report.txt", "r");
   const result = await f.sftpCall(f.routineTurn(), {
     action: "upload",
@@ -230,8 +230,8 @@ test("routine with routines mode uploads; delete refused", async (t) => {
     (await f.call(f.routineTurn(), { action: "hosts" })).hosts[0].usable,
     true,
   );
-  // A trusted host does not run in routines at all.
-  f.access([{ accessId: sftpHostId, mode: "trusted" }]);
+  // A host with approval does not run in routines at all.
+  f.access([{ accessId: sftpHostId, mode: "approval" }]);
   const [listed] = (await f.call(f.routineTurn(), { action: "hosts" })).hosts;
   assert.deepEqual([listed.usable, listed.reason], [false, "ROUTINE_NOT_TRUSTED"]);
   assert.equal(

@@ -81,6 +81,7 @@ test("a grant saved on the agent's Access tab shows in Zugänge and can be revok
   const current = await policy();
   const values = {
     ...workServer(current, null),
+    // An older client's "routines" is stored as "trusted" (owner A15).
     sshAccesses: [{ accessId: host.id, mode: "routines" }],
     secretIds: [secret.id],
   };
@@ -95,7 +96,7 @@ test("a grant saved on the agent's Access tab shows in Zugänge and can be revok
   assert.equal(saved.status, 200, await saved.clone().text());
   const listed = await usage();
   assert.deepEqual(listed.ssh[host.id].agents, [
-    { id: agent.id, name: "Ops", kind: "agent", via: "grant", mode: "routines" },
+    { id: agent.id, name: "Ops", kind: "agent", via: "grant", mode: "trusted" },
   ]);
   assert.deepEqual(listed.secrets[secret.id].agents, [
     { id: agent.id, name: "Ops", kind: "agent", via: "grant", mode: null },
@@ -118,7 +119,7 @@ test("a stale revision is refused and changes nothing (never retried silently)",
   });
   assert.equal(first.status, 200);
   const second = await saveWork({
-    access: grantAccessBody(stale, { kind: "ssh", itemId: host.id, mode: "routines" }),
+    access: grantAccessBody(stale, { kind: "ssh", itemId: host.id, mode: "trusted" }),
   });
   assert.equal(second.status, 409);
   assert.deepEqual((await policy()).sshAccesses, [

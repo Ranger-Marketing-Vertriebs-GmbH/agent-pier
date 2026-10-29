@@ -331,8 +331,7 @@ export const assistants = {
   sshNotGranted: "This SSH access is not granted to the agent.",
   sshHostUnavailable:
     "This SSH access is unavailable: it was removed, or OpenSSH is missing.",
-  sshRoutineNotTrusted:
-    "In routines only SSH accesses marked “Trusted incl. routines” run.",
+  sshRoutineNotTrusted: "In routines only SSH accesses marked “Trusted” run.",
   sshOriginRefused: "SSH is not allowed in this turn.",
   sshBusy: "An SSH command is already running for this agent.",
   sshApprovalLimit: "Three SSH commands of this agent already wait for your approval.",

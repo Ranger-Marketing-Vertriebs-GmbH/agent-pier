@@ -184,3 +184,60 @@ test("a failing step inside revokeSsh leaves every grant as it was", async (t) =
   ]);
   assert.equal(f.workflows.access.get(f.id).revision, 1);
 });
+
+// Owner A15: the former mode "Trusted incl. routines" is now "Trusted".
+test("stored routines grants become trusted once and everything else stays", async (t) => {
+  const f = await agentSshFixture(t);
+  const access = f.workflows.access;
+  const saved = f.grant([
+    { accessId: hostId, mode: "approval" },
+    { accessId: otherHostId, mode: "trusted" },
+  ]);
+  const raw = () =>
+    access.db.prepare("SELECT body FROM assistant_access WHERE assistant_id=?").get(f.id)
+      .body;
+  // A row written before the change: one grant in the legacy mode.
+  const legacy = JSON.parse(raw());
+  legacy.sshAccesses[1].mode = "routines";
+  legacy.note = "kept";
+  access.db
+    .prepare("UPDATE assistant_access SET body=? WHERE assistant_id=?")
+    .run(JSON.stringify(legacy), f.id);
+  // Read before any migration: already trusted.
+  assert.equal(access.sshGrant(f.id, otherHostId).mode, "trusted");
+  // On load the row itself is rewritten, with nothing else changed.
+  const loaded = new access.constructor(access.s);
+  const migrated = JSON.parse(raw());
+  assert.deepEqual(migrated, {
+    ...legacy,
+    sshAccesses: [
+      { accessId: hostId, mode: "approval" },
+      { accessId: otherHostId, mode: "trusted" },
+    ],
+  });
+  assert.equal(migrated.revision, saved.revision);
+  // Idempotent: a second load changes nothing.
+  new access.constructor(access.s);
+  assert.equal(raw(), JSON.stringify(migrated));
+  assert.equal(loaded.get(f.id).sshAccesses[1].mode, "trusted");
+  // No grant audit for the migration.
+  assert.equal(f.audit.filter((e) => e.details.kind === "ssh-grants").length, 1);
+});
+
+test("a saved routines grant is accepted and stored as trusted", async (t) => {
+  const f = await agentSshFixture(t);
+  const saved = f.grant([{ accessId: hostId, mode: "routines" }]);
+  assert.deepEqual(saved.sshAccesses, [{ accessId: hostId, mode: "trusted" }]);
+  assert.match(
+    f.workflows.access.db
+      .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
+      .get(f.id).body,
+    /"mode":"trusted"/,
+  );
+  // A one-grant change through the proposal path normalises the same way.
+  f.workflows.access.grantSsh(f.id, otherHostId, "routines");
+  assert.equal(f.workflows.access.sshGrant(f.id, otherHostId).mode, "trusted");
+  assert.throws(() => f.grant([{ accessId: hostId, mode: "Routines" }]), {
+    status: 400,
+  });
+});

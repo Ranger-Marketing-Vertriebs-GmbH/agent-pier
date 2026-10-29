@@ -8,7 +8,7 @@ test("after a revoke no agent references the host and other grants are untouched
   const agents = [f.id, f.member().id, f.member({ name: "Echo" }).id];
   const grantSet = fc.subarray([
     { accessId: hostId, mode: "approval" },
-    { accessId: otherHostId, mode: "routines" },
+    { accessId: otherHostId, mode: "trusted" },
   ]);
   await fc.assert(
     fc.asyncProperty(

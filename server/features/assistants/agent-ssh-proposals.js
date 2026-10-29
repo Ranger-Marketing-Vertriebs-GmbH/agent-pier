@@ -3,7 +3,7 @@ import { exact } from "./assistant-access.js";
 import { directOwnerTurn, goalAgent } from "./goal-turns.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { archived, handOver, pairedTelegram } from "./team-coding.js";
-import { sshModes } from "./agent-ssh-origin.js";
+import { sshGrantMode } from "./agent-ssh-origin.js";
 import { followUpText, sshProposalCaps } from "./agent-ssh-proposal-notes.js";
 import { normalizedEndpoint } from "../ssh/ssh-management-records.js";
 import {
@@ -261,9 +261,10 @@ async function decide(w, action, decision, input) {
   }
   const management = w.s.sshManagement;
   if (!management) throw assistantProblem("unavailable", 503);
+  // A legacy "routines" choice is taken as "trusted" (owner A15).
   const p = action.payload,
-    mode = input.mode ?? "approval";
-  if (!sshModes.includes(mode)) throw assistantProblem("invalid");
+    mode = sshGrantMode(input.mode ?? "approval");
+  if (!mode) throw assistantProblem("invalid");
   const keyId = pickedKey(management, input.keyId, p.projectId);
   let agent = null;
   try {

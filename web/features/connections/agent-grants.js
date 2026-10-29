@@ -14,7 +14,7 @@ import {
 
 // The kinds of grant an access policy holds, and their modes.
 export const grantKinds = ["ssh", "secret", "github", "mail"];
-export const sshGrantModes = ["approval", "trusted", "routines"];
+export const sshGrantModes = ["approval", "trusted"];
 export const githubLevels = ["read", "write"];
 export { mailLevels };
 

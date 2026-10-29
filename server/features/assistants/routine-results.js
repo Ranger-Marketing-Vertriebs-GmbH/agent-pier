@@ -119,7 +119,7 @@ const warnings = {
   writes_refused:
     "Project folder changes were refused because 'May write' is off for this routine. If it should change files, ask the owner to switch on 'May write' for it (agent settings, Automation, Routines).",
   ssh_refused:
-    "SSH was refused because the host is not trusted for routines. The owner can mark it 'Trusted incl. routines'.",
+    "SSH was refused because the host is not trusted. The owner can mark it 'Trusted'.",
   mail_refused: "Email was refused: no access or a limit was reached.",
 };
 

@@ -33,28 +33,23 @@ test("sftpPermits covers every mode, class and kind", () => {
     owner: {
       approval: { read: "run", write: "card", delete: "card" },
       trusted: { read: "run", write: "run", delete: "card" },
-      routines: { read: "run", write: "run", delete: "card" },
     },
     delegated: {
       approval: { read: "run", write: "card", delete: "card" },
       trusted: { read: "run", write: "run", delete: "card" },
-      routines: { read: "run", write: "run", delete: "card" },
     },
     routine: {
       approval: { read: "refuse", write: "refuse", delete: "refuse" },
-      trusted: { read: "refuse", write: "refuse", delete: "refuse" },
-      routines: { read: "run", write: "run", delete: "refuse" },
+      trusted: { read: "run", write: "run", delete: "refuse" },
     },
-    // A hook run follows the routine's rules: mode routines only, never a delete.
+    // A hook run follows the routine's rules: trusted hosts only, never a delete.
     hook: {
       approval: { read: "refuse", write: "refuse", delete: "refuse" },
-      trusted: { read: "refuse", write: "refuse", delete: "refuse" },
-      routines: { read: "run", write: "run", delete: "refuse" },
+      trusted: { read: "run", write: "run", delete: "refuse" },
     },
     refused: {
       approval: { read: "refuse", write: "refuse", delete: "refuse" },
       trusted: { read: "refuse", write: "refuse", delete: "refuse" },
-      routines: { read: "refuse", write: "refuse", delete: "refuse" },
     },
   };
   for (const [cls, modes] of Object.entries(expected))
@@ -62,6 +57,7 @@ test("sftpPermits covers every mode, class and kind", () => {
       for (const [kind, verdict] of Object.entries(kinds))
         assert.equal(sftpPermits(mode, cls, kind), verdict, `${cls} ${mode} ${kind}`);
   assert.equal(sftpPermits("always", "owner", "read"), "refuse");
+  assert.equal(sftpPermits("routines", "routine", "read"), "refuse");
   assert.equal(sftpPermits("trusted", "stranger", "read"), "refuse");
   assert.equal(sftpPermits("trusted", "owner", "erase"), "refuse");
 });

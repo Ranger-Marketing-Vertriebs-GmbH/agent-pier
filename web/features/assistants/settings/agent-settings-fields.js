@@ -60,7 +60,8 @@ export const accessKeys = [
 ];
 // Direct folder access per granted project (server assistant-access.js projectFiles).
 export const folderLevels = ["none", "read", "write"];
-export const sshModes = ["approval", "trusted", "routines"];
+// Two modes (owner A15): "trusted" also runs in routines and hook runs.
+export const sshModes = ["approval", "trusted"];
 // Email levels per account (server agent-mail-grants.js); rules only for "send".
 export const mailLevels = ["read", "send"];
 // The team usage levels the server accepts (team-policy.js); "suggest" is its default.

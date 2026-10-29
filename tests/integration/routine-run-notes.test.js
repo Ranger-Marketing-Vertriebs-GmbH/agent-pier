@@ -12,7 +12,7 @@ async function routineChat(t) {
   const f = await agentSshFixture(t);
   const results = [];
   f.assistants.routines = { results: { forConversation: () => results } };
-  f.grant([{ accessId: hostId, mode: "routines" }]);
+  f.grant([{ accessId: hostId, mode: "trusted" }]);
   const run = async (command, { bindingId = "binding-1", job = "job-1" } = {}) => {
     const runAtMs = Date.now() - 1;
     const inv = f.routineTurn({
