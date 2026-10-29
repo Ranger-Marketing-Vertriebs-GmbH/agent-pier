@@ -461,6 +461,10 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (path === "/api/assistant-runtime/updates" && method === "GET")
       return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
+    // An agent's plain ssh status (agent.ssh-agent); fixture agents have no hosts,
+    // which shows no block.
+    if (/^\/api\/assistants\/[^/]+\/ssh-agent$/.test(path) && method === "GET")
+      return route.fulfill({ json: { state: "unavailable", reason: "no-hosts" } });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>
