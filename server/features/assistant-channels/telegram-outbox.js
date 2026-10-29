@@ -15,15 +15,19 @@ export class TelegramOutbox {
     // transfer; surfaced as a channel diagnostic until the transfer succeeds.
     this.failures = new Map();
   }
+  // The diagnostic shows on the failing transfer's channel (every channel for null),
+  // so only that channel's agent reads its topics again.
   failed(key, channelId) {
     if (this.failures.has(key)) return;
     this.failures.set(key, channelId);
-    this.service.written();
+    this.service.written(channelId);
     this.service.assistants.changed();
   }
   recovered(key) {
-    if (!this.failures.delete(key)) return;
-    this.service.written();
+    if (!this.failures.has(key)) return;
+    const channelId = this.failures.get(key);
+    this.failures.delete(key);
+    this.service.written(channelId);
     this.service.assistants.changed();
   }
   diagnostic(channelId) {
