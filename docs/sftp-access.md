@@ -189,7 +189,9 @@ server's home folder).
 fit the MCP response; what is cut is counted in `more*` fields.
 
 When a coding session starts and a reachable SFTP host exists, the discovery hint
-names the `sftp_*` tools.
+names the `sftp_*` tools. SFTP hosts get no alias for
+[plain SSH](ssh-access.md#plain-ssh-from-coding-sessions): the `sftp` command in a session
+reaches only SSH hosts, so use these tools for SFTP hosts.
 
 ## Agent actions and approvals
 

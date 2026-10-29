@@ -44,8 +44,9 @@ same sandbox profile.
 ## What can be sandboxed
 
 Coding sessions (Claude Code, Codex, OpenCode) and shell sessions may be sandboxed.
-Shell sessions need no AgentPier integrations, so beyond the working directory and the
-installation subtrees described below, AgentPier declares no grant for them at all.
+Shell sessions need no AgentPier integrations, so beyond the working directory, the
+installation subtrees described below and the session SSH agent's grants (see the next
+section), AgentPier declares no grant for them at all.
 
 Every sandboxed launch passes `--allow-cwd`, because a coding CLI cannot work without
 its project directory. That flag does not choose an access level: it takes the level
@@ -64,7 +65,8 @@ prompt nono raises on a denial (see limitation 3 below).
 Each launch adapter that gives the CLI a working integration — project memory,
 AgentBus, the GitHub credential helper, the SSH tools, the MCP integration, native
 session binding, native chat questions, the session's secrets folder (read,
-[secrets](secrets.md#coding-sessions)) — declares the filesystem and Unix-socket paths
+[secrets](secrets.md#coding-sessions)), the session SSH agent
+([plain SSH](ssh-access.md#plain-ssh-from-coding-sessions)) — declares the filesystem and Unix-socket paths
 that integration needs by appending to the launch description's grant list
 (`server/features/nono/sandbox-grants.js`). The final adapter in the chain,
 `server/features/nono/nono-launch.js`, only consumes that list; it does not infer
@@ -158,7 +160,10 @@ order of the adapter chain and the same session composes the same command line a
 restarts. Everything after `--` is the CLI and its own arguments, verbatim; reload
 appends its resume flags at the end of that list. Enabling further integrations adds
 their own grants to the same list — the MCP integration's capability folder and bridge
-socket, the SSH tools' and GitHub helper's folders, `<dataDir>/native-sessions`,
+socket, the SSH tools' and GitHub helper's folders, the session SSH agent's own folder
+`<dataDir>/ssh-agents/<session id>` (`--read`, never write), its own `agent.sock`
+(`--allow-unix-socket`, never a folder or a `-bind` variant) and the OpenSSH programs
+its wrappers call (`--read-file`), `<dataDir>/native-sessions`,
 `<dataDir>/requests` and, for Claude Code with the bridge mod, the mod's own
 `claude-mod.sock` beside the request socket, a chat attachment directory, and a managed account's own profile
 directory.
@@ -302,6 +307,24 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    because every tool call re-authorizes against the session record, which is replaced by
    rename on each status update. An unsandboxed session is unaffected and keeps taking
    assignments while it runs.
+
+   The [session SSH agent](ssh-access.md#plain-ssh-from-coding-sessions) inherits this
+   limitation. Its socket lives under `~/.agentpier-ssh/<hash>/<token>/`, which a
+   sandboxed session can neither list nor change, and the session is granted only its own
+   socket. But on a profile with network access (nono's default), macOS does not check a
+   Unix-socket `connect()` against the grants, and `netstat` or `lsof` show the paths of
+   other sessions' sockets, so a sandboxed session can connect to another session's agent
+   by its path and get signatures for that session's hosts. The agent also reads
+   `<dataDir>/ssh/identities/<keyId>/identity` without following a link at the file
+   itself, but it follows a link at the `<keyId>` folder; a session with the SSH tools
+   can plant such a link in the store it may write; a key that does not match the host's
+   public key is refused (`SSH_AGENT_KEY_UNSUPPORTED`). For a sandboxed session with the SSH tools neither
+   adds access beyond the private keys it can read already; a sandboxed shell session,
+   which has no grant on the store, does gain signatures for other sessions' hosts
+   through the first. On a profile that blocks the network (`network.block`,
+   `--block-net`), nono allows only the granted socket and the isolation between
+   sessions holds (verified on macOS; Linux is unverified). Closing this gap needs the store brokered outside the sandbox and a
+   peer check on the agent socket.
 
 8. **MCP servers outside the central list.** Stdio servers the owner added to a CLI
    outside AgentPier get no grants until they are adopted. A bound command that loads

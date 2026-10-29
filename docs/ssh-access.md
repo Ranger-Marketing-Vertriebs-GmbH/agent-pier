@@ -1,6 +1,6 @@
 # SSH server accesses
 
-AgentPier manages SSH keys and hosts for projects and individual sessions. Local Codex, Claude Code and OpenCode sessions can provision project access through MCP. Shell sessions can use the manual SSH helper. The CLI continues to run on your computer.
+AgentPier manages SSH keys and hosts for projects and individual sessions. Local Codex, Claude Code and OpenCode sessions can provision project access through MCP. Shell sessions can use the manual SSH helper. Sessions can also use [plain SSH](#plain-ssh-from-coding-sessions) (`ssh <alias>`, `scp`, `rsync`, `git`, tunnels) through their own SSH agent. The CLI continues to run on your computer.
 
 ## Project ownership and session assignments
 
@@ -114,9 +114,10 @@ Shares from a lead are changed in the lead's settings.
 ### Long lists and bulk actions
 
 The list has the views **All**, **With problems** and **Not used**, plus **Used today**
-when last use is known. Last use covers agents' SSH commands and SFTP transfers and
-SFTP transfers of sessions; commands run by coding sessions through the SSH helper are
-not counted, and the page says so. Search covers name, host, user and project; filters
+when last use is known. Last use covers agents' SSH commands and SFTP transfers, SFTP
+transfers of sessions and [plain ssh connections of sessions](#activity-log-and-last-use);
+commands run by coding sessions through `ssh_execute` or the SSH helper are not counted,
+and the page says so. Search covers name, host, user and project; filters
 narrow by **Project**, **Type**, **Used by** and **Status**; **Group** by project shows
 the first five entries of each group with **Show n more**; **Sort** by name, last change
 or last use. Arrow keys move through the rows and Space selects.
@@ -144,13 +145,82 @@ Import accepts a local absolute path or `~/...`, including a key outside the pro
 
 Generation, import and registration require a caller-generated `requestId`. After an uncertain connection outcome, retry the same operation with the same request ID and input. A committed import retry does not reread a changed or missing source. Changing the input conflicts. Deleting or reassigning the resulting resource makes its old request receipts terminal; retries cannot recreate it or transfer authority. Host registration reuses an identical saved connection and rejects conflicting keys or pins that require an owner UI change.
 
+## Plain SSH from coding sessions
+
+Besides `ssh_execute`, a session can reach its SSH hosts with plain OpenSSH: `ssh <alias>`, `scp`, `sftp`, `rsync -e ssh`, `git` over SSH and tunnels (`-L`, `-R`, `-D`). Each such session gets its own SSH agent in the AgentPier process. The private key never enters the session: the agent signs the sign-in for a granted host and refuses everything else. There is no approval per connection; the grant is the permission.
+
+### How it works
+
+Every host the session can use (its project's hosts and its explicit assignments) gets an **alias**: the host's name in lower case, with every run of other characters than `a-z` and `0-9` turned into `-`, at most 40 characters. A name that is empty, only digits or `localhost` gets the prefix `host-`. When two hosts would share an alias, the older one keeps it and the next gets `-2`, `-3` and so on; a host keeps its alias while it stays available. `ssh_list_hosts` reports each host's `alias`, and the session's **SSH accesses** dialog shows one `ssh <alias>` row per host.
+
+For each session AgentPier writes a private folder `<dataDir>/ssh-agents/<session id>/` (0700) with:
+
+- `ssh_config` (0600): one `Host <alias>` block per host with its address, port and user, the pinned host key (`StrictHostKeyChecking yes`, its own `known_hosts`, no global known hosts, no DNS or `UpdateHostKeys`), the session agent as `IdentityAgent`, the host's public key from `keys/<keyId>.pub` with `IdentitiesOnly yes`, public-key sign-in only, and `ForwardAgent no`, `ProxyCommand none`, `ProxyJump none`, `ControlMaster no` and `PermitLocalCommand no`. A host with [legacy algorithms](#legacy-algorithms-ssh-rsa) also gets `+ssh-rsa`. The file has no `Host *`, `Match` or `Include`.
+- `known_hosts`, `keys/<keyId>.pub` (public keys only), `aliases.json` (all 0600).
+- `bin/ssh`, `bin/scp` and `bin/sftp` (0700): small wrappers for the OpenSSH programs found on the session's `PATH`. A wrapper adds `-F <session ssh_config>` only when the destination (for `scp` any remote operand, also `scp://` and `sftp://` forms) or a `-J` jump host names one of the session's aliases, and never when you pass your own `-F`. Everything else reaches the real program unchanged, so `ssh github.com` keeps your own configuration.
+
+The session's environment gets:
+
+- `PATH` with the wrapper folder first.
+- `GIT_SSH_COMMAND` and `RSYNC_RSH` pointing at the `ssh` wrapper, so `git clone <alias>:repo.git` and `rsync <alias>:/path .` work. Values the session's environment already sets are kept.
+- `SSH_AUTH_SOCK` set to the session agent only when the session has none. Your own agent stays in `SSH_AUTH_SOCK` when you started AgentPier with one; the aliases still use the session agent through `IdentityAgent`, and other hosts still use your keys.
+- `AGENTPIER_SSH_CONFIG` (the session's `ssh_config`) and `AGENTPIER_SSH_AUTH_SOCK` (the agent socket). Codex, Claude Code and OpenCode also get `AGENTPIER_SSH_AGENT=1`; their startup hint then names the aliases and the fallback `ssh -F "$AGENTPIER_SSH_CONFIG" <alias>`.
+
+The agent socket is `~/.agentpier-ssh/<hash>/<token>/agent.sock` (folders 0700, socket 0600), where the hash names the data folder and the token is random per session. When that path would be longer than a Unix socket path allows (a home folder longer than about 41 characters), it falls back to `/tmp/agentpier-sshagent-<uid>-<hash>/<token>/agent.sock` and logs `SSH_AGENT_SOCKET_TMP_FALLBACK`. The socket keeps its path across [Reload & resume](session-reload.md) and a web-service restart; stopping the session removes the socket and the session folder.
+
+### What the agent signs
+
+The agent signs only a sign-in that OpenSSH has first bound to the connection (the `session-bind@openssh.com` extension), and only when all of these hold:
+
+- the server's host key is the pinned key of a host granted to this session right now;
+- the user is that host's user and the key is that host's key;
+- the connection was never used for agent forwarding.
+
+So it refuses `ssh -A` (a forwarded agent gets no signature), `-l otheruser`, `-o HostName=…` that points the alias at another server, any host that is not granted, and other keys. `ssh-add -L` lists the granted public keys; `ssh-add -D` and adding keys fail. SHA-1 (`ssh-rsa`) signatures and binds, and RSA host or user keys under 2048 bits, are accepted only for hosts with **Legacy algorithms (ssh-rsa)** on. A refusal is a plain agent failure, so OpenSSH reports `Permission denied (publickey)`.
+
+Removing an assignment, a project host or a grant takes effect at the next signature: a new connection fails at once and the alias disappears from the files. Connections and tunnels that are already open stay open until they close; the dialog says so. Close them yourself when that matters.
+
+### Which hosts and sessions
+
+SFTP hosts get no alias; use the `sftp_*` tools ([SFTP access](sftp-access.md)). Hosts in [interactive shell](#interactive-shell-network-devices) mode get no alias either; they keep `ssh_execute` and the manual helper.
+
+Shell sessions always get an agent. Codex, Claude Code and OpenCode sessions get one when they have the SSH tools. Login sessions, headless pipeline sessions and agents do not. The agent needs OpenSSH 8.9 or newer on the AgentPier host (detected with `ssh -V` at service start) and an `ssh` on the session's `PATH`. Otherwise the session's **SSH accesses** dialog says why plain ssh is not available ("Plain ssh needs OpenSSH 8.9 or newer on this computer. ssh_execute still works.", "Plain ssh needs OpenSSH on this computer. …", "Plain ssh could not be started for this session. …" or "Plain ssh is not available in this session.") and `ssh_execute` keeps working. When it works, the dialog says "Plain ssh works in this session. Use the alias of a host for ssh, scp, sftp, rsync, git and tunnels."
+
+### The marked block in your SSH config
+
+So that bare `ssh <alias>` also works where no wrapper runs (for example a program that calls `/usr/bin/ssh` directly), AgentPier adds one marked block at the top of `~/.ssh/config` when the first session gets an agent:
+
+```
+# BEGIN AgentPier <id> (managed, do not edit)
+Match exec "printenv AGENTPIER_SSH_CONFIG >/dev/null"
+  Include "<dataDir>/ssh-agents/include.con[f]"
+Match all
+# END AgentPier <id>
+```
+
+`<id>` names the data folder, so each installation keeps its own block. The block is active only when `AGENTPIER_SSH_CONFIG` is set, that is inside a session. `include.conf` (0600) lists, for each session, its aliases and its own `ssh_config`, so every session resolves only its own aliases. Every other line of the file stays as it is, including its mode and line endings. A missing `~/.ssh` is created with 0700 and a missing file with 0600. After each change AgentPier runs `ssh -G` with the variable unset and set; if the output differs from the file without the block, or a session's aliases fail, it leaves that session out or removes the block again. The dialog then shows the reason and the `ssh -F "$AGENTPIER_SSH_CONFIG" <alias>` fallback. AgentPier never writes through a linked, hard-linked, unreadable or damaged file.
+
+In your own terminal the block changes nothing, but OpenSSH runs the `Match exec` check through your shell (`$SHELL`, else `/bin/sh`): every `ssh` you start there starts that shell once to run `printenv`, which adds your shell's start-up time. The check uses `printenv` so that it prints nothing in common shells (tested with sh, bash, zsh, dash, tcsh and csh).
+
+Before its first change AgentPier copies your file to `~/.ssh/config.agentpier-backup`. When AgentPier writes its block (once per service start, at the first agent), it also removes blocks of data folders that no longer exist. To take this installation's block out, run `npm run ssh-config:remove` with the installation's `AGENTPIER_DATA_DIR` ([installation](installation.md)); the backup stays. Dev runs (`AGENTPIER_DEV=1`), data folders under the temp folder and instances started with `AGENTPIER_SSH_USER_CONFIG=0` never write the block; the wrappers and `ssh -F` keep working there.
+
+### Activity log and last use
+
+Each signature is recorded as `ssh.connected` with the session, the host and its project: the first per session and host at once, later ones counted per minute (`count`). Each refusal is recorded as `ssh.denied` with a code (`SSH_AGENT_UNBOUND`, `SSH_AGENT_FORWARDING`, `SSH_AGENT_NOT_GRANTED`, `SSH_AGENT_LEGACY` or `SSH_AGENT_KEY_UNSUPPORTED`), at most once per session, code and minute. Neither row contains a key, the user or signed data. Plain ssh connections count for **Last used** and **Used today** in [Long lists and bulk actions](#long-lists-and-bulk-actions).
+
+### Known gaps
+
+- The wrappers recognise jump hosts only as `-J`. With `-o ProxyJump=<alias>` and a destination that is not an alias, no `-F` is added and the alias does not resolve; use `-J` or `ssh -F "$AGENTPIER_SSH_CONFIG"`.
+- Revoking a host stops new signatures, not open connections or tunnels.
+- On a sandbox profile with network access, a sandboxed session can reach another session's agent socket by its path ([sandbox limitation 7](sandbox.md#known-limitations)).
+
 ## Session lifecycle and manual access
 
 Select explicit accesses in the new-session dialog, or open **SSH accesses** in an existing running session. The dialog reports whether the tools are ready, still starting, or require **Reload & resume**; while they start, the server checks every 1.5 s and pushes the change over the [live channel](architecture.md#live-channel), and choices not yet saved stay. Existing CLI processes need [Reload & resume](session-reload.md) to acquire new tool schemas and startup hints while retaining their native conversation. Once updated, later project and explicit assignment changes take effect on the next call without another reload.
 
 The explicit connection command remains available as a manual fallback, including for shell sessions. Append ` -- <remote command>` to run a command, or invoke the helper alone for an interactive SSH shell. For a host in [interactive shell](#interactive-shell-network-devices) mode the helper types the remote command into the device console and prints the console text. Native shell/network approvals may still apply.
 
-No remote command is automatically run when an access is assigned or a session is reloaded. Capabilities rotate for each CLI launch. Each call checks the current session and effective grants; MCP execution also checks revocation and connection revision periodically. An already-started manual SSH connection may continue after revocation. Stopping/removing a session clears its ephemeral assignments, while project resources remain. Reloading and restarting only the AgentPier web service preserve compatible session bindings and explicit assignments.
+No remote command is automatically run when an access is assigned or a session is reloaded. Capabilities rotate for each CLI launch. Each call checks the current session and effective grants; MCP execution also checks revocation and connection revision periodically. An already-started manual SSH connection may continue after revocation, and so may an open [plain SSH](#plain-ssh-from-coding-sessions) connection or tunnel; the session agent refuses the next sign-in at once. The aliases follow assignment and project changes without a reload. Stopping/removing a session clears its ephemeral assignments, while project resources remain. Reloading and restarting only the AgentPier web service preserve compatible session bindings and explicit assignments.
 
 ## Existing configurations and upgrades
 
@@ -264,9 +334,9 @@ or a code, never the purpose, the host key or a key; the host itself is recorded
 
 ## Scope and storage
 
-This is convenience scoping under one OS user, **not an operating-system sandbox**. Processes with that user's filesystem permissions may read the same private files. Use OS/container isolation when that must be prevented. Existing personal `~/.ssh` access is not revoked or changed.
+This is convenience scoping under one OS user, **not an operating-system sandbox**. Processes with that user's filesystem permissions may read the same private files. Use OS/container isolation when that must be prevented. Existing personal `~/.ssh` access is not revoked. The only change to `~/.ssh` is the [marked block in your SSH config](#the-marked-block-in-your-ssh-config), which acts only inside sessions.
 
-Private keys live in owner-only files (0600) under `AGENTPIER_DATA_DIR/ssh/identities`, inside owner-only directories (0700). The versioned `ssh/catalog.json` contains keys, hosts, project records and mutation receipts. The application owns catalog writes through a private local management socket; standalone MCP/helper processes read published state and delegate mutations. Prepared identities use `ssh/staging`; each connection receives an immutable pin snapshot under `ssh/connections` and cleans up its own snapshot.
+Private keys live in owner-only files (0600) under `AGENTPIER_DATA_DIR/ssh/identities`, inside owner-only directories (0700). The versioned `ssh/catalog.json` contains keys, hosts, project records and mutation receipts. The application owns catalog writes through a private local management socket; standalone MCP/helper processes read published state and delegate mutations. Prepared identities use `ssh/staging`; each connection receives an immutable pin snapshot under `ssh/connections` and cleans up its own snapshot. Session agents keep their per-session files under `ssh-agents/<session id>` and their sockets under `~/.agentpier-ssh` ([plain SSH](#how-it-works)); neither holds a private key.
 
 Catalog publication is atomic. Receipts are retained, with a 16 MiB limit on new catalog growth; deletion and size-reducing changes remain available. Legacy migration preserves oversized catalogs instead of dropping records. Generated keys are unencrypted at rest and rely on local account/filesystem protection. Private bytes are excluded from ordinary responses, prompts and audit records; the explicit authenticated owner download is the export path. Host keys are pinned, and the managed helper disables inherited SSH configuration, other agents, password fallback, agent forwarding and connection multiplexing.
 
@@ -274,4 +344,4 @@ SFTP hosts live in the same catalog (`sftpHosts`). Their passwords are 0600 file
 
 SSH accesses, private keys, project records, receipts and session grants are **omitted from AgentPier backups**, including backups with credentials. Keep an independent secure key backup through the owner download or retain imported source keys. Do not put the runtime SSH directory into Git.
 
-OpenSSH (`ssh`, `ssh-keygen`, `ssh-keyscan`) must be installed on the AgentPier host. No Proxmox-specific integration, jump-host configuration or remote CLI hosting is included.
+OpenSSH (`ssh`, `ssh-keygen`, `ssh-keyscan`) must be installed on the AgentPier host; plain SSH from sessions needs OpenSSH 8.9 or newer. No Proxmox-specific integration or remote CLI hosting is included. A session's aliases can serve as each other's jump host (`ssh -J <alias> <alias>`); AgentPier adds no other jump-host configuration.
