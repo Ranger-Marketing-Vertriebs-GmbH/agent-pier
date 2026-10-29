@@ -60,10 +60,36 @@ export async function stop(child) {
   await child.exited;
 }
 
+// Runs every cleanup, newest first; one that throws never skips the others.
+async function unwind(cleanups) {
+  const errors = [];
+  for (const cleanup of cleanups.splice(0).reverse()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length) throw errors[0];
+}
+
+/** The fixture; a setup that fails midway closes what it already started. */
 export async function openSshFixture({ openssh }) {
+  const cleanups = [];
+  try {
+    return await setUp({ openssh, cleanups });
+  } catch (error) {
+    await unwind(cleanups).catch(() => {});
+    throw error;
+  }
+}
+
+async function setUp({ openssh, cleanups }) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-ossh-")));
   // A short stand-in home: the agent sockets live under it (sun_path limit).
+  cleanups.push(() => fs.rmSync(root, { recursive: true, force: true }));
   const home = fs.realpathSync(fs.mkdtempSync("/tmp/aph-"));
+  cleanups.push(() => fs.rmSync(home, { recursive: true, force: true }));
   const dataDir = path.join(root, "data");
   const remote = path.join(root, "remote");
   const projectDir = path.join(root, "project");
@@ -83,8 +109,10 @@ export async function openSshFixture({ openssh }) {
     cwd: remote,
     forwardAgent: true,
   });
+  cleanups.push(() => server.close());
   // Trusts the same key, but no session is ever granted it.
   const other = await startExecServer({ authorizedKeys: [publicKey], cwd: remote });
+  cleanups.push(() => other.close());
   const host = await store.create({
     name: "Deploy box",
     host: "127.0.0.1",
@@ -111,6 +139,7 @@ export async function openSshFixture({ openssh }) {
       error: (...args) => logs.push(["error", ...args]),
     },
   });
+  cleanups.push(() => agents.close());
 
   function save(record) {
     records.set(record.id, record);
@@ -182,14 +211,39 @@ export async function openSshFixture({ openssh }) {
     logs,
     save,
     session,
-    async close() {
-      await agents.close();
-      await server.close();
-      await other.close();
-      fs.rmSync(root, { recursive: true, force: true });
-      fs.rmSync(home, { recursive: true, force: true });
-    },
+    close: () => unwind(cleanups),
   };
+}
+
+// A direct login without the agent: plain ssh, its own config, the pinned host key.
+async function canLogIn({ dir, port, hostKey, identity, user }) {
+  const known = path.join(dir, "known_hosts");
+  fs.writeFileSync(known, `[127.0.0.1]:${port} ${hostKey}\n`);
+  try {
+    await exec("ssh", [
+      "-F",
+      "/dev/null",
+      "-i",
+      identity,
+      "-o",
+      "IdentitiesOnly=yes",
+      "-o",
+      "IdentityAgent=none",
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=yes",
+      "-o",
+      `UserKnownHostsFile=${known}`,
+      "-p",
+      String(port),
+      `${user}@127.0.0.1`,
+      "true",
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function findSshd() {
@@ -214,9 +268,11 @@ function findSshd() {
 /**
  * A private sshd on 127.0.0.1 and a free high port, with its own config, host key and
  * authorized_keys in a temp dir; never the system config or port 22. Resolves null
- * when sshd is missing or does not start.
+ * when sshd is missing, does not start, or a direct login with `identity` (the
+ * private key of `authorizedKey`) fails here (no privilege separation, a restricted
+ * runner): only then may the sshd case skip.
  */
-export async function startLocalSshd({ dir, authorizedKey, user }) {
+export async function startLocalSshd({ dir, authorizedKey, identity, user }) {
   const sshd = findSshd();
   if (!sshd) return null;
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -261,7 +317,10 @@ export async function startLocalSshd({ dir, authorizedKey, user }) {
         .split(/\s+/)
         .slice(0, 2)
         .join(" ");
-      return { port, hostKey: hostPublic, child, close: () => stop(child) };
+      if (await canLogIn({ dir, port, hostKey: hostPublic, identity, user }))
+        return { port, hostKey: hostPublic, child, close: () => stop(child) };
+      await stop(child);
+      return null;
     }
     await stop(child);
   }
