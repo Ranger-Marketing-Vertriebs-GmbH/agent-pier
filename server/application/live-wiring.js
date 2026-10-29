@@ -41,6 +41,10 @@ import {
 import { meTopics } from "../features/users/live-me-topics.js";
 import { defineAgentBusTopic } from "../features/agentbus/live-topics.js";
 import {
+  projectsChangedTopic,
+  watchProjectWrites,
+} from "../features/memory/live-topics.js";
+import {
   accountAuthTopic,
   followAccountWrites,
 } from "../features/accounts/live-auth-topics.js";
@@ -104,6 +108,8 @@ export function createLiveHub(services, options = {}) {
   for (const topic of systemStatusTopics(services)) hub.define(topic);
   hub.define(cleanupSummaryTopic(services));
   defineAgentBusTopic(hub, services);
+  hub.define(projectsChangedTopic());
+  watchProjectWrites(services, hub);
   hub.define(accountAuthTopic(services));
   followAccountWrites(services, hub);
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).

@@ -248,6 +248,10 @@ export const liveTopics = Object.freeze({
     optionalParam: true,
     interval: 10000,
   }),
+  // The projects page's knowledge projects and repositories: `changed`, then one read
+  // of each source. useLiveSignal reads nothing without the channel; the page reads
+  // them again on a reload, as it did before the topic.
+  "projects.changed": Object.freeze({ mode: "signal", path: null, interval: 30000 }),
   // A CLI account's sign-in state, sampled by the server every 30 s while a visible
   // tab watches.
   "account.auth": Object.freeze({
