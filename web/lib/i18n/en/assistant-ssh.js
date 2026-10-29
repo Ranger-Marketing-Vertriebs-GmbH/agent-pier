@@ -23,7 +23,7 @@ export const assistantSshCopy = {
   },
   modeHints: {
     approval: "You confirm every command.",
-    trusted: "Runs without asking in your chats, in tasks from the lead and in routines.",
+    trusted: "Runs without asking, also in routines and in tasks from the lead.",
   },
   trustedWarning:
     "Commands this agent derives from web pages or files could run without your confirmation.",
