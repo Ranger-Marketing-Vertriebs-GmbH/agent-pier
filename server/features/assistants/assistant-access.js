@@ -445,9 +445,10 @@ export class AssistantAccess {
   }
   /**
    * Eligible agents with at least one SSH grant, and the temporary members using
-   * their lead's; never throws (compiles use it).
+   * their lead's; never throws (compiles use it) unless `strict`, so a caller can tell
+   * a read failure from "none" (agent-ssh-shell.js keeps the agents' tokens then).
    */
-  sshAgents() {
+  sshAgents({ strict = false } = {}) {
     try {
       const own = this.db
         .prepare("SELECT assistant_id FROM assistant_access")
@@ -458,7 +459,8 @@ export class AssistantAccess {
         .filter(sshFromLead)
         .map((a) => a.id);
       return new Set([...own, ...members].filter((id) => this.hasSshGrants(id)));
-    } catch {
+    } catch (error) {
+      if (strict) throw error;
       return new Set();
     }
   }

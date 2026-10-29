@@ -255,7 +255,7 @@ export class SessionSshAgents {
 
   /** `syncAll` after the queued syncs; calls while it waits share one pass. */
   refresh() {
-    return this.syncs.coalesce(() => this.syncAll());
+    return this.syncs.coalesce(() => this.syncAll(), "session");
   }
 
   /** Every session with an agent; one failing session never stops the others. */

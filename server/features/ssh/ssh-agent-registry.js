@@ -394,20 +394,29 @@ export class SshAgentRegistry {
    */
   async close(kind) {
     await this.syncs.run(async () => {
-      for (const [key, entry] of [...this.owners]) {
-        if (kind && entry.owner.kind !== kind) continue;
-        this.owners.delete(key);
-        clearTimeout(entry.timer);
-        try {
-          await entry.socket.close();
-        } catch (error) {
-          this.log.error(
-            `${labels[entry.owner.kind]} could not be closed:`,
-            error?.code || "error",
-          );
-        }
-        this.agentAudit.flush(key);
-      }
+      for (const entry of [...this.owners.values()])
+        if (!kind || entry.owner.kind === kind) await this.release(entry.owner);
     });
+  }
+
+  /**
+   * Closes one owner's listener and flushes its audit; its folders and token stay, so
+   * it listens at the same path again. Call it inside `syncs.run`.
+   */
+  async release(owner) {
+    const key = ownerKey(owner);
+    const entry = this.owners.get(key);
+    if (!entry) return;
+    this.owners.delete(key);
+    clearTimeout(entry.timer);
+    try {
+      await entry.socket.close();
+    } catch (error) {
+      this.log.error(
+        `${labels[owner.kind]} could not be closed:`,
+        error?.code || "error",
+      );
+    }
+    this.agentAudit.flush(key);
   }
 }

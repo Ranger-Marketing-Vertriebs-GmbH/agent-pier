@@ -72,19 +72,35 @@ export function agentShellEnv({ socketPath, configPath, binDir }) {
   ].join("\n");
 }
 
-const realFolder = (folder) => {
+// The lstat of a real (not linked) folder, or null.
+function realFolder(folder) {
   try {
     const stat = fs.lstatSync(folder);
-    return stat.isDirectory() && !stat.isSymbolicLink();
+    return stat.isDirectory() && !stat.isSymbolicLink() ? stat : null;
   } catch {
-    return false;
+    return null;
   }
-};
+}
+
+// `<dataDir>/ssh-agents`, `_agents` and the agent folder as [dev, ino], or null
+// unless each is a real folder.
+function folderChain(folder) {
+  const ids = [];
+  for (const dir of [path.dirname(path.dirname(folder)), path.dirname(folder), folder]) {
+    const stat = realFolder(dir);
+    if (!stat) return null;
+    ids.push(`${stat.dev}:${stat.ino}`);
+  }
+  return ids.join("/");
+}
 
 // The token an agent folder's state.json names: a regular file of at most 4 KiB,
-// never through a link, in a real folder, matching tokenPattern; otherwise none.
+// opened without following a link (O_NOFOLLOW, then fstat), in real folders from
+// `<dataDir>/ssh-agents` down that are the same before and after the read, matching
+// tokenPattern; otherwise none.
 function storedToken(folder) {
-  if (!realFolder(path.dirname(folder)) || !realFolder(folder)) return undefined;
+  const before = folderChain(folder);
+  if (!before) return undefined;
   let fd;
   try {
     const file = path.join(folder, "state.json");
@@ -92,6 +108,7 @@ function storedToken(folder) {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || stat.size > maxState) return undefined;
     const token = JSON.parse(fs.readFileSync(fd, "utf8"))?.token;
+    if (folderChain(folder) !== before) return undefined;
     return typeof token === "string" && tokenPattern.test(token) ? token : undefined;
   } catch {
     return undefined;
@@ -103,7 +120,8 @@ function storedToken(folder) {
 export class AgentShellSsh {
   /**
    * `agents` lists and gets agent profiles; `store` lists the SSH catalog; `access`
-   * is AssistantAccess (`sshAgents`, `sshHolder`, `get`); `maintenance()` refuses
+   * is AssistantAccess (`sshAgents`, `hasSshGrants`, `sshHolder`, `get`);
+   * `maintenance()` refuses
    * every signature while true; the first refresh waits for `restored` (the sessions'
    * restore), so every session token is known before an agent picks one.
    */
@@ -145,11 +163,20 @@ export class AgentShellSsh {
     }
   }
 
+  // The agents whose SSH holder has a grant, or null when they cannot be read.
   sshAgents() {
     try {
-      return this.access.sshAgents() ?? new Set();
+      return this.access.sshAgents({ strict: true }) ?? new Set();
     } catch {
-      return new Set();
+      return null;
+    }
+  }
+
+  hasSshGrants(id) {
+    try {
+      return this.access.hasSshGrants(id) === true;
+    } catch {
+      return false;
     }
   }
 
@@ -180,7 +207,7 @@ export class AgentShellSsh {
       return null;
     }
     const assistant = this.find(id);
-    if (!agentSshEligible(assistant, this.sshAgents())) return null;
+    if (ineligibility(assistant) || !this.hasSshGrants(id)) return null;
     return { hosts: this.hosts(assistant) };
   }
 
@@ -206,15 +233,22 @@ export class AgentShellSsh {
     return tokens;
   }
 
-  /** Reconciles every agent's socket and files; calls while one waits share it. */
+  /**
+   * Reconciles every agent's socket and files. Calls while one waits share it; a call
+   * while one runs gets its own pass after it; the sessions' passes never share it.
+   */
   async refresh() {
     await this.restored;
     if (this.closed) return;
-    return this.syncs.coalesce(() =>
-      this.syncs.run(() => this.registry.withKeptTokens(() => this.reconcile())),
+    return this.syncs.coalesce(
+      () => this.syncs.run(() => this.registry.withKeptTokens(() => this.reconcile())),
+      "agent",
     );
   }
 
+  // Agents no longer wanted (not eligible, archived, deleted) lose socket, folder and
+  // token. Agents still wanted that cannot run now (no ssh, OpenSSH too old, grants
+  // unreadable) only lose the socket: folder and token stay for the same path later.
   async reconcile() {
     if (this.closed) return;
     let profiles;
@@ -224,18 +258,30 @@ export class AgentShellSsh {
       // Unknown who exists: tear nothing down.
       return;
     }
-    const sshAgents = this.sshAgents();
-    const desired = profiles.filter((a) => agentSshEligible(a, sshAgents));
     const changed = new Set();
-    const keep = new Set();
-    const binaries =
-      desired.length && this.registry.supported
-        ? this.registry.binaries(this.pathEnv)
+    const sshAgents = this.sshAgents();
+    if (!sshAgents) {
+      for (const entry of this.registry.entries("agent")) await this.release(entry.id);
+      for (const assistant of profiles)
+        if (!ineligibility(assistant))
+          this.setUnavailable(assistant.id, "failed", changed);
+      this.notify(changed);
+      return;
+    }
+    const desired = profiles.filter((a) => agentSshEligible(a, sshAgents));
+    const keep = new Set(desired.map((a) => a.id));
+    const reason = !this.registry.openssh
+      ? "no-openssh"
+      : !this.registry.supported
+        ? "openssh-too-old"
         : null;
-    for (const assistant of this.registry.supported ? desired : []) {
+    const binaries =
+      desired.length && !reason ? this.registry.binaries(this.pathEnv) : null;
+    for (const assistant of desired) {
       const { id } = assistant;
       if (!binaries) {
-        this.setUnavailable(id, "no-openssh", changed);
+        if (await this.release(id)) changed.add(id);
+        this.setUnavailable(id, reason ?? "no-openssh", changed);
         continue;
       }
       try {
@@ -247,20 +293,41 @@ export class AgentShellSsh {
           this.log.error("Agent SSH agent could not be started:", error?.code || "error");
       }
       const live = !!this.registry.get(agentOwner(id));
-      if (live) keep.add(id);
+      if (!live) keep.delete(id);
       this.setUnavailable(id, live ? null : "failed", changed);
     }
     for (const entry of this.registry.entries("agent"))
       if (!keep.has(entry.id)) {
-        await this.discardOne(entry.id);
+        await this.guarded(() => this.discardOne(entry.id));
         changed.add(entry.id);
       }
     for (const name of this.folderNames())
-      if (!keep.has(name)) await this.removeFolder(name);
+      if (!keep.has(name)) await this.guarded(() => this.removeFolder(name));
     const wanted = new Set(desired.map((a) => a.id));
     for (const id of this.unavailable.keys())
       if (!wanted.has(id)) this.setUnavailable(id, null, changed);
+    this.notify(changed);
+  }
+
+  notify(changed) {
     if (changed.size) this.registry.notify("agent", [...changed]);
+  }
+
+  // One teardown that throws never stops the pass or its notification.
+  async guarded(operation) {
+    try {
+      await operation();
+    } catch (error) {
+      this.log.error("Agent SSH agent could not be removed:", error?.code || "error");
+    }
+  }
+
+  // Closes a wanted agent's socket and keeps its folder and token; whether it was live.
+  async release(id) {
+    const owner = agentOwner(id);
+    if (!this.registry.get(owner)) return false;
+    await this.registry.release(owner);
+    return true;
   }
 
   setUnavailable(id, reason, changed) {
@@ -381,7 +448,7 @@ export class AgentShellSsh {
     const assistant = validSessionId(id) ? this.find(id) : null;
     const reason = ineligibility(assistant);
     if (reason) return unavailable(reason);
-    if (!this.sshAgents().has(id)) return unavailable("no-hosts");
+    if (!this.hasSshGrants(id)) return unavailable("no-hosts");
     if (!this.registry.openssh) return unavailable("no-openssh");
     if (!this.registry.supported) return unavailable("openssh-too-old");
     if (!this.entry(assistant))
@@ -400,13 +467,14 @@ export class AgentShellSsh {
     const changed = new Set();
     await this.syncs.run(async () => {
       for (const entry of this.registry.entries("agent")) {
-        await this.discardOne(entry.id);
+        await this.guarded(() => this.discardOne(entry.id));
         changed.add(entry.id);
       }
-      for (const name of this.folderNames()) await this.removeFolder(name);
+      for (const name of this.folderNames())
+        await this.guarded(() => this.removeFolder(name));
     });
     this.unavailable.clear();
-    if (changed.size) this.registry.notify("agent", [...changed]);
+    this.notify(changed);
   }
 
   /** Shutdown: the agent sockets close, folders and tokens stay for the restart. */
