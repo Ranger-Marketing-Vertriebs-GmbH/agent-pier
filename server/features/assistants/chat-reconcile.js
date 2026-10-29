@@ -167,6 +167,6 @@ async function pass(service) {
     // The poll reconciles every 2 s during a turn: only the chats whose history
     // or turns changed read their feed again; the list hears of every pass.
     for (const id of reconciledChanges(service, reads)) service.feeds.invalidate(id);
-    service.events.publish({ type: "change" });
+    service.events.publish({ type: "change", conversations: true });
   }
 }

@@ -430,7 +430,7 @@ export class AssistantAccess {
     }
     return this.get(holder).sshAccesses.find((g) => g.accessId === accessId) || null;
   }
-  hasSshGrants(id) {
+  hasSshGrants(id, { strict = false } = {}) {
     try {
       const a = this.s.assistants.store.getAssistant(id);
       const holder = sshFromLead(a) ? a.parentAssistantId : personalEligible(a) && id;
@@ -439,14 +439,16 @@ export class AssistantAccess {
         personalEligible(this.s.assistants.store.getAssistant(holder)) &&
         this.get(holder).sshAccesses.length > 0
       );
-    } catch {
+    } catch (error) {
+      // `strict`: only an agent that no longer exists counts as "no grants".
+      if (strict && error?.status !== 404) throw error;
       return false;
     }
   }
   /**
-   * Eligible agents with at least one SSH grant, and the temporary members using
-   * their lead's; never throws (compiles use it) unless `strict`, so a caller can tell
-   * a read failure from "none" (agent-ssh-shell.js keeps the agents' tokens then).
+   * Eligible agents with an SSH grant and members using their lead's. Never throws
+   * (compiles use it) unless `strict`: then any read failure throws, so a caller can
+   * tell it from "none" (agent-ssh-shell.js keeps the agents' tokens then).
    */
   sshAgents({ strict = false } = {}) {
     try {
@@ -454,11 +456,9 @@ export class AssistantAccess {
         .prepare("SELECT assistant_id FROM assistant_access")
         .all()
         .map((r) => r.assistant_id);
-      const members = this.s.assistants.store
-        .listAssistants()
-        .filter(sshFromLead)
-        .map((a) => a.id);
-      return new Set([...own, ...members].filter((id) => this.hasSshGrants(id)));
+      const members = this.s.assistants.store.listAssistants().filter(sshFromLead);
+      const held = (id) => this.hasSshGrants(id, { strict });
+      return new Set([...own, ...members.map((a) => a.id)].filter(held));
     } catch (error) {
       if (strict) throw error;
       return new Set();

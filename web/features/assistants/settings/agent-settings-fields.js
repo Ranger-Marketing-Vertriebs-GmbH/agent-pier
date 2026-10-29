@@ -246,6 +246,15 @@ export function sshSummary(grants, hosts) {
     trusted: known.filter((g) => g.mode !== "approval").length,
   };
 }
+/**
+ * Whether the saved grants (`base`, never the unsaved draft) hold a listed host with
+ * approval: the plain ssh block's approval hint shows what runs now.
+ */
+export const savedSshApproval = (base, hosts) =>
+  !!hosts &&
+  (base?.sshAccesses || []).some(
+    (g) => g.mode === "approval" && hosts.some((h) => h.id === g.accessId),
+  );
 const pick = (source, keys) =>
   Object.fromEntries(keys.map((key) => [key, source?.[key] === true]));
 

@@ -59,8 +59,11 @@ export function connectAgentShellSsh(services, graph, { syncMs = turnSyncMs } = 
   const refresh = () => {
     shell.refresh().catch(() => {});
   };
+  // Runtime states and chat-only changes never change who gets an SSH agent.
+  const agentChange = (event) =>
+    event?.type !== "runtime" && !event?.conversationId && !event?.conversations;
   unsubscribe.push(
-    assistants.events.subscribe(refresh),
+    assistants.events.subscribe((event) => agentChange(event) && refresh()),
     sshManagement.catalog.onPublished(refresh),
     // Each agent's change reaches its live topic `agent.ssh-agent:<id>`.
     registry.listen("agent", (id) => agentSshChanged(services.live, id)),

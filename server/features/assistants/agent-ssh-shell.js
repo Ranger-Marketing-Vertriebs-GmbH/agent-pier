@@ -272,8 +272,7 @@ export class AgentShellSsh {
     const sshAgents = this.sshAgents();
     if (!sshAgents) {
       if (await this.release(id)) changed.add(id);
-      if (assistant && !ineligibility(assistant))
-        this.setUnavailable(id, "failed", changed);
+      if (!ineligibility(assistant)) this.setUnavailable(id, "failed", changed);
     } else if (!agentSshEligible(assistant, sshAgents)) {
       if (this.registry.get(agentOwner(id))) {
         await this.guarded(() => this.discardOne(id));

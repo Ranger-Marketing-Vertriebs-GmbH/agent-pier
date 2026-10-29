@@ -104,6 +104,18 @@ test("connect wires the hooks, refreshes on agent and catalog changes, and relea
   assert.equal(w.refreshes(), 3);
 });
 
+test("runtime and chat events never start a reconcile; agent changes do", async (t) => {
+  const w = wired(t);
+  w.events.publish({ type: "runtime", availability: "ready" });
+  w.events.publish({ type: "change", conversationId: "c1" });
+  w.events.publish({ type: "change", conversations: true });
+  await w.settled();
+  assert.equal(w.refreshes(), 0);
+  w.events.publish({ type: "change" });
+  await w.settled();
+  assert.equal(w.refreshes(), 1);
+});
+
 test("each agent's SSH change signals its live topic until the wiring closes", async (t) => {
   const live = { invalidated: [], invalidate: (...args) => live.invalidated.push(args) };
   const w = wired(t, { live });
