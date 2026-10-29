@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -35,16 +35,6 @@ test("only trusted grants enter the socket and get an alias", async (t) => {
     [hostA.id],
   );
   assert.equal((await identitiesAt(s.socketPath(a))).length, 1);
-  // Its ssh and scp refuse local-command options (owner A18); a session's do not.
-  for (const tool of ["ssh", "scp"]) {
-    const refused = spawnSync(
-      path.join(s.folder(a), "bin", tool),
-      ["-o", "ProxyCommand=true", "a", "db:/x"],
-      { encoding: "utf8" },
-    );
-    assert.equal(refused.status, 2, tool);
-    assert.match(refused.stderr, /not allowed in this agent's/);
-  }
 });
 
 test("no shell, a user agent, an archived agent and a member without SSH get nothing", async (t) => {

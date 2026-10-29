@@ -241,3 +241,30 @@ test("a saved routines grant is accepted and stored as trusted", async (t) => {
     status: 400,
   });
 });
+
+test("a host removal never writes back a restored routines grant", async (t) => {
+  const f = await agentSshFixture(t);
+  const access = f.workflows.access;
+  f.grant([
+    { accessId: hostId, mode: "approval" },
+    { accessId: otherHostId, mode: "trusted" },
+  ]);
+  // A row restored after the load-time migration, still in the legacy mode.
+  const legacy = JSON.parse(
+    access.db.prepare("SELECT body FROM assistant_access WHERE assistant_id=?").get(f.id)
+      .body,
+  );
+  legacy.sshAccesses[1].mode = "routines";
+  access.db
+    .prepare("UPDATE assistant_access SET body=? WHERE assistant_id=?")
+    .run(JSON.stringify(legacy), f.id);
+  access.revokeSsh(hostId);
+  const body = access.db
+    .prepare("SELECT body FROM assistant_access WHERE assistant_id=?")
+    .get(f.id).body;
+  assert.deepEqual(JSON.parse(body).sshAccesses, [
+    { accessId: otherHostId, mode: "trusted" },
+  ]);
+  const removed = f.audit.filter((e) => e.details.reason === "host-removed");
+  assert.deepEqual(removed.at(-1).details.modeChanged, []);
+});

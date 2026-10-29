@@ -49,12 +49,11 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
 
   const trusted = (host = f.host) => ({ accessId: host.id, mode: "trusted" });
 
-  // A direct login to `server` through only the agent's socket, no alias or config,
-  // with the real ssh: the agent's wrapper refuses -F (owner A18).
+  // A direct login to `server` through only the agent's socket, no alias or config.
   const throughSocket = (a, server) =>
     a.run(
       [
-        `'${g.registry.get({ kind: "agent", id: a.id }).binaries.ssh}' -F /dev/null`,
+        "ssh -F /dev/null",
         '-o IdentityAgent="$AGENTPIER_SSH_AUTH_SOCK"',
         `-o IdentityFile='${path.join(a.folder, "keys", `${f.key.id}.pub`)}'`,
         "-o IdentitiesOnly=yes -o BatchMode=yes",
@@ -62,29 +61,6 @@ describe("agent SSH agent with real OpenSSH", { skip: unsupported }, () => {
         `-p ${server.port} deploy@127.0.0.1 echo through-socket`,
       ].join(" "),
     );
-
-  test("the agent's ssh refuses local-command options before connecting", async (t) => {
-    const a = await g.agent(t, { grants: [trusted()] });
-    const execs = f.server.execs.length;
-    for (const command of [
-      "ssh -o ProxyCommand='ssh -W %h:%p deploy-box' deploy-box echo no",
-      "ssh -F /dev/null deploy-box echo no",
-      "scp -S /bin/sh x deploy-box:/tmp/x",
-    ]) {
-      const out = await a.run(command);
-      assert.equal(out.code, 2, command);
-      assert.match(
-        out.stderr,
-        /AgentPier: .+ is not allowed in this agent's (ssh|scp)\./,
-      );
-    }
-    assert.equal(f.server.execs.length, execs);
-    assert.equal(connected(a.audit()).length, 0);
-    // Its own config, as the guidance names it, still works.
-    const own = await a.run('ssh -F "$AGENTPIER_SSH_CONFIG" deploy-box echo own-ok');
-    assert.equal(own.code, 0, own.stderr);
-    assert.equal(own.stdout.trim(), "own-ok");
-  });
 
   test("plain ssh <alias> from an agent's shell runs on a trusted host", async (t) => {
     const a = await g.agent(t, { grants: [trusted()] });

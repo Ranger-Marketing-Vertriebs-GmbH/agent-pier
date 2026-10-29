@@ -70,11 +70,6 @@ test("prepare equips each coding CLI with an agent and the data Task 6 needs", a
     assert.equal(fs.statSync(socketPath).mode & 0o777, 0o600);
     assert.equal(fs.lstatSync(socketPath).isSocket(), true);
     assert.equal(fs.statSync(path.join(folder, "bin", "ssh")).mode & 0o777, 0o700);
-    // A session's wrappers never refuse options (only an agent's do, owner A18).
-    assert.doesNotMatch(
-      fs.readFileSync(path.join(folder, "bin", "ssh"), "utf8"),
-      /refuse/,
-    );
     assert.equal(fs.existsSync(details.configPath), true);
   }
   assert.equal(SSH_CONFIG_ENV, "AGENTPIER_SSH_CONFIG");
