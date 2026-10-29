@@ -13,6 +13,7 @@ import { validateReloadLaunch } from "../../application/session-reload-launch.js
 import { reloadedProvider } from "./provider-configuration.js";
 import { readTmuxServer } from "./tmux-server-identity.js";
 import { leaveDrainedLegacyServer } from "./legacy-tmux-server.js";
+import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 
@@ -121,6 +122,10 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "nativeModelId",
     ])
       if (launch[key] !== undefined) session[key] = launch[key];
+    // A reload's new agent generation, or none: the previous one must not outlive it.
+    const sshAgent = sessionSshAgentRecord(launch.sshAgent);
+    if (sshAgent) session.sshAgent = sshAgent;
+    else delete session.sshAgent;
     session.status = "running";
     session.restartGeneration = (session.restartGeneration || 0) + 1;
     manager.reconciledStops.delete(id);

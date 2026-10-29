@@ -6,6 +6,8 @@ import { SecretStore } from "../features/secrets/secret-store.js";
 import { SessionSecrets } from "../features/secrets/session-secrets.js";
 import { SshIntegration } from "../features/ssh/ssh-integration.js";
 import { SshManagement } from "../features/ssh/ssh-management.js";
+import { SessionSshAgents } from "../features/ssh/ssh-session-agents.js";
+import { detectOpenSsh } from "../features/ssh/ssh-openssh-version.js";
 import { AgencyStore } from "../features/agency/agency-store.js";
 import { AgencyTemplates } from "../features/agency/agency-templates.js";
 import { SharedCliProfiles } from "../features/cli-profiles/shared-profiles.js";
@@ -131,7 +133,8 @@ export async function createServices(config) {
     accesses: sshAccesses,
     onProject: (binding) => sshManagement.registerProject(binding),
   });
-  let artifacts, sessionSecrets;
+  // Declared before the session manager: its stop cleanup discards the session's agent.
+  let artifacts, sessionSecrets, sshAgents;
   const sessions = new SessionManager({
     onRemoving: (session) => artifacts?.retireSession(session.id),
     dataDir: config.dataDir,
@@ -140,6 +143,7 @@ export async function createServices(config) {
       await agentbus?.revoke(session.id);
       sshSessions.discard(session.id);
       sessionSecrets?.discard(session.id);
+      await sshAgents?.discard(session.id);
       await sshIntegration.discard(session.id);
       await requests?.discard(session.id);
       if (session.memory?.enabled) await memoryIntegration.discard(session.id);
@@ -155,6 +159,18 @@ export async function createServices(config) {
   });
   const refreshSessionSecrets = () => sessionSecrets.refresh().catch(() => {});
   secrets.onChange(refreshSessionSecrets);
+  // One SSH agent per eligible session (docs/ssh-access.md); OpenSSH is asked once.
+  sshAgents = new SessionSshAgents({
+    dataDir: config.dataDir,
+    store: sshAccesses,
+    grants: sshSessions,
+    sessions,
+    audit,
+    openssh: await detectOpenSsh().catch(() => null),
+    home: config.home,
+  });
+  // Host, key and project edits reach the agents' alias files, coalesced.
+  sshManagement.catalog.onPublished(() => sshAgents.refresh().catch(() => {}));
   const files = createFileServices({
     config,
     sessions,
@@ -391,6 +407,7 @@ export async function createServices(config) {
     sshManagement,
     secrets,
     sessionSecrets,
+    sshAgents,
     artifacts,
     sessions,
     audit,
@@ -418,6 +435,7 @@ export async function createServices(config) {
     sshSessions,
     sshIntegration,
     sshManagement,
+    sshAgents,
     secrets,
     mailAccounts,
     sessionSecrets,
@@ -502,5 +520,7 @@ export async function createServices(config) {
   // Listing sessions reconciles stopped ones through onStopped, whose cleanup needs
   // every service above, so the first rewrite of the secrets files waits until here.
   refreshSessionSecrets();
+  // Running sessions' agents listen again at their paths after a restart.
+  sshAgents.restore().catch(() => {});
   return services;
 }
