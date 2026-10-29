@@ -11,12 +11,12 @@ import { SSH_AGENT_HINT_ENV } from "./ssh-hook.js";
 import { SSH_AGENT_SOCK_ENV, SSH_CONFIG_ENV } from "./ssh-session-agents.js";
 
 // GIT_SSH_COMMAND runs through `sh -c`: one single-quoted word.
-function shellWord(value) {
+export function shellWord(value) {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 // rsync splits RSYNC_RSH itself: inside quotes a doubled quote is a literal one.
-function rsyncWord(value) {
+export function rsyncWord(value) {
   return `'${value.replaceAll("'", "''")}'`;
 }
 

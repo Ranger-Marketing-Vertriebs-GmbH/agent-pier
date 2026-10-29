@@ -270,8 +270,15 @@ export class SessionSshAgents {
       if (this.agent(session?.id)) await this.sync(session).catch(() => {});
   }
 
-  /** At service start: every running eligible session listens again at its path. */
-  async restore() {
+  /**
+   * At service start: every running eligible session listens again at its path. The
+   * stored tokens are read once for the whole pass.
+   */
+  restore() {
+    return this.registry.withKeptTokens(() => this.restoreAll());
+  }
+
+  async restoreAll() {
     if (!this.supported) return;
     let sessions = [];
     try {

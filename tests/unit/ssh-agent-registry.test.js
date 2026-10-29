@@ -398,3 +398,62 @@ test("close goes on past a socket that fails to close", async (t) => {
   assert.deepEqual(registry.entries(), []);
   assert.deepEqual(logs, [["error", "Session SSH agent could not be closed:", "EBUSY"]]);
 });
+
+test("quiet writes tell nobody; notify updates the dispatcher once for many owners", async (t) => {
+  const { registry, userConfig } = registryFixture(t);
+  const other = { kind: "agent", id: "second" };
+  t.after(() => registry.teardown(other));
+  await registry.start(agent, { token: newAgentToken(), binaries, authorize: grant([]) });
+  await registry.start(other, { token: newAgentToken(), binaries, authorize: grant([]) });
+  const heard = [];
+  registry.listen("agent", (id) => heard.push(id));
+  assert.equal(await registry.write(agent, [hostA], { quiet: true }), "written");
+  assert.equal(await registry.write(other, [hostA], { quiet: true }), "written");
+  assert.deepEqual([heard, userConfig.updates.length], [[], 0]);
+  registry.notify("agent", [agent.id, other.id]);
+  assert.deepEqual(heard, [agent.id, other.id]);
+  assert.equal(userConfig.updates.length, 1);
+  assert.equal(userConfig.updates[0].length, 2);
+});
+
+test("a pass reads the kept tokens once, however many owners it starts", async (t) => {
+  const { registry } = registryFixture(t);
+  const owners = ["one", "two", "three"].map((id) => ({ kind: "agent", id }));
+  t.after(async () => {
+    for (const owner of owners) await registry.teardown(owner);
+  });
+  let reads = 0;
+  registry.tokenSource("session", () => {
+    reads += 1;
+    return [];
+  });
+  await registry.withKeptTokens(async () => {
+    for (const owner of owners)
+      await registry.start(owner, {
+        token: newAgentToken(),
+        binaries,
+        authorize: grant([]),
+      });
+  });
+  assert.equal(reads, 1);
+  // Outside a pass every check reads them again.
+  registry.tokenInUse(newAgentToken());
+  assert.equal(reads, 2);
+});
+
+test("session restore reads the stored session tokens once for all sessions", async (t) => {
+  const f = fixture(t);
+  const launched = [await launch(f), await launch(f), await launch(f)];
+  await f.agents.close();
+  const again = new SessionSshAgents(f.deps);
+  f.started.push(again);
+  let reads = 0;
+  const source = again.registry.tokenSources.get("session");
+  again.registry.tokenSource("session", () => {
+    reads += 1;
+    return source();
+  });
+  await again.restore();
+  assert.equal(again.registry.entries("session").length, launched.length);
+  assert.equal(reads, 1);
+});

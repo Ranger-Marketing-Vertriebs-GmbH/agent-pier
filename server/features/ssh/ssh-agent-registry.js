@@ -70,6 +70,8 @@ export class SshAgentRegistry {
     // kind -> Set of change listeners; kind -> functions naming stored tokens.
     this.listeners = new Map();
     this.tokenSources = new Map();
+    // kind -> stored tokens, read once per pass (withKeptTokens); null outside one.
+    this.kept = null;
   }
 
   get supported() {
@@ -170,9 +172,10 @@ export class SshAgentRegistry {
    * owner's own Git and rsync. A bounded retry through the entry's `resync` follows.
    * Call it inside `syncs.run` (it never queues itself: a nested run would wait on
    * itself). An entry replaced or torn down while the hosts are read is left alone:
-   * the write resolves "unchanged" and no folder is re-created.
+   * the write resolves "unchanged" and no folder is re-created. A `quiet` write tells
+   * neither the dispatcher nor the listeners; a pass calls `notify` once instead.
    */
-  async write(owner, hosts, { shellEnv } = {}) {
+  async write(owner, hosts, { shellEnv, quiet = false } = {}) {
     const entry = this.get(owner);
     if (!entry) throw codedError("SSH_AGENT_NOT_STARTED", "SSH agent not started");
     const label = labels[owner.kind];
@@ -197,14 +200,14 @@ export class SshAgentRegistry {
       if (skipped.length) this.log.warn(`${label} skipped hosts:`, skipped.join(", "));
       entry.written = written;
       entry.attempts = 0;
-      this.changed(owner);
+      if (!quiet) this.changed(owner);
       return "written";
     } catch (error) {
       entry.written = null;
       if (this.owners.get(key) !== entry) throw error;
       this.withoutHosts(entry);
       // The aliases are gone: the live topics must not keep showing them.
-      this.changed(owner);
+      if (!quiet) this.changed(owner);
       this.log.error(`${label} files could not be written:`, error?.code || "error");
       this.retry(entry);
       throw error;
@@ -262,6 +265,11 @@ export class SshAgentRegistry {
    * the background, ssh-user-config-sync.js), then tells the owner's kind.
    */
   changed(owner) {
+    this.notify(owner.kind, [owner.id]);
+  }
+
+  /** `changed` for many owners of one kind: one dispatcher update, then each id. */
+  notify(kind, ids) {
     this.userConfig?.update(
       this.entries().map((entry) => ({
         configPath: path.join(ownerFolder(this.dataDir, entry.owner), "ssh_config"),
@@ -269,13 +277,14 @@ export class SshAgentRegistry {
         ssh: entry.binaries?.ssh,
       })),
     );
-    for (const listener of this.listeners.get(owner.kind) ?? []) {
-      try {
-        listener(owner.id);
-      } catch {
-        // A listener never fails a sync.
+    for (const id of ids)
+      for (const listener of this.listeners.get(kind) ?? []) {
+        try {
+          listener(id);
+        } catch {
+          // A listener never fails a sync.
+        }
       }
-    }
   }
 
   /** Calls `listener(id)` after an owner of `kind` changed; returns an unsubscribe. */
@@ -293,6 +302,28 @@ export class SshAgentRegistry {
     this.tokenSources.set(kind, source);
   }
 
+  /**
+   * Runs `task` (a restore or refresh pass) with the stored tokens read once, not
+   * once per owner it starts or removes. Live sockets are still checked live, and a
+   * token kept after the read is a fresh random one no other owner can name.
+   */
+  async withKeptTokens(task) {
+    if (this.kept) return task();
+    this.kept = new Map();
+    try {
+      return await task();
+    } finally {
+      this.kept = null;
+    }
+  }
+
+  storedTokens(kind, source) {
+    if (this.kept?.has(kind)) return this.kept.get(kind);
+    const stored = source() ?? [];
+    this.kept?.set(kind, stored);
+    return stored;
+  }
+
   /** Whether an owner other than `exceptOwner` listens with, or keeps, `token`. */
   tokenInUse(token, exceptOwner) {
     if (typeof token !== "string" || !tokenPattern.test(token)) return false;
@@ -301,7 +332,7 @@ export class SshAgentRegistry {
     for (const [kind, source] of this.tokenSources) {
       let stored = [];
       try {
-        stored = source() ?? [];
+        stored = this.storedTokens(kind, source);
       } catch {
         continue;
       }
