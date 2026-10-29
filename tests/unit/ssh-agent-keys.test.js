@@ -9,6 +9,7 @@ import test from "node:test";
 import ssh2 from "ssh2";
 import {
   publicKeyBlob,
+  signatureAlgorithm,
   signUserauth,
   verifySessionBind,
 } from "../../server/features/ssh/ssh-agent-keys.js";
@@ -32,6 +33,7 @@ const ed25519 = keyPair("ed25519");
 const rsa = keyPair("rsa", ["-b", "2048"]);
 const ecdsa = keyPair("ecdsa", ["-b", "256"]);
 const ecdsa384 = keyPair("ecdsa", ["-b", "384"]);
+const ecdsa521 = keyPair("ecdsa", ["-b", "521"]);
 const data = Buffer.from("userauth request bytes");
 
 function u32(value) {
@@ -65,7 +67,7 @@ function hostSignature(pair, sessionId, algorithm, hash) {
 
 function sshSignatureFromDer(der) {
   const integers = [];
-  let offset = 2;
+  let offset = der[1] & 0x80 ? 2 + (der[1] & 0x7f) : 2;
   while (offset < der.length) {
     const length = der[offset + 1];
     integers.push(der.subarray(offset + 2, offset + 2 + length));
@@ -99,7 +101,7 @@ test("ed25519 signature verifies against the public key", () => {
   assert.equal(utils.parseKey(ed25519.publicLine).verify(data, sshString(blob, 1)), true);
 });
 
-test("rsa uses rsa-sha2-512 for flag 4 and refuses SHA-1 unless allowed", () => {
+test("rsa uses rsa-sha2-512 for flag 4, rsa-sha2-256 for 2 and 2|4, SHA-1 only if allowed", () => {
   const publicKey = utils.parseKey(rsa.publicLine);
   const sha512 = signUserauth(rsa.privateText, data, 4);
   assert.equal(sshString(sha512, 0).toString(), "rsa-sha2-512");
@@ -109,7 +111,8 @@ test("rsa uses rsa-sha2-512 for flag 4 and refuses SHA-1 unless allowed", () => 
   assert.equal(publicKey.verify(data, sshString(sha256, 1), "sha256"), true);
   assert.equal(
     sshString(signUserauth(rsa.privateText, data, 6), 0).toString(),
-    "rsa-sha2-512",
+    "rsa-sha2-256",
+    "OpenSSH tests RSA_SHA2_256 first",
   );
   assert.throws(() => signUserauth(rsa.privateText, data, 0), {
     code: "SSH_AGENT_LEGACY",
@@ -123,6 +126,7 @@ test("ecdsa signatures are SSH mpint pairs that verify", () => {
   for (const [pair, name, hash] of [
     [ecdsa, "ecdsa-sha2-nistp256", "sha256"],
     [ecdsa384, "ecdsa-sha2-nistp384", "sha384"],
+    [ecdsa521, "ecdsa-sha2-nistp521", "sha512"],
   ]) {
     for (let round = 0; round < 8; round += 1) {
       const message = Buffer.concat([data, Buffer.from([round])]);
@@ -150,15 +154,18 @@ test("session-bind verification accepts the host's signature and rejects a tampe
   for (const [pair, algorithm, hash] of [
     [ed25519, "ssh-ed25519", undefined],
     [ecdsa, "ecdsa-sha2-nistp256", "sha256"],
+    [ecdsa384, "ecdsa-sha2-nistp384", "sha384"],
+    [ecdsa521, "ecdsa-sha2-nistp521", "sha512"],
     [rsa, "rsa-sha2-512", "sha512"],
     [rsa, "rsa-sha2-256", "sha256"],
+    [rsa, "ssh-rsa", "sha1"],
   ]) {
     const hostKeyBlob = publicKeyBlob(pair.publicLine);
     const signature = hostSignature(pair, sessionId, algorithm, hash);
     assert.equal(
       verifySessionBind({ hostKeyBlob, sessionId, signature }),
-      true,
       algorithm,
+      "returns the bind signature's algorithm",
     );
     assert.equal(
       verifySessionBind({ hostKeyBlob, sessionId: Buffer.from("x"), signature }),
@@ -221,4 +228,98 @@ test("an encrypted key is unsupported and its error carries no key text", () => 
       !String(error.message).includes("PRIVATE KEY") &&
       error.cause === undefined,
   );
+});
+
+test("signatureAlgorithm follows OpenSSH flag order and the legacy switch", () => {
+  assert.equal(signatureAlgorithm("ssh-rsa", 2), "rsa-sha2-256");
+  assert.equal(signatureAlgorithm("ssh-rsa", 4), "rsa-sha2-512");
+  assert.equal(signatureAlgorithm("ssh-rsa", 6), "rsa-sha2-256");
+  assert.equal(signatureAlgorithm("ssh-rsa", 0, { allowSha1: true }), "ssh-rsa");
+  assert.throws(() => signatureAlgorithm("ssh-rsa", 8), { code: "SSH_AGENT_LEGACY" });
+  assert.equal(signatureAlgorithm("ssh-ed25519", 4), "ssh-ed25519");
+  assert.equal(signatureAlgorithm("ecdsa-sha2-nistp521", 2), "ecdsa-sha2-nistp521");
+  assert.throws(() => signatureAlgorithm("ssh-dss", 0), {
+    code: "SSH_AGENT_KEY_UNSUPPORTED",
+  });
+});
+
+test("non-RSA keys ignore RSA flags", () => {
+  assert.equal(
+    sshString(signUserauth(ecdsa.privateText, data, 4), 0).toString(),
+    "ecdsa-sha2-nistp256",
+  );
+  assert.equal(
+    sshString(signUserauth(ed25519.privateText, data, 2), 0).toString(),
+    "ssh-ed25519",
+  );
+});
+
+function blobLine(type, body) {
+  return `${type} ${Buffer.concat([wireString(type), body]).toString("base64")}`;
+}
+
+test("publicKeyBlob refuses DSS, certificates, unknown types and malformed bodies", () => {
+  for (const type of [
+    "ssh-dss",
+    "ssh-ed25519-cert-v01@openssh.com",
+    "ecdsa-sha2-nistp256-cert-v01@openssh.com",
+    "bogus-type",
+  ]) {
+    assert.throws(() => publicKeyBlob(blobLine(type, wireString(Buffer.alloc(32, 1)))), {
+      code: "SSH_AGENT_KEY_UNSUPPORTED",
+    });
+  }
+  assert.throws(() => publicKeyBlob(blobLine("ssh-ed25519", Buffer.alloc(3, 1))), {
+    code: "SSH_AGENT_KEY_UNSUPPORTED",
+  });
+  const blob = publicKeyBlob(ed25519.publicLine);
+  const trailing = Buffer.concat([blob, Buffer.from([0])]).toString("base64");
+  assert.throws(() => publicKeyBlob(`ssh-ed25519 ${trailing}`), {
+    code: "SSH_AGENT_KEY_UNSUPPORTED",
+  });
+});
+
+test("session-bind refuses a host key blob that is not canonical", () => {
+  const sessionId = Buffer.alloc(32, 8);
+  for (const [pair, algorithm, hash] of [
+    [ed25519, "ssh-ed25519", undefined],
+    [ecdsa384, "ecdsa-sha2-nistp384", "sha384"],
+    [ecdsa521, "ecdsa-sha2-nistp521", "sha512"],
+    [rsa, "rsa-sha2-256", "sha256"],
+  ]) {
+    const hostKeyBlob = Buffer.concat([publicKeyBlob(pair.publicLine), Buffer.from([7])]);
+    const signature = hostSignature(pair, sessionId, algorithm, hash);
+    assert.equal(verifySessionBind({ hostKeyBlob, sessionId, signature }), false);
+  }
+});
+
+test("session-bind refuses ECDSA signatures with trailing or non-canonical integers", () => {
+  const sessionId = Buffer.alloc(32, 4);
+  for (const [pair, name, hash] of [
+    [ecdsa, "ecdsa-sha2-nistp256", "sha256"],
+    [ecdsa384, "ecdsa-sha2-nistp384", "sha384"],
+    [ecdsa521, "ecdsa-sha2-nistp521", "sha512"],
+  ]) {
+    const hostKeyBlob = publicKeyBlob(pair.publicLine);
+    const good = hostSignature(pair, sessionId, name, hash);
+    assert.equal(verifySessionBind({ hostKeyBlob, sessionId, signature: good }), name);
+    const inner = sshString(good, 1);
+    const r = sshString(inner, 0);
+    const s = sshString(inner, 1);
+    const wrap = (body) => Buffer.concat([wireString(name), wireString(body)]);
+    const variants = [
+      Buffer.concat([inner, Buffer.from([1, 2, 3])]),
+      Buffer.concat([wireString(Buffer.concat([Buffer.from([0]), r])), wireString(s)]),
+      Buffer.concat([wireString(r), wireString(Buffer.concat([Buffer.from([0, 0]), s]))]),
+      Buffer.concat([wireString(Buffer.alloc(0)), wireString(s)]),
+      Buffer.concat([wireString(Buffer.concat([Buffer.from([0x80]), r])), wireString(s)]),
+      wireString(r),
+    ];
+    for (const body of variants) {
+      assert.equal(
+        verifySessionBind({ hostKeyBlob, sessionId, signature: wrap(body) }),
+        false,
+      );
+    }
+  }
 });

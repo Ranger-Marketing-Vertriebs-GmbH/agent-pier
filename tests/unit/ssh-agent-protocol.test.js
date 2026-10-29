@@ -270,3 +270,62 @@ test("an identities reply round-trips through the frame reader", () => {
   assert.equal(frames.length, 1);
   assert.equal(frames[0][0], agentMessage.IDENTITIES_ANSWER);
 });
+
+test("session-bind truncated at any byte is malformed", () => {
+  const full = bindMessage();
+  for (let cut = 1; cut < full.length; cut += 1) {
+    assert.throws(
+      () => parseAgentRequest(full.subarray(0, cut)),
+      { code: "SSH_AGENT_MALFORMED" },
+      `cut at ${cut}`,
+    );
+  }
+});
+
+test("session-bind with lying inner lengths is malformed", () => {
+  const full = bindMessage();
+  const hostKeyLength = 1 + 4 + "session-bind@openssh.com".length;
+  for (const delta of [-1, 1, 1000, 0xffffffff - hostKey.length]) {
+    const lying = Buffer.from(full);
+    lying.writeUInt32BE(hostKey.length + delta, hostKeyLength);
+    assert.throws(() => parseAgentRequest(lying), { code: "SSH_AGENT_MALFORMED" });
+  }
+  const nameLie = Buffer.from(full);
+  nameLie.writeUInt32BE(0xfffffff0, 1);
+  assert.throws(() => parseAgentRequest(nameLie), { code: "SSH_AGENT_MALFORMED" });
+});
+
+test("any non-zero forwarding byte marks the bind as forwarding", () => {
+  const full = bindMessage();
+  for (const value of [2, 0x80, 0xff]) {
+    const odd = Buffer.from(full);
+    odd[odd.length - 1] = value;
+    assert.equal(parseAgentRequest(odd).forwarding, true);
+  }
+});
+
+test("userauth data truncated at any byte is null", () => {
+  const full = userauth({ method: "publickey-hostbound-v00@openssh.com", hostKey });
+  for (let cut = 0; cut < full.length; cut += 1) {
+    assert.equal(parseUserauthRequest(full.subarray(0, cut)), null, `cut at ${cut}`);
+  }
+});
+
+test("a full-size frame sent byte by byte is reassembled from copied chunks", () => {
+  const reader = new AgentFrameReader();
+  const payload = Buffer.alloc(262144, 13);
+  const frame = encodeFrame(payload);
+  const frames = [];
+  for (let index = 0; index < frame.length; index += 1) {
+    const byte = Buffer.from([frame[index]]);
+    frames.push(...reader.push(byte));
+    byte[0] = 0;
+  }
+  assert.equal(frames.length, 1);
+  assert.ok(frames[0].equals(payload));
+  const partial = new AgentFrameReader();
+  const head = Buffer.from(encodeFrame(Buffer.from([11, 12])).subarray(0, 5));
+  assert.deepEqual(partial.push(head), []);
+  head[4] = 99;
+  assert.deepEqual(partial.push(Buffer.from([12])), [Buffer.from([11, 12])]);
+});
