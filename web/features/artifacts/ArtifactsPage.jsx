@@ -346,12 +346,12 @@ export default function ArtifactsPage({
               heading={!subpage}
               returnTo={routePath({ ...route, artifact: item.id })}
               navigate={onNavigate}
-              onChanged={() => {
-                list.written();
+              onChanged={async () => {
+                await list.written();
                 setRevision((value) => value + 1);
               }}
-              onRemoved={() => {
-                list.written();
+              onRemoved={async () => {
+                await list.written();
                 go({ artifact: "" });
               }}
             />

@@ -97,8 +97,8 @@ export function InboxGateDetail({ item, done }) {
           run={run}
           node={node}
           feedback={feedback}
-          refresh={() => {
-            resource.written();
+          refresh={async () => {
+            await resource.written();
             done();
           }}
         />
@@ -137,8 +137,9 @@ export function InboxActionDetail({ item, done }) {
     } catch (e) {
       setError(e.message);
     } finally {
+      // Busy until the agent's push shows the decision.
+      await resource.written();
       setBusy(false);
-      resource.written();
       done();
     }
   };

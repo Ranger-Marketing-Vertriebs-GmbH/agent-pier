@@ -129,7 +129,8 @@ export default function QueueItems({ project, items, refresh, onOpenRun }) {
   const call = (path, method, body) =>
     action.run(async () => {
       await api(path, method, body);
-      refresh();
+      // Busy until the queue's push shows the change (useLiveTopic written()).
+      await refresh();
     });
   const pending = items.filter(waiting);
   const others = items
@@ -188,8 +189,8 @@ export default function QueueItems({ project, items, refresh, onOpenRun }) {
               `/pipeline-queue/${encodeURIComponent(deleting.projectId)}/items/${encodeURIComponent(deleting.id)}`,
               "DELETE",
             );
+            await refresh();
             setDeleting(null);
-            refresh();
           }}
         />
       )}

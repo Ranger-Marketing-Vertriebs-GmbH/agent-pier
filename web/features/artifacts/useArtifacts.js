@@ -7,7 +7,8 @@ import { artifactListQuery } from "./artifact-presentation.js";
  * (`artifacts.usage`) unless `usage` is false (a panel that does not show it); the
  * page is read once and again on each `changed` of `artifacts.changed` (without the
  * live channel, both every 5 s). `written()` follows the caller's own pin or delete:
- * the change arrives as `changed`, so it reads only while no push can come.
+ * the change arrives as `changed`, so it resolves once the list was read again
+ * (useLiveTopic written()).
  */
 export default function useArtifacts({
   sessionId,
@@ -30,9 +31,10 @@ export default function useArtifacts({
     stale: last.current,
     usage: usage.data ?? undefined,
     error: list.error || usage.error,
+    // Resolves once the list shows the write; the usage follows on its own.
     written: useCallback(() => {
-      writtenList();
       writtenUsage();
+      return writtenList();
     }, [writtenList, writtenUsage]),
   };
 }

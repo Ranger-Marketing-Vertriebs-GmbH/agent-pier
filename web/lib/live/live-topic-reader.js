@@ -29,6 +29,9 @@ const browser = () => ({
 });
 
 const readTimeoutMs = 15000;
+// How long written() waits for the push of a write before it reads the route: a write
+// that leaves the value as it was sends no push.
+export const WRITTEN_WAIT_MS = 2000;
 
 /**
  * Starts following `topicId` on `client`. `read(path, signal)` is the REST GET of
@@ -36,8 +39,9 @@ const readTimeoutMs = 15000;
  * `report({data, error, loading, connected})` gets every change. Returns
  * `{ refresh, written, set, stop }`; `refresh()` reads over REST and resolves with the
  * data, or with null when the read failed (its error is reported) or the tab is
- * hidden; `written()` is the read after the caller's own write, made only when no push
- * will bring it.
+ * hidden; `written()` follows the caller's own write: it resolves with the next value
+ * shown (the write's push), reads the route after WRITTEN_WAIT_MS without one, and
+ * reads it at once when no push can come.
  */
 export function startLiveTopic({ topicId, path: route, client, read, report, env = {} }) {
   const scope = { ...browser(), ...env };
@@ -76,9 +80,13 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   // stamp is unknown.
   const laterThanShown = (stamp) =>
     stamp !== null && state.readAt !== null ? stamp > state.readAt : null;
+  // written() callers waiting for the next value that is shown.
+  const waiting = new Set();
   const publish = (changes) => {
     Object.assign(state, changes);
     report({ ...state });
+    if (!Object.hasOwn(changes, "data")) return;
+    for (const resolve of [...waiting]) resolve(state.data);
   };
   const accept = (result, started) => {
     if (!result || stopped) return null;
@@ -227,9 +235,22 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     // shown.
     written: () => {
       const { connected, fallback } = client.status();
-      if (connected && !fallback && !refused && !revoked && !stopPolling)
-        return Promise.resolve(state.data);
-      return fetchOnce().then((data) => data ?? null);
+      if (stopped || !connected || fallback || refused || revoked || stopPolling)
+        return fetchOnce().then((data) => data ?? null);
+      return new Promise((resolve) => {
+        let timer = null;
+        const done = (data) => {
+          if (!waiting.delete(done)) return;
+          scope.clearTimeout(timer);
+          resolve(data);
+        };
+        waiting.add(done);
+        // No push in time (an unchanged value, a lost frame): the route answers.
+        timer = scope.setTimeout(() => {
+          if (!waiting.delete(done)) return;
+          fetchOnce().then((data) => resolve(data ?? null));
+        }, WRITTEN_WAIT_MS);
+      });
     },
     // A write's own answer replaces the data at once; a REST read already under way
     // would bring the older state back, so its answer is dropped. Later pushes win.
@@ -240,6 +261,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     },
     stop() {
       stopped = true;
+      for (const resolve of [...waiting]) resolve(null);
       unsubscribe();
       stopPolling?.();
       oneTime?.abort();

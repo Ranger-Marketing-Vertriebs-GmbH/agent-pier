@@ -23,8 +23,10 @@ export const shownState = (current, key, topicId) =>
  * `{data, error, loading, connected, refresh, written}`. `refresh()` reads the topic's
  * REST route and resolves with the data, or null when that read failed or the tab is
  * hidden, for a caller that must await fresh data after a write. `written()` follows
- * a write whose change the topic pushes: it reads the route only while no push can
- * come (the fallback, a refused topic). `path` replaces the topic's REST route; a
+ * a write whose change the topic pushes: it resolves with the next value shown, reads
+ * the route after 2 s without one, and at once while no push can come (the fallback,
+ * a refused topic); callers await it inside their mutation, so the control stays busy
+ * until the change shows. `path` replaces the topic's REST route; a
  * signal topic's data is that route, read again per `changed`.
  * A topic followed again (null, then the same id) starts from loading, never from
  * what the previous subscription held.
