@@ -197,6 +197,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "artifacts.changed",
     "system.status",
     "system.status.details",
+    "system.cleanup.summary",
     "nope",
     "a".repeat(300),
     "state\u202e",

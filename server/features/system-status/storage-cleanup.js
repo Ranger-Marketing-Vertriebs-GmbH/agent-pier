@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { auditActor } from "../audit/audit-actor.js";
 import { deleteSnapshot, listSnapshots } from "./cleanup-snapshots.js";
@@ -76,11 +77,14 @@ export class StorageCleanup {
     this.dataDir = fs.realpathSync(dataDir);
     Object.assign(this, { services, audit, cwds, now });
     this.running = null;
+    // `change` when the cached summary changes (live topic system.cleanup.summary).
+    this.events = new EventEmitter();
     this.summaryMeasure = new BackgroundMeasure({
       measure: (isClosed) => this.measureSummary(isClosed),
       maxAgeMs: summaryMaxAgeMs,
       now,
       onError,
+      onChange: () => this.events.emit("change"),
     });
   }
   updates() {

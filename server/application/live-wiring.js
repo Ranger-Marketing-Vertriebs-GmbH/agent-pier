@@ -33,7 +33,10 @@ import {
   artifactsChangedTopic,
   artifactsUsageTopic,
 } from "../features/artifacts/live-topics.js";
-import { systemStatusTopics } from "../features/system-status/live-topics.js";
+import {
+  cleanupSummaryTopic,
+  systemStatusTopics,
+} from "../features/system-status/live-topics.js";
 import { meTopics } from "../features/users/live-me-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
@@ -92,6 +95,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());
   for (const topic of systemStatusTopics(services)) hub.define(topic);
+  hub.define(cleanupSummaryTopic(services));
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).
   for (const topic of meTopics(services)) hub.define(topic);
   // Topics whose value depends on owner privacy start over on every privacy change,

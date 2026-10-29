@@ -246,8 +246,8 @@ The start page and the details follow the owner-only live topics `system.status`
 `system.status.details` (the values of `GET /api/system-status` and
 `GET /api/system-status/details`, see the live channel in `architecture.md`). The server
 reads each every five seconds while a visible tab watches and pushes the figures; a
-hidden tab unsubscribes at once, and while the socket is down the page polls the two
-routes every five seconds as the channel's fallback. The start page's figures include
+hidden tab unsubscribes at once, and while the socket is down the page polls the routes
+every five seconds as the channel's fallback. The start page's figures include
 each session's CPU and RAM and the last points of the history, so it never reads the
 details. The server samples every five seconds and returns to its background pace
 30 seconds after the last request. In the background it takes one sample a minute (CPU

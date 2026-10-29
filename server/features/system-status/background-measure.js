@@ -5,7 +5,8 @@
  * newer one runs, `ready` otherwise, and `failed` when the last attempt failed and no
  * result is known. A failed attempt is retried after `retryMs`, never on every read.
  * `invalidate` (after a deletion) measures again on the next read, also when it comes
- * during a measurement. The measurement gets `isClosed()` to stop early at shutdown.
+ * during a measurement. `onChange` is called when a measurement ends (a result or a
+ * failure) and on `invalidate`, so a live topic can push the new state. The measurement gets `isClosed()` to stop early at shutdown.
  */
 export class BackgroundMeasure {
   constructor({
@@ -14,8 +15,9 @@ export class BackgroundMeasure {
     retryMs = Math.min(maxAgeMs, 60_000),
     now = Date.now,
     onError = () => {},
+    onChange = () => {},
   }) {
-    Object.assign(this, { measure, maxAgeMs, retryMs, now, onError });
+    Object.assign(this, { measure, maxAgeMs, retryMs, now, onError, onChange });
     this.value = null;
     this.measuredAt = 0;
     this.failedAt = null;
@@ -53,10 +55,12 @@ export class BackgroundMeasure {
       })
       .finally(() => {
         this.run = null;
+        if (!this.closed) this.onChange();
       });
   }
   invalidate() {
     this.stale = true;
+    if (!this.closed) this.onChange();
   }
   async close() {
     this.closed = true;
