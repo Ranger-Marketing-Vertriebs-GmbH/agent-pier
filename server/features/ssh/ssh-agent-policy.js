@@ -13,7 +13,8 @@ const bindKeyTypes = new Set([
   "ecdsa-sha2-nistp384",
   "ecdsa-sha2-nistp521",
 ]);
-const knownCodes = new Set([
+// The five refusal codes of the session agent (spec call 11).
+export const agentRefusalCodes = new Set([
   "SSH_AGENT_UNBOUND",
   "SSH_AGENT_FORWARDING",
   "SSH_AGENT_NOT_GRANTED",
@@ -193,6 +194,8 @@ export function decideSignature(input) {
   try {
     return decide(input ?? {});
   } catch (error) {
-    return refuse(knownCodes.has(error?.code) ? error.code : "SSH_AGENT_NOT_GRANTED");
+    return refuse(
+      agentRefusalCodes.has(error?.code) ? error.code : "SSH_AGENT_NOT_GRANTED",
+    );
   }
 }
