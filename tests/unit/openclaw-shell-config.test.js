@@ -563,6 +563,11 @@ test("the wrapper sources an agent's SSH environment only under the literal agen
   assert.equal(run(path.join(base, "_agents-x", "a1", "bin")), "");
   assert.equal(run(path.join(root, "a1", "x", "bin")), "");
   assert.equal(run(path.join(root, "missing", "bin")), "");
+  // An empty, `.` or `..` name would source the root's or its parent's file.
+  fs.writeFileSync(path.join(root, "shell-env.sh"), "export AGENTPIER_SSH_CONFIG=root\n");
+  fs.writeFileSync(path.join(base, "shell-env.sh"), "export AGENTPIER_SSH_CONFIG=up\n");
+  for (const name of ["", ".", ".."])
+    assert.equal(run(`${root}/${name}/bin:${path.join(root, "a1", "bin")}`), "", name);
   assert.equal(run("/owner/bin"), "");
   // On the Gateway's PATH too, as for GitHub.
   assert.equal(

@@ -7,11 +7,15 @@ import {
   connectAssistantServices,
   constructAssistantGraph,
 } from "../../server/application/assistant-graph.js";
-import { createAssistantServices } from "../../server/application/assistants.js";
+import {
+  createAssistantServices,
+  startAssistantServices,
+} from "../../server/application/assistants.js";
 import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
+import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { ASSISTANT_WIRING_INCOMPLETE } from "../../server/features/assistants/service-wiring.js";
 
 function options(t) {
@@ -191,4 +195,73 @@ test("the graph binds SSH host removal to the agents and unbinds it on close", a
   assert.equal(sshManagement.onAccessChanged, graph.assistantWorkflows.ssh.hook);
   await graph.assistantWorkflows.close();
   assert.equal(sshManagement.onAccessChanged, null);
+});
+
+test("a failure after the agents' SSH wiring closes it first and drops its listeners", async (t) => {
+  const listeners = new Set();
+  const closed = [];
+  const settings = {
+    ...options(t),
+    sshAgentRegistry: { tokenSource() {}, close: async (kind) => closed.push(kind) },
+    sshManagement: {
+      onAccessChanged: null,
+      store: { list: () => [] },
+      catalog: {
+        onPublished(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+    },
+  };
+  // A read-only reminder write fails construction after connectAgentShellSsh.
+  const descriptor = Object.getOwnPropertyDescriptor(NativeReminders.prototype, "create");
+  Object.defineProperty(NativeReminders.prototype, "create", {
+    ...descriptor,
+    writable: false,
+  });
+  t.after(() => Object.defineProperty(NativeReminders.prototype, "create", descriptor));
+  let failure;
+  try {
+    createAssistantServices(settings);
+  } catch (error) {
+    failure = error;
+  }
+  assert.ok(failure);
+  await failure.released;
+  assert.equal(listeners.size, 0);
+  assert.deepEqual(closed, ["agent"]);
+});
+
+// The first Gateway start compiles the agents' SSH PATH entries: it waits for their
+// first refresh (bounded, startRefreshMs); a feature released meanwhile starts nothing.
+test("the Gateway starts after the agents' first SSH refresh", async (t) => {
+  const root = options(t).config.dataDir;
+  fs.writeFileSync(path.join(root, "settings.json"), JSON.stringify({ enabled: true }));
+  const run = async (closeFirst) => {
+    let refreshed;
+    const starts = [];
+    const agentSsh = {
+      closed: false,
+      refresh: () => new Promise((resolve) => (refreshed = resolve)),
+    };
+    startAssistantServices(
+      {
+        config: { dataDir: root },
+        assistants: {},
+        assistantChannels: { start() {} },
+        assistantRuntime: { paths: { root }, start: async () => starts.push("start") },
+        assistantAgentSsh: agentSsh,
+      },
+      { stageInBackground() {} },
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(starts, []);
+    agentSsh.closed = closeFirst;
+    refreshed();
+    await new Promise((resolve) => setImmediate(resolve));
+    return starts;
+  };
+  assert.deepEqual(await run(false), ["start"]);
+  assert.deepEqual(await run(true), []);
 });

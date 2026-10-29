@@ -33,8 +33,9 @@ export const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}
 // An agent with shell and SSH grants has its SSH folder's bin/ next
 // (agent-ssh-shell.js); a second loop sources that folder's shell-env.sh (its SSH
 // agent, Git and rsync), so both are sourced when both entries are present.
-// `pattern` is a case pattern; `guard` an extra test before the file is sourced.
-const markerLines = (pattern, guard = "") => [
+// `pattern` is a case pattern; `guard` an extra test before the file is sourced;
+// `refused` a case pattern checked first that ends the scan without sourcing.
+const markerLines = (pattern, guard = "", refused = null) => [
   // One variable, then split: dash (Linux's /bin/sh) does not split the literal `:`
   // of `${A}:${B}`, which would glue it to PATH's first entry.
   "agentpier_dirs=${OPENCLAW_PREPEND_PATH:-}:${PATH:-}",
@@ -43,6 +44,7 @@ const markerLines = (pattern, guard = "") => [
   "set -f",
   "for agentpier_dir in $agentpier_dirs; do",
   "  case $agentpier_dir in",
+  ...(refused ? [`    ${refused}) break ;;`] : []),
   `    ${pattern})`,
   `      if ${guard}[ -f "\${agentpier_dir%/bin}/shell-env.sh" ]; then . "\${agentpier_dir%/bin}/shell-env.sh"; fi`,
   "      break ;;",
@@ -55,12 +57,14 @@ const markerLines = (pattern, guard = "") => [
 
 // Only `<root>/<one name>/bin` of the agents root written in as a single-quoted
 // literal: a sibling such as `_agents-x/...` never matches the quoted pattern, and a
-// deeper path fails the guard (`%/*/bin` removes the shortest such suffix).
+// deeper path fails the guard (`%/*/bin` removes the shortest such suffix). An empty,
+// `.` or `..` name, which would name the root or its parent, is refused first.
 const sshShellLines = (root) => {
   const literal = shellQuote(root);
   return markerLines(
     `${literal}/*/bin`,
     `[ "\${agentpier_dir%/*/bin}" = ${literal} ] && `,
+    ["/bin", "./bin", "../bin"].map((tail) => `${literal}/${tail}`).join("|"),
   );
 };
 

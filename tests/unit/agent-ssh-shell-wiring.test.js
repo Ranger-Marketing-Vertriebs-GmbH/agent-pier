@@ -10,7 +10,7 @@ import { hostA, hostB } from "../helpers/ssh-session-agents-fixture.js";
 
 // The agent SSH agents' wiring (agent-ssh-shell-wiring.js) on the fixture's registry,
 // agents and access: a fake agent graph and SSH services, never the real ones.
-function wired(t, { restored = Promise.resolve() } = {}) {
+function wired(t, { restored = Promise.resolve(), syncMs } = {}) {
   const s = setup(t);
   const events = new AssistantEvents();
   let published = null;
@@ -31,7 +31,12 @@ function wired(t, { restored = Promise.resolve() } = {}) {
     sshAgentRegistry: s.registry,
     sshAgentsRestored: restored,
     sshManagement: {
-      store: { list: () => [hostA, hostB] },
+      store: {
+        list: () => {
+          if (w.failCatalog) throw Error("catalog unreadable");
+          return [hostA, hostB];
+        },
+      },
       catalog: {
         onPublished(listener) {
           published = listener;
@@ -40,7 +45,8 @@ function wired(t, { restored = Promise.resolve() } = {}) {
       },
     },
   };
-  const shell = connectAgentShellSsh(services, graph);
+  const w = { failCatalog: false };
+  const shell = connectAgentShellSsh(services, graph, { syncMs });
   const refresh = shell.refresh.bind(shell);
   shell.refresh = () => ((refreshes += 1), refresh());
   t.after(() => shell.close());
@@ -49,17 +55,15 @@ function wired(t, { restored = Promise.resolve() } = {}) {
     await new Promise((resolve) => setImmediate(resolve));
     await s.registry.syncs.idle();
   };
-  return {
+  return Object.assign(w, {
     s,
     graph,
     shell,
     events,
     settled,
     publish: () => published?.(),
-    get refreshes() {
-      return refreshes;
-    },
-  };
+    refreshes: () => refreshes,
+  });
 }
 
 test("without the SSH services or the agent graph nothing is wired", () => {
@@ -76,12 +80,12 @@ test("connect wires the hooks, refreshes on agent and catalog changes, and relea
   const a = s.add(personal(), [trusted(hostA)]);
   w.events.publish({ type: "change" });
   await w.settled();
-  assert.equal(w.refreshes, 1);
+  assert.equal(w.refreshes(), 1);
   assert.deepEqual(config.sshShellPath(s.get(a.id)), [path.join(s.folder(a), "bin")]);
   s.grants.set(a.id, []);
   w.publish();
   await w.settled();
-  assert.equal(w.refreshes, 2);
+  assert.equal(w.refreshes(), 2);
   assert.deepEqual(config.sshShellPath(s.get(a.id)), []);
   s.grants.set(a.id, [trusted(hostA)]);
   w.publish();
@@ -96,7 +100,7 @@ test("connect wires the hooks, refreshes on agent and catalog changes, and relea
   w.events.publish({ type: "change" });
   w.publish();
   await w.settled();
-  assert.equal(w.refreshes, 3);
+  assert.equal(w.refreshes(), 3);
 });
 
 test("switching the feature off removes every agent folder and the hooks", async (t) => {
@@ -140,7 +144,7 @@ test("each turn syncs first, so its instructions name the aliases of trusted hos
 test("a turn whose sync fails still gets an answer", async (t) => {
   const w = wired(t);
   const a = w.s.add(personal(), [trusted(hostA)]);
-  w.shell.refresh = async () => {
+  w.shell.sync = async () => {
     throw Error("boom");
   };
   assert.equal(await w.graph.assistants.config.plainSsh(w.s.get(a.id)), null);
@@ -173,5 +177,49 @@ test("approval analysis resolves on the agent's SSH bin before the owner's PATH"
     kind: "once",
     reason: "interpreter",
     program: "ssh",
+  });
+});
+
+test("a turn's sync touches only its own agent and never waits for a stuck queue", async (t) => {
+  const w = wired(t, { syncMs: 50 });
+  const { s, graph } = w;
+  const plainSsh = (agent) => graph.assistants.config.plainSsh(s.get(agent.id));
+  const a = s.add(personal(), [trusted(hostA)]);
+  const b = s.add(personal(), [trusted(hostB)]);
+  await w.shell.refresh();
+  const socketB = s.socketPath(b);
+  // b loses its shell; a's turn neither tears b down nor starts anyone else.
+  s.agents.set(b.id, { ...s.agents.get(b.id), shell: "off" });
+  const c = s.add(personal(), [trusted(hostA)]);
+  assert.equal((await plainSsh(a)).hosts.length, 1);
+  assert.equal(s.socketPath(b), socketB);
+  assert.equal(s.registry.get(owner(c)), undefined);
+  // b's own turn tears it down.
+  assert.equal(await plainSsh(b), null);
+  assert.equal(s.registry.get(owner(b)), undefined);
+  // A session task that never finishes: the turn answers within the bound from the
+  // status it has (a stays ready; c, never started, has nothing).
+  let finish;
+  s.registry.syncs.run(() => new Promise((resolve) => (finish = resolve)));
+  const started = Date.now();
+  assert.equal((await plainSsh(a)).hosts.length, 1);
+  assert.equal(await plainSsh(c), null);
+  assert.ok(Date.now() - started < 1000);
+  finish();
+  await s.registry.syncs.idle();
+});
+
+test("an unreadable catalog still names the aliases, by alias", async (t) => {
+  const w = wired(t);
+  const a = w.s.add(personal(), [trusted(hostA)]);
+  await w.shell.refresh();
+  const alias = w.shell.aliases(a.id)[hostA.id];
+  assert.ok(alias);
+  // The catalog fails after the files were written (a write while it fails would
+  // clear the aliases, ssh-agent-registry.js): this turn's sync already ran.
+  w.shell.sync = async () => {};
+  w.failCatalog = true;
+  assert.deepEqual(await w.graph.assistants.config.plainSsh(w.s.get(a.id)), {
+    hosts: [{ name: alias, alias }],
   });
 });

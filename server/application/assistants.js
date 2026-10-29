@@ -13,7 +13,11 @@ import { recoverAssistantServices } from "./assistant-recovery.js";
 import { stageRuntimeInBackground } from "../features/assistants/runtime-provisioning.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
-import { connectAgentShellSsh } from "./agent-ssh-shell-wiring.js";
+import {
+  connectAgentShellSsh,
+  startRefreshMs,
+  within,
+} from "./agent-ssh-shell-wiring.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 import {
@@ -64,7 +68,7 @@ export function createAssistantServices(options) {
   try {
     const graph = connectAssistantServices(constructAssistantGraph(options, created));
     graph.assistantAgentSecrets = connectAgentSecrets(options.secrets, graph);
-    graph.assistantAgentSsh = connectAgentShellSsh(options, graph);
+    graph.assistantAgentSsh = created.agentSsh = connectAgentShellSsh(options, graph);
     graph.assistantSkillCatalog = connectSkillCatalog(graph);
     // Every change of a ChatGPT sign-in reaches its live topic (services.live).
     graph.assistantModelLogin.onChange = () => chatgptLoginChanged(options.live);
@@ -79,6 +83,8 @@ export function createAssistantServices(options) {
     // Unconnected services are not closed through AssistantService; close each one
     // directly, one after another, so no two closes share a database.
     const closers = [
+      // Its listeners on the process-wide SSH catalog go first; folders stay.
+      created.agentSsh,
       created.workflows,
       created.bridge,
       created.teams,
@@ -113,13 +119,21 @@ export function startAssistantServices(
   if (assistants.maintenance || assistantUpdates?.status().recoveryRequired) return;
   // Files follow the stored grants and secrets from the start (agent-secrets.js).
   assistantAgentSecrets?.syncAll().catch(() => {});
-  // Agents' SSH sockets listen again at their stored paths (agent-ssh-shell.js).
-  assistantAgentSsh?.refresh().catch(() => {});
+  // Agents' SSH sockets listen again at their stored paths (agent-ssh-shell.js); the
+  // Gateway starts once that refresh settled, or after startRefreshMs, so its compile
+  // names their exec PATH entries. Later changes reach each agent's next turn apply.
+  const sshReady = assistantAgentSsh
+    ? within(assistantAgentSsh.refresh(), startRefreshMs)
+    : null;
   assistantChannels.start();
   // MEMORY.md copies before each night's dreaming run (dreaming-backups.js).
   assistantDreaming?.backups.start();
-  if (readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled)
-    assistantRuntime.start().catch(() => {});
+  if (readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled) {
+    const run = () => assistantRuntime.start().catch(() => {});
+    // A feature released meanwhile (its SSH adapter closed) starts nothing.
+    if (sshReady) sshReady.then(() => assistantAgentSsh.closed || run());
+    else run();
+  }
   // After an AgentPier update, the runtime it ships is prepared without blocking start.
   stageInBackground({ dataDir: config.dataDir });
 }
