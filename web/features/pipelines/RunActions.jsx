@@ -52,7 +52,8 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
     }
     setConfirm(null);
     setFeedback("");
-    refresh();
+    // Busy until the run's push shows the action's result (useLiveTopic written()).
+    await refresh();
   };
   if (!actions.length) return null;
   return (

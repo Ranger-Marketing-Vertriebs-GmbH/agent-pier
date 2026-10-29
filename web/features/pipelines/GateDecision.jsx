@@ -39,7 +39,8 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
     setConfirm(null);
     setFeedback("");
     setBudget("");
-    refresh();
+    // Busy until the run's push shows the decision (useLiveTopic written()).
+    await refresh();
   };
   if (!actions.length) return null;
   return (

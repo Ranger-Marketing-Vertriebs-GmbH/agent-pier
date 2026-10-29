@@ -27,7 +27,7 @@ export function MemberActions({ run, member, refresh, shared }) {
     await requestRunAction(run, action, { feedback, nodeId: member.id });
     setConfirm(false);
     setFeedback("");
-    refresh();
+    await refresh();
   };
   return (
     <div className="run-member-actions">

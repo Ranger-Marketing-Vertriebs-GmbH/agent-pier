@@ -30,8 +30,8 @@ function ReplaceSpec({ run, text, refresh, close }) {
       action: "replace-spec",
       spec: data.get("spec"),
     });
+    await refresh();
     close();
-    refresh();
   };
   return (
     <Modal title={copy.replaceSpec} wide close={close}>

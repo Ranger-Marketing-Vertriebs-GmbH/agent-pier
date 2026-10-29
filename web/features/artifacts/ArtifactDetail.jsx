@@ -137,8 +137,9 @@ export default function ArtifactDetail({
       );
       setConfirm(null);
       // Unpinning an artifact whose session is gone deletes it (the PATCH returns null).
-      if (remove || !result) onRemoved();
-      else onChanged();
+      // Busy until the list's push shows the change.
+      if (remove || !result) await onRemoved();
+      else await onChanged();
     } catch (failure) {
       setError(failure.message);
     } finally {

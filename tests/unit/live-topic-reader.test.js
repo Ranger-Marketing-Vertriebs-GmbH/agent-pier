@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { followSignal, startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
+import {
+  WRITTEN_WAIT_MS,
+  followSignal,
+  startLiveTopic,
+} from "../../web/lib/live/live-topic-reader.js";
 import { apiCopy } from "../../web/lib/i18n/messages/components.js";
 import { fakeEnv, settle } from "../helpers/fake-browser.js";
 import { noteReadStamp } from "../../web/lib/read-stamps.js";
@@ -309,22 +313,41 @@ test("read stamps compare only within one server instance", async (t) => {
   assert.deepEqual(s.last().data, { n: 2 });
 });
 
-test("written reads over REST only while no push can follow the write", async (t) => {
+test("written waits for the write's push, or reads the route when none comes", async (t) => {
   const s = setup("inbox", { client: fakeClient({ connected: true }) });
   t.after(s.reader.stop);
   s.client.emit({ type: "data", data: { n: 1 }, revision: 1 });
-  // Connected: the write's change is pushed, so nothing is read.
-  assert.deepEqual(await s.reader.written(), { n: 1 });
+  // Connected: it resolves with the push that follows the write, and reads nothing.
+  let answered = null;
+  const pending = s.reader.written().then((data) => (answered = data));
+  await settle();
+  assert.equal(answered, null);
+  s.client.emit({ type: "data", data: { n: 2 }, revision: 2 });
+  assert.deepEqual(await pending, { n: 2 });
   assert.deepEqual(s.reads, []);
-  // Without a connection, it reads the route once.
+  // No push (the write left the value as it was): the route answers after the wait.
+  const quiet = s.reader.written();
+  await s.fake.advance(WRITTEN_WAIT_MS - 1);
+  assert.deepEqual(s.reads, []);
+  await s.fake.advance(1);
+  assert.deepEqual(await quiet, { path: "/inbox" });
+  assert.deepEqual(s.reads, ["/inbox"]);
+  // Without a connection, it reads the route at once.
   s.client.emit({ type: "status", connected: false, fallback: false });
   assert.deepEqual(await s.reader.written(), { path: "/inbox" });
-  assert.deepEqual(s.reads, ["/inbox"]);
-  // A refused topic is polled; written reads it too.
+  assert.deepEqual(s.reads, ["/inbox", "/inbox"]);
+  // A refused topic is polled, not pushed; written reads it at once too.
   s.client.emit({ type: "status", connected: true, fallback: false });
   s.client.emit({ type: "error", code: "unknown-topic" });
-  await s.reader.written();
-  assert.ok(s.reads.length >= 2);
+  assert.deepEqual(await s.reader.written(), { path: "/inbox" });
+  assert.deepEqual(s.reads, ["/inbox", "/inbox", "/inbox"]);
+});
+
+test("a written() still waiting resolves null when the topic stops", async () => {
+  const s = setup("inbox", { client: fakeClient({ connected: true }) });
+  const pending = s.reader.written();
+  s.reader.stop();
+  assert.equal(await pending, null);
 });
 
 test("refresh resolves with the data, or null when the read failed", async (t) => {
