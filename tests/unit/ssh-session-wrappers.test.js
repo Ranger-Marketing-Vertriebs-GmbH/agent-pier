@@ -185,6 +185,63 @@ test("wrappers pass hostile arguments through untouched", () => {
   );
 });
 
+test("-o ProxyJump names a jump host like -J, the keyword in any case", () => {
+  for (const tool of ["ssh", "scp", "sftp"]) {
+    const { flagged } = recorder(tool);
+    const target = tool === "scp" ? ["a", "github.com:/x"] : ["github.com"];
+    for (const option of [
+      ["-o", "ProxyJump=db"],
+      ["-oProxyJump=db"],
+      ["-o", "ProxyJump db"],
+      ["-o", "proxyjump=deploy@db:2222"],
+      ["-oPROXYJUMP=jump.example.com,ssh://proxmox-2"],
+      ["-o", "ProxyJump = db"],
+      ["-o", "ProxyJump\tdb"],
+      ["-o", "  ProxyJump=db"],
+      ["-vo", "ProxyJump=db"],
+    ])
+      assert.equal(flagged([...option, ...target]), true, `${tool} ${option.join(" ")}`);
+    for (const option of [
+      ["-o", "ProxyJump=jump.example.com"],
+      ["-o", "ProxyJumpX=db"],
+      ["-o", "XProxyJump=db"],
+      ["-o", "ProxyCommand=ssh -W %h:%p db"],
+      ["-o", "ProxyJump"],
+      ["-o", "ProxyJump=none"],
+      ["-o", "ProxyJump=dbx"],
+      ["-o", "ProxyJump==db"],
+      ["-i", "ProxyJump=db"],
+    ])
+      assert.equal(flagged([...option, ...target]), false, `${tool} ${option.join(" ")}`);
+  }
+  assert.equal(recorder("ssh").flagged(["-F", "/x", "-o", "ProxyJump=db", "x"]), false);
+  assert.equal(recorder("ssh").flagged(["x", "-o", "ProxyJump=db"]), true);
+  assert.equal(recorder("ssh").flagged(["x", "ls", "-o", "ProxyJump=db"]), false);
+});
+
+test("-o ProxyJump values run nothing and pass through untouched", () => {
+  const { run, flagged, configPath, folder } = recorder("ssh");
+  const hostile = [
+    ["-o", "ProxyJump=$(touch pwned-a),db"],
+    ["-o", "ProxyJump=`touch pwned-b`"],
+    ["-oProxyJump=db; touch pwned-c"],
+    ["-o", "ProxyJump=*"],
+    ["-o", "ProxyJump=db\ntouch pwned-d"],
+    ["-o", "ProxyJump=-oProxyCommand=touch pwned-e"],
+    ["-o", "${IFS}ProxyJump=db"],
+    ["-o", "ProxyJump=\\db"],
+  ];
+  const results = hostile.map((args) => run([...args, "x"]));
+  assert.deepEqual(results[0], ["-F", configPath, ...hostile[0], "x"]);
+  for (const [n, args] of hostile.entries())
+    if (n > 0) assert.deepEqual(results[n], [...args, "x"], args.join(" "));
+  assert.equal(flagged(["-o", "ProxyJump=$(id)@db", "x"]), true);
+  assert.deepEqual(
+    fs.readdirSync(folder).filter((name) => name.startsWith("pwned")),
+    [],
+  );
+});
+
 test("wrapper scripts are plain sh without eval and refuse bad input", () => {
   const input = { realPath: "/usr/bin/ssh", configPath: "/c", aliases: ["proxmox-2"] };
   for (const tool of ["ssh", "scp", "sftp"]) {
