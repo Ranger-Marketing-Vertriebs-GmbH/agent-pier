@@ -7,7 +7,7 @@ import TeamProposalCard from "../TeamProposalCard.jsx";
 import useAssistants from "../useAssistants.js";
 import useTeamActions from "../useTeamActions.js";
 import useTeamCodingRequests from "../useTeamCodingRequests.js";
-import { scrollParent, scrollToChild } from "../transcript-scroll.js";
+import { landOn } from "../transcript-scroll.js";
 import MemberRequests from "./MemberRequests.jsx";
 import TeamCard from "./TeamCard.jsx";
 
@@ -42,9 +42,10 @@ export default function TeamsGroup({ assistant, focusTeamId, navigate }) {
     const card = document.getElementById(`assistant-team-${focusTeamId}`);
     if (!card) return;
     scrolled.current = focusTeamId;
-    scrollToChild(scrollParent(card), card);
     // A started team's summary toggles it; a proposal card takes the focus itself.
     (card.querySelector(":scope > summary") || card).focus({ preventScroll: true });
+    // Pushed coding requests of the cards above may still arrive: it stays in view.
+    return landOn(card);
   }, [focusShown, focusTeamId]);
   const archived = own.filter((t) => t.archivedAt);
   const active = own.filter((t) => !t.archivedAt);

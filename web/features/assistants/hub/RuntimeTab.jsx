@@ -19,6 +19,7 @@ import AssistantRuntimeUpdates from "../AssistantRuntimeUpdates.jsx";
 import RestartConfirmation from "../RestartConfirmation.jsx";
 import useAssistants from "../useAssistants.js";
 import useDreaming from "../useDreaming.js";
+import { landOn } from "../transcript-scroll.js";
 import HubFrame from "./HubFrame.jsx";
 import RuntimeAdvancedGroup from "./RuntimeAdvancedGroup.jsx";
 import RuntimeFeatureGroup from "./RuntimeFeatureGroup.jsx";
@@ -130,22 +131,21 @@ export function RuntimeOn({ frame, feature, section }) {
       .find(Boolean) ||
     "";
   const restart = draft.confirmation?.kind === "restart" ? draft.confirmation : null;
-  // `section=advanced|storage` scrolls to the group once the advanced values and the
-  // pushed update status above it have loaded (or failed), once per link.
+  // `section=advanced|storage` lands on the group once the advanced values above it
+  // have loaded (or failed), once per link, and keeps it in view while the pushed
+  // groups above it (the update status, teams, dreaming) still arrive (landOn).
   const scrolled = useRef(false);
-  const [updatesSettled, setUpdatesSettled] = useState(false);
-  const updatesShown = useCallback(() => setUpdatesSettled(true), []);
-  const advancedSettled = Boolean(advanced.data || advanced.error) && updatesSettled;
+  const advancedSettled = Boolean(advanced.data || advanced.error);
   useEffect(() => {
     if (!sectionIds[section]) {
       scrolled.current = false;
       return;
     }
     if (scrolled.current || !advancedSettled) return;
+    const target = document.getElementById(sectionIds[section]);
+    if (!target) return;
     scrolled.current = true;
-    document
-      .getElementById(sectionIds[section])
-      ?.scrollIntoView({ block: "start", behavior: "auto" });
+    return landOn(target);
   }, [section, advancedSettled]);
   const teamId = useId();
   // Only the host capacity changed: the bar names the team settings, as before.
@@ -168,7 +168,7 @@ export function RuntimeOn({ frame, feature, section }) {
       <ErrorMessage error={dreamingError} />
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
-      <AssistantRuntimeUpdates onChange={refresh} onSettled={updatesShown} />
+      <AssistantRuntimeUpdates onChange={refresh} />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}
