@@ -267,9 +267,10 @@ test("programs resolve through the PATH to their real file", (t) => {
   if (process.getuid?.() !== 0) assert.equal(ownerWritable("/bin/ls"), false);
 });
 
-// Owner A16: AgentPier's own SSH wrappers (an agent's bin/ssh, scp and sftp,
-// agent-ssh-shell.js) may be allowlisted; any other ssh, scp or sftp stays allow-once.
-test("the agent's own ssh, scp and sftp wrappers may be allowlisted", () => {
+// Owner A16/A18: AgentPier's own ssh and scp wrappers (an agent's bin/,
+// agent-ssh-shell.js) may be allowlisted; sftp and any other ssh or scp stay
+// allow-once.
+test("the agent's own ssh and scp wrappers may be allowlisted, never sftp", () => {
   const bin = "/data/ssh-agents/_agents/a/bin";
   const wrapped = (name) =>
     ["ssh", "scp", "sftp", "python3", "own-tool"].includes(name)
@@ -284,7 +285,16 @@ test("the agent's own ssh, scp and sftp wrappers may be allowlisted", () => {
   assert.deepEqual(wplan("ssh proxmox-2 uptime"), paths(`${bin}/ssh`));
   assert.deepEqual(wplan("ssh -p 22 -l root proxmox-2"), paths(`${bin}/ssh`));
   assert.deepEqual(wplan("scp -r dir db:/srv"), paths(`${bin}/scp`));
-  assert.deepEqual(wplan("sftp db"), paths(`${bin}/sftp`));
+  // sftp runs `!command` from stdin or a batch file: always allow-once (A18).
+  assert.deepEqual(wplan("sftp db"), once("interpreter", "sftp"));
+  assert.deepEqual(wplan("ssh db ls | sftp db"), once("interpreter", "sftp"));
+  assert.deepEqual(
+    allowAlwaysPlan(
+      { command: "x db" },
+      { resolve: () => `${bin}/sftp`, writable: () => true, wrapperDirs: [bin] },
+    ),
+    once("interpreter", "x"),
+  );
   assert.deepEqual(wplan(`${bin}/ssh db ls`), paths(`${bin}/ssh`));
   assert.deepEqual(wplan("ssh db df | grep x"), {
     kind: "paths",
@@ -343,6 +353,7 @@ test("wrapper options that run local programs allow the command once only", () =
     "ssh -vo LocalCommand=evil db",
     "ssh -o PermitLocalCommand=yes db",
     "ssh -o KnownHostsCommand=evil db",
+    "ssh -o ProxyUseFdpass=yes db",
     "ssh -o PKCS11Provider=/tmp/x.so db",
     "ssh -o SecurityKeyProvider=/tmp/x.so db",
     "ssh -o 'Match exec evil' db",
@@ -353,10 +364,6 @@ test("wrapper options that run local programs allow the command once only", () =
     "scp -S evil a db:/x",
     "scp -o ProxyCommand=evil a db:/x",
     "scp -F cfg a db:/x",
-    "sftp -S evil db",
-    "sftp -D /bin/sh db",
-    "sftp -b batch db",
-    "sftp -oProxyCommand=evil db",
   ])
     assert.deepEqual(wplan(command), once("inline", command.split(" ")[0]), command);
   // The same through another name for the wrapper (a link to it).
@@ -374,7 +381,6 @@ test("wrapper options that run local programs allow the command once only", () =
     "ssh db ssh -F x y",
     "ssh -o BatchMode=yes db",
     "scp a db:-F",
-    "sftp -P 22 db",
   ])
     assert.equal(wplan(command).kind, "paths", command);
 });

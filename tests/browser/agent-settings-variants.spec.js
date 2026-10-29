@@ -5,6 +5,7 @@ import {
   setupAssistantSettings as setup,
 } from "../helpers/assistant-settings-browser.js";
 import { agentTab, settingsPath } from "../helpers/agent-settings-page.js";
+import { liveStubOf } from "../helpers/live-stub.js";
 
 // AC-AS-4: temporary members and agents of users show the right tabs and locks.
 const catalog = {
@@ -107,8 +108,9 @@ async function memberWithLeadSsh(page, leadGrants) {
       sshHosts: [host("access-a", "Proxmox 2"), host("access-b", "nas")],
     },
   });
+  const lead = { grants: leadGrants };
   await page.route("**/api/assistants/lead/access", (route) =>
-    route.fulfill({ json: { revision: 3, sshAccesses: leadGrants } }),
+    route.fulfill({ json: { revision: 3, sshAccesses: lead.grants } }),
   );
   await page.route("**/api/assistants/home/ssh-agent", (route) =>
     route.fulfill({ json: { state: "ready", aliases: { "access-a": "proxmox-2" } } }),
@@ -121,6 +123,7 @@ async function memberWithLeadSsh(page, leadGrants) {
   await expect(page.getByText("Proxmox 2", { exact: true })).toBeVisible();
   await expect(page.getByText("proxmox-2", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("combobox")).toHaveCount(0);
+  return lead;
 }
 
 test("a temporary member using its lead's SSH shows its plain ssh aliases", async ({
@@ -134,7 +137,22 @@ test("a temporary member using its lead's SSH shows its plain ssh aliases", asyn
 });
 
 test("a member whose lead trusts every host shows no approval hint", async ({ page }) => {
-  await memberWithLeadSsh(page, [{ accessId: "access-a", mode: "trusted" }]);
+  const lead = await memberWithLeadSsh(page, [
+    { accessId: "access-a", mode: "trusted" },
+    { accessId: "access-b", mode: "trusted" },
+  ]);
   await expect(page.getByText("Open connections and tunnels stay open")).toBeVisible();
   await expect(page.getByText("Hosts with approval have no alias")).toHaveCount(0);
+  // The lead sets a host to With approval: the member's aliases change live, and the
+  // view reads the lead's grants again.
+  lead.grants = [
+    { accessId: "access-a", mode: "trusted" },
+    { accessId: "access-b", mode: "approval" },
+  ];
+  liveStubOf(page).push("agent.ssh-agent:home", {
+    state: "ready",
+    aliases: { "access-a": "proxmox-2-b" },
+  });
+  await expect(page.getByText("ssh proxmox-2-b", { exact: true })).toBeVisible();
+  await expect(page.getByText("Hosts with approval have no alias")).toBeVisible();
 });

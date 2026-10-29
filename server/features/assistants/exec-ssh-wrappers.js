@@ -1,25 +1,25 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// "Always allow" for AgentPier's own SSH wrappers (owner A16): an agent's bin/ssh,
-// bin/scp and bin/sftp (agent-ssh-shell.js, ssh-session-config.js renderWrapper)
-// may be allowlisted, although ssh, scp and sftp count as interpreters
-// (exec-allowlist-policy.js). The agent socket's signing policy limits the hosts
-// AgentPier's keys reach. A request whose options run a local program is allowed
-// once only; the entry itself allows any arguments (exec-decisions.js).
-const wrapperNames = new Set(["ssh", "scp", "sftp"]);
+// "Always allow" for AgentPier's own SSH wrappers (owner A16): an agent's bin/ssh
+// and bin/scp (agent-ssh-shell.js, ssh-session-config.js renderWrapper) may be
+// allowlisted, although ssh and scp count as interpreters (exec-allowlist-policy.js).
+// The agent socket's signing policy limits the hosts AgentPier's keys reach, and
+// those wrappers refuse options that run a local program (strict, owner A18); a
+// request with such options is allowed once only as well. sftp is never allowlisted
+// (A18): it runs `!command` from stdin or a batch file.
+const wrapperNames = new Set(["ssh", "scp"]);
 
 // Per tool: the option letters that take a value (OpenSSH getopt strings, as in
 // renderWrapper) and those that name a local program, library or command file.
 const options = {
   ssh: { values: "BbcDEeFIiJLlmOoPpQRSWw", local: "FI" },
   scp: { values: "cDFiJloPSX", local: "FS" },
-  sftp: { values: "BbcDFiJloPRSsX", local: "bDFS" },
 };
 // ssh_config keywords that run a local command or load a library, read in any case.
 const localKeywords = new Set([
   ...["proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand"],
-  ...["pkcs11provider", "securitykeyprovider", "match", "include"],
+  ...["proxyusefdpass", "pkcs11provider", "securitykeyprovider", "match", "include"],
 ]);
 const localKeyword = (value) =>
   localKeywords.has(String(value).trimStart().split(/[=\s]/, 1)[0].toLowerCase());
@@ -32,7 +32,7 @@ const realDir = (dir) => {
   }
 };
 
-/** The tool name when `real` is ssh, scp or sftp directly in one of `dirs`, else null. */
+/** The tool name when `real` is ssh or scp directly in one of `dirs`, else null. */
 export function sshWrapper(real, dirs = []) {
   if (typeof real !== "string" || !path.isAbsolute(real)) return null;
   const name = path.basename(real);
@@ -44,9 +44,8 @@ export function sshWrapper(real, dirs = []) {
 /**
  * Whether the arguments of one wrapper call ask OpenSSH to run a local program:
  * `-o` with a command or library keyword, a config file (`-F`), a PKCS#11 library
- * (`-I`), a transport program (`-S`), an sftp server (`-D`) or batch file (`-b`).
- * ssh stops at its remote command; scp and sftp are read to the end, as a
- * permuting getopt would.
+ * (`-I`) or a transport program (`-S`). ssh stops at its remote command; scp is
+ * read to the end, as a permuting getopt would.
  */
 export function runsLocalProgram(tool, args) {
   const rules = options[tool];
