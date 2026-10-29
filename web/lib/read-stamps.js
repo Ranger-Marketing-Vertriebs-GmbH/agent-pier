@@ -9,15 +9,32 @@ export const parseReadStamp = (value) => {
   return value && Number.isSafeInteger(stamp) && stamp > 0 ? stamp : null;
 };
 
-/** Remembers `stamp` for the answer `data` (an object or array). */
-export function noteReadStamp(data, stamp) {
-  if (data && typeof data === "object" && stamp !== null) stamps.set(data, stamp);
+// The newest write answer's stamp and server instance (written() waits for a value
+// read after it).
+let lastWrite = null;
+
+/**
+ * Remembers `stamp` and the server `instance` (its `X-Read-Instance`) for the answer
+ * `data` (an object or array); a `write` answer also becomes the last write.
+ */
+export function noteReadStamp(data, stamp, { instance = null, write = false } = {}) {
+  if (stamp === null) return data;
+  const noted = { stamp, instance: typeof instance === "string" ? instance : null };
+  if (data && typeof data === "object") stamps.set(data, noted);
+  if (write) lastWrite = noted;
   return data;
 }
 
 /** The read stamp of an answer `data`, or null when the server sent none. */
 export const readStampOf = (data) =>
-  (data && typeof data === "object" && stamps.get(data)) || null;
+  (data && typeof data === "object" && stamps.get(data)?.stamp) || null;
+
+/** The server instance that stamped the answer `data`, or null. */
+export const readInstanceOf = (data) =>
+  (data && typeof data === "object" && stamps.get(data)?.instance) || null;
+
+/** `{stamp, instance}` of the newest write answer this tab got, or null. */
+export const lastWriteStamp = () => lastWrite;
 
 /**
  * Whether the answer `data` was read before a push read at `pushedAt`: a slow write's

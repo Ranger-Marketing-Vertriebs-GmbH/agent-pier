@@ -385,6 +385,62 @@ test("written calls the browser's timers unbound, as window's require", async ()
   reader.stop();
 });
 
+test("written ignores a push read before the write's answer", async (t) => {
+  const s = setup("inbox", { client: fakeClient({ connected: true }) });
+  t.after(s.reader.stop);
+  s.client.emit({
+    type: "data",
+    data: { n: 1 },
+    revision: 1,
+    readAt: 100,
+    instance: "a",
+  });
+  // The write answered at 300 (its X-Read-Started).
+  noteReadStamp({}, 300, { instance: "a", write: true });
+  let answered = null;
+  const pending = s.reader.written().then((data) => (answered = data));
+  // A push read at 200, before the write, arrives after it: still the old state.
+  s.client.emit({
+    type: "data",
+    data: { n: 2 },
+    revision: 2,
+    readAt: 200,
+    instance: "a",
+  });
+  await settle();
+  assert.equal(answered, null);
+  // The push read after the write shows it.
+  s.client.emit({
+    type: "data",
+    data: { n: 3 },
+    revision: 3,
+    readAt: 400,
+    instance: "a",
+  });
+  assert.deepEqual(await pending, { n: 3 });
+  assert.deepEqual(s.reads, []);
+});
+
+test("a poll after a restart in fallback mode shows though its clock went back", async (t) => {
+  const s = setup("inbox", {
+    client: fakeClient({ connected: true }),
+    responses: [ok(noteReadStamp({ n: 2 }, 500, { instance: "new" }))],
+  });
+  t.after(s.reader.stop);
+  s.client.emit({
+    type: "data",
+    data: { n: 1 },
+    revision: 1,
+    readAt: 900,
+    instance: "old",
+  });
+  // The server restarted on a clock that went back; the socket is down.
+  s.client.emit({ type: "status", connected: false, fallback: true });
+  await s.fake.advance(5000);
+  assert.deepEqual(s.last().data, { n: 2 });
+  assert.equal(s.last().readAt, 500);
+});
+
 test("a written() still waiting resolves null when the topic stops", async () => {
   const s = setup("inbox", { client: fakeClient({ connected: true }) });
   const pending = s.reader.written();

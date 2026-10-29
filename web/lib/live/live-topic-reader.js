@@ -17,7 +17,7 @@
 import { attemptRead } from "../resource-reads.js";
 import { startVisiblePolling } from "../visible-polling.js";
 import { readTopicValue, topicInfo } from "./live-topics.js";
-import { readStampOf } from "../read-stamps.js";
+import { lastWriteStamp, readInstanceOf, readStampOf } from "../read-stamps.js";
 
 const browser = () => ({
   document: globalThis.document,
@@ -49,21 +49,30 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const info = topicInfo(topicId);
   const path = route || (info?.path ? info.path(info.param) : null);
   // The route and, for a topic with sections, each section's own route, as
-  // `{value, readAt}`: the earliest stamp of its parts, or null if one has none.
+  // `{value, readAt, instance}`: the earliest stamp of its parts (null if one has none)
+  // and the server instance that stamped them (null if unknown or not one).
   const load = async (signal) => {
     const stamps = [];
+    const instances = new Set();
     const value = await readTopicValue(
       path,
       info?.sections,
       async (part) => {
         const answer = await read(part, signal);
         stamps.push(readStampOf(answer));
+        instances.add(readInstanceOf(answer));
         return answer;
       },
       info?.param,
     );
-    const known = stamps.length > 0 && stamps.every((stamp) => stamp !== null);
-    return { value, readAt: known ? Math.min(...stamps) : null };
+    const [instance] = instances;
+    const one = instances.size === 1;
+    const known = one && stamps.every((stamp) => stamp !== null);
+    return {
+      value,
+      readAt: known ? Math.min(...stamps) : null,
+      instance: known ? instance : null,
+    };
   };
   // `readAt`: when the server began the read behind `data`; null when unknown.
   const state = { data: null, error: "", loading: true, connected: false, readAt: null };
@@ -80,13 +89,30 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   // stamp is unknown.
   const laterThanShown = (stamp) =>
     stamp !== null && state.readAt !== null ? stamp > state.readAt : null;
-  // written() callers waiting for the next value that is shown.
-  const waiting = new Set();
+  // The server instance whose clock `state.readAt` is on: a stamp of another instance
+  // (a restart, whose clock may have gone back) makes what is shown count as unstamped.
+  let stampInstance = null;
+  const sameServer = (instance) => {
+    if (typeof instance !== "string") return;
+    if (stampInstance !== null && instance !== stampInstance) state.readAt = null;
+    stampInstance = instance;
+  };
+  // written() callers, each waiting for a value read after its write's answer (`after`,
+  // `{stamp, instance}` or null): an older push that arrives later does not count.
+  const waiting = new Map();
+  const readAfter = (after) =>
+    !after ||
+    state.readAt === null ||
+    (after.instance !== null &&
+      stampInstance !== null &&
+      after.instance !== stampInstance) ||
+    state.readAt > after.stamp;
   const publish = (changes) => {
     Object.assign(state, changes);
     report({ ...state });
     if (!Object.hasOwn(changes, "data")) return;
-    for (const resolve of [...waiting]) resolve(state.data);
+    for (const [resolve, after] of [...waiting])
+      if (state.data === null || readAfter(after)) resolve(state.data);
   };
   const accept = (result, started) => {
     if (!result || stopped) return null;
@@ -100,7 +126,8 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       return null;
     }
     lastRead = scope.now();
-    const { value, readAt } = result.data;
+    const { value, readAt, instance } = result.data;
+    sameServer(instance);
     // The later read wins; without stamps, a push that arrived during the read is
     // newer than its answer.
     if (laterThanShown(readAt) ?? started === version) {
@@ -172,13 +199,6 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const unreadable = () => {
     if (!path && state.loading) publish({ loading: false });
   };
-  // The server instance whose clock `state.readAt` is on.
-  let stampInstance = null;
-  const sameServer = (instance) => {
-    if (typeof instance !== "string") return;
-    if (stampInstance !== null && instance !== stampInstance) state.readAt = null;
-    stampInstance = instance;
-  };
   const listener = (event) => {
     if (event.type === "data" || event.type === "status") sameServer(event.instance);
     if (event.type === "data") {
@@ -234,16 +254,18 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     // is in the state), the tab is hidden (the read runs once it is visible) or the
     // topic has no REST route; it never rejects, so no caller waits on a failure.
     refresh: () => fetchOnce().then((data) => data ?? null),
-    // After the caller's own write: its change arrives as a push (or `changed`), so
-    // this reads over REST only while none can come (no connection, fallback, a
-    // refused or revoked topic). Resolves like refresh(), or at once with what is
-    // shown.
+    // After the caller's own write: resolves with the first value shown that was read
+    // after the write's answer (its X-Read-Started), or reads the route after
+    // WRITTEN_WAIT_MS; reads it at once while no push can come (no connection,
+    // fallback, a refused or revoked topic).
     written: () => {
       const { connected, fallback } = client.status();
       if (stopped || !connected || fallback || refused || revoked || stopPolling)
         return fetchOnce().then((data) => data ?? null);
       // Called unbound: a browser's setTimeout refuses another `this` than window.
       const { setTimeout: later, clearTimeout: cancel } = scope;
+      // The write that just answered: only a value read after it shows its change.
+      const after = lastWriteStamp();
       return new Promise((resolve) => {
         let timer = null;
         const done = (data) => {
@@ -251,7 +273,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
           cancel(timer);
           resolve(data);
         };
-        waiting.add(done);
+        waiting.set(done, after);
         // No push in time (an unchanged value, a lost frame): the route answers.
         timer = later(() => {
           if (!waiting.delete(done)) return;
@@ -268,7 +290,7 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
     },
     stop() {
       stopped = true;
-      for (const resolve of [...waiting]) resolve(null);
+      for (const resolve of [...waiting.keys()]) resolve(null);
       unsubscribe();
       stopPolling?.();
       oneTime?.abort();

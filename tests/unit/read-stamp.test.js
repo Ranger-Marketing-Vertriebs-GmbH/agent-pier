@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  READ_INSTANCE_HEADER,
   READ_STAMP_HEADER,
   readStamp,
   readStampHeader,
@@ -37,10 +38,12 @@ test("a GET answer carries when its read began, a write's when it is sent", () =
     setHeader: (name, value) => (headers[name] = value),
     writeHead: () => "written",
   };
-  readStampHeader()({ method: "PUT" }, res, () => {});
+  readStampHeader({ instance: () => "hub-1" })({ method: "PUT" }, res, () => {});
   const before = readStamp();
   assert.equal(res.writeHead(200), "written");
   assert.ok(parseReadStamp(headers[READ_STAMP_HEADER]) > before);
+  // It names the server instance whose clock the stamp is on.
+  assert.equal(headers[READ_INSTANCE_HEADER], "hub-1");
   assert.equal(parseReadStamp("nonsense"), null);
   assert.equal(parseReadStamp(null), null);
 });
