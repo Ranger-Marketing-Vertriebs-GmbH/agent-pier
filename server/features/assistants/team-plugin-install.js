@@ -31,18 +31,25 @@ const files = [
   // their folder.
   "skills/agentpier-shopping/SKILL.md",
 ];
-// The shipped files and their digest, read afresh each time like every start does.
+// The digest of the shipped files as last read: they belong to this release, so a
+// lookup of the plugin's folder (built-in-skills.js, per skills.status entry) does not
+// read and hash them again.
+let shippedIntegrity = null;
+// The shipped files and their digest, read afresh for every provisioning (start).
 function shippedPlugin() {
   const contents = files.map((name) => fs.readFileSync(path.join(source, name)));
   const integrity = createHash("sha256").update(Buffer.concat(contents)).digest("hex");
+  shippedIntegrity = integrity;
   return { contents, integrity };
 }
 /**
  * The folder this AgentPier version provisions its team plugin to, below the runtime
  * root; it names the shipped files' digest, so another version uses another folder.
  */
-export const teamPluginDirectory = (root, integrity = shippedPlugin().integrity) =>
-  path.join(root, "plugins", `teams-${integrity.slice(0, 16)}`);
+export const teamPluginDirectory = (
+  root,
+  integrity = shippedIntegrity ?? shippedPlugin().integrity,
+) => path.join(root, "plugins", `teams-${integrity.slice(0, 16)}`);
 export function provisionTeamPlugin({ paths, runtimeVersion }) {
   // The shipped runtime and its declared rollback targets; nothing else is assumed.
   if (
