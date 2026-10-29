@@ -7,7 +7,11 @@
 // (CLIs, PATH utilities) again once workspace-state.js's 60 s cache has expired.
 import { withoutReadStamp, workspaceStateOf } from "./workspace-state.js";
 
-export const STATE_MAX_BYTES = 131072;
+// A state of many sessions (about 1-3 KiB each) passes 128 KiB; like `agent.list`, a
+// snapshot may reach 1 MiB, and its later changes travel as small deltas. A larger
+// one goes `stale` (at most once per 10 s per tab, live-instance.js) and the tab reads
+// GET /api/state instead.
+export const STATE_MAX_BYTES = 1048576;
 
 /** The topic definition for LiveHub#define. */
 export function stateTopic(services) {

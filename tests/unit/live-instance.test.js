@@ -347,3 +347,52 @@ test("a subscriber joining while no read succeeded yet is answered by a new read
       ["error", "snapshot"],
     );
 });
+
+test("a rows topic over its limit is back on deltas once a snapshot fits", async (t) => {
+  const items = (n, text = "x") =>
+    Array.from({ length: n }, (_, i) => ({ id: `s${i}`, text: text.repeat(40) }));
+  const { clock, source, hooks, instance } = setup(t, { mode: "rows", maxBytes: 2000 });
+  source.value = { sessions: items(100) };
+  const { frames } = listen(instance);
+  await clock.advance(0);
+  assert.equal(frames.at(-1).type, "stale");
+  // Shrunk below the limit: a snapshot (no baseline after stale), then deltas.
+  source.value = { sessions: items(3) };
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.equal(frames.at(-1).type, "snapshot");
+  source.value = { sessions: items(3, "y") };
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.equal(frames.at(-1).type, "delta");
+});
+
+test("a value that stays over its limit sends at most one stale per window", async (t) => {
+  const { clock, source, hooks, instance } = setup(t, { maxBytes: 200 });
+  source.value = { text: "x".repeat(500) };
+  const { frames } = listen(instance);
+  const stales = () => frames.filter((f) => f.type === "stale");
+  await clock.advance(0);
+  assert.equal(stales().length, 1);
+  // A change every second for 25 s: one stale at once, then one per 10 s window.
+  for (let i = 1; i <= 25; i++) {
+    source.value = { text: "x".repeat(500), i };
+    hooks.invalidate();
+    await clock.advance(1000);
+  }
+  assert.equal(stales().length, 3);
+  // The last stale carries the newest revision.
+  await clock.advance(10000);
+  assert.equal(stales().length, 4);
+  assert.equal(stales().at(-1).revision, instance.revision);
+  // A frame that fits replaces a pending stale.
+  source.value = { text: "x".repeat(500), i: 99 };
+  hooks.invalidate();
+  await clock.advance(200);
+  source.value = { count: 1 };
+  hooks.invalidate();
+  await clock.advance(200);
+  await clock.advance(10000);
+  assert.equal(stales().length, 4);
+  assert.equal(frames.at(-1).type, "state");
+});
