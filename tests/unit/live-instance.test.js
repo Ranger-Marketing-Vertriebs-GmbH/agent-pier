@@ -425,3 +425,27 @@ test("a reset answers at once, even within an earlier stale's window", async (t)
   await clock.advance(0);
   assert.equal(frames.filter((f) => f.type === "stale").length, 2);
 });
+
+test("stamp() adds what depends on the moment of sending, not to the digest", async (t) => {
+  let sent = 0;
+  const { clock, source, hooks, instance } = setup(t, {
+    stamp: (value) => ({ ...value, sentAt: ++sent }),
+  });
+  const first = listen(instance);
+  await clock.advance(0);
+  assert.deepEqual(first.frames[0].data, { count: 0, sentAt: 1 });
+  // An unchanged read sends nothing: the stamp is not part of the digest.
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.equal(source.reads, 2);
+  assert.equal(first.frames.length, 1);
+  // A late subscriber's answer from the settled value is stamped as it leaves.
+  const late = listen(instance);
+  assert.deepEqual(late.frames[0].data, { count: 0, sentAt: 2 });
+  // A change is stamped once for every subscriber that hears it.
+  source.value = { count: 1 };
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.deepEqual(first.frames.at(-1).data, { count: 1, sentAt: 3 });
+  assert.deepEqual(late.frames.at(-1).data, { count: 1, sentAt: 3 });
+});
