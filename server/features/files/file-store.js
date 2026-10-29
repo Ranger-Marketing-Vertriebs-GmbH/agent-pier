@@ -1,9 +1,8 @@
 import { FileTextStore } from "./file-text-store.js";
 import { FileArchiveStore } from "./file-archive-store.js";
 import { publicFileJob } from "./file-job-projection.js";
+import * as transfers from "./file-transfer-store.js";
 import path from "node:path";
-import { appendFilePath } from "./file-paths.js";
-import { completeExtract } from "./file-extract-store.js";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDatabase } from "../../lib/private-database.js";
 import {
@@ -304,97 +303,19 @@ export class FileStore {
     return row ? JSON.parse(row.document) : null;
   }
   transferRows(jobId, transferId) {
-    return this.db
-      .prepare(
-        "SELECT document FROM job_entries WHERE job_id=? AND json_extract(document,'$.transferId')=?",
-      )
-      .all(jobId, transferId)
-      .map((row) => JSON.parse(row.document));
+    return transfers.transferRows(this, jobId, transferId);
   }
   bindTransfer(scope, jobId, transferId, target) {
-    if (transferId === undefined) return;
-    const job = this.getJob(scope, jobId),
-      rows = this.transferRows(jobId, transferId);
-    const root = rows.find((row) => row.relativePath === "");
-    if (
-      !["copy", "move"].includes(job.kind) ||
-      typeof transferId !== "string" ||
-      !root ||
-      root.path !== target ||
-      rows.some(
-        (row) =>
-          !/^\d+:\d+$/.test(row.identity) ||
-          row.path !== appendFilePath(target, row.relativePath),
-      )
-    )
-      throw fileProblem("FILE_INVALID_OPERATION", 400);
+    return transfers.bindTransfer(this, scope, jobId, transferId, target);
   }
   refreshTransferProgress(jobId) {
-    const rows = this.db
-      .prepare("SELECT document FROM job_entries WHERE job_id=?")
-      .all(jobId)
-      .map((row) => JSON.parse(row.document));
-    const job = this.db.prepare("SELECT * FROM jobs WHERE id=?").get(jobId);
-    const completed = rows.filter(
-      (row) => row.outputPublished && (job.kind !== "move" || row.sourceRemoved),
-    );
-    this.transition(jobId, job.status, job.status, {
-      completedEntries: completed.length,
-      completedBytes: completed.reduce(
-        (n, row) => n + (row.type === "file" ? row.size : 0),
-        0,
-      ),
-    });
-    return {
-      completed: completed.length,
-      published: rows.filter((row) => row.outputPublished).length,
-    };
+    return transfers.refreshTransferProgress(this, jobId);
   }
   checkpointTransferEntry(jobId, row, publication) {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
-      this.putEntry(jobId, row);
-      this.refreshTransferProgress(jobId);
-      if (publication) {
-        if (publication.jobId !== jobId) throw fileProblem("FILE_INVALID_OPERATION", 400);
-        this.putPublication(publication);
-      }
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    return transfers.checkpointTransferEntry(this, jobId, row, publication);
   }
   completeTransfer(record, revision, revisions = new Map(), observation = null) {
-    if (record.document.textSave) return this.text.complete(record, observation);
-    if (record.document.extract)
-      return completeExtract(this, record, revision, revisions);
-    if (record.document.upload) return this.uploads.complete(record, revision);
-    if (record.document.archive) return this.archives.complete(record, revision);
-    const { transferId } = record.document;
-    if (!transferId || record.document.transferCompleted) return;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
-      const move = this.getOperation(record.jobId).kind === "move";
-      for (const row of this.transferRows(record.jobId, transferId)) {
-        if (row.type === "special") continue;
-        row.outputPublished = true;
-        row.sourceRemoved ||= Boolean(record.document.renameSource);
-        row.status = move && !row.sourceRemoved ? "published" : "completed";
-        if (!row.relativePath) row.revision = revision;
-        else row.revision = revisions.get(row.id) || null;
-        row.name = path.basename(row.path);
-        this.putEntry(record.jobId, row);
-      }
-      this.refreshTransferProgress(record.jobId);
-      const document = { ...record.document, transferCompleted: true };
-      this.putPublication({ ...record, document });
-      this.db.exec("COMMIT");
-      Object.assign(record.document, document);
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+    return transfers.completeTransfer(this, record, revision, revisions, observation);
   }
   listEntries(scope, id, cursor) {
     this.getJob(scope, id);
