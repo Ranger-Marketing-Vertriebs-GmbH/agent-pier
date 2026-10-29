@@ -64,12 +64,24 @@ test("pushed data is reported without a request", async (t) => {
   const s = setup("session.models:a");
   t.after(s.reader.stop);
   assert.deepEqual(s.client.subscriptions[0].options, { sampled: true });
-  assert.deepEqual(s.last(), { data: null, error: "", loading: true, connected: false });
+  assert.deepEqual(s.last(), {
+    data: null,
+    error: "",
+    loading: true,
+    connected: false,
+    readAt: null,
+  });
   s.client.emit({ type: "status", connected: true, fallback: false });
   s.client.emit({ type: "data", data: ["m"], revision: 1 });
   await s.fake.advance(60000);
   assert.deepEqual(s.reads, []);
-  assert.deepEqual(s.last(), { data: ["m"], error: "", loading: false, connected: true });
+  assert.deepEqual(s.last(), {
+    data: ["m"],
+    error: "",
+    loading: false,
+    connected: true,
+    readAt: null,
+  });
 });
 
 test("stale and changed cause one GET of the topic's path", async (t) => {
@@ -124,6 +136,7 @@ test("a read past its deadline shows the timeout error and keeps the data", asyn
     error: apiCopy.timedOut,
     loading: false,
     connected: false,
+    readAt: null,
   });
 });
 
@@ -201,7 +214,13 @@ test("a revoked topic drops its data at once and reads nothing until reconnected
   // A read under way when access ends never shows its answer.
   const refreshed = s.reader.refresh();
   s.client.emit({ type: "revoked" });
-  assert.deepEqual(s.last(), { data: null, error: "", loading: false, connected: true });
+  assert.deepEqual(s.last(), {
+    data: null,
+    error: "",
+    loading: false,
+    connected: true,
+    readAt: null,
+  });
   assert.equal(await refreshed, null);
   await s.fake.advance(60000);
   assert.equal(s.reads.length, 1);
@@ -282,6 +301,7 @@ test("refresh resolves with the data, or null when the read failed", async (t) =
     error: "boom",
     loading: false,
     connected: false,
+    readAt: null,
   });
 });
 
