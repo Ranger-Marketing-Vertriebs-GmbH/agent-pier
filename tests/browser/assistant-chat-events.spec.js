@@ -112,3 +112,21 @@ test("agent list pushes never read the chat history", async ({ page, liveStub })
   await page.evaluate(() => window.agentFeed.push("dinner"));
   await expect(reply(page)).toHaveCount(1, { timeout: 4000 });
 });
+
+for (const [language, label] of [
+  ["en", "The agent received the outcome of the approved coding start."],
+  ["de", "Das Ergebnis des freigegebenen Coding-Starts wurde dem Agenten mitgeteilt."],
+]) {
+  test(`coding start follow-up has a visible ${language} label`, async ({ page }) => {
+    await chatFixture(page, {
+      language,
+      history: {
+        messages: [{ id: "start", role: "event", event: "coding-start" }],
+        requests: [],
+        stale: false,
+      },
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner");
+    await expect(page.locator(".assistant-event", { hasText: label })).toBeVisible();
+  });
+}

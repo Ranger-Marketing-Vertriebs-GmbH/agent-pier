@@ -75,6 +75,8 @@ export const assistantTeamCopy = {
     declined: "Abgelehnt",
   },
   internalTurns: {
+    "coding-start":
+      "Das Ergebnis des freigegebenen Coding-Starts wurde dem Agenten mitgeteilt.",
     "team-result": "Team-Ergebnisse eingegangen. Der Agent fasst sie zusammen.",
     "member-result": "Antwort eines Mitglieds eingegangen. Der Agent gibt sie weiter.",
     "peer-result":
