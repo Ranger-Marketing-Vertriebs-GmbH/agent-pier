@@ -184,11 +184,10 @@ test("three failed handshakes switch to fallback; hello ends it", async (t) => {
   assert.equal(fake.sockets.length, 4);
   fake.last().hello();
   assert.deepEqual(client.status(), { connected: true, fallback: false });
-  assert.deepEqual(listener.events.at(-1), {
-    type: "status",
-    connected: true,
-    fallback: false,
-  });
+  // A connection names its server instance (read stamps compare within one).
+  const { instance, ...status } = listener.events.at(-1);
+  assert.deepEqual(status, { type: "status", connected: true, fallback: false });
+  assert.equal(typeof instance, "string");
   // A connection that worked once counts its next failures from zero.
   fake.last().drop(1006);
   await fake.advance(fake.nextDelay());

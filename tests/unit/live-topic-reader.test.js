@@ -270,6 +270,45 @@ test("of a push and a REST answer, the one read later is shown", async (t) => {
   assert.deepEqual(s.last().data, { n: 5 });
 });
 
+test("read stamps compare only within one server instance", async (t) => {
+  const s = setup("inbox", { client: fakeClient({ connected: true }) });
+  t.after(s.reader.stop);
+  s.client.emit({
+    type: "data",
+    data: { n: 1 },
+    revision: 1,
+    readAt: 900,
+    instance: "a",
+  });
+  s.client.emit({
+    type: "data",
+    data: { n: 0 },
+    revision: 2,
+    readAt: 800,
+    instance: "a",
+  });
+  assert.deepEqual(s.last().data, { n: 1 });
+  // The server restarted on a clock that went back: its values still show.
+  s.client.emit({ type: "status", connected: true, fallback: false, instance: "b" });
+  s.client.emit({
+    type: "data",
+    data: { n: 2 },
+    revision: 1,
+    readAt: 500,
+    instance: "b",
+  });
+  assert.deepEqual(s.last().data, { n: 2 });
+  assert.equal(s.last().readAt, 500);
+  s.client.emit({
+    type: "data",
+    data: { n: 3 },
+    revision: 2,
+    readAt: 400,
+    instance: "b",
+  });
+  assert.deepEqual(s.last().data, { n: 2 });
+});
+
 test("written reads over REST only while no push can follow the write", async (t) => {
   const s = setup("inbox", { client: fakeClient({ connected: true }) });
   t.after(s.reader.stop);

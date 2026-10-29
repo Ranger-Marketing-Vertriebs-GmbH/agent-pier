@@ -11,7 +11,9 @@
 // `X-Read-Started` header, server/lib/read-stamp.js): of the two, the later read is
 // shown, so a push read before the caller's write never undoes the refresh() answer
 // that shows it. Without stamps (older servers, test mocks) a push wins over a REST
-// read that was under way when it arrived.
+// read that was under way when it arrived. Stamps compare only within one server
+// instance: a restarted server (a new `hello` instance) may run on a clock that went
+// back, so what is shown counts as unstamped until its next value.
 import { attemptRead } from "../resource-reads.js";
 import { startVisiblePolling } from "../visible-polling.js";
 import { readTopicValue, topicInfo } from "./live-topics.js";
@@ -157,7 +159,15 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const unreadable = () => {
     if (!path && state.loading) publish({ loading: false });
   };
+  // The server instance whose clock `state.readAt` is on.
+  let stampInstance = null;
+  const sameServer = (instance) => {
+    if (typeof instance !== "string") return;
+    if (stampInstance !== null && instance !== stampInstance) state.readAt = null;
+    stampInstance = instance;
+  };
   const listener = (event) => {
+    if (event.type === "data" || event.type === "status") sameServer(event.instance);
     if (event.type === "data") {
       refused = revoked = false;
       const readAt = Number.isSafeInteger(event.readAt) ? event.readAt : null;

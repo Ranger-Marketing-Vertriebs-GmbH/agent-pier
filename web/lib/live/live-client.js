@@ -243,8 +243,10 @@ export class LiveClient {
     if (next.connected === this.shown.connected && next.fallback === this.shown.fallback)
       return;
     this.shown = next;
-    for (const entry of [...this.topics.values()])
-      this.emit(entry, { type: "status", ...next });
+    // A connection names its server instance: read stamps compare only within one.
+    const event = { type: "status", ...next };
+    if (next.connected && this.instance) event.instance = this.instance;
+    for (const entry of [...this.topics.values()]) this.emit(entry, event);
   }
 
   // --- visibility ---------------------------------------------------------------
@@ -419,7 +421,9 @@ export class LiveClient {
     }
     // When the server began the read behind this value (server/lib/read-stamp.js).
     entry.held = { data, revision: frame.revision };
-    if (Number.isSafeInteger(frame.readAt)) entry.held.readAt = frame.readAt;
+    // When the server began the read behind it, on the clock of server `instance`.
+    if (Number.isSafeInteger(frame.readAt))
+      Object.assign(entry.held, { readAt: frame.readAt, instance: this.instance });
     entry.condition = null;
     this.emit(entry, { type: "data", ...entry.held });
   }
