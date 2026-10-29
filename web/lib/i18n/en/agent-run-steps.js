@@ -57,7 +57,7 @@ export const agentRunStepsCopy = {
   },
   longChat:
     "This chat is long. After a pause the first reply takes longer, and older details are easier to miss.",
-  summarise: "Summarise now",
+  summarise: "Summarize now",
   dismiss: "Hide",
   compactOutcome: {
     memoryNotSaved: "No memories were saved before the summary.",

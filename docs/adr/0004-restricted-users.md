@@ -67,7 +67,7 @@ for every existing and future route, WebSocket and event stream. User guide:
   chat. The shared notice says so, and the pre-compaction flush is refused on shared
   agents so a private chat's summary never lands in shared memory.
   _Amended 2026-10-25 (AGENTPIER-215):_ the pre-compaction flush and the memory step
-  before **Summarise now** now write a shared agent's memory like a saved write, with
+  before **Summarize now** now write a shared agent's memory like a saved write, with
   a "shared-write" note in the writing chat only, and OpenClaw dreaming, when the
   owner switches it on, dreams over all its chats into that memory and may quote them
   word for word. The shared notice says that chat content, also word for word, can be

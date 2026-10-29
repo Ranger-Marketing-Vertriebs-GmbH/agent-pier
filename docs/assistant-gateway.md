@@ -1131,7 +1131,7 @@ A lead reaches its own members without the owner relaying anything
   within `ownerChatQuietMs` = 60 minutes, or a queued message of his waits for it; a
   work-goal continuation is recorded as `kind: "owner"` and counts too) the
   tool answers `owner` for both choices, which tells the lead to leave the chat to the
-  owner and his **Summarise now**; a pending after-task summary is dropped at its next
+  owner and his **Summarize now**; a pending after-task summary is dropped at its next
   run, and `MemberLongChats.check` sends no hint (AGENTPIER-248).
 - **Authorisation.** The server resolves the lead from the attempt and checks every
   target: own member, not archived, `lifetime: "permanent"` for tasks, finished and
@@ -1468,7 +1468,7 @@ was compacted and the plan was gone. Four rules close that gap:
   The exposure is limited by the first-session pin (one internal session per
   flush) and the date bound (today's or yesterday's note only). Nothing in
   AgentPier starts other `internal-session-effects` runs today. A compaction the
-  person asks for with **Summarise now** (`sessions.compact`, see
+  person asks for with **Summarize now** (`sessions.compact`, see
   [Live steps and stalled turns](#live-steps-and-stalled-turns)) runs no OpenClaw
   flush, so AgentPier runs its own memory step first (`memory-step.js`): a hidden turn
   of context kind `memory-step` in the chat itself, for an agent that may write memory
@@ -4838,7 +4838,7 @@ AgentPier's side:
   slow first reply after a pause (the cache expired) and older details the model
   misses, which is what the hint says. The owner reading under a user's opt-in never
   receives it: it measures her earlier messages too.
-- Summarise now and Hide (AGENTPIER-186, `server/features/assistants/long-chats.js`):
+- Summarize now and Hide (AGENTPIER-186, `server/features/assistants/long-chats.js`):
   `POST /api/assistant-conversations/:id/compact` (the owner's own chats; the privacy
   guard answers 404 for a user's chat, opt-in or not) and
   `POST /api/me/conversations/:id/compact` (her own chats; another person's is the

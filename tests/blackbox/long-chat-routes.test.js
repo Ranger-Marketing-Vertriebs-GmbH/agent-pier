@@ -5,7 +5,7 @@ import { fixtureModel } from "../helpers/user-agents.js";
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
 
-// The long-chat hint's actions (AGENTPIER-186): Summarise now asks OpenClaw's
+// The long-chat hint's actions (AGENTPIER-186): Summarize now asks OpenClaw's
 // `sessions.compact` for the chat's own session; Hide keeps the hint away until the
 // context grew clearly further.
 

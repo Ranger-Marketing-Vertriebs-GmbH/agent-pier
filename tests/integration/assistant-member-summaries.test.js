@@ -374,7 +374,7 @@ test("the lead may not summarise a chat the owner wrote in within the hour", asy
   for (const when of ["now", "after_task"]) {
     const result = await f.summarise(when);
     assert.equal(result.status, "owner", when);
-    assert.match(result.detail, /Summarise now/);
+    assert.match(result.detail, /Summarize now/);
   }
   assert.equal(f.steps.length, 0);
   assert.equal(f.long.compacting(f.taskChat.id), false);

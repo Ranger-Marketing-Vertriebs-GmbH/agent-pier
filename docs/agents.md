@@ -407,7 +407,7 @@ information** on, AgentPier tells the agent to write durable facts and plans to
 never to say it saved something unless the write succeeded. Before a conversation
 is shortened, the agent gets one last chance to append to the day note.
 
-When you press **Summarise now** ([long chats](#what-the-agent-is-doing)), AgentPier
+When you press **Summarize now** ([long chats](#what-the-agent-is-doing)), AgentPier
 first gives the agent a hidden memory step in that chat, because no automatic last
 chance comes before a summary you ask for. See below.
 
@@ -1015,7 +1015,7 @@ yourself, so the lead leaves it to you while you do: while a turn of yours runs 
 queued there, or for 60 minutes after your last message in it (also from your paired
 Telegram chat; a [work goal](#work-until-done) continuation in it counts as yours), the lead gets no long-chat hint, the tool refuses with an answer that
 the chat is yours to summarise, and a summary after the member's task that was waiting
-is dropped. You can still press **Summarise now** in that chat yourself.
+is dropped. You can still press **Summarize now** in that chat yourself.
 
 In a turn AgentPier sends for an open [work goal](#work-until-done), and in the turn in which the
 lead handles a member's result while a goal is open in that chat, a delegated task may
@@ -1321,7 +1321,7 @@ gives up after a few tries.
 When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
-**Summarise now** has the agent service summarise the chat's history right away. The same button always sits in the bar under the chat header, next to **New chat** (icon only on a phone), not only with this hint: it is disabled with a reason while the agent works, a message waits or a summary runs, while the chat is still empty, and while the agent service is unavailable; archived chats and a user's chats have none there. If there is nothing left to summarise, the agent service refuses and the chat says so. When
+**Summarize now** has the agent service summarise the chat's history right away. The same button always sits in the bar under the chat header, next to **New chat** (icon only on a phone), not only with this hint: it is disabled with a reason while the agent works, a message waits or a summary runs, while the chat is still empty, and while the agent service is unavailable; archived chats and a user's chats have none there. If there is nothing left to summarise, the agent service refuses and the chat says so. When
 the agent may write memory (**Remember information** is on and writing memory is proven
 safe; a shared agent writes its shared memory), AgentPier first runs a hidden memory
 step in that chat: the agent may search its memory and read files; it may write only its

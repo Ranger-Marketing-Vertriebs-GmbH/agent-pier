@@ -3,7 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 import { userAppFixture } from "../helpers/user-app-fixture.js";
 
-// A very long chat's hint (AGENTPIER-186): Summarise now has OpenClaw summarise the
+// A very long chat's hint (AGENTPIER-186): Summarize now has OpenClaw summarise the
 // history in the chat's own session, Hide puts the hint away; on a phone, in German
 // and English (server/features/assistants/long-chats.js).
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -11,7 +11,7 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true
 const languages = {
   en: {
     hint: /This chat is long\./,
-    summarise: "Summarise now",
+    summarise: "Summarize now",
     hide: "Hide",
     summarising:
       "Summarising the conversation so far — this can take a few minutes for long chats.",
@@ -70,7 +70,7 @@ const noSideScroll = async (page) =>
 
 for (const [language, copy] of Object.entries(languages))
   test.describe(language, () => {
-    test("Summarise now shows the summary running, then the hint is gone", async ({
+    test("Summarize now shows the summary running, then the hint is gone", async ({
       page,
     }) => {
       const state = await chatFixture(page, { language, history: longHistory });
@@ -104,7 +104,7 @@ for (const [language, copy] of Object.entries(languages))
       expect(compacts).toEqual(["POST"]);
     });
 
-    test("Summarise now saves memories first, and says when none were saved", async ({
+    test("Summarize now saves memories first, and says when none were saved", async ({
       page,
     }) => {
       const state = await chatFixture(page, { language, history: longHistory });

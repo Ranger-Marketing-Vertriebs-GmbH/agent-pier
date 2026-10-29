@@ -7,7 +7,7 @@ import {
   memoryStepText,
 } from "../../server/features/assistants/memory-step.js";
 
-// AGENTPIER-194: Summarise now first runs the memory step (memory-step.js) where the
+// AGENTPIER-194: Summarize now first runs the memory step (memory-step.js) where the
 // agent may write its memory, then OpenClaw's `sessions.compact`. The request answers
 // at once that the summary runs; the chat shows "saving memories" meanwhile, takes no
 // turn and queues a message, and shows every end as its notice. A step that saved

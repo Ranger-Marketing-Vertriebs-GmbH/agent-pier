@@ -3,7 +3,7 @@ import { stubContext } from "../helpers/live-stub.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
-// Summarise now in the owner's chat bar at any time (AGENTPIER-263): the same action
+// Summarize now in the owner's chat bar at any time (AGENTPIER-263): the same action
 // as the long-chat hint, disabled with a reason while a turn or a summary runs.
 const messages = [
   { id: "u0", role: "user", text: "Plan three dinners.", timestamp: 1, requestId: "q0" },
@@ -19,10 +19,10 @@ const idle = { messages, requests: [request("completed")], stale: false };
 const synced = (page) => page.waitForFunction(() => window.agentFeed?.synced("dinner"));
 const button = (page) =>
   page.locator(".agent-chat-bar").getByRole("button", {
-    name: "Summarise now",
+    name: "Summarize now",
   });
 
-test("Summarise now works outside the long-chat state and waits while a turn runs", async ({
+test("Summarize now works outside the long-chat state and waits while a turn runs", async ({
   page,
 }) => {
   const state = await chatFixture(page, { history: idle });
@@ -63,7 +63,7 @@ test("Summarise now works outside the long-chat state and waits while a turn run
   expect(compacts).toEqual(["POST"]);
 });
 
-test("Summarise now waits for a first message and fits a phone", async ({ browser }) => {
+test("Summarize now waits for a first message and fits a phone", async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,
