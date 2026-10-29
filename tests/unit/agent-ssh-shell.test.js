@@ -1,126 +1,27 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  AgentShellSsh,
   agentShellEnv,
   agentSshEligible,
   agentSshModes,
 } from "../../server/features/assistants/agent-ssh-shell.js";
-import { sshFromLead } from "../../server/features/assistants/assistant-access.js";
-import { personalEligible } from "../../server/features/assistants/native-capabilities.js";
-import { SshAgentRegistry } from "../../server/features/ssh/ssh-agent-registry.js";
+import { newAgentToken } from "../../server/features/ssh/ssh-agent-socket.js";
 import {
-  agentSocketLocation,
-  newAgentToken,
-} from "../../server/features/ssh/ssh-agent-socket.js";
-import { ownerFolder } from "../../server/features/ssh/ssh-session-config.js";
+  member,
+  owner,
+  personal,
+  setup,
+  trusted,
+} from "../helpers/agent-ssh-shell-fixture.js";
 import {
-  home,
   hostA,
   hostB,
   identitiesAt,
   root,
 } from "../helpers/ssh-session-agents-fixture.js";
-
-const owner = (agent) => ({ kind: "agent", id: agent.id });
-const personal = (extra = {}) => ({ id: randomUUID(), shell: "approval", ...extra });
-
-let counter = 0;
-// One data dir per test: fake agents, grants and access (mirroring AssistantAccess:
-// sshHolder refuses an archived lead, sshAgents lists holders with a grant), a
-// recorded dispatcher, listeners and session token reads; the home is a /tmp stand-in.
-function setup(t, { openssh = { major: 10, minor: 2 }, pathEnv, restored } = {}) {
-  counter += 1;
-  const dataDir = path.join(root, `agent-shell-${counter}`);
-  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  const s = {
-    dataDir,
-    agents: new Map(),
-    grants: new Map(),
-    maintenance: false,
-    sessionTokens: [],
-    sessionReads: 0,
-    heard: [],
-    updates: 0,
-    logs: [],
-    instances: [],
-  };
-  s.access = {
-    sshHolder(id) {
-      const a = s.agents.get(id);
-      const holder = a && sshFromLead(a) ? s.agents.get(a.parentAssistantId) : a;
-      if (!holder || !personalEligible(holder)) throw new Error("invalid");
-      return holder;
-    },
-    get: (id) => ({ sshAccesses: s.grants.get(id) ?? [] }),
-    sshAgents() {
-      const ids = [...s.agents.keys()].filter((id) => {
-        try {
-          return s.access.get(s.access.sshHolder(id).id).sshAccesses.length > 0;
-        } catch {
-          return false;
-        }
-      });
-      return new Set(ids);
-    },
-  };
-  s.add = (agent, grants) => {
-    s.agents.set(agent.id, agent);
-    if (grants) s.grants.set(agent.id, grants);
-    return agent;
-  };
-  s.build = () => {
-    const log = {
-      warn: (...args) => s.logs.push(["warn", ...args]),
-      error: (...args) => s.logs.push(["error", ...args]),
-    };
-    const registry = new SshAgentRegistry({
-      dataDir,
-      audit: { append() {} },
-      openssh,
-      home,
-      log,
-      userConfig: { update: () => (s.updates += 1), problemFor: () => null },
-    });
-    registry.tokenSource("session", () => {
-      s.sessionReads += 1;
-      return s.sessionTokens;
-    });
-    registry.listen("agent", (id) => s.heard.push(id));
-    const shell = new AgentShellSsh({
-      registry,
-      agents: { list: () => [...s.agents.values()], get: (id) => s.agents.get(id) },
-      store: { list: () => [hostA, hostB] },
-      access: s.access,
-      maintenance: () => s.maintenance,
-      restored,
-      pathEnv,
-      log,
-    });
-    s.instances.push({ registry, shell });
-    Object.assign(s, { registry, shell });
-    return s;
-  };
-  s.folder = (agent) => ownerFolder(dataDir, owner(agent));
-  s.socketPath = (agent) => s.registry.get(owner(agent))?.location.socketPath;
-  s.tokenFolder = (agent, token) =>
-    path.dirname(agentSocketLocation(dataDir, agent.id, token, { home }).socketPath);
-  t.after(async () => {
-    for (const { shell, registry } of s.instances) {
-      await shell.close();
-      await registry.close();
-    }
-    const last = s.build();
-    await last.shell.discardAll();
-  });
-  return s.build();
-}
-
-const trusted = (access) => ({ accessId: access.id, mode: "trusted" });
 
 test("only trusted and routines grants enter the socket and get an alias", async (t) => {
   const s = setup(t);
@@ -148,25 +49,20 @@ test("no shell, a user agent, an archived agent and a member without SSH get not
   const archivedLead = s.add(personal({ archivedAt: "2026-10-29T00:00:00Z" }), [
     trusted(hostA),
   ]);
-  const member = (inherited, parent = lead) => ({
-    id: randomUUID(),
-    teamMemberId: "team-1",
-    lifetime: "temporary",
-    parentAssistantId: parent.id,
-    inherited: { capabilities: {}, skills: [], ...inherited },
-  });
+  const deletedLead = personal({ shell: "full" });
   const cases = [
     [personal({ shell: "off" }), "no-shell"],
     [personal({ userAccess: { mode: "shared" } }), "not-eligible"],
     [personal({ archivedAt: "2026-10-29T00:00:00Z" }), "not-eligible"],
-    [member({ ssh: false, shell: "full" }), "not-eligible"],
-    [member({ ssh: true, shell: "off" }), "no-shell"],
-    [member({ ssh: true, shell: "full" }, archivedLead), "no-hosts"],
+    [member(lead, { ssh: false, shell: "full" }), "not-eligible"],
+    [member(lead, { ssh: true }), "no-shell"],
+    [member(archivedLead, { ssh: true, shell: "full" }), "not-eligible"],
+    [member(deletedLead, { ssh: true, shell: "full" }), "not-eligible"],
   ];
   for (const [agent, reason] of cases) {
     s.add(agent, [trusted(hostA)]);
     await s.shell.refresh();
-    assert.deepEqual(s.shell.shellPath(agent), [], reason);
+    assert.deepEqual(s.shell.shellPath(s.get(agent.id)), [], reason);
     assert.equal(fs.existsSync(s.folder(agent)), false);
     assert.equal(s.registry.get(owner(agent)), undefined);
     assert.equal(await s.shell.authorize(agent.id), null);
@@ -176,31 +72,52 @@ test("no shell, a user agent, an archived agent and a member without SSH get not
   assert.equal(agentSshEligible(lead, new Set()), false);
 });
 
+test("a permanent member uses only its own grants, never its lead's", async (t) => {
+  const s = setup(t);
+  const lead = s.add(personal({ shell: "full" }), [trusted(hostA)]);
+  const m = s.add(
+    member(lead, { ssh: true, shell: "full" }, { lifetime: "permanent", shell: "full" }),
+  );
+  await s.shell.refresh();
+  assert.equal(s.registry.get(owner(m)), undefined);
+  assert.equal(await s.shell.authorize(m.id), null);
+  assert.deepEqual(s.shell.status(m.id), { state: "unavailable", reason: "no-hosts" });
+  s.grants.set(m.id, [trusted(hostB)]);
+  await s.shell.refresh();
+  assert.deepEqual(
+    (await s.shell.authorize(m.id)).hosts.map((h) => h.accessId),
+    [hostB.id],
+  );
+  assert.deepEqual(Object.keys(s.shell.aliases(m.id)), [hostB.id]);
+});
+
 test("a temporary member uses its lead's trusted hosts, read live, while the lead shares SSH", async (t) => {
   const s = setup(t);
   const lead = s.add(personal({ shell: "full" }), [
     { accessId: hostA.id, mode: "routines" },
     { accessId: hostB.id, mode: "approval" },
   ]);
-  const m = s.add({
-    id: randomUUID(),
-    teamMemberId: "team-1",
-    lifetime: "temporary",
-    parentAssistantId: lead.id,
-    inherited: { ssh: true, shell: "approval", capabilities: {}, skills: [] },
-  });
+  const m = s.add(member(lead, { ssh: true, shell: "approval" }));
   await s.shell.refresh();
   assert.deepEqual(Object.keys(s.shell.aliases(m.id)), [hostA.id]);
-  assert.deepEqual(s.shell.shellPath(m), [path.join(s.folder(m), "bin")]);
+  assert.deepEqual(s.shell.shellPath(s.get(m.id)), [path.join(s.folder(m), "bin")]);
   // The lead revokes the host: the member's next signature has no host.
   s.grants.set(lead.id, [{ accessId: hostB.id, mode: "approval" }]);
   assert.deepEqual((await s.shell.authorize(m.id)).hosts, []);
-  // The lead stops sharing SSH: refused at once, torn down at the next refresh.
-  s.add({ ...m, inherited: { ...m.inherited, ssh: false } });
+  // The lead stops sharing shell and SSH: refused at once, torn down at the refresh.
+  s.add({ ...lead, teamShellSsh: false });
   assert.equal(await s.shell.authorize(m.id), null);
   await s.shell.refresh();
   assert.equal(s.registry.get(owner(m)), undefined);
   assert.equal(fs.existsSync(s.folder(m)), false);
+  // The lead is archived: the same.
+  s.add({ ...lead, teamShellSsh: true });
+  await s.shell.refresh();
+  assert.ok(s.registry.get(owner(m)));
+  s.add({ ...lead, archivedAt: "2026-10-29T00:00:00Z" });
+  assert.equal(await s.shell.authorize(m.id), null);
+  await s.shell.refresh();
+  assert.equal(s.registry.get(owner(m)), undefined);
 });
 
 test("switching a host to With approval refuses at once and keeps PATH", async (t) => {
@@ -393,7 +310,7 @@ test("shell-env.sh keeps set variables and quotes paths", () => {
     /\[ -n "\$\{SSH_AUTH_SOCK\+x\}" \] \|\| export SSH_AUTH_SOCK='\/tmp\/a b\/agent.sock'/,
   );
   assert.match(text, /export AGENTPIER_SSH_CONFIG='\/d\/it'\\''s\/ssh_config'/);
-  const file = path.join(root, `env-${counter}.sh`);
+  const file = path.join(root, `env-${process.pid}-${Date.now()}.sh`);
   fs.writeFileSync(file, text);
   const run = (env) =>
     execFileSync(
