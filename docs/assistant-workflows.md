@@ -50,7 +50,12 @@ shows the project, pipeline, exact task and optional base branch, or the exact
 memory change. Owner decisions are available in the agent's settings (**Overview › Actions and coding
 tasks**) and in its chat; Telegram-origin
 proposals also have approval buttons bound to the original channel/chat/user.
-Approvals expire after 24 hours. When a project knowledge change is declined,
+Approvals expire after 24 hours. After approval of a coding pipeline or session
+start, AgentPier automatically sends the requesting agent's chat the launch outcome
+and run or session ID. A busy chat retries delivery without starting the work again;
+the pending delivery survives a restart. A session wake can steer that session,
+while a pipeline wake can read the approved run's status and artifacts. The wake
+does not grant permission to start additional work. When a project knowledge change is declined,
 expires or fails, AgentPier sends the requesting agent's conversation one attributed
 follow-up turn saying it was not saved, so the agent does not keep believing it was
 stored. The model cannot grant itself access or accept

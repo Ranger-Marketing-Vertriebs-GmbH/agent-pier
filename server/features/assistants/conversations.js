@@ -93,6 +93,7 @@ export function publicMessages(messages = [], { compactions = false } = {}) {
 export const internalKinds = new Set([
   "team-result",
   "coding-result",
+  "coding-start",
   "member-result",
   // A sibling's answer in the asking member's chat (peer-requests.js).
   "peer-result",

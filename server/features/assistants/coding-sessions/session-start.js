@@ -1,3 +1,4 @@
+import { deliverCodingStart } from "../coding-start-follow-up.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../../lib/i18n/de.js";
@@ -292,7 +293,7 @@ async function execute(w, a) {
   } catch (error) {
     const failed = w.store.patch(a.id, {
       state: "failed",
-      settled: true,
+      settled: !a.codingStartPending,
       diagnostic: toolError(error).code,
     });
     audit(w, failed, "failure");
@@ -352,7 +353,7 @@ async function settleRunning(w, a, session) {
   }
   const next = w.store.patch(a.id, {
     state: "running",
-    settled: true,
+    settled: !a.codingStartPending,
     result: {
       name: session.name ?? null,
       tool: session.tool ?? a.payload.options.tool,
@@ -401,7 +402,7 @@ export async function advanceStart(w, a) {
   if (w.sessions.starting.has(a.key)) return;
   if (a.state === "awaiting_approval") {
     if (a.expiresAt < Date.now())
-      w.store.patch(a.id, { state: "expired", settled: true });
+      w.store.patch(a.id, { state: "expired", settled: !a.codingStartPending });
     else notifyAction(w, a, "approval");
     return;
   }
@@ -410,7 +411,7 @@ export async function advanceStart(w, a) {
     if (!stillGranted(w, record))
       w.store.patch(a.id, {
         state: "failed",
-        settled: true,
+        settled: !a.codingStartPending,
         diagnostic: "GRANT_REVOKED",
       });
     else await runStart(w, a).catch(() => {});
@@ -428,11 +429,12 @@ export async function advanceStart(w, a) {
       dropPending(w, a.sessionId);
       w.store.patch(a.id, {
         state: "failed",
-        settled: true,
+        settled: !a.codingStartPending,
         diagnostic: "START_INTERRUPTED",
       });
     }
     return;
   }
-  if (!a.settled) w.store.patch(a.id, { settled: true });
+  if (!a.settled && (await deliverCodingStart(w, a)))
+    w.store.patch(a.id, { settled: true });
 }
