@@ -2,39 +2,25 @@
 // grants (ssh-agent-socket.js) and the files that let plain OpenSSH reach them
 // (ssh-session-config.js). The agent's generation and socket token live in the session
 // record (`sshAgent`), so a restart listens again at the same path and a reload's new
-// generation retires the old one. Launch wiring (env, sandbox grants) is the caller's:
-// `launchDetails(id)` names the paths and grants it needs.
+// generation retires the old one. The sockets, files and retries live in the registry
+// shared with the agents' sockets (ssh-agent-registry.js); this adapter decides which
+// sessions get one and which hosts they sign for. Launch wiring (env, sandbox grants)
+// is the caller's: `launchDetails(id)` names the paths and grants it needs.
 import { randomUUID } from "node:crypto";
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { readJSON } from "../../lib/storage.js";
-import { sshAgentHandle } from "../sessions/session-ssh-agent-record.js";
-import { SyncQueue } from "../../lib/sync-queue.js";
-import { privateFile } from "../memory/memory-validation.js";
-import { createAgentAudit } from "./ssh-agent-audit.js";
+import { SshAgentRegistry } from "./ssh-agent-registry.js";
 import { agentHosts } from "./ssh-agent-policy.js";
+import { ownerKey, validSessionId } from "./ssh-agent-shared.js";
+import { newAgentToken } from "./ssh-agent-socket.js";
 import {
-  codedError,
-  keyIdPattern,
-  ownerKey,
-  tokenPattern,
-  validSessionId,
-} from "./ssh-agent-shared.js";
-import {
-  agentSocketLocation,
-  newAgentToken,
-  SessionAgentSocket,
-} from "./ssh-agent-socket.js";
-import { supportsSessionBind } from "./ssh-openssh-version.js";
-import { realOrSelf, recordedBinaries, removeBelow } from "./ssh-session-agent-files.js";
-import {
-  readSessionAliases,
-  resolveOpenSshBinaries,
-  sessionAliases,
-  sessionFolder,
-  writeSessionFiles,
-} from "./ssh-session-config.js";
+  realOrSelf,
+  recordedBinaries,
+  sessionRecord,
+  storedAgent,
+  storedSessionTokens,
+  storedToken,
+} from "./ssh-session-agent-files.js";
+import { readSessionAliases, sessionFolder } from "./ssh-session-config.js";
 
 // The session's generated ssh_config and its agent socket, for hints and fallbacks.
 export const SSH_CONFIG_ENV = "AGENTPIER_SSH_CONFIG";
@@ -43,7 +29,6 @@ export const SSH_AGENT_SOCK_ENV = "AGENTPIER_SSH_AUTH_SOCK";
 const sessionOwner = (id) => ({ kind: "session", id });
 
 const codingTools = new Set(["codex", "claude", "opencode"]);
-const maxIdentity = 65536;
 
 /**
  * Whether a launch or a session record gets an agent (R15, R27). Shell sessions do;
@@ -56,44 +41,6 @@ export function agentEligible({ tool, purpose, pipeline, sshTools } = {}) {
   return codingTools.has(tool) && sshTools?.enabled === true;
 }
 
-// The generation and token through the record parser; the binaries as stored, since
-// restore() checks each one itself and falls back to PATH when `ssh` is gone.
-function storedAgent(record, id) {
-  const agent = record?.id === id ? record.sshAgent : null;
-  const handle = sshAgentHandle(agent);
-  return handle ? { ...handle, binaries: agent.binaries } : null;
-}
-
-// The socket token a record names: its agent's, or the one a reload's stop retired
-// (`sshAgentRetired`, session-replacement.js), which never authorizes anything but
-// still locates the socket folder for a later prepare or discard.
-function storedToken(record, id) {
-  const token = storedAgent(record, id)?.token ?? record?.sshAgentRetired?.token;
-  return record?.id === id && typeof token === "string" && tokenPattern.test(token)
-    ? token
-    : undefined;
-}
-
-// What a written set of files depends on; equal fingerprints need no rewrite.
-function fingerprint(agent, hosts, aliases) {
-  return JSON.stringify({
-    hosts: hosts.map((host) => [
-      host.accessId,
-      host.name,
-      host.host,
-      host.port,
-      host.username,
-      host.keyId,
-      host.publicKey,
-      host.hostKey,
-      host.legacy,
-    ]),
-    aliases,
-    binaries: agent.binaries,
-    socketPath: agent.location.socketPath,
-  });
-}
-
 export class SessionSshAgents {
   constructor({
     dataDir,
@@ -102,44 +49,74 @@ export class SessionSshAgents {
     sessions,
     audit,
     openssh,
-    home = os.homedir(),
+    home,
     log = console,
-    retryDelays = [1000, 5000, 30000],
+    retryDelays,
     userConfig = null,
+    registry = null,
   }) {
     this.dataDir = path.resolve(dataDir);
-    Object.assign(this, { store, grants, sessions, openssh, home, log, retryDelays });
-    // The ~/.ssh/config block and its dispatcher (ssh-user-config.js), when wired.
-    this.userConfig = userConfig;
+    Object.assign(this, { store, grants, sessions, log });
+    // Shared with the agents' sockets in a service; a stand-alone one otherwise.
+    this.registry =
+      registry ??
+      new SshAgentRegistry({
+        dataDir,
+        audit,
+        openssh,
+        home,
+        log,
+        retryDelays,
+        userConfig,
+      });
     // id -> "no-openssh" | "failed" for eligible sessions that run without an agent.
     this.unavailable = new Map();
-    this.agentAudit = createAgentAudit({ append: (event) => audit?.append(event) });
-    this.agents = new Map();
-    this.syncs = new SyncQueue();
-    // Called with a session id once its aliases or agent state changed (assigned by the
-    // wiring: the live `job.ssh-tools` topic carries `agent`).
+    // Called with a session id once its aliases or agent state changed (the service
+    // wiring listens on the registry instead).
     this.onChange = null;
+    this.registry.listen("session", (id) => this.onChange?.(id));
+    // Tokens of session records whose agent does not listen (yet) stay taken.
+    this.registry.tokenSource("session", () => storedSessionTokens(this.dataDir));
   }
 
   get supported() {
-    return supportsSessionBind(this.openssh);
+    return this.registry.supported;
   }
 
   get agentsRoot() {
-    return path.join(this.dataDir, "ssh-agents");
+    return this.registry.agentsRoot;
+  }
+
+  get openssh() {
+    return this.registry.openssh;
+  }
+
+  get syncs() {
+    return this.registry.syncs;
+  }
+
+  get userConfig() {
+    return this.registry.userConfig;
+  }
+
+  set userConfig(value) {
+    this.registry.userConfig = value;
   }
 
   binaries(pathEnv) {
-    return resolveOpenSshBinaries(pathEnv ?? process.env.PATH, [this.agentsRoot]);
+    return this.registry.binaries(pathEnv);
+  }
+
+  identity(keyId) {
+    return this.registry.identity(keyId);
+  }
+
+  agent(id) {
+    return validSessionId(id) ? this.registry.get(sessionOwner(id)) : undefined;
   }
 
   record(id) {
-    try {
-      const value = readJSON(path.join(this.dataDir, "sessions", `${id}.json`), null);
-      return value && typeof value === "object" && value.id === id ? value : null;
-    } catch {
-      return null;
-    }
+    return sessionRecord(this.dataDir, id);
   }
 
   // The record belongs to this listener: running (or relaunching in a reload whose
@@ -159,43 +136,26 @@ export class SessionSshAgents {
     );
   }
 
-  /** The private key of one catalog key, read per signature and never kept. */
-  identity(keyId) {
-    if (typeof keyId !== "string" || !keyIdPattern.test(keyId))
-      throw codedError("SSH_AGENT_KEY_UNSUPPORTED", "Invalid SSH key id");
-    return privateFile(path.join(this.dataDir, "ssh", "identities", keyId, "identity"), {
-      max: maxIdentity,
-    });
-  }
-
+  // Per signature; the registry asks only while the entry is the session's live one.
+  // The project goes on the entry first, so a refusal's audit row names it, too.
   async authorize(agent) {
-    if (this.agents.get(agent.id) !== agent) return null;
     const record = this.record(agent.id);
     if (!this.current(record, agent)) return null;
     agent.projectId = record.sshTools?.project?.projectId;
     return { hosts: agentHosts(this.store.list(), await this.grants.effective(record)) };
   }
 
-  async start(id, { token, generation, binaries }) {
-    const location = agentSocketLocation(this.dataDir, id, token, {
-      home: this.home,
-      warn: (code) => this.log.warn("Session SSH agent socket:", code),
+  start(id, { token, generation, binaries }) {
+    return this.registry.start(sessionOwner(id), {
+      token,
+      generation,
+      binaries,
+      authorize: (agent) => this.authorize(agent),
+      resync: () => {
+        const record = this.record(id);
+        return record ? this.sync(record) : undefined;
+      },
     });
-    const agent = { id, token, generation, binaries, location, written: null };
-    agent.attempts = 0;
-    agent.timer = null;
-    const scope = () => ({ owner: sessionOwner(id), projectId: agent.projectId });
-    agent.socket = new SessionAgentSocket({
-      socketPath: location.socketPath,
-      root: location.root,
-      authorize: () => this.authorize(agent),
-      readIdentity: (keyId) => this.identity(keyId),
-      onSigned: (host) => this.agentAudit.connected({ ...scope(), host }),
-      onDenied: (code) => this.agentAudit.denied({ ...scope(), code }),
-    });
-    await agent.socket.listen();
-    this.agents.set(id, agent);
-    return agent;
   }
 
   /**
@@ -221,12 +181,8 @@ export class SessionSshAgents {
     }
     return this.syncs.run(async () => {
       const record = this.record(id);
-      const previous = this.agents.get(id);
+      const previous = this.agent(id);
       const token = previous?.token ?? storedToken(record, id) ?? newAgentToken();
-      if (previous) {
-        this.agents.delete(id);
-        await previous.socket.close();
-      }
       const generation = randomUUID();
       try {
         const agent = await this.start(id, { token, generation, binaries });
@@ -243,7 +199,7 @@ export class SessionSshAgents {
           sshTools: launch.sshTools,
         });
       } catch (error) {
-        await this.teardown(id, token);
+        await this.registry.teardown(sessionOwner(id), token);
         this.unavailable.set(id, "failed");
         this.log.error("Session SSH agent could not be started:", error?.code || "error");
         return launch;
@@ -258,7 +214,7 @@ export class SessionSshAgents {
 
   /** Paths and sandbox grants of a session's agent for its launch, or null. */
   launchDetails(id) {
-    const agent = this.agents.get(id);
+    const agent = this.agent(id);
     if (!agent) return null;
     const folder = sessionFolder(this.dataDir, id);
     const { socketPath } = agent.location;
@@ -277,98 +233,12 @@ export class SessionSshAgents {
     };
   }
 
-  // Any error is a failure: the alias files go, so the CLI never trusts a partial set,
-  // while `bin/` keeps pass-through wrappers for the user's own Git and rsync (their
-  // GIT_SSH_COMMAND and RSYNC_RSH name `bin/ssh`). A bounded retry follows.
-  async syncAgent(agent, session) {
-    try {
-      const hosts = agentHosts(this.store.list(), await this.grants.effective(session));
-      const aliases = sessionAliases(hosts, readSessionAliases(this.dataDir, agent.id));
-      const written = fingerprint(agent, hosts, aliases);
-      const folder = sessionFolder(this.dataDir, agent.id);
-      if (written === agent.written && fs.existsSync(path.join(folder, "ssh_config")))
-        return "unchanged";
-      agent.written = null;
-      const { skipped } = writeSessionFiles(folder, {
-        hosts,
-        aliases,
-        socketPath: agent.location.socketPath,
-        binaries: agent.binaries,
-      });
-      if (skipped.length)
-        this.log.warn("Session SSH agent skipped hosts:", skipped.join(", "));
-      agent.written = written;
-      agent.attempts = 0;
-      this.changed(agent.id);
-      return "written";
-    } catch (error) {
-      agent.written = null;
-      this.withoutHosts(agent);
-      // The aliases are gone: the live topic must not keep showing them.
-      this.changed(agent.id);
-      this.log.error(
-        "Session SSH agent files could not be written:",
-        error?.code || "error",
-      );
-      this.retry(agent);
-      throw error;
-    }
-  }
-
-  // The zero-host set: no aliases, wrappers that only exec the real binaries. When
-  // even that fails (a planted link), the alias files are unlinked, never followed,
-  // and it is tried once more. `bin/` is never removed.
-  withoutHosts(agent) {
-    const folder = sessionFolder(this.dataDir, agent.id);
-    const empty = () =>
-      writeSessionFiles(folder, {
-        hosts: [],
-        aliases: {},
-        socketPath: agent.location.socketPath,
-        binaries: agent.binaries,
-      });
-    try {
-      empty();
-      return;
-    } catch {
-      // Clear the alias files below.
-    }
-    for (const name of ["ssh_config", "known_hosts", "aliases.json", "keys"])
-      this.remove(() => removeBelow(this.agentsRoot, path.join(folder, name)));
-    try {
-      empty();
-    } catch {
-      // The alias files are gone; the retry tries again.
-    }
-  }
-
-  retry(agent) {
-    if (agent.timer || agent.attempts >= this.retryDelays.length) return;
-    const delay = this.retryDelays[agent.attempts];
-    agent.attempts += 1;
-    agent.timer = setTimeout(() => {
-      agent.timer = null;
-      if (this.agents.get(agent.id) !== agent) return;
-      const record = this.record(agent.id);
-      if (record) this.sync(record).catch(() => {});
-    }, delay);
-    agent.timer.unref?.();
-  }
-
-  changed(id) {
-    // Checked with the real ssh in the background (ssh-user-config-sync.js).
-    this.userConfig?.update(
-      [...this.agents.values()].map(({ id: sid, binaries }) => ({
-        configPath: path.join(sessionFolder(this.dataDir, sid), "ssh_config"),
-        aliases: Object.values(readSessionAliases(this.dataDir, sid)),
-        ssh: binaries?.ssh,
-      })),
+  // The session's granted hosts, read inside the registry's write so that a catalog
+  // or grant failure fails the write like a file error (withoutHosts, retry).
+  syncAgent(agent, session) {
+    return this.registry.write(sessionOwner(agent.id), async () =>
+      agentHosts(this.store.list(), await this.grants.effective(session)),
     );
-    try {
-      this.onChange?.(id);
-    } catch {
-      // A listener never fails a sync.
-    }
   }
 
   /** Resolves "written" or "unchanged"; syncs run one at a time. */
@@ -377,7 +247,7 @@ export class SessionSshAgents {
   }
 
   async syncOnce(session) {
-    const agent = this.agents.get(session?.id);
+    const agent = this.agent(session?.id);
     // Only prepare and restore start an agent: a discarded session stays gone.
     if (!agent || !this.current(session, agent)) return "unchanged";
     return this.syncAgent(agent, session);
@@ -397,7 +267,7 @@ export class SessionSshAgents {
       return;
     }
     for (const session of sessions)
-      if (this.agents.has(session?.id)) await this.sync(session).catch(() => {});
+      if (this.agent(session?.id)) await this.sync(session).catch(() => {});
   }
 
   /** At service start: every running eligible session listens again at its path. */
@@ -412,7 +282,7 @@ export class SessionSshAgents {
     for (const record of sessions) {
       const stored = storedAgent(record, record?.id);
       if (!stored || record.status !== "running" || !agentEligible(record)) continue;
-      if (!validSessionId(record.id) || this.agents.has(record.id)) continue;
+      if (!validSessionId(record.id) || this.agent(record.id)) continue;
       // The binaries chosen at launch; PATH (the server's) only when they are gone.
       const binaries =
         recordedBinaries(stored.binaries, realOrSelf(this.agentsRoot)) ?? this.binaries();
@@ -422,7 +292,7 @@ export class SessionSshAgents {
       }
       try {
         await this.syncs.run(async () => {
-          if (!this.agents.has(record.id))
+          if (!this.agent(record.id))
             await this.start(record.id, { ...stored, binaries: { ...binaries } });
         });
       } catch (error) {
@@ -438,40 +308,6 @@ export class SessionSshAgents {
     }
   }
 
-  removeSessionFolder(id) {
-    removeBelow(this.agentsRoot, sessionFolder(this.dataDir, id));
-  }
-
-  removeSocketFolder(id, token) {
-    const { root, socketPath } = agentSocketLocation(this.dataDir, id, token, {
-      home: this.home,
-      warn: () => {},
-    });
-    removeBelow(root, path.dirname(socketPath));
-  }
-
-  remove(operation) {
-    try {
-      operation();
-    } catch (error) {
-      this.log.error(
-        "Session SSH agent folder could not be removed:",
-        error?.code || "error",
-      );
-    }
-  }
-
-  // Closes the listener and removes the session folder and the own token folder.
-  async teardown(id, token) {
-    const agent = this.agents.get(id);
-    this.agents.delete(id);
-    clearTimeout(agent?.timer);
-    await agent?.socket.close();
-    this.remove(() => this.removeSessionFolder(id));
-    const own = agent?.token ?? token;
-    if (own) this.remove(() => this.removeSocketFolder(id, own));
-  }
-
   /**
    * On stop: close the listener, flush the audit, remove the session's folders. A
    * reload that ends without an agent passes `keepReason`, so the status still says why.
@@ -479,10 +315,13 @@ export class SessionSshAgents {
   async discard(id, { keepReason = false } = {}) {
     if (!validSessionId(id)) return;
     if (!keepReason) this.unavailable.delete(id);
-    await this.syncs.run(() => this.teardown(id, storedToken(this.record(id), id)));
+    const owner = sessionOwner(id);
+    await this.syncs.run(() =>
+      this.registry.teardown(owner, storedToken(this.record(id), id)),
+    );
     // After the close: no signature can open a new audit window behind the flush.
-    this.agentAudit.flush(ownerKey(sessionOwner(id)));
-    this.changed(id);
+    this.registry.agentAudit.flush(ownerKey(owner));
+    this.registry.changed(owner);
   }
 
   /**
@@ -494,7 +333,7 @@ export class SessionSshAgents {
     const unavailable = (reason) => ({ state: "unavailable", reason, aliases: {} });
     if (!this.openssh) return unavailable("no-openssh");
     if (!this.supported) return unavailable("openssh-too-old");
-    const agent = this.agents.get(session?.id);
+    const agent = this.agent(session?.id);
     if (!agent || !this.current(session, agent))
       return unavailable(this.unavailable.get(session?.id) ?? "not-eligible");
     return {
@@ -505,20 +344,12 @@ export class SessionSshAgents {
   }
 
   userConfigProblem(id) {
-    const configPath = path.join(sessionFolder(this.dataDir, id), "ssh_config");
-    const code = this.userConfig?.problemFor(configPath);
+    const code = this.registry.userConfigProblem(sessionOwner(id));
     return code ? { sshConfig: code } : {};
   }
 
   /** On shutdown: listeners close, folders stay for the restart at the same paths. */
-  async close() {
-    await this.syncs.run(async () => {
-      for (const [id, agent] of this.agents) {
-        clearTimeout(agent.timer);
-        await agent.socket.close();
-        this.agentAudit.flush(ownerKey(sessionOwner(id)));
-      }
-      this.agents.clear();
-    });
+  close() {
+    return this.registry.close("session");
   }
 }

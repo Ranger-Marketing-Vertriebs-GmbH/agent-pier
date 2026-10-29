@@ -368,6 +368,18 @@ function writeIn(folder, name, text, mode) {
   writePrivateText(path.join(folder.check(), name), text, mode);
 }
 
+// Unlink one file or link of a verified folder (a link is never followed).
+function removeFile(folder, name) {
+  const entry = path.join(folder.check(), name);
+  let stat;
+  try {
+    stat = fs.lstatSync(entry);
+  } catch {
+    return;
+  }
+  if (!stat.isDirectory()) fs.unlinkSync(entry);
+}
+
 // Unlink entries of a verified folder that are not in `keep`. Files and symlinks are
 // unlinked (a link is never followed); directories are left alone.
 function removeOthers(folder, keep) {
@@ -381,9 +393,9 @@ function removeOthers(folder, keep) {
 /**
  * Write an owner's config, known_hosts, public keys, alias map and wrappers into
  * `folder`, which must lie below `root` (`<dataDir>/ssh-agents`), plus `shell-env.sh`
- * (0600) when `shellEnv` is a string. Every folder from `root` down is created
- * without following symlinks, refused when one is planted and re-checked before each
- * write; every file goes through an exclusive temp name and a rename; keys and
+ * (0600) when `shellEnv` is a string; otherwise a stale one is unlinked. Every folder
+ * from `root` down is created without following symlinks, refused when one is planted
+ * and re-checked before each write; every file goes through an exclusive temp name and a rename; keys and
  * wrappers no longer needed are unlinked. Returns the access ids of hosts that could
  * not be rendered (invalid fields, no alias or a duplicate alias), which get no alias.
  */
@@ -430,6 +442,7 @@ export function writeOwnerFiles(
   const written = Object.fromEntries(usable.map((host) => [host.accessId, host.alias]));
   writeIn(owner, "aliases.json", `${JSON.stringify(written, null, 2)}\n`);
   if (typeof shellEnv === "string") writeIn(owner, "shell-env.sh", shellEnv, 0o600);
+  else removeFile(owner, "shell-env.sh");
   const rendered = new Set(usable.map((host) => host.accessId));
   return {
     skipped: list.map((host) => host?.accessId).filter((id) => !rendered.has(id)),

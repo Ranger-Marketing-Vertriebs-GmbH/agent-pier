@@ -42,8 +42,10 @@ export function createShutdown({ services, wss, server }) {
     await services.autoResume?.close();
     await services.reload?.close();
     await services.sshManagement?.close();
-    // Listeners close; the session folders stay, so a restart listens at the same paths.
+    // Listeners close; the folders stay, so a restart listens at the same paths. The
+    // registry closes what is left of the agents' sockets after the sessions'.
     await services.sshAgents?.close();
+    await services.sshAgentRegistry?.close();
     services.accountAuthStatus?.close();
     services.codexMcpLogins?.close();
     services.agency?.close();
