@@ -162,6 +162,35 @@ test("the cleanup summary topic pushes measuring, measured and a deletion's reme
   assert.equal(storageCleanup.events.listenerCount("change"), 0);
 });
 
+test("a failed cleanup measurement is retried after its delay while watched", async (t) => {
+  const { storageCleanup } = cleanupFixture();
+  const { clock, hub } = hubOf(t, {});
+  const measure = storageCleanup.summaryMeasure;
+  measure.now = clock.now;
+  let fail = true;
+  measure.measure = async () => {
+    if (fail) throw new Error("unreadable");
+    return { bytes: 7 };
+  };
+  hub.define(cleanupSummaryTopic({ storageCleanup }, { timers: clock.timers }));
+  const { frames, stop } = listen(hub, "system.cleanup.summary");
+  await clock.advance(1000);
+  assert.deepEqual(frames.at(-1).data, { state: "failed" });
+  // Before the retry delay nothing is measured again.
+  fail = false;
+  await clock.advance(measure.retryMs - 2000);
+  assert.deepEqual(frames.at(-1).data, { state: "failed" });
+  await clock.advance(5000);
+  assert.deepEqual(frames.at(-1).data, { state: "ready", bytes: 7 });
+  // Nobody watching: no retry is left behind.
+  fail = true;
+  measure.invalidate();
+  await clock.advance(1000);
+  assert.deepEqual(frames.at(-1).data, { state: "ready", bytes: 7 });
+  stop();
+  assert.equal(clock.pending(), 0);
+});
+
 test("the cleanup summary topic is owner only", () => {
   const topic = cleanupSummaryTopic({ storageCleanup: cleanupFixture().storageCleanup });
   assert.equal(topic.authorize({ role: "owner" }), true);

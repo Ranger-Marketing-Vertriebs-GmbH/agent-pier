@@ -27,20 +27,47 @@ export function systemStatusTopics(services) {
  * The topic `system.cleanup.summary`: what GET /api/system-status/cleanup/summary
  * answers (the cached background measurement of what the Storage tab can free). It is
  * not sampled: StorageCleanup signals when a measurement starts over (a deletion),
- * ends or fails, so the dialog sees "measuring" turn into "measured". Owner only.
+ * ends or fails, so the dialog sees "measuring" turn into "measured". A failed
+ * measurement is retried once its retry delay has passed, while someone still
+ * watches (the dialog's former poll did so). Owner only.
  */
-export function cleanupSummaryTopic(services) {
+export function cleanupSummaryTopic(
+  services,
+  { timers = { setTimeout, clearTimeout } } = {},
+) {
+  let invalidate = null;
+  let retry = null;
+  const cancel = () => {
+    timers.clearTimeout(retry);
+    retry = null;
+  };
   return {
     name: "system.cleanup.summary",
     mode: "state",
     authorize: (principal) => principal?.role === "owner",
     scopeKey: () => "owner",
-    read: () => services.storageCleanup.summary(),
-    watch: ({ invalidate }) => {
+    read: () => {
+      const { storageCleanup } = services;
+      const value = storageCleanup.summary();
+      if (value?.state === "failed" && invalidate && !retry) {
+        retry = timers.setTimeout(() => {
+          retry = null;
+          invalidate?.();
+        }, storageCleanup.summaryMeasure?.retryMs ?? 60000);
+        retry?.unref?.();
+      }
+      return value;
+    },
+    watch: (context) => {
+      invalidate = context.invalidate;
       const events = services.storageCleanup.events;
-      const changed = () => invalidate();
+      const changed = () => context.invalidate();
       events.on("change", changed);
-      return () => events.off("change", changed);
+      return () => {
+        invalidate = null;
+        cancel();
+        events.off("change", changed);
+      };
     },
   };
 }
