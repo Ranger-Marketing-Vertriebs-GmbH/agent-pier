@@ -422,9 +422,10 @@ export class SessionSshAgents {
   changed(id) {
     // Checked with the real ssh in the background (ssh-user-config-sync.js).
     this.userConfig?.update(
-      [...this.agents.keys()].map((sid) => ({
+      [...this.agents.values()].map(({ id: sid, binaries }) => ({
         configPath: path.join(sessionFolder(this.dataDir, sid), "ssh_config"),
         aliases: Object.values(readSessionAliases(this.dataDir, sid)),
+        ssh: binaries?.ssh,
       })),
     );
     try {

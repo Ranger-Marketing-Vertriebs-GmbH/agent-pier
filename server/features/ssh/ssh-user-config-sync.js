@@ -23,6 +23,8 @@ import {
 
 const CHECK_HOST = "agentpier-check.invalid";
 export const SSH_CONFIG_CHECK_FAILED = "SSH_CONFIG_CHECK_FAILED";
+// Only this session's entry was left out; the block itself is in place.
+export const SSH_CONFIG_SESSION_LEFT_OUT = "SSH_CONFIG_SESSION_LEFT_OUT";
 
 const inside = (folder, parent) => {
   const relative = path.relative(parent, folder);
@@ -110,6 +112,9 @@ export class SshUserConfig {
   }
 
   async apply(entries) {
+    // The OpenSSH the agents resolved, not the server's PATH.
+    const binary = entries.find((entry) => entry.ssh)?.ssh;
+    if (binary) this.ssh = binary;
     // Nothing to name and nothing named before: no dispatcher for a user without agents.
     if (!entries.length && !this.active && !fs.existsSync(this.dispatcher)) return;
     try {
@@ -141,14 +146,14 @@ export class SshUserConfig {
     if (!(await this.tryEntries(kept))) return this.rollback();
     for (const entry of entries) {
       if (await this.tryEntries([...kept, entry], [entry])) kept.push(entry);
-      else failed.set(entry.configPath, SSH_CONFIG_CHECK_FAILED);
+      else failed.set(entry.configPath, SSH_CONFIG_SESSION_LEFT_OUT);
     }
     if (!(await this.tryEntries(kept))) return this.rollback();
     for (const configPath of failed.keys())
       if (!this.failed.has(configPath))
         this.log.warn(
           "Session SSH aliases left out of ~/.ssh/config:",
-          SSH_CONFIG_CHECK_FAILED,
+          SSH_CONFIG_SESSION_LEFT_OUT,
         );
     this.failed = failed;
   }

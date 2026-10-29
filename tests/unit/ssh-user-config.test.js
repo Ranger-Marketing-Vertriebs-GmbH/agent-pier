@@ -13,6 +13,7 @@ import {
   renderDispatcher,
   renderIncludeBlock,
   sshConfigKey,
+  withoutStaleBlocks,
 } from "../../server/features/ssh/ssh-user-config.js";
 
 function fakeHome(t, name = "home") {
@@ -31,9 +32,12 @@ function fakeHome(t, name = "home") {
 
 const key = "abcd1234";
 const otherKey = "0f0f0f0f";
-const dispatcher = "/data/ssh-agents/include.conf";
+// The data folder is "/", which exists, so other instances' installs never prune it.
+const dispatcher = "/ssh-agents/include.conf";
 const block = renderIncludeBlock(dispatcher, key);
-const other = renderIncludeBlock("/spike/ssh-agents/include.conf", otherKey);
+// Another instance whose data folder exists (here: the temp folder itself).
+const spikeDispatcher = path.join(os.tmpdir(), "ssh-agents", "include.conf");
+const other = renderIncludeBlock(spikeDispatcher, otherKey);
 const mode = (file) => fs.statSync(file).mode & 0o777;
 const install = (home, extra = {}) =>
   installSshConfigInclude({ home, dispatcher, key, ...extra });
@@ -44,7 +48,7 @@ test("the block is keyed by its data folder, shell-neutral and ends with Match a
     [
       "# BEGIN AgentPier abcd1234 (managed, do not edit)",
       'Match exec "printenv AGENTPIER_SSH_CONFIG >/dev/null"',
-      '  Include "/data/ssh-agents/include.con[f]"',
+      '  Include "/ssh-agents/include.con[f]"',
       "Match all",
       "# END AgentPier abcd1234",
       "",
@@ -137,7 +141,7 @@ test("instances with other data folders keep their own blocks", (t) => {
   install(home);
   installSshConfigInclude({
     home,
-    dispatcher: "/spike/ssh-agents/include.conf",
+    dispatcher: spikeDispatcher,
     key: otherKey,
   });
   assert.equal(fs.readFileSync(config, "utf8"), other + block + "Host mine\n");
@@ -231,7 +235,7 @@ test("the removal script takes out this data folder's block only", async (t) => 
   installSshConfigInclude({ home, dispatcher, key: sshConfigKey(dataDir) });
   installSshConfigInclude({
     home,
-    dispatcher: "/spike/ssh-agents/include.conf",
+    dispatcher: spikeDispatcher,
     key: otherKey,
   });
   const lines = [];
@@ -249,4 +253,33 @@ test("the removal script takes out this data folder's block only", async (t) => 
     () => runSshConfig({ action: "install", home, dataDir, log }),
     /ssh-config\.mjs remove/,
   );
+});
+
+test("an install prunes blocks whose data folder is gone and keeps the others", (t) => {
+  const { root, home, config } = fakeHome(t);
+  const live = path.join(root, "live [1]");
+  fs.mkdirSync(live);
+  const gone = path.join(root, "gone");
+  const liveBlock = renderIncludeBlock(
+    path.join(live, "ssh-agents", "include.conf"),
+    otherKey,
+  );
+  const goneBlock = renderIncludeBlock(
+    path.join(gone, "ssh-agents", "include.conf"),
+    "11112222",
+  );
+  // Not ours to judge: a marked block without an AgentPier dispatcher.
+  const foreign =
+    "# BEGIN AgentPier 33334444 (managed, do not edit)\nHost x\n# END AgentPier 33334444\n";
+  fs.mkdirSync(path.dirname(config), { mode: 0o700 });
+  fs.writeFileSync(config, goneBlock + liveBlock + foreign + "Host mine\n", {
+    mode: 0o600,
+  });
+  assert.equal(withoutStaleBlocks(liveBlock + goneBlock), liveBlock);
+  install(home);
+  assert.equal(
+    fs.readFileSync(config, "utf8"),
+    block + liveBlock + foreign + "Host mine\n",
+  );
+  assert.equal(install(home), "unchanged");
 });

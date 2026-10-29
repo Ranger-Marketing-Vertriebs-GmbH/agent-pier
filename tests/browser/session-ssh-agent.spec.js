@@ -177,3 +177,14 @@ test("a failed ssh check is named in German without its code", async ({ page }) 
   ).toBeVisible();
   await expect(dialog(page).getByText(/SSH_CONFIG_CHECK/)).toHaveCount(0);
 });
+
+test("a session left out of ~/.ssh/config is named as such", async ({ page }) => {
+  await fixture(page, "en", (state) => {
+    state.agent = { ...state.agent, sshConfig: "SSH_CONFIG_SESSION_LEFT_OUT" };
+  });
+  await openDialog(page);
+  await expect(
+    dialog(page).getByText(/outside this session's own ssh does not know its aliases/),
+  ).toBeVisible();
+  await expect(dialog(page).getByText(/unchanged/)).toHaveCount(0);
+});

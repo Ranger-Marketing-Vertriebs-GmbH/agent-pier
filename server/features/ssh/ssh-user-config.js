@@ -218,10 +218,56 @@ function replaceUserConfig({ file, stat }, text) {
 export function installSshConfigInclude({ home, dispatcher, key }) {
   const block = renderIncludeBlock(dispatcher, key);
   const current = readUserConfig(home, { create: true });
-  const rest = withoutBlock(current.text, key);
+  const rest = withoutStaleBlocks(withoutBlock(current.text, key));
   if (current.text === block + rest) return "unchanged";
   replaceUserConfig(current, block + rest);
   return "written";
+}
+
+const blockStart = /^# BEGIN AgentPier ([0-9a-f]{8}) \(managed, do not edit\)\r?$/;
+const includeLine = /^ {2}Include "((?:[^"\\]|\\.)*)\[(.)\]"\r?$/;
+
+/** The data folder a block's `Include` names, or null when the block is not ours. */
+function blockDataFolder(lines) {
+  for (const line of lines) {
+    const match = includeLine.exec(line.replace(/\n$/, ""));
+    if (!match) continue;
+    const dispatcher = match[1].replace(/\\(.)/g, "$1") + match[2];
+    if (!path.isAbsolute(dispatcher) || path.basename(dispatcher) !== "include.conf")
+      return null;
+    return path.dirname(path.dirname(dispatcher));
+  }
+  return null;
+}
+
+/**
+ * Without the blocks of other instances whose data folder no longer exists (a deleted
+ * spike or test instance). Blocks of existing folders, and anything that does not
+ * read as AgentPier's own block, stay.
+ */
+export function withoutStaleBlocks(text) {
+  const lines = text.split(/(?<=\n)/);
+  const kept = [];
+  for (let index = 0; index < lines.length; index++) {
+    const start = blockStart.exec(lines[index].replace(/\n$/, ""));
+    if (!start) {
+      kept.push(lines[index]);
+      continue;
+    }
+    const end = lines.findIndex(
+      (line, at) =>
+        at > index && line.replace(/\r?\n$/, "") === `# END AgentPier ${start[1]}`,
+    );
+    if (end < 0) {
+      kept.push(lines[index]);
+      continue;
+    }
+    const block = lines.slice(index, end + 1);
+    const folder = blockDataFolder(block);
+    if (folder === null || fs.existsSync(folder)) kept.push(...block);
+    index = end;
+  }
+  return kept.join("");
 }
 
 /**
