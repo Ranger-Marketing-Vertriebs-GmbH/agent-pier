@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { subscribe, until } from "../helpers/live-hub-subscriber.js";
 import { openLive } from "../helpers/live-socket.js";
 import { applicationFixture } from "../helpers/application.js";
-import { waitForFileJob } from "../helpers/file-explorer.js";
+import { fileFixture, waitForFileJob } from "../helpers/file-explorer.js";
 import { submitCopy } from "../helpers/file-copy.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
 import { reportLiveError } from "../../server/application/live-wiring.js";
@@ -340,4 +340,37 @@ test("the chat delivery hook is wired to the hub", async (t) => {
     ["session.deliveries", "session-one"],
     ["files.jobs", undefined],
   ]);
+});
+
+test("unchanged rewrites of a finished job keep its version and prune clock", async (t) => {
+  const f = await fileFixture(t);
+  let now = Date.now();
+  const store = new FileStore({ dataDir: f.dataDir, now: () => now });
+  t.after(() => store.close());
+  const { job } = store.request(f.globalScope, {
+    requestId: `${now}:${randomUUID()}`,
+    kind: "size",
+    sources: [],
+    target: null,
+    name: null,
+    options: {},
+  });
+  store.putEntry(job.id, { id: "row", status: "completed" });
+  store.transition(job.id, "queued", "completed", {});
+  const version = store.getJob(f.globalScope, job.id).updatedAt;
+  // Recovery on a later start writes the same rows and status again.
+  now += 6 * 86400000;
+  store.putEntry(job.id, { id: "row", status: "completed" });
+  assert.ok(store.transition(job.id, "completed", "completed", {}));
+  assert.equal(store.getJob(f.globalScope, job.id).updatedAt, version);
+  // A real change is a new version.
+  store.putEntry(job.id, { id: "row", status: "skipped" });
+  assert.ok(store.getJob(f.globalScope, job.id).updatedAt > version);
+  // Seven days after its last real change the job is pruned.
+  now += 2 * 86400000;
+  store.prune(now);
+  assert.ok(store.getJob(f.globalScope, job.id));
+  now += 6 * 86400000;
+  store.prune(now);
+  assert.throws(() => store.getJob(f.globalScope, job.id), { code: "FILE_NOT_FOUND" });
 });

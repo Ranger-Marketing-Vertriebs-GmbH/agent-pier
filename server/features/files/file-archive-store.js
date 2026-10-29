@@ -34,6 +34,8 @@ export class FileArchiveStore {
     return row ? JSON.parse(row.document).archive : null;
   }
   save(id, archive) {
+    // Unchanged (recovery on every start): no new version, the prune clock runs on.
+    if (JSON.stringify(this.get(id)) === JSON.stringify(archive)) return;
     this.db
       .prepare(
         "UPDATE jobs SET document=json_set(document,'$.archive',json(?)) WHERE id=?",
