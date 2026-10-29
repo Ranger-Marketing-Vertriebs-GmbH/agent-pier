@@ -56,8 +56,16 @@ test("a shell session's agent starts with it, survives a restart and goes with i
   const text = await response.text();
   assert.equal(response.status, 201, text);
   const session = JSON.parse(text);
-  assert.equal(session.sshAgent.enabled, true);
+  // The browser learns only that the session has an agent (R30).
+  assert.deepEqual(session.sshAgent, { enabled: true });
   const details = f.application.sshAgents.launchDetails(session.id);
+  const { token } = (await f.application.sessions.metadata(session.id)).sshAgent;
+  const state = await (await f.request("/api/state")).text();
+  assert.equal(state.includes(token), false);
+  assert.deepEqual(
+    JSON.parse(state).sessions.find((item) => item.id === session.id).sshAgent,
+    { enabled: true },
+  );
   const env = JSON.parse(
     await waitFor(() => fs.existsSync(seen) && fs.readFileSync(seen, "utf8"), 10_000),
   );

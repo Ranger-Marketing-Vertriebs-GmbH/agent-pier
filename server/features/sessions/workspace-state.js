@@ -12,6 +12,7 @@ import { toolBinDirectories } from "../tools/tool-paths.js";
 import { chromiumUtility } from "../tools/chromium-installer.js";
 import { isManagedInstall, withCliVersions } from "../tools/cli-version.js";
 import { SessionProjects } from "./session-projects.js";
+import { publicSession } from "./session-public.js";
 import { legacyTmuxSessions as listLegacyTmux } from "./legacy-tmux-server.js";
 
 /**
@@ -115,7 +116,8 @@ export function createWorkspaceState(
         accounts: services.accounts.list(),
         sharedCliExtensions: true,
         providerConnections: services.providerConnections.list(),
-        sessions: await projects.enrich(listed),
+        // Never the SSH agent's token or binary paths (session-public.js).
+        sessions: (await projects.enrich(listed)).map(publicSession),
         inbox: await inboxSummary(),
         // Sessions still on the tmux server of a release from before the rename.
         legacyTmux: { sessions: legacy },

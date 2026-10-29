@@ -64,7 +64,7 @@ test("a changed assignment is saved, then synced into the agent, then answered",
   assert.deepEqual(f.order, ["set", "sync", "status"]);
 });
 
-test("a failed agent sync keeps the saved assignment and is logged, not answered", async (t) => {
+test("a failed agent sync keeps the saved assignment and is not logged again", async (t) => {
   const f = await withRoutes(t, {
     sync: async () => {
       throw Object.assign(new Error("disk"), { code: "EACCES" });
@@ -83,7 +83,8 @@ test("a failed agent sync keeps the saved assignment and is logged, not answered
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).accessIds, ["access-a"]);
   assert.deepEqual(f.order, ["set", "sync", "status"]);
-  assert.deepEqual(logged, ["Session SSH agent could not follow the assignment: EACCES"]);
+  // SessionSshAgents logs the failed write itself (ssh-session-agents-failures.test.js).
+  assert.deepEqual(logged, []);
 });
 
 test("a session whose SSH binding moves to the new project refreshes the agents", async () => {

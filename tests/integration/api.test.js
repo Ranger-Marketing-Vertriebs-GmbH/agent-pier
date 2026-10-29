@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { applicationFixture, fixtureFetch as fetch } from "../helpers/application.js";
 async function fixture(t) {
-  const { root: dir, application, url } = await applicationFixture(t);
-  return { url, dir, application };
+  const { root: dir, home, application, url } = await applicationFixture(t);
+  return { url, dir, home, application };
 }
 const body = (url, data) => ({
   method: "POST",
@@ -174,7 +174,7 @@ test("GitHub endpoints keep token values private and enforce origins for clone r
 });
 
 test("extension routes edit only the selected profile and allow bounded skill uploads above generic JSON limit", async (t) => {
-  const { url, dir } = await fixture(t);
+  const { url, dir, home } = await fixture(t);
   let response = await fetch(
     url + "/api/accounts",
     body(url, { name: "MCP test", tool: "claude" }),
@@ -189,7 +189,11 @@ test("extension routes edit only the selected profile and allow bounded skill up
   assert.equal(response.status, 404);
   response = await fetch(root);
   const { mcp } = await response.json();
-  assert.ok(mcp.path.startsWith(dir));
+  // Inside the fixture (its data directory or its short fake home), never the real home.
+  assert.ok(
+    [dir, home].some((own) => mcp.path.startsWith(own + path.sep)),
+    mcp.path,
+  );
   fs.mkdirSync(path.dirname(mcp.path), { recursive: true });
   const native = JSON.stringify({
     mcpServers: {

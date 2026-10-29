@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { accountUsage } from "../../features/accounts/account-usage.js";
+import { publicSession } from "../../features/sessions/session-public.js";
 export function accountsRoutes(services) {
   const { accounts, plugins, activeFor, launch, mutateAccount } = services;
   const router = Router();
@@ -47,7 +48,7 @@ export function accountsRoutes(services) {
     res.status(204).end();
   });
   router.post("/accounts/:id/login", async (req, res) =>
-    res.status(201).json(await launch({ accountId: req.params.id }, true)),
+    res.status(201).json(publicSession(await launch({ accountId: req.params.id }, true))),
   );
   return router;
 }
