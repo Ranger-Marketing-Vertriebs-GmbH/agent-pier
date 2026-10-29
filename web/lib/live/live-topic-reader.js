@@ -91,7 +91,12 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
   const accept = (result, started) => {
     if (!result || stopped) return null;
     if ("error" in result) {
-      publish({ error: result.error, loading: false });
+      // The route refuses the value for good (a removed project's queue, access
+      // withdrawn): nothing of it may show on, nor its buttons.
+      if (result.status === 404 || result.status === 403) {
+        version += 1;
+        publish({ data: null, error: result.error, loading: false, readAt: null });
+      } else publish({ error: result.error, loading: false });
       return null;
     }
     lastRead = scope.now();
