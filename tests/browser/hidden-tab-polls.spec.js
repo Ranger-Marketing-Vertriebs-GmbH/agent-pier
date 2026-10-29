@@ -204,7 +204,9 @@ test("a hidden editor pauses its file metadata read and resumes on show", async 
   await pausesWhenHidden(page, requests, /\/api\/files\/metadata/);
 });
 
-test("hidden Accounts pause the CLI sign-in reads", async ({ page }) => {
+// The sign-in state is a sampled topic (account.auth): a hidden tab lets it go, so the
+// server runs no CLI for it, and the page itself never reads the route.
+test("hidden Accounts let the CLI sign-in topic go", async ({ page, liveStub }) => {
   const controls = await providersFixture(page);
   controls.state.accounts = [
     { id: "managed-codex", name: "Work Codex", tool: "codex", kind: "managed" },
@@ -215,7 +217,18 @@ test("hidden Accounts pause the CLI sign-in reads", async ({ page }) => {
   const requests = recordApiRequests(page);
   await page.goto(baseURL + "/accounts?section=cli&item=managed-codex");
   await expect(page.locator(".accounts-detail")).toBeVisible();
-  await pausesWhenHidden(page, requests, /\/auth-status$/);
+  const topic = "account.auth:managed-codex";
+  await liveStub.waitForSubscribe(topic);
+  await setTabHidden(page, true);
+  await expect.poll(() => liveStub.subscriptions()).not.toContain(topic);
+  requests.clear();
+  await page.waitForTimeout(3000);
+  expect(requests.list()).toEqual([]);
+  await setTabHidden(page, false);
+  await expect.poll(() => liveStub.subscriptions()).toContain(topic);
+  expect(requests.list().some((request) => /\/auth-status$/.test(request.path))).toBe(
+    false,
+  );
 });
 
 // A model read that hangs on the server reaches the page as a timeout in the pushed

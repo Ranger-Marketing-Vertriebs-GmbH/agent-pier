@@ -5,7 +5,6 @@ import {
   resolveProjectId,
   groupFirstRuns,
   groupRunCounts,
-  latestGate,
   sweepRunCounts,
 } from "../../web/features/projects/useProjectHub.js";
 
@@ -135,17 +134,6 @@ test("run counts group by the memory project id", () => {
     ]),
     { m1: 2, m2: 1 },
   );
-});
-
-test("the latest gate applies only answers newer than the last applied one", () => {
-  const gate = latestGate();
-  const load = gate.start(),
-    poll = gate.start();
-  assert.equal(gate.apply(poll), true);
-  assert.equal(gate.apply(load), false);
-  const next = gate.start();
-  assert.equal(gate.apply(next), true);
-  assert.equal(gate.apply(next), false);
 });
 
 test("the run sweep reads further pages at once and marks a capped status", async () => {

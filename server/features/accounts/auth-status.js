@@ -84,6 +84,11 @@ export class AccountAuthStatus {
     this.cache.set(account.id, result);
     return result;
   }
+  /** Drops the cached state of `id` (of every account without one): the next read probes. */
+  forget(id) {
+    if (id === undefined) this.cache.clear();
+    else this.cache.delete(id);
+  }
   close() {
     for (const controller of this.controllers) controller.abort();
     this.cache.clear();

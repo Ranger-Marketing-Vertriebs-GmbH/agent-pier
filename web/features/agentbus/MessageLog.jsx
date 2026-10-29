@@ -5,15 +5,8 @@ import { messageLogCopy as copy } from "../../lib/i18n/messages/agentbus.js";
 import React, { useEffect } from "react";
 import { Pagination } from "../../components/Pagination.jsx";
 import useAgentBusMessages from "./useAgentBusMessages.js";
-export default function MessageLog({
-  request,
-  project,
-  page,
-  onPage,
-  onTotal = () => {},
-}) {
-  const { error, setReload, data, paging } = useAgentBusMessages({
-    request,
+export default function MessageLog({ project, page, onPage, onTotal = () => {} }) {
+  const { error, retry, data, paging } = useAgentBusMessages({
     project,
     page,
     onPage,
@@ -29,7 +22,7 @@ export default function MessageLog({
       {error && (
         <div className="extension-load-error">
           <ErrorMessage error={error} as="p" />
-          <button className="button secondary" onClick={() => setReload((n) => n + 1)}>
+          <button className="button secondary" onClick={retry}>
             {copy.retryMessages}
           </button>
         </div>

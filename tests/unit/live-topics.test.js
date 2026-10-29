@@ -268,3 +268,18 @@ test("an editor document's file.meta topic needs its token and has no REST route
   assert.equal(topicInfo("file.meta"), null);
   assert.equal(topicInfo("file.meta:"), null);
 });
+
+test("the AgentBus signal takes a project or none; the sign-in state is sampled", () => {
+  const bus = topicInfo("agentbus.changed");
+  assert.deepEqual(
+    [bus.mode, bus.path, bus.interval, bus.sampled],
+    ["signal", null, 10000, false],
+  );
+  assert.equal(topicInfo(`agentbus.changed:${"a".repeat(64)}`).param, "a".repeat(64));
+  const auth = topicInfo("account.auth:local-codex");
+  assert.deepEqual(
+    [auth.mode, auth.path(auth.param), auth.interval, auth.sampled],
+    ["state", "/accounts/local-codex/auth-status", 30000, true],
+  );
+  assert.equal(topicInfo("account.auth"), null);
+});

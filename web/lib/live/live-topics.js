@@ -239,6 +239,23 @@ export const liveTopics = Object.freeze({
   }),
   // The list and search pages: `changed`, then one read of the caller's query.
   "artifacts.changed": Object.freeze({ mode: "signal", path: null, interval: 5000 }),
+  // The AgentBus overview (bare) and a project's message log (`:<projectId>`):
+  // `changed` when the queue, the peers or the AgentBus sessions change, then one read
+  // of the caller's route; without the channel at the former 10 s poll.
+  "agentbus.changed": Object.freeze({
+    mode: "signal",
+    path: null,
+    optionalParam: true,
+    interval: 10000,
+  }),
+  // A CLI account's sign-in state, sampled by the server every 30 s while a visible
+  // tab watches.
+  "account.auth": Object.freeze({
+    mode: "state",
+    path: (id) => `/accounts/${encodeURIComponent(id)}/auth-status`,
+    interval: 30000,
+    sampled: true,
+  }),
   // A restricted user's app (server live-me-topics.js): each value is what her own
   // /api/me route answers.
   "me.agents": Object.freeze({ mode: "state", path: () => "/me/agents", interval: 5000 }),

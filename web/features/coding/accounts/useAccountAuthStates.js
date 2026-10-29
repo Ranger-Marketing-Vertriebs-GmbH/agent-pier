@@ -1,25 +1,31 @@
 import { useEffect, useState } from "react";
 import api from "../../../lib/api.js";
-import { startVisiblePolling } from "../../../lib/visible-polling.js";
+import { liveClient } from "../../../lib/live/live-client.js";
+import { startLiveTopic } from "../../../lib/live/live-topic-reader.js";
 
-const polledTools = ["claude", "codex", "opencode"];
+const followedTools = ["claude", "codex", "opencode"];
 
 // Only native CLI logins without a stored key have a sign-in state to read.
-const polled = (account) =>
+const followed = (account) =>
   !account.provider &&
   !account.internal &&
   !account.hasSecret &&
-  polledTools.includes(account.tool);
+  followedTools.includes(account.tool);
+
+const restRead = (path, signal) => api(path, "GET", undefined, signal);
 
 /**
- * The CLI sign-in state of every native account, polled every 30 s. The page owns
- * one copy and hands it to the hub rows and the open detail, so an account is never
- * polled twice. Returns `{ [accountId]: "authenticated" | … }`; unknown ids are absent.
+ * The CLI sign-in state of every native account, each followed as the live topic
+ * `account.auth:<id>`: the server samples it every 30 s while a visible tab watches
+ * and pushes changes (without the channel the route is polled every 30 s, visible
+ * tabs only). The page owns one copy and hands it to the hub rows and the open
+ * detail, so an account is never followed twice. Returns `{ [accountId]:
+ * "authenticated" | … }`; unknown ids are absent.
  */
 export default function useAccountAuthStates(accounts) {
   const [states, setStates] = useState({});
   const key = (accounts || [])
-    .filter(polled)
+    .filter(followed)
     .map((account) => account.id)
     .join("\n");
   useEffect(() => {
@@ -28,18 +34,23 @@ export default function useAccountAuthStates(accounts) {
       setStates((previous) =>
         previous[id] === state ? previous : { ...previous, [id]: state },
       );
-    async function poll(id, signal) {
-      try {
-        const result = await api(`/accounts/${id}/auth-status`, "GET", undefined, signal);
-        if (!signal.aborted) settle(id, result.state || "unknown");
-      } catch {
-        if (!signal.aborted) settle(id, "unknown");
-      }
-    }
-    const stops = key
-      .split("\n")
-      .map((id) => startVisiblePolling((signal) => poll(id, signal), 30000));
-    return () => stops.forEach((stop) => stop());
+    const client = liveClient();
+    const readers = key.split("\n").map((id) =>
+      startLiveTopic({
+        topicId: `account.auth:${id}`,
+        client,
+        read: restRead,
+        report: ({ data, error }) => {
+          if (error) settle(id, "unknown");
+          else if (data) settle(id, data.state || "unknown");
+        },
+      }),
+    );
+    return () => {
+      readers.forEach((reader) => reader.stop());
+      // What these subscriptions held is dropped: a later one starts from unknown.
+      setStates({});
+    };
   }, [key]);
   return states;
 }

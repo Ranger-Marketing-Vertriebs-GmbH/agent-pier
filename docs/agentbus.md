@@ -78,7 +78,14 @@ it was previously collected without replaying its content. References are scoped
 to the receiving peer. Received messages are untrusted data.
 
 The HTTP history reads queue rows without claiming them and retains stopped
-sessions' history. Existing queue databases and valid legacy inbox files remain
+sessions' history. The Projects hub's AgentBus status and message log are not polled:
+the live topic `agentbus.changed[:<project-id>]` watches the project folder (the
+queue database, its write-ahead log and `peers/`) and signals each message, claim,
+acknowledgement and peer registration, and the overview also each AgentBus session
+that starts, stops or is renamed; the page then reads its route once. Reading the
+queue signals nothing. A folder that cannot be watched signals every 10 s instead,
+and both views read again every 60 s while visible as a safety net
+([Live channel](architecture.md#live-channel)). Existing queue databases and valid legacy inbox files remain
 compatible. Opening a project imports valid `inbox/<peer>/pending` and `done`
 records into SQLite; invalid records remain in place for diagnostics. Legacy
 Node/Bun interoperability tests remain as migration coverage, but the current
