@@ -4,10 +4,14 @@
 // and nothing is polled. Without a topic, after a refusal or a failed read, while the
 // channel is in fallback, or for a file the server cannot watch (`watched: false`),
 // the document polls the route every 15 s and on window focus, visible tabs only,
-// as before. A push makes any read still under way obsolete (the store's `observed`).
+// as before. While pushed, it still reads the route on window focus, when the tab is
+// shown again and every 5 min while visible: a safety net for changes no folder watch
+// sees (a write through a hard link in another folder, a re-pointed parent link). A
+// push makes any read still under way obsolete (the store's `observed`).
 import { startVisiblePolling } from "../../lib/visible-polling.js";
 
 export const documentPollMs = 15000;
+export const documentSafetyMs = 300000;
 
 const browser = () => ({ document: globalThis.document, window: globalThis.window });
 
@@ -22,6 +26,7 @@ export function followDocument({ topic, live, observe, push, invalidate, env = {
     refused = false,
     watched = true,
     stopPolling = null,
+    mode = null,
     focusRead = null;
   const read = () => {
     if (document.hidden) return;
@@ -32,13 +37,15 @@ export function followDocument({ topic, live, observe, push, invalidate, env = {
   const polling = () => !topic || !live || refused || !watched || live.status().fallback;
   const update = () => {
     if (stopped) return;
-    const wanted = polling();
-    if (wanted && !stopPolling)
-      stopPolling = startVisiblePolling(observe, documentPollMs, env);
-    else if (!wanted && stopPolling) {
-      stopPolling();
-      stopPolling = null;
-    }
+    const wanted = polling() ? "poll" : "safety";
+    if (wanted === mode) return;
+    stopPolling?.();
+    mode = wanted;
+    // The safety net starts without a read: the subscription answers at once.
+    stopPolling =
+      wanted === "poll"
+        ? startVisiblePolling(observe, documentPollMs, env)
+        : startVisiblePolling(observe, documentSafetyMs, env, { skipFirst: true });
   };
   const listener = (event) => {
     if (event.type === "data") {
@@ -49,9 +56,7 @@ export function followDocument({ topic, live, observe, push, invalidate, env = {
     else if (event.type === "stale") read();
     update();
   };
-  const focus = () => {
-    if (stopPolling) read();
-  };
+  const focus = () => read();
   const visibility = () => {
     if (document.hidden) invalidate();
   };

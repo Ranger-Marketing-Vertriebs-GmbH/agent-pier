@@ -207,18 +207,22 @@ test("a watched document follows its pushed metadata and polls again once refuse
     watched: true,
   });
   await expect(reload).toBeVisible();
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await page.waitForTimeout(300);
   expect(metadataReads).toBe(1);
   await reload.click();
   const editor = page.getByRole("textbox", { name: `Document content: ${path}` });
   await expect(editor).toHaveText("disk");
+  await expect(reload).toBeHidden();
+  // Window focus still reads the route once, a safety net beside the pushes: the
+  // route answers the first revision, older than the reloaded one.
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect.poll(() => metadataReads).toBe(2);
+  await expect(reload).toBeVisible();
   // Deleted on disk: shown like the route's 404.
   liveStub.push(topic, { path, missing: true, watched: true });
   await expect(page.getByText("FILE_NOT_FOUND")).toBeVisible();
   // A refused topic falls back to the route at once.
   liveStub.revoke(topic);
-  await expect.poll(() => metadataReads).toBe(2);
+  await expect.poll(() => metadataReads).toBe(3);
 });
 
 test("manual conflict resolution adopts disk text and format as the dirty baseline", async ({
