@@ -202,17 +202,24 @@ export class ExecApprovals {
         // A shortened command no longer says which programs run.
         String(request.command).length > payload.command.length
           ? { kind: "once", reason: "complex" }
-          : allowAlwaysPlan(payload, {
-              // The agent's exec PATH: its GitHub directories (the managed gh)
-              // first, as compiled (agent-github.js), its SSH agent's bin/
-              // (agent-ssh-shell.js), then the owner's.
-              pathDirs: [
-                ...((assistant && this.w.github?.shellDirs(assistant)) || []),
-                ...((assistant && this.w.agentSsh?.shellDirs(assistant)) || []),
-                ...(this.w.a.runtime?.shell?.pathPrepend || []),
-              ],
-            });
+          : this.plan(payload, assistant);
     return payload;
+  }
+  // What "Always allow" writes for a request OpenClaw withheld it from.
+  plan(payload, assistant) {
+    const sshDirs = (assistant && this.w.agentSsh?.shellDirs(assistant)) || [];
+    return allowAlwaysPlan(payload, {
+      // The agent's exec PATH: its GitHub directories (the managed gh) first, as
+      // compiled (agent-github.js), its SSH agent's bin/ (agent-ssh-shell.js), then
+      // the owner's.
+      pathDirs: [
+        ...((assistant && this.w.github?.shellDirs(assistant)) || []),
+        ...sshDirs,
+        ...(this.w.a.runtime?.shell?.pathPrepend || []),
+      ],
+      // Its own ssh, scp and sftp wrappers there may be allowlisted (owner A16).
+      wrapperDirs: sshDirs,
+    });
   }
   async requested(p) {
     const id = text(p?.id, 200);

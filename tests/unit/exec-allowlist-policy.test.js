@@ -266,3 +266,115 @@ test("programs resolve through the PATH to their real file", (t) => {
   assert.equal(ownerWritable(real), true);
   if (process.getuid?.() !== 0) assert.equal(ownerWritable("/bin/ls"), false);
 });
+
+// Owner A16: AgentPier's own SSH wrappers (an agent's bin/ssh, scp and sftp,
+// agent-ssh-shell.js) may be allowlisted; any other ssh, scp or sftp stays allow-once.
+test("the agent's own ssh, scp and sftp wrappers may be allowlisted", () => {
+  const bin = "/data/ssh-agents/_agents/a/bin";
+  const wrapped = (name) =>
+    ["ssh", "scp", "sftp", "python3", "own-tool"].includes(name)
+      ? `${bin}/${name}`
+      : resolve(name);
+  const wplan = (command, extra = {}) =>
+    allowAlwaysPlan(
+      { command, cwd: "/work", ...extra },
+      { resolve: wrapped, writable: () => true, wrapperDirs: [bin] },
+    );
+  const paths = (...files) => ({ kind: "paths", paths: files, writable: files });
+  assert.deepEqual(wplan("ssh proxmox-2 uptime"), paths(`${bin}/ssh`));
+  assert.deepEqual(wplan("ssh -p 22 -l root proxmox-2"), paths(`${bin}/ssh`));
+  assert.deepEqual(wplan("scp -r dir db:/srv"), paths(`${bin}/scp`));
+  assert.deepEqual(wplan("sftp db"), paths(`${bin}/sftp`));
+  assert.deepEqual(wplan(`${bin}/ssh db ls`), paths(`${bin}/ssh`));
+  assert.deepEqual(wplan("ssh db df | grep x"), {
+    kind: "paths",
+    paths: [`${bin}/ssh`, "/bin/grep"],
+    writable: [`${bin}/ssh`, "/bin/grep"],
+  });
+  assert.deepEqual(wplan("ssh -o BatchMode=yes -J db x"), paths(`${bin}/ssh`));
+  // Other interpreters stay allow-once, also beside a wrapper or in its folder.
+  assert.deepEqual(wplan("ssh db ls | node x.js"), once("interpreter", "node"));
+  assert.deepEqual(wplan("python3 x.py"), once("interpreter", "python3"));
+  assert.deepEqual(wplan("mosh db"), once("interpreter", "mosh"));
+  // ssh, scp or sftp outside the wrapper folder stays an interpreter.
+  assert.deepEqual(plan("ssh db"), once("interpreter", "ssh"));
+  assert.deepEqual(
+    allowAlwaysPlan(
+      { command: "ssh db" },
+      { resolve: () => "/usr/bin/ssh", wrapperDirs: [bin] },
+    ),
+    once("interpreter", "ssh"),
+  );
+  // A wrapper name whose real file lies elsewhere (a link out) is not a wrapper.
+  assert.deepEqual(
+    allowAlwaysPlan(
+      { command: "sftp db" },
+      { resolve: () => "/usr/bin/python3", wrapperDirs: [bin] },
+    ),
+    once("interpreter", "sftp"),
+  );
+  // Another program named like a wrapper in a deeper or sibling folder.
+  for (const file of [`${bin}/x/ssh`, `${bin}-x/ssh`, `${bin}/ssh-x`])
+    assert.equal(
+      allowAlwaysPlan(
+        { command: "ssh db" },
+        { resolve: () => file, writable: () => true, wrapperDirs: [bin] },
+      ).kind,
+      "once",
+      file,
+    );
+});
+
+test("wrapper options that run local programs allow the command once only", () => {
+  const bin = "/data/ssh-agents/_agents/a/bin";
+  const wplan = (command) =>
+    allowAlwaysPlan(
+      { command, cwd: "/work" },
+      {
+        resolve: (name) => (name.includes("/") ? name : `${bin}/${name}`),
+        writable: () => true,
+        wrapperDirs: [bin],
+      },
+    );
+  for (const command of [
+    "ssh -o ProxyCommand=evil db",
+    "ssh -oProxyCommand=evil db",
+    "ssh -o 'proxycommand evil' db",
+    "ssh -vo LocalCommand=evil db",
+    "ssh -o PermitLocalCommand=yes db",
+    "ssh -o KnownHostsCommand=evil db",
+    "ssh -o PKCS11Provider=/tmp/x.so db",
+    "ssh -o SecurityKeyProvider=/tmp/x.so db",
+    "ssh -o 'Match exec evil' db",
+    "ssh -F cfg db",
+    "ssh -vF cfg db",
+    "ssh -I /tmp/x.so db",
+    "ssh db -o ProxyCommand=evil",
+    "scp -S evil a db:/x",
+    "scp -o ProxyCommand=evil a db:/x",
+    "scp -F cfg a db:/x",
+    "sftp -S evil db",
+    "sftp -D /bin/sh db",
+    "sftp -b batch db",
+    "sftp -oProxyCommand=evil db",
+  ])
+    assert.deepEqual(wplan(command), once("inline", command.split(" ")[0]), command);
+  // The same through another name for the wrapper (a link to it).
+  assert.deepEqual(
+    allowAlwaysPlan(
+      { command: "x -o ProxyCommand=evil db" },
+      { resolve: () => `${bin}/ssh`, writable: () => true, wrapperDirs: [bin] },
+    ),
+    once("inline", "x"),
+  );
+  // Values and remote commands that only look like those options.
+  for (const command of [
+    "ssh -l ProxyCommand db",
+    "ssh db -- -F x",
+    "ssh db ssh -F x y",
+    "ssh -o BatchMode=yes db",
+    "scp a db:-F",
+    "sftp -P 22 db",
+  ])
+    assert.equal(wplan(command).kind, "paths", command);
+});

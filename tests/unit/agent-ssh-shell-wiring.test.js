@@ -168,14 +168,13 @@ test("a turn whose sync fails still gets an answer", async (t) => {
 });
 
 // The approval analysis resolves programs on the agent's exec PATH: GitHub dirs, its
-// SSH bin/, then the owner's. The wrappers ssh, scp and sftp are interpreters there
-// and stay allow-once (exec-allowlist-policy.js); the order is checked with a plain
-// program in the same bin/.
+// SSH bin/, then the owner's. The agent's own wrappers ssh, scp and sftp may be
+// allowlisted (owner A16, exec-ssh-wrappers.js); the owner's ssh stays allow-once.
 test("approval analysis resolves on the agent's SSH bin before the owner's PATH", async (t) => {
   const f = await execFixture(t);
   const bin = path.join(f.dataDir, "ssh-agents", "_agents", f.id, "bin");
   fs.mkdirSync(bin, { recursive: true });
-  for (const name of ["ssh", "tool"])
+  for (const name of ["ssh", "scp", "sftp", "tool"])
     fs.writeFileSync(path.join(bin, name), "#!/bin/sh\n", { mode: 0o755 });
   const tool = fs.realpathSync(path.join(bin, "tool"));
   f.assistants.runtime.shell = { pathPrepend: [path.dirname(f.program("tool"))] };
@@ -189,12 +188,27 @@ test("approval analysis resolves on the agent's SSH bin before the owner's PATH"
   const plan = (await ask("with", "tool -v", tool)).allowAlwaysPlan;
   assert.equal(plan.kind, "paths");
   assert.deepEqual(plan.paths, [tool]);
+  for (const name of ["ssh", "scp", "sftp"]) {
+    const wrapper = fs.realpathSync(path.join(bin, name));
+    assert.deepEqual(
+      (await ask(name, `${name} proxmox-2:/x .`, wrapper)).allowAlwaysPlan,
+      { kind: "paths", paths: [wrapper], writable: [wrapper] },
+      name,
+    );
+  }
   const ssh = fs.realpathSync(path.join(bin, "ssh"));
-  assert.deepEqual((await ask("ssh", "ssh proxmox-2 uptime", ssh)).allowAlwaysPlan, {
-    kind: "once",
-    reason: "interpreter",
-    program: "ssh",
-  });
+  assert.deepEqual(
+    (await ask("proxy", "ssh -o ProxyCommand=x proxmox-2", ssh)).allowAlwaysPlan,
+    { kind: "once", reason: "inline", program: "ssh" },
+  );
+  // Without the agent's SSH agent the owner's ssh is an interpreter again.
+  const owners = path.join(path.dirname(f.program("tool")), "ssh");
+  fs.writeFileSync(owners, "#!/bin/sh\n", { mode: 0o755 });
+  f.workflows.agentSsh = { shellDirs: () => [] };
+  assert.deepEqual(
+    (await ask("owner-ssh", "ssh proxmox-2", fs.realpathSync(owners))).allowAlwaysPlan,
+    { kind: "once", reason: "interpreter", program: "ssh" },
+  );
 });
 
 test("a turn's sync touches only its own agent and never waits for a stuck queue", async (t) => {
