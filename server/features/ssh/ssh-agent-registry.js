@@ -106,12 +106,17 @@ export class SshAgentRegistry {
    * Listens at the owner's socket path and returns its entry; an entry the owner
    * already has is closed first. `authorize(entry)` answers each signature with
    * `{ hosts, projectId? }` or null, and is asked only while this entry is the
-   * owner's live one; it may set `entry.projectId` for the audit before it reads the
-   * hosts. `resync` rewrites the owner's files after a failed write.
+   * owner's live one, before and after it answers; it may set `entry.projectId` for
+   * the audit before it reads the hosts. `resync` rewrites the owner's files after a
+   * failed write. A token another owner listens with or keeps is refused
+   * (`SSH_AGENT_TOKEN_IN_USE`): both would share one socket folder. Call it inside
+   * `syncs.run`, like `write` and `teardown`.
    */
   async start(owner, { token, generation, binaries, authorize, resync }) {
     const key = ownerKey(owner);
     const label = labels[owner.kind];
+    if (this.tokenInUse(token, owner))
+      throw codedError("SSH_AGENT_TOKEN_IN_USE", "SSH agent token in use");
     const previous = this.owners.get(key);
     if (previous) {
       this.owners.delete(key);
@@ -143,7 +148,8 @@ export class SshAgentRegistry {
       authorize: async () => {
         if (this.owners.get(key) !== entry) return null;
         const grant = await authorize(entry);
-        if (!grant) return null;
+        // A replace or teardown during the answer: the entry signs nothing more.
+        if (!grant || this.owners.get(key) !== entry) return null;
         if ("projectId" in grant) entry.projectId = grant.projectId;
         return { hosts: grant.hosts };
       },
@@ -162,13 +168,18 @@ export class SshAgentRegistry {
    * "written" or "unchanged". Any error is a failure: the alias files go, so a CLI
    * never trusts a partial set, while `bin/` keeps pass-through wrappers for the
    * owner's own Git and rsync. A bounded retry through the entry's `resync` follows.
+   * Call it inside `syncs.run` (it never queues itself: a nested run would wait on
+   * itself). An entry replaced or torn down while the hosts are read is left alone:
+   * the write resolves "unchanged" and no folder is re-created.
    */
   async write(owner, hosts, { shellEnv } = {}) {
     const entry = this.get(owner);
     if (!entry) throw codedError("SSH_AGENT_NOT_STARTED", "SSH agent not started");
     const label = labels[owner.kind];
+    const key = ownerKey(owner);
     try {
       const list = typeof hosts === "function" ? await hosts() : hosts;
+      if (this.owners.get(key) !== entry) return "unchanged";
       const aliases = sessionAliases(list, readOwnerAliases(this.dataDir, owner));
       const written = fingerprint(entry, list, aliases, shellEnv);
       const folder = ownerFolder(this.dataDir, owner);
@@ -190,6 +201,7 @@ export class SshAgentRegistry {
       return "written";
     } catch (error) {
       entry.written = null;
+      if (this.owners.get(key) !== entry) throw error;
       this.withoutHosts(entry);
       // The aliases are gone: the live topics must not keep showing them.
       this.changed(owner);
@@ -351,11 +363,18 @@ export class SshAgentRegistry {
    */
   async close(kind) {
     await this.syncs.run(async () => {
-      for (const [key, entry] of this.owners) {
+      for (const [key, entry] of [...this.owners]) {
         if (kind && entry.owner.kind !== kind) continue;
-        clearTimeout(entry.timer);
-        await entry.socket.close();
         this.owners.delete(key);
+        clearTimeout(entry.timer);
+        try {
+          await entry.socket.close();
+        } catch (error) {
+          this.log.error(
+            `${labels[entry.owner.kind]} could not be closed:`,
+            error?.code || "error",
+          );
+        }
         this.agentAudit.flush(key);
       }
     });

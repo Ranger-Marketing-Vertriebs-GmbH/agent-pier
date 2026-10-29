@@ -395,9 +395,10 @@ function removeOthers(folder, keep) {
  * `folder`, which must lie below `root` (`<dataDir>/ssh-agents`), plus `shell-env.sh`
  * (0600) when `shellEnv` is a string; otherwise a stale one is unlinked. Every folder
  * from `root` down is created without following symlinks, refused when one is planted
- * and re-checked before each write; every file goes through an exclusive temp name and a rename; keys and
- * wrappers no longer needed are unlinked. Returns the access ids of hosts that could
- * not be rendered (invalid fields, no alias or a duplicate alias), which get no alias.
+ * and re-checked before each write; every file goes through an exclusive temp name
+ * and a rename; keys and wrappers no longer needed are unlinked. Returns the access
+ * ids of hosts that could not be rendered (invalid fields, no alias or a duplicate
+ * alias), which get no alias.
  */
 export function writeOwnerFiles(
   root,
