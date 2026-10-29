@@ -114,6 +114,11 @@
 .ssh-dialog .ssh-copy pre {
   justify-self: stretch;
 }
+.ssh-agent-status {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
 .ssh-choice {
   display: grid;
   gap: 6px;

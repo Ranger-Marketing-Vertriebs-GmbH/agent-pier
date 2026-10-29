@@ -51,6 +51,18 @@ export const sshCopy = {
   toolsStarting: "Warte auf die Verbindung der CLI mit den SSH-Tools …",
   toolsReload: "Lade diese Unterhaltung neu, um SSH-Tools zu aktivieren.",
   toolsUnavailable: "SSH-Tools sind für diese Session nicht verfügbar.",
+  agentReady:
+    "Direktes ssh funktioniert in dieser Session. Nutze den Alias eines Hosts für ssh, scp, sftp, rsync, git und Tunnel.",
+  agentTooOld:
+    "Direktes ssh braucht OpenSSH 8.9 oder neuer auf diesem Computer. ssh_execute funktioniert weiter.",
+  agentNoOpenSsh:
+    "Direktes ssh braucht OpenSSH auf diesem Computer. ssh_execute funktioniert weiter.",
+  agentFailed:
+    "Direktes ssh konnte für diese Session nicht gestartet werden. ssh_execute funktioniert weiter.",
+  agentNotEligible: "Direktes ssh ist in dieser Session nicht verfügbar.",
+  agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentOpenConnections:
+    "Eine entfernte Zuweisung sperrt neue Verbindungen sofort. Bereits offene Verbindungen und Tunnel bleiben offen, bis sie enden.",
   reload: "Neu laden & fortsetzen",
   unsaved: "Speichere deine Host-Auswahl vor dem Neuladen.",
   advanced: "Erweitert · manuelle Verbindungsbefehle",

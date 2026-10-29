@@ -8,6 +8,7 @@ import { SshSessions } from "../../server/features/ssh/ssh-sessions.js";
 import { SshTools, sshTools } from "../../server/features/ssh/ssh-tools.js";
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
 import { writePrivate } from "../../server/lib/storage.js";
+import { sessionFolder } from "../../server/features/ssh/ssh-session-config.js";
 async function fixture(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssh-tools-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -184,4 +185,35 @@ test("sftp tools refuse an SSH host before connecting", async (t) => {
   await assert.rejects(tools.call("sftp_list", { accessId: "host" }), {
     code: "SSH_HOST_TYPE",
   });
+});
+
+test("ssh_list_hosts returns the alias from the session's aliases.json", async (t) => {
+  const { tools, grants, session, dataDir } = await fixture(t);
+  const hosts = [
+    ...tools.store.list(),
+    { id: "files", name: "Files", host: "files.invalid", type: "sftp" },
+  ];
+  tools.store.list = () => hosts;
+  await grants.set(session, ["host", "files"]);
+  const listed = async () => (await tools.call("ssh_list_hosts", {})).hosts;
+  // Without an agent folder no host has an alias.
+  assert.deepEqual(
+    (await listed()).map((host) => host.alias),
+    [undefined, undefined],
+  );
+  const folder = sessionFolder(dataDir, session.id);
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(
+    path.join(folder, "aliases.json"),
+    JSON.stringify({ host: "proxmox-2", files: "files", other: "other" }),
+  );
+  const result = await listed();
+  assert.equal(result.find((host) => host.accessId === "host").alias, "proxmox-2");
+  assert.equal(result.find((host) => host.accessId === "files").alias, undefined);
+  assert.equal(result.length, 2);
+});
+
+test("ssh_list_hosts says that SSH hosts carry their alias", () => {
+  const tool = sshTools.find(({ name }) => name === "ssh_list_hosts");
+  assert.match(tool.description, /alias/);
 });

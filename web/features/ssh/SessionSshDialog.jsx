@@ -7,6 +7,7 @@ import { readBefore } from "../../lib/read-stamps.js";
 import useSshAccesses from "./useSshAccesses.js";
 import SshChoices from "./SshChoices.jsx";
 import SshCopy from "./SshCopy.jsx";
+import SessionSshAgentStatus from "./SessionSshAgentStatus.jsx";
 import { sshCopy as copy } from "../../lib/i18n/messages/ssh.js";
 import { sshProjectCopy as projectCopy } from "../../lib/i18n/messages/ssh-projects.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -41,21 +42,30 @@ export default function SessionSshDialog({ session, close, openReload }) {
     (selected.length !== data.assignedIds.length ||
       selected.some((id) => !data.assignedIds.includes(id)));
   const [tools, setTools] = useState(null);
-  // When the server read the tools' state that the last push showed: a load or save
-  // answer read before it (a slow save) does not bring "starting" back.
+  const [agent, setAgent] = useState(null);
+  // When the server read the state that the last push showed: a load or save answer
+  // read before it (a slow save) does not bring "starting", an older agent status or
+  // old aliases back.
   const pushedAt = useRef(null);
   useEffect(() => {
-    if (data && !readBefore(data, pushedAt.current)) setTools(data.tools);
+    if (!data || readBefore(data, pushedAt.current)) return;
+    setTools(data.tools);
+    setAgent(data.agent || null);
   }, [data]);
-  // While the SSH tools start, they follow the live `job.ssh-tools:<id>` topic, which
-  // the server samples until the CLI's SSH server is ready; only the tools' state is
-  // taken, so unsaved choices stay. A read the channel could not push shows.
+  // While the SSH tools start, and while the session has an SSH agent, the dialog
+  // follows the live `job.ssh-tools:<id>` topic: the server samples it until the CLI's
+  // SSH server is ready and pushes the agent's state and aliases when they change. Only
+  // the tools and the agent are taken, so unsaved choices stay. A read the channel
+  // could not push shows.
   const starting = tools?.state === "starting";
-  const progress = useLiveTopic(starting ? `job.ssh-tools:${session.id}` : null);
+  const following = starting || session.sshAgent?.enabled === true;
+  const progress = useLiveTopic(following ? `job.ssh-tools:${session.id}` : null);
   useEffect(() => {
-    if (!progress.data?.tools) return;
+    const pushed = progress.data;
+    if (!pushed?.tools && !pushed?.agent) return;
     pushedAt.current = progress.readAt;
-    setTools(progress.data.tools);
+    if (pushed.tools) setTools(pushed.tools);
+    if (pushed.agent) setAgent(pushed.agent);
   }, [progress.data, progress.readAt]);
   const shownError = error || (starting ? progress.error : "");
 
@@ -109,7 +119,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
       <LearnMore hint={copy.sessionSummary}>
         <p>{copy.sessionHint}</p>
         <p>{copy.scope}</p>
-        <p>{copy.revokeHint}</p>
+        <p>{agent?.state === "ready" ? copy.agentOpenConnections : copy.revokeHint}</p>
       </LearnMore>
       {!data && !loadError && <p role="status">{copy.loading}</p>}
       {loadError && (
@@ -164,6 +174,7 @@ export default function SessionSshDialog({ session, close, openReload }) {
               setSaved(false);
             }}
           />
+          <SessionSshAgentStatus agent={agent} accesses={data.accesses} />
           {data.commands.length > 0 && (
             <details className="learn-more">
               <summary>

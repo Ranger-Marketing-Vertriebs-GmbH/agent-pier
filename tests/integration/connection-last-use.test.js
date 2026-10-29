@@ -4,7 +4,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { AuditStore } from "../../server/features/audit/audit-store.js";
-import { sshLastUse } from "../../server/features/accounts/connection-last-use.js";
+import {
+  sshLastUse,
+  sshLastUseCovers,
+  sshUseActions,
+} from "../../server/features/accounts/connection-last-use.js";
 
 const lab = "11111111-1111-4111-8111-111111111111";
 const files = "33333333-3333-4333-8333-333333333333";
@@ -39,4 +43,36 @@ test("last use is the newest audited SSH command or SFTP transfer per host", (t)
     }),
     null,
   );
+});
+
+test("hosts used through a session's SSH agent count as last use", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-last-use-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  let now = Date.parse("2026-10-20T10:00:00.000Z");
+  const audit = new AuditStore({ dataDir, clock: { now: () => now } });
+  t.after(() => audit.close());
+  assert.ok(sshUseActions.includes("ssh.connected"));
+  assert.ok(sshLastUseCovers.includes("sessionSsh"));
+  audit.append({
+    action: "ssh.connected",
+    resourceType: "ssh",
+    resourceId: lab,
+    sessionId: "session-1",
+    source: "mcp",
+    outcome: "success",
+    details: { accessId: lab, hostName: "proxmox 2", count: 3 },
+  });
+  now += 60_000;
+  // A refusal names no host and is no use.
+  audit.append({
+    action: "ssh.denied",
+    resourceType: "ssh",
+    sessionId: "session-1",
+    source: "mcp",
+    outcome: "failure",
+    details: { code: "SSH_AGENT_UNBOUND" },
+  });
+  assert.deepEqual(Object.fromEntries(sshLastUse(audit)), {
+    [lab]: "2026-10-20T10:00:00.000Z",
+  });
 });
