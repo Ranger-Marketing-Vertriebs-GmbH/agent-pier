@@ -117,25 +117,37 @@ describe("session SSH agent with real OpenSSH", { skip: unsupported }, () => {
     assert.ok(f.server.execs.some((command) => command.startsWith("git-upload-pack")));
   });
 
-  test("scp and rsync copy a file", async (t) => {
-    const s = await f.session(t);
+  // A file to copy and a fresh remote folder for one session.
+  function copyFixture(s) {
     const local = path.join(f.root, `payload-${s.id}`);
     fs.writeFileSync(local, "payload");
     const remoteDir = path.join(f.remote, `copy-${s.id}`);
     fs.mkdirSync(remoteDir);
+    return { local, remoteDir };
+  }
+
+  test("scp copies a file", async (t) => {
+    const s = await f.session(t);
+    const { local, remoteDir } = copyFixture(s);
     await exec(s.bin("scp"), ["-O", local, `${s.alias}:${remoteDir}/a.txt`], {
       env: s.env,
     });
     assert.equal(fs.readFileSync(path.join(remoteDir, "a.txt"), "utf8"), "payload");
-    if (!hasRsync) {
-      t.diagnostic("rsync is not installed; the rsync copy is skipped");
-      return;
-    }
-    // rsync reaches the agent through RSYNC_RSH from the launch environment.
-    assert.match(s.env.RSYNC_RSH, /\/bin\/ssh'$/);
-    await exec("rsync", [local, `${s.alias}:${remoteDir}/b.txt`], { env: s.env });
-    assert.equal(fs.readFileSync(path.join(remoteDir, "b.txt"), "utf8"), "payload");
   });
+
+  // R31: a missing rsync is a tool-unavailable skip, like sshd.
+  test(
+    "rsync copies a file",
+    { skip: hasRsync ? false : "rsync is not installed" },
+    async (t) => {
+      const s = await f.session(t);
+      const { local, remoteDir } = copyFixture(s);
+      // rsync reaches the agent through RSYNC_RSH from the launch environment.
+      assert.match(s.env.RSYNC_RSH, /\/bin\/ssh'$/);
+      await exec("rsync", [local, `${s.alias}:${remoteDir}/b.txt`], { env: s.env });
+      assert.equal(fs.readFileSync(path.join(remoteDir, "b.txt"), "utf8"), "payload");
+    },
+  );
 
   test("revoking the grant stops the next connection at once, not the open one", async (t) => {
     const s = await f.session(t);
@@ -273,8 +285,11 @@ describe("session SSH agent with real OpenSSH", { skip: unsupported }, () => {
     });
     assert.deepEqual(recorded(), ["-G", "-F", userConfig, "other-alias"]);
     assert.match(stdout, /^port 2222$/m);
-    await exec(s.bin("ssh"), ["-G", "plain.example.test"], { env: s.env });
-    assert.deepEqual(recorded(), ["-G", "plain.example.test"]);
+    // Every -G passes a config, so the user's real ~/.ssh/config is never read.
+    await exec(s.bin("ssh"), ["-G", "-F", userConfig, "plain.example.test"], {
+      env: s.env,
+    });
+    assert.deepEqual(recorded(), ["-G", "-F", userConfig, "plain.example.test"]);
     // An alias gets the session config, once, in front.
     const aliased = await exec(s.bin("ssh"), ["-G", s.alias], { env: s.env });
     assert.deepEqual(recorded(), ["-F", s.details.configPath, "-G", s.alias]);
@@ -286,6 +301,7 @@ describe("session SSH agent with real OpenSSH", { skip: unsupported }, () => {
     const sshd = await startLocalSshd({
       dir: path.join(f.root, "sshd"),
       authorizedKey: f.key.publicKey,
+      identity: path.join(f.dataDir, "ssh", "identities", f.key.id, "identity"),
       user,
     });
     if (!sshd) {
@@ -306,7 +322,8 @@ describe("session SSH agent with real OpenSSH", { skip: unsupported }, () => {
     const { stdout } = await exec(s.bin("ssh"), [s.alias, "echo", "sshd-ok"], {
       env: s.env,
     });
-    assert.equal(stdout.trim(), "sshd-ok");
+    // The login shell's startup files may print too.
+    assert.match(stdout, /^sshd-ok$/m);
     assert.ok(s.audit().some((row) => row.action === "ssh.connected"));
   });
 });
