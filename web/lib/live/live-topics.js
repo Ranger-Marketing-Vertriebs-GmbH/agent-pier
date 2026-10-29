@@ -222,6 +222,12 @@ export const liveTopics = Object.freeze({
     interval: 5000,
     sampled: true,
   }),
+  // The Storage tab's cached cleanup summary; the server signals when it is measured.
+  "system.cleanup.summary": Object.freeze({
+    mode: "state",
+    path: () => "/system-status/cleanup/summary",
+    interval: 5000,
+  }),
   // The list and search pages: `changed`, then one read of the caller's query.
   "artifacts.changed": Object.freeze({ mode: "signal", path: null, interval: 5000 }),
   // A restricted user's app (server live-me-topics.js): each value is what her own

@@ -22,3 +22,25 @@ export function systemStatusTopics(services) {
     topic("system.status.details", () => services.systemStatus.details()),
   ];
 }
+
+/**
+ * The topic `system.cleanup.summary`: what GET /api/system-status/cleanup/summary
+ * answers (the cached background measurement of what the Storage tab can free). It is
+ * not sampled: StorageCleanup signals when a measurement starts over (a deletion),
+ * ends or fails, so the dialog sees "measuring" turn into "measured". Owner only.
+ */
+export function cleanupSummaryTopic(services) {
+  return {
+    name: "system.cleanup.summary",
+    mode: "state",
+    authorize: (principal) => principal?.role === "owner",
+    scopeKey: () => "owner",
+    read: () => services.storageCleanup.summary(),
+    watch: ({ invalidate }) => {
+      const events = services.storageCleanup.events;
+      const changed = () => invalidate();
+      events.on("change", changed);
+      return () => events.off("change", changed);
+    },
+  };
+}

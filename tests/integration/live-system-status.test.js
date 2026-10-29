@@ -1,11 +1,14 @@
+import os from "node:os";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applicationFixture } from "../helpers/application.js";
 import { openLive } from "../helpers/live-socket.js";
 import { manualTimers } from "../helpers/manual-timers.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
+import { StorageCleanup } from "../../server/features/system-status/storage-cleanup.js";
 import {
   SYSTEM_STATUS_SAMPLE_MS,
+  cleanupSummaryTopic,
   systemStatusTopics,
 } from "../../server/features/system-status/live-topics.js";
 
@@ -115,4 +118,53 @@ test("a snapshot is the figures of the REST route, with session ids only", async
       assert.deepEqual(Object.keys(item).sort(), ["cpuPercent", "id", "rssBytes"]);
   }
   live.ws.close();
+});
+
+// A cleanup summary whose measurement the test settles by hand.
+function cleanupFixture() {
+  const runs = [];
+  const storageCleanup = new StorageCleanup({
+    dataDir: os.tmpdir(),
+    services: {},
+    audit: null,
+  });
+  storageCleanup.summaryMeasure.measure = () =>
+    new Promise((resolve) => runs.push(resolve));
+  return { storageCleanup, runs };
+}
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test("the cleanup summary topic pushes measuring, measured and a deletion's remeasure", async (t) => {
+  const { storageCleanup, runs } = cleanupFixture();
+  const { clock, hub } = hubOf(t, {});
+  hub.define(cleanupSummaryTopic({ storageCleanup }));
+  const { frames, stop } = listen(hub, "system.cleanup.summary");
+  await clock.advance(0);
+  assert.deepEqual(frames.at(-1).data, { state: "pending" });
+  runs[0]({ bytes: 5 });
+  await settle();
+  await clock.advance(1000);
+  assert.deepEqual(frames.at(-1).data, { state: "ready", bytes: 5 });
+  assert.deepEqual(frames.at(-1).data, storageCleanup.summary());
+  // A deletion invalidates the cache: the dialog sees it measured again.
+  storageCleanup.summaryMeasure.invalidate();
+  await clock.advance(1000);
+  assert.equal(frames.at(-1).data.state, "refreshing");
+  runs[1]({ bytes: 2 });
+  await settle();
+  await clock.advance(1000);
+  assert.deepEqual(frames.at(-1).data, { state: "ready", bytes: 2 });
+  const count = frames.length;
+  await clock.advance(600000);
+  assert.equal(frames.length, count, "nothing is sampled");
+  stop();
+  assert.equal(storageCleanup.events.listenerCount("change"), 0);
+});
+
+test("the cleanup summary topic is owner only", () => {
+  const topic = cleanupSummaryTopic({ storageCleanup: cleanupFixture().storageCleanup });
+  assert.equal(topic.authorize({ role: "owner" }), true);
+  assert.equal(topic.authorize({ role: "user", userId: "u1" }), false);
+  assert.equal(topic.authorize(null), false);
 });

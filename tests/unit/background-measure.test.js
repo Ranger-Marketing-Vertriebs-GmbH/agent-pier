@@ -132,3 +132,28 @@ test("close waits for the running measurement and starts no other", async () => 
   await settle();
   assert.equal(runs.length, 1);
 });
+
+test("onChange fires when a measurement ends or fails and on invalidate", async () => {
+  let changes = 0;
+  const runs = [];
+  const measure = new BackgroundMeasure({
+    measure: () => new Promise((resolve, reject) => runs.push({ resolve, reject })),
+    maxAgeMs: 1000,
+    onError: () => {},
+    onChange: () => (changes += 1),
+  });
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  measure.read();
+  assert.equal(changes, 0, "starting a measurement is not a change");
+  await settle();
+  runs[0].resolve({ bytes: 1 });
+  await settle();
+  assert.equal(changes, 1);
+  measure.invalidate();
+  assert.equal(changes, 2);
+  measure.read();
+  await settle();
+  runs[1].reject(new Error("boom"));
+  await settle();
+  assert.equal(changes, 3);
+});
