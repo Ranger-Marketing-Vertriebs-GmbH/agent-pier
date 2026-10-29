@@ -1,3 +1,4 @@
+import { liveStubOf } from "../helpers/live-stub.js";
 // A mocked Artifacts API for the page specs: filters, counts, pins and deletion behave
 // like the server (tests/blackbox/artifact-routes.test.js covers the real one).
 export const now = new Date("2026-10-13T12:00:00+02:00");
@@ -190,18 +191,30 @@ export async function artifactsFixture(context, { language = "en", items } = {})
       if (!item)
         return route.fulfill({ status: 404, json: { code: "ARTIFACT_NOT_FOUND" } });
       if (match[2]) return route.fulfill({ json: bundle(item) });
+      // A write changes the index: the server signals `artifacts.changed`, and the
+      // page reads its list once more (it does not read it on its own after a write).
+      const changed = () => {
+        try {
+          liveStubOf(request.frame().page())?.changed("artifacts.changed");
+        } catch {
+          // A request without a page (a worker) has no live channel to signal.
+        }
+      };
       if (method === "DELETE") {
         state.items = state.items.filter((entry) => entry !== item);
-        return route.fulfill({ status: 204, body: "" });
+        await route.fulfill({ status: 204, body: "" });
+        return changed();
       }
       if (method === "PATCH") {
         const { pinned } = request.postDataJSON();
         if (!pinned && item.orphaned) {
           state.items = state.items.filter((entry) => entry !== item);
-          return route.fulfill({ json: null });
+          await route.fulfill({ json: null });
+          return changed();
         }
         item.pinned = pinned;
-        return route.fulfill({ json: item });
+        await route.fulfill({ json: item });
+        return changed();
       }
       return route.fulfill({ json: item });
     }
