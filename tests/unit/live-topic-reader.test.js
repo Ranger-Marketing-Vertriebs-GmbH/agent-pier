@@ -252,6 +252,22 @@ test("each failed read on the server gets one GET, also with data shown", async 
   assert.equal(s.last().error, "Project not found");
 });
 
+test("a route that refuses the value for good drops what was shown", async (t) => {
+  const gone = async () => {
+    throw Object.assign(new Error("Project not found"), { status: 404 });
+  };
+  const s = setup("pipeline.queue:p1", { responses: [ok({ items: [1] }), gone] });
+  t.after(s.reader.stop);
+  s.client.emit({ type: "error" });
+  await settle();
+  assert.deepEqual(s.last().data, { items: [1] });
+  // The project was removed: the queue and its buttons go, the refusal shows.
+  s.client.emit({ type: "error" });
+  await settle();
+  assert.equal(s.last().data, null);
+  assert.equal(s.last().error, "Project not found");
+});
+
 test("of a push and a REST answer, the one read later is shown", async (t) => {
   let release;
   const slow = () => new Promise((resolve) => (release = resolve));

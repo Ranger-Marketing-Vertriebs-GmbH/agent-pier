@@ -9,7 +9,7 @@ const timers = (env) => ({
 
 /**
  * One read that ends in `{ data }`, `{ error }` (with `timedOut: true` for a
- * deadline) or `null` when it was cancelled.
+ * deadline, with the HTTP `status` of a refusal) or `null` when it was cancelled.
  * A read past `timeoutMs`, or aborted by the caller's deadline, is an error with
  * a translated text: a slow server is shown, never left loading for good.
  */
@@ -26,7 +26,11 @@ export async function attemptRead(read, { signal, timeoutMs = 0, env = {} } = {}
     const data = await read(attempt.signal);
     if (!attempt.signal.aborted) return { data };
   } catch (error) {
-    if (!attempt.signal.aborted) return { error: error.message };
+    // A refusal's HTTP status (404, 403) tells a gone value from a passing failure.
+    if (!attempt.signal.aborted)
+      return Number.isInteger(error?.status)
+        ? { error: error.message, status: error.status }
+        : { error: error.message };
   } finally {
     clearTimeout(deadline);
     signal?.removeEventListener("abort", abort);
