@@ -8,13 +8,15 @@ export function privateDirectory(dir) {
   return dir;
 }
 export function writePrivate(file, value) {
+  writePrivateText(file, JSON.stringify(value, null, 2) + "\n");
+}
+/** Write text to a private file through a fresh temp name and an atomic rename. */
+export function writePrivateText(file, text, mode = 0o600) {
   privateDirectory(path.dirname(file));
   const tmp = `${file}.${randomUUID()}.tmp`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + "\n", {
-      mode: 0o600,
-      flag: "wx",
-    });
+    fs.writeFileSync(tmp, text, { mode, flag: "wx" });
+    fs.chmodSync(tmp, mode);
     fs.renameSync(tmp, file);
   } finally {
     fs.rmSync(tmp, { force: true });
