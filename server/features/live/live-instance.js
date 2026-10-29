@@ -239,11 +239,15 @@ export class LiveInstance {
     } catch (error) {
       if (generation !== this.generation) return;
       this.failed = true;
+      // The value a subscriber holds may be gone (a project deregistered): the read
+      // that succeeds again is pushed, even if it equals the last one.
+      this.record.digest = undefined;
       this.report(error);
       if (this.closed) return;
-      // Once per subscriber: it reads the REST route, and a later read answers it.
+      // Once per subscriber and failure: it reads the REST route, which shows the
+      // refusal, and a later read answers it.
       for (const subscriber of [...this.subscribers])
-        if (subscriber.waiting && !subscriber.failed) {
+        if (!subscriber.failed) {
           subscriber.failed = true;
           subscriber.send({ type: "error", topic: this.topicId });
         }
@@ -252,6 +256,7 @@ export class LiveInstance {
     // Read before a reset: the access it was read under is gone.
     if (this.closed || generation !== this.generation) return;
     this.failed = false;
+    for (const subscriber of this.subscribers) subscriber.failed = false;
     const digest = digestOf(
       this.definition.digest ? this.definition.digest(value) : value,
     );

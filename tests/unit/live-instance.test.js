@@ -269,14 +269,27 @@ test("a failed read reports the error; a late joiner gets a new read", async (t)
   hooks.invalidate();
   await clock.advance(200);
   assert.deepEqual(errors, ["gone"]);
-  assert.equal(frames.length, 1);
+  // The answered subscriber hears it once: what it holds may be gone.
+  assert.deepEqual(frames.slice(1), [{ type: "error", topic: "demo" }]);
   // A late joiner is not answered with the stored value: a new read answers it.
   const late = listen(instance);
   assert.deepEqual(late.frames, []);
   await clock.advance(200);
   assert.equal(source.reads, 3);
   assert.deepEqual(late.frames, [{ type: "error", topic: "demo" }]);
-  assert.equal(frames.length, 1);
+  assert.equal(frames.length, 2);
+  // The read that succeeds again is pushed, though it equals the last value.
+  fail = false;
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.equal(frames.at(-1).type, "state");
+  assert.deepEqual(frames.at(-1).data, { ok: true });
+  assert.deepEqual(late.frames.at(-1).data, { ok: true });
+  // A new failure after that is reported again.
+  fail = true;
+  hooks.invalidate();
+  await clock.advance(200);
+  assert.deepEqual(frames.at(-1), { type: "error", topic: "demo" });
 });
 
 test("a late joiner after a good and then a failed read gets a fresh read", async (t) => {

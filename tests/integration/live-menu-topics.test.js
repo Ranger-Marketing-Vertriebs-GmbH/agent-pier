@@ -186,7 +186,8 @@ test("agents switched on or off read the update status again", async (t) => {
   services.assistants = null;
   services.assistantFeature.events.emit("stopped");
   await clock.advance(1000);
-  assert.equal(frames.length, 1);
+  // The refusal once, so the tab reads the route's answer.
+  assert.deepEqual(frames.slice(1), [{ type: "error", topic: "runtime.updates" }]);
   services.assistants = {};
   services.update = { updateAvailable: true };
   services.assistantFeature.events.emit("started");

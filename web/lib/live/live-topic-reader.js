@@ -192,8 +192,10 @@ export function startLiveTopic({ topicId, path: route, client, read, report, env
       refused = true;
       polling();
       unreadable();
-    } else if (event.type === "error" && state.data === null) {
-      fetchOnce();
+    } else if (event.type === "error") {
+      // The server's read failed: the REST route shows why (a deregistered project's
+      // queue), and keeps what was shown until a push brings it back.
+      fetchAfterChange();
       unreadable();
     }
   };
