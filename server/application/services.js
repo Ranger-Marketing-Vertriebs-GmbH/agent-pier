@@ -500,6 +500,7 @@ export async function createServices(config) {
   watchPackageJobs(services, mcpPackages);
   plugins.onChange = () => pluginJobChanged(services.live);
   sshSessions.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
+  sshAgents.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
   // The managed agent browser stays while an agent browser runs, or while the running
   // Gateway was started with it and an agent has a browser profile there. Without
   // one, a later switch-on finds the browser gone and restarts first (web-tools-changes.js).

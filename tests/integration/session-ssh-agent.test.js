@@ -5,6 +5,8 @@ import net from "node:net";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { waitFor } from "../helpers/agent-ssh-fixture.js";
+import { openLive } from "../helpers/live-socket.js";
+import { applyListSync } from "../../web/lib/live/list-sync.js";
 import { cleanEnvironment } from "../../server/features/accounts/account-store.js";
 
 const recorded = [
@@ -66,6 +68,22 @@ test("a shell session's agent starts with it, survives a restart and goes with i
     JSON.parse(state).sessions.find((item) => item.id === session.id).sshAgent,
     { enabled: true },
   );
+  // The live state frame carries the same public view (R30).
+  const live = openLive(f);
+  t.after(() => live.ws.close());
+  await live.next((frame) => frame.type === "hello");
+  live.send({ op: "sub", topic: "state" });
+  const frame = await live.next((item) => item.topic === "state", 5000);
+  const framed = JSON.stringify(frame);
+  assert.equal(framed.includes(token), false);
+  for (const binary of Object.values(details.binaries))
+    assert.equal(framed.includes(binary), false, binary);
+  assert.deepEqual(
+    applyListSync(null, frame.data).list.sessions.find((item) => item.id === session.id)
+      .sshAgent,
+    { enabled: true },
+  );
+  live.ws.close();
   const env = JSON.parse(
     await waitFor(() => fs.existsSync(seen) && fs.readFileSync(seen, "utf8"), 10_000),
   );
