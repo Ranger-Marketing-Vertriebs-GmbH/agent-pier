@@ -51,7 +51,7 @@ async function setup(t, { granted = true, shell = "full" } = {}) {
   // Waits for the syncs a settled event queued.
   const synced = async () => {
     await settle();
-    await secrets.queue;
+    await secrets.idle();
   };
   // The tool guard's question for a session (bridge-tool-policies.js).
   const reads = (sessionKey) =>

@@ -9,9 +9,16 @@ export class SyncQueue {
     this.pending = null;
   }
   run(task) {
-    const next = this.tail.catch(() => {}).then(task);
+    const next = this.tail.catch(() => {}).then(() => task());
     this.tail = next;
     return next;
+  }
+  /** Resolves once every task queued so far has settled. */
+  idle() {
+    return this.tail.then(
+      () => {},
+      () => {},
+    );
   }
   coalesce(pass) {
     this.pending ??= this.tail
