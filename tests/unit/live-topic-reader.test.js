@@ -212,15 +212,21 @@ test("a revoked topic drops its data at once and reads nothing until reconnected
   assert.deepEqual(s.last().data, { actions: [3] });
 });
 
-test("a failed first read on the server gets one GET", async (t) => {
-  const s = setup("inbox");
+test("each failed read on the server gets one GET, also with data shown", async (t) => {
+  const fail = async () => {
+    throw new Error("Project not found");
+  };
+  const s = setup("pipeline.queue:p1", { responses: [ok({ items: [] }), fail] });
   t.after(s.reader.stop);
   s.client.emit({ type: "error" });
   await settle();
   assert.equal(s.reads.length, 1);
+  assert.deepEqual(s.last().data, { items: [] });
+  // A later read failed (the project was deregistered): the route shows why.
   s.client.emit({ type: "error" });
   await settle();
-  assert.equal(s.reads.length, 1);
+  assert.equal(s.reads.length, 2);
+  assert.equal(s.last().error, "Project not found");
 });
 
 test("of a push and a REST answer, the one read later is shown", async (t) => {

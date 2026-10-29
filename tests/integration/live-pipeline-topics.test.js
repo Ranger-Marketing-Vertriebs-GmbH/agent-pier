@@ -163,6 +163,21 @@ test("items moved to another project leave the old project's queue", async (t) =
   live.ws.close();
 });
 
+test("a removed project's queue says so instead of showing the old queue", async (t) => {
+  const c = await setup(t);
+  const topic = `pipeline.queue:${c.other.id}`;
+  const { live, snapshot } = await subscribed(c.app, topic);
+  assert.equal(snapshot.data.projectId, c.other.id);
+  assert.equal(c.services.memory.removeEmpty(c.other.id), true);
+  // The tab reads the route, which refuses the project.
+  assert.deepEqual(await live.next((frame) => frame.topic === topic, 5000), {
+    type: "error",
+    topic,
+  });
+  assert.equal((await c.app.request(`/api/pipeline-queue/${c.other.id}`)).status, 404);
+  live.ws.close();
+});
+
 test("a refused topic read is not logged, a failing one is", async (t) => {
   const f = await applicationFixture(t);
   const logged = t.mock.method(console, "error", () => {});

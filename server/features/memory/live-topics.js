@@ -35,7 +35,8 @@ const rowsOf = (memory) =>
 
 /**
  * Signals `projects.changed` on `hub` after the project-row writes of
- * `services.memory` that changed the rows, and after each save of the repositories.
+ * `services.memory` that changed the rows (and every watched `pipeline.queue` after
+ * each of them), and after each save of the repositories.
  * Rows are compared only while a page follows the topic; a failing read is logged
  * and signals, the write stands.
  */
@@ -58,7 +59,16 @@ export function watchProjectWrites(services, hub) {
     rows = next ?? null;
     hub.invalidate("projects.changed");
   };
-  for (const method of PROJECT_ROW_WRITES) after(memory, method, rowsChanged);
+  // A project's queue reads its project: one removed or merged away refuses, and the
+  // tab hears it (an `error` frame) instead of showing the old queue.
+  const queuesChanged = () => {
+    if (hub.named("pipeline.queue").length) hub.invalidate("pipeline.queue");
+  };
+  for (const method of PROJECT_ROW_WRITES)
+    after(memory, method, () => {
+      rowsChanged();
+      queuesChanged();
+    });
   after(repositories, "save", () => {
     if (watched()) hub.invalidate("projects.changed");
   });
