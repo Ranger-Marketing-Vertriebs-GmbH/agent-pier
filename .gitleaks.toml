@@ -85,3 +85,21 @@ condition = "AND"
 paths = ['''(^|/)tests/unit/ssh-test-results\.test\.js$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*for \(const secret of \[\.\.\.secrets, "b3BlbnNzaC1rZXktdjEAAAAA", "PRIVATE KEY"\]\)$''']
+
+# Fixed, synthetic socket-directory tokens in the SSH session-agent tests.
+[[allowlists]]
+description = "Exact synthetic socket token in SSH session-agent tests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/ssh-session-agent-(reload|wiring)\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^const token = "0123456789abcdef0123456789abcdef";$''']
+
+# Deliberately truncated public-key data used to verify audit field filtering.
+[[allowlists]]
+description = "Exact synthetic public-key fragment in the SSH audit test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/audit-ssh-details\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*keyBlob: "AAAAC3NzaC1lZDI1NTE5",$''']
