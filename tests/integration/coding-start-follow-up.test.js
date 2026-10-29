@@ -6,9 +6,34 @@ import { AssistantActionStore } from "../../server/features/assistants/assistant
 import { startSession } from "../../server/features/assistants/coding-sessions/session-start.js";
 import { sessionContext } from "../../server/features/assistants/coding-sessions/session-turns.js";
 
+// Approval tests use shared access, whose starts require a decision even when
+// explicit session grants also cover team turns.
+async function approvalSessionFixture(t) {
+  const f = await agentSessionFixture(t, { sessionProjects: false });
+  const lead = f.store.createAssistant({
+    name: "Lead",
+    model: { connectionId: "test", modelId: "fixture" },
+  });
+  const w = f.workflows;
+  w.access.save(lead.id, { ...f.policy, sessionProjectIds: [f.project.id] }, 0);
+  const share = {
+    leadId: lead.id,
+    shareId: "share-1",
+    requestId: null,
+    kind: "project",
+    memberAssistantId: f.id,
+    projectId: f.project.id,
+  };
+  w.shares.coding = () => share;
+  w.shares.codingProjects = () => [{ leadId: lead.id, projectId: f.project.id }];
+  w.shares.find = () => share;
+  w.shares.live = () => ({ coding: true });
+  return f;
+}
+
 for (const session of [false, true]) {
   test(`approved ${session ? "session" : "pipeline"} wakes its chat once, retrying a busy chat`, async (t) => {
-    const f = await (session ? agentSessionFixture(t) : workflowFixture(t));
+    const f = await (session ? approvalSessionFixture(t) : workflowFixture(t));
     if (!session) f.workflows.access.save(f.id, f.policy, 0);
     const inv = await f.invocation();
     const requested = session
@@ -117,7 +142,7 @@ test("a pipeline start wake can inspect only its own run and cannot start work",
 });
 
 test("a failed approved launch reports failure and does not launch again", async (t) => {
-  const f = await agentSessionFixture(t);
+  const f = await approvalSessionFixture(t);
   const inv = await f.invocation();
   const requested = await startSession(
     f.workflows,
