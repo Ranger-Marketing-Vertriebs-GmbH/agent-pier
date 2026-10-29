@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import api from "../../lib/api.js";
-import useResource from "../../lib/useResource.js";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { inboxCopy as copy } from "../../lib/i18n/messages/inbox.js";
 import { assistantWorkflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
@@ -22,9 +22,10 @@ import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useTeamActions from "../assistants/useTeamActions.js";
 import InboxStale from "./InboxStale.jsx";
 
-// Each source's own card, fed from the endpoint the source's page reads and answered
-// through the endpoint it answers with. `done()` re-reads the inbox afterwards; the
-// live `inbox` topic would bring the change too.
+// Each source's own card, fed from the live topic (or the endpoint) the source's page
+// reads and answered through the endpoint it answers with, so a decision made
+// elsewhere shows at once. `done()` re-reads the inbox afterwards; the live `inbox`
+// topic would bring the change too.
 
 const loading = (
   <p className="loading" role="status">
@@ -66,10 +67,12 @@ export function InboxRequestDetail({ item, navigate, done }) {
 
 /** A pipeline run waiting at its current stage, decided as in the run detail. */
 export function InboxGateDetail({ item, done }) {
-  const resource = useResource(`/pipeline-runs/${encodeURIComponent(item.id)}`);
+  // Follows the run's live topic, which answers a deleted run as `{ run: null }`.
+  const resource = useLiveTopic(`pipeline.run:${item.id}`);
   const feedback = useState("");
   if (resource.error && !resource.data) return <ErrorMessage error={resource.error} />;
   const run = resource.data?.run;
+  if (run === null) return <InboxStale type={item.type} id={item.id} />;
   if (!run) return loading;
   const node = run.nodes?.find((n) => n.id === run.currentNodeId);
   if (run.status !== "awaiting-human" || !node)
@@ -88,14 +91,14 @@ export function InboxGateDetail({ item, done }) {
         <RiskGateItems gate={node.riskGate} detail={node.failDetail} />
       )}
       <OwnerQuestion verdict={node.verdict} />
-      <RunSpec run={run} refresh={resource.refresh} />
+      <RunSpec run={run} refresh={resource.written} />
       {availableGateActions(run).length ? (
         <GateDecision
           run={run}
           node={node}
           feedback={feedback}
           refresh={() => {
-            resource.refresh();
+            resource.written();
             done();
           }}
         />
@@ -109,7 +112,8 @@ export function InboxGateDetail({ item, done }) {
 /** An agent's request: shell and SSH commands, coding, memory and member grants. */
 export function InboxActionDetail({ item, done }) {
   const assistantId = item.source.id;
-  const resource = useResource(`/assistants/${encodeURIComponent(assistantId)}/actions`);
+  // The agent's live `agent.actions` topic: a decision made elsewhere shows at once.
+  const resource = useLiveTopic(`agent.actions:${assistantId}`);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   if (resource.error && !resource.data)
@@ -134,7 +138,7 @@ export function InboxActionDetail({ item, done }) {
       setError(e.message);
     } finally {
       setBusy(false);
-      resource.refresh();
+      resource.written();
       done();
     }
   };
