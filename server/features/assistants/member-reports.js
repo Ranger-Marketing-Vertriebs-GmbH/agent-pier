@@ -9,7 +9,10 @@ import { mainConversation } from "./routine-targets.js";
 // scheduler delivers as a `member-result` follow-up (lead-request-delivery.js), one
 // report per member at a time. Never counts against the lead's or the peer caps.
 export const reportCaps = { perHour: 6 };
-export const reportLimits = { text: 8192, files: 10, file: 500 };
+// A report carries a whole result (AGENTPIER-284): 32,768 characters fit the lead's
+// follow-up turn (lead-request-text.js followUpMaxChars) with its files, and the
+// team bridge's 128 KiB request bound for ordinary text, three-byte characters too.
+export const reportLimits = { text: 32768, files: 10, file: 500 };
 const hourMs = 3600000;
 const isMemberReport = (r) => r?.type === "report" && r.origin?.kind === "member-report";
 
@@ -25,6 +28,11 @@ export class MemberReports {
   report(inv, input, now = Date.now()) {
     exact(input, ["kind", "text", "files"], ["kind", "text"]);
     if (!["result", "problem"].includes(input.kind)) throw assistantProblem("invalid");
+    // A longer report is refused with the limit, never cut: AgentPier cannot put
+    // the rest where the lead reads it, the member can (a project file in files, or
+    // a second report).
+    if (typeof input.text === "string" && input.text.length > reportLimits.text)
+      throw assistantProblem("memberReportTooLong");
     const text = textValue(input.text, reportLimits.text);
     const files = input.files ?? [];
     if (!Array.isArray(files) || files.length > reportLimits.files)

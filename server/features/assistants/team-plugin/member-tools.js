@@ -36,11 +36,11 @@ export const memberDefinitions = {
   },
   report: {
     description:
-      "Report to your lead on your own: kind result for a finished result, problem for something your lead must know or decide. text says what happened; files names up to 10 project files that hold it (your lead reads them itself). It reaches your lead as a separate message, one report at a time, at most 6 per hour; do not send the same report again. The owner sees every report.",
+      "Report to your lead on your own: kind result for a finished result, problem for something your lead must know or decide. text says what happened, at most 32768 characters; a longer text is refused and nothing is sent, so put long details into a project file you may write and name it in files, or send the rest as a second report. files names up to 10 project files that hold it (your lead reads them itself). It reaches your lead as a separate message, one report at a time, at most 6 per hour; do not send the same report again. The owner sees every report.",
     parameters: schema(
       {
         kind: { type: "string", enum: ["result", "problem"] },
-        text: text(8192),
+        text: text(32768),
         files: { type: "array", maxItems: 10, items: text(500) },
       },
       ["kind", "text"],

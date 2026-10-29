@@ -862,8 +862,10 @@ with Learning") and on their own:
   asking member as a separate message ("A colleague's answer arrived. The agent
   continues."), or to the lead when the asking member wants it so or can no longer be
   reached.
-- A member can **report** to its lead on its own: a finished result or a problem, with
-  up to 10 project files that hold it. The report reaches the lead's main chat as a
+- A member can **report** to its lead on its own: a finished result or a problem of
+  up to 32,768 characters, with up to 10 project files that hold it. A longer report
+  is refused, and the member is told the limit and to put the details into a project
+  file or a second report. The report reaches the lead's main chat as a
   separate message, and the lead acts on it as its **Use team** level allows. A
   member's reports reach the lead one at a time; its routines can report too.
 - **Limits:** at most one open request per colleague and direction, one open task per
