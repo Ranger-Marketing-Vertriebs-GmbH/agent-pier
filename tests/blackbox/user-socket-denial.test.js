@@ -10,6 +10,7 @@ import {
 } from "../helpers/application.js";
 import { signedInUser, upgradeStatus } from "../helpers/users.js";
 import { socketPaths } from "../../server/http/socket-access.js";
+import { userMayWatch } from "../../server/http/route-access.js";
 import { openLive } from "../helpers/live-socket.js";
 
 // One path per socket kind; the test fails when a kind has none. The agent chat
@@ -191,7 +192,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
   const live = openLive(f, cookie);
   const hello = await live.next((frame) => frame.type === "hello");
   assert.deepEqual(Object.keys(hello).sort(), ["instance", "type"]);
-  const topics = [
+  const listed = [
     "probe.open",
     "probe.param:x",
     "state",
@@ -241,6 +242,35 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "nope",
     "a".repeat(300),
     "state\u202e",
+  ];
+  // Every topic the hub registers, with a parameter its pattern accepts, so a new
+  // topic is covered without being listed here; only her own topics are left out.
+  const examples = [
+    "x",
+    "local-codex",
+    "codex",
+    "current",
+    "global",
+    "session:x",
+    "*:*",
+    "1.0.0",
+    "0000aaaa-0000-4000-8000-000000000000",
+    "a".repeat(64),
+    "a".repeat(22),
+    server.id,
+  ];
+  const registered = [];
+  for (const [name, { definition, pattern }] of f.application.live.topics) {
+    if (!pattern || definition.paramOptional) registered.push(name);
+    if (!pattern) continue;
+    const example = examples.find((value) => pattern.test(value));
+    assert.ok(example, `no example parameter for ${name}`);
+    registered.push(`${name}:${example}`);
+  }
+  const own = registered.filter((topic) => userMayWatch(topic));
+  assert.ok(own.length > 0 && own.every((topic) => topic.startsWith("me.")));
+  const topics = [
+    ...new Set([...listed, ...registered.filter((topic) => !own.includes(topic))]),
   ];
   const answers = [];
   for (const topic of topics) {
