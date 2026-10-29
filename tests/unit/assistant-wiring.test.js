@@ -234,34 +234,40 @@ test("a failure after the agents' SSH wiring closes it first and drops its liste
 });
 
 // The first Gateway start compiles the agents' SSH PATH entries: it waits for their
-// first refresh (bounded, startRefreshMs); a feature released meanwhile starts nothing.
-test("the Gateway starts after the agents' first SSH refresh", async (t) => {
+// first refresh (bounded, startRefreshMs), then checks again that it may start: the
+// feature not released, not in maintenance or recovery, the runtime still enabled.
+test("the Gateway starts after the agents' first SSH refresh, if it still may", async (t) => {
   const root = options(t).config.dataDir;
-  fs.writeFileSync(path.join(root, "settings.json"), JSON.stringify({ enabled: true }));
-  const run = async (closeFirst) => {
+  const settings = path.join(root, "settings.json");
+  const run = async (during = () => {}) => {
+    fs.writeFileSync(settings, JSON.stringify({ enabled: true }));
     let refreshed;
     const starts = [];
-    const agentSsh = {
-      closed: false,
-      refresh: () => new Promise((resolve) => (refreshed = resolve)),
-    };
-    startAssistantServices(
-      {
-        config: { dataDir: root },
-        assistants: {},
-        assistantChannels: { start() {} },
-        assistantRuntime: { paths: { root }, start: async () => starts.push("start") },
-        assistantAgentSsh: agentSsh,
+    const services = {
+      config: { dataDir: root },
+      assistants: { maintenance: false },
+      assistantUpdates: { status: () => ({ recoveryRequired: false }) },
+      assistantChannels: { start() {} },
+      assistantRuntime: { paths: { root }, start: async () => starts.push("start") },
+      assistantAgentSsh: {
+        closed: false,
+        refresh: () => new Promise((resolve) => (refreshed = resolve)),
       },
-      { stageInBackground() {} },
-    );
+    };
+    startAssistantServices(services, { stageInBackground() {} });
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(starts, []);
-    agentSsh.closed = closeFirst;
+    during(services);
     refreshed();
     await new Promise((resolve) => setImmediate(resolve));
     return starts;
   };
-  assert.deepEqual(await run(false), ["start"]);
-  assert.deepEqual(await run(true), []);
+  assert.deepEqual(await run(), ["start"]);
+  for (const during of [
+    (s) => (s.assistantAgentSsh.closed = true),
+    (s) => (s.assistants.maintenance = true),
+    (s) => (s.assistantUpdates.status = () => ({ recoveryRequired: true })),
+    () => fs.writeFileSync(settings, JSON.stringify({ enabled: false })),
+  ])
+    assert.deepEqual(await run(during), [], String(during));
 });

@@ -223,3 +223,26 @@ test("an unreadable catalog still names the aliases, by alias", async (t) => {
     hosts: [{ name: alias, alias }],
   });
 });
+
+test("a turn's sync changes nothing when its agent cannot be read or is gone", async (t) => {
+  const w = wired(t);
+  const { s, shell } = w;
+  const a = s.add(personal(), [trusted(hostA)]);
+  await shell.refresh();
+  const socket = s.socketPath(a);
+  const get = s.get;
+  // An unreadable store: the agent keeps its socket and folder.
+  shell.agents.get = () => {
+    throw Error("database is locked");
+  };
+  await shell.sync(a.id);
+  assert.equal(s.socketPath(a), socket);
+  // Deleted: the turn's sync leaves it; the next full refresh tears it down.
+  shell.agents.get = get;
+  s.agents.delete(a.id);
+  await shell.sync(a.id);
+  assert.equal(s.socketPath(a), socket);
+  await shell.refresh();
+  assert.equal(s.registry.get(owner(a)), undefined);
+  assert.equal(fs.existsSync(s.folder(a)), false);
+});
