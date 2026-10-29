@@ -73,6 +73,7 @@ export const assistantTeamCopy = {
     declined: "Declined",
   },
   internalTurns: {
+    "coding-start": "The agent received the outcome of the approved coding start.",
     "team-result": "Team results received. The agent is summarizing them.",
     "member-result": "A member's answer arrived. The agent is passing it on.",
     "peer-result": "A colleague's answer arrived. The agent continues.",
