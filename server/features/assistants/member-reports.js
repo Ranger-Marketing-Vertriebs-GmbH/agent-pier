@@ -11,7 +11,7 @@ import { mainConversation } from "./routine-targets.js";
 export const reportCaps = { perHour: 6 };
 // A report carries a whole result (AGENTPIER-284): 32,768 characters fit the lead's
 // follow-up turn (lead-request-text.js followUpMaxChars) with its files, and the
-// team bridge's 128 KiB request bound for ordinary text, three-byte characters too.
+// team bridge's 256 KiB request bound even in four-byte characters.
 export const reportLimits = { text: 32768, files: 10, file: 500 };
 const hourMs = 3600000;
 const isMemberReport = (r) => r?.type === "report" && r.origin?.kind === "member-report";
@@ -30,10 +30,14 @@ export class MemberReports {
     if (!["result", "problem"].includes(input.kind)) throw assistantProblem("invalid");
     // A longer report is refused with the limit, never cut: AgentPier cannot put
     // the rest where the lead reads it, the member can (a project file in files, or
-    // a second report).
-    if (typeof input.text === "string" && input.text.length > reportLimits.text)
+    // a second report). Counted in code points like the tool schema's maxLength, so
+    // an emoji counts once; that is at most twice as many UTF-16 units.
+    if (
+      typeof input.text === "string" &&
+      Array.from(input.text).length > reportLimits.text
+    )
       throw assistantProblem("memberReportTooLong");
-    const text = textValue(input.text, reportLimits.text);
+    const text = textValue(input.text, 2 * reportLimits.text);
     const files = input.files ?? [];
     if (!Array.isArray(files) || files.length > reportLimits.files)
       throw assistantProblem("invalid");

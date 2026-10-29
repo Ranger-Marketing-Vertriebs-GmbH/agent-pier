@@ -288,6 +288,24 @@ test("a report beyond 32,768 characters is refused with the limit and a file hin
     "REPORT_TOO_LONG",
   );
   assert.equal(reports(f).length, 1);
+  // Counted in code points like the schema: 32,768 emoji fit, one more does not.
+  const emoji = "\u{1F600}".repeat(reportLimits.text);
+  assert.equal(emoji.length, 2 * reportLimits.text);
+  const smiles = report(f, inv(), { text: emoji });
+  assert.equal(f.service.requests.store.get(smiles.reportId).text, emoji);
+  assert.equal(
+    f.code(() => report(f, inv(), { text: `${emoji}\u{1F600}` })),
+    "REPORT_TOO_LONG",
+  );
+  assert.equal(reports(f).length, 2);
+  // The longest plain report reaches the lead whole, not shortened.
+  await deliver(f);
+  const [whole] = followUps(f, longest);
+  assert.ok(whole.text.length <= followUpMaxChars);
+  const data = JSON.parse(whole.text.slice(whole.text.indexOf("\n{") + 1));
+  assert.equal(data.report, "x".repeat(reportLimits.text));
+  assert.equal(data.shortened, undefined);
+  assert.doesNotMatch(whole.text, /shortened here/);
   const reason = toolError(assistantProblem("memberReportTooLong")).reason;
   assert.match(reason, /32768 characters/);
   assert.match(reason, /files/);

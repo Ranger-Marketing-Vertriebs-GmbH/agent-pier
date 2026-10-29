@@ -93,7 +93,7 @@ test("bridge rejects browser, foreign credentials, oversized input and unknown r
     (await f.post("/prepare", {}, { origin: "http://localhost" })).status,
     403,
   );
-  assert.equal((await f.post("/prepare", { padding: "x".repeat(131073) })).status, 413);
+  assert.equal((await f.post("/prepare", { padding: "x".repeat(262145) })).status, 413);
   assert.equal(
     (
       await f.post("/prepare", {
