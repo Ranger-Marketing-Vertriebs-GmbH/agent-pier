@@ -15,14 +15,35 @@ import {
 const sshAvailable = spawnSync("ssh", ["-V"]).status === 0;
 const own = "Port 2222\nCompression yes\nHost *.corp\n  User corpuser\n";
 const key = "abcd1234";
-const shells = ["sh", "bash", "zsh", "dash", "tcsh", "csh", "fish"]
-  .map((name) => {
-    const found = spawnSync("/bin/sh", ["-c", `command -v ${name}`], {
-      encoding: "utf8",
-    });
-    return found.status === 0 ? found.stdout.trim() : null;
-  })
-  .filter((shell) => shell && path.isAbsolute(shell));
+// `command -v sh` names the first sh on PATH (`/usr/bin/sh` on merged-/usr Linux, where
+// it links to dash), so `/bin/sh` itself is listed too.
+const shells = [
+  ...new Set([
+    ...(fs.existsSync("/bin/sh") ? ["/bin/sh"] : []),
+    ...["sh", "bash", "zsh", "dash", "tcsh", "csh", "fish"]
+      .map((name) => {
+        const found = spawnSync("/bin/sh", ["-c", `command -v ${name}`], {
+          encoding: "utf8",
+        });
+        return found.status === 0 ? found.stdout.trim() : null;
+      })
+      .filter((shell) => shell && path.isAbsolute(shell)),
+  ]),
+];
+const realpath = (file) => {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return null;
+  }
+};
+// At least one POSIX sh, by name or as the target of /bin/sh (dash on Debian/Ubuntu).
+const hasPosixSh = () =>
+  shells.some(
+    (shell) =>
+      path.basename(shell) === "sh" ||
+      (realpath("/bin/sh") !== null && realpath(shell) === realpath("/bin/sh")),
+  );
 
 function fixture(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ssh-include-")));
@@ -96,7 +117,7 @@ test(
   },
   (t) => {
     const { base, config } = fixture(t);
-    assert.ok(shells.includes("/bin/sh"));
+    assert.ok(hasPosixSh(), shells.join(", "));
     for (const shell of shells)
       for (const host of ["somehost", "a.corp", "proxmox-2"]) {
         const plain = resolve(base, host, null, shell);
