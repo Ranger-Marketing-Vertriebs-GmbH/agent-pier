@@ -151,7 +151,7 @@ export class ChannelStore {
         .run(record.id, token);
       this.db.prepare("INSERT INTO channel_offsets VALUES (?,0)").run(record.id);
     });
-    this.onWrite?.();
+    this.onWrite?.(record.id);
     return this.get(record.id);
   }
   write(record, revision) {
@@ -162,7 +162,7 @@ export class ChannelStore {
         .run(JSON.stringify(next), next.revision, record.id, revision).changes
     )
       throw assistantProblem("conflict", 409);
-    this.onWrite?.();
+    this.onWrite?.(record.id);
     return this.get(record.id);
   }
   requireRevision(id, revision) {
@@ -236,7 +236,7 @@ export class ChannelStore {
       ])
         this.db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);
     });
-    this.onWrite?.();
+    this.onWrite?.(id);
   }
   pairing(id, revision, appUrl, language) {
     const current = this.requireRevision(id, revision);
@@ -339,7 +339,7 @@ export class ChannelStore {
     this.db
       .prepare("UPDATE channels SET body=? WHERE id=?")
       .run(JSON.stringify({ ...record, diagnostic, pollAfter }), id);
-    this.onWrite?.();
+    this.onWrite?.(id);
   }
   /**
    * Records that a stranger chat is told the bot is private. Returns false while
@@ -365,7 +365,7 @@ export class ChannelStore {
     this.db
       .prepare("UPDATE channels SET body=? WHERE id=?")
       .run(JSON.stringify({ ...record, ignoredMessages }), id);
-    this.onWrite?.();
+    this.onWrite?.(id);
   }
   halt(id, diagnostic) {
     const current = this.record(id);

@@ -34,9 +34,13 @@ export class ChannelService {
     this.outbox = new ChannelOutbox(this.store.db, {
       link: (channelId, path) => this.link(channelId, path),
     });
-    // Every write the channel list shows reaches `onChange` (its live topic).
+    // Every write the channel list shows reaches `onChange(assistantId)` (its live
+    // topics), with the agent of the written channel when it is known.
     this.onChange = null;
-    this.store.onWrite = this.ledger.onWrite = this.outbox.onWrite = () => this.written();
+    this.store.onWrite =
+      this.ledger.onWrite =
+      this.outbox.onWrite =
+        (channelId) => this.written(channelId);
     this.teamOutbox = new TelegramOutbox(this);
     this.teamActions = new TelegramTeamActions(this);
     this.speechService = new SpeechService({ connections: speech });
@@ -130,10 +134,19 @@ export class ChannelService {
       .then(() => routines?.resync(assistantId))
       .catch(() => {});
   }
-  /** Something the channel list shows changed; a failing listener is logged. */
-  written() {
+  /**
+   * Something the channel list shows changed, of `channelId` when known; a failing
+   * listener is logged.
+   */
+  written(channelId) {
+    let assistantId;
     try {
-      this.onChange?.();
+      if (channelId) assistantId = this.store.record(channelId).assistantId;
+    } catch {
+      // A deleted or unknown channel: every agent's topics read again.
+    }
+    try {
+      this.onChange?.(assistantId);
     } catch {
       console.error("AgentPier could not report a Telegram channel change.");
     }

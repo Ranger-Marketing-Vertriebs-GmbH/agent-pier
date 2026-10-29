@@ -443,3 +443,32 @@ test("a user's released reminders signal their agents' reminder topics", async (
   await retireReleased({ assistants, live }, [{ id: "a" }]);
   assert.deepEqual(signals, ["agent.reminders:a", "me.reminders:a"]);
 });
+
+test("a channel write reads only its agent's channel and reminder topics", async (t) => {
+  const f = await fixture(t);
+  const channel = channelOf(f, f.assistant.id, 103);
+  const hub = f.application.live;
+  const invalidate = hub.invalidate;
+  const calls = [];
+  hub.invalidate = function (name, param) {
+    calls.push(`${name}:${param ?? "*"}`);
+    return invalidate.call(this, name, param);
+  };
+  t.after(() => (hub.invalidate = invalidate));
+  const id = f.assistant.id;
+  f.application.assistantChannels.store.diagnostic(channel.id, "TELEGRAM_UNAVAILABLE");
+  const ofChannels = (prefixes) =>
+    calls.filter((c) => prefixes.some((p) => c.startsWith(p)));
+  const names = ["agent.channels:", "agent.reminders:", "me.telegram:", "me.reminders:"];
+  assert.deepEqual(
+    ofChannels(names),
+    names.map((name) => `${name}${id}`),
+  );
+  // A channel that is gone (deleted) reads every agent's topics.
+  calls.length = 0;
+  f.application.assistantChannels.written("no-such-channel");
+  assert.deepEqual(
+    ofChannels(names),
+    names.map((name) => `${name}*`),
+  );
+});
