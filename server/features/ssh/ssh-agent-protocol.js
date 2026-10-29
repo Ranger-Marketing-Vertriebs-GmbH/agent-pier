@@ -24,24 +24,52 @@ function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+// Collects chunks in a list and joins them once per complete frame, so a frame sent
+// in tiny writes costs linear time. Chunks are copied on arrival.
 export class AgentFrameReader {
   constructor({ maxMessage = 262144 } = {}) {
     this.maxMessage = maxMessage;
-    this.pending = Buffer.alloc(0);
+    this.chunks = [];
+    this.size = 0;
+    this.expected = null;
+  }
+
+  take(count) {
+    let joined = this.chunks[0];
+    if (joined.length < count) {
+      let used = 0;
+      let length = 0;
+      while (length < count) length += this.chunks[used++].length;
+      joined = Buffer.concat(this.chunks.splice(0, used, Buffer.alloc(0)), length);
+      this.chunks[0] = joined;
+    }
+    const taken = joined.subarray(0, count);
+    if (joined.length === count) this.chunks.shift();
+    else this.chunks[0] = joined.subarray(count);
+    this.size -= count;
+    return taken;
   }
 
   push(chunk) {
-    this.pending = this.pending.length ? Buffer.concat([this.pending, chunk]) : chunk;
+    if (chunk.length) {
+      this.chunks.push(Buffer.from(chunk));
+      this.size += chunk.length;
+    }
     const frames = [];
-    while (this.pending.length >= 4) {
-      const length = this.pending.readUInt32BE(0);
-      if (length === 0 || length > this.maxMessage) {
-        this.pending = Buffer.alloc(0);
-        throw codedError("SSH_AGENT_FRAME", "SSH agent frame length out of range");
+    for (;;) {
+      if (this.expected === null) {
+        if (this.size < 4) break;
+        const length = this.take(4).readUInt32BE(0);
+        if (length === 0 || length > this.maxMessage) {
+          this.chunks = [];
+          this.size = 0;
+          throw codedError("SSH_AGENT_FRAME", "SSH agent frame length out of range");
+        }
+        this.expected = length;
       }
-      if (this.pending.length < 4 + length) break;
-      frames.push(Buffer.from(this.pending.subarray(4, 4 + length)));
-      this.pending = this.pending.subarray(4 + length);
+      if (this.size < this.expected) break;
+      frames.push(this.take(this.expected));
+      this.expected = null;
     }
     return frames;
   }
