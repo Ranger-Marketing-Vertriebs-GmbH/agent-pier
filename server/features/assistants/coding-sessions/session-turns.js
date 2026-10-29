@@ -13,7 +13,7 @@ const live = new Set(["pending", "accepted", "running"]);
  * - `routine`: a routine's own run;
  * - `team`: a lead's task for its member (`leadRequest`), a temporary member's team
  *   turn (`requestedBy`) or a lead's follow-up on its member's result
- *   (`memberResult`); starts on these paths wait for the owner;
+ *   (`memberResult`); an explicit project session grant covers these starts too;
  * - `owner`: the owner's own message, from AgentPier or his Telegram chat, and goal
  *   continuations.
  * A command's completion run, a restricted user's turn and forwarded content are

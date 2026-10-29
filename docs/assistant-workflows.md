@@ -311,10 +311,12 @@ always wait for you. Agents of restricted users never get the tool.
 
 **When a start needs no approval.** A start runs at once in your own messages (in
 AgentPier or in the paired Telegram chat), in goal continuations, in routine runs and in
-agent hooks that have **Coding** ticked, and in wake
-turns of a session started that way. A start from a team path (a lead's task, a member's
-result, a request made by a member) or on a lead's share waits for your approval in the
-agent's chat like a coding task, and sends the **Agent approval** push. The card and the
+agent hooks that have **Coding** ticked. The agent's own **Coding sessions** grant
+also covers team paths (a lead's task, a member's result, a request made by a member)
+and session wake turns: these starts do not ask again. A start that relies on a lead's
+shared access instead of the agent's own session grant still waits for your approval
+in the agent's chat and sends the **Agent approval** push. Pipeline approvals are
+configured separately and are unchanged by this switch. The card and the
 Telegram approval show what the session would launch with: the project and CLI, the base
 branch, the launch mode (`bypass` and `yolo` are flagged as unattended, because the CLI
 then runs commands without asking), the account or provider connection and model, how

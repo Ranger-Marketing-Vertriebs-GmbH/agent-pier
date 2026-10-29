@@ -206,3 +206,15 @@ export async function agentSessionFixture(t, { sessionProjects = true } = {}) {
     call: (inv, input) => f.workflows.sessions.invoke(inv, input),
   };
 }
+
+// A project reachable only through a lead's standing share, for approval tests.
+export function sharedSessionGrant(f) {
+  const lead = f.store.createAssistant({
+    name: "Lead",
+    model: { connectionId: "test", modelId: "fixture" },
+  });
+  const w = f.workflows;
+  w.access.save(lead.id, { ...f.policy, sessionProjectIds: [f.project.id] }, 0);
+  w.shares.coding = () => ({ leadId: lead.id, shareId: "share-1", requestId: null });
+  w.shares.codingProjects = () => [{ leadId: lead.id, projectId: f.project.id }];
+}

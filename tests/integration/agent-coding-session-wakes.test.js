@@ -379,7 +379,7 @@ test("a routine-started session wakes the routine's conversation", async (t) => 
   assert.equal(wakes[0].conversationId, routineChat.id);
 });
 
-test("a wake turn may steer the session but a team-class wake start waits for the owner", async (t) => {
+test("a team-class wake can steer and start sessions under its own project grant", async (t) => {
   const { f, wakes, at } = await setup(t);
   const { sessionId } = await started(f, { origin: { class: "team" } });
   f.setActivity(sessionId, "idle");
@@ -403,7 +403,7 @@ test("a wake turn may steer the session but a team-class wake start waits for th
     tool: "codex",
     worktree: false,
   });
-  assert.equal(start.state, "awaiting_approval");
+  assert.equal(start.state, "running");
 });
 
 test("holdsGoal: a fresh working reading or a state the agent has not seen", async (t) => {
