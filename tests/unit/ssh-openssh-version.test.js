@@ -19,6 +19,15 @@ test("OpenSSH versions parse and gate session-bind", () => {
     major: 9,
     minor: 5,
   });
+  // RHEL 9 and a build without a portable "p" suffix.
+  assert.deepEqual(parseOpenSshVersion("OpenSSH_8.7p1, OpenSSL 3.0.7 1 Nov 2022"), {
+    major: 8,
+    minor: 7,
+  });
+  assert.deepEqual(parseOpenSshVersion("OpenSSH_9.8, LibreSSL 3.9.0"), {
+    major: 9,
+    minor: 8,
+  });
   assert.equal(supportsSessionBind({ major: 8, minor: 9 }), true);
   assert.equal(supportsSessionBind({ major: 9, minor: 0 }), true);
   assert.equal(supportsSessionBind({ major: 10, minor: 2 }), true);

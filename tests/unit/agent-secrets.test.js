@@ -233,7 +233,7 @@ test("the connected delivery follows secret changes and grant saves at once", as
   assert.equal(config.secretsGranted, undefined);
   f.secrets.update(s1.id, { value: "three" }, owner);
   await new Promise((resolve) => setImmediate(resolve));
-  await agentSecrets.queue.catch(() => {});
+  await agentSecrets.idle();
   assert.match(f.read(), /^S1='two'$/m);
   assert.equal(connectAgentSecrets(null, {}), null);
 });

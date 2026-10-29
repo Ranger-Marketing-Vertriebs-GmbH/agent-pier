@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { personalEligible } from "../assistants/native-capabilities.js";
 import { isUserAgent } from "../users/user-access.js";
+import { SyncQueue } from "../../lib/sync-queue.js";
 import { writeSecretFile } from "./secret-format.js";
 
 const safeId = (id) =>
@@ -20,7 +21,7 @@ const safeId = (id) =>
 export class AgentSecrets {
   constructor({ store, access, assistants, workspaces }) {
     Object.assign(this, { store, access, assistants, workspaces });
-    this.queue = Promise.resolve();
+    this.syncs = new SyncQueue();
   }
   file(agentId) {
     return path.join(this.workspaces, agentId, ".agentpier", "secrets.env");
@@ -53,9 +54,11 @@ export class AgentSecrets {
   }
   /** Resolves "written", "removed" or "unchanged". */
   sync(agentId) {
-    const task = this.queue.catch(() => {}).then(() => this.syncOnce(agentId));
-    this.queue = task;
-    return task;
+    return this.syncs.run(() => this.syncOnce(agentId));
+  }
+  /** Resolves once the syncs queued so far have settled. */
+  idle() {
+    return this.syncs.idle();
   }
   async syncOnce(agentId) {
     if (!safeId(agentId)) return "unchanged";
@@ -73,13 +76,7 @@ export class AgentSecrets {
    * of changes costs one pass.
    */
   refresh() {
-    this.refreshing ??= this.queue
-      .catch(() => {})
-      .then(() => {
-        this.refreshing = null;
-        return this.syncAll();
-      });
-    return this.refreshing;
+    return this.syncs.coalesce(() => this.syncAll());
   }
   /** Every agent's file; one failing agent never stops the others. */
   async syncAll() {

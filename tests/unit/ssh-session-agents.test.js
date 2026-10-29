@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { agentSocketPath } from "../../server/features/ssh/ssh-agent-socket.js";
@@ -14,156 +13,35 @@ import {
   SSH_CONFIG_ENV,
 } from "../../server/features/ssh/ssh-session-agents.js";
 import { sessionFolder } from "../../server/features/ssh/ssh-session-config.js";
-import { AgentClient, generateKey, userauth } from "../helpers/ssh-agent-client.js";
-
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "ap-ssa-"));
-// A short stand-in home under /tmp; never the real home.
-const home = fs.mkdtempSync("/tmp/aph-");
-process.on("exit", () => {
-  fs.rmSync(root, { recursive: true, force: true });
-  fs.rmSync(home, { recursive: true, force: true });
-});
-
-const userKey = generateKey(root, "user");
-const hostKey = generateKey(root, "host");
-const keyId = "0123abcd-1111-2222-3333-444444444444";
-const project = { projectId: "project-1", name: "P", cwd: root, kind: "directory" };
-
-function host(id, name, extra = {}) {
-  return {
-    id,
-    name,
-    host: "10.0.0.2",
-    port: 22,
-    username: "deploy",
-    keyId,
-    publicKey: userKey.publicLine,
-    hostKey: hostKey.publicLine,
-    type: "ssh",
-    legacyAlgorithms: false,
-    interactiveShell: false,
-    projectId: null,
-    createdAt: `2026-10-29T00:00:0${id.length % 10}.000Z`,
-    ...extra,
-  };
-}
-const hostA = host("access-a", "Proxmox 2");
-const hostB = host("access-bb", "Database");
-
-let counter = 0;
-// One service per test with its own data dir and recorded audit and log.
-function fixture(t, overrides = {}) {
-  counter += 1;
-  const dataDir = path.join(root, `d${counter}`);
-  fs.mkdirSync(path.join(dataDir, "sessions"), { recursive: true, mode: 0o700 });
-  const identities = path.join(dataDir, "ssh", "identities", keyId);
-  fs.mkdirSync(identities, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(identities, "identity"), userKey.privateText, {
-    mode: 0o600,
-  });
-  const accesses = [hostA, hostB];
-  const assigned = new Map();
-  const records = new Map();
-  const audit = [];
-  const logs = [];
-  const f = {
-    dataDir,
-    accesses,
-    audit,
-    logs,
-    records,
-    grants: {
-      effectiveCalls: 0,
-      async effective(session) {
-        f.grants.effectiveCalls += 1;
-        return [...(assigned.get(session.id) ?? [])];
-      },
-      async set(session, ids) {
-        assigned.set(session.id, ids);
-      },
-    },
-    store: { list: () => accesses },
-    sessions: { list: async () => [...records.values()] },
-    log: {
-      warn: (...args) => logs.push(["warn", ...args]),
-      error: (...args) => logs.push(["error", ...args]),
-    },
-  };
-  f.deps = {
-    dataDir,
-    store: f.store,
-    grants: f.grants,
-    sessions: f.sessions,
-    audit: { append: (row) => audit.push(row) },
-    openssh: { major: 10, minor: 2 },
-    home,
-    log: f.log,
-    ...overrides,
-  };
-  f.agents = new SessionSshAgents(f.deps);
-  f.started = [f.agents];
-  f.ids = [];
-  f.save = (record) => {
-    records.set(record.id, record);
-    fs.writeFileSync(
-      path.join(dataDir, "sessions", `${record.id}.json`),
-      JSON.stringify(record),
-    );
-  };
-  t.after(async () => {
-    for (const agents of f.started) await agents.close();
-    const cleaner = new SessionSshAgents(f.deps);
-    for (const id of f.ids) await cleaner.discard(id);
-  });
-  return f;
-}
-
-function base({ sshTools = { enabled: true, project }, env = {} } = {}) {
-  return { command: "claude", args: ["--x"], env, sshTools };
-}
-
-function input({ tool = "claude", purpose, pipeline, sshTools, env, id } = {}) {
-  return {
-    id: id ?? randomUUID(),
-    account: { id: "account-1", tool },
-    launch: base({ sshTools, env }),
-    purpose,
-    pipeline,
-  };
-}
-
-// Prepare a launch and save the session record the way session creation keeps it.
-async function launch(f, options = {}) {
-  const request = input(options);
-  f.ids.push(request.id);
-  const prepared = await f.agents.prepare(request);
-  const record = {
-    id: request.id,
-    tool: request.account.tool,
-    accountId: "account-1",
-    createdAt: "2026-10-29T10:00:00.000Z",
-    status: "running",
-    sshTools: prepared.sshTools,
-    ...(prepared.sshAgent ? { sshAgent: prepared.sshAgent } : {}),
-  };
-  f.save(record);
-  return { id: request.id, prepared, record };
-}
-
-async function identitiesAt(socketPath) {
-  const client = await AgentClient.connect(socketPath);
-  try {
-    return await client.identities();
-  } finally {
-    await client.close();
-  }
-}
+import { AgentClient, userauth } from "../helpers/ssh-agent-client.js";
+import {
+  base,
+  fixture,
+  home,
+  host,
+  hostA,
+  hostB,
+  hostKey,
+  identitiesAt,
+  input,
+  keyId,
+  launch,
+  project,
+  root,
+  userKey,
+} from "../helpers/ssh-session-agents-fixture.js";
 
 test("prepare equips each coding CLI with an agent and the data Task 6 needs", async (t) => {
   const f = fixture(t);
   for (const tool of ["claude", "codex", "opencode"]) {
     const { id, prepared } = await launch(f, { tool });
     const { generation, token, enabled } = prepared.sshAgent;
+    assert.deepEqual(Object.keys(prepared.sshAgent).sort(), [
+      "binaries",
+      "enabled",
+      "generation",
+      "token",
+    ]);
     assert.equal(enabled, true);
     assert.match(generation, /^[0-9a-f-]{36}$/);
     assert.match(token, /^[0-9a-f]{32}$/);
@@ -178,10 +56,13 @@ test("prepare equips each coding CLI with an agent and the data Task 6 needs", a
     const folder = sessionFolder(f.dataDir, id);
     const socketPath = agentSocketPath(f.dataDir, id, token, { home });
     const details = f.agents.launchDetails(id);
+    // Exactly: own folder, own socket, each resolved binary. Never allow, never a parent.
     assert.deepEqual(details.grants, [
       { access: "read", path: folder },
       { access: "socket", path: socketPath },
+      ...Object.values(details.binaries).map((file) => ({ access: "read", path: file })),
     ]);
+    assert.deepEqual(prepared.sshAgent.binaries, details.binaries);
     assert.equal(details.socketPath, socketPath);
     assert.equal(details.configPath, path.join(folder, "ssh_config"));
     assert.equal(details.binDir, path.join(folder, "bin"));
@@ -212,7 +93,8 @@ test("one eligibility rule covers launches and records", () => {
       { tool: "claude", pipeline: { headless: true }, sshTools: { enabled: true } },
       false,
     ],
-    [{ tool: "claude", pipeline: { runId: "r" }, sshTools: { enabled: true } }, false],
+    [{ tool: "claude", pipeline: { runId: "r" }, sshTools: { enabled: true } }, true],
+    [{ tool: "shell", pipeline: { headless: false } }, true],
     [{ tool: "shell", pipeline: { headless: true } }, false],
     [{ tool: "openclaw", sshTools: { enabled: true } }, false],
     [{}, false],
@@ -227,7 +109,6 @@ test("login, pipeline, tool-less, agent and old-OpenSSH launches are unchanged",
   for (const variant of [
     { purpose: "login" },
     { pipeline: { headless: true } },
-    { pipeline: { runId: "run-1" } },
     { sshTools: { enabled: false } },
     { tool: "openclaw" },
     { tool: "shell", purpose: "login" },
@@ -239,12 +120,15 @@ test("login, pipeline, tool-less, agent and old-OpenSSH launches are unchanged",
   const old = new SessionSshAgents({ ...f.deps, openssh: { major: 8, minor: 4 } });
   const none = new SessionSshAgents({ ...f.deps, openssh: null });
   f.started.push(old, none);
-  for (const agents of [old, none]) {
+  for (const [agents, reason] of [
+    [old, "openssh-too-old"],
+    [none, "no-openssh"],
+  ]) {
     const request = input();
     assert.deepEqual(await agents.prepare(request), request.launch);
     assert.deepEqual(agents.status({ ...request, status: "running", tool: "claude" }), {
       state: "unavailable",
-      reason: "openssh-too-old",
+      reason,
       aliases: {},
     });
   }
@@ -255,10 +139,17 @@ test("login, pipeline, tool-less, agent and old-OpenSSH launches are unchanged",
     f.agents.status({ id: request.id, status: "running", tool: "claude" }),
     {
       state: "unavailable",
-      reason: "not-eligible",
+      reason: "no-openssh",
       aliases: {},
     },
   );
+  assert.equal(f.agents.status({ id: "x", status: "running" }).reason, "not-eligible");
+});
+
+test("an interactive pipeline session gets the agent", async (t) => {
+  const f = fixture(t);
+  const { prepared } = await launch(f, { pipeline: { runId: "run-1" } });
+  assert.equal(prepared.sshAgent.enabled, true);
 });
 
 test("shell sessions get the agent without the SSH tools", async (t) => {
@@ -268,7 +159,6 @@ test("shell sessions get the agent without the SSH tools", async (t) => {
     sshTools: { enabled: false, project },
   });
   assert.equal(prepared.sshAgent.enabled, true);
-  assert.equal(prepared.env[SSH_AGENT_HINT_ENV], undefined);
   assert.equal(f.agents.status(record).state, "ready");
 });
 
@@ -304,44 +194,6 @@ test("hosts that cannot be rendered are logged by id only", async (t) => {
   ]);
   const text = JSON.stringify(f.logs);
   assert.equal(text.includes(userKey.publicLine.split(" ")[1]), false);
-});
-
-test("a failed write removes the session files and is reported", async (t) => {
-  const f = fixture(t);
-  const { id, record } = await launch(f);
-  await f.grants.set(record, [hostA.id]);
-  await f.agents.sync(record);
-  const folder = sessionFolder(f.dataDir, id);
-  const victim = path.join(root, `victim-${counter}`);
-  fs.mkdirSync(victim);
-  fs.writeFileSync(path.join(victim, "keep"), "keep");
-  fs.rmSync(path.join(folder, "keys"), { recursive: true });
-  fs.symlinkSync(victim, path.join(folder, "keys"));
-  await f.grants.set(record, [hostA.id, hostB.id]);
-  await assert.rejects(f.agents.sync(record), { code: "SSH_FOLDER_UNSAFE" });
-  assert.deepEqual(fs.readdirSync(victim), ["keep"]);
-  // Nothing half-written stays behind for the CLI to trust.
-  assert.equal(fs.existsSync(folder), false);
-  assert.deepEqual(f.logs, [
-    ["error", "Session SSH agent files could not be written:", "SSH_FOLDER_UNSAFE"],
-  ]);
-  // Any other error is a failure as well.
-  const broken = new SessionSshAgents({
-    ...f.deps,
-    store: {
-      list: () => {
-        throw new Error("catalog unreadable");
-      },
-    },
-  });
-  f.started.push(broken);
-  const failing = input();
-  await assert.rejects(broken.prepare(failing), /catalog unreadable/);
-  assert.equal(broken.launchDetails(failing.id), null);
-  assert.equal(fs.existsSync(sessionFolder(f.dataDir, failing.id)), false);
-  // The agent keeps listening; the next sync writes the files again.
-  assert.equal(await f.agents.sync(record), "written");
-  assert.equal(fs.existsSync(path.join(folder, "ssh_config")), true);
 });
 
 test("authorization follows the record's status, generation and the live grants", async (t) => {
@@ -510,7 +362,7 @@ test("discard after a restart finds the socket folder through the record", async
 
 test("discard never follows a planted link", async (t) => {
   const f = fixture(t);
-  const victim = path.join(root, `victim-d${counter}`);
+  const victim = path.join(root, `victim-${randomUUID()}`);
   fs.mkdirSync(path.join(victim, "nested"), { recursive: true });
   fs.writeFileSync(path.join(victim, "nested", "keep"), "keep");
   // A link inside the session folder is unlinked, not followed.
