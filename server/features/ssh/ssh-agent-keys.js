@@ -3,6 +3,7 @@
 import { createRequire } from "node:module";
 import ssh2 from "ssh2";
 import { signFlags, WireReader, wireString } from "./ssh-agent-protocol.js";
+import { codedError } from "./ssh-agent-shared.js";
 
 const { utils } = ssh2;
 const { convertSignature, sigSSHToASN1 } = createRequire(import.meta.url)(
@@ -19,10 +20,6 @@ const rsaAlgorithms = new Map([
   ["rsa-sha2-512", "sha512"],
   ["ssh-rsa", "sha1"],
 ]);
-
-function codedError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
 
 function unsupported() {
   return codedError("SSH_AGENT_KEY_UNSUPPORTED", "SSH key type or format not supported");

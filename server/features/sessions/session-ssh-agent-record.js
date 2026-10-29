@@ -3,9 +3,8 @@
 // these and a stop removes the socket folder they name, so a malformed value is dropped
 // as a whole rather than kept in part.
 import path from "node:path";
+import { generationPattern, tokenPattern } from "../ssh/ssh-agent-shared.js";
 
-const generationPattern = /^[0-9a-f-]{36}$/;
-const tokenPattern = /^[0-9a-f]{32}$/;
 const binaryNames = new Set(["ssh", "scp", "sftp"]);
 
 const binaryPath = (value) =>
@@ -25,8 +24,8 @@ function binariesRecord(value) {
   return Object.fromEntries(entries);
 }
 
-/** `{ enabled, generation, token, binaries }`, or undefined for anything malformed. */
-export function sessionSshAgentRecord(value) {
+/** `{ generation, token }` of an enabled agent, or undefined for anything malformed. */
+export function sshAgentHandle(value) {
   if (
     !value ||
     typeof value !== "object" ||
@@ -37,7 +36,13 @@ export function sessionSshAgentRecord(value) {
     !tokenPattern.test(value.token)
   )
     return undefined;
-  const binaries = binariesRecord(value.binaries);
+  return { generation: value.generation, token: value.token };
+}
+
+/** `{ enabled, generation, token, binaries }`, or undefined for anything malformed. */
+export function sessionSshAgentRecord(value) {
+  const handle = sshAgentHandle(value);
+  const binaries = handle && binariesRecord(value.binaries);
   if (!binaries) return undefined;
-  return { enabled: true, generation: value.generation, token: value.token, binaries };
+  return { enabled: true, ...handle, binaries };
 }

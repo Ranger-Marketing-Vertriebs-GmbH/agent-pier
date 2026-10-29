@@ -8,16 +8,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { shellQuote } from "../../lib/launch-serialization.js";
 import { privateFolder, writePrivateText } from "../../lib/storage.js";
+import {
+  aliasPattern,
+  codedError,
+  executableOutside,
+  keyIdPattern,
+  realPathOrNull,
+  validSessionId,
+  withinRoots,
+} from "./ssh-agent-shared.js";
 import { legacyOptions } from "./ssh-legacy-algorithms.js";
 import { endpoint, publicKeyValue } from "./ssh-keys.js";
 
-const sessionIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const aliasPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
-const keyIdPattern = /^[0-9a-f-]{36}$/;
 const binaryNames = ["ssh", "scp", "sftp"];
 const aliasLength = 40;
 
-const validSessionId = (id) => typeof id === "string" && sessionIdPattern.test(id);
 // Digit-only names read as ports or option values, and `localhost` is the loopback.
 const reservedAlias = (alias) => /^\d+$/.test(alias) || alias === "localhost";
 const validAlias = (alias) =>
@@ -286,24 +291,6 @@ export function renderWrapper({ tool, realPath, configPath: config, aliases }) {
   ].join("\n");
 }
 
-function realPathOrNull(file) {
-  try {
-    return fs.realpathSync(file);
-  } catch {
-    return null;
-  }
-}
-
-function executableFile(file) {
-  try {
-    if (!fs.statSync(file).isFile()) return false;
-    fs.accessSync(file, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * The executable `ssh`, `scp` and `sftp` on `pathEnv`. Relative entries are ignored,
  * and so is every candidate whose real path lies in or under a `skip` root (pass
@@ -313,15 +300,12 @@ function executableFile(file) {
  */
 export function resolveOpenSshBinaries(pathEnv, skip = []) {
   const roots = skip.map(realPathOrNull).filter(Boolean);
-  const inside = (real) =>
-    roots.some((root) => real === root || real.startsWith(`${root}${path.sep}`));
-  const usable = (file) => {
-    const real = realPathOrNull(file);
-    return Boolean(real) && !inside(real) && executableFile(file);
-  };
+  const usable = (file) => executableOutside(file, roots);
   const dirs = String(pathEnv ?? "")
     .split(path.delimiter)
-    .filter((dir) => path.isAbsolute(dir) && !inside(realPathOrNull(dir) ?? dir));
+    .filter(
+      (dir) => path.isAbsolute(dir) && !withinRoots(realPathOrNull(dir) ?? dir, roots),
+    );
   const sshDir = dirs.find((dir) => usable(path.join(dir, "ssh")));
   if (!sshDir) return null;
   const found = {};
@@ -341,12 +325,14 @@ export function sessionFolder(dataDir, sessionId) {
   return path.join(path.resolve(dataDir), "ssh-agents", sessionId);
 }
 
-const unsafeFolder = () =>
-  Object.assign(new Error("Unsafe session SSH folder"), { code: "SSH_FOLDER_UNSAFE" });
+const unsafeFolder = () => codedError("SSH_FOLDER_UNSAFE", "Unsafe session SSH folder");
 
 // A folder created or verified by `privateFolder`, with a `check()` that re-verifies,
 // before each write or unlink, that the path is still that very directory (same
 // device and inode, not a link). Defence in depth against a swap after the check.
+// Unlike `foldersBetween` (ssh-agent-shared.js), which only lists the folders of a
+// path for a one-shot walk, this pins each folder it creates, because the writer
+// re-checks the whole chain before every file it writes.
 function pinnedFolder(dir, parents = []) {
   privateFolder(dir, unsafeFolder);
   const { dev, ino } = fs.lstatSync(dir);

@@ -31,11 +31,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
+import { aliasPattern, codedError } from "./ssh-agent-shared.js";
 
 export const SSH_CONFIG_BACKUP = "config.agentpier-backup";
-const aliasPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
-export const failure = (code) => Object.assign(new Error(code), { code });
+export const failure = (code) => codedError(code);
 
 /** The block key of a data folder: 8 hex digits of its physical path. */
 export function sshConfigKey(dataDir) {

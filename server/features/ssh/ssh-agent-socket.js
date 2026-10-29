@@ -16,15 +16,15 @@ import {
   decideSignature,
 } from "./ssh-agent-policy.js";
 import { AgentFrameReader, agentReply, parseAgentRequest } from "./ssh-agent-protocol.js";
+import {
+  codedError,
+  foldersBetween,
+  tokenPattern,
+  validSessionId,
+} from "./ssh-agent-shared.js";
 import { sshPhysicalRoot } from "./ssh-root.js";
 
 const maxBinds = 16;
-const sessionIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const tokenPattern = /^[0-9a-f]{32}$/;
-
-function codedError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
 
 // 128 random bits naming one agent's socket folder. Kept in the agent record so a
 // restart listens at the same path; never derived from the session id, so another
@@ -56,7 +56,7 @@ export function agentSocketLocation(
   token,
   { home = os.homedir(), warn = defaultWarn } = {},
 ) {
-  if (typeof sessionId !== "string" || !sessionIdPattern.test(sessionId))
+  if (!validSessionId(sessionId))
     throw codedError("SSH_AGENT_SESSION_INVALID", "Invalid session id");
   if (typeof token !== "string" || !tokenPattern.test(token))
     throw codedError("SSH_AGENT_TOKEN_INVALID", "Invalid SSH agent token");
@@ -89,13 +89,9 @@ export function agentSocketPath(dataDir, sessionId, token, options) {
 // folders above the socket, as in the /tmp layout.
 function folderChain(socketPath, root) {
   const folder = path.dirname(socketPath);
-  const top = root ?? path.dirname(folder);
-  const relative = path.relative(top, folder);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
-    throw codedError("SSH_AGENT_SOCKET_UNSAFE", "SSH agent root must contain the socket");
-  const chain = [top];
-  for (const part of relative.split(path.sep)) chain.push(path.join(chain.at(-1), part));
-  return chain;
+  return foldersBetween(root ?? path.dirname(folder), folder, () =>
+    codedError("SSH_AGENT_SOCKET_UNSAFE", "SSH agent root must contain the socket"),
+  );
 }
 
 function deniedCode(error, fallback) {

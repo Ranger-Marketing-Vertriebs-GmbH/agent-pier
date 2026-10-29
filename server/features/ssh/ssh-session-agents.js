@@ -9,10 +9,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { readJSON } from "../../lib/storage.js";
+import { sshAgentHandle } from "../sessions/session-ssh-agent-record.js";
 import { SyncQueue } from "../../lib/sync-queue.js";
 import { privateFile } from "../memory/memory-validation.js";
 import { createAgentAudit } from "./ssh-agent-audit.js";
 import { agentHosts } from "./ssh-agent-policy.js";
+import {
+  codedError,
+  keyIdPattern,
+  tokenPattern,
+  validSessionId,
+} from "./ssh-agent-shared.js";
 import {
   agentSocketLocation,
   newAgentToken,
@@ -32,16 +39,8 @@ import {
 export const SSH_CONFIG_ENV = "AGENTPIER_SSH_CONFIG";
 export const SSH_AGENT_SOCK_ENV = "AGENTPIER_SSH_AUTH_SOCK";
 
-const sessionIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const generationPattern = /^[0-9a-f-]{36}$/;
-const tokenPattern = /^[0-9a-f]{32}$/;
-const keyIdPattern = /^[0-9a-f-]{36}$/;
 const codingTools = new Set(["codex", "claude", "opencode"]);
 const maxIdentity = 65536;
-
-function codedError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
 
 /**
  * Whether a launch or a session record gets an agent (R15, R27). Shell sessions do;
@@ -54,17 +53,12 @@ export function agentEligible({ tool, purpose, pipeline, sshTools } = {}) {
   return codingTools.has(tool) && sshTools?.enabled === true;
 }
 
+// The generation and token through the record parser; the binaries as stored, since
+// restore() checks each one itself and falls back to PATH when `ssh` is gone.
 function storedAgent(record, id) {
   const agent = record?.id === id ? record.sshAgent : null;
-  if (
-    agent?.enabled !== true ||
-    typeof agent.generation !== "string" ||
-    !generationPattern.test(agent.generation) ||
-    typeof agent.token !== "string" ||
-    !tokenPattern.test(agent.token)
-  )
-    return null;
-  return { generation: agent.generation, token: agent.token, binaries: agent.binaries };
+  const handle = sshAgentHandle(agent);
+  return handle ? { ...handle, binaries: agent.binaries } : null;
 }
 
 // The socket token a record names: its agent's, or the one a reload's stop retired
@@ -415,7 +409,7 @@ export class SessionSshAgents {
     for (const record of sessions) {
       const stored = storedAgent(record, record?.id);
       if (!stored || record.status !== "running" || !agentEligible(record)) continue;
-      if (!sessionIdPattern.test(record.id) || this.agents.has(record.id)) continue;
+      if (!validSessionId(record.id) || this.agents.has(record.id)) continue;
       // The binaries chosen at launch; PATH (the server's) only when they are gone.
       const binaries =
         recordedBinaries(stored.binaries, realOrSelf(this.agentsRoot)) ?? this.binaries();
@@ -480,7 +474,7 @@ export class SessionSshAgents {
    * reload that ends without an agent passes `keepReason`, so the status still says why.
    */
   async discard(id, { keepReason = false } = {}) {
-    if (typeof id !== "string" || !sessionIdPattern.test(id)) return;
+    if (!validSessionId(id)) return;
     if (!keepReason) this.unavailable.delete(id);
     await this.syncs.run(() => this.teardown(id, storedToken(this.record(id), id)));
     // After the close: no signature can open a new audit window behind the flush.

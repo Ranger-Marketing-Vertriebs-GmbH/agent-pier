@@ -1,5 +1,6 @@
 // Wire codec for the SSH agent protocol (draft-miller-ssh-agent). Every length is
 // checked against the bytes actually present; nothing here logs or keeps payloads.
+import { codedError } from "./ssh-agent-shared.js";
 
 export const agentMessage = Object.freeze({
   FAILURE: 5,
@@ -19,10 +20,6 @@ const sessionBindExtension = "session-bind@openssh.com";
 const userauthRequest = 50;
 const publickeyMethods = new Set(["publickey", "publickey-hostbound-v00@openssh.com"]);
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
-
-function codedError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
 
 // Collects chunks in a list and joins them once per complete frame, so a frame sent
 // in tiny writes costs linear time. Chunks are copied on arrival.

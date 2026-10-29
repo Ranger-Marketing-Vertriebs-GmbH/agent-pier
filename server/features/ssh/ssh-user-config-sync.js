@@ -11,6 +11,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { privateFolder, writePrivateText } from "../../lib/storage.js";
+import { realPathOrNull } from "./ssh-agent-shared.js";
 import {
   failure,
   installSshConfigInclude,
@@ -31,16 +32,18 @@ const inside = (folder, parent) => {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 };
 // The physical path; a part that does not exist yet follows its nearest existing parent.
+// Unlike ssh-root.js `physicalPath`, which throws on errors other than ENOENT so all
+// clients agree on the SSH root, this only decides whether to write ~/.ssh/config and
+// never throws: an unreadable part counts as missing.
 const physical = (folder) => {
   const resolved = path.resolve(folder);
-  try {
-    return fs.realpathSync(resolved);
-  } catch {
-    const parent = path.dirname(resolved);
-    return parent === resolved
+  const parent = path.dirname(resolved);
+  return (
+    realPathOrNull(resolved) ??
+    (parent === resolved
       ? resolved
-      : path.join(physical(parent), path.basename(resolved));
-  }
+      : path.join(physical(parent), path.basename(resolved)))
+  );
 };
 
 /**
