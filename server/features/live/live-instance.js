@@ -7,6 +7,11 @@
 import { LIST_CURSOR, digestOf, listRows } from "./live-rows.js";
 
 export const DEFAULT_MAX_BYTES = 262144;
+// A subscriber hears at most one `stale` per window: a value that stays over its
+// topic's limit would otherwise send its tab to the REST route on every change. A
+// stale due within the window is sent once at its end, unless a frame that fits
+// was delivered meanwhile.
+export const STALE_QUIET_MS = 10000;
 
 // Frames shared by several subscribers are measured once.
 const sizes = new WeakMap();
@@ -76,6 +81,8 @@ export class LiveInstance {
   /** Removes a subscriber; the last one stops the change sources and the sampler. */
   remove(subscriber) {
     if (!this.subscribers.delete(subscriber)) return;
+    this.timers.clearTimeout(subscriber.staleQuiet);
+    subscriber.staleQuiet = subscriber.stalePending = undefined;
     const { cursor } = subscriber;
     // A reconnecting tab resumes from its cursor; a shared one stays active.
     if (cursor && ![...this.subscribers].some((other) => other.cursor === cursor))
@@ -324,12 +331,34 @@ export class LiveInstance {
     if (frame.type !== "same") this.deliver(subscriber, frame);
     else if (first) subscriber.send(frame);
   }
-  /** Sends `frame`, or `stale` when it is over the topic's `maxBytes`. */
+  /**
+   * Sends `frame`, or `stale` when it is over the topic's `maxBytes`. A rows
+   * subscriber that got `stale` holds no baseline, so its next frame is a snapshot:
+   * once one fits again, it is back on deltas.
+   */
   deliver(subscriber, frame) {
-    if (frameBytes(frame) <= this.maxBytes) return subscriber.send(frame);
+    if (frameBytes(frame) <= this.maxBytes) {
+      subscriber.stalePending = false;
+      return subscriber.send(frame);
+    }
     // The client refetches over REST; its cursor no longer matches any frame it got.
     if (this.mode === "rows") subscriber.cursor = undefined;
-    subscriber.send({ type: "stale", topic: frame.topic, revision: frame.revision });
+    this.stale(subscriber);
+  }
+  /** `stale` for `subscriber`, at most once per STALE_QUIET_MS (see there). */
+  stale(subscriber) {
+    if (subscriber.staleQuiet) {
+      subscriber.stalePending = true;
+      return;
+    }
+    subscriber.send({ type: "stale", topic: this.topicId, revision: this.revision });
+    subscriber.staleQuiet = this.timers.setTimeout(() => {
+      subscriber.staleQuiet = undefined;
+      const due = subscriber.stalePending;
+      subscriber.stalePending = false;
+      if (due && !this.closed && this.subscribers.has(subscriber)) this.stale(subscriber);
+    }, STALE_QUIET_MS);
+    subscriber.staleQuiet.unref?.();
   }
   report(error) {
     try {
