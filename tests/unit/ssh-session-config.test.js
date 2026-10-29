@@ -193,6 +193,15 @@ test("paths are double-quoted and escaped against tokens", () => {
     config,
     /^ {2}UserKnownHostsFile "\/data\/a %%h \\\\ \\"q\\"\/known_hosts"$/m,
   );
+  const globbed = renderSshConfig({
+    ...sampleInput('/data/g*?[x] \\"\\'),
+    socketPath: '/tmp/\\"*.sock',
+  });
+  assert.match(globbed, /^ {2}IdentityAgent "\/tmp\/\\\\\\"\*\.sock"$/m);
+  assert.match(
+    globbed,
+    /^ {2}UserKnownHostsFile "\/data\/g\*\?\[x\] \\\\\\"\\\\\/known_hosts"$/m,
+  );
   assert.throws(() =>
     renderSshConfig({ ...sampleInput("/data/${HOME}"), socketPath: "/tmp/a.sock" }),
   );

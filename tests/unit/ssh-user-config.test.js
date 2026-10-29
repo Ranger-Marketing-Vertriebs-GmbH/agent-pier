@@ -283,3 +283,34 @@ test("an install prunes blocks whose data folder is gone and keeps the others", 
   );
   assert.equal(install(home), "unchanged");
 });
+
+test("glob characters in a data folder round-trip through the Include word", (t) => {
+  const { root } = fakeHome(t);
+  const live = path.join(root, "a*b?c[d]e] f");
+  fs.mkdirSync(live);
+  const liveDispatcher = path.join(live, "ssh-agents", "include.conf");
+  const word = includeWord(liveDispatcher);
+  // Every glob character and each escape stays escaped; nothing else gains a backslash.
+  assert.equal(
+    word
+      .slice(1, -1)
+      .replace(/\\[\\*?[\]]/g, "")
+      .match(/[\\*?]/),
+    null,
+  );
+  assert.ok(word.endsWith('include.con[f]"'));
+  const liveBlock = renderIncludeBlock(liveDispatcher, otherKey);
+  const goneBlock = renderIncludeBlock(
+    path.join(root, "a*b?c[d]e] g", "ssh-agents", "include.conf"),
+    "11112222",
+  );
+  assert.equal(withoutStaleBlocks(goneBlock + liveBlock), liveBlock);
+  for (const bad of [
+    `${live}\\/ssh-agents/include.conf`,
+    `${live}/ssh-agents/include.conf\\`,
+    `${live}/"/include.conf`,
+    `${live}/ssh-agents/include.con*`,
+    `${live}/ssh-agents/include.con]`,
+  ])
+    assert.throws(() => includeWord(bad), { code: "SSH_CONFIG_PATH_UNSUPPORTED" }, bad);
+});

@@ -72,7 +72,9 @@ export function includeWord(file) {
     /[\x00-\x1f\x7f"\\$%`'!]/.test(file)
   )
     throw failure("SSH_CONFIG_PATH_UNSUPPORTED");
-  const escape = (value) => value.replace(/[*?[\]]/g, "\\$&");
+  // The backslash is the escape character itself: escape it in the same pass as the
+  // glob characters (it is refused above, but the escaping stays complete on its own).
+  const escape = (value) => value.replace(/[\\*?[\]]/g, "\\$&");
   const head = file.slice(0, -1);
   const last = file.slice(-1);
   if (!/[A-Za-z0-9._-]/.test(last)) throw failure("SSH_CONFIG_PATH_UNSUPPORTED");
