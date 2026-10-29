@@ -1,32 +1,20 @@
 // Folder removal and binary checks of the session SSH agents (ssh-session-agents.js).
 import fs from "node:fs";
 import path from "node:path";
+import {
+  codedError,
+  executableOutside,
+  foldersBetween,
+  realPathOrNull,
+} from "./ssh-agent-shared.js";
 
-function codedError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
-
-export function realOrSelf(file) {
-  try {
-    return fs.realpathSync(file);
-  } catch {
-    return path.resolve(file);
-  }
-}
+export const realOrSelf = (file) => realPathOrNull(file) ?? path.resolve(file);
 
 // A recorded binary that still is an executable file outside the session wrappers.
 function usableBinary(file, skipRoot) {
   if (typeof file !== "string" || !path.isAbsolute(file) || /[\x00-\x1f]/.test(file))
     return false;
-  try {
-    const real = fs.realpathSync(file);
-    if (real === skipRoot || real.startsWith(`${skipRoot}${path.sep}`)) return false;
-    if (!fs.statSync(file).isFile()) return false;
-    fs.accessSync(file, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+  return executableOutside(file, [skipRoot]);
 }
 
 // The binaries kept in the record at prepare time, or null once `ssh` is gone.
@@ -47,20 +35,16 @@ function lstatOrNull(file) {
   }
 }
 
+const unsafeFolder = () => codedError("SSH_FOLDER_UNSAFE", "Unsafe session SSH folder");
+
 // Removes `target` below `top` when every folder from `top` down to its parent is a
 // real directory. A link at `target` is unlinked, never followed; rmSync does not
 // follow links inside it either.
 export function removeBelow(top, target) {
-  const relative = path.relative(top, target);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
-    throw codedError("SSH_FOLDER_UNSAFE", "Unsafe session SSH folder");
-  let folder = top;
-  for (const part of ["", ...relative.split(path.sep).slice(0, -1)]) {
-    folder = path.join(folder, part);
+  for (const folder of foldersBetween(top, target, unsafeFolder).slice(0, -1)) {
     const stat = lstatOrNull(folder);
     if (!stat) return;
-    if (stat.isSymbolicLink() || !stat.isDirectory())
-      throw codedError("SSH_FOLDER_UNSAFE", "Unsafe session SSH folder");
+    if (stat.isSymbolicLink() || !stat.isDirectory()) throw unsafeFolder();
   }
   const stat = lstatOrNull(target);
   if (!stat) return;
